@@ -1,0 +1,9 @@
+# usage: pip install -r requirements.txt
+
+h5py 
+h5pyd
+numpy
+uncertainties
+omas
+os
+subprocess
