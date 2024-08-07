@@ -1,10 +1,4 @@
----
-# Feel free to add content and custom Front Matter to this file.
-# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
-
-layout: home
-title: VEST(Versatile Experimental Spherical Torus)
----
+# VEST(Versatile Experimental Spherical Torkamak)
 
 This repository serves to provide users with data obtained from experiments on the VEST fusion ST tokamak.
 All users are allowed to read these datasets, but if modification/deletion permissions are needed, please contact email. Databse system uses HSDS and if you want to get the h5 file format follow [h5pyd github](https://github.com/HDFGroup/h5pyd). This repository utilizes hdf5 and ODS data strucure ([omas github](https://github.com/gafusion/omas?tab=readme-ov-file)), if you need more information about this structure can be found on the following website: [omas](https://gafusion.github.io/omas/).
