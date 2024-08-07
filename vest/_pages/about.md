@@ -6,4 +6,4 @@ category: Jekyll
 layout: post
 ---
 
-This is an about page.
+This repo is about spherical torus in Seoul Nation University in SNU.
