@@ -9,8 +9,8 @@ description: >
 version:          1.0
 gitbook_version:  3.2.3
 
-url:              'https://satelite2517.github.io/vest'
-baseurl:          ''
+url:              'https://satelite2517.github.io'
+baseurl:          '/vest'
 rss:              RSS
 
 # bootstrap: use the remote theme for the site itself
