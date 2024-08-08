@@ -24,6 +24,3 @@ def check_equilibrium(ods):
         return False
     
     return True
-
-
-def check_charge_exchange(ods):
