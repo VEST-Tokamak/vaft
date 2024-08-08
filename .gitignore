@@ -1,4 +1,5 @@
 /vest
 /_site
 /.jekyll-cache
-/vest
+*.ipynb
+/vest/_site

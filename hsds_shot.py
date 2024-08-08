@@ -1,10 +1,33 @@
-import omas
-import h5pyd, h5py
+import h5pyd
+import requests
+from urllib3.exceptions import ConnectTimeoutError, MaxRetryError
 import numpy
 from uncertainties import ufloat
 from uncertainties.unumpy import uarray
-from tools.path_tools import create_file_path
+import subprocess
 
+
+def is_server_ready():
+    try:
+        if h5pyd.getServerInfo()['state']=='READY':
+            return True
+        else:
+            return False
+    except requests.exceptions.ConnectTimeout:
+        return False
+
+def create_file_path(shot, username, run, new=False):
+    folder_path = "/public/"
+    if username is not None:
+        folder_path = "/" + username +"/"
+
+    Folder = list(h5pyd.Folder(folder_path))
+    if run is None:
+        run = max([int(x.split("_")[1].split(".")[0]) for x in Folder if x.split("_")[0] == str(shot)])
+        if new:
+            run += 1
+
+    return folder_path  + str(shot) + "_" + str(run) + ".h5"
 
 def convertDataset(ods, data):
     keys = data.keys()
@@ -77,3 +100,33 @@ def load_shot_data(shot, username = None, run = None, path = None):
 
     add_static_data(ods)
     return ods
+
+def delete(shot, username, run):
+    file_path = create_file_path(shot, username, run, new=False)
+
+    try:
+        result = subprocess.run(
+            ["hsrm",  file_path],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        print(f"File {file_path} has been deleted successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to delete file {file_path}. Error: {e.stderr.decode()}")
+
+def save_server(ods, shot, username, run=None):
+    if username is None:
+        username = h5pyd.getServerInfo()['username']
+    if run is not None:
+         new = True
+    file_path = create_file_path(shot, username, run, new)
+    file= h5pyd.File(file_path, 'a')
+    file_owner = file.owner
+
+    if file_owner!=username:
+        print(f"Error: You are not the owner of the file {file_path}.")
+        file.close()
+        return
+
+    print("Saving file: " + file_path)
