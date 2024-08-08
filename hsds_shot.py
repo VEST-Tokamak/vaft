@@ -1,4 +1,5 @@
-import h5pyd
+import h5pyd, h5py
+import omas
 import requests
 from urllib3.exceptions import ConnectTimeoutError, MaxRetryError
 import numpy
@@ -16,6 +17,7 @@ def is_server_ready():
     except requests.exceptions.ConnectTimeout:
         return False
 
+
 def create_file_path(shot, username, run, new=False):
     folder_path = "/public/"
     if username is not None:
@@ -28,6 +30,8 @@ def create_file_path(shot, username, run, new=False):
             run += 1
 
     return folder_path  + str(shot) + "_" + str(run) + ".h5"
+
+
 
 def convertDataset(ods, data):
     keys = data.keys()
@@ -49,6 +53,7 @@ def convertDataset(ods, data):
                 ods.setraw(item, data[item][()])
         elif isinstance(data[item], h5py.Group):
             convertDataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
+
 
 
 def add_static_data(ods):
