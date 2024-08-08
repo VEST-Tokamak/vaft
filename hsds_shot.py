@@ -16,9 +16,22 @@ def is_server_ready():
             return False
     except requests.exceptions.ConnectTimeout:
         return False
+    
+    
+def exist_file(username, shot=None):
+    try:
+        Folder = list(h5pyd.Folder("/{username}/"))
+        if shot is not None:
+            file_list = list(Folder)
+            print(lambda x: x.split("_")[0] == str(shot), file_list)
+        else:
+            print(list(Folder))
+    except MaxRetryError:
+        return False
+    return True
 
 
-def create_file_path(shot, username, run, new=False):
+def create_file_path(shot, username, new=False):
     folder_path = "/public/"
     if username is not None:
         folder_path = "/" + username +"/"
@@ -57,7 +70,7 @@ def convertDataset(ods, data):
 
 
 def add_static_data(ods):
-    with h5py.File('../static_data_v1.h5', 'r') as data:
+    with h5py.File('./static_data_v1.h5', 'r') as data:
         convertDataset(ods, data)
 
 
@@ -93,7 +106,6 @@ def load_shot_data(shot, username = None, run = None, path = None):
     print("Loading file: " + file_path)
 
     ods = omas.ODS()
-    hdf5_path = path.replace(".", "/")
 
     omas.load_omas_h5(file_path, ods, hsds=True)
 
@@ -119,6 +131,10 @@ def delete(shot, username, run):
         print(f"File {file_path} has been deleted successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to delete file {file_path}. Error: {e.stderr.decode()}")
+
+
+def save_local(ods, filename):
+    omas.save_omas_h5(ods, filename)
 
 def save_server(ods, shot, username, run=None):
     if username is None:
