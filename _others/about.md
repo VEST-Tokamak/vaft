@@ -1,9 +1,9 @@
 ---
-title: About others
+title: About
 author: Tao He
 date: 2022-02-04
 category: Jekyll
 layout: post
 ---
 
-This is an about page for "others" in the collections Hi
+This repo is about spherical torus in Seoul Nation University in SNU.
