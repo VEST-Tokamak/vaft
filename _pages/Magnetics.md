@@ -16,7 +16,7 @@ Inboard $B_{z}$
 ```python 
 >>> plot_Inboard_B_z(ods)
 ```
-![Inboard $B_z$ of shot #39915 ](../assets/magnetics/Inboard_B_z.png)
+![Inboard $B_z$ of shot #39915 ](/_images/magnetics/Inboard_B_z.png)
 
 Outboard $B_{z}$
 =====
