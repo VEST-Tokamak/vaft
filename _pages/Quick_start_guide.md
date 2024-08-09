@@ -4,6 +4,7 @@ author: Sun jae Lee
 date: 2024-08-08 17:28
 category: Jekyll
 layout: post
+permalink: /Quick_start_guide/
 ---
 
 This tool only support python.
@@ -56,7 +57,7 @@ To load the data,
 
 ```python
 >>> import vest
->>> ods_39020 = vest.load_shot(shot = 39020)
+>>> shot_39915 = vest.load_shot(shot = 39915)
 ```
 
 Save 
@@ -65,6 +66,6 @@ Saving the data in server is not supported yet. Currently you can only save in l
 
 ```python
 >>> import vest
->>> ods_39020 = vest.load_shot(shot = 39020)
->>> vest.save_local(ods_39020, './ods_39020.h5')
+>>> shot_39915 = vest.load_shot(shot = 39915)
+>>> vest.save_local(shot_39915, './vest_39915.h5')
 ```

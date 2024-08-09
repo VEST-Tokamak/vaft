@@ -4,7 +4,7 @@ author: Sun jae Lee
 date: 2024-08-09 15:19
 category: Jekyll
 layout: post
-link: /Equilibrium/
+permalink:: /Equilibrium/
 ---
 
 Developed by (Hongsik-yun)(peppertonic18@snu.ac.kr)
