@@ -11,17 +11,25 @@ This tool only support python.
 Install
 =====
 
-If you are familiar with github then clone and install this [vest](https://github.com/satelite2517/vest). 
+To use this tool you have to firstly install git. To install the git you can follow this [link]().(You can skip this stage if you already used git before.) If you are familiar with github then clone and install this [vest](https://github.com/satelite2517/vest). 
 
 If you are not then write the below command in your cmd.
 
 ```bash
+git init
 git clone https://github.com/satelite2517/vest.git
 cd vest
 pip install .
 ```
-Currently it's not supported in pypi.
+(Currently it's not supported in pypi.)
 
+Update
+=====
+In the terminal, where you're folder for git is in. 
+```bash
+git pull 
+pip install .
+```
 
 Load
 =====
@@ -31,9 +39,6 @@ To load the data,
 >>> import vest
 >>> ods_39020 = vest.load_shot(shot = 39020)
 ```
-
-Plot
-=====
 
 Save 
 =====
