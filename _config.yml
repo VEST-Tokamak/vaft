@@ -41,7 +41,7 @@ syntax_highlighter_style: colorful
 markdown_ext:             markdown,mkdown,mkdn,mkd,md
 
 # Permalinks
-permalink:                /:categories/:year-:month-:day-:title:output_ext
+permalink:                /:categories/:title
 
 # Disqus comments
 # disqushandler:            sighingnow
@@ -50,6 +50,9 @@ exclude:
   - _drafts
 
 collections:
+  guide:
+    output: true
+    permalink: /:collection/:title/
   pages:
     output: true
     permalink: /:collection/:path/
@@ -58,7 +61,8 @@ collections:
     permalink: /:collection/:path/
 
 ordered_collections:
-  - posts
+  - guide
+#  - posts
   - pages
   - others
 
