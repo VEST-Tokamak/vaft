@@ -1,11 +1,10 @@
 ---
 title: Magnetics
 author: Sun jae Lee
-date: 2024-08-09 15:11
+date: 2024-08-08 20:11
 category: guide
 layout: post
 ---
-
 
 __This section is about how to plot and analysis the magnetics data.__
 
