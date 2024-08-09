@@ -1,7 +1,7 @@
 # Configurations
 title:            VEST
-longtitle:        versatile experimental spherical torus
-author:           Sun jae Lee
+longtitle:        versatile experimental spherical tokamak
+author:           Sun jae LEe
 email:            satelite2517@gmail.com
 description: >
   Build Jekyll site with the GitBook style.
@@ -9,7 +9,7 @@ description: >
 version:          1.0
 gitbook_version:  3.2.3
 
-url:              'https://satelite2517.github.io'
+url:              'https://satelite2517github.io'
 baseurl:          '/vest'
 rss:              RSS
 
