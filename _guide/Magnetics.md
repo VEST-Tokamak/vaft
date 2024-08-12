@@ -11,10 +11,6 @@ __This section is about how to plot and analysis the magnetics data.__
 Inboard $B_{z}$
 =====
 ```python 
->>> import vest
->>> shot_39915 = vest.load(39915)
->>> vest.plot_inboard_B_z(shot_39915)
-
 def plot_inboard_B_z(shot)# 영역에 따라 분류
 
     Index_inBz = np.where(ods['magnetics.b_field_pol_probe.:.position.r']<0.09)
@@ -43,6 +39,10 @@ def plot_inboard_B_z(shot)# 영역에 따라 분류
 
     plt.tight_layout()
     plt.show()
+
+>>> import vest
+>>> shot_39915 = vest.load(39915)
+>>> vest.plot_inboard_B_z(shot_39915)
 ```
 ![Inboard $B_z$ of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/Inboard_B_z.png)
 
