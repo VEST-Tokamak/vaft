@@ -24,6 +24,11 @@ pip install .
 
 Configuration
 =====
+First option is just download this
+[file](https://satelite2517.github.io/vest/assets/.hscfg). and place this file to your home directory.
+
+OR  
+
 Follow the below line in your command line. If you don't have any authentication just use :  
 __username : reader__    
 __passward : vest__  
