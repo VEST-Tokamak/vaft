@@ -25,7 +25,7 @@ pip install .
 Configuration
 =====
 First option is just download this
-[file](https://satelite2517.github.io/vest/assets/.hscfg). and place this file to your home directory.
+[file](https://github.com/satelite2517/vest/blob/main/.hscfg). and place this file to your home directory.
 
 OR  
 
