@@ -5,7 +5,7 @@ layout: home
 title: VEST(Versatile Experimental Spherical Torus)
 ---
 
-![VEST](https://satelite2517.github.io/vest/assets/IMG_3873.jpg)
+![VEST](https://satelite2517.github.io/vest/assets/images/IMG_3873.jpg)
 
 Hello. This framework is designed to load and analyze tokamak data obtained from experiments on the VEST fusion ST tokamak. All users are allowed to access and read these datasets. However, saving and storing data in the VEST database is currently restricted to authorized users only. If you require authorization, please contact us at this email address: (peppertonic18@snu.ac.kr).
 
