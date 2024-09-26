@@ -1,5 +1,5 @@
 import omas
-import hsds_shot
+import database.hsds_shot as hsds_shot
 
 def check_thompson(ods):
     if 'thomson_scattering' not in ods.keys():
