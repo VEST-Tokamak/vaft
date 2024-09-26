@@ -44,14 +44,14 @@ def plot_inboard_B_z(shot)# 영역에 따라 분류
 >>> shot_39915 = vest.load(39915)
 >>> vest.plot_inboard_B_z(shot_39915)
 ```
-![Inboard $B_z$ of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/Inboard_B_z.png)
+![Inboard $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Inboard_B_z.png)
 
 Outboard $B_{z}$
 =====
 ```python 
 >>> vest.plot_outboard_B_z(shot_39915)
 ```
-![Outboard $B_z$ of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/Outboard_B_z.png)
+![Outboard $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Outboard_B_z.png)
 
 
 Side $B_{z}$
@@ -59,7 +59,7 @@ Side $B_{z}$
 ```python 
 >>> vest.plot_side_B_z(shot_39915)
 ```
-![Side $B_z$ of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/Side_B_z.png)
+![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Side_B_z.png)
 
 
 
@@ -68,7 +68,7 @@ Inboard flux loop
 ```python 
 >>> vest.plot_inboard_flux_loop(shot_39915)
 ```
-![Side $B_z$ of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/Inboard_flux_loop.png)
+![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Inboard_flux_loop.png)
 
 
 Outboard flux loop
@@ -76,7 +76,7 @@ Outboard flux loop
 ```python 
 >>> vest.plot_outboard_flux_loop(shot_39915)
 ```
-![Side $B_z$ of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/Outboard_flux_loop.png)
+![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Outboard_flux_loop.png)
 
 
 
@@ -85,7 +85,7 @@ Plasma current
 ```python 
 >>> vest.plot_plasma_current(shot_39915)
 ```
-![Plasma current of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/plasma_current.png)
+![Plasma current of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/plasma_current.png)
 
 
 Diamagnetic Flux
@@ -93,7 +93,7 @@ Diamagnetic Flux
 ```python 
 >>> vest.plot_diamagnetic_flux(shot_39915)
 ```
-![Diamagnetic Flux of shot #39915](https://satelite2517.github.io/vest/assets/images/magnetics/diamagnetic_flux.png)
+![Diamagnetic Flux of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/diamagnetic_flux.png)
 
 
 Credit : Hongsik-yun (peppertonic18@snu.ac.kr)
