@@ -5,7 +5,7 @@ All users are allowed to read these datasets, but if modification/deletion permi
 
 ## Installation
 ```bash
-git clone https://github.com/satelite2517/vest.git
+git clone https://github.com/vest-tokamak/vest.git
 cd vest
 pip install .
 ```
@@ -36,10 +36,10 @@ Quit? (Y/N)Y
 
 ## Usage
 
-follow the [Learn Usage](https://github.com/satelite2517/vest/blob/main/docs/load_save_example.md)
+follow the [Learn Usage](https://github.com/vest-tokamak/vest/blob/main/docs/load_save_example.md)
 
 
 ## Reporting bugs
 
-Leave comment on [issue](https://github.com/satelite2517/vest/issues) or mail me (satelite2517@snu.ac.kr)
+Leave comment on [issue](https://github.com/vest-tokamak/vest/issues) or mail me (satelite2517@snu.ac.kr)
 If you need more infomation about VEST find [Nuplex](http://nuplex.snu.ac.kr)
