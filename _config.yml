@@ -1,7 +1,7 @@
 # Configurations
 title:            VEST
 longtitle:        versatile experimental spherical tokamak
-author:           Sun jae Lee
+author:           VEST-team
 email:            satelite2517@gmail.com
 description: >
   Build Jekyll site with the GitBook style.
