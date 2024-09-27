@@ -20,7 +20,7 @@ def is_server_ready():
     
 def exist_file(username, shot=None):
     try:
-        Folder = list(h5pyd.Folder("/{username}/"))
+        Folder = list(h5pyd.Folder("/{}/").format(username))
         if shot is not None:
             file_list = list(Folder)
             print(lambda x: x.split("_")[0] == str(shot), file_list)
@@ -136,7 +136,7 @@ def delete(shot, username, run):
 def save_local(ods, filename):
     omas.save_omas_h5(ods, filename)
 
-def save_server(ods, shot, username, run=None):
+def save_server(ods, shot, username, run=None, env = 'server'):
     if username is None:
         username = h5pyd.getServerInfo()['username']
     if run is not None:
