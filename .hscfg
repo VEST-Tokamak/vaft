@@ -1,5 +1,0 @@
-# HDFCloud configuration file
-hs_endpoint = http://vest.hsds.snu.ac.kr:5101
-hs_username = reader
-hs_password = test
-hs_api_key = 
