@@ -1,0 +1,5 @@
+# HDFCloud configuration file
+hs_endpoint = http://147.46.36.145:5101
+hs_username = reader
+hs_password = test
+hs_api_key = 
