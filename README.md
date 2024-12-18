@@ -10,5 +10,5 @@ follow the [Learn Usage](https://satelite2517.github.io/vest/)
 
 ## Reporting bugs
 
-Leave comment on [issue](https://github.com/satelite2517/vest/issues) or mail me (satelite2517@snu.ac.kr)
+Leave comment on [issue](https://github.com/satelite2517/vest/issues) or mail us (satelite2517@snu.ac.kr, peppertonic18@snu.ac.kr)
 If you need more infomation about VEST find [Nuplex](http://nuplex.snu.ac.kr)
