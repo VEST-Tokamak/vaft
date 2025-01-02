@@ -74,6 +74,7 @@ def add_static_data(ods):
         convertDataset(ods, data)
 
 
+# def load_shot(shot, source = 'server'):
 def load_shot(shot, username = None, run = None):
     file_path = create_file_path(shot, username, run, new=False)
 
