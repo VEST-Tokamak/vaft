@@ -1,4 +1,4 @@
-hostname = ''
+hostname = 'localhost'
 username = ''
 password = ''
 
@@ -12,7 +12,7 @@ import os
 db_pool = None
 
 
-def vest_getInfo():
+def getInfo():
     hostname = input("Enter the database hostname: ")
     username = input("Enter the database username: ")
     password = input("Enter the database password: ")
@@ -26,7 +26,7 @@ def vest_getInfo():
         file.write(f"{password}\n")
         file.write(f"{database}\n")
 
-def vest_configuration():
+def configuration():
     global hostname, username, password, database 
     file_path = './vest_database_info.txt'
 
@@ -40,14 +40,14 @@ def vest_configuration():
         database = lines[3].strip()
 
     else:
-        vest_getInfo()
+        getInfo()
 
 
 
 def vest_connection_pool():
     global db_pool
-    if hostname == '':
-        vest_configuration()
+    if hostname == 'localhost':
+        configuration()
     db_pool = MySQLConnectionPool(pool_name="mypool",
                                   pool_size=4,  # 예를 들어 풀 크기를 10으로 설정
                                   host=hostname,
@@ -93,8 +93,8 @@ def vest_load_shotWaveform_3(mydb, shot, field):
 
 def vest_load(shot, field, max_retries=3):
     #This function loads the shot data from the VEST sql database
-    if hostname == '':
-        vest_configuration()
+    if hostname == 'localhost':
+        configuration()
 
     global db_pool
     retries = 0
@@ -131,8 +131,8 @@ def vest_load(shot, field, max_retries=3):
 
 def vest_date(shot):
     # This function returns the date for the given shotCode.
-    if hostname == '':
-        vest_configuration()
+    if hostname == 'localhost':
+        configuration()
     try:
         mydb = mysql.connector.connect(
             host=hostname, user=username, password=password, database=database)
@@ -158,8 +158,8 @@ def vest_date(shot):
 
 def vest_shots(date):
     # This function returns a list of 'shotCode's for the given date.
-    if hostname == '':
-        vest_configuration()
+    if hostname == 'localhost':
+        configuration()
     try:
         mydb = mysql.connector.connect(
             host=hostname, user=username, password=password, database=database)
