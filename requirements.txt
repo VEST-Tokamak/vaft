@@ -5,6 +5,8 @@ git+https://github.com/hdfgroup/h5pyd.git
 numpy
 uncertainties
 omas
-os
-subprocess
 matplotlib
+scipy==1.10.1
+xarray==0.14.1
+fortranformat
+# mysql-connector-python
