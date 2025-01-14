@@ -2,3 +2,4 @@
 /.jekyll-cache
 *.ipynb
 vest_database_info.txt
+/__pycache__
