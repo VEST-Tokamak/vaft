@@ -2,7 +2,11 @@ import h5pyd, h5py
 import omas
 import requests
 import subprocess
-from hsds_shot import connection_test
+from .default import is_connect
+import numpy
+from uncertainties import ufloat
+from uncertainties.unumpy import uarray
+
 
 def save(ods, shot, filename=None, env='server'):
     """
@@ -31,7 +35,7 @@ def save(ods, shot, filename=None, env='server'):
         omas.save_omas_h5(ods, filename)
 
     # Test the connection to the server, and exit if the connection fails
-    if connection_test() != True:
+    if is_connect() != True:
         print('Error: Connection to the server failed')
         return
     
@@ -45,5 +49,41 @@ def save(ods, shot, filename=None, env='server'):
 
     subprocess.run(['rm', filename], capture_output=True, text=True)
 
+def convertDataset(ods, data):
+    """
+    Recursive utility function to map HDF5 structure to ODS
 
-# def load(shot, username=None, run=None):
+    :param ods: input ODS to be populated
+
+    :param data: HDF5 dataset of group
+    """
+    import h5py
+
+    keys = data.keys()
+    print(keys)
+    try:
+        keys = sorted(list(map(int, keys)))
+    except ValueError:
+        pass
+    for oitem in keys:
+        item = str(oitem)
+        if item.endswith('_error_upper'):
+            continue
+        if isinstance(data[item], h5py.Dataset):
+            if item + '_error_upper' in data:
+                if isinstance(data[item][()], (float, numpy.floating)):
+                    ods.setraw(item, ufloat(data[item][()], data[item + '_error_upper'][()]))
+                else:
+                    ods.setraw(item, uarray(data[item][()], data[item + '_error_upper'][()]))
+            else:
+                ods.setraw(item, data[item][()])
+        elif isinstance(data[item], h5py.Group):
+            convertDataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
+
+def load(ods, shot, directory=None):
+    if directory is None:
+        filename = f'hdf5://public/{shot}.h5'
+    else:
+        filename = f'hdf5://{directory}/{shot}.h5'
+    with h5py.File(h5pyd.H5Image(filename)) as data:
+        convertDataset(ods, data)
