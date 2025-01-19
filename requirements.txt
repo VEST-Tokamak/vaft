@@ -2,16 +2,12 @@
 
 setuptools
 h5py 
-git+https://github.com/hdfgroup/h5pyd.git
+git+https://github.com/hdfgroup/h5pyd.git       
 numpy
 uncertainties
 omas
 matplotlib
 scipy==1.10.1
-xarray==0.14.1
+xarray==0.14.1      
 fortranformat
-omfit_classes
-os
-subprocess
-matplotlib
-# wexpect
+# mysql-connector-python   
