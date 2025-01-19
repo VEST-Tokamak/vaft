@@ -1,12 +1,12 @@
 # usage: pip install -r requirements.txt
 
 h5py 
-git+https://github.com/hdfgroup/h5pyd.git        # For the speed we are using h5image and default h5pyd does not support it. Need to install the latest git version.
+git+https://github.com/hdfgroup/h5pyd.git       
 numpy
 uncertainties
 omas
 matplotlib
 scipy==1.10.1
-xarray==0.14.1      # Higher version could have conflict with the omas
+xarray==0.14.1      
 fortranformat
-# mysql-connector-python    # Need for the root or admin user who needs to change the processing routine.
+# mysql-connector-python   
