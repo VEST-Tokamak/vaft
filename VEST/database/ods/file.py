@@ -60,7 +60,6 @@ def convertDataset(ods, data):
     import h5py
 
     keys = data.keys()
-    print(keys)
     try:
         keys = sorted(list(map(int, keys)))
     except ValueError:
