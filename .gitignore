@@ -1,5 +1,5 @@
 /vest_/_site
 /.jekyll-cache
-*.ipynb
 vest_database_info.txt
 /__pycache__
+*__pycache__*
