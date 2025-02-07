@@ -3,3 +3,4 @@
 *.ipynb
 vest_database_info.txt
 /__pycache__
+.ipynb_checkpoints

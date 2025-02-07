@@ -1,6 +1,12 @@
-import h5pyd
 import requests
 import urllib3
+import h5pyd, h5py
+import omas
+import subprocess
+import numpy
+from uncertainties import ufloat
+from uncertainties.unumpy import uarray
+
 
 def is_connect():
     """
@@ -54,16 +60,6 @@ def exist_file(username=h5pyd.getServerInfo()['username'], shot=None):
     except urllib3.exceptions.MaxRetryError:
         return False
     return True
-
-import h5pyd, h5py
-import omas
-import requests
-import subprocess
-from .default import is_connect
-import numpy
-from uncertainties import ufloat
-from uncertainties.unumpy import uarray
-
 
 def save(ods, shot, filename=None, env='server'):
     """
