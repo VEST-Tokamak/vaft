@@ -7,7 +7,7 @@ numpy
 uncertainties
 omas
 matplotlib
-scipy==1.10.1
+scipy
 xarray==0.14.1      
 fortranformat
 # mysql-connector-python   
