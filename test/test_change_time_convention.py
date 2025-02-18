@@ -1,4 +1,4 @@
-import vest
+import vest.
 import pkg_resources
 from omas import *
 

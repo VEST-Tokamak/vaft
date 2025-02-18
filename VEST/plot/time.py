@@ -107,14 +107,14 @@ def set_xlim_time(odc, type='plasma'):
     return [np.min(onsets), np.max(offsets)]
 
 """
-Routinely available signals : pf_active, ip, flux_loop, bpol_probe, filterscope, tf
+Routinely available signals : pf_active, ip, flux_loop, bpol_probe, spectrometer_uv (filterscope), tf
 
 Routinely available modelling : pf_passive, equilibrium
 """
 
 
 """
-pf_coil
+pf_active (pf coil)
 """
 def pf_active_time_current(odc_or_ods, indices='used', label='shot', xunit='s', yunit='kA', xlim='plasma'):
     """
@@ -272,7 +272,7 @@ def pf_active_time_current_turns(odc_or_ods, indices='used', label='shot', xunit
             if 'pf_active.coil' in ods:
                 num_coils = len(ods['pf_active.coil'])
                 for i in range(num_coils):
-                    if f'pf_active.coil.{i}.current.data' in ods:
+                    if f'pf_active.coil.{i}.current.data' in ods and is_signal_active(ods[f'pf_active.coil.{i}.current.data']):
                         coil_indices.add(i)
         coil_indices = sorted(coil_indices)
     elif indices == 'all':
@@ -318,35 +318,27 @@ def pf_active_time_current_turns(odc_or_ods, indices='used', label='shot', xunit
                     data = current * turns
 
                 ax.plot(time, data, label=lbl)
-                ax.set_title(f'Coil {coil_idx} Current-Turns')
-                ax.set_xlabel(f'Time [{xunit}]')
-                ax.set_ylabel(f'Current-Turns [{yunit}]')
-                ax.grid(True)
-                ax.legend()
-                
             except KeyError as e:
                 print(f"Missing data for coil {coil_idx} in {key}: {e}")
                 continue
 
+        ax.set_ylabel(f'Current-Turns [{yunit}]')
+        # only show xlabel for the last subplot
+        if coil_idx == coil_indices[-1]:
+            ax.set_xlabel(f'Time [{xunit}]')
+        if coil_idx == 0:
+            ax.set_title(f'pf active time-current turns')
+            ax.legend()
+        ax.grid(True)
         if xlim is not None:
             ax.set_xlim(xlim)
 
     plt.tight_layout()
     plt.show()
 
-# turns = ods['pf_active.coil.0.element.:.turns_with_sign']
-# total_turns = int(np.sum(np.abs(turns)))
-
-
-
-
 """
-magnetics - Rogowski coil, Flux loop, Bpol_probe
+magnetics - ip, Rogowski coil[:Raw plasma current], diamagnetic_flux, Flux loop (flux, voltage), Bpol_probe (field, voltage, spectrogram)
 """
-
-
-# def time_magnetics
-
 def magnetics_time_ip(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='plasma'):
     """
     Plot plasma current (Ip) time series.
@@ -435,64 +427,360 @@ def magnetics_time_ip(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='pla
 #     plt.grid(True)
 #     plt.show()
 
-# def _find_flux_loop_inboard_indices(ods):
-#     # find the indices of the flux loop inboard
-#     indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] < 0.15)
-#     return indices
 
-# def _find_flux_loop_outboard_indices(ods):
-#     # find the indices of the flux loop outboard
-#     indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] > 0.5)
-#     return indices
+def magnetics_time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='Wb', xlim='plasma'):
+    """
+    Plot diamagnetic flux time series.
+    
+    Parameters:
+        ods_or_odc: ODS or ODC
+            The input data. Can be a single ODS or a collection of ODS objects (ODC).
+        label: str
+            The option for the legend. Can be 'shot', 'key', 'run', or a list of labels.
+        xunit: str
+            The unit of the x-axis. Can be 's', 'ms', or 'us'.
+        yunit: str
+            The unit of the y-axis. Typically 'Wb' for Weber.
+        xlim: str or list
+            The x-axis limits. Can be 'plasma', 'coil', 'none', or a list of two floats.
+    """
+    odc = odc_or_ods_check(ods_or_odc)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
 
-# def magnetics_time_flux_loop_flux(ods_or_odc, labels=None):
-#     odc = odc_or_ods_check(ods_or_odc)
-#     if labels is None or len(labels) != len(odc.keys()):
-#         labels = extract_labels_from_odc(odc)
-#     fig, axs = plt.subplots(3, 4, figsize=(12, 8))
-#     for key, label in zip(odc.keys(), labels):
-#         time = odc[key]['magnetics.flux_loop.:.time']
-#         flux = odc[key]['magnetics.flux_loop.:.flux.data']
-#         axs[0, 0].plot(time, flux, label=label)
-#         axs[0, 0].set_title("Flux")
-#         axs[0, 0].legend()
-#         axs[0, 0].grid(True)
-#     plt.show()
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    elif label in ['shot', 'pulse', 'run', 'key']:
+        labels = extract_labels_from_odc(odc, opt=label)
+    else:
+        print(f"Invalid label: {label}, using key as label.")
+        labels = extract_labels_from_odc(odc, opt='key')
 
-# def magnetics_time_flux_loop_{voltage, flux}
-# indices -> 'all', 'inboard', 'outboard'
+    # Determine if multiple diamagnetic_flux entries exist
+    # Assuming only one diamagnetic_flux entry per ODS
 
-# def _find_bpol_probe_inboard_indices(ods):
-#     # find the indices of the bpol probe inboard
-#     indices = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] < 0.09)
-#     return indices
+    # Create subplots (single plot)
+    fig, ax = plt.subplots(figsize=(10, 4))
 
-# def _find_bpol_probe_outboard_indices(ods):
-#     # find the indices of the bpol probe outboard
-#     indices = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] > 0.795)
-#     return indices
+    # Plot each ODS's diamagnetic_flux
+    for key, lbl in zip(odc.keys(), labels):
+        ods = odc[key]
+        try:
+            # Get time data and convert units
+            time = ods['magnetics.diamagnetic_flux.time']
+            if xunit == 'ms':
+                time = time * 1e3
 
-# def _find_bpol_probe_side_indices(ods):
-#     # find the indices of the bpol probe side
-#     indices = np.where(np.abs(ods['magnetics.b_field_pol_probe.:.position.z']) > 0.8)
-#     return indices
+            # Get diamagnetic_flux data and convert units if necessary
+            flux = ods['magnetics.diamagnetic_flux.0.data']
+            data = flux  # Adjust if yunit requires conversion
 
-# def time_bpol_probe_all_voltage(ods_or_odc, labels=None):
-#     odc = odc_or_ods_check(ods_or_odc)
-#     if labels is None or len(labels) != len(odc.keys()):
-#         labels = extract_labels_from_odc(odc)
-#     fig, axs = plt.subplots(8, 8, figsize=(12, 8))
-#     for key, label in zip(odc.keys(), labels):
-#         time = odc[key]['magnetics.b_field_pol_probe.:.time']
-#         voltage = odc[key]['magnetics.b_field_pol_probe.:.voltage.data']
-#         axs[0, 0].plot(time, voltage, label=label)
-#         axs[0, 0].set_title("Voltage")
-#         axs[0, 0].legend()
-#         axs[0, 0].grid(True)
-#     plt.show()
+            ax.plot(time, data, label=lbl)
+        except KeyError as e:
+            print(f"Missing diamagnetic_flux data in {key}: {e}")
+            continue
 
-# def magnetics_time_b_field_pol_probe_{voltage, flux, spectrogram}
+    ax.set_ylabel(f'Diamagnetic Flux [{yunit}]')
+    ax.set_xlabel(f'Time [{xunit}]')
+    ax.set_title('Diamagnetic Flux Time Series')
+    ax.legend()
+    ax.grid(True)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+
+    plt.tight_layout()
+    plt.show()
+
+
+# In the VEST, the flux loop is classified as 'inboard', and 'outboard'
+# 'inboard' is the flux loops located in the inboard (HF) side of vessel
+# 'outboard' is the flux loops located in the outboard (LF) side of vessel
+
+def _find_flux_loop_inboard_indices(ods):
+    # find the indices of inboard flux loop in VEST
+    indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] < 0.15)
+    return indices
+
+def _find_flux_loop_outboard_indices(ods):
+    # find the indices of the flux loop outboard
+    indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] > 0.5)
+    return indices
+
+def magnetics_time_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit='s', yunit='Wb', xlim='plasma'):
+    """
+    Plot flux loop flux time series.
+    
+    Parameters:
+        ods_or_odc: ODS or ODC
+            The input data. Can be a single ODS or a collection of ODS objects (ODC).
+        indices: str or list of int
+            The flux loop indices to plot. Can be 'all', 'inboard', 'outboard', or a list of indices.
+        label: str
+            The option for the legend. Can be 'shot', 'key', 'run', or a list of labels.
+        xunit: str
+            The unit of the x-axis. Can be 's', 'ms', or 'us'.
+        yunit: str
+            The unit of the y-axis. Typically 'Wb' for Weber.
+        xlim: str or list
+            The x-axis limits. Can be 'plasma', 'coil', 'none', or a list of two floats.
+    """
+    odc = odc_or_ods_check(ods_or_odc)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    elif label in ['shot', 'pulse', 'run', 'key']:
+        labels = extract_labels_from_odc(odc, opt=label)
+    else:
+        print(f"Invalid label: {label}, using key as label.")
+        labels = extract_labels_from_odc(odc, opt='key')
+
+    # Determine flux loop indices to plot
+    if indices == 'all':
+        flux_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            if 'magnetics.flux_loop' in ods:
+                num_flux = len(ods['magnetics.flux_loop'])
+                for i in range(num_flux):
+                    flux_indices.append(i)
+        flux_indices = sorted(set(flux_indices))
+    elif indices == 'inboard':
+        flux_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            inboard = _find_flux_loop_inboard_indices(ods)
+            flux_indices.extend(inboard[0])
+        flux_indices = sorted(set(flux_indices))
+    elif indices == 'outboard':
+        flux_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            outboard = _find_flux_loop_outboard_indices(ods)
+            flux_indices.extend(outboard[0])
+        flux_indices = sorted(set(flux_indices))
+    elif isinstance(indices, int):
+        flux_indices = [indices]
+    elif isinstance(indices, list):
+        flux_indices = indices
+    else:
+        raise ValueError("indices must be 'all', 'inboard', 'outboard', or a list of integers")
+
+    if not flux_indices:
+        print("No valid flux loops found to plot")
+        return
+
+    # Create subplots
+    nrows = len(flux_indices)
+    fig, axs = plt.subplots(nrows, 1, figsize=(10, 2.5*nrows))
+    if nrows == 1:
+        axs = [axs]
+
+    # Plot each flux loop in its own subplot
+    for ax, flux_idx in zip(axs, flux_indices):
+        for key, lbl in zip(odc.keys(), labels):
+            ods = odc[key]
+            try:
+                # Get time data and convert units
+                time = ods['magnetics.flux_loop.time']
+                if xunit == 'ms':
+                    time = time * 1e3
+
+                # Get flux data and convert units if necessary
+                flux = ods[f'magnetics.flux_loop.{flux_idx}.flux.data']
+                data = flux  # Adjust if yunit requires conversion
+
+                ax.plot(time, data, label=lbl)
+            except KeyError as e:
+                print(f"Missing data for flux loop {flux_idx} in {key}: {e}")
+                continue
+
+        ax.set_ylabel(f'Flux [{yunit}]')
+        # only show xlabel for the last subplot
+        if flux_idx == flux_indices[-1]:
+            ax.set_xlabel(f'Time [{xunit}]')
+        if flux_idx == flux_indices[0]:
+            ax.set_title('Flux Loop Flux Time Series')
+            ax.legend()
+        ax.grid(True)
+        if xlim is not None:
+            ax.set_xlim(xlim)
+
+    plt.tight_layout()
+    plt.show()
+
+# def magnetics_time_flux_loop_voltage
+
+
+# bpol probe
 # indices -> 'all', 'inboard', 'outboard', 'side'
+# VEST classifies the bpol probe as 'inboard', 'side', and 'outboard'
+# 'inboard' probes are located in the inboard (HF) midplane side of vessel
+# 'side' probes are located in the inboard (HF) upper and lower coner side of vessel
+# 'outboard' probes are located in the outboard (LF) side of vessel
+
+def _find_bpol_probe_inboard_indices(ods):
+    # find the indices of the bpol probe inboard
+    indices = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] < 0.09)
+    return indices
+
+def _find_bpol_probe_outboard_indices(ods):
+    # find the indices of the bpol probe outboard
+    indices = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] > 0.795)
+    return indices
+
+def _find_bpol_probe_side_indices(ods):
+    # find the indices of the bpol probe side
+    indices = np.where(np.abs(ods['magnetics.b_field_pol_probe.:.position.z']) > 0.8)
+    return indices
+
+def magnetics_time_b_field_pol_probe_field(ods_or_odc, indices='all', label='shot', xunit='s', yunit='T', xlim='plasma'):
+    """
+    Plot B-field time series from B-field poloidal probes.
+    
+    Parameters:
+        ods_or_odc: ODS or ODC
+            The input data. Can be a single ODS or a collection of ODS objects (ODC).
+        indices: str or list of int
+            The B-pol probe indices to plot. Can be 'all', 'inboard', 'outboard', 'side', or a list of indices.
+        label: str
+            The option for the legend. Can be 'shot', 'key', 'run', or a list of labels.
+        xunit: str
+            The unit of the x-axis. Can be 's', 'ms', or 'us'.
+        yunit: str
+            The unit of the y-axis. Typically 'T' for Tesla.
+        xlim: str or list
+            The x-axis limits. Can be 'plasma', 'coil', 'none', or a list of two floats.
+    """
+    odc = odc_or_ods_check(ods_or_odc)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    elif label in ['shot', 'pulse', 'run', 'key']:
+        labels = extract_labels_from_odc(odc, opt=label)
+    else:
+        print(f"Invalid label: {label}, using key as label.")
+        labels = extract_labels_from_odc(odc, opt='key')
+
+    # Determine B-pol probe indices to plot
+    if indices == 'all':
+        probe_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            if 'magnetics.b_field_pol_probe' in ods:
+                num_probes = len(ods['magnetics.b_field_pol_probe'])
+                for i in range(num_probes):
+                    probe_indices.append(i)
+        probe_indices = sorted(set(probe_indices))
+    elif indices == 'inboard':
+        probe_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            inboard = _find_bpol_probe_inboard_indices(ods)
+            probe_indices.extend(inboard[0])
+        probe_indices = sorted(set(probe_indices))
+    elif indices == 'outboard':
+        probe_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            outboard = _find_bpol_probe_outboard_indices(ods)
+            probe_indices.extend(outboard[0])
+        probe_indices = sorted(set(probe_indices))
+    elif indices == 'side':
+        probe_indices = []
+        for key in odc.keys():
+            ods = odc[key]
+            side = _find_bpol_probe_side_indices(ods)
+            probe_indices.extend(side[0])
+        probe_indices = sorted(set(probe_indices))
+    elif isinstance(indices, int):
+        probe_indices = [indices]
+    elif isinstance(indices, list):
+        probe_indices = indices
+    else:
+        raise ValueError("indices must be 'all', 'inboard', 'outboard', 'side', or a list of integers")
+
+    if not probe_indices:
+        print("No valid B-pol probes found to plot")
+        return
+
+    # Create subplots
+    nrows = len(probe_indices)
+    fig, axs = plt.subplots(nrows, 1, figsize=(10, 2.5*nrows))
+    if nrows == 1:
+        axs = [axs]
+
+    # Plot each B-pol probe in its own subplot
+    for ax, probe_idx in zip(axs, probe_indices):
+        for key, lbl in zip(odc.keys(), labels):
+            ods = odc[key]
+            try:
+                # Get time data and convert units
+                time = ods['magnetics.b_field_pol_probe.time']
+                if xunit == 'ms':
+                    time = time * 1e3
+
+                # Get B-field data and convert units if necessary
+                field = ods[f'magnetics.b_field_pol_probe.{probe_idx}.field.data']
+                data = field  # Adjust if yunit requires conversion
+
+                ax.plot(time, data, label=lbl)
+            except KeyError as e:
+                print(f"Missing data for B-pol probe {probe_idx} in {key}: {e}")
+                continue
+
+        ax.set_ylabel(f'B-field [{yunit}]')
+        # only show xlabel for the last subplot
+        if probe_idx == probe_indices[-1]:
+            ax.set_xlabel(f'Time [{xunit}]')
+        if probe_idx == probe_indices[0]:
+            ax.set_title('B-field Poloidal Probe Time Series')
+            ax.legend()
+        ax.grid(True)
+        if xlim is not None:
+            ax.set_xlim(xlim)
+
+    plt.tight_layout()
+    plt.show()
 
 
 """
@@ -533,6 +821,414 @@ equilibrium
 # def equilibrium_time_w_tot
 
 """
+spectrometer_uv (filterscope)
+"""
+
+def spectrometer_uv_time_intensity(odc_or_ods, indices='all', label='shot', xunit='s', yunit='a.u.', xlim='plasma'):
+    """
+    Plot UV spectrometer/filterscope intensity time series.
+    
+    Parameters:
+        odc_or_ods: ODS/ODC
+            Input data containing spectrometer measurements
+        indices: str or list
+            Line indices to plot: 'all', 'H_alpha', 'H_alpha_fast', 
+            'C_II', 'C_III', 'O_I', 'O_II', 'O_V' or list of these
+        label: str
+            Legend labels option ('shot', 'key', 'run')
+        xunit: str
+            Time unit ('s', 'ms')
+        yunit: str
+            Intensity unit (typically 'a.u.')
+        xlim: str/list
+            X-axis limits
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Line mapping configuration
+    LINE_MAP = {
+        'H_alpha': (0, 0),
+        'O_I': (0, 1),
+        'H_alpha_fast': (1, 0),
+        'H_beta': (1, 1),
+        'H_gamma': (1, 2),
+        'C_II': (1, 3),
+        'C_III': (1, 4),
+        'O_II': (1, 5),
+        'O_V': (1, 6)
+    }
+
+    # Handle indices selection
+    if indices == 'all':
+        selected_lines = list(LINE_MAP.keys())
+    elif isinstance(indices, str):
+        selected_lines = [indices]
+    else:
+        selected_lines = indices
+
+    # Verify valid lines
+    valid_lines = []
+    for line in selected_lines:
+        if line in LINE_MAP:
+            valid_lines.append(line)
+        else:
+            print(f"Warning: Invalid line index {line} ignored")
+
+    if not valid_lines:
+        print("No valid spectral lines to plot")
+        return
+
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    else:
+        labels = extract_labels_from_odc(odc, opt=label)
+
+    # Create subplots
+    nrows = len(valid_lines)
+    fig, axs = plt.subplots(nrows, 1, figsize=(10, 2.5*nrows))
+    if nrows == 1:
+        axs = [axs]
+
+    # Plot each spectral line
+    for ax, line in zip(axs, valid_lines):
+        channel, line_idx = LINE_MAP[line]
+        
+        for key, lbl in zip(odc.keys(), labels):
+            ods = odc[key]
+            try:
+                time = ods[f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.time']
+                data = ods[f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.data']
+                
+                if xunit == 'ms':
+                    time = time * 1e3
+                
+                ax.plot(time, data, label=lbl)
+                
+            except KeyError as e:
+                print(f"Missing {line} data in {key}: {e}")
+                continue
+
+        ax.set_ylabel(f'Intensity [{yunit}]')
+        ax.set_title(line.replace('_', '-'))
+        ax.grid(True)
+        if line == valid_lines[0]:
+            ax.legend()
+        if line == valid_lines[-1]:
+            ax.set_xlabel(f'Time [{xunit}]')
+        if xlim is not None:
+            ax.set_xlim(xlim)
+
+    plt.tight_layout()
+    plt.show()
+
+"""
+TF coil
+"""
+def tf_time_b_field_tor(odc_or_ods, label='shot', xunit='s', yunit='T', xlim='plasma'):
+    """
+    Plot vacuum toroidal magnetic field (B_tor) time series.
+    
+    Parameters:
+        odc_or_ods: ODS or ODC
+            Input data containing TF measurements
+        label: str
+            Legend label option ('shot', 'key', 'run' or custom list)
+        xunit: str
+            Time unit ('s', 'ms')
+        yunit: str
+            B-field unit ('T', 'mT')
+        xlim: str or list
+            X-axis limits setting
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    else:
+        labels = extract_labels_from_odc(odc, opt=label)
+
+    plt.figure(figsize=(10, 4))
+    
+    for key, lbl in zip(odc.keys(), labels):
+        try:
+            tf = odc[key]['tf']
+            time = tf['time']
+            
+            if xunit == 'ms':
+                time = time * 1e3
+                
+            b_field = tf['b_field_tor_vacuum_r.data'] / tf['r0']
+            
+            if yunit == 'mT':
+                b_field *= 1e3
+                
+            plt.plot(time, b_field, label=lbl)
+            
+        except KeyError as e:
+            print(f"Missing B_tor data in {key}: {e}")
+            continue
+
+    plt.xlabel(f'Time [{xunit}]')
+    plt.ylabel(f'Toroidal Field [{yunit}]')
+    plt.title('Vacuum Toroidal Magnetic Field')
+    plt.grid(True)
+    plt.legend()
+    
+    if xlim is not None:
+        plt.xlim(xlim)
+    plt.tight_layout()
+    plt.show()
+
+def tf_time_b_field_tor_vacuum_r(odc_or_ods, label='shot', xunit='s', yunit='T·m', xlim='plasma'):
+    """
+    Plot vacuum R-component toroidal field (B_tor_vacuum_r) time series.
+    
+    Parameters:
+        odc_or_ods: ODS or ODC
+            Input data containing TF measurements
+        label: str
+            Legend label option
+        xunit: str
+            Time unit
+        yunit: str
+            Field unit ('T·m', 'mT·m')
+        xlim: str/list
+            X-axis limits
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    else:
+        labels = extract_labels_from_odc(odc, opt=label)
+
+    plt.figure(figsize=(10, 4))
+    
+    for key, lbl in zip(odc.keys(), labels):
+        try:
+            tf = odc[key]['tf']
+            time = tf['time']
+            
+            if xunit == 'ms':
+                time = time * 1e3
+                
+            b_field = tf['b_field_tor_vacuum_r.data']
+            
+            if yunit == 'mT·m':
+                b_field *= 1e3
+                
+            plt.plot(time, b_field, label=lbl)
+            
+        except KeyError as e:
+            print(f"Missing B_tor_vacuum_r data in {key}: {e}")
+            continue
+
+    plt.xlabel(f'Time [{xunit}]')
+    plt.ylabel(f'R-component Field [{yunit}]')
+    plt.title('Vacuum R-component Toroidal Field')
+    plt.grid(True)
+    plt.legend()
+    
+    if xlim is not None:
+        plt.xlim(xlim)
+    plt.tight_layout()
+    plt.show()
+
+def tf_time_coil_current(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='plasma'):
+    """
+    Plot TF coil current time series.
+    
+    Parameters:
+        odc_or_ods: ODS/ODC
+            Input data
+        label: str
+            Legend labels
+        xunit: str
+            Time units
+        yunit: str
+            Current units ('A', 'kA', 'MA')
+        xlim: str/list
+            X-axis limits
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    plt.figure(figsize=(10, 4))
+    
+    for key, lbl in zip(odc.keys(), labels):
+        try:
+            tf = odc[key]['tf']
+            time = tf['time']
+            current = tf['coil.0.current.data']
+            
+            if xunit == 'ms':
+                time = time * 1e3
+                
+            if yunit == 'kA':
+                current /= 1e3
+            elif yunit == 'MA':
+                current /= 1e6
+                
+            plt.plot(time, current, label=lbl)
+            
+        except KeyError as e:
+            print(f"Missing coil current in {key}: {e}")
+            continue
+
+    plt.xlabel(f'Time [{xunit}]')
+    plt.ylabel(f'Coil Current [{yunit}]')
+    plt.title('TF Coil Current')
+    plt.grid(True)
+    plt.legend()
+    
+    if xlim is not None:
+        plt.xlim(xlim)
+    plt.tight_layout()
+    plt.show()
+
+
+"""
+eddy_current (pf_passive)
+"""
+
+# def pf_passive_current
+
+
+
+
+"""
+barometry (Vacuum Gauge or Neutral Pressure Gauge)
+"""
+
+def barometry_time_pressure(odc_or_ods, label='shot', xunit='s', yunit='Pa', xlim='plasma'):
+    """
+    Plot neutral pressure time series from barometry gauges.
+    
+    Parameters:
+        odc_or_ods: ODS or ODC
+            Input data containing pressure measurements
+        label: str
+            Legend label option ('shot', 'key', 'run' or custom list)
+        xunit: str
+            Time unit ('s', 'ms')
+        yunit: str
+            Pressure unit ('Pa', 'kPa', 'mbar', 'Torr')
+        xlim: str or list
+            The x-axis limits. Can be 'plasma', 'coil', 'none', or a list of two floats.
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    else:
+        labels = extract_labels_from_odc(odc, opt=label)
+
+    plt.figure(figsize=(10, 4))
+    
+    for key, lbl in zip(odc.keys(), labels):
+        try:
+            # Get and convert time data
+            time = odc[key]['barometry.gauge.0.pressure.time']
+            if xunit == 'ms':
+                time = time * 1e3
+                
+            # Get and convert pressure data
+            pressure = odc[key]['barometry.gauge.0.pressure.data']
+            if yunit == 'kPa':
+                pressure = pressure / 1e3
+            elif yunit == 'mbar':
+                pressure = pressure / 100
+            elif yunit == 'Torr':
+                pressure = pressure / 133.322
+                
+            plt.plot(time, pressure, label=lbl)
+            
+        except KeyError as e:
+            print(f"Missing pressure data in {key}: {e}")
+            continue
+
+    plt.xlabel(f'Time [{xunit}]')
+    plt.ylabel(f'Neutral Pressure [{yunit}]')
+    plt.title('Neutral Pressure Time Evolution')
+    plt.grid(True)
+    plt.legend()
+
+    if xlim is not None:
+        plt.xlim(xlim)
+    plt.tight_layout()
+    plt.show()
+
+
+
+"""
 summary
 """
 
@@ -548,73 +1244,6 @@ global quantities
 # def summary_time_global_quantities_w_tot
 # def summary_time_global_quantities_greenwald_density
 
-"""
-filterscope
-"""
-
-# def filterscope_time_intensity
-# def filterscope_time_spectrogram
-
-# indices -> 'all', 'H_alpha', 'H_alpha_fast', 'C_II', 'C_III', 'O_I', 'O_II'
-
-
-
-"""
-TF coil
-"""
-# def time_tf_b_field_tor(ods):
-#     ods = odc_or_ods_check(ods)
-#     TF = ods['tf']
-#     R0=TF['r0']
-#     myy=TF['b_field_tor_vacuum_r.data']/R0
-#     myx=TF['time']
-#     myy2=TF['coil.0.current.data']
-    
-#     fig1=plt.figure(facecolor='white')
-#     plt.plot(myx,myy,label='b_field_tor')
-
-#     fig2=plt.figure(facecolor='white')
-#     plt.plot(myx,myy2,label='current')
-
-#     mystring="Shot: {} Run:{}".format(shot,run)
-#     plt.title(mystring)
-#     plt.legend()
-
-#     plt.show()
-
-# def time_tf_current(ods):
-#     TF = ods['tf']
-#     R0=TF['r0']
-#     myy=TF['b_field_tor_vacuum_r.data']/R0
-#     myx=TF['time']
-#     myy2=TF['coil.0.current.data']
-    
-#     fig1=plt.figure(facecolor='white')
-#     plt.plot(myx,myy,label='b_field_tor')
-
-#     fig2=plt.figure(facecolor='white')
-#     plt.plot(myx,myy2,label='current')
-
-#     mystring="Shot: {} Run:{}".format(shot,run)
-#     plt.title(mystring)
-#     plt.legend()
-
-#     plt.show()
-
-# def time_tf_b_field_tor_vacuum_r
-
-"""
-eddy_current (pf_passive)
-"""
-
-# def time_pf_passive_total_current
-# def time_pf_passive_duplicated_current
-
-"""
-Barometer (Vacuum Gauge or Neutral Pressure Gauge)
-"""
-
-# def time_barometer_pressure
 
 """
 Not Routinely available signals
@@ -625,25 +1254,188 @@ Not Routinely available signals
 Thomson scattering
 """
 
-# def time_thomson_scattering_all_density
-# def time_thomson_scattering_all_temperature
+def time_thomson_scattering_density(odc_or_ods, label='shot', xunit='s', yunit='m^-3', xlim='plasma'):
+    """
+    Plot Thomson scattering electron density time series per channel.
+    
+    Parameters:
+        odc_or_ods: ODS/ODC
+            Input data containing Thomson measurements
+        label: str
+            Legend labels option ('shot', 'key', 'run')
+        xunit: str
+            Time unit ('s', 'ms')
+        yunit: str
+            Density unit ('m^-3', 'cm^-3')
+        xlim: str/list
+            X-axis limits
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
 
-# def time_thomson_scattering_indices_density
-# def time_thomson_scattering_indices_temperature
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    else:
+        labels = extract_labels_from_odc(odc, opt=label)
+
+    # Determine channel count and radial positions from first ODS
+    first_key = next(iter(odc.keys()))
+    channels = list(odc[first_key]['thomson_scattering.channel'].keys())
+    n_channels = len(channels)
+    radial_positions = [odc[first_key][f'thomson_scattering.channel.{i}.position.r'] for i in range(n_channels)]
+
+    # Create subplots
+    fig, axs = plt.subplots(n_channels, 1, figsize=(10, 2.5*n_channels))
+    if n_channels == 1:
+        axs = [axs]
+    
+    # Plot each channel in its own subplot
+    for ax, (channel, r_pos) in enumerate(zip(axs, radial_positions)):
+        for key, lbl in zip(odc.keys(), labels):
+            ods = odc[key]
+            try:
+                time = ods['thomson_scattering.time']
+                if xunit == 'ms':
+                    time = time * 1e3
+                
+                data = unumpy.nominal_values(ods[f'thomson_scattering.channel.{channel}.n_e.data'])
+                err = unumpy.std_devs(ods[f'thomson_scattering.channel.{channel}.n_e.data'])
+                
+                if yunit == 'cm^-3':
+                    data = data / 1e6
+                    err = err / 1e6
+                
+                ax.errorbar(time, data, yerr=err, label=lbl)
+                
+            except KeyError as e:
+                print(f"Missing density data for channel {channel} in {key}: {e}")
+                continue
+
+        ax.set_ylabel(f'n_e [{yunit}]')
+        ax.set_title(f'R = {r_pos:.3f} m')
+        ax.grid(True)
+        if channel == 0:
+            ax.legend()
+        if channel == n_channels-1:
+            ax.set_xlabel(f'Time [{xunit}]')
+        if xlim is not None:
+            ax.set_xlim(xlim)
+
+    plt.tight_layout()
+    plt.show()
+
+def time_thomson_scattering_temperature(odc_or_ods, label='shot', xunit='s', yunit='eV', xlim='plasma'):
+    """
+    Plot Thomson scattering electron temperature time series per channel.
+    
+    Parameters:
+        odc_or_ods: ODS/ODC
+            Input data containing Thomson measurements
+        label: str
+            Legend labels option ('shot', 'key', 'run')
+        xunit: str
+            Time unit ('s', 'ms')
+        yunit: str
+            Temperature unit ('eV', 'keV')
+        xlim: str/list
+            X-axis limits
+    """
+    odc = odc_or_ods_check(odc_or_ods)
+    
+    # Handle xlim
+    if xlim == 'none':
+        xlim = None
+    elif xlim == 'plasma':
+        xlim = set_xlim_time(odc, type='plasma')
+    elif xlim == 'coil':
+        xlim = set_xlim_time(odc, type='coil')
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim = xlim
+    else:
+        print(f"Invalid xlim: {xlim}, using default 'plasma'")
+        xlim = set_xlim_time(odc, type='plasma')
+
+    # Handle labels
+    if isinstance(label, list) and len(label) == len(odc.keys()):
+        labels = label
+    else:
+        labels = extract_labels_from_odc(odc, opt=label)
+
+    # Determine channels and radial positions
+    first_key = next(iter(odc.keys()))
+    channels = list(odc[first_key]['thomson_scattering.channel'].keys())
+    n_channels = len(channels)
+    radial_positions = [odc[first_key][f'thomson_scattering.channel.{i}.position.r'] for i in range(n_channels)]
+
+    # Create subplots
+    fig, axs = plt.subplots(n_channels, 1, figsize=(10, 2.5*n_channels))
+    if n_channels == 1:
+        axs = [axs]
+
+    # Plot each channel
+    for ax, (channel, r_pos) in enumerate(zip(axs, radial_positions)):
+        for key, lbl in zip(odc.keys(), labels):
+            ods = odc[key]
+            try:
+                time = ods['thomson_scattering.time']
+                if xunit == 'ms':
+                    time = time * 1e3
+                
+                data = unumpy.nominal_values(ods[f'thomson_scattering.channel.{channel}.t_e.data'])
+                err = unumpy.std_devs(ods[f'thomson_scattering.channel.{channel}.t_e.data'])
+                
+                if yunit == 'keV':
+                    data = data / 1e3
+                    err = err / 1e3
+                
+                ax.errorbar(time, data, yerr=err, label=lbl)
+                
+            except KeyError as e:
+                print(f"Missing temperature data for channel {channel} in {key}: {e}")
+                continue
+
+        ax.set_ylabel(f'T_e [{yunit}]')
+        ax.set_title(f'R = {r_pos:.3f} m')
+        ax.grid(True)
+        if channel == 0:
+            ax.legend()
+        if channel == n_channels-1:
+            ax.set_xlabel(f'Time [{xunit}]')
+        if xlim is not None:
+            ax.set_xlim(xlim)
+
+    plt.tight_layout()
+    plt.show()
 
 """
 Ion Doppler Spectroscopy
 """
 
-# def time_ion_doppler_spectroscopy_CIII_intensity
-# def time_ion_doppler_spectroscopy_CIII_spectrogram
-# def time_ion_doppler_spectroscopy_CIII_tor_velocity
+# def ion_doppler_spectroscopy_time_intensity
+# def ion_doppler_spectroscopy_time_temperature
+# def ion_doppler_spectroscopy_time_tor_velocity
 
 """
 Interferometry
 """
 
+# def interferometry_time_line_average_density
+
 """
 
 """
+
 

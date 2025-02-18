@@ -362,3 +362,16 @@ def compute_vacuum_fields_1d(ods, rz: List[Tuple[float, float]]):
     }
 
     return time_arr, psi_out, br_out, bz_out
+
+def update_psi_norm_ods(ods):
+    """
+    Update the psi_norm information in the equilibrium ODS.
+    """
+
+    ods['equilibrium.time_slice.0.profiles_1d.psi_norm'] = (
+        ods['equilibrium.time_slice.0.profiles_1d.psi'][0] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
+    ) / (
+        ods['equilibrium.time_slice.0.profiles_1d.psi'][-1] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
+    )
+
+
