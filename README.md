@@ -5,7 +5,7 @@ All users are allowed to read these datasets, but if modification/deletion permi
 
 ## Installation
 ```bash
-git clone https://github.com/vest-tokamak/vest.git
+git clone https://github.com/vest-tokamak/vaft.git
 cd vest
 pip install .
 ```
@@ -13,7 +13,7 @@ or
 
 ```bash
 # Currently not supported planning to publish after beta test
-pip install vest
+pip install vaft
 
 ```
 
@@ -36,10 +36,10 @@ Quit? (Y/N)Y
 
 ## Usage
 
-follow the [Learn Usage](https://github.com/vest-tokamak/vest/blob/main/docs/load_save_example.md)
+follow the [Learn Usage](https://github.com/vest-tokamak/vaft/blob/main/docs/load_save_example.md)
 
 
 ## Reporting bugs
 
-Leave comment on [issue](https://github.com/vest-tokamak/vest/issues) or mail me (satelite2517@snu.ac.kr)
+Leave comment on [issue](https://github.com/vest-tokamak/vaft/issues) or mail me (satelite2517@snu.ac.kr)
 If you need more infomation about VEST find [Nuplex](http://nuplex.snu.ac.kr)
