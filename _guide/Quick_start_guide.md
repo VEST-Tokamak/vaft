@@ -11,13 +11,13 @@ __This tool only support python.__
 Install
 =====
 
-To use this tool you have to firstly install git. To install the git you can follow this [link](./Installation.md).(You can skip this stage if you already used git before.) If you are familiar with github then clone and install this [vest](https://github.com/satelite2517/vest). 
+To use this tool you have to firstly install git. To install the git you can follow this [link](./Installation.md).(You can skip this stage if you already used git before.) If you are familiar with github then clone and install this [vest](https://github.com/satelite2517/vaft). 
 
 If you are not then write the below command in your cmd.
 
 ```bash
 git init
-git clone https://github.com/satelite2517/vest.git
+git clone https://github.com/satelite2517/vaft.git
 cd vest
 pip install .
 ```
