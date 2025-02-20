@@ -2,7 +2,7 @@ from typing import List, Tuple, Dict, Any
 from numpy import ndarray
 import numpy as np
 from omas import *
-from vest.process import compute_br_bz_phi, compute_response_matrix, compute_response_vector, compute_impedance_matrices, solve_eddy_currents, compute_vacuum_fields_1d
+from vaft.process import compute_br_bz_phi, compute_response_matrix, compute_response_vector, compute_impedance_matrices, solve_eddy_currents, compute_vacuum_fields_1d
 
 def calc_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
     """

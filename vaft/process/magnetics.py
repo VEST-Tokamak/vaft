@@ -10,7 +10,7 @@ import numpy as np
 from scipy.signal import csd, coherence, find_peaks
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
-from vest.process import define_baseline, subtract_baseline
+from vaft.process import define_baseline, subtract_baseline
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
 

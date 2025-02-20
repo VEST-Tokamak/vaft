@@ -1,11 +1,11 @@
-import vest
+import vaft
 from omas import *
 import numpy as np
 
 def find_breakdown_onset(ods):
     time=ods.time('spectrometer_uv')
     data=ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
-    (onset, offset) = vest.process.signal_onoffset(time, data)
+    (onset, offset) = vaft.process.signal_onoffset(time, data)
     return onset
 
 def find_vloop_onset(ods):
@@ -22,7 +22,7 @@ def find_ip_onset(ods):
     time=ods.time('magnetics')
     current=ods['magnetics.ip.0.data']
     # find the onset of the plasma current signal
-    (onset, offset) = vest.process.signal_onoffset(time, current)
+    (onset, offset) = vaft.process.signal_onoffset(time, current)
     return onset
 
 def find_pf_active_onset(ods):
@@ -32,7 +32,7 @@ def find_pf_active_onset(ods):
     onset_list = []
     for i in range(len(ods['pf_active.channel'])):
         current = ods[f'pf_active.channel.{i}.current.data']
-        (onset, offset) = vest.process.signal_onoffset(time, current)
+        (onset, offset) = vaft.process.signal_onoffset(time, current)
         onset_all.append(onset)
         onset_list.append(onset)
     return onset_all, onset_list

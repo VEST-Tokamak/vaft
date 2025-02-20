@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from vest.formula import psi_norm
+from vaft.formula import psi_norm
 # update_diagnostics_file(ods, filename)
 
 # print_available_ids(ods)

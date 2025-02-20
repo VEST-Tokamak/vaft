@@ -16,7 +16,7 @@ import mysql.connector
 import matplotlib.pyplot as plt
 
 from mysql.connector.pooling import MySQLConnectionPool
-from vest.database.raw import configuration
+from vaft.database.raw import configuration
 
 # ------------------------------------------------------------------------
 # Global Database Pool
@@ -29,7 +29,7 @@ def init_pool() -> None:
     """
     Initializes the global MySQLConnectionPool. Must be called before loading data.
 
-    Uses the vest.database.raw.configuration() function to retrieve database
+    Uses the vaft.database.raw.configuration() function to retrieve database
     host, user, password, and database name, which are then used to create
     a connection pool with up to four connections.
     """

@@ -2,9 +2,9 @@ import numpy as np
 from numpy import ndarray
 from typing import List, Dict, Any, Tuple
 from omas import *
-import vest.machine_mapping
-import vest.machine_mapping.from_file
-from vest.process import compute_br_bz_phi
+import vaft.machine_mapping
+import vaft.machine_mapping.from_file
+from vaft.process import compute_br_bz_phi
 import math
 import yaml
 
@@ -64,7 +64,7 @@ import yaml
 #     Process TF data from the VEST raw database.
 #     """
 #     # Update static ODS structure
-#     vest.machine_mapping.tf_static(ods)
+#     vaft.machine_mapping.tf_static(ods)
 
 #     info = raw_database_info(file = 'raw_database.yaml', shot, 'tf'):
 #     label = info['labels']['0']
@@ -73,8 +73,8 @@ import yaml
 #     r0 = info['r0']['0']
 #     turns = info['turns']['0']
 
-#     (time, data) = vest.database.raw.load(shot,field)
-#     (time,current,BtR)=vest.process.tf(time,data,gain,r0,turns)
+#     (time, data) = vaft.database.raw.load(shot,field)
+#     (time,current,BtR)=vaft.process.tf(time,data,gain,r0,turns)
 
 #     TF=ods['tf']
 #     TF['ids_properties.comment'] = 'TF data from VEST raw database'
@@ -101,13 +101,13 @@ import yaml
 #     :param dt: Time step.
 #     """
 #     # Update static ODS structure
-#     vest.machine_mapping.barometry_static(ods)
+#     vaft.machine_mapping.barometry_static(ods)
 
 #     info = raw_database_info(file = 'raw_database_info.yaml', shot, 'barometry')
 #     label = info['labels']['0']
 #     field = info['fields']['0']
 
-#     time, torr = vest.database.raw.load(shot, field)
+#     time, torr = vaft.database.raw.load(shot, field)
 
 #     # Convert to Pa
 #     Pa = torr * 133.3223684211 # 1 torr = 133.3223684211 Pa
@@ -131,8 +131,8 @@ import yaml
 #     field = info['fields']['0']
 #     gain = info['gains']['0']
 
-#     (time, data) = vest.database.raw.load(shot,field)
-#     (time, BtR, BtZ, BtPhi) = vest.process.flux_loop(time,data,gain)
+#     (time, data) = vaft.database.raw.load(shot,field)
+#     (time, BtR, BtZ, BtPhi) = vaft.process.flux_loop(time,data,gain)
 
 #     FL=ods['flux_loop']
 #     FL['ids_properties.comment'] = 'Flux loop data from VEST raw database'
@@ -147,7 +147,7 @@ import yaml
 #     Process B-field poloidal probe data from the VEST raw database.
 #     """
 #     # Update static ODS structure
-#     vest.machine_mapping.b_field_pol_probe_static(ods)
+#     vaft.machine_mapping.b_field_pol_probe_static(ods)
 
 #     info = raw_database_info(file = 'raw_database_info.yaml', shot, 'b_field_pol_probe')
 #     label = info['labels']['0']
@@ -156,15 +156,15 @@ import yaml
 
 #     # setting
 #     lowpass_param = 0.01
-#     baseline_onset, _ = vest.omas.general.find_pf_active_onset(ods)
+#     baseline_onset, _ = vaft.omas.general.find_pf_active_onset(ods)
 #     baseline_offset = 0.28
 #     baseline_type = 'linear'
 #     baseline_onset_window = 500
 #     baseline_offset_window = 100
 #     plot_opt = False
 
-#     (time, data) = vest.database.raw.load(shot,field)
-#     (time, BtR, BtZ, BtPhi) = vest.process.b_field_pol_probe_field(
+#     (time, data) = vaft.database.raw.load(shot,field)
+#     (time, BtR, BtZ, BtPhi) = vaft.process.b_field_pol_probe_field(
 #         time, data, gain, lowpass_param, baseline_onset, baseline_offset, baseline_type, baseline_onset_window, baseline_offset_window, plot_opt)
 #     BP=ods['b_field_pol_probe']
 #     BP['ids_properties.comment'] = 'B-field poloidal probe data from VEST raw database'
@@ -179,7 +179,7 @@ import yaml
 #     Process Rogowski coil and Ip data from the VEST raw database.
 #     """
 #     # Update static ODS structure
-#     vest.machine_mapping.rogowski_coil_and_ip_static(ods)
+#     vaft.machine_mapping.rogowski_coil_and_ip_static(ods)
 
 #     info = raw_database_info(file = 'raw_database_info.yaml', shot, 'rogowski_coil')
 #     label = info['labels']['0']
@@ -188,10 +188,10 @@ import yaml
 #     fl_field = info['fl_field']['0']
 #     effective_res = info['effective_res']['0']
 
-#     (rogowski_time, rogowski_raw) = vest.database.raw.load(shot,field)
-#     (time_fl, fl_law) = vest.database.raw.load(shot,fl_field)
+#     (rogowski_time, rogowski_raw) = vaft.database.raw.load(shot,field)
+#     (time_fl, fl_law) = vaft.database.raw.load(shot,fl_field)
 
-#     (time, ip) = vest.process.ip(time,rogowski_raw,gain,fl_law,effective_res)
+#     (time, ip) = vaft.process.ip(time,rogowski_raw,gain,fl_law,effective_res)
 
 #     RC=ods['rogowski_coil']
 #     RC['ids_properties.comment'] = 'Rogowski coil and Ip data from VEST raw database'
@@ -209,7 +209,7 @@ import yaml
 #     Process magnetics data from the VEST raw database.
 #     """
 #     # Update static ODS structure
-#     vest.machine_mapping.magnetics_static(ods)
+#     vaft.machine_mapping.magnetics_static(ods)
 
 #     # Load raw data from database, post-process, and map routinely available magnetic diagnostics to ODS
 

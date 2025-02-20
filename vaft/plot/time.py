@@ -4,7 +4,7 @@ This module contains functions for plotting time series data from OMAS ODS.
 
 from omas import *
 import matplotlib.pyplot as plt
-from vest.process import find_signal_onoffset, is_signal_active
+from vaft.process import find_signal_onoffset, is_signal_active
 import matplotlib.pyplot as plt
 import numpy as np
 

@@ -48,7 +48,7 @@ from omas.omas_utils import printd
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Green's function calculations for VEST. 
+Green's function calculations
 Includes elliptic approximations and Green functions for Br, Bz, Psi, 
 as well as partial derivatives used in advanced coil/wall modeling.
 """

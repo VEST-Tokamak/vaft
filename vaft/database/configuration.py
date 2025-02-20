@@ -91,7 +91,7 @@ class SecureConfigManager:
 # Main configuration function
 def configuration():
     """
-    Main function to handle configuration management for vest.db.raw.
+    Main function to handle configuration management for vaft.db.raw.
     This function loads configuration details and provides them for use
     in the library.
     """
