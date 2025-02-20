@@ -10,4 +10,11 @@ matplotlib
 scipy
 xarray==0.14.1      
 fortranformat
+<<<<<<< HEAD
 # mysql-connector-python   
+=======
+omfit_classes
+matplotlib
+cryptography
+# wexpect
+>>>>>>> dev_process_and_mapping
