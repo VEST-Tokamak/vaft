@@ -6,3 +6,4 @@ vest_database_info.txt
 .ipynb_checkpoints
 *__pycache__*
 vaft.egg-info*
+/build/
