@@ -160,7 +160,7 @@ def init_pool() -> None:
 
 
 def _load_from_shot_waveform_2(
-    db_conn: mysql.connector.connection_cext.CMySQLConnection,
+    db_conn: mysql.connector.MySQLConnection,
     shot: int,
     field: int
 ) -> tuple:
@@ -190,7 +190,7 @@ def _load_from_shot_waveform_2(
 
 
 def _load_from_shot_waveform_3(
-    db_conn: mysql.connector.connection_cext.CMySQLConnection,
+    db_conn: mysql.connector.MySQLConnection,
     shot: int,
     field: int
 ) -> tuple:
@@ -327,7 +327,7 @@ def _daq_trigger_time_correction(shot: int, time_arr: np.ndarray) -> np.ndarray:
     return time_arr + trigger_sec
 
 
-def load(
+def load_raw(
     shot: int,
     fields=None,
     max_retries: int = 3,
