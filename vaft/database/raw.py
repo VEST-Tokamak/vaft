@@ -500,7 +500,7 @@ def plot(
         shot = shots[0]
         field = fields[0]
         # load
-        loaded = load(shot, field)
+        loaded = load_raw(shot, field)
         if loaded is None:
             print("No data loaded.")
             return
@@ -533,7 +533,7 @@ def plot(
         fname, funit = name(field)
 
         for sh in shots:
-            loaded = load(sh, field)
+            loaded = load_raw(sh, field)
             if loaded is None:
                 continue
             tvals, dvals = loaded
@@ -559,7 +559,7 @@ def plot(
     # 3) single shot, multiple fields
     elif len(shots) == 1 and len(fields) > 1:
         shot = shots[0]
-        loaded = load(shot, fields)
+        loaded = load_raw(shot, fields)
         if loaded is None:
             print("No data loaded.")
             return
@@ -761,7 +761,7 @@ def store_shot_as_json(
 
     # 2) Retrieve the entire shot data using load
     #    If field_codes are provided to fields, (time, data2D) is returned
-    load_result = load(shot, fields=field_codes, max_retries=max_retries, daq_type=daq_type)
+    load_result = load_raw(shot, fields=field_codes, max_retries=max_retries, daq_type=daq_type)
     if load_result is None:
         print(f"[store_shot_as_json] Failed to load data for shot {shot}.")
         return False
