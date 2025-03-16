@@ -132,10 +132,29 @@ def convertDataset(ods, data):
         elif isinstance(data[item], h5py.Group):
             convertDataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
 
-def load(ods, shot, directory=None):
-    if directory is None:
-        filename = f'hdf5://public/{shot}.h5'
+def load(shot, directory=None):
+
+    if isinstance(shot, list):
+        shot_list = shot
+        ods_list = []
+        for shot in shot_list:
+            ods = omas.ODS()
+            if directory is None:
+                filename = f'hdf5://public/{shot}.h5'
+            else:
+                filename = f'hdf5://{directory}/{shot}.h5'
+            with h5py.File(h5pyd.H5Image(filename)) as data:
+                convertDataset(ods, data)
+            ods_list.append(ods)
+        return ods_list
+
     else:
-        filename = f'hdf5://{directory}/{shot}.h5'
-    with h5py.File(h5pyd.H5Image(filename)) as data:
-        convertDataset(ods, data)
+        ods = omas.ODS()
+        shot_list = [int(shot)]
+        if directory is None:
+            filename = f'hdf5://public/{shot}.h5'
+        else:
+            filename = f'hdf5://{directory}/{shot}.h5'
+        with h5py.File(h5pyd.H5Image(filename)) as data:
+            convertDataset(ods, data)
+        return ods
