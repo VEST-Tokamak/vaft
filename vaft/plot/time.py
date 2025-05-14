@@ -4,7 +4,7 @@ This module contains functions for plotting time series data from OMAS ODS.
 
 from omas import *
 import matplotlib.pyplot as plt
-from vaft.process import find_signal_onoffset, is_signal_active
+from vaft.process import signal_onoffset, is_signal_active
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -84,7 +84,7 @@ def set_xlim_time(odc, type='plasma'):
             if type == 'plasma' and 'magnetics.ip' in ods:
                 time = ods['magnetics.ip.0.time']
                 data = ods['magnetics.ip.0.data']
-                onset, offset = find_signal_onoffset(time, data)
+                onset, offset = signal_onoffset(time, data)
                 onsets.append(onset)
                 offsets.append(offset)
                 
@@ -93,7 +93,7 @@ def set_xlim_time(odc, type='plasma'):
                 for i in range(num_coils):
                     time = ods['pf_active.time']
                     data = ods[f'pf_active.coil.{i}.current.data']
-                    onset, offset = find_signal_onoffset(time, data)
+                    onset, offset = signal_onoffset(time, data)
                     onsets.append(onset)
                     offsets.append(offset)
                     

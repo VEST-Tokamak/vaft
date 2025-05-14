@@ -3,7 +3,7 @@ import pkg_resources
 
 def sample_ods():
     # load the sample ods file in the package data folder
-    data_path = pkg_resources.resource_filename('vest', 'data/39915.json')
+    data_path = pkg_resources.resource_filename('vaft', 'data/39915.json')
 
     # load the ods file
     ods = ODS()

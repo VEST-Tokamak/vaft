@@ -102,7 +102,7 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
 
-def find_signal_onoffset(time,data,smooth_window=5):
+def signal_onoffset(time,data,smooth_window=5):
     # Smooth the data
     data=signal.savgol_filter(data, smooth_window, 3)
 

@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from vaft.formula import psi_norm
+from omas import *
 # update_diagnostics_file(ods, filename)
 
 # print_available_ids(ods)
@@ -24,7 +25,8 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
     time_slices = ods['equilibrium.time_slice'] if time_slice is None else (
         [time_slice] if isinstance(time_slice, int) else time_slice)
     
-    for idx, ts in enumerate(time_slices):
+    for idx in time_slices:
+        ts = ods['equilibrium.time_slice'][idx]
         # Extract 2D grid data at magnetic axis
         grid_r = ts['profiles_2d.0.grid.dim1']
         grid_z = ts['profiles_2d.0.grid.dim2']
@@ -57,66 +59,79 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
 
         # Generate validation plots
         if plot_opt >= 1:
-            plt.figure(figsize=[15,5])
+            plt.figure(figsize=[15,10])
             plt.suptitle(f'Time Slice {idx} Validation')
             
             # Primary mapping validation
-            plt.subplot(131)
+            plt.subplot(221)
             plt.plot(r_in, psi_in, 'r-', label='2D Inboard')
-            plt.plot(ts['profiles_1d.r_inboard'], psi_1d, 'b--', label='1D Mapped')
-            plt.xlabel('R [m]'), plt.ylabel('Psi'), plt.legend()
-            
-            plt.subplot(132)
+            plt.plot(ts['profiles_1d.r_inboard'], psi_1d, 'b--', label='1D Inboard Mapped')
             plt.plot(r_out, psi_out, 'g-', label='2D Outboard')
-            plt.plot(ts['profiles_1d.r_outboard'], psi_1d, 'm--', label='1D Mapped')
-            plt.xlabel('R [m]'), plt.ylabel('Psi'), plt.legend()
+            plt.plot(ts['profiles_1d.r_outboard'], psi_1d, 'm--', label='1D OutboardMapped')
+            plt.xlabel('R [m]'), plt.ylabel('Psi'), plt.legend(loc='upper right')
+            
+            plt.subplot(222)
+            plt.plot(ts['boundary.outline.r'], ts['boundary.outline.z'], 'k-', label='Boundary')
+            plt.plot(ts['global_quantities.magnetic_axis.r'], ts['global_quantities.magnetic_axis.z'], 'r.', label='Magnetic Axis', markersize=10)
+            plt.plot(ts['profiles_1d.r_inboard'], np.zeros_like(ts['profiles_1d.r_inboard']), 'b-', label='Inboard')
+            plt.plot(ts['profiles_1d.r_outboard'], np.zeros_like(ts['profiles_1d.r_outboard']), 'g-', label='Outboard')
+            plt.xlabel('R [m]'), plt.ylabel('Z [m]'), plt.legend(loc='upper right')
 
-            # Derivative validation
-            if plot_opt >= 2:
-                plt.subplot(133)
-                dr_in = np.gradient(ts['profiles_1d.r_inboard'], psi_1d)
-                dr_out = np.gradient(ts['profiles_1d.r_outboard'], psi_1d)
-                plt.plot(psi_1d, dr_in, label='Inboard dR/dψ')
-                plt.plot(psi_1d, dr_out, label='Outboard dR/dψ')
-                plt.xlabel('Psi'), plt.ylabel('Derivative')
-                plt.legend()
+            # plot orignal 1d psi_n pressure profile
+            plt.subplot(223)
+            plt.plot(ts['profiles_1d.rho_tor_norm'], ts['profiles_1d.pressure'], 'r-', label='1D psi_n Pressure')
+            plt.xlabel('rho_tor_norm'), plt.ylabel('Pressure [Pa]'), plt.legend()
+
+            # plot 1d radial pressure profile
+            plt.subplot(224)
+            plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.pressure'], 'r-', label='Inboard')
+            plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.pressure'], 'g-', label='Outboard')
+            plt.xlabel('R [m]'), plt.ylabel('Pressure [Pa]'), plt.legend()
+
+            plt.legend()
 
             plt.tight_layout()
             plt.show()
 
-def update_equilibrium_coordinates(ods):
-    """Main entry point for updating all equilibrium coordinates"""
-    # Update normalized psi for all time slices
-    for ts in ods['equilibrium.time_slice']:
+# need to implement this
+# def update_equilibrium_coordinates(ods):
+#     """Main entry point for updating all equilibrium coordinates"""
+#     # Update normalized psi for all time slices
+#     for ts in ods['equilibrium.time_slice']:
 
-        psi = ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi']
-        psi_axis = ods[f'equilibrium.time_slice.{ts}.global_quantities.psi_axis']
-        psi_bdry = ods[f'equilibrium.time_slice.{ts}.global_quantities.psi_boundary']
+#         psi = ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi']
+#         psi_axis = ods[f'equilibrium.time_slice.{ts}.global_quantities.psi_axis']
+#         psi_bdry = ods[f'equilibrium.time_slice.{ts}.global_quantities.psi_boundary']
 
-        ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_norm'] = psi_norm(psi, psi_axis, psi_bdry)
+#         ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_norm'] = psi_norm(psi, psi_axis, psi_bdry)
 
-        ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_norm'] = (
-            ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi'][0] - ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_magnetic_axis']
-        ) / (
-            ods['equilibrium.time_slice.0.profiles_1d.psi'][-1] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
-        )
+#         ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_norm'] = (
+#             ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi'][0] - ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_magnetic_axis']
+#         ) / (
+#             ods['equilibrium.time_slice.0.profiles_1d.psi'][-1] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
+#         )
     
-    # Update radial coordinates with validation plots for first slice
-    update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=0, plot_opt=2)
+#     # Update radial coordinates with validation plots for first slice
+#     update_equilibrium_profiles_1d_radial_coordinates(ods)
 
 
-def update_equilibrium_coordinates(ods):
-    """
-    Update the psi_norm, r_inboard, r_outboard information in the equilibrium ODS.
-    """
+# def update_equilibrium_coordinates(ods):
+#     """
+#     Update the psi_norm, r_inboard, r_outboard information in the equilibrium ODS.
+#     """
 
-    # psi_norm
-    ods['equilibrium.time_slice.0.profiles_1d.psi_norm'] = (
-        ods['equilibrium.time_slice.0.profiles_1d.psi'][0] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
-    ) / (
-        ods['equilibrium.time_slice.0.profiles_1d.psi'][-1] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
-    )
+#     # psi_norm
+#     ods['equilibrium.time_slice.0.profiles_1d.psi_norm'] = (
+#         ods['equilibrium.time_slice.0.profiles_1d.psi'][0] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
+#     ) / (
+#         ods['equilibrium.time_slice.0.profiles_1d.psi'][-1] - ods['equilibrium.time_slice.0.profiles_1d.psi_magnetic_axis']
+#     )
 
-    # r_inboard, r_outboard
-    update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=0, plot_opt=0)
+#     # r_inboard, r_outboard
+#     update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=0, plot_opt=0)
 
+if __name__ == '__main__':
+    ods = ODS()
+    ods.sample()
+    update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=0, plot_opt=1)
+    plt.show()

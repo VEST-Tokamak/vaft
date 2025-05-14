@@ -37,6 +37,36 @@ def find_pf_active_onset(ods):
         onset_list.append(onset)
     return onset_all, onset_list
 
+def find_pulse_duration(ods):
+    # find the duration of the pulse using spectrometer_uv signal
+    time=ods.time('spectrometer_uv')
+    data=ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
+    (onset, offset) = vaft.process.signal_onoffset(time, data)
+    # find the duration of the pulse
+    duration = offset - onset
+    return duration
+
+def find_max_ip(ods):
+    # find the maximum plasma current
+    time=ods.time('magnetics')
+    current=ods['magnetics.ip.0.data']
+    max_ip = np.max(current)
+    return max_ip
+
+def find_bt(ods):
+    # find the toroidal field at R=0.4m
+    time=ods.time('tf.time')
+    bt=ods['tf.b_field_tor_vacuum_r.data']/ods['tf.r0']
+    plasma_onset = find_breakdown_onset(ods)
+    pulse_duration = find_pulse_duration(ods)
+    plasma_offset = plasma_onset + pulse_duration
+    #find bt in plasma region
+    onset_idx = np.searchsorted(time, plasma_onset)
+    offset_idx = np.searchsorted(time, plasma_offset)
+    bt = bt[onset_idx:offset_idx]
+    bt_mean = np.mean(bt)
+    return bt_mean
+
 def shift_time(ods, time_shift):
     for path in ods.paths():
         if 'time' in path:
@@ -126,8 +156,52 @@ def print_info(ods, key_name=None):
   else:
     print("key_name value Error!")
     
+def find_shotclass(ods, pressure_threshold=0.01, halpha_threshold=0.01):
+    """
+    Determine the classification of a shot based on pressure and H-alpha signals.
+    
+    Parameters:
+    -----------
+    ods : ODS object
+        The ODS object containing the shot data
+    pressure_threshold : float, optional
+        Threshold for pressure signal to be considered active (default: 0.01)
+    halpha_threshold : float, optional
+        Threshold for H-alpha signal to be considered active (default: 0.01)
+        
+    Returns:
+    --------
+    str
+        Shot classification: 'Vacuum', 'BD failure', or 'Plasma'
+    """
+    try:
+        # Check pressure signal
+        data_pres = ods['barometry.gauge.0.pressure.data']
+        if not vaft.process.is_signal_active(data_pres, threshold=pressure_threshold):
+            return 'Vacuum'
+            
+        # Check H-alpha signal
+        data_alpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
+        if not vaft.process.is_signal_active(data_alpha, threshold=halpha_threshold):
+            return 'BD failure'
+            
+        # If both pressure and H-alpha are active, check for plasma current
+        try:
+            ip = ods['magnetics.ip.0.data']
+            if np.max(ip) > 0:  # If there's significant plasma current
+                return 'Plasma'
+            else:
+                return 'BD failure'
+        except:
+            return 'Plasma'  # If we can't check IP but have H-alpha, assume plasma
+            
+    except Exception as e:
+        print(f"Error in find_shotclass: {str(e)}")
+        return 'Vacuum'  # Default to Vacuum if any error occurs
 
 
+def find_major_radius(ods):
+    print('to do')
 
 # def check_thompson(ods):
 #     if 'thomson_scattering' not in ods.keys():
@@ -150,5 +224,6 @@ def print_info(ods, key_name=None):
     
 #     if 'time' not in ods['equilibrium'].keys():
 #         return False
+    
     
 #     return True
