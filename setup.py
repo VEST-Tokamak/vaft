@@ -20,12 +20,6 @@ setup(
     author_email="satelite2517@snu.ac.kr",
     url="https://github.com/VEST-Tokamak/vaft",
     install_requires=[
-        "h5py",
-        "numpy",
-        "uncertainties",
-        "omas",
-        "matplotlib",
-        "h5pyd @ git+https://github.com/hdfgroup/h5pyd.git",
     ],
     extras_require={
         "dev": [

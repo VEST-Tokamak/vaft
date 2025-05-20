@@ -1,16 +1,47 @@
+#!/usr/bin/python
+
 """
-How to run : 
+This script automatically updates Thomson scattering data and fits profiles
+for all times when a new .mat file is detected in the specified directory.
+It uses the watchdog library to monitor the directory and processes the
+new file by loading the data into an ODS (OMAS Data Structure) object.
+
+The script performs the following steps:
+1. Monitors a specified directory for new .mat files.
+2. When a new file is detected, it extracts the shot number from the filename.
+3. Loads the ODS for the shot number.
+4. Updates the Thomson scattering data in the ODS.
+5. Fits the Thomson scattering profiles for all times in the ODS.
+6. Saves the updated ODS back to the database.
+
+How to use:
+- Ensure that the vaft library is installed and properly configured.
+- Set the WATCH_PATH variable to the directory you want to monitor.
+- Run the script. It will continuously monitor the directory for new .mat files.
+
+' nohup python3 thomson_scattering_update_fitting.py > thomson_scattering_update_fitting.log 2>&1 & '
 """
 import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from watchdog.observers import Observer
-from watchdog.events import PatternMatchingEventHandler
-from vaft.processing import *
-from vaft import database
+from vaft import database, machine_mapping, process
+import vaft
+from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 
-WATCH_PATH = "/srv/vest.filedb"
+WATCH_BASE = "/srv/vest.filedb/public"
+CHECK_INTERVAL = 10  
+SEEN_FILES_PATH = "seen_files.txt"
+
+def load_seen_files():
+    if os.path.exists(SEEN_FILES_PATH):
+        with open(SEEN_FILES_PATH, 'r') as f:
+            return set(line.strip() for line in f if line.strip())
+    return set()
+
+def save_seen_file(filepath):
+    with open(SEEN_FILES_PATH, 'a') as f:
+        f.write(filepath + '\n')
 
 def update_thomson_auto(filepath):
     filename = os.path.basename(filepath)
@@ -28,52 +59,41 @@ def update_thomson_auto(filepath):
         return None
 
     try:
-        vfit_thomson_scattering_static(ods)
-        vfit_thomson_scattering_dynamic(ods, shotnumber, base_path=os.path.dirname(filepath))
+        machine_mapping.thomson_scattering_static(ods)
+        machine_mapping.thomson_scattering_from_file(ods, shotnumber, filepath)
         print(f"[SUCCESS] Thomson data loaded for shot {shotnumber}")
     except Exception as e:
         print(f"[ERROR] Failed to update Thomson data for shot {shotnumber}: {e}")
         return None
+    
+    database.save(ods, shotnumber)
+    print(f"[SAVED] Updated ODS for shot {shotnumber}")
 
     return shotnumber
 
-def store_single_fit_to_ods(ods, t_idx, mapped_rho_position, n_e_function, T_e_function):
-    num_channels = len(ods['thomson_scattering.channel'])
-
-    ne_meas = []
-    te_meas = []
-
-    for i in range(num_channels):
-        ne = ods[f'thomson_scattering.channel.{i}.n_e.data'][t_idx]
-        te = ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx]
-        ne_meas.append(ne)
-        te_meas.append(te)
-
-    rho_clipped = np.clip(mapped_rho_position, 0, 1)
-    ne_recon = n_e_function(rho_clipped).tolist()
-    te_recon = T_e_function(rho_clipped).tolist()
-
-    base_den = f'core_profiles.profiles_1d.{t_idx}.electrons.density_fit'
-    base_tem = f'core_profiles.profiles_1d.{t_idx}.electrons.temperature_fit'
-
-    ods[f'{base_den}.measured'] = ne_meas
-    ods[f'{base_den}.reconstructed'] = ne_recon
-    ods[f'{base_tem}.measured'] = te_meas
-    ods[f'{base_tem}.reconstructed'] = te_recon
 
 def fit_thomson_profile_auto_all_times(shotnumber, Te_order=3, Ne_order=3):
     try:
         ods = database.load(shotnumber)
-        geq = get_geq(shotnumber)
-        mapped_rho = equilibrium_mapping_thomson_scattering(ods, geq)
-
         time_array = ods['thomson_scattering.time'] * 1e3  # in ms
 
         for t_idx, time_ms in enumerate(time_array):
             print(f"[INFO] Fitting profile for shot {shotnumber} at {time_ms:.1f} ms")
 
+            geq_filename = f'/srv/vest.filedb/public/{shotnumber}/efit/gfile/g0{shotnumber}.00{int(time_ms):03}'
+            if not os.path.exists(geq_filename):
+                print(f"[WARNING] Geqdsk file not found at {geq_filename}")
+                continue
+
             try:
-                result = profile_fitting_thomson_scattering(
+                geq = OMFITgeqdsk(filename=geq_filename)
+                mapped_rho = process.equilibrium_mapping_thomson_scattering(ods, geq)
+            except Exception as e:
+                print(f"[WARNING] Skipped time {time_ms:.1f} ms during rho mapping: {e}")
+                continue
+
+            try:
+                result = process.profile_fitting_thomson_scattering(
                     ods,
                     time_ms=time_ms,
                     mapped_rho_position=mapped_rho,
@@ -81,39 +101,47 @@ def fit_thomson_profile_auto_all_times(shotnumber, Te_order=3, Ne_order=3):
                     Ne_order=Ne_order,
                 )
                 n_e_fn, T_e_fn, *_ = result
-                store_single_fit_to_ods(ods, t_idx, mapped_rho, n_e_fn, T_e_fn)
-
             except Exception as e:
-                print(f"[WARNING] Skipped time {time_ms:.1f} ms due to error: {e}")
+                print(f"[WARNING] Skipped time {time_ms:.1f} ms during profile fitting: {e}")
+                continue
+
+            try:
+                machine_mapping.core_profile(ods, t_idx, mapped_rho, n_e_fn, T_e_fn)
+            except Exception as e:
+                print(f"[WARNING] Skipped time {time_ms:.1f} ms during core_profile mapping: {e}")
+                continue
 
         database.save(ods, shotnumber)
         print(f"[SAVED] Updated ODS with fitted profiles for shot {shotnumber}")
 
     except Exception as e:
-        print(f"[ERROR] Profile fitting failed for shot {shotnumber}: {e}")
-
-def on_created(event):
-    if event.src_path.endswith(".mat"):
-        print(f"[DETECTED] New .mat file: {event.src_path}")
-        shotnumber = update_thomson_auto(event.src_path)
-        if shotnumber is not None:
-            fit_thomson_profile_auto_all_times(shotnumber)
+        print(f"[ERROR] Failed to fit Thomson profiles for shot {shotnumber}: {e}")
 
 def main():
-    event_handler = PatternMatchingEventHandler(patterns=["*.mat"], ignore_directories=True)
-    event_handler.on_created = on_created
+    seen_files = load_seen_files()
+    while True:
+        print("[POLLING] Scanning for new .mat files...")
+        try:
+            for subdir in os.listdir(WATCH_BASE):
+                subpath = os.path.join(WATCH_BASE, subdir)
+                if not os.path.isdir(subpath):
+                    continue
+                for fname in os.listdir(subpath):
+                    if fname.endswith(".mat"):
+                        full_path = os.path.join(subpath, fname)
+                        if full_path in seen_files:
+                            continue
+                        print(f"[NEW FILE] {full_path}")
+                        shotnumber = update_thomson_auto(full_path)
+                        if shotnumber is not None:
+                            fit_thomson_profile_auto_all_times(shotnumber)
+                        save_seen_file(full_path)
+                        seen_files.add(full_path)
+        except Exception as e:
+            print(f"[ERROR] Polling failed: {e}")
 
-    observer = Observer()
-    observer.schedule(event_handler, path=WATCH_PATH, recursive=True)
-    observer.start()
+        time.sleep(CHECK_INTERVAL)
 
-    print(f"[WATCHING] Folder: {WATCH_PATH}")
-    try:
-        while True:
-            time.sleep(0.2)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
 
 if __name__ == "__main__":
     main()

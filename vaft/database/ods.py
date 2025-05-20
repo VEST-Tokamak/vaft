@@ -53,7 +53,10 @@ def is_connect() -> bool:
         return False
     
 
-def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> list[int]:
+from typing import Optional, List
+
+
+def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> List[int]:
     """Return a list of shot numbers from matching files in the specified directory.
 
     If the 'username' or 'shot' parameter is provided, the function will return shot numbers with a matching prefix.

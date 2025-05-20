@@ -1,3 +1,193 @@
+"""
+Green's function calculations for plasma physics.
+
+This module provides functions for calculating various Green's function integrals
+used in plasma physics calculations.
+
+Notation
+--------
+G      : Green's function                              [-]
+K      : complete elliptic integral of first kind      [-]
+E      : complete elliptic integral of second kind     [-]
+"""
+
+import numpy as np
+from typing import Union, Tuple
+
+from .utils import trapz_integral
+
+# ------------------------------------------------------------------
+# Elliptic Integrals
+# ------------------------------------------------------------------
+
+def complete_elliptic_integral_k(m: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Calculate complete elliptic integral of first kind K(m).
+
+    Parameters
+    ----------
+    m : Union[float, np.ndarray]
+        Parameter m = k²
+
+    Returns
+    -------
+    Union[float, np.ndarray]
+        Complete elliptic integral K(m)
+    """
+    return np.ellipk(m)
+
+
+def complete_elliptic_integral_e(m: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Calculate complete elliptic integral of second kind E(m).
+
+    Parameters
+    ----------
+    m : Union[float, np.ndarray]
+        Parameter m = k²
+
+    Returns
+    -------
+    Union[float, np.ndarray]
+        Complete elliptic integral E(m)
+    """
+    return np.ellipe(m)
+
+
+# ------------------------------------------------------------------
+# Green's Functions
+# ------------------------------------------------------------------
+
+def greens_function_2d(R: np.ndarray,
+                      Z: np.ndarray,
+                      R0: float,
+                      Z0: float) -> np.ndarray:
+    """
+    Calculate 2D Green's function for axisymmetric geometry.
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius values
+    Z : np.ndarray
+        Vertical position values
+    R0 : float
+        Source point major radius
+    Z0 : float
+        Source point vertical position
+
+    Returns
+    -------
+    np.ndarray
+        2D Green's function values
+    """
+    k2 = 4 * R * R0 / ((R + R0)**2 + (Z - Z0)**2)
+    return np.sqrt(R * R0) * complete_elliptic_integral_k(k2)
+
+
+def greens_function_3d(R: np.ndarray,
+                      Z: np.ndarray,
+                      phi: np.ndarray,
+                      R0: float,
+                      Z0: float,
+                      phi0: float) -> np.ndarray:
+    """
+    Calculate 3D Green's function for toroidal geometry.
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius values
+    Z : np.ndarray
+        Vertical position values
+    phi : np.ndarray
+        Toroidal angle values
+    R0 : float
+        Source point major radius
+    Z0 : float
+        Source point vertical position
+    phi0 : float
+        Source point toroidal angle
+
+    Returns
+    -------
+    np.ndarray
+        3D Green's function values
+    """
+    k2 = 4 * R * R0 / ((R + R0)**2 + (Z - Z0)**2 + 4 * R * R0 * np.sin((phi - phi0)/2)**2)
+    return np.sqrt(R * R0) * complete_elliptic_integral_k(k2)
+
+
+# ------------------------------------------------------------------
+# Green's Function Integrals
+# ------------------------------------------------------------------
+
+def greens_integral_2d(R: np.ndarray,
+                      Z: np.ndarray,
+                      R0: float,
+                      Z0: float,
+                      f: np.ndarray) -> float:
+    """
+    Calculate 2D Green's function integral.
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius values
+    Z : np.ndarray
+        Vertical position values
+    R0 : float
+        Source point major radius
+    Z0 : float
+        Source point vertical position
+    f : np.ndarray
+        Source function values
+
+    Returns
+    -------
+    float
+        Green's function integral value
+    """
+    G = greens_function_2d(R, Z, R0, Z0)
+    return trapz_integral(R, G * f)
+
+
+def greens_integral_3d(R: np.ndarray,
+                      Z: np.ndarray,
+                      phi: np.ndarray,
+                      R0: float,
+                      Z0: float,
+                      phi0: float,
+                      f: np.ndarray) -> float:
+    """
+    Calculate 3D Green's function integral.
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius values
+    Z : np.ndarray
+        Vertical position values
+    phi : np.ndarray
+        Toroidal angle values
+    R0 : float
+        Source point major radius
+    Z0 : float
+        Source point vertical position
+    phi0 : float
+        Source point toroidal angle
+    f : np.ndarray
+        Source function values
+
+    Returns
+    -------
+    float
+        Green's function integral value
+    """
+    G = greens_function_3d(R, Z, phi, R0, Z0, phi0)
+    return trapz_integral(R, G * f)
+
+
 def calculate_distance(r1: float, r2: float, z1: float, z2: float) -> float:
     """
     Compute the Euclidean distance between two points (r1, z1) and (r2, z2).
@@ -244,7 +434,7 @@ def greend_br_bz(r1: float, z1: float, r2: float, z2: float) -> tuple:
     d_bz_dr = 0.0
     d_br_dz = 0.0
 
-    # user’s original final lines had:
+    # user's original final lines had:
     # dBzdr = -mu0/2./pi*(grr/r1 - gr/r1/r1)
     # dBrdz = mu0/2./pi*gzz/r1, etc.
 

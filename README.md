@@ -4,7 +4,7 @@ All users are allowed to read these datasets, but if modification/deletion permi
 
 ## Usage
 
-follow the [Learn Usage](https://satelite2517.github.io/vaft/)
+follow the [Learn Usage](https://vest-tokamak.github.io/vaft/)
 
 
 ## Reporting bugs

@@ -1,0 +1,748 @@
+# VEST Configuration File
+# –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# 0: Default static configurations
+0:
+  magnetics:
+    flux_loop:
+      geometry:
+        loops:
+          - r: 0.45   # Major radius
+            z: 0.0    # Vertical position
+            phi: 0.0  # Toroidal angle
+            area: 0.01
+      channels:
+        - name: "FL1"
+          gain: 1.0
+          offset: 0.0
+          calibration_factor: 1.0
+
+    b_field_pol_probe:
+      channels:
+        0:
+          label: Bz H-1 01
+          r: 0.089
+          z: 0.54
+          gain: -0.00524
+          field: 179
+          daq_type: 1
+        1:
+          label: Bz H-1 02
+          r: 0.089
+          z: 0.5
+          gain: 0.00524
+          field: 180
+          daq_type: 1
+        2:
+          label: Bz H-1 03
+          r: 0.089
+          z: 0.46
+          gain: -0.0051
+          field: 181
+          daq_type: 1
+        3:
+          label: Bz H-1 04
+          r: 0.089
+          z: 0.42
+          gain: 0.0051
+          field: 182
+          daq_type: 1
+        4:
+          label: Bz H-1 05
+          r: 0.089
+          z: 0.38
+          gain: 0.0051
+          field: 183
+          daq_type: 1
+        5:
+          label: Bz H-1 06
+          r: 0.089
+          z: 0.34
+          gain: -0.0051
+          field: 184
+          daq_type: 1
+        6:
+          label: Bz H-1 07
+          r: 0.089
+          z: 0.3
+          gain: -0.0051
+          field: 185
+          daq_type: 1
+        7:
+          label: Bz H-1 08
+          r: 0.089
+          z: 0.26
+          gain: -0.0051
+          field: 186
+          daq_type: 1
+        8:
+          label: Bz H-1 09
+          r: 0.089
+          z: 0.22
+          gain: 0.0051
+          field: 187
+          daq_type: 1
+        9:
+          label: Bz H-2 01
+          r: 0.089
+          z: 0.16
+          gain: -0.00524
+          field: 188
+          daq_type: 1
+        10:
+          label: Bz H-2 02
+          r: 0.089
+          z: 0.12
+          gain: -0.00524
+          field: 189
+          daq_type: 1
+        11:
+          label: Bz H-2 03
+          r: 0.089
+          z: 0.08
+          gain: 0.0051
+          field: 190
+          daq_type: 1
+        12:
+          label: Bz H-2 04
+          r: 0.089
+          z: 0.04
+          gain: -0.0051
+          field: 191
+          daq_type: 1
+        13:
+          label: Bz H-2 05
+          r: 0.089
+          z: 0
+          gain: -0.0051
+          field: 192
+          daq_type: 1
+        14:
+          label: Bz H-2 06
+          r: 0.089
+          z: -0.04
+          gain: 0.0051
+          field: 193
+          daq_type: 1
+        15:
+          label: Bz H-2 07
+          r: 0.089
+          z: -0.08
+          gain: -0.0051
+          field: 194
+          daq_type: 1
+        16:
+          label: Bz H-2 08
+          r: 0.089
+          z: -0.12
+          gain: -0.0051
+          field: 195
+          daq_type: 1
+        17:
+          label: Bz H-2 09
+          r: 0.089
+          z: -0.16
+          gain: -0.0051
+          field: 196
+          daq_type: 1
+        18:
+          label: Bz H-3 01
+          r: 0.089
+          z: -0.22
+          gain: 0.0051
+          field: 197
+          daq_type: 1
+        19:
+          label: Bz H-3 02
+          r: 0.089
+          z: -0.26
+          gain: -0.00524
+          field: 198
+          daq_type: 1
+        20:
+          label: Bz H-3 03
+          r: 0.089
+          z: -0.3
+          gain: -0.0051
+          field: 199
+          daq_type: 1
+        21:
+          label: Bz H-3 04
+          r: 0.089
+          z: -0.34
+          gain: -0.0051
+          field: 200
+          daq_type: 1
+        22:
+          label: Bz H-3 05
+          r: 0.089
+          z: -0.38
+          gain: -0.0051
+          field: 201
+          daq_type: 1
+        23:
+          label: Bz H-3 06
+          r: 0.089
+          z: -0.42
+          gain: 0.0051
+          field: 202
+          daq_type: 1
+        24:
+          label: Bz H-3 07
+          r: 0.089
+          z: -0.46
+          gain: 0.0051
+          field: 203
+          daq_type: 1
+        25:
+          label: Bz H-3 08
+          r: 0.089
+          z: -0.5
+          gain: 0.00524
+          field: 204
+          daq_type: 1
+        26:
+          label: Bz H-3 09
+          r: 0.089
+          z: -0.54
+          gain: 0.0051
+          field: 205
+          daq_type: 1
+        27:
+          label: Bz C1 01
+          r: 0.796
+          z: 0.22
+          gain: -0.005007511
+          field: 87
+          daq_type: 1
+        28:
+          label: Bz C1 02
+          r: 0.796
+          z: 0.26
+          gain: -0.004547522
+          field: 88
+          daq_type: 1
+        29:
+          label: Bz C1 03
+          r: 0.796
+          z: 0.3
+          gain: 0.00450045
+          field: 89
+          daq_type: 1
+        30:
+          label: Bz C1 04
+          r: 0.796
+          z: 0.34
+          gain: -0.004524887
+          field: 90
+          daq_type: 1
+        31:
+          label: Bz C1 05
+          r: 0.796
+          z: 0.38
+          gain: -0.004438526
+          field: 91
+          daq_type: 1
+        32:
+          label: Bz C1 06
+          r: 0.796
+          z: 0.42
+          gain: -0.00452284
+          field: 92
+          daq_type: 1
+        33:
+          label: Bz C2 01
+          r: 0.796
+          z: 0.18
+          gain: 0.004545455
+          field: 93
+          daq_type: 1
+        34:
+          label: Bz C2 03
+          r: 0.796
+          z: 0.1
+          gain: 0.004595588
+          field: 169
+          daq_type: 1
+        35:
+          label: Bz C2 04
+          r: 0.796
+          z: 0.06
+          gain: 0.004539265
+          field: 170
+          daq_type: 1
+        36:
+          label: Bz C2 05
+          r: 0.796
+          z: 0.02
+          gain: -0.004528986
+          field: 171
+          daq_type: 1
+        37:
+          label: Bz C3 01
+          r: 0.796
+          z: -0.02
+          gain: -0.00447828
+          field: 172
+          daq_type: 1
+        38:
+          label: Bz C3 02
+          r: 0.796
+          z: -0.06
+          gain: -0.004679457
+          field: 173
+          daq_type: 1
+        39:
+          label: Bz C3 03
+          r: 0.796
+          z: -0.1
+          gain: 0.00462963
+          field: 174
+          daq_type: 1
+        40:
+          label: Bz C3 04
+          r: 0.796
+          z: -0.14
+          gain: -0.00462963
+          field: 175
+          daq_type: 1
+        41:
+          label: Bz C3 05
+          r: 0.796
+          z: -0.18
+          gain: -0.00450045
+          field: 176
+          daq_type: 1
+        42:
+          label: Bz C4 01
+          r: 0.796
+          z: -0.22
+          gain: -0.004424779
+          field: 177
+          daq_type: 1
+        43:
+          label: Bz C4 02
+          r: 0.796
+          z: -0.26
+          gain: -0.004962779
+          field: 178
+          daq_type: 1
+        44:
+          label: Bz C4 03
+          r: 0.796
+          z: -0.3
+          gain: -0.004782401
+          field: 223
+          daq_type: 1
+        45:
+          label: Bz C4 04
+          r: 0.796
+          z: -0.34
+          gain: 0.004814636
+          field: 224
+          daq_type: 1
+        46:
+          label: Bz C4 05
+          r: 0.796
+          z: -0.38
+          gain: -0.004520796
+          field: 225
+          daq_type: 1
+        47:
+          label: Bz C4 06
+          r: 0.796
+          z: -0.42
+          gain: -0.00452284
+          field: 226
+          daq_type: 1
+        48:
+          label: Bz U1-01
+          r: 0.1377
+          z: 0.8328
+          gain: 0.002200186
+          field: 81
+          daq_type: 1
+        49:
+          label: Bz U1-02
+          r: 0.1377
+          z: 0.8728
+          gain: -0.001800815
+          field: 80
+          daq_type: 1
+        50:
+          label: Bz U1-03
+          r: 0.1377
+          z: 0.9128
+          gain: 0.002034091
+          field: 79
+          daq_type: 1
+        51:
+          label: Bz U1-04
+          r: 0.1377
+          z: 0.9528
+          gain: 0.002026749
+          field: 78
+          daq_type: 1
+        52:
+          label: Bz U1-05
+          r: 0.1377
+          z: 0.9928
+          gain: 0.001973928
+          field: 77
+          daq_type: 1
+        53:
+          label: Bz U1-06
+          r: 0.1377
+          z: 1.0328
+          gain: -0.002194922
+          field: 76
+          daq_type: 1
+        54:
+          label: Bz U1-07
+          r: 0.1377
+          z: 1.0728
+          gain: 0.002022318
+          field: 75
+          daq_type: 1
+        55:
+          label: Bz U1-08
+          r: 0.1377
+          z: 1.1128
+          gain: -0.00227653
+          field: 74
+          daq_type: 1
+        56:
+          label: Bz L1-01
+          r: 0.1377
+          z: -0.8328
+          gain: -0.002000964
+          field: 66
+          daq_type: 1
+        57:
+          label: Bz L1-02
+          r: 0.1377
+          z: -0.8728
+          gain: 0.00229523
+          field: 67
+          daq_type: 1
+        58:
+          label: Bz L1-03
+          r: 0.1377
+          z: -0.9128
+          gain: -0.002299347
+          field: 68
+          daq_type: 1
+        59:
+          label: Bz L1-04
+          r: 0.1377
+          z: -0.9528
+          gain: 0.002237959
+          field: 69
+          daq_type: 1
+        60:
+          label: Bz L1-05
+          r: 0.1377
+          z: -0.9928
+          gain: 0.001956307
+          field: 70
+          daq_type: 1
+        61:
+          label: Bz L1-06
+          r: 0.1377
+          z: -1.0328
+          gain: 0.00204412
+          field: 71
+          daq_type: 1
+        62:
+          label: Bz L1-07
+          r: 0.1377
+          z: -1.0728
+          gain: 0.002093101
+          field: 72
+          daq_type: 1
+        63:
+          label: Bz L1-08
+          r: 0.1377
+          z: -1.1128
+          gain: 0.001943771
+          field: 73
+          daq_type: 1
+      
+    rogowski_coil:
+      label: "Measured Rogowski Coil Current"
+      raw:
+        gain: 1
+        field: 102
+        daq_type: 0
+        fl_field: 25
+        effective_res: 2.8e-4
+        baseline_onset: 0.29
+      geometry:
+        coils:
+          - r: 0.45
+            z: 0.0
+            phi: 0.0
+            turns: 1
+            area: 0.01
+
+  pf_active:
+    ids_properties: 0
+    comment: "VEST PF active coilset data"
+    homogeneous_time: 1
+    channel:
+      0:
+        name: "PF1"
+        identifier: "PF1"
+        resistance: 0.053
+        area: 0.04128
+        nb_elements: 158
+        
+      1:
+        name: "PF2"
+        identifier: "PF2" 
+        resistance: 0.104
+        area: 0.0304
+        nb_elements: 100
+      2:
+        name: "PF3"
+        identifier: "PF3"
+        resistance: 0.29
+        area: 0.000812
+        nb_elements: 16
+      3:
+        name: "PF4"
+        identifier: "PF4"
+        resistance: 0.57
+        area: 0.000812
+        nb_elements: 16
+      4:
+        name: "PF5"
+        identifier: "PF5"
+        resistance: 0.71
+        area: 0.001218
+        nb_elements: 24
+      5:
+        name: "PF6"
+        identifier: "PF6"
+        resistance: 0.71
+        area: 0.001218
+        nb_elements: 24
+      6:
+        name: "PF7"
+        identifier: "PF7"
+        resistance: 0.71
+        area: 0.0027216
+        nb_elements: 48
+      7:
+        name: "PF8"
+        identifier: "PF8"
+        resistance: 0.71
+        area: 0.0027216
+        nb_elements: 48
+      8:
+        name: "PF9"
+        identifier: "PF9"
+        resistance: 0.93
+        area: 0.0027216
+        nb_elements: 48
+      9:
+        name: "PF10"
+        identifier: "PF10"
+        resistance: 0.93
+        area: 0.0027216
+        nb_elements: 48
+
+    barometry:
+      ids_properties: 0
+      comment: "VEST Pressure Gauge data"
+      homogeneous_time: 1
+
+    spectrometer_uv:
+      ids_properties: 0
+      comment: "VEST filterscope data"
+      homogeneous_time: 0
+      channel:
+        0:
+          name: "Slow DaQ Filterscope"
+          processed_line:
+            0:
+              label: "H-alpha_6563"
+              wavelength_central: 656.3E-9
+            1:
+              label: "OI_7770"
+              wavelength_central: 777.0E-9
+        1:
+          name: "Fast DaQ Filterscope"
+          processed_line:
+            0:
+              label: "H-alpha_6563"
+              wavelength_central: 656.3E-9
+            1:
+              label: "H-beta_4861"
+              wavelength_central: 486.1E-9
+
+    limiter_monitor:
+      title: "Outboard Limiter Current Monitor"
+      channels:
+        0:
+          label: "Upper Corner [V]"
+          field: 216
+        1:
+          label: "Midplane Main [V]"
+          field: 218
+        2:
+          label: "Lower Corner [V]"
+          field: 217
+
+  tf:
+    0:
+      r0: 0
+      label: "TF"
+      gain: -3e4
+      field: 1
+      daq_type: 0
+
+
+
+    flux_loop:
+      0:
+        label: "FL #03"
+        r: 0.592
+        z: 0.685
+        gain: -0.090909091
+        field: 18
+        daq_type: 0
+      1:
+        label: "FL #04"
+        r: 0.792
+        z: 0.460
+        gain: 0.090909091
+        field: 19
+        daq_type: 0
+      # … (총 0~10번 채널)
+
+    pf_active:
+      0:
+        label: "PF1"
+        gain: -1000
+        field: 59
+        daq_type: 0
+      1:
+        label: "PF2"
+        gain: 1000
+        field: 4
+        daq_type: 0
+      # … (0~9번 채널)
+
+    filterscope:
+      0:
+        label: "Ha"
+        description: "Hydrogen Alpha line intensity"
+        field: 101
+        daq_type: 1
+      1:
+        label: "OI"
+        description: "Oxygen I line intensity"
+        field: 214
+        daq_type: 1
+      # … (총 0~6번)
+
+    limiter_monitor:
+      title: "Outboard Limiter Current Monitor"
+      channels:
+        0:
+          label: "Upper Corner [V]"
+          field: 216
+        1:
+          label: "Midplane Main [V]"
+          field: 218
+        2:
+          label: "Lower Corner [V]"
+          field: 217
+
+    barometry:
+      0:
+        label: "PKR-251 Main Gauge"
+        field: 13
+        daq_type: 0
+
+  barometry:
+    ids_properties: 0
+    comment: "VEST Pressure Gauge data"
+    homogeneous_time: 1
+
+  spectrometer_uv:
+    ids_properties: 0
+    comment: "VEST filterscope data"
+    homogeneous_time: 0
+    channel:
+      0:
+        name: "Slow DaQ Filterscope"
+        processed_line:
+          0:
+            label: "H-alpha_6563"
+            wavelength_central: 656.3E-9
+          1:
+            label: "OI_7770"
+            wavelength_central: 777.0E-9
+      1:
+        name: "Fast DaQ Filterscope"
+        processed_line:
+          0:
+            label: "H-alpha_6563"
+            wavelength_central: 656.3E-9
+          1:
+            label: "H-beta_4861"
+            wavelength_central: 486.1E-9
+          2:
+            label: "H-gamma_4341"
+            wavelength_central: 434.1E-9
+          3:
+            label: "OI_7770"
+            wavelength_central: 777.0E-9
+          4:
+            label: "OII_4668"
+            wavelength_central: 466.8E-9
+          5:
+            label: "CIII_4647"
+            wavelength_central: 464.7E-9
+
+  halo_current:
+    limiter_monitor:
+    title: Outboard Limiter Current Monitor
+    channels:
+      0:
+        label: Upper Coner [V]
+        field: 216
+      1:
+        label: Midplane Main [V]
+        field: 218
+      2:
+        label: Lower Coner [V]
+        field: 217  
+# –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# Shot-specific overrides
+20259:
+  pf_active:
+    0:
+      gain: -50000
+    8:
+      gain: -500
+    9:
+      gain: -500
+
+38110:
+  pf_active:
+    4:
+      gain: -10000
+    5:
+      gain: -1000
+
+38361:
+  pf_active:
+    0:
+      gain: 50000
+
+38401:
+  pf_active:
+    0:
+      gain: -50000
