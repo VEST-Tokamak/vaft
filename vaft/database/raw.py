@@ -3,7 +3,7 @@
 """
 MySQL-based VEST Database Access and Plotting
 
-This module provides convenient functions to connect to VEST's MySQL database
+This module provides convenient functions to connect to VEST's MySQL Raw Daq Signal database
 via a connection pool, load data by shot/field, correct time arrays for DAQ
 triggers, retrieve date or shot lists, and plot results.
 """
@@ -11,429 +11,427 @@ triggers, retrieve date or shot lists, and plot results.
 import os
 import re
 import time
+from typing import List, Tuple, Optional, Union, Dict, Any
 import numpy as np
 import mysql.connector
 import matplotlib.pyplot as plt
 import json
-
+import gzip
 from mysql.connector.pooling import MySQLConnectionPool
+import logging
+from datetime import datetime
 
 import os
 import yaml
 from cryptography.fernet import Fernet
 
-# Define the paths for the encryption key and configuration file
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Constants
 KEY_FILE = os.path.expanduser("~/.vest/encryption_key.key")
 CONFIG_FILE = os.path.expanduser("~/.vest/database_raw_info.yaml")
 
+# DAQ related constants
+FAST_DT = 4e-6   # Fast DAQ sampling interval (seconds)
+SLOW_DT = 4e-5   # Slow DAQ sampling interval (seconds)
+SLOW_DT_THRESHOLD = 5e-6  # Threshold for slow/fast DAQ classification
 
-# Function to load or generate an encryption key
-def load_or_generate_key():
-    # Ensure the directory for the key file exists
+# Shot range constants
+MIN_SHOT = 29349
+MID_SHOT = 42190
+MAX_RETRIES = 3
+POOL_SIZE = 4
+
+# Field codes to exclude
+EXCLUDED_FIELD_CODES = {110, 111, 112, 113}  # Processed Triple Probe Signals
+
+def load_or_generate_key() -> bytes:
+    """
+    Load or generate an encryption key.
+
+    Returns:
+        bytes: The encryption key
+    """
     key_dir = os.path.dirname(KEY_FILE)
     os.makedirs(key_dir, exist_ok=True)
 
     if os.path.exists(KEY_FILE):
-        # Load the existing key
         with open(KEY_FILE, "rb") as key_file:
             return key_file.read()
     else:
-        # Generate a new key and save it to the key file
         key = Fernet.generate_key()
         with open(KEY_FILE, "wb") as key_file:
             key_file.write(key)
         return key
 
-
-# Class to manage encrypted configuration settings
 class SecureConfigManager:
     def __init__(self):
-        # Initialize encryption key and cipher
         self.key = load_or_generate_key()
         self.cipher = Fernet(self.key)
 
-    def encrypt(self, plain_text):
-        # Encrypt plain text and return the encrypted string
+    def encrypt(self, plain_text: str) -> str:
         return self.cipher.encrypt(plain_text.encode()).decode()
 
-    def decrypt(self, encrypted_text):
-        # Decrypt encrypted text and return the plain text string
+    def decrypt(self, encrypted_text: str) -> str:
         return self.cipher.decrypt(encrypted_text.encode()).decode()
 
-    def get_info(self):
+    def get_info(self) -> None:
+        """Prompt user for database configuration and save to YAML."""
+        try:
+            hostname = input("Enter the database hostname: ")
+            username = input("Enter the database username: ")
+            password = input("Enter the database password: ")
+            database = "VEST"
+
+            encrypted_password = self.encrypt(password)
+            config_data = {
+                "hostname": hostname,
+                "username": username,
+                "password": encrypted_password,
+                "database": database,
+            }
+
+            with open(CONFIG_FILE, "w") as file:
+                yaml.dump(config_data, file)
+                logger.info(f"Configuration saved to {CONFIG_FILE}")
+        except Exception as e:
+            logger.error(f"Error saving configuration: {e}")
+            raise
+
+    def load_config(self) -> Tuple[str, str, str, str]:
         """
-        Prompt the user to input configuration details and save them to a YAML file.
+        Load database configuration from YAML file.
+
+        Returns:
+            Tuple[str, str, str, str]: (hostname, username, password, database)
         """
-        hostname = input("Enter the database hostname: ")
-        username = input("Enter the database username: ")
-        password = input("Enter the database password: ")
-        database = "VEST"
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, "r") as file:
+                    config_data = yaml.safe_load(file)
 
-        # Encrypt the password before saving
-        encrypted_password = self.encrypt(password)
+                    return (
+                        config_data["hostname"],
+                        config_data["username"],
+                        self.decrypt(config_data["password"]),
+                        config_data["database"]
+                    )
+            else:
+                logger.info(f"No configuration file found at {CONFIG_FILE}. Initializing setup...")
+                self.get_info()
+                return self.load_config()
+        except Exception as e:
+            logger.error(f"Error loading configuration: {e}")
+            raise
 
-        # Create a dictionary to hold the configuration
-        config_data = {
-            "hostname": hostname,
-            "username": username,
-            "password": encrypted_password,
-            "database": database,
-        }
-
-        # Save the configuration to the YAML file
-        with open(CONFIG_FILE, "w") as file:
-            yaml.dump(config_data, file)
-        print(f"Configuration saved to {CONFIG_FILE}")
-
-    def load_config(self):
-        """
-        Load configuration from the YAML file. If the file does not exist,
-        prompt the user to input details.
-        """
-        if os.path.exists(CONFIG_FILE):
-            # Load configuration from the YAML file
-            with open(CONFIG_FILE, "r") as file:
-                config_data = yaml.safe_load(file)
-
-            hostname = config_data["hostname"]
-            username = config_data["username"]
-            password = self.decrypt(config_data["password"])
-            database = config_data["database"]
-
-            return hostname, username, password, database
-        else:
-            # If configuration does not exist, initialize it
-            print(f"No configuration file found at {CONFIG_FILE}. Initializing setup...")
-            self.get_info()
-            return self.load_config()
-
-
-# Main configuration function
-def configuration():
-    """
-    Main function to handle configuration management for vaft.db.raw.
-    This function loads configuration details and provides them for use
-    in the library.
-    """
-    manager = SecureConfigManager()
-    hostname, username, password, database = manager.load_config()
-
-    # Print the loaded configuration for debugging (can be removed in production)
-    print("Configuration loaded:")
-    print(f"Hostname: {hostname}")
-    print(f"Username: {username}")
-    print(f"Password: {password}")
-    print(f"Database: {database}")
-
-    # Return the configuration details
-    return hostname, username, password, database
-
-
-
-
-
-# ------------------------------------------------------------------------
 # Global Database Pool
-# ------------------------------------------------------------------------
-DB_POOL = None
-HOSTNAME, USERNAME, PASSWORD, DATABASE = configuration()
+DB_POOL: Optional[MySQLConnectionPool] = None
 
+def setup_raw_db() -> None:
+    """Initialize database configuration."""
+    return SecureConfigManager().get_info()
+
+def configuration() -> Tuple[str, str, str, str]:
+    """Load database configuration."""
+    scm = SecureConfigManager()
+    return scm.load_config()
 
 def init_pool() -> None:
-    """
-    Initializes the global MySQLConnectionPool. Must be called before loading data.
-
-    Uses the vaft.database.raw.configuration() function to retrieve database
-    host, user, password, and database name, which are then used to create
-    a connection pool with up to four connections.
-    """
+    """Initialize the global MySQLConnectionPool."""
     global DB_POOL
-    DB_POOL = MySQLConnectionPool(
-        pool_name="mypool",
-        pool_size=4,  # maximum number of concurrent connections
-        host=HOSTNAME,
-        database=DATABASE,
-        user=USERNAME,
-        password=PASSWORD
-    )
-
-
+    try:
+        HOSTNAME, USERNAME, PASSWORD, DATABASE = configuration()
+        DB_POOL = MySQLConnectionPool(
+            pool_name="mypool",
+            pool_size=POOL_SIZE,
+            host=HOSTNAME,
+            database=DATABASE,
+            user=USERNAME,
+            password=PASSWORD
+        )
+        logger.info("Database connection pool initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database pool: {e}")
+        raise
 
 def _load_from_shot_waveform_2(
     db_conn: mysql.connector.MySQLConnection,
     shot: int,
     field: int
-) -> tuple:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Loads shot data (time, value) from table 'shotDataWaveform_2'
-    for the specified shot and field code.
+    Load shot data from shotDataWaveform_2 table.
 
-    :param db_conn: Active MySQL database connection.
-    :param shot: Shot number.
-    :param field: Field code.
-    :return: (time_array, data_array) as np.ndarrays. If no data found, returns ([0.],[0.]).
+    Args:
+        db_conn: Active MySQL database connection
+        shot: Shot number
+        field: Field code
+
+    Returns:
+        Tuple of (time_array, data_array) as np.ndarrays
     """
-    cursor = db_conn.cursor()
-    com = (
-        "SELECT shotDataWaveformTime, shotDataWaveformValue "
-        "FROM shotDataWaveform_2 "
-        f"WHERE shotCode = {shot} AND shotDataFieldCode = {field} "
-        "ORDER BY shotDataWaveformTime ASC"
-    )
-    cursor.execute(com)
-    result = np.array(cursor.fetchall())
-    cursor.close()
+    try:
+        cursor = db_conn.cursor()
+        query = (
+            "SELECT shotDataWaveformTime, shotDataWaveformValue "
+            "FROM shotDataWaveform_2 "
+            f"WHERE shotCode = {shot} AND shotDataFieldCode = {field} "
+            "ORDER BY shotDataWaveformTime ASC"
+        )
+        cursor.execute(query)
+        result = np.array(cursor.fetchall())
+        cursor.close()
 
-    if result.size > 0:
-        return result.T[0], result.T[1]
-    return np.array([0.0]), np.array([0.0])
-
+        if result.size > 0:
+            return result.T[0], result.T[1]
+        return np.array([0.0]), np.array([0.0])
+    except Exception as e:
+        logger.error(f"Error loading from shotDataWaveform_2: {e}")
+        raise
 
 def _load_from_shot_waveform_3(
     db_conn: mysql.connector.MySQLConnection,
     shot: int,
     field: int
-) -> tuple:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Loads shot data (time, value) from table 'shotDataWaveform_3'
-    for the specified shot and field code.
+    Load shot data from shotDataWaveform_3 table.
 
-    :param db_conn: Active MySQL database connection.
-    :param shot: Shot number.
-    :param field: Field code.
-    :return: (time_array, data_array) as np.ndarrays. If multiple or zero rows
-             are found for the same shot/field, returns ([0.],[0.]) or logs a warning.
+    Args:
+        db_conn: Active MySQL database connection
+        shot: Shot number
+        field: Field code
+
+    Returns:
+        Tuple of (time_array, data_array) as np.ndarrays
     """
-    cursor = db_conn.cursor()
-    com = (
-        "SELECT shotDataWaveformTime, shotDataWaveformValue "
-        "FROM shotDataWaveform_3 "
-        f"WHERE shotCode = {shot} AND shotDataFieldCode = {field}"
-    )
-    cursor.execute(com)
-    myresult = cursor.fetchall()
-    cursor.close()
-
-    if len(myresult) != 1:
-        print(
-            f"Warning: shot={shot}, field={field} has multiple/no rows. "
-            "Returning ([0.],[0.])."
+    try:
+        cursor = db_conn.cursor()
+        query = (
+            "SELECT shotDataWaveformTime, shotDataWaveformValue "
+            "FROM shotDataWaveform_3 "
+            f"WHERE shotCode = {shot} AND shotDataFieldCode = {field}"
         )
-        return np.array([0.0]), np.array([0.0])
+        cursor.execute(query)
+        myresult = cursor.fetchall()
+        cursor.close()
 
-    shot_time_str = myresult[0][0]
-    shot_val_str = myresult[0][1]
+        if len(myresult) != 1:
+            logger.warning(
+                f"shot={shot}, field={field} has multiple/no rows. "
+                "Returning ([0.],[0.])."
+            )
+            return np.array([0.0]), np.array([0.0])
 
-    # Remove bracket characters
-    shot_time_str = re.sub(r"[\[\]]", "", shot_time_str)
-    shot_val_str = re.sub(r"[\[\]]", "", shot_val_str)
+        shot_time_str = re.sub(r"[\[\]]", "", myresult[0][0])
+        shot_val_str = re.sub(r"[\[\]]", "", myresult[0][1])
 
-    # Split by comma and convert to float
-    time_vals = np.array([float(x) for x in shot_time_str.split(",")])
-    data_vals = np.array([float(x) for x in shot_val_str.split(",")])
+        time_vals = np.array([float(x) for x in shot_time_str.split(",")])
+        data_vals = np.array([float(x) for x in shot_val_str.split(",")])
 
-    return time_vals, data_vals
-
+        return time_vals, data_vals
+    except Exception as e:
+        logger.error(f"Error loading from shotDataWaveform_3: {e}")
+        raise
 
 def _load_from_sample_file(
     shot: int,
-    fields: list,
-    sample_opt
-) -> tuple:
-    import os
-    import json
-
-    if isinstance(sample_opt, str):
-        json_path = sample_opt
-    else:
-        json_path = f"SHOT_{shot}.json"
-
-    if not os.path.isfile(json_path):
-        print(f"[_load_from_sample_file] Sample JSON file not found: {json_path}")
-        return None
-
-    with open(json_path, "r", encoding="utf-8") as f:
-        shot_json = json.load(f)
-
-    file_shot = shot_json.get("shot")
-    if file_shot is not None and file_shot != shot:
-        print(f"[_load_from_sample_file] Warning: JSON shot={file_shot}, requested shot={shot}.")
-
-    data_dict = shot_json.get("data", {})
-    if not data_dict:
-        print(f"[_load_from_sample_file] No 'data' found in JSON for shot={shot}")
-        return None
-
-    if not fields:
-        fields = list(map(int, data_dict.keys()))
-
-    import numpy as np
-
-    time_arrays = []
-    data_arrays = []
-
-    for fld in fields:
-        fld_str = str(fld)
-        if fld_str not in data_dict:
-            print(f"[_load_from_sample_file] Field {fld} not found in JSON. Skipping...")
-            continue
-
-        time_list = data_dict[fld_str].get("time", [])
-        data_list = data_dict[fld_str].get("data", [])
-        tvals = np.array(time_list, dtype=float)
-        dvals = np.array(data_list, dtype=float)
-
-        time_arrays.append(tvals)
-        data_arrays.append(dvals)
-
-    if not time_arrays:
-        print(f"[_load_from_sample_file] No valid fields loaded from JSON for shot={shot}.")
-        return None
-
-    time_ref = time_arrays[0]
-    stack_list = []
-    for arr in data_arrays:
-        min_len = min(len(time_ref), len(arr))
-        stack_list.append(arr[:min_len])
-        time_ref = time_ref[:min_len]
-
-    data_stack = np.column_stack(stack_list)
-
-    if len(fields) == 1:
-        return time_ref, data_stack.ravel()
-    else:
-        return time_ref, data_stack
-
-
-def _daq_trigger_time_correction(shot: int, time_arr: np.ndarray) -> np.ndarray:
+    fields: List[int],
+    sample_opt: str
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
-    Corrects the time array for DAQ trigger delay for fast-DAQ channels.
+    Load data from sample JSON file.
 
-    If max(time) <= 0.101, we shift the times to account for the second
-    A/I trigger. The shift is determined by shot-specific breakpoints.
+    Args:
+        shot: Shot number
+        fields: List of field codes to load
+        sample_opt: JSON file path (.gz extension included)
+
+    Returns:
+        Tuple of (time_array, data_array) as np.ndarrays or None if loading fails
     """
-    if time_arr.max() <= 0.101:
-        if shot < 41446:
-            trigger_sec = 0.24
-        elif 41446 <= shot <= 41451:
-            trigger_sec = 0.26
-        elif 41452 <= shot <= 41659:
-            trigger_sec = 0.24
-        else:  # shot >= 41660
-            trigger_sec = 0.26
-    else:
-        trigger_sec = 0.0
+    try:
+        json_path = sample_opt if isinstance(sample_opt, str) else f"SHOT_{shot}.json"
 
-    return time_arr + trigger_sec
+        if not os.path.isfile(json_path):
+            logger.error(f"Sample JSON file not found: {json_path}")
+            return None
 
+        with gzip.open(json_path, "rt", encoding="utf-8") as f:
+            shot_json = json.load(f)
+
+        file_shot = shot_json.get("shot")
+        if file_shot is not None and file_shot != shot:
+            logger.warning(f"JSON shot={file_shot}, requested shot={shot}.")
+
+        data_dict = shot_json.get("fields", {})
+        if not data_dict:
+            logger.error(f"No 'fields' found in JSON for shot={shot}")
+            return None
+
+        if not fields:
+            fields = list(map(int, data_dict.keys()))
+
+        time_arrays = []
+        data_arrays = []
+
+        for fld in fields:
+            fld_str = str(fld)
+            entry = data_dict.get(fld_str)
+            if entry is None:
+                logger.warning(f"Field {fld} not found in JSON. Skipping...")
+                continue
+
+            raw_data = entry.get("data", [])
+            if not raw_data:
+                logger.warning(f"No data array for field {fld}. Skipping...")
+                continue
+
+            dt = SLOW_DT if entry.get("type") == "slow" else FAST_DT
+            n = len(raw_data)
+            tvals = np.arange(n, dtype=float) * dt
+            dvals = np.array(raw_data, dtype=float)
+
+            if dt == FAST_DT:
+                tvals = tvals + _daq_trigger_time_correction(shot)
+
+            time_arrays.append(tvals)
+            data_arrays.append(dvals)
+
+        if not time_arrays:
+            logger.error(f"No valid fields loaded from JSON for shot={shot}.")
+            return None
+        
+        time_ref = time_arrays[0]
+        data_stack = np.column_stack([
+            arr[:len(time_ref)] for arr in data_arrays
+        ])
+        time_ref = time_ref[:min(len(arr) for arr in data_arrays)]
+
+        return (time_ref, data_stack.ravel()) if len(fields) == 1 else (time_ref, data_stack)
+
+    except Exception as e:
+        logger.error(f"Error loading from sample file: {e}")
+        return None
+
+def _daq_trigger_time_correction(shot: int) -> float:
+    """
+    Correct time array for DAQ trigger delay.
+
+    Args:
+        shot: Shot number
+
+    Returns:
+        float: Time shift value
+    """
+    if shot < 41446:
+        return 0.24
+    elif 41446 <= shot <= 41451:
+        return 0.26
+    elif 41452 <= shot <= 41659:
+        return 0.24
+    else:  # shot >= 41660
+        return 0.26
 
 def load_raw(
     shot: int,
-    fields=None,
-    max_retries: int = 3,
-    daq_type: int = None,
-    sample_opt=False
-) -> tuple:
+    fields: Optional[Union[int, List[int]]] = None,
+    max_retries: int = MAX_RETRIES,
+    daq_type: Optional[int] = None,
+    sample_opt: Union[bool, str] = False
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
-    High-level data loader for the VEST database. Must run init_pool() first.
+    High-level data loader for the VEST database.
 
-    1) sample_opt:
-       - False (default): DB에서 로드
-       - True or str(파일 경로): 샘플 JSON 파일에서 로드
-    2) DB 로직:
-       - shot 범위에 따라 _load_from_shot_waveform_2 / _load_from_shot_waveform_3 사용
-       - 여러 필드를 2D로 스택
-    3) fields:
-       - None이면 빈 리스트로 간주(샘플 파일의 경우 => 모든 필드, DB로직의 경우 => 직접 지정 필요)
-       - int -> 단일 필드
-       - list -> 다중 필드
-    4) 반환:
-       - 단일 필드 => (time, data_1D)
-       - 다중 필드 => (time, data_2D)
+    Args:
+        shot: Shot number
+        fields: Field code(s) to load
+        max_retries: Maximum number of connection retries
+        daq_type: DAQ type
+        sample_opt: Sample file path or False for DB loading
+
+    Returns:
+        Tuple of (time_array, data_array) as np.ndarrays or None if loading fails
     """
-    # fields 정규화
-    if fields is None:
-        fields = []
-    elif isinstance(fields, int):
-        fields = [fields]
+    try:
+        # Normalize fields parameter
+        if fields is None:
+            fields = []
+        elif isinstance(fields, int):
+            fields = [fields]
 
-    # ------------------------------
-    # A) sample_opt인 경우: JSON 파일 로딩
-    # ------------------------------
-    if sample_opt:
-        from_sample = _load_from_sample_file(shot, fields, sample_opt)
-        if from_sample is None:
+        # Load from sample file if specified
+        if isinstance(sample_opt, str):
+            result = _load_from_sample_file(shot, fields, sample_opt)
+            return result if result is not None else None
+
+        # Initialize DB pool if needed
+        global DB_POOL
+        if DB_POOL is None:
+            logger.info("DB_POOL not initialized. Initializing automatically...")
+            init_pool()
+
+        # Load from database
+        if not fields:
+            logger.error("No fields specified for DB loading.")
             return None
-        else:
-            # time_arr, data_arr(2D or 1D)
-            return from_sample
 
-    # ------------------------------
-    # B) DB에서 로딩
-    # ------------------------------
-    global DB_POOL
-    if DB_POOL is None:
-        print("Error: DB_POOL is not initialized. Run init_pool() first.")
-        return None
+        attempts = 0
+        while attempts < max_retries:
+            conn = None
+            try:
+                conn = DB_POOL.get_connection()
+                time_arrays, data_arrays = [], []
 
-    attempts = 0
-    while attempts < max_retries:
-        conn = None
-        try:
-            conn = DB_POOL.get_connection()
-            time_arrays, data_arrays = [], []
+                for fld in fields:
+                    if MIN_SHOT < shot <= MID_SHOT:
+                        tvals, dvals = _load_from_shot_waveform_2(conn, shot, fld)
+                    elif shot > MID_SHOT:
+                        tvals, dvals = _load_from_shot_waveform_3(conn, shot, fld)
+                    else:
+                        logger.error("Shot number out of range for these tables.")
+                        return None
 
-            # 최소 하나 이상의 필드는 지정되어 있어야 DB에서 로드 가능
-            if not fields:
-                print("[load] No fields specified for DB loading.")
-                return None
+                    time_arrays.append(tvals)
+                    data_arrays.append(dvals)
 
-            for fld in fields:
-                if 29349 < shot <= 42190:
-                    tvals, dvals = _load_from_shot_waveform_2(conn, shot, fld)
-                elif shot > 42190:
-                    tvals, dvals = _load_from_shot_waveform_3(conn, shot, fld)
-                else:
-                    print("Shot number out of range for these tables.")
+                if not time_arrays:
+                    logger.error(f"No data found for shot={shot} from DB.")
                     return None
 
-                time_arrays.append(tvals)
-                data_arrays.append(dvals)
-
-            if not time_arrays:
-                print(f"[load] No data found for shot={shot} from DB.")
-                return None
-
-            # 여러 필드를 스택
-            time_ref = time_arrays[0]
-            stack_list = []
-            for arr in data_arrays:
-                min_len = min(len(time_ref), len(arr))
-                stack_list.append(arr[:min_len])
+                # Stack multiple fields
+                time_ref = time_arrays[0]
+                min_len = min(len(arr) for arr in data_arrays)
+                data_stack = np.column_stack([
+                    arr[:min_len] for arr in data_arrays
+                ])
                 time_ref = time_ref[:min_len]
 
-            # DAQ trigger delay correction 
-            time_ref = _daq_trigger_time_correction(shot, time_ref)
+                # Apply DAQ trigger correction
+                if time_ref[-1] < 0.101:
+                    time_ref = time_ref + _daq_trigger_time_correction(shot)
 
+                return (time_ref, data_stack.ravel()) if len(fields) == 1 else (time_ref, data_stack)
 
-            data_stack = np.column_stack(stack_list)
+            except mysql.connector.Error as err:
+                logger.error(f"Error connecting to MySQL (try {attempts+1}): {err}")
+                attempts += 1
+                time.sleep(1)
+            finally:
+                if conn and conn.is_connected():
+                    conn.close()
 
-            if len(fields) == 1:
-                return time_ref, data_stack.ravel()
-            else:
-                return time_ref, data_stack
+            logger.error("Could not retrieve data after max_retries.")
+        return None
 
-        except mysql.connector.Error as err:
-            print(f"Error connecting to MySQL (try {attempts+1}): {err}")
-            attempts += 1
-            time.sleep(1)
-        finally:
-            if conn and conn.is_connected():
-                conn.close()
-
-    print("[load] Error: Could not retrieve data after max_retries.")
-    return None
-
+    except Exception as e:
+        logger.error(f"Error in load_raw: {e}")
+        return None
 
 def name(field: int) -> tuple:
     """
@@ -464,7 +462,6 @@ def name(field: int) -> tuple:
     if result is not None:
         return result[0], result[1]
     return None, None
-
 
 def plot(
     shots,
@@ -589,7 +586,6 @@ def plot(
     else:
         print("Error: Unsupported shot-field configuration for plotting.")
 
-
 def date_from_shot(shot: int) -> tuple:
     """
     Returns (date_str, datetime_obj) for the given shot number from the shot table.
@@ -616,7 +612,6 @@ def date_from_shot(shot: int) -> tuple:
     datetime_obj = result[0]
     date_str = datetime_obj.strftime("%Y-%m-%d")
     return date_str, datetime_obj
-
 
 def shots_from_date(date_str: str) -> list:
     """
@@ -645,7 +640,6 @@ def shots_from_date(date_str: str) -> list:
         return [int(x[0]) for x in results]
     return []
 
-
 def last_shot() -> int:
     """
     Returns the maximum shotCode from the shot table.
@@ -669,14 +663,6 @@ def last_shot() -> int:
         return int(result[0])
     return None
 
-
-# Additional placeholder:
-# def trigger(shot, field):
-#   pass
-
-"""
-Generate Sample 
-"""
 def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     """
     Returns all field codes used in the given shot.
@@ -718,10 +704,12 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
             cursor.execute(query)
             rows = cursor.fetchall()
             cursor.close()
-            conn.close()
 
             # rows -> [(field1,), (field2,), ...]
             field_codes = [r[0] for r in rows]
+            # remove 110, 111, 112, 113 (Processed Triple Probe Signal which has different time array)
+            field_codes = [f for f in field_codes if f not in EXCLUDED_FIELD_CODES]
+
             return field_codes
 
         except mysql.connector.Error as e:
@@ -735,81 +723,215 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     print("Error: Could not retrieve field codes after max_retries.")
     return None
 
-
 def store_shot_as_json(
     shot: int,
-    output_path: str,
+    output_path: str = None,
     max_retries: int = 3,
-    daq_type: int = 0
-):
+    daq_type: int = 0,
+    slow_dt_threshold: float = 5e-6,  # Time interval threshold for slow DAQ [4e-5 sec/sample] vs Fast DAQ [4e-6 sec/sample] classification
+    plot_opt: bool = False
+) -> bool:
     """
-    - First, retrieve all field codes for the specified shot (get_all_field_codes_for_shot).
-    - Load the entire shot data in the form of (time, data2D) using the load function.
-    - Split by field and save as a JSON file.
+    Store shot data as JSON file with the following steps:
+    1. Retrieve list of field codes
+    2. Load (time, data1D) using load_raw
+    3. Classify as fast/slow based on sampling interval (time[1]-time[0])
+    4. Create shot_data = { "shot": shot, "fields": {fcode: {type, data}} }
+    5. Save as gzip compressed JSON (.json.gz)
+    6. If plot_opt is True, display and save signals as subplots
+    """
+    # Set default output path
+    if output_path is None:
+        output_path = os.path.join(os.getcwd(), f"vest_raw_{shot}.json.gz")
+    elif not output_path.endswith(".gz"):
+        output_path += ".gz"
 
-    :param shot: Shot number
-    :param output_path: Path to save the JSON file
-    :param max_retries: Number of attempts for load function and field code retrieval
-    :param daq_type: daq_type option for the load function
-    :return: True (success), False (failure)
-    """
-    # 1) Retrieve all field codes
+    # 1) Retrieve field codes
     field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
     if not field_codes:
-        print(f"[store_shot_as_json] No valid field codes found for shot {shot}.")
+        print(f"[store_shot_as_json] No valid field codes for shot {shot}")
         return False
 
-    # 2) Retrieve the entire shot data using load
-    #    If field_codes are provided to fields, (time, data2D) is returned
-    load_result = load_raw(shot, fields=field_codes, max_retries=max_retries, daq_type=daq_type)
-    if load_result is None:
-        print(f"[store_shot_as_json] Failed to load data for shot {shot}.")
-        return False
-
-    time_array, data_2d = load_result
-    if data_2d.ndim < 2:
-        print("[store_shot_as_json] Data dimension unexpected.")
-        return False
-
-    # 3) Construct a dictionary to save the entire shot data
-    #    Example structure:
-    #    {
-    #      "shot": 12345,
-    #      "data": {
-    #         1: {"time": [...], "data": [...]},
-    #         2: {"time": [...], "data": [...]},
-    #         ...
-    #      }
-    #    }
-    shot_data_dict = {
+    # 2) Load data and determine DAQ type
+    shot_data = {
         "shot": shot,
-        "data": {}
+        "fields": {}
     }
 
-    # Separate time and data for all fields
-    # time_array.shape = (N,)
-    # data_2d.shape = (N, len(field_codes))
-    for i, fcode in enumerate(field_codes):
-        shot_data_dict["data"][str(fcode)] = {
-            "time": time_array.tolist(),
-            "data": data_2d[:, i].tolist()
+    # Prepare subplot if plot_opt is True
+    if plot_opt == 1:
+        n_fields = len(field_codes)
+        n_cols = int(np.ceil(np.sqrt(n_fields)))
+        n_rows = int(np.ceil(n_fields / n_cols))
+        plt.figure(figsize=(20, 20))
+        plot_idx = 1
+
+    for fcode in field_codes:
+        try:
+            time, data = load_raw(
+                shot, fcode,
+                max_retries=max_retries,
+                daq_type=daq_type
+            )
+        except Exception as e:
+            print(f"[store_shot_as_json] load_raw failed for field {fcode}: {e}")
+            continue
+
+        if len(time) < 2:
+            print(f"[store_shot_as_json] insufficient time points for field {fcode}")
+            continue
+
+        # Classify as fast/slow based on sampling interval
+        is_slow = (time[1] - time[0]) >= slow_dt_threshold
+        daq_label = "slow" if is_slow else "fast"
+
+        shot_data["fields"][str(fcode)] = {
+            "type": daq_label,
+            "data": data.tolist()
         }
 
-    # 4) Save as a JSON file
+        # Display signal as subplot if plot_opt is True
+        if plot_opt == 1:
+            plt.subplot(n_rows, n_cols, plot_idx)
+            plt.plot(time, data)
+            field_name, field_remark = name(fcode)
+            title = f"Field {fcode}"
+            if field_name:
+                title += f"\n{field_name}"
+            if field_remark:
+                title += f"\n{field_remark}"
+            plt.title(title, fontsize=8)
+            plt.grid(True)
+            plot_idx += 1
+
+    if not shot_data["fields"]:
+        print(f"[store_shot_as_json] No data loaded for shot {shot}")
+        return False
+
+    # Save all subplots if plot_opt is True
+    if plot_opt == 1:
+        plt.tight_layout()
+        plot_path = output_path.replace('.json.gz', '_signals.png')
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"[store_shot_as_json] Signal plots saved to {plot_path}")
+
+    # 3) Save as gzip compressed JSON
     try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(shot_data_dict, f, ensure_ascii=False, indent=2)
+        with gzip.open(output_path, "wt", encoding="utf-8") as gz:
+            json.dump(shot_data, gz, ensure_ascii=False, indent=2)
         print(f"[store_shot_as_json] Shot {shot} saved to {output_path}")
         return True
     except Exception as e:
-        print(f"[store_shot_as_json] Failed to save JSON: {e}")
+        print(f"[store_shot_as_json] Failed to write JSON: {e}")
         return False
 
+def compare_db_and_dumped_raw_signals(
+    shot: int,
+    output_path: str = None,
+    max_retries: int = 3,
+    daq_type: int = 0,
+    slow_dt_threshold: float = 5e-6
+) -> bool:
+    """
+    Compare and plot original signals from database with signals loaded from JSON file
+    
+    Parameters:
+    -----------
+    shot : int
+        Shot number to compare
+    output_path : str, optional
+        JSON file path. If None, automatically generated
+    max_retries : int, default=3
+        Number of DB connection retries
+    daq_type : int, default=0
+        DAQ type
+    slow_dt_threshold : float, default=5e-6
+        Time interval threshold for slow/fast DAQ classification
+        
+    Returns:
+    --------
+    bool
+        Success status
+    """
+    # 1) Retrieve field codes from DB
+    field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
+    if not field_codes:
+        print(f"[compare_signals] No valid field codes for shot {shot}")
+        return False
 
-# # main
-# if __name__ == "__main__":
-#     shot = 39915
-#     # Path to save the JSON file
-#     output_file = f"shot_{shot}.json"
-#     # Save
-#     store_shot_as_json(shot, output_file)
+    # 2) Set JSON file path
+    if output_path is None:
+        output_path = os.path.join(os.getcwd(), f"vest_raw_{shot}.json.gz")
+    elif not output_path.endswith(".gz"):
+        output_path += ".gz"
+
+    # 3) Set up subplot layout
+    n_fields = len(field_codes)
+    n_cols = int(np.ceil(np.sqrt(n_fields)))
+    n_rows = int(np.ceil(n_fields / n_cols))
+    plt.figure(figsize=(20, 20))
+    plot_idx = 1
+
+    # 4) Compare DB and JSON data for each field
+    for fcode in field_codes:
+        try:
+            # Load data from DB
+            db_time, db_data = load_raw(shot, fcode, max_retries=max_retries, daq_type=daq_type)
+            
+            # Load data from JSON
+            json_time, json_data = load_raw(shot, fcode, sample_opt=output_path)
+            
+            if db_time is None or json_time is None:
+                print(f"[compare_signals] Failed to load data for field {fcode}")
+                continue
+
+            # Create subplot
+            plt.subplot(n_rows, n_cols, plot_idx)
+            
+            # Plot DB data
+            plt.plot(db_time, db_data, 'b-', label='DB Data', alpha=0.7)
+            
+            # Plot JSON data
+            plt.plot(json_time, json_data, 'r--', label='JSON Data', alpha=0.7)
+            
+            # Set title
+            field_name, field_remark = name(fcode)
+            title = f"Field {fcode}"
+            if field_name:
+                title += f"\n{field_name}"
+            if field_remark:
+                title += f"\n{field_remark}"
+            
+            # Calculate data difference
+            if len(db_data) == len(json_data):
+                max_diff = np.max(np.abs(db_data - json_data))
+                title += f"\nMax Diff: {max_diff:.2e}"
+            else:
+                title += f"\nLength Mismatch: DB={len(db_data)}, JSON={len(json_data)}"
+            
+            plt.title(title, fontsize=8)
+            plt.grid(True)
+            plt.legend(fontsize=6)
+            plot_idx += 1
+
+        except Exception as e:
+            print(f"[compare_signals] Error processing field {fcode}: {e}")
+            continue
+
+    # 5) Save all plots
+    plt.tight_layout()
+    plot_path = output_path.replace('.json.gz', '_comparison.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"[compare_signals] Comparison plots saved to {plot_path}")
+    
+    return True
+
+# main
+if __name__ == "__main__":
+    init_pool()
+    shots = [39915, 43000, 45000]
+    for shot in shots:
+        store_shot_as_json(shot, plot_opt=1)
+        # compare_db_and_dumped_raw_signals(shot)
