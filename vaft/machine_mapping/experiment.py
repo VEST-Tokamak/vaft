@@ -7,12 +7,14 @@ Each function processes both static (geometry) and dynamic (measurement) data.
 """
 
 import os
+import vaft
 import yaml
 import numpy as np
 from omas import ODS
 from typing import Tuple, Dict, Any, Optional
 import scipy.signal as signal
 from datetime import datetime
+from scipy.io import loadmat
 
 def load_raw_data(source: str, field: str, options: Optional[Dict[str, Any]] = None) -> Tuple[np.ndarray, np.ndarray]:
     """
