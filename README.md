@@ -6,7 +6,7 @@ All users are allowed to read these datasets, but if modification/deletion permi
 ## Quick start guide
 
 The easiest was to use this framework is to install the framwork with `pip install vaft`. And if the download is finished, enter `hsconfigure` in command line. Then you will have to write `Server endpoint []`, `Username []`, `Password []`.
-Write `http://147.46.36.145:5101` for endpoint, and if you have your own username write down, if not just write `reader`, `vest` for each username and password. 
+Write `http://147.46.36.244:5101` for endpoint, and if you have your own username write down, if not just write `reader`, `vest` for each username and password. 
 
 ```
 Testing connection...
