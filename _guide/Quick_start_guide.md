@@ -35,13 +35,13 @@ Configuration
 =====
 Follow the below line in your command line. If you don't have any authentication just use :
 username : reader
-passward : vest
+passward : test
 
 ```bash
 >> hsconfigure
 Enter new values or accept defaults in brackets with Enter.
 
-Server endpoint []: http://147.46.36.145:5101
+Server endpoint []: http://147.46.36.244:5101
 Username []: $your_username$
 Password []: $your_password$
 API Key [None]: 
