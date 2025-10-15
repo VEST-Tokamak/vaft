@@ -13,7 +13,6 @@ Notation
 Φ_b    : Φ(ψ_b)                                     [Wb]
 ρ_N    : normalised minor-radius (0 at axis, 1 at edge)
 q      : safety factor                              [-]
-
 """
 
 import warnings

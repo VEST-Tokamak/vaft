@@ -14,12 +14,20 @@ omfit_classes
 matplotlib
 cryptography
 # wexpect
-omas==0.94.2
-cryptography>=42.0.0
-numpy==1.26.4
-h5py==3.11.0
-imageio>=2.34.0
-ipython
-seaborn
 ipywidgets
-pyyaml
+matplotlib==3.7.3
+mysql-connector-python>=8.4.0
+omfit-classes
+opencv-python>=4.9.0.80
+pandas>=2.2.2
+ipykernel>=6.29.4
+PyYAML==6.0.2
+scipy==1.13.0
+snakemake
+uncertainties==3.2.2
+urllib3==1.26.13
+xarray>=2024.4.0
+astropy==6.1.7
+pyjwt
+imas-python==2.0.0.post1
+wexpect; sys_platform == 'win32'

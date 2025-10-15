@@ -13,4 +13,3 @@ from . import database
 
 
 import vaft
-from omas import *

@@ -1,9 +1,10 @@
 from omas import *
 import pkg_resources
+from omfit_classes.omfit_eqdsk import OMFITeqdsk
 
 def sample_ods():
     # load the sample ods file in the package data folder
-    data_path = pkg_resources.resource_filename('vest', 'data/39915.json')
+    data_path = pkg_resources.resource_filename('vaft', 'data/39915.json')
 
     # load the ods file
     ods = ODS()
@@ -13,10 +14,10 @@ def sample_ods():
 def sample_odc():
     # load the sample odc file in the package data folder
     data_1 = '39915.json'
-    data_2 = '39916.json'
-    data_3 = '39917.json'
+    data_2 = '41524.json'
+    data_3 = '41672.json'
 
-    data_path = pkg_resources.resource_filename('vest', 'data/')
+    data_path = pkg_resources.resource_filename('vaft', 'data/')
 
     # load the ods files
     ods1 = ODS()
@@ -33,3 +34,11 @@ def sample_odc():
     odc['2'] = ods3
 
     return odc
+
+def sample_gfile():
+    # load the sample gfile file in the package data folder
+    data_path = pkg_resources.resource_filename('vaft', 'data/g039915.00317')
+
+    # load the gfile file
+    gfile = OMFITeqdsk(data_path)
+    return gfile
