@@ -7,6 +7,33 @@ from vaft.formula import psi_norm
 
 # print_available_ids(ods)
 
+<<<<<<< Updated upstream
+=======
+def update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None):
+    """
+    Update normalized poloidal flux (psi_norm) for all time slices.
+    
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+    """
+    # Process all time slices if not specified
+    time_slices = ods['equilibrium.time_slice'] if time_slice is None else (
+        [time_slice] if isinstance(time_slice, int) else time_slice)
+    
+    for idx in time_slices:
+        ts = ods['equilibrium.time_slice'][idx]
+        # Get psi values
+        psi = ts['profiles_1d.psi']
+        psi_axis = ts['global_quantities.psi_axis']
+        psi_bdry = ts['global_quantities.psi_boundary']
+        
+        # Calculate normalized psi
+        psi_n = (psi - psi_axis) / (psi_bdry - psi_axis)
+        
+        # Store in ODS
+        ts['profiles_1d.psi_norm'] = psi_n
+>>>>>>> Stashed changes
 
 def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot_opt=0):
     """
@@ -84,6 +111,7 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
             plt.tight_layout()
             plt.show()
 
+<<<<<<< Updated upstream
 def update_equilibrium_coordinates(ods):
     """Main entry point for updating all equilibrium coordinates"""
     # Update normalized psi for all time slices
@@ -92,6 +120,77 @@ def update_equilibrium_coordinates(ods):
         psi = ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi']
         psi_axis = ods[f'equilibrium.time_slice.{ts}.global_quantities.psi_axis']
         psi_bdry = ods[f'equilibrium.time_slice.{ts}.global_quantities.psi_boundary']
+=======
+def update_equilibrium_boundary(ods, time_slice=None):
+    """
+    Update geometric axis for all time slices.
+    """
+    time_slices = ods['equilibrium.time_slice'] if time_slice is None else (
+        [time_slice] if isinstance(time_slice, int) else time_slices)
+    
+    for idx in time_slices:
+        ts = ods['equilibrium']['time_slice'][idx]
+        # check if boundary.outline exists
+        if 'boundary.outline' not in ts:
+            print(f"Warning: boundary.outline not found for time slice {idx}")
+            continue
+        r_min = ts['boundary.outline']['r'].min()
+        r_max = ts['boundary.outline']['r'].max()
+        z_min = ts['boundary.outline']['z'].min()
+        z_max = ts['boundary.outline']['z'].max()
+        ts['boundary.geometric_axis.r'] = (r_max + r_min) / 2
+        ts['boundary.geometric_axis.z'] = (z_max + z_min) / 2
+        ts['boundary.minor_radius'] = (r_max - r_min) / 2
+        ts['boundary.triangularity_lower'] = ts['profiles_1d.triangularity_lower'][-1]
+        ts['boundary.triangularity_upper'] = ts['profiles_1d.triangularity_upper'][-1]
+        ts['boundary.triangularity'] = (ts['boundary.triangularity_lower'] + ts['boundary.triangularity_upper']) / 2
+        # elongation
+        ts['boundary.elongation'] = ts['profiles_1d.elongation'][-1]
+
+
+def update_equilibrium_coordinates(ods, time_slice=None, plot_opt=0):
+    """
+    Main entry point for updating all equilibrium coordinates.
+    Updates normalized psi and radial coordinates for all time slices.
+    
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+        plot_opt (int): 0=no plot, 1=plot validation
+    """
+    # Update normalized psi
+    update_equilibrium_profiles_1d_normalized_psi(ods, time_slice)
+    
+    # Update radial coordinates
+    update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice, plot_opt)
+
+def update_equilibrium_global_quantities_q_min(ods, time_slice=None):
+    """
+    Update q_min for all time slices using min() of profiles_1d.q
+    """
+    for idx in time_slice:
+        ts = ods['equilibrium.time_slice'][idx]
+        ts['global_quantities.q_min'] = ts['profiles_1d.q'].min()
+
+def update_equilibrium_global_quantities_volume(ods, time_slice=None):
+    """
+    Update volume for all time slices using profiles_1d.volume
+    """
+    # check if profiles_1d.volume exists for each time slice
+    if time_slice is None:
+        if 'equilibrium.time_slice' in ods and len(ods['equilibrium.time_slice']):
+            time_slice = range(len(ods['equilibrium.time_slice']))
+        else:
+            print("Warning: No time slices found in ODS. Cannot update stored energy.")
+            return
+    for idx in time_slice:
+        ts = ods['equilibrium.time_slice'][idx]
+        if 'profiles_1d.volume' not in ts:
+            print(f"Warning: profiles_1d.volume not found for time slice {idx}")
+            continue
+        ts['global_quantities.volume'] = ts['profiles_1d.volume'][-1]
+
+>>>>>>> Stashed changes
 
         ods[f'equilibrium.time_slice.{ts}.profiles_1d.psi_norm'] = psi_norm(psi, psi_axis, psi_bdry)
 
@@ -120,3 +219,30 @@ def update_equilibrium_coordinates(ods):
     # r_inboard, r_outboard
     update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=0, plot_opt=0)
 
+<<<<<<< Updated upstream
+=======
+
+def update_equilibrium_stored_energy(ods, time_slice=None):
+    """
+    Update stored energy for all time slices. [ref. omas.physics_equilibrium_stored_energy]
+    """
+    if time_slice is None:
+        if 'equilibrium.time_slice' in ods and len(ods['equilibrium.time_slice']):
+            time_slice = range(len(ods['equilibrium.time_slice']))
+        else:
+            print("Warning: No time slices found in ODS. Cannot update stored energy.")
+            return
+    for idx in time_slice:
+        ts = ods['equilibrium.time_slice'][idx]
+        # check if profiles_1d.pressure and profiles_1d.volume exist
+        if 'profiles_1d.pressure' not in ts or 'profiles_1d.volume' not in ts:
+            print(f"Warning: profiles_1d.pressure or profiles_1d.volume not found for time slice {idx}")
+            continue
+        pressure_equil = ts['profiles_1d.pressure']
+        volume_equil = ts['profiles_1d.volume']
+        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * np.trapz(pressure_equil, x=volume_equil)
+        
+
+if __name__ == '__main__':
+    ods = ODS()
+>>>>>>> Stashed changes

@@ -1,9 +1,11 @@
 /vaft_/_site
 /.jekyll-cache
-*.ipynb
 vest_database_info.txt
 /__pycache__
 .ipynb_checkpoints
 *__pycache__*
 vaft.egg-info*
 /build/
+/workflow/running_linear_stability/.snakemake/metadata
+/workflow/running_linear_stability/.snakemake/incomplete
+/workflow/running_linear_stability/.snakemake/log

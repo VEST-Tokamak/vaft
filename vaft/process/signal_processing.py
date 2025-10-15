@@ -102,12 +102,16 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
 
+<<<<<<< Updated upstream
 def find_signal_onoffset(time,data,smooth_window=5):
+=======
+def signal_onoffset(time,data,smooth_window=5, threshold=0.01):
+    print("threshold for signal detection:", threshold)
+>>>>>>> Stashed changes
     # Smooth the data
     data=signal.savgol_filter(data, smooth_window, 3)
 
     # Find the onset and offset of a signal (e.g. Halpha signal)
-    threshold=0.01 # minimum value
     nbt=len(time)
 
     # index of maximum value
@@ -129,26 +133,35 @@ def find_signal_onoffset(time,data,smooth_window=5):
     offset=time[indxe]
     return onset,offset
 
-def is_signal_active(data, threshold=1e-3, verbose=False):
+def is_signal_active(data, threshold=None, verbose=False):
     """
-    Determines whether the given data represents an active signal or a near-zero (insignificant) signal.
+    Determines whether the given data represents an active signal.
 
     Parameters:
-        data (array-like): The signal data to analyze (e.g., current signal).
-        threshold (float, optional): The threshold to determine if the signal is nearly zero (default: 1e-3).
+        data (array-like): The signal data to analyze.
+        threshold (float or None): If None, use adaptive threshold based on data scale.
+        verbose (bool): If True, print debug information.
 
     Returns:
-        bool: True if the signal is active (significant variation), False if the signal is nearly zero (insignificant).
+        bool: True if the signal is active, False otherwise.
     """
-    data = np.array(data)  # Convert input to a NumPy array for compatibility
-    variance = np.var(data)  # Compute the variance of the data
-    mean_abs_change = np.mean(np.abs(np.diff(data)))  # Compute the mean absolute change
+    data = np.array(data)
+    variance = np.var(data)
+    mean_abs_change = np.mean(np.abs(np.diff(data)))
 
-    if variance < threshold and mean_abs_change < threshold:
-        if verbose:
-            print("The signal is nearly zero or has insignificant variation. Returning False.")
-        return False  # Insignificant (near-zero) signal
+    if threshold is None:
+        # Adaptive thresholds based on data scale
+        mean_val = np.mean(data)
+        var_threshold = 0.001 * mean_val**2
+        change_threshold = 0.001 * mean_val
     else:
-        if verbose:
-            print("The signal shows meaningful variations (active signal). Returning True.")
-        return True  # Active (meaningful) signal
+        var_threshold = threshold
+        change_threshold = threshold
+
+    if verbose:
+        print(f"Variance: {variance:.3e}, Threshold: {var_threshold:.3e}")
+        print(f"Mean |Δx|: {mean_abs_change:.3e}, Threshold: {change_threshold:.3e}")
+
+    if variance < var_threshold and mean_abs_change < change_threshold:
+        return False
+    return True

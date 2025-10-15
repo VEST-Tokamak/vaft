@@ -1,50 +1,52 @@
-from vaft.formula import green_br_bz, green_r
-from vaft.process import calculate_distance
+from vaft.formula import green_br_bz, green_r, calculate_distance
 from typing import List, Dict, Any, Tuple
 import numpy as np
 from numpy import ndarray
+# from scipy.linalg import expm # 행렬 지수 함수 - EVD 방법으로 대체
 
+try:
+    import numba
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+    print("Warning: Numba not found. Falling back to slower Python execution for solve_eddy_currents. Install Numba for performance.")
 
 # Description of the axisymmetric mutual electromagnetics calculations.
-
 def compute_br_bz_phi(
-    r1: float,
-    z1: float,
-    r2: float,
-    z2: float,
+    r_obs: np.ndarray,
+    z_obs: np.ndarray,
+    r_src: float,
+    z_src: float,
     shift: float = 0.01
-) -> Tuple[float, float, float]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Compute Br, Bz, and Phi (green_r) using a shift approach to avoid singularities.
+    Compute Br, Bz, and Phi using a shift approach to avoid singularities.
+    Vectorized for observer points (r_obs, z_obs).
 
-    :param r1: Radius coordinate of the observation point.
-    :param z1: Z coordinate of the observation point.
-    :param r2: Radius coordinate of the source element.
-    :param z2: Z coordinate of the source element.
+    :param r_obs: Array of radius coordinates of the observation points.
+    :param z_obs: Array of Z coordinates of the observation points.
+    :param r_src: Radius coordinate of the source element.
+    :param z_src: Z coordinate of the source element.
     :param shift: Shift value to use if the points are too close.
-    :return: (Br, Bz, Phi) at (r1, z1).
+    :return: (Br, Bz, Phi) arrays at (r_obs, z_obs).
     """
-    if calculate_distance(r1, r2, z1, z2) < shift / 3.0:
-        br1, bz1 = green_br_bz(r1 + shift, z1, r2, z2)
-        br2, bz2 = green_br_bz(r1 - shift, z1, r2, z2)
-        p1 = green_r(r1 + shift, z1, r2, z2)
-        p2 = green_r(r1 - shift, z1, r2, z2)
+    distances = calculate_distance(r_obs, r_src, z_obs, z_src)
+    
+    condition = distances < (shift / 3.0)
 
-        br = (br1 + br2) / 2.0
-        bz = (bz1 + bz2) / 2.0
-        phi = (p1 + p2) / 2.0
-    else:
-        br, bz = green_br_bz(r1, z1, r2, z2)
-        phi = green_r(r1, z1, r2, z2)
-    return br, bz, phi
+    br1_shifted, bz1_shifted = green_br_bz(r_obs + shift, z_obs, r_src, z_src)
+    br2_shifted, bz2_shifted = green_br_bz(r_obs - shift, z_obs, r_src, z_src)
+    phi1_shifted = green_r(r_obs + shift, z_obs, r_src, z_src)
+    phi2_shifted = green_r(r_obs - shift, z_obs, r_src, z_src)
 
-def compute_br_bz_phi(xr, zr, r2, z2):
-    # Placeholder for the actual computation of Br, Bz, and Phi.
-    # Replace this with the real formula or function call.
-    br = 0.0
-    bz = 0.0
-    phi = 0.0
-    return br, bz, phi
+    br_direct, bz_direct = green_br_bz(r_obs, z_obs, r_src, z_src)
+    phi_direct = green_r(r_obs, z_obs, r_src, z_src)
+
+    br_final = np.where(condition, (br1_shifted + br2_shifted) / 2.0, br_direct)
+    bz_final = np.where(condition, (bz1_shifted + bz2_shifted) / 2.0, bz_direct)
+    phi_final = np.where(condition, (phi1_shifted + phi2_shifted) / 2.0, phi_direct)
+    
+    return br_final, bz_final, phi_final
 
 def calc_grid(
     xvar: List[float],
@@ -129,25 +131,91 @@ def compute_response_matrix(
     observation_points: List[List[float]],
     coil_data: List[Dict[str, Any]],
     passive_loop_data: List[Dict[str, Any]],
-    plasma_points: List[List[float]]
+    plasma_points: List[List[float]] = None
 ) -> Tuple[ndarray, ndarray, ndarray]:
     """
-    Core computation function for electromagnetic response matrix.
-    
+    Compute the Green's function response matrix (Psi, Bz, Br) at arbitrary observation points (not a fixed R,Z grid).
+
     Args:
-        observation_points: List of [r, z] observation points
+        observation_points: List of [r, z] observation points (arbitrary, e.g., sensor/diagnostic locations)
         coil_data: List of dicts containing coil elements with fields:
             - elements: List of dicts with 'turns', 'r', 'z' for each element
         passive_loop_data: List of dicts containing loop data with fields:
             - geometry_type: 1 for outline, 2 for rectangle
             - outline_r, outline_z: Lists of coordinates for outline (type 1)
             - rectangle_r, rectangle_z: Single point for rectangle (type 2)
-        plasma_points: List of [r, z] points for plasma elements
+        plasma_points: List of [r, z] points for plasma elements (can be None, a single [r,z] point, or a list)
     
     Returns:
-        Tuple of (Psi, Bz, Br) arrays
+        Tuple of (Psi, Bz, Br) arrays, each of shape (len(observation_points), nb_coil+nb_loop+nb_plasma):
+            - Psi_matrix: Magnetic flux response
+            - Bz_matrix: Bz field response
+            - Br_matrix: Br field response
+
+    Note:
+        This function is for general (r, z) points, not for a regular R,Z grid. For grid-based response, use a dedicated grid function.
     """
-    # ... existing compute_response_matrix implementation ...
+    nb_obs = len(observation_points)
+    nb_coil = len(coil_data)
+    nb_loop = len(passive_loop_data)
+    
+    # Handle plasma argument robustly (now also accepts empty list as 'no plasma')
+    if plasma_points is None or (isinstance(plasma_points, (list, tuple)) and len(plasma_points) == 0):
+        nb_plas = 0
+        actual_plasma_points = []
+    elif isinstance(plasma_points, (list, tuple)) and len(plasma_points) == 2 and all(isinstance(x, (float, int)) for x in plasma_points):
+        nb_plas = 1
+        actual_plasma_points = [plasma_points]
+    elif isinstance(plasma_points, (list, tuple)) and len(plasma_points) > 0 and all(isinstance(x, (list, tuple)) and len(x) == 2 for x in plasma_points):
+        nb_plas = len(plasma_points)
+        actual_plasma_points = plasma_points
+    else:
+        raise ValueError("plasma_points must be None, a single [r, z] point, or a list of [r, z] points")
+
+    total_sources = nb_coil + nb_loop + nb_plas
+
+    Psi_matrix = np.zeros((nb_obs, total_sources))
+    Bz_matrix = np.zeros((nb_obs, total_sources))
+    Br_matrix = np.zeros((nb_obs, total_sources))
+
+    for i_obs, (r1, z1) in enumerate(observation_points):
+        # Active Coils contribution
+        for i_c, coil in enumerate(coil_data):
+            sum_psi_coil = 0.0
+            sum_bz_coil = 0.0
+            sum_br_coil = 0.0
+            for element in coil['elements']:
+                r2_c, z2_c, turns_c = element['r'], element['z'], element['turns']
+                br, bz, psi = compute_br_bz_phi(r1, z1, r2_c, z2_c) # Uses the corrected version
+                sum_psi_coil += psi * turns_c
+                sum_bz_coil += bz * turns_c
+                sum_br_coil += br * turns_c
+            Psi_matrix[i_obs, i_c] = sum_psi_coil
+            Bz_matrix[i_obs, i_c] = sum_bz_coil
+            Br_matrix[i_obs, i_c] = sum_br_coil
+
+        # Passive Loops contribution
+        for i_l, loop in enumerate(passive_loop_data):
+            if loop['geometry_type'] == 1: # Polygon (Outline)
+                r2_l = np.mean(loop['outline_r'])
+                z2_l = np.mean(loop['outline_z'])
+            else: # Rectangle
+                r2_l = loop['rectangle_r']
+                z2_l = loop['rectangle_z']
+            
+            br, bz, psi = compute_br_bz_phi(r1, z1, r2_l, z2_l)
+            Psi_matrix[i_obs, nb_coil + i_l] = psi
+            Bz_matrix[i_obs, nb_coil + i_l] = bz
+            Br_matrix[i_obs, nb_coil + i_l] = br
+
+        # Plasma Elements contribution
+        for i_p, (r2_p, z2_p) in enumerate(actual_plasma_points):
+            br, bz, psi = compute_br_bz_phi(r1, z1, r2_p, z2_p)
+            Psi_matrix[i_obs, nb_coil + nb_loop + i_p] = psi
+            Bz_matrix[i_obs, nb_coil + nb_loop + i_p] = bz
+            Br_matrix[i_obs, nb_coil + nb_loop + i_p] = br
+            
+    return Psi_matrix, Bz_matrix, Br_matrix
 
 def compute_response_vector(
     coil_data: List[Dict[str, Any]],
@@ -245,95 +313,153 @@ def compute_impedance_matrices(
 
     return R_mat, L_mat, M_mat
 
+# _solve_eddy_currents_original = solve_eddy_currents # Keep a reference to the original, just in case
+
 def solve_eddy_currents(
-    R_mat: np.ndarray,
-    L_mat: np.ndarray,
-    M_mat: np.ndarray,
-    coil_plasma_currents: np.ndarray,  # shape (n_times, nb_coil+nb_plasma)
-    time: np.ndarray,                  # shape (n_times,)
-    dt_sub: float = 1e-6
+    R_mat: np.ndarray,    # (nbloop, nbloop)
+    L_mat: np.ndarray,    # (nbloop, nbcoil+nbplas)
+    M_mat: np.ndarray,    # (nbloop, nbloop)
+    coil_plasma_currents: np.ndarray,  # (n_times, nbcoil+nbplas)
+    time: np.ndarray,     # (n_times,)
+    dt_sub: float = 5e-5
 ) -> np.ndarray:
     """
-    Solve the RL circuit equation for vacuum vessel using a Runge-Kutta scheme.
-    
-    :param R_mat: (nbloop, nbloop) resistance matrix
-    :param L_mat: (nbloop, nbcoil+nbplas) mutual with coil + plasma
-    :param M_mat: (nbloop, nbloop) mutual among passive loops
-    :param coil_plasma_currents: shaped (n_times, nb_coil+nb_plasma)
-    :param time: time array of shape (n_times,)
-    :param dt_sub: sub-timestep for finer integration
-    :return: computed passive loop currents, shape (n_times, nbloop)
+    Solve the RL circuit equation for vacuum vessel using EVD method.
+    Optimized by pre-calculating active current derivatives.
+    Maintains structural similarities to vfit_eddy for matrix setup.
     """
     nbloop = R_mat.shape[0]
-    n_times = len(time)
+    n_times_original = len(time)
+    n_active_sources = coil_plasma_currents.shape[1]
 
-    # Precompute the inverse of M
-    B_inv = np.linalg.inv(M_mat)
-    A_mat = -B_inv @ R_mat
+    if nbloop == 0:
+        return np.zeros((n_times_original, 0))
+    if n_times_original == 0:
+        return np.zeros((0, nbloop))
 
-    # Output array
-    I_loop = np.zeros((n_times, nbloop))
+    # Matrix setup (similar to vfit_eddy, using direct inv with pseudo-inverse fallback)
+    try:
+        B_inv_M = np.linalg.inv(M_mat)
+    except np.linalg.LinAlgError:
+        # print(f"Error inverting M_mat: {e}. Using pseudo-inverse as fallback.")
+        try:
+            B_inv_M = np.linalg.pinv(M_mat)
+        except np.linalg.LinAlgError as e_pinv:
+            print(f"Pseudo-inverse of M_mat also failed: {e_pinv}. Aborting.")
+            return np.full((n_times_original, nbloop), np.nan)
 
-    # We will integrate from time[0] to time[-1] in small steps dt_sub
-    t_fine = np.arange(time[0], time[-1] + dt_sub, dt_sub)
-    nfine = len(t_fine)
+    A_sys = -B_inv_M @ R_mat
 
-    # Interpolation buffers
-    i_loop_old = np.zeros(nbloop)
-    # We store the loop currents at each sub-step for final interpolation:
-    i_loop_fine = np.zeros((nfine, nbloop))
+    try:
+        C_R_inv = np.linalg.inv(R_mat)
+    except np.linalg.LinAlgError:
+        # print(f"Error inverting R_mat: {e}. Using pseudo-inverse as fallback.")
+        try:
+            C_R_inv = np.linalg.pinv(R_mat)
+        except np.linalg.LinAlgError as e_pinv:
+            print(f"Pseudo-inverse of R_mat also failed: {e_pinv}. Aborting.")
+            return np.full((n_times_original, nbloop), np.nan)
+            
+    if np.any(np.isnan(B_inv_M)) or np.any(np.isinf(B_inv_M)) or \
+       np.any(np.isnan(C_R_inv)) or np.any(np.isinf(C_R_inv)):
+        print("Error: Inverse of M_mat or R_mat contains NaN/Inf after fallback. Aborting.")
+        return np.full((n_times_original, nbloop), np.nan)
+
+    # Eigenvalue decomposition of A_sys
+    # print("Performing eigenvalue decomposition of A_sys...")
+    try:
+        eigenvalues_w, E_vec = np.linalg.eig(A_sys)
+        E_inv = np.linalg.inv(E_vec)
+    except np.linalg.LinAlgError as e:
+        print(f"Error during eigenvalue decomposition or E_vec inversion: {e}. Aborting.")
+        return np.full((n_times_original, nbloop), np.nan)
+    # print("Eigenvalue decomposition and E_vec inversion successful.")
+
+    # Calculate RLR = E @ diag(exp(w*dt)) @ Einv (state transition matrix)
+    F_diag_exp = np.diag(np.exp(eigenvalues_w * dt_sub))
+    RLR_mat = E_vec @ F_diag_exp @ E_inv
     
-    # Just an example approach for sub-stepping:
-    idx_time = 0  # which main time index we are referencing
-    coil_plasma_old = coil_plasma_currents[idx_time]
+    if np.isrealobj(A_sys) and not np.isrealobj(RLR_mat):
+        # print("RLR_mat was complex, taking real part. Max imaginary part: ", np.max(np.abs(np.imag(RLR_mat))))
+        RLR_mat = np.real(RLR_mat)
 
-    # We can do a simple loop in time:
-    for i_sub in range(nfine):
-        t_now = t_fine[i_sub]
+    if np.any(np.isnan(RLR_mat)) or np.any(np.isinf(RLR_mat)):
+        print("Error: RLR_mat contains NaN/Inf. Aborting.")
+        return np.full((n_times_original, nbloop), np.nan)
 
-        # If we have advanced to a next main time index
-        if t_now > time[idx_time] and idx_time < n_times - 1:
-            idx_time += 1
-            coil_plasma_old = coil_plasma_currents[idx_time]
+    # Fine time grid
+    if n_times_original == 0: 
+        return np.zeros((0, nbloop))
+    if time.size == 1 or np.isclose(time[0], time[-1]):
+        t_fine = np.array([time[0]])
+    elif time[0] > time[-1]: 
+        t_fine = np.array([]) 
+    else:
+        t_fine = np.arange(time[0], time[-1], dt_sub) 
+        if t_fine.size == 0 and not np.isclose(time[0],time[-1]): 
+             t_fine = np.array([time[0]])
 
-        # Next sub-step input (linearly or simply using the current main step)
-        # For demonstration, we just hold the coil+plasma current from the nearest time.
-        # Or use np.interp if you want more accurate interpolation.
-        coil_plasma_now = coil_plasma_old
+    n_fine_steps = len(t_fine)
+    if n_fine_steps == 0:
+        return np.zeros((n_times_original, nbloop)) 
 
-        # Approx "voltage" from coil+plasma changes
-        # (Here we do not do partial difference in coil current; your approach may differ.)
-        # Example: treat L*dI/dt as a "voltage" input:
-        #   Vw = - L * dIc/dt
-        # for demonstration, do a no-op or simple approach:
-        #   (You can do a difference with the previous sub-step, etc.)
-        # 
-        # We'll do a naive approach: 
-        #   dI_coil_plasma/dt ~ 0, so Vw = 0
-        # 
-        # Or you can adapt from your original code's logic for "ic_inc" etc.
-        Vw_now = np.zeros(nbloop)
+    # --- Pre-calculate interpolated active currents and their derivatives ---
+    coil_plasma_currents_fine = np.zeros((n_fine_steps, n_active_sources))
+    if n_active_sources > 0:
+        if n_times_original > 1:
+            for i_src in range(n_active_sources):
+                coil_plasma_currents_fine[:, i_src] = np.interp(t_fine, time, coil_plasma_currents[:, i_src])
+        elif n_times_original == 1 and n_fine_steps > 0: 
+            for i_src in range(n_active_sources):
+                coil_plasma_currents_fine[:, i_src] = coil_plasma_currents[0, i_src]
 
-        # Right-hand side for derivative:
-        # dI_loop/dt = A_mat @ I_loop + B_inv @ Vw
-        rhs = A_mat @ i_loop_old + B_inv @ Vw_now
+    d_coil_plasma_dt_fine = np.zeros_like(coil_plasma_currents_fine)
+    if n_fine_steps > 1 and n_active_sources > 0:
+        diff_currents = np.diff(coil_plasma_currents_fine, axis=0)
+        d_coil_plasma_dt_fine[:-1, :] = diff_currents / dt_sub
+        d_coil_plasma_dt_fine[-1, :] = d_coil_plasma_dt_fine[-2, :] 
+    elif n_fine_steps == 1 and n_active_sources > 0: 
+        d_coil_plasma_dt_fine[:, :] = 0.0 
+    # --- End of pre-calculation ---
 
-        # Simple Euler (for demonstration; can also implement full RK4 as in your code).
-        i_loop_new = i_loop_old + dt_sub * rhs
+    i_loop_old = np.zeros(nbloop) 
+    i_loop_fine_out = np.zeros((n_fine_steps, nbloop))
+    if n_fine_steps > 0:
+        i_loop_fine_out[0, :] = i_loop_old 
 
-        # Store
-        i_loop_old = i_loop_new
-        i_loop_fine[i_sub] = i_loop_new
+    # print("Starting EVD time integration loop (Optimized - pre-calculated derivatives)...")
+    
+    for i_sub in range(n_fine_steps - 1): 
+        # if i_sub % 10000 == 0: # Progress indicator can be re-enabled if needed for long runs
+        #     print(f"EVD loop: iteration {i_sub} / {n_fine_steps - 1}")
 
-    # Now, we interpolate i_loop_fine back to the original (coarse) time grid
-    for i_time in range(n_times):
-        I_loop[i_time] = np.interp(time[i_time], t_fine, i_loop_fine[:, 0])  # or vector interpolation
-        # for a vector interpolation you'd do something more like:
-        # I_loop[i_time] = np.array([np.interp(time[i_time], t_fine, i_loop_fine[:, k]) 
-        #                            for k in range(nbloop)])
+        current_dIc_dt = d_coil_plasma_dt_fine[i_sub, :]
+        
+        Vw_source_term = -L_mat @ current_dIc_dt
+        I_particular = C_R_inv @ Vw_source_term
+        
+        i_loop_new = I_particular + RLR_mat @ (i_loop_old - I_particular)
+            
+        i_loop_old = i_loop_new.copy()
+        i_loop_fine_out[i_sub+1, :] = i_loop_new 
 
-    return I_loop
-
+    # Interpolate results back to original time grid
+    I_loop_final = np.zeros((n_times_original, nbloop))
+    if n_times_original > 0: 
+        if n_fine_steps == 0: 
+            pass 
+        elif n_fine_steps == 1: 
+            for i_l in range(nbloop):
+                I_loop_final[:, i_l] = i_loop_fine_out[0, i_l] 
+        else: 
+            for i_l in range(nbloop):
+                if time.size > 1 and np.isclose(t_fine[0], t_fine[-1]) and t_fine.size > 1:
+                    I_loop_final[:,i_l] = i_loop_fine_out[0,i_l]
+                else:
+                    I_loop_final[:, i_l] = np.interp(time, t_fine, i_loop_fine_out[:, i_l])
+    
+    # print("EVD method (Optimized) finished.")
+    return I_loop_final
 
 def compute_vacuum_fields_1d(
     coil_plus_loop_currents: np.ndarray,  # shape (n_times, nb_coil+nb_loop)

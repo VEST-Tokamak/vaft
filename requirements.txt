@@ -14,5 +14,12 @@ omfit_classes
 matplotlib
 cryptography
 # wexpect
+omas==0.94.2
+cryptography>=42.0.0
+numpy==1.26.4
+h5py==3.11.0
+imageio>=2.34.0
+ipython
+seaborn
 ipywidgets
 pyyaml

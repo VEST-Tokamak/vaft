@@ -1,3 +1,4 @@
+from typing import Optional
 import requests
 import urllib3
 import h5pyd, h5py
@@ -6,6 +7,9 @@ import subprocess
 import numpy
 from uncertainties import ufloat
 from uncertainties.unumpy import uarray
+import logging
+import pandas as pd
+from datetime import datetime
 
 
 def is_connect():
@@ -16,6 +20,7 @@ def is_connect():
     output: True if the user is connected to the server, False otherwise.
 
     """
+    logging.getLogger().setLevel(logging.WARNING)
     try:
         if h5pyd.getServerInfo()['state']=='READY':
             username = h5pyd.getServerInfo()['username']
@@ -40,6 +45,10 @@ def exist_file(username=h5pyd.getServerInfo()['username'], shot=None):
     Returns:
         bool: True if the file or folder exists, False if it does not or if a connection error occurs.
     """
+    logging.getLogger().setLevel(logging.WARNING)
+    if username is None:
+        username = h5pyd.getServerInfo()['username']
+    
     try:
         Folder = list(h5pyd.Folder("/" + username + "/"))
         if shot is not None:
@@ -58,10 +67,55 @@ def exist_file(username=h5pyd.getServerInfo()['username'], shot=None):
         else:
             print(list(Folder))
     except urllib3.exceptions.MaxRetryError:
-        return False
-    return True
+        print("Connection error")
+        return []
+    
 
-def save(ods, shot, filename=None, env='server'):
+PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
+
+def exist_ts_file():
+    """
+    Display all processed Thomson scattering shots from h5pyd in a formatted table.
+
+    Behavior:
+    - Reads 'shots', 'timestamps', and 'status' datasets from processed_shots.h5.
+    - Shows whether each shot has full core profile fitting or only Thomson data.
+    """
+    logging.getLogger().setLevel(logging.WARNING)
+
+    try:
+        with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
+            if "shots" not in f:
+                print("[INFO] No 'shots' dataset found in processed_shots.h5.")
+                return
+
+            shots = f["shots"][:].astype(int)
+            timestamps = f["timestamps"][:].astype(str) if "timestamps" in f else ["N/A"] * len(shots)
+            status = f["status"][:].astype(str) if "status" in f else ["unknown"] * len(shots)
+
+        if len(shots) == 0:
+            print("[INFO] No processed shots recorded yet.")
+            return
+
+        df = pd.DataFrame({
+            "Index": range(1, len(shots) + 1),
+            "Shot Number": shots,
+            "Last Processed": timestamps,
+            "Status": status
+        })
+
+        print(" Available Thomson Scattering Shots:\n")
+        print(df.to_markdown(index=False, tablefmt="github"))
+
+    except Exception as e:
+        print(f"[ERROR] Failed to read processed shots: {e}")
+
+def save(
+    ods: omas.ODS,
+    shot: int,
+    filename: Optional[str] = None,
+    env: str = 'server'
+) -> None:
     """
     Function to save an ODS (Open Data Structure) file either locally or to an HDF5 server.
 
@@ -78,6 +132,7 @@ def save(ods, shot, filename=None, env='server'):
     Returns:
     None: The function doesn't return any specific value but prints information about the saving process.
     """
+    logging.getLogger().setLevel(logging.WARNING)
 
     # If no filename is provided, use the shot number to create a default file name
     if filename is None:
@@ -98,9 +153,9 @@ def save(ods, shot, filename=None, env='server'):
     omas.save_omas_h5(ods, filename)
 
     command = ['hsload', '--h5image', filename, file_path]
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=False, text=True)
+    subprocess.run(['rm', filename], capture_output=False, text=True)
 
-    subprocess.run(['rm', filename], capture_output=True, text=True)
 
 def convertDataset(ods, data):
     """
@@ -133,6 +188,8 @@ def convertDataset(ods, data):
             convertDataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
 
 def load(shot, directory=None):
+
+    logging.getLogger().setLevel(logging.WARNING)
 
     if isinstance(shot, list):
         shot_list = shot

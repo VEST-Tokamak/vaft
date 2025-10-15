@@ -7,11 +7,20 @@ import matplotlib.pyplot as plt
 from vaft.process import find_signal_onoffset, is_signal_active
 import matplotlib.pyplot as plt
 import numpy as np
+<<<<<<< Updated upstream
+=======
+from vaft.omas import odc_or_ods_check
+from vaft.plot.utils import get_from_path, extract_labels_from_odc
+from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
+import vaft.omas
+
+>>>>>>> Stashed changes
 
 """
 Fllowing functions are tools for plotting time series data.
 """
 
+<<<<<<< Updated upstream
 def odc_or_ods_check(odc_or_ods):
     """
     Check input type and initialize ODC if necessary.
@@ -31,6 +40,29 @@ def odc_or_ods_check(odc_or_ods):
         odc = ODC()
         odc['0'] = odc_or_ods
         return odc
+=======
+def handle_xlim(odc_or_ods, xlim_param='plasma'):
+    """Helper function to handle xlim logic."""
+    odc = odc_or_ods_check(odc_or_ods)
+    if xlim_param == 'none':
+        return None
+    elif xlim_param == 'plasma':
+        return set_xlim_time(odc, type='plasma')
+    elif xlim_param == 'coil':
+        return set_xlim_time(odc, type='coil')
+    elif isinstance(xlim_param, list) and len(xlim_param) == 2:
+        return xlim_param
+    else:
+        print(f"Invalid xlim: {xlim_param}, using default 'plasma'")
+        return set_xlim_time(odc, type='plasma')
+
+def handle_labels(odc, label_param, default_opt='key'):
+    """Helper function to handle label logic."""
+    if isinstance(label_param, list) and len(label_param) == len(odc.keys()):
+        return label_param
+    elif label_param in ['shot', 'pulse', 'run', 'key']:
+        return extract_labels_from_odc(odc, opt=label_param)
+>>>>>>> Stashed changes
     else:
         raise TypeError("Input must be of type ODS or ODC")
 
@@ -179,6 +211,17 @@ def pf_active_time_current(odc_or_ods, indices='used', label='shot', xunit='s', 
     else:
         raise ValueError("indices must be 'used', 'all', or a list of integers")
 
+<<<<<<< Updated upstream
+=======
+def _plot_pf_active_time_generic(odc_or_ods, indices_param, label_param, xunit, yunit_label, title_suffix, data_retrieval_func, xlim_param, y_value_multiplier_func=None):
+    """Generic plotting function for pf_active coil data with subplots."""
+    odc = odc_or_ods_check(odc_or_ods)
+    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
+    labels = handle_labels(odc, label_param)
+    
+    coil_indices = _determine_coil_indices(odc, indices_param)
+
+>>>>>>> Stashed changes
     if not coil_indices:
         print("No valid coils found to plot")
         return
@@ -358,6 +401,7 @@ def magnetics_time_ip(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='pla
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
+<<<<<<< Updated upstream
     if xlim == 'none':
         xlim = None
     elif xlim == 'plasma':
@@ -375,6 +419,12 @@ def magnetics_time_ip(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='pla
         labels = label
     else:
         labels = extract_labels_from_odc(odc, opt=label)
+=======
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+
+    # Handle labels
+    labels = handle_labels(odc, label)
+>>>>>>> Stashed changes
 
     plt.figure(figsize=(10, 4))
     
@@ -410,24 +460,6 @@ def magnetics_time_ip(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='pla
     plt.show()
 
 
-# def magnetics_time_rogowski_coil_current(ods_or_odc, labels=None):
-#     odc = odc_or_ods_check(ods_or_odc)
-
-#     if labels is None or len(labels) != len(odc.keys()):
-#         labels = extract_labels_from_odc(odc)
-
-#     for key, label in zip(odc.keys(), labels):
-#         time = odc[key]['magnetics.rogowski_coil.0.time']
-#         current = odc[key]['magnetics.rogowski_coil.0.data']
-#         plt.plot(time, current, label=label)
-
-#     plt.xlabel("Time [s]")
-#     plt.ylabel("Rogowski Coil Current [A]")
-#     plt.legend()
-#     plt.grid(True)
-#     plt.show()
-
-
 def magnetics_time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='Wb', xlim='plasma'):
     """
     Plot diamagnetic flux time series.
@@ -447,6 +479,7 @@ def magnetics_time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='
     odc = odc_or_ods_check(ods_or_odc)
     
     # Handle xlim
+<<<<<<< Updated upstream
     if xlim == 'none':
         xlim = None
     elif xlim == 'plasma':
@@ -467,6 +500,12 @@ def magnetics_time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='
     else:
         print(f"Invalid label: {label}, using key as label.")
         labels = extract_labels_from_odc(odc, opt='key')
+=======
+    xlim_processed = handle_xlim(ods_or_odc, xlim)
+
+    # Handle labels
+    labels = handle_labels(odc, label)
+>>>>>>> Stashed changes
 
     # Determine if multiple diamagnetic_flux entries exist
     # Assuming only one diamagnetic_flux entry per ODS
@@ -479,13 +518,15 @@ def magnetics_time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='
         ods = odc[key]
         try:
             # Get time data and convert units
-            time = ods['magnetics.diamagnetic_flux.time']
+            time = ods['magnetics.time']
             if xunit == 'ms':
                 time = time * 1e3
 
             # Get diamagnetic_flux data and convert units if necessary
             flux = ods['magnetics.diamagnetic_flux.0.data']
             data = flux  # Adjust if yunit requires conversion
+            if abs(min(flux)) > abs(max(flux)):
+                data = -data
 
             ax.plot(time, data, label=lbl)
         except KeyError as e:
@@ -589,7 +630,21 @@ def magnetics_time_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit
     elif isinstance(indices, list):
         flux_indices = indices
     else:
+<<<<<<< Updated upstream
         raise ValueError("indices must be 'all', 'inboard', 'outboard', or a list of integers")
+=======
+        raise ValueError(f"indices must be 'all', one of {list(find_funcs.keys())}, an integer, or a list of integers.")
+
+def _plot_magnetics_time_subplot_generic(odc_or_ods, indices_param, label_param, xunit, yunit,
+                                    ods_path_prefix, time_path_suffix, data_path_suffix,
+                                    title_base, ylabel_base, find_funcs, xlim_param):
+    """Generic plotting function for magnetics data (flux_loop, b_pol_probe) with subplots."""
+    odc = odc_or_ods_check(odc_or_ods)
+    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
+    labels = handle_labels(odc, label_param)
+
+    item_indices = _determine_magnetics_indices(odc, indices_param, ods_path_prefix, find_funcs)
+>>>>>>> Stashed changes
 
     if not flux_indices:
         print("No valid flux loops found to plot")
@@ -677,6 +732,7 @@ def magnetics_time_b_field_pol_probe_field(ods_or_odc, indices='all', label='sho
         xlim: str or list
             The x-axis limits. Can be 'plasma', 'coil', 'none', or a list of two floats.
     """
+<<<<<<< Updated upstream
     odc = odc_or_ods_check(ods_or_odc)
     
     # Handle xlim
@@ -691,6 +747,103 @@ def magnetics_time_b_field_pol_probe_field(ods_or_odc, indices='all', label='sho
     else:
         print(f"Invalid xlim: {xlim}, using default 'plasma'")
         xlim = set_xlim_time(odc, type='plasma')
+=======
+    find_funcs = {
+        'inboard': _find_bpol_probe_inboard_indices,
+        'outboard': _find_bpol_probe_outboard_indices,
+        'side': _find_bpol_probe_side_indices
+    }
+    _plot_magnetics_time_subplot_generic(ods_or_odc, indices, label, xunit, yunit,
+                                    ods_path_prefix='magnetics.b_field_pol_probe',
+                                    time_path_suffix='time',
+                                    data_path_suffix='field.data',
+                                    title_base='B-field Poloidal Probe',
+                                    ylabel_base='B-field',
+                                    find_funcs=find_funcs,
+                                    xlim_param=xlim)
+
+
+"""
+Equilibrium plotting functions
+"""
+
+def _plot_equilibrium_time_quantity(odc_or_ods, quantity_key, ylabel, title_suffix, label='shot', xunit='s', yunit=None, xlim='plasma'):
+    """Helper function to plot generic equilibrium quantities."""
+    odc = odc_or_ods_check(odc_or_ods)
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+    labels = handle_labels(odc, label)
+
+    plt.figure(figsize=(10, 4))
+    for key, lbl in zip(odc.keys(), labels):
+        ods = odc[key]
+        try:
+            time_data = ods['equilibrium.time']
+            quantity_data = ods[f'equilibrium.time_slice.:.global_quantities.{quantity_key}']
+            
+            if xunit == 'ms':
+                time_data = time_data * 1e3
+            
+            if yunit:
+                if yunit == 'kA':
+                    quantity_data = quantity_data / 1e3
+                elif yunit == 'MA':
+                    quantity_data = quantity_data / 1e6
+            
+            plt.plot(time_data, quantity_data, label=lbl)
+        except Exception as e:
+            print(f"Missing equilibrium {quantity_key} in {key}: {e}")
+            continue
+            
+    plt.xlabel(f'Time [{xunit}]')
+    plt.ylabel(ylabel)
+    plt.title(f'Equilibrium {title_suffix}')
+    plt.grid(True)
+    plt.legend()
+    if xlim_processed is not None:
+        plt.xlim(xlim_processed)
+    plt.tight_layout()
+    plt.show()
+
+
+def equilibrium_time_plasma_current(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='plasma'):
+    """
+    Plot equilibrium plasma current (Ip) time series from equilibrium global_quantities.
+    """
+    _plot_equilibrium_time_quantity(odc_or_ods, 'ip', f'Plasma Current [{yunit}]', 'Plasma Current', 
+                             label=label, xunit=xunit, yunit=yunit, xlim=xlim)
+
+
+def equilibrium_time_li(odc_or_ods, label='shot', xunit='s', yunit='', xlim='plasma'):
+    """
+    Plot equilibrium internal inductance (li_3) time series.
+    """
+    _plot_equilibrium_time_quantity(odc_or_ods, 'li_3', 'Internal Inductance [li_3]', 'Internal Inductance (li_3)',
+                             label=label, xunit=xunit, yunit=None, xlim=xlim) # yunit is None as it's unitless
+
+
+def equilibrium_time_beta_pol(odc_or_ods, label='shot', xunit='s', yunit='', xlim='plasma'):
+    """
+    Plot equilibrium poloidal beta (beta_pol) time series.
+    """
+    _plot_equilibrium_time_quantity(odc_or_ods, 'beta_pol', 'Poloidal Beta [beta_pol]', 'Poloidal Beta',
+                             label=label, xunit=xunit, yunit=None, xlim=xlim)
+
+
+def equilibrium_time_beta_tor(odc_or_ods, label='shot', xunit='s', yunit='', xlim='plasma'):
+    """
+    Plot equilibrium toroidal beta (beta_tor) time series.
+    """
+    _plot_equilibrium_time_quantity(odc_or_ods, 'beta_tor', 'Toroidal Beta [beta_tor]', 'Toroidal Beta',
+                             label=label, xunit=xunit, yunit=None, xlim=xlim)
+
+
+def equilibrium_time_beta_n(odc_or_ods, label='shot', xunit='s', yunit='', xlim='plasma'):
+    """
+    Plot equilibrium normalized beta (beta_n) time series.
+    """
+    _plot_equilibrium_time_quantity(odc_or_ods, 'beta_normal', 'Normalized Beta [beta_n]', 'Normalized Beta',
+                             label=label, xunit=xunit, yunit=None, xlim=xlim)
+>>>>>>> Stashed changes
 
     # Handle labels
     if isinstance(label, list) and len(label) == len(odc.keys()):
@@ -844,6 +997,7 @@ def spectrometer_uv_time_intensity(odc_or_ods, indices='all', label='shot', xuni
             X-axis limits
     """
     odc = odc_or_ods_check(odc_or_ods)
+<<<<<<< Updated upstream
     
     # Line mapping configuration
     LINE_MAP = {
@@ -857,6 +1011,36 @@ def spectrometer_uv_time_intensity(odc_or_ods, indices='all', label='shot', xuni
         'O_II': (1, 5),
         'O_V': (1, 6)
     }
+=======
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+    labels = handle_labels(odc, label)
+    plt.figure(figsize=(10, 4))
+    for key, lbl in zip(odc.keys(), labels):
+        ods = odc[key]
+        try:
+            time = ods['equilibrium.time']
+            # Note: Path for major radius is different
+            majr = ods['equilibrium.time_slice.:.boundary.geometric_axis.r'] 
+            if xunit == 'ms':
+                time = time * 1e3
+            plt.plot(time, majr, label=lbl)
+        except Exception as e:
+            print(f"Missing equilibrium major radius in {key}: {e}")
+            continue
+    plt.xlabel(f'Time [{xunit}]')
+    plt.ylabel(f'Major Radius [{yunit}]')
+    plt.title('Equilibrium Major Radius')
+    plt.grid(True)
+    plt.legend()
+    if xlim_processed is not None:
+        plt.xlim(xlim_processed)
+    plt.tight_layout()
+    plt.show()
+
+"""
+spectrometer_uv (filterscope)
+"""
+>>>>>>> Stashed changes
 
     # Handle indices selection
     if indices == 'all':
@@ -866,6 +1050,7 @@ def spectrometer_uv_time_intensity(odc_or_ods, indices='all', label='shot', xuni
     else:
         selected_lines = indices
 
+<<<<<<< Updated upstream
     # Verify valid lines
     valid_lines = []
     for line in selected_lines:
@@ -873,6 +1058,16 @@ def spectrometer_uv_time_intensity(odc_or_ods, indices='all', label='shot', xuni
             valid_lines.append(line)
         else:
             print(f"Warning: Invalid line index {line} ignored")
+=======
+def _plot_spectrometer_subplot_generic(odc_or_ods, indices_param, label_param, xunit, yunit, 
+                                       line_map, xlim_param):
+    """Generic plotting function for spectrometer data with subplots."""
+    odc = odc_or_ods_check(odc_or_ods)
+    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
+    labels = handle_labels(odc, label_param)
+
+    selected_lines = _determine_spectrometer_lines(indices_param, line_map)
+>>>>>>> Stashed changes
 
     if not valid_lines:
         print("No valid spectral lines to plot")
@@ -910,8 +1105,13 @@ def spectrometer_uv_time_intensity(odc_or_ods, indices='all', label='shot', xuni
         for key, lbl in zip(odc.keys(), labels):
             ods = odc[key]
             try:
+<<<<<<< Updated upstream
                 time = ods[f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.time']
                 data = ods[f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.data']
+=======
+                time_data = ods[f'spectrometer_uv.time']
+                data_val = ods[f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.data']
+>>>>>>> Stashed changes
                 
                 if xunit == 'ms':
                     time = time * 1e3
@@ -957,6 +1157,7 @@ def tf_time_b_field_tor(odc_or_ods, label='shot', xunit='s', yunit='T', xlim='pl
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
+<<<<<<< Updated upstream
     if xlim == 'none':
         xlim = None
     elif xlim == 'plasma':
@@ -974,6 +1175,12 @@ def tf_time_b_field_tor(odc_or_ods, label='shot', xunit='s', yunit='T', xlim='pl
         labels = label
     else:
         labels = extract_labels_from_odc(odc, opt=label)
+=======
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+
+    # Handle labels
+    labels = handle_labels(odc, label)
+>>>>>>> Stashed changes
 
     plt.figure(figsize=(10, 4))
     
@@ -1026,6 +1233,7 @@ def tf_time_b_field_tor_vacuum_r(odc_or_ods, label='shot', xunit='s', yunit='T·
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
+<<<<<<< Updated upstream
     if xlim == 'none':
         xlim = None
     elif xlim == 'plasma':
@@ -1043,6 +1251,12 @@ def tf_time_b_field_tor_vacuum_r(odc_or_ods, label='shot', xunit='s', yunit='T·
         labels = label
     else:
         labels = extract_labels_from_odc(odc, opt=label)
+=======
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+
+    # Handle labels
+    labels = handle_labels(odc, label)
+>>>>>>> Stashed changes
 
     plt.figure(figsize=(10, 4))
     
@@ -1095,6 +1309,7 @@ def tf_time_coil_current(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
+<<<<<<< Updated upstream
     if xlim == 'none':
         xlim = None
     elif xlim == 'plasma':
@@ -1106,6 +1321,11 @@ def tf_time_coil_current(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='
     else:
         print(f"Invalid xlim: {xlim}, using default 'plasma'")
         xlim = set_xlim_time(odc, type='plasma')
+=======
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+    # Handle labels
+    labels = handle_labels(odc, label)
+>>>>>>> Stashed changes
 
     plt.figure(figsize=(10, 4))
     
@@ -1173,6 +1393,7 @@ def barometry_time_pressure(odc_or_ods, label='shot', xunit='s', yunit='Pa', xli
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
+<<<<<<< Updated upstream
     if xlim == 'none':
         xlim = None
     elif xlim == 'plasma':
@@ -1190,6 +1411,12 @@ def barometry_time_pressure(odc_or_ods, label='shot', xunit='s', yunit='Pa', xli
         labels = label
     else:
         labels = extract_labels_from_odc(odc, opt=label)
+=======
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+
+    # Handle labels
+    labels = handle_labels(odc, label)
+>>>>>>> Stashed changes
 
     plt.figure(figsize=(10, 4))
     
@@ -1232,17 +1459,10 @@ def barometry_time_pressure(odc_or_ods, label='shot', xunit='s', yunit='Pa', xli
 summary
 """
 
+
 """
 global quantities
 """
-# def summary_time_global_quantities
-# def summary_time_global_quantities_beta_pol
-# def summary_time_global_quantities_beta_tor
-# def summary_time_global_quantities_beta_n
-# def summary_time_global_quantities_w_mhd
-# def summary_time_global_quantities_w_mag
-# def summary_time_global_quantities_w_tot
-# def summary_time_global_quantities_greenwald_density
 
 
 """
@@ -1438,4 +1658,449 @@ Interferometry
 
 """
 
+def electromagnetics_time_current(ods: ODS, label='shot', xunit='s', xlim='plasma', 
+                               coil_indices='used', 
+                               bpol_probes: dict = {'inboard_bz': {'idx': 4, 'coords': None}, 
+                                                  'outboard_bz': {'idx': 39, 'coords': None}},
+                               flux_loops: dict = {'fl_1': {'idx': 2, 'coords': None}},
+                               onset: float = None,
+                               time_of_interest: float = None):
+    """Plot electromagnetic signals from a single ODS in a 2x3 subplot layout,
+       similar to iFPC_preparation.ipynb.
 
+    Args:
+        ods: ODS object
+            Input data containing electromagnetic measurements.
+        label: str
+            Base label for plots (e.g., shot number). Default is 'shot'.
+        xunit: str
+            Time unit ('s', 'ms'). Default is 's'.
+        xlim: str or list or None
+            X-axis limits. Can be 'plasma', 'coil', 'none', a list of two floats, or None.
+            If 'plasma' or 'coil', limits are determined automatically.
+            If None, matplotlib default is used. Default is 'plasma'.
+        coil_indices: str or list
+            Coil indices to plot for PF active currents. 
+            Can be 'used', 'all', or a list of integer indices. Default is 'used'.
+        bpol_probes: dict
+            Dictionary defining B-poloidal probes to plot.
+            Keys are descriptive names (e.g., 'inboard_bz').
+            Values are dicts with 'idx' (int) and optional 'coords' (tuple for r,z).
+            Default uses typical VEST inboard and outboard Bz probe indices.
+        flux_loops: dict
+            Dictionary defining flux loops to plot.
+            Keys are descriptive names (e.g., 'fl_1').
+            Values are dicts with 'idx' (int) and optional 'coords' (tuple for r,z).
+            Default uses a typical VEST flux loop index.
+        onset: float, optional
+            Time offset to subtract from all time arrays (in seconds). Default is None.
+        time_of_interest: float, optional
+            Time (in seconds, relative to original time array before onset) to draw a vertical line.
+            Default is None.
+    """
+    if not isinstance(ods, ODS):
+        print("Error: This function expects a single ODS object.")
+        return
+
+    # Handle xlim
+    # Simplified handle_xlim for single ODS context, or adapt existing one
+    if xlim == 'plasma':
+        # Attempt to get plasma time limits
+        try:
+            time_ip = ods['magnetics.ip.0.time']
+            data_ip = ods['magnetics.ip.0.data']
+            onset_ip, offset_ip = signal_onoffset(time_ip, data_ip)
+            xlim_processed = [onset_ip, offset_ip]
+            if onset is not None:
+                 xlim_processed = [onset_ip - onset, offset_ip - onset]
+            if xunit == 'ms':
+                xlim_processed = [t * 1000 for t in xlim_processed]
+        except KeyError:
+            xlim_processed = None
+            print("Warning: Could not determine xlim='plasma' due to missing IP data. Using default.")
+    elif xlim == 'coil':
+        # Attempt to get coil time limits (simplified)
+        try:
+            time_pf = ods['pf_active.time']
+            # This requires checking all coils, simplified here
+            # For a robust version, iterate coils like in set_xlim_time
+            xlim_processed = [time_pf[0], time_pf[-1]] 
+            if onset is not None:
+                 xlim_processed = [t - onset for t in xlim_processed]
+            if xunit == 'ms':
+                xlim_processed = [t * 1000 for t in xlim_processed]
+        except KeyError:
+            xlim_processed = None
+            print("Warning: Could not determine xlim='coil' due to missing pf_active.time. Using default.")
+    elif xlim == 'none':
+        xlim_processed = None
+    elif isinstance(xlim, list) and len(xlim) == 2:
+        xlim_processed = xlim # Assumed to be in the target xunit already if manually provided
+    else:
+        xlim_processed = None # Default to matplotlib auto-limit
+        if xlim is not None:
+            print(f"Invalid xlim: {xlim}, using default.")
+
+    fig, axs = plt.subplots(2, 3, figsize=(20, 10), sharex=False) # sharex=False to allow different xlims if needed initially
+
+    time_scale = 1.0
+    if xunit == 'ms':
+        time_scale = 1000.0
+
+    # --- Row 0: Currents ---
+    # Plasma Current (axs[0,0])
+    try:
+        time_ip = ods['magnetics.ip.0.time']
+        current_ip = ods['magnetics.ip.0.data'] / 1e3  # kA
+        plot_time_ip = (time_ip - (onset if onset is not None else 0)) * time_scale
+        axs[0, 0].plot(plot_time_ip, current_ip, label=f'Shot {label}')
+        axs[0, 0].set_ylabel('Plasma Current [kA]')
+    except KeyError as e:
+        print(f"Missing IP data: {e}")
+        axs[0,0].text(0.5, 0.5, 'No IP data', ha='center', va='center')
+
+    # Coil Currents (axs[0,1])
+    try:
+        time_pf = ods['pf_active.time']
+        plot_time_pf = (time_pf - (onset if onset is not None else 0)) * time_scale
+        
+        odc = odc_or_ods_check(ods)
+        actual_coil_indices = _determine_coil_indices(odc, coil_indices) # Use helper with temporary ODC
+        coil_labels = []
+        if 'pf_active.coil' in ods:
+            for i_coil in actual_coil_indices:
+                try:
+                    coil_name = ods[f'pf_active.coil.{i_coil}.name']
+                    current_coil = ods[f'pf_active.coil.{i_coil}.current.data'] / 1e3  # kA
+                    n_turns_elements = ods[f'pf_active.coil.{i_coil}.element.:.turns_with_sign']
+                    # Summing turns from all elements of the coil
+                    total_turns = np.sum(np.abs(n_turns_elements)) if isinstance(n_turns_elements, np.ndarray) else np.abs(n_turns_elements) 
+                    axs[0, 1].plot(plot_time_pf, current_coil, label=f'{coil_name} ({int(total_turns)} turns)')
+                except KeyError as e:
+                    print(f"Missing data for coil {i_coil}: {e}")
+        axs[0, 1].set_ylabel('Coil Current [kA]')
+        axs[0, 1].legend()
+    except KeyError as e:
+        print(f"Missing PF active data: {e}")
+        axs[0,1].text(0.5, 0.5, 'No PF active data', ha='center', va='center')
+
+    # Eddy Currents (axs[0,2])
+    try:
+        time_eddy = ods['pf_passive.time']
+        plot_time_eddy = (time_eddy - (onset if onset is not None else 0)) * time_scale
+        # Sum of all loop currents for a general view, or plot individually
+        if 'pf_passive.loop' in ods and len(ods['pf_passive.loop']) > 0:
+            all_eddy_currents = np.array([ods[f'pf_passive.loop.{i}.current'] 
+                                          for i in range(len(ods['pf_passive.loop']))])
+            for i_loop in range(all_eddy_currents.shape[0]):
+                 axs[0, 2].plot(plot_time_eddy, all_eddy_currents[i_loop,:] / 1e3) #kA
+            # axs[0, 2].plot(plot_time_eddy, np.sum(all_eddy_currents, axis=0) / 1e3, label=f'Total Eddy {label}')
+        axs[0, 2].set_ylabel('Eddy Current [kA]')
+    except KeyError as e:
+        print(f"Missing PF passive data: {e}")
+        axs[0,2].text(0.5, 0.5, 'No PF passive data', ha='center', va='center')
+
+    # --- Row 1: Magnetic Field and Flux Contributions ---
+    common_mag_time = None
+    try:
+        common_mag_time_orig = ods['magnetics.time']
+        common_mag_time = (common_mag_time_orig - (onset if onset is not None else 0)) * time_scale
+    except KeyError:
+        print("Missing 'magnetics.time', cannot plot B-field or flux contributions.")
+        for i in range(3): axs[1,i].text(0.5,0.5, 'No magnetics.time', ha='center',va='center')
+
+    # Inboard Bz Probe (axs[1,0])
+    probe_name_in = 'inboard_bz'
+    if common_mag_time is not None and probe_name_in in bpol_probes:
+        idx_in = bpol_probes[probe_name_in]['idx']
+        rz_in = bpol_probes[probe_name_in].get('coords')
+        if rz_in is None:
+            try:
+                r_in = ods[f'magnetics.b_field_pol_probe.{idx_in}.position.r']
+                z_in = ods[f'magnetics.b_field_pol_probe.{idx_in}.position.z']
+                rz_in = (r_in, z_in)
+            except KeyError:
+                print(f"Could not get coordinates for B-pol probe {idx_in}")
+                rz_in = ('N/A', 'N/A') # Fallback if coords not in ODS or dict
+        
+        axs[1, 0].set_ylabel(f'Inboard Bz ({rz_in[0]:.3f}m, {rz_in[1]:.3f}m) [T]' if isinstance(rz_in[0], float) else f'Inboard Bz [T]')
+        try:
+            bz_measured_in = ods[f'magnetics.b_field_pol_probe.{idx_in}.field.data']
+            axs[1, 0].plot(common_mag_time, bz_measured_in, label='Measured')
+
+            if rz_in[0] != 'N/A': # Only calculate if coords are valid
+                time_coil_in, _, _, bz_coil_in = compute_point_vacuum_fields_ods(ods, [rz_in], mode='pf_active')
+                time_passive_in, _, _, bz_passive_in = compute_point_vacuum_fields_ods(ods, [rz_in], mode='pf_passive')
+                time_coil_in = time_coil_in * time_scale
+                time_passive_in = time_passive_in * time_scale
+                # Align times if necessary, assuming compute_point_vacuum_fields_ods uses pf_active.time
+                axs[1, 0].plot(time_coil_in, bz_coil_in[:,0], label='Coil')
+                axs[1, 0].plot(time_passive_in, bz_coil_in[:,0] + bz_passive_in[:,0], label='Coil+Eddy')
+        except KeyError as e:
+            print(f"Error plotting inboard Bz probe {idx_in}: {e}")
+        except Exception as e:
+            print(f"Calculation error for inboard Bz probe {idx_in}: {e}")
+
+    # Outboard Bz Probe (axs[1,1])
+    probe_name_out = 'outboard_bz'
+    if common_mag_time is not None and probe_name_out in bpol_probes:
+        idx_out = bpol_probes[probe_name_out]['idx']
+        rz_out = bpol_probes[probe_name_out].get('coords')
+        if rz_out is None:
+            try:
+                r_out = ods[f'magnetics.b_field_pol_probe.{idx_out}.position.r']
+                z_out = ods[f'magnetics.b_field_pol_probe.{idx_out}.position.z']
+                rz_out = (r_out, z_out)
+            except KeyError:
+                print(f"Could not get coordinates for B-pol probe {idx_out}")
+                rz_out = ('N/A', 'N/A')
+        
+        axs[1, 1].set_ylabel(f'Outboard Bz ({rz_out[0]:.3f}m, {rz_out[1]:.3f}m) [T]' if isinstance(rz_out[0], float) else 'Outboard Bz [T]')
+        try:
+            bz_measured_out = ods[f'magnetics.b_field_pol_probe.{idx_out}.field.data']
+            axs[1, 1].plot(common_mag_time, bz_measured_out, label='Measured')
+            if rz_out[0] != 'N/A': # Only calculate if coords are valid
+                time_coil_out, _, _, bz_coil_out = compute_point_vacuum_fields_ods(ods, [rz_out], mode='pf_active')
+                time_vacuum_out, _, _, bz_vacuum_out = compute_point_vacuum_fields_ods(ods, [rz_out], mode='vacuum')
+                time_coil_out = time_coil_out * time_scale
+                time_vacuum_out = time_vacuum_out * time_scale
+                axs[1, 1].plot(time_coil_out, bz_coil_out[:,0], label='Coil')
+                axs[1, 1].plot(time_vacuum_out, bz_vacuum_out[:,0], label='Vacuum')
+        except KeyError as e:
+            print(f"Error plotting outboard Bz probe {idx_out}: {e}")
+        except Exception as e:
+             print(f"Calculation error for outboard Bz probe {idx_out}: {e}")
+
+    # Flux Loop (axs[1,2])
+    fl_name = list(flux_loops.keys())[0] if flux_loops else None # Take the first flux loop defined
+    if common_mag_time is not None and fl_name:
+        idx_fl = flux_loops[fl_name]['idx']
+        rz_fl = flux_loops[fl_name].get('coords') # For flux loops, position is often an outline.
+                                                 # For simplicity, we might use a representative point if needed or just the index.
+                                                 # The compute_point_vacuum_fields_ods needs a point.
+                                                 # For now, we'll assume a point can be derived or is given if contributions are calculated.
+        if rz_fl is None: # Attempt to get a representative R,Z if not given
+            try:
+                r_fl_pts = ods[f'magnetics.flux_loop.{idx_fl}.position.0.r'] # Assuming outline
+                z_fl_pts = ods[f'magnetics.flux_loop.{idx_fl}.position.0.z']
+                rz_fl = (np.mean(r_fl_pts), np.mean(z_fl_pts)) # Use centroid as representative point for calc
+            except KeyError:
+                 print(f"Could not get coordinates for Flux Loop {idx_fl}")
+                 rz_fl = ('N/A', 'N/A')
+
+        axs[1, 2].set_ylabel(f'Flux Loop ({rz_fl[0]:.3f}m, {rz_fl[1]:.3f}m) [Wb]' if isinstance(rz_fl[0], float) else 'Flux Loop [Wb]')
+        try:
+            psi_measured = ods[f'magnetics.flux_loop.{idx_fl}.flux.data']
+            axs[1, 2].plot(common_mag_time, psi_measured, label='Measured')
+            if rz_fl[0] != 'N/A': # Only calculate if coords are valid
+                time_coil_fl, _, _, psi_coil_fl = compute_point_vacuum_fields_ods(ods, [rz_fl], mode='pf_active')
+                time_passive_fl, _, _, psi_passive_fl = compute_point_vacuum_fields_ods(ods, [rz_fl], mode='pf_passive')
+                time_coil_fl = time_coil_fl * time_scale
+                time_passive_fl = time_passive_fl * time_scale
+                axs[1, 2].plot(time_coil_fl, psi_coil_fl[:,0], label='Coil')
+                axs[1, 2].plot(time_passive_fl, psi_coil_fl[:,0] + psi_passive_fl[:,0], label='Coil+Eddy')
+        except KeyError as e:
+            print(f"Error plotting flux loop {idx_fl}: {e}")
+        except Exception as e:
+            print(f"Calculation error for flux loop {idx_fl}: {e}")
+
+    # --- General Plot Settings ---
+    for i in range(3):
+        axs[0, i].grid(True)
+        axs[1, i].grid(True)
+        axs[1, i].set_xlabel(f'Time [{xunit}]')
+        axs[1, i].legend()
+        if xlim_processed:
+            axs[0,i].set_xlim(xlim_processed)
+            axs[1,i].set_xlim(xlim_processed)
+        else: # If no xlim_processed, try to share x-axis for each column if data exists
+            if axs[0,i].lines and axs[1,i].lines: # Check if both subplots in a column have data
+                 # Create a new twin Axes for axs[0,i] that shares the x-axis with axs[1,i]
+                 # This is a bit tricky after plots are made. A simpler approach is to set xlims from data if not specified.
+                 # For now, we rely on xlim_processed or individual plot auto-scaling.
+                 pass 
+
+    # Set xticklabels for top row to be invisible
+    for i in range(3):
+        axs[0, i].tick_params(axis='x', labelbottom=False)
+
+    # Titles
+    axs[0, 1].set_title('Full Circuit Current Waveform')
+    axs[1, 1].set_title('Contributions to Measured Signal')
+
+    # Draw vertical line for time_of_interest
+    if time_of_interest is not None:
+        time_line_val = (time_of_interest - (onset if onset is not None else 0)) * time_scale
+        for i in range(2):
+            for j in range(3):
+                axs[i, j].axvline(time_line_val, color='grey', linestyle='--')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust rect for suptitle
+    plt.show()
+
+<<<<<<< Updated upstream
+=======
+if __name__ == "__main__":
+    from omas import ODS, ODC
+    import numpy as np
+    import inspect
+    import sys
+    import vaft
+
+    # 1. Setup sample ODS and ODC
+    ods = vaft.omas.sample_ods()
+    odc = vaft.omas.sample_odc()
+
+    # 2. List of all public plotting functions to test
+    current_module = sys.modules[__name__]
+    all_plot_functions_to_test = [
+        'pf_active_time_current',
+        'pf_active_time_current_turns',
+        'magnetics_time_ip',
+        'magnetics_time_diamagnetic_flux',
+        'magnetics_time_flux_loop_flux',
+        'magnetics_time_b_field_pol_probe_field',
+        'equilibrium_time_plasma_current',
+        'equilibrium_time_li',
+        'equilibrium_time_beta_pol',
+        'equilibrium_time_beta_tor',
+        'equilibrium_time_beta_n',
+        'equilibrium_time_w_mhd',
+        'equilibrium_time_w_mag',
+        'equilibrium_time_w_tot',
+        'equilibrium_time_q0',
+        'equilibrium_time_q95',
+        'equilibrium_time_qa',
+        'equilibrium_time_major_radius',
+        'spectrometer_uv_time_intensity',
+        'tf_time_b_field_tor',
+        'tf_time_b_field_tor_vacuum_r',
+        'tf_time_coil_current',
+        'barometry_time_pressure',
+        'electromagnetics_time_current',
+    ]
+
+    # 4. Define common test options
+    test_labels_ods = ['shot'] 
+    test_labels_odc = ['1', '2', '3'] # Test 'key' and a custom list for ODC
+    test_xunits = ['s', 'ms']
+    test_xlims_general = ['plasma', 'coil', 'none']
+    test_xlims_short_pulse = [[0.0, 0.05], [0.001, 0.02]] # For typical short pulse data in samples
+
+    for func_name in all_plot_functions_to_test:
+        func_to_test = getattr(current_module, func_name, None)
+        if func_to_test is None:
+            print(f"ERROR: Function {func_name} not found in module. Skipping.")
+            continue
+
+        print(f"\\n--- Testing {func_name} ---")
+        sig = inspect.signature(func_to_test)
+        params = sig.parameters
+
+        # --- ODS Test Call ---
+        ods_call_args = {}
+        if 'label' in params: ods_call_args['label'] = test_labels_ods[0]
+        if 'xunit' in params: ods_call_args['xunit'] = test_xunits[0]
+        if 'xlim' in params: ods_call_args['xlim'] = test_xlims_general[0]
+        
+        # Default yunits for ODS call
+        yunit_map = {
+            'pf_active_time_current': 'kA', 'pf_active_time_current_turns': 'kA_T',
+            'magnetics_time_ip': 'MA', 'magnetics_time_diamagnetic_flux': 'Wb',
+            'magnetics_time_flux_loop_flux': 'Wb', 'magnetics_time_b_field_pol_probe_field': 'T',
+            'equilibrium_time_plasma_current': 'MA', 'equilibrium_time_w_mhd': 'J',
+            'equilibrium_time_w_mag': 'J', 'equilibrium_time_w_tot': 'J',
+            'equilibrium_time_major_radius': 'm', 'spectrometer_uv_time_intensity': 'a.u.',
+            'tf_time_b_field_tor': 'T', 'tf_time_b_field_tor_vacuum_r': 'T·m',
+            'tf_time_coil_current': 'kA', 'barometry_time_pressure': 'Pa',
+        }
+        if 'yunit' in params and func_name in yunit_map:
+            ods_call_args['yunit'] = yunit_map[func_name]
+        elif 'yunit' in params and params['yunit'].default is not inspect.Parameter.empty:
+             ods_call_args['yunit'] = params['yunit'].default
+
+
+        # Default indices for ODS call
+        indices_map_ods = {
+            'pf_active_time_current': 'used', 'pf_active_time_current_turns': 0,
+            'magnetics_time_flux_loop_flux': 'all', 'magnetics_time_b_field_pol_probe_field': 0,
+            'spectrometer_uv_time_intensity': 'H_alpha',
+        }
+        if 'indices' in params and func_name in indices_map_ods:
+            ods_call_args['indices'] = indices_map_ods[func_name]
+        elif 'indices' in params and params['indices'].default is not inspect.Parameter.empty:
+             ods_call_args['indices'] = params['indices'].default
+
+        print(f"  Calling with ODS and options: {ods_call_args}")
+        try:
+            func_to_test(ods, **ods_call_args)
+            print(f"    {func_name}(ods) attempt finished.")
+        except Exception as e:
+            print(f"    ERROR during {func_name}(ods): {e}")
+            import traceback
+            traceback.print_exc()
+
+        # --- ODC Test Call (with different options) ---
+        odc_call_args = {}
+        if 'label' in params: odc_call_args['label'] = test_labels_odc[0] # 'key'
+        if 'xunit' in params: odc_call_args['xunit'] = test_xunits[1] if len(test_xunits)>1 else test_xunits[0]
+        if 'xlim' in params: 
+            odc_call_args['xlim'] = test_xlims_short_pulse[0] if 'pf_active' in func_name or 'ip' in func_name or 'spectrometer' in func_name else test_xlims_general[1]
+
+        # Vary yunits for ODC call if possible
+        yunit_map_odc_variant = {
+            'pf_active_time_current': 'A', 'pf_active_time_current_turns': 'A_T',
+            'magnetics_time_ip': 'kA', 
+            'equilibrium_time_plasma_current': 'kA',
+            'tf_time_b_field_tor': 'mT', 'tf_time_b_field_tor_vacuum_r': 'mT·m',
+            'tf_time_coil_current': 'A', 'barometry_time_pressure': 'mbar',
+        }
+        if 'yunit' in params and func_name in yunit_map_odc_variant:
+            odc_call_args['yunit'] = yunit_map_odc_variant[func_name]
+        elif 'yunit' in params and func_name in yunit_map: # fallback to base yunit if no variant
+             odc_call_args['yunit'] = yunit_map[func_name]
+        elif 'yunit' in params and params['yunit'].default is not inspect.Parameter.empty: # fallback to default
+             odc_call_args['yunit'] = params['yunit'].default
+
+
+        # Vary indices for ODC call
+        indices_map_odc = {
+            'pf_active_time_current': 'all', 'pf_active_time_current_turns': [0, 1] if 'pf_active.coil.1.name' in ods else [0], # Check if coil 1 was added
+            'magnetics_time_flux_loop_flux': 'inboard', 
+            'magnetics_time_b_field_pol_probe_field': ['outboard', 0], # Test list of mixed types if applicable by func
+            'spectrometer_uv_time_intensity': ['C_II', 'O_V', 'H_beta'],
+        }
+        if 'indices' in params and func_name in indices_map_odc:
+            odc_call_args['indices'] = indices_map_odc[func_name]
+        elif 'indices' in params and func_name in indices_map_ods: # fallback to ODS indices if no ODC variant
+            odc_call_args['indices'] = indices_map_ods[func_name]
+        elif 'indices' in params and params['indices'].default is not inspect.Parameter.empty: # fallback to default
+             odc_call_args['indices'] = params['indices'].default
+        
+        # Special case for label list for ODC
+        if 'label' in params and odc_call_args.get('label') == 'key': # If testing with odc and label can be a list
+             if len(test_labels_odc) > 1 and isinstance(test_labels_odc[1], list):
+                 if len(odc.keys()) == len(test_labels_odc[1]):
+                    odc_call_args_custom_label = odc_call_args.copy()
+                    odc_call_args_custom_label['label'] = test_labels_odc[1]
+                    print(f"  Calling with ODC and custom list label, options: {odc_call_args_custom_label}")
+                    try:
+                        func_to_test(odc, **odc_call_args_custom_label)
+                        print(f"    {func_name}(odc, custom label) attempt finished.")
+                    except Exception as e:
+                        print(f"    ERROR during {func_name}(odc, custom label): {e}")
+                        traceback.print_exc()
+
+
+        print(f"  Calling with ODC and options: {odc_call_args}")
+        try:
+            func_to_test(odc, **odc_call_args)
+            print(f"    {func_name}(odc) attempt finished.")
+        except Exception as e:
+            print(f"    ERROR during {func_name}(odc): {e}")
+            traceback.print_exc()
+
+    print("\\nAll listed test plots attempted.")
+    print("IMPORTANT: Ensure the sample ODS was populated with VEST-specific data paths for meaningful tests.")
+    print("Many functions might show empty plots or errors if ods.sample() data is insufficient.")
+>>>>>>> Stashed changes
