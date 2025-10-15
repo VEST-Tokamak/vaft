@@ -102,12 +102,8 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
 
-<<<<<<< Updated upstream
-def find_signal_onoffset(time,data,smooth_window=5):
-=======
 def signal_onoffset(time,data,smooth_window=5, threshold=0.01):
     print("threshold for signal detection:", threshold)
->>>>>>> Stashed changes
     # Smooth the data
     data=signal.savgol_filter(data, smooth_window, 3)
 

@@ -1,9 +1,6 @@
 from typing import List, Tuple, Dict, Any
 from numpy import ndarray
 from omas import *
-<<<<<<< Updated upstream
-from vaft.process import compute_response_matrix, compute_response_vector
-=======
 from vaft.process import compute_response_matrix
 from vaft.formula import magnetic_shear, ballooning_alpha
 

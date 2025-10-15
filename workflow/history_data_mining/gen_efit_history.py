@@ -1,31 +1,3 @@
-# This Python function aims to read g, m, a files from the EFIT directory for each shot number and extract various information from them.
-# The following information can be extracted:
-# 1. File name
-# 2. Shot number
-# 3. Time
-# 4. Normalized time
-# 5. Plasma current
-# 6. Major radius
-# 7. Minor radius
-# 8. Elongation
-# 9. Triangularity
-# 10. Safety factor (q)
-# 11. Magnetic axis position (R, Z)
-# 12. X-point positions
-# 13. Separatrix shape
-# 14. Plasma boundary
-# 15. Magnetic flux values
-# 16. Poloidal beta
-# 17. Internal inductance
-# 18. Plasma stored energy
-# 19. Magnetic field at the magnetic axis
-# 20. Plasma volume
-# 21. Plasma surface area
-# 22. Last closed flux surface (LCFS) parameters
-# 23. Strike point positions
-# 24. Divertor configuration
-# 25. Plasma shape parameters (kappa, delta)
-
 import os
 import glob
 import pandas as pd

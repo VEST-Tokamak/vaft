@@ -7,14 +7,19 @@ import matplotlib.pyplot as plt
 from vaft.process import signal_onoffset, is_signal_active
 import matplotlib.pyplot as plt
 import numpy as np
-from .utils import odc_or_ods_check, get_from_path, extract_labels_from_odc
+from vaft.omas import odc_or_ods_check
+from vaft.plot.utils import get_from_path, extract_labels_from_odc
+from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
+import vaft.omas
+
 
 """
 Fllowing functions are tools for plotting time series data.
 """
 
-def _handle_xlim(odc, xlim_param, default_type='plasma'):
+def handle_xlim(odc_or_ods, xlim_param='plasma'):
     """Helper function to handle xlim logic."""
+    odc = odc_or_ods_check(odc_or_ods)
     if xlim_param == 'none':
         return None
     elif xlim_param == 'plasma':
@@ -24,10 +29,10 @@ def _handle_xlim(odc, xlim_param, default_type='plasma'):
     elif isinstance(xlim_param, list) and len(xlim_param) == 2:
         return xlim_param
     else:
-        print(f"Invalid xlim: {xlim_param}, using default '{default_type}'")
-        return set_xlim_time(odc, type=default_type)
+        print(f"Invalid xlim: {xlim_param}, using default 'plasma'")
+        return set_xlim_time(odc, type='plasma')
 
-def _handle_labels(odc, label_param, default_opt='key'):
+def handle_labels(odc, label_param, default_opt='key'):
     """Helper function to handle label logic."""
     if isinstance(label_param, list) and len(label_param) == len(odc.keys()):
         return label_param
@@ -114,8 +119,8 @@ def _determine_coil_indices(odc, indices_param):
 def _plot_pf_active_time_generic(odc_or_ods, indices_param, label_param, xunit, yunit_label, title_suffix, data_retrieval_func, xlim_param, y_value_multiplier_func=None):
     """Generic plotting function for pf_active coil data with subplots."""
     odc = odc_or_ods_check(odc_or_ods)
-    xlim_processed = _handle_xlim(odc, xlim_param)
-    labels = _handle_labels(odc, label_param)
+    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
+    labels = handle_labels(odc, label_param)
     
     coil_indices = _determine_coil_indices(odc, indices_param)
 
@@ -230,23 +235,10 @@ def magnetics_time_ip(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='pla
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
-    if xlim == 'none':
-        xlim = None
-    elif xlim == 'plasma':
-        xlim = set_xlim_time(odc, type='plasma')
-    elif xlim == 'coil':
-        xlim = set_xlim_time(odc, type='coil')
-    elif isinstance(xlim, list) and len(xlim) == 2:
-        xlim = xlim
-    else:
-        print(f"Invalid xlim: {xlim}, using default 'plasma'")
-        xlim = set_xlim_time(odc, type='plasma')
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
 
     # Handle labels
-    if isinstance(label, list) and len(label) == len(odc.keys()):
-        labels = label
-    else:
-        labels = extract_labels_from_odc(odc, opt=label)
+    labels = handle_labels(odc, label)
 
     plt.figure(figsize=(10, 4))
     
@@ -301,26 +293,10 @@ def magnetics_time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='
     odc = odc_or_ods_check(ods_or_odc)
     
     # Handle xlim
-    if xlim == 'none':
-        xlim = None
-    elif xlim == 'plasma':
-        xlim = set_xlim_time(odc, type='plasma')
-    elif xlim == 'coil':
-        xlim = set_xlim_time(odc, type='coil')
-    elif isinstance(xlim, list) and len(xlim) == 2:
-        xlim = xlim
-    else:
-        print(f"Invalid xlim: {xlim}, using default 'plasma'")
-        xlim = set_xlim_time(odc, type='plasma')
+    xlim_processed = handle_xlim(ods_or_odc, xlim)
 
     # Handle labels
-    if isinstance(label, list) and len(label) == len(odc.keys()):
-        labels = label
-    elif label in ['shot', 'pulse', 'run', 'key']:
-        labels = extract_labels_from_odc(odc, opt=label)
-    else:
-        print(f"Invalid label: {label}, using key as label.")
-        labels = extract_labels_from_odc(odc, opt='key')
+    labels = handle_labels(odc, label)
 
     # Determine if multiple diamagnetic_flux entries exist
     # Assuming only one diamagnetic_flux entry per ODS
@@ -454,8 +430,8 @@ def _plot_magnetics_time_subplot_generic(odc_or_ods, indices_param, label_param,
                                     title_base, ylabel_base, find_funcs, xlim_param):
     """Generic plotting function for magnetics data (flux_loop, b_pol_probe) with subplots."""
     odc = odc_or_ods_check(odc_or_ods)
-    xlim_processed = _handle_xlim(odc_or_ods, xlim_param)
-    labels = _handle_labels(odc, label_param)
+    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
+    labels = handle_labels(odc, label_param)
 
     item_indices = _determine_magnetics_indices(odc, indices_param, ods_path_prefix, find_funcs)
 
@@ -626,8 +602,8 @@ Equilibrium plotting functions
 def _plot_equilibrium_time_quantity(odc_or_ods, quantity_key, ylabel, title_suffix, label='shot', xunit='s', yunit=None, xlim='plasma'):
     """Helper function to plot generic equilibrium quantities."""
     odc = odc_or_ods_check(odc_or_ods)
-    xlim_processed = _handle_xlim(odc_or_ods, xlim)
-    labels = _handle_labels(odc, label)
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
+    labels = handle_labels(odc, label)
 
     plt.figure(figsize=(10, 4))
     for key, lbl in zip(odc.keys(), labels):
@@ -885,19 +861,6 @@ def equilibrium_time_major_radius(odc_or_ods, label='shot', xunit='s', yunit='m'
     Plot equilibrium major radius (geometric_axis.r) time series.
     """
     odc = odc_or_ods_check(odc_or_ods)
-    
-    # Line mapping configuration
-    LINE_MAP = {
-        'H_alpha': (0, 0),
-        'O_I': (0, 1),
-        'H_alpha_fast': (1, 0),
-        'H_beta': (1, 1),
-        'H_gamma': (1, 2),
-        'C_II': (1, 3),
-        'C_III': (1, 4),
-        'O_II': (1, 5),
-        'O_V': (1, 6)
-    }
     xlim_processed = handle_xlim(odc_or_ods, xlim)
     labels = handle_labels(odc, label)
     plt.figure(figsize=(10, 4))
@@ -932,8 +895,8 @@ def _plot_spectrometer_subplot_generic(odc_or_ods, indices_param, label_param, x
                                        line_map, xlim_param):
     """Generic plotting function for spectrometer data with subplots."""
     odc = odc_or_ods_check(odc_or_ods)
-    xlim_processed = _handle_xlim(odc_or_ods, xlim_param)
-    labels = _handle_labels(odc, label_param)
+    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
+    labels = handle_labels(odc, label_param)
 
     selected_lines = _determine_spectrometer_lines(indices_param, line_map)
 
@@ -1011,10 +974,10 @@ def tf_time_b_field_tor(odc_or_ods, label='shot', xunit='s', yunit='T', xlim='pl
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
-    xlim_processed = _handle_xlim(odc_or_ods, xlim)
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
 
     # Handle labels
-    labels = _handle_labels(odc, label)
+    labels = handle_labels(odc, label)
 
     plt.figure(figsize=(10, 4))
     
@@ -1067,10 +1030,10 @@ def tf_time_b_field_tor_vacuum_r(odc_or_ods, label='shot', xunit='s', yunit='T·
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
-    xlim_processed = _handle_xlim(odc_or_ods, xlim)
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
 
     # Handle labels
-    labels = _handle_labels(odc, label)
+    labels = handle_labels(odc, label)
 
     plt.figure(figsize=(10, 4))
     
@@ -1123,9 +1086,9 @@ def tf_time_coil_current(odc_or_ods, label='shot', xunit='s', yunit='MA', xlim='
     odc = odc_or_ods_check(odc_or_ods)
     
     # Handle xlim
-    xlim_processed = _handle_xlim(odc_or_ods, xlim)
+    xlim_processed = handle_xlim(odc_or_ods, xlim)
     # Handle labels
-    labels = _handle_labels(odc, label)
+    labels = handle_labels(odc, label)
 
     plt.figure(figsize=(10, 4))
     

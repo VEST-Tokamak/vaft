@@ -127,7 +127,7 @@ def ballooning_alpha_from_p_B(p: Union[float, np.ndarray],
                             B: Union[float, np.ndarray],
                             R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """
-    Calculate ballooning parameter α = -2μ₀ R dp/dψ / B².
+    Calculate ballooning parameter α = -2μ₀ R (dp/dpsi) / B² ≈ -2μ₀ R (dp/dR) / B².
 
     Parameters
     ----------

@@ -11,28 +11,6 @@ def get_from_path(obj, path):
             return None
     return obj
 
-def odc_or_ods_check(odc_or_ods):
-    """
-    Check input type and initialize ODC if necessary.
-    
-    Parameters:
-    odc_or_ods (ODC or ODS): Input object to check.
-    
-    Returns:
-    ODC: Initialized ODC object.
-    
-    Raises:
-    TypeError: If input is not of type ODS or ODC.
-    """
-    if isinstance(odc_or_ods, ODC):
-        return odc_or_ods
-    elif isinstance(odc_or_ods, ODS):
-        odc = ODC()
-        odc['0'] = odc_or_ods
-        return odc
-    else:
-        raise TypeError("Input must be of type ODS or ODC")
-
 
 def extract_labels_from_odc(odc, opt = 'shot'):
     """

@@ -2,8 +2,8 @@ from vaft.process import psi_to_radial
 import matplotlib.pyplot as plt
 import numpy as np
 from omas import ODS, ODC
-from .utils import odc_or_ods_check, get_from_path, extract_labels_from_odc
-
+from .utils import get_from_path, extract_labels_from_odc
+from vaft.omas import odc_or_ods_check
 # legend -> time_points sec (time_slice_index)
 # axis -> radial, rho_tor_norm, psi_n, vertical...
 

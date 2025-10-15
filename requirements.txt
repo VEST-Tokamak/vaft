@@ -1,19 +1,10 @@
-# usage: pip install -r requirements.txt
-
-setuptools
-h5py 
-git+https://github.com/hdfgroup/h5pyd.git       
-numpy
-uncertainties
-omas
-matplotlib
-scipy
-xarray==0.14.1      
-fortranformat
-omfit_classes
-matplotlib
-cryptography
-# wexpect
+omas==0.94.2
+cryptography>=42.0.0
+numpy==1.26.4
+h5py==3.11.0
+imageio>=2.34.0
+ipython
+seaborn
 ipywidgets
 matplotlib==3.7.3
 mysql-connector-python>=8.4.0
