@@ -1,0 +1,232 @@
+# =============================================================================
+# Snakefile for running DCON, RDCON, STRIDE for specific n-modes
+# =============================================================================
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+# Define BASE_DIR - adjust if necessary, or use config file
+# Assuming BASE_DIR is where shot folders (e.g., 39915) are located.
+# This should be consistent with the --base-path for find_plotted_gfiles.py
+# For example: /srv/vest.filedb/public
+# You might want to set this via a config file or environment variable for flexibility
+configfile: "config.yaml"
+
+BASE_DIR = config.get("BASE_DIR", "/srv/vest.filedb/public")
+RUN_PARALLEL_DCON_SCRIPT = "/home/user1/test/laurent/VEST_database/OMAS/run_parallel_dcon.py"
+
+# N-mode scans, to be used by expand function
+# These could also be loaded from config.yaml if they change frequently
+IDEAL_N_SCAN = [1, 2, 3, 4, 5, 6]
+RESIST_N_SCAN = [1, 2]
+#ALL_CODES = ["dcon", "rdcon", "stride"]
+ALL_CODES = ["dcon", "rdcon"]
+
+# Function to get the list of g-files to process
+def get_target_gfiles(base_dir):
+    script_path = os.path.join(workflow.basedir, "find_plotted_gfiles.py")
+    result = subprocess.run([
+        "python", script_path, "--base-path", base_dir
+    ], capture_output=True, text=True, check=True)
+    gfiles = [Path(p.strip()) for p in result.stdout.strip().split('\n') if p.strip()]
+    return gfiles
+
+TARGET_GFILES = get_target_gfiles(BASE_DIR)
+print("DEBUG: Type of TARGET_GFILES:", type(TARGET_GFILES))
+if TARGET_GFILES:
+    print("DEBUG: Number of gfiles found:", len(TARGET_GFILES))
+    print("DEBUG: Type of first element in TARGET_GFILES:", type(TARGET_GFILES[0]))
+    print("DEBUG: First element in TARGET_GFILES:", TARGET_GFILES[0].as_posix())
+print("DEBUG: TARGET_GFILES (first 2 if more than 2):", [g.as_posix() for g in TARGET_GFILES[:2]])
+
+# Helper function to extract shot and time from gfile path
+def get_shot_and_time_from_gfile(gfile_path_obj: Path):
+    try:
+        file_name = gfile_path_obj.name
+        if '.' not in file_name:
+            raise ValueError(f"G-file name '{file_name}' does not contain expected '.' separator.")
+        parts = file_name.split('.')
+        if len(parts) < 2 or not parts[0].startswith('g') or not len(parts[0]) == 7 or not len(parts[1]) == 5:
+            raise ValueError(f"G-file name '{file_name}' not in expected format gXXXXXX.YYYYY")
+        time_str = parts[1]
+        shot_dir_name = gfile_path_obj.parent.parent.name 
+        if not shot_dir_name.isdigit() or not len(shot_dir_name) == 5: 
+             raise ValueError(f"Parent directory '{shot_dir_name}' not a 5-digit shot number.")
+        return str(shot_dir_name), str(time_str) # Ensure strings are returned
+    except Exception as e:
+        print(f"Error parsing gfile_path '{gfile_path_obj}': {e}", file=sys.stderr)
+        raise
+
+ALL_GFILE_PROCESSING_INFO = []
+if TARGET_GFILES: 
+    for gfile_p_obj in TARGET_GFILES:
+        if isinstance(gfile_p_obj, Path):
+            shot, time = get_shot_and_time_from_gfile(gfile_p_obj)
+            ALL_GFILE_PROCESSING_INFO.append({
+                "shot": shot, 
+                "time": time, 
+                "gfile_name": str(gfile_p_obj.name),
+                "gfile_dir": str(gfile_p_obj.parent)
+            })
+        else:
+            print(f"DEBUG: Found non-Path object in TARGET_GFILES: {gfile_p_obj} of type {type(gfile_p_obj)}")
+else:
+    print("DEBUG: TARGET_GFILES is empty or None.")
+
+print("DEBUG: ALL_GFILE_PROCESSING_INFO (first 2 if more than 2):", ALL_GFILE_PROCESSING_INFO[:2])
+
+UNIQUE_SHOT_TIME_COMBINATIONS = sorted(list(set((info["shot"], info["time"]) for info in ALL_GFILE_PROCESSING_INFO)))
+print("DEBUG: UNIQUE_SHOT_TIME_COMBINATIONS (first 2 if more than 2):", UNIQUE_SHOT_TIME_COMBINATIONS[:2])
+
+# UNIQUE_SHOTS = sorted(list(set(info["shot"] for info in ALL_GFILE_PROCESSING_INFO))) # No longer needed for rule all
+# print("DEBUG: UNIQUE_SHOTS (first 2 if more than 2):", UNIQUE_SHOTS[:2])
+
+# This is your rule all (now targeting simulation completion markers)
+rule all:
+    input:
+        # DCON runs
+        [os.path.join(BASE_DIR, shot_time[0], "linear_stability", shot_time[1], "dcon", f"nn={n_mode}", "completed.txt")
+         for shot_time in UNIQUE_SHOT_TIME_COMBINATIONS for n_mode in IDEAL_N_SCAN] + \
+        # RDCON runs (Comment moved before the list comprehension or on a non-interfering line)
+        [os.path.join(BASE_DIR, shot_time[0], "linear_stability", shot_time[1], "rdcon", f"nn={n_mode}", "completed.txt")
+         for shot_time in UNIQUE_SHOT_TIME_COMBINATIONS for n_mode in RESIST_N_SCAN] + \
+        # STRIDE runs (Comment moved before the list comprehension or on a non-interfering line)
+        [os.path.join(BASE_DIR, shot_time[0], "linear_stability", shot_time[1], "stride", f"nn={n_mode}", "completed.txt")
+         for shot_time in UNIQUE_SHOT_TIME_COMBINATIONS for n_mode in RESIST_N_SCAN]
+
+
+# Rule to run a single (code_type, n_mode) combination for a given g-file (shot, time)
+rule run_stability_code_for_mode:
+    output:
+        marker = touch(os.path.join(BASE_DIR, "{shot}", "linear_stability", "{time}", "{code_type}", "nn={n_mode}", "completed.txt"))
+    params:
+        shot_num = "{shot}",
+        gfile_input_dir = lambda wildcards: os.path.join(BASE_DIR, wildcards.shot, "chease"), 
+        gfile_name_str = lambda wildcards: f"g{int(wildcards.shot):06d}.{wildcards.time}",
+        output_root_for_time = lambda wildcards: os.path.join(BASE_DIR, wildcards.shot, "linear_stability", wildcards.time),
+        code = "{code_type}",
+        n = "{n_mode}",
+        log_file = os.path.join(BASE_DIR, "{shot}", "logs", "linear_stability", "{time}", "{code_type}_nn{n_mode}.log")
+    threads: 1 
+    shell:
+        """
+        module use /home/user1/GPEC/module
+        module load GPEC-dev
+        mkdir -p $(dirname {output.marker}) 
+        mkdir -p $(dirname {params.log_file}) 
+        # The plots directory might be expected by the simulation script
+        mkdir -p $(dirname {params.output_root_for_time})/plots 
+        
+        echo 'Running {wildcards.shot} {wildcards.time} {wildcards.code_type} nn={wildcards.n_mode}' > {params.log_file}
+        
+        python {RUN_PARALLEL_DCON_SCRIPT} \
+            --shot {params.shot_num} \
+            --input-dir {params.gfile_input_dir} \
+            --gfile-name {params.gfile_name_str} \
+            --output-root-time {params.output_root_for_time} \
+            --code-type {params.code} \
+            --n-mode {params.n} >> {params.log_file} 2>&1
+        """
+
+# =============================================================================
+# Rule for generating Expdata plots for a given (shot, time)
+# This rule runs after all stability code jobs for that (shot, time) are complete.
+# =============================================================================
+# GENERATE_EXPDATA_SCRIPT = "/home/user1/test/laurent/VEST_database/OMAS/generate_expdata_plots.py"
+
+# def get_stability_job_markers_for_timeslice(wildcards):
+#     """Helper to list all expected completed.txt files for a given shot and time."""
+#     markers = []
+#     # DCON runs
+#     for n_mode in IDEAL_N_SCAN:
+#         markers.append(os.path.join(BASE_DIR, wildcards.shot, "linear_stability", wildcards.time, "dcon", f"nn={n_mode}", "completed.txt"))
+#     # RDCON runs
+#     for n_mode in RESIST_N_SCAN:
+#         markers.append(os.path.join(BASE_DIR, wildcards.shot, "linear_stability", wildcards.time, "rdcon", f"nn={n_mode}", "completed.txt"))
+#     # STRIDE runs
+#     for n_mode in RESIST_N_SCAN:
+#         markers.append(os.path.join(BASE_DIR, wildcards.shot, "linear_stability", wildcards.time, "stride", f"nn={n_mode}", "completed.txt"))
+#     return markers
+
+# rule generate_expdata_plots:
+#     input:
+#         stability_markers = get_stability_job_markers_for_timeslice 
+#     output:
+#         expdata_plot_marker = touch(os.path.join(BASE_DIR, "{shot}", "linear_stability", "{time}", "expdata_plots_completed.txt"))
+#     params:
+#         shot_num = "{shot}",
+#         time_slice = "{time}",
+#         input_data_root = lambda wildcards: os.path.join(BASE_DIR, wildcards.shot, "linear_stability", wildcards.time),
+#         output_plots_dir_final = lambda wildcards: os.path.join(BASE_DIR, wildcards.shot, "linear_stability", "plots"),
+#         log_file = os.path.join(BASE_DIR, "{shot}", "logs", "linear_stability", "{time}", "generate_expdata_plots.log")
+#     threads: 1 
+#     shell:
+#         """
+#         mkdir -p $(dirname {output.expdata_plot_marker}) 
+#         mkdir -p $(dirname {params.log_file}) 
+#         mkdir -p {params.output_plots_dir_final}
+#         # Ensure the log file Expdata checks for exists in each code-specific subdir
+#         for code_dir_name in dcon rdcon stride; do \
+#             if [ -d "{params.input_data_root}/$code_dir_name" ]; then \
+#                 touch "{params.input_data_root}/$code_dir_name/StabilityCodeRun.log"; \
+#             fi; \
+#         done
+
+#         echo 'Generating Expdata plots for {wildcards.shot} {wildcards.time}' > {params.log_file}
+
+#         python {GENERATE_EXPDATA_SCRIPT} \
+#             --shot {params.shot_num} \
+#             --time {params.time_slice} \
+#             --input-data-root {params.input_data_root} \
+#             --output-plot-dir {params.output_plots_dir_final} >> {params.log_file} 2>&1
+#         """
+
+# =============================================================================
+# Rule for generating SHOT-LEVEL SUMMARY plots (e.g., dW vs time)
+# This rule runs after all per-time-slice Expdata plots for a given SHOT are complete.
+# =============================================================================
+# SHOT_SUMMARY_PLOT_SCRIPT = "/home/user1/test/laurent/VEST_database/OMAS/generate_shot_summary_plots.py"
+
+# def get_all_timeslice_expdata_markers_for_shot(wildcards):
+#     """Helper to list all expdata_plots_completed.txt for a given shot across all its time slices."""
+#     markers = []
+#     # Find all time slices processed for this shot based on ALL_GFILE_PROCESSING_INFO
+#     shot_specific_times = sorted(list(set(info["time"] 
+#                                           for info in ALL_GFILE_PROCESSING_INFO 
+#                                           if info["shot"] == wildcards.shot)))
+#     for time_slice in shot_specific_times:
+#         markers.append(os.path.join(BASE_DIR, wildcards.shot, "linear_stability", time_slice, "expdata_plots_completed.txt"))
+#     if not markers:
+#         # This case should ideally not be reached if the rule is triggered for a valid shot from rule all
+#         print(f"Warning: No timeslices found for shot {wildcards.shot} when collecting expdata markers for summary plotting. ALL_GFILE_PROCESSING_INFO: {ALL_GFILE_PROCESSING_INFO[:5]}")
+#     return markers
+
+# rule generate_shot_summary_plots:
+#     input:
+#         all_timeslice_plots_done = get_all_timeslice_expdata_markers_for_shot
+#     output:
+#         shot_summary_marker = touch(os.path.join(BASE_DIR, "{shot}", "linear_stability", "shot_summary_plots_completed.txt"))
+#     params:
+#         shot_num = "{shot}",
+#         base_linear_stab_dir = lambda wildcards: os.path.join(BASE_DIR, wildcards.shot, "linear_stability"),
+#         output_plots_dir_final = lambda wildcards: os.path.join(BASE_DIR, wildcards.shot, "linear_stability", "plots"),
+#         log_file = os.path.join(BASE_DIR, "{shot}", "logs", "linear_stability", "generate_shot_summary_plots.log")
+#     threads: 1
+#     shell:
+#         """
+#         mkdir -p $(dirname {output.shot_summary_marker})
+#         mkdir -p $(dirname {params.log_file})
+#         # The plot output dir is the same as for per-time-slice plots, it should exist
+#         # mkdir -p {params.output_plots_dir_final} # Already created by generate_expdata_plots rule usually
+
+#         echo 'Generating SHOT SUMMARY plots for {wildcards.shot}' > {params.log_file}
+
+#         python {SHOT_SUMMARY_PLOT_SCRIPT} \
+#             --shot {params.shot_num} \
+#             --base-stability-dir {params.base_linear_stab_dir} \
+#             --output-plot-dir {params.output_plots_dir_final} >> {params.log_file} 2>&1
+#         """
+
+# # Note: The get_dcon_cores function is removed as it's no longer directly used by a rule's resource allocation in this new structure.
+# # Snakemake itself handles parallel job distribution based on --cores.

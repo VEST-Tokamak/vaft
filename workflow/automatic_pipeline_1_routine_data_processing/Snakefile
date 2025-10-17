@@ -1,0 +1,122 @@
+###############################################################################
+#  Snakefile
+#  Usage example: snakemake --cores 8 --configfile config.yaml
+###############################################################################
+
+# --------------------------------------------------------------------------- #
+# 0) Configuration file
+# --------------------------------------------------------------------------- #
+configfile: "config.yaml"
+
+# --------------------------------------------------------------------------- #
+# 1) Global constants
+# --------------------------------------------------------------------------- #
+BASE_DIR = config["base_dir"]                     # Base path for all output
+SHOTS    = config["shots"]                       # List of shot numbers to process
+CONDA    = config["conda"]                       # Conda environment to use
+
+# --------------------------------------------------------------------------- #
+# 2) Utility functions
+# --------------------------------------------------------------------------- #
+
+rule all:
+    input:
+        expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS)
+
+############################################################
+# DAQ Raw Data Extraction
+############################################################
+rule generate_raw_db_dump:
+    output:
+        "{BASE_DIR}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_raw_db_dump.log"
+    conda:
+        CONDA
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_raw_db_dump.py --shot {wildcards.shot} --output {output} > {log} 2>&1
+        """
+############################################################
+# Diagnostics Processing (Modular Scripts)
+############################################################
+
+
+# ############################################################
+# # Eddy Current Calculation (Modular Scripts)
+# ############################################################
+
+# rule generate_eddy_ods:
+
+# rule plot_eddy_ods:
+
+# ############################################################
+# # Constraints Transformation (Modular Scripts)
+# ############################################################
+
+# rule generate_constraints_ods:
+
+# ############################################################
+# # EFIT Execution (Modular Scripts)
+# ############################################################
+
+# rule generate_kfile:
+
+# rule run_efit_reconstruction:
+
+# rule generate_efit_ods:
+
+# ############################################################
+# # add information to the DB after EFIT run
+# ############################################################
+# # rule run_DB_add_efit:
+
+
+# ############################################################
+# # Combine ODS
+# ############################################################
+
+# rule combine_ods:
+
+# ############################################################
+# # Convert ODS to IDS
+# ############################################################
+
+# rule convert2ids:
+
+# ############################################################
+# # Convert IDS to older IDS
+# ############################################################
+
+# rule convert2old:
+
+# rule save_hsds_db:
+
+
+# ############################################################
+# # Run Chease (Modular Scripts)
+# ############################################################
+# rule run_chease:
+
+# rule generate_chease_ods:
+
+# rule plot_chease:
+
+# ############################################################
+# # Combine chease ODS
+# ############################################################
+
+# rule combine_chease_ods:
+
+# ############################################################
+# # Convert ODS chease to IDS
+# ############################################################
+
+
+# ############################################################
+# # Run DCON (Modular Scripts)
+# ############################################################
+# rule run_dcon:
+
