@@ -1,0 +1,25 @@
+# Snakefile for generating chease and efit history files
+# This workflow runs both history generation scripts in parallel
+
+# Default base path for data files
+BASE_PATH = "/srv/vest.filedb/public"
+
+# Rule to generate chease history
+rule generate_chease_history:
+    output:
+        "chease_history.xlsx"
+    shell:
+        "python gen_chease_history.py --base-path {BASE_PATH}"
+
+# Rule to generate efit history
+rule generate_efit_history:
+    output:
+        "efit_history.xlsx"
+    shell:
+        "python gen_efit_history.py --base-path {BASE_PATH}"
+
+# Default rule to generate both histories
+rule all:
+    input:
+        "chease_history.xlsx",
+        "efit_history.xlsx"

@@ -10,8 +10,6 @@ from omfit_classes.fluxSurface import fluxSurfaces
 
 # print_available_ids(ods)
 
-<<<<<<< Updated upstream
-=======
 def update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None):
     """
     Update normalized poloidal flux (psi_norm) for all time slices.
@@ -36,7 +34,6 @@ def update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None):
         
         # Store in ODS
         ts['profiles_1d.psi_norm'] = psi_n
->>>>>>> Stashed changes
 def update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None):
     """
     Update normalized poloidal flux (psi_norm) for all time slices.

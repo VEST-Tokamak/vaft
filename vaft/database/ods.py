@@ -1,4 +1,3 @@
-from typing import Optional, List
 
 """
 OMAS HSDS Database Interface Module
@@ -73,7 +72,8 @@ def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> Li
     """
     logging.getLogger().setLevel(logging.WARNING)
     if username is None:
-        username = h5pyd.getServerInfo()['username']
+        # username = h5pyd.getServerInfo()['username']
+        username = 'public' # use default folder for public data
     
     try:
         folder = list(h5pyd.Folder("/" + username + "/"))
@@ -104,38 +104,56 @@ def exist_ts_file():
     Display all processed Thomson scattering shots from h5pyd in a formatted table.
 
     Behavior:
-    - Reads 'shots', 'timestamps', and 'status' datasets from processed_shots.h5.
-    - Shows whether each shot has full core profile fitting or only Thomson data.
+    - Reads 'shots' group (each shotnumber as subgroup) from processed_shots.h5.
+    - Extracts timestamp and status for each shot.
+    - Displays in a Markdown-formatted table.
+    - Returns DataFrame with an additional 'File' column indicating source file.
     """
     logging.getLogger().setLevel(logging.WARNING)
 
     try:
         with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
             if "shots" not in f:
-                print("[INFO] No 'shots' dataset found in processed_shots.h5.")
-                return
+                print("[INFO] No 'shots' group found in processed_shots.h5.")
+                return None
 
-            shots = f["shots"][:].astype(int)
-            timestamps = f["timestamps"][:].astype(str) if "timestamps" in f else ["N/A"] * len(shots)
-            status = f["status"][:].astype(str) if "status" in f else ["unknown"] * len(shots)
+            g = f["shots"]
+            if len(g.keys()) == 0:
+                print("[INFO] No processed shots recorded yet.")
+                return None
 
-        if len(shots) == 0:
-            print("[INFO] No processed shots recorded yet.")
-            return
+            shots, timestamps, status = [], [], []
+            for key in sorted(g.keys(), key=lambda x: int(x)):
+                try:
+                    shots.append(int(key))
+                    ts = g[key]["timestamp"][...]
+                    st = g[key]["status"][...]
+                    if isinstance(ts, bytes):
+                        ts = ts.decode()
+                    if isinstance(st, bytes):
+                        st = st.decode()
+                except Exception:
+                    ts, st = "N/A", "unknown"
+                timestamps.append(ts)
+                status.append(st)
 
         df = pd.DataFrame({
             "Index": range(1, len(shots) + 1),
             "Shot Number": shots,
-            "Last Processed": timestamps,
-            "Status": status
+           "Last Processed": timestamps,
+           "Status": status
         })
 
-        print(" Available Thomson Scattering Shots:\n")
+        print("Available Thomson Scattering Shots:\n")
         print(df.to_markdown(index=False, tablefmt="github"))
+
+        return df
 
     except Exception as e:
         print(f"[ERROR] Failed to read processed shots: {e}")
-
+        return None
+        
+        
 def save(
     ods: omas.ODS,
     shot: int,

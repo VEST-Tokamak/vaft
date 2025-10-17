@@ -5,7 +5,6 @@ from vaft.process import compute_response_matrix
 from vaft.formula import magnetic_shear, ballooning_alpha
 
 
-
 def compute_magnetic_shear(ods, time_slice: slice) -> ndarray:
     """
     Compute magnetic shear from ODS
@@ -24,5 +23,4 @@ def compute_ballooning_alpha(ods, time_slice: slice) -> ndarray:
     p = ods['equilibrium']['profiles_1d']['p']
     psi = ods['equilibrium']['profiles_1d']['psi']
     return ballooning_alpha(V, R, p, psi)
->>>>>>> Stashed changes
 

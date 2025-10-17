@@ -41,9 +41,7 @@ FAST_DT = 4e-6   # Fast DAQ sampling interval (seconds)
 SLOW_DT = 4e-5   # Slow DAQ sampling interval (seconds)
 SLOW_DT_THRESHOLD = 5e-6  # Threshold for slow/fast DAQ classification
 
-# Shot range constants
-MIN_SHOT = 29349
-MID_SHOT = 42190
+# Database connection related constants
 MAX_RETRIES = 3
 POOL_SIZE = 4
 
@@ -163,7 +161,7 @@ def _load_from_shot_waveform_2(
     db_conn: mysql.connector.MySQLConnection,
     shot: int,
     field: int
-) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load shot data from shotDataWaveform_2 table.
 
@@ -198,7 +196,7 @@ def _load_from_shot_waveform_3(
     db_conn: mysql.connector.MySQLConnection,
     shot: int,
     field: int
-) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load shot data from shotDataWaveform_3 table.
 
@@ -243,7 +241,7 @@ def _load_from_sample_file(
     shot: int,
     fields: List[int],
     sample_opt: str
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     Load data from sample JSON file.
 
@@ -344,7 +342,7 @@ def load_raw(
     max_retries: int = MAX_RETRIES,
     daq_type: Optional[int] = None,
     sample_opt: Union[bool, str] = False
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     High-level data loader for the VEST database.
 
@@ -389,9 +387,9 @@ def load_raw(
                 time_arrays, data_arrays = [], []
 
                 for fld in fields:
-                    if MIN_SHOT < shot <= MID_SHOT:
+                    if 29349 < shot <= 42190:
                         tvals, dvals = _load_from_shot_waveform_2(conn, shot, fld)
-                    elif shot > MID_SHOT:
+                    elif shot > 42190:
                         tvals, dvals = _load_from_shot_waveform_3(conn, shot, fld)
                     else:
                         logger.error("Shot number out of range for these tables.")
@@ -469,7 +467,7 @@ def plot(
     semilogy_opt: bool = False,
     norm_opt: bool = False,
     xlims=None,
-) -> None:
+    ) -> None:
     """
     Plots data for the 3 standard scenarios:
 
@@ -723,16 +721,16 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     print("Error: Could not retrieve field codes after max_retries.")
     return None
 
-def store_shot_as_json(
+def dump_all_raw_signals_for_shot(
     shot: int,
     output_path: str = None,
     max_retries: int = 3,
     daq_type: int = 0,
     slow_dt_threshold: float = 5e-6,  # Time interval threshold for slow DAQ [4e-5 sec/sample] vs Fast DAQ [4e-6 sec/sample] classification
     plot_opt: bool = False
-) -> bool:
+    ) -> bool:
     """
-    Store shot data as JSON file with the following steps:
+    Store shot data as JSON GZIP file (.json.gz) with the following steps:
     1. Retrieve list of field codes
     2. Load (time, data1D) using load_raw
     3. Classify as fast/slow based on sampling interval (time[1]-time[0])
@@ -826,13 +824,16 @@ def store_shot_as_json(
         print(f"[store_shot_as_json] Failed to write JSON: {e}")
         return False
 
-def compare_db_and_dumped_raw_signals(
+# -----------------------------------------------------------------------------
+# TEST FUNCTIONS (for development and debugging)
+# ----------------
+def compare_db_and_dumped_raw_signals_for_shot(
     shot: int,
     output_path: str = None,
     max_retries: int = 3,
     daq_type: int = 0,
     slow_dt_threshold: float = 5e-6
-) -> bool:
+    ) -> bool:
     """
     Compare and plot original signals from database with signals loaded from JSON file
     
@@ -928,10 +929,145 @@ def compare_db_and_dumped_raw_signals(
     
     return True
 
-# main
+
+# MAIN FUNCTION - SIMPLE TEST ROUTINE
 if __name__ == "__main__":
-    init_pool()
-    shots = [39915, 43000, 45000]
-    for shot in shots:
-        store_shot_as_json(shot, plot_opt=1)
-        # compare_db_and_dumped_raw_signals(shot)
+    print("=" * 60)
+    print("VEST DATABASE RAW.PY - FUNCTION TEST")
+    print("=" * 60)
+    
+    # Test 1: Configuration functions
+    print("\n1. Testing configuration functions...")
+    try:
+        key = load_or_generate_key()
+        print("✓ load_or_generate_key: OK")
+    except Exception as e:
+        print(f"✗ load_or_generate_key: FAILED - {e}")
+    
+    try:
+        scm = SecureConfigManager()
+        print("✓ SecureConfigManager: OK")
+    except Exception as e:
+        print(f"✗ SecureConfigManager: FAILED - {e}")
+    
+    # Test 2: Database connection
+    print("\n2. Testing database connection...")
+    try:
+        init_pool()
+        print("✓ init_pool: OK")
+        db_ok = True
+    except Exception as e:
+        print(f"✗ init_pool: FAILED - {e}")
+        db_ok = False
+    
+    if db_ok:
+        # Test 3: Basic database functions
+        print("\n3. Testing basic database functions...")
+        
+        try:
+            last_shot_num = last_shot()
+            print(f"✓ last_shot: OK (last shot: {last_shot_num})")
+        except Exception as e:
+            print(f"✗ last_shot: FAILED - {e}")
+            last_shot_num = None
+        
+        if last_shot_num:
+            try:
+                date_str, date_obj = date_from_shot(last_shot_num)
+                print(f"✓ date_from_shot: OK (date: {date_str})")
+            except Exception as e:
+                print(f"✗ date_from_shot: FAILED - {e}")
+            
+            try:
+                field_codes = get_all_field_codes_for_shot(last_shot_num)
+                print(f"✓ get_all_field_codes_for_shot: OK (found {len(field_codes)} fields)")
+            except Exception as e:
+                print(f"✗ get_all_field_codes_for_shot: FAILED - {e}")
+                field_codes = []
+            
+            if field_codes:
+                try:
+                    field_name, field_remark = name(field_codes[0])
+                    print(f"✓ name: OK (field {field_codes[0]}: {field_name})")
+                except Exception as e:
+                    print(f"✗ name: FAILED - {e}")
+                
+                try:
+                    time_vals, data_vals = load_raw(last_shot_num, field_codes[0])
+                    print(f"✓ load_raw (single field): OK (loaded {len(data_vals)} points)")
+                except Exception as e:
+                    print(f"✗ load_raw (single field): FAILED - {e}")
+                
+                if len(field_codes) >= 2:
+                    try:
+                        time_vals, data_vals = load_raw(last_shot_num, field_codes[:2])
+                        print(f"✓ load_raw (multiple fields): OK (loaded {data_vals.shape} data)")
+                    except Exception as e:
+                        print(f"✗ load_raw (multiple fields): FAILED - {e}")
+        
+        # Test 4: Date functions
+        print("\n4. Testing date functions...")
+        try:
+            shots = shots_from_date("2023-06-01")
+            print(f"✓ shots_from_date: OK (found {len(shots)} shots)")
+        except Exception as e:
+            print(f"✗ shots_from_date: FAILED - {e}")
+        
+        # Test 5: DAQ time correction
+        print("\n5. Testing DAQ time correction...")
+        test_shots = [40000, 41500, 42000, 45000]
+        for shot in test_shots:
+            try:
+                correction = _daq_trigger_time_correction(shot)
+                print(f"✓ _daq_trigger_time_correction (shot {shot}): OK ({correction}s)")
+            except Exception as e:
+                print(f"✗ _daq_trigger_time_correction (shot {shot}): FAILED - {e}")
+        
+        # Test 6: Data dumping functions
+        print("\n6. Testing data dumping functions...")
+        if last_shot_num:
+            try:
+                result = dump_all_raw_signals_for_shot(last_shot_num, plot_opt=False)
+                print(f"✓ dump_all_raw_signals_for_shot: OK")
+            except Exception as e:
+                print(f"✗ dump_all_raw_signals_for_shot: FAILED - {e}")
+            
+            try:
+                result = compare_db_and_dumped_raw_signals_for_shot(last_shot_num)
+                print(f"✓ compare_db_and_dumped_raw_signals_for_shot: OK")
+            except Exception as e:
+                print(f"✗ compare_db_and_dumped_raw_signals_for_shot: FAILED - {e}")
+        
+        # Test 7: Plotting functions
+        print("\n7. Testing plotting functions...")
+        if last_shot_num and field_codes:
+            try:
+                plot(last_shot_num, field_codes[0])
+                print("✓ plot (single shot, single field): OK")
+            except Exception as e:
+                print(f"✗ plot (single shot, single field): FAILED - {e}")
+            
+            if len(field_codes) >= 2:
+                try:
+                    plot(last_shot_num, field_codes[:2])
+                    print("✓ plot (single shot, multiple fields): OK")
+                except Exception as e:
+                    print(f"✗ plot (single shot, multiple fields): FAILED - {e}")
+    
+    # Test 8: Error handling
+    print("\n8. Testing error handling...")
+    try:
+        load_raw(-1, 1)
+        print("✗ load_raw (invalid shot): Should have failed")
+    except:
+        print("✓ load_raw (invalid shot): Correctly handled error")
+    
+    try:
+        date_from_shot(-1)
+        print("✗ date_from_shot (invalid shot): Should have failed")
+    except:
+        print("✓ date_from_shot (invalid shot): Correctly handled error")
+    
+    print("\n" + "=" * 60)
+    print("TEST COMPLETED")
+    print("=" * 60)

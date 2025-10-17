@@ -1,0 +1,5 @@
+base_dir: /srv/vest.filedb/public # Base path for all output
+conda: vaft # Conda environment to activate
+shots: # List of shot numbers to process
+- 39915
+cores: 30 # Number of cores to use

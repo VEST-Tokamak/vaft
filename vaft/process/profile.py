@@ -190,27 +190,23 @@ def profile_fitting_thomson_scattering(
 
     return n_e_function, T_e_function, coeffs_ne, coeffs_te, n_e_rho, T_e_rho
 
-def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function):
+
+def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function, tol_ms=0.1):
     """
     Construct and store core_profiles.profiles_1d for given Thomson scattering data.
 
-    ## Behavior:
-    - Stores both measured and reconstructed (fitted) profiles.
-    - Uses IMAS-standard hierarchy under `core_profiles.profiles_1d`.
-    - Assumes single ion species with n_i = n_e, T_i = T_e.
+    If a profile already exists for the same time (within tol_ms), it is replaced.
 
     ## Arguments:
     - ods: OMAS data structure (mutable)
-    - t_idx: Time index of the Thomson scattering data
-    - mapped_rho_position: Mapped rho positions for each Thomson channel
-    - n_e_function: Callable that returns fitted n_e(rho)
-    - T_e_function: Callable that returns fitted T_e(rho)
+    - time_ms: time in milliseconds
+    - mapped_rho_position: list of mapped rho_tor_norm positions for Thomson channels
+    - n_e_function, T_e_function: callable fit functions for ne, Te
+    - tol_ms: tolerance in milliseconds for duplicate time detection
 
     ## Returns:
-    - Updated ods with appended core_profiles.profiles_1d entry.
+    - Updated ods with replaced or appended core_profiles.profiles_1d entry.
     """
-
-    # --- Extract measured data ---
     num_channels = len(ods['thomson_scattering.channel'])
     n_e_meas, T_e_meas = [], []
     t_idx = np.where(ods['thomson_scattering.time'] == time_ms / 1e3)[0][0]
@@ -222,46 +218,56 @@ def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function)
     n_e_meas = np.array(n_e_meas)
     T_e_meas = np.array(T_e_meas)
 
-    # --- Define grids ---
-    rho_meas = np.array(mapped_rho_position)          # Thomson measured points
-    rho_fit = np.linspace(0, 1, 100)                  # Uniform grid for fitted profiles
+    rho_meas = np.array(mapped_rho_position)
+    rho_fit = np.linspace(0, 1, 100)
 
-    # --- Evaluate fitted profiles ---
     n_e_recon = n_e_function(rho_fit)
     T_e_recon = T_e_function(rho_fit)
 
-    # --- Determine new index ---
-    next_idx = len(ods['core_profiles']['profiles_1d']) if 'core_profiles.profiles_1d' in ods else 0
-    time_s = ods['thomson_scattering.time'][t_idx]
+    # --- check for duplicate time entries ---
+    existing_times = []
+    if 'core_profiles.profiles_1d' in ods:
+        n_profiles = len(ods['core_profiles.profiles_1d'])
+        for i in range(n_profiles):
+            try:
+                t_existing = ods[f'core_profiles.profiles_1d.{i}.time']
+                if abs(t_existing * 1000 - time_ms) < tol_ms:
+                    existing_times.append(i)
+            except Exception:
+                continue
+
+    # --- remove duplicates before writing ---
+    for i in sorted(existing_times, reverse=True):
+        ods.pop(f'core_profiles.profiles_1d.{i}')
+        print(f"[INFO] Removed duplicate core_profile at {time_ms:.3f} ms (index {i})")
+
+    # --- Determine next available index after removal ---
+    next_idx = len(ods['core_profiles.profiles_1d']) if 'core_profiles.profiles_1d' in ods else 0
     base = f'core_profiles.profiles_1d.{next_idx}'
 
-    # --- Time and grid setup ---
-    ods[f'{base}.time'] = time_ms
+    ods[f'{base}.time'] = time_ms / 1000
     ods[f'{base}.grid.rho_tor_norm'] = rho_fit.tolist()
 
-    # --- Electron profiles ---
     ods[f'{base}.electrons.density_thermal'] = n_e_recon.tolist()
     ods[f'{base}.electrons.temperature'] = T_e_recon.tolist()
 
-    # --- Ion profiles (assume quasineutral, same T_i = T_e) ---
     ods[f'{base}.ion.0.label'] = 'D+'
     ods[f'{base}.ion.0.density_thermal'] = n_e_recon.tolist()
     ods[f'{base}.ion.0.temperature'] = T_e_recon.tolist()
 
-    # --- Store fitting diagnostic data (Thomson-based reference) ---
     fit_base_n = f'{base}.electrons.density_fit'
     fit_base_t = f'{base}.electrons.temperature_fit'
 
-    ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas.tolist()       # measurement locations
-    ods[f'{fit_base_n}.measured'] = n_e_meas.tolist()           # measured data
-    ods[f'{fit_base_n}.reconstructed'] = n_e_recon.tolist()     # fitted profile on uniform grid
+    ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas.tolist()
+    ods[f'{fit_base_n}.measured'] = n_e_meas.tolist()
+    ods[f'{fit_base_n}.reconstructed'] = n_e_recon.tolist()
 
     ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas.tolist()
     ods[f'{fit_base_t}.measured'] = T_e_meas.tolist()
     ods[f'{fit_base_t}.reconstructed'] = T_e_recon.tolist()
 
+    print(f"[UPDATED] core_profile at {time_ms:.3f} ms (index {next_idx})")
     return ods
-
 
 def export_electron_profile_txt(
     n_e_function,
