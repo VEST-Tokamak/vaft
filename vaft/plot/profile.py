@@ -3,79 +3,62 @@ import matplotlib.pyplot as plt
 import omas
 from matplotlib.ticker import ScalarFormatter
 
-def plot_thomson_radial_position(
-    ods,
-    contour_quantity='psi_norm',
-):
+
+def plot_thomson_radial_position(ods, contour_quantity='psi_norm'):
     """
-    Plot Thomson radial positions (from ODS) on the equilibrium boundary and wall.
+    Plot Thomson radial positions on the first available equilibrium boundary and wall.
 
-    ## Arguments:
-    - `ods`: OMAS data structure (must contain equilibrium, wall, and thomson_scattering data)
-    - `contour_quantity`: Quantity to normalize or display (default: 'psi_norm')
+    Automatically picks the first equilibrium time slice that actually contains data.
     """
+    fig, ax = plt.subplots(figsize=(3, 4))
 
-    fig, ax = plt.subplots(figsize=(3,4))
-    time_index = 0
+    # --- equilibrium slice with data 찾기 ---
+    eq_slices = ods['equilibrium']['time_slice']
+    time_index = None
+    for i, eq in enumerate(eq_slices):
+        try:
+            if len(eq['boundary.outline.r']) > 0 and len(eq['boundary.outline.z']) > 0:
+                time_index = i
+                break
+        except Exception:
+            continue
 
-    # --- Equilibrium slice ---
-    eq = ods['equilibrium']['time_slice'][time_index]
+    if time_index is None:
+        time_index = 0
+        flag = False
+    else:
+        flag = True
 
-    # --- Wall geometry ---
-    if 'wall' in ods:
-        if time_index in ods['wall']['description_2d']:
-            wall = ods['wall']['description_2d'][time_index]['limiter']['unit']
-        elif 0 in ods['wall']['description_2d']:
-            wall = ods['wall']['description_2d'][0]['limiter']['unit']
+    eq = eq_slices[time_index]
+    print(f"[INFO] Using equilibrium time slice {time_index}")
 
-    # --- psi normalization ---
-    x_value_1d = eq['profiles_1d']['psi']
-    m = x_value_1d[0]
-    M = x_value_1d[-1]
-    x_value_1d = (x_value_1d - m) / (M - m)
+    # --- Wall geometry (optional) ---
+    if 'wall' in ods and 'description_2d' in ods['wall']:
+        wall_desc = ods['wall']['description_2d']
+        wall_idx = time_index if time_index in wall_desc else 0
+        if 'limiter' in wall_desc[wall_idx] and 'unit' in wall_desc[wall_idx]['limiter']:
+            for unit in wall_desc[wall_idx]['limiter']['unit']:
+                ax.plot(unit['outline.r'], unit['outline.z'], color='gray', alpha=0.4)
 
     # --- Thomson scattering data ---
     TS = ods['thomson_scattering']
     n_channels = len(TS['channel'])
-    positions = []
-    names = []
-
-    for i in range(n_channels):
-        r = TS[f'channel.{i}.position.r']
-        z = TS[f'channel.{i}.position.z']
-        name = TS[f'channel.{i}.name']
-        positions.append([r, z])
-        names.append(name)
-
-    # --- Define colors automatically ---
-    colors = plt.cm.tab10.colors  # 기본 10색 팔레트
+    positions = np.array([[TS[f'channel.{i}.position.r'], TS[f'channel.{i}.position.z']] for i in range(n_channels)])
+    names = [TS[f'channel.{i}.name'] for i in range(n_channels)]
 
     # --- Plotting ---
-    ax.plot(eq['boundary.outline.r'], eq['boundary.outline.z'],
-            label='Boundary', color='#1f77b4')
+    if flag:
+        ax.plot(eq['boundary.outline.r'], eq['boundary.outline.z'], color='#1f77b4', label='Boundary')
+    for i, (r, z) in enumerate(positions):
+        ax.scatter(r, z, s=40, label=names[i])
 
-    if wall is not None:
-        ax.plot(wall[0]['outline']['r'], wall[0]['outline']['z'], 'k')
+    ax.set_xlabel('R [m]')
+    ax.set_ylabel('Z [m]')
+    ax.set_aspect('equal', adjustable='box')
+    ax.legend(fontsize=7, loc='best')
+    ax.set_title(f'Thomson Scattering Positions (slice {time_index})')
 
-    for i, pos in enumerate(positions):
-        color = colors[i % len(colors)]
-        ax.scatter(pos[0], pos[1], color=color, marker='x', s=50,
-                   label=f'{names[i]} (R={pos[0]:.2f} m)')
-
-    fig.suptitle('Thomson Radial Position')
-    ax.set_aspect('equal')
-    ax.set_frame_on(False)
-    ax.xaxis.set_ticks_position('bottom')
-    ax.yaxis.set_ticks_position('left')
-    ax.set_xlabel('R (m)')
-    ax.set_ylabel('Z (m)')
-
-    fig.legend(
-    loc='center left',        # 오른쪽 바깥 가운데에 위치
-    bbox_to_anchor=(1.02, 0.5),  # figure 경계 밖으로 살짝 이동
-    fontsize=7          # 범례 테두리 제거 (선택사항)
-    )
-    fig.tight_layout()
+    plt.tight_layout()
     plt.show()
 
 def plot_electron_profile_with_thomson(ods):

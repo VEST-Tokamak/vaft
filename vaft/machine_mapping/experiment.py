@@ -800,17 +800,18 @@ def thomson_scattering(ods, shotnumber, filepath=None):
         ods[f'thomson_scattering.channel.{i}.position.z'] = z_positions[i]
         ods[f'thomson_scattering.channel.{i}.name'] = names[i]
 
-    print(filepath)
     if filepath is None:
         filepath = os.getcwd()
 
     filename = os.path.basename(filepath)
 
-    if "v10" in filename:
-        version = "v10"
-    elif "v9_rev" in filename:
+    if "v9_rev" in filename:
         version = "v9_rev"
-    else:
+    elif "v10" in filename:
+        version = "v10"
+    elif "_NeTe" in filename:
+        version = "v11"
+    else: 
         raise ValueError(f"[ERROR] Unknown version format in filename: {filename}")
 
     print(f"[INFO] Loading Thomson scattering data from: {filepath} (version: {version})")
@@ -823,32 +824,42 @@ def thomson_scattering(ods, shotnumber, filepath=None):
     if 'dataset_description.data_entry.pulse' not in ods:
         ods['dataset_description.data_entry.pulse'] = shotnumber
 
-    ods['thomson_scattering.time'] = mat_data['time_TS'][0] / 1e3  # Convert from ms to s
+    # Version 9-10 - Processed and Managed by Junghwa Kim
+    if version == "v9_rev" or version == "v10":
+        ods['thomson_scattering.time'] = mat_data['time_TS'][0] / 1e3  # Convert from ms to s
 
-    for i in range(1, 6):  # Channels are numbered from 1 to 5
-        channel_index = i - 1  # Indices in ods start from 0
-        te_key = f'poly{i}R{i}_Te'
-        te_sigma_key = f'poly{i}R{i}_sigmaTe'
-        ne_key = f'poly{i}R{i}_Ne'
-        ne_sigma_key = f'poly{i}R{i}_sigmaNe'
+        for i in range(1, 6):  # Channels are numbered from 1 to 5
+            channel_index = i - 1  # Indices in ods start from 0
+            te_key = f'poly{i}R{i}_Te'
+            te_sigma_key = f'poly{i}R{i}_sigmaTe'
+            ne_key = f'poly{i}R{i}_Ne'
+            ne_sigma_key = f'poly{i}R{i}_sigmaNe'
 
-        # ods[f'thomson_scattering.channel.{channel_index}.t_e.data'] = unumpy.uarray(
-        #     mat_data[te_key][0], mat_data[te_sigma_key][0]
-        # )
-        # ods[f'thomson_scattering.channel.{channel_index}.n_e.data'] = unumpy.uarray(
-        #     mat_data[ne_key][0], mat_data[ne_sigma_key][0]
-        # )
-        ods[f'thomson_scattering.channel.{channel_index}.t_e.data'] = unumpy.uarray(
-            mat_data[te_key][0],abs(mat_data[te_sigma_key][0])
-        )
-        ods[f'thomson_scattering.channel.{channel_index}.n_e.data'] = unumpy.uarray(
-            mat_data[ne_key][0],abs(mat_data[ne_sigma_key][0])
-        )
-        # ad-hoc Ne, Te sigma as absolute value        
+            # ods[f'thomson_scattering.channel.{channel_index}.t_e.data'] = unumpy.uarray(
+            #     mat_data[te_key][0], mat_data[te_sigma_key][0]
+            # )
+            # ods[f'thomson_scattering.channel.{channel_index}.n_e.data'] = unumpy.uarray(
+            #     mat_data[ne_key][0], mat_data[ne_sigma_key][0]
+            # )
+            ods[f'thomson_scattering.channel.{channel_index}.t_e.data'] = unumpy.uarray(
+                mat_data[te_key][0],abs(mat_data[te_sigma_key][0])
+            )
+            ods[f'thomson_scattering.channel.{channel_index}.n_e.data'] = unumpy.uarray(
+                mat_data[ne_key][0],abs(mat_data[ne_sigma_key][0])
+            )
+            # ad-hoc Ne, Te sigma as absolute value        
 
+    # version 11 - Processed and Managed by Jong-min Lee
+    elif version == "v11":
+        ods['thomson_scattering.time'] = mat_data['time'][0] / 1e3
 
-
-
+        for i in range(5):  
+            ods[f'thomson_scattering.channel.{i}.t_e.data'] = unumpy.uarray(
+                mat_data['Te'][:, i], abs(mat_data['sigmaTe'][:, i])
+            )
+            ods[f'thomson_scattering.channel.{i}.n_e.data'] = unumpy.uarray(
+                mat_data['Ne'][:, i], abs(mat_data['sigmaNe'][:, i])
+            )
 
 def raw_database_info(file: str, shot: int, key: str) -> Dict[str, Dict[str, Any]]:
     """
