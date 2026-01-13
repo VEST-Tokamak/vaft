@@ -128,12 +128,18 @@ def exist_ts_file():
                     shots.append(int(key))
                     ts = g[key]["timestamp"][...]
                     st = g[key]["status"][...]
-                    if isinstance(ts, bytes):
-                        ts = ts.decode()
-                    if isinstance(st, bytes):
-                        st = st.decode()
-                except Exception:
+                    
+                    # Handle numpy array with object dtype containing bytes
+                    if isinstance(ts, np.ndarray) and ts.dtype == object:
+                        ts = ts.item().decode('utf-8')
+                    
+                    if isinstance(st, np.ndarray) and st.dtype == object:
+                        st = st.item().decode('utf-8')
+                        
+                except Exception as e:
+                    print(f"[WARNING] Error processing shot {key}: {e}")
                     ts, st = "N/A", "unknown"
+                    
                 timestamps.append(ts)
                 status.append(st)
 

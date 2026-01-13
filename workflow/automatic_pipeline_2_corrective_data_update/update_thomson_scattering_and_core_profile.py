@@ -31,7 +31,7 @@ from datetime import datetime
 import omas
 import h5py
 
-def extract_shotnumber(fname: str):
+def extract_shotnumber_of_thomson_scattering(fname: str):
     """
     Extract shotnumber from filename.
     Supports both:
@@ -223,7 +223,7 @@ def main():
                     full_path = os.path.join(WATCH_DIAG, fname)
 
                     try:
-                        shotnumber = extract_shotnumber(fname)
+                        shotnumber = extract_shotnumber_of_thomson_scattering(fname)
                         if shotnumber is None:
                             continue
                     except Exception:

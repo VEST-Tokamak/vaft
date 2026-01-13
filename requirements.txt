@@ -22,4 +22,6 @@ xarray>=2024.4.0
 astropy==6.1.7
 pyjwt
 imas-python==2.0.0.post1
+scikit-learn
+numba
 wexpect; sys_platform == 'win32'
