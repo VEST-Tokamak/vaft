@@ -246,23 +246,37 @@ def load(shot: Union[int, List[int]], directory: str = 'public') -> Union[omas.O
     logging.getLogger().setLevel(logging.WARNING)
 
     if isinstance(shot, list):
-        shot_list = shot
         ods_list = []
-        for shot in shot_list:
-            ods = omas.ODS()
-            filename = f'hdf5://{directory}/{shot}.h5'
-            with h5py.File(h5pyd.H5Image(filename)) as data:
-                convert_dataset(ods, data)
-            print("Successfully loaded ODS data for shot:", shot)
+        for s in shot:
+            ods = _load_one_shot(int(s), directory)
+            print("Successfully loaded ODS data for shot:", s)
             ods_list.append(ods)
         print("Successfully loaded a list of ODS data")
         return ods_list
 
     else:
-        ods = omas.ODS()
-        shot_list = [int(shot)]
-        filename = f'hdf5://{directory}/{shot}.h5'
+        s = int(shot)
+        ods = _load_one_shot(s, directory)
+        print("Successfully loaded ODS data for shot:", s)
+        return ods
+    
+def _load_one_shot(shot: int, directory: str) -> omas.ODS:
+    logging.getLogger().setLevel(logging.WARNING)
+
+    filename = f'hdf5://{directory}/{shot}.h5'
+
+    # 1) 기본 로드 먼저 시도
+    ods = omas.ODS()
+    try:
         with h5py.File(h5pyd.H5Image(filename)) as data:
             convert_dataset(ods, data)
-        print("Successfully loaded ODS data for shot:", shot)
+        return ods
+
+    # 2) 배열 인덱스 튀는 케이스만 dynamic으로 재시도
+    except IndexError as e:
+        # 원인 메시지에 time_slice[...] 같은 게 들어오면 거의 이 케이스
+        ods = omas.ODS()
+        with omas.omas_environment(ods, dynamic_path_creation='dynamic_array_structures'):
+            with h5py.File(h5pyd.H5Image(filename)) as data:
+                convert_dataset(ods, data)
         return ods

@@ -1,4 +1,4 @@
-from .default import *
+from .numerical import *
 from .signal_processing import * 
 from .electromagnetics import *
 from .magnetics import *

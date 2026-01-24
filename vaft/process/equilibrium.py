@@ -106,5 +106,90 @@ def rho_to_psi(rho, q_profile, psi_axis, psi_boundary, tol=1e-6):
     
     return result.root
 
+def psi_to_RZ(
+    psiN_1d: np.ndarray,
+    f_1d: np.ndarray,
+    psi_RZ: np.ndarray,
+    psi_axis: float,
+    psi_lcfs: float,
+    ):
+    """
+    Map a 1D profile f(psi_N) onto a 2D (R,Z) grid using psi(R,Z).
+
+    Outside LCFS (psi_N < 0 or > 1), the mapped value is set to 0.
+
+    Returns
+    -------
+    f_RZ : (Nr, Nz) array
+        Profile mapped onto (R,Z), zero outside LCFS.
+    psiN_RZ : (Nr, Nz) array
+        Normalized poloidal flux on (R,Z).
+    """
+    psiN_1d = np.asarray(psiN_1d, float)
+    f_1d = np.asarray(f_1d, float)
+    psi_RZ = np.asarray(psi_RZ, float)
+
+    if psiN_1d.ndim != 1 or f_1d.ndim != 1:
+        raise ValueError("psiN_1d and f_1d must be 1D arrays.")
+    if psiN_1d.size != f_1d.size:
+        raise ValueError("psiN_1d and f_1d must have the same length.")
+
+    # Normalized flux on R,Z
+    psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+
+    # MATLAB-style: sort + clip + interp
+    idx = np.argsort(psiN_1d)
+    x = psiN_1d[idx]
+    y = f_1d[idx]
+
+    psiN_clip = np.clip(psiN_RZ, x[0], x[-1])
+    f_interp = np.interp(
+        psiN_clip.ravel(), x, y
+    ).reshape(psi_RZ.shape)
+
+    # Outside LCFS → 0
+    f_RZ = np.where((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0), f_interp, 0.0)
+    return f_RZ, psiN_RZ
+
+def volume_average(
+    f_RZ: np.ndarray,
+    psiN_RZ: np.ndarray,
+    R: np.ndarray,
+    Z: np.ndarray,
+    ):
+    """
+    Compute volume average <f>_V on an (R,Z) grid using
+    dV = 2*pi*R*dR*dZ.
+
+    Only cells with 0 <= psi_N <= 1 contribute to the integral.
+    """
+    f_RZ = np.asarray(f_RZ, float)
+    psiN_RZ = np.asarray(psiN_RZ, float)
+
+    # Build mesh and cell area
+    if R.ndim == 1 and Z.ndim == 1:
+        Rm, Zm = np.meshgrid(R, Z, indexing="ij")
+        dR = np.gradient(R)[:, None]
+        dZ = np.gradient(Z)[None, :]
+        dA = dR * dZ
+    else:
+        Rm, Zm = R, Z
+        dA = np.abs(
+            np.gradient(Rm, axis=0) * np.gradient(Zm, axis=1)
+        )
+
+    # LCFS mask
+    inside = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)
+
+    dV = 2.0 * np.pi * Rm * dA
+
+    V = np.sum(dV[inside])
+    if V == 0.0:
+        raise ValueError("Total plasma volume is zero.")
+
+    favg = np.sum(f_RZ[inside] * dV[inside]) / V
+    return favg, V
+
+
 
 

@@ -5,10 +5,7 @@ import numpy as np
 from scipy.io import loadmat
 from uncertainties import unumpy
 from omas import *
-from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
-from scipy.optimize import curve_fit
+from vaft.formula import fit_profile
 
 
 def equilibrium_mapping_thomson_scattering(ods, geq):
@@ -63,17 +60,6 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
 
     return mapped_rho_position
 
-    """
-    Fit Thomson scattering Te and ne profiles using GP, polynomial, or exponential models.
-
-    ## Modes:
-    - fitting_function_te, fitting_function_ne ∈ {'gp', 'polynomial', 'exponential'}
-    - Uses uncertainties as weights (if available)
-    - Returns callable functions and profile mean/std
-
-    ## Returns:
-        n_e_function, T_e_function, rho_eval, n_e_mean, T_e_mean, n_e_std, T_e_std
-    """
 def profile_fitting_thomson_scattering(
     ods,
     time_ms,
@@ -85,6 +71,42 @@ def profile_fitting_thomson_scattering(
     fitting_function_te='polynomial',
     fitting_function_ne='polynomial',
 ):
+    """
+    Fit Thomson scattering Te and ne profiles with selectable 1D methods.
+
+    Supported modes:
+    - fitting_function_te, fitting_function_ne ∈ {'gp', 'polynomial', 'exponential', 'linear', 'core_poly_edge_exp'}
+
+    Behavior:
+    - Extracts Thomson data (Te, ne) at the requested time.
+    - Fits Te(ρ) and ne(ρ) on ρ_tor_norm ∈ [0, 1] using the selected model for each.
+    - If uncertainty_option == 1 and per-channel uncertainties are available, they are used as weights.
+    - Edge behavior:
+      - Polynomial/exponential basis includes a (1 - ρ) factor so the fitted profile tends toward 0 at ρ=1.
+      - core_poly_edge_exp blends a core polynomial with an edge exponential using tanh(ρ) transition.
+    - Returns callable fit functions for evaluating Te and ne on arbitrary ρ in [0, 1],
+      plus the fitted mean profiles on a uniform evaluation grid.
+
+    ## Arguments:
+    - ods: OMAS data structure
+    - time_ms: time in milliseconds
+    - mapped_rho_position: list/array of mapped rho_tor_norm positions for Thomson channels
+    - Te_order, Ne_order: polynomial order (used for polynomial/exponential/core_poly_edge_exp)
+    - uncertainty_option: use uncertainties when fitting (1 = enabled)
+    - rho_points: number of evaluation points on ρ in [0, 1]
+    - fitting_function_te, fitting_function_ne: fit method selection for Te and ne
+
+    ## Returns:
+    - n_e_function, T_e_function: callable fit functions
+    - coeffs_ne, coeffs_te: fit coefficients (None for GP/linear)
+    - n_e_rho, T_e_rho: fitted profiles evaluated on rho_eval
+
+    ## Example:
+    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='gp', fitting_function_ne='gp')
+    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='polynomial', fitting_function_ne='exponential')
+    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='linear', fitting_function_ne='linear')
+    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='core_poly_edge_exp', fitting_function_ne='core_poly_edge_exp')
+    """
     # --- Extract Thomson data ---
     time_index = np.where(ods['thomson_scattering.time'] == time_ms / 1e3)[0][0]
     num_channels = len(ods['thomson_scattering.channel'])
@@ -97,99 +119,65 @@ def profile_fitting_thomson_scattering(
         t_e_std.append(ch['t_e.data_error_upper'][time_index])
         n_e_std.append(ch['n_e.data_error_upper'][time_index])
 
-    t_e = np.array(t_e)
-    n_e = np.array(n_e)
-    t_e_std = np.clip(np.array(t_e_std), 1e-6, None)
-    n_e_std = np.clip(np.array(n_e_std), 1e-6, None)
-    rho = np.clip(np.array(mapped_rho_position).reshape(-1, 1), 0, 1)
+    t_e = np.array(t_e, dtype=float)
+    n_e = np.array(n_e, dtype=float)
+    t_e_std = np.clip(np.array(t_e_std, dtype=float), 1e-6, None)
+    n_e_std = np.clip(np.array(n_e_std, dtype=float), 1e-6, None)
+    rho = np.clip(np.array(mapped_rho_position, dtype=float).reshape(-1, 1), 0, 1)
 
+    # density normalization
     n_e_scale = 1e18
     n_e_norm = n_e / n_e_scale
     n_e_std_norm = n_e_std / n_e_scale
     rho_eval = np.linspace(0, 1, rho_points)
 
-    # --- Define fitting functions ---
-    def make_fit_function(mode):
-        if mode == 'polynomial':
-            def func(x, *coeffs):
-                s = sum([coeffs[k] * x**k for k in range(len(coeffs))])
-                return (1 - x) * s
-        elif mode == 'exponential':
-            def func(x, *coeffs):
-                s = sum([coeffs[k] * x**k for k in range(len(coeffs))])
-                return (1 - x) * np.exp(s)
-        else:
-            raise ValueError(f"Invalid fitting function: {mode}")
-        return func
+    # --- Te / Ne FITS ---
+    te_anchor_strength = None
+    te_anchor = None
+    if te_anchor_strength is not None:
+        te_anchor = (np.array([1.0]), np.array([0.0]), np.array([te_anchor_strength]))
 
-    # ==========================================================
-    # ---------------------- Te FIT -----------------------------
-    # ==========================================================
-    if fitting_function_te.lower() == 'gp':
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=0.3, length_scale_bounds=(0.05, 5.0))
-        gp_Te = GaussianProcessRegressor(kernel=kernel, alpha=t_e_std**2, normalize_y=True, n_restarts_optimizer=5)
-        gp_Te.fit(rho, t_e)
-        T_e_rho, T_e_std = gp_Te.predict(rho_eval[:, None], return_std=True)
+    T_e_rho, T_e_std, T_e_function_raw, coeffs_te = fit_profile(
+        rho,
+        t_e,
+        t_e_std,
+        rho_eval,
+        order=Te_order,
+        uncertainty_option=uncertainty_option,
+        fitting_function=fitting_function_te,
+        gp_anchor=te_anchor,
+    )
 
-        def T_e_function(rho_input):
-            rho_input = np.clip(rho_input, 0, 1).reshape(-1, 1)
-            return np.maximum(gp_Te.predict(rho_input), 0)
+    def T_e_function(rho_input):
+        x = np.clip(np.asarray(rho_input, float), 0, 1)
+        return np.maximum(T_e_function_raw(x), 0.0)
 
-        coeffs_te = None
-
-    else:
-        fitting_function_Te = make_fit_function(fitting_function_te)
-        p0 = np.ones(Te_order) * 0.1
-        if uncertainty_option == 1:
-            coeffs_te, _ = curve_fit(
-                fitting_function_Te, rho.ravel(), t_e, sigma=t_e_std, absolute_sigma=True, p0=p0
-            )
-        else:
-            coeffs_te, _ = curve_fit(fitting_function_Te, rho.ravel(), t_e, p0=p0)
-        T_e_rho = fitting_function_Te(rho_eval, *coeffs_te)
-        T_e_std = np.zeros_like(T_e_rho)
-
-        def T_e_function(rho_input):
-            rho_input = np.clip(rho_input, 0, 1)
-            return fitting_function_Te(rho_input, *coeffs_te)
-
-    # ==========================================================
-    # ---------------------- Ne FIT -----------------------------
-    # ==========================================================
+    ne_anchor = None
     if fitting_function_ne.lower() == 'gp':
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=0.3, length_scale_bounds=(0.05, 5.0))
-        gp_Ne = GaussianProcessRegressor(kernel=kernel, alpha=n_e_std_norm**2, normalize_y=True, n_restarts_optimizer=5)
-        gp_Ne.fit(rho, n_e_norm)
-        n_e_rho_norm, n_e_std_norm = gp_Ne.predict(rho_eval[:, None], return_std=True)
-        n_e_rho = n_e_rho_norm * n_e_scale
-        n_e_std = n_e_std_norm * n_e_scale
+        ne_typ = np.nanmedian(n_e_norm[n_e_norm > 0]) if np.any(n_e_norm > 0) else 1.0
+        ne_anchor_sigma_norm = max(0.01 * ne_typ, 1e-4)
+        ne_anchor = (np.array([1.0]), np.array([0.0]), np.array([ne_anchor_sigma_norm]))
 
-        def n_e_function(rho_input):
-            rho_input = np.clip(rho_input, 0, 1).reshape(-1, 1)
-            return np.maximum(gp_Ne.predict(rho_input) * n_e_scale, 0)
+    n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne = fit_profile(
+        rho,
+        n_e_norm,
+        n_e_std_norm,
+        rho_eval,
+        order=Ne_order,
+        uncertainty_option=uncertainty_option,
+        fitting_function=fitting_function_ne,
+        gp_anchor=ne_anchor,
+    )
 
-        coeffs_ne = None
+    n_e_rho = np.maximum(n_e_rho_norm, 0.0) * n_e_scale
+    n_e_std = n_e_std_norm_fit * n_e_scale
 
-    else:
-        fitting_function_Ne = make_fit_function(fitting_function_ne)
-        p0 = np.ones(Ne_order) * 0.1
-        if uncertainty_option == 1:
-            coeffs_ne, _ = curve_fit(
-                fitting_function_Ne, rho.ravel(), n_e_norm, sigma=n_e_std_norm, absolute_sigma=True, p0=p0
-            )
-        else:
-            coeffs_ne, _ = curve_fit(fitting_function_Ne, rho.ravel(), n_e_norm, p0=p0)
-        n_e_rho_norm = fitting_function_Ne(rho_eval, *coeffs_ne)
-        n_e_rho = n_e_rho_norm * n_e_scale
-        n_e_std = np.zeros_like(n_e_rho)
-
-        def n_e_function(rho_input):
-            rho_input = np.clip(rho_input, 0, 1)
-            n_e_norm_out = fitting_function_Ne(rho_input, *coeffs_ne)
-            return n_e_norm_out * n_e_scale
+    def n_e_function(rho_input):
+        x = np.clip(np.asarray(rho_input, float), 0, 1)
+        y_norm = n_e_function_raw(x)
+        return np.maximum(y_norm, 0.0) * n_e_scale
 
     return n_e_function, T_e_function, coeffs_ne, coeffs_te, n_e_rho, T_e_rho
-
 
 def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function, tol_ms=0.1):
     """
@@ -248,11 +236,14 @@ def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function,
     ods[f'{base}.time'] = time_ms / 1000
     ods[f'{base}.grid.rho_tor_norm'] = rho_fit.tolist()
 
+    # We assume all electrons are thermal electrons (because VEST is ohmically heated plasma)
     ods[f'{base}.electrons.density_thermal'] = n_e_recon.tolist()
+    ods[f'{base}.electrons.density'] = n_e_recon.tolist()
     ods[f'{base}.electrons.temperature'] = T_e_recon.tolist()
 
-    ods[f'{base}.ion.0.label'] = 'D+'
+    ods[f'{base}.ion.0.label'] = 'H+'
     ods[f'{base}.ion.0.density_thermal'] = n_e_recon.tolist()
+    ods[f'{base}.ion.0.density'] = n_e_recon.tolist()
     ods[f'{base}.ion.0.temperature'] = T_e_recon.tolist()
 
     fit_base_n = f'{base}.electrons.density_fit'
@@ -267,6 +258,109 @@ def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function,
     ods[f'{fit_base_t}.reconstructed'] = T_e_recon.tolist()
 
     print(f"[UPDATED] core_profile at {time_ms:.3f} ms (index {next_idx})")
+    return ods
+
+
+def core_profiles_from_eq(
+    ods,
+    Te0_eV,
+    rho_fit=None,
+    tol_ms=0.1,
+    eq_time_index=0,
+):
+    """
+    Build synthetic core_profiles.profiles_1d from equilibrium pressure with:
+        P(rho) = 2 * ne(rho) * Te(rho)
+
+    Assumptions:
+      - same shape: ne = ne0*g, Te = Te0*g
+      - g(rho) = sqrt(P(rho)/P(0))
+      - Ti = Te is implicitly absorbed in the factor 2 (total pressure approximation)
+      - No Zeff / impurity modeling
+
+    Reads:
+      rho_src = ods['equilibrium.time_slice.<idx>.profiles_1d.rho_tor_norm']
+      p_src   = ods['equilibrium.time_slice.<idx>.profiles_1d.pressure']
+
+    Writes:
+      ods['core_profiles.profiles_1d.<next_idx>.*']
+    """
+    time_ms = ods['equilibrium.time'][eq_time_index] * 1e3
+    # ---------------- rho grid ----------------
+    if rho_fit is None:
+        rho_fit = np.linspace(0.0, 1.0, 100)
+    else:
+        rho_fit = np.asarray(rho_fit, dtype=float)
+
+    # ---------------- read pressure & rho from fixed paths ----------------
+    rho_src_path = f"equilibrium.time_slice.{eq_time_index}.profiles_1d.rho_tor_norm"
+    p_src_path   = f"equilibrium.time_slice.{eq_time_index}.profiles_1d.pressure"
+
+    rho_src = np.asarray(ods[rho_src_path], dtype=float)
+    p_src   = np.asarray(ods[p_src_path], dtype=float)
+
+    if rho_src.ndim != 1 or p_src.ndim != 1:
+        raise ValueError("Expected 1D rho_tor_norm and 1D pressure at the selected time_slice.")
+
+    # sort just in case
+    order = np.argsort(rho_src)
+    rho_src = rho_src[order]
+    p_src = p_src[order]
+
+    # interpolate pressure to rho_fit
+    P_fit = np.interp(rho_fit, rho_src, p_src)
+
+    if np.any(~np.isfinite(P_fit)):
+        raise ValueError("Pressure profile contains NaN/Inf.")
+    if P_fit[0] <= 0:
+        raise ValueError("Pressure at rho=0 must be > 0 to define sqrt shape.")
+
+    # ---------------- build same-shape ne/Te from pressure ----------------
+    g = np.sqrt(np.clip(P_fit / P_fit[0], 0.0, None))
+
+    Te = Te0_eV * g
+    ne0 = P_fit[0] / (2.0 * Te0_eV)
+    ne = ne0 * g
+
+    if np.any(ne < 0) or np.any(Te < 0):
+        raise ValueError("Generated ne/Te has negative values (check pressure and Te0_eV).")
+
+    # ---------------- remove duplicate core_profiles at same time ----------------
+    existing_idxs = []
+    if "core_profiles.profiles_1d" in ods:
+        n_profiles = len(ods["core_profiles.profiles_1d"])
+        for i in range(n_profiles):
+            try:
+                t_existing = ods[f"core_profiles.profiles_1d.{i}.time"]  # seconds
+                if abs(t_existing * 1000.0 - time_ms) < tol_ms:
+                    existing_idxs.append(i)
+            except Exception:
+                continue
+
+    for i in sorted(existing_idxs, reverse=True):
+        ods.pop(f"core_profiles.profiles_1d.{i}")
+        print(f"[INFO] Removed duplicate core_profile at {time_ms:.3f} ms (index {i})")
+
+    next_idx = len(ods["core_profiles.profiles_1d"]) if "core_profiles.profiles_1d" in ods else 0
+    base = f"core_profiles.profiles_1d.{next_idx}"
+
+    # ---------------- write core_profiles ----------------
+    ods[f"{base}.time"] = time_ms / 1000.0
+    ods[f"{base}.grid.rho_tor_norm"] = rho_fit.tolist()
+
+    # electrons
+    ods[f"{base}.electrons.density_thermal"] = ne.tolist()
+    ods[f"{base}.electrons.density"] = ne.tolist()
+    ods[f"{base}.electrons.temperature"] = Te.tolist()
+
+    # ions (simple: set equal to electrons, Ti = Te)
+    ods[f"{base}.ion.0.label"] = "H+"
+    ods[f"{base}.ion.0.density_thermal"] = ne.tolist()
+    ods[f"{base}.ion.0.density"] = ne.tolist()
+    ods[f"{base}.ion.0.temperature"] = Te.tolist()
+
+    print(f"[UPDATED] core_profile from eq pressure (P=2neTe) at {time_ms:.3f} ms "
+          f"(index {next_idx}), eq_time_slice={eq_time_index}")
     return ods
 
 def export_electron_profile_txt(
@@ -299,4 +393,3 @@ def export_electron_profile_txt(
         f.write('psi_N, T_e [eV], n_e [m-3]\n')
         for rho, T_e, n_e in zip(rho_eval, T_e_rho, n_e_rho):
             f.write(f'{rho}, {T_e}, {n_e}\n')
-
