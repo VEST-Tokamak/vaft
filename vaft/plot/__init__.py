@@ -6,3 +6,4 @@ from .time import *
 from .topview import *
 from .analysis import *
 # from .animation import *
+from .history import *

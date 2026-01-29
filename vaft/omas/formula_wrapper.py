@@ -6,6 +6,7 @@ from omas import *
 import logging
 
 logger = logging.getLogger(__name__)
+from vaft.omas.process_wrapper import compute_volume_averaged_pressure
 from vaft.process import compute_response_matrix
 from vaft.process.equilibrium import psi_to_RZ, volume_average
 from vaft.formula import magnetic_shear, ballooning_alpha_from_p_B_R
@@ -26,7 +27,6 @@ from vaft.formula.equilibrium import (
     inverse_aspect_ratio_from_a_R,
     confinement_factor_from_tau_E_exp_tau_E_IPB89y2,
 )
-
 
 def compute_magnetic_shear(ods, time_slice: slice) -> ndarray:
     """
@@ -53,13 +53,12 @@ def compute_magnetic_shear(ods, time_slice: slice) -> ndarray:
 # P_heat, P_ohmic, P_loss_total, P_loss_boundary, dWdt, P_rad 
 # (Ignore NBI related parameters such as P_aux, P_CX, P_orbit)
 
-
-
-def compute_P_loss(ods, time_slice: int, Z_eff: float = 2.0) -> float:
+def compute_tau_E_engineering_parameters(ods, time_slice: int, 
+                                         Z_eff: float = 2.0, M: float = 1.0) -> Dict[str, float]:
     """
-    Compute loss power P_loss from core profiles and equilibrium ODS.
+    Compute engineering parameters required for confinement time scaling law.
     
-    Formula: P_loss = P_heat - dW/dt - P_rad
+    Uses compute_power_balance and volume_average functions to get required parameters.
     
     Parameters
     ----------
@@ -68,143 +67,22 @@ def compute_P_loss(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     time_slice : int
         Time slice index for equilibrium
     Z_eff : float, optional
-        Effective charge number for radiation calculations, by default 2.0
-    
-    Returns
-    -------
-    float
-        Loss power [W]
-    """
-    eq_ts = ods['equilibrium.time_slice'][time_slice]
-    
-    # Get heating power: P_heat = P_ohm + P_aux
-    # Try to get ohmic power from V_loop and I_p
-    I_p = float(eq_ts['global_quantities.ip'])  # [A]
-    
-    P_ohm = 0.0
-    if 'global_quantities.v_loop' in eq_ts:
-        V_loop = float(eq_ts['global_quantities.v_loop'])  # [V]
-        P_ohm = ohmic_heating_power_from_I_p_V_res(I_p, V_loop)  # [W]
-    
-    # Try to get auxiliary power (if available)
-    P_aux = 0.0
-    if 'global_quantities.p_aux' in eq_ts:
-        P_aux = float(eq_ts['global_quantities.p_aux'])  # [W]
-    elif 'global_quantities.p_nbi' in eq_ts:
-        P_aux = float(eq_ts['global_quantities.p_nbi'])  # [W]
-    
-    P_heat = heating_power_from_p_ohm_p_aux(P_ohm, P_aux)  # [W]
-    
-    # Get dW/dt (energy change rate)
-    # Use stored energy if available, otherwise compute from profiles
-    dWdt = 0.0
-    if 'global_quantities.energy_mhd' in eq_ts:
-        # Try to compute dWdt from time derivative
-        if time_slice > 0:
-            eq_ts_prev = ods['equilibrium.time_slice'][time_slice - 1]
-            if 'time' in eq_ts and 'time' in eq_ts_prev:
-                dt = float(eq_ts['time']) - float(eq_ts_prev['time'])
-                if dt > 0 and 'global_quantities.energy_mhd' in eq_ts_prev:
-                    W_curr = float(eq_ts['global_quantities.energy_mhd'])  # [J]
-                    W_prev = float(eq_ts_prev['global_quantities.energy_mhd'])  # [J]
-                    dWdt = (W_curr - W_prev) / dt  # [W]
-    
-    # Compute radiation power P_rad from volume-integrated radiation power density
-    # Find matching core profile time slice
-    cp_idx = None
-    if 'core_profiles.profiles_1d' in ods:
-        eq_time = float(eq_ts.get('time', time_slice))
-        min_time_diff = float('inf')
-        for idx in range(len(ods['core_profiles.profiles_1d'])):
-            cp_ts = ods['core_profiles.profiles_1d'][idx]
-            cp_time = float(cp_ts.get('time', idx))
-            time_diff = abs(cp_time - eq_time)
-            if time_diff < min_time_diff:
-                min_time_diff = time_diff
-                cp_idx = idx
-    
-    P_rad = 0.0
-    if cp_idx is not None:
-        cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
-        
-        # Get electron density and temperature profiles
-        if 'electrons.density' in cp_ts and 'electrons.temperature' in cp_ts:
-            n_e_profile = np.asarray(cp_ts['electrons.density'], float)  # [m^-3]
-            T_e_profile = np.asarray(cp_ts['electrons.temperature'], float)  # [eV]
-            
-            # Convert T_e from eV to keV for radiation functions
-            T_e_keV = T_e_profile * 1e-3  # [keV]
-            
-            # Compute radiation power density profiles
-            p_brem = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
-                n_e_profile, T_e_profile, Z_eff
-            )  # [W/m^3]
-            p_cyc = cyclotron_radiation_power_from_z_eff_n_e_t_e(
-                Z_eff, n_e_profile, T_e_keV
-            )  # [W/m^3]
-            p_line = line_radiation_power_from_z_eff_n_e_t_e(
-                Z_eff, n_e_profile, T_e_keV
-            )  # [W/m^3]
-            
-            p_rad_profile = radiation_power_from_p_brem_p_cyc_p_line(
-                p_brem, p_cyc, p_line
-            )  # [W/m^3]
-            
-            # Volume integrate radiation power density
-            # Map core profile to equilibrium grid and integrate
-            if 'equilibrium.time_slice' in ods and time_slice < len(ods['equilibrium.time_slice']):
-                try:
-                    # Get equilibrium 2D grid
-                    R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
-                    Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
-                    psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float)
-                    psi_axis = float(eq_ts['global_quantities.psi_axis'])
-                    psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
-                    
-                    # Normalize psi
-                    psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
-                    
-                    # Map core profile to 2D grid (simplified: use volume average)
-                    # For more accurate calculation, would need proper 2D mapping
-                    p_rad_vol_avg = np.mean(p_rad_profile)
-                    V = float(eq_ts.get('global_quantities.volume', 1.0))  # [m^3]
-                    P_rad = p_rad_vol_avg * V  # [W]
-                except (KeyError, ValueError):
-                    # Fallback: use volume average approximation
-                    p_rad_vol_avg = np.mean(p_rad_profile)
-                    V = float(eq_ts.get('global_quantities.volume', 1.0))  # [m^3]
-                    P_rad = p_rad_vol_avg * V  # [W]
-    
-    # Compute P_loss
-    P_loss = loss_power_from_p_heat_dWdt_p_rad(P_heat, dWdt, P_rad)  # [W]
-    
-    return P_loss
-
-
-def compute_tau_E_scaling(ods, time_slice: int, scaling: str = "IBP98y2", 
-                          Z_eff: float = 2.0, M: float = 1.0) -> float:
-    """
-    Compute confinement time from scaling law using engineering parameters.
-    
-    Uses compute_P_loss and volume_average functions to get required parameters.
-    
-    Parameters
-    ----------
-    ods : ODS
-        OMAS data structure
-    time_slice : int
-        Time slice index for equilibrium
-    scaling : str, optional
-        Scaling law name, by default "IBP98y2"
-    Z_eff : float, optional
-        Effective charge number, by default 2.0
+        Effective charge number, by default 2.0 (not used in calculation, kept for compatibility)
     M : float, optional
         Average ion mass [amu], by default 1.0
     
     Returns
     -------
-    float
-        Confinement time from scaling law [s]
+    Dict[str, float]
+        Dictionary containing engineering parameters:
+        - I_p: Plasma current [A]
+        - B_t: Toroidal magnetic field [T]
+        - P_loss: Loss power [W]
+        - n_e: Volume-averaged electron density [m^-3]
+        - R: Major radius [m]
+        - epsilon: Inverse aspect ratio [-]
+        - kappa: Elongation [-]
+        - M: Average ion mass [amu]
     """
     eq_ts = ods['equilibrium.time_slice'][time_slice]
     
@@ -213,16 +91,27 @@ def compute_tau_E_scaling(ods, time_slice: int, scaling: str = "IBP98y2",
     update_equilibrium_boundary(ods)
 
     # Get engineering parameters from equilibrium global_quantities
-    I_p = float(eq_ts['global_quantities.ip'])  # [A]
-    R = float(eq_ts['boundary.geometric_axis.r'])  # [m]
-    B_t = eq_ts['equilibrium.vacuum_toroidal_field.b0']*eq_ts['equilibrium.vacuum_toroidal_field.r0']/R # [T]
-    a = float(eq_ts['boundary.minor_radius'])  # [m]
-    kappa = float(eq_ts['global_quantities.elongation'])  # [-]
-    epsilon = inverse_aspect_ratio_from_a_R(a, R)  # [-]
-    elongation = eq_ts['boundary.elongation']
+    I_p = abs(float(eq_ts['global_quantities.ip']))  # [A]
 
-    # Compute P_loss
-    P_loss = compute_P_loss(ods, time_slice, Z_eff)  # [W]
+    # Get toroidal magnetic field at vessel ref position
+    R_ref = 0.4 # [m] VEST reference
+    B_t_axis = float(eq_ts['global_quantities.magnetic_axis.b_field_tor'])
+    R_axis = float(eq_ts['global_quantities.magnetic_axis.r'])
+    B_t = abs(B_t_axis * R_axis / R_ref) # [T]
+
+    
+    R = float(eq_ts['boundary.geometric_axis.r'])  # [m]
+    a = float(eq_ts['boundary.minor_radius'])  # [m]
+    kappa = float(eq_ts['boundary.elongation'])  # [-]
+    epsilon = inverse_aspect_ratio_from_a_R(a, R)  # [-]
+
+    # Compute P_loss from compute_power_balance
+    power_balance = compute_power_balance(ods)
+    # Find the index corresponding to the requested time_slice
+    eq_time = float(eq_ts.get('time', time_slice))
+    time_array = np.asarray(power_balance['time'])
+    time_idx = int(np.argmin(np.abs(time_array - eq_time)))
+    P_loss = float(power_balance['P_loss'][time_idx])  # [W]
     
     # Compute volume-averaged electron density
     # Find matching core profile time slice
@@ -249,66 +138,153 @@ def compute_tau_E_scaling(ods, time_slice: int, scaling: str = "IBP98y2",
     n_e_profile = np.asarray(cp_ts['electrons.density'], float)  # [m^-3]
     
     # Compute volume average of n_e using proper coordinate mapping
-    try:
-        # Get equilibrium 2D grid
-        R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
-        Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
-        psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float)
-        psi_axis = float(eq_ts['global_quantities.psi_axis'])
-        psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
-        
-        # Get equilibrium profiles_1d for coordinate conversion
+    # Get equilibrium 2D grid
+    R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
+    Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
+    psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float)
+    psi_axis = float(eq_ts['global_quantities.psi_axis'])
+    psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
+    
+    # Get equilibrium profiles_1d for coordinate conversion
+    eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+    
+    # Ensure equilibrium has psi_norm
+    if 'psi_norm' not in eq_profiles_1d:
+        from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi
+        update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=time_slice)
         eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+    
+    if 'psi_norm' in eq_profiles_1d:
+        psi_norm_1d = np.asarray(eq_profiles_1d['psi_norm'], float)
         
-        # Ensure equilibrium has psi_norm
-        if 'psi_norm' not in eq_profiles_1d:
-            from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi
-            update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=time_slice)
-            eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
-        
-        if 'psi_norm' in eq_profiles_1d:
-            psi_norm_1d = np.asarray(eq_profiles_1d['psi_norm'], float)
+        # Get core profile coordinate (rho_tor_norm)
+        grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
+        if 'rho_tor_norm' in grid:
+            rho_tor_norm_cp = np.asarray(grid['rho_tor_norm'], float)
             
-            # Get core profile coordinate (rho_tor_norm)
-            grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
-            if 'rho_tor_norm' in grid:
-                rho_tor_norm_cp = np.asarray(grid['rho_tor_norm'], float)
+            # Get equilibrium rho_tor_norm for mapping
+            if 'rho_tor_norm' in eq_profiles_1d:
+                rho_tor_norm_eq = np.asarray(eq_profiles_1d['rho_tor_norm'], float)
                 
-                # Get equilibrium rho_tor_norm for mapping
-                if 'rho_tor_norm' in eq_profiles_1d:
-                    rho_tor_norm_eq = np.asarray(eq_profiles_1d['rho_tor_norm'], float)
-                    
-                    # Interpolate n_e from core profile rho_tor_norm to equilibrium psi_norm
-                    interp_func = interp1d(rho_tor_norm_cp, n_e_profile,
-                                         kind='linear',
-                                         bounds_error=False,
-                                         fill_value=(n_e_profile[0], n_e_profile[-1]))
-                    n_e_psi_norm = interp_func(rho_tor_norm_eq)
-                    
-                    # Map to 2D grid and compute volume average
-                    n_e_RZ, psiN_RZ = psi_to_RZ(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
-                    n_e_vol_avg, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)  # [m^-3]
+                # Interpolate n_e from core profile rho_tor_norm to equilibrium psi_norm
+                interp_func = interp1d(rho_tor_norm_cp, n_e_profile,
+                                     kind='linear',
+                                     bounds_error=False,
+                                     fill_value=(n_e_profile[0], n_e_profile[-1]))
+                n_e_psi_norm = interp_func(rho_tor_norm_eq)
+                
+                # Map to 2D grid and compute volume average
+                n_e_RZ, psiN_RZ = psi_to_RZ(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
+                n_e_vol_avg, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)  # [m^-3]
+                # Ensure scalar
+                if isinstance(n_e_vol_avg, np.ndarray):
+                    n_e_vol_avg = float(n_e_vol_avg[0] if len(n_e_vol_avg) > 0 else n_e_vol_avg)
                 else:
-                    # Fallback: use simple average
-                    n_e_vol_avg = np.mean(n_e_profile)  # [m^-3]
+                    n_e_vol_avg = float(n_e_vol_avg)
             else:
                 # Fallback: use simple average
-                n_e_vol_avg = np.mean(n_e_profile)  # [m^-3]
+                n_e_vol_avg = float(np.mean(n_e_profile))  # [m^-3]
         else:
             # Fallback: use simple average
-            n_e_vol_avg = np.mean(n_e_profile)  # [m^-3]
-    except (KeyError, ValueError, ImportError) as e:
+            n_e_vol_avg = float(np.mean(n_e_profile))  # [m^-3]
+    else:
         # Fallback: use simple average
-        n_e_vol_avg = np.mean(n_e_profile)  # [m^-3]
+        n_e_vol_avg = float(np.mean(n_e_profile))  # [m^-3]
+    
+    # Validate input parameters before computing
+    if not np.isfinite(I_p) or I_p <= 0:
+        raise ValueError(f"Invalid I_p: {I_p} for time_slice[{time_slice}]")
+    if not np.isfinite(B_t) or B_t <= 0:
+        raise ValueError(f"Invalid B_t: {B_t} for time_slice[{time_slice}]. "
+                        f"Check equilibrium data at time={eq_time}")
+    if not np.isfinite(P_loss) or P_loss <= 0:
+        raise ValueError(f"Invalid P_loss: {P_loss} for time_slice[{time_slice}] at time={eq_time}. "
+                        f"Check power_balance data. time_idx={time_idx}, "
+                        f"power_balance['P_loss'] shape={np.asarray(power_balance['P_loss']).shape}")
+    if not np.isfinite(n_e_vol_avg) or n_e_vol_avg <= 0:
+        raise ValueError(f"Invalid n_e_vol_avg: {n_e_vol_avg}")
+    if not np.isfinite(M) or M <= 0:
+        raise ValueError(f"Invalid M: {M}")
+    if not np.isfinite(R) or R <= 0:
+        raise ValueError(f"Invalid R: {R}")
+    if not np.isfinite(epsilon) or epsilon <= 0:
+        raise ValueError(f"Invalid epsilon: {epsilon}")
+    if not np.isfinite(kappa) or kappa <= 0:
+        raise ValueError(f"Invalid kappa: {kappa}")
+    
+    return {
+        'I_p': I_p,
+        'B_t': B_t,
+        'P_loss': P_loss,
+        'n_e': n_e_vol_avg,
+        'R': R,
+        'epsilon': epsilon,
+        'kappa': kappa,
+        'M': M,
+    }
+
+
+def compute_tau_E_scaling(ods, time_slice: int, scaling: str = "IBP98y2", 
+                          Z_eff: float = 2.0, M: float = 1.0) -> float:
+    """
+    Compute confinement time from scaling law using engineering parameters.
+    
+    Uses compute_tau_E_engineering_parameters to get required parameters and
+    applies the scaling law.
+    
+    Parameters
+    ----------
+    ods : ODS
+        OMAS data structure
+    time_slice : int
+        Time slice index for equilibrium
+    scaling : str, optional
+        Scaling law name, by default "IBP98y2"
+    Z_eff : float, optional
+        Effective charge number, by default 2.0
+    M : float, optional
+        Average ion mass [amu], by default 1.0
+    
+    Returns
+    -------
+    float
+        Confinement time from scaling law [s]
+    """
+    # Get engineering parameters
+    eng_params = compute_tau_E_engineering_parameters(ods, time_slice, Z_eff=Z_eff, M=M)
     
     # Compute confinement time from scaling law
     tau_E = confinement_time_from_engineering_parameters(
-        I_p=I_p, B_t=B_t, P_loss=P_loss, n_e=n_e_vol_avg,
-        M=M, R=R, epsilon=epsilon, kappa=kappa, scaling=scaling
+        I_p=eng_params['I_p'], 
+        B_t=eng_params['B_t'], 
+        P_loss=eng_params['P_loss'], 
+        n_e=eng_params['n_e'],
+        M=eng_params['M'], 
+        R=eng_params['R'], 
+        epsilon=eng_params['epsilon'], 
+        kappa=eng_params['kappa'], 
+        scaling=scaling
     )  # [s]
     
+    # Handle complex numbers (should not happen with valid inputs, but handle gracefully)
+    if isinstance(tau_E, complex):
+        if tau_E.imag != 0:
+            raise ValueError(f"Confinement time calculation resulted in complex number: {tau_E}. Check input parameters.")
+        tau_E = tau_E.real
+    
+    # Ensure return value is scalar
+    if isinstance(tau_E, np.ndarray):
+        tau_E = float(tau_E[0] if len(tau_E) > 0 else tau_E)
+    elif not isinstance(tau_E, (int, float, np.number)):
+        raise TypeError(f"tau_E is not a numeric type: {type(tau_E)}, value: {tau_E}")
+    else:
+        tau_E = float(tau_E)
+    
+    # Check for invalid results
+    if not np.isfinite(tau_E) or tau_E <= 0:
+        raise ValueError(f"Invalid confinement time result: {tau_E}. Inputs: I_p={eng_params['I_p']}, B_t={eng_params['B_t']}, P_loss={eng_params['P_loss']}, n_e={eng_params['n_e']}, M={eng_params['M']}, R={eng_params['R']}, epsilon={eng_params['epsilon']}, kappa={eng_params['kappa']}, scaling={scaling}")
+    
     return tau_E
-
 
 def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     """
@@ -332,63 +308,76 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     """
     eq_ts = ods['equilibrium.time_slice'][time_slice]
     
-    # Get stored thermal energy W_th
-    # Try to get from global_quantities first
-    W_th = None
-    if 'global_quantities.energy_mhd' in eq_ts:
-        W_th = float(eq_ts['global_quantities.energy_mhd'])  # [J]
-    else:
-        # Compute from profiles if available
-        # Find matching core profile
-        cp_idx = None
-        if 'core_profiles.profiles_1d' in ods:
-            eq_time = float(eq_ts.get('time', time_slice))
-            min_time_diff = float('inf')
-            for idx in range(len(ods['core_profiles.profiles_1d'])):
-                cp_ts = ods['core_profiles.profiles_1d'][idx]
-                cp_time = float(cp_ts.get('time', idx))
-                time_diff = abs(cp_time - eq_time)
-                if time_diff < min_time_diff:
-                    min_time_diff = time_diff
-                    cp_idx = idx
+    # Get stored thermal energy W_th using compute_volume_averaged_pressure (core_profiles option)
+    from vaft.omas.update import update_equilibrium_global_quantities_volume
+    
+    # Ensure volume is computed
+    try:
+        update_equilibrium_global_quantities_volume(ods, time_slice=time_slice)
+    except Exception as e:
+        logger.warning(f"Could not update volume: {e}")
+    
+    # Compute volume-averaged pressure from core_profiles
+    try:
+        p_vol_avg = compute_volume_averaged_pressure(ods, time_slice=time_slice, option='core_profiles')
+        # p_vol_avg is an array, get the value for this time_slice
+        if isinstance(p_vol_avg, np.ndarray):
+            if len(p_vol_avg) == 1:
+                p_vol_avg_val = float(p_vol_avg[0])
+            else:
+                p_vol_avg_val = float(p_vol_avg[time_slice])
+        else:
+            p_vol_avg_val = float(p_vol_avg)
         
-        if cp_idx is not None:
-            cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
-            
-            # Compute thermal energy from n_e and T_e profiles
-            if 'electrons.density' in cp_ts and 'electrons.temperature' in cp_ts:
-                n_e_profile = np.asarray(cp_ts['electrons.density'], float)  # [m^-3]
-                T_e_profile = np.asarray(cp_ts['electrons.temperature'], float)  # [eV]
-                
-                # Compute pressure: p = n_e * T_e (in eV, convert to J/m^3)
-                # p = n_e * T_e * e (where e = elementary charge)
-                from vaft.formula.constants import QE
-                p_profile = n_e_profile * T_e_profile * QE  # [J/m^3] = [Pa]
-                
-                # Get volume
-                V = float(eq_ts.get('global_quantities.volume', 1.0))  # [m^3]
-                
-                # Compute stored energy: W_th = (3/2) * <p> * V
-                # For ideal gas: W_th = (3/2) * n * T * V
-                p_avg = np.mean(p_profile)  # [Pa]
-                W_th = 1.5 * p_avg * V  # [J]
+        # Get plasma volume
+        volume = float(eq_ts.get('global_quantities.volume'))
+        
+        # Calculate thermal energy: W_th = p_vol_average * 3/2 * volume
+        W_th = p_vol_avg_val * (3.0 / 2.0) * volume  # [J]
+    except Exception as e:
+        raise ValueError(f"Could not determine stored thermal energy for time_slice[{time_slice}]: {e}")
     
-    if W_th is None:
-        raise ValueError(f"Could not determine stored thermal energy for time_slice[{time_slice}]")
+    # Compute P_loss from compute_power_balance
+    power_balance = compute_power_balance(ods)
+    # Find the index corresponding to the requested time_slice
+    eq_time = float(eq_ts.get('time', time_slice))
+    time_array = np.asarray(power_balance['time'])
+    time_idx = int(np.argmin(np.abs(time_array - eq_time)))
+    P_loss = float(power_balance['P_loss'][time_idx])  # [W]
     
-    # Compute P_loss
-    P_loss = compute_P_loss(ods, time_slice, Z_eff)  # [W]
+    # Validate inputs
+    if not np.isfinite(P_loss) or P_loss <= 0:
+        raise ValueError(f"Invalid P_loss: {P_loss}")
+    if not np.isfinite(W_th) or W_th <= 0:
+        raise ValueError(f"Invalid W_th: {W_th}")
     
     # Compute experimental confinement time
     tau_E_exp = confinement_time_from_P_loss_W_th(P_loss, W_th)  # [s]
     
+    # Handle complex numbers
+    if isinstance(tau_E_exp, complex):
+        if tau_E_exp.imag != 0:
+            raise ValueError(f"Confinement time calculation resulted in complex number: {tau_E_exp}. Check input parameters.")
+        tau_E_exp = tau_E_exp.real
+    
+    # Ensure return value is scalar
+    if isinstance(tau_E_exp, np.ndarray):
+        tau_E_exp = float(tau_E_exp[0] if len(tau_E_exp) > 0 else tau_E_exp)
+    elif not isinstance(tau_E_exp, (int, float, np.number)):
+        raise TypeError(f"tau_E_exp is not a numeric type: {type(tau_E_exp)}, value: {tau_E_exp}")
+    else:
+        tau_E_exp = float(tau_E_exp)
+    
+    # Check for invalid results
+    if not np.isfinite(tau_E_exp) or tau_E_exp <= 0:
+        raise ValueError(f"Invalid experimental confinement time result: {tau_E_exp}. Inputs: P_loss={P_loss}, W_th={W_th}")
+    
     return tau_E_exp
-
 
 def compute_voltage_consumption(
     ods: ODS,
     time_slice: Optional[int] = None
-) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
+    ) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """
     Compute loop / inductive / resistive voltage time series using:
 
@@ -432,7 +421,7 @@ def compute_voltage_consumption(
     for k, i in enumerate(idxs):
         ts = ods['equilibrium.time_slice'][i]
         t[k] = float(ts.get('time', i))
-        psi_boundary[k] = float(ts['global_quantities.psi_boundary'])
+        psi_boundary[k] = float(ts['global_quantities.psi_boundary']) - float(ts['global_quantities.psi_axis'])
         Ip[k] = float(ts['global_quantities.ip'])
 
     # V_loop from total flux (2π psi_boundary)
@@ -448,11 +437,12 @@ def compute_voltage_consumption(
     for k, i in enumerate(idxs):
         W_mag[k] = float(compute_magnetic_energy(ods, time_slice=i))
 
-    # dW/dt
+    # dW/dt using time_derivative function
+    from vaft.process.numerical import time_derivative
     if len(idxs) == 1:
         dWdt = np.array([0.0], dtype=float)
     else:
-        dWdt = np.gradient(W_mag, t, edge_order=1)
+        dWdt = time_derivative(t, W_mag)
 
     # V_ind and V_res
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -465,7 +455,7 @@ def compute_bremsstrahlung_power(
     ods: ODS,
     time_slice: Optional[int] = None,
     Z_eff: float = 2.0
-) -> Tuple[float, float]:
+    ) -> Tuple[float, float]:
     """
     Compute bremsstrahlung power from core profiles using two methods.
     
@@ -604,21 +594,21 @@ def compute_bremsstrahlung_power(
     n_e_RZ, _ = psi_to_RZ(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs)
     
     # Get pressure from equilibrium profiles_1d if available, otherwise compute from n_e * T_e
-    pressure_1d = None
-    if 'pressure' in eq_profiles_1d:
-        pressure_1d_eq = np.asarray(eq_profiles_1d['pressure'], float)
-        # Interpolate pressure to psi_norm coordinate
-        interp_p = interp1d(rho_tor_norm_eq_sorted, pressure_1d_eq,
-                           kind='linear',
-                           bounds_error=False,
-                           fill_value=(pressure_1d_eq[0], pressure_1d_eq[-1]))
-        pressure_1d = interp_p(rho_tor_norm_at_psiN)
+    # pressure_1d = None
+    # if 'pressure' in eq_profiles_1d:
+    #     pressure_1d_eq = np.asarray(eq_profiles_1d['pressure'], float)
+    #     # Interpolate pressure to psi_norm coordinate
+    #     interp_p = interp1d(rho_tor_norm_eq_sorted, pressure_1d_eq,
+    #                        kind='linear',
+    #                        bounds_error=False,
+    #                        fill_value=(pressure_1d_eq[0], pressure_1d_eq[-1]))
+    #     pressure_1d = interp_p(rho_tor_norm_at_psiN)
     
     # If pressure not available, compute from n_e * T_e (convert eV to J)
-    if pressure_1d is None:
-        # p = n_e * T_e, where T_e is in eV, convert to Pa: p = n_e * T_e * e (elementary charge)
-        QE = 1.602176634e-19  # elementary charge [C]
-        pressure_1d = n_e_1d * T_e_1d * QE  # [Pa]
+    # if pressure_1d is None:
+    # p = n_e * T_e, where T_e is in eV, convert to Pa: p = 2 * n_e * T_e * e (elementary charge)
+    QE = 1.602176634e-19  # elementary charge [C]
+    pressure_1d = n_e_1d * T_e_1d * QE * 2  # [Pa] 
     
     # Map pressure to 2D (R,Z)
     pressure_RZ, _ = psi_to_RZ(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs)
@@ -657,13 +647,9 @@ def compute_bremsstrahlung_power(
     
     return P_B_pressure, P_B_electron
 
-
-
-
 def compute_power_balance(
-    ods: ODS,
-    time_slice: Optional[int] = None
-) -> Dict[str, ndarray]:
+    ods: ODS
+    ) -> Dict[str, ndarray]:
     """
     Compute power balance time series assuming P_aux = 0 and P_rad = 0:
 
@@ -674,16 +660,16 @@ def compute_power_balance(
 
     Returns a dict of arrays: time, V_loop, V_ind, V_res, P_ohm_flux, P_ohm_diss, 
     P_aux, P_heat, P_rad, dWdt, P_loss.
+    
+    Note: Requires multiple time slices to compute dW/dt. If only one time slice
+    is available, dW/dt will be set to zero.
     """
     from vaft.omas.process_wrapper import compute_magnetic_energy, compute_ohmic_heating_power_from_core_profiles
 
-    t, V_loop, V_ind, V_res = compute_voltage_consumption(ods, time_slice=time_slice)
+    t, V_loop, V_ind, V_res = compute_voltage_consumption(ods, time_slice=None)
 
-    # Ip and W_mag series consistent with returned time indices
-    if time_slice is None:
-        idxs = list(range(len(ods['equilibrium.time_slice'])))
-    else:
-        idxs = [int(time_slice)]
+    # Process all time slices
+    idxs = list(range(len(ods['equilibrium.time_slice'])))
 
     Ip = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
@@ -695,14 +681,9 @@ def compute_power_balance(
     # Ohmic power from dissipation (core profile-based)
     P_ohm_diss = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
-        try:
-            # Try to find corresponding core profile time slice
-            # Use equilibrium time slice index as a proxy for core profile time slice
-            P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(ods, time_slice=i))
-        except (KeyError, ValueError) as e:
-            # If core profile data is not available, set to NaN or use flux-based value
-            logger.warning(f"Could not compute P_ohm_diss for time_slice {i}: {e}. Using P_ohm_flux value.")
-            P_ohm_diss[k] = P_ohm_flux[k]
+        # Try to find corresponding core profile time slice
+        # Use equilibrium time slice index as a proxy for core profile time slice
+        P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(ods, time_slice=i))
 
     # Assume no auxiliary heating and no radiation (as requested)
     P_aux = np.zeros_like(P_ohm_diss)
@@ -710,11 +691,36 @@ def compute_power_balance(
     # Use P_ohm_diss for P_heat calculation
     P_heat = heating_power_from_p_ohm_p_aux(P_ohm_diss, P_aux)
 
-    # Magnetic energy & dW/dt (reuse compute_magnetic_energy)
-    W_mag = np.zeros(len(idxs), dtype=float)
+    # Thermal energy (W_th) & dW/dt from core_profiles volume-averaged pressure
+    from vaft.omas.update import update_equilibrium_global_quantities_volume
+    
+    # Ensure volume is computed for all time slices
+    update_equilibrium_global_quantities_volume(ods, time_slice=None)
+    
+    # Compute volume-averaged pressure from core_profiles for all time slices
+    p_vol_avg = compute_volume_averaged_pressure(ods, time_slice=None, option='core_profiles')
+    
+    # Get time array
+    t = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
-        W_mag[k] = float(compute_magnetic_energy(ods, time_slice=i))
-    dWdt = np.zeros_like(W_mag) if len(idxs) == 1 else np.gradient(W_mag, t, edge_order=1)
+        eq_ts = ods['equilibrium.time_slice'][i]
+        t[k] = float(eq_ts.get('time', i))
+    
+    # Calculate W_th = p_vol_average * 2/3 * volume for each time slice
+    W_th = np.zeros(len(idxs), dtype=float)
+    for k, i in enumerate(idxs):
+        eq_ts = ods['equilibrium.time_slice'][i]
+        volume = float(eq_ts['global_quantities.volume'])
+        # W_th = p_vol_average * 2/3 * volume
+        W_th[k] = p_vol_avg[k] * (2.0 / 3.0) * volume
+    
+    # Calculate dW/dt (requires multiple time slices)
+    from vaft.process.numerical import time_derivative
+    if len(idxs) == 1:
+        dWdt = np.zeros_like(W_th)
+        logger.warning("Only one time slice available, dW/dt set to zero")
+    else:
+        dWdt = time_derivative(t, W_th)
 
     # Use P_ohm_diss-based P_heat for P_loss calculation
     P_loss = loss_power_from_p_heat_dWdt_p_rad(P_heat, dWdt, P_rad)
@@ -733,13 +739,12 @@ def compute_power_balance(
         'P_loss': P_loss,
     }
 
-
 def compute_confiment_time_paramters(
     ods: ODS,
     time_slice: int,
     Z_eff: float = 2.0,
     M: float = 1.0,
-) -> Tuple[float, float, float, float, float]:
+    ) -> Tuple[float, float, float, float, float]:
     """
     Compute confinement-time parameters and H-factor at a given time slice.
 
@@ -757,7 +762,7 @@ def compute_confiment_time_paramters(
         Experimental confinement time tau_exp = W_th / P_loss.
     """
     # Scaling-law confinement times
-    tau_IPB89 = compute_tau_E_scaling(ods, time_slice, scaling="IBP98y2", Z_eff=Z_eff, M=M)
+    tau_IPB89 = compute_tau_E_scaling(ods, time_slice, scaling="IPB89", Z_eff=Z_eff, M=M)
     tau_H98y2 = compute_tau_E_scaling(ods, time_slice, scaling="H98y2", Z_eff=Z_eff, M=M)
     tau_NSTX = compute_tau_E_scaling(ods, time_slice, scaling="NSTX", Z_eff=Z_eff, M=M)
 
@@ -766,5 +771,31 @@ def compute_confiment_time_paramters(
 
     # H-factor (as defined in formula/equilibrium.py)
     H_factor = confinement_factor_from_tau_E_exp_tau_E_IPB89y2(tau_exp, tau_IPB89)
+    
+    # Ensure all return values are scalars
+    if isinstance(tau_IPB89, np.ndarray):
+        tau_IPB89 = float(tau_IPB89[0] if len(tau_IPB89) > 0 else tau_IPB89)
+    else:
+        tau_IPB89 = float(tau_IPB89)
+    
+    if isinstance(tau_H98y2, np.ndarray):
+        tau_H98y2 = float(tau_H98y2[0] if len(tau_H98y2) > 0 else tau_H98y2)
+    else:
+        tau_H98y2 = float(tau_H98y2)
+    
+    if isinstance(tau_NSTX, np.ndarray):
+        tau_NSTX = float(tau_NSTX[0] if len(tau_NSTX) > 0 else tau_NSTX)
+    else:
+        tau_NSTX = float(tau_NSTX)
+    
+    if isinstance(H_factor, np.ndarray):
+        H_factor = float(H_factor[0] if len(H_factor) > 0 else H_factor)
+    else:
+        H_factor = float(H_factor)
+    
+    if isinstance(tau_exp, np.ndarray):
+        tau_exp = float(tau_exp[0] if len(tau_exp) > 0 else tau_exp)
+    else:
+        tau_exp = float(tau_exp)
 
-    return float(tau_IPB89), float(tau_H98y2), float(tau_NSTX), float(H_factor), float(tau_exp)
+    return tau_IPB89, tau_H98y2, tau_NSTX, H_factor, tau_exp

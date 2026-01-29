@@ -70,7 +70,7 @@ def profile_fitting_thomson_scattering(
     rho_points=100,
     fitting_function_te='polynomial',
     fitting_function_ne='polynomial',
-):
+    ):
     """
     Fit Thomson scattering Te and ne profiles with selectable 1D methods.
 
@@ -260,54 +260,52 @@ def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function,
     print(f"[UPDATED] core_profile at {time_ms:.3f} ms (index {next_idx})")
     return ods
 
-
 def core_profiles_from_eq(
     ods,
     Te0_eV,
     rho_fit=None,
     tol_ms=0.1,
     eq_time_index=0,
-):
+    ):
     """
     Build synthetic core_profiles.profiles_1d from equilibrium pressure with:
-        P(rho) = 2 * ne(rho) * Te(rho)
+        P(Pa) = 2 * ne(m^-3) * Te(eV) * e(J/eV)
 
     Assumptions:
       - same shape: ne = ne0*g, Te = Te0*g
       - g(rho) = sqrt(P(rho)/P(0))
-      - Ti = Te is implicitly absorbed in the factor 2 (total pressure approximation)
+      - Ti = Te is implicitly absorbed in factor 2
       - No Zeff / impurity modeling
 
     Reads:
       rho_src = ods['equilibrium.time_slice.<idx>.profiles_1d.rho_tor_norm']
-      p_src   = ods['equilibrium.time_slice.<idx>.profiles_1d.pressure']
+      p_src   = ods['equilibrium.time_slice.<idx>.profiles_1d.pressure']   # Pa
 
     Writes:
       ods['core_profiles.profiles_1d.<next_idx>.*']
     """
+    e_J_per_eV = 1.602176634e-19
+
     time_ms = ods['equilibrium.time'][eq_time_index] * 1e3
-    # ---------------- rho grid ----------------
+
     if rho_fit is None:
         rho_fit = np.linspace(0.0, 1.0, 100)
     else:
         rho_fit = np.asarray(rho_fit, dtype=float)
 
-    # ---------------- read pressure & rho from fixed paths ----------------
     rho_src_path = f"equilibrium.time_slice.{eq_time_index}.profiles_1d.rho_tor_norm"
     p_src_path   = f"equilibrium.time_slice.{eq_time_index}.profiles_1d.pressure"
 
     rho_src = np.asarray(ods[rho_src_path], dtype=float)
-    p_src   = np.asarray(ods[p_src_path], dtype=float)
+    p_src   = np.asarray(ods[p_src_path], dtype=float)  # Pa
 
     if rho_src.ndim != 1 or p_src.ndim != 1:
         raise ValueError("Expected 1D rho_tor_norm and 1D pressure at the selected time_slice.")
 
-    # sort just in case
     order = np.argsort(rho_src)
     rho_src = rho_src[order]
     p_src = p_src[order]
 
-    # interpolate pressure to rho_fit
     P_fit = np.interp(rho_fit, rho_src, p_src)
 
     if np.any(~np.isfinite(P_fit)):
@@ -315,23 +313,23 @@ def core_profiles_from_eq(
     if P_fit[0] <= 0:
         raise ValueError("Pressure at rho=0 must be > 0 to define sqrt shape.")
 
-    # ---------------- build same-shape ne/Te from pressure ----------------
     g = np.sqrt(np.clip(P_fit / P_fit[0], 0.0, None))
 
-    Te = Te0_eV * g
-    ne0 = P_fit[0] / (2.0 * Te0_eV)
+    Te = Te0_eV * g  # eV
+
+    # ---- FIX: include eV->J ----
+    ne0 = P_fit[0] / (2.0 * Te0_eV * e_J_per_eV)  # m^-3
     ne = ne0 * g
 
     if np.any(ne < 0) or np.any(Te < 0):
         raise ValueError("Generated ne/Te has negative values (check pressure and Te0_eV).")
 
-    # ---------------- remove duplicate core_profiles at same time ----------------
+    # ---- remove duplicates ----
     existing_idxs = []
     if "core_profiles.profiles_1d" in ods:
-        n_profiles = len(ods["core_profiles.profiles_1d"])
-        for i in range(n_profiles):
+        for i in range(len(ods["core_profiles.profiles_1d"])):
             try:
-                t_existing = ods[f"core_profiles.profiles_1d.{i}.time"]  # seconds
+                t_existing = ods[f"core_profiles.profiles_1d.{i}.time"]  # s
                 if abs(t_existing * 1000.0 - time_ms) < tol_ms:
                     existing_idxs.append(i)
             except Exception:
@@ -344,23 +342,102 @@ def core_profiles_from_eq(
     next_idx = len(ods["core_profiles.profiles_1d"]) if "core_profiles.profiles_1d" in ods else 0
     base = f"core_profiles.profiles_1d.{next_idx}"
 
-    # ---------------- write core_profiles ----------------
     ods[f"{base}.time"] = time_ms / 1000.0
     ods[f"{base}.grid.rho_tor_norm"] = rho_fit.tolist()
 
-    # electrons
     ods[f"{base}.electrons.density_thermal"] = ne.tolist()
     ods[f"{base}.electrons.density"] = ne.tolist()
     ods[f"{base}.electrons.temperature"] = Te.tolist()
 
-    # ions (simple: set equal to electrons, Ti = Te)
     ods[f"{base}.ion.0.label"] = "H+"
     ods[f"{base}.ion.0.density_thermal"] = ne.tolist()
     ods[f"{base}.ion.0.density"] = ne.tolist()
     ods[f"{base}.ion.0.temperature"] = Te.tolist()
 
-    print(f"[UPDATED] core_profile from eq pressure (P=2neTe) at {time_ms:.3f} ms "
+    print(f"[UPDATED] core_profile from eq pressure (Pa) at {time_ms:.3f} ms "
           f"(index {next_idx}), eq_time_slice={eq_time_index}")
+    return ods
+
+def core_profiles_from_eq_ratio(
+    ods,
+    C_ne_over_Te,   # density / temperature ratio
+    rho_fit=None,
+    tol_ms=0.1,
+    eq_time_index=0,
+    ):
+    """
+    Build synthetic core_profiles from equilibrium pressure using:
+        n_e = C * sqrt(f)
+        T_e = sqrt(f)
+        P(Pa) = 2 * n_e * T_e * e
+
+    where f(rho) = P(rho) / P(0)
+
+    Parameters
+    ----------
+    C_ne_over_Te : float
+        Density / temperature ratio (m^-3 / eV)
+    """
+
+    e_J = 1.602176634e-19
+    time_ms = ods['equilibrium.time'][eq_time_index] * 1e3
+
+    if rho_fit is None:
+        rho_fit = np.linspace(0, 1, 100)
+
+    rho_src = np.asarray(
+        ods[f'equilibrium.time_slice.{eq_time_index}.profiles_1d.rho_tor_norm']
+    )
+    p_src = np.asarray(
+        ods[f'equilibrium.time_slice.{eq_time_index}.profiles_1d.pressure']
+    )
+
+    order = np.argsort(rho_src)
+    rho_src, p_src = rho_src[order], p_src[order]
+
+    P_fit = np.interp(rho_fit, rho_src, p_src)
+
+    if P_fit[0] <= 0:
+        raise ValueError("Invalid pressure profile")
+
+    # --- shape ---
+    f = P_fit / P_fit[0]
+
+    # --- build profiles ---
+    Te = np.sqrt(f)                 # eV (relative)
+    ne = C_ne_over_Te * Te          # m^-3
+
+    # --- scale to absolute pressure ---
+    scale = P_fit[0] / (2 * C_ne_over_Te * e_J)
+    Te *= np.sqrt(scale)
+    ne *= np.sqrt(scale)
+
+    # --- remove duplicates ---
+    existing = []
+    if 'core_profiles.profiles_1d' in ods:
+        for i in range(len(ods['core_profiles.profiles_1d'])):
+            t = ods[f'core_profiles.profiles_1d.{i}.time']
+            if abs(t * 1000 - time_ms) < tol_ms:
+                existing.append(i)
+    for i in reversed(existing):
+        ods.pop(f'core_profiles.profiles_1d.{i}')
+
+    next_idx = len(ods['core_profiles.profiles_1d'])
+    base = f'core_profiles.profiles_1d.{next_idx}'
+
+    ods[f'{base}.time'] = time_ms / 1000
+    ods[f'{base}.grid.rho_tor_norm'] = rho_fit.tolist()
+
+    ods[f'{base}.electrons.density'] = ne.tolist()
+    ods[f'{base}.electrons.density_thermal'] = ne.tolist()
+    ods[f'{base}.electrons.temperature'] = Te.tolist()
+
+    ods[f'{base}.ion.0.label'] = 'H+'
+    ods[f'{base}.ion.0.density'] = ne.tolist()
+    ods[f'{base}.ion.0.density_thermal'] = ne.tolist()
+    ods[f'{base}.ion.0.temperature'] = Te.tolist()
+
+    print(f"[UPDATED] core_profile from eq (ratio-fixed) at {time_ms:.2f} ms")
     return ods
 
 def export_electron_profile_txt(
@@ -370,7 +447,7 @@ def export_electron_profile_txt(
     T_e_coeff,
     rho_points=100,
     filename='electron_profiles.txt',
-):
+    ):
     """
     Export the fitted electron temperature and density profiles to a text file.
 

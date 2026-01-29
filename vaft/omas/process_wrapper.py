@@ -5,6 +5,7 @@ from omas import *
 from vaft.process import compute_br_bz_phi, compute_response_matrix, compute_impedance_matrices, solve_eddy_currents, compute_vacuum_fields_1d, time_derivative
 from vaft.process.equilibrium import psi_to_RZ, volume_average
 from vaft.formula.equilibrium import spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+from vaft.omas.general import find_matching_time_indices
 from scipy.interpolate import interp1d
 import logging
 import vaft.process
@@ -21,17 +22,6 @@ DT_SUB = 1e-6  # Time step for eddy current calculation
 GEOMETRY_TYPE_POLYGON = 1
 GEOMETRY_TYPE_RECTANGLE = 2
 
-def compute_dWdt(ods) -> ndarray:
-    """
-    Compute dWdt by central difference method (intial and end time slices each use forward and backward difference respectively).
-    """
-    # Load W_mhd
-    time = ods['equilibrium..time']
-    W_mhd = ods['equilibrium.time_slice[:].global_quantities.energy_mhd']
-
-    dWdt = time_derivative(time, W_mhd)
-    return dWdt
-    
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
     """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
     
@@ -600,6 +590,10 @@ def compute_core_profile_psi(
         # Sum all ion densities
         profile_1d_rho = np.zeros_like(rho_tor_norm_cp)
         for ion_ts in cp_ts['ion']:
+            # Handle case where cp_ts['ion'] is a dictionary (OMAS arrays are often dicts)
+            # In that case, iterating over it gives keys (int), not values
+            if isinstance(ion_ts, (int, np.integer)):
+                ion_ts = cp_ts['ion'][ion_ts]
             if 'density' in ion_ts:
                 profile_1d_rho += np.asarray(ion_ts['density'], float)
     elif option == 't_i':
@@ -609,6 +603,10 @@ def compute_core_profile_psi(
         n_i_total = np.zeros_like(rho_tor_norm_cp)
         nT_i_total = np.zeros_like(rho_tor_norm_cp)
         for ion_ts in cp_ts['ion']:
+            # Handle case where cp_ts['ion'] is a dictionary (OMAS arrays are often dicts)
+            # In that case, iterating over it gives keys (int), not values
+            if isinstance(ion_ts, (int, np.integer)):
+                ion_ts = cp_ts['ion'][ion_ts]
             if 'density' in ion_ts and 'temperature' in ion_ts:
                 n_i = np.asarray(ion_ts['density'], float)
                 T_i = np.asarray(ion_ts['temperature'], float)
@@ -741,6 +739,10 @@ def compute_core_profile_2d(
         # Sum all ion densities
         profile_1d_rho = np.zeros_like(rho_tor_norm_cp)
         for ion_ts in cp_ts['ion']:
+            # Handle case where cp_ts['ion'] is a dictionary (OMAS arrays are often dicts)
+            # In that case, iterating over it gives keys (int), not values
+            if isinstance(ion_ts, (int, np.integer)):
+                ion_ts = cp_ts['ion'][ion_ts]
             if 'density' in ion_ts:
                 profile_1d_rho += np.asarray(ion_ts['density'], float)
     elif option == 't_i':
@@ -750,6 +752,10 @@ def compute_core_profile_2d(
         n_i_total = np.zeros_like(rho_tor_norm_cp)
         nT_i_total = np.zeros_like(rho_tor_norm_cp)
         for ion_ts in cp_ts['ion']:
+            # Handle case where cp_ts['ion'] is a dictionary (OMAS arrays are often dicts)
+            # In that case, iterating over it gives keys (int), not values
+            if isinstance(ion_ts, (int, np.integer)):
+                ion_ts = cp_ts['ion'][ion_ts]
             if 'density' in ion_ts and 'temperature' in ion_ts:
                 n_i = np.asarray(ion_ts['density'], float)
                 T_i = np.asarray(ion_ts['temperature'], float)
@@ -960,41 +966,10 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     """
     from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi, update_equilibrium_profiles_2d_j_tor
     
-    # Basic availability checks
-    if 'core_profiles.profiles_1d' not in ods:
-        raise KeyError("core_profiles.profiles_1d not found in ODS")
-    if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
-        raise KeyError("equilibrium.time_slice not found in ODS")
-    
-    # Determine time slice for core profile
-    if time_slice is None:
-        cp_idx = 0
-    else:
-        cp_idx = time_slice if time_slice < len(ods['core_profiles.profiles_1d']) else 0
+    # Find matching time indices between core_profiles and equilibrium
+    cp_idx, equil_idx, time = find_matching_time_indices(ods, time_slice)
     
     cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
-    
-    # Get core profile time
-    if 'time' in cp_ts:
-        cp_time = float(cp_ts['time'])
-    elif 'core_profiles.time' in ods and cp_idx < len(ods['core_profiles.time']):
-        cp_time = float(ods['core_profiles.time'][cp_idx])
-    else:
-        cp_time = float(cp_idx)
-    
-    # Find matching equilibrium time slice
-    equil_times = []
-    for idx in range(len(ods['equilibrium.time_slice'])):
-        eq_ts = ods['equilibrium.time_slice'][idx]
-        if 'time' in eq_ts:
-            equil_times.append(float(eq_ts['time']))
-        elif 'equilibrium.time' in ods and idx < len(ods['equilibrium.time']):
-            equil_times.append(float(ods['equilibrium.time'][idx]))
-        else:
-            equil_times.append(float(idx))
-    
-    equil_times = np.asarray(equil_times)
-    equil_idx = np.argmin(np.abs(equil_times - cp_time))
     eq_ts = ods['equilibrium.time_slice'][equil_idx]
     
     # Get core profile data: T_e and rho_tor_norm
@@ -1129,3 +1104,205 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     P_ohm = float(p_avg * V)  # [W]
     
     return P_ohm
+
+def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None, option: str = 'equilibrium') -> np.ndarray:
+    """
+    Compute volume-averaged pressure for equilibrium time slices.
+    
+    Two options available:
+    - 'equilibrium': Uses profiles_1d.psi_norm and profiles_1d.pressure from equilibrium
+    - 'core_profiles': Computes pressure from core_profiles as p = 2 * n_e * T_e * e
+    
+    Args:
+        ods: OMAS data structure
+        time_slice: If None, compute for all time slices. If int, compute for specific slice.
+        option: 'equilibrium' or 'core_profiles' (default: 'equilibrium')
+    
+    Returns:
+        np.ndarray: Volume-averaged pressure array (length = number of time slices processed)
+    """
+    from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi
+    
+    if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+    
+    def _ensure_rz_shape(arr: np.ndarray, R: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        """Ensure 2D array is shaped as (len(R), len(Z)) to match indexing='ij' mesh."""
+        arr = np.asarray(arr)
+        if arr.shape == (len(R), len(Z)):
+            return arr
+        if arr.shape == (len(Z), len(R)):
+            return arr.T
+        raise ValueError(f"Unexpected 2D array shape {arr.shape}, expected {(len(R), len(Z))} or {(len(Z), len(R))}")
+    
+    # Determine which time slices to process
+    if time_slice is None:
+        time_slices = list(range(len(ods['equilibrium.time_slice'])))
+    else:
+        time_slices = [int(time_slice)]
+        if time_slice >= len(ods['equilibrium.time_slice']):
+            raise IndexError(f"time_slice {time_slice} is out of bounds")
+    
+    pressure_vol_avg_list = []
+    
+    for eq_idx in time_slices:
+        eq_ts = ods['equilibrium.time_slice'][eq_idx]
+        update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=eq_idx)
+        try:
+            # Load 2D grid + psi
+            R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
+            Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
+            psi_RZ = _ensure_rz_shape(np.asarray(eq_ts['profiles_2d.0.psi'], float), R_grid, Z_grid)
+            
+            # Get psi normalization constants
+            psi_axis = float(eq_ts.get('global_quantities.psi_axis', np.nan))
+            psi_lcfs = float(eq_ts.get('global_quantities.psi_boundary', np.nan))
+            if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
+                # Fallback: normalize by min/max of psi_RZ
+                psi_axis = float(np.nanmin(psi_RZ))
+                psi_lcfs = float(np.nanmax(psi_RZ))
+            
+            if option == 'equilibrium':
+                # Extract 1D profiles: psi_norm and pressure from equilibrium
+                psi_norm_1d = np.asarray(eq_ts['profiles_1d.psi_norm'], float)
+                p_1d = np.asarray(eq_ts['profiles_1d.pressure'], float)
+                
+                # Check that arrays have same length
+                if len(psi_norm_1d) != len(p_1d):
+                    logger.warning(f"Time slice {eq_idx}: psi_norm and pressure have different lengths, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                
+            elif option == 'core_profiles':
+                # Compute pressure from core_profiles: p = 2 * n_e * T_e * e
+                if 'core_profiles.profiles_1d' not in ods or len(ods['core_profiles.profiles_1d']) == 0:
+                    logger.warning(f"Time slice {eq_idx}: core_profiles.profiles_1d not found, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                
+                # Find matching core profile time slice using find_matching_time_indices
+                # Iterate through core profiles to find one that matches this equilibrium index
+                cp_idx = None
+                for cp_idx_candidate in range(len(ods['core_profiles.profiles_1d'])):
+                    try:
+                        cp_idx_found, equil_idx_found, _ = find_matching_time_indices(ods, time_slice=cp_idx_candidate)
+                        if equil_idx_found == eq_idx:
+                            cp_idx = cp_idx_found
+                            break
+                    except (KeyError, ValueError):
+                        # Continue searching if this core profile doesn't match
+                        continue
+                
+                if cp_idx is None:
+                    logger.warning(f"Time slice {eq_idx}: No matching core profile time slice found, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                
+                cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
+                
+                # Get core profile grid
+                grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
+                if 'rho_tor_norm' not in grid:
+                    logger.warning(f"Time slice {eq_idx}: rho_tor_norm grid missing in core_profiles, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                
+                rho_tor_norm_cp = np.asarray(grid['rho_tor_norm'], float)
+                
+                # Get n_e and T_e
+                if 'electrons.density' not in cp_ts:
+                    logger.warning(f"Time slice {eq_idx}: electrons.density missing in core_profiles, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                n_e_1d_rho = np.asarray(cp_ts['electrons.density'], float)
+                
+                if 'electrons.temperature' not in cp_ts:
+                    logger.warning(f"Time slice {eq_idx}: electrons.temperature missing in core_profiles, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                T_e_1d_rho = np.asarray(cp_ts['electrons.temperature'], float)
+                
+                # Check array lengths
+                if len(rho_tor_norm_cp) != len(n_e_1d_rho) or len(rho_tor_norm_cp) != len(T_e_1d_rho):
+                    logger.warning(f"Time slice {eq_idx}: Array length mismatch in core_profiles, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                
+                # Get equilibrium profiles_1d for coordinate conversion
+                eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+                
+                # Ensure equilibrium has psi_norm
+                if 'psi_norm' not in eq_profiles_1d:
+                    update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=eq_idx)
+                    eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+                    if 'psi_norm' not in eq_profiles_1d:
+                        logger.warning(f"Time slice {eq_idx}: Failed to create psi_norm, skipping")
+                        pressure_vol_avg_list.append(np.nan)
+                        continue
+                
+                if 'rho_tor_norm' not in eq_profiles_1d:
+                    logger.warning(f"Time slice {eq_idx}: rho_tor_norm missing in equilibrium.profiles_1d, skipping")
+                    pressure_vol_avg_list.append(np.nan)
+                    continue
+                
+                rho_tor_norm_eq = np.asarray(eq_profiles_1d['rho_tor_norm'], float)
+                psi_norm_eq = np.asarray(eq_profiles_1d['psi_norm'], float)
+                
+                # Ensure monotonicity
+                if not np.all(np.diff(rho_tor_norm_eq) > 0):
+                    sort_idx = np.argsort(rho_tor_norm_eq)
+                    rho_tor_norm_eq_sorted = rho_tor_norm_eq[sort_idx]
+                    psi_norm_eq_sorted = psi_norm_eq[sort_idx]
+                    unique_mask = np.concatenate(([True], np.diff(rho_tor_norm_eq_sorted) > 1e-10))
+                    rho_tor_norm_eq_sorted = rho_tor_norm_eq_sorted[unique_mask]
+                    psi_norm_eq_sorted = psi_norm_eq_sorted[unique_mask]
+                else:
+                    rho_tor_norm_eq_sorted = rho_tor_norm_eq
+                    psi_norm_eq_sorted = psi_norm_eq
+                
+                # Use equilibrium psi_norm grid as target coordinate system
+                psiN_1d = psi_norm_eq_sorted
+                
+                # Create inverse mapping: psi_norm -> rho_tor_norm
+                interp_psi_to_rho = interp1d(psi_norm_eq_sorted, rho_tor_norm_eq_sorted,
+                                             kind='linear',
+                                             bounds_error=False,
+                                             fill_value=(rho_tor_norm_eq_sorted[0], rho_tor_norm_eq_sorted[-1]))
+                rho_tor_norm_at_psiN = interp_psi_to_rho(psiN_1d)
+                
+                # Interpolate n_e and T_e to psi_norm coordinate
+                interp_n_e = interp1d(rho_tor_norm_cp, n_e_1d_rho,
+                                      kind='linear',
+                                      bounds_error=False,
+                                      fill_value=(n_e_1d_rho[0], n_e_1d_rho[-1]))
+                n_e_1d = interp_n_e(rho_tor_norm_at_psiN)
+                
+                interp_T_e = interp1d(rho_tor_norm_cp, T_e_1d_rho,
+                                      kind='linear',
+                                      bounds_error=False,
+                                      fill_value=(T_e_1d_rho[0], T_e_1d_rho[-1]))
+                T_e_1d = interp_T_e(rho_tor_norm_at_psiN)
+                
+                # Calculate pressure: p = 2 * n_e * T_e * e
+                # T_e is in eV, e = 1.602176634e-19 C (elementary charge)
+                QE = 1.602176634e-19  # elementary charge [C]
+                p_1d = 2.0 * n_e_1d * T_e_1d * QE  # [Pa]
+                
+                # Use psi_norm_1d from equilibrium
+                psi_norm_1d = psiN_1d
+                
+            else:
+                raise ValueError(f"Invalid option: {option}. Must be 'equilibrium' or 'core_profiles'")
+            
+            # Build 2D pressure map using psi_to_RZ
+            p_RZ, psiN_RZ = psi_to_RZ(psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+            
+            # Compute volume average
+            p_avg, _ = volume_average(p_RZ, psiN_RZ, R_grid, Z_grid)
+            pressure_vol_avg_list.append(float(p_avg))
+            
+        except Exception as e:
+            logger.warning(f"Time slice {eq_idx}: Could not compute volume-averaged pressure: {e}")
+            pressure_vol_avg_list.append(np.nan)
+    
+    return np.asarray(pressure_vol_avg_list, float)

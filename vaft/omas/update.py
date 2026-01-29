@@ -147,7 +147,6 @@ def update_equilibrium_boundary(ods, time_slice=None):
         # elongation
         ts['boundary.elongation'] = ts['profiles_1d.elongation'][-1]
 
-
 def update_equilibrium_coordinates(ods, time_slice=None, plot_opt=0):
     """
     Main entry point for updating all equilibrium coordinates.
@@ -186,6 +185,9 @@ def update_equilibrium_global_quantities_volume(ods, time_slice=None):
         else:
             print("Warning: No time slices found in ODS. Cannot update stored energy.")
             return
+    # Convert single integer to list for iteration
+    if isinstance(time_slice, (int, np.integer)):
+        time_slice = [time_slice]
     for idx in time_slice:
         ts = ods['equilibrium.time_slice'][idx]
         if 'profiles_1d.volume' not in ts:
@@ -528,7 +530,12 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     else:
         core_indices = [idx for idx in time_slice if idx < n_core_slices]
 
-    # Find matching equilibrium indices for each core profile time
+    # Initialize result lists for all time slices
+    n_e_vol_list = []
+    T_e_vol_list = []
+    ion_vol_dict = {}  # {ion_idx: {'n_i': [], 'T_i': []}}
+
+    # Step 1 & 2: Process each core profile time slice
     for cp_idx in core_indices:
         cp_time = core_times[cp_idx]
         
@@ -542,18 +549,16 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
         cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
         eq_ts = ods['equilibrium.time_slice'][equil_idx]
 
-        # Check required core profile fields
-        if 'electrons.density' not in cp_ts or 'electrons.temperature' not in cp_ts:
-            print(f"Warning: electrons density/temperature missing in core_profiles.profiles_1d[{cp_idx}]")
-            continue
-        if 'ion' not in cp_ts or len(cp_ts['ion']) == 0:
-            print(f"Warning: ion array missing in core_profiles.profiles_1d[{cp_idx}]")
-            continue
-
         # Get 1D flux coordinate for core profiles (always rho_tor_norm)
         grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
         if 'rho_tor_norm' not in grid:
-            print(f"Warning: rho_tor_norm grid missing for core_profiles.profiles_1d[{cp_idx}]")
+            print(f"Warning: rho_tor_norm grid missing for core_profiles.profiles_1d[{cp_idx}], skipping")
+            n_e_vol_list.append(np.nan)
+            T_e_vol_list.append(np.nan)
+            # Append NaN for all existing ions
+            for ion_idx in ion_vol_dict.keys():
+                ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                ion_vol_dict[ion_idx]['T_i'].append(np.nan)
             continue
         
         rho_tor_norm_cp = np.asarray(grid['rho_tor_norm'], float)
@@ -566,12 +571,22 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
             update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=equil_idx)
             eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
             if 'psi_norm' not in eq_profiles_1d:
-                print(f"Warning: failed to create psi_norm for equilibrium.time_slice[{equil_idx}]")
+                print(f"Warning: failed to create psi_norm for equilibrium.time_slice[{equil_idx}], skipping")
+                n_e_vol_list.append(np.nan)
+                T_e_vol_list.append(np.nan)
+                for ion_idx in ion_vol_dict.keys():
+                    ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                    ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                 continue
         
         # Get equilibrium rho_tor_norm and psi_norm for coordinate mapping
         if 'rho_tor_norm' not in eq_profiles_1d:
-            print(f"Warning: rho_tor_norm missing in equilibrium.profiles_1d for time_slice[{equil_idx}]")
+            print(f"Warning: rho_tor_norm missing in equilibrium.profiles_1d for time_slice[{equil_idx}], skipping")
+            n_e_vol_list.append(np.nan)
+            T_e_vol_list.append(np.nan)
+            for ion_idx in ion_vol_dict.keys():
+                ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                ion_vol_dict[ion_idx]['T_i'].append(np.nan)
             continue
         
         rho_tor_norm_eq = np.asarray(eq_profiles_1d['rho_tor_norm'], float)
@@ -607,112 +622,138 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
             psi_axis = float(eq_ts['global_quantities.psi_axis'])
             psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
         except KeyError:
-            print(f"Warning: missing profiles_2d.0 or global_quantities.psi_* for equilibrium.time_slice[{equil_idx}]")
+            print(f"Warning: missing profiles_2d.0 or global_quantities.psi_* for equilibrium.time_slice[{equil_idx}], skipping")
+            n_e_vol_list.append(np.nan)
+            T_e_vol_list.append(np.nan)
+            for ion_idx in ion_vol_dict.keys():
+                ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                ion_vol_dict[ion_idx]['T_i'].append(np.nan)
             continue
 
-        # Define profile keys and storage structure
-        # Structure: {profile_key: {quantity_key: (source_path, target_key)}}
-        profile_configs = {
-            'electrons': {
-                'density': ('electrons.density', 'n_e'),
-                'temperature': ('electrons.temperature', 'T_e')
-            }
-        }
-        
-        # Add ion profiles
-        ion_profiles = []
-        for ion_idx, ion_ts in enumerate(cp_ts['ion']):
-            if 'density' not in ion_ts or 'temperature' not in ion_ts:
-                continue
-            ion_profiles.append({
-                'density': (f'ion[{ion_idx}].density', f'n_i_{ion_idx}'),
-                'temperature': (f'ion[{ion_idx}].temperature', f'T_i_{ion_idx}')
-            })
-
-        # Helper function: rho_tor_norm -> psi_norm -> 2D RZ -> volume average
-        def convert_and_average(profile_1d_rho):
+        # Helper function: rho_tor_norm -> psi_norm -> 2D RZ
+        def convert_to_2d(profile_1d_rho):
+            # Interpolate profile from rho_tor_norm_cp to rho_tor_norm_at_psiN
             interp_func = interp1d(rho_tor_norm_cp, profile_1d_rho,
                                   kind='linear',
                                   bounds_error=False,
                                   fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
             profile_1d = interp_func(rho_tor_norm_at_psiN)
             profile_RZ, psiN_RZ = psi_to_RZ(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
-            vol_avg, _ = volume_average(profile_RZ, psiN_RZ, R_grid, Z_grid)
-            return vol_avg, psiN_RZ
-        
-        # Process all profiles: coordinate conversion -> 2D mapping -> volume average
-        volume_averages = {}
-        psiN_RZ = None  # Will be set on first profile
-        
-        for profile_key, quantities in profile_configs.items():
-            profile_results = {}
-            
-            for quantity_key, (source_path, target_key) in quantities.items():
-                profile_1d_rho = np.asarray(cp_ts[source_path], float)
-                vol_avg, psiN_RZ = convert_and_average(profile_1d_rho)
-                profile_results[target_key] = vol_avg
-            
-            volume_averages[profile_key] = profile_results
+            return profile_RZ, psiN_RZ
 
-        # Helper function: rho_tor_norm -> psi_norm -> 2D RZ (for ion accumulation)
-        def convert_to_2d(profile_1d_rho):
-            interp_func = interp1d(rho_tor_norm_cp, profile_1d_rho,
-                                  kind='linear',
-                                  bounds_error=False,
-                                  fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
-            profile_1d = interp_func(rho_tor_norm_at_psiN)
-            profile_RZ, _ = psi_to_RZ(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
-            return profile_RZ
+        # Step 2: Process electron profiles
+        psiN_RZ = None
+        n_e_vol = np.nan
+        T_e_vol = np.nan
         
-        # Process ion profiles (sum densities, density-weighted temperature)
-        n_i_total_RZ = None
-        nT_i_total_RZ = None
-        
-        for ion_ts in cp_ts['ion']:
-            if 'density' not in ion_ts or 'temperature' not in ion_ts:
-                continue
-            
-            # Convert ion profiles to 2D RZ
-            n_i_1d_rho = np.asarray(ion_ts['density'], float)
-            T_i_1d_rho = np.asarray(ion_ts['temperature'], float)
-            n_i_RZ = convert_to_2d(n_i_1d_rho)
-            T_i_RZ = convert_to_2d(T_i_1d_rho)
-            
-            # Accumulate ion densities and n*T
-            if n_i_total_RZ is None:
-                n_i_total_RZ = n_i_RZ.copy()
-                nT_i_total_RZ = n_i_RZ * T_i_RZ
-            else:
-                n_i_total_RZ += n_i_RZ
-                nT_i_total_RZ += n_i_RZ * T_i_RZ
-
-        if n_i_total_RZ is None or np.all(n_i_total_RZ == 0.0):
-            print(f"Warning: ion densities zero or missing in core_profiles.profiles_1d[{cp_idx}]")
-            continue
-
-        # Ion volume averages (density-weighted temperature)
-        n_i_vol, _ = volume_average(n_i_total_RZ, psiN_RZ, R_grid, Z_grid)
-        nT_i_vol, _ = volume_average(nT_i_total_RZ, psiN_RZ, R_grid, Z_grid)
-        T_i_vol = nT_i_vol / n_i_vol if n_i_vol > 0 else 0.0
-
-        # Store results in core_profiles.global_quantities
-        # If global_quantities is an array, store at the same index as profiles_1d
-        if 'core_profiles.global_quantities' in ods:
-            if isinstance(ods['core_profiles.global_quantities'], list):
-                if cp_idx >= len(ods['core_profiles.global_quantities']):
-                    # Extend list if needed
-                    while len(ods['core_profiles.global_quantities']) <= cp_idx:
-                        ods['core_profiles.global_quantities'].append(ODS())
-                gq = ods['core_profiles.global_quantities'][cp_idx]
-            else:
-                gq = ods['core_profiles.global_quantities']
+        if 'electrons.density' in cp_ts and 'electrons.temperature' in cp_ts:
+            try:
+                # Process n_e
+                n_e_1d_rho = np.asarray(cp_ts['electrons.density'], float)
+                n_e_RZ, psiN_RZ = convert_to_2d(n_e_1d_rho)
+                n_e_vol, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)
+                
+                # Process T_e
+                T_e_1d_rho = np.asarray(cp_ts['electrons.temperature'], float)
+                T_e_RZ, _ = convert_to_2d(T_e_1d_rho)
+                T_e_vol, _ = volume_average(T_e_RZ, psiN_RZ, R_grid, Z_grid)
+            except Exception as e:
+                print(f"Warning: Error processing electron profiles for core_profiles[{cp_idx}]: {e}")
         else:
-            # Create new global_quantities structure
-            ods['core_profiles.global_quantities'] = ODS()
-            gq = ods['core_profiles.global_quantities']
+            print(f"Warning: electrons density/temperature missing in core_profiles.profiles_1d[{cp_idx}]")
         
-        # Store results
-        gq['n_e_volume_average'] = volume_averages['electrons']['n_e']
-        gq['t_e_volume_average'] = volume_averages['electrons']['T_e']
-        gq['n_i_volume_average'] = n_i_vol
-        gq['t_i_volume_average'] = T_i_vol
+        n_e_vol_list.append(n_e_vol)
+        T_e_vol_list.append(T_e_vol)
+
+        # Step 2: Process ion profiles (each ion individually)
+        if 'ion' in cp_ts and cp_ts['ion']:
+            # Get list of ion indices
+            ion_indices = []
+            if isinstance(cp_ts['ion'], dict):
+                ion_indices = list(cp_ts['ion'].keys())
+            elif isinstance(cp_ts['ion'], (list, tuple)):
+                ion_indices = list(range(len(cp_ts['ion'])))
+            
+            for ion_idx in ion_indices:
+                # Initialize ion result lists if not exists
+                if ion_idx not in ion_vol_dict:
+                    ion_vol_dict[ion_idx] = {'n_i': [], 'T_i': []}
+                    # Fill with NaN for previous time slices
+                    for _ in range(len(n_e_vol_list) - 1):
+                        ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                        ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+                
+                # Get ion data
+                if isinstance(cp_ts['ion'], dict):
+                    ion_ts = cp_ts['ion'][ion_idx]
+                else:
+                    ion_ts = cp_ts['ion'][ion_idx]
+                
+                # Check if ion_ts is valid and has required keys
+                if not isinstance(ion_ts, dict) or ion_ts is None:
+                    ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                    ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+                    continue
+                
+                if 'density' not in ion_ts or 'temperature' not in ion_ts:
+                    ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                    ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+                    continue
+                
+                # Process ion profiles
+                try:
+                    n_i_1d_rho = np.asarray(ion_ts['density'], float)
+                    T_i_1d_rho = np.asarray(ion_ts['temperature'], float)
+                    
+                    # Check if arrays are valid
+                    if n_i_1d_rho.size == 0 or T_i_1d_rho.size == 0:
+                        ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                        ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+                        continue
+                    if np.all(np.isnan(n_i_1d_rho)) or np.all(np.isnan(T_i_1d_rho)):
+                        ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                        ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+                        continue
+                    
+                    # Convert to 2D RZ and compute volume average
+                    n_i_RZ, _ = convert_to_2d(n_i_1d_rho)
+                    T_i_RZ, _ = convert_to_2d(T_i_1d_rho)
+                    
+                    n_i_vol, _ = volume_average(n_i_RZ, psiN_RZ, R_grid, Z_grid)
+                    T_i_vol, _ = volume_average(T_i_RZ, psiN_RZ, R_grid, Z_grid)
+                    
+                    ion_vol_dict[ion_idx]['n_i'].append(n_i_vol)
+                    ion_vol_dict[ion_idx]['T_i'].append(T_i_vol)
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing ion[{ion_idx}] for core_profiles[{cp_idx}]: {e}")
+                    ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                    ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+        else:
+            # No ions for this time slice, append NaN for all existing ions
+            for ion_idx in ion_vol_dict.keys():
+                ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+
+    # Step 3: Store results in core_profiles.global_quantities
+    if 'core_profiles.global_quantities' not in ods:
+        ods['core_profiles.global_quantities'] = ODS()
+    
+    gq = ods['core_profiles.global_quantities']
+    gq['n_e_volume_average'] = n_e_vol_list
+    gq['t_e_volume_average'] = T_e_vol_list
+    
+    # Store ion results only if ion data exists
+    if ion_vol_dict:
+        # Store ion results
+        if 'ion' not in gq:
+            gq['ion'] = []
+        
+        # Ensure ion array has enough elements
+        max_ion_idx = max(ion_vol_dict.keys())
+        while len(gq['ion']) <= max_ion_idx:
+            gq['ion'].append(ODS())
+        
+        for ion_idx, results in ion_vol_dict.items():
+            gq['ion'][ion_idx]['n_i_volume_average'] = results['n_i']
+            gq['ion'][ion_idx]['t_i_volume_average'] = results['T_i']

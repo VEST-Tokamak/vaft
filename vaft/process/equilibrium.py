@@ -1,3 +1,6 @@
+from typing import Any
+
+
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -25,32 +28,6 @@ def radial_to_psi(r, psi_R, psi_Z, psi):
     
     # Return interpolated value
     return float(psi_interp(r))
-
-def psi_to_radial(psi_val, psi_R, psi_Z, psi):
-    """Find R,Z coordinates for a given poloidal flux value ψ.
-    
-    Args:
-        psi_val (float): Target poloidal flux value
-        psi_R (ndarray): R grid points for psi
-        psi_Z (ndarray): Z grid points for psi
-        psi (ndarray): Poloidal flux values on the R,Z grid
-    
-    Returns:
-        tuple: (R,Z) coordinates where psi = psi_val
-    """
-    from scipy.optimize import fsolve
-    
-    def objective(x):
-        r, z = x
-        return radial_to_psi(r, psi_R, psi_Z, psi) - psi_val
-    
-    # Use magnetic axis as initial guess
-    r0 = psi_R[np.argmin(np.abs(psi))]
-    z0 = psi_Z[np.argmin(np.abs(psi))]
-    
-    # Solve for R,Z coordinates
-    solution = fsolve(objective, [r0, z0])
-    return tuple(solution)
 
 def psi_to_rho(psi_val, q_profile, psi_axis, psi_boundary):
     """Convert poloidal flux ψ to normalized radius ρ using q-profile integration.
@@ -189,6 +166,67 @@ def volume_average(
 
     favg = np.sum(f_RZ[inside] * dV[inside]) / V
     return favg, V
+
+def psi_to_radial(
+    psi_1d: np.ndarray,
+    psi_2d_slice: np.ndarray,
+    grid_r: np.ndarray,
+    boundary_r: np.ndarray,
+    r_axis: float,
+    ):
+    """
+    Convert 1D psi profile to r_inboard and r_outboard using 2D psi mapping.
+    
+    This function creates interpolation functions from 2D psi data at the magnetic
+    axis Z position, splits the data into inboard and outboard regions, and maps
+    the 1D psi profile to radial coordinates.
+    
+    Parameters
+    ----------
+    psi_1d : ndarray
+        1D poloidal flux profile to map
+    psi_2d_slice : ndarray
+        2D psi values at magnetic axis Z position (from profiles_2d.0.psi[:, z_idx])
+    grid_r : ndarray
+        R grid points corresponding to psi_2d_slice
+    boundary_r : ndarray
+        Boundary R coordinates to determine r_min and r_max
+    r_axis : float
+        Magnetic axis R coordinate
+    
+    Returns
+    -------
+    r_inboard : ndarray
+        Inboard radial coordinates corresponding to psi_1d
+    r_outboard : ndarray
+        Outboard radial coordinates corresponding to psi_1d
+    """
+    psi_1d = np.asarray(psi_1d, float)
+    psi_2d_slice = np.asarray(psi_2d_slice, float)
+    grid_r = np.asarray(grid_r, float)
+    boundary_r = np.asarray(boundary_r, float)
+    
+    # Determine boundary limits
+    r_min, r_max = np.min(boundary_r), np.max(boundary_r)
+    
+    # Split into inboard/outboard regions
+    mask_in = (grid_r >= r_min) & (grid_r <= r_axis)
+    mask_out = (grid_r >= r_axis) & (grid_r <= r_max)
+    psi_in, r_in = psi_2d_slice[mask_in], grid_r[mask_in]
+    psi_out, r_out = psi_2d_slice[mask_out], grid_r[mask_out]
+    
+    # Create interpolation functions
+    # Inboard: reverse order for monotonic psi (decreasing from boundary to axis)
+    f_in = interp1d(psi_in[::-1], r_in[::-1], 
+                   kind='cubic', fill_value='extrapolate')
+    f_out = interp1d(psi_out, r_out, 
+                    kind='cubic', fill_value='extrapolate')
+    
+    # Map 1D psi profile to radial coordinates
+    r_inboard = f_in(psi_1d)
+    r_outboard = f_out(psi_1d)
+    
+    return r_inboard, r_outboard
 
 
 

@@ -41,7 +41,7 @@ def analysis_diagnostics(ods):
     # Plot Ip
     ax[0, 0].plot(ods['magnetics.time'], data_ip)
     # Plot Bt at R=0.4m => pressure
-#    ax[1, 0].plot(ods['tf.time'], ods['tf.b_field_tor_vacuum_r']['data']/0.4)
+    #    ax[1, 0].plot(ods['tf.time'], ods['tf.b_field_tor_vacuum_r']['data']/0.4)
     data_pres=ods['barometry.gauge.0.pressure.data'] # pressure
     time_pres=ods['barometry.gauge.0.pressure.time'] # time
     ax[1, 0].plot(time_pres, data_pres)
@@ -111,7 +111,7 @@ def analysis_diagnostics(ods):
 
     # Set the title for each subplot
     ax[0, 0].set_title('Ip')
-#    ax[1, 0].set_title('Bt (R=0.4m)')
+    #    ax[1, 0].set_title('Bt (R=0.4m)')
     ax[1, 0].set_title('Pressure')
     ax[2, 0].set_title('Line Radiation (Ha, CIII, OII)')
     ax[3, 0].set_title('PF Coil')

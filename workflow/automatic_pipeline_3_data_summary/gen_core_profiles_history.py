@@ -4,8 +4,7 @@ import numpy as np
 import vaft
 from vaft.database import ods as db_ods
 from vaft.omas import formula_wrapper
-from vaft.omas.process_wrapper import compute_P_loss
-from vaft.formula.equilibrium import confinement_time_from_P_loss_W_th
+from vaft.omas.general import find_matching_time_indices
 import logging
 from tqdm import tqdm
 
@@ -50,6 +49,9 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
         list: List of dictionaries, one per time slice with extracted parameters
     """
     results = []
+
+    # update boundary-related quantities
+    vaft.omas.update_equilibrium_boundary(ods)
     
     try:
         # Check if equilibrium and core_profiles exist
@@ -61,113 +63,56 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
             logger.warning(f"Shot {shot_number}: No core profiles found")
             return results
         
-        # Process each equilibrium time slice
-        n_eq = len(ods['equilibrium.time_slice'])
-        logger.info(f"Shot {shot_number}: Processing {n_eq} equilibrium time slices")
+        # Process each core profile time slice and find matching equilibrium time slice
+        n_cp = len(ods['core_profiles.profiles_1d'])
+        logger.info(f"Shot {shot_number}: Processing {n_cp} core profile time slices")
         
-        for eq_idx in range(n_eq):
+        for cp_idx in range(n_cp):
             try:
+                # Use find_matching_time_indices to ensure both core_profiles and equilibrium exist
+                # and have matching times
+                cp_idx_matched, eq_idx, time_val = find_matching_time_indices(ods, time_slice=cp_idx)
+                
+                # Get equilibrium time slice
                 eq_ts = ods['equilibrium.time_slice'][eq_idx]
                 
-                # Get time
-                if 'time' in eq_ts:
-                    time_val = float(eq_ts['time'])
-                elif 'equilibrium.time' in ods and eq_idx < len(ods['equilibrium.time']):
-                    time_val = float(ods['equilibrium.time'][eq_idx])
-                else:
-                    time_val = float(eq_idx)
+                # Get core profile time slice
+                cp_ts = ods['core_profiles.profiles_1d'][cp_idx_matched]
                 
-                # Extract basic equilibrium parameters
-                I_p = float(eq_ts['global_quantities.ip'])  # [A]
-                Ip_MA = I_p / 1e6  # [MA]
-                
-                # Major and minor radius
-                R_m = float(eq_ts['boundary.geometric_axis.r'])  # [m]
-                a_m = float(eq_ts['boundary.minor_radius'])  # [m]
-                
-                # Toroidal magnetic field at geometric axis
+                # Extract engineering parameters using compute_tau_E_engineering_parameters
                 try:
-                    B0 = float(ods['equilibrium.vacuum_toroidal_field.b0'])
-                    R0 = float(ods['equilibrium.vacuum_toroidal_field.r0'])
-                    Bt_T = B0 * R0 / R_m  # [T]
-                except (KeyError, TypeError):
-                    # Try alternative location
-                    if isinstance(ods['equilibrium.vacuum_toroidal_field.b0'], (list, np.ndarray)):
-                        B0 = float(ods['equilibrium.vacuum_toroidal_field.b0'][0])
-                    else:
-                        B0 = float(ods['equilibrium.vacuum_toroidal_field.b0'])
-                    if isinstance(ods['equilibrium.vacuum_toroidal_field.r0'], (list, np.ndarray)):
-                        R0 = float(ods['equilibrium.vacuum_toroidal_field.r0'][0])
-                    else:
-                        R0 = float(ods['equilibrium.vacuum_toroidal_field.r0'])
-                    Bt_T = B0 * R0 / R_m  # [T]
-                
-                # Elongation
-                try:
-                    kappa = float(eq_ts['boundary.elongation'])
-                except (KeyError, TypeError):
-                    try:
-                        kappa = float(eq_ts['global_quantities.elongation'])
-                    except (KeyError, TypeError):
-                        kappa = np.nan
-                
-                # Compute P_loss
-                try:
-                    P_loss = compute_P_loss(ods, eq_idx, Z_eff)  # [W]
-                    Ploss_MW = P_loss / 1e6  # [MW]
-                except Exception as e:
-                    logger.warning(f"Shot {shot_number}, time_slice {eq_idx}: Failed to compute P_loss: {e}")
-                    Ploss_MW = np.nan
-                
-                # Find matching core profile time slice
-                cp_idx = None
-                if 'core_profiles.profiles_1d' in ods:
-                    min_time_diff = float('inf')
-                    for idx in range(len(ods['core_profiles.profiles_1d'])):
-                        cp_ts = ods['core_profiles.profiles_1d'][idx]
-                        cp_time = float(cp_ts.get('time', idx))
-                        time_diff = abs(cp_time - time_val)
-                        if time_diff < min_time_diff:
-                            min_time_diff = time_diff
-                            cp_idx = idx
-                
-                # Extract electron density (line-averaged or volume-averaged)
-                ne_19m3 = np.nan
-                if cp_idx is not None:
-                    cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
+                    eng_params = formula_wrapper.compute_tau_E_engineering_parameters(
+                        ods, eq_idx, Z_eff=Z_eff, M=1.0
+                    )
                     
-                    # Try to get volume-averaged density
-                    if 'global_quantities.density' in cp_ts:
-                        n_e_vol_avg = float(cp_ts['global_quantities.density'])  # [m^-3]
-                        ne_19m3 = n_e_vol_avg / 1e19  # [10^19 m^-3]
-                    elif 'electrons.density' in cp_ts:
-                        # Compute line-averaged or volume-averaged from profile
-                        n_e_profile = np.asarray(cp_ts['electrons.density'], float)  # [m^-3]
-                        # Use mean as approximation for line-averaged
-                        n_e_avg = np.mean(n_e_profile)
-                        ne_19m3 = n_e_avg / 1e19  # [10^19 m^-3]
+                    # Extract parameters from dictionary
+                    I_p = eng_params['I_p']  # [A]
+                    Ip_MA = I_p / 1e6  # [MA]
+                    Bt_T = eng_params['B_t']  # [T]
+                    R_m = eng_params['R']  # [m]
+                    epsilon = eng_params['epsilon']  # [-]
+                    kappa = eng_params['kappa']  # [-]
+                    P_loss = eng_params['P_loss']  # [W]
+                    Ploss_MW = P_loss / 1e6  # [MW]
+                    n_e_vol_avg = eng_params['n_e']  # [m^-3]
+                    ne_19m3 = n_e_vol_avg / 1e19  # [10^19 m^-3]
+                    
+                except Exception as e:
+                    logger.warning(f"Shot {shot_number}, cp_idx {cp_idx}, eq_idx {eq_idx}: Failed to compute engineering parameters: {e}")
+                    continue
                 
-                # Compute experimental confinement time
+                # Compute confinement time parameters using compute_confiment_time_paramters
+                tauE_IPB89 = np.nan
+                tauE_H98y2 = np.nan
+                tauE_NSTX = np.nan
                 tauE_s = np.nan
-                if not np.isnan(Ploss_MW) and Ploss_MW > 0:
-                    try:
-                        # Get thermal energy
-                        if 'global_quantities.energy_mhd' in eq_ts:
-                            W_th = float(eq_ts['global_quantities.energy_mhd'])  # [J]
-                        elif 'core_profiles.profiles_1d' in ods and cp_idx is not None:
-                            cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
-                            if 'global_quantities.energy' in cp_ts:
-                                W_th = float(cp_ts['global_quantities.energy'])  # [J]
-                            else:
-                                W_th = np.nan
-                        else:
-                            W_th = np.nan
-                        
-                        if not np.isnan(W_th) and W_th > 0:
-                            P_loss_W = Ploss_MW * 1e6  # Convert back to [W]
-                            tauE_s = confinement_time_from_P_loss_W_th(P_loss_W, W_th)  # [s]
-                    except Exception as e:
-                        logger.warning(f"Shot {shot_number}, time_slice {eq_idx}: Failed to compute tauE: {e}")
+                H_factor = np.nan
+                try:
+                    tauE_IPB89, tauE_H98y2, tauE_NSTX, H_factor, tauE_s = formula_wrapper.compute_confiment_time_paramters(
+                        ods, eq_idx, Z_eff=Z_eff, M=1.0
+                    )
+                except Exception as e:
+                    logger.warning(f"Shot {shot_number}, cp_idx {cp_idx}, eq_idx {eq_idx}: Failed to compute confinement time parameters: {e}")
                 
                 # Store results
                 result = {
@@ -177,15 +122,22 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
                     'Bt_T': Bt_T,
                     'Ploss_MW': Ploss_MW,
                     'tauE_s': tauE_s,
+                    'tauE_IPB89': tauE_IPB89,
+                    'tauE_H98y2': tauE_H98y2,
+                    'tauE_NSTX': tauE_NSTX,
                     'ne_19m3': ne_19m3,
                     'R_m': R_m,
-                    'a_m': a_m,
+                    'epsilon': epsilon,
                     'kappa': kappa
                 }
                 results.append(result)
                 
+            except (KeyError, ValueError) as e:
+                # Skip time slices where core_profiles and equilibrium don't match
+                logger.debug(f"Shot {shot_number}, cp_idx {cp_idx}: Skipping - {type(e).__name__}: {e}")
+                continue
             except Exception as e:
-                logger.error(f"Shot {shot_number}, time_slice {eq_idx}: Error extracting parameters: {e}")
+                logger.error(f"Shot {shot_number}, cp_idx {cp_idx}: Error extracting parameters: {e}")
                 continue
         
         logger.info(f"Shot {shot_number}: Successfully extracted {len(results)} time slices")

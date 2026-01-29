@@ -970,7 +970,7 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     """
     return W_th / P_loss
 
-def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss: float, n_e: float, M: float, R: float, epsilon: float, kappa: float, scaling: str = "IBP98y2") -> float:
+def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss: float, n_e: float, M: float, R: float, epsilon: float, kappa: float, scaling: str = "IPB89") -> float:
     """
     Calculate thermal energy confinement time from engineering parameters using scaling laws.
     
@@ -986,7 +986,7 @@ def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss:
     P_loss : float
         Loss power [W] (converted to MW internally)
     n_e : float
-        Line-averaged electron density [m^-3] (converted to 10^20 m^-3 internally)
+        Line-averaged electron density [m^-3] (converted to 10^19 m^-3 internally)
     M : float
         Average ion mass [amu]
     R : float
@@ -996,7 +996,7 @@ def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss:
     kappa : float
         Elongation [-]
     scaling : str, optional
-        Scaling law name: "IBP98y2", "H98y2", "Petty", "NSTX-MG", or "NSTX", by default "IBP98y2"
+        Scaling law name: "IPB89", "H98y2", or "NSTX", by default "IPB89"
     
     Returns
     -------
@@ -1007,29 +1007,57 @@ def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss:
     -----
     This function automatically converts SI units to the units required by the scaling laws:
     - I_p: A → MA (× 1e-6)
-    - n_e: m^-3 → 10^20 m^-3 (× 1e-20)
+    - n_e: m^-3 → 10^19 m^-3 (× 1e-19) for n_19 parameter
     - P_loss: W → MW (× 1e-6)
     """
     if scaling not in _SCALING_COEFS:
         raise ValueError(f"Unknown scaling '{scaling}'. Available: {list(_SCALING_COEFS.keys())}")
     
-    # Extract coefficients: [C, α, β, γ, δ, ε, ζ, η]
+    # Extract coefficients: [C, Ip_MA, R, epsilon, kappa, n_19, Bt, Mi, P_MW/P_loss]
     # Mapping to: [α_I, α_B, α_P, α_n, α_M, α_R, α_ε, α_κ]
     # Based on: τ_E = C · I_p^α · R^β · a^γ · κ^δ · n_e^ε · B_T^ζ · M^η / P_loss
     # For this function: τ_E = C · I_p^α_I · B_T^α_B · P_loss^α_P · n_e^α_n · M^α_M · R^α_R · ε^α_ε · κ^α_κ
-    C, alpha, beta, gamma, delta, epsilon_coef, zeta, eta = _SCALING_COEFS[scaling]
-    alpha_I, alpha_B, alpha_P, alpha_n, alpha_M, alpha_R, alpha_epsilon, alpha_kappa = (
-        alpha, zeta, -beta, epsilon_coef, eta, beta, gamma, delta
-    )
+    coefs = _SCALING_COEFS[scaling]
+    C = coefs["C"]
+    alpha_I = coefs["Ip_MA"]         # Plasma Current exponent
+    alpha_R = coefs["R"]             # Major Radius exponent
+    alpha_epsilon = coefs["epsilon"] # Inverse aspect ratio exponent (epsilon = a/R)
+    alpha_kappa = coefs["kappa"]     # Elongation exponent
+    alpha_n = coefs["n_19"]          # Electron Density exponent
+    alpha_B = coefs["Bt"]           # Toroidal Field exponent
+    alpha_M = coefs["Mi"]            # Ion mass exponent
+    alpha_P = coefs["P_MW"]          # Heating Power exponent
     
     # Unit conversions: SI → scaling law units
     I_p_MA = I_p * 1e-6          # A → MA
-    n_e_20 = n_e * 1e-20         # m^-3 → 10^20 m^-3
+    n_e_19 = n_e * 1e-19         # m^-3 → 10^19 m^-3 (for n_19 parameter)
     P_loss_MW = P_loss * 1e-6    # W → MW
     
-    return (C * I_p_MA**alpha_I * B_t**alpha_B * P_loss_MW**alpha_P * 
-            n_e_20**alpha_n * M**alpha_M * R**alpha_R * 
-            epsilon**alpha_epsilon * kappa**alpha_kappa)
+    # Validate inputs to prevent complex results
+    if I_p_MA <= 0 or B_t <= 0 or P_loss_MW <= 0 or n_e_19 <= 0 or M <= 0 or R <= 0 or epsilon <= 0 or kappa <= 0:
+        raise ValueError(f"All input parameters must be positive. Got: I_p_MA={I_p_MA}, B_t={B_t}, P_loss_MW={P_loss_MW}, n_e_19={n_e_19}, M={M}, R={R}, epsilon={epsilon}, kappa={kappa}")
+    
+    # Compute with error handling for complex results
+    result = (C * I_p_MA**alpha_I * B_t**alpha_B * P_loss_MW**alpha_P * 
+             n_e_19**alpha_n * M**alpha_M * R**alpha_R * 
+             epsilon**alpha_epsilon * kappa**alpha_kappa)
+    
+    # Handle complex numbers (should not happen with valid inputs)
+    if isinstance(result, complex):
+        if result.imag != 0:
+            raise ValueError(f"Confinement time calculation resulted in complex number: {result}. "
+                           f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
+                           f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}, "
+                           f"alpha_P={alpha_P}, I_p_MA={I_p_MA}, P_loss_MW={P_loss_MW}")
+        result = result.real
+    
+    # Ensure result is finite
+    if not np.isfinite(result) or result <= 0:
+        raise ValueError(f"Invalid confinement time result: {result}. "
+                        f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
+                        f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}")
+    
+    return float(result)
 
 
 def confinement_factor_from_tau_E_exp_tau_E_IPB89y2(tau_E_exp: float, tau_E_IBP98y2: float) -> float:

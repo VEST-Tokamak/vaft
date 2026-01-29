@@ -4,8 +4,95 @@ import numpy as np
 from omas import ODS, ODC
 from .utils import get_from_path, extract_labels_from_odc
 from vaft.omas import odc_or_ods_check
+
+
+def equilibrium_1d_radial(ods, time_slices=None):
+    """
+    Plot validation figures for radial coordinate mapping.
+    
+    Creates a 4-panel figure showing:
+    1. Primary mapping validation (psi vs R for inboard/outboard)
+    2. J_tor profile on inboard/outboard
+    3. Pressure profile on inboard/outboard
+    4. Safety factor q profile on inboard/outboard
+    
+    Parameters
+    ----------
+    ods : ODS
+        OMAS data structure containing equilibrium data
+    time_slices : int, list, or None
+        Time slice index(es) to plot. If None, plots all time slices.
+        If int, plots single time slice. If list, plots multiple time slices.
+    """
+    # Process time slices
+    if time_slices is None:
+        time_slices = list(ods['equilibrium.time_slice'].keys())
+    elif isinstance(time_slices, (int, np.integer)):
+        time_slices = [time_slices]
+    
+    for idx in time_slices:
+        ts = ods['equilibrium.time_slice'][idx]
+        
+        # Extract 2D grid data at magnetic axis
+        grid_r = ts['profiles_2d.0.grid.dim1']
+        grid_z = ts['profiles_2d.0.grid.dim2']
+        psi_2d = ts['profiles_2d.0.psi']
+        z_axis = ts['global_quantities.magnetic_axis.z']
+        z_idx = np.argmin(np.abs(grid_z - z_axis))
+        psi_2d_slice = psi_2d[:, z_idx]
+        
+        # Extract boundary and axis data
+        boundary_r = ts['boundary.outline.r']
+        r_axis = ts['global_quantities.magnetic_axis.r']
+        r_min, r_max = np.min(boundary_r), np.max(boundary_r)
+        
+        # Split into inboard/outboard regions for 2D data
+        mask_in = (grid_r >= r_min) & (grid_r <= r_axis)
+        mask_out = (grid_r >= r_axis) & (grid_r <= r_max)
+        r_in_2d, psi_in_2d = grid_r[mask_in], psi_2d_slice[mask_in]
+        r_out_2d, psi_out_2d = grid_r[mask_out], psi_2d_slice[mask_out]
+        
+        plt.figure(figsize=[8, 5])
+        plt.suptitle(f'Time Slice {idx} Validation')
+        
+        # Primary mapping validation
+        plt.subplot(221)
+        plt.plot(r_in_2d, psi_in_2d, 'r-', label='2D Inboard')
+        plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.psi'], 'b--', label='Inboard')
+        plt.plot(ts['global_quantities.magnetic_axis.r'], ts['global_quantities.psi_axis'], 'k.', label='Magnetic Axis')
+        plt.plot(r_out_2d, psi_out_2d, 'g-', label='2D Outboard')
+        plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.psi'], 'm--', label='Outboard')
+        plt.xlabel('R [m]')
+        plt.ylabel('Psi')
+        plt.legend(loc='upper right')
+        
+        # J_tor profile
+        plt.subplot(222)
+        plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.j_tor'], 'r-', label='Inboard')
+        plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.j_tor'], 'g-', label='Outboard')
+        plt.xlabel('R [m]')
+        plt.ylabel('J_tor [A/m2]')
+        
+        # Pressure profile
+        plt.subplot(223)
+        plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.pressure'], 'r-', label='Inboard')
+        plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.pressure'], 'g-', label='Outboard')
+        plt.xlabel('R [m]')
+        plt.ylabel('Pressure [Pa]')
+        
+        # Safety factor q profile
+        plt.subplot(224)
+        plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.q'], 'r-', label='Inboard')
+        plt.plot(ts['global_quantities.magnetic_axis.r'], ts['global_quantities.q_axis'], 'k.', label='Magnetic Axis')
+        plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.q'], 'g-', label='Outboard')
+        plt.xlabel('R [m]')
+        plt.ylabel('safety factor')
+        
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 # legend -> time_points sec (time_slice_index)
-# axis -> radial, rho_tor_norm, psi_n, vertical...
+# axis -> radial, rho_tor_norm, psi_norm, vertical...
 
 # def {ods}_{axis}_{quantity}(ods, time_slice):
 
@@ -122,7 +209,7 @@ def plot_onedim_profile(odc_or_ods, data_path, ylabel, coordinate='rho_tor_norm'
     ylabel : str
         Label for y-axis
     coordinate : str
-        Radial coordinate to use ('rho_tor_norm', 'psi_n', etc.)
+        Radial coordinate to use ('rho_tor_norm', 'psi_norm', etc.)
     xlabel : str
         Label for x-axis
     yunit : str
@@ -136,7 +223,7 @@ def plot_onedim_profile(odc_or_ods, data_path, ylabel, coordinate='rho_tor_norm'
     """
     odc = odc_or_ods_check(odc_or_ods)
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 4))
     
     for key, lbl in zip(odc.keys(), [f"{label} {k}" for k in odc.keys()]):
         ods = odc[key]
@@ -213,8 +300,8 @@ if __name__ == "__main__":
 
 # --- Configuration for 1D Plotting ---
 COORDINATE_DEFINITIONS = {
-    'psi_n': {
-        'path_template': 'equilibrium.time_slice.{time_slice_idx}.profiles_1d.psi_n',
+    'psi_norm': {
+        'path_template': 'equilibrium.time_slice.{time_slice_idx}.profiles_1d.psi_norm',
         'label': 'Normalized Poloidal Flux (ψ_N)'
     },
     'rho_tor_norm': {
@@ -324,7 +411,7 @@ def get_1d_profile_data(ods, time_slice_idx, quantity_path_template, coord_path_
             r_out = np.ascontiguousarray(profiles_1d['r_outboard'])
             
             # Assuming the quantity to plot (e.g., j_tor) is stored under its own name in profiles_1d
-            # And that it corresponds to the full radial profile (like psi_n or rho_tor_norm)
+            # And that it corresponds to the full radial profile (like psi_norm or rho_tor_norm)
             # We need to map this quantity to r_in and r_out. This is tricky without more info.
             # For now, let's assume the quantity path gives us the full profile, and we need to select parts.
             # This part likely needs ODS structure expertise if j_tor isn't directly split for r_in/r_out.
@@ -344,7 +431,7 @@ def get_1d_profile_data(ods, time_slice_idx, quantity_path_template, coord_path_
                  return None, None
             # quantity_data_full_profile is now guaranteed to be 1D, scalar or None
 
-            # This assumes quantity_data_full_profile has same length as a standard radial coordinate like psi_n
+            # This assumes quantity_data_full_profile has same length as a standard radial coordinate like psi_norm
             # And that r_in and r_out map to the first len(r_in) and next len(r_out) points of this full profile
             # This is a strong assumption. OMAS structure might have specific j_tor for inboard/outboard.
             # If profiles_1d.j_tor has len(r_in) + len(r_out) points, it is simpler.
@@ -375,7 +462,7 @@ def get_1d_profile_data(ods, time_slice_idx, quantity_path_template, coord_path_
                 quantity_out_part = quantity_data_full_profile
             else:
                 # Fallback or error: we don't know how to map j_tor to r_in/r_out
-                # This might happen if j_tor is on a different grid (e.g. psi_n) and r_in/r_out are arbitrary.
+                # This might happen if j_tor is on a different grid (e.g. psi_norm) and r_in/r_out are arbitrary.
                 print(f"Error: Cannot map quantity (len {len(quantity_data_full_profile)}) to r_in (len {num_r_in}) and r_out (len {num_r_out}). Interpolation might be needed.")
                 return None, None
 
@@ -446,7 +533,7 @@ def check_and_update_equilibrium_data(ods, coordinate_name):
     ods : ODS
         Input OMAS data structure
     coordinate_name : str
-        Name of the coordinate to check ('psi_n', 'rho_tor_norm', 'r_major', 'r_minor')
+        Name of the coordinate to check ('psi_norm', 'rho_tor_norm', 'r_major', 'r_minor')
     
     Returns:
     --------
@@ -458,10 +545,10 @@ def check_and_update_equilibrium_data(ods, coordinate_name):
     # Check if data exists
     has_data = False
     try:
-        if coordinate_name == 'psi_n':
-            # Check if psi_n exists in any time slice
+        if coordinate_name == 'psi_norm':
+            # Check if psi_norm exists in any time slice
             for ts in ods['equilibrium.time_slice']:
-                if 'psi_n' in ods['equilibrium.time_slice'][ts]['profiles_1d']:
+                if 'psi_norm' in ods['equilibrium.time_slice'][ts]['profiles_1d']:
                     has_data = True
                     break
         elif coordinate_name == 'rho_tor_norm':
@@ -488,9 +575,9 @@ def check_and_update_equilibrium_data(ods, coordinate_name):
         
         # Verify update was successful
         try:
-            if coordinate_name == 'psi_n':
+            if coordinate_name == 'psi_norm':
                 for ts in ods['equilibrium.time_slice']:
-                    if 'psi_n' in ods['equilibrium.time_slice'][ts]['profiles_1d']:
+                    if 'psi_norm' in ods['equilibrium.time_slice'][ts]['profiles_1d']:
                         return True
             elif coordinate_name == 'rho_tor_norm':
                 for ts in ods['equilibrium.time_slice']:
@@ -574,7 +661,7 @@ def format_equilibrium_title(quantity_name, coordinate_name, params):
     
     return title
 
-def format_legend_label(label, params):
+def format_legend_label(label, params, include_time=True):
     """
     Format legend label with time and Ip information.
     
@@ -584,6 +671,9 @@ def format_legend_label(label, params):
         Base label for the plot
     params : dict
         Dictionary containing time and Ip values
+    include_time : bool, optional
+        If True, include "t = ...s" in the label. If False, show only shot (and Ip).
+        Default is True.
     
     Returns:
     --------
@@ -593,9 +683,9 @@ def format_legend_label(label, params):
     # Convert label to string if it's not already
     legend_parts = [str(label)]
     
-    if params['time'] is not None:
+    if include_time and params.get('time') is not None:
         legend_parts.append(f"t = {params['time']:.4g}s")
-    if params['ip'] is not None:
+    if params.get('ip') is not None:
         legend_parts.append(f"Ip = {params['ip']/1e6:.2f} MA")
     
     return " | ".join(legend_parts)
@@ -689,7 +779,7 @@ def plot_onedim_profile_interactive(
     is_odc_input = len(odc.keys()) > 1
     
     def _draw_plot_for_single_timeslice_key(
-        current_ts_key_str, plot_title_override=None, target_ax=None, specific_ods_key_to_plot=None, legend_base_label_override=None, show_legend=True
+        current_ts_key_str, plot_title_override=None, target_ax=None, specific_ods_key_to_plot=None, legend_base_label_override=None, show_legend=True, legend_include_time=True
     ):
         # Only plot a single ODS, always require specific_ods_key_to_plot
         if specific_ods_key_to_plot is None:
@@ -700,14 +790,14 @@ def plot_onedim_profile_interactive(
         base_label_str = labels_map.get(specific_ods_key_to_plot, str(specific_ods_key_to_plot))
         ods_params = get_equilibrium_parameters(ods_item, current_ts_key_str)
         actual_legend_base = legend_base_label_override if legend_base_label_override is not None else base_label_str
-        legend_label = format_legend_label(actual_legend_base, ods_params)
+        legend_label = format_legend_label(actual_legend_base, ods_params, include_time=legend_include_time)
         coord_data, quant_data = get_1d_profile_data(
             ods_item, current_ts_key_str,
             quantity_path_template, coord_path_template
         )
         if coord_data is not None and quant_data is not None:
             if not target_ax:
-                fig, ax_to_use = plt.subplots(figsize=plot_kwargs.get('figsize', (10, 6)))
+                fig, ax_to_use = plt.subplots(figsize=plot_kwargs.get('figsize', (6, 4)))
                 ax_to_use.set_title(plot_title_override or format_equilibrium_title(quantity_name, coordinate_name, ods_params))
                 ax_to_use.set_xlabel(default_xlabel)
                 ax_to_use.set_ylabel(default_ylabel)
@@ -717,7 +807,7 @@ def plot_onedim_profile_interactive(
                 ax_to_use.plot(coord_data, quant_data, label=legend_label, **{k: v for k, v in plot_kwargs.items() if k != 'figsize'})
                 ax_to_use.grid(True)
                 if not target_ax and show_legend:
-                    ax_to_use.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+                    ax_to_use.legend(loc='upper right')
                     plt.tight_layout()
                     plt.show()
                 elif not target_ax:
@@ -731,7 +821,7 @@ def plot_onedim_profile_interactive(
         return False
 
     if is_odc_input:
-        fig, ax = plt.subplots(figsize=plot_kwargs.get('figsize', (10, 6)))
+        fig, ax = plt.subplots(figsize=plot_kwargs.get('figsize', (6, 4)))
         current_plot_args = {k: v for k, v in plot_kwargs.items() if k != 'figsize'}
         plot_successful_for_any_ods = False
 
@@ -756,12 +846,13 @@ def plot_onedim_profile_interactive(
             if _draw_plot_for_single_timeslice_key(
                     max_ip_ts_key, 
                     target_ax=ax, 
-                    specific_ods_key_to_plot=ods_key):  
+                    specific_ods_key_to_plot=ods_key,
+                    legend_include_time=False):  
                 plot_successful_for_any_ods = True
                 print('ax.lines after:', len(ax.lines))
         if plot_successful_for_any_ods:
             ax.grid(True)
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left') # Single call to legend() for the ODC plot
+            ax.legend(loc='upper right')  # Single call to legend() for the ODC plot
         else:
             ax.text(0.5, 0.5, "No data available for max Ip slices in any ODS",
                     horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
@@ -865,7 +956,7 @@ def plot_onedim_profile_interactive(
                         return
                     if selected_value_from_dropdown == "ALL_SLICES_KEY":
                         # Plot all time slices on one graph
-                        fig_all, ax_all = plt.subplots(figsize=plot_kwargs.get('figsize', (10, 6)))
+                        fig_all, ax_all = plt.subplots(figsize=plot_kwargs.get('figsize', (6, 4)))
                         
                         # Construct a title for the "All Slices" plot
                         # Use first ODS params for general title parts if needed, though time/Ip specific parts are per-slice
@@ -891,7 +982,7 @@ def plot_onedim_profile_interactive(
                         
                         if plot_successful_at_least_once:
                             ax_all.grid(True)
-                            ax_all.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+                            ax_all.legend(loc='upper right')
                         else:
                             ax_all.text(0.5, 0.5, "No data available for any time slice.",
                                      horizontalalignment='center', verticalalignment='center', transform=ax_all.transAxes)
@@ -936,7 +1027,7 @@ def plot_onedim_profile_interactive(
 
 # Dynamically create plotting functions for all (quantity, coordinate) pairs in equilibrium
 _equilibrium_quantities = ['j_tor', 'q', 'pressure', 'pprime', 'f', 'ffprime']
-_coordinates = ['psi_n', 'rho_tor_norm', 'r_major', 'r_minor']
+_coordinates = ['psi_norm', 'rho_tor_norm', 'r_major', 'r_minor']
 
 for qty in _equilibrium_quantities:
     for coord in _coordinates:
@@ -945,7 +1036,7 @@ for qty in _equilibrium_quantities:
         # Create docstring
         readable_qty = qty.replace('_', ' ').title()
         readable_coord = coord.replace('_', ' ').title()
-        if coord == 'psi_n':
+        if coord == 'psi_norm':
             readable_coord = "Normalized Poloidal Flux (ψ_N)"
         elif coord == 'rho_tor_norm':
             readable_coord = "Normalized Toroidal Flux (ρ_N)"
@@ -972,7 +1063,7 @@ for qty in _equilibrium_quantities:
         Default is 'shot'.
     **plot_kwargs : dict
         Additional keyword arguments passed to matplotlib.pyplot.plot().
-        Example: linestyle='--', marker='o', color='red', figsize=(10,6)
+        Example: linestyle='--', marker='o', color='red', figsize=(6,4)
         Note: 'title', 'xlabel', 'ylabel' can be overridden via plot_kwargs.
     """
 
@@ -999,8 +1090,8 @@ if __name__ == "__main__":
     # Setup a sample ODS with necessary data for testing
     ods_sample = ODS()
     n_points = 50
-    psi_n_sample = np.linspace(0, 1, n_points)
-    rho_tor_norm_sample = np.sqrt(psi_n_sample)
+    psi_norm_sample = np.linspace(0, 1, n_points)
+    rho_tor_norm_sample = np.sqrt(psi_norm_sample)
     
     # Define time slices (using string keys as ODS does)
     time_slice_keys_main = ['0', '1', '2'] # ODS dictionary keys are strings
@@ -1008,18 +1099,18 @@ if __name__ == "__main__":
 
     for i, ts_key in enumerate(time_slice_keys_main):
         time_val = times_main[i]
-        # Example j_tor profile that varies with psi_n and time slice
-        j_tor_sample = (1 - psi_n_sample**2) * (1 + 0.1 * i) * 1e6 
-        pressure_sample = (1 - psi_n_sample) * (1 + 0.05 * i) * 1e5
-        q_sample = 1 + 2 * psi_n_sample**2 + 0.1 * i
-        pprime_sample = -2 * psi_n_sample * (1 + 0.05 * i) * 1e5 # d(pressure)/d(psi_n) assuming psi_n is poloidal flux / some_const
-        f_sample = (2.0 - psi_n_sample) * (1 - 0.05*i)
-        ffprime_sample = -(2.0 - psi_n_sample)*(1 - 0.05*i)
+        # Example j_tor profile that varies with psi_norm and time slice
+        j_tor_sample = (1 - psi_norm_sample**2) * (1 + 0.1 * i) * 1e6 
+        pressure_sample = (1 - psi_norm_sample) * (1 + 0.05 * i) * 1e5
+        q_sample = 1 + 2 * psi_norm_sample**2 + 0.1 * i
+        pprime_sample = -2 * psi_norm_sample * (1 + 0.05 * i) * 1e5 # d(pressure)/d(psi_norm) assuming psi_norm is poloidal flux / some_const
+        f_sample = (2.0 - psi_norm_sample) * (1 - 0.05*i)
+        ffprime_sample = -(2.0 - psi_norm_sample)*(1 - 0.05*i)
 
 
         ods_sample[f'equilibrium.time_slice.{ts_key}.time'] = time_val
         ods_sample[f'equilibrium.time_slice.{ts_key}.global_quantities.ip'] = (2.0 + 0.1*i) * 1e6 # Sample Ip
-        ods_sample[f'equilibrium.time_slice.{ts_key}.profiles_1d.psi_n'] = np.copy(psi_n_sample)
+        ods_sample[f'equilibrium.time_slice.{ts_key}.profiles_1d.psi_norm'] = np.copy(psi_norm_sample)
         ods_sample[f'equilibrium.time_slice.{ts_key}.profiles_1d.rho_tor_norm'] = np.copy(rho_tor_norm_sample)
         ods_sample[f'equilibrium.time_slice.{ts_key}.profiles_1d.j_tor'] = np.copy(j_tor_sample)
         ods_sample[f'equilibrium.time_slice.{ts_key}.profiles_1d.pressure'] = np.copy(pressure_sample)
@@ -1043,7 +1134,7 @@ if __name__ == "__main__":
         # For a proper test, these should be distinct, e.g., points on HFS and LFS midplane.
         # We'll make r_inboard go from R0-a_minor_effective to R0 (HFS)
         # and r_outboard go from R0 to R0+a_minor_effective (LFS)
-        # The number of points for r_in/r_out might be different from n_points for psi_n grid.
+        # The number of points for r_in/r_out might be different from n_points for psi_norm grid.
         # Let's use fewer points for r_in/r_out for demonstration
         n_r_points = n_points // 2 
         r_in_sample = np.linspace(R0 - a_minor_effective, R0 - 0.01, n_r_points) # up to near axis
@@ -1058,7 +1149,7 @@ if __name__ == "__main__":
         # The current get_1d_profile_data assumes that if the quantity (e.g. j_tor) has length
         # len(r_in) + len(r_out), it splits it.
         # Let's make a simplified j_tor for this specific r_in/r_out grid.
-        # This is a bit artificial as j_tor is usually on psi_n or rho_tor_norm grid.
+        # This is a bit artificial as j_tor is usually on psi_norm or rho_tor_norm grid.
         # For testing, we'll provide a j_tor_for_rmaj_rmin that has the correct length.
         j_tor_for_rmaj_rmin_in = (1 - ((R0 - r_in_sample)/a_minor_effective)**2) * (1 + 0.1 * i) * 1e6
         j_tor_for_rmaj_rmin_out = (1 - ((r_out_sample - R0)/a_minor_effective)**2) * (1 + 0.1 * i) * 1e6
@@ -1068,7 +1159,7 @@ if __name__ == "__main__":
         # The get_1d_profile_data function, when handling r_major/r_minor, re-fetches the quantity
         # using this path. So, the main j_tor should ideally be this combined one if we want r_major/r_minor
         # plots of j_tor to work with this splitting logic.
-        # This means the j_tor for psi_n/rho_tor_norm plots and r_major/r_minor plots might need
+        # This means the j_tor for psi_norm/rho_tor_norm plots and r_major/r_minor plots might need
         # different handling or the ODS needs to be structured very carefully.
         # For now, the test for r_major_j_tor will likely use the full j_tor (len n_points) and might
         # hit the "Cannot map quantity" error if its length doesn't match n_r_points*2, or it will
@@ -1081,18 +1172,18 @@ if __name__ == "__main__":
 
     print(f"Sample ODS created with time slices: {ods_sample['equilibrium.time_slice'].keys()}")
 
-    print("\n--- Testing plot_equilibrium_psi_n_j_tor (single ODS) ---")
+    print("\n--- Testing plot_equilibrium_psi_norm_j_tor (single ODS) ---")
     print("Test 1: Default time_slices (interactive in Jupyter, else first slice)")
-    plot_equilibrium_psi_n_j_tor(ods_sample)
+    plot_equilibrium_psi_norm_j_tor(ods_sample)
     
     print("\nTest 2: Specific time_slice_key='1'")
-    plot_equilibrium_psi_n_j_tor(ods_sample, time_slices='1') # Pass key as string
+    plot_equilibrium_psi_norm_j_tor(ods_sample, time_slices='1') # Pass key as string
 
     print("\nTest 3: List of time_slice_keys=['0', '2']")
-    plot_equilibrium_psi_n_j_tor(ods_sample, time_slices=['0', '2'])
+    plot_equilibrium_psi_norm_j_tor(ods_sample, time_slices=['0', '2'])
 
     print("\nTest 4: time_slices='all' (interactive in Jupyter, else first slice)")
-    plot_equilibrium_psi_n_j_tor(ods_sample, time_slices='all')
+    plot_equilibrium_psi_norm_j_tor(ods_sample, time_slices='all')
 
     print("\n--- Testing plot_equilibrium_rho_tor_norm_j_tor (single ODS) ---")
     print("Test 5: Specific time_slice_key='0'")
@@ -1105,36 +1196,36 @@ if __name__ == "__main__":
     ods_sample_b = ODS() # Create a slightly different ODS for the ODC
     for i, ts_key in enumerate(time_slice_keys_main):
         time_val = times_main[i]
-        j_tor_sample_b = (1 - psi_n_sample**1.5) * (1 + 0.2 * i) * 1e6 # Different profile
+        j_tor_sample_b = (1 - psi_norm_sample**1.5) * (1 + 0.2 * i) * 1e6 # Different profile
         ods_sample_b[f'equilibrium.time_slice.{ts_key}.time'] = time_val
-        ods_sample_b[f'equilibrium.time_slice.{ts_key}.profiles_1d.psi_n'] = np.copy(psi_n_sample)
+        ods_sample_b[f'equilibrium.time_slice.{ts_key}.profiles_1d.psi_norm'] = np.copy(psi_norm_sample)
         ods_sample_b[f'equilibrium.time_slice.{ts_key}.profiles_1d.rho_tor_norm'] = np.copy(rho_tor_norm_sample)
         ods_sample_b[f'equilibrium.time_slice.{ts_key}.profiles_1d.j_tor'] = np.copy(j_tor_sample_b)
     odc_sample['shot_B'] = ods_sample_b
     
     print("\n--- Testing with ODC ---")
     print("Test 6: ODC, default time_slices (interactive or first slice)")
-    plot_equilibrium_psi_n_j_tor(odc_sample, labels_opt='shot')
+    plot_equilibrium_psi_norm_j_tor(odc_sample, labels_opt='shot')
 
     print("\nTest 7: ODC, specific time_slice_key='0', custom plot kwargs")
-    plot_equilibrium_psi_n_j_tor(odc_sample, time_slices='0', labels_opt='shot', 
-                                 linestyle='--', marker='x', figsize=(8,5))
+    plot_equilibrium_psi_norm_j_tor(odc_sample, time_slices='0', labels_opt='shot', 
+                                 linestyle='--', marker='x', figsize=(5,3.5))
 
     print("\n--- Testing Edge Cases ---")
     ods_missing_data = ODS()
     ods_missing_data['equilibrium.time_slice.0.time'] = 0.1
-    ods_missing_data['equilibrium.time_slice.0.profiles_1d.psi_n'] = psi_n_sample
+    ods_missing_data['equilibrium.time_slice.0.profiles_1d.psi_norm'] = psi_norm_sample
     # j_tor is intentionally missing for this slice
     print("Test 8: ODS with missing j_tor for a slice (should show 'No data' or error message)")
-    plot_equilibrium_psi_n_j_tor(ods_missing_data, time_slices='0')
+    plot_equilibrium_psi_norm_j_tor(ods_missing_data, time_slices='0')
     
     ods_no_slices_at_all = ODS()
     # This ODS has no 'equilibrium.time_slice' structure
     print("\nTest 9: ODS with no 'equilibrium.time_slice' structure at all")
-    plot_equilibrium_psi_n_j_tor(ods_no_slices_at_all)
+    plot_equilibrium_psi_norm_j_tor(ods_no_slices_at_all)
 
     print("\nTest 10: Invalid quantity name")
-    plot_onedim_profile_interactive(ods_sample, 'equilibrium', 'non_existent_quantity', 'psi_n')
+    plot_onedim_profile_interactive(ods_sample, 'equilibrium', 'non_existent_quantity', 'psi_norm')
 
     print("\nAll planned tests executed. If in Jupyter, please check interactive plot behavior.")
     print("Note: For non-Jupyter environments, 'interactive' mode falls back to plotting the first slice.")
