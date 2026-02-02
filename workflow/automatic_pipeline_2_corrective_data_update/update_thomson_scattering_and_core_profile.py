@@ -19,7 +19,7 @@ How to use:
 - Set the WATCH_PATH variable to the directory you want to monitor.
 - Run the script. It will continuously monitor the directory for new .mat files.
 
-' nohup python3 thomson_scattering_update_fitting.py > thomson_scattering_update_fitting.log 2>&1 & '
+' nohup python3 update_thomson_scattering_and_core_profile.py > thomson_scattering_update_fitting.log 2>&1 & '
 """
 import os, shutil, re
 import time
@@ -108,8 +108,6 @@ def load_processed_shots():
         print("[INFO] No processed_shots.h5 found, starting empty.")
     return shots
 
-    
-WATCH_BASE = "/srv/vest.filedb"
 CHECK_INTERVAL = 10  
 
 def update_thomson_auto(filepath):
@@ -172,8 +170,8 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 mapped_rho = process.equilibrium_mapping_thomson_scattering(ods, geq)
                 result = process.profile_fitting_thomson_scattering(
                     ods, time_ms, mapped_rho,
-                    Te_order=3, Ne_order=3,
-                    fitting_function_te='exponential',
+                    Te_order=2, Ne_order=2,
+                    fitting_function_te='polynomial',
                     fitting_function_ne='exponential'
                 )
                 n_e_fn, T_e_fn, *_ = result
@@ -238,7 +236,7 @@ def main():
                         prev_time = prev_info.get("timestamp", "")
                         prev_status = prev_info.get("status", "unknown")
 
-                        if prev_time == mtime and prev_status != "invalid":
+                        if prev_time == mtime :
                             print(f"[SKIP] Shot {shotnumber} already processed successfully ({prev_status})")
                             continue
 
@@ -274,7 +272,11 @@ def main():
                         print(f"[WARNING] CHEASE directory missing for shot {shotnumber}")
                         save_processed_shot(shotnumber, mtime, status="thomson_only")
 
-                    processed_shots[shotnumber] = mtime
+                    processed_shots[shotnumber] = {
+                        "timestamp": mtime,
+                        "status": "core_profile" if fitted else "thomson_only"
+                    }
+
                     print(f"[SAVED] Processed shot {shotnumber}")
 
             except Exception as e:
@@ -285,6 +287,36 @@ def main():
     except KeyboardInterrupt:
         print("\n[STOPPED] Thomson auto-updater stopped by user.")
 
+def reset_processed_shots(clear_entire_file=False):
+    """
+    Reset processed shot registry.
+
+    - clear_entire_file=False (default): delete only /shots group (recreate empty)
+    - clear_entire_file=True: delete everything in the file (dangerous)
+    """
+    with h5pyd.File(PROCESSED_H5_PATH, "a") as f:
+        if clear_entire_file:
+            # Delete all top-level objects
+            for key in list(f.keys()):
+                del f[key]
+            # Recreate shots group
+            f.create_group("shots")
+            print("[DONE] Cleared entire file and recreated /shots")
+            return
+
+        # Default: only reset /shots
+        if "shots" in f:
+            del f["shots"]
+        for shot in list(f.keys()):
+            ods = database.load(shot,'public')
+            if 'thomson_scattering' in ods:
+                ods['thomson_scattering'].clear()
+            if 'core_profiles' in ods:
+                ods['core_profiles'].clear()
+            database.save(ods,shot,'public')
+        f.create_group("shots")
+        print("[DONE] Reset /shots (all processed shot records cleared)")
 
 if __name__ == "__main__":
     main()
+    # reset_processed_shots()

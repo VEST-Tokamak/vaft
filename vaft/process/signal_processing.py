@@ -102,8 +102,9 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
 
-def signal_onoffset(time,data,smooth_window=5, threshold=0.01):
-    print("threshold for signal detection:", threshold)
+def signal_onoffset(time,data,smooth_window=5, threshold=0.01, verbose=False):
+    if verbose:
+        print("threshold for signal detection:", threshold)
     # Smooth the data
     data=signal.savgol_filter(data, smooth_window, 3)
 
@@ -129,35 +130,44 @@ def signal_onoffset(time,data,smooth_window=5, threshold=0.01):
     offset=time[indxe]
     return onset,offset
 
-def is_signal_active(data, threshold=None, verbose=False):
+def is_signal_active(
+    data,
+    var_ratio_thresh=1e-2,
+    change_ratio_thresh=1e-2,
+    verbose=False,
+):
     """
-    Determines whether the given data represents an active signal.
+    Determines whether the given data represents an active signal
+    using scale-invariant (relative) thresholds.
 
     Parameters:
         data (array-like): The signal data to analyze.
-        threshold (float or None): If None, use adaptive threshold based on data scale.
+        var_ratio_thresh (float): Variance threshold relative to signal scale.
+        change_ratio_thresh (float): Mean |Δx| threshold relative to signal scale.
         verbose (bool): If True, print debug information.
 
     Returns:
         bool: True if the signal is active, False otherwise.
     """
-    data = np.array(data)
+    data = np.asarray(data)
+
+    if data.size < 2:
+        return False
+
     variance = np.var(data)
     mean_abs_change = np.mean(np.abs(np.diff(data)))
 
-    if threshold is None:
-        # Adaptive thresholds based on data scale
-        mean_val = np.mean(data)
-        var_threshold = 0.001 * mean_val**2
-        change_threshold = 0.001 * mean_val
-    else:
-        var_threshold = threshold
-        change_threshold = threshold
+    # Scale definitions (always positive, scale-aware)
+    scale_var = np.var(data) + 1e-12
+    scale_change = np.mean(np.abs(data)) + 1e-12
+
+    var_ratio = variance / scale_var
+    change_ratio = mean_abs_change / scale_change
 
     if verbose:
-        print(f"Variance: {variance:.3e}, Threshold: {var_threshold:.3e}")
-        print(f"Mean |Δx|: {mean_abs_change:.3e}, Threshold: {change_threshold:.3e}")
+        print(f"Variance ratio: {var_ratio:.3e} (thresh={var_ratio_thresh:.3e})")
+        print(f"Mean |Δx| ratio: {change_ratio:.3e} (thresh={change_ratio_thresh:.3e})")
 
-    if variance < var_threshold and mean_abs_change < change_threshold:
+    if var_ratio < var_ratio_thresh and change_ratio < change_ratio_thresh:
         return False
     return True

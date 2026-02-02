@@ -268,6 +268,83 @@ def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
 # ----------------------------------------------------------------------
 # Combine ODS
 # ----------------------------------------------------------------------
+def find_matching_time_indices(ods, time_slice=None):
+    """
+    Find matching time indices between core_profiles and equilibrium time slices.
+    
+    This function determines the core profile time slice index and finds the corresponding
+    equilibrium time slice index by matching times. The cp_time and equil_time must be
+    identical; if they differ, a ValueError is raised.
+    
+    Parameters
+    ----------
+    ods : ODS
+        OMAS data structure
+    time_slice : int, optional
+        Desired time slice index for core profile. If None, uses index 0.
+        If provided index is out of range, defaults to 0.
+    
+    Returns
+    -------
+    tuple
+        (cp_idx, equil_idx, time) where:
+        - cp_idx: Core profile time slice index
+        - equil_idx: Matching equilibrium time slice index
+        - time: Time value (must be identical for both core_profiles and equilibrium)
+    
+    Raises
+    ------
+    KeyError
+        If required data structures are missing in ODS
+    ValueError
+        If cp_time and equil_time are not identical
+    """
+    # Basic availability checks
+    if 'core_profiles.profiles_1d' not in ods:
+        raise KeyError("core_profiles.profiles_1d not found in ODS")
+    if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+    
+    # Determine time slice for core profile
+    if time_slice is None:
+        cp_idx = 0
+    else:
+        cp_idx = time_slice if time_slice < len(ods['core_profiles.profiles_1d']) else 0
+    
+    cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
+    
+    # Get core profile time
+    if 'time' in cp_ts:
+        cp_time = float(cp_ts['time'])
+    elif 'core_profiles.time' in ods and cp_idx < len(ods['core_profiles.time']):
+        cp_time = float(ods['core_profiles.time'][cp_idx])
+    else:
+        cp_time = float(cp_idx)
+    
+    # Find matching equilibrium time slice
+    equil_times = []
+    for idx in range(len(ods['equilibrium.time_slice'])):
+        eq_ts = ods['equilibrium.time_slice'][idx]
+        if 'time' in eq_ts:
+            equil_times.append(float(eq_ts['time']))
+        elif 'equilibrium.time' in ods and idx < len(ods['equilibrium.time']):
+            equil_times.append(float(ods['equilibrium.time'][idx]))
+        else:
+            equil_times.append(float(idx))
+    
+    equil_times = np.asarray(equil_times)
+    equil_idx = np.argmin(np.abs(equil_times - cp_time))
+    equil_time = float(equil_times[equil_idx])
+    
+    # Verify that times are identical
+    if cp_time != equil_time:
+        raise ValueError(
+            f"Time mismatch: cp_time={cp_time:.6f}s, equil_time={equil_time:.6f}s. "
+            f"These must be identical. (cp_idx={cp_idx}, equil_idx={equil_idx})"
+        )
+    
+    return cp_idx, equil_idx, cp_time
+
 def combine_ods(ods_list):
     """
     Merge multiple ODS objects while automatically handling invalid IMAS structures.

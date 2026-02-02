@@ -18,7 +18,7 @@ def compute_br_bz_phi(
     r_src: float,
     z_src: float,
     shift: float = 0.01
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute Br, Bz, and Phi using a shift approach to avoid singularities.
     Vectorized for observer points (r_obs, z_obs).
@@ -59,7 +59,7 @@ def calc_grid(
     loop_outline_z: List[List[float]],
     loop_rectangle_r: List[float],
     loop_rectangle_z: List[float]
-) -> Tuple[ndarray, ndarray, ndarray]:
+    ) -> Tuple[ndarray, ndarray, ndarray]:
     """
     Compute the response matrix (Br, Bz, and Psi) for a 2D grid.
 
@@ -132,7 +132,7 @@ def compute_response_matrix(
     coil_data: List[Dict[str, Any]],
     passive_loop_data: List[Dict[str, Any]],
     plasma_points: List[List[float]] = None
-) -> Tuple[ndarray, ndarray, ndarray]:
+    ) -> Tuple[ndarray, ndarray, ndarray]:
     """
     Compute the Green's function response matrix (Psi, Bz, Br) at arbitrary observation points (not a fixed R,Z grid).
 
@@ -222,7 +222,7 @@ def compute_response_vector(
     passive_loop_data: List[Dict[str, Any]],
     plasma_points: List[List[float]],
     observation_points: List[List[float]]
-) -> Tuple[ndarray, ndarray, ndarray]:
+    ) -> Tuple[ndarray, ndarray, ndarray]:
     """
     Calculate response matrix using structured input data.
 
@@ -251,7 +251,7 @@ def compute_impedance_matrices(
     mutual_pp: np.ndarray,       # mutual_passive_passive from ODS
     mutual_pa: np.ndarray,       # mutual_passive_active from ODS
     plasma_rz: List[Tuple[float, float]]
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute R, L, M matrices for the passive loops, given geometry info.
 
@@ -322,7 +322,7 @@ def solve_eddy_currents(
     coil_plasma_currents: np.ndarray,  # (n_times, nbcoil+nbplas)
     time: np.ndarray,     # (n_times,)
     dt_sub: float = 5e-5
-) -> np.ndarray:
+    ) -> np.ndarray:
     """
     Solve the RL circuit equation for vacuum vessel using EVD method.
     Optimized by pre-calculating active current derivatives.
@@ -466,7 +466,7 @@ def compute_vacuum_fields_1d(
     coil_plus_loop_psi_resp: np.ndarray,  # shape (n_points, nb_coil+nb_loop)
     coil_plus_loop_br_resp: np.ndarray,   # shape (n_points, nb_coil+nb_loop)
     coil_plus_loop_bz_resp: np.ndarray,   # shape (n_points, nb_coil+nb_loop)
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Combine coil+loop currents with precomputed response vectors
     to get psi, br, bz at given 1D points.

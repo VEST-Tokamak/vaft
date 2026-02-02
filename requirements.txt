@@ -25,3 +25,4 @@ imas-python==2.0.0.post1
 scikit-learn
 numba
 wexpect; sys_platform == 'win32'
+statsmodels==0.14.6

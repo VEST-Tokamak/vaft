@@ -299,8 +299,137 @@ def vacuum_psi_contour(ods, time=None, cmap='viridis', fontsize=12, savepath=Non
     plt.show()
     return fig, ax
 
+def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
+    """
+    Plot 2D equilibrium profiles in a 2 x 3 grid:
 
+    Top row: psi, p, j
+    Bottom row: B_r, B_z, B_phi
+    """
+    from vaft.omas.process_wrapper import compute_magnetic_energy
+    from vaft.process.equilibrium import psi_to_RZ
 
+    if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+
+    eq_idx = 0 if time_slice is None else int(time_slice)
+    if eq_idx >= len(ods['equilibrium.time_slice']):
+        raise IndexError(f"time_slice {eq_idx} is out of bounds for equilibrium.time_slice")
+
+    eq_ts = ods['equilibrium.time_slice'][eq_idx]
+
+    def _ensure_rz_shape(arr: np.ndarray, R: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        """Ensure 2D array is shaped as (len(R), len(Z)) to match indexing='ij' mesh."""
+        arr = np.asarray(arr)
+        if arr.shape == (len(R), len(Z)):
+            return arr
+        if arr.shape == (len(Z), len(R)):
+            return arr.T
+        raise ValueError(f"Unexpected 2D array shape {arr.shape}, expected {(len(R), len(Z))} or {(len(Z), len(R))}")
+
+    # Load 2D grid + psi
+    R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
+    Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
+    psi_RZ = _ensure_rz_shape(np.asarray(eq_ts['profiles_2d.0.psi'], float), R_grid, Z_grid)
+
+    # Try to get psi normalization constants (needed for mapping pressure)
+    psi_axis = float(eq_ts.get('global_quantities.psi_axis', np.nan))
+    psi_lcfs = float(eq_ts.get('global_quantities.psi_boundary', np.nan))
+    if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
+        # Fallback: normalize by min/max of psi_RZ (less physical but avoids crash)
+        psi_axis = float(np.nanmin(psi_RZ))
+        psi_lcfs = float(np.nanmax(psi_RZ))
+
+    # Pressure (p): not always present as 2D. Build p(R,Z) by mapping 1D pressure vs psi_norm.
+    p_RZ = None
+    try:
+        p_1d = np.asarray(eq_ts['profiles_1d.pressure'], float)
+        # psi_norm grid for 1D profiles is typically uniform
+        psiN_1d = np.linspace(0.0, 1.0, len(p_1d))
+        p_RZ, _psiN_RZ = psi_to_RZ(psiN_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+    except Exception as e:
+        logger.warning(f"Could not build 2D pressure map: {e}")
+
+    # Toroidal current density (j): prefer 2D j_tor if present
+    j_RZ = None
+    for key in ['profiles_2d.0.j_tor', 'profiles_2d.0.jtor', 'profiles_2d.0.j']:
+        if key in eq_ts:
+            try:
+                j_RZ = _ensure_rz_shape(np.asarray(eq_ts[key], float), R_grid, Z_grid)
+                break
+            except Exception as e:
+                logger.warning(f"Found {key} but could not use it: {e}")
+    
+    # If 2D j_tor not found, build j(R,Z) by mapping 1D j_tor vs psi_norm.
+    if j_RZ is None:
+        try:
+            j_1d = np.asarray(eq_ts['profiles_1d.j_tor'], float)
+            # psi_norm grid for 1D profiles is typically uniform
+            psiN_1d = np.linspace(0.0, 1.0, len(j_1d))
+            j_RZ, _psiN_RZ = psi_to_RZ(psiN_1d, j_1d, psi_RZ, psi_axis, psi_lcfs)
+        except Exception as e:
+            logger.warning(f"Could not build 2D j_tor map: {e}")
+
+    # B fields: prefer existing EFIT-derived fields, else compute from psi + (B0,R0)
+    b_r = eq_ts.get('profiles_2d.0.b_field_r', None)
+    b_z = eq_ts.get('profiles_2d.0.b_field_z', None)
+    b_phi = eq_ts.get('profiles_2d.0.b_field_tor', None)
+    if b_r is None or b_z is None or b_phi is None:
+        try:
+            _ = compute_magnetic_energy(ods, time_slice=eq_idx)
+            b_r = eq_ts.get('profiles_2d.0.b_field_r', None)
+            b_z = eq_ts.get('profiles_2d.0.b_field_z', None)
+            b_phi = eq_ts.get('profiles_2d.0.b_field_tor', None)
+        except Exception as e:
+            logger.warning(f"Could not compute magnetic field from psi: {e}")
+
+    if b_r is not None:
+        b_r = _ensure_rz_shape(np.asarray(b_r, float), R_grid, Z_grid)
+    if b_z is not None:
+        b_z = _ensure_rz_shape(np.asarray(b_z, float), R_grid, Z_grid)
+    if b_phi is not None:
+        b_phi = _ensure_rz_shape(np.asarray(b_phi, float), R_grid, Z_grid)
+
+    Rm, Zm = np.meshgrid(R_grid, Z_grid, indexing="ij")
+
+    fig, axs = plt.subplots(2, 3, figsize=figsize, sharex=True, sharey=True)
+
+    def _plot2d(ax, data, title, cmap='viridis'):
+        if data is None:
+            ax.text(0.5, 0.5, "missing", ha='center', va='center', transform=ax.transAxes)
+            ax.set_title(title)
+            return
+        cs = ax.contourf(Rm, Zm, data, levels=30, cmap=cmap)
+        fig.colorbar(cs, ax=ax, fraction=0.046, pad=0.04)
+        ax.set_title(title)
+
+        # Overlay plasma boundary if present
+        try:
+            br = eq_ts['boundary.outline.r']
+            bz_ = eq_ts['boundary.outline.z']
+            if len(br) and len(bz_):
+                ax.plot(br, bz_, 'w-', lw=1.0, alpha=0.8)
+        except Exception:
+            pass
+
+    _plot2d(axs[0, 0], psi_RZ, r'$\psi(R,Z)$', cmap='viridis')
+    _plot2d(axs[0, 1], p_RZ, r'$p(R,Z)$', cmap='magma')
+    _plot2d(axs[0, 2], j_RZ, r'$j_{\phi}(R,Z)$', cmap='plasma')
+    _plot2d(axs[1, 0], b_r, r'$B_R(R,Z)$', cmap='coolwarm')
+    _plot2d(axs[1, 1], b_z, r'$B_Z(R,Z)$', cmap='coolwarm')
+    _plot2d(axs[1, 2], b_phi, r'$B_{\phi}(R,Z)$', cmap='coolwarm')
+
+    for ax in axs.flat:
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlabel('R [m]')
+        ax.set_ylabel('Z [m]')
+
+    tval = eq_ts.get('time', eq_idx)
+    fig.suptitle(f'Equilibrium 2D Profiles (time_slice={eq_idx}, t={tval})')
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+
+    return fig, axs
 # def twodim_geometry_coil():
 # def twodim_geometry_wall():
 # def twodim_geometry_vessel():

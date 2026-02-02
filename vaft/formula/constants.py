@@ -25,9 +25,42 @@ SPITZER_RESISTIVITY_COEF = 5.2e-5  # [Ω·m] - Spitzer resistivity coefficient
 COLLISIONALITY_COEF = 6.921e-18    # [-] - Collisionality coefficient
 
 # Confinement scaling coefficients
+# Structure: {scaling_name: {parameter_name: value}}
+# Parameters: C, Ip_MA, R, epsilon, kappa, n_19, Bt, Mi (optional), P_MW
+# Ref: https://ukaea.github.io/PROCESS/physics-models/plasma_confinement/
 _SCALING_COEFS = {
-    "IBP98(y,2) L mode": [0.048, 0.85, 1.20, 0.30, 0.50, 0.10, 0.20, 0.50],
-    "H98y2":             [0.145, 0.93, 1.39, 0.58, 0.78, 0.41, 0.15, 0.19],
-    "Petty":             [0.052, 0.75, 2.09, 0.88, 0.84, 0.32, 0.30,-0.47],
-    "NSTX-MG":           [0.056, 0.93, 1.39, 0.58, 0.78, 0.41, 0.15, 0.19],
+    "IPB89": {
+        "C": 0.038,          # Constant
+        "Ip_MA": 0.85,       # Plasma Current [MA]
+        "R": 1.50,         # Major Radius [m]
+        "epsilon": 0.30,         # Inverse aspect ratio (a/R)
+        "kappa": 0.50,       # Elongation
+        "n_19": 0.10,       # Electron Density [10^19 m^-3]
+        "Bt": 0.20,          # Toroidal Field [T]
+        "Mi": 0.50,           # Ion Mass number
+        "P_MW": -0.50        # Total Heating Power [MW]
+    },
+    "H98y2": {
+        "C": 0.0562,          # Constant
+        "Ip_MA": 0.93,       # Plasma Current [MA]
+        "R": 1.97,         # Major Radius [m]
+        "epsilon": 0.58,         # Inverse aspect ratio (a/R)
+        "kappa": 0.78,       # Elongation
+        "n_19": 0.41,       # Electron Density [10^19 m^-3]
+        "Bt": 0.15,          # Toroidal Field [T]
+        "Mi": 0.19,         # Ion Mass number
+        "P_MW": -0.69,         # Total Heating Power [MW]
+    },
+    "NSTX": { # Ref: Menard 2019. Assume M, R, epsilon, kappa depedency are identical to H98y2
+        "C": 0.095,          # Constant
+        "Ip_MA": 0.57,       # Plasma Current [MA]
+        "R": 1.97,         # Major Radius [m]
+        "epsilon": 0.58,         # Inverse aspect ratio (a/R)
+        "kappa": 0.78,       # Elongation
+        "n_19": 0.44,       # Electron Density [10^19 m^-3]
+        "Bt": 1.08,          # Toroidal Field [T]
+        "Mi": 0.19,         # Ion Mass number
+        "P_MW": -0.73            # Total Heating Power [MW]
+    },
 } 
+
