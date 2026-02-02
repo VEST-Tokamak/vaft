@@ -15,7 +15,6 @@ ipykernel>=6.29.4
 PyYAML==6.0.2
 scipy==1.13.0
 snakemake
-sklearn
 uncertainties==3.2.2
 urllib3==1.26.13
 xarray>=2024.4.0
