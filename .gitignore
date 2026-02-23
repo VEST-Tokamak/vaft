@@ -7,3 +7,4 @@ vest_database_info.txt
 vaft.egg-info*
 /build/
 *.snakemake
+/vendor/omas/
