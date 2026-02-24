@@ -52,7 +52,7 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
     import matplotlib.pyplot as plt
     
     # Process all time slices if not specified
-    time_slices = ods['equilibrium.time_slice'] if time_slice is None else (
+    time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
         [time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
     
     for idx in time_slices:
@@ -125,7 +125,7 @@ def update_equilibrium_boundary(ods, time_slice=None):
     """
     Update geometric axis for all time slices.
     """
-    time_slices = ods['equilibrium.time_slice'] if time_slice is None else (
+    time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
         [time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
     
     for idx in time_slices:
@@ -467,19 +467,11 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
         ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * np.trapz(pressure_equil, x=volume_equil)
-        
+
+
 def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     """
-    Update volume-averaged core profile quantities using equilibrium geometry.
-
-    This function maps 1D core profiles (in flux space) onto the 2D (R,Z)
-    equilibrium grid via ψ_N and computes volume-averaged quantities:
-
-    - core_profiles.global_quantities.n_e_volume_average
-    - core_profiles.global_quantities.t_e_volume_average
-    - core_profiles.global_quantities.n_i_volume_average
-    - core_profiles.global_quantities.t_i_volume_average
-
+    Update core_profiles global quantities with volume-averaged n_e, T_e, and ion n_i, T_i.
     The function matches core_profiles time indices to equilibrium time slices
     by finding the closest matching time values.
     """
@@ -757,3 +749,86 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
         for ion_idx, results in ion_vol_dict.items():
             gq['ion'][ion_idx]['n_i_volume_average'] = results['n_i']
             gq['ion'][ion_idx]['t_i_volume_average'] = results['T_i']
+
+
+def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
+    """
+    Update equilibrium constraints with diamagnetic flux (measured and reconstructed).
+
+    - Measured: interpolates magnetics.diamagnetic_flux.0.data at magnetics.time
+      onto each equilibrium time and stores in
+      equilibrium.time_slice[:].constraints.diamagnetic_flux.measured.
+    - Reconstructed: computes from equilibrium field via compute_reconstructed_diamagnetic_flux
+      and stores in equilibrium.time_slice[:].constraints.diamagnetic_flux.reconstructed.
+
+    Parameters
+    ----------
+    ods : OMAS ODS
+        Data structure with equilibrium.time_slice and optionally magnetics.
+    time_slice : int, list of int, or None
+        Time slice index/indices to update. None = all slices.
+    """
+    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+        return
+
+    from vaft.omas.process_wrapper import compute_reconstructed_diamagnetic_flux
+
+    time_slices = (
+        range(len(ods["equilibrium.time_slice"]))
+        if time_slice is None
+        else ([time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
+    )
+
+    # Build interpolator for measured diamagnetic flux (magnetics -> equilibrium time)
+    interp_measured = None
+    if (
+        "magnetics.diamagnetic_flux.0.data" in ods
+        and "magnetics.time" in ods
+        and len(ods.get("magnetics.diamagnetic_flux", [])) > 0
+    ):
+        t_mag = np.asarray(ods["magnetics.time"], float)
+        flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
+        if t_mag.size >= 1 and flux_mag.size == t_mag.size:
+            if t_mag.size >= 2:
+                interp_measured = interp1d(
+                    t_mag,
+                    flux_mag,
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value=(flux_mag[0], flux_mag[-1]),
+                )
+            else:
+                interp_measured = lambda t: float(flux_mag[0])  # noqa: E731
+
+    for idx in time_slices:
+        if idx < 0 or idx >= len(ods["equilibrium.time_slice"]):
+            continue
+        eq_ts = ods["equilibrium.time_slice"][idx]
+
+        # Measured: interp magnetics at this equilibrium time
+        if interp_measured is not None:
+            if "time" in eq_ts:
+                t_eq = float(eq_ts["time"])
+            elif "equilibrium.time" in ods and idx < len(ods["equilibrium.time"]):
+                t_eq = float(ods["equilibrium.time"][idx])
+            else:
+                t_eq = np.nan
+            if np.isfinite(t_eq):
+                if "constraints" not in eq_ts:
+                    eq_ts["constraints"] = ODS()
+                if "diamagnetic_flux" not in eq_ts["constraints"]:
+                    eq_ts["constraints"]["diamagnetic_flux"] = ODS()
+                eq_ts["constraints"]["diamagnetic_flux"]["measured"] = float(
+                    interp_measured(t_eq)
+                )
+
+        # Reconstructed: compute from equilibrium
+        try:
+            recon = compute_reconstructed_diamagnetic_flux(ods, time_index=idx)
+            if "constraints" not in eq_ts:
+                eq_ts["constraints"] = ODS()
+            if "diamagnetic_flux" not in eq_ts["constraints"]:
+                eq_ts["constraints"]["diamagnetic_flux"] = ODS()
+            eq_ts["constraints"]["diamagnetic_flux"]["reconstructed"] = recon
+        except Exception as e:
+            print(f"Warning: Reconstructed diamagnetic flux failed for time_slice {idx}: {e}")

@@ -335,7 +335,119 @@ def time_magnetics_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='
 
     plt.tight_layout()
     plt.show()
+
+
 magnetics_time_diamagnetic_flux = time_magnetics_diamagnetic_flux
+
+
+def time_diamagnetic_flux(ods_or_odc, label='shot', xunit='s', yunit='Wb', xlim='plasma'):
+    """
+    Plot diamagnetic flux time series: magnetics (raw), equilibrium measured, and equilibrium reconstructed.
+
+    Overlays on one axes:
+    - magnetics.diamagnetic_flux.0.data at magnetics.time (measured from diagnostic)
+    - equilibrium.time_slice[:].constraints.diamagnetic_flux.measured (interpolated at eq times)
+    - equilibrium.time_slice[:].constraints.diamagnetic_flux.reconstructed (from compute_reconstructed_diamagnetic_flux)
+
+    Parameters
+    ----------
+    ods_or_odc : ODS or ODC
+        Input data. Should have magnetics and equilibrium (with constraints updated by
+        update_equilibrium_constraints_diamagnetic_flux) for full overlay.
+    label : str
+        Legend option: 'shot', 'key', 'run', or list of labels.
+    xunit : str
+        Time axis unit: 's', 'ms'.
+    yunit : str
+        Y-axis unit, e.g. 'Wb'.
+    xlim : str or list
+        X limits: 'plasma', 'coil', 'none', or [t_min, t_max].
+    """
+    odc = odc_or_ods_check(ods_or_odc)
+    xlim_processed = handle_xlim(ods_or_odc, xlim)
+    labels = handle_labels(odc, label)
+
+    def _needs_diamagnetic_flux_update(ods):
+        """True if equilibrium has time_slice but constraints.diamagnetic_flux is missing."""
+        if 'equilibrium.time_slice' not in ods or len(ods['equilibrium.time_slice']) == 0:
+            return False
+        ts0 = ods['equilibrium.time_slice'][0]
+        return (
+            'constraints' not in ts0
+            or 'diamagnetic_flux' not in ts0.get('constraints', {})
+            or 'reconstructed' not in ts0.get('constraints', {}).get('diamagnetic_flux', {})
+        )
+
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+
+    for key, lbl in zip(odc.keys(), labels):
+        ods = odc[key]
+        if _needs_diamagnetic_flux_update(ods):
+            try:
+                from vaft.omas.update import update_equilibrium_constraints_diamagnetic_flux
+                update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None)
+            except Exception as e:
+                pass  # continue plotting without eq constraints
+
+        time_scale = 1e3 if xunit == 'ms' else 1.0
+
+        # 1) Magnetics: raw diamagnetic flux
+        try:
+            t_mag = np.asarray(ods['magnetics.time'], float) * time_scale
+            flux_mag = np.asarray(ods['magnetics.diamagnetic_flux.0.data'], float)
+            if abs(np.nanmin(flux_mag)) > abs(np.nanmax(flux_mag)):
+                flux_mag = -flux_mag
+            ax.plot(t_mag, flux_mag, label=f'{lbl} (magnetics)', alpha=0.9)
+        except (KeyError, TypeError) as e:
+            pass  # magnetics optional
+
+        # Helper: get equilibrium time array (from equilibrium.time or time_slice[*].time)
+        def _eq_time(ods):
+            if 'equilibrium.time' in ods:
+                t = ods['equilibrium.time']
+                t = np.atleast_1d(np.asarray(t, float))
+                return t
+            n = len(ods.get('equilibrium.time_slice', []))
+            if n == 0:
+                return np.array([])
+            t = np.array([
+                float(ods['equilibrium.time_slice'][i].get('time', np.nan))
+                for i in range(n)
+            ])
+            return t
+
+        # 2) Equilibrium: measured (interpolated at eq times)
+        try:
+            t_eq = _eq_time(ods)
+            t_eq = t_eq * time_scale
+            flux_meas = ods['equilibrium.time_slice.:.constraints.diamagnetic_flux.measured']
+            flux_meas = np.atleast_1d(np.asarray(flux_meas, float))
+            if t_eq.size and flux_meas.size and t_eq.size == flux_meas.size and np.any(np.isfinite(t_eq)):
+                ax.plot(t_eq, flux_meas, 'o-', label=f'{lbl} (eq measured)', markersize=4)
+        except (KeyError, TypeError):
+            pass
+
+        # 3) Equilibrium: reconstructed
+        try:
+            t_eq = _eq_time(ods)
+            t_eq = t_eq * time_scale
+            flux_recon = ods['equilibrium.time_slice.:.constraints.diamagnetic_flux.reconstructed']
+            flux_recon = np.atleast_1d(np.asarray(flux_recon, float))
+            if t_eq.size and flux_recon.size and t_eq.size == flux_recon.size and np.any(np.isfinite(t_eq)):
+                ax.plot(t_eq, flux_recon, 's-', label=f'{lbl} (eq reconstructed)', markersize=4)
+        except (KeyError, TypeError):
+            pass
+
+    ax.set_xlabel(f'Time [{xunit}]')
+    ax.set_ylabel(f'Diamagnetic flux [{yunit}]')
+    ax.set_title('Diamagnetic flux: magnetics, equilibrium measured, equilibrium reconstructed')
+    ax.legend(loc='best')
+    ax.grid(True)
+    if xlim_processed is not None:
+        ax.set_xlim(xlim_processed)
+    plt.tight_layout()
+    plt.show()
+    return fig, ax
 
 
 def time_impurity_effect(odc_or_ods, label='shot', xunit='s', xlim='plasma',
@@ -2172,6 +2284,185 @@ def time_voltage_consumption(ods, figsize=(4, 4)):
     return fig
 
 
+def time_virial_equilibrium_quantities(ods, figsize=(8, 10)):
+    """
+    Plot time evolution of virial equilibrium quantities.
+
+    First row: diamagnetic flux (magnetics.diamagnetic_flux, interpolated at
+    equilibrium time). Second row: diamagnetism μ_i (exact volume-integral) vs
+    μ̂_i (approximated). Then s_1, s_2, s_3, alpha, B_pa; beta_p and li vs
+    equilibrium; W_mag and W_kin with volume-integral W_mag and W_th.
+
+    Args:
+        ods: OMAS data structure
+        figsize: Figure size tuple (default: (8, 10))
+    """
+    from vaft.omas.process_wrapper import (
+        compute_virial_equilibrium_quantities_ods,
+        compute_magnetic_energy,
+        compute_volume_averaged_pressure,
+        compute_diamagnetism,
+    )
+    from vaft.omas.update import update_equilibrium_global_quantities_volume
+
+    if 'equilibrium.time_slice' not in ods or len(ods['equilibrium.time_slice']) == 0:
+        print("Error: equilibrium.time_slice not found in ODS")
+        return
+
+    try:
+        update_equilibrium_global_quantities_volume(ods)
+    except Exception as e:
+        print(f"Warning: Could not update volume: {e}")
+
+    try:
+        virial = compute_virial_equilibrium_quantities_ods(ods)
+    except Exception as e:
+        print(f"Error computing virial equilibrium quantities: {e}")
+        return
+
+    indices = sorted(virial.keys())
+    if not indices:
+        print("Error: no virial quantities computed")
+        return
+    n_plot = len(indices)
+    t = np.array([float(ods['equilibrium.time_slice'][i].get('time', i)) for i in indices])
+
+    diamagnetic_flux = np.full(n_plot, np.nan, dtype=float)
+    if "magnetics.diamagnetic_flux.0.data" in ods and "magnetics.time" in ods and len(ods["magnetics.diamagnetic_flux"]) > 0:
+        t_mag = np.asarray(ods["magnetics.time"], float)
+        flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
+        if t_mag.size >= 2 and flux_mag.size == t_mag.size:
+            diamagnetic_flux = np.abs(np.interp(t, t_mag, flux_mag))
+
+    s_1 = np.array([virial[i]['s_1'] for i in indices], dtype=float)
+    s_2 = np.array([virial[i]['s_2'] for i in indices], dtype=float)
+    s_3 = np.array([virial[i]['s_3'] for i in indices], dtype=float)
+    alpha = np.array([virial[i]['alpha'] for i in indices], dtype=float)
+    B_pa = np.array([virial[i]['B_pa'] for i in indices], dtype=float)
+    beta_p_virial = np.array([virial[i]['beta_p'] for i in indices], dtype=float)
+    li_virial = np.array([virial[i]['li'] for i in indices], dtype=float)
+    W_mag_virial = np.array([virial[i]['W_mag'] for i in indices], dtype=float)
+    W_kin_virial = np.array([virial[i]['W_kin'] for i in indices], dtype=float)
+    mui_hat = np.array([virial[i].get('mui_hat', np.nan) for i in indices], dtype=float)
+
+    mui_exact = np.full(n_plot, np.nan, dtype=float)
+    for k, i in enumerate(indices):
+        try:
+            mui_exact[k] = float(compute_diamagnetism(ods, time_index=i))
+        except Exception:
+            mui_exact[k] = np.nan
+
+    beta_p_eq = np.full(n_plot, np.nan, dtype=float)
+    li_eq = np.full(n_plot, np.nan, dtype=float)
+    for k, i in enumerate(indices):
+        eq_ts = ods['equilibrium.time_slice'][i]
+        if 'global_quantities.beta_pol' in eq_ts:
+            beta_p_eq[k] = float(eq_ts['global_quantities.beta_pol'])
+        if 'global_quantities.li_3' in eq_ts:
+            li_eq[k] = float(eq_ts['global_quantities.li_3'])
+
+    n_slices = len(ods['equilibrium.time_slice'])
+    W_mag_vol = np.zeros(n_plot, dtype=float)
+    for k, i in enumerate(indices):
+        try:
+            W_mag_vol[k] = float(compute_magnetic_energy(ods, time_slice=i))
+        except Exception:
+            W_mag_vol[k] = np.nan
+
+    p_vol_avg_cp = None
+    p_vol_avg_eq = None
+    try:
+        p_vol_avg_cp = compute_volume_averaged_pressure(ods, time_slice=None, option='core_profiles')
+    except Exception as e:
+        print(f"Warning: Could not compute volume-averaged pressure (core_profiles): {e}")
+    try:
+        p_vol_avg_eq = compute_volume_averaged_pressure(ods, time_slice=None, option='equilibrium')
+    except Exception as e:
+        print(f"Warning: Could not compute volume-averaged pressure (equilibrium): {e}")
+
+    W_th_cp = np.full(n_plot, np.nan, dtype=float)
+    W_th_eq = np.full(n_plot, np.nan, dtype=float)
+    for k, i in enumerate(indices):
+        eq_ts = ods['equilibrium.time_slice'][i]
+        try:
+            volume = float(eq_ts['global_quantities.volume'])
+        except (KeyError, ValueError):
+            volume = np.nan
+        if p_vol_avg_cp is not None and i < len(p_vol_avg_cp) and not np.isnan(p_vol_avg_cp[i]) and np.isfinite(volume):
+            W_th_cp[k] = p_vol_avg_cp[i] * (3.0 / 2.0) * volume
+        if p_vol_avg_eq is not None and i < len(p_vol_avg_eq) and not np.isnan(p_vol_avg_eq[i]) and np.isfinite(volume):
+            W_th_eq[k] = p_vol_avg_eq[i] * (3.0 / 2.0) * volume
+
+    fig, axes = plt.subplots(8, 1, figsize=(figsize[0], figsize[1]), sharex=True)
+
+    axes[0].plot(t, diamagnetic_flux, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='diamagnetic flux')
+    axes[0].set_ylabel('Δφ [Wb]', fontsize=12)
+    axes[0].set_title('Diamagnetic flux', fontsize=12, fontweight='bold')
+    axes[0].legend(fontsize=10)
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(t, mui_exact, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='μ_i (exact)')
+    axes[1].plot(t, mui_hat, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='μ̂_i (approximated)')
+    axes[1].set_ylabel('μ_i', fontsize=12)
+    axes[1].set_title('Diamagnetism', fontsize=12, fontweight='bold')
+    axes[1].legend(fontsize=10)
+    axes[1].grid(True, alpha=0.3)
+
+    axes[2].plot(t, s_1, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='s_1')
+    axes[2].plot(t, s_2, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='s_2')
+    axes[2].plot(t, s_3, 'g-^', linewidth=2, markersize=4, alpha=0.7, label='s_3')
+    axes[2].set_ylabel('Shafranov', fontsize=12)
+    axes[2].set_title('Shafranov integrals', fontsize=12, fontweight='bold')
+    axes[2].legend(fontsize=10)
+    axes[2].grid(True, alpha=0.3)
+
+    axes[3].plot(t, alpha, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='alpha')
+    ax3_twin = axes[3].twinx()
+    ax3_twin.plot(t, B_pa, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='B_pa')
+    axes[3].set_ylabel('alpha', fontsize=12)
+    ax3_twin.set_ylabel('B_pa [T]', fontsize=12)
+    axes[3].set_title('alpha, B_pa', fontsize=12, fontweight='bold')
+    axes[3].legend(loc='upper left', fontsize=10)
+    ax3_twin.legend(loc='upper right', fontsize=10)
+    axes[3].grid(True, alpha=0.3)
+
+    axes[4].plot(t, beta_p_virial, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='beta_p (virial)')
+    axes[4].plot(t, beta_p_eq, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='beta_p (equilibrium)')
+    axes[4].set_ylabel('beta_p', fontsize=12)
+    axes[4].set_title('beta_poloidal', fontsize=12, fontweight='bold')
+    axes[4].legend(fontsize=10)
+    axes[4].grid(True, alpha=0.3)
+
+    axes[5].plot(t, li_virial, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='li (virial)')
+    axes[5].plot(t, li_eq, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='li (equilibrium)')
+    axes[5].set_ylabel('li', fontsize=12)
+    axes[5].set_title('internal inductance', fontsize=12, fontweight='bold')
+    axes[5].legend(fontsize=10)
+    axes[5].grid(True, alpha=0.3)
+
+    axes[6].plot(t, W_mag_virial, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='W_mag (virial)')
+    axes[6].plot(t, W_mag_vol, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='W_mag (volume-integral)')
+    axes[6].set_ylabel('W_mag [J]', fontsize=12)
+    axes[6].set_title('Magnetic Energy', fontsize=12, fontweight='bold')
+    axes[6].legend(fontsize=10)
+    axes[6].grid(True, alpha=0.3)
+
+    axes[7].plot(t, W_kin_virial, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='W_kin (virial)')
+    if p_vol_avg_cp is not None:
+        axes[7].plot(t, W_th_cp, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='W_th (core_profiles)')
+    if p_vol_avg_eq is not None:
+        axes[7].plot(t, W_th_eq, 'm-^', linewidth=2, markersize=4, alpha=0.7, label='W_th (equilibrium)')
+    axes[7].set_xlabel('Time [s]', fontsize=12)
+    axes[7].set_ylabel('W [J]', fontsize=12)
+    axes[7].set_title('Kinetic / Thermal Energy', fontsize=12, fontweight='bold')
+    axes[7].legend(fontsize=10)
+    axes[7].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
+    return fig
+
+
 def time_power_balance(ods, figsize=(4, 4)):
     """
     Plot time evolution of power balance energy terms.
@@ -2433,4 +2724,3 @@ def time_beta(ods, figsize=(4, 4)):
     
     plt.tight_layout()
     plt.show()
-    

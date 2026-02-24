@@ -81,8 +81,9 @@ def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> Li
         
         if shot is not None:
             file_list = list(folder)
+            file_exist=False
             for file in file_list:
-                if file.split("_")[0] == str(shot):
+                if file.split(".")[0] == str(shot):
                     file_exist = True
                     print(file)
                     return True

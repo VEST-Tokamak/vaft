@@ -2,10 +2,31 @@ from typing import List, Tuple, Dict, Any, Optional
 from numpy import ndarray
 import numpy as np
 from omas import *
-from vaft.process import compute_br_bz_phi, compute_response_matrix, compute_impedance_matrices, solve_eddy_currents, compute_vacuum_fields_1d, time_derivative
-from vaft.process.equilibrium import psi_to_RZ, volume_average
-from vaft.formula.equilibrium import spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
-from vaft.omas.general import find_matching_time_indices
+from vaft.process import (
+    compute_br_bz_phi,
+    compute_response_matrix,
+    compute_impedance_matrices,
+    solve_eddy_currents,
+    compute_vacuum_fields_1d,
+    time_derivative,
+    psi_to_RZ,
+    volume_average,
+    poloidal_field_at_boundary,
+    calculate_average_boundary_poloidal_field,
+    shafranov_integrals,
+    calculate_reconstructed_diamagnetic_flux,
+    calculate_diamagnetism,
+)
+from vaft.formula import (
+    spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi,
+    virial_beta_p_from_S_alpha_mu,
+    virial_li_from_S_alpha_mu,
+    kinetic_energy_from_beta_p_B_pa_V_p,
+    magnetic_energy_from_li_B_pa_V_p,
+)
+from vaft.omas import find_matching_time_indices
+from vaft.omas.update import update_equilibrium_boundary
 from scipy.interpolate import interp1d
 import logging
 import vaft.process
@@ -16,6 +37,9 @@ from matplotlib.path import Path
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Fallback diamagnetic flux [Wb] when magnetics.diamagnetic_flux is not available
+default_delta_phi = 2.0 * np.pi
 
 # Constants for geometry types
 DT_SUB = 1e-6  # Time step for eddy current calculation
@@ -940,6 +964,345 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     eq_ts['profiles_2d.0.b_field_tor'] = B_PHI
 
     return W_B
+
+
+def compute_virial_equilibrium_quantities_ods(
+    ods: ODS,
+    time_slice: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Compute Shafranov/virial equilibrium quantities from an arbitrary equilibrium.
+
+    Uses equilibrium 2D psi, boundary outline, and
+    vacuum toroidal field to compute:
+    - Shafranov integrals S1, S2, S3 and alpha
+    - Average boundary poloidal field B_pa
+    - Approximated diamagnetism μ̂_i, then virial beta_p and l_i
+    - Kinetic and magnetic energies W_kin, W_mag
+
+    Args:
+        ods: OMAS data structure with equilibrium.time_slice (with boundary.outline,
+             profiles_2d.0.psi and grid; optional profiles_2d.0.b_field_r/z and
+             global_quantities.b0, major_radius or magnetic_axis).
+             For μ̂_i, delta_phi uses measured diamagnetic flux when present:
+             magnetics.diamagnetic_flux.0.data interpolated at equilibrium time
+        time_slice: Time slice index (None = all slices).
+
+    Returns:
+        Dict mapping time_slice index -> dict of computed quantities (s_1, s_2, s_3,
+        alpha, B_pa, beta_p, li, W_mag, W_kin, V_p, mui_hat).
+
+    Raises:
+        KeyError: If required equilibrium or boundary data is missing.
+    """
+    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+
+    # Measured diamagnetic flux (magnetics.diamagnetic_flux) interpolated at each equilibrium time
+    delta_phi_interp = None
+    if "magnetics.diamagnetic_flux.0.data" in ods and "magnetics.time" in ods and len(ods["magnetics.diamagnetic_flux"]) > 0:
+        t_mag = np.asarray(ods["magnetics.time"], float)
+        flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
+        if t_mag.size >= 2 and flux_mag.size == t_mag.size:
+            delta_phi_interp = interp1d(
+                t_mag, flux_mag,
+                kind="linear",
+                bounds_error=False,
+                fill_value=(flux_mag[0], flux_mag[-1]),
+            )
+    else:
+        raise KeyError("Missing magnetics.diamagnetic_flux.0.data or magnetics.time")
+
+    slices_to_process = (
+        list(range(len(ods["equilibrium.time_slice"])))
+        if time_slice is None
+        else [int(time_slice)]
+    )
+    if time_slice is not None and (
+        time_slice < 0 or time_slice >= len(ods["equilibrium.time_slice"])
+    ):
+        raise IndexError(
+            f"time_slice {time_slice} is out of bounds for equilibrium.time_slice"
+        )
+    # Ensure boundary outline is existed
+    if "boundary.geometric_axis" not in ods["equilibrium.time_slice"][0]:
+        update_equilibrium_boundary(ods)
+
+    out = {}
+    for eq_idx in slices_to_process:
+        eq_ts = ods["equilibrium.time_slice"][eq_idx]
+        try:
+            R_grid_1d = np.asarray(eq_ts["profiles_2d.0.grid.dim1"], float)
+            Z_grid_1d = np.asarray(eq_ts["profiles_2d.0.grid.dim2"], float)
+            psi_RZ = np.asarray(eq_ts["profiles_2d.0.psi"], float)
+        except KeyError as e:
+            raise KeyError(f"Missing equilibrium 2D grid/psi for time_slice {eq_idx}: {e}") from e
+
+        # Ensure psi_RZ shape (nR, nZ) so RectBivariateSpline and shafranov mask align with grid
+        nR, nZ = len(R_grid_1d), len(Z_grid_1d)
+        if psi_RZ.shape != (nR, nZ):
+            if psi_RZ.shape == (nZ, nR):
+                psi_RZ = psi_RZ.T
+            else:
+                raise ValueError(
+                    f"psi shape {psi_RZ.shape} does not match grid (nR={nR}, nZ={nZ})"
+                )
+
+        # Boundary outline
+        R_bdry = np.asarray(eq_ts["boundary.outline.r"], float)
+        Z_bdry = np.asarray(eq_ts["boundary.outline.z"], float)
+        if R_bdry.size == 0 or Z_bdry.size == 0:
+            logger.warning(
+                "Time slice %s: empty boundary.outline, skipping virial computation", eq_idx
+            )
+            out[eq_idx] = {
+                "s_1": np.nan, "s_2": np.nan, "s_3": np.nan, "alpha": np.nan,
+                "B_pa": np.nan, "beta_p": np.nan, "li": np.nan,
+                "W_mag": np.nan, "W_kin": np.nan, "V_p": np.nan, "mui_hat": np.nan,
+            }
+            nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
+                     if not np.isfinite(np.asarray(out[eq_idx][k], float))]
+            if nans:
+                logger.warning("Time slice %s: virial quantities are NaN or non-finite: %s", eq_idx, nans)
+            continue
+
+        B_p_bdry, _, _ = poloidal_field_at_boundary(
+            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry
+        )
+        B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
+
+        use_ods_bfield = (
+            "profiles_2d.0.b_field_r" in eq_ts and "profiles_2d.0.b_field_z" in eq_ts
+        )
+        if use_ods_bfield:
+            B_R_grid = np.asarray(eq_ts["profiles_2d.0.b_field_r"], float)
+            B_Z_grid = np.asarray(eq_ts["profiles_2d.0.b_field_z"], float)
+            if B_R_grid.shape == (nZ, nR):
+                B_R_grid = B_R_grid.T
+                B_Z_grid = B_Z_grid.T
+            elif B_R_grid.shape != (nR, nZ):
+                use_ods_bfield = False
+        if not use_ods_bfield:
+            dpsi_dR, dpsi_dZ = np.gradient(psi_RZ, R_grid_1d, Z_grid_1d, edge_order=2)
+            Rm, Zm = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
+            Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
+            B_R_grid = -(1.0 / Rm_safe) * dpsi_dZ
+            B_Z_grid = (1.0 / Rm_safe) * dpsi_dR
+
+
+        R_mesh, Z_mesh = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
+
+        S1, S2, S3, alpha = shafranov_integrals(
+            R_bdry, Z_bdry, B_p_bdry,
+            R_mesh, Z_mesh, B_R_grid, B_Z_grid)
+        S1, S2, S3, alpha = float(S1), float(S2), float(S3), float(alpha)
+
+        # Geometric axis
+        R_0 = float(eq_ts["boundary.geometric_axis.r"])
+        Z_0 = float(eq_ts["boundary.geometric_axis.z"])
+        R_bdry_c = np.append(R_bdry, R_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else R_bdry
+        Z_bdry_c = np.append(Z_bdry, Z_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else Z_bdry
+        dR_b = np.diff(R_bdry_c)
+        dZ_b = np.diff(Z_bdry_c)
+        R_mid_b = 0.5 * (R_bdry_c[:-1] + R_bdry_c[1:])
+        V_p = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b)))
+
+        # delta_phi: measured diamagnetic flux at this time, or 2*pi if not available
+        t_eq = float(eq_ts["time"])
+        delta_phi = abs(float(delta_phi_interp(t_eq))) if delta_phi_interp is not None else default_delta_phi
+
+        # Vacuum toroidal field at geometric axis from magnetic_axis
+        B_t_axis = float(eq_ts['global_quantities.magnetic_axis.b_field_tor'])
+        R_axis = float(eq_ts['global_quantities.magnetic_axis.r'])
+        B_tv = abs(B_t_axis * R_axis / R_0) # [T]
+
+        mui_hat = np.nan
+        if np.isfinite(B_pa) and B_pa > 0 and np.isfinite(V_p) and V_p > 0 and np.isfinite(B_tv):
+            mui_hat = float(
+                approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(
+                    B_pa, B_tv, R_0, delta_phi, V_p
+                )
+            )
+
+        den_beta = 3.0 * (alpha - 1.0) + 1.0
+        den_li = 3.0 * alpha - 2.0
+        if np.isfinite(mui_hat) and abs(den_beta) > 1e-12:
+            beta_p = float(virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat))
+        else:
+            beta_p = np.nan
+        if np.isfinite(mui_hat) and abs(den_li) > 1e-12:
+            li = float(virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat))
+        else:
+            li = np.nan
+
+        if np.isfinite(beta_p) and np.isfinite(B_pa) and np.isfinite(V_p):
+            W_kin = float(kinetic_energy_from_beta_p_B_pa_V_p(beta_p, B_pa, V_p))
+        else:
+            W_kin = np.nan
+        if np.isfinite(li) and np.isfinite(B_pa) and np.isfinite(V_p):
+            W_mag = float(magnetic_energy_from_li_B_pa_V_p(li, B_pa, V_p))
+        else:
+            W_mag = np.nan
+
+        out[eq_idx] = {
+            "s_1": S1, "s_2": S2, "s_3": S3, "alpha": alpha,
+            "B_pa": B_pa, "beta_p": beta_p, "li": li,
+            "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p, "mui_hat": mui_hat,
+        }
+        nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
+                 if not np.isfinite(np.asarray(out[eq_idx][k], float))]
+        if nans:
+            logger.warning("Time slice %s: virial quantities are NaN or non-finite: %s", eq_idx, nans)
+    return out
+
+
+def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
+    """
+    Compute reconstructed diamagnetic flux (CDFLUX) from ODS.
+
+    Loads equilibrium data from ODS and calls
+    :func:`vaft.process.equilibrium.calculate_reconstructed_diamagnetic_flux`
+    with physical quantities only. Formula: Phi_dia = Integral_surf
+    (B_phi_plasma - B_phi_vacuum) dA [Wb]. Returns negative for diamagnetic plasma.
+    """
+    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+    if time_index >= len(ods["equilibrium.time_slice"]):
+        raise IndexError(
+            f"time_index {time_index} is out of range for equilibrium.time_slice"
+        )
+
+    eq_slice = ods["equilibrium.time_slice"][time_index]
+
+    def _ensure_rz_shape(arr: np.ndarray, R: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        arr = np.asarray(arr, float)
+        if arr.shape == (len(R), len(Z)):
+            return arr
+        if arr.shape == (len(Z), len(R)):
+            return arr.T
+        raise ValueError(
+            f"Unexpected 2D shape {arr.shape}, expected ({len(R)}, {len(Z)}) or transposed"
+        )
+
+    R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
+    Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
+    psi_RZ = _ensure_rz_shape(
+        np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
+    )
+
+    psi_axis = float(eq_slice.get("global_quantities.psi_axis", np.nan))
+    psi_lcfs = float(eq_slice.get("global_quantities.psi_boundary", np.nan))
+    if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
+        psi_axis = float(np.nanmin(psi_RZ))
+        psi_lcfs = float(np.nanmax(psi_RZ))
+
+    f_1d = np.asarray(eq_slice["profiles_1d.f"], float)
+    if "profiles_1d.psi" in eq_slice:
+        psi_1d = np.asarray(eq_slice["profiles_1d.psi"], float)
+        psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
+        idx = np.argsort(psi_1d)
+        f_vac_val = float(np.interp(psi_lcfs, psi_1d[idx], f_1d[idx]))
+    elif "profiles_1d.psi_norm" in eq_slice:
+        psiN_1d = np.asarray(eq_slice["profiles_1d.psi_norm"], float)
+        f_vac_val = float(np.interp(1.0, psiN_1d, f_1d))
+    else:
+        raise KeyError("Need profiles_1d.psi or profiles_1d.psi_norm for F profile")
+
+    if psiN_1d.size != f_1d.size:
+        raise ValueError("profiles_1d F and psi/psi_norm must have the same length")
+
+    return calculate_reconstructed_diamagnetic_flux(
+        R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs, psiN_1d, f_1d, f_vac_val
+    )
+
+
+def compute_diamagnetism(ods, time_index=0):
+    """
+    Compute diamagnetism μ_i from ODS using the volume-integral definition.
+
+    μ_i = (1 / (B_pa² Ω)) ∫_Ω (B_tv² - B_t²) dV
+
+    Loads equilibrium data, B_pa (average boundary poloidal field), V_p (plasma volume),
+    and calls :func:`vaft.process.equilibrium.calculate_diamagnetism`.
+    """
+    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+    if time_index >= len(ods["equilibrium.time_slice"]):
+        raise IndexError(
+            f"time_index {time_index} is out of range for equilibrium.time_slice"
+        )
+
+    eq_slice = ods["equilibrium.time_slice"][time_index]
+
+    def _ensure_rz_shape(arr: np.ndarray, R: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        arr = np.asarray(arr, float)
+        if arr.shape == (len(R), len(Z)):
+            return arr
+        if arr.shape == (len(Z), len(R)):
+            return arr.T
+        raise ValueError(
+            f"Unexpected 2D shape {arr.shape}, expected ({len(R)}, {len(Z)}) or transposed"
+        )
+
+    R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
+    Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
+    psi_RZ = _ensure_rz_shape(
+        np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
+    )
+
+    psi_axis = float(eq_slice.get("global_quantities.psi_axis", np.nan))
+    psi_lcfs = float(eq_slice.get("global_quantities.psi_boundary", np.nan))
+    if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
+        psi_axis = float(np.nanmin(psi_RZ))
+        psi_lcfs = float(np.nanmax(psi_RZ))
+
+    f_1d = np.asarray(eq_slice["profiles_1d.f"], float)
+    if "profiles_1d.psi" in eq_slice:
+        psi_1d = np.asarray(eq_slice["profiles_1d.psi"], float)
+        psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
+        idx = np.argsort(psi_1d)
+        psi_1d_s = psi_1d[idx]
+        f_1d_s = f_1d[idx]
+        f_at_lcfs = float(np.interp(psi_lcfs, psi_1d_s, f_1d_s))
+        # F_vac is defined at LCFS only (vacuum reference). If μ_i comes out with
+        # unexpected sign, check F profile sign convention (F = R*B_φ) and that
+        # psi_norm/psi ordering (axis vs boundary) matches the equilibrium.
+        f_vac_val = f_at_lcfs
+    elif "profiles_1d.psi_norm" in eq_slice:
+        psiN_1d = np.asarray(eq_slice["profiles_1d.psi_norm"], float)
+        # OMAS: psi_norm 0 = axis, 1 = LCFS → F_vac = F at psi_norm=1
+        f_vac_val = float(np.interp(1.0, psiN_1d, f_1d))
+    else:
+        raise KeyError("Need profiles_1d.psi or profiles_1d.psi_norm for F profile")
+
+    if psiN_1d.size != f_1d.size:
+        raise ValueError("profiles_1d F and psi/psi_norm must have the same length")
+
+    R_bdry = np.asarray(eq_slice["boundary.outline.r"], float)
+    Z_bdry = np.asarray(eq_slice["boundary.outline.z"], float)
+    B_p_bdry, _, _ = poloidal_field_at_boundary(
+        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry
+    )
+    B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
+
+    V_p = None
+    if "profiles_1d.volume" in eq_slice:
+        vol = np.asarray(eq_slice["profiles_1d.volume"], float)
+        if vol.size >= 1 and np.isfinite(vol).any():
+            V_p = float(np.nanmean(vol))
+    if V_p is None or V_p <= 0:
+        R_bc = np.append(R_bdry, R_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else R_bdry
+        Z_bc = np.append(Z_bdry, Z_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else Z_bdry
+        dR_b = np.diff(R_bc)
+        dZ_b = np.diff(Z_bc)
+        R_mid_b = 0.5 * (R_bc[:-1] + R_bc[1:])
+        V_p = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b)))
+
+    return calculate_diamagnetism(
+        R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs,
+        psiN_1d, f_1d, f_vac_val, B_pa, V_p=V_p
+    )
+
 
 def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None, 
                                                     Z_eff: float = 2.0, ln_Lambda: float = 17.0) -> float:

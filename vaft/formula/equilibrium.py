@@ -402,6 +402,31 @@ def kink_safety_factor(R: Union[float, np.ndarray],
 
 
 # ------------------------------------------------------------------
+# Plasma beta / energy
+# ------------------------------------------------------------------
+# W_K = (3/2) * (1/(2*mu0) * beta_p * B_pa^2 * V_p)
+# W_M = (1/(2*mu0)) * li * B_pa^2 * V_p
+def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
+                                       B_pa: float,
+                                       V_p: float) -> float:
+    """
+    # $W_K = \frac{3}{2}\left(\frac{1}{2\mu_0}\,\beta_p B_{pa}^2\,V_p\right)$
+    # W_K = (3/2) * (1 / (2 * MU0) * beta_p * B_pa^2 * V_p)
+    """
+    return 1.5 * (1 / (2 * MU0) * beta_p * B_pa**2 * V_p)
+
+
+def magnetic_energy_from_li_B_pa_V_p(li: float,
+                                     B_pa: float,
+                                     V_p: float) -> float:
+    """
+    # $W_M = \frac{1}{2\mu_0}\,\ell_i B_{pa}^2\,V_p$
+    # W_M = (1 / (2 * MU0) * li * B_pa^2 * V_p)
+    """
+    return 1 / (2 * MU0) * li * B_pa**2 * V_p
+
+
+# ------------------------------------------------------------------
 # Virial Theorem
 # ------------------------------------------------------------------
 
@@ -496,6 +521,18 @@ def virial_muihat_from_Bt_R0_dphi(B_t: float,
     return (4 * np.pi * B_t * R0 * dphi) / (B_pa**2 * Omega)
 
 
+def approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa: float,
+                                                         B_tv: float,
+                                                         R0: float,
+                                                         delta_phi: float,
+                                                         V_p: float) -> float:
+    """
+    # $\hat{\mu}_i \approx \frac{1}{B_{pa}^2 V_p}\int_{0}^{2\pi} d\phi \, R_0 \left(2 B_{tv}\Delta\phi \right)$
+    # μ̂_i ≈ 1 / (B_{pa}² V_p) ∫_{0}^{2π} dφ R₀ (2 B_{tv} Δφ)
+    """
+    return (4 * np.pi * B_tv * R0 * delta_phi) / (B_pa**2 * V_p)
+
+
 def virial_beta_p_from_S_alpha_mu(S1: float,
                                   S2: float,
                                   S3: float,
@@ -504,6 +541,7 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
     """
     # $\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha \hat{\mu}_i + S_3}{3(\alpha - 1) + 1}$
     # β_p = [(S₁ + S₂)(α − 1) + α μ̂_i + S₃] / [3(α − 1) + 1]
+    # from [MW Bongard 2016 PoP]
     """
     num = (S1 + S2) * (alpha - 1) + alpha * mui_hat + S3
     den = 3 * (alpha - 1) + 1

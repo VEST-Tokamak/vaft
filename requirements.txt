@@ -21,7 +21,10 @@ xarray>=2024.4.0
 astropy==6.1.7
 pyjwt
 imas-python==2.0.0.post1
+requests-unixsocket==0.4.1
+fortranformat==2.0.0
 scikit-learn
 numba
+tqdm==4.66.1
 wexpect; sys_platform == 'win32'
 statsmodels==0.14.6
