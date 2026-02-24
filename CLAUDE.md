@@ -69,7 +69,7 @@ vaft/
 │   │   └── raw.py         # MySQL-based VEST raw DAQ signal interface
 │   ├── omas/              # OMAS integration wrappers (formula_wrapper, process_wrapper)
 │   ├── machine_mapping/   # VEST machine configuration and experiment metadata (vest.yaml)
-│   ├── code/              # External code interfaces (EFIT, CHEASE, GPEC, Snakemake)
+│   ├── code/              # External code interfaces (EFIT active; CHEASE, GPEC are empty stubs)
 │   ├── imas/              # IMAS data format support (from_omas conversion)
 │   ├── data/              # Sample/test data files (.h5, .json, .mat, .csv, EFIT g-files)
 │   └── version.py         # Version string (__version__)
@@ -131,8 +131,11 @@ Several functions (`date_from_shot`, `shots_from_date`, `last_shot`, `name`) acq
 ### Global Mutable State (database/raw.py)
 `DB_POOL` is a module-level global modified by multiple functions. This creates thread-safety risks and makes testing difficult.
 
+### Missing Import Bug (code/efit.py)
+`gfile_to_omas()` calls `re.sub()` but never imports the `re` module. This will raise `NameError` at runtime when parsing gEQDSK filenames.
+
 ### Broad Exception Handling
-Multiple locations catch `except Exception` or bare `except:` and silently continue (e.g., `process/profile.py`, `database/raw.py`). This can mask real errors.
+Multiple locations catch `except Exception` or bare `except:` and silently continue (e.g., `process/profile.py`, `database/raw.py`, `code/efit.py`). This can mask real errors.
 
 ### Wildcard Imports
 Most `__init__.py` files use `from .module import *`, causing namespace pollution and making it unclear which symbols are exported. No `__all__` definitions in submodules.
@@ -152,12 +155,19 @@ No unified logging strategy. Mix of `print()` statements and `logging` module ca
 - No type checking (mypy/pyright) configuration
 - Tests may require live server connections (not fully mockable)
 
+### Stub Modules and Backup Files (code/)
+- `chease.py` and `gpec.py` are empty placeholder files with no implementation
+- `efit.sav` is a full duplicate backup of `efit.py` tracked in git (unnecessary)
+- File I/O in `efit.py` uses manual `open()`/`close()` instead of context managers
+
 ### Commented-Out Code
 - `magnetics.py`: ~200-line `toroidal_mode_analysis()` function is fully commented out
 - `electromagnetics.py`: multiple commented debug print statements
+- `efit.py`: ~50 commented-out code blocks (debug prints, alternative implementations, plotting)
 - `test_import.py`: ODS import block commented out with traceback
 
 ### Numerical Edge Cases
 - Division by zero not guarded in several equilibrium/profile calculations (e.g., `psi_boundary == psi_axis`)
 - `np.errstate` used to suppress warnings rather than handling edge cases
 - Matrix exponential in eddy current solver can overflow for large eigenvalues
+- `efit.py`: normalizes data by dividing by min/max without zero checks
