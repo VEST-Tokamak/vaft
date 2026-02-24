@@ -9,23 +9,6 @@
 # Once installed, you can use the 'VEST' package and its associated dependencies in your project.
 # -----------------------------------
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
-setup(
-    name="vaft",
-    version="0.1",
-    packages=find_packages(),
-    description="Versatile Analytical Framework for Tokamak",
-    author="VEST team",
-    author_email="satelite2517@snu.ac.kr",
-    url="https://github.com/VEST-Tokamak/vaft",
-    install_requires=[
-    ],
-    extras_require={
-        "dev": [
-            "pytest",
-            "black",
-            "flake8",
-        ],
-    },
-)
+setup()
