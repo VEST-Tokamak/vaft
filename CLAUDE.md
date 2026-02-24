@@ -143,24 +143,33 @@ Most `__init__.py` files use `from .module import *`, causing namespace pollutio
 ### Hardcoded VEST-Specific Constants
 - `magnetics.py`: flux loop gain (11), vessel resistance (5.8e-4), baseline onset/offset times, smoothing windows
 - `raw.py`: shot number ranges for DAQ table selection and trigger corrections are hardcoded with magic numbers
+- Workflow scripts hardcode server paths (`/srv/vest.filedb/public`, `/srv/vest.diagnostic`) and a user-specific shebang (`#!/home/user1/miniconda3/envs/vaft/bin/python`)
+- `test_sfl_conversion.py` and `test_shafranov_integral.py` hardcode absolute paths to specific machines
 
 ### Logging
-No unified logging strategy. Mix of `print()` statements and `logging` module calls. Multiple places reset the root logger level with `logging.getLogger().setLevel(logging.WARNING)`.
+No unified logging strategy. ~374 `print()` statements across the codebase used instead of proper logging. `database/ods.py` repeatedly resets the root logger to WARNING level (6 instances), suppressing useful output. Workflow scripts are especially print-heavy.
 
 ### Missing Infrastructure
-- No CI/CD pipeline
+- No CI/CD pipeline (no GitHub Actions, GitLab CI, etc.)
 - No pre-commit hooks
-- No conftest.py or pytest fixtures
+- No conftest.py or pytest fixtures; no mocking of external services
 - No `.flake8` or `pyproject.toml` tool config for linting
-- No type checking (mypy/pyright) configuration
-- Tests may require live server connections (not fully mockable)
+- No type checking (mypy/pyright) configuration — only 26% of files have type hints
+- Tests require live server connections (HSDS + MySQL); not mockable currently
+- Several test files are empty stubs: `test_load_sample.py`, `test_save_sample.py`, `test_save_load.py`
 
 ### Stub Modules and Backup Files (code/)
 - `chease.py` and `gpec.py` are empty placeholder files with no implementation
 - `efit.sav` is a full duplicate backup of `efit.py` tracked in git (unnecessary)
 - File I/O in `efit.py` uses manual `open()`/`close()` instead of context managers
 
-### Commented-Out Code
+### Unimplemented Functions
+- `formula/equilibrium.py`: `radiation_power_line_radiation_power_density()` has a TODO and returns `0.0`
+- `plot/twodim.py`: 8 commented-out function stubs (geometry, equilibrium plotting)
+- `machine_mapping/model.py`: 24-line commented function block
+
+### Dead / Deprecated Code
+- `test/old_codeset.py`: 2891 lines of deprecated code still tracked in git
 - `magnetics.py`: ~200-line `toroidal_mode_analysis()` function is fully commented out
 - `electromagnetics.py`: multiple commented debug print statements
 - `efit.py`: ~50 commented-out code blocks (debug prints, alternative implementations, plotting)
