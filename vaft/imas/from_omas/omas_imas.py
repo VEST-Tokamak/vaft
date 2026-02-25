@@ -37,9 +37,9 @@ from omas.omas_utils import _extra_structures
 
 
 class IDS:
-    def __init__(self, DBentry, occurrence):
-        import imas
+    """Wrapper for AL5 (IMAS-Python / imas_core) DBEntry"""
 
+    def __init__(self, DBentry, occurrence):
         self.DBentry = DBentry
         self.occurrence = occurrence
 
@@ -50,8 +50,54 @@ class IDS:
         setattr(self, key, tmp)
         return tmp
 
+    def put_ids(self, m, ds, occ):
+        """Write IDS to backend (AL5)"""
+        printd(f"{ds}.put({occ}, DBentry)", topic='imas_code')
+        m.put(occ, self.DBentry)
+
+    def get_ids(self, m, ds, occ):
+        """Read IDS from backend (AL5)"""
+        printd(f"{ds}.get({occ}, DBentry)", topic='imas_code')
+        m.get(occ, self.DBentry)
+
+    def get_ids_slice(self, m, ds, time, occ):
+        """Read a time slice from IDS (AL5)"""
+        printd(f"ids.{ds}.getSlice({time}, 1, {occ}, DBentry)", topic='imas_code')
+        m.getSlice(time, 1, occ, self.DBentry)
+
     def close(self):
         self.DBentry.close()
+
+
+class IDS_AL4:
+    """Wrapper for AL4 (AL-Python / legacy imas module) imas.ids()"""
+
+    def __init__(self, ids, pulse, run, occurrence):
+        object.__setattr__(self, '_ids', ids)
+        object.__setattr__(self, 'pulse', pulse)
+        object.__setattr__(self, 'run', run)
+        object.__setattr__(self, 'occurrence', occurrence)
+
+    def __getattr__(self, key):
+        return getattr(self._ids, key)
+
+    def put_ids(self, m, ds, occ):
+        """Write IDS to backend (AL4)"""
+        printd(f"{ds}.put({self.pulse}, {self.run}, {occ})", topic='imas_code')
+        m.put(self.pulse, self.run, occ)
+
+    def get_ids(self, m, ds, occ):
+        """Read IDS from backend (AL4)"""
+        printd(f"{ds}.get({self.pulse}, {self.run}, {occ})", topic='imas_code')
+        m.get(self.pulse, self.run, occ)
+
+    def get_ids_slice(self, m, ds, time, occ):
+        """Read a time slice from IDS (AL4)"""
+        printd(f"ids.{ds}.getSlice({self.pulse}, {self.run}, {time}, 1, {occ})", topic='imas_code')
+        m.getSlice(self.pulse, self.run, time, 1, occ)
+
+    def close(self):
+        self._ids.close()
 
 
 # --------------------------------------------
@@ -87,30 +133,62 @@ def imas_open(user, machine, pulse, run, occurrence={}, new=False, imas_major_ve
         )
 
     import imas
+
+    # Detect AL version: AL5 uses imas.DBEntry (imas_core / imas_python),
+    # AL4 uses imas.ids() (legacy Access Layer Python).
+    _use_al5 = hasattr(imas, 'DBEntry')
     try:
-        from imas_core import imasdef
+        from imas_core import imasdef  # noqa: F401 — presence confirms AL5
+        _use_al5 = True
     except ModuleNotFoundError:
-        from imas import imasdef
+        pass
 
-    printd(
-        f"DBentry = imas.DBEntry(imasdef.{backend}_BACKEND, {repr(machine)}, {pulse}, {run}, {repr(user)}, {repr(imas_major_version)})",
-        topic='imas_code',
-    )
-    DBentry = imas.DBEntry(getattr(imasdef, backend + '_BACKEND'), machine, pulse, run, user, imas_major_version, dd_version=dd_version)
+    if _use_al5:
+        # ------- AL5 (IMAS-Python) path -------
+        try:
+            from imas_core import imasdef
+        except ModuleNotFoundError:
+            from imas import imasdef
 
-    try:
-        if new:
-            printd(f"DBentry.create()", topic='imas_code')
-            DBentry.create()
-        else:
-            printd(f"DBentry.open()", topic='imas_code')
-            DBentry.open()
-    except Exception as error:
-        raise IOError(
-            'Error opening imas entry (user:%s machine:%s pulse:%s run:%s imas_major_version:%s backend=%s)'
-            % (user, machine, pulse, run, imas_major_version, backend)
-        ) from error
-    return IDS(DBentry, occurrence)
+        printd(
+            f"DBentry = imas.DBEntry(imasdef.{backend}_BACKEND, {repr(machine)}, {pulse}, {run}, {repr(user)}, {repr(imas_major_version)})",
+            topic='imas_code',
+        )
+        DBentry = imas.DBEntry(getattr(imasdef, backend + '_BACKEND'), machine, pulse, run, user, imas_major_version, dd_version=dd_version)
+
+        try:
+            if new:
+                printd(f"DBentry.create()", topic='imas_code')
+                DBentry.create()
+            else:
+                printd(f"DBentry.open()", topic='imas_code')
+                DBentry.open()
+        except Exception as error:
+            raise IOError(
+                'Error opening imas entry (user:%s machine:%s pulse:%s run:%s imas_major_version:%s backend=%s)'
+                % (user, machine, pulse, run, imas_major_version, backend)
+            ) from error
+        return IDS(DBentry, occurrence)
+
+    else:
+        # ------- AL4 (AL-Python / legacy) path -------
+        printd(
+            f"ids = imas.ids(); ids.{'create' if new else 'open'}_env({repr(user)}, {repr(machine)}, {repr(imas_major_version)})",
+            topic='imas_code',
+        )
+        ids_obj = imas.ids()
+        try:
+            if new:
+                ids_obj.create_env(user, machine, imas_major_version)
+                ids_obj.disableDynamicMemoryAllocation()
+            else:
+                ids_obj.open_env(user, machine, imas_major_version)
+        except Exception as error:
+            raise IOError(
+                'Error opening imas entry (user:%s machine:%s pulse:%s run:%s imas_major_version:%s)'
+                % (user, machine, pulse, run, imas_major_version)
+            ) from error
+        return IDS_AL4(ids_obj, pulse, run, occurrence)
 
 
 def imas_set(ids, path, value, skip_missing_nodes=False, allocate=False, ids_is_subtype=False, only_allocate=True):
@@ -452,13 +530,12 @@ def save_omas_imas(ods, user=None, machine=None, pulse=None, run=None, occurrenc
                 # If all time nodes were empty, homogeneous_time should be 2
                 printd(f"{ds}.ids_properties.homogeneous_time = {ds_homogeneous_time.get(ds, 2)}", topic='imas_code')
                 m.ids_properties.homogeneous_time = ds_homogeneous_time.get(ds, 2)
-                printd(f"{ds}.put({occ}, DBentry)", topic='imas_code')
-                m.put(occ, ids.DBentry)
+                ids.put_ids(m, ds, occ)
 
         finally:
             # close connection to IMAS database
-            printd("DBentry.close()", topic='imas_code')
-            ids.DBentry.close()
+            printd("ids.close()", topic='imas_code')
+            ids.close()
 
     return set_paths
 
@@ -502,18 +579,16 @@ def infer_fetch_paths(ids, occurrence, paths, time, imas_version, verbose=True):
 
         # ids.get()
         if time is None:
-            printd(f"{ds}.get({occ}, DBentry)", topic='imas_code')
             try:
-                getattr(ids, ds).get(occ, ids.DBentry)
+                ids.get_ids(getattr(ids, ds), ds, occ)
             except ValueError as _excp:
                 print(f'x {ds.ljust(ndss)} IDS failed on get')  # not sure why some IDSs fail on .get()... it's not about them being empty
                 continue
 
         # ids.getSlice()
         else:
-            printd(f"ids.{ds}.getSlice({time}, 1, {occ}, DBentry)", topic='imas_code')
             try:
-                getattr(ids, ds).getSlice(time, 1, occ, ids.DBentry)
+                ids.get_ids_slice(getattr(ids, ds), ds, time, occ)
             except ValueError as _excp:
                 print(f'x {ds.ljust(ndss)} IDS failed on getSlice')
                 continue
@@ -726,7 +801,7 @@ class dynamic_omas_imas(dynamic_ODS):
         ds = path[0]
         if ds not in self.open_ids:
             occ = self.ids.occurrence.get(ds, 0)
-            getattr(self.ids, ds).get(occ, self.ids.DBentry)
+            self.ids.get_ids(getattr(self.ids, ds), ds, occ)
             self.open_ids.append(ds)
         return imas_empty(imas_get(self.ids, path)) is not None
 
@@ -979,7 +1054,7 @@ def keys_leading_to_a_filled_path(ids, location, imas_version):
             if not hasattr(ids, ds):
                 continue
             occ = ids.occurrence.get(ds, 0)
-            getattr(ids, ds).get(occ, ids.DBentry)
+            ids.get_ids(getattr(ids, ds), ds, occ)
             if getattr(ids, ds).ids_properties.homogeneous_time != -999999999:
                 filled_keys.append(ds)
         return filled_keys
