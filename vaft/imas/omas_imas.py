@@ -35,16 +35,6 @@ from omas.omas_utils import *
 from omas.omas_core import ODS, codeparams_xml_save, codeparams_xml_load, dynamic_ODS, omas_environment
 from omas.omas_utils import _extra_structures
 
-# #region agent log
-def _debug_log(location, message, data, hypothesis_id=None):
-    import json
-    try:
-        with open('/Users/yun/git/vaft/.cursor/debug-c0d379.log', 'a') as f:
-            f.write(json.dumps({"sessionId": "c0d379", "location": location, "message": message, "data": data, "hypothesisId": hypothesis_id, "timestamp": __import__('time').time()}) + '\n')
-    except Exception:
-        pass
-# #endregion
-
 
 class IDS:
     """Wrapper for AL5 (IMAS-Python / imas_core) DBEntry"""
@@ -55,7 +45,12 @@ class IDS:
 
     def __getattr__(self, key):
         # Prefer DBentry.get(ids_name) when available; fall back to factory.key().
-        occ = self.occurrence if isinstance(self.occurrence, int) else 0
+        if isinstance(self.occurrence, dict):
+            occ = self.occurrence.get(key, 0)
+        elif isinstance(self.occurrence, int):
+            occ = self.occurrence
+        else:
+            occ = 0
         get_entry = getattr(self.DBentry, 'get', None)
         if get_entry is not None:
             try:
@@ -524,17 +519,17 @@ def save_omas_imas(ods, user=None, machine=None, pulse=None, run=None, occurrenc
     # ensure requirements for writing data to IMAS are satisfied
     ods.satisfy_imas_requirements(attempt_fix=False, raise_errors=False)
 
-    # get the list of paths from ODS; skip IDSs removed in current IMAS DD
-    paths = [p for p in ods.paths() if (p[0] if p else None) not in IMAS_REMOVED_IDS]
+    # get the list of paths from ODS; skip IDSs removed in current IMAS DD, but keep dataset_description
+    paths = [p for p in ods.paths() if (p[0] if p else None) not in IMAS_REMOVED_IDS or (p[0] if p else None) == 'dataset_description']
     set_paths = paths
 
     try:
         # open IMAS tree: by URI (AL5) or by legacy (user/machine/pulse/run)
         if uri is not None:
-            mode = 'x' if new else 'w'
-            ids = imas_open_uri(uri, mode=mode, occurrence=occurrence, verbose=verbose, dd_version=IMAS_DD_VERSION_CONVERSION)
+            mode = 'x' if new else 'a'
+            ids = imas_open_uri(uri, mode=mode, occurrence=occurrence, verbose=verbose, dd_version=imas_version or IMAS_DD_VERSION_CONVERSION)
         else:
-            ids = imas_open(user=user, machine=machine, pulse=pulse, run=run, occurrence=occurrence, new=new, verbose=verbose, backend=backend, dd_version=IMAS_DD_VERSION_CONVERSION)
+            ids = imas_open(user=user, machine=machine, pulse=pulse, run=run, occurrence=occurrence, new=new, verbose=verbose, backend=backend, dd_version=imas_version or IMAS_DD_VERSION_CONVERSION)
 
     except IOError as _excp:
         raise IOError(str(_excp) + '\nIf this is a new pulse/run then set `new=True`')
@@ -677,10 +672,7 @@ def infer_fetch_paths(ids, occurrence, paths, time, imas_version, verbose=True):
                 ids_ds, load_structure(ds, imas_version=imas_version)[1], [ds], [],
                 requested_for_ds if requested_for_ds else requested_paths
             )
-            # #region agent log
             has_eq_time = any(p == ['equilibrium', 'time'] for p in fetch_paths)
-            _debug_log('omas_imas.py:infer_fetch_paths', 'after filled_paths_in_ids', {'ds': ds, 'n_added': len(fetch_paths) - n_before, 'has_equilibrium_time': has_eq_time, 'sample_paths': [p for p in fetch_paths[n_before:n_before+5]]}, 'A')
-            # #endregion
             # Ensure equilibrium.time is fetched when IDS has data but path was not discovered (e.g. schema or imas_empty)
             if ds == 'equilibrium' and not has_eq_time:
                 fetch_paths.append(['equilibrium', 'time'])
@@ -750,9 +742,9 @@ def load_omas_imas(
 
     try:
         if uri is not None:
-            ids = imas_open_uri(uri, mode='r', occurrence=occurrence, verbose=verbose, dd_version=IMAS_DD_VERSION_CONVERSION)
+            ids = imas_open_uri(uri, mode='r', occurrence=occurrence, verbose=verbose, dd_version=imas_version or IMAS_DD_VERSION_CONVERSION)
         else:
-            ids = imas_open(user=user, machine=machine, pulse=pulse, run=run, occurrence=occurrence, new=False, verbose=verbose, backend=backend, dd_version=IMAS_DD_VERSION_CONVERSION)
+            ids = imas_open(user=user, machine=machine, pulse=pulse, run=run, occurrence=occurrence, new=False, verbose=verbose, backend=backend, dd_version=imas_version or IMAS_DD_VERSION_CONVERSION)
 
         if imas_version is None:
             imas_version = IMAS_DD_VERSION_CONVERSION
@@ -801,11 +793,6 @@ def load_omas_imas(
                     if path[-1].endswith('_error_upper') or path[-1].endswith('_error_lower') or path[-1].endswith('_error_index'):
                         continue
                     # get data from IDS
-                    # #region agent log
-                    is_eq_time = path == ['equilibrium', 'time']
-                    if is_eq_time:
-                        _debug_log('omas_imas.py:load_omas_imas', 'before imas_get', {'path': path}, 'B')
-                    # #endregion
                     # For known 1D leaf paths (e.g. equilibrium.time), skip empty check so backend wrappers (IDSNumericArray etc.) are not dropped
                     check_empty = path != ['equilibrium', 'time']
                     data = imas_get(ids, path, None, check_empty=check_empty)
@@ -820,15 +807,7 @@ def load_omas_imas(
                                 pass
                     # continue for empty data
                     if data is None:
-                        # #region agent log
-                        if path[0] == 'equilibrium':
-                            _debug_log('omas_imas.py:load_omas_imas', 'data is None, skipping', {'path': path}, 'B')
-                        # #endregion
                         continue
-                    # #region agent log
-                    if is_eq_time:
-                        _debug_log('omas_imas.py:load_omas_imas', 'after imas_get', {'path': path, 'data_repr': repr(data)[:120], 'data_is_none': data is None}, 'B')
-                    # #endregion
                     # add uncertainty
                     if not skip_uncertainties and l2i(path[:-1] + [path[-1] + '_error_upper']) in joined_fetch_paths:
                         stdata = imas_get(ids, path[:-1] + [path[-1] + '_error_upper'], None)
@@ -839,10 +818,6 @@ def load_omas_imas(
                                 printe('Error loading uncertainty for %s: %s' % (l2i(path), repr(_excp)))
                     # assign data to ODS
                     # NOTE: here we can use setraw since IMAS data is by definition compliant with IMAS
-                    # #region agent log
-                    if path == ['equilibrium', 'time']:
-                        _debug_log('omas_imas.py:load_omas_imas', 'setraw equilibrium.time', {'path': path, 'data_repr': repr(data)[:80]}, 'D')
-                    # #endregion
                     ods.setraw(path, data)
 
         finally:
@@ -851,7 +826,7 @@ def load_omas_imas(
             ids.close()
 
     # add dataset_description information to this ODS
-    if paths is None:
+    if paths is None and uri is None:
         ods.setdefault('dataset_description.data_entry.user', str(user))
         ods.setdefault('dataset_description.data_entry.machine', str(machine))
         ods.setdefault('dataset_description.data_entry.pulse', int(pulse))
@@ -1039,21 +1014,12 @@ def filled_paths_in_ids(
     if requested_paths is None:
         requested_paths = []
 
-    # #region agent log
-    if path == ['equilibrium']:
-        _debug_log('omas_imas.py:filled_paths_in_ids', 'entry for equilibrium root', {'path': path, 'requested_paths': requested_paths, 'ds_keys_len': len(ds) if hasattr(ds, '__len__') else None}, 'E')
-    # #endregion
-
     # leaf
     if not len(ds):
         # append path if it has data
         empty_val = imas_empty(ids)
         if empty_val is not None:
             paths.append(path)
-            # #region agent log
-            if path == ['equilibrium', 'time']:
-                _debug_log('omas_imas.py:filled_paths_in_ids', 'leaf appended equilibrium.time', {'path': path, 'imas_empty_ret': type(empty_val).__name__}, 'A')
-            # #endregion
         return paths
 
     # keys
