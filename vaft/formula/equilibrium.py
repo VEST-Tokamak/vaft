@@ -48,7 +48,7 @@ def psi_from_RBtheta(R: np.ndarray,
                      B_theta: np.ndarray,
                      l: np.ndarray,
                      psi_axis: float = 0.0) -> float:
-    """
+    r"""
     # $\psi = \int R B_\theta \, dl + \psi_a$
     # ψ = ∫ R B_θ dl + ψ_a
     """
@@ -58,7 +58,7 @@ def psi_from_RBtheta(R: np.ndarray,
 def psi_normalised(psi: Union[np.ndarray, float],
                    psi_axis: float,
                   psi_boundary: float) -> Union[np.ndarray, float]:
-    """
+    r"""
     # $\psi_N = \frac{\psi - \psi_a}{\psi_b - \psi_a}$
     # ψ_N = (ψ − ψ_a) / (ψ_b − ψ_a)
     """
@@ -83,7 +83,7 @@ def normalize_psi(*args, **kw):  # noqa: N802
 
 def phi_from_Bphi(B_phi: np.ndarray,
                   dA: np.ndarray) -> float:
-    """
+    r"""
     # $\Phi = \int B_\phi \, dA$
     # Φ = ∫ B_φ dA
     """
@@ -92,7 +92,7 @@ def phi_from_Bphi(B_phi: np.ndarray,
 
 def rhoN_from_phi(phi: Union[np.ndarray, float],
                   phi_boundary: float) -> Union[np.ndarray, float]:
-    """
+    r"""
     # $\rho_N = \sqrt{\frac{\Phi}{\Phi_b}}$
     # ρ_N = √(Φ / Φ_b)
     """
@@ -105,7 +105,7 @@ def rhoN_from_phi(phi: Union[np.ndarray, float],
 
 def q_from_phi(psi: np.ndarray,
                phi: np.ndarray) -> np.ndarray:
-    """
+    r"""
     # $q = \frac{d\Phi}{d\psi}$
     # q = dΦ/dψ
     """
@@ -115,7 +115,7 @@ def q_from_phi(psi: np.ndarray,
 def q_from_rhoN(psiN: np.ndarray,
                 rhoN: np.ndarray,
                 C: float = 1.0) -> np.ndarray:
-    """
+    r"""
     # $q = C \rho_N \frac{d\rho_N}{d\psi_N}$
     # q = C · ρ_N · dρ_N/dψ_N
     """
@@ -125,7 +125,7 @@ def q_from_rhoN(psiN: np.ndarray,
 
 def rhoN_from_qpsiN(psiN: np.ndarray,
                     qpsiN: np.ndarray) -> np.ndarray:
-    """
+    r"""
     # $\rho_N = \sqrt{\frac{\int_0^{\psi_N} q(\psi'_N) d\psi'_N}{\int_0^1 q(\psi'_N) d\psi'_N}}$
     # ρ_N = √(∫₀^{ψ_N} q(ψ′_N) dψ′_N / ∫₀¹ q(ψ′_N) dψ′_N)
     """
@@ -141,7 +141,7 @@ def rhoN_from_qpsiN(psiN: np.ndarray,
 
 def shear_from_r_q(r: np.ndarray,
                    q: np.ndarray) -> np.ndarray:
-    """
+    r"""
     # $s = \frac{r}{q} \frac{dq}{dr}$
     # s = (r/q) · dq/dr
     """
@@ -159,7 +159,7 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 
 def current_density_from_B(B: Union[float, np.ndarray],
                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    """
+    r"""
     # $j = \frac{\nabla \times B}{\mu_0}$
     # j = (∇ × B) / μ₀
     """
@@ -168,7 +168,7 @@ def current_density_from_B(B: Union[float, np.ndarray],
 
 def current_density_from_psi(psi: Union[float, np.ndarray],
                            R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    """
+    r"""
     # $j = -\frac{1}{\mu_0 R} \frac{d\psi}{dR}$
     # j = -dψ/(μ₀ R dR)
     """
@@ -182,7 +182,7 @@ def current_density_from_psi(psi: Union[float, np.ndarray],
 def current_drive_efficiency(n_e: float,
                            T_e_keV: float,
                            Z_eff: float = 1.0) -> float:
-    """
+    r"""
     # $\eta_{CD} = 0.3 \sqrt{\frac{n_e T_e}{Z_{eff}}}$
     # η_CD = 0.3 √(n_e T_e / Z_eff)
     # ITER scaling for lower hybrid current drive
@@ -195,7 +195,7 @@ def bootstrap_current_fraction(n_e: float,
                              R0: float,
                              a: float,
                              q_95: float) -> float:
-    """
+    r"""
     # $f_{BS} = 0.3 \sqrt{\beta_p}$, where $\beta_p = \frac{0.4 n_e T_e a}{R_0 q_{95}^2}$
     # f_BS = 0.3 √(β_p), where β_p = 0.4 n_e T_e a / (R₀ q_95²)
     # ITER scaling for bootstrap current
@@ -210,7 +210,7 @@ Magnetic Field $B$
 def radial_magnetic_field_from_psi(psi: np.ndarray,
                                    R: np.ndarray,
                                    Z: np.ndarray) -> np.ndarray:
-    """
+    r"""
     # $B_r = -1/R \frac{\partial \psi}{\partial Z}$
     # B_r = -1/R dψ/dZ
     """
@@ -220,7 +220,7 @@ def radial_magnetic_field_from_psi(psi: np.ndarray,
 def vertical_magnetic_field_from_psi(psi: np.ndarray,
                                    R: np.ndarray,
                                    Z: np.ndarray) -> np.ndarray:
-    """
+    r"""
     # $B_z = 1/R \frac{\partial \psi}{\partial R}$
     # B_z = 1/R dψ/dR
     """
@@ -237,7 +237,7 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
 def current_limit_from_q(q_95: float,
                         a: float,
                         B0: float) -> float:
-    """
+    r"""
     # $I_p = \frac{2\pi a^2 B_0}{\mu_0 q_{95}}$
     # I_p = 2πa²B₀/(μ₀q_95)
     """
@@ -247,7 +247,7 @@ def current_limit_from_q(q_95: float,
 def current_limit_from_beta(beta_N: float,
                           a: float,
                           B0: float) -> float:
-    """
+    r"""
     # $I_p = \frac{2\pi a^2 B_0}{\mu_0 \beta_N}$
     # I_p = 2πa²B₀/(μ₀β_N)
     """
@@ -260,7 +260,7 @@ def current_limit_from_beta(beta_N: float,
 
 def stored_energy_from_p_V(p: Union[float, np.ndarray],
                           V: float) -> Union[float, np.ndarray]:
-    """
+    r"""
     # $W = \int p \, dV$
     # W = ∫ p dV
     """
@@ -270,7 +270,7 @@ def stored_energy_from_p_V(p: Union[float, np.ndarray],
 def stored_energy_from_beta_V(beta: float,
                             B0: float,
                             V: float) -> float:
-    """
+    r"""
     # $W = \frac{\beta B_0^2 V}{2\mu_0}$
     # W = β B₀² V / (2μ₀)
     """
@@ -282,7 +282,7 @@ def stored_energy_from_beta_V(beta: float,
 
 def volume_from_RZ_boundary(R: np.ndarray,
                            Z: np.ndarray) -> float:
-    """
+    r"""
     # $V = 2\pi \oint R Z_n \, dl \approx 2\pi A_{poly} \bar{R}$
     # V = 2π ∮ (R Z_n) dl ≈ 2π A_poly R̄
     # Green's theorem for axisymmetric geometry
@@ -296,7 +296,7 @@ def volume_from_RZ_boundary(R: np.ndarray,
 
 def elongation_from_RZ_boundary(R: np.ndarray,
                                Z: np.ndarray) -> float:
-    """
+    r"""
     # $\kappa = \frac{Z_{max} - Z_{min}}{2a}$, where $a = \frac{R_{max} - R_{min}}{2}$
     # κ = (Z_max - Z_min) / (2a), where a = (R_max - R_min) / 2
     """
@@ -307,7 +307,7 @@ def elongation_from_RZ_boundary(R: np.ndarray,
 def triangularity_from_RZ_boundary(R: np.ndarray,
                                   Z: np.ndarray,
                                   R0: float) -> float:
-    """
+    r"""
     # $\delta = \frac{R_0 - R_{sep}|_{Z=0}}{a}$
     # δ = (R₀ - R_sep|Z=0) / a
     """
@@ -317,7 +317,7 @@ def triangularity_from_RZ_boundary(R: np.ndarray,
 
 
 def eK_from_K(K: float) -> float:
-    """
+    r"""
     # $eK = \frac{K^2 - 1}{K^2 + 1}$
     # eK = (K² - 1) / (K² + 1)
     """
@@ -326,7 +326,7 @@ def eK_from_K(K: float) -> float:
 
 def peaking_factor(central: float,
                    volume_avg: float) -> float:
-    """
+    r"""
     # $PF = \frac{X(0)}{\langle X \rangle}$
     # PF = X(0) / ⟨X⟩
     """
@@ -339,7 +339,7 @@ def peaking_factor(central: float,
 def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
                                                  Z_eff: float = 2.0,
                                                  ln_Lambda: float = 17.0) -> float:
-    """
+    r"""
     # $\eta(R,Z) = 5.2\times 10^{-5}\; \frac{Z_{\text{eff}}\,\ln\Lambda}{\bigl(T_e(R,Z)\,[\mathrm{eV}]\bigr)^{3/2}} \quad [\Omega\cdot \mathrm{m}]$
     # η = 5.2×10⁻⁵ Z_eff ln(Λ) / (T_e^(3/2))
     """
@@ -354,7 +354,7 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
                             R: Union[float, np.ndarray],
                             a: Union[float, np.ndarray],
                             Bt: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    """
+    r"""
     # $I_p^* = \frac{I_p}{a B_t}$
     # I_p^* = I_p / (a B_t) [MA/(m·T)]
     # Phys. Plasmas 23, 072508 (2016); https://doi.org/10.1063/1.4959808
@@ -369,7 +369,7 @@ def kink_safety_factor(R: Union[float, np.ndarray],
                       Ip: Union[float, np.ndarray],
                       Bt: Union[float, np.ndarray],
                       type_: str) -> Tuple[Union[float, np.ndarray], ...]:
-    """
+    r"""
     # $q_{kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}$ (circular), with modifications for conventional and ST
     # q_kink = 2πa²B_t/(μ₀I_pR) (circular), with modifications for conventional and ST
     # Friedberg 2008 Plasma Physics and Fusion Energy (eq 13.158, p 405)
@@ -409,7 +409,7 @@ def kink_safety_factor(R: Union[float, np.ndarray],
 def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
                                        B_pa: float,
                                        V_p: float) -> float:
-    """
+    r"""
     # $W_K = \frac{3}{2}\left(\frac{1}{2\mu_0}\,\beta_p B_{pa}^2\,V_p\right)$
     # W_K = (3/2) * (1 / (2 * MU0) * beta_p * B_pa^2 * V_p)
     """
@@ -419,7 +419,7 @@ def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
 def magnetic_energy_from_li_B_pa_V_p(li: float,
                                      B_pa: float,
                                      V_p: float) -> float:
-    """
+    r"""
     # $W_M = \frac{1}{2\mu_0}\,\ell_i B_{pa}^2\,V_p$
     # W_M = (1 / (2 * MU0) * li * B_pa^2 * V_p)
     """
@@ -432,7 +432,7 @@ def magnetic_energy_from_li_B_pa_V_p(li: float,
 
 def virial_magnetic_energy(B: np.ndarray,
                           V: float) -> float:
-    """
+    r"""
     # $W_{mag} = \int \frac{B^2}{2\mu_0} \, dV$
     # W_mag = ∫ B²/(2μ₀) dV
     """
@@ -443,7 +443,7 @@ def virial_kinetic_energy(n: np.ndarray,
                          v: np.ndarray,
                          m: float,
                          V: float) -> float:
-    """
+    r"""
     # $W_{kin} = \int \frac{1}{2} n m v^2 \, dV$
     # W_kin = ∫ (1/2)nmv² dV
     """
@@ -453,7 +453,7 @@ def virial_kinetic_energy(n: np.ndarray,
 def virial_thermal_energy(n: np.ndarray,
                          T: np.ndarray,
                          V: float) -> float:
-    """
+    r"""
     # $W_{th} = \int \frac{3}{2} n T \, dV$
     # W_th = ∫ (3/2)nT dV
     """
@@ -463,7 +463,7 @@ def virial_thermal_energy(n: np.ndarray,
 def virial_theorem(W_mag: float,
                   W_kin: float,
                   W_th: float) -> Tuple[float, float]:
-    """
+    r"""
     # $W_{total} = W_{mag} + W_{kin} + W_{th}$, $\text{virial ratio} = \frac{W_{kin} + W_{th}}{W_{mag}}$
     # W_total = W_mag + W_kin + W_th, virial ratio = (W_kin + W_th) / W_mag
     """
@@ -475,7 +475,7 @@ def virial_theorem(W_mag: float,
 def virial_stability_criterion(W_mag: float,
                              W_kin: float,
                              W_th: float) -> Tuple[float, float]:
-    """
+    r"""
     # $\text{stability parameter} = \text{virial ratio} - 0.5$, where critical ratio = 0.5
     # stability parameter = virial ratio - 0.5, where critical ratio = 0.5
     """
@@ -489,7 +489,7 @@ def virial_beta_p_from_volume(p: np.ndarray,
                               B_pa: float,
                               Omega: float,
                               mu0: float = None) -> float:
-    """
+    r"""
     # $\beta_p = \frac{2\mu_0}{B_{pa}^2 \Omega} \int_\Omega p \, dV$
     # β_p = (2μ₀) / (B_{pa}² Ω) ∫_Ω p dV
     """
@@ -502,7 +502,7 @@ def virial_li_from_volume(B_p: np.ndarray,
                          dV: np.ndarray,
                          B_pa: float,
                          Omega: float) -> float:
-    """
+    r"""
     # $l_i = \frac{1}{B_{pa}^2 \Omega} \int_\Omega B_p^2 \, dV$
     # l_i = 1 / (B_{pa}² Ω) ∫_Ω B_p² dV
     """
@@ -514,7 +514,7 @@ def virial_muihat_from_Bt_R0_dphi(B_t: float,
                                  dphi: float,
                                  B_pa: float,
                                  Omega: float) -> float:
-    """
+    r"""
     # $\hat{\mu}_i \approx \frac{4\pi B_t R_0 \Delta\phi}{B_{pa}^2 \Omega}$
     # μ̂_i ≈ (4π B_t R₀ Δφ) / (B_{pa}² Ω)
     """
@@ -526,7 +526,7 @@ def approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa: float,
                                                          R0: float,
                                                          delta_phi: float,
                                                          V_p: float) -> float:
-    """
+    r"""
     # $\hat{\mu}_i \approx \frac{1}{B_{pa}^2 V_p}\int_{0}^{2\pi} d\phi \, R_0 \left(2 B_{tv}\Delta\phi \right)$
     # μ̂_i ≈ 1 / (B_{pa}² V_p) ∫_{0}^{2π} dφ R₀ (2 B_{tv} Δφ)
     """
@@ -538,7 +538,7 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
                                   S3: float,
                                   alpha: float,
                                   mui_hat: float) -> float:
-    """
+    r"""
     # $\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha \hat{\mu}_i + S_3}{3(\alpha - 1) + 1}$
     # β_p = [(S₁ + S₂)(α − 1) + α μ̂_i + S₃] / [3(α − 1) + 1]
     # from [MW Bongard 2016 PoP]
@@ -553,7 +553,7 @@ def virial_li_from_S_alpha_mu(S1: float,
                              S3: float,
                              alpha: float,
                              mui_hat: float) -> float:
-    """
+    r"""
     # $l_i = \frac{S_1 + S_2 - 2\hat{\mu}_i - 3S_3}{3\alpha - 2}$
     # l_i = [S₁ + S₂ − 2 μ̂_i − 3 S₃] / [3 α − 2]
     """
@@ -563,7 +563,7 @@ def virial_li_from_S_alpha_mu(S1: float,
 
 
 def virial_S1_approx() -> float:
-    """
+    r"""
     # $S_1 = 2.0$
     # S₁ = 2.0
     # Valid to O(ε, D₀, δ)
@@ -575,7 +575,7 @@ def virial_S2_approx_from_D0_a_R0(eK: float,
                                   D0: float,
                                   a_minor: float,
                                   R0: float) -> float:
-    """
+    r"""
     # $S_2 = -\frac{2a}{R_0}(D_0 + 1)\left(1 + \frac{eK}{2}\right)$
     # S₂ = −(2a / R₀)(D₀ + 1)(1 + eK/2)
     # A. A. Martynov, & V. D. Pustovitov. 2024. Virial relations for elongated plasmas in tokamaks- Analytical approximations and numerical calculations. Physics of Plasmas (Eq 21)
@@ -585,7 +585,7 @@ def virial_S2_approx_from_D0_a_R0(eK: float,
 
 def virial_S3_approx_from_eK_d(eK: float,
                               d_param: float) -> float:
-    """
+    r"""
     # $S_3 = 1 - \frac{eK}{2} - \delta\left(1 - \frac{eK^2}{2}\right)$
     # S₃ = 1 − eK/2 − δ(1 − eK²/2)
     # A. A. Martynov, & V. D. Pustovitov. 2024. Virial relations for elongated plasmas in tokamaks- Analytical approximations and numerical calculations. Physics of Plasmas (Eq 22)
@@ -598,7 +598,7 @@ def virial_bp_li_lihat_from_S123(S1: float,
                                  S3: float,
                                  a_param: float,
                                  RT_over_R0: float) -> Tuple[float, float, float]:
-    """
+    r"""
     # $3\beta_p + l_i - \hat{l}_i = S_1 + S_2$, $\beta_p + l_i + \hat{l}_i = \frac{R_T}{R_0}S_2$, $\beta_p - (\alpha - 1)l_i - \hat{l}_i = S_3$
     # 3βₚ + ℓᵢ − ℓ̂ᵢ = S₁ + S₂, βₚ + ℓᵢ + ℓ̂ᵢ = (RT/R₀)S₂, βₚ − (α−1)ℓᵢ − ℓ̂ᵢ = S₃
     # A. A. Martynov, & V. D. Pustovitov. 2024. Virial relations for elongated plasmas in tokamaks- Analytical approximations and numerical calculations. Physics of Plasmas (Eq 1-3)
@@ -619,7 +619,7 @@ def virial_D0_boundary_from_bp_li_eK(beta_p: float,
                                     eK: float,
                                     b_minor: float,
                                     R_plasma: float) -> float:
-    """
+    r"""
     # $D_0(b) = -\frac{b}{2R_{plasma}} \frac{2\beta_p + l_i + 0.5eK}{1 + 0.5eK}$
     # D₀(b) = −(b / 2R_plasma) · [2βₚ + ℓᵢ + 0.5 eK] / [1 + 0.5 eK]
     # A. A. Martynov, & V. D. Pustovitov. 2024. Virial relations for elongated plasmas in tokamaks- Analytical approximations and numerical calculations. Physics of Plasmas (Eq 37)
@@ -689,7 +689,7 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     T_e_eV: float,
     Z_eff: float = 2.0
 ) -> float:
-    """
+    r"""
     Fundamental bremsstrahlung formula.
     
     $S_B = \left(\frac{2^{1/2}}{3\pi^{5/2}}\frac{e^6}{\varepsilon_0^3 c^3 h m_e^{3/2}}\right)Z_{\mathrm{eff}} n_e^2 T_e^{1/2}$ 
@@ -712,21 +712,21 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
 Flux Consumption
 """
 def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
-    """
+    r"""
     $ \Phi_{surface} = 2 \pi \psi_{boundary} $
     # \Phi_{surface} = 2π \psi_{boundary}
     """
     return psi_boundary * 2 * np.pi
 
 def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarray) -> float:
-    """
+    r"""
     $ $V_{loop} = d/dt \Phi_{surface} $
     # V_loop = d/dt Φ_surface
     """
     return gradient(time_slice, psi_boundary) * 2 * np.pi
 
 def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
-    """
+    r"""
     $ $V_{ind} = \frac{dW_{mag}}{dt} / I_p $
     # V_ind = dW_mag/dt / I_p
     """
@@ -741,7 +741,7 @@ Power Balance
 
 def ohmic_heating_power_from_I_p_V_res(I_p: float,
                                         V_res: float) -> float:
-    """
+    r"""
     # $P_{ohm} = I_p V_res$
     # if we use V_loop instead of V_res,it assumes no inductive heating (fully resistive heating).
     """
@@ -761,7 +761,7 @@ alpha_heating_power = alpha_heating_power_from_n_D_n_T_T_keV_V
 
 def nbi_heating_power_from_I_nbi_V_nbi(I_nbi: float,
                                       V_nbi: float) -> float:
-    """
+    r"""
     # $P_{nbi} = I_{nbi} V_{nbi}$
     # P_nbi = I_nbi V_nbi
     """
@@ -769,7 +769,7 @@ def nbi_heating_power_from_I_nbi_V_nbi(I_nbi: float,
 
 def ec_heating_power_from_I_ec_V_ec(I_ec: float,
                                     V_ec: float) -> float:
-    """
+    r"""
     # $P_{ec} = I_{ec} V_{ec}$
     # P_ec = I_ec V_ec
     """
@@ -778,7 +778,7 @@ def ec_heating_power_from_I_ec_V_ec(I_ec: float,
 
 def auxiliary_heating_power(P_aux: float,
                           eta_CD: float) -> Tuple[float, float]:
-    """
+    r"""
     # $P_{CD} = \frac{P_{aux}}{1 + \eta_{CD}}$, $P_{heat} = P_{aux} - P_{CD}$
     # P_CD = P_aux / (1 + η_CD), P_heat = P_aux - P_CD
     """
@@ -788,7 +788,7 @@ def auxiliary_heating_power(P_aux: float,
 
 
 def heating_power_from_p_ohm_p_aux(P_ohm: float, P_aux: float) -> float:
-    """
+    r"""
     # $P_{heat} = P_{ohm} + P_{aux}$
     # P_heat = P_ohm + P_aux
     """
@@ -798,7 +798,7 @@ def heating_power_from_p_ohm_p_aux(P_ohm: float, P_aux: float) -> float:
 def cyclotron_radiation_power_from_z_eff_n_e_t_e(Z_eff: float,
                                         n_e: float,
                                         T_e_keV: float) -> float:
-    """
+    r"""
     # $p_{\mathrm{cyc}} \approx 1.69\times 10^{-38}\, Z_{\mathrm{eff}}\, n_e^2\, \sqrt{T_e} \quad [\mathrm{W/m^3}]$
     """
     return 1.69e-38 * Z_eff * n_e**2 * np.sqrt(T_e_keV)
@@ -827,7 +827,7 @@ def line_radiation_power_from_z_eff_n_e_t_e(Z_eff: float,
     return 0.0
 
 def radiation_power_from_p_brem_p_cyc_p_line(p_brem: float, p_cyc: float, p_line: float) -> float:
-    """
+    r"""
     # $p_{\mathrm{rad}} = p_{\mathrm{Br}} + p_{\mathrm{cyc}} + p_{\mathrm{line}}$
     # p_rad = p_brem + p_cyc + p_line
     """
@@ -835,7 +835,7 @@ def radiation_power_from_p_brem_p_cyc_p_line(p_brem: float, p_cyc: float, p_line
 
 
 def loss_power_from_p_heat_dWdt_p_rad(P_heat: float, dWdt: float, p_rad: float) -> float:
-    """
+    r"""
     # $P_{loss} = P_{heat} - \frac{dW}{dt} - p_{rad}$
     # P_loss = P_heat - dW/dt - p_rad
     # lf p_rad = 0, it means toal loss power in plasma, if p_rad > 0, it means loss power from plasma to boundary.
@@ -847,7 +847,7 @@ Dimensionless Parameters
 """
 
 def inverse_aspect_ratio_from_a_R(a: float, R: float) -> float:
-    """
+    r"""
     # $\varepsilon = \frac{a}{R}$
     # \varepsilon = a / R
     # Inverse aspect ratio
@@ -855,7 +855,7 @@ def inverse_aspect_ratio_from_a_R(a: float, R: float) -> float:
     return a / R
 
 def aspect_ratio_from_a_R(a: float, R: float) -> float:
-    """
+    r"""
     # $\frac{R}{a} = \frac{1}{\varepsilon}$
     # R / a = 1 / \varepsilon
     # Aspect ratio (not to be confused with κ, which is elongation)
@@ -868,7 +868,7 @@ def normalized_larmor_radius_from_M_T_a_Bt(M: float,
                                T: float,
                                a: float,
                                Bt: float) -> float:
-    """
+    r"""
     # $\rho_* = \frac{\rho_i}{a}$ with $\rho_i = \frac{\sqrt{2 m_i T_i}}{e B_T}$
     # ρ* = ρ_i / a, ρ_i = √(2 m_i (e T_i[eV])) / (e B_T)
     # Normalized toroidal Larmor radius (ion gyroradius / minor radius)
@@ -898,7 +898,7 @@ def normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q(nu_ii: float,
                                      R: float,
                                      a: float,
                                      q: float) -> float:
-    """
+    r"""
     # $\nu^* = \nu_{ii} \left(\frac{M_i}{eT_i}\right)^{1/2} \left(\frac{R}{a}\right)^{3/2} qR$
     # ν* = ν_ii * (M_i/(eT_i))^(1/2) * (R/a)^(3/2) * qR
     # Normalized collisionality (connection length / trapped particle mean-free path)
@@ -932,7 +932,7 @@ def normalized_collisionality_from_a_n_q_epsilon_T(a: float,
                                                    epsilon: float,
                                                    T_eV: float,
                                                    C: float = 1.0) -> float:
-    """
+    r"""
     # $\nu_* \propto \frac{a\, n\, q}{\varepsilon^{5/2}\, T^2}$
     # ν* ∝ a n q / (ε^(5/2) T^2)
     #
@@ -969,7 +969,7 @@ def cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta(R: float,
                                            epsilon: float,
                                            I: float,
                                            f_kappa_delta: float) -> float:
-    """
+    r"""
     # $q_{cyl} \approx \frac{2\pi\,\varepsilon^2\, R\, B_T}{\mu_0\, I_p\, f(\kappa,\delta)}$
     # q_cyl ≈ (2π ε² R B_T) / (μ₀ I_p f(κ,δ))
     #
@@ -1002,7 +1002,7 @@ def cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta(R: float,
 Confinement Time
 """
 def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
-    """
+    r"""
     # $\tau_{E,\text{th}}^{\text{fit}} = \frac{W_{\text{th}}}{P_{\text{loss}}}$
     # \tau_{E,\text{th}}^{\text{fit}} = W_th / P_loss
     """
@@ -1099,7 +1099,7 @@ def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss:
 
 
 def confinement_factor_from_tau_E_exp_tau_E_IPB89y2(tau_E_exp: float, tau_E_IBP98y2: float) -> float:
-    """
+    r"""
     # $\frac{\tau_{E,\text{exp}}}{\tau_{E,\text{IBP98y2}}}$
     # \frac{\tau_{E,\text{exp}}}{\tau_{E,\text{IBP98y2}}}
     """

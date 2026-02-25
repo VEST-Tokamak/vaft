@@ -26,7 +26,10 @@ Modification History:
 
 import requests
 import urllib3
-import h5pyd
+try:
+    import h5pyd
+except ImportError:
+    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 import h5py
 import omas
 import subprocess
@@ -38,6 +41,15 @@ import logging
 import pandas as pd
 from datetime import datetime
 
+_H5PYD_MSG = (
+    "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
+)
+
+
+def _require_h5pyd():
+    if h5pyd is None:
+        raise ImportError(_H5PYD_MSG)
+
 
 def is_connect() -> bool:
     """
@@ -47,6 +59,7 @@ def is_connect() -> bool:
     output: True if the user is connected to the server, False otherwise.
 
     """
+    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
     try:
         if h5pyd.getServerInfo()['state']=='READY':
@@ -70,6 +83,7 @@ def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> Li
     Returns:
         list[int]: List of shot numbers. Empty list if no matches found or connection error.
     """
+    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
     if username is None:
         # username = h5pyd.getServerInfo()['username']
@@ -110,6 +124,7 @@ def exist_ts_file():
     - Displays in a Markdown-formatted table.
     - Returns DataFrame with an additional 'File' column indicating source file.
     """
+    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     try:
@@ -183,6 +198,7 @@ def save(
     Returns:
     None: The function doesn't return any specific value but prints information about the saving process.
     """
+    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     if filename is None:
@@ -243,7 +259,7 @@ def load(shot: Union[int, List[int]], directory: str = 'public') -> Union[omas.O
     Returns:
         Union[omas.ODS, List[omas.ODS]]: ODS object or list of ODS objects
     """
-
+    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     if isinstance(shot, list):
