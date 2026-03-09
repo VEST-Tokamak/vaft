@@ -91,6 +91,19 @@ IMAS_REMOVED_IDS = frozenset(['dataset_description'])
 # Legacy DD version used for OMAS–IMAS conversion (save/load). Override via env IMAS_DD_VERSION_CONVERSION.
 IMAS_DD_VERSION_CONVERSION = os.environ.get('IMAS_DD_VERSION_CONVERSION', os.environ.get('IMAS_DD_CONVERSION', '3.41.0'))
 
+# Exceptions to catch when an IDS is empty or missing (skip that IDS instead of failing load).
+# DataEntryException is raised by imas_core/AL5 when occurrence has no data.
+_IDS_SKIP_EXCEPTIONS = (ValueError,)
+try:
+    from imas_core import DataEntryException
+    _IDS_SKIP_EXCEPTIONS = (ValueError, DataEntryException)
+except ImportError:
+    try:
+        from imas import DataEntryException
+        _IDS_SKIP_EXCEPTIONS = (ValueError, DataEntryException)
+    except (ImportError, AttributeError):
+        pass
+
 
 class IDS_AL4:
     """Wrapper for AL4 (AL-Python / legacy imas module) imas.ids()"""
@@ -642,16 +655,19 @@ def infer_fetch_paths(ids, occurrence, paths, time, imas_version, verbose=True):
         if time is None:
             try:
                 ids.get_ids(getattr(ids, ds), ds, occ)
-            except ValueError as _excp:
-                print(f'x {ds.ljust(ndss)} IDS failed on get')  # not sure why some IDSs fail on .get()... it's not about them being empty
+            except _IDS_SKIP_EXCEPTIONS as _excp:
+                # Skip IDSs that are empty or missing (ValueError from AL4; DataEntryException from imas_core/AL5)
+                if verbose:
+                    print(f'- {ds.ljust(ndss)} IDS skipped ({type(_excp).__name__}: empty or failed on get)')
                 continue
 
         # ids.getSlice()
         else:
             try:
                 ids.get_ids_slice(getattr(ids, ds), ds, time, occ)
-            except ValueError as _excp:
-                print(f'x {ds.ljust(ndss)} IDS failed on getSlice')
+            except _IDS_SKIP_EXCEPTIONS as _excp:
+                if verbose:
+                    print(f'- {ds.ljust(ndss)} IDS skipped ({type(_excp).__name__}: empty or failed on getSlice)')
                 continue
 
         # see if the IDS has any data (if so homogeneous_time must be populated)
