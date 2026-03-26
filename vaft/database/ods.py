@@ -28,10 +28,12 @@ import requests
 import urllib3
 import json
 import os
+_H5PYD_IMPORT_ERROR = None
 try:
     import h5pyd
-except ImportError:
+except ImportError as exc:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
+    _H5PYD_IMPORT_ERROR = exc
 import h5py
 import omas
 import scipy.io
@@ -51,6 +53,8 @@ _H5PYD_MSG = (
 
 def _require_h5pyd():
     if h5pyd is None:
+        if _H5PYD_IMPORT_ERROR is not None:
+            raise ImportError(f"{_H5PYD_MSG} (import failed: {_H5PYD_IMPORT_ERROR})") from _H5PYD_IMPORT_ERROR
         raise ImportError(_H5PYD_MSG)
 
 

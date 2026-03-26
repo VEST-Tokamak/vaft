@@ -1,4 +1,10 @@
-"""Lazy database namespace for raw and ODS access."""
+"""Lazy database namespace for raw and ODS access.
+
+Notebook and workflow code primarily use ``vaft.database.load`` for ODS/HDF5
+shot loading, while raw DAQ access is reached explicitly via
+``vaft.database.raw``. Resolve flat attribute lookups in that order so the
+public database namespace matches long-standing usage.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +19,7 @@ def __getattr__(name: str):
         globals()[name] = module
         return module
 
-    for module_name in ("raw", "ods"):
+    for module_name in ("ods", "raw"):
         try:
             module = import_module(f".{module_name}", __name__)
         except Exception:

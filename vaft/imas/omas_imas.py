@@ -102,7 +102,11 @@ except ImportError:
         from imas import DataEntryException
         _IDS_SKIP_EXCEPTIONS = (ValueError, DataEntryException)
     except (ImportError, AttributeError):
-        pass
+        try:
+            from imas.exception import DataEntryException
+            _IDS_SKIP_EXCEPTIONS = (ValueError, DataEntryException)
+        except (ImportError, AttributeError):
+            pass
 
 
 class IDS_AL4:

@@ -179,6 +179,204 @@ def profile_fitting_thomson_scattering(
 
     return n_e_function, T_e_function, coeffs_ne, coeffs_te, n_e_rho, T_e_rho
 
+
+def equilibrium_mapping_charge_exchange(ods, geq):
+    """
+    Map charge_exchange (CES) channel positions to normalized poloidal flux (rho).
+
+    This is analogous to equilibrium_mapping_thomson_scattering but uses
+    charge_exchange.channel[:].position.(r,z) as the measurement points.
+
+    Args:
+        ods: OMAS data structure containing charge_exchange positions.
+        geq: Equilibrium data (same structure as used for Thomson mapping).
+
+    Returns:
+        numpy.ndarray: mapped rho positions for each charge_exchange channel.
+    """
+    def _to_float_scalar(x):
+        try:
+            x = unumpy.nominal_values(x)
+        except Exception:
+            pass
+
+        arr = np.asarray(x)
+        if arr.size == 0:
+            return float("nan")
+
+        if arr.dtype.kind in {"U", "S", "O"}:
+            try:
+                arr = arr.astype(float)
+            except Exception:
+                return float(str(arr.reshape(-1)[0]))
+        else:
+            arr = arr.astype(float, copy=False)
+
+        return float(arr.reshape(-1)[0])
+
+    # Prefer OMAS `.data` leaves (what CES machine-mapping writes), fall back for compatibility.
+    try:
+        R_ce = ods["charge_exchange.channel.:.position.r.data"]
+        Z_ce = ods["charge_exchange.channel.:.position.z.data"]
+    except Exception:
+        R_ce = ods["charge_exchange.channel.:.position.r"]
+        Z_ce = ods["charge_exchange.channel.:.position.z"]
+
+    flux_levels = geq['fluxSurfaces']['levels']
+    mapped_rho_position = []
+
+    for r_dot, z_dot in zip(R_ce, Z_ce):
+        r_dot = _to_float_scalar(r_dot)
+        z_dot = _to_float_scalar(z_dot)
+        min_dist = float('inf')
+        closest_rho = None
+
+        for i in range(len(geq['fluxSurfaces']['flux'])):
+            R = np.asarray(geq['fluxSurfaces']['flux'][i]['R'], dtype=float)
+            Z = np.asarray(geq['fluxSurfaces']['flux'][i]['Z'], dtype=float)
+            dists = np.sqrt((R - r_dot) ** 2 + (Z - z_dot) ** 2)
+            min_flux_dist = np.min(dists)
+
+            if min_flux_dist < min_dist:
+                min_dist = min_flux_dist
+                closest_rho = flux_levels[i]
+
+        mapped_rho_position.append(closest_rho)
+
+    mapped_rho_position = np.asarray(mapped_rho_position, dtype=float)
+    mapped_rho_position = np.clip(mapped_rho_position, 0.0, 1.0)
+    return mapped_rho_position
+
+
+def profile_fitting_charge_exchange(
+    ods,
+    time_ms,
+    mapped_rho_position,
+    Ti_order=3,
+    Vtor_order=3,
+    uncertainty_option=1,
+    rho_points=100,
+    fitting_function_ti='polynomial',
+    fitting_function_vtor='polynomial',
+    ion_index=0,
+):
+    """
+    Fit charge_exchange (CES) ion temperature and toroidal velocity profiles.
+
+    This mirrors profile_fitting_thomson_scattering, but for:
+    - T_i(ρ): ion temperature from charge_exchange.channel[:].ion[ion_index].t_i.data
+    - V_tor(ρ): toroidal ion velocity from charge_exchange.channel[:].ion[ion_index].velocity_tor.data
+
+    Args:
+        ods: OMAS data structure containing charge_exchange.
+        time_ms: time in milliseconds (matched to charge_exchange.time).
+        mapped_rho_position: mapped rho_tor_norm positions for CES channels.
+        Ti_order, Vtor_order: polynomial order for respective fits.
+        uncertainty_option: passed through to fit_profile.
+        rho_points: number of evaluation points on ρ ∈ [0, 1].
+        fitting_function_ti, fitting_function_vtor: fit methods for T_i and V_tor.
+        ion_index: ion index within charge_exchange.channel[i].ion.
+
+    Returns:
+        (Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho)
+    """
+    # --- time index ---
+    times = np.asarray(ods['charge_exchange.time'], dtype=float)
+    if times.ndim != 1:
+        raise ValueError("charge_exchange.time must be 1D")
+
+    target_s = time_ms / 1e3
+    idx_candidates = np.where(np.isclose(times, target_s))[0]
+    if len(idx_candidates) == 0:
+        # fallback: nearest time
+        time_index = int(np.argmin(np.abs(times - target_s)))
+    else:
+        time_index = int(idx_candidates[0])
+
+    num_channels = len(ods['charge_exchange.channel'])
+    Ti, Vtor, Ti_std, Vtor_std = [], [], [], []
+
+    for i in range(num_channels):
+        ion = ods[f'charge_exchange.channel.{i}.ion.{ion_index}']
+
+        ti_u = ion['t_i.data']
+        vtor_u = ion['velocity_tor.data']
+
+        # Extract nominal values and std using uncertainties if present
+        try:
+            ti_vals = unumpy.nominal_values(ti_u)
+            ti_errs = unumpy.std_devs(ti_u)
+        except Exception:
+            ti_vals = np.asarray(ti_u, dtype=float)
+            ti_errs = np.zeros_like(ti_vals, dtype=float)
+
+        try:
+            v_vals = unumpy.nominal_values(vtor_u)
+            v_errs = unumpy.std_devs(vtor_u)
+        except Exception:
+            v_vals = np.asarray(vtor_u, dtype=float)
+            v_errs = np.zeros_like(v_vals, dtype=float)
+
+        # Guard for 0D / 1D APIs
+        if np.isscalar(ti_vals):
+            Ti.append(float(ti_vals))
+            Ti_std.append(max(float(np.abs(ti_errs)), 1e-6))
+        else:
+            if time_index >= len(ti_vals):
+                raise IndexError("t_i.data shorter than charge_exchange.time")
+            Ti.append(float(ti_vals[time_index]))
+            Ti_std.append(max(float(np.abs(ti_errs[time_index])), 1e-6))
+
+        if np.isscalar(v_vals):
+            Vtor.append(float(v_vals))
+            Vtor_std.append(max(float(np.abs(v_errs)), 1e-6))
+        else:
+            if time_index >= len(v_vals):
+                raise IndexError("velocity_tor.data shorter than charge_exchange.time")
+            Vtor.append(float(v_vals[time_index]))
+            Vtor_std.append(max(float(np.abs(v_errs[time_index])), 1e-6))
+
+    Ti = np.asarray(Ti, dtype=float)
+    Vtor = np.asarray(Vtor, dtype=float)
+    Ti_std = np.asarray(Ti_std, dtype=float)
+    Vtor_std = np.asarray(Vtor_std, dtype=float)
+
+    rho = np.clip(np.asarray(mapped_rho_position, dtype=float).reshape(-1, 1), 0.0, 1.0)
+    rho_eval = np.linspace(0.0, 1.0, rho_points)
+
+    # --- Fit T_i(ρ) ---
+    Ti_rho, Ti_std_fit, Ti_function_raw, coeffs_ti = fit_profile(
+        rho,
+        Ti,
+        Ti_std,
+        rho_eval,
+        order=Ti_order,
+        uncertainty_option=uncertainty_option,
+        fitting_function=fitting_function_ti,
+        gp_anchor=None,
+    )
+
+    def Ti_function(rho_input):
+        x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
+        return np.maximum(Ti_function_raw(x), 0.0)
+
+    # --- Fit V_tor(ρ) ---
+    Vtor_rho, Vtor_std_fit, Vtor_function_raw, coeffs_vtor = fit_profile(
+        rho,
+        Vtor,
+        Vtor_std,
+        rho_eval,
+        order=Vtor_order,
+        uncertainty_option=uncertainty_option,
+        fitting_function=fitting_function_vtor,
+        gp_anchor=None,
+    )
+
+    def Vtor_function(rho_input):
+        x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
+        return Vtor_function_raw(x)
+
+    return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
 def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function, tol_ms=0.1):
     """
     Construct and store core_profiles.profiles_1d for given Thomson scattering data.

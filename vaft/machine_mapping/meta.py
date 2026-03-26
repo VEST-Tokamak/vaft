@@ -23,41 +23,53 @@ from omas import ODS
 
 def dataset_description(ods: ODS, source: str, options: dict = None) -> None:
     """
-    Add dataset description to the ODS structure.
-    
-    Args:
-        ods: OMAS data structure
-        source: Source for dataset description (file path or shot number)
-        options: Optional dictionary containing processing options
-            - version: Optional int for dataset version (default: 1)
-            - source_type: Optional str ('file' or 'shot')
-            - creation_date: Optional str for custom creation date
-            - description: Optional str for custom description
+    Populate the `dataset_description` IDS in a way that is consistent with the
+    IMAS/OMAS schema for `dataset_description` [1]_.
+
+    Parameters
+    ----------
+    ods:
+        OMAS data structure to populate.
+    source:
+        Shot number or other identifier. Interpreted as a shot number when
+        ``options['source_type'] == 'shot'``.
+    options:
+        Optional dictionary. Recognised keys include
+
+        - ``source_type``: ``'shot'`` (default) or ``'file'``
+        - ``description``: free-text description of this ODS
+        - ``run``: IMAS run number (default 0)
+        - ``pulse_type``: e.g. ``'pulse'`` (default) or ``'simulation'``
+        - ``user``: username (defaults to ``os.environ['USER']`` when missing)
+        - ``machine``: machine name (default ``'VEST'``)
+        - ``provider``: person in charge of producing this data
+        - ``creation_date``: ISO-8601 string; defaults to ``now()``
+        - ``name``: user-defined name for this IDS occurrence
+        - ``homogeneous_time``: 0, 1 or 2 (default 2 for static metadata)
+        - ``dd_version``: physics data dictionary version string
+        - ``imas_version``: IMAS infrastructure version string
+
+    Notes
+    -----
+    The following fields are populated to match the schema in
+    `dataset description — OMAS <https://gafusion.github.io/omas/schema/schema_dataset%20description.html>`_:
+
+    - ``dataset_description.data_entry.machine``
+    - ``dataset_description.data_entry.pulse``
+    - ``dataset_description.data_entry.pulse_type``
+    - ``dataset_description.data_entry.run``
+    - ``dataset_description.data_entry.user``
+    - ``dataset_description.ids_properties.comment``
+    - ``dataset_description.ids_properties.creation_date``
+    - ``dataset_description.ids_properties.name``
+    - ``dataset_description.ids_properties.homogeneous_time``
+    - ``dataset_description.ids_properties.provider``
+    - ``dataset_description.dd_version``
+    - ``dataset_description.imas_version``
     """
-    if options is None:
-        options = {}
-    
-    # Set basic dataset information
-    ods['dataset_description.data_entry.pulse'] = int(source) if options.get('source_type') == 'shot' else None
-    ods['dataset_description.version'] = options.get('version', 1)
-    ods['dataset_description.creation_date'] = options.get('creation_date', datetime.datetime.now().isoformat())
-    ods['dataset_description.source'] = 'VEST database'
-    
-    # Add custom description if provided
-    if 'description' in options:
-        ods['dataset_description.description'] = options['description']
-    
-    # Set data entry information
-    ods['dataset_description.data_entry.shot'] = int(source) if options.get('source_type') == 'shot' else None
-    ods['dataset_description.data_entry.run'] = options.get('run', 1)
-    
-    # Set machine information
-    ods['dataset_description.machine'] = 'VEST'
-    ods['dataset_description.machine.mode'] = 'tokamak'
-    
-    # Set data quality information
-    ods['dataset_description.data_quality.level'] = options.get('quality_level', 'processed')
-    ods['dataset_description.data_quality.comment'] = options.get('quality_comment', 'Processed data from VEST database')
+    from .dataset_description import dataset_description as _dataset_description
+
+    _dataset_description(ods, source, options)
 
 def summary(ods: ODS, source: str, options: dict = None) -> None:
     """
@@ -74,32 +86,9 @@ def summary(ods: ODS, source: str, options: dict = None) -> None:
             - toroidal_field: Optional float for toroidal field
             - additional_info: Optional dict for additional summary information
     """
-    if options is None:
-        options = {}
-    
-    # Set basic summary information
-    ods['summary.shot'] = int(source) if options.get('source_type') == 'shot' else None
-    
-    # Set time information
-    if 'start_time' in options:
-        ods['summary.time.start'] = options['start_time']
-    if 'end_time' in options:
-        ods['summary.time.end'] = options['end_time']
-    
-    # Set plasma parameters
-    if 'plasma_current' in options:
-        ods['summary.plasma_current.maximum'] = options['plasma_current']
-    if 'toroidal_field' in options:
-        ods['summary.toroidal_field.maximum'] = options['toroidal_field']
-    
-    # Add additional information if provided
-    if 'additional_info' in options:
-        for key, value in options['additional_info'].items():
-            ods[f'summary.{key}'] = value
-    
-    # Set experiment status
-    ods['summary.status'] = options.get('status', 'completed')
-    ods['summary.comment'] = options.get('comment', 'VEST experiment data')
+    from .summary import summary as _summary
+
+    _summary(ods, source, options)
 
 def get_metadata(source: str, options: dict = None) -> dict:
     """

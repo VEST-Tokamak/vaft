@@ -4,6 +4,31 @@ import omas
 from matplotlib.ticker import ScalarFormatter
 
 
+def _extract_nominal_and_error(arr):
+    """
+    Utility to extract nominal values and 1-sigma errors from arrays that may
+    contain uncertainties.unumpy objects. Falls back to zero error if the
+    uncertainties package is unavailable.
+    """
+    try:
+        from uncertainties import unumpy as unp
+
+        np_arr = np.asarray(arr)
+        if np_arr.dtype == object:
+            vals = np.asarray(unp.nominal_values(np_arr), float)
+            errs = np.asarray(unp.std_devs(np_arr), float)
+        else:
+            vals = np.asarray(np_arr, float)
+            errs = np.zeros_like(vals)
+    except Exception:
+        vals = np.asarray(arr, float)
+        errs = np.zeros_like(vals)
+    vals_s = np.squeeze(vals)
+    errs_s = np.squeeze(errs)
+
+    return vals_s, errs_s
+
+
 def plot_thomson_radial_position(ods, contour_quantity='psi_norm'):
     """
     Plot Thomson radial positions on the first available equilibrium boundary and wall.
@@ -60,6 +85,13 @@ def plot_thomson_radial_position(ods, contour_quantity='psi_norm'):
 
     plt.tight_layout()
     plt.show()
+
+
+def thomson_scattering_radial(ods, contour_quantity: str = 'psi_norm'):
+    """
+    Alias following the {ids}_{dimension} naming convention.
+    """
+    return plot_thomson_radial_position(ods, contour_quantity=contour_quantity)
 
 def plot_electron_profile_with_thomson(ods):
     """
@@ -181,6 +213,616 @@ def plot_thomson_time_series(ods):
     ax2.grid(True)
 
     # --- 전체 스타일 ---
+    fig.tight_layout()
+    fig.legend(
+        loc='center left',
+        bbox_to_anchor=(1.02, 0.5),
+        fontsize=font_size,
+    )
+
+    plt.show()
+
+
+def thomson_scattering_time(ods):
+    """
+    Alias following the {ids}_{dimension} naming convention.
+    """
+    return plot_thomson_time_series(ods)
+
+
+def charge_exchange_radial(ods, ion_index: int = 0):
+    """
+    Plot Charge Exchange Spectroscopy (CES) radial profiles:
+    - Toroidal ion velocity vs R
+    - Ion temperature vs R
+
+    Data are taken from the charge_exchange IDS produced by
+    vaft.machine_mapping.charge_exchange.
+
+    Args:
+        ods: OMAS data structure containing charge_exchange data.
+        ion_index: Index of ion within each channel (default: 0).
+    """
+    if 'charge_exchange' not in ods:
+        print("No charge_exchange data found in ODS.")
+        return
+
+    CE = ods['charge_exchange']
+
+    try:
+        n_channels = len(CE['channel'])
+    except Exception:
+        print("charge_exchange.channel is missing or malformed.")
+        return
+
+    # Assume single time frame (index 0) as in current CES processing
+    time_index = 0
+    if 'time' in CE:
+        try:
+            time_s = float(np.asarray(CE['time'])[time_index])
+        except Exception:
+            time_s = np.nan
+    else:
+        time_s = np.nan
+
+    R, R_err = [], []
+    Ti, Ti_err = [], []
+    Vtor_kms, Vtor_err_kms = [], []
+
+    for ch in range(n_channels):
+        try:
+            r_vals, r_errs = _extract_nominal_and_error(
+                CE[f'channel.{ch}.position.r.data']
+            )
+            ti_vals, ti_errs = _extract_nominal_and_error(
+                CE[f'channel.{ch}.ion.{ion_index}.t_i.data']
+            )
+            v_vals, v_errs = _extract_nominal_and_error(
+                CE[f'channel.{ch}.ion.{ion_index}.velocity_tor.data']
+            )
+        except Exception as e:
+            print(f"[SKIP] Failed to read CES channel {ch}: {e}")
+            continue
+
+        # Guard against shorter time series
+        if np.isscalar(r_vals) or np.ndim(r_vals) == 0:
+            r_val = float(np.asarray(r_vals).reshape(-1)[0])
+            r_err = float(np.asarray(r_errs).reshape(-1)[0])
+        else:
+            if time_index >= len(r_vals):
+                continue
+            r_val = float(r_vals[time_index])
+            r_err = float(r_errs[time_index])
+
+        if np.isscalar(ti_vals) or np.ndim(ti_vals) == 0:
+            ti_val = float(np.asarray(ti_vals).reshape(-1)[0])
+            ti_err = float(np.asarray(ti_errs).reshape(-1)[0])
+        else:
+            if time_index >= len(ti_vals):
+                continue
+            ti_val = float(ti_vals[time_index])
+            ti_err = float(ti_errs[time_index])
+
+        if np.isscalar(v_vals) or np.ndim(v_vals) == 0:
+            v_val = float(np.asarray(v_vals).reshape(-1)[0])
+            v_err = float(np.asarray(v_errs).reshape(-1)[0])
+        else:
+            if time_index >= len(v_vals):
+                continue
+            v_val = float(v_vals[time_index])
+            v_err = float(v_errs[time_index])
+
+        R.append(r_val)
+        R_err.append(abs(r_err))
+        Ti.append(ti_val)
+        Ti_err.append(abs(ti_err))
+        Vtor_kms.append(v_val / 1e3)
+        Vtor_err_kms.append(abs(v_err) / 1e3)
+
+    if len(R) == 0:
+        print("No valid CES channels to plot.")
+        return
+
+    R = np.asarray(R)
+    R_err = np.asarray(R_err)
+    Ti = np.asarray(Ti)
+    Ti_err = np.asarray(Ti_err)
+    Vtor_kms = np.asarray(Vtor_kms)
+    Vtor_err_kms = np.asarray(Vtor_err_kms)
+
+    # Sort by radius for nicer profiles
+    order = np.argsort(R)
+    R = R[order]
+    R_err = R_err[order]
+    Ti = Ti[order]
+    Ti_err = Ti_err[order]
+    Vtor_kms = Vtor_kms[order]
+    Vtor_err_kms = Vtor_err_kms[order]
+
+    # Shot number (if available)
+    try:
+        shot = ods['dataset_description.data_entry.pulse']
+    except Exception:
+        shot = None
+
+    time_ms = time_s * 1e3 if np.isfinite(time_s) else np.nan
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 4), sharex=True)
+
+    # Toroidal velocity
+    ax1.errorbar(
+        R,
+        Vtor_kms,
+        yerr=Vtor_err_kms,
+        xerr=R_err,
+        fmt='-o',
+        color='r',
+        linewidth=1,
+        markersize=4,
+        capsize=2,
+    )
+    ax1.set_ylabel('Toroidal Velocity (km/s)', fontsize=8)
+    ax1.grid(True, alpha=0.3)
+
+    # Ion temperature
+    ax2.errorbar(
+        R,
+        Ti,
+        yerr=Ti_err,
+        xerr=R_err,
+        fmt='-o',
+        color='b',
+        linewidth=1,
+        markersize=4,
+        capsize=2,
+    )
+    ax2.set_xlabel('R (m)', fontsize=8)
+    ax2.set_ylabel('Ion Temperature (eV)', fontsize=8)
+    ax2.grid(True, alpha=0.3)
+
+    if np.isfinite(time_ms):
+        title = f'CES Profile @ {time_ms:.1f} ms'
+    else:
+        title = 'CES Profile'
+    if shot is not None:
+        title += f' (shot {shot})'
+    fig.suptitle(title, fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_ces_profile(ods, ion_index: int = 0):
+    """
+    Backward-compatible alias to keep the old naming.
+    """
+    return charge_exchange_radial(ods, ion_index=ion_index)
+
+
+def charge_exchange_rho_profiles(
+    ods,
+    eq=None,
+    time_ms: float = 300.0,
+    ion_index: int = 0,
+    rho_points: int = 100,
+    fitting_function_ti: str = "polynomial",
+    fitting_function_vtor: str = "polynomial",
+    Ti_order: int = 3,
+    Vtor_order: int = 3,
+    uncertainty_option: int = 1,
+    save_opt: int = 0,
+    file_name: str | None = None,
+):
+    """
+    Plot CES (charge_exchange) profiles vs normalized flux coordinate (rho).
+
+    This is analogous in spirit to `plot_thomson_profiles`, but for:
+    - V_tor(ρ): charge_exchange.channel[:].ion[ion_index].velocity_tor
+    - T_i(ρ):   charge_exchange.channel[:].ion[ion_index].t_i
+
+    Behavior
+    --------
+    - If cached results exist in ODS, uses them and skips mapping/fitting.
+    - Otherwise, requires `eq` and computes:
+      mapping -> profile fitting -> caches results into ODS.
+
+    Storage / reuse
+    ---------------
+    This function is IMAS-schema compliant:
+    - The fitted profiles are stored into `core_profiles.profiles_1d`
+      (grid rho_tor_norm, ion.temperature, ion.velocity_tor).
+    - Measured Ti points are stored into `ion.temperature_fit.*` (schema-supported).
+    - IMAS 3.41.0 does NOT expose a `velocity_tor_fit.*` block, so measured Vtor
+      points are plotted directly from `charge_exchange` (still schema-valid).
+
+    If a matching `core_profiles.profiles_1d` time slice already exists, the
+    function will reuse it and skip recomputing.
+    """
+    if "charge_exchange" not in ods:
+        print("No charge_exchange data found in ODS.")
+        return
+
+    # Local import to avoid circulars at module import time.
+    from vaft.process import profile as process_profile
+    try:
+        from uncertainties import unumpy
+    except Exception:
+        unumpy = None
+
+    # --- Reuse existing core_profiles slice if present ---
+    rho_fit = Ti_fit = Vtor_fit = None
+    rho_meas = Ti_meas = Ti_err = Vtor_meas = Vtor_err = np.asarray([])
+    time_s = np.nan
+
+    target_s = float(time_ms) / 1e3
+    cp_index = None
+    if "core_profiles.profiles_1d" in ods:
+        try:
+            for i in range(len(ods["core_profiles.profiles_1d"])):
+                t_existing = float(ods[f"core_profiles.profiles_1d.{i}.time"])
+                if np.isclose(t_existing, target_s):
+                    cp_index = i
+                    break
+        except Exception:
+            cp_index = None
+
+    if cp_index is not None:
+        base = f"core_profiles.profiles_1d.{cp_index}"
+        time_s = float(ods[f"{base}.time"])
+        rho_fit = np.asarray(ods[f"{base}.grid.rho_tor_norm"], dtype=float)
+        Ti_fit = np.asarray(ods[f"{base}.ion.{ion_index}.temperature"], dtype=float)
+        Vtor_fit = np.asarray(ods[f"{base}.ion.{ion_index}.velocity_tor"], dtype=float)
+
+        # Measured Ti (optional)
+        try:
+            rho_meas = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.rho_tor_norm"], dtype=float)
+            Ti_meas = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.measured"], dtype=float)
+            Ti_err = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.measured_error_upper"], dtype=float)
+        except Exception:
+            rho_meas = np.asarray([])
+            Ti_meas = np.asarray([])
+            Ti_err = np.asarray([])
+
+        # Vtor measured stays in charge_exchange (no schema block for velocity_tor_fit in IMAS 3.41.0)
+
+        # #region agent log
+        try:
+            import json, time as _time
+            with open("/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a") as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "bd9a35",
+                            "runId": "pre-fix",
+                            "hypothesisId": "H_core_profiles_reuse",
+                            "location": "vaft/plot/profile.py:charge_exchange_rho_profiles",
+                            "message": "core_profiles_reuse_hit",
+                            "data": {"cp_index": int(cp_index), "time_s": float(time_s)},
+                            "timestamp": int(_time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion agent log
+    else:
+        # --- Compute mapping + fit then cache ---
+        if eq is None:
+            raise ValueError(
+                "eq is required when CES rho-fit cache is missing. "
+                "Call charge_exchange_rho_profiles(ods, eq=..., time_ms=...)."
+            )
+
+        # Match fitter’s time index selection behavior.
+        times = np.asarray(ods["charge_exchange.time"], dtype=float)
+        target_s = float(time_ms) / 1e3
+        idx_candidates = np.where(np.isclose(times, target_s))[0]
+        if len(idx_candidates) == 0:
+            time_index = int(np.argmin(np.abs(times - target_s)))
+        else:
+            time_index = int(idx_candidates[0])
+        time_s = float(times[time_index]) if times.size else np.nan
+
+        mapped_rho = process_profile.equilibrium_mapping_charge_exchange(ods, eq)
+
+        (
+            Vtor_func,
+            Ti_func,
+            _coeffs_vtor,
+            _coeffs_ti,
+            Vtor_fit,
+            Ti_fit,
+        ) = process_profile.profile_fitting_charge_exchange(
+            ods,
+            time_ms=float(time_ms),
+            mapped_rho_position=mapped_rho,
+            Ti_order=int(Ti_order),
+            Vtor_order=int(Vtor_order),
+            uncertainty_option=int(uncertainty_option),
+            rho_points=int(rho_points),
+            fitting_function_ti=str(fitting_function_ti),
+            fitting_function_vtor=str(fitting_function_vtor),
+            ion_index=int(ion_index),
+        )
+
+        # Build rho grid exactly as fitter does (0..1 linspace).
+        rho_fit = np.linspace(0.0, 1.0, int(rho_points))
+
+        # Extract measured points at selected time index.
+        n_channels = len(ods["charge_exchange.channel"])
+        rho_meas = np.asarray(mapped_rho, dtype=float).reshape(-1)[:n_channels]
+
+        Ti_meas, Ti_err = [], []
+        Vtor_meas, Vtor_err = [], []
+
+        for ch in range(n_channels):
+            ion = ods[f"charge_exchange.channel.{ch}.ion.{ion_index}"]
+            ti_u = ion["t_i.data"]
+            v_u = ion["velocity_tor.data"]
+
+            # Use uncertainties if present (same approach as fitter).
+            try:
+                if unumpy is None:
+                    raise RuntimeError("uncertainties unavailable")
+                ti_vals = unumpy.nominal_values(ti_u)
+                ti_stds = unumpy.std_devs(ti_u)
+            except Exception:
+                ti_vals = np.asarray(ti_u, dtype=float)
+                ti_stds = np.zeros_like(ti_vals, dtype=float)
+
+            try:
+                if unumpy is None:
+                    raise RuntimeError("uncertainties unavailable")
+                v_vals = unumpy.nominal_values(v_u)
+                v_stds = unumpy.std_devs(v_u)
+            except Exception:
+                v_vals = np.asarray(v_u, dtype=float)
+                v_stds = np.zeros_like(v_vals, dtype=float)
+
+            # Index with the chosen time slice, but tolerate scalar/0-d.
+            ti_vals = np.asarray(ti_vals, dtype=float)
+            ti_stds = np.asarray(ti_stds, dtype=float)
+            v_vals = np.asarray(v_vals, dtype=float)
+            v_stds = np.asarray(v_stds, dtype=float)
+
+            ti_val = float(ti_vals.reshape(-1)[time_index] if ti_vals.size > 1 else ti_vals.reshape(-1)[0])
+            ti_er = float(ti_stds.reshape(-1)[time_index] if ti_stds.size > 1 else ti_stds.reshape(-1)[0])
+            v_val = float(v_vals.reshape(-1)[time_index] if v_vals.size > 1 else v_vals.reshape(-1)[0])
+            v_er = float(v_stds.reshape(-1)[time_index] if v_stds.size > 1 else v_stds.reshape(-1)[0])
+
+            Ti_meas.append(ti_val)
+            Ti_err.append(abs(ti_er))
+            Vtor_meas.append(v_val)
+            Vtor_err.append(abs(v_er))
+
+        Ti_meas = np.asarray(Ti_meas, dtype=float)
+        Ti_err = np.asarray(Ti_err, dtype=float)
+        Vtor_meas = np.asarray(Vtor_meas, dtype=float)
+        Vtor_err = np.asarray(Vtor_err, dtype=float)
+
+        # --- Store into core_profiles.profiles_1d (schema-valid) ---
+        # Find/replace a profile_1d at this time; otherwise append.
+        if "core_profiles.profiles_1d" in ods:
+            for i in range(len(ods["core_profiles.profiles_1d"])):
+                try:
+                    t_existing = float(ods[f"core_profiles.profiles_1d.{i}.time"])
+                    if np.isclose(t_existing, time_s):
+                        ods.pop(f"core_profiles.profiles_1d.{i}")
+                        break
+                except Exception:
+                    continue
+            next_idx = len(ods["core_profiles.profiles_1d"])
+        else:
+            next_idx = 0
+
+        cp_base = f"core_profiles.profiles_1d.{next_idx}"
+        ods[f"{cp_base}.time"] = float(time_s)
+        ods[f"{cp_base}.grid.rho_tor_norm"] = np.asarray(rho_fit, dtype=float)
+
+        # Ion label (prefer from charge_exchange)
+        try:
+            ion_label = ods[f"charge_exchange.channel.0.ion.{ion_index}.label"]
+        except Exception:
+            ion_label = f"ion{int(ion_index)}"
+        ods[f"{cp_base}.ion.{ion_index}.label"] = ion_label
+
+        # Fitted profiles
+        ods[f"{cp_base}.ion.{ion_index}.temperature"] = np.asarray(Ti_fit, dtype=float)
+        ods[f"{cp_base}.ion.{ion_index}.velocity_tor"] = np.asarray(Vtor_fit, dtype=float)
+
+        # Measured Ti points (schema-supported)
+        ods[f"{cp_base}.ion.{ion_index}.temperature_fit.rho_tor_norm"] = np.asarray(rho_meas, dtype=float)
+        ods[f"{cp_base}.ion.{ion_index}.temperature_fit.measured"] = np.asarray(Ti_meas, dtype=float)
+        ods[f"{cp_base}.ion.{ion_index}.temperature_fit.measured_error_upper"] = np.asarray(Ti_err, dtype=float)
+
+        # #region agent log
+        try:
+            import json, time as _time
+            with open("/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a") as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "bd9a35",
+                            "runId": "pre-fix",
+                            "hypothesisId": "H_core_profiles_store",
+                            "location": "vaft/plot/profile.py:charge_exchange_rho_profiles",
+                            "message": "core_profiles_store_ok",
+                            "data": {"cp_index": int(next_idx), "time_s": float(time_s), "ion_label": str(ion_label)},
+                            "timestamp": int(_time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion agent log
+
+    # --- Plot ---
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 4), sharex=True)
+
+    # Sort measured points by rho (if available)
+    if rho_meas.size:
+        order = np.argsort(rho_meas)
+        rho_m = rho_meas[order]
+        Ti_m = Ti_meas[order] if Ti_meas.size else Ti_meas
+        Ti_e = Ti_err[order] if Ti_err.size else Ti_err
+        V_m = Vtor_meas[order] if Vtor_meas.size else Vtor_meas
+        V_e = Vtor_err[order] if Vtor_err.size else Vtor_err
+    else:
+        rho_m, Ti_m, Ti_e, V_m, V_e = rho_meas, Ti_meas, Ti_err, Vtor_meas, Vtor_err
+
+    # Vtor (km/s)
+    if rho_m.size and V_m.size:
+        ax1.errorbar(
+            rho_m,
+            V_m / 1e3,
+            yerr=(V_e / 1e3) if V_e.size else None,
+            fmt="o",
+            markersize=4,
+            capsize=2,
+            color="tab:red",
+            label="measured",
+        )
+    ax1.plot(rho_fit, Vtor_fit / 1e3, "-", color="tab:red", linewidth=1, label="fitted")
+    ax1.set_ylabel("V_tor (km/s)", fontsize=8)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(fontsize=6)
+
+    # Ti (eV)
+    if rho_m.size and Ti_m.size:
+        ax2.errorbar(
+            rho_m,
+            Ti_m,
+            yerr=Ti_e if Ti_e.size else None,
+            fmt="o",
+            markersize=4,
+            capsize=2,
+            color="tab:blue",
+            label="measured",
+        )
+    ax2.plot(rho_fit, Ti_fit, "-", color="tab:blue", linewidth=1, label="fitted")
+    ax2.set_xlabel(r"$\rho_{tor,norm}$", fontsize=8)
+    ax2.set_ylabel("T_i (eV)", fontsize=8)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(fontsize=6)
+
+    # Title
+    try:
+        shot = ods["dataset_description.data_entry.pulse"]
+    except Exception:
+        shot = None
+
+    title = f"CES profiles vs rho @ {float(time_s)*1e3:.1f} ms" if np.isfinite(time_s) else "CES profiles vs rho"
+    if shot is not None:
+        title += f" (shot {shot})"
+    fig.suptitle(title, fontsize=9)
+
+    plt.tight_layout()
+    if int(save_opt) == 1:
+        plt.savefig(file_name if file_name else "charge_exchange_rho_profiles.png", dpi=150)
+    else:
+        plt.show()
+
+
+def charge_exchange_rho_profile(ods, **kwargs):
+    """Alias for `charge_exchange_rho_profiles` (singular name)."""
+    return charge_exchange_rho_profiles(ods, **kwargs)
+
+
+def charge_exchange_time(ods, ion_index: int = 0):
+    """
+    Plot Charge Exchange Spectroscopy (CES) time evolution:
+    - Toroidal ion velocity vs time
+    - Ion temperature vs time
+
+    Follows a similar style to plot_thomson_time_series.
+    """
+    if 'charge_exchange' not in ods:
+        print("No charge_exchange data found in ODS.")
+        return
+
+    CE = ods['charge_exchange']
+
+    try:
+        times = np.asarray(CE['time'], float) * 1e3  # s -> ms
+    except Exception as e:
+        print(f"Failed to read charge_exchange.time: {e}")
+        return
+
+    try:
+        n_channels = len(CE['channel'])
+    except Exception:
+        print("charge_exchange.channel is missing or malformed.")
+        return
+
+    font_size = 6
+    axis_size = 7.5
+    colors = plt.cm.tab10.colors
+
+    v_data, v_err = [], []
+    t_i_data, t_i_err = [], []
+    names = []
+
+    for i in range(n_channels):
+        try:
+            v_vals, v_errs = _extract_nominal_and_error(
+                CE[f'channel.{i}.ion.{ion_index}.velocity_tor.data']
+            )
+            t_vals, t_errs = _extract_nominal_and_error(
+                CE[f'channel.{i}.ion.{ion_index}.t_i.data']
+            )
+        except Exception as e:
+            print(f"[SKIP] Failed to read CES channel {i}: {e}")
+            continue
+
+        v_data.append(np.asarray(v_vals, float) / 1e3)      # m/s -> km/s
+        v_err.append(np.asarray(np.abs(v_errs), float) / 1e3)
+        t_i_data.append(np.asarray(t_vals, float))
+        t_i_err.append(np.asarray(np.abs(t_errs), float))
+
+        try:
+            label = CE[f'channel.{i}.identifier']
+        except Exception:
+            label = f'CES_{i}'
+        names.append(label)
+
+    if len(v_data) == 0:
+        print("No valid CES channels to plot in time.")
+        return
+
+    fig = plt.figure(figsize=(5, 5))
+
+    # Toroidal velocity
+    ax1 = fig.add_subplot(211)
+    for i, (v, verr) in enumerate(zip(v_data, v_err)):
+        ax1.errorbar(
+            times,
+            v,
+            yerr=verr,
+            color=colors[i % len(colors)],
+            capsize=1,
+        )
+
+    ax1.set_ylabel('V_tor (km/s)', fontsize=axis_size)
+    ax1.grid(True)
+
+    # Ion temperature
+    ax2 = fig.add_subplot(212)
+    for i, (ti, tier) in enumerate(zip(t_i_data, t_i_err)):
+        ax2.errorbar(
+            times,
+            ti,
+            yerr=tier,
+            label=names[i],
+            color=colors[i % len(colors)],
+            capsize=1,
+        )
+
+    ax2.set_xlabel('Time (ms)', fontsize=axis_size)
+    ax2.set_ylabel('T_i (eV)', fontsize=axis_size)
+    ax2.grid(True)
+
     fig.tight_layout()
     fig.legend(
         loc='center left',
@@ -313,6 +955,13 @@ def plot_thomson_profiles(ods, save_opt=0, file_name=None):
         plt.savefig(file_name if file_name else 'thomson_profiles.png', dpi=150)
     else:
         plt.show()
+
+
+def thomson_scattering_radial_profiles(ods, save_opt: int = 0, file_name: str | None = None):
+    """
+    Alias for plot_thomson_profiles following the {ids}_{dimension} naming convention.
+    """
+    return plot_thomson_profiles(ods, save_opt=save_opt, file_name=file_name)
 
 def plot_TeNe_from_eq(
     ods,
