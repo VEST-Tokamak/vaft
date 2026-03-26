@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 """
 MySQL-based VEST Database Access and Plotting
 
@@ -8,22 +9,41 @@ via a connection pool, load data by shot/field, correct time arrays for DAQ
 triggers, retrieve date or shot lists, and plot results.
 """
 
+import ast
+import gzip
+import json
+import logging
 import os
 import re
 import time
-from typing import List, Tuple, Optional, Union, Dict, Any
-import numpy as np
-import mysql.connector
-import matplotlib.pyplot as plt
-import json
-import gzip
-from mysql.connector.pooling import MySQLConnectionPool
-import logging
+from contextlib import closing
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import os
+import numpy as np
 import yaml
-from cryptography.fernet import Fernet
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+try:
+    from cryptography.fernet import Fernet
+except ImportError:
+    Fernet = None
+
+try:
+    import mysql.connector as mysql_connector
+    from mysql.connector.pooling import MySQLConnectionPool
+except ImportError:
+    mysql_connector = None
+    MySQLConnectionPool = Any
+
+    class MysqlError(Exception):
+        """Fallback MySQL error type when mysql.connector is unavailable."""
+
+else:
+    MysqlError = mysql_connector.Error
 
 # Configure logging
 logging.basicConfig(
@@ -55,6 +75,7 @@ def load_or_generate_key() -> bytes:
     Returns:
         bytes: The encryption key
     """
+    _require_fernet()
     key_dir = os.path.dirname(KEY_FILE)
     os.makedirs(key_dir, exist_ok=True)
 
@@ -69,6 +90,7 @@ def load_or_generate_key() -> bytes:
 
 class SecureConfigManager:
     def __init__(self):
+        _require_fernet()
         self.key = load_or_generate_key()
         self.cipher = Fernet(self.key)
 
@@ -130,6 +152,28 @@ class SecureConfigManager:
 # Global Database Pool
 DB_POOL: Optional[MySQLConnectionPool] = None
 
+SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "sql_table.txt"
+
+
+def _require_mysql() -> None:
+    if mysql_connector is None:
+        raise ImportError("mysql-connector-python is required for SQL loading")
+
+
+def _require_fernet() -> None:
+    if Fernet is None:
+        raise ImportError("cryptography is required for encrypted DB configuration")
+
+
+def _require_matplotlib() -> None:
+    if plt is None:
+        raise ImportError("matplotlib is required for raw plotting helpers")
+
+
+def sql_loading_available() -> bool:
+    """Return whether SQL-backed waveform loading is available in this env."""
+    return mysql_connector is not None
+
 def setup_raw_db() -> None:
     """Initialize database configuration."""
     return SecureConfigManager().get_info()
@@ -143,6 +187,7 @@ def init_pool() -> None:
     """Initialize the global MySQLConnectionPool."""
     global DB_POOL
     try:
+        _require_mysql()
         HOSTNAME, USERNAME, PASSWORD, DATABASE = configuration()
         DB_POOL = MySQLConnectionPool(
             pool_name="mypool",
@@ -158,7 +203,7 @@ def init_pool() -> None:
         raise
 
 def _load_from_shot_waveform_2(
-    db_conn: mysql.connector.MySQLConnection,
+    db_conn: Any,
     shot: int,
     field: int
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -193,7 +238,7 @@ def _load_from_shot_waveform_2(
         raise
 
 def _load_from_shot_waveform_3(
-    db_conn: mysql.connector.MySQLConnection,
+    db_conn: Any,
     shot: int,
     field: int
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -416,7 +461,7 @@ def load_raw(
 
                 return (time_ref, data_stack.ravel()) if len(fields) == 1 else (time_ref, data_stack)
 
-            except mysql.connector.Error as err:
+            except MysqlError as err:
                 logger.error(f"Error connecting to MySQL (try {attempts+1}): {err}")
                 attempts += 1
                 time.sleep(1)
@@ -430,6 +475,95 @@ def load_raw(
     except Exception as e:
         logger.error(f"Error in load_raw: {e}")
         return None
+
+
+def vest_connection_pool(pool_size: int = 4) -> None:
+    """Compatibility wrapper for donor-style SQL pool initialization."""
+    global POOL_SIZE
+    POOL_SIZE = int(pool_size)
+    init_pool()
+
+
+def vest_check_table(mydb: Any, shot: int) -> int:
+    """Return the waveform table generation used by a shot."""
+    del mydb
+    if 29349 < shot <= 42190:
+        return 2
+    if shot > 42190:
+        return 3
+    return 1
+
+
+def vest_load_shot_waveform_2(mydb: Any, shot: int, field: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Compatibility wrapper for donor-style waveform table 2 access."""
+    return _load_from_shot_waveform_2(mydb, shot, field)
+
+
+def vest_load_shot_waveform_3(mydb: Any, shot: int, field: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Compatibility wrapper for donor-style waveform table 3 access."""
+    return _load_from_shot_waveform_3(mydb, shot, field)
+
+
+def vest_load(
+    shot: int,
+    field: int,
+    max_retries: int = MAX_RETRIES,
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """Compatibility wrapper for donor-style single-signal loading."""
+    if not sql_loading_available():
+        return None
+    return load_raw(shot, field, max_retries=max_retries)
+
+
+def _sql_table_mapping() -> dict[str, int]:
+    with open(SQL_TABLE_PATH, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def vest_load_by_name(shot: int, name: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """Load a waveform by signal name using the shipped lookup table."""
+    try:
+        table = _sql_table_mapping()
+    except (FileNotFoundError, json.JSONDecodeError) as error:
+        logger.error(f"Cannot load SQL mapping file: {error}")
+        return None
+
+    field = table.get(name)
+    if field is None:
+        logger.error(f"Unknown signal name in sql_table.txt: {name}")
+        return None
+
+    return vest_load(shot, int(field))
+
+
+vest_load_shotWaveform_2 = vest_load_shot_waveform_2
+vest_load_shotWaveform_3 = vest_load_shot_waveform_3
+vest_loadn = vest_load_by_name
+
+
+def vest_date(shot: int) -> Optional[str]:
+    """Return shot date as YYYY-MM-DD."""
+    date_str, _ = date_from_shot(shot)
+    return date_str
+
+
+def vest_shots(date: str) -> list[int]:
+    """Return shot list for a date string."""
+    return shots_from_date(date)
+
+
+def vestdb_is_data_exist(shot_code: int, shot_data_field_code: int) -> bool:
+    """Return whether a signal exists for a shot in raw storage."""
+    loaded = vest_load(shot_code, shot_data_field_code)
+    if loaded is None:
+        return False
+    _, data = loaded
+    return bool(np.asarray(data).size > 0)
+
+
+def load(shot: int, field: int, max_retries: int = MAX_RETRIES):
+    """Legacy alias kept for existing machine_mapping wrappers."""
+    return vest_load(shot, field, max_retries=max_retries)
 
 def name(field: int) -> tuple:
     """
@@ -481,6 +615,7 @@ def plot(
     :param semilogy_opt: If True, uses semilogy. Defaults to False.
     :param norm_opt: If True, normalizes data to (-1, 1). Defaults to False.
     """
+    _require_matplotlib()
     if isinstance(shots, int):
         shots = [shots]
     if isinstance(fields, int):
@@ -710,7 +845,7 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
 
             return field_codes
 
-        except mysql.connector.Error as e:
+        except MysqlError as e:
             print(f"Error connecting to MySQL (try {attempts+1}): {e}")
             attempts += 1
             time.sleep(1)
@@ -738,6 +873,9 @@ def dump_all_raw_signals_for_shot(
     5. Save as gzip compressed JSON (.json.gz)
     6. If plot_opt is True, display and save signals as subplots
     """
+    if plot_opt == 1:
+        _require_matplotlib()
+
     # Set default output path
     if output_path is None:
         output_path = os.path.join(os.getcwd(), f"vest_raw_{shot}.json.gz")
@@ -855,6 +993,8 @@ def compare_db_and_dumped_raw_signals_for_shot(
     bool
         Success status
     """
+    _require_matplotlib()
+
     # 1) Retrieve field codes from DB
     field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
     if not field_codes:

@@ -1,13 +1,131 @@
 import numpy as np
 from numpy import ndarray
 from typing import List, Dict, Any, Tuple
-from omas import *
 import scipy.signal as signal
 from scipy.optimize import curve_fit
 from scipy.interpolate import UnivariateSpline
-import matplotlib.pyplot as plt
 
-import numpy as np
+
+def smooth(array, span: int) -> np.ndarray:
+    """Apply MATLAB-like moving-average smoothing with edge tapering."""
+    values = np.asarray(array, dtype=float)
+    if values.ndim != 1:
+        raise ValueError("`array` must be one-dimensional.")
+    if values.size == 0 or span <= 1:
+        return values.copy()
+    if span % 2 == 0:
+        span -= 1
+    span = min(span, values.size if values.size % 2 == 1 else values.size - 1)
+    if span < 1:
+        return values.copy()
+
+    count = values.size
+    out = np.zeros(count, dtype=float)
+    half = (span - 1) // 2
+
+    for i in range(half):
+        width = 2 * i + 1
+        out[i] = np.mean(values[:width])
+        out[count - 1 - i] = np.mean(values[count - width : count])
+
+    for i in range(half, count - half):
+        out[i] = np.mean(values[i - half : i + half + 1])
+
+    return out
+
+
+def vest_coil_current_noise_reduction(data) -> np.ndarray:
+    """Suppress point spikes in coil current traces."""
+    values = np.asarray(data, dtype=float)
+    if values.size < 3:
+        return values.copy()
+
+    smoothed = values.copy()
+    for index_i in range(2, values.size - 1):
+        local_ref = abs((values[index_i + 1] + values[index_i - 1]) / 2.0)
+        diff = abs(values[index_i]) - local_ref
+        if diff > 0.001:
+            smoothed[index_i] = smoothed[index_i - 1]
+    return smoothed
+
+
+def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, float]:
+    """Detect an active signal window containing the main peak."""
+    time_values = np.asarray(time, dtype=float)
+    data_values = np.asarray(data, dtype=float)
+    if time_values.ndim != 1 or data_values.ndim != 1:
+        raise ValueError("`time` and `data` must be one-dimensional.")
+    if time_values.size != data_values.size:
+        raise ValueError("`time` and `data` must have the same length.")
+    if time_values.size == 0:
+        raise ValueError("`time` and `data` must not be empty.")
+
+    peak_index = int(np.argmax(data_values))
+    start_index = -1
+    end_index = -1
+
+    for idx, value in enumerate(data_values):
+        if value >= threshold:
+            if start_index == -1:
+                start_index = idx
+        else:
+            end_index = idx - 1
+            if start_index != -1 and start_index < peak_index < end_index:
+                break
+            start_index = -1
+
+    if start_index == -1:
+        start_index = 0
+    if end_index == -1:
+        end_index = time_values.size - 1
+
+    return float(time_values[start_index]), float(time_values[end_index])
+
+
+def process_signal(time, data, options=None):
+    """Legacy conditioning wrapper kept in the process layer."""
+    if options is None:
+        options = {}
+
+    time = np.asarray(time).reshape(-1)
+    data = np.asarray(data).reshape(-1)
+
+    if "time_range" in options:
+        tstart, tend = options["time_range"]
+        mask = (time >= tstart) & (time <= tend)
+        time = time[mask]
+        data = data[mask]
+
+    if options.get("resample", False):
+        dt = float(options.get("dt", 4e-5))
+        if time.size == 0:
+            return time, data
+        new_time = np.arange(time[0], time[-1], dt)
+        data = np.interp(new_time, time, data)
+        time = new_time
+
+    if "filter_params" in options:
+        fp = options["filter_params"] or {}
+        filter_type = fp.get("type", "lowpass")
+        cutoff = fp.get("cutoff", 1000)
+        order = int(fp.get("order", 4))
+
+        if time.size < 2:
+            return time, data
+
+        fs = 1.0 / (time[1] - time[0])
+        if filter_type == "lowpass":
+            b, a = signal.butter(order, cutoff, btype="low", fs=fs)
+        elif filter_type == "highpass":
+            b, a = signal.butter(order, cutoff, btype="high", fs=fs)
+        elif filter_type == "bandpass":
+            b, a = signal.butter(order, cutoff, btype="band", fs=fs)
+        else:
+            raise ValueError(f"Unsupported filter type: {filter_type}")
+
+        data = signal.filtfilt(b, a, data)
+
+    return time, data
 
 def define_baseline(time, onset_time, onset_window, offset_time=None, offset_window=None):
     """
@@ -102,7 +220,7 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
 
-def signal_onoffset(time,data,smooth_window=5, threshold=0.01, verbose=False):
+def signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False):
     if verbose:
         print("threshold for signal detection:", threshold)
     # Smooth the data
@@ -126,9 +244,14 @@ def signal_onoffset(time,data,smooth_window=5, threshold=0.01, verbose=False):
             if indxs < indxm and indxm < indxe:
                 break # if the windiw contains the maximum, we stop
             indxs=-1
-    onset=time[indxs]
-    offset=time[indxe]
-    return onset,offset
+    onset = time[indxs]
+    offset = time[indxe]
+    return onset, offset
+
+
+VEST_CoilCurrentNoiseReduction = vest_coil_current_noise_reduction
+vfit_signal_startend = vfit_signal_start_end
+signal_onoffset = signal_on_offset
 
 def is_signal_active(
     data,

@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 from vaft.omas.process_wrapper import compute_volume_averaged_pressure
 from vaft.process import compute_response_matrix
-from vaft.process.equilibrium import psi_to_RZ, volume_average
+from vaft.process.equilibrium import psi_to_rz, volume_average
 from vaft.formula import magnetic_shear, ballooning_alpha_from_p_B_R
 from vaft.formula.equilibrium import (
     loss_power_from_p_heat_dWdt_p_rad,
@@ -174,7 +174,7 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
                 n_e_psi_norm = interp_func(rho_tor_norm_eq)
                 
                 # Map to 2D grid and compute volume average
-                n_e_RZ, psiN_RZ = psi_to_RZ(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
+                n_e_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
                 n_e_vol_avg, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)  # [m^-3]
                 # Ensure scalar
                 if isinstance(n_e_vol_avg, np.ndarray):
@@ -476,7 +476,7 @@ def compute_bremsstrahlung_power(
         ValueError: If plasma volume is zero
     """
     from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi
-    from vaft.process.equilibrium import psi_to_RZ, volume_average
+    from vaft.process.equilibrium import psi_to_rz, volume_average
     from scipy.interpolate import interp1d
     
     # Basic availability checks
@@ -590,8 +590,8 @@ def compute_bremsstrahlung_power(
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e and n_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_RZ(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
-    n_e_RZ, _ = psi_to_RZ(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    n_e_RZ, _ = psi_to_rz(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs)
     
     # Get pressure from equilibrium profiles_1d if available, otherwise compute from n_e * T_e
     # pressure_1d = None
@@ -611,7 +611,7 @@ def compute_bremsstrahlung_power(
     pressure_1d = n_e_1d * T_e_1d * QE * 2  # [Pa] 
     
     # Map pressure to 2D (R,Z)
-    pressure_RZ, _ = psi_to_RZ(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs)
+    pressure_RZ, _ = psi_to_rz(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs)
     
     # Calculate bremsstrahlung power density using pressure-based formula
     # Handle zero/negative values (outside plasma)

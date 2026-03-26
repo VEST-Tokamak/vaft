@@ -50,10 +50,10 @@ def find_chamber_boundary(ods):
     return ods['wall.description_2d.0.limiter.unit.0.outline.r'], ods['wall.description_2d.0.limiter.unit.0.outline.z']
 
 def _find_signal_onset(ods, time_key, data_key):
-    """Helper to find signal onset using vaft.process.signal_onoffset."""
+    """Helper to find signal onset using vaft.process.signal_on_offset."""
     time = ods.time(time_key)
     data = ods[data_key]
-    onset, _ = vaft.process.signal_onoffset(time, data, threshold = 0.05)
+    onset, _ = vaft.process.signal_on_offset(time, data, threshold = 0.05)
     return onset
 
 def find_breakdown_onset(ods):
@@ -76,7 +76,7 @@ def find_pf_active_onset(ods):
     onsets = []
     for i in range(len(ods['pf_active.channel'])):
         current = ods[f'pf_active.channel.{i}.current.data']
-        onset, _ = vaft.process.signal_onoffset(time, current)
+        onset, _ = vaft.process.signal_on_offset(time, current)
         onsets.append(onset)
     return onsets
 
@@ -84,7 +84,7 @@ def find_pulse_duration(ods):
     """Find the duration of the pulse using spectrometer_uv signal."""
     time = ods.time('spectrometer_uv')
     data = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
-    onset, offset = vaft.process.signal_onoffset(time, data, threshold=0.05)
+    onset, offset = vaft.process.signal_on_offset(time, data, threshold=0.05)
     return offset - onset
 
 def find_max_ip(ods):

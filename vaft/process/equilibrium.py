@@ -1,6 +1,5 @@
 from typing import Any
 
-from matplotlib.path import Path
 from scipy.interpolate import RectBivariateSpline
 
 import numpy as np
@@ -85,7 +84,7 @@ def rho_to_psi(rho, q_profile, psi_axis, psi_boundary, tol=1e-6):
     
     return result.root
 
-def psi_to_RZ(
+def psi_to_rz(
     psiN_1d: np.ndarray,
     f_1d: np.ndarray,
     psi_RZ: np.ndarray,
@@ -166,7 +165,7 @@ def calculate_reconstructed_diamagnetic_flux(
     float
         Reconstructed diamagnetic flux [Wb].
     """
-    f_2d, psiN_RZ = psi_to_RZ(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -230,7 +229,7 @@ def calculate_diamagnetism(
         negative, check that F_vac is taken at the LCFS (not axis) and that the
         F profile sign convention (F = R*B_φ) is consistent with the equilibrium.
     """
-    f_2d, psiN_RZ = psi_to_RZ(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -542,6 +541,8 @@ def shafranov_integrals(R_bdry, Z_bdry, B_p_bdry,
     # Matplotlib Path를 이용한 Point in Polygon 판별
     
     # (1) 경계면 버텍스 생성
+    from matplotlib.path import Path
+
     poly_verts = np.column_stack((R_bdry, Z_bdry))
     path = Path(poly_verts)
     
@@ -590,3 +591,6 @@ def shafranov_integrals(R_bdry, Z_bdry, B_p_bdry,
         alpha = 2 * integral_numerator / integral_denominator
 
     return S1, S2, S3, alpha
+
+
+psi_to_RZ = psi_to_rz

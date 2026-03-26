@@ -26,12 +26,15 @@ Modification History:
 
 import requests
 import urllib3
+import json
+import os
 try:
     import h5pyd
 except ImportError:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 import h5py
 import omas
+import scipy.io
 import subprocess
 import numpy as np
 from typing import Optional, Union, List
@@ -49,6 +52,34 @@ _H5PYD_MSG = (
 def _require_h5pyd():
     if h5pyd is None:
         raise ImportError(_H5PYD_MSG)
+
+
+def save_omas_mat(ods: omas.ODS, filename: str) -> None:
+    """Save an ODS object to MATLAB `.mat` via intermediate JSON."""
+    json_name = filename.replace(".mat", ".json")
+    omas.save_omas_json(ods, json_name)
+    with open(json_name, "r", encoding="utf-8") as file:
+        ods_payload = json.load(file)
+    scipy.io.savemat(filename, mdict={"ods": ods_payload})
+    os.remove(json_name)
+
+
+def check_nc(name: str) -> list[str]:
+    """List top-level ODS keys in a NetCDF OMAS file."""
+    ods = omas.load_omas_nc(name)
+    keys = [str(key) for key in ods]
+    for key in keys:
+        print(key)
+    return keys
+
+
+def check_json(name: str) -> list[str]:
+    """List top-level ODS keys in a JSON OMAS file."""
+    ods = omas.load_omas_json(name)
+    keys = [str(key) for key in ods]
+    for key in keys:
+        print(key)
+    return keys
 
 
 def is_connect() -> bool:

@@ -1,0 +1,153 @@
+source: table.dat
+description: Only the field-code labels referenced by the magnetics assets
+entries:
+- field_code: 18
+  name: 'Flux Loop - #3'
+- field_code: 19
+  name: 'Flux Loop - #4'
+- field_code: 20
+  name: 'Flux Loop - #5'
+- field_code: 21
+  name: 'Flux Loop - #6'
+- field_code: 24
+  name: 'Flux Loop - #9'
+- field_code: 25
+  name: 'Flux Loop - #10'
+- field_code: 26
+  name: 'Flux Loop - #11'
+- field_code: 66
+  name: MagneticFieldProbe_L-01_Bz
+- field_code: 67
+  name: MagneticFieldProbe_L-02_Bz
+- field_code: 68
+  name: MagneticFieldProbe_L-03_Bz
+- field_code: 69
+  name: MagneticFieldProbe_L-04_Bz
+- field_code: 70
+  name: MagneticFieldProbe_L-05_Bz
+- field_code: 71
+  name: MagneticFieldProbe_L-06_Bz
+- field_code: 72
+  name: MagneticFieldProbe_L-07_Bz
+- field_code: 73
+  name: MagneticFieldProbe_L-08_Bz
+- field_code: 74
+  name: MagneticFieldProbe_U-01_Bz
+- field_code: 75
+  name: MagneticFieldProbe_U-02_Bz
+- field_code: 76
+  name: MagneticFieldProbe_U-03_Bz
+- field_code: 77
+  name: MagneticFieldProbe_U-04_Bz
+- field_code: 78
+  name: MagneticFieldProbe_U-05_Bz
+- field_code: 79
+  name: MagneticFieldProbe_U-06_Bz
+- field_code: 80
+  name: MagneticFieldProbe_U-07_Bz
+- field_code: 81
+  name: MagneticFieldProbe_U-08_Bz
+- field_code: 87
+  name: MagneticFieldProbe_C1-01_Bz
+- field_code: 88
+  name: MagneticFieldProbe_C1-02_Bz
+- field_code: 89
+  name: MagneticFieldProbe_C1-03_Bz
+- field_code: 90
+  name: MagneticFieldProbe_C1-04_Bz
+- field_code: 91
+  name: MagneticFieldProbe_C1-05_Bz
+- field_code: 92
+  name: MagneticFieldProbe_C1-06_Bz
+- field_code: 93
+  name: MagneticFieldProbe_C2-01_Bz
+- field_code: 169
+  name: MagneticFieldProbe_C2-03_Bz
+- field_code: 170
+  name: MagneticFieldProbe_C2-04_Bz
+- field_code: 171
+  name: MagneticFieldProbe_C2-05_Bz
+- field_code: 172
+  name: MagneticFieldProbe_C3-01_Bz
+- field_code: 173
+  name: MagneticFieldProbe_C3-02_Bz
+- field_code: 174
+  name: MagneticFieldProbe_C3-03_Bz
+- field_code: 175
+  name: MagneticFieldProbe_C3-04_Bz
+- field_code: 176
+  name: MagneticFieldProbe_C3-05_Bz
+- field_code: 177
+  name: MagneticFieldProbe_C4-01_Bz
+- field_code: 178
+  name: MagneticFieldProbe_C4-02_Bz
+- field_code: 179
+  name: MagneticFieldProbe_H1-01_Bz
+- field_code: 180
+  name: MagneticFieldProbe_H1-02_Bz
+- field_code: 181
+  name: MagneticFieldProbe_H1-03_Bz
+- field_code: 182
+  name: MagneticFieldProbe_H1-04_Bz
+- field_code: 183
+  name: MagneticFieldProbe_H1-05_Bz
+- field_code: 184
+  name: MagneticFieldProbe_H1-06_Bz
+- field_code: 185
+  name: MagneticFieldProbe_H1-07_Bz
+- field_code: 186
+  name: MagneticFieldProbe_H1-08_Bz
+- field_code: 187
+  name: MagneticFieldProbe_H1-09_Bz
+- field_code: 188
+  name: MagneticFieldProbe_H2-01_Bz
+- field_code: 189
+  name: MagneticFieldProbe_H2-02_Bz
+- field_code: 190
+  name: MagneticFieldProbe_H2-03_Bz
+- field_code: 191
+  name: MagneticFieldProbe_H2-04_Bz
+- field_code: 192
+  name: MagneticFieldProbe_H2-05_Bz
+- field_code: 193
+  name: MagneticFieldProbe_H2-06_Bz
+- field_code: 194
+  name: MagneticFieldProbe_H2-07_Bz
+- field_code: 195
+  name: MagneticFieldProbe_H2-08_Bz
+- field_code: 196
+  name: MagneticFieldProbe_H2-09_Bz
+- field_code: 197
+  name: MagneticFieldProbe_H3-01_Bz
+- field_code: 198
+  name: MagneticFieldProbe_H3-02_Bz
+- field_code: 199
+  name: MagneticFieldProbe_H3-03_Bz
+- field_code: 200
+  name: MagneticFieldProbe_H3-04_Bz
+- field_code: 201
+  name: MagneticFieldProbe_H3-05_Bz
+- field_code: 202
+  name: MagneticFieldProbe_H3-06_Bz
+- field_code: 203
+  name: MagneticFieldProbe_H3-07_Bz
+- field_code: 204
+  name: MagneticFieldProbe_H3-08_Bz
+- field_code: 205
+  name: MagneticFieldProbe_H3-09_Bz
+- field_code: 223
+  name: MagneticFieldProbe_C4-03
+- field_code: 224
+  name: MagneticFieldProbe_C4-04
+- field_code: 225
+  name: MagneticFieldProbe_C4-05
+- field_code: 226
+  name: MagneticFieldProbe_C4-06
+- field_code: 243
+  name: 'Flux Loop - #12'
+- field_code: 244
+  name: 'Flux Loop - #13'
+- field_code: 245
+  name: 'Flux Loop - #14'
+- field_code: 246
+  name: 'Flux Loop - #15'

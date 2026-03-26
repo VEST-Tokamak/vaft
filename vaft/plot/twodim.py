@@ -307,7 +307,7 @@ def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
     Bottom row: B_r, B_z, B_phi
     """
     from vaft.omas.process_wrapper import compute_magnetic_energy
-    from vaft.process.equilibrium import psi_to_RZ
+    from vaft.process.equilibrium import psi_to_rz
 
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
         raise KeyError("equilibrium.time_slice not found in ODS")
@@ -346,7 +346,7 @@ def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
         p_1d = np.asarray(eq_ts['profiles_1d.pressure'], float)
         # psi_norm grid for 1D profiles is typically uniform
         psiN_1d = np.linspace(0.0, 1.0, len(p_1d))
-        p_RZ, _psiN_RZ = psi_to_RZ(psiN_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+        p_RZ, _psiN_RZ = psi_to_rz(psiN_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
     except Exception as e:
         logger.warning(f"Could not build 2D pressure map: {e}")
 
@@ -366,7 +366,7 @@ def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
             j_1d = np.asarray(eq_ts['profiles_1d.j_tor'], float)
             # psi_norm grid for 1D profiles is typically uniform
             psiN_1d = np.linspace(0.0, 1.0, len(j_1d))
-            j_RZ, _psiN_RZ = psi_to_RZ(psiN_1d, j_1d, psi_RZ, psi_axis, psi_lcfs)
+            j_RZ, _psiN_RZ = psi_to_rz(psiN_1d, j_1d, psi_RZ, psi_axis, psi_lcfs)
         except Exception as e:
             logger.warning(f"Could not build 2D j_tor map: {e}")
 
@@ -442,4 +442,3 @@ def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
 # def twodim_equilibrium_q():
 # def twodim_equilibrium_f():
 # def twodim_equilibrium_ffprime():
-

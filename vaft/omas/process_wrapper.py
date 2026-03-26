@@ -9,7 +9,7 @@ from vaft.process import (
     solve_eddy_currents,
     compute_vacuum_fields_1d,
     time_derivative,
-    psi_to_RZ,
+    psi_to_rz,
     volume_average,
     poloidal_field_at_boundary,
     calculate_average_boundary_poloidal_field,
@@ -855,7 +855,7 @@ def compute_core_profile_2d(
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map to 2D (R,Z)
-    profile_RZ, psiN_RZ = psi_to_RZ(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
+    profile_RZ, psiN_RZ = psi_to_rz(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
     
     return profile_RZ, R_grid, Z_grid, psiN_RZ, cp_time
 
@@ -1412,7 +1412,7 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_RZ(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
     
     # Calculate Spitzer resistivity 2D profile
     # Handle zero/negative temperatures (outside plasma)
@@ -1658,7 +1658,7 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
                 raise ValueError(f"Invalid option: {option}. Must be 'equilibrium' or 'core_profiles'")
             
             # Build 2D pressure map using psi_to_RZ
-            p_RZ, psiN_RZ = psi_to_RZ(psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+            p_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
             
             # Compute volume average
             p_avg, _ = volume_average(p_RZ, psiN_RZ, R_grid, Z_grid)
