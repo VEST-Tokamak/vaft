@@ -410,9 +410,49 @@ def magnetics(ods: object, shot: int, tstart: float, tend: float, dt: float) -> 
     vfit_magnetics_for_shot(ods, shot, tstart, tend, dt)
 
 
+def flux_loop_from_raw_database(ods: object, shot: int) -> None:
+    del ods, shot
+    raise NotImplementedError(
+        "flux_loop_from_raw_database is not implemented in canonical machine_mapping. "
+        "Use IDS-level magnetics mapping entry points instead."
+    )
+
+
+def b_field_pol_probe_from_raw_database(ods: object, shot: int) -> None:
+    del ods, shot
+    raise NotImplementedError(
+        "b_field_pol_probe_from_raw_database is not implemented in canonical machine_mapping. "
+        "Use IDS-level magnetics mapping entry points instead."
+    )
+
+
+def rogowski_coil_and_ip_from_raw_database(ods: object, shot: int) -> None:
+    del ods, shot
+    raise NotImplementedError(
+        "rogowski_coil_and_ip_from_raw_database is not implemented in canonical machine_mapping. "
+        "Use IDS-level magnetics mapping entry points instead."
+    )
+
+
+def magnetics_from_raw_database(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    options: dict | None = None,
+) -> None:
+    del options
+    magnetics(ods, shot, tstart, tend, dt)
+
+
 __all__ = [
+    "b_field_pol_probe_from_raw_database",
+    "flux_loop_from_raw_database",
+    "magnetics_from_raw_database",
     "vest_diamagnetic_flux",
     "magnetics",
+    "rogowski_coil_and_ip_from_raw_database",
     "vfit_plasma_current",
     "vfit_md",
     "vfit_magnetics_dynamic",

@@ -233,8 +233,21 @@ def pf_active(
     vfit_pf_active_for_shot(ods, shot, tstart, tend, dt, geometry_root=geometry_root)
 
 
+def pf_active_from_raw_database(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    options: dict | None = None,
+) -> None:
+    del options
+    pf_active(ods, shot, tstart, tend, dt)
+
+
 __all__ = [
     "pf_active",
+    "pf_active_from_raw_database",
     "resolve_geometry_asset",
     "vfit_pf",
     "vfit_pf_active_dynamic",

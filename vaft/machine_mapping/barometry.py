@@ -76,4 +76,21 @@ def barometry(ods: object, shot: int, tstart: float, tend: float, dt: float) -> 
     vfit_barometry_dynamic(ods, shot, tstart, tend, dt)
 
 
-__all__ = ["barometry", "vfit_barometry_dynamic", "vfit_barometry_static"]
+def barometry_from_raw_database(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    options: dict | None = None,
+) -> None:
+    del options
+    barometry(ods, shot, tstart, tend, dt)
+
+
+__all__ = [
+    "barometry",
+    "barometry_from_raw_database",
+    "vfit_barometry_dynamic",
+    "vfit_barometry_static",
+]

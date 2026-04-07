@@ -46,4 +46,21 @@ def dataset_description(
     )
 
 
-__all__ = ["dataset_description", "vfit_dataset_description"]
+def dataset_description_from_raw_database(
+    ods: Any,
+    shot: int,
+    options: dict | None = None,
+) -> None:
+    if options is None:
+        options = {}
+    if "description" not in options:
+        options["description"] = "VEST dataset imported from raw database"
+    options.setdefault("source_type", "shot")
+    dataset_description(ods, shot, options)
+
+
+__all__ = [
+    "dataset_description",
+    "dataset_description_from_raw_database",
+    "vfit_dataset_description",
+]

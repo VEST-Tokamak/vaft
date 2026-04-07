@@ -22,6 +22,11 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
     Returns:
         numpy.ndarray: An array of mapped rho positions for each Thomson scattering point.
     """
+    # Ensure OMFIT+NumPy runtime shims are active before touching fluxSurfaces.
+    from vaft.compat import apply_omfit_compat_patches
+
+    apply_omfit_compat_patches()
+
     # Extract Thomson scattering positions
     r_t = ods['thomson_scattering.channel.:.position.r']
     z_t = ods['thomson_scattering.channel.:.position.z']

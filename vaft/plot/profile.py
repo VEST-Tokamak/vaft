@@ -58,12 +58,32 @@ def plot_thomson_radial_position(ods, contour_quantity='psi_norm'):
     print(f"[INFO] Using equilibrium time slice {time_index}")
 
     # --- Wall geometry (optional) ---
+    def _iter_values(container):
+        """Yield values for dict/list/OMAS-like containers."""
+        if isinstance(container, dict):
+            for value in container.values():
+                yield value
+            return
+        try:
+            for idx in range(len(container)):
+                yield container[idx]
+            return
+        except Exception:
+            return
+
     if 'wall' in ods and 'description_2d' in ods['wall']:
         wall_desc = ods['wall']['description_2d']
-        wall_idx = time_index if time_index in wall_desc else 0
-        if 'limiter' in wall_desc[wall_idx] and 'unit' in wall_desc[wall_idx]['limiter']:
-            for unit in wall_desc[wall_idx]['limiter']['unit']:
-                ax.plot(unit['outline.r'], unit['outline.z'], color='gray', alpha=0.4)
+        for desc in _iter_values(wall_desc):
+            try:
+                limiter = desc['limiter']
+                units = limiter['unit']
+            except Exception:
+                continue
+            for unit in _iter_values(units):
+                try:
+                    ax.plot(unit['outline.r'], unit['outline.z'], color='gray', alpha=0.4)
+                except Exception:
+                    continue
 
     # --- Thomson scattering data ---
     TS = ods['thomson_scattering']
@@ -422,9 +442,9 @@ def charge_exchange_rho_profiles(
 
     Behavior
     --------
-    - If cached results exist in ODS, uses them and skips mapping/fitting.
-    - Otherwise, requires `eq` and computes:
-      mapping -> profile fitting -> caches results into ODS.
+    - If a `core_profiles.profiles_1d` slice exists for the requested time, reuse it
+      (skip mapping/fitting) when channel counts and temperature_fit lengths match.
+    - Otherwise, requires `eq` and computes mapping → fit → writes into `core_profiles`.
 
     Storage / reuse
     ---------------
@@ -442,287 +462,391 @@ def charge_exchange_rho_profiles(
         print("No charge_exchange data found in ODS.")
         return
 
-    # Local import to avoid circulars at module import time.
-    from vaft.process import profile as process_profile
-    try:
-        from uncertainties import unumpy
-    except Exception:
-        unumpy = None
-
-    # --- Reuse existing core_profiles slice if present ---
-    rho_fit = Ti_fit = Vtor_fit = None
-    rho_meas = Ti_meas = Ti_err = Vtor_meas = Vtor_err = np.asarray([])
-    time_s = np.nan
-
-    target_s = float(time_ms) / 1e3
-    cp_index = None
-    if "core_profiles.profiles_1d" in ods:
+    # #region agent log
+    def _ces_rho_dbg(hypothesis_id, location, message, data):
         try:
-            for i in range(len(ods["core_profiles.profiles_1d"])):
-                t_existing = float(ods[f"core_profiles.profiles_1d.{i}.time"])
-                if np.isclose(t_existing, target_s):
-                    cp_index = i
-                    break
-        except Exception:
-            cp_index = None
+            import json, time
 
-    if cp_index is not None:
-        base = f"core_profiles.profiles_1d.{cp_index}"
-        time_s = float(ods[f"{base}.time"])
-        rho_fit = np.asarray(ods[f"{base}.grid.rho_tor_norm"], dtype=float)
-        Ti_fit = np.asarray(ods[f"{base}.ion.{ion_index}.temperature"], dtype=float)
-        Vtor_fit = np.asarray(ods[f"{base}.ion.{ion_index}.velocity_tor"], dtype=float)
-
-        # Measured Ti (optional)
-        try:
-            rho_meas = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.rho_tor_norm"], dtype=float)
-            Ti_meas = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.measured"], dtype=float)
-            Ti_err = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.measured_error_upper"], dtype=float)
-        except Exception:
-            rho_meas = np.asarray([])
-            Ti_meas = np.asarray([])
-            Ti_err = np.asarray([])
-
-        # Vtor measured stays in charge_exchange (no schema block for velocity_tor_fit in IMAS 3.41.0)
-
-        # #region agent log
-        try:
-            import json, time as _time
-            with open("/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "bd9a35",
-                            "runId": "pre-fix",
-                            "hypothesisId": "H_core_profiles_reuse",
-                            "location": "vaft/plot/profile.py:charge_exchange_rho_profiles",
-                            "message": "core_profiles_reuse_hit",
-                            "data": {"cp_index": int(cp_index), "time_s": float(time_s)},
-                            "timestamp": int(_time.time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
+            payload = {
+                "sessionId": "bd9a35",
+                "hypothesisId": hypothesis_id,
+                "location": location,
+                "message": message,
+                "data": data,
+                "timestamp": int(time.time() * 1000),
+            }
+            with open(
+                "/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a", encoding="utf-8"
+            ) as f:
+                f.write(json.dumps(payload) + "\n")
         except Exception:
             pass
-        # #endregion agent log
-    else:
-        # --- Compute mapping + fit then cache ---
-        if eq is None:
-            raise ValueError(
-                "eq is required when CES rho-fit cache is missing. "
-                "Call charge_exchange_rho_profiles(ods, eq=..., time_ms=...)."
+
+    # #endregion
+
+    try:
+        # Local import to avoid circulars at module import time.
+        from vaft.process import profile as process_profile
+        try:
+            from uncertainties import unumpy
+        except Exception:
+            unumpy = None
+
+        def _ces_slice_usable(idx: int) -> bool:
+            """CES slice: channel-count match on temperature_fit + grid vs fitted ion profiles same length."""
+            b = f"core_profiles.profiles_1d.{idx}"
+            try:
+                n_ch = len(ods["charge_exchange.channel"])
+            except Exception:
+                n_ch = 0
+            if n_ch <= 0:
+                return False
+            try:
+                r = np.asarray(ods[f"{b}.ion.{ion_index}.temperature_fit.rho_tor_norm"], dtype=float).reshape(-1)
+                m = np.asarray(ods[f"{b}.ion.{ion_index}.temperature_fit.measured"], dtype=float).reshape(-1)
+                if not (r.size == n_ch and m.size == n_ch and r.size > 0):
+                    return False
+                g = np.asarray(ods[f"{b}.grid.rho_tor_norm"], dtype=float).reshape(-1)
+                t = np.asarray(ods[f"{b}.ion.{ion_index}.temperature"], dtype=float).reshape(-1)
+                v = np.asarray(ods[f"{b}.ion.{ion_index}.velocity_tor"], dtype=float).reshape(-1)
+                return g.size > 0 and g.size == t.size == v.size
+            except Exception:
+                return False
+
+        # --- Reuse existing core_profiles slice if present ---
+        rho_fit = Ti_fit = Vtor_fit = None
+        rho_meas = Ti_meas = Ti_err = Vtor_meas = Vtor_err = np.asarray([])
+        time_s = np.nan
+
+        target_s = float(time_ms) / 1e3
+        cp_index = None
+        n_profiles_1d = 0
+        if "core_profiles.profiles_1d" in ods:
+            try:
+                n_profiles_1d = len(ods["core_profiles.profiles_1d"])
+                for i in range(n_profiles_1d):
+                    t_existing = float(ods[f"core_profiles.profiles_1d.{i}.time"])
+                    if np.isclose(t_existing, target_s) and _ces_slice_usable(i):
+                        cp_index = i
+                        break
+            except Exception:
+                cp_index = None
+
+        _ces_rho_dbg(
+            "H1_reuse_search",
+            "charge_exchange_rho_profiles:reuse_search",
+            "reuse_search_done",
+            {
+                "cp_index": cp_index,
+                "n_profiles_1d": n_profiles_1d,
+                "target_s": target_s,
+                "eq_is_none": eq is None,
+            },
+        )
+
+        if cp_index is not None:
+            base = f"core_profiles.profiles_1d.{cp_index}"
+            time_s = float(ods[f"{base}.time"])
+            rho_fit = np.asarray(ods[f"{base}.grid.rho_tor_norm"], dtype=float)
+            Ti_fit = np.asarray(ods[f"{base}.ion.{ion_index}.temperature"], dtype=float)
+            Vtor_fit = np.asarray(ods[f"{base}.ion.{ion_index}.velocity_tor"], dtype=float)
+
+            try:
+                rho_meas = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.rho_tor_norm"], dtype=float)
+                Ti_meas = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.measured"], dtype=float)
+                Ti_err = np.asarray(ods[f"{base}.ion.{ion_index}.temperature_fit.measured_error_upper"], dtype=float)
+            except Exception:
+                rho_meas = np.asarray([])
+                Ti_meas = np.asarray([])
+                Ti_err = np.asarray([])
+
+            try:
+                times_ce = np.asarray(ods["charge_exchange.time"], dtype=float)
+                tidx = int(np.argmin(np.abs(times_ce - float(time_s)))) if times_ce.size else 0
+                n_ch = len(ods["charge_exchange.channel"])
+                Vm, Ve = [], []
+                for ch in range(n_ch):
+                    v_u = ods[f"charge_exchange.channel.{ch}.ion.{ion_index}.velocity_tor.data"]
+                    try:
+                        if unumpy is None:
+                            raise RuntimeError("uncertainties unavailable")
+                        v_vals = unumpy.nominal_values(v_u)
+                        v_stds = unumpy.std_devs(v_u)
+                    except Exception:
+                        v_vals = np.asarray(v_u, dtype=float)
+                        v_stds = np.zeros_like(np.asarray(v_u, dtype=float), dtype=float)
+                    v_vals = np.asarray(v_vals, dtype=float).reshape(-1)
+                    v_stds = np.asarray(v_stds, dtype=float).reshape(-1)
+                    v_val = float(v_vals[tidx] if v_vals.size > tidx else v_vals[0])
+                    v_er = float(v_stds[tidx] if v_stds.size > tidx else v_stds[0] if v_stds.size else 0.0)
+                    Vm.append(v_val)
+                    Ve.append(abs(v_er))
+                Vtor_meas = np.asarray(Vm, dtype=float)
+                Vtor_err = np.asarray(Ve, dtype=float)
+            except Exception:
+                Vtor_meas = np.asarray([])
+                Vtor_err = np.asarray([])
+
+            _ces_rho_dbg(
+                "H1_reuse",
+                "charge_exchange_rho_profiles:reuse",
+                "branch_reuse",
+                {"cp_index": int(cp_index)},
+            )
+        else:
+            _ces_rho_dbg(
+                "H2_eq_required",
+                "charge_exchange_rho_profiles:compute",
+                "branch_compute",
+                {"eq_is_none": eq is None},
+            )
+            if eq is None:
+                raise ValueError(
+                    "eq is required when CES rho-fit cache is missing. "
+                    "Call charge_exchange_rho_profiles(ods, eq=..., time_ms=...)."
+                )
+
+            times = np.asarray(ods["charge_exchange.time"], dtype=float)
+            target_s = float(time_ms) / 1e3
+            idx_candidates = np.where(np.isclose(times, target_s))[0]
+            if len(idx_candidates) == 0:
+                time_index = int(np.argmin(np.abs(times - target_s)))
+            else:
+                time_index = int(idx_candidates[0])
+            time_s = float(times[time_index]) if times.size else np.nan
+
+            mapped_rho = process_profile.equilibrium_mapping_charge_exchange(ods, eq)
+
+            (
+                Vtor_func,
+                Ti_func,
+                _coeffs_vtor,
+                _coeffs_ti,
+                Vtor_fit,
+                Ti_fit,
+            ) = process_profile.profile_fitting_charge_exchange(
+                ods,
+                time_ms=float(time_ms),
+                mapped_rho_position=mapped_rho,
+                Ti_order=int(Ti_order),
+                Vtor_order=int(Vtor_order),
+                uncertainty_option=int(uncertainty_option),
+                rho_points=int(rho_points),
+                fitting_function_ti=str(fitting_function_ti),
+                fitting_function_vtor=str(fitting_function_vtor),
+                ion_index=int(ion_index),
             )
 
-        # Match fitter’s time index selection behavior.
-        times = np.asarray(ods["charge_exchange.time"], dtype=float)
-        target_s = float(time_ms) / 1e3
-        idx_candidates = np.where(np.isclose(times, target_s))[0]
-        if len(idx_candidates) == 0:
-            time_index = int(np.argmin(np.abs(times - target_s)))
-        else:
-            time_index = int(idx_candidates[0])
-        time_s = float(times[time_index]) if times.size else np.nan
+            rho_fit = np.linspace(0.0, 1.0, int(rho_points))
 
-        mapped_rho = process_profile.equilibrium_mapping_charge_exchange(ods, eq)
+            n_channels = len(ods["charge_exchange.channel"])
+            rho_meas = np.asarray(mapped_rho, dtype=float).reshape(-1)[:n_channels]
 
-        (
-            Vtor_func,
-            Ti_func,
-            _coeffs_vtor,
-            _coeffs_ti,
-            Vtor_fit,
-            Ti_fit,
-        ) = process_profile.profile_fitting_charge_exchange(
-            ods,
-            time_ms=float(time_ms),
-            mapped_rho_position=mapped_rho,
-            Ti_order=int(Ti_order),
-            Vtor_order=int(Vtor_order),
-            uncertainty_option=int(uncertainty_option),
-            rho_points=int(rho_points),
-            fitting_function_ti=str(fitting_function_ti),
-            fitting_function_vtor=str(fitting_function_vtor),
-            ion_index=int(ion_index),
+            Ti_meas, Ti_err = [], []
+            Vtor_meas, Vtor_err = [], []
+
+            for ch in range(n_channels):
+                ion = ods[f"charge_exchange.channel.{ch}.ion.{ion_index}"]
+                ti_u = ion["t_i.data"]
+                v_u = ion["velocity_tor.data"]
+
+                try:
+                    if unumpy is None:
+                        raise RuntimeError("uncertainties unavailable")
+                    ti_vals = unumpy.nominal_values(ti_u)
+                    ti_stds = unumpy.std_devs(ti_u)
+                except Exception:
+                    ti_vals = np.asarray(ti_u, dtype=float)
+                    ti_stds = np.zeros_like(ti_vals, dtype=float)
+
+                try:
+                    if unumpy is None:
+                        raise RuntimeError("uncertainties unavailable")
+                    v_vals = unumpy.nominal_values(v_u)
+                    v_stds = unumpy.std_devs(v_u)
+                except Exception:
+                    v_vals = np.asarray(v_u, dtype=float)
+                    v_stds = np.zeros_like(v_vals, dtype=float)
+
+                ti_vals = np.asarray(ti_vals, dtype=float)
+                ti_stds = np.asarray(ti_stds, dtype=float)
+                v_vals = np.asarray(v_vals, dtype=float)
+                v_stds = np.asarray(v_stds, dtype=float)
+
+                ti_val = float(ti_vals.reshape(-1)[time_index] if ti_vals.size > 1 else ti_vals.reshape(-1)[0])
+                ti_er = float(ti_stds.reshape(-1)[time_index] if ti_stds.size > 1 else ti_stds.reshape(-1)[0])
+                v_val = float(v_vals.reshape(-1)[time_index] if v_vals.size > 1 else v_vals.reshape(-1)[0])
+                v_er = float(v_stds.reshape(-1)[time_index] if v_stds.size > 1 else v_stds.reshape(-1)[0])
+
+                Ti_meas.append(ti_val)
+                Ti_err.append(abs(ti_er))
+                Vtor_meas.append(v_val)
+                Vtor_err.append(abs(v_er))
+
+            Ti_meas = np.asarray(Ti_meas, dtype=float)
+            Ti_err = np.asarray(Ti_err, dtype=float)
+            Vtor_meas = np.asarray(Vtor_meas, dtype=float)
+            Vtor_err = np.asarray(Vtor_err, dtype=float)
+
+            if "core_profiles.profiles_1d" in ods:
+                to_remove = None
+                for i in range(len(ods["core_profiles.profiles_1d"])):
+                    try:
+                        t_existing = float(ods[f"core_profiles.profiles_1d.{i}.time"])
+                        if np.isclose(t_existing, time_s):
+                            to_remove = i
+                            break
+                    except Exception:
+                        continue
+                if to_remove is not None:
+                    ods.pop(f"core_profiles.profiles_1d.{to_remove}")
+                next_idx = len(ods["core_profiles.profiles_1d"])
+            else:
+                next_idx = 0
+
+            cp_base = f"core_profiles.profiles_1d.{next_idx}"
+            ods[f"{cp_base}.time"] = float(time_s)
+            ods[f"{cp_base}.grid.rho_tor_norm"] = np.asarray(rho_fit, dtype=float)
+
+            try:
+                ion_label = ods[f"charge_exchange.channel.0.ion.{ion_index}.label"]
+            except Exception:
+                ion_label = f"ion{int(ion_index)}"
+            ods[f"{cp_base}.ion.{ion_index}.label"] = ion_label
+
+            ods[f"{cp_base}.ion.{ion_index}.temperature"] = np.asarray(Ti_fit, dtype=float)
+            ods[f"{cp_base}.ion.{ion_index}.velocity_tor"] = np.asarray(Vtor_fit, dtype=float)
+
+            ods[f"{cp_base}.ion.{ion_index}.temperature_fit.rho_tor_norm"] = np.asarray(rho_meas, dtype=float)
+            ods[f"{cp_base}.ion.{ion_index}.temperature_fit.measured"] = np.asarray(Ti_meas, dtype=float)
+            ods[f"{cp_base}.ion.{ion_index}.temperature_fit.measured_error_upper"] = np.asarray(Ti_err, dtype=float)
+
+            try:
+                ods[f"{cp_base}.ids_properties.comment"] = (
+                    "vaft: charge_exchange rho fit (Ti measured in temperature_fit; Vtor from charge_exchange)"
+                )
+            except Exception:
+                pass
+
+            _ces_rho_dbg(
+                "H4_store",
+                "charge_exchange_rho_profiles:store",
+                "core_profiles_store_ok",
+                {"next_idx": int(next_idx), "time_s": float(time_s), "ion_label": str(ion_label)},
+            )
+
+        if rho_fit is None or Ti_fit is None or Vtor_fit is None:
+            raise RuntimeError(
+                "charge_exchange_rho_profiles: missing rho_fit/Ti_fit/Vtor_fit after compute/reuse."
+            )
+        rho_fit = np.asarray(rho_fit, dtype=float).reshape(-1)
+        Ti_fit = np.asarray(Ti_fit, dtype=float).reshape(-1)
+        Vtor_fit = np.asarray(Vtor_fit, dtype=float).reshape(-1)
+        if not (rho_fit.size == Ti_fit.size == Vtor_fit.size):
+            raise ValueError(
+                f"charge_exchange_rho_profiles: shape mismatch rho_fit={rho_fit.size} "
+                f"Ti_fit={Ti_fit.size} Vtor_fit={Vtor_fit.size}"
+            )
+
+        _ces_rho_dbg(
+            "H3_shapes",
+            "charge_exchange_rho_profiles:before_plot",
+            "before_plot",
+            {
+                "rho_fit_n": int(rho_fit.size),
+                "Ti_fit_n": int(Ti_fit.size),
+                "Vtor_fit_n": int(Vtor_fit.size),
+                "rho_meas_n": int(np.asarray(rho_meas).size),
+            },
         )
 
-        # Build rho grid exactly as fitter does (0..1 linspace).
-        rho_fit = np.linspace(0.0, 1.0, int(rho_points))
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 4), sharex=True)
 
-        # Extract measured points at selected time index.
-        n_channels = len(ods["charge_exchange.channel"])
-        rho_meas = np.asarray(mapped_rho, dtype=float).reshape(-1)[:n_channels]
-
-        Ti_meas, Ti_err = [], []
-        Vtor_meas, Vtor_err = [], []
-
-        for ch in range(n_channels):
-            ion = ods[f"charge_exchange.channel.{ch}.ion.{ion_index}"]
-            ti_u = ion["t_i.data"]
-            v_u = ion["velocity_tor.data"]
-
-            # Use uncertainties if present (same approach as fitter).
-            try:
-                if unumpy is None:
-                    raise RuntimeError("uncertainties unavailable")
-                ti_vals = unumpy.nominal_values(ti_u)
-                ti_stds = unumpy.std_devs(ti_u)
-            except Exception:
-                ti_vals = np.asarray(ti_u, dtype=float)
-                ti_stds = np.zeros_like(ti_vals, dtype=float)
-
-            try:
-                if unumpy is None:
-                    raise RuntimeError("uncertainties unavailable")
-                v_vals = unumpy.nominal_values(v_u)
-                v_stds = unumpy.std_devs(v_u)
-            except Exception:
-                v_vals = np.asarray(v_u, dtype=float)
-                v_stds = np.zeros_like(v_vals, dtype=float)
-
-            # Index with the chosen time slice, but tolerate scalar/0-d.
-            ti_vals = np.asarray(ti_vals, dtype=float)
-            ti_stds = np.asarray(ti_stds, dtype=float)
-            v_vals = np.asarray(v_vals, dtype=float)
-            v_stds = np.asarray(v_stds, dtype=float)
-
-            ti_val = float(ti_vals.reshape(-1)[time_index] if ti_vals.size > 1 else ti_vals.reshape(-1)[0])
-            ti_er = float(ti_stds.reshape(-1)[time_index] if ti_stds.size > 1 else ti_stds.reshape(-1)[0])
-            v_val = float(v_vals.reshape(-1)[time_index] if v_vals.size > 1 else v_vals.reshape(-1)[0])
-            v_er = float(v_stds.reshape(-1)[time_index] if v_stds.size > 1 else v_stds.reshape(-1)[0])
-
-            Ti_meas.append(ti_val)
-            Ti_err.append(abs(ti_er))
-            Vtor_meas.append(v_val)
-            Vtor_err.append(abs(v_er))
-
-        Ti_meas = np.asarray(Ti_meas, dtype=float)
-        Ti_err = np.asarray(Ti_err, dtype=float)
-        Vtor_meas = np.asarray(Vtor_meas, dtype=float)
-        Vtor_err = np.asarray(Vtor_err, dtype=float)
-
-        # --- Store into core_profiles.profiles_1d (schema-valid) ---
-        # Find/replace a profile_1d at this time; otherwise append.
-        if "core_profiles.profiles_1d" in ods:
-            for i in range(len(ods["core_profiles.profiles_1d"])):
-                try:
-                    t_existing = float(ods[f"core_profiles.profiles_1d.{i}.time"])
-                    if np.isclose(t_existing, time_s):
-                        ods.pop(f"core_profiles.profiles_1d.{i}")
-                        break
-                except Exception:
-                    continue
-            next_idx = len(ods["core_profiles.profiles_1d"])
+        if rho_meas.size:
+            order = np.argsort(rho_meas)
+            rho_m = rho_meas[order]
+            Ti_m = Ti_meas[order] if Ti_meas.size else Ti_meas
+            Ti_e = Ti_err[order] if Ti_err.size else Ti_err
+            V_m = Vtor_meas[order] if Vtor_meas.size else Vtor_meas
+            V_e = Vtor_err[order] if Vtor_err.size else Vtor_err
         else:
-            next_idx = 0
+            rho_m, Ti_m, Ti_e, V_m, V_e = rho_meas, Ti_meas, Ti_err, Vtor_meas, Vtor_err
 
-        cp_base = f"core_profiles.profiles_1d.{next_idx}"
-        ods[f"{cp_base}.time"] = float(time_s)
-        ods[f"{cp_base}.grid.rho_tor_norm"] = np.asarray(rho_fit, dtype=float)
+        if rho_m.size and V_m.size:
+            ax1.errorbar(
+                rho_m,
+                V_m / 1e3,
+                yerr=(V_e / 1e3) if V_e.size else None,
+                fmt="o",
+                markersize=4,
+                capsize=2,
+                color="tab:red",
+                label="measured",
+            )
+        ax1.plot(rho_fit, Vtor_fit / 1e3, "-", color="tab:red", linewidth=1, label="fitted")
+        ax1.set_ylabel("V_tor (km/s)", fontsize=8)
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(fontsize=6)
 
-        # Ion label (prefer from charge_exchange)
+        if rho_m.size and Ti_m.size:
+            ax2.errorbar(
+                rho_m,
+                Ti_m,
+                yerr=Ti_e if Ti_e.size else None,
+                fmt="o",
+                markersize=4,
+                capsize=2,
+                color="tab:blue",
+                label="measured",
+            )
+        ax2.plot(rho_fit, Ti_fit, "-", color="tab:blue", linewidth=1, label="fitted")
+        ax2.set_xlabel(r"$\rho_{tor,norm}$", fontsize=8)
+        ax2.set_ylabel("T_i (eV)", fontsize=8)
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(fontsize=6)
+
         try:
-            ion_label = ods[f"charge_exchange.channel.0.ion.{ion_index}.label"]
+            shot = ods["dataset_description.data_entry.pulse"]
         except Exception:
-            ion_label = f"ion{int(ion_index)}"
-        ods[f"{cp_base}.ion.{ion_index}.label"] = ion_label
+            shot = None
 
-        # Fitted profiles
-        ods[f"{cp_base}.ion.{ion_index}.temperature"] = np.asarray(Ti_fit, dtype=float)
-        ods[f"{cp_base}.ion.{ion_index}.velocity_tor"] = np.asarray(Vtor_fit, dtype=float)
+        title = (
+            f"CES profiles vs rho @ {float(time_s)*1e3:.1f} ms"
+            if np.isfinite(time_s)
+            else "CES profiles vs rho"
+        )
+        if shot is not None:
+            title += f" (shot {shot})"
+        fig.suptitle(title, fontsize=9)
 
-        # Measured Ti points (schema-supported)
-        ods[f"{cp_base}.ion.{ion_index}.temperature_fit.rho_tor_norm"] = np.asarray(rho_meas, dtype=float)
-        ods[f"{cp_base}.ion.{ion_index}.temperature_fit.measured"] = np.asarray(Ti_meas, dtype=float)
-        ods[f"{cp_base}.ion.{ion_index}.temperature_fit.measured_error_upper"] = np.asarray(Ti_err, dtype=float)
+        plt.tight_layout()
+        if int(save_opt) == 1:
+            plt.savefig(file_name if file_name else "charge_exchange_rho_profiles.png", dpi=150)
+        else:
+            plt.show()
 
+        _ces_rho_dbg(
+            "H5_plot_ok",
+            "charge_exchange_rho_profiles:after_plot",
+            "plot_complete",
+            {},
+        )
+
+    except Exception as e:
         # #region agent log
         try:
-            import json, time as _time
-            with open("/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "bd9a35",
-                            "runId": "pre-fix",
-                            "hypothesisId": "H_core_profiles_store",
-                            "location": "vaft/plot/profile.py:charge_exchange_rho_profiles",
-                            "message": "core_profiles_store_ok",
-                            "data": {"cp_index": int(next_idx), "time_s": float(time_s), "ion_label": str(ion_label)},
-                            "timestamp": int(_time.time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
+            import traceback
+
+            _ces_rho_dbg(
+                "H_exc",
+                "charge_exchange_rho_profiles:except",
+                repr(e),
+                {"tb": traceback.format_exc()},
+            )
         except Exception:
             pass
-        # #endregion agent log
-
-    # --- Plot ---
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 4), sharex=True)
-
-    # Sort measured points by rho (if available)
-    if rho_meas.size:
-        order = np.argsort(rho_meas)
-        rho_m = rho_meas[order]
-        Ti_m = Ti_meas[order] if Ti_meas.size else Ti_meas
-        Ti_e = Ti_err[order] if Ti_err.size else Ti_err
-        V_m = Vtor_meas[order] if Vtor_meas.size else Vtor_meas
-        V_e = Vtor_err[order] if Vtor_err.size else Vtor_err
-    else:
-        rho_m, Ti_m, Ti_e, V_m, V_e = rho_meas, Ti_meas, Ti_err, Vtor_meas, Vtor_err
-
-    # Vtor (km/s)
-    if rho_m.size and V_m.size:
-        ax1.errorbar(
-            rho_m,
-            V_m / 1e3,
-            yerr=(V_e / 1e3) if V_e.size else None,
-            fmt="o",
-            markersize=4,
-            capsize=2,
-            color="tab:red",
-            label="measured",
-        )
-    ax1.plot(rho_fit, Vtor_fit / 1e3, "-", color="tab:red", linewidth=1, label="fitted")
-    ax1.set_ylabel("V_tor (km/s)", fontsize=8)
-    ax1.grid(True, alpha=0.3)
-    ax1.legend(fontsize=6)
-
-    # Ti (eV)
-    if rho_m.size and Ti_m.size:
-        ax2.errorbar(
-            rho_m,
-            Ti_m,
-            yerr=Ti_e if Ti_e.size else None,
-            fmt="o",
-            markersize=4,
-            capsize=2,
-            color="tab:blue",
-            label="measured",
-        )
-    ax2.plot(rho_fit, Ti_fit, "-", color="tab:blue", linewidth=1, label="fitted")
-    ax2.set_xlabel(r"$\rho_{tor,norm}$", fontsize=8)
-    ax2.set_ylabel("T_i (eV)", fontsize=8)
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(fontsize=6)
-
-    # Title
-    try:
-        shot = ods["dataset_description.data_entry.pulse"]
-    except Exception:
-        shot = None
-
-    title = f"CES profiles vs rho @ {float(time_s)*1e3:.1f} ms" if np.isfinite(time_s) else "CES profiles vs rho"
-    if shot is not None:
-        title += f" (shot {shot})"
-    fig.suptitle(title, fontsize=9)
-
-    plt.tight_layout()
-    if int(save_opt) == 1:
-        plt.savefig(file_name if file_name else "charge_exchange_rho_profiles.png", dpi=150)
-    else:
-        plt.show()
+        # #endregion
+        raise
 
 
 def charge_exchange_rho_profile(ods, **kwargs):
@@ -908,17 +1032,23 @@ def plot_thomson_profiles(ods, save_opt=0, file_name=None):
         # --- Fitted profiles ---
         rho_fit = prof['grid']['rho_tor_norm']
         T_e_fit = prof['electrons']['temperature']
-        n_e_fit = prof['electrons']['density_thermal']
+        n_e_fit = np.asarray(prof['electrons']['density_thermal'], dtype=float) / 1e19
 
         # --- Thomson diagnostic reference (measured points) ---
         rho_meas = prof['electrons']['temperature_fit']['rho_tor_norm']
         T_e_meas = prof['electrons']['temperature_fit']['measured']
-        n_e_meas = prof['electrons']['density_fit']['measured']
+        n_e_meas = np.asarray(prof['electrons']['density_fit']['measured'], dtype=float) / 1e19
 
         # --- Error extraction from ODS (if exists) ---
         try:
             t_e_err = [ods[f'thomson_scattering.channel.{j}.t_e.data_error_upper'][i] for j in range(num_channels)]
-            n_e_err = [ods[f'thomson_scattering.channel.{j}.n_e.data_error_upper'][i] for j in range(num_channels)]
+            n_e_err = (
+                np.asarray(
+                    [ods[f'thomson_scattering.channel.{j}.n_e.data_error_upper'][i] for j in range(num_channels)],
+                    dtype=float,
+                )
+                / 1e19
+            )
         except Exception:
             t_e_err = np.zeros_like(T_e_meas)
             n_e_err = np.zeros_like(n_e_meas)
@@ -945,7 +1075,7 @@ def plot_thomson_profiles(ods, save_opt=0, file_name=None):
 
     axs[1].set_title('Electron Density Profile', fontsize=title_fontsize)
     axs[1].set_xlabel(r'$\rho_{tor,norm}$', fontsize=label_fontsize)
-    axs[1].set_ylabel(r'$N_e$ (m$^{-3}$)', fontsize=label_fontsize)
+    axs[1].set_ylabel(r'$N_e$ ($10^{19}$ m$^{-3}$)', fontsize=label_fontsize)
     axs[1].tick_params(axis='both', which='major', labelsize=6)
     axs[1].grid(True)
     axs[1].legend(fontsize=legend_fontsize)

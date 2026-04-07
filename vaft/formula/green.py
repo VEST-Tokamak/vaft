@@ -13,11 +13,12 @@ E      : complete elliptic integral of second kind     [-]
 
 import numpy as np
 from typing import Union, Tuple
+from vaft.compat import trapz_compat
 
 
 def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     """Local trapezoidal integral helper kept dependency-light for Green kernels."""
-    return float(np.trapz(y, x))
+    return float(trapz_compat(y, x=x))
 
 
 

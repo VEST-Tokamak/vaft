@@ -92,4 +92,16 @@ def spectrometer_uv(ods: object, shot: int, t_start: float, t_end: float, dt: fl
     vfit_filterscope(ods, shot, t_start, t_end, dt)
 
 
-__all__ = ["spectrometer_uv", "vfit_filterscope"]
+def filterscope_from_raw_database(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    options: dict | None = None,
+) -> None:
+    del options
+    spectrometer_uv(ods, shot, tstart, tend, dt)
+
+
+__all__ = ["filterscope_from_raw_database", "spectrometer_uv", "vfit_filterscope"]

@@ -8,6 +8,9 @@ from scipy.interpolate import interp1d
 from vaft.formula import normalize_psi
 from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
+from vaft.compat import apply_omfit_compat_patches, trapz_compat
+
+apply_omfit_compat_patches()
 from omfit_classes.omfit_eqdsk import OMFITeqdsk
 from omfit_classes.fluxSurface import fluxSurfaces
 # update_diagnostics_file(ods, filename)
@@ -466,7 +469,7 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
             continue
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
-        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * np.trapz(pressure_equil, x=volume_equil)
+        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * trapz_compat(pressure_equil, x=volume_equil)
 
 
 def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):

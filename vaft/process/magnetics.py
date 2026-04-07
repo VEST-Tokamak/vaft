@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import signal, integrate
+from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from numpy.polynomial.polynomial import polyfit, polyval
@@ -10,6 +10,7 @@ import numpy as np
 from scipy.signal import csd, coherence, find_peaks
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+from vaft.compat import cumtrapz_compat
 from vaft.process import define_baseline, subtract_baseline
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
@@ -152,7 +153,7 @@ def b_field_pol_probe_field(
     filtered_raw = signal.lfilter(lowpass_param, [1.0], raw, axis=0)
 
     # Integrate to get flux (negative sign if your system defines it so)
-    integrated_flux = -integrate.cumtrapz(filtered_raw, time, initial=0, axis=0)
+    integrated_flux = -cumtrapz_compat(filtered_raw, x=time, initial=0, axis=0)
 
     # Subtract baseline for each column
     field = np.empty_like(integrated_flux)
@@ -265,7 +266,7 @@ def flux_loop_flux(
 
     # Integrate flux loop data for each signal
     # - sign if that is convention, also / (2*pi)
-    integrated_data = -integrate.cumtrapz(raw, time, initial=0, axis=0) / (2 * np.pi)
+    integrated_data = -cumtrapz_compat(raw, x=time, initial=0, axis=0) / (2 * np.pi)
 
     # Remove offset for each signal
     processed_data = np.empty_like(integrated_data)

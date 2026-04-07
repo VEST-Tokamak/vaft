@@ -10,6 +10,7 @@ from typing import Union, Tuple, List, Dict
 from scipy.optimize import curve_fit
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from vaft.compat import trapz_compat
 
 
 # ------------------------------------------------------------------
@@ -51,7 +52,7 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     float
         Definite integral ∫y dx
     """
-    return np.trapz(y, x)
+    return trapz_compat(y, x=x)
 
 
 def normalize_profile(x: Union[float, np.ndarray],

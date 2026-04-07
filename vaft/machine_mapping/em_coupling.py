@@ -10,4 +10,9 @@ def em_coupling(ods: Any, *args, **kwargs) -> None:
     raise NotImplementedError("em_coupling mapping is not implemented yet.")
 
 
-__all__ = ["em_coupling"]
+def calculate_em_coupling_from_raw_database(ods: Any, options: dict | None = None) -> None:
+    del options
+    em_coupling(ods)
+
+
+__all__ = ["calculate_em_coupling_from_raw_database", "em_coupling"]

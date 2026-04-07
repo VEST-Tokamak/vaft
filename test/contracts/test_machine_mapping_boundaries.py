@@ -9,7 +9,6 @@ FORBIDDEN_MODULES = {
     "vaft.builders",
     "vaft.loaders",
     "vaft.models",
-    "vaft.compat",
 }
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import datetime
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -56,6 +57,35 @@ def load_yaml(path: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
     return {} if data is None else data
+
+
+def _resolve_info_file_path(filename: str | None) -> str:
+    if filename is None:
+        return package_data_path("vest.yaml")
+
+    candidate = Path(filename)
+    if candidate.is_absolute() and candidate.exists():
+        return str(candidate)
+    if candidate.exists():
+        return str(candidate.resolve())
+
+    packaged = Path(package_data_path(filename))
+    if packaged.exists():
+        return str(packaged)
+
+    return package_data_path("vest.yaml")
+
+
+def _deep_merge(base: Any, override: Any) -> Any:
+    if not isinstance(base, Mapping) or not isinstance(override, Mapping):
+        return override
+    merged = dict(base)
+    for key, value in override.items():
+        if key in merged and isinstance(merged[key], Mapping) and isinstance(value, Mapping):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _set_nested_mapping_value(mapping: dict[str, Any], path: str, value: Any) -> None:
@@ -148,6 +178,47 @@ def _normalize_shot_key(source: Any) -> str:
         return str(source)
 
 
+def raw_database_info(file: str, shot: int, key: str) -> Dict[str, Dict[str, Any]]:
+    """
+    Return channel metadata for a system key from a YAML source.
+
+    The returned structure is normalized as
+    ``{"labels": {...}, "fields": {...}, "gains": {...}}``
+    where channel indices are string keys.
+    """
+    info_file = _resolve_info_file_path(file)
+    content = load_yaml(info_file)
+
+    shot_key = _normalize_shot_key(shot)
+    default_block = content.get("0") or content.get(0) or content.get("static") or {}
+    shot_block = content.get(shot_key, {})
+    merged_block = _deep_merge(default_block, shot_block)
+
+    key_block = merged_block.get(key, {})
+    if not isinstance(key_block, Mapping):
+        raise ValueError(f"No valid mapping found for key '{key}' in '{info_file}'")
+
+    labels: Dict[str, Any] = {}
+    fields: Dict[str, Any] = {}
+    gains: Dict[str, Any] = {}
+
+    for channel_index, channel_info in key_block.items():
+        channel_key = str(channel_index)
+        if not isinstance(channel_info, Mapping):
+            continue
+        label = channel_info.get("label", channel_info.get("name", channel_key))
+        field = channel_info.get("field")
+        gain = channel_info.get("gain", 1.0)
+        labels[channel_key] = label
+        fields[channel_key] = field
+        gains[channel_key] = gain
+
+    if not fields:
+        raise ValueError(f"No channel definitions for key '{key}' in '{info_file}'")
+
+    return {"labels": labels, "fields": fields, "gains": gains}
+
+
 def load_raw_data(
     source: str, field: str | int, options: Optional[Dict[str, Any]] = None
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -194,7 +265,7 @@ def get_diagnostic_info(
         options = {}
 
     source_type = options.get("source_type", "shot")
-    info_file = options.get("info_file") or package_data_path("vest.yaml")
+    info_file = _resolve_info_file_path(options.get("info_file"))
     info = load_yaml(info_file)
 
     if source_type == "shot":
@@ -220,7 +291,7 @@ def get_static_info(
         options = {}
 
     source_type = options.get("source_type", "shot")
-    info_file = options.get("info_file") or package_data_path("vest.yaml")
+    info_file = _resolve_info_file_path(options.get("info_file"))
     info = load_yaml(info_file)
 
     def pick_block() -> Dict[str, Any]:
@@ -318,6 +389,27 @@ def process_static_channels(ods: Any, diagnostic_type: str, static_info: Dict[st
                 f"rogowski_coil.coil.{i}.calibration_factor",
                 channel.get("calibration_factor", 1.0),
             )
+
+
+def get_metadata(source: str, options: dict | None = None) -> dict[str, Any]:
+    if options is None:
+        options = {}
+
+    source_type = options.get("source_type", "shot")
+    metadata_type = options.get("metadata_type", "all")
+    _ = metadata_type  # Reserved for future metadata filtering.
+
+    if source_type == "shot":
+        return {
+            "shot": int(source),
+            "timestamp": datetime.datetime.now().isoformat(),
+            "source_type": "shot",
+        }
+    return {
+        "file": source,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "source_type": "file",
+    }
 
 
 def _scaled_uncertainty(values: Any, relative_error: float):
@@ -541,9 +633,11 @@ __all__ = [
     "apply_pf_active_current_uncertainties",
     "apply_tf_uncertainties",
     "get_diagnostic_info",
+    "get_metadata",
     "get_path",
     "get_static_info",
     "load_raw_data",
+    "raw_database_info",
     "load_yaml",
     "normalize_constraint_uncertainties",
     "package_data_path",
