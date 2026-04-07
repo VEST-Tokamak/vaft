@@ -27,7 +27,7 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
         data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
         overrides = set(data.get("tool", {}).get("uv", {}).get("override-dependencies", []))
-        self.assertIn("numpy>=1.26.4,<3", overrides)
+        self.assertIn("numpy>=2,<3", overrides)
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ _H5PYD_IMPORT_ERROR = None
 try:
     import h5pyd
 except ImportError as exc:
-    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
+    h5pyd = None  # optional: pip install "vaft[hsds]" (or pip install h5pyd==0.20.0)
     _H5PYD_IMPORT_ERROR = exc
 import h5py
 import omas
@@ -47,7 +47,7 @@ import pandas as pd
 from datetime import datetime
 
 _H5PYD_MSG = (
-    "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
+    "h5pyd is required for HSDS support. Install with: pip install \"vaft[hsds]\""
 )
 
 

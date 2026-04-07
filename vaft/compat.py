@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import wraps
 from typing import Any
+import sys
 
 _OMFIT_PATCH_APPLIED = False
 _RUNTIME_PATCH_APPLIED = False
@@ -212,5 +213,43 @@ def apply_omfit_compat_patches() -> None:
     if needs_interp2d_patch:
         interpolate.interp2d = _build_interp2d_compat(interpolate)
 
+    # If omfit_classes was imported before this patch, refresh its numpy-error
+    # decorators so they no longer close over a non-reentrant errstate context.
+    _retrofit_omfit_utils_math_np_errors()
+
     _OMFIT_PATCH_APPLIED = True
+
+
+def _retrofit_omfit_utils_math_np_errors() -> None:
+    mod = sys.modules.get("omfit_classes.utils_math")
+    if mod is None:
+        return
+
+    np_errors = getattr(mod, "np_errors", None)
+    if np_errors is None:
+        return
+
+    # Idempotency guard: skip when already retrofitted by this module.
+    if getattr(np_errors, "__module__", "") == __name__ and getattr(np_errors, "__name__", "") == "_np_errors_reentrant":
+        return
+
+    import functools
+    import numpy as np
+
+    def _np_errors_reentrant(**kw):
+        def decorator(f):
+            @functools.wraps(f)
+            def decorated(*args, **kwargs):
+                with np.errstate(**kw):
+                    return f(*args, **kwargs)
+
+            return decorated
+
+        return decorator
+
+    mod.np_errors = _np_errors_reentrant
+    mod.np_ignored = _np_errors_reentrant(all="ignore")
+    mod.np_raised = _np_errors_reentrant(all="raise")
+    mod.np_printed = _np_errors_reentrant(all="print")
+    mod.np_warned = _np_errors_reentrant(all="warn")
 

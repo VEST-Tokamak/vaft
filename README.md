@@ -45,15 +45,39 @@ VEST Data Analysis Platform
 
 ### Installation
 
+Install from PyPI:
+
 ```bash
 pip install vaft
 ```
 
-**Python**: 3.10 -- 3.13
+Install from source (recommended for development):
+
+```bash
+git clone https://github.com/VEST-Tokamak/vaft.git
+cd vaft
+python -m pip install -e .
+```
+
+Install optional extras:
+
+```bash
+# Development tooling
+python -m pip install -e ".[dev]"
+
+# HSDS database client (source install)
+python -m pip install -e ".[hsds]"
+
+# HSDS database client (PyPI install)
+python -m pip install "vaft[hsds]"
+```
+
+**Supported Python**: 3.10 -- 3.13
+**Numerical stack default**: NumPy 2.x (`numpy>=2,<3`)
 
 ### Connect to the VEST Database
 
-After installation, configure the HSDS connection:
+If you will use the remote VEST HSDS database, configure your HSDS credentials:
 
 ```bash
 hsconfigure

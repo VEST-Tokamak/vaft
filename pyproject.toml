@@ -9,8 +9,21 @@ authors = [
 ]
 description = "Versatile Analytical Framework for Tokamak"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10,<3.14"
 dynamic = ["version"]
+keywords = ["tokamak", "imas", "omas", "fusion", "vest"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Physics",
+]
 
 dependencies = [
   "astropy==6.1.7",
@@ -49,6 +62,12 @@ dependencies = [
 
 [project.optional-dependencies]
 hsds = ["h5pyd==0.20.0"]
+dev = [
+  "pytest",
+  "black",
+  "flake8",
+  "ipykernel>=7.2.0",
+]
 
 [project.urls]
 homepage = "https://vest-tokamak.github.io/vaft/"
@@ -70,7 +89,7 @@ include = ["vaft"]
 
 [tool.uv]
 override-dependencies = [
-  "numpy>=1.26.4,<3",
+  "numpy>=2,<3",
 ]
 
 [tool.uv.sources]
