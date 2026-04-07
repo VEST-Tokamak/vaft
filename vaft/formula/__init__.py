@@ -14,6 +14,9 @@ _SUBMODULES = {
 
 _SEARCH_ORDER = ("green", "equilibrium", "constants", "utils", "stability")
 
+# Snapshot names before star-imports so __all__ captures only the symbols they add.
+_before = set(dir())
+
 # Eagerly import all submodule symbols to preserve `from vaft.formula import *` behaviour.
 from .constants import *  # noqa: F401, F403
 from .utils import *  # noqa: F401, F403
@@ -21,10 +24,9 @@ from .equilibrium import *  # noqa: F401, F403
 from .stability import *  # noqa: F401, F403
 from .green import *  # noqa: F401, F403
 
-# Include both submodule accessor names and all eagerly-imported public symbols.
-__all__ = sorted(
-    set(list(_SUBMODULES.keys()) + [name for name in globals() if not name.startswith("_")])
-)
+# Include both submodule accessor names and symbols added by the star imports above.
+__all__ = sorted(set(list(_SUBMODULES.keys()) + list(set(dir()) - _before)))
+del _before
 
 
 def __getattr__(name: str):
