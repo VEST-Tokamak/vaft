@@ -23,13 +23,22 @@ def smooth(array, span: int) -> np.ndarray:
     out = np.zeros(count, dtype=float)
     half = (span - 1) // 2
 
-    for i in range(half):
-        width = 2 * i + 1
-        out[i] = np.mean(values[:width])
-        out[count - 1 - i] = np.mean(values[count - width : count])
+    # O(N) vectorized implementation using cumulative sums.
+    cumsum = np.zeros(count + 1, dtype=float)
+    cumsum[1:] = np.cumsum(values)
 
-    for i in range(half, count - half):
-        out[i] = np.mean(values[i - half : i + half + 1])
+    # Interior: full-width windows of size `span`.
+    interior = np.arange(half, count - half)
+    if interior.size:
+        out[interior] = (cumsum[interior + half + 1] - cumsum[interior - half]) / span
+
+    # Edge tapering: left and right sides use progressively narrower windows.
+    if half > 0:
+        left_idx = np.arange(half)
+        widths = 2 * left_idx + 1
+        out[left_idx] = (cumsum[widths] - cumsum[0]) / widths
+        right_idx = count - 1 - left_idx
+        out[right_idx] = (cumsum[count] - cumsum[count - widths]) / widths
 
     return out
 
@@ -114,12 +123,31 @@ def process_signal(time, data, options=None):
             return time, data
 
         fs = 1.0 / (time[1] - time[0])
-        if filter_type == "lowpass":
-            b, a = signal.butter(order, cutoff, btype="low", fs=fs)
-        elif filter_type == "highpass":
-            b, a = signal.butter(order, cutoff, btype="high", fs=fs)
-        elif filter_type == "bandpass":
-            b, a = signal.butter(order, cutoff, btype="band", fs=fs)
+        nyquist = fs / 2.0
+
+        if filter_type == "bandpass":
+            if not (isinstance(cutoff, (list, tuple, np.ndarray)) and len(cutoff) == 2):
+                raise ValueError(
+                    "'cutoff' must be a 2-element sequence [low, high] for 'bandpass' filter."
+                )
+            low, high = float(cutoff[0]), float(cutoff[1])
+            if not (0 < low < high < nyquist):
+                raise ValueError(
+                    f"For 'bandpass' filter, cutoff must satisfy "
+                    f"0 < low ({low}) < high ({high}) < fs/2 ({nyquist})."
+                )
+            b, a = signal.butter(order, [low, high], btype="band", fs=fs)
+        elif filter_type in ("lowpass", "highpass"):
+            cutoff_val = float(
+                cutoff[0] if isinstance(cutoff, (list, tuple, np.ndarray)) else cutoff
+            )
+            if not (0 < cutoff_val < nyquist):
+                raise ValueError(
+                    f"'cutoff' ({cutoff_val}) must be between 0 and fs/2 ({nyquist}) "
+                    f"for '{filter_type}' filter."
+                )
+            btype = "low" if filter_type == "lowpass" else "high"
+            b, a = signal.butter(order, cutoff_val, btype=btype, fs=fs)
         else:
             raise ValueError(f"Unsupported filter type: {filter_type}")
 

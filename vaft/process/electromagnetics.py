@@ -12,19 +12,6 @@ except ImportError:
     print("Warning: Numba not found. Falling back to slower Python execution for solve_eddy_currents. Install Numba for performance.")
 
 
-def dist(r1: float, r2: float, z1: float, z2: float) -> float:
-    """Compute Euclidean distance in the R-Z plane."""
-    return float(np.hypot(r2 - r1, z2 - z1))
-
-
-def self_inductance_new(radius: float, area: float) -> float:
-    """Estimate self-inductance of a loop from FIST formulation."""
-    mu0 = 4.0 * np.pi * 1e-7
-    return float(mu0 * radius * (np.log(8.0 * radius / np.sqrt(area / np.pi)) - 7.0 / 4.0))
-
-
-self_induM_new = self_inductance_new
-
 # Description of the axisymmetric mutual electromagnetics calculations.
 def compute_br_bz_phi(
     r_obs: np.ndarray,

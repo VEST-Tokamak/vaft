@@ -9,14 +9,12 @@ via a connection pool, load data by shot/field, correct time arrays for DAQ
 triggers, retrieve date or shot lists, and plot results.
 """
 
-import ast
 import gzip
 import json
 import logging
 import os
 import re
 import time
-from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union

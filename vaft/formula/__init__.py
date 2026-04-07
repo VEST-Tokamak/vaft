@@ -1,4 +1,4 @@
-"""Lazy formula namespace for physics helpers."""
+"""Formula namespace for physics helpers."""
 
 from __future__ import annotations
 
@@ -14,7 +14,17 @@ _SUBMODULES = {
 
 _SEARCH_ORDER = ("green", "equilibrium", "constants", "utils", "stability")
 
-__all__ = sorted(_SUBMODULES.keys())
+# Eagerly import all submodule symbols to preserve `from vaft.formula import *` behaviour.
+from .constants import *  # noqa: F401, F403
+from .utils import *  # noqa: F401, F403
+from .equilibrium import *  # noqa: F401, F403
+from .stability import *  # noqa: F401, F403
+from .green import *  # noqa: F401, F403
+
+# Include both submodule accessor names and all eagerly-imported public symbols.
+__all__ = sorted(
+    set(list(_SUBMODULES.keys()) + [name for name in globals() if not name.startswith("_")])
+)
 
 
 def __getattr__(name: str):
