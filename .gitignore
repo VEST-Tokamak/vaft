@@ -8,3 +8,6 @@ vaft.egg-info*
 /build/
 *.snakemake
 /vendor/omas/
+# Local tool and editor artifacts
+.claude/settings.local.json
+.cursor/*.log

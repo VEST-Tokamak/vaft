@@ -1,9 +1,10 @@
-# -----------------------------------
-# Install: pip install .  (or pip install -e . for editable)
-# HSDS install: pip install h5pyd==0.20.0 --no-deps  # Resolves version conflict (safe for usage)
-# Dependencies are defined in pyproject.toml.
-# -----------------------------------
+"""Legacy setuptools entrypoint.
+
+VAFT packaging metadata and dependencies are defined in `pyproject.toml`.
+This file is kept for compatibility with tooling that still invokes `setup.py`.
+"""
 
 from setuptools import setup
 
-setup()
+if __name__ == "__main__":
+    setup()

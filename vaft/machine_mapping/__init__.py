@@ -1,54 +1,151 @@
-"""
-Machine mapping module for VEST database.
+"""Canonical and compatibility machine_mapping namespace for VEST."""
 
-This module provides functions for mapping raw diagnostic data to OMAS/IMAS data structures.
-The module is organized into three main components:
-
-- meta: Metadata and dataset description functions
-- experiment: Raw diagnostic data processing functions with static and dynamic sources
-- model: Model-based and derived physical quantities calculation functions
-"""
-
-from .meta import (
-    dataset_description,
-    summary
-)
-
-from .experiment import (
-    pf_active,
-    filterscope,
-    barometry,
-    tf,
-    magnetics,
-    ion_doppler_spectroscopy,
-    spectrometer_uv,
-    camera_visible,
-    thomson_scattering
-)
-
-from .model import (
-    em_coupling,
-    equilibrium,
-    mhd_linear,
-    pf_passive,
-    pf_plasma
-)
+from importlib import import_module
 
 __all__ = [
-    'dataset_description',
-    'summary',
-    'pf_active',
-    'filterscope',
-    'barometry',
-    'tf',
-    'magnetics',
-    'ion_doppler_spectroscopy',
-    'spectrometer_uv',
-    'camera_visible',
-    'thomson_scattering',
-    'em_coupling',
-    'equilibrium',
-    'mhd_linear',
-    'pf_passive',
-    'pf_plasma'
+    "DEFAULT_CONSTRAINT_UNCERTAINTIES",
+    "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
+    "VEST_DiamagneticFlux",
+    "apply_default_constraint_uncertainties",
+    "apply_magnetics_uncertainties",
+    "apply_pf_active_current_uncertainties",
+    "apply_tf_uncertainties",
+    "b_field_pol_probe_from_raw_database",
+    "barometry",
+    "barometry_from_raw_database",
+    "calculate_em_coupling_from_raw_database",
+    "charge_exchange",
+    "dataset_description",
+    "dataset_description_from_raw_database",
+    "em_coupling",
+    "equilibrium",
+    "filterscope_from_raw_database",
+    "flux_loop_from_raw_database",
+    "filterscope",
+    "get_metadata",
+    "magnetics",
+    "magnetics_from_raw_database",
+    "mhd_linear",
+    "normalize_constraint_uncertainties",
+    "pf_active",
+    "pf_active_from_raw_database",
+    "pf_passive",
+    "pf_plasma",
+    "read_doppler_profile",
+    "read_doppler_single",
+    "resolve_geometry_asset",
+    "spectrometer_uv",
+    "summary",
+    "tf",
+    "tf_from_raw_database",
+    "thomson_scattering",
+    "raw_database_info",
+    "rogowski_coil_and_ip_from_raw_database",
+    "vfit_barometry_dynamic",
+    "vfit_barometry_static",
+    "vfit_charge_exchange",
+    "vfit_dataset_description",
+    "vfit_filterscope",
+    "vfit_ion_doppler_spectroscophy",
+    "vfit_md",
+    "vfit_magnetics_dynamic",
+    "vfit_magnetics_for_shot",
+    "vfit_magnetics_static",
+    "vfit_PlasmaCurrent",
+    "vfit_plasma_current",
+    "vfit_pf",
+    "vfit_pf_active_dynamic",
+    "vfit_pf_active_for_shot",
+    "vfit_pf_active_static",
+    "vfit_plasmaMGods_startend",
+    "vfit_plasma_mgods_startend",
+    "vest_diamagnetic_flux",
+    "vfit_tf_btR",
+    "vfit_tf_bt_r",
+    "vfit_tf_current",
+    "vfit_tf_dynamic",
+    "vfit_tf_static",
+    "vfit_thomson_scattering_dynamic",
+    "vfit_thomson_scattering_static",
 ]
+
+_EXPORT_MAP = {
+    "DEFAULT_CONSTRAINT_UNCERTAINTIES": (".utils", "DEFAULT_CONSTRAINT_UNCERTAINTIES"),
+    "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR": (".utils", "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR"),
+    "VEST_DiamagneticFlux": (".magnetics", "VEST_DiamagneticFlux"),
+    "apply_default_constraint_uncertainties": (".utils", "apply_default_constraint_uncertainties"),
+    "apply_magnetics_uncertainties": (".utils", "apply_magnetics_uncertainties"),
+    "apply_pf_active_current_uncertainties": (".utils", "apply_pf_active_current_uncertainties"),
+    "apply_tf_uncertainties": (".utils", "apply_tf_uncertainties"),
+    "b_field_pol_probe_from_raw_database": (".magnetics", "b_field_pol_probe_from_raw_database"),
+    "barometry": (".barometry", "barometry"),
+    "barometry_from_raw_database": (".barometry", "barometry_from_raw_database"),
+    "calculate_em_coupling_from_raw_database": (".em_coupling", "calculate_em_coupling_from_raw_database"),
+    "charge_exchange": (".charge_exchange", "charge_exchange"),
+    "dataset_description": (".dataset_description", "dataset_description"),
+    "dataset_description_from_raw_database": (".dataset_description", "dataset_description_from_raw_database"),
+    "em_coupling": (".em_coupling", "em_coupling"),
+    "equilibrium": (".equilibrium", "equilibrium"),
+    "filterscope_from_raw_database": (".spectrometer_uv", "filterscope_from_raw_database"),
+    "flux_loop_from_raw_database": (".magnetics", "flux_loop_from_raw_database"),
+    "filterscope": (".filterscope", "filterscope"),
+    "get_metadata": (".utils", "get_metadata"),
+    "magnetics": (".magnetics", "magnetics"),
+    "magnetics_from_raw_database": (".magnetics", "magnetics_from_raw_database"),
+    "mhd_linear": (".mhd_linear", "mhd_linear"),
+    "normalize_constraint_uncertainties": (".utils", "normalize_constraint_uncertainties"),
+    "pf_active": (".pf_active", "pf_active"),
+    "pf_active_from_raw_database": (".pf_active", "pf_active_from_raw_database"),
+    "raw_database_info": (".utils", "raw_database_info"),
+    "rogowski_coil_and_ip_from_raw_database": (".magnetics", "rogowski_coil_and_ip_from_raw_database"),
+    "pf_passive": (".pf_passive", "pf_passive"),
+    "pf_plasma": (".pf_plasma", "pf_plasma"),
+    "read_doppler_profile": (".charge_exchange", "read_doppler_profile"),
+    "read_doppler_single": (".charge_exchange", "read_doppler_single"),
+    "resolve_geometry_asset": (".pf_active", "resolve_geometry_asset"),
+    "spectrometer_uv": (".spectrometer_uv", "spectrometer_uv"),
+    "summary": (".summary", "summary"),
+    "tf": (".tf", "tf"),
+    "tf_from_raw_database": (".tf", "tf_from_raw_database"),
+    "thomson_scattering": (".thomson_scattering", "thomson_scattering"),
+    "vfit_barometry_dynamic": (".barometry", "vfit_barometry_dynamic"),
+    "vfit_barometry_static": (".barometry", "vfit_barometry_static"),
+    "vfit_charge_exchange": (".charge_exchange", "vfit_charge_exchange"),
+    "vfit_dataset_description": (".dataset_description", "vfit_dataset_description"),
+    "vfit_filterscope": (".spectrometer_uv", "vfit_filterscope"),
+    "vfit_ion_doppler_spectroscophy": (".charge_exchange", "vfit_ion_doppler_spectroscophy"),
+    "vfit_md": (".magnetics", "vfit_md"),
+    "vfit_magnetics_dynamic": (".magnetics", "vfit_magnetics_dynamic"),
+    "vfit_magnetics_for_shot": (".magnetics", "vfit_magnetics_for_shot"),
+    "vfit_magnetics_static": (".magnetics", "vfit_magnetics_static"),
+    "vfit_PlasmaCurrent": (".magnetics", "vfit_PlasmaCurrent"),
+    "vfit_plasma_current": (".magnetics", "vfit_plasma_current"),
+    "vfit_pf": (".pf_active", "vfit_pf"),
+    "vfit_pf_active_dynamic": (".pf_active", "vfit_pf_active_dynamic"),
+    "vfit_pf_active_for_shot": (".pf_active", "vfit_pf_active_for_shot"),
+    "vfit_pf_active_static": (".pf_active", "vfit_pf_active_static"),
+    "vfit_plasmaMGods_startend": (".magnetics", "vfit_plasmaMGods_startend"),
+    "vfit_plasma_mgods_startend": (".magnetics", "vfit_plasma_mgods_startend"),
+    "vest_diamagnetic_flux": (".magnetics", "vest_diamagnetic_flux"),
+    "vfit_tf_btR": (".tf", "vfit_tf_btR"),
+    "vfit_tf_bt_r": (".tf", "vfit_tf_bt_r"),
+    "vfit_tf_current": (".tf", "vfit_tf_current"),
+    "vfit_tf_dynamic": (".tf", "vfit_tf_dynamic"),
+    "vfit_tf_static": (".tf", "vfit_tf_static"),
+    "vfit_thomson_scattering_dynamic": (".thomson_scattering", "vfit_thomson_scattering_dynamic"),
+    "vfit_thomson_scattering_static": (".thomson_scattering", "vfit_thomson_scattering_static"),
+}
+
+
+def __getattr__(name: str):
+    if name not in _EXPORT_MAP:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attribute = _EXPORT_MAP[name]
+    module = import_module(module_name, __name__)
+    value = getattr(module, attribute)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(list(globals().keys()) + __all__)

@@ -1,4 +1,4 @@
-from vaft.formula import green_br_bz, green_r, calculate_distance
+from vaft.formula.green import calculate_distance, green_br_bz, green_r
 from typing import List, Dict, Any, Tuple
 import numpy as np
 from numpy import ndarray
@@ -10,6 +10,7 @@ try:
 except ImportError:
     NUMBA_AVAILABLE = False
     print("Warning: Numba not found. Falling back to slower Python execution for solve_eddy_currents. Install Numba for performance.")
+
 
 # Description of the axisymmetric mutual electromagnetics calculations.
 def compute_br_bz_phi(

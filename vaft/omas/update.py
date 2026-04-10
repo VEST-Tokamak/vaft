@@ -6,8 +6,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from vaft.formula import normalize_psi
-from vaft.process.equilibrium import psi_to_RZ, volume_average
+from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
+from vaft.compat import apply_omfit_compat_patches, trapz_compat
+
+apply_omfit_compat_patches()
 from omfit_classes.omfit_eqdsk import OMFITeqdsk
 from omfit_classes.fluxSurface import fluxSurfaces
 # update_diagnostics_file(ods, filename)
@@ -206,7 +209,7 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
         ods (OMAS structure): Input OMAS data structure
         time_slice (int/list/None): Specific time slice(s) to process. None=all
     """
-    from vaft.process.equilibrium import psi_to_RZ
+    from vaft.process.equilibrium import psi_to_rz
     
     # Process all time slices if not specified
     time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
@@ -269,7 +272,7 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
         
         # Map 1D j_tor to 2D (R,Z)
         try:
-            j_tor_RZ, _psiN_RZ = psi_to_RZ(psi_norm_1d, j_tor_1d, psi_RZ, psi_axis, psi_lcfs)
+            j_tor_RZ, _psiN_RZ = psi_to_rz(psi_norm_1d, j_tor_1d, psi_RZ, psi_axis, psi_lcfs)
             
             # Store in profiles_2d.0.j_tor
             eq_ts['profiles_2d.0.j_tor'] = j_tor_RZ
@@ -466,7 +469,7 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
             continue
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
-        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * np.trapz(pressure_equil, x=volume_equil)
+        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * trapz_compat(pressure_equil, x=volume_equil)
 
 
 def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
@@ -475,7 +478,7 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     The function matches core_profiles time indices to equilibrium time slices
     by finding the closest matching time values.
     """
-    from vaft.process.equilibrium import psi_to_RZ, volume_average
+    from vaft.process.equilibrium import psi_to_rz, volume_average
     
     # Basic availability checks
     if 'core_profiles.profiles_1d' not in ods:
@@ -630,7 +633,7 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                                   bounds_error=False,
                                   fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
             profile_1d = interp_func(rho_tor_norm_at_psiN)
-            profile_RZ, psiN_RZ = psi_to_RZ(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
+            profile_RZ, psiN_RZ = psi_to_rz(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
             return profile_RZ, psiN_RZ
 
         # Step 2: Process electron profiles

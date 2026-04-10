@@ -13,8 +13,12 @@ E      : complete elliptic integral of second kind     [-]
 
 import numpy as np
 from typing import Union, Tuple
+from vaft.compat import trapz_compat
 
-from .utils import trapz_integral
+
+def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
+    """Local trapezoidal integral helper kept dependency-light for Green kernels."""
+    return float(trapz_compat(y, x=x))
 
 
 
@@ -433,4 +437,3 @@ def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) ->
     res = np.where((r_obs == 0) | (r_src == 0), 0.0, res)
 
     return res
-

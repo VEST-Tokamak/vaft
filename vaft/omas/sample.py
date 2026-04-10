@@ -1,5 +1,8 @@
 from omas import *
 import pkg_resources
+from vaft.compat import apply_omfit_compat_patches
+
+apply_omfit_compat_patches()
 from omfit_classes.omfit_eqdsk import OMFITeqdsk
 
 def sample_ods():

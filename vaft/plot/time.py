@@ -4,7 +4,7 @@ This module contains functions for plotting time series data from OMAS ODS.
 import uncertainties.unumpy as unumpy 
 from omas import *
 import matplotlib.pyplot as plt
-from vaft.process import signal_onoffset, is_signal_active
+from vaft.process import is_signal_active, signal_on_offset
 import matplotlib.pyplot as plt
 import numpy as np
 from vaft.omas import odc_or_ods_check
@@ -59,7 +59,7 @@ def set_xlim_time(odc, type='plasma'):
             if type == 'plasma' and 'magnetics.ip' in ods:
                 time = ods['magnetics.ip.0.time']
                 data = ods['magnetics.ip.0.data']
-                onset, offset = signal_onoffset(time, data)
+                onset, offset = signal_on_offset(time, data)
                 onsets.append(onset)
                 offsets.append(offset)
                 
@@ -68,7 +68,7 @@ def set_xlim_time(odc, type='plasma'):
                 for i in range(num_coils):
                     time = ods['pf_active.time']
                     data = ods[f'pf_active.coil.{i}.current.data']
-                    onset, offset = signal_onoffset(time, data)
+                    onset, offset = signal_on_offset(time, data)
                     onsets.append(onset)
                     offsets.append(offset)
                     
@@ -1669,7 +1669,7 @@ def time_electromagnetics_current(ods: ODS, label='shot', xunit='s', xlim='plasm
         try:
             time_ip = ods['magnetics.ip.0.time']
             data_ip = ods['magnetics.ip.0.data']
-            onset_ip, offset_ip = signal_onoffset(time_ip, data_ip)
+            onset_ip, offset_ip = signal_on_offset(time_ip, data_ip)
             xlim_processed = [onset_ip, offset_ip]
             if onset is not None:
                  xlim_processed = [onset_ip - onset, offset_ip - onset]
