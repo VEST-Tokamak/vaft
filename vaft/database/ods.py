@@ -26,17 +26,12 @@ Modification History:
 
 import requests
 import urllib3
-import json
-import os
-_H5PYD_IMPORT_ERROR = None
 try:
     import h5pyd
-except ImportError as exc:
-    h5pyd = None  # optional: pip install "vaft[hsds]" (or pip install h5pyd==0.20.0)
-    _H5PYD_IMPORT_ERROR = exc
+except ImportError:
+    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 import h5py
 import omas
-import scipy.io
 import subprocess
 import numpy as np
 from typing import Optional, Union, List
@@ -46,172 +41,16 @@ import logging
 import pandas as pd
 from datetime import datetime
 
+from .utils import _require_h5pyd, exist_shot, is_connect
+
 _H5PYD_MSG = (
-    "h5pyd is required for HSDS support. Install with: pip install \"vaft[hsds]\""
+    "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
 )
 
-
-def _require_h5pyd():
-    if h5pyd is None:
-        if _H5PYD_IMPORT_ERROR is not None:
-            raise ImportError(f"{_H5PYD_MSG} (import failed: {_H5PYD_IMPORT_ERROR})") from _H5PYD_IMPORT_ERROR
-        raise ImportError(_H5PYD_MSG)
+PROCESSED_H5_PATH = "hdf5://public_omas/processed_shots.h5"
 
 
-def save_omas_mat(ods: omas.ODS, filename: str) -> None:
-    """Save an ODS object to MATLAB `.mat` via intermediate JSON."""
-    json_name = filename.replace(".mat", ".json")
-    omas.save_omas_json(ods, json_name)
-    with open(json_name, "r", encoding="utf-8") as file:
-        ods_payload = json.load(file)
-    scipy.io.savemat(filename, mdict={"ods": ods_payload})
-    os.remove(json_name)
-
-
-def check_nc(name: str) -> list[str]:
-    """List top-level ODS keys in a NetCDF OMAS file."""
-    ods = omas.load_omas_nc(name)
-    keys = [str(key) for key in ods]
-    for key in keys:
-        print(key)
-    return keys
-
-
-def check_json(name: str) -> list[str]:
-    """List top-level ODS keys in a JSON OMAS file."""
-    ods = omas.load_omas_json(name)
-    keys = [str(key) for key in ods]
-    for key in keys:
-        print(key)
-    return keys
-
-
-def is_connect() -> bool:
-    """
-    Check if the user is connected to the server.
-    
-    input: None
-    output: True if the user is connected to the server, False otherwise.
-
-    """
-    _require_h5pyd()
-    logging.getLogger().setLevel(logging.WARNING)
-    try:
-        if h5pyd.getServerInfo()['state']=='READY':
-            username = h5pyd.getServerInfo()['username']
-            return True 
-        else:
-            return False
-    except requests.exceptions.ConnectTimeout:
-        return False
-
-def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> List[int]:
-    """Return a list of shot numbers from matching files in the specified directory.
-
-    If the 'username' or 'shot' parameter is provided, the function will return shot numbers with a matching prefix.
-    If 'username' or 'shot' is not provided, the function will return all shot numbers in the user's folder.
-    
-    Args:
-        username (str, optional): The username to access the corresponding folder.
-        shot (int, optional): The shot number to search for.
-
-    Returns:
-        list[int]: List of shot numbers. Empty list if no matches found or connection error.
-    """
-    _require_h5pyd()
-    logging.getLogger().setLevel(logging.WARNING)
-    if username is None:
-        # username = h5pyd.getServerInfo()['username']
-        username = 'public' # use default folder for public data
-    
-    try:
-        folder = list(h5pyd.Folder("/" + username + "/"))
-        shot_numbers = []
-        
-        if shot is not None:
-            file_list = list(folder)
-            file_exist=False
-            for file in file_list:
-                if file.split(".")[0] == str(shot):
-                    file_exist = True
-                    print(file)
-                    return True
-            
-            if not file_exist:
-                print("File does not exist")
-                return False
-        else:
-            print(list(folder))
-    except urllib3.exceptions.MaxRetryError:
-        print("Connection error")
-        return []
-    
-
-PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
-
-def exist_ts_file():
-    """
-    Display all processed Thomson scattering shots from h5pyd in a formatted table.
-
-    Behavior:
-    - Reads 'shots' group (each shotnumber as subgroup) from processed_shots.h5.
-    - Extracts timestamp and status for each shot.
-    - Displays in a Markdown-formatted table.
-    - Returns DataFrame with an additional 'File' column indicating source file.
-    """
-    _require_h5pyd()
-    logging.getLogger().setLevel(logging.WARNING)
-
-    try:
-        with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
-            if "shots" not in f:
-                print("[INFO] No 'shots' group found in processed_shots.h5.")
-                return None
-
-            g = f["shots"]
-            if len(g.keys()) == 0:
-                print("[INFO] No processed shots recorded yet.")
-                return None
-
-            shots, timestamps, status = [], [], []
-            for key in sorted(g.keys(), key=lambda x: int(x)):
-                try:
-                    shots.append(int(key))
-                    ts = g[key]["timestamp"][...]
-                    st = g[key]["status"][...]
-                    
-                    # Handle numpy array with object dtype containing bytes
-                    if isinstance(ts, np.ndarray) and ts.dtype == object:
-                        ts = ts.item().decode('utf-8')
-                    
-                    if isinstance(st, np.ndarray) and st.dtype == object:
-                        st = st.item().decode('utf-8')
-                        
-                except Exception as e:
-                    print(f"[WARNING] Error processing shot {key}: {e}")
-                    ts, st = "N/A", "unknown"
-                    
-                timestamps.append(ts)
-                status.append(st)
-
-        df = pd.DataFrame({
-            "Index": range(1, len(shots) + 1),
-            "Shot Number": shots,
-           "Last Processed": timestamps,
-           "Status": status
-        })
-
-        print("Available Thomson Scattering Shots:\n")
-        print(df.to_markdown(index=False, tablefmt="github"))
-
-        return df
-
-    except Exception as e:
-        print(f"[ERROR] Failed to read processed shots: {e}")
-        return None
-        
-        
-def save(
+def save_ods(
     ods: omas.ODS,
     shot: int,
     filename: Optional[str] = None,
@@ -246,7 +85,7 @@ def save(
         print('Error: Connection to the server failed')
         return
     
-    username = 'public' if h5pyd.getServerInfo()['username'] == 'admin' else h5pyd.getServerInfo()['username']
+    username = 'public_omas' if h5pyd.getServerInfo()['username'] == 'admin' else h5pyd.getServerInfo()['username']
     file_path = f"hdf5://{username}/{filename}"
     omas.save_omas_h5(ods, filename)
 
@@ -283,7 +122,7 @@ def convert_dataset(ods: omas.ODS, data: Union[h5py.Dataset, h5py.Group]) -> Non
         elif isinstance(data[item], h5py.Group):
             convert_dataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
 
-def load(shot: Union[int, List[int]], directory: str = 'public') -> Union[omas.ODS, List[omas.ODS]]:
+def load_ods(shot: Union[int, List[int]], directory: str = 'public_omas') -> Union[omas.ODS, List[omas.ODS]]:
     """
     Load ODS data from HDF5 file(s).
         
@@ -316,6 +155,7 @@ def _load_one_shot(shot: int, directory: str) -> omas.ODS:
     logging.getLogger().setLevel(logging.WARNING)
 
     filename = f'hdf5://{directory}/{shot}.h5'
+    print(f"Attempting to load ODS data from: {filename}")
 
     # 1) 기본 로드 먼저 시도
     ods = omas.ODS()

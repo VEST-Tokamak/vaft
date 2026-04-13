@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from importlib import import_module
 
-__all__ = ["raw", "ods"]
+__all__ = ["raw", "ods", "ids", "utils"]
 
 
 def __getattr__(name: str):
@@ -19,7 +19,7 @@ def __getattr__(name: str):
         globals()[name] = module
         return module
 
-    for module_name in ("ods", "raw"):
+    for module_name in ("ids", "ods", "raw"):
         try:
             module = import_module(f".{module_name}", __name__)
         except Exception:
