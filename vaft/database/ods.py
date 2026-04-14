@@ -72,7 +72,6 @@ def save_ods(
     Returns:
     None: The function doesn't return any specific value but prints information about the saving process.
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     if filename is None:
@@ -80,7 +79,9 @@ def save_ods(
 
     if env == 'local':
         omas.save_omas_h5(ods, filename)
+        return
 
+    _require_h5pyd()
     if not is_connect():
         print('Error: Connection to the server failed')
         return
