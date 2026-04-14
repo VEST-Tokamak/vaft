@@ -77,7 +77,7 @@ def save(
         expanded_path = Path(path).expanduser()
         expanded_path.mkdir(parents=True, exist_ok=True)
         print(f"[INFO] Local storage path: {expanded_path.absolute()}")
-        with imas.DBEntry("imas:hdf5?path="+str(expanded_path), "w") as dbentry:
+        with imas.DBEntry("imas:hdf5?path="+str(expanded_path), "w", dd_version=dd_version) as dbentry:
             dbentry.put(ids)
         print(f"[INFO] Saved {filename} to: {expanded_path / filename}")
         print(f"[INFO] Saved master.h5 to: {expanded_path / 'master.h5'}")
@@ -94,7 +94,7 @@ def save(
 
             # Save IDS to local shot directory
             # This auto-generates master.h5 along with {ids_name}.h5
-            with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w") as dbentry:
+            with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w", dd_version=dd_version) as dbentry:
                 dbentry.put(ids)
             print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
             print(f"[INFO] Saved master.h5 to local: {_staging_dir / 'master.h5'}")

@@ -108,10 +108,10 @@ def _get_folder_contents(folder_name: str, sort: int = -1) -> List[str]:
 def exist_shot(
     username: Optional[str] = None,
     shot: Optional[int] = None,
-    filter: Optional[str] = None,
+    data_filter: Optional[str] = None,
     sort: int = -1,
-) -> Union[List[int], bool, pd.DataFrame, None]:
-    """Return a list of shot numbers or Thomson scattering data from HSDS.
+) -> Union[List[str], bool, pd.DataFrame, None]:
+    """Return a list of shot names or Thomson scattering data from HSDS.
 
     Supports multiple filter options and folder-specific behaviors:
     - None (default): Standard ODS shots from 'public' directory (folders only, no sorting)
@@ -126,20 +126,20 @@ def exist_shot(
         username (str, optional): The folder to access. 
             Defaults to 'public'. Options: 'public', 'public_omas', or other folder names.
         shot (int, optional): The specific shot number to search for. Only used with ODS filter.
-        filter (str, optional): Filter type - None for ODS, 'ts' or 'thomson_scattering' for Thomson scattering.
+        data_filter (str, optional): Filter type - None for ODS, 'ts' or 'thomson_scattering' for Thomson scattering.
         sort (int, optional): Sort order for ODS shots (only for 'public_omas' and other folders).
             - 1: Ascending (oldest first)
             - -1: Descending (newest first, default)
             - 0: No sorting
 
     Returns:
-        Union[List[int], bool, pd.DataFrame, None]:
-            - For ODS (filter=None):
+        Union[List[str], bool, pd.DataFrame, None]:
+            - For ODS (data_filter=None):
               - List of folder/file names if no shot parameter
               - True if specific shot exists
               - False if specific shot does not exist
               - Empty list on connection error
-            - For Thomson Scattering (filter='ts' or 'thomson_scattering'):
+            - For Thomson Scattering (data_filter='ts' or 'thomson_scattering'):
               - pd.DataFrame with columns: Index, Shot Number, Last Processed, Status
               - None on error or no data
     """
@@ -147,7 +147,7 @@ def exist_shot(
     logging.getLogger().setLevel(logging.WARNING)
 
     # Handle Thomson Scattering filter
-    if filter in ('ts', 'thomson_scattering', 'thomson scattering'):
+    if data_filter in ('ts', 'thomson_scattering', 'thomson scattering'):
         ts_sort = sort != 0
         return _exist_shot_ts(sort=ts_sort)
     
