@@ -9,12 +9,11 @@ conversion.
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Optional, Union
-import requests
 import imas
 
 try:
@@ -22,14 +21,10 @@ try:
 except ImportError:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 
-from .utils import _require_h5pyd, exist_shot, is_connect
-
-_H5PYD_MSG = (
-    "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
-)
+from .utils import _require_h5pyd, is_connect
 
 
-def _download_remote_image(remote_uri: str, out_path: Path) -> None:
+def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     """Download HSDS domain to a local HDF5 file via hsget."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     command = ["hsget", remote_uri, str(out_path)]
@@ -93,44 +88,37 @@ def save(
         if not is_connect():
             raise ConnectionError("Connection to HSDS server failed")
 
-        # Create local staging directory
-        _staging_dir = Path("./hsds_tmp")
-        if _staging_dir.exists():
-            shutil.rmtree(_staging_dir, ignore_errors=True)
-        _staging_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[INFO] Local staging directory: {_staging_dir.absolute()}")
+        with tempfile.TemporaryDirectory(prefix="hsds_tmp_") as tmp_dir:
+            _staging_dir = Path(tmp_dir)
+            print(f"[INFO] Local staging directory: {_staging_dir.absolute()}")
 
-        # Save IDS to local shot directory
-        # This auto-generates master.h5 along with {ids_name}.h5
-        with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w") as dbentry:
-            dbentry.put(ids)
-        print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
-        print(f"[INFO] Saved master.h5 to local: {_staging_dir / 'master.h5'}")
+            # Save IDS to local shot directory
+            # This auto-generates master.h5 along with {ids_name}.h5
+            with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w") as dbentry:
+                dbentry.put(ids)
+            print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
+            print(f"[INFO] Saved master.h5 to local: {_staging_dir / 'master.h5'}")
 
-        # Upload to HSDS
-        username = (
-            "public"
-            if h5pyd.getServerInfo()["username"] == "admin"
-            else h5pyd.getServerInfo()["username"]
-        )
-        
-        # Upload IDS-specific file
-        ids_remote_uri = f"hdf5://{username}/{shot}/{filename}"
-        command = ["hsload", str(_staging_dir / filename), ids_remote_uri]
-        subprocess.run(command, capture_output=False, text=True, check=True)
-        print(f"[INFO] Uploaded {filename} to {ids_remote_uri}")
-        
-        # Upload master.h5 (aggregator file)
-        master_remote_uri = f"hdf5://{username}/{shot}/master.h5"
-        command = ["hsload", str(_staging_dir / "master.h5"), master_remote_uri]
-        subprocess.run(command, capture_output=False, text=True, check=True)
-        print(f"[INFO] Uploaded master.h5 to {master_remote_uri}")
-        
-        # Cleanup
-        shutil.rmtree(_staging_dir, ignore_errors=True)
-        print(f"[INFO] Cleaned up local staging: {_staging_dir}")
-        
-        return ids_remote_uri
+            # Upload to HSDS
+            username = (
+                "public"
+                if h5pyd.getServerInfo()["username"] == "admin"
+                else h5pyd.getServerInfo()["username"]
+            )
+
+            # Upload IDS-specific file
+            ids_remote_uri = f"hdf5://{username}/{shot}/{filename}"
+            command = ["hsload", str(_staging_dir / filename), ids_remote_uri]
+            subprocess.run(command, capture_output=False, text=True, check=True)
+            print(f"[INFO] Uploaded {filename} to {ids_remote_uri}")
+
+            # Upload master.h5 (aggregator file)
+            master_remote_uri = f"hdf5://{username}/{shot}/master.h5"
+            command = ["hsload", str(_staging_dir / "master.h5"), master_remote_uri]
+            subprocess.run(command, capture_output=False, text=True, check=True)
+            print(f"[INFO] Uploaded master.h5 to {master_remote_uri}")
+
+            return ids_remote_uri
 
 
 def load(
@@ -170,12 +158,19 @@ def load(
     if not hasattr(imas, "DBEntry"):
         raise RuntimeError("IMAS AL5 DBEntry is required for load_imas")
 
-    cleanup_stage = local_dir is None
-    base_dir = Path(local_dir) if local_dir is not None else Path("./hsds_tmp")
-    shot_dir = base_dir / str(int(shot))
-    shot_dir.mkdir(parents=True, exist_ok=True)
+    # Use a real temp directory when no local_dir is provided so we never
+    # accidentally delete unrelated user data.  nullcontext just passes the
+    # caller-supplied directory through without any cleanup.
+    staging_ctx = (
+        tempfile.TemporaryDirectory(prefix="hsds_tmp_")
+        if local_dir is None
+        else nullcontext(local_dir)
+    )
 
-    try:
+    with staging_ctx as staging_base:
+        shot_dir = Path(staging_base) / str(int(shot))
+        shot_dir.mkdir(parents=True, exist_ok=True)
+
         # Normalize ids_name to list
         ids_list = [ids_name] if isinstance(ids_name, str) else ids_name
         print(f"[INFO] Creating local staging directory: {shot_dir.absolute()}")
@@ -202,7 +197,3 @@ def load(
             if isinstance(ids_name, str):
                 return dbentry.get(ids_name, occurrence)
             return {name: dbentry.get(name, occurrence) for name in ids_name}
-    finally:
-        if cleanup_stage:
-            shutil.rmtree(base_dir, ignore_errors=True)
-            print(f"[INFO] Cleaned up local staging: {base_dir.absolute()}")
