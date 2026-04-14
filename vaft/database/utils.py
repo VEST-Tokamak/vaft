@@ -240,7 +240,7 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
         })
 
         print("Available Thomson Scattering Shots:\n")
-        print(df.to_markdown(index=False, tablefmt="github"))
+        print(df.to_string(index=False))
 
         return df
 
