@@ -46,38 +46,23 @@ def is_connect() -> bool:
         return False
 
 
-def _get_public_folders() -> List[str]:
-    """Get numeric folder names (shot numbers) from 'public' directory (no sorting)."""
+def _get_public_folders(sort: int = 0) -> List[str]:
+    """Get numeric folder names (shot numbers) from ``public`` with optional sorting."""
     try:
         folder = list(h5pyd.Folder("/public/"))
-        # Keep only folders with numeric names (shot numbers)
         folder_list = [item for item in folder if not item.endswith('.h5') and item.isdigit()]
+
+        if sort == 0:
+            pass
+        elif sort == 1:
+            folder_list = sorted(folder_list, key=int)
+        elif sort == -1:
+            folder_list = sorted(folder_list, key=int, reverse=True)
+        else:
+            print(f"[WARNING] Invalid sort value: {sort}. Using default (0, no sorting)")
+
         print(folder_list)
         return folder_list
-    except urllib3.exceptions.MaxRetryError:
-        print("Connection error")
-        return []
-
-
-def _get_omas_files(sort: int = -1) -> List[str]:
-    """Get .h5 files from 'public_omas' directory with sorting."""
-    try:
-        folder = list(h5pyd.Folder("/public_omas/"))
-        # Keep only .h5 files with numeric names (shot numbers)
-        file_list = [item for item in folder if item.endswith('.h5') and item.split('.')[0].isdigit()]
-        
-        if sort == 0:
-            pass  # No sorting
-        elif sort == 1:
-            file_list = sorted(file_list, key=lambda x: int(x.split('.')[0]))
-        elif sort == -1:
-            file_list = sorted(file_list, key=lambda x: int(x.split('.')[0]), reverse=True)
-        else:
-            print(f"[WARNING] Invalid sort value: {sort}. Using default (-1, descending)")
-            file_list = sorted(file_list, key=lambda x: int(x.split('.')[0]), reverse=True)
-        
-        print(file_list)
-        return file_list
     except urllib3.exceptions.MaxRetryError:
         print("Connection error")
         return []
@@ -114,22 +99,17 @@ def exist_shot(
     """Return a list of shot names or Thomson scattering data from HSDS.
 
     Supports multiple filter options and folder-specific behaviors:
-    - None (default): Standard ODS shots from 'public' directory (folders only, no sorting)
+    - None (default): Standard ODS/IDS shots from ``public`` directory
     - 'ts' or 'thomson_scattering': Thomson scattering processed shots from processed_shots.h5
-    
-    Folder-specific behaviors:
-    - 'public': Display folder names only (no sorting)
-    - 'public_omas': Display .h5 files only (with sorting)
-    - Other folders: Display all contents
 
     Args:
         username (str, optional): The folder to access. 
-            Defaults to 'public'. Options: 'public', 'public_omas', or other folder names.
+            Defaults to 'public'. Options: 'public' or other folder names.
         shot (int, optional): The specific shot number to search for. Only used with ODS filter.
         data_filter (str, optional): Filter type - None for ODS, 'ts' or 'thomson_scattering' for Thomson scattering.
-        sort (int, optional): Sort order for ODS shots (only for 'public_omas' and other folders).
+        sort (int, optional): Sort order for shot listings.
             - 1: Ascending (oldest first)
-            - -1: Descending (newest first, default)
+            - -1: Descending (newest first)
             - 0: No sorting
 
     Returns:
@@ -171,11 +151,8 @@ def exist_shot(
     
     # List contents based on folder
     if username == 'public':
-        return _get_public_folders()
-    elif username == 'public_omas':
-        return _get_omas_files(sort=sort)
-    else:
-        return _get_folder_contents(username, sort=sort)
+        return _get_public_folders(sort=sort)
+    return _get_folder_contents(username, sort=sort)
 
 
 def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:

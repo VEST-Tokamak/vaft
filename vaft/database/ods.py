@@ -1,175 +1,280 @@
+"""OMAS ODS access backed by IMAS HDF5 images stored in HSDS."""
 
-"""
-OMAS HSDS Database Interface Module
+from __future__ import annotations
 
-This module provides functions for interacting with ODS data stored in HDF5 format,
-both locally and on a remote server. It handles operations such as saving, loading,
-and checking the existence of ODS files.
+from contextlib import nullcontext
+import logging
+from pathlib import Path
+import subprocess
+import tempfile
+from typing import Optional, Union
 
-Key Features:
-- Server connection management
-- File existence checking
-- ODS data saving (local and server)
-- ODS data loading
-- HDF5 to ODS conversion utilities
+import omas
 
-Modification History:
-2025-04-30, HS Yun:
-    - Added type hints for all functions
-    - Improved code formatting and linting
-    - Updated docstrings to Google style format
-    - Renamed functions to follow snake_case convention
-    - Improved string formatting using f-strings
-    - Added proper import organization
-    - Enhanced error handling and parameter validation
-"""
-
-import requests
-import urllib3
 try:
     import h5pyd
 except ImportError:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
-import h5py
-import omas
-import subprocess
-import numpy as np
-from typing import Optional, Union, List
-from uncertainties import ufloat
-from uncertainties.unumpy import uarray
-import logging
-import pandas as pd
-from datetime import datetime
 
-from .utils import _require_h5pyd, exist_shot, is_connect
+from ..imas import load_omas_imas, save_omas_imas
+from .utils import _require_h5pyd, is_connect
 
-_H5PYD_MSG = (
-    "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
-)
 
-PROCESSED_H5_PATH = "hdf5://public_omas/processed_shots.h5"
+def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
+    """Download one HSDS HDF5 image to a local file via hsget."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["hsget", remote_uri, str(out_path)], capture_output=False, text=True, check=True)
+    return out_path
+
+
+def _download_remote_shot(directory: str, shot: int, shot_dir: Path) -> list[Path]:
+    """Download every IMAS HDF5 image stored for one shot."""
+    _require_h5pyd()
+
+    try:
+        entries = list(h5pyd.Folder(f"/{directory}/{shot}/"))
+    except Exception as exc:
+        raise FileNotFoundError(f"Could not open HSDS folder /{directory}/{shot}/") from exc
+
+    h5_files = sorted(entry for entry in entries if entry.endswith(".h5"))
+    if not h5_files:
+        raise FileNotFoundError(f"No HDF5 images found in /{directory}/{shot}/")
+
+    downloaded = []
+    for filename in h5_files:
+        remote_uri = f"hdf5://{directory}/{shot}/{filename}"
+        local_path = shot_dir / filename
+        print(f"[INFO] Downloading {remote_uri} -> {local_path}")
+        downloaded.append(_download_remote_image(remote_uri, local_path))
+    return downloaded
+
+
+def _upload_local_image(local_path: Path, remote_uri: str) -> str:
+    """Upload one local HDF5 image file to HSDS."""
+    subprocess.run(["hsload", str(local_path), remote_uri], capture_output=False, text=True, check=True)
+    return remote_uri
+
+
+def _upload_local_shot(shot_dir: Path, directory: str, shot: int) -> list[str]:
+    """Upload every generated IMAS HDF5 image for one shot to HSDS."""
+    h5_files = sorted(path for path in shot_dir.iterdir() if path.is_file() and path.suffix == ".h5")
+    if not h5_files:
+        raise FileNotFoundError(f"No IMAS HDF5 images were generated in {shot_dir}")
+
+    uploaded = []
+    for local_path in h5_files:
+        remote_uri = f"hdf5://{directory}/{shot}/{local_path.name}"
+        print(f"[INFO] Uploading {local_path} -> {remote_uri}")
+        uploaded.append(_upload_local_image(local_path, remote_uri))
+    return uploaded
+
+
+def load_ods(
+    shot: Union[int, list[int]],
+    directory: str = "public",
+    *,
+    occurrence: Optional[dict] = None,
+    paths: Optional[list] = None,
+    time: Optional[float] = None,
+    imas_version: Optional[str] = None,
+    skip_uncertainties: bool = False,
+    consistency_check: bool = True,
+    verbose: bool = True,
+    local_dir: Optional[Union[str, Path]] = None,
+) -> Union[omas.ODS, list[omas.ODS]]:
+    """
+    Load ODS data by reading IMAS images from ``{directory}/{shot}`` and converting via OMAS.
+
+    Args:
+        shot: One shot number or a list of shot numbers.
+        directory: HSDS folder containing shot subdirectories. Defaults to ``public``.
+        occurrence: Optional IDS occurrence mapping forwarded to ``load_omas_imas``.
+        paths: Optional IMAS paths to fetch.
+        time: Optional time slice in seconds.
+        imas_version: Optional IMAS DD version for conversion.
+        skip_uncertainties: Skip uncertainty loading when ``True``.
+        consistency_check: Run ODS consistency checks after conversion.
+        verbose: Print IMAS loading progress.
+        local_dir: Optional local staging base directory. When omitted a temporary directory
+            is used and cleaned up automatically.
+
+    Returns:
+        One ``omas.ODS`` or a list of ``omas.ODS`` objects.
+    """
+    _require_h5pyd()
+    logging.getLogger().setLevel(logging.WARNING)
+
+    occurrence = occurrence or {}
+
+    if isinstance(shot, list):
+        ods_list = []
+        for s in shot:
+            ods = _load_one_shot(
+                int(s),
+                directory=directory,
+                occurrence=occurrence,
+                paths=paths,
+                time=time,
+                imas_version=imas_version,
+                skip_uncertainties=skip_uncertainties,
+                consistency_check=consistency_check,
+                verbose=verbose,
+                local_dir=local_dir,
+            )
+            print("Successfully loaded ODS data for shot:", s)
+            ods_list.append(ods)
+        print("Successfully loaded a list of ODS data")
+        return ods_list
+
+    s = int(shot)
+    ods = _load_one_shot(
+        s,
+        directory=directory,
+        occurrence=occurrence,
+        paths=paths,
+        time=time,
+        imas_version=imas_version,
+        skip_uncertainties=skip_uncertainties,
+        consistency_check=consistency_check,
+        verbose=verbose,
+        local_dir=local_dir,
+    )
+    print("Successfully loaded ODS data for shot:", s)
+    return ods
+
+
+def _load_one_shot(
+    shot: int,
+    *,
+    directory: str,
+    occurrence: dict,
+    paths: Optional[list],
+    time: Optional[float],
+    imas_version: Optional[str],
+    skip_uncertainties: bool,
+    consistency_check: bool,
+    verbose: bool,
+    local_dir: Optional[Union[str, Path]],
+) -> omas.ODS:
+    """Load one shot from HSDS IMAS images and convert it to ODS."""
+    logging.getLogger().setLevel(logging.WARNING)
+
+    staging_ctx = (
+        tempfile.TemporaryDirectory(prefix="hsds_imas_ods_")
+        if local_dir is None
+        else nullcontext(str(local_dir))
+    )
+    with staging_ctx as staging_base:
+        shot_dir = Path(staging_base) / str(shot)
+        shot_dir.mkdir(parents=True, exist_ok=True)
+        _download_remote_shot(directory=directory, shot=shot, shot_dir=shot_dir)
+
+        ods = load_omas_imas(
+            occurrence=occurrence,
+            paths=paths,
+            time=time,
+            imas_version=imas_version,
+            skip_uncertainties=skip_uncertainties,
+            consistency_check=consistency_check,
+            verbose=verbose,
+            uri="imas:hdf5?path=" + str(shot_dir),
+        )
+
+        ods.setdefault("dataset_description.data_entry.user", str(directory))
+        ods.setdefault("dataset_description.data_entry.pulse", int(shot))
+        ods.setdefault("dataset_description.data_entry.run", 0)
+        return ods
 
 
 def save_ods(
     ods: omas.ODS,
     shot: int,
     filename: Optional[str] = None,
-    env: str = 'server'
-) -> None:
+    env: str = "server",
+    *,
+    directory: str = "public",
+    path: Optional[Union[str, Path]] = None,
+    occurrence: Optional[dict] = None,
+    user: Optional[str] = None,
+    machine: Optional[str] = None,
+    run: Optional[int] = None,
+    imas_version: Optional[str] = None,
+    verbose: bool = True,
+) -> Optional[str]:
     """
-    Function to save an ODS (Open Data Structure) file either locally or to an HDF5 server.
+    Save ODS data by converting it to IMAS HDF5 images.
 
-    This function handles saving the ODS data to an HDF5 file, either on the local file system or
-    remotely to an HDF5 server using the `hsload` command. If no filename is provided, the function 
-    defaults to using the shot number with an `.h5` extension.
+    ``filename`` is kept only for compatibility with the old API and is ignored,
+    because IMAS-backed storage produces multiple ``.h5`` files per shot.
 
-    Parameters:
-    ods (omas.ODS): The Open Data Structure (ODS) object that needs to be saved.
-    shot (int): The shot number associated with the ODS data, used to generate the filename if not provided.
-    filename (str, optional): The name of the file to save the ODS data. Defaults to `None`, which generates a name based on the shot number.
-    env (str, optional): The environment where the file will be saved. It can be either 'server' for server upload or 'local' for local storage. Defaults to 'server'.
+    Args:
+        ods: ODS object to save.
+        shot: Shot number / IMAS pulse.
+        filename: Ignored compatibility parameter.
+        env: ``server`` uploads to HSDS, ``local`` only writes local IMAS files.
+        directory: HSDS target folder for ``env="server"``. Defaults to ``public``.
+        path: Local target directory for ``env="local"``.
+        occurrence: Optional IDS occurrence mapping.
+        user: Optional IMAS user metadata override.
+        machine: Optional IMAS machine metadata override.
+        run: Optional IMAS run number. Defaults to ODS metadata or ``0``.
+        imas_version: Optional IMAS DD version used during conversion.
+        verbose: Print IMAS conversion progress.
 
     Returns:
-    None: The function doesn't return any specific value but prints information about the saving process.
+        HSDS shot URI for ``env="server"`` or local directory path for ``env="local"``.
     """
+    _ = filename
     logging.getLogger().setLevel(logging.WARNING)
 
-    if filename is None:
-        filename = f"{shot}.h5"
+    occurrence = occurrence or {}
+    shot = int(shot)
+    run_value = int(run if run is not None else ods.get("dataset_description.data_entry.run", 0))
 
-    if env == 'local':
-        omas.save_omas_h5(ods, filename)
-        return
+    if env == "local":
+        if path is None:
+            path = Path(f"~/public/imasdb/VEST/3/{shot}/{run_value}").expanduser()
+        local_path = Path(path).expanduser()
+        local_path.mkdir(parents=True, exist_ok=True)
+
+        save_omas_imas(
+            ods,
+            user=user,
+            machine=machine,
+            pulse=shot,
+            run=run_value,
+            occurrence=occurrence,
+            new=not any(local_path.glob("*.h5")),
+            imas_version=imas_version,
+            verbose=verbose,
+            uri="imas:hdf5?path=" + str(local_path),
+        )
+        print(f"[INFO] Saved IMAS images to: {local_path}")
+        return str(local_path)
+
+    if env != "server":
+        raise ValueError(f"Unsupported env: {env!r}")
 
     _require_h5pyd()
     if not is_connect():
-        print('Error: Connection to the server failed')
-        return
-    
-    username = 'public_omas' if h5pyd.getServerInfo()['username'] == 'admin' else h5pyd.getServerInfo()['username']
-    file_path = f"hdf5://{username}/{filename}"
-    omas.save_omas_h5(ods, filename)
+        raise ConnectionError("Connection to HSDS server failed")
 
-    command = ['hsload', '--h5image', filename, file_path]
-    result = subprocess.run(command, capture_output=False, text=True)
-    subprocess.run(['rm', filename], capture_output=False, text=True)
+    with tempfile.TemporaryDirectory(prefix="hsds_imas_ods_") as staging_base:
+        shot_dir = Path(staging_base) / str(shot)
+        shot_dir.mkdir(parents=True, exist_ok=True)
 
+        save_omas_imas(
+            ods,
+            user=user,
+            machine=machine,
+            pulse=shot,
+            run=run_value,
+            occurrence=occurrence,
+            new=True,
+            imas_version=imas_version,
+            verbose=verbose,
+            uri="imas:hdf5?path=" + str(shot_dir),
+        )
+        _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot)
 
-def convert_dataset(ods: omas.ODS, data: Union[h5py.Dataset, h5py.Group]) -> None:
-    """
-    Recursive utility function to map HDF5 structure to ODS
-
-    :param ods: input ODS to be populated
-
-    :param data: HDF5 dataset of group
-    """
-    keys = data.keys()
-    try:
-        keys = sorted(list(map(int, keys)))
-    except ValueError:
-        pass
-    for oitem in keys:
-        item = str(oitem)
-        if item.endswith('_error_upper'):
-            continue
-        if isinstance(data[item], h5py.Dataset):
-            if item + '_error_upper' in data:
-                if isinstance(data[item][()], (float, np.floating)):
-                    ods.setraw(item, ufloat(data[item][()], data[item + '_error_upper'][()]))
-                else:
-                    ods.setraw(item, uarray(data[item][()], data[item + '_error_upper'][()]))
-            else:
-                ods.setraw(item, data[item][()])
-        elif isinstance(data[item], h5py.Group):
-            convert_dataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
-
-def load_ods(shot: Union[int, List[int]], directory: str = 'public_omas') -> Union[omas.ODS, List[omas.ODS]]:
-    """
-    Load ODS data from HDF5 file(s).
-        
-    Parameters:
-        shot (Union[int, List[int]]): Shot number(s) to load
-        directory (str, optional): Directory path. Defaults to public
-    
-    Returns:
-        Union[omas.ODS, List[omas.ODS]]: ODS object or list of ODS objects
-    """
-    _require_h5pyd()
-    logging.getLogger().setLevel(logging.WARNING)
-
-    if isinstance(shot, list):
-        ods_list = []
-        for s in shot:
-            ods = _load_one_shot(int(s), directory)
-            print("Successfully loaded ODS data for shot:", s)
-            ods_list.append(ods)
-        print("Successfully loaded a list of ODS data")
-        return ods_list
-
-    else:
-        s = int(shot)
-        ods = _load_one_shot(s, directory)
-        print("Successfully loaded ODS data for shot:", s)
-        return ods
-    
-def _load_one_shot(shot: int, directory: str) -> omas.ODS:
-    logging.getLogger().setLevel(logging.WARNING)
-
-    filename = f'hdf5://{directory}/{shot}.h5'
-    print(f"Attempting to load ODS data from: {filename}")
-
-    # 1) 기본 로드 먼저 시도
-    ods = omas.ODS()
-    try:
-        with h5py.File(h5pyd.H5Image(filename)) as data:
-            convert_dataset(ods, data)
-        return ods
-
-    # 2) 배열 인덱스 튀는 케이스만 dynamic으로 재시도
-    except IndexError as e:
-        # 원인 메시지에 time_slice[...] 같은 게 들어오면 거의 이 케이스
-        ods = omas.ODS()
-        with omas.omas_environment(ods, dynamic_path_creation='dynamic_array_structures'):
-            with h5py.File(h5pyd.H5Image(filename)) as data:
-                convert_dataset(ods, data)
-        return ods
+    return f"hdf5://{directory}/{shot}/"
