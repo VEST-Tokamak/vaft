@@ -122,7 +122,7 @@ def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> Li
     logging.getLogger().setLevel(logging.WARNING)
     if username is None:
         # username = h5pyd.getServerInfo()['username']
-        username = 'public_omas' # use default folder for public data
+        username = 'public' # use default folder for public data
     
     try:
         folder = list(h5pyd.Folder("/" + username + "/"))
@@ -147,7 +147,7 @@ def exist_file(username: Optional[str] = None, shot: Optional[int] = None) -> Li
         return []
     
 
-PROCESSED_H5_PATH = "hdf5://public_omas/processed_shots.h5"
+PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
 
 def exist_ts_file():
     """
@@ -211,7 +211,7 @@ def exist_ts_file():
         return None
         
         
-def save_ods(
+def save(
     ods: omas.ODS,
     shot: int,
     filename: Optional[str] = None,
@@ -246,7 +246,7 @@ def save_ods(
         print('Error: Connection to the server failed')
         return
     
-    username = 'public_omas' if h5pyd.getServerInfo()['username'] == 'admin' else h5pyd.getServerInfo()['username']
+    username = 'public' if h5pyd.getServerInfo()['username'] == 'admin' else h5pyd.getServerInfo()['username']
     file_path = f"hdf5://{username}/{filename}"
     omas.save_omas_h5(ods, filename)
 
@@ -283,7 +283,7 @@ def convert_dataset(ods: omas.ODS, data: Union[h5py.Dataset, h5py.Group]) -> Non
         elif isinstance(data[item], h5py.Group):
             convert_dataset(ods.setraw(oitem, ods.same_init_ods()), data[item])
 
-def load_ods(shot: Union[int, List[int]], directory: str = 'public_omas') -> Union[omas.ODS, List[omas.ODS]]:
+def load(shot: Union[int, List[int]], directory: str = 'public') -> Union[omas.ODS, List[omas.ODS]]:
     """
     Load ODS data from HDF5 file(s).
         
