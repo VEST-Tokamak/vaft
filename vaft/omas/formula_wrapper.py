@@ -107,25 +107,29 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
 
     # Compute P_loss from compute_power_balance
     power_balance = compute_power_balance(ods)
-    # Find the index corresponding to the requested time_slice
+    # Restrict to exact common times between equilibrium and core_profiles.
     eq_time = float(eq_ts.get('time', time_slice))
-    time_array = np.asarray(power_balance['time'])
-    time_idx = int(np.argmin(np.abs(time_array - eq_time)))
+    time_array = np.asarray(power_balance['time'], dtype=float)
+    matched_idx = np.where(np.isclose(time_array, eq_time, rtol=0.0, atol=1e-9))[0]
+    if len(matched_idx) == 0:
+        raise ValueError(
+            f"time_slice[{time_slice}] at time={eq_time} is not in the common "
+            f"equilibrium/core_profiles time set. Available common times: {time_array.tolist()}"
+        )
+    time_idx = int(matched_idx[0])
     P_loss = float(power_balance['P_loss'][time_idx])  # [W]
     
     # Compute volume-averaged electron density
-    # Find matching core profile time slice
+    # Use only core_profile slices with exact shared time.
     cp_idx = None
     if 'core_profiles.profiles_1d' in ods:
         eq_time = float(eq_ts.get('time', time_slice))
-        min_time_diff = float('inf')
         for idx in range(len(ods['core_profiles.profiles_1d'])):
             cp_ts = ods['core_profiles.profiles_1d'][idx]
             cp_time = float(cp_ts.get('time', idx))
-            time_diff = abs(cp_time - eq_time)
-            if time_diff < min_time_diff:
-                min_time_diff = time_diff
+            if np.isclose(cp_time, eq_time, rtol=0.0, atol=1e-9):
                 cp_idx = idx
+                break
     
     if cp_idx is None:
         raise ValueError(f"No matching core profile found for equilibrium time_slice[{time_slice}]")
@@ -708,35 +712,52 @@ def compute_power_balance(
     
     # Calculate W_th = p_vol_average * 2/3 * volume for each time slice
     W_th = np.zeros(len(idxs), dtype=float)
+    volume_series = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
         eq_ts = ods['equilibrium.time_slice'][i]
         volume = float(eq_ts['global_quantities.volume'])
+        volume_series[k] = volume
         # W_th = p_vol_average * 2/3 * volume
         W_th[k] = p_vol_avg[k] * (2.0 / 3.0) * volume
     
-    # Calculate dW/dt (requires multiple time slices)
+    # Calculate dW/dt robustly on finite W_th points only.
+    # This prevents NaNs at trailing slices from contaminating earlier finite slices.
     from vaft.process.numerical import time_derivative
     if len(idxs) == 1:
         dWdt = np.zeros_like(W_th)
         logger.warning("Only one time slice available, dW/dt set to zero")
     else:
-        dWdt = time_derivative(t, W_th)
+        finite_mask = np.isfinite(t) & np.isfinite(W_th)
+        finite_idx = np.where(finite_mask)[0]
+        dWdt = np.full_like(W_th, np.nan, dtype=float)
+        if len(finite_idx) < 2:
+            logger.warning("Insufficient finite W_th points for dW/dt; leaving dWdt as NaN")
+        else:
+            dWdt_finite = time_derivative(t[finite_idx], W_th[finite_idx])
+            dWdt[finite_idx] = dWdt_finite
 
     # Use P_ohm_diss-based P_heat for P_loss calculation
     P_loss = loss_power_from_p_heat_dWdt_p_rad(P_heat, dWdt, P_rad)
 
+    # Keep only times shared by both equilibrium and core_profiles.
+    cp_times = np.asarray(
+        [float(ods['core_profiles.profiles_1d'][j].get('time', j)) for j in range(len(ods['core_profiles.profiles_1d']))],
+        dtype=float,
+    )
+    common_mask = np.asarray([bool(np.any(np.isclose(cp_times, tt, rtol=0.0, atol=1e-9))) for tt in t], dtype=bool)
+
     return {
-        'time': t,
-        'V_loop': V_loop,
-        'V_ind': V_ind,
-        'V_res': V_res,
-        'P_ohm_flux': P_ohm_flux,
-        'P_ohm_diss': P_ohm_diss,
-        'P_aux': P_aux,
-        'P_heat': P_heat,
-        'P_rad': P_rad,
-        'dWdt': dWdt,
-        'P_loss': P_loss,
+        'time': t[common_mask],
+        'V_loop': V_loop[common_mask],
+        'V_ind': V_ind[common_mask],
+        'V_res': V_res[common_mask],
+        'P_ohm_flux': P_ohm_flux[common_mask],
+        'P_ohm_diss': P_ohm_diss[common_mask],
+        'P_aux': P_aux[common_mask],
+        'P_heat': P_heat[common_mask],
+        'P_rad': P_rad[common_mask],
+        'dWdt': dWdt[common_mask],
+        'P_loss': P_loss[common_mask],
     }
 
 def compute_confiment_time_paramters(

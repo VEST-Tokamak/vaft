@@ -38,14 +38,6 @@ from matplotlib.path import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Fallback diamagnetic flux [Wb] when magnetics.diamagnetic_flux is not available
-default_delta_phi = 2.0 * np.pi
-
-# Constants for geometry types
-DT_SUB = 1e-6  # Time step for eddy current calculation
-GEOMETRY_TYPE_POLYGON = 1
-GEOMETRY_TYPE_RECTANGLE = 2
-
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
     """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
     
