@@ -2463,54 +2463,6 @@ def time_virial_equilibrium_quantities(ods, figsize=(8, 10)):
     return fig
 
 
-def time_power_balance(ods, figsize=(4, 4)):
-    """
-    Plot time evolution of power balance energy terms.
-    
-    Plots -P_loss, dWdt, and P_heat on a single plot.
-    
-    Args:
-        ods: OMAS data structure
-        figsize: Figure size tuple (default: (4, 4))
-    """
-    from vaft.omas.formula_wrapper import compute_power_balance
-    
-    try:
-        power_balance = compute_power_balance(ods)
-        t = power_balance['time']
-        P_loss = power_balance['P_loss']
-        dWdt = power_balance['dWdt']
-        P_heat = power_balance['P_heat']
-    except Exception as e:
-        print(f"Error computing power balance: {e}")
-        return
-    
-    # Create 3x1 subplots
-    fig, axes = plt.subplots(3, 1, figsize=(figsize[0], figsize[1]), sharex=True)
-    
-    # Plot -P_loss
-    axes[0].plot(t, P_loss, 'b-o', linewidth=2, markersize=4, alpha=0.7)
-    axes[0].set_ylabel('P_loss [W]', fontsize=12)
-    axes[0].set_title('P_loss', fontsize=12, fontweight='bold')
-    axes[0].grid(True, alpha=0.3)
-    
-    # Plot dWdt
-    axes[1].plot(t, dWdt, 'r-s', linewidth=2, markersize=4, alpha=0.7)
-    axes[1].set_ylabel('dW/dt [W]', fontsize=12)
-    axes[1].set_title('dW/dt', fontsize=12, fontweight='bold')
-    axes[1].grid(True, alpha=0.3)
-    
-    # Plot P_heat
-    axes[2].plot(t, P_heat, 'g-^', linewidth=2, markersize=4, alpha=0.7)
-    axes[2].set_xlabel('Time [s]', fontsize=12)
-    axes[2].set_ylabel('P_heat [W]', fontsize=12)
-    axes[2].set_title('P_heat', fontsize=12, fontweight='bold')
-    axes[2].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    
-    return fig
-
 
 def time_energy(ods, figsize=(4, 4)):
     """
@@ -2724,3 +2676,178 @@ def time_beta(ods, figsize=(4, 4)):
     
     plt.tight_layout()
     plt.show()
+def time_power_balance(ods, figsize=(6, 6.5)):
+    """
+    Plot time evolution of power balance energy terms.
+    
+    Subplots:
+    1) dW_th/dt
+    2) dW_mag,p/dt
+    3) P_in, P_ohm
+    4) P_loss, P_trans, P_rad
+    5) P_rad, P_Br, P_sync, P_line
+    
+    Args:
+        ods: OMAS data structure
+        figsize: Figure size tuple (default: (6, 6.5))
+    """
+    from vaft.omas.formula_wrapper import compute_power_balance, compute_bremsstrahlung_power
+
+    def _match_time_index(ref_times, target_time, atol):
+        if ref_times.size == 0:
+            return None
+        idx = int(np.argmin(np.abs(ref_times - target_time)))
+        if np.abs(ref_times[idx] - target_time) <= atol:
+            return idx
+        return None
+    
+    try:
+        power_balance = compute_power_balance(ods)
+        t = np.asarray(power_balance['time'], dtype=float)
+
+        # Time-derivative terms
+        dW_thdt = np.asarray(power_balance.get('dWdt', np.zeros_like(t)), dtype=float)
+        V_ind = np.asarray(power_balance.get('V_ind', np.full_like(t, np.nan)), dtype=float)
+
+        eq_count = len(ods['equilibrium.time_slice'])
+        eq_times = np.asarray(
+            [
+                float(ods['equilibrium.time_slice'][i]['time'])
+                if 'time' in ods['equilibrium.time_slice'][i]
+                else float(i)
+                for i in range(eq_count)
+            ],
+            dtype=float,
+        )
+        eq_ip = np.asarray(
+            [float(ods['equilibrium.time_slice'][i]['global_quantities.ip']) for i in range(eq_count)],
+            dtype=float,
+        )
+
+        # Robust time matching tolerance for equilibrium/core_profiles links.
+        tol = 1e-4
+        if len(t) > 1:
+            diffs = np.diff(np.sort(t))
+            finite_diffs = diffs[np.isfinite(diffs) & (diffs > 0.0)]
+            if finite_diffs.size > 0:
+                tol = max(tol, 0.1 * float(np.min(finite_diffs)))
+
+        ip_matched = np.full_like(t, np.nan, dtype=float)
+        for i, tt in enumerate(t):
+            eq_idx = _match_time_index(eq_times, tt, tol)
+            if eq_idx is not None:
+                ip_matched[i] = eq_ip[eq_idx]
+
+        dW_magdt = V_ind * ip_matched
+
+        # Heating/input terms
+        P_in = np.asarray(power_balance.get('P_heat', np.zeros_like(t)), dtype=float)
+        P_ohm = np.asarray(
+            power_balance.get('P_ohm_diss', power_balance.get('P_ohm_flux', np.zeros_like(t))),
+            dtype=float,
+        )
+
+        # Loss decomposition terms
+        P_rad = np.asarray(power_balance.get('P_rad', np.zeros_like(t)), dtype=float)
+        # Keep backward compatibility with older compute_power_balance outputs.
+        P_trans = np.asarray(
+            power_balance.get('P_trans', power_balance.get('P_loss', np.zeros_like(t))),
+            dtype=float,
+        )
+        P_loss = np.asarray(power_balance.get('P_loss_total', P_rad + P_trans), dtype=float)
+
+        # Radiation decomposition terms
+        P_line = np.asarray(power_balance.get('P_rad_line', np.zeros_like(P_rad)), dtype=float)
+        P_Br = np.asarray(power_balance.get('P_Br', np.full_like(P_rad, np.nan)), dtype=float)
+        if np.all(~np.isfinite(P_Br)):
+            # Backward compatibility with older compute_power_balance outputs.
+            P_Br = np.full_like(P_rad, np.nan, dtype=float)
+            if 'core_profiles.profiles_1d' in ods and len(ods['core_profiles.profiles_1d']) > 0:
+                cp_count = len(ods['core_profiles.profiles_1d'])
+                cp_times = np.asarray(
+                    [
+                        float(ods['core_profiles.profiles_1d'][i]['time'])
+                        if 'time' in ods['core_profiles.profiles_1d'][i]
+                        else float(i)
+                        for i in range(cp_count)
+                    ],
+                    dtype=float,
+                )
+                for i, tt in enumerate(t):
+                    cp_idx = _match_time_index(cp_times, tt, tol)
+                    if cp_idx is None:
+                        continue
+                    try:
+                        _, P_Br_electron = compute_bremsstrahlung_power(ods, time_slice=int(cp_idx))
+                        P_Br[i] = float(P_Br_electron)
+                    except Exception:
+                        # Keep plotting robust even when a few slices fail.
+                        P_Br[i] = np.nan
+
+        P_sync = np.asarray(power_balance.get('P_sync', np.full_like(P_rad, np.nan)), dtype=float)
+        if np.all(~np.isfinite(P_sync)):
+            # No direct synchrotron model in this pipeline yet; use residual term.
+            P_sync = P_rad - P_line - np.nan_to_num(P_Br, nan=0.0)
+    except Exception as e:
+        print(f"Error computing power balance: {e}")
+        return
+    
+    # Create 5x1 subplots
+    fig, axes = plt.subplots(5, 1, figsize=(figsize[0], figsize[1]), sharex=True)
+    
+    # 1) Plot thermal energy rate
+    axes[0].plot(
+        t,
+        dW_thdt,
+        'r-s',
+        linewidth=2,
+        markersize=4,
+        alpha=0.8,
+        label=r'$\frac{\mathrm{d}W_{\mathrm{th}}}{\mathrm{d}t}$',
+    )
+    axes[0].set_ylabel('[W]', fontsize=14)
+    axes[0].legend(fontsize=11)
+    axes[0].grid(True, alpha=0.3)
+    
+    # 2) Plot poloidal magnetic energy rate
+    axes[1].plot(
+        t,
+        dW_magdt,
+        'b-.',
+        linewidth=2,
+        alpha=0.8,
+        label=r'$\frac{\mathrm{d}W_{\mathrm{mag},p}}{\mathrm{d}t}$',
+    )
+    axes[1].set_ylabel('[W]', fontsize=14)
+    axes[1].legend(fontsize=11)
+    axes[1].grid(True, alpha=0.3)
+    
+    # 3) Plot input/heating powers
+    axes[2].plot(t, P_in, 'g-^', linewidth=2, markersize=4, alpha=0.8, label=r'$P_{\mathrm{in}}$')
+    axes[2].plot(t, P_ohm, 'c--', linewidth=2, alpha=0.8, label=r'$P_{\mathrm{ohm}}$')
+    axes[2].set_ylabel('[W]', fontsize=14)
+    axes[2].legend(fontsize=11)
+    axes[2].grid(True, alpha=0.3)
+
+    # 4) Plot loss decomposition
+    axes[3].plot(t, P_loss, 'k-o', linewidth=2, markersize=4, alpha=0.8, label=r'$P_{\mathrm{loss}}$')
+    axes[3].plot(t, P_trans, 'b-.', linewidth=2, alpha=0.8, label=r'$P_{\mathrm{trans}}$')
+    axes[3].plot(t, P_rad, 'm--', linewidth=2, alpha=0.8, label=r'$P_{\mathrm{rad}}$')
+    axes[3].set_ylabel('[W]', fontsize=14)
+    axes[3].legend(fontsize=11)
+    axes[3].grid(True, alpha=0.3)
+
+    # 5) Plot radiation decomposition
+    axes[4].plot(t, P_rad, 'm-o', linewidth=2, markersize=4, alpha=0.8, label=r'$P_{\mathrm{rad}}$')
+    axes[4].plot(t, P_Br, 'r--', linewidth=2, alpha=0.8, label=r'$P_{\mathrm{Br}}$')
+    axes[4].plot(t, P_sync, 'g-.', linewidth=2, alpha=0.8, label=r'$P_{\mathrm{sync}}$')
+    axes[4].plot(t, P_line, 'b:', linewidth=2.5, alpha=0.8, label=r'$P_{\mathrm{line}}$')
+    axes[4].set_xlabel('Time [s]', fontsize=12)
+    axes[4].set_ylabel('[W]', fontsize=14)
+    axes[4].legend(fontsize=11, ncol=2)
+    axes[4].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    return fig
+

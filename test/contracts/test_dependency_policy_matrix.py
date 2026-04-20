@@ -14,6 +14,7 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         deps = set(data["project"]["dependencies"])
 
         expected_specs = {
+            "aurorafusion>=3.0.6",
             "numpy>=1.26.4,<3",
             "scipy>=1.13.0,<2",
             "matplotlib>=3.7.3,<4",

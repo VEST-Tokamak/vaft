@@ -5,6 +5,8 @@ from scipy.interpolate import RectBivariateSpline
 import numpy as np
 from scipy.interpolate import interp1d
 
+from vaft.formula.constants import MU0
+
 
 def radial_to_psi(r, psi_R, psi_Z, psi):
     """Convert radial coordinate R to poloidal flux ψ using interpolation at Z=0.
@@ -458,9 +460,298 @@ def calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry):
     
     return B_pa
 
-def shafranov_integrals(R_bdry, Z_bdry, B_p_bdry, 
-                        R_grid, Z_grid, B_R_grid, B_Z_grid, 
-                        R_0=None, Z_0=None):
+def _ensure_closed_boundary(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    *extras: np.ndarray,
+) -> tuple[np.ndarray, ...]:
+    """Return boundary arrays with the first point appended to the end."""
+    R_bdry = np.asarray(R_bdry, dtype=float).copy()
+    Z_bdry = np.asarray(Z_bdry, dtype=float).copy()
+    out = [R_bdry, Z_bdry]
+    out.extend(np.asarray(x, dtype=float).copy() for x in extras)
+    if out[0].size == 0:
+        return tuple(out)
+    if (out[0][0] != out[0][-1]) or (out[1][0] != out[1][-1]):
+        out = [np.append(arr, arr[0]) for arr in out]
+    return tuple(out)
+
+
+def _signed_area_closed_polygon(R_bdry: np.ndarray, Z_bdry: np.ndarray) -> float:
+    """Return signed area (shoelace) for a closed boundary."""
+    if R_bdry.size < 2:
+        return 0.0
+    return 0.5 * float(
+        np.sum(R_bdry[:-1] * Z_bdry[1:] - R_bdry[1:] * Z_bdry[:-1])
+    )
+
+
+def _remove_degenerate_segments(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    *extras: np.ndarray,
+    eps: float = 1e-12,
+) -> tuple[np.ndarray, ...]:
+    """
+    Remove consecutive duplicated points / zero-length segments from a closed boundary.
+    """
+    if R_bdry.size == 0:
+        out = [R_bdry, Z_bdry]
+        out.extend(extras)
+        return tuple(out)
+
+    keep_idx = [0]
+    for i in range(1, R_bdry.size):
+        j = keep_idx[-1]
+        if np.hypot(R_bdry[i] - R_bdry[j], Z_bdry[i] - Z_bdry[j]) > eps:
+            keep_idx.append(i)
+
+    R_new = R_bdry[keep_idx]
+    Z_new = Z_bdry[keep_idx]
+    extras_new = [arr[keep_idx] for arr in extras]
+
+    R_new, Z_new, *extras_new = _ensure_closed_boundary(R_new, Z_new, *extras_new)
+    return (R_new, Z_new, *extras_new)
+
+
+def _resample_closed_boundary_arrays(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    *extras: np.ndarray,
+    n_points: int = 256,
+) -> tuple[np.ndarray, ...]:
+    """
+    Arc-length resample a closed boundary (and co-located extras) to n_points segments.
+    """
+    if n_points < 4:
+        raise ValueError("n_points must be >= 4 for closed boundary resampling.")
+
+    if R_bdry.size < 2:
+        out = [R_bdry, Z_bdry]
+        out.extend(extras)
+        return tuple(out)
+
+    R_loop = R_bdry[:-1]
+    Z_loop = Z_bdry[:-1]
+    extras_loop = [arr[:-1] for arr in extras]
+    if R_loop.size < 3:
+        out = [R_bdry, Z_bdry]
+        out.extend(extras)
+        return tuple(out)
+
+    R_periodic = np.append(R_loop, R_loop[0])
+    Z_periodic = np.append(Z_loop, Z_loop[0])
+    extras_periodic = [np.append(arr, arr[0]) for arr in extras_loop]
+
+    dl = np.hypot(np.diff(R_periodic), np.diff(Z_periodic))
+    s = np.concatenate(([0.0], np.cumsum(dl)))
+
+    s_unique, idx_unique = np.unique(s, return_index=True)
+    if s_unique.size < 2 or s_unique[-1] <= 0.0:
+        out = [R_bdry, Z_bdry]
+        out.extend(extras)
+        return tuple(out)
+
+    R_unique = R_periodic[idx_unique]
+    Z_unique = Z_periodic[idx_unique]
+    extras_unique = [arr[idx_unique] for arr in extras_periodic]
+
+    s_target = np.linspace(0.0, s_unique[-1], n_points + 1)
+    R_target = np.interp(s_target, s_unique, R_unique)
+    Z_target = np.interp(s_target, s_unique, Z_unique)
+    extras_target = [np.interp(s_target, s_unique, arr) for arr in extras_unique]
+
+    R_target[-1] = R_target[0]
+    Z_target[-1] = Z_target[0]
+    for arr in extras_target:
+        arr[-1] = arr[0]
+
+    return (R_target, Z_target, *extras_target)
+
+
+def prepare_boundary_for_shafranov(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    n_points: int = 256,
+    enforce_ccw: bool = True,
+    eps: float = 1e-12,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Normalize boundary for Shafranov computations:
+    finite-only -> closed -> degenerate segment removal -> CCW orientation -> arc-length resample.
+    """
+    R_bdry = np.asarray(R_bdry, dtype=float).reshape(-1)
+    Z_bdry = np.asarray(Z_bdry, dtype=float).reshape(-1)
+    if R_bdry.size != Z_bdry.size:
+        raise ValueError("R_bdry and Z_bdry must have the same length.")
+
+    finite = np.isfinite(R_bdry) & np.isfinite(Z_bdry)
+    R_bdry = R_bdry[finite]
+    Z_bdry = Z_bdry[finite]
+    if R_bdry.size < 3:
+        return np.asarray([], float), np.asarray([], float)
+
+    R_bdry, Z_bdry = _ensure_closed_boundary(R_bdry, Z_bdry)
+    R_bdry, Z_bdry = _remove_degenerate_segments(R_bdry, Z_bdry, eps=eps)
+    if R_bdry.size < 4:
+        return np.asarray([], float), np.asarray([], float)
+
+    if enforce_ccw and _signed_area_closed_polygon(R_bdry, Z_bdry) < 0.0:
+        R_bdry = R_bdry[::-1]
+        Z_bdry = Z_bdry[::-1]
+
+    R_bdry, Z_bdry = _resample_closed_boundary_arrays(
+        R_bdry, Z_bdry, n_points=n_points
+    )
+    return R_bdry, Z_bdry
+
+
+def _prepare_boundary_and_field_for_shafranov(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    B_p_bdry: np.ndarray,
+    n_points: int = 256,
+    enforce_ccw: bool = True,
+    eps: float = 1e-12,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Normalize boundary and boundary field together to keep (R,Z,Bp) aligned.
+    """
+    R_bdry = np.asarray(R_bdry, dtype=float).reshape(-1)
+    Z_bdry = np.asarray(Z_bdry, dtype=float).reshape(-1)
+    B_p_bdry = np.asarray(B_p_bdry, dtype=float).reshape(-1)
+    if R_bdry.size != Z_bdry.size or R_bdry.size != B_p_bdry.size:
+        raise ValueError("R_bdry, Z_bdry, and B_p_bdry must have the same length.")
+
+    finite = np.isfinite(R_bdry) & np.isfinite(Z_bdry) & np.isfinite(B_p_bdry)
+    R_bdry = R_bdry[finite]
+    Z_bdry = Z_bdry[finite]
+    B_p_bdry = B_p_bdry[finite]
+    if R_bdry.size < 3:
+        return np.asarray([], float), np.asarray([], float), np.asarray([], float)
+
+    R_bdry, Z_bdry, B_p_bdry = _ensure_closed_boundary(R_bdry, Z_bdry, B_p_bdry)
+    R_bdry, Z_bdry, B_p_bdry = _remove_degenerate_segments(
+        R_bdry, Z_bdry, B_p_bdry, eps=eps
+    )
+    if R_bdry.size < 4:
+        return np.asarray([], float), np.asarray([], float), np.asarray([], float)
+
+    if enforce_ccw and _signed_area_closed_polygon(R_bdry, Z_bdry) < 0.0:
+        R_bdry = R_bdry[::-1]
+        Z_bdry = Z_bdry[::-1]
+        B_p_bdry = B_p_bdry[::-1]
+
+    R_bdry, Z_bdry, B_p_bdry = _resample_closed_boundary_arrays(
+        R_bdry, Z_bdry, B_p_bdry, n_points=n_points
+    )
+    return R_bdry, Z_bdry, B_p_bdry
+
+
+def _cell_area_from_mesh(R_grid: np.ndarray, Z_grid: np.ndarray) -> np.ndarray:
+    """Return per-cell dA on an (R,Z) mesh."""
+    dR = np.gradient(R_grid, axis=0)
+    dZ = np.gradient(Z_grid, axis=1)
+    return np.abs(dR * dZ)
+
+
+def _plasma_cell_weights(
+    R_grid: np.ndarray,
+    Z_grid: np.ndarray,
+    R_bdry_closed: np.ndarray,
+    Z_bdry_closed: np.ndarray,
+    cell_weights: np.ndarray | None = None,
+) -> np.ndarray:
+    """
+    Build 2D plasma cell weights.
+
+    If `cell_weights` is provided, it is used directly (EFIT `www` equivalent).
+    Otherwise this returns a 0/1 mask from point-in-polygon.
+    """
+    if cell_weights is not None:
+        w = np.asarray(cell_weights, dtype=float)
+        if w.shape != R_grid.shape:
+            raise ValueError(
+                f"cell_weights shape {w.shape} must match grid shape {R_grid.shape}."
+            )
+        return np.where(np.isfinite(w), w, 0.0)
+
+    import importlib
+
+    poly_verts = np.column_stack((R_bdry_closed, Z_bdry_closed))
+    mpl_path = importlib.import_module("matplotlib.path")
+    path = mpl_path.Path(poly_verts)
+    points = np.column_stack((R_grid.ravel(), Z_grid.ravel()))
+    inside = path.contains_points(points, radius=1e-14).reshape(R_grid.shape)
+    return inside.astype(float)
+
+
+def fractional_cell_weights_from_boundary(
+    R_grid: np.ndarray,
+    Z_grid: np.ndarray,
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    samples_per_axis: int = 5,
+) -> np.ndarray:
+    """
+    Estimate EFIT-like fractional cell weights from boundary geometry.
+
+    The returned weight map is in [0, 1], where each entry approximates the
+    area fraction of the local control cell that lies inside the plasma
+    polygon. This is an internal replacement for externally provided `www`.
+    """
+    if samples_per_axis < 1:
+        raise ValueError("samples_per_axis must be >= 1.")
+
+    if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
+        R_grid, Z_grid = np.meshgrid(
+            np.asarray(R_grid, float),
+            np.asarray(Z_grid, float),
+            indexing="ij",
+        )
+    else:
+        R_grid = np.asarray(R_grid, float)
+        Z_grid = np.asarray(Z_grid, float)
+    R_bdry, Z_bdry = _ensure_closed_boundary(R_bdry, Z_bdry)
+
+    import importlib
+
+    poly_verts = np.column_stack((R_bdry, Z_bdry))
+    mpl_path = importlib.import_module("matplotlib.path")
+    path = mpl_path.Path(poly_verts)
+
+    dR = np.abs(np.gradient(R_grid, axis=0))
+    dZ = np.abs(np.gradient(Z_grid, axis=1))
+
+    # Midpoint sub-sampling on each local control cell.
+    offsets = (np.arange(samples_per_axis, dtype=float) + 0.5) / samples_per_axis - 0.5
+    inside_acc = np.zeros(R_grid.shape, dtype=float)
+    for oR in offsets:
+        for oZ in offsets:
+            sample_R = R_grid + oR * dR
+            sample_Z = Z_grid + oZ * dZ
+            points = np.column_stack((sample_R.ravel(), sample_Z.ravel()))
+            inside = path.contains_points(points, radius=1e-14).reshape(R_grid.shape)
+            inside_acc += inside.astype(float)
+
+    return inside_acc / float(samples_per_axis * samples_per_axis)
+
+
+def shafranov_integrals(
+    R_bdry,
+    Z_bdry,
+    B_p_bdry,
+    R_grid,
+    Z_grid,
+    B_R_grid,
+    B_Z_grid,
+    R_0=None,
+    Z_0=None,
+    p_boundary: float = 0.0,
+    B_ref: float | None = None,
+    cell_weights: np.ndarray | None = None,
+    volume: float | None = None,
+):
     """
     Shafranov Integrals (S1, S2, S3) 및 Alpha 파라미터를 계산합니다.
     플라즈마 마스크를 경계면 좌표(R_bdry, Z_bdry)로부터 직접 생성합니다.
@@ -476,121 +767,146 @@ def shafranov_integrals(R_bdry, Z_bdry, B_p_bdry,
     Returns:
         tuple: (S1, S2, S3, alpha)
     """
-    
-    # --- 전처리 ---
-    # 경계 닫기 (Polygon 생성을 위해 필수)
-    if (R_bdry[0] != R_bdry[-1]) or (Z_bdry[0] != Z_bdry[-1]):
-        R_bdry = np.append(R_bdry, R_bdry[0])
-        Z_bdry = np.append(Z_bdry, Z_bdry[0])
-        B_p_bdry = np.append(B_p_bdry, B_p_bdry[0])
 
-    # 입력 단계 부호 정규화: R-Z 평면에서 부호 있는 넓이로 CW/CCW 판별, CCW로 통일
-    # (CW면 적분·Path 부호가 반대가 되므로, CW일 때만 뒤집어 항상 CCW로 처리)
-    signed_area = 0.5 * np.sum(R_bdry[:-1] * Z_bdry[1:] - R_bdry[1:] * Z_bdry[:-1])
-    if signed_area < 0:
-        R_bdry = R_bdry[::-1].copy()
-        Z_bdry = Z_bdry[::-1].copy()
-        B_p_bdry = B_p_bdry[::-1].copy()
+    R_bdry, Z_bdry, B_p_bdry = _prepare_boundary_and_field_for_shafranov(
+        R_bdry,
+        Z_bdry,
+        B_p_bdry,
+        n_points=256,
+        enforce_ccw=True,
+    )
+    if R_bdry.size < 4:
+        return 0.0, 0.0, 0.0, 0.0
+
+    if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
+        R_grid, Z_grid = np.meshgrid(np.asarray(R_grid, float), np.asarray(Z_grid, float), indexing="ij")
+    else:
+        R_grid = np.asarray(R_grid, float)
+        Z_grid = np.asarray(Z_grid, float)
+    B_R_grid = np.asarray(B_R_grid, float)
+    B_Z_grid = np.asarray(B_Z_grid, float)
 
     # R0, Z0가 없으면 기하학적 중심 계산
-    if R_0 is None:
+    if R_0 is None or not np.isfinite(R_0):
         R_0 = (np.min(R_bdry) + np.max(R_bdry)) / 2.0
-    if Z_0 is None:
+    if Z_0 is None or not np.isfinite(Z_0):
         Z_0 = (np.min(Z_bdry) + np.max(Z_bdry)) / 2.0
 
-    # B_pa 계산
     B_pa = calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry)
-    
-    # --- 1. 부피(Volume) Omega 계산 (경계면 적분 이용) ---
+    if B_ref is None:
+        B_ref = B_pa
+
+    # --- 1. 부피(Volume) Omega 계산 ---
     dR_b = np.diff(R_bdry)
     dZ_b = np.diff(Z_bdry)
     R_mid_b = 0.5 * (R_bdry[:-1] + R_bdry[1:])
-    
-    # Green's theorem: V = -∮ π R^2 dZ
-    Omega = -np.sum(np.pi * (R_mid_b**2) * dZ_b)
-    Omega = abs(Omega)
+    Z_mid_b = 0.5 * (Z_bdry[:-1] + Z_bdry[1:])
+    B_p_mid = 0.5 * (B_p_bdry[:-1] + B_p_bdry[1:])
+    dl = np.hypot(dR_b, dZ_b)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        nR = np.where(dl > 0.0, -dZ_b / dl, 0.0)
+        nZ = np.where(dl > 0.0, dR_b / dl, 0.0)
 
-    # --- 2. Surface Integrals (S1, S2, S3) 계산 ---
-    if Omega == 0 or B_pa == 0:
+    Omega = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b))) if volume is None else float(volume)
+
+    # --- 2. Surface Integrals (S1, S2, S3) ---
+    if Omega <= 0.0 or B_ref <= 0.0:
         return 0.0, 0.0, 0.0, 0.0
 
-    coeff = 1.0 / (B_pa**2 * Omega)
-    
-    B_p_sq_mid = (0.5 * (B_p_bdry[:-1] + B_p_bdry[1:]))**2
-    Z_mid_b = 0.5 * (Z_bdry[:-1] + Z_bdry[1:])
-    
-    # dS * n 성분 계산 (CCW 기준 Outward normal)
-    term_dS_nR = 2 * np.pi * R_mid_b * dZ_b      # R 성분
-    term_dS_nZ = 2 * np.pi * R_mid_b * (-dR_b)   # Z 성분
-    
-    # S1
-    integrand_S1 = B_p_sq_mid * ( (R_mid_b - R_0) * term_dS_nR + (Z_mid_b - Z_0) * term_dS_nZ )
-    S1 = coeff * np.sum(integrand_S1)
-    
-    # S2
-    integrand_S2 = B_p_sq_mid * ( R_0 * term_dS_nR )
-    S2 = coeff * np.sum(integrand_S2)
-    
-    # S3
-    integrand_S3 = B_p_sq_mid * ( (Z_mid_b - Z_0) * term_dS_nZ )
-    S3 = coeff * np.sum(integrand_S3)
-    
-    # --- 3. Alpha 계산 (Volume Integral with Generated Mask) ---
-    
-    # [수정된 부분] 경계면 좌표를 이용해 Plasma Mask 생성
-    # Matplotlib Path를 이용한 Point in Polygon 판별
-    
-    # (1) 경계면 버텍스 생성
-    from matplotlib.path import Path
+    coeff = 2.0 * np.pi / (Omega * (B_ref**2))
+    g = R_mid_b * (B_p_mid**2 + 2.0 * MU0 * float(p_boundary))
+    S1 = coeff * np.sum(g * (nR * (R_mid_b - R_0) + nZ * (Z_mid_b - Z_0)) * dl)
+    S2 = coeff * R_0 * np.sum(g * nR * dl)
+    S3 = coeff * np.sum(g * (Z_mid_b - Z_0) * nZ * dl)
 
-    poly_verts = np.column_stack((R_bdry, Z_bdry))
-    path = Path(poly_verts)
-    
-    # (2) 격자점들을 (N, 2) 형태로 평탄화
-    # R_grid, Z_grid는 2D meshgrid여야 함
-    grid_points = np.column_stack((R_grid.flatten(), Z_grid.flatten()))
-    
-    # (3) 포함 여부 확인 (결과는 1D boolean array)
-    is_inside = path.contains_points(grid_points)
-    
-    # (4) 마스크를 원래 격자 모양으로 복원
-    plasma_mask = is_inside.reshape(R_grid.shape)
-    
-    # [적분 수행]
-    R_in = R_grid[plasma_mask]
-    B_R_in = B_R_grid[plasma_mask]
-    B_Z_in = B_Z_grid[plasma_mask]
-    
-    if len(R_in) == 0:
-        # 격자 해상도가 너무 낮거나 경계가 잘못되어 내부 점이 없는 경우
-        return S1, S2, S3, 0.0
-
-    # 격자 면적 (균일 격자 가정)
-    # meshgrid(..., indexing="ij") 기준: R_grid[i,j]=R_1d[i], Z_grid[i,j]=Z_1d[j] → shape (nR, nZ), R=axis0, Z=axis1
-    if R_grid.ndim == 2:
-        dr = np.abs(R_grid[1, 0] - R_grid[0, 0])  # R 차이 (axis 0)
-        dz = np.abs(Z_grid[0, 1] - Z_grid[0, 0])   # Z 차이 (axis 1)
-    else:
-        # 1D array라면 reshape 전의 원본 dx, dy 정보가 필요하지만, 
-        # 입력이 meshgrid라고 가정했으므로 위 로직 사용
-        dr = 1.0 
-        dz = 1.0
-        
-    dA = dr * dz
-    dV = 2 * np.pi * R_in * dA  # Toroidal volume element
-    
-    B_p_sq_in = B_R_in**2 + B_Z_in**2
-    B_p_Z_sq_in = B_Z_in**2
-    
-    integral_numerator = np.sum(B_p_Z_sq_in * dV)
-    integral_denominator = np.sum(B_p_sq_in * dV)
-    
-    if integral_denominator == 0:
-        alpha = 0.0
-    else:
-        alpha = 2 * integral_numerator / integral_denominator
+    # --- 3. Alpha 계산 ---
+    weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
+    dA = _cell_area_from_mesh(R_grid, Z_grid)
+    B_p_sq = B_R_grid**2 + B_Z_grid**2
+    alpha_num = np.sum(R_grid * (B_Z_grid**2) * weights * dA)
+    alpha_den = np.sum(R_grid * B_p_sq * weights * dA)
+    alpha = 0.0 if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
 
     return S1, S2, S3, alpha
+
+
+def efit_virial_volume_integrals(
+    R_grid: np.ndarray,
+    Z_grid: np.ndarray,
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    B_R_grid: np.ndarray,
+    B_Z_grid: np.ndarray,
+    p_tot_grid: np.ndarray | None = None,
+    B_phi_grid: np.ndarray | None = None,
+    B_phi_vac_grid: np.ndarray | None = None,
+    F_grid: np.ndarray | None = None,
+    F_boundary: float | None = None,
+    cell_weights: np.ndarray | None = None,
+) -> dict[str, float]:
+    """
+    EFIT-style weighted volume integrals on the poloidal grid.
+
+    Returns alpha, RT, and diamagnetic-flux components in SI units.
+    """
+    if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
+        R_grid, Z_grid = np.meshgrid(np.asarray(R_grid, float), np.asarray(Z_grid, float), indexing="ij")
+    else:
+        R_grid = np.asarray(R_grid, float)
+        Z_grid = np.asarray(Z_grid, float)
+    B_R_grid = np.asarray(B_R_grid, float)
+    B_Z_grid = np.asarray(B_Z_grid, float)
+    R_bdry, Z_bdry = _ensure_closed_boundary(R_bdry, Z_bdry)
+    dA = _cell_area_from_mesh(R_grid, Z_grid)
+    weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
+
+    B_p_sq = B_R_grid**2 + B_Z_grid**2
+    alpha_num = np.sum(R_grid * (B_Z_grid**2) * weights * dA)
+    alpha_den = np.sum(R_grid * B_p_sq * weights * dA)
+    alpha = np.nan if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
+
+    RT = np.nan
+    if p_tot_grid is not None and B_phi_grid is not None and B_phi_vac_grid is not None:
+        p_tot_grid = np.asarray(p_tot_grid, float)
+        B_phi_grid = np.asarray(B_phi_grid, float)
+        B_phi_vac_grid = np.asarray(B_phi_vac_grid, float)
+        G = 2.0 * MU0 * p_tot_grid + B_p_sq + B_phi_vac_grid**2 - B_phi_grid**2
+        RT_num = np.sum(R_grid * G * weights * dA)
+        RT_den = np.sum(G * weights * dA)
+        if RT_den != 0.0:
+            RT = float(RT_num / RT_den)
+
+    phi_dia_comp = np.nan
+    if F_grid is not None and F_boundary is not None:
+        F_grid = np.asarray(F_grid, float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            phi_term = -((float(F_boundary) - F_grid) / R_grid) * weights * dA
+        phi_dia_comp = float(np.nansum(phi_term))
+
+    volume = float(np.nansum(2.0 * np.pi * R_grid * weights * dA))
+    return {
+        "alpha": alpha,
+        "rt": RT,
+        "phi_dia_comp": phi_dia_comp,
+        "volume": volume,
+    }
+
+
+def computed_diamagnetism_from_phi(
+    phi_dia_comp: float,
+    B_t0: float,
+    R_0: float,
+    volume: float,
+    B_ref: float,
+) -> float:
+    """
+    Compute EFIT-style xmui from computed diamagnetic flux.
+
+    xmui = (4*pi*B_t0*R_0 / (V*B_ref^2)) * Phi_dia_comp
+    """
+    if volume <= 0.0 or B_ref <= 0.0:
+        raise ValueError("volume and B_ref must be positive.")
+    return float((4.0 * np.pi * B_t0 * R_0 * phi_dia_comp) / (volume * B_ref**2))
 
 
 psi_to_RZ = psi_to_rz

@@ -14,14 +14,18 @@ from vaft.process import (
     poloidal_field_at_boundary,
     calculate_average_boundary_poloidal_field,
     shafranov_integrals,
+    efit_virial_volume_integrals,
+    computed_diamagnetism_from_phi,
+    fractional_cell_weights_from_boundary,
     calculate_reconstructed_diamagnetic_flux,
     calculate_diamagnetism,
+    prepare_boundary_for_shafranov,
 )
 from vaft.formula import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
-    approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi,
-    virial_beta_p_from_S_alpha_mu,
-    virial_li_from_S_alpha_mu,
+    virial_bongard_from_S_alpha_mu,
+    virial_lao_from_S_alpha_mu_rt,
+    virial_beta_pd_from_S_mu_rt,
     kinetic_energy_from_beta_p_B_pa_V_p,
     magnetic_energy_from_li_B_pa_V_p,
 )
@@ -585,7 +589,7 @@ def compute_core_profile_psi(
     eq_ts = ods['equilibrium.time_slice'][equil_idx]
     
     # Get core profile data
-    grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
+    grid = cp_ts['grid'] if 'grid' in cp_ts else (ods['core_profiles.grid'] if 'core_profiles.grid' in ods else ODS())
     if 'rho_tor_norm' not in grid:
         raise KeyError(f"rho_tor_norm grid missing for core_profiles.profiles_1d[{cp_idx}]")
     
@@ -633,12 +637,12 @@ def compute_core_profile_psi(
         raise ValueError(f"Invalid option: {option}. Must be one of: 'n_e', 't_e', 'n_i', 't_i'")
     
     # Get equilibrium profiles_1d for coordinate conversion
-    eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+    eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
     
     # Ensure equilibrium has psi_norm
     if 'psi_norm' not in eq_profiles_1d:
         update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=equil_idx)
-        eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+        eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
         if 'psi_norm' not in eq_profiles_1d:
             raise KeyError(f"Failed to create psi_norm for equilibrium.time_slice[{equil_idx}]")
     
@@ -734,7 +738,7 @@ def compute_core_profile_2d(
     eq_ts = ods['equilibrium.time_slice'][equil_idx]
     
     # Get core profile data
-    grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
+    grid = cp_ts['grid'] if 'grid' in cp_ts else (ods['core_profiles.grid'] if 'core_profiles.grid' in ods else ODS())
     if 'rho_tor_norm' not in grid:
         raise KeyError(f"rho_tor_norm grid missing for core_profiles.profiles_1d[{cp_idx}]")
     
@@ -782,12 +786,12 @@ def compute_core_profile_2d(
         raise ValueError(f"Invalid option: {option}. Must be one of: 'n_e', 't_e', 'n_i', 't_i'")
     
     # Get equilibrium profiles_1d for coordinate conversion
-    eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+    eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
     
     # Ensure equilibrium has psi_norm
     if 'psi_norm' not in eq_profiles_1d:
         update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=equil_idx)
-        eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+        eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
         if 'psi_norm' not in eq_profiles_1d:
             raise KeyError(f"Failed to create psi_norm for equilibrium.time_slice[{equil_idx}]")
     
@@ -990,21 +994,6 @@ def compute_virial_equilibrium_quantities_ods(
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         raise KeyError("equilibrium.time_slice not found in ODS")
 
-    # Measured diamagnetic flux (magnetics.diamagnetic_flux) interpolated at each equilibrium time
-    delta_phi_interp = None
-    if "magnetics.diamagnetic_flux.0.data" in ods and "magnetics.time" in ods and len(ods["magnetics.diamagnetic_flux"]) > 0:
-        t_mag = np.asarray(ods["magnetics.time"], float)
-        flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
-        if t_mag.size >= 2 and flux_mag.size == t_mag.size:
-            delta_phi_interp = interp1d(
-                t_mag, flux_mag,
-                kind="linear",
-                bounds_error=False,
-                fill_value=(flux_mag[0], flux_mag[-1]),
-            )
-    else:
-        raise KeyError("Missing magnetics.diamagnetic_flux.0.data or magnetics.time")
-
     slices_to_process = (
         list(range(len(ods["equilibrium.time_slice"])))
         if time_slice is None
@@ -1016,9 +1005,14 @@ def compute_virial_equilibrium_quantities_ods(
         raise IndexError(
             f"time_slice {time_slice} is out of bounds for equilibrium.time_slice"
         )
-    # Ensure boundary outline is existed
-    if "boundary.geometric_axis" not in ods["equilibrium.time_slice"][0]:
-        update_equilibrium_boundary(ods)
+    # Always refresh boundary-derived geometry before virial calculations.
+    try:
+        update_equilibrium_boundary(
+            ods,
+            time_slice=None if time_slice is None else slices_to_process,
+        )
+    except Exception as exc:
+        logger.warning("update_equilibrium_boundary failed before virial: %s", exc)
 
     out = {}
     for eq_idx in slices_to_process:
@@ -1040,9 +1034,15 @@ def compute_virial_equilibrium_quantities_ods(
                     f"psi shape {psi_RZ.shape} does not match grid (nR={nR}, nZ={nZ})"
                 )
 
-        # Boundary outline
-        R_bdry = np.asarray(eq_ts["boundary.outline.r"], float)
-        Z_bdry = np.asarray(eq_ts["boundary.outline.z"], float)
+        # Boundary outline (normalized to CCW + uniform 256-point arc-length sampling).
+        R_bdry_raw = np.asarray(eq_ts["boundary.outline.r"], float)
+        Z_bdry_raw = np.asarray(eq_ts["boundary.outline.z"], float)
+        R_bdry, Z_bdry = prepare_boundary_for_shafranov(
+            R_bdry_raw,
+            Z_bdry_raw,
+            n_points=256,
+            enforce_ccw=True,
+        )
         if R_bdry.size == 0 or Z_bdry.size == 0:
             logger.warning(
                 "Time slice %s: empty boundary.outline, skipping virial computation", eq_idx
@@ -1082,50 +1082,178 @@ def compute_virial_equilibrium_quantities_ods(
             B_Z_grid = (1.0 / Rm_safe) * dpsi_dR
 
 
-        R_mesh, Z_mesh = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
-
-        S1, S2, S3, alpha = shafranov_integrals(
-            R_bdry, Z_bdry, B_p_bdry,
-            R_mesh, Z_mesh, B_R_grid, B_Z_grid)
-        S1, S2, S3, alpha = float(S1), float(S2), float(S3), float(alpha)
-
-        # Geometric axis
-        R_0 = float(eq_ts["boundary.geometric_axis.r"])
-        Z_0 = float(eq_ts["boundary.geometric_axis.z"])
-        R_bdry_c = np.append(R_bdry, R_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else R_bdry
-        Z_bdry_c = np.append(Z_bdry, Z_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else Z_bdry
-        dR_b = np.diff(R_bdry_c)
-        dZ_b = np.diff(Z_bdry_c)
-        R_mid_b = 0.5 * (R_bdry_c[:-1] + R_bdry_c[1:])
-        V_p = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b)))
-
-        # delta_phi: measured diamagnetic flux at this time, or 2*pi if not available
-        t_eq = float(eq_ts["time"])
-        delta_phi = abs(float(delta_phi_interp(t_eq))) if delta_phi_interp is not None else default_delta_phi
-
-        # Vacuum toroidal field at geometric axis from magnetic_axis
-        B_t_axis = float(eq_ts['global_quantities.magnetic_axis.b_field_tor'])
-        R_axis = float(eq_ts['global_quantities.magnetic_axis.r'])
-        B_tv = abs(B_t_axis * R_axis / R_0) # [T]
-
-        mui_hat = np.nan
-        if np.isfinite(B_pa) and B_pa > 0 and np.isfinite(V_p) and V_p > 0 and np.isfinite(B_tv):
-            mui_hat = float(
-                approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(
-                    B_pa, B_tv, R_0, delta_phi, V_p
-                )
+        # Axis geometry: validate per-slice and fallback to boundary geometry when missing/invalid.
+        R_0 = np.nan
+        Z_0 = np.nan
+        if "boundary.geometric_axis.r" in eq_ts:
+            try:
+                R_0 = float(eq_ts["boundary.geometric_axis.r"])
+            except Exception:
+                R_0 = np.nan
+        if "boundary.geometric_axis.z" in eq_ts:
+            try:
+                Z_0 = float(eq_ts["boundary.geometric_axis.z"])
+            except Exception:
+                Z_0 = np.nan
+        if not np.isfinite(R_0) or not np.isfinite(Z_0):
+            R_0 = 0.5 * (float(np.min(R_bdry)) + float(np.max(R_bdry)))
+            Z_0 = 0.5 * (float(np.min(Z_bdry)) + float(np.max(Z_bdry)))
+            logger.warning(
+                "Time slice %s: invalid boundary.geometric_axis; fallback to boundary center (R0=%.6f, Z0=%.6f).",
+                eq_idx,
+                R_0,
+                Z_0,
             )
+            try:
+                eq_ts["boundary.geometric_axis.r"] = float(R_0)
+                eq_ts["boundary.geometric_axis.z"] = float(Z_0)
+            except Exception:
+                logger.debug(
+                    "Time slice %s: failed to write fallback boundary.geometric_axis into ODS.",
+                    eq_idx,
+                )
 
-        den_beta = 3.0 * (alpha - 1.0) + 1.0
-        den_li = 3.0 * alpha - 2.0
-        if np.isfinite(mui_hat) and abs(den_beta) > 1e-12:
-            beta_p = float(virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat))
+        # Build common (R,Z) mesh and internal cell-fraction weights.
+        R_mesh, Z_mesh = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
+        cell_weights = fractional_cell_weights_from_boundary(
+            R_mesh,
+            Z_mesh,
+            R_bdry,
+            Z_bdry,
+            samples_per_axis=5,
+        )
+
+        # Psi normalization for profile mapping
+        psi_axis = float(eq_ts["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_ts else np.nan
+        psi_lcfs = float(eq_ts["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_ts else np.nan
+        if (not np.isfinite(psi_axis)) or (not np.isfinite(psi_lcfs)) or psi_lcfs == psi_axis:
+            psi_axis = float(np.nanmin(psi_RZ))
+            psi_lcfs = float(np.nanmax(psi_RZ))
+        psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+
+        # F profile (R*B_phi)
+        f_1d = np.asarray(eq_ts["profiles_1d.f"], float) if "profiles_1d.f" in eq_ts else np.asarray([], float)
+        psiN_1d = None
+        if f_1d.size:
+            if "profiles_1d.psi" in eq_ts:
+                psi_1d = np.asarray(eq_ts["profiles_1d.psi"], float)
+                if psi_1d.size == f_1d.size and psi_lcfs != psi_axis:
+                    psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
+            elif "profiles_1d.psi_norm" in eq_ts:
+                psiN_arr = np.asarray(eq_ts["profiles_1d.psi_norm"], float)
+                if psiN_arr.size == f_1d.size:
+                    psiN_1d = psiN_arr
+
+        # Non-rotating branch: p_tot = p(psi)
+        p_2d = np.zeros_like(psi_RZ, dtype=float)
+        p_boundary = 0.0
+        if "profiles_1d.pressure" in eq_ts:
+            p_1d = np.asarray(eq_ts["profiles_1d.pressure"], float)
+            if psiN_1d is not None and p_1d.size == psiN_1d.size:
+                p_2d, _ = psi_to_rz(psiN_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+                order_p = np.argsort(psiN_1d)
+                p_boundary = float(np.interp(1.0, psiN_1d[order_p], p_1d[order_p]))
+
+        R_safe = np.where(R_mesh == 0.0, np.nan, R_mesh)
+        F_2d = np.full_like(psi_RZ, np.nan, dtype=float)
+        F_boundary = np.nan
+        if psiN_1d is not None:
+            order_f = np.argsort(psiN_1d)
+            psiN_sorted = psiN_1d[order_f]
+            f_sorted = f_1d[order_f]
+            psiN_clip = np.clip(psiN_RZ, psiN_sorted[0], psiN_sorted[-1])
+            F_2d = np.interp(psiN_clip.ravel(), psiN_sorted, f_sorted).reshape(psi_RZ.shape)
+            F_boundary = float(np.interp(1.0, psiN_sorted, f_sorted))
         else:
-            beta_p = np.nan
-        if np.isfinite(mui_hat) and abs(den_li) > 1e-12:
-            li = float(virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat))
-        else:
-            li = np.nan
+            # Fallback: use magnetic-axis toroidal field as constant F
+            B_t_axis = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"]) if "global_quantities.magnetic_axis.b_field_tor" in eq_ts else np.nan
+            R_axis = float(eq_ts["global_quantities.magnetic_axis.r"]) if "global_quantities.magnetic_axis.r" in eq_ts else np.nan
+            if np.isfinite(B_t_axis) and np.isfinite(R_axis):
+                F_boundary = B_t_axis * R_axis
+                F_2d = np.full_like(psi_RZ, F_boundary, dtype=float)
+
+        B_phi_grid = np.where(np.isfinite(F_2d), F_2d / R_safe, np.nan)
+        B_phi_vac_grid = np.where(np.isfinite(F_boundary), F_boundary / R_safe, np.nan)
+
+        # Volume terms (alpha, RT, Phi_dia_comp, volume)
+        vol_terms = efit_virial_volume_integrals(
+            R_mesh,
+            Z_mesh,
+            R_bdry,
+            Z_bdry,
+            B_R_grid,
+            B_Z_grid,
+            p_tot_grid=p_2d,
+            B_phi_grid=B_phi_grid,
+            B_phi_vac_grid=B_phi_vac_grid,
+            F_grid=F_2d,
+            F_boundary=F_boundary if np.isfinite(F_boundary) else None,
+            cell_weights=cell_weights,
+        )
+        alpha = float(vol_terms["alpha"]) if np.isfinite(vol_terms["alpha"]) else np.nan
+        RT = float(vol_terms["rt"]) if np.isfinite(vol_terms["rt"]) else np.nan
+        phi_dia_comp = float(vol_terms["phi_dia_comp"]) if np.isfinite(vol_terms["phi_dia_comp"]) else np.nan
+        V_p = float(vol_terms["volume"]) if np.isfinite(vol_terms["volume"]) else np.nan
+
+        # Boundary terms (S1,S2,S3), using same B_ref = B_pa and weighted volume
+        S1, S2, S3, _alpha_check = shafranov_integrals(
+            R_bdry,
+            Z_bdry,
+            B_p_bdry,
+            R_mesh,
+            Z_mesh,
+            B_R_grid,
+            B_Z_grid,
+            R_0=R_0,
+            Z_0=Z_0,
+            p_boundary=p_boundary,
+            B_ref=B_pa,
+            cell_weights=cell_weights,
+            volume=V_p if np.isfinite(V_p) and V_p > 0 else None,
+        )
+        S1, S2, S3 = float(S1), float(S2), float(S3)
+        if not np.isfinite(alpha):
+            alpha = float(_alpha_check)
+
+        B_t0 = np.nan
+        if "equilibrium.vacuum_toroidal_field.b0" in ods:
+            B_t0 = float(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).flat[0])
+        elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
+            B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
+
+        mui = np.nan
+        if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
+            if V_p > 0.0 and B_pa > 0.0:
+                mui = computed_diamagnetism_from_phi(phi_dia_comp, B_t0, R_0, V_p, B_pa)
+
+        RT_over_R0 = np.nan
+        if np.isfinite(RT) and R_0 != 0.0:
+            RT_over_R0 = RT / R_0
+
+        beta_p_lao = np.nan
+        li_lao = np.nan
+        beta_p_bongard = np.nan
+        li_bongard = np.nan
+        beta_pd_vir = np.nan
+        if np.isfinite(alpha) and np.isfinite(mui) and np.isfinite(RT_over_R0):
+            try:
+                beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
+                    S1, S2, S3, alpha, mui, RT_over_R0
+                )
+                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+            except ValueError:
+                beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
+        if np.isfinite(alpha) and np.isfinite(mui):
+            try:
+                beta_p_bongard, li_bongard = virial_bongard_from_S_alpha_mu(
+                    S1, S2, S3, alpha, mui
+                )
+            except ValueError:
+                beta_p_bongard, li_bongard = np.nan, np.nan
+
+        # Keep backward-compatible top-level beta_p/li mapped to Lao version.
+        beta_p = float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan
+        li = float(li_lao) if np.isfinite(li_lao) else np.nan
 
         if np.isfinite(beta_p) and np.isfinite(B_pa) and np.isfinite(V_p):
             W_kin = float(kinetic_energy_from_beta_p_B_pa_V_p(beta_p, B_pa, V_p))
@@ -1139,7 +1267,26 @@ def compute_virial_equilibrium_quantities_ods(
         out[eq_idx] = {
             "s_1": S1, "s_2": S2, "s_3": S3, "alpha": alpha,
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
-            "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p, "mui_hat": mui_hat,
+            "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
+            "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
+            "mui": float(mui) if np.isfinite(mui) else np.nan,
+            "rt": RT,
+            "phi_dia_comp": phi_dia_comp,
+            "beta_p_vir": float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan,
+            "li_vir": float(li_lao) if np.isfinite(li_lao) else np.nan,
+            "beta_pd_vir": float(beta_pd_vir) if np.isfinite(beta_pd_vir) else np.nan,
+            "virial_lao": {
+                "beta_p": float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan,
+                "li": float(li_lao) if np.isfinite(li_lao) else np.nan,
+            },
+            "virial_bongard": {
+                "beta_p": float(beta_p_bongard) if np.isfinite(beta_p_bongard) else np.nan,
+                "li": float(li_bongard) if np.isfinite(li_bongard) else np.nan,
+            },
+            "beta_p_vir_lao": float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan,
+            "li_vir_lao": float(li_lao) if np.isfinite(li_lao) else np.nan,
+            "beta_p_vir_bongard": float(beta_p_bongard) if np.isfinite(beta_p_bongard) else np.nan,
+            "li_vir_bongard": float(li_bongard) if np.isfinite(li_bongard) else np.nan,
         }
         nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
                  if not np.isfinite(np.asarray(out[eq_idx][k], float))]
@@ -1182,8 +1329,8 @@ def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
     )
 
-    psi_axis = float(eq_slice.get("global_quantities.psi_axis", np.nan))
-    psi_lcfs = float(eq_slice.get("global_quantities.psi_boundary", np.nan))
+    psi_axis = float(eq_slice["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_slice else np.nan
+    psi_lcfs = float(eq_slice["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_slice else np.nan
     if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
         psi_axis = float(np.nanmin(psi_RZ))
         psi_lcfs = float(np.nanmax(psi_RZ))
@@ -1206,6 +1353,72 @@ def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
     return calculate_reconstructed_diamagnetic_flux(
         R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs, psiN_1d, f_1d, f_vac_val
     )
+
+
+def compute_diamagnetic_flux_measured_vs_computed(
+    ods: ODS,
+    time_slice: Optional[int] = None,
+) -> Dict[int, Dict[str, float]]:
+    """
+    Compare measured vs reconstructed diamagnetic flux at equilibrium time slices.
+
+    - measured: magnetics.diamagnetic_flux interpolated at equilibrium time
+    - computed: reconstructed diamagnetic flux from equilibrium fields
+    """
+    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+        raise KeyError("equilibrium.time_slice not found in ODS")
+
+    # Measured diamagnetic flux (magnetics.diamagnetic_flux) interpolated at each equilibrium time
+    delta_phi_interp = None
+    if "magnetics.diamagnetic_flux.0.data" in ods and "magnetics.time" in ods and len(ods["magnetics.diamagnetic_flux"]) > 0:
+        t_mag = np.asarray(ods["magnetics.time"], float)
+        flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
+        if t_mag.size >= 2 and flux_mag.size == t_mag.size:
+            delta_phi_interp = interp1d(
+                t_mag, flux_mag,
+                kind="linear",
+                bounds_error=False,
+                fill_value=(flux_mag[0], flux_mag[-1]),
+            )
+    else:
+        raise KeyError("Missing magnetics.diamagnetic_flux.0.data or magnetics.time")
+
+    if delta_phi_interp is None:
+        raise ValueError("Unable to build measured diamagnetic-flux interpolator.")
+
+    slices_to_process = (
+        list(range(len(ods["equilibrium.time_slice"])))
+        if time_slice is None
+        else [int(time_slice)]
+    )
+
+    out: Dict[int, Dict[str, float]] = {}
+    for eq_idx in slices_to_process:
+        if eq_idx < 0 or eq_idx >= len(ods["equilibrium.time_slice"]):
+            raise IndexError(f"time_slice {eq_idx} is out of bounds for equilibrium.time_slice")
+
+        eq_ts = ods["equilibrium.time_slice"][eq_idx]
+        t_eq = float(eq_ts["time"]) if "time" in eq_ts else np.nan
+        if (not np.isfinite(float(t_eq))) and "equilibrium.time" in ods and eq_idx < len(ods["equilibrium.time"]):
+            t_eq = float(ods["equilibrium.time"][eq_idx])
+        t_eq = float(t_eq)
+        if not np.isfinite(t_eq):
+            raise ValueError(f"Missing finite equilibrium time for time_slice {eq_idx}")
+
+        measured = float(delta_phi_interp(t_eq))
+        computed = float(compute_reconstructed_diamagnetic_flux(ods, time_index=eq_idx))
+        difference = computed - measured
+        relative_error = np.nan if measured == 0.0 else difference / measured
+
+        out[eq_idx] = {
+            "time": t_eq,
+            "measured": measured,
+            "computed": computed,
+            "difference": float(difference),
+            "relative_error": float(relative_error) if np.isfinite(relative_error) else np.nan,
+        }
+
+    return out
 
 
 def compute_diamagnetism(ods, time_index=0):
@@ -1242,8 +1455,8 @@ def compute_diamagnetism(ods, time_index=0):
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
     )
 
-    psi_axis = float(eq_slice.get("global_quantities.psi_axis", np.nan))
-    psi_lcfs = float(eq_slice.get("global_quantities.psi_boundary", np.nan))
+    psi_axis = float(eq_slice["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_slice else np.nan
+    psi_lcfs = float(eq_slice["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_slice else np.nan
     if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
         psi_axis = float(np.nanmin(psi_RZ))
         psi_lcfs = float(np.nanmax(psi_RZ))
@@ -1328,7 +1541,7 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     eq_ts = ods['equilibrium.time_slice'][equil_idx]
     
     # Get core profile data: T_e and rho_tor_norm
-    grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
+    grid = cp_ts['grid'] if 'grid' in cp_ts else (ods['core_profiles.grid'] if 'core_profiles.grid' in ods else ODS())
     if 'rho_tor_norm' not in grid:
         raise KeyError(f"rho_tor_norm grid missing for core_profiles.profiles_1d[{cp_idx}]")
     
@@ -1339,12 +1552,12 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     T_e_1d_rho = np.asarray(cp_ts['electrons.temperature'], float)
     
     # Get equilibrium profiles_1d for coordinate conversion
-    eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+    eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
     
     # Ensure equilibrium has psi_norm
     if 'psi_norm' not in eq_profiles_1d:
         update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=equil_idx)
-        eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+        eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
         if 'psi_norm' not in eq_profiles_1d:
             raise KeyError(f"Failed to create psi_norm for equilibrium.time_slice[{equil_idx}]")
     
@@ -1497,8 +1710,18 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
         time_slices = [int(time_slice)]
         if time_slice >= len(ods['equilibrium.time_slice']):
             raise IndexError(f"time_slice {time_slice} is out of bounds")
+
+    if option == 'core_profiles':
+        if 'core_profiles.profiles_1d' not in ods or len(ods['core_profiles.profiles_1d']) == 0:
+            logger.warning(
+                "core_profiles.profiles_1d not found; returning NaN volume-averaged pressure "
+                "for %d equilibrium slices.",
+                len(time_slices),
+            )
+            return np.full(len(time_slices), np.nan, dtype=float)
     
     pressure_vol_avg_list = []
+    no_matching_cp_slices = []
     
     for eq_idx in time_slices:
         eq_ts = ods['equilibrium.time_slice'][eq_idx]
@@ -1510,8 +1733,8 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
             psi_RZ = _ensure_rz_shape(np.asarray(eq_ts['profiles_2d.0.psi'], float), R_grid, Z_grid)
             
             # Get psi normalization constants
-            psi_axis = float(eq_ts.get('global_quantities.psi_axis', np.nan))
-            psi_lcfs = float(eq_ts.get('global_quantities.psi_boundary', np.nan))
+            psi_axis = float(eq_ts['global_quantities.psi_axis']) if 'global_quantities.psi_axis' in eq_ts else np.nan
+            psi_lcfs = float(eq_ts['global_quantities.psi_boundary']) if 'global_quantities.psi_boundary' in eq_ts else np.nan
             if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
                 # Fallback: normalize by min/max of psi_RZ
                 psi_axis = float(np.nanmin(psi_RZ))
@@ -1549,14 +1772,14 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
                         continue
                 
                 if cp_idx is None:
-                    logger.warning(f"Time slice {eq_idx}: No matching core profile time slice found, skipping")
+                    no_matching_cp_slices.append(eq_idx)
                     pressure_vol_avg_list.append(np.nan)
                     continue
                 
                 cp_ts = ods['core_profiles.profiles_1d'][cp_idx]
                 
                 # Get core profile grid
-                grid = cp_ts.get('grid', ods['core_profiles'].get('grid', ODS()))
+                grid = cp_ts['grid'] if 'grid' in cp_ts else (ods['core_profiles.grid'] if 'core_profiles.grid' in ods else ODS())
                 if 'rho_tor_norm' not in grid:
                     logger.warning(f"Time slice {eq_idx}: rho_tor_norm grid missing in core_profiles, skipping")
                     pressure_vol_avg_list.append(np.nan)
@@ -1584,12 +1807,12 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
                     continue
                 
                 # Get equilibrium profiles_1d for coordinate conversion
-                eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+                eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
                 
                 # Ensure equilibrium has psi_norm
                 if 'psi_norm' not in eq_profiles_1d:
                     update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=eq_idx)
-                    eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
+                    eq_profiles_1d = eq_ts['profiles_1d'] if 'profiles_1d' in eq_ts else ODS()
                     if 'psi_norm' not in eq_profiles_1d:
                         logger.warning(f"Time slice {eq_idx}: Failed to create psi_norm, skipping")
                         pressure_vol_avg_list.append(np.nan)
@@ -1660,4 +1883,16 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
             logger.warning(f"Time slice {eq_idx}: Could not compute volume-averaged pressure: {e}")
             pressure_vol_avg_list.append(np.nan)
     
+    if no_matching_cp_slices:
+        preview = no_matching_cp_slices[:10]
+        suffix = "..." if len(no_matching_cp_slices) > 10 else ""
+        logger.warning(
+            "No matching core profile time slice found for %d/%d equilibrium slices; "
+            "skipping those slices (indices: %s%s)",
+            len(no_matching_cp_slices),
+            len(time_slices),
+            preview,
+            suffix,
+        )
+
     return np.asarray(pressure_vol_avg_list, float)

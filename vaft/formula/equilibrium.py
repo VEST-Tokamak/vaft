@@ -22,7 +22,7 @@ V      : plasma volume                              [m³]
 """
 
 import warnings
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 import numpy as np
 
 from .constants import (
@@ -562,6 +562,125 @@ def virial_li_from_S_alpha_mu(S1: float,
     return num / den
 
 
+def virial_beta_p_lao_from_S_mu_rt(
+    S1: float,
+    S2: float,
+    mui: float,
+    RT_over_R0: float,
+) -> float:
+    r"""
+    # $\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 + \frac{R_T}{R_0}\right) + \mu_i$
+    # Large-aspect-ratio Lao form (L. L. Lao et al., 1985)
+    """
+    return 0.5 * S1 + 0.5 * S2 * (1.0 + RT_over_R0) + mui
+
+
+def virial_li_from_S_alpha_rt(
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    RT_over_R0: float,
+    eps: float = 1e-12,
+) -> float:
+    r"""
+    # $l_i^{vir}=\frac{\frac{S_1}{2}+\frac{S_2}{2}(1-\frac{R_T}{R_0})-S_3}{\alpha-1}$
+    # l_i^vir = [S1/2 + S2/2*(1-RT/R0) - S3] / (alpha-1)
+    """
+    den = alpha - 1.0
+    if abs(den) <= eps:
+        raise ValueError("alpha is too close to 1; li_vir is ill-conditioned.")
+    num = 0.5 * S1 + 0.5 * S2 * (1.0 - RT_over_R0) - S3
+    return num / den
+
+
+def virial_beta_p_from_S_li(
+    S1: float,
+    S2: float,
+    li: float,
+) -> float:
+    r"""
+    # $\beta_p^{vir}=\frac{S_1}{4}+\frac{S_2}{2}-\frac{l_i}{2}$
+    # beta_p^vir = S1/4 + S2/2 - li/2
+    """
+    return 0.25 * S1 + 0.5 * S2 - 0.5 * li
+
+
+def virial_beta_pd_from_S_mu_rt(
+    S1: float,
+    S2: float,
+    mui: float,
+    RT_over_R0: float,
+) -> float:
+    r"""
+    # $\beta_{p,d}^{vir}=\frac{S_1}{2}-\mu_i+\frac{S_2}{2}\left(1-\frac{R_T}{R_0}\right)$
+    # beta_p,d^vir = S1/2 - mui + S2/2*(1-RT/R0)
+    """
+    return 0.5 * S1 - mui + 0.5 * S2 * (1.0 - RT_over_R0)
+
+
+def virial_beta_p_li_from_S_alpha_mu_rt(
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    mui: float,
+    RT_over_R0: float,
+    eps: float = 1e-12,
+) -> Tuple[float, float, float]:
+    """
+    Convenience closure for Lao + EFIT derived relations.
+
+    Returns
+    -------
+    beta_p_lao, li_lao, beta_pd_vir
+    """
+    li_lao = virial_li_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=eps)
+    beta_p_lao = virial_beta_p_lao_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+    beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+    return beta_p_lao, li_lao, beta_pd_vir
+
+
+def virial_lao_from_S_alpha_mu_rt(
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    mui: float,
+    RT_over_R0: float,
+    eps: float = 1e-12,
+) -> Tuple[float, float]:
+    """
+    Large-aspect-ratio virial closure (Lao 1985).
+
+    Returns
+    -------
+    beta_p_lao, li_lao
+    """
+    beta_p_lao = virial_beta_p_lao_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+    li_lao = virial_li_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=eps)
+    return beta_p_lao, li_lao
+
+
+def virial_bongard_from_S_alpha_mu(
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    mui: float,
+) -> Tuple[float, float]:
+    """
+    Low-aspect-ratio virial closure (Bongard 2016).
+
+    Returns
+    -------
+    beta_p_bongard, li_bongard
+    """
+    beta_p_bongard = virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui)
+    li_bongard = virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui)
+    return beta_p_bongard, li_bongard
+
+
 def virial_S1_approx() -> float:
     r"""
     # $S_1 = 2.0$
@@ -795,44 +914,35 @@ def heating_power_from_p_ohm_p_aux(P_ohm: float, P_aux: float) -> float:
     return P_ohm + P_aux
 
 
-def cyclotron_radiation_power_from_z_eff_n_e_t_e(Z_eff: float,
+def bremsstrahlung_radiation_power_from_z_eff_n_e_t_e(Z_eff: float,
                                         n_e: float,
-                                        T_e_keV: float) -> float:
+                                        T_e_eV: float) -> float:
     r"""
-    # $p_{\mathrm{cyc}} \approx 1.69\times 10^{-38}\, Z_{\mathrm{eff}}\, n_e^2\, \sqrt{T_e} \quad [\mathrm{W/m^3}]$
+    p_Br ≈ 1.69e-38 * Z_eff * n_e^2 * sqrt(T_e[eV])   [W/m^3]
+    $p_{br} \approx 1.69\times 10^{-38}\, Z_{\mathrm{eff}}\, n_e^2\, \sqrt{T_e} \quad [\mathrm{W/m^3}]$
     """
-    return 1.69e-38 * Z_eff * n_e**2 * np.sqrt(T_e_keV)
+    return 1.69e-38 * Z_eff * n_e**2 * np.sqrt(T_e_eV)
 
-def line_radiation_power_from_z_eff_n_e_t_e(Z_eff: float,
-                                            n_e: float,
-                                            T_e_keV: float) -> float:
-    """
-    Line radiation power density (placeholder - implementation needed).
-    
-    Parameters
-    ----------
-    Z_eff : float
-        Effective charge number
-    n_e : float
-        Electron density [m^-3]
-    T_e_keV : float
-        Electron temperature [keV]
-    
-    Returns
-    -------
-    float
-        Line radiation power density [W/m^3]
-    """
-    # TODO: Implement line radiation power density calculation
-    return 0.0
 
-def radiation_power_from_p_brem_p_cyc_p_line(p_brem: float, p_cyc: float, p_line: float) -> float:
+def cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e(
+    n_e_m3: float,
+    B_t_T: float,
+    T_e_eV: float,
+) -> float:
     r"""
-    # $p_{\mathrm{rad}} = p_{\mathrm{Br}} + p_{\mathrm{cyc}} + p_{\mathrm{line}}$
-    # p_rad = p_brem + p_cyc + p_line
-    """
-    return p_brem + p_cyc + p_line
+    Rough cyclotron/synchrotron volumetric power-density scaling [W/m^3].
 
+    .. math::
+        p_{\mathrm{sync}} \approx C_{\mathrm{sync}}\, n_e\, B_t^2\, T_e,
+        \quad
+        C_{\mathrm{sync}} = \frac{e^4}{3\pi\epsilon_0 m_e^3 c^3}
+
+    where :math:`T_e` is converted from eV to J internally.
+    This is intended as a practical start-up loss-channel estimate, not a
+    full radiation transport model.
+    """
+    coeff = e**4 / (3.0 * np.pi * epsilon_0 * m_e**3 * c**3)
+    return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * eV_to_J)
 
 def loss_power_from_p_heat_dWdt_p_rad(P_heat: float, dWdt: float, p_rad: float) -> float:
     r"""
@@ -998,6 +1108,477 @@ def cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta(R: float,
     return (2.0 * np.pi * epsilon**2 * R * B) / (MU0 * I * f_kappa_delta)
 
 
+def _maybe_scalar(value: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """Return Python float for 0-d arrays, otherwise return NumPy array."""
+    arr = np.asarray(value, dtype=float)
+    if arr.ndim == 0:
+        return float(arr)
+    return arr
+
+
+def _validate_positive(name: str, value: Union[float, np.ndarray]) -> np.ndarray:
+    """
+    Validate finite positive scalar/array input and return as float array.
+
+    Parameters
+    ----------
+    name : str
+        Input variable name used in error messages.
+    value : float or np.ndarray
+        Input value(s) to validate.
+    """
+    arr = np.asarray(value, dtype=float)
+    if np.any(~np.isfinite(arr)):
+        raise ValueError(f"{name} must be finite. Got {value!r}")
+    if np.any(arr <= 0.0):
+        raise ValueError(f"{name} must be > 0. Got {value!r}")
+    return arr
+
+
+def coulomb_logarithm_from_n_T(
+    n_m3: Union[float, np.ndarray],
+    T_eV: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """
+    Compute Coulomb logarithm using the Verdoolaege 2021 confinement convention.
+
+    Uses:
+    ln(Λ) = 30.9 - ln( sqrt(n_e[m^-3]) / T[eV] )
+
+    Parameters
+    ----------
+    n_m3 : float or np.ndarray
+        Electron density [m^-3]. Must be > 0.
+    T_eV : float or np.ndarray
+        Electron temperature [eV]. Must be > 0.
+
+    Returns
+    -------
+    float or np.ndarray
+        Coulomb logarithm ln(Λ) [-].
+
+    Notes
+    -----
+    Convention follows:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    n_arr = _validate_positive("n_m3", n_m3)
+    t_arr = _validate_positive("T_eV", T_eV)
+    ln_lambda = 30.9 - np.log(np.sqrt(n_arr) / t_arr)
+    return _maybe_scalar(ln_lambda)
+
+
+def line_to_volume_avg_density(
+    n_line_m3: Union[float, np.ndarray],
+    factor: Union[float, np.ndarray] = 0.88,
+) -> Union[float, np.ndarray]:
+    """
+    Convert line-averaged density to volume-averaged density.
+
+    Uses:
+    n_vol = factor * n_line
+
+    Parameters
+    ----------
+    n_line_m3 : float or np.ndarray
+        Line-averaged density [m^-3]. Must be > 0.
+    factor : float or np.ndarray, optional
+        Conversion factor [-], default 0.88 per ITPA workflow approximation.
+        Must be > 0.
+
+    Returns
+    -------
+    float or np.ndarray
+        Volume-averaged density [m^-3].
+
+    Notes
+    -----
+    Approximation follows convention discussed in:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    n_line_arr = _validate_positive("n_line_m3", n_line_m3)
+    factor_arr = _validate_positive("factor", factor)
+    return _maybe_scalar(n_line_arr * factor_arr)
+
+
+def calc_inverse_aspect_ratio(
+    a_m: Union[float, np.ndarray],
+    R_geo_m: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """
+    Calculate inverse aspect ratio epsilon = a / R_geo.
+
+    Parameters
+    ----------
+    a_m : float or np.ndarray
+        Minor radius a [m]. Must be > 0.
+    R_geo_m : float or np.ndarray
+        Geometric major radius R_geo [m]. Must be > 0.
+
+    Returns
+    -------
+    float or np.ndarray
+        Inverse aspect ratio epsilon [-].
+    """
+    a_arr = _validate_positive("a_m", a_m)
+    r_arr = _validate_positive("R_geo_m", R_geo_m)
+    epsilon = inverse_aspect_ratio_from_a_R(a_arr, r_arr)
+    return _maybe_scalar(epsilon)
+
+
+def rho_star_from_M_T_B_R_epsilon(
+    M_eff_amu: Union[float, np.ndarray],
+    T_eV: Union[float, np.ndarray],
+    B_t_T: Union[float, np.ndarray],
+    R_geo_m: Union[float, np.ndarray],
+    epsilon: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """
+    Compute normalized ion gyroradius rho_star in Verdoolaege 2021 convention.
+
+    Uses:
+    rho_star = 1.44e-4 * sqrt(M_eff[amu] * T[eV]) / (B_t[T] * R_geo[m] * epsilon)
+
+    Parameters
+    ----------
+    M_eff_amu : float or np.ndarray
+        Effective ion mass [amu]. Must be > 0.
+    T_eV : float or np.ndarray
+        Temperature [eV]. Must be > 0.
+    B_t_T : float or np.ndarray
+        Toroidal magnetic field [T]. Must be > 0.
+    R_geo_m : float or np.ndarray
+        Geometric major radius [m]. Must be > 0.
+    epsilon : float or np.ndarray
+        Inverse aspect ratio a/R_geo [-]. Must be > 0.
+
+    Returns
+    -------
+    float or np.ndarray
+        rho_star [-].
+
+    Notes
+    -----
+    Convention follows:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    m_arr = _validate_positive("M_eff_amu", M_eff_amu)
+    t_arr = _validate_positive("T_eV", T_eV)
+    b_arr = _validate_positive("B_t_T", B_t_T)
+    r_arr = _validate_positive("R_geo_m", R_geo_m)
+    eps_arr = _validate_positive("epsilon", epsilon)
+    rho_star = 1.44e-4 * np.sqrt(m_arr * t_arr) / (b_arr * r_arr * eps_arr)
+    return _maybe_scalar(rho_star)
+
+
+def beta_t_from_n_T_B(
+    n_m3: Union[float, np.ndarray],
+    T_eV: Union[float, np.ndarray],
+    B_t_T: Union[float, np.ndarray],
+    output: str = "percent",
+) -> Union[float, np.ndarray]:
+    """
+    Compute toroidal beta in Verdoolaege 2021-style scaling convention.
+
+    Uses default percent convention:
+    beta_t[%] = 8.05e-23 * n[m^-3] * T[eV] / B_t[T]^2
+
+    Parameters
+    ----------
+    n_m3 : float or np.ndarray
+        Electron density [m^-3]. Must be > 0.
+    T_eV : float or np.ndarray
+        Temperature [eV]. Must be > 0.
+    B_t_T : float or np.ndarray
+        Toroidal magnetic field [T]. Must be > 0.
+    output : str, optional
+        "percent" (default) or "fraction".
+
+    Returns
+    -------
+    float or np.ndarray
+        beta_t in requested units.
+
+    Notes
+    -----
+    Default is calibrated to match the ITER numerical example in:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    n_arr = _validate_positive("n_m3", n_m3)
+    t_arr = _validate_positive("T_eV", T_eV)
+    b_arr = _validate_positive("B_t_T", B_t_T)
+    beta_percent = 8.05e-23 * n_arr * t_arr / (b_arr**2)
+
+    normalized = output.strip().lower()
+    if normalized == "percent":
+        return _maybe_scalar(beta_percent)
+    if normalized == "fraction":
+        return _maybe_scalar(beta_percent / 100.0)
+    raise ValueError("output must be either 'percent' or 'fraction'")
+
+
+def q_cyl_from_B_R_epsilon_kappa_I(
+    B_t_T: Union[float, np.ndarray],
+    R_geo_m: Union[float, np.ndarray],
+    epsilon: Union[float, np.ndarray],
+    kappa_a: Union[float, np.ndarray],
+    I_p_A: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """
+    Compute cylindrical safety factor q_cyl in Verdoolaege 2021 convention.
+
+    Uses:
+    q_cyl = 5e6 * B_t[T] * R_geo[m] * epsilon^2 * kappa_a / I_p[A]
+
+    Parameters
+    ----------
+    B_t_T : float or np.ndarray
+        Toroidal field [T]. Must be > 0.
+    R_geo_m : float or np.ndarray
+        Geometric major radius [m]. Must be > 0.
+    epsilon : float or np.ndarray
+        Inverse aspect ratio [-]. Must be > 0.
+    kappa_a : float or np.ndarray
+        Elongation [-]. Must be > 0.
+    I_p_A : float or np.ndarray
+        Plasma current [A]. Must be > 0.
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor q_cyl [-].
+
+    Notes
+    -----
+    Implemented via the existing general form with f(kappa,delta)=1/kappa_a.
+    Convention follows:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    b_arr = _validate_positive("B_t_T", B_t_T)
+    r_arr = _validate_positive("R_geo_m", R_geo_m)
+    eps_arr = _validate_positive("epsilon", epsilon)
+    kappa_arr = _validate_positive("kappa_a", kappa_a)
+    i_arr = _validate_positive("I_p_A", I_p_A)
+    q_cyl = cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta(
+        R=r_arr,
+        B=b_arr,
+        epsilon=eps_arr,
+        I=i_arr,
+        f_kappa_delta=1.0 / kappa_arr,
+    )
+    return _maybe_scalar(q_cyl)
+
+
+def nu_star_from_n_T_B_R_epsilon_kappa_I(
+    n_m3: Union[float, np.ndarray],
+    T_eV: Union[float, np.ndarray],
+    B_t_T: Union[float, np.ndarray],
+    R_geo_m: Union[float, np.ndarray],
+    epsilon: Union[float, np.ndarray],
+    kappa_a: Union[float, np.ndarray],
+    I_p_A: Union[float, np.ndarray],
+    ln_lambda: Union[float, np.ndarray, None] = None,
+) -> Union[float, np.ndarray]:
+    """
+    Compute normalized collisionality nu_star in Verdoolaege 2021 convention.
+
+    Uses:
+    nu_star = 5e-11 * lnLambda * n * B_t * R_geo^2 * sqrt(epsilon) * kappa_a / (I_p * T^2)
+
+    Parameters
+    ----------
+    n_m3 : float or np.ndarray
+        Electron density [m^-3]. Must be > 0.
+    T_eV : float or np.ndarray
+        Temperature [eV]. Must be > 0.
+    B_t_T : float or np.ndarray
+        Toroidal field [T]. Must be > 0.
+    R_geo_m : float or np.ndarray
+        Geometric major radius [m]. Must be > 0.
+    epsilon : float or np.ndarray
+        Inverse aspect ratio [-]. Must be > 0.
+    kappa_a : float or np.ndarray
+        Elongation [-]. Must be > 0.
+    I_p_A : float or np.ndarray
+        Plasma current [A]. Must be > 0.
+    ln_lambda : float or np.ndarray, optional
+        Coulomb logarithm. If None, computed with
+        ln(Λ) = 30.9 - ln(sqrt(n)/T) using n[m^-3], T[eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        nu_star [-].
+
+    Notes
+    -----
+    Convention follows:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    n_arr = _validate_positive("n_m3", n_m3)
+    t_arr = _validate_positive("T_eV", T_eV)
+    b_arr = _validate_positive("B_t_T", B_t_T)
+    r_arr = _validate_positive("R_geo_m", R_geo_m)
+    eps_arr = _validate_positive("epsilon", epsilon)
+    kappa_arr = _validate_positive("kappa_a", kappa_a)
+    i_arr = _validate_positive("I_p_A", I_p_A)
+
+    if ln_lambda is None:
+        ln_arr = np.asarray(coulomb_logarithm_from_n_T(n_arr, t_arr), dtype=float)
+    else:
+        ln_arr = _validate_positive("ln_lambda", ln_lambda)
+
+    nu_star = (
+        5.0e-11
+        * ln_arr
+        * n_arr
+        * b_arr
+        * (r_arr**2)
+        * np.sqrt(eps_arr)
+        * kappa_arr
+        / (i_arr * (t_arr**2))
+    )
+    return _maybe_scalar(nu_star)
+
+
+def omega_i_tau_E_from_B_tau_E_M(
+    B_t_T: Union[float, np.ndarray],
+    tau_E_s: Union[float, np.ndarray],
+    M_eff_amu: Union[float, np.ndarray],
+    Z_i: Union[float, np.ndarray] = 1.0,
+) -> Union[float, np.ndarray]:
+    """
+    Compute ion-cyclotron-normalized confinement time omega_i * tau_E.
+
+    Uses exact SI angular ion cyclotron frequency:
+    omega_i = Z_i * e * B_t / m_i, where m_i = M_eff_amu * m_p.
+
+    Parameters
+    ----------
+    B_t_T : float or np.ndarray
+        Toroidal field [T]. Must be > 0.
+    tau_E_s : float or np.ndarray
+        Energy confinement time [s]. Must be > 0.
+    M_eff_amu : float or np.ndarray
+        Effective ion mass [amu]. Must be > 0.
+    Z_i : float or np.ndarray, optional
+        Effective ion charge state [-], default 1. Must be > 0.
+
+    Returns
+    -------
+    float or np.ndarray
+        omega_i * tau_E [-].
+
+    Notes
+    -----
+    This is an SI-derived quantity; not a fitted prefactor approximation.
+    Convention context:
+    G. Verdoolaege et al., Nuclear Fusion 61 (2021) 076006.
+    """
+    b_arr = _validate_positive("B_t_T", B_t_T)
+    tau_arr = _validate_positive("tau_E_s", tau_E_s)
+    m_eff_arr = _validate_positive("M_eff_amu", M_eff_amu)
+    z_arr = _validate_positive("Z_i", Z_i)
+    m_i = m_eff_arr * MI_P
+    omega_i = z_arr * QE * b_arr / m_i
+    return _maybe_scalar(omega_i * tau_arr)
+
+
+def kadomtsev_constraint_from_engineering_exponents(
+    alpha_I: Union[float, np.ndarray],
+    alpha_B: Union[float, np.ndarray],
+    alpha_P: Union[float, np.ndarray],
+    alpha_n: Union[float, np.ndarray],
+    alpha_R: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    """
+    Evaluate high-beta Kadomtsev dimensional-constraint residual.
+
+    Uses:
+    alpha_K = 4*alpha_R - 8*alpha_n - alpha_I - 3*alpha_P - 5*alpha_B - 5
+
+    Parameters
+    ----------
+    alpha_I, alpha_B, alpha_P, alpha_n, alpha_R : float or np.ndarray
+        Engineering-scaling exponents.
+
+    Returns
+    -------
+    float or np.ndarray
+        Constraint residual alpha_K (0 means exact constraint satisfaction).
+
+    Notes
+    -----
+    Form requested for confinement scaling consistency checks in the
+    Verdoolaege-ITPA context (Nuclear Fusion 61 (2021) 076006).
+    """
+    a_i = np.asarray(alpha_I, dtype=float)
+    a_b = np.asarray(alpha_B, dtype=float)
+    a_p = np.asarray(alpha_P, dtype=float)
+    a_n = np.asarray(alpha_n, dtype=float)
+    a_r = np.asarray(alpha_R, dtype=float)
+    for name, arr in (
+        ("alpha_I", a_i),
+        ("alpha_B", a_b),
+        ("alpha_P", a_p),
+        ("alpha_n", a_n),
+        ("alpha_R", a_r),
+    ):
+        if np.any(~np.isfinite(arr)):
+            raise ValueError(f"{name} must be finite. Got {arr!r}")
+    alpha_k = 4.0 * a_r - 8.0 * a_n - a_i - 3.0 * a_p - 5.0 * a_b - 5.0
+    return _maybe_scalar(alpha_k)
+
+
+def check_kadomtsev_constraint(
+    alpha_I: Union[float, np.ndarray],
+    alpha_B: Union[float, np.ndarray],
+    alpha_P: Union[float, np.ndarray],
+    alpha_n: Union[float, np.ndarray],
+    alpha_R: Union[float, np.ndarray],
+    tol: float = 1e-6,
+) -> Union[bool, np.ndarray]:
+    """
+    Check whether engineering exponents satisfy the Kadomtsev constraint.
+
+    Parameters
+    ----------
+    alpha_I, alpha_B, alpha_P, alpha_n, alpha_R : float or np.ndarray
+        Engineering-scaling exponents.
+    tol : float, optional
+        Absolute tolerance for |alpha_K| <= tol, default 1e-6.
+
+    Returns
+    -------
+    bool or np.ndarray
+        Constraint satisfaction mask (True when satisfied).
+    """
+    tol_arr = _validate_positive("tol", tol)
+    alpha_k = np.asarray(
+        kadomtsev_constraint_from_engineering_exponents(
+            alpha_I=alpha_I,
+            alpha_B=alpha_B,
+            alpha_P=alpha_P,
+            alpha_n=alpha_n,
+            alpha_R=alpha_R,
+        ),
+        dtype=float,
+    )
+    satisfied = np.abs(alpha_k) <= tol_arr
+    if np.asarray(satisfied).ndim == 0:
+        return bool(satisfied)
+    return satisfied
+
+
+# Paper-convention discoverability aliases
+coulomb_logarithm = coulomb_logarithm_from_n_T
+calc_rho_star = rho_star_from_M_T_B_R_epsilon
+calc_beta_t = beta_t_from_n_T_B
+calc_q_cyl = q_cyl_from_B_R_epsilon_kappa_I
+calc_nu_star = nu_star_from_n_T_B_R_epsilon_kappa_I
+calc_omega_i_tau_E = omega_i_tau_E_from_B_tau_E_M
+
+
 """
 Confinement Time
 """
@@ -1008,13 +1589,26 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     """
     return W_th / P_loss
 
-def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss: float, n_e: float, M: float, R: float, epsilon: float, kappa: float, scaling: str = "IPB89") -> float:
+def confinement_time_from_engineering_parameters(
+    I_p: float,
+    B_t: float,
+    P_loss: float,
+    n_e: float,
+    M: float,
+    R: float,
+    epsilon: float,
+    kappa: float,
+    scaling: str = "ITER89P",
+    input_density_definition: str = "line_avg",
+    line_to_volume_factor: Optional[float] = None,
+) -> float:
     """
     Calculate thermal energy confinement time from engineering parameters using scaling laws.
-    
+
     Formula:
-    τ_E,th^fit = C · I_p^α_I · B_T^α_B · P_loss^α_P · n_e^α_n · M^α_M · R^α_R · ε^α_ε · κ^α_κ
-    
+    τ_E,th^fit = C · Π x_i^α_i, where the product includes only the variables
+    explicitly defined by the selected scaling law.
+
     Parameters
     ----------
     I_p : float
@@ -1034,76 +1628,198 @@ def confinement_time_from_engineering_parameters(I_p: float, B_t: float, P_loss:
     kappa : float
         Elongation [-]
     scaling : str, optional
-        Scaling law name: "IPB89", "H98y2", or "NSTX", by default "IPB89"
-    
+        Scaling law name: "ITER89P", "H98y2", "NSTX2006H", "NSTX2006L", or "Kurskiev2022",
+        by default "ITER89P".
+    input_density_definition : str, optional
+        Density definition used for n_e. Supported values: "line_avg",
+        "volume_avg". By default "line_avg".
+    line_to_volume_factor : float, optional
+        Explicit conversion factor used only when converting between
+        line-averaged and volume-averaged densities. If conversion is needed
+        and this factor is not provided, the function raises a ValueError.
+
     Returns
     -------
     float
         Thermal energy confinement time [s]
-    
+
     Notes
     -----
     This function automatically converts SI units to the units required by the scaling laws:
     - I_p: A → MA (× 1e-6)
     - n_e: m^-3 → 10^19 m^-3 (× 1e-19) for n_19 parameter
     - P_loss: W → MW (× 1e-6)
+
+    Density handling is explicit:
+    - each scaling law declares its target density definition in `_SCALING_COEFS`;
+    - if input and target definitions differ, conversion requires
+      `line_to_volume_factor`.
+
+    Power handling remains unchanged in this function: `P_loss` is used for all
+    scalings, including ST multi-machine.
     """
+    def _normalise_density_definition(label: str) -> str:
+        mapping = {
+            "line_avg": "line_avg",
+            "line-average": "line_avg",
+            "line_averaged": "line_avg",
+            "line-averaged": "line_avg",
+            "line": "line_avg",
+            "volume_avg": "volume_avg",
+            "volume-average": "volume_avg",
+            "volume_averaged": "volume_avg",
+            "volume-averaged": "volume_avg",
+            "volume": "volume_avg",
+        }
+        key = str(label).strip().lower()
+        if key not in mapping:
+            raise ValueError(
+                f"Invalid density definition '{label}'. "
+                "Supported values: 'line_avg', 'volume_avg'."
+            )
+        return mapping[key]
+
     if scaling not in _SCALING_COEFS:
         raise ValueError(f"Unknown scaling '{scaling}'. Available: {list(_SCALING_COEFS.keys())}")
-    
-    # Extract coefficients: [C, Ip_MA, R, epsilon, kappa, n_19, Bt, Mi, P_MW/P_loss]
-    # Mapping to: [α_I, α_B, α_P, α_n, α_M, α_R, α_ε, α_κ]
-    # Based on: τ_E = C · I_p^α · R^β · a^γ · κ^δ · n_e^ε · B_T^ζ · M^η / P_loss
-    # For this function: τ_E = C · I_p^α_I · B_T^α_B · P_loss^α_P · n_e^α_n · M^α_M · R^α_R · ε^α_ε · κ^α_κ
+
     coefs = _SCALING_COEFS[scaling]
-    C = coefs["C"]
-    alpha_I = coefs["Ip_MA"]         # Plasma Current exponent
-    alpha_R = coefs["R"]             # Major Radius exponent
-    alpha_epsilon = coefs["epsilon"] # Inverse aspect ratio exponent (epsilon = a/R)
-    alpha_kappa = coefs["kappa"]     # Elongation exponent
-    alpha_n = coefs["n_19"]          # Electron Density exponent
-    alpha_B = coefs["Bt"]           # Toroidal Field exponent
-    alpha_M = coefs["Mi"]            # Ion mass exponent
-    alpha_P = coefs["P_MW"]          # Heating Power exponent
-    
+    C = float(coefs["C"])
+    if not np.isfinite(C) or C <= 0.0:
+        raise ValueError(f"Scaling constant C must be finite and > 0 for '{scaling}'. Got {C!r}")
+
+    # Backward compatibility: accept both the new nested `exponents` schema and
+    # historical flat entries.
+    if "exponents" in coefs:
+        exponents = dict(coefs["exponents"])
+    else:
+        exponent_keys = ("Ip_MA", "Bt", "P_MW", "n_19", "Mi", "R", "epsilon", "kappa")
+        exponents = {key: coefs[key] for key in exponent_keys if key in coefs}
+
+    if len(exponents) == 0:
+        raise ValueError(f"No exponents defined for scaling '{scaling}'.")
+
+    input_density_def = _normalise_density_definition(input_density_definition)
+    target_density_def = _normalise_density_definition(
+        coefs.get("density_definition", "line_avg")
+    )
+
     # Unit conversions: SI → scaling law units
     I_p_MA = I_p * 1e-6          # A → MA
-    n_e_19 = n_e * 1e-19         # m^-3 → 10^19 m^-3 (for n_19 parameter)
     P_loss_MW = P_loss * 1e-6    # W → MW
-    
-    # Validate inputs to prevent complex results
-    if I_p_MA <= 0 or B_t <= 0 or P_loss_MW <= 0 or n_e_19 <= 0 or M <= 0 or R <= 0 or epsilon <= 0 or kappa <= 0:
-        raise ValueError(f"All input parameters must be positive. Got: I_p_MA={I_p_MA}, B_t={B_t}, P_loss_MW={P_loss_MW}, n_e_19={n_e_19}, M={M}, R={R}, epsilon={epsilon}, kappa={kappa}")
-    
-    # Compute with error handling for complex results
-    result = (C * I_p_MA**alpha_I * B_t**alpha_B * P_loss_MW**alpha_P * 
-             n_e_19**alpha_n * M**alpha_M * R**alpha_R * 
-             epsilon**alpha_epsilon * kappa**alpha_kappa)
-    
+
+    # Density conversion is explicit and only applied when required.
+    n_e_input = _validate_positive("n_e", n_e)
+    if input_density_def == target_density_def:
+        n_e_target = n_e_input
+    else:
+        if line_to_volume_factor is None:
+            raise ValueError(
+                f"Scaling '{scaling}' expects '{target_density_def}' density, "
+                f"but input_density_definition is '{input_density_def}'. "
+                "Provide line_to_volume_factor explicitly to convert densities."
+            )
+        factor = _validate_positive("line_to_volume_factor", line_to_volume_factor)
+        if input_density_def == "line_avg" and target_density_def == "volume_avg":
+            n_e_target = n_e_input * factor
+        elif input_density_def == "volume_avg" and target_density_def == "line_avg":
+            n_e_target = n_e_input / factor
+        else:
+            raise ValueError(
+                f"Unsupported density conversion: {input_density_def} -> {target_density_def}"
+            )
+
+    n_e_19 = n_e_target * 1e-19  # m^-3 → 10^19 m^-3
+
+    variable_values = {
+        "Ip_MA": I_p_MA,
+        "Bt": B_t,
+        "P_MW": P_loss_MW,
+        "n_19": n_e_19,
+        "Mi": M,
+        "R": R,
+        "epsilon": epsilon,
+        "kappa": kappa,
+    }
+
+    result = C
+    used_variables = []
+    for variable_name, alpha in exponents.items():
+        if variable_name not in variable_values:
+            raise ValueError(
+                f"Unsupported exponent variable '{variable_name}' in scaling '{scaling}'."
+            )
+        alpha_float = float(alpha)
+        if not np.isfinite(alpha_float):
+            raise ValueError(
+                f"Non-finite exponent for variable '{variable_name}' in scaling '{scaling}': {alpha!r}"
+            )
+        value = _validate_positive(variable_name, variable_values[variable_name])
+        result = result * value ** alpha_float
+        used_variables.append(variable_name)
+
     # Handle complex numbers (should not happen with valid inputs)
-    if isinstance(result, complex):
-        if result.imag != 0:
-            raise ValueError(f"Confinement time calculation resulted in complex number: {result}. "
-                           f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-                           f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}, "
-                           f"alpha_P={alpha_P}, I_p_MA={I_p_MA}, P_loss_MW={P_loss_MW}")
-        result = result.real
-    
+    if np.iscomplexobj(result):
+        result_complex = np.asarray(result)
+        if np.any(result_complex.imag != 0):
+            raise ValueError(
+                f"Confinement time calculation resulted in complex number for scaling '{scaling}'. "
+                f"Used variables: {used_variables}. "
+                f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
+                f"epsilon={epsilon}, kappa={kappa}"
+            )
+        result = np.real(result_complex)
+
     # Ensure result is finite
-    if not np.isfinite(result) or result <= 0:
-        raise ValueError(f"Invalid confinement time result: {result}. "
-                        f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-                        f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}")
-    
+    if np.any(~np.isfinite(result)) or np.any(result <= 0):
+        raise ValueError(
+            f"Invalid confinement time result: {result}. "
+            f"Used variables: {used_variables}. "
+            f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
+            f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}"
+        )
+
     return float(result)
 
 
-def confinement_factor_from_tau_E_exp_tau_E_IPB89y2(tau_E_exp: float, tau_E_IBP98y2: float) -> float:
+def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:
+
     r"""
-    # $\frac{\tau_{E,\text{exp}}}{\tau_{E,\text{IBP98y2}}}$
-    # \frac{\tau_{E,\text{exp}}}{\tau_{E,\text{IBP98y2}}}
+
+    Return the confinement enhancement factor relative to ITER89P scaling.
+
+    Defined as
+
+    \[
+
+    H_{89} = \frac{\tau_{E,\mathrm{exp}}}{\tau_{E,\mathrm{ITER89P}}}
+
+    \]
+
+    Parameters
+
+    ----------
+
+    tau_E_exp : float
+
+        Experimental energy confinement time [s]
+
+    tau_E_ITER89P : float
+
+        Predicted energy confinement time from ITER89P scaling [s]
+
+    Returns
+
+    -------
+
+    float
+
+        H89 confinement factor.
+
+        Values > 1 indicate better confinement than the scaling prediction.
+
     """
-    return tau_E_exp / tau_E_IBP98y2
+
+    return tau_E_exp / tau_E_ITER89P
 
 def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     a_I, a_B, a_P, a_n, a_M, a_R, a_eps, a_kappa

@@ -15,6 +15,24 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Human-readable y-axis labels for confinement scaling regression bars (mathtext).
+_ENG_PARAM_PLOT_LABELS: Dict[str, str] = {
+    'Ip_MA': r'$I_{\mathrm{p}}$ [MA]',
+    'Bt_T': r'$B_{\mathrm{t}}$ [T]',
+    'Ploss_MW': r'$P_{\mathrm{loss}}$ [MW]',
+    'ne_19m3': r'$n_{\mathrm{e}}$ [$10^{19}$ m$^{-3}$]',
+    'R_m': r'$R$ [m]',
+    'epsilon': r'$\epsilon$',
+    'kappa': r'$\kappa$',
+    'T_eV': r'$T_{\mathrm{e}}$ [eV]',
+    'a_m': r'$a$ [m]',
+}
+
+
+def _eng_param_y_label(column_name: str) -> str:
+    """Label for regression summary bar plots; falls back to the column name."""
+    return _ENG_PARAM_PLOT_LABELS.get(column_name, column_name)
+
 
 def plot_scaling_fit(results, df, target_param='tauE_s', figsize=(12, 5)):
     """Plot overall fitting results and residual distribution.
@@ -103,15 +121,15 @@ def _get_param_latex_label(param_name):
         return (param_name, '')
 
 
-def plot_individual_parameter_effects(df, eng_params, target_param='tauE_s', 
-                                     figsize=(8, 5), ncols=None, results=None):
+def plot_individual_parameter_effects(df, eng_params, target_param='tauE_s',
+                                     figsize=None, ncols=None, results=None):
     """Plot individual parameter effects on confinement time (linear scale).
     
     Args:
         df: DataFrame with original (non-log-transformed) parameters
         eng_params: List of engineering parameter names
         target_param: Target parameter name (default: 'tauE_s')
-        figsize: Figure size tuple. If height is None, calculated automatically.
+        figsize: Figure size tuple. If None, calculated automatically.
         ncols: Number of columns in subplot grid. If None, calculated automatically.
         results: RegressionResults object from statistical_analysis (optional).
                 If provided, first subplot will show experimental vs predicted tauE.
@@ -119,22 +137,43 @@ def plot_individual_parameter_effects(df, eng_params, target_param='tauE_s',
     from scipy.stats import pearsonr
     import math
     
-    # Fixed layout: 2 rows x 4 columns = 8 subplots total
-    nrows = 2
-    ncols = 4
-        
+    has_results_plot = results is not None
+    has_tau_cols_plot = 'tauE_exp' in df.columns and 'tauE_fitted' in df.columns
+    include_tau_comparison = has_results_plot or has_tau_cols_plot
+
+    total_plots = len(eng_params) + (1 if include_tau_comparison else 0)
+    if total_plots == 0:
+        fig, ax = plt.subplots(figsize=figsize or (8, 4))
+        ax.text(0.5, 0.5, 'No engineering parameters to plot',
+                ha='center', va='center', transform=ax.transAxes)
+        ax.set_axis_off()
+        return fig
+
+    if ncols is None:
+        ncols = min(4, max(1, total_plots))
+    ncols = max(1, int(ncols))
+    nrows = int(math.ceil(total_plots / ncols))
+
+    if figsize is None:
+        figsize = (4.3 * ncols, 3.6 * nrows)
+
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
     fig.suptitle('Individual Parameter Variation vs Confinement Time', 
                  fontsize=16, y=1.02)
     
     # Flatten axes array for easier indexing
-    axes = axes.flatten()
+    axes = np.atleast_1d(axes).flatten()
     
     target_col = target_param
     
-    # First subplot: tauE_exp vs tauE_predicted (from results) or tauE_exp vs tauE_fitted
-    ax = axes[0]
-    if results is not None:
+    plot_idx = 0
+
+    # Optional first subplot: tauE_exp vs tauE_predicted (from results)
+    # or tauE_exp vs tauE_fitted (from DataFrame).
+    if include_tau_comparison:
+        ax = axes[plot_idx]
+        plot_idx += 1
+    if has_results_plot:
         # Use results to create the same plot as plot_scaling_fit's first figure
         try:
             # Get predicted and actual values (same logic as plot_scaling_fit)
@@ -180,7 +219,7 @@ def plot_individual_parameter_effects(df, eng_params, target_param='tauE_s',
             logger.warning(f"Error plotting from results: {e}")
             ax.text(0.5, 0.5, f'Error plotting from results: {e}', 
                     ha='center', va='center', transform=ax.transAxes)
-    elif 'tauE_exp' in df.columns and 'tauE_fitted' in df.columns:
+    elif has_tau_cols_plot:
         # Fallback: use tauE_exp and tauE_fitted from DataFrame if results not provided
         # Remove NaN values
         valid_mask = ~(df['tauE_exp'].isna() | df['tauE_fitted'].isna())
@@ -216,17 +255,13 @@ def plot_individual_parameter_effects(df, eng_params, target_param='tauE_s',
         else:
             ax.text(0.5, 0.5, 'No valid data for tauE comparison', 
                     ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'Results or tauE columns not available', 
-                ha='center', va='center', transform=ax.transAxes)
-    
     # Remaining subplots: individual parameter effects
     m = len(eng_params)
-    max_params = nrows * ncols - 1  # -1 for the tauE comparison plot
+    max_params = len(axes) - plot_idx
     
     for i, param in enumerate(eng_params[:max_params]):
         param_col = param
-        ax = axes[i + 1]  # +1 to skip the first subplot
+        ax = axes[plot_idx + i]
         
         if param_col not in df.columns or target_col not in df.columns:
             ax.text(0.5, 0.5, f'Data not available for {param}', 
@@ -289,11 +324,11 @@ def plot_individual_parameter_effects(df, eng_params, target_param='tauE_s',
         ax.grid(True, linestyle=':', alpha=0.6)
     
     # Hide unused subplots
-    total_used = min(m, max_params) + 1  # +1 for tauE comparison
+    total_used = min(m, max_params) + plot_idx
     for i in range(total_used, len(axes)):
         axes[i].set_visible(False)
     
-    plt.tight_layout()
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
     return fig
 
 
@@ -331,21 +366,22 @@ def plot_regression_summary(results, figsize=(10, 6)):
         results: RegressionResults object
         figsize: Figure size tuple (default: (10, 6))
     """
-    summary = results.get_summary()
-    
-    # Filter to engineering parameters (exclude constant)
     eng_params = results.eng_params
-    param_names = [f'ln_{p}' for p in eng_params]
-    summary_filtered = summary.loc[summary.index.isin(param_names)]
-    
-    # Extract parameter names (remove 'ln_' prefix)
-    summary_filtered.index = [idx.replace('ln_', '') for idx in summary_filtered.index]
+    coefs = []
+    pvals = []
+    y_labels = []
+    for p in eng_params:
+        key = f'ln_{p}'
+        coefs.append(float(results.coefficients[key]))
+        pvals.append(float(results.pvalues[key]))
+        y_labels.append(_eng_param_y_label(p))
+    significant = [pv < 0.05 for pv in pvals]
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
     
     # Plot 1: Coefficients (exponents)
-    colors = ['green' if sig else 'red' for sig in summary_filtered['Significant']]
-    ax1.barh(summary_filtered.index, summary_filtered['Coefficient'], color=colors)
+    colors = ['green' if sig else 'red' for sig in significant]
+    ax1.barh(y_labels, coefs, color=colors)
     ax1.axvline(0, color='black', linestyle='-', linewidth=0.5)
     ax1.set_xlabel('Coefficient (Exponent)', fontsize=12)
     ax1.set_title('Regression Coefficients (Scaling Exponents)', 
@@ -353,16 +389,499 @@ def plot_regression_summary(results, figsize=(10, 6)):
     ax1.grid(True, alpha=0.3, axis='x')
     
     # Plot 2: P-values
-    colors = ['green' if sig else 'red' for sig in summary_filtered['Significant']]
-    ax2.barh(summary_filtered.index, summary_filtered['P-value'], color=colors)
+    colors = ['green' if sig else 'red' for sig in significant]
+    ax2.barh(y_labels, pvals, color=colors)
     ax2.axvline(0.05, color='red', linestyle='--', linewidth=2, label='α = 0.05')
     ax2.set_xlabel('P-value', fontsize=12)
     ax2.set_title('Statistical Significance (P-values)', 
                   fontsize=14, fontweight='bold')
-    ax2.set_xlim(0, max(0.1, summary_filtered['P-value'].max() * 1.1))
+    ax2.set_xlim(0, max(0.1, max(pvals) * 1.1))
     ax2.legend()
     ax2.grid(True, alpha=0.3, axis='x')
+    # First entry in eng_params at the top (matches list order)
+    ax1.invert_yaxis()
+    ax2.invert_yaxis()
     
+    plt.tight_layout()
+    return fig
+
+
+def plot_H_factor_vs_greenwald_fraction(
+    df: pd.DataFrame,
+    tauE_exp_col: str = 'tauE_s',
+    tauE_scaling_col: Optional[str] = None,
+    figsize=(8, 6),
+):
+    """Plot confinement enhancement factor versus Greenwald fraction.
+
+    This function computes:
+    - ``H = tau_E,exp / tau_E,scaling`` using
+      ``confinement_factor_ITER89P``
+    - ``f_G = n_e / n_G`` using ``greenwald_density`` and ``greenwald_fraction``
+
+    Accepted column aliases:
+    - Plasma current: ``Ip_MA`` (MA) or ``I_p`` (A)
+    - Electron density: ``ne_19m3`` (1e19 m^-3) or ``n_e`` (m^-3)
+    - Minor radius: ``a`` (m), or computed from ``R_m * epsilon``
+    - Scaling confinement time:
+      ``tauE_H98y2`` / ``tauE_IPB89`` / ``tauE_ITER89P`` (priority order)
+
+    Args:
+        df: DataFrame containing confinement and geometry parameters.
+        tauE_exp_col: Experimental confinement time column.
+        tauE_scaling_col: Scaling confinement time column. If None, inferred.
+        figsize: Figure size tuple.
+
+    Returns:
+        matplotlib figure object
+    """
+    from vaft.formula.equilibrium import confinement_factor_ITER89P
+    from vaft.formula.stability import greenwald_density, greenwald_fraction
+
+    def _pick_column(column_candidates):
+        for col in column_candidates:
+            if col in df.columns:
+                return col
+        return None
+
+    if tauE_exp_col not in df.columns:
+        raise ValueError(f"Missing required column: {tauE_exp_col}")
+
+    if tauE_scaling_col is None:
+        tauE_scaling_col = _pick_column(['tauE_H98y2', 'tauE_IPB89', 'tauE_ITER89P'])
+    if tauE_scaling_col is None or tauE_scaling_col not in df.columns:
+        raise ValueError(
+            "Could not find scaling tau_E column. Tried: "
+            "['tauE_H98y2', 'tauE_IPB89', 'tauE_ITER89P']"
+        )
+
+    ip_col = _pick_column(['Ip_MA', 'I_p'])
+    if ip_col is None:
+        raise ValueError("Could not find plasma current column. Tried: ['Ip_MA', 'I_p']")
+
+    ne_col = _pick_column(['ne_19m3', 'n_e'])
+    if ne_col is None:
+        raise ValueError("Could not find density column. Tried: ['ne_19m3', 'n_e']")
+
+    if 'a' in df.columns:
+        a_m = pd.to_numeric(df['a'], errors='coerce').to_numpy(dtype=float)
+    elif 'R_m' in df.columns and 'epsilon' in df.columns:
+        a_m = (
+            pd.to_numeric(df['R_m'], errors='coerce').to_numpy(dtype=float)
+            * pd.to_numeric(df['epsilon'], errors='coerce').to_numpy(dtype=float)
+        )
+    else:
+        raise ValueError("Need minor radius column 'a' or both 'R_m' and 'epsilon'")
+
+    tauE_exp = pd.to_numeric(df[tauE_exp_col], errors='coerce').to_numpy(dtype=float)
+    tauE_scaling = pd.to_numeric(df[tauE_scaling_col], errors='coerce').to_numpy(dtype=float)
+
+    if ip_col == 'Ip_MA':
+        I_p_MA = pd.to_numeric(df[ip_col], errors='coerce').to_numpy(dtype=float)
+    else:
+        I_p_MA = pd.to_numeric(df[ip_col], errors='coerce').to_numpy(dtype=float) / 1e6
+
+    if ne_col == 'ne_19m3':
+        n_e_19 = pd.to_numeric(df[ne_col], errors='coerce').to_numpy(dtype=float)
+    else:
+        n_e_19 = pd.to_numeric(df[ne_col], errors='coerce').to_numpy(dtype=float) / 1e19
+
+    valid_mask = (
+        np.isfinite(tauE_exp)
+        & np.isfinite(tauE_scaling)
+        & np.isfinite(I_p_MA)
+        & np.isfinite(a_m)
+        & np.isfinite(n_e_19)
+        & (tauE_exp > 0)
+        & (tauE_scaling > 0)
+        & (I_p_MA > 0)
+        & (a_m > 0)
+        & (n_e_19 > 0)
+    )
+
+    if np.sum(valid_mask) < 2:
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.text(
+            0.5,
+            0.5,
+            'Not enough valid data for H-factor vs Greenwald fraction',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+        )
+        ax.set_axis_off()
+        return fig
+
+    tauE_exp_valid = tauE_exp[valid_mask]
+    tauE_scaling_valid = tauE_scaling[valid_mask]
+    I_p_MA_valid = I_p_MA[valid_mask]
+    a_m_valid = a_m[valid_mask]
+    n_e_19_valid = n_e_19[valid_mask]
+
+    n_G_19 = greenwald_density(I_p=I_p_MA_valid, a=a_m_valid)
+    f_G = greenwald_fraction(n_e=n_e_19_valid, n_G=n_G_19)
+    H_factor = confinement_factor_ITER89P(
+        tau_E_exp=tauE_exp_valid,
+        tau_E_ITER89P=tauE_scaling_valid,
+    )
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.scatter(
+        f_G,
+        H_factor,
+        alpha=0.65,
+        s=45,
+        edgecolors='black',
+        linewidth=0.5,
+        color='#1f77b4',
+        label=f'N={len(f_G)}',
+    )
+
+    if len(f_G) >= 3:
+        coeff = np.polyfit(f_G, H_factor, 1)
+        x_fit = np.linspace(np.nanmin(f_G), np.nanmax(f_G), 100)
+        y_fit = np.polyval(coeff, x_fit)
+        ax.plot(x_fit, y_fit, 'r-', linewidth=2, label=f'Linear fit: y={coeff[0]:.3f}x+{coeff[1]:.3f}')
+
+    ax.axhline(1.0, color='gray', linestyle='--', linewidth=1.5, label='H=1')
+    ax.set_xlabel('Greenwald fraction $f_G = n_e / n_G$', fontsize=12)
+    ax.set_ylabel('Confinement factor $H$', fontsize=12)
+    ax.set_title('H-factor vs Greenwald Fraction', fontsize=14, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best', fontsize=10)
+
+    plt.tight_layout()
+    return fig
+
+
+def _resolve_scaling_series(
+    df: pd.DataFrame,
+    scaling_cols: Optional[Dict[str, str]] = None,
+) -> Dict[str, pd.Series]:
+    """Resolve available scaling-law tau_E columns from a DataFrame."""
+    if scaling_cols is None:
+        scaling_candidates = {
+            'ITER89P': ['tauE_ITER89P', 'tauE_IPB89'],
+            'H98y2': ['tauE_H98y2', 'tauE_H98'],
+            'NSTX': ['tauE_NSTX2007', 'tauE_NSTX2006H', 'tauE_NSTX2006L', 'tauE_NSTX'],
+            'Kurskiev2022': ['tauE_Kurskiev2022'],
+        }
+    else:
+        scaling_candidates = {name: [col] for name, col in scaling_cols.items()}
+
+    resolved = {}
+    for scaling_name, candidates in scaling_candidates.items():
+        for col in candidates:
+            if col in df.columns:
+                resolved[scaling_name] = pd.to_numeric(df[col], errors='coerce')
+                break
+    return resolved
+
+
+def _resolve_parameter_series(df: pd.DataFrame, aliases: List[str]) -> Optional[pd.Series]:
+    """Return the first matching parameter column converted to numeric."""
+    for col in aliases:
+        if col in df.columns:
+            return pd.to_numeric(df[col], errors='coerce')
+    return None
+
+
+def compute_confinement_scaling_metrics(
+    df: pd.DataFrame,
+    tauE_exp_col: str = 'tauE_s',
+    scaling_cols: Optional[Dict[str, str]] = None,
+) -> pd.DataFrame:
+    """Compute agreement metrics between tau_E(exp) and tau_E(scaling).
+
+    Returns per scaling law:
+    - Pearson correlation
+    - RMSE, MAE
+    - Mean relative error
+    - Mean log error and std(log H)
+    - Log-space fit parameters: y = a + b x
+      where y=log(tau_E,exp), x=log(tau_E,scaling)
+    """
+    if tauE_exp_col not in df.columns:
+        raise ValueError(f"Missing required column: {tauE_exp_col}")
+
+    tau_exp = pd.to_numeric(df[tauE_exp_col], errors='coerce')
+    scaling_series = _resolve_scaling_series(df, scaling_cols=scaling_cols)
+    if not scaling_series:
+        raise ValueError("No scaling-law tau_E columns found in DataFrame.")
+
+    rows = []
+    for scaling_name, tau_scal in scaling_series.items():
+        mask = tau_exp.notna() & tau_scal.notna() & (tau_exp > 0) & (tau_scal > 0)
+        if mask.sum() < 2:
+            rows.append(
+                {
+                    'Scaling': scaling_name,
+                    'N': int(mask.sum()),
+                    'Pearson_r': np.nan,
+                    'RMSE': np.nan,
+                    'MAE': np.nan,
+                    'MeanRelativeError': np.nan,
+                    'MeanLogError': np.nan,
+                    'StdLogH': np.nan,
+                    'LogFit_a': np.nan,
+                    'LogFit_b': np.nan,
+                }
+            )
+            continue
+
+        y_exp = tau_exp[mask].to_numpy(dtype=float)
+        x_scal = tau_scal[mask].to_numpy(dtype=float)
+        diff = y_exp - x_scal
+        rel_err = diff / x_scal
+        log_h = np.log(y_exp / x_scal)
+
+        pearson_r = np.corrcoef(x_scal, y_exp)[0, 1] if len(x_scal) > 1 else np.nan
+        rmse = float(np.sqrt(np.mean(diff**2)))
+        mae = float(np.mean(np.abs(diff)))
+        mean_rel_error = float(np.mean(rel_err))
+        mean_log_error = float(np.mean(log_h))
+        std_log_h = float(np.std(log_h, ddof=1)) if len(log_h) > 1 else np.nan
+
+        x_log = np.log(x_scal)
+        y_log = np.log(y_exp)
+        fit_b, fit_a = np.polyfit(x_log, y_log, 1)
+
+        rows.append(
+            {
+                'Scaling': scaling_name,
+                'N': int(mask.sum()),
+                'Pearson_r': float(pearson_r),
+                'RMSE': rmse,
+                'MAE': mae,
+                'MeanRelativeError': mean_rel_error,
+                'MeanLogError': mean_log_error,
+                'StdLogH': std_log_h,
+                'LogFit_a': float(fit_a),
+                'LogFit_b': float(fit_b),
+            }
+        )
+
+    metrics_df = pd.DataFrame(rows).set_index('Scaling').sort_index()
+    return metrics_df
+
+
+def plot_tauE_exp_vs_scaling_loglog(
+    df: pd.DataFrame,
+    tauE_exp_col: str = 'tauE_s',
+    scaling_cols: Optional[Dict[str, str]] = None,
+    figsize=(12, 8),
+):
+    """Plot tau_E(exp) vs tau_E(scaling) in log-log space per scaling law."""
+    metrics_df = compute_confinement_scaling_metrics(
+        df,
+        tauE_exp_col=tauE_exp_col,
+        scaling_cols=scaling_cols,
+    )
+    tau_exp = pd.to_numeric(df[tauE_exp_col], errors='coerce')
+    scaling_series = _resolve_scaling_series(df, scaling_cols=scaling_cols)
+
+    n_scalings = len(scaling_series)
+    ncols = min(2, max(1, n_scalings))
+    nrows = int(np.ceil(n_scalings / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = np.atleast_1d(axes).flatten()
+
+    for ax, (scaling_name, tau_scal) in zip(axes, scaling_series.items()):
+        mask = tau_exp.notna() & tau_scal.notna() & (tau_exp > 0) & (tau_scal > 0)
+        if mask.sum() < 2:
+            ax.text(0.5, 0.5, f'Not enough data: {scaling_name}', ha='center', va='center', transform=ax.transAxes)
+            ax.set_axis_off()
+            continue
+
+        x = tau_scal[mask].to_numpy(dtype=float)
+        y = tau_exp[mask].to_numpy(dtype=float)
+        ax.scatter(x, y, s=36, alpha=0.6, edgecolors='black', linewidth=0.4)
+
+        low = min(np.min(x), np.min(y))
+        high = max(np.max(x), np.max(y))
+        ax.plot([low, high], [low, high], 'k--', linewidth=1.5, label='y=x')
+
+        x_log = np.log(x)
+        y_log = np.log(y)
+        fit_b, fit_a = np.polyfit(x_log, y_log, 1)
+        x_line = np.linspace(np.min(x_log), np.max(x_log), 100)
+        y_line = fit_a + fit_b * x_line
+        ax.plot(np.exp(x_line), np.exp(y_line), 'r-', linewidth=2, label=f'log-fit: a={fit_a:.2f}, b={fit_b:.2f}')
+
+        stats = metrics_df.loc[scaling_name]
+        info = (
+            f"r={stats['Pearson_r']:.3f}\n"
+            f"RMSE={stats['RMSE']:.3e}\n"
+            f"MAE={stats['MAE']:.3e}\n"
+            f"MRE={stats['MeanRelativeError']:.3f}"
+        )
+        ax.text(
+            0.03,
+            0.97,
+            info,
+            transform=ax.transAxes,
+            fontsize=9,
+            va='top',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.75),
+        )
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlabel(r'$\tau_{E,\mathrm{scaling}}$ [s]')
+        ax.set_ylabel(r'$\tau_{E,\mathrm{exp}}$ [s]')
+        ax.set_title(scaling_name)
+        ax.grid(True, alpha=0.3, which='both')
+        ax.legend(loc='lower right', fontsize=8)
+
+    for ax in axes[n_scalings:]:
+        ax.set_visible(False)
+
+    fig.suptitle(r'$\tau_{E,\mathrm{exp}}$ vs $\tau_{E,\mathrm{scaling}}$ (log-log)', fontsize=14, fontweight='bold')
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    return fig
+
+
+def plot_H_factor_distribution(
+    df: pd.DataFrame,
+    tauE_exp_col: str = 'tauE_s',
+    scaling_cols: Optional[Dict[str, str]] = None,
+    figsize=(12, 5),
+    bins: int = 20,
+):
+    """Plot H-factor distributions for available scaling laws."""
+    if tauE_exp_col not in df.columns:
+        raise ValueError(f"Missing required column: {tauE_exp_col}")
+
+    tau_exp = pd.to_numeric(df[tauE_exp_col], errors='coerce')
+    scaling_series = _resolve_scaling_series(df, scaling_cols=scaling_cols)
+    if not scaling_series:
+        raise ValueError("No scaling-law tau_E columns found in DataFrame.")
+
+    h_data = {}
+    for scaling_name, tau_scal in scaling_series.items():
+        mask = tau_exp.notna() & tau_scal.notna() & (tau_exp > 0) & (tau_scal > 0)
+        if mask.sum() >= 2:
+            h_data[scaling_name] = (tau_exp[mask] / tau_scal[mask]).to_numpy(dtype=float)
+
+    if not h_data:
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.text(0.5, 0.5, 'No valid H-factor data', ha='center', va='center', transform=ax.transAxes)
+        ax.set_axis_off()
+        return fig
+
+    fig, (ax_hist, ax_box) = plt.subplots(1, 2, figsize=figsize)
+
+    for scaling_name, h_val in h_data.items():
+        ax_hist.hist(h_val, bins=bins, alpha=0.45, label=f'{scaling_name} (mean={np.mean(h_val):.2f})')
+    ax_hist.axvline(1.0, color='k', linestyle='--', linewidth=1.5)
+    ax_hist.set_xlabel(r'$H=\tau_{E,\mathrm{exp}}/\tau_{E,\mathrm{scaling}}$')
+    ax_hist.set_ylabel('Count')
+    ax_hist.set_title('H-factor histogram')
+    ax_hist.grid(True, alpha=0.3)
+    ax_hist.legend(fontsize=9)
+
+    names = list(h_data.keys())
+    vals = [h_data[n] for n in names]
+    ax_box.boxplot(vals, labels=names, showmeans=True)
+    ax_box.axhline(1.0, color='k', linestyle='--', linewidth=1.5)
+    ax_box.set_ylabel(r'$H=\tau_{E,\mathrm{exp}}/\tau_{E,\mathrm{scaling}}$')
+    ax_box.set_title('H-factor boxplot')
+    ax_box.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+    return fig
+
+
+def plot_H_factor_vs_parameters(
+    df: pd.DataFrame,
+    tauE_exp_col: str = 'tauE_s',
+    scaling_cols: Optional[Dict[str, str]] = None,
+    parameter_aliases: Optional[Dict[str, List[str]]] = None,
+    figsize=(14, 8),
+):
+    """Plot H-factor against key engineering parameters."""
+    if tauE_exp_col not in df.columns:
+        raise ValueError(f"Missing required column: {tauE_exp_col}")
+
+    if parameter_aliases is None:
+        parameter_aliases = {
+            'I_p': ['Ip_MA', 'I_p'],
+            'B_t': ['Bt_T', 'B_t'],
+            'n_e': ['ne_19m3', 'n_e'],
+            'P_loss': ['Ploss_MW', 'P_loss'],
+        }
+
+    tau_exp = pd.to_numeric(df[tauE_exp_col], errors='coerce')
+    scaling_series = _resolve_scaling_series(df, scaling_cols=scaling_cols)
+    if not scaling_series:
+        raise ValueError("No scaling-law tau_E columns found in DataFrame.")
+
+    n_params = len(parameter_aliases)
+    ncols = min(2, max(1, n_params))
+    nrows = int(np.ceil(n_params / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = np.atleast_1d(axes).flatten()
+
+    for ax, (param_label, aliases) in zip(axes, parameter_aliases.items()):
+        x_param = _resolve_parameter_series(df, aliases)
+        if x_param is None:
+            ax.text(0.5, 0.5, f'Missing parameter: {param_label}', ha='center', va='center', transform=ax.transAxes)
+            ax.set_axis_off()
+            continue
+
+        for scaling_name, tau_scal in scaling_series.items():
+            mask = (
+                tau_exp.notna()
+                & tau_scal.notna()
+                & x_param.notna()
+                & (tau_exp > 0)
+                & (tau_scal > 0)
+            )
+            if mask.sum() < 2:
+                continue
+
+            h_val = (tau_exp[mask] / tau_scal[mask]).to_numpy(dtype=float)
+            x_val = x_param[mask].to_numpy(dtype=float)
+            ax.scatter(x_val, h_val, s=28, alpha=0.5, label=scaling_name)
+
+        ax.axhline(1.0, color='k', linestyle='--', linewidth=1.2)
+        ax.set_xlabel(param_label)
+        ax.set_ylabel(r'$H=\tau_{E,\mathrm{exp}}/\tau_{E,\mathrm{scaling}}$')
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=8, loc='best')
+
+    for ax in axes[n_params:]:
+        ax.set_visible(False)
+
+    fig.suptitle('H-factor vs engineering parameters', fontsize=14, fontweight='bold')
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    return fig
+
+
+def plot_scaling_metrics_bars(
+    metrics_df: pd.DataFrame,
+    metric_names: Optional[List[str]] = None,
+    figsize=(12, 4),
+):
+    """Plot bar charts for selected scaling-law metrics."""
+    if metric_names is None:
+        metric_names = ['RMSE', 'MeanLogError', 'StdLogH']
+
+    valid_metrics = [m for m in metric_names if m in metrics_df.columns]
+    if not valid_metrics:
+        raise ValueError(f"No valid metrics found. Available: {list(metrics_df.columns)}")
+
+    n_metrics = len(valid_metrics)
+    fig, axes = plt.subplots(1, n_metrics, figsize=figsize)
+    axes = np.atleast_1d(axes)
+
+    for ax, metric_name in zip(axes, valid_metrics):
+        vals = metrics_df[metric_name]
+        ax.bar(metrics_df.index, vals, color='tab:blue', alpha=0.75)
+        ax.set_title(metric_name)
+        ax.tick_params(axis='x', rotation=20)
+        ax.grid(True, alpha=0.3, axis='y')
+
     plt.tight_layout()
     return fig
 
@@ -388,11 +907,12 @@ def plot_confinement_time_exp_vs_scaling(df, scaling_raw=None, figsize=(10, 6)):
     Args:
         df: DataFrame with engineering parameters and experimental confinement time.
             Expected columns: I_p (or Ip_MA), B_t (or Bt_T), P_loss (or Ploss_MW),
-            n_e (or ne_19m3), R (or R_m), epsilon, kappa, M (or M_amu, optional, default=2.0),
+            n_e (or ne_19m3 / ne_line_19m3 / ne_vol_19m3), R (or R_m), epsilon, kappa,
+            M (or M_amu, optional, default=2.0),
             tauE_s (experimental confinement time)
         scaling_raw: Scaling law name(s) - can be a string, list of strings, or None.
-                     If None, uses all available scaling laws: ['IPB89', 'H98y2', 'NSTX'].
-                     Options: 'IPB89', 'H98y2', 'NSTX'
+                     If None, uses all available scaling laws: ['ITER89P', 'H98y2', 'NSTX2006H', 'NSTX2006L'].
+                     Options: 'ITER89P', 'H98y2', 'NSTX2006H', 'NSTX2006L', 'Kurskiev2022'
         figsize: Figure size tuple (default: (10, 6))
     
     Returns:
@@ -401,18 +921,21 @@ def plot_confinement_time_exp_vs_scaling(df, scaling_raw=None, figsize=(10, 6)):
     from vaft.formula.equilibrium import confinement_time_from_engineering_parameters
     from scipy.stats import pearsonr
     
-    # Map scaling law names (handle variations like 'IPB' -> 'IPB89')
+    # Map scaling law names (keep accepted short aliases only where intended).
     scaling_map = {
-        'IPB': 'IPB89',
-        'IPB89': 'IPB89',
+        'IPB': 'ITER89P',
+        'IPB89': 'ITER89P',
+        'ITER89P': 'ITER89P',
         'H98y2': 'H98y2',
         'H98': 'H98y2',
-        'NSTX': 'NSTX'
+        'NSTX2006H': 'NSTX2006H',
+        'NSTX2006L': 'NSTX2006L',
+        'Kurskiev2022': 'Kurskiev2022',
     }
     
     # Handle scaling_raw: convert to list if needed, default to all scaling laws
     if scaling_raw is None:
-        scaling_raw_list = ['IPB89', 'H98y2', 'NSTX']
+        scaling_raw_list = ['ITER89P', 'H98y2', 'NSTX2006H', 'NSTX2006L']
     elif isinstance(scaling_raw, str):
         scaling_raw_list = [scaling_raw]
     else:
@@ -452,13 +975,25 @@ def plot_confinement_time_exp_vs_scaling(df, scaling_raw=None, figsize=(10, 6)):
         else:
             raise ValueError("Could not find P_loss or Ploss_MW column")
         
-        # n_e: try n_e (m^-3) or ne_19m3 (10^19 m^-3) - if ne_19m3, convert to m^-3
+        # n_e:
+        # - many scalings use line-averaged density
+        # - Kurskiev2022 is defined in this codebase as volume-averaged density
+        #
+        # We therefore resolve both line- and volume-averaged density if available.
+        n_e_line = None
+        n_e_vol = None
         if 'n_e' in df.columns:
-            n_e = df['n_e'].values
-        elif 'ne_19m3' in df.columns:
-            n_e = df['ne_19m3'].values * 1e19  # Convert 10^19 m^-3 to m^-3
-        else:
-            raise ValueError("Could not find n_e or ne_19m3 column")
+            # Ambiguous, but historically treated as line-averaged in this plotting helper.
+            n_e_line = df['n_e'].values
+        if 'ne_line_19m3' in df.columns:
+            n_e_line = df['ne_line_19m3'].values * 1e19  # 10^19 m^-3 -> m^-3
+        elif 'ne_19m3' in df.columns and n_e_line is None:
+            # legacy compatibility: ne_19m3 was stored as line-averaged in the pipeline
+            n_e_line = df['ne_19m3'].values * 1e19  # 10^19 m^-3 -> m^-3
+        if 'ne_vol_19m3' in df.columns:
+            n_e_vol = df['ne_vol_19m3'].values * 1e19  # 10^19 m^-3 -> m^-3
+        if n_e_line is None and n_e_vol is None:
+            raise ValueError("Could not find any density column among: n_e, ne_19m3, ne_line_19m3, ne_vol_19m3")
         
         # R: try R or R_m
         R = get_column(df, ['R', 'R_m']).values
@@ -498,11 +1033,39 @@ def plot_confinement_time_exp_vs_scaling(df, scaling_raw=None, figsize=(10, 6)):
         
         for i in range(len(df)):
             try:
+                # Kurskiev2022 expects volume-averaged density (see vaft.formula.constants).
+                if scaling == 'Kurskiev2022':
+                    if n_e_vol is not None and np.isfinite(n_e_vol[i]) and n_e_vol[i] > 0:
+                        n_e_val = n_e_vol[i]
+                        input_density_definition = 'volume_avg'
+                        line_to_volume_factor = None
+                    elif n_e_line is not None and np.isfinite(n_e_line[i]) and n_e_line[i] > 0 and n_e_vol is not None and np.isfinite(n_e_vol[i]) and n_e_vol[i] > 0:
+                        # Fallback: convert line-avg to volume-avg if both are present.
+                        n_e_val = n_e_line[i]
+                        input_density_definition = 'line_avg'
+                        line_to_volume_factor = float(n_e_vol[i] / n_e_line[i])
+                    else:
+                        raise ValueError("Missing valid volume-averaged density for Kurskiev2022")
+                else:
+                    # Default behaviour: use line-averaged density if available, else volume-averaged.
+                    if n_e_line is not None and np.isfinite(n_e_line[i]) and n_e_line[i] > 0:
+                        n_e_val = n_e_line[i]
+                        input_density_definition = 'line_avg'
+                        line_to_volume_factor = None
+                    elif n_e_vol is not None and np.isfinite(n_e_vol[i]) and n_e_vol[i] > 0:
+                        n_e_val = n_e_vol[i]
+                        input_density_definition = 'volume_avg'
+                        line_to_volume_factor = None
+                    else:
+                        raise ValueError("Missing valid density")
+
                 tauE_scaling_val = confinement_time_from_engineering_parameters(
-                    I_p=I_p[i], B_t=B_t[i], P_loss=P_loss[i], n_e=n_e[i],
+                    I_p=I_p[i], B_t=B_t[i], P_loss=P_loss[i], n_e=n_e_val,
                     M=M[i] if isinstance(M, np.ndarray) else M,
                     R=R[i], epsilon=epsilon[i], kappa=kappa[i],
-                    scaling=scaling
+                    scaling=scaling,
+                    input_density_definition=input_density_definition,
+                    line_to_volume_factor=line_to_volume_factor,
                 )
                 tauE_scaling.append(tauE_scaling_val)
                 valid_indices.append(i)
@@ -731,35 +1294,34 @@ def plot_ohmic_power_flux_vs_dissipation_method(ods_or_odc, figsize=(5, 6)):
         else:
             shot_label = str(key)
         
-        # Process all time slices
-        n_slices = len(ods['equilibrium.time_slice'])
-        for time_slice in range(n_slices):
-            try:
-                power_balance = compute_power_balance(ods)
-                
-                P_ohm_flux = power_balance['P_ohm_flux']
-                P_ohm_diss = power_balance['P_ohm_diss']
-                
-                # Handle scalar or array values
-                if np.isscalar(P_ohm_flux):
-                    P_ohm_flux_list.append(float(P_ohm_flux))
-                    P_ohm_diss_list.append(float(P_ohm_diss))
-                    shot_labels.append(shot_label)
-                    time_slices.append(time_slice)
-                else:
-                    # If arrays, append all values
-                    for i in range(len(P_ohm_flux)):
-                        P_ohm_flux_list.append(float(P_ohm_flux[i]))
-                        P_ohm_diss_list.append(float(P_ohm_diss[i]))
-                        shot_labels.append(shot_label)
-                        time_slices.append(time_slice)
-                        
-            except Exception as e:
-                logger.warning(f"Error computing power balance for {key}, time_slice={time_slice}: {e}")
+        try:
+            # This plot compares ohmic-method consistency only; radiation is not required.
+            power_balance = compute_power_balance(ods, include_line_radiation=False)
+            P_ohm_flux = np.asarray(power_balance['P_ohm_flux'], dtype=float)
+            P_ohm_diss = np.asarray(power_balance['P_ohm_diss'], dtype=float)
+
+            if P_ohm_flux.ndim == 0:
+                P_ohm_flux = np.asarray([float(P_ohm_flux)], dtype=float)
+            if P_ohm_diss.ndim == 0:
+                P_ohm_diss = np.asarray([float(P_ohm_diss)], dtype=float)
+
+            n_pts = min(len(P_ohm_flux), len(P_ohm_diss))
+            if n_pts == 0:
                 continue
+
+            valid = np.isfinite(P_ohm_flux[:n_pts]) & np.isfinite(P_ohm_diss[:n_pts])
+            for i in np.where(valid)[0]:
+                P_ohm_flux_list.append(float(P_ohm_flux[i]))
+                P_ohm_diss_list.append(float(P_ohm_diss[i]))
+                shot_labels.append(shot_label)
+                time_slices.append(int(i))
+
+        except Exception as e:
+            logger.warning(f"Error computing power balance for {key}: {e}")
+            continue
     
     if len(P_ohm_flux_list) == 0:
-        logger.error("No valid ohmic power data found")
+        logger.warning("No valid ohmic power data found")
         fig, ax = plt.subplots(figsize=figsize)
         ax.text(0.5, 0.5, 'No data available', ha='center', va='center', 
                 transform=ax.transAxes, fontsize=14)

@@ -7,6 +7,7 @@ from vaft.omas import formula_wrapper
 from vaft.omas.general import find_matching_time_indices
 import logging
 from tqdm import tqdm
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +20,38 @@ logger = logging.getLogger(__name__)
 OUTPUT_FILENAME = "core_profiles_history.xlsx"
 DEFAULT_Z_EFF = 2.0
 DEFAULT_LN_LAMBDA = 17.0
+EXPECTED_COLUMNS = [
+    "shot",
+    "time",
+    "Ip_MA",
+    "Bt_T",
+    "Ploss_MW",
+    "tauE_s",
+    "tauE_IPB89",
+    "tauE_H98y2",
+    "tauE_NSTX",
+    "tauE_NSTX2006L",
+    "tauE_Kurskiev2022",
+    "ne_19m3",
+    "ne_line_19m3",
+    "ne_vol_19m3",
+    "T_eV",
+    "R_m",
+    "epsilon",
+    "kappa",
+]
+KEY_COLUMNS = ["shot", "time"]
+SORT_COLUMNS = ["shot", "time"]
+REQUIRED_COLUMNS_FOR_REPAIR = [
+    "Ip_MA",
+    "Bt_T",
+    "Ploss_MW",
+    "tauE_s",
+    "ne_19m3",
+    "ne_line_19m3",
+    "ne_vol_19m3",
+    "T_eV",
+]
 
 
 def get_core_profile_shots():
@@ -94,8 +127,23 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
                     kappa = eng_params['kappa']  # [-]
                     P_loss = eng_params['P_loss']  # [W]
                     Ploss_MW = P_loss / 1e6  # [MW]
-                    n_e_vol_avg = eng_params['n_e']  # [m^-3]
-                    ne_19m3 = n_e_vol_avg / 1e19  # [10^19 m^-3]
+                    n_e_line_avg = float(eng_params.get('n_e_line_avg', eng_params.get('n_e', np.nan)))  # [m^-3]
+                    n_e_vol_avg = float(eng_params.get('n_e_vol_avg', np.nan))  # [m^-3]
+                    if not np.isfinite(n_e_line_avg) or n_e_line_avg <= 0:
+                        raise ValueError(f"Invalid n_e_line_avg: {n_e_line_avg}")
+                    if not np.isfinite(n_e_vol_avg) or n_e_vol_avg <= 0:
+                        raise ValueError(f"Invalid n_e_vol_avg: {n_e_vol_avg}")
+                    ne_19m3 = n_e_line_avg / 1e19  # [10^19 m^-3] (legacy compatibility)
+                    ne_line_19m3 = n_e_line_avg / 1e19
+                    ne_vol_19m3 = n_e_vol_avg / 1e19
+                    if 'electrons.temperature' not in cp_ts:
+                        raise ValueError(
+                            f"electrons.temperature not found in core_profiles.profiles_1d[{cp_idx_matched}]"
+                        )
+                    # Keep the source convention aligned with ne extraction: use the matched core_profile slice.
+                    T_eV = float(np.nanmean(np.asarray(cp_ts['electrons.temperature'], dtype=float)))
+                    if not np.isfinite(T_eV) or T_eV <= 0:
+                        raise ValueError(f"Invalid T_eV: {T_eV}")
                     
                 except Exception as e:
                     logger.warning(f"Shot {shot_number}, cp_idx {cp_idx}, eq_idx {eq_idx}: Failed to compute engineering parameters: {e}")
@@ -105,10 +153,20 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
                 tauE_IPB89 = np.nan
                 tauE_H98y2 = np.nan
                 tauE_NSTX = np.nan
+                tauE_NSTX2006L = np.nan
+                tauE_Kurskiev2022 = np.nan
                 tauE_s = np.nan
                 H_factor = np.nan
                 try:
-                    tauE_IPB89, tauE_H98y2, tauE_NSTX, H_factor, tauE_s = formula_wrapper.compute_confiment_time_paramters(
+                    (
+                        tauE_IPB89,
+                        tauE_H98y2,
+                        tauE_NSTX,
+                        tauE_NSTX2006L,
+                        tauE_Kurskiev2022,
+                        H_factor,
+                        tauE_s,
+                    ) = formula_wrapper.compute_confiment_time_paramters(
                         ods, eq_idx, Z_eff=Z_eff, M=1.0
                     )
                 except Exception as e:
@@ -125,7 +183,12 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
                     'tauE_IPB89': tauE_IPB89,
                     'tauE_H98y2': tauE_H98y2,
                     'tauE_NSTX': tauE_NSTX,
+                    'tauE_NSTX2006L': tauE_NSTX2006L,
+                    'tauE_Kurskiev2022': tauE_Kurskiev2022,
                     'ne_19m3': ne_19m3,
+                    'ne_line_19m3': ne_line_19m3,
+                    'ne_vol_19m3': ne_vol_19m3,
+                    'T_eV': T_eV,
                     'R_m': R_m,
                     'epsilon': epsilon,
                     'kappa': kappa
@@ -148,14 +211,99 @@ def extract_confinement_parameters(ods, shot_number, Z_eff=DEFAULT_Z_EFF):
     return results
 
 
-def generate_core_profiles_history_excel(max_shots=None, Z_eff=DEFAULT_Z_EFF):
+def _load_existing_or_empty(output_path, expected_columns):
+    path = Path(output_path)
+    if not path.exists():
+        return pd.DataFrame(columns=expected_columns)
+
+    try:
+        existing_df = pd.read_excel(path)
+        for col in expected_columns:
+            if col not in existing_df.columns:
+                existing_df[col] = np.nan
+        return existing_df
+    except Exception as exc:
+        logger.warning(f"Failed to read existing Excel {output_path}: {exc}. Starting from empty.")
+        return pd.DataFrame(columns=expected_columns)
+
+
+def _has_invalid_values(df, columns):
+    if df.empty:
+        return True
+    for col in columns:
+        if col not in df.columns:
+            return True
+        series = pd.to_numeric(df[col], errors="coerce")
+        if series.isna().any():
+            return True
+        if not np.isfinite(series.to_numpy(dtype=float)).all():
+            return True
+    return False
+
+
+def _get_target_shots(candidate_shots, existing_df, required_columns):
+    if existing_df.empty or "shot" not in existing_df.columns:
+        return sorted({int(s) for s in candidate_shots}), 0, len(candidate_shots), 0
+
+    existing_shots = {
+        int(s)
+        for s in pd.to_numeric(existing_df["shot"], errors="coerce").dropna().astype(int).tolist()
+    }
+    missing_shots = [int(s) for s in candidate_shots if int(s) not in existing_shots]
+
+    defective_shots = []
+    for shot in sorted(existing_shots.intersection({int(s) for s in candidate_shots})):
+        shot_df = existing_df[existing_df["shot"] == shot]
+        if _has_invalid_values(shot_df, required_columns):
+            defective_shots.append(int(shot))
+
+    target_shots = sorted(set(missing_shots + defective_shots))
+    completed_count = len(candidate_shots) - len(target_shots)
+    return target_shots, completed_count, len(missing_shots), len(defective_shots)
+
+
+def _merge_upsert(existing_df, new_rows_df, key_columns, sort_columns, expected_columns):
+    if existing_df.empty:
+        merged = new_rows_df.copy()
+    elif new_rows_df.empty:
+        merged = existing_df.copy()
+    else:
+        merged = pd.concat([existing_df, new_rows_df], ignore_index=True)
+        merged = merged.drop_duplicates(subset=key_columns, keep="last")
+
+    for col in expected_columns:
+        if col not in merged.columns:
+            merged[col] = np.nan
+    merged = merged[expected_columns]
+    if not merged.empty:
+        merged = merged.sort_values(sort_columns).reset_index(drop=True)
+    return merged
+
+
+def _save_excel(df, output_path):
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    df.to_excel(output_path, index=False)
+
+
+def generate_core_profiles_history_excel(
+    max_shots=None,
+    Z_eff=DEFAULT_Z_EFF,
+    output_path=None,
+    directory="public",
+    rebuild=False,
+    save_every=10,
+):
     """Main function to generate core profiles history Excel file.
     
     Args:
         max_shots (int, optional): Maximum number of shots to process. Defaults to None (process all).
         Z_eff (float, optional): Effective charge number. Defaults to 2.0.
+        output_path (str, optional): Path for the output Excel file.
+            If None, saves next to this script.
     """
     logger.info("Starting core profiles history generation")
+    if output_path is None:
+        output_path = str(Path(__file__).with_name(OUTPUT_FILENAME))
     
     # Step 1: Get core profile shots
     shot_numbers = get_core_profile_shots()
@@ -169,35 +317,68 @@ def generate_core_profiles_history_excel(max_shots=None, Z_eff=DEFAULT_Z_EFF):
         shot_numbers = shot_numbers[:max_shots]
         logger.info(f"Limited processing to {max_shots} shots")
     
-    logger.info(f"Processing {len(shot_numbers)} shots")
-    
-    # Step 2: Process each shot
-    all_data = []
-    for shot_number in tqdm(shot_numbers, desc="Processing shots"):
+    existing_df = (
+        pd.DataFrame(columns=EXPECTED_COLUMNS)
+        if rebuild
+        else _load_existing_or_empty(output_path, EXPECTED_COLUMNS)
+    )
+    target_shots, completed_count, missing_count, defective_count = _get_target_shots(
+        shot_numbers, existing_df, REQUIRED_COLUMNS_FOR_REPAIR
+    )
+    logger.info(
+        "Core-profile sheet candidates=%d, already-complete=%d, missing=%d, defective=%d, to-process=%d",
+        len(shot_numbers),
+        completed_count,
+        missing_count,
+        defective_count,
+        len(target_shots),
+    )
+    if not target_shots:
+        logger.info("No missing or defective shots found. Re-saving existing sheet.")
+        if not existing_df.empty:
+            existing_df = existing_df.sort_values(SORT_COLUMNS).reset_index(drop=True)
+        _save_excel(existing_df, output_path)
+        return existing_df
+
+    logger.info(f"Processing {len(target_shots)} shots")
+
+    working_df = existing_df.copy()
+    save_every = max(1, int(save_every))
+    processed = 0
+    for shot_number in tqdm(target_shots, desc="Processing shots"):
         try:
             # Load ODS from database
             logger.info(f"Loading ODS for shot {shot_number}...")
-            ods = db_ods.load(shot_number, directory='public')
+            ods = db_ods.load(int(shot_number), directory=directory)
             
             # Extract parameters
             results = extract_confinement_parameters(ods, shot_number, Z_eff=Z_eff)
-            all_data.extend(results)
+            if not results:
+                logger.warning(f"Shot {shot_number}: no rows extracted, keeping existing rows.")
+                continue
+            shot_df = pd.DataFrame(results)
+            working_df = _merge_upsert(working_df, shot_df, KEY_COLUMNS, SORT_COLUMNS, EXPECTED_COLUMNS)
+            processed += 1
+            if processed % save_every == 0:
+                _save_excel(working_df, output_path)
+                logger.info(f"Checkpoint saved after {processed} processed shots -> {output_path}")
             
         except Exception as e:
             logger.error(f"Error processing shot {shot_number}: {e}")
             continue
     
-    # Step 3: Create DataFrame and save to Excel
-    if all_data:
-        df = pd.DataFrame(all_data)
-        df = df.sort_values(['shot', 'time'])
-        df.to_excel(OUTPUT_FILENAME, index=False)
-        logger.info(f"Processing complete! Successfully processed {len(all_data)} time slices from {len(shot_numbers)} shots.")
-        logger.info(f"Saved to {OUTPUT_FILENAME}")
-        return df
-    else:
+    # Step 3: Final save
+    if working_df.empty:
         logger.warning("No data was successfully processed.")
         return None
+    working_df = working_df.sort_values(SORT_COLUMNS).reset_index(drop=True)
+    _save_excel(working_df, output_path)
+    logger.info(
+        "Processing complete! Current table has %d rows. Saved to %s",
+        len(working_df),
+        output_path,
+    )
+    return working_df
 
 
 if __name__ == "__main__":
@@ -209,6 +390,21 @@ if __name__ == "__main__":
     parser.add_argument('--Z-eff', type=float,
                        default=DEFAULT_Z_EFF,
                        help=f'Effective charge number (default: {DEFAULT_Z_EFF})')
+    parser.add_argument('--output', type=str, default=None,
+                       help='Output Excel file path')
+    parser.add_argument('--directory', type=str, default='public',
+                       help='HDF5 directory (default: public)')
+    parser.add_argument('--rebuild', action='store_true',
+                       help='Ignore existing Excel and rebuild from scratch')
+    parser.add_argument('--save-every', type=int, default=10,
+                       help='Save checkpoint every N processed shots')
     
     args = parser.parse_args()
-    generate_core_profiles_history_excel(max_shots=args.max_shots, Z_eff=args.Z_eff)
+    generate_core_profiles_history_excel(
+        max_shots=args.max_shots,
+        Z_eff=args.Z_eff,
+        output_path=args.output,
+        directory=args.directory,
+        rebuild=args.rebuild,
+        save_every=args.save_every,
+    )

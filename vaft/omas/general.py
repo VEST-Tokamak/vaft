@@ -268,13 +268,13 @@ def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
 # ----------------------------------------------------------------------
 # Combine ODS
 # ----------------------------------------------------------------------
-def find_matching_time_indices(ods, time_slice=None):
+def find_matching_time_indices(ods, time_slice=None, atol: float = 1.0e-6):
     """
     Find matching time indices between core_profiles and equilibrium time slices.
     
     This function determines the core profile time slice index and finds the corresponding
-    equilibrium time slice index by matching times. The cp_time and equil_time must be
-    identical; if they differ, a ValueError is raised.
+    equilibrium time slice index by matching times. The closest equilibrium
+    time slice is accepted when it is within ``atol`` of the core-profile time.
     
     Parameters
     ----------
@@ -297,7 +297,7 @@ def find_matching_time_indices(ods, time_slice=None):
     KeyError
         If required data structures are missing in ODS
     ValueError
-        If cp_time and equil_time are not identical
+        If no equilibrium time is within ``atol`` of the selected core-profile time
     """
     # Basic availability checks
     if 'core_profiles.profiles_1d' not in ods:
@@ -336,11 +336,12 @@ def find_matching_time_indices(ods, time_slice=None):
     equil_idx = np.argmin(np.abs(equil_times - cp_time))
     equil_time = float(equil_times[equil_idx])
     
-    # Verify that times are identical
-    if cp_time != equil_time:
+    # Verify that the closest time is within tolerance.
+    if not np.isclose(cp_time, equil_time, rtol=0.0, atol=float(atol)):
         raise ValueError(
-            f"Time mismatch: cp_time={cp_time:.6f}s, equil_time={equil_time:.6f}s. "
-            f"These must be identical. (cp_idx={cp_idx}, equil_idx={equil_idx})"
+            f"Time mismatch: cp_time={cp_time:.6f}s, equil_time={equil_time:.6f}s "
+            f"(abs diff={abs(cp_time - equil_time):.3e}s > atol={float(atol):.3e}s). "
+            f"(cp_idx={cp_idx}, equil_idx={equil_idx})"
         )
     
     return cp_idx, equil_idx, cp_time

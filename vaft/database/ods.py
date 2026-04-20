@@ -50,12 +50,64 @@ _H5PYD_MSG = (
     "h5pyd is required for HSDS support. Install with: pip install \"vaft[hsds]\""
 )
 
+NE_CORRECTION_FACTOR = 0.5385
+NE_CORRECTION_SHOTS = {
+    39906, 39916, 39917, 40282, 40325, 40326, 40327, 40330, 40331,
+    41262, 41672, 42947, 42962, 42963, 43877, 43880, 44162, 44165,
+    44405, 44412, 44413, 44419, 44420, 44421, 44427, 44428, 44430,
+    44438, 45531, 45534, 45537, 45538, 46050,
+}
+
 
 def _require_h5pyd():
     if h5pyd is None:
         if _H5PYD_IMPORT_ERROR is not None:
             raise ImportError(f"{_H5PYD_MSG} (import failed: {_H5PYD_IMPORT_ERROR})") from _H5PYD_IMPORT_ERROR
         raise ImportError(_H5PYD_MSG)
+
+
+def _scale_ods_value(ods: omas.ODS, path: str, factor: float) -> bool:
+    """Scale a numeric ODS path in-place. Returns True when applied."""
+    if path not in ods:
+        return False
+    raw = np.asarray(ods[path], float)
+    scaled = raw * factor
+    ods[path] = float(scaled) if scaled.ndim == 0 else scaled.tolist()
+    return True
+
+
+def _apply_density_correction_for_selected_shots(ods: omas.ODS, shot: int) -> None:
+    """Apply hard-coded ne correction for known overestimated shots."""
+    if shot not in NE_CORRECTION_SHOTS:
+        return
+
+    corrected_paths = 0
+
+    if 'thomson_scattering.channel' in ods:
+        for ch_idx in range(len(ods['thomson_scattering.channel'])):
+            ts_path = f'thomson_scattering.channel.{ch_idx}.n_e.data'
+            if _scale_ods_value(ods, ts_path, NE_CORRECTION_FACTOR):
+                corrected_paths += 1
+
+    if 'core_profiles.profiles_1d' in ods:
+        for cp_idx in range(len(ods['core_profiles.profiles_1d'])):
+            cp_path = f'core_profiles.profiles_1d.{cp_idx}.electrons.density'
+            if _scale_ods_value(ods, cp_path, NE_CORRECTION_FACTOR):
+                corrected_paths += 1
+            cp_thermal_path = f'core_profiles.profiles_1d.{cp_idx}.electrons.density_thermal'
+            if _scale_ods_value(ods, cp_thermal_path, NE_CORRECTION_FACTOR):
+                corrected_paths += 1
+
+    if _scale_ods_value(ods, 'core_profiles.global_quantities.n_e_volume_average', NE_CORRECTION_FACTOR):
+        corrected_paths += 1
+
+    if corrected_paths > 0:
+        logging.info(
+            "Applied ne correction x%.4f to shot %d (%d paths)",
+            NE_CORRECTION_FACTOR,
+            shot,
+            corrected_paths,
+        )
 
 
 def save_omas_mat(ods: omas.ODS, filename: str) -> None:
@@ -322,6 +374,7 @@ def _load_one_shot(shot: int, directory: str) -> omas.ODS:
     try:
         with h5py.File(h5pyd.H5Image(filename)) as data:
             convert_dataset(ods, data)
+        _apply_density_correction_for_selected_shots(ods, shot)
         return ods
 
     # 2) 배열 인덱스 튀는 케이스만 dynamic으로 재시도
@@ -331,4 +384,5 @@ def _load_one_shot(shot: int, directory: str) -> omas.ODS:
         with omas.omas_environment(ods, dynamic_path_creation='dynamic_array_structures'):
             with h5py.File(h5pyd.H5Image(filename)) as data:
                 convert_dataset(ods, data)
+        _apply_density_correction_for_selected_shots(ods, shot)
         return ods

@@ -255,39 +255,53 @@ def sawtooth_stability_criterion(q_0: float,
 def greenwald_density(I_p: float,
                       a: float) -> float:
     """
-    Calculate Greenwald density limit n_G = I_p/(πa²).
+    Calculate Greenwald density limit using the standard Greenwald convention.
+
+    This implementation follows
+        n_G [1e20 m^-3] = I_p [MA] / (pi a^2 [m^2])
+    and returns n_G in units of 1e19 m^-3, i.e.
+        n_G [1e19 m^-3] = 10 * I_p [MA] / (pi a^2 [m^2]).
+
+    Notes
+    -----
+    In the literature, Greenwald fraction is conventionally discussed with
+    line-averaged electron density. Therefore, n_G computed here should be
+    paired with line-averaged n_e when evaluating f_G.
 
     Parameters
     ----------
     I_p : float
-        Plasma current [A]
+        Plasma current [MA]
     a : float
         Minor radius [m]
 
     Returns
     -------
     float
-        Greenwald density limit [10¹⁹ m⁻³]
+        Greenwald density limit [1e19 m^-3]
     """
-    return I_p / (np.pi * a**2)
+    return 10.0 * I_p / (np.pi * a**2)
 
 
-def density_limit_factor(n_e: float,
+def greenwald_fraction(n_e: float,
                         n_G: float) -> float:
     """
-    Calculate density limit factor f_n = n_e/n_G.
+    Calculate Greenwald fraction f_G = n_e / n_G.
+
+    Both inputs must use the same density definition and the same units.
+    Standard interpretation uses line-averaged electron density for n_e.
 
     Parameters
     ----------
     n_e : float
-        Electron density [10¹⁹ m⁻³]
+        Electron density [1e19 m^-3] (typically line-averaged)
     n_G : float
-        Greenwald density limit [10¹⁹ m⁻³]
+        Greenwald density limit [1e19 m^-3]
 
     Returns
     -------
     float
-        Density limit factor
+        Greenwald fraction (dimensionless)
     """
     return n_e / n_G
 
@@ -393,7 +407,7 @@ def plasma_stability_margins(beta_N: float,
     """
     beta_margin, _ = beta_stability_boundary(beta_N, q_95)
     q_margin = q_95 - 2.0  # Minimum q_95 for stability
-    density_margin = density_limit_factor(n_e, n_G)
+    density_margin = greenwald_fraction(n_e, n_G)
     return beta_margin, q_margin, density_margin
 
 
