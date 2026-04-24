@@ -40,7 +40,7 @@ def plot_inboard_B_z(ods):  # 영역에 따라 분류
 
 plot_inboard_B_z(ods)
 ```
-![Inboard $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Inboard_B_z.png)
+![Inboard $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Inboard_B_z.png)
 
 Outboard $B_{z}$
 =====
@@ -48,7 +48,7 @@ Outboard $B_{z}$
 # Use the same loaded ODS object and the corresponding
 # `magnetics.b_field_pol_probe` paths for outboard probes.
 ```
-![Outboard $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Outboard_B_z.png)
+![Outboard $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Outboard_B_z.png)
 
 
 Side $B_{z}$
@@ -57,7 +57,7 @@ Side $B_{z}$
 # Use the same loaded ODS object and the corresponding
 # `magnetics.b_field_pol_probe` paths for side probes.
 ```
-![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Side_B_z.png)
+![Side $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Side_B_z.png)
 
 
 
@@ -67,7 +67,7 @@ Inboard flux loop
 # Use the loaded ODS object and `magnetics.flux_loop`
 # paths to inspect inboard flux loop signals.
 ```
-![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Inboard_flux_loop.png)
+![Side $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Inboard_flux_loop.png)
 
 
 Outboard flux loop
@@ -76,7 +76,7 @@ Outboard flux loop
 # Use the loaded ODS object and `magnetics.flux_loop`
 # paths to inspect outboard flux loop signals.
 ```
-![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Outboard_flux_loop.png)
+![Side $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Outboard_flux_loop.png)
 
 
 
@@ -90,7 +90,7 @@ plt.ylabel("Plasma current [A]")
 plt.tight_layout()
 plt.show()
 ```
-![Plasma current of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/plasma_current.png)
+![Plasma current of shot #39915]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
 
 
 Diamagnetic Flux
@@ -99,7 +99,7 @@ Diamagnetic Flux
 # Plot the corresponding diamagnetic flux path from `ods`
 # with the same pattern used above.
 ```
-![Diamagnetic Flux of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/diamagnetic_flux.png)
+![Diamagnetic Flux of shot #39915]({{ site.baseurl }}/assets/images/magnetics/diamagnetic_flux.png)
 
 
 Credit : Hongsik-yun (peppertonic18@snu.ac.kr)

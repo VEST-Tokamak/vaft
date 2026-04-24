@@ -1,5 +1,133 @@
-/* This file is kept intentionally blank inside the jekyll-github-theme
- * It gets imported at the end of custom.css
- * Its purpose is for users of the theme to be able to add css rules from a blank file
- *   these get simply added to the ones already active in the layout.
- */
+:root {
+  --vaft-body-color: #10253d;
+  --vaft-link-color: #005f8f;
+  --vaft-code-bg: #0d1b2a;
+  --vaft-code-border: #335c81;
+  --vaft-code-fg: #f7fbff;
+  --vaft-inline-code-bg: #edf5ff;
+  --vaft-inline-code-fg: #12385d;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal p,
+.book .book-body .page-wrapper .page-inner section.normal li,
+.book .book-body .page-wrapper .page-inner section.normal td,
+.book .book-body .page-wrapper .page-inner section.normal th,
+.book .book-body .page-wrapper .page-inner section.normal blockquote {
+  color: var(--vaft-body-color);
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.8;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h1 {
+  color: var(--vaft-body-color);
+  font-size: 3.1rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h2 {
+  color: var(--vaft-body-color);
+  font-size: 2.45rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h3 {
+  color: var(--vaft-body-color);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal a {
+  color: var(--vaft-link-color);
+  font-weight: 700;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal code {
+  color: var(--vaft-inline-code-fg);
+  background: var(--vaft-inline-code-bg);
+  border-radius: 6px;
+  padding: 0.12em 0.28em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal pre,
+.book .book-body .page-wrapper .page-inner section.normal .highlight pre,
+.book .book-body .page-wrapper .page-inner section.normal .highlight {
+  background: var(--vaft-code-bg) !important;
+  border: 1px solid var(--vaft-code-border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal pre code,
+.book .book-body .page-wrapper .page-inner section.normal .highlight code {
+  background: transparent;
+  color: var(--vaft-code-fg) !important;
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.65;
+  padding: 0;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .highlight .c,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .cm,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .c1 {
+  color: #8fb3c9 !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .highlight .k,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .kd,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .kn,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .nt {
+  color: #7dd3fc !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .highlight .s,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .s1,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .s2 {
+  color: #a7f3d0 !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .highlight .mi,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .mf,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .nb {
+  color: #f9e2af !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .highlight .nf,
+.book .book-body .page-wrapper .page-inner section.normal .highlight .nc {
+  color: #fda4af !important;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal img {
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .book .book-body .page-wrapper .page-inner section.normal p,
+  .book .book-body .page-wrapper .page-inner section.normal li,
+  .book .book-body .page-wrapper .page-inner section.normal td,
+  .book .book-body .page-wrapper .page-inner section.normal th,
+  .book .book-body .page-wrapper .page-inner section.normal blockquote {
+    font-size: 1.45rem;
+  }
+
+  .book .book-body .page-wrapper .page-inner section.normal h1 {
+    font-size: 2.45rem;
+  }
+
+  .book .book-body .page-wrapper .page-inner section.normal h2 {
+    font-size: 2rem;
+  }
+
+  .book .book-body .page-wrapper .page-inner section.normal h3 {
+    font-size: 1.7rem;
+  }
+
+  .book .book-body .page-wrapper .page-inner section.normal pre code,
+  .book .book-body .page-wrapper .page-inner section.normal .highlight code {
+    font-size: 1.1rem;
+  }
+}

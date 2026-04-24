@@ -11,6 +11,10 @@ Hello. This framework is designed to load and analyze tokamak data obtained from
 
 Databse system uses HSDS and if you want to get the h5 file format follow [h5pyd github](https://github.com/HDFGroup/h5pyd). This repository utilizes hdf5 and ODS data strucure ([omas github](https://github.com/gafusion/omas?tab=readme-ov-file)), if you need more information about this structure can be found on the following website: [omas](https://gafusion.github.io/omas/).
 
+## Example notebooks
+
+If you want runnable examples based on the actual repository notebooks, see the [Examples]({{ site.baseurl }}/guide/Examples/) guide. It summarizes the notebooks under `notebooks/`, includes representative code snippets, and points to plotting and conversion workflows that are already used in VAFT.
+
 
 ## Reporting bugs
 
