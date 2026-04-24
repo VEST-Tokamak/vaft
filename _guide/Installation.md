@@ -45,3 +45,20 @@ connection ok
 Quit? (Y/N)Y
 ```
 If you want to store or share data then contact this email. (peppertonic18@snu.ac.kr)
+
+Notebook example
+=====
+The installation and first-connection workflow is also summarized in the notebook examples page:
+
+- [Examples]({{ site.baseurl }}/guide/examples/)
+- [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/database_initialization_and_load.ipynb)
+
+Representative setup commands:
+
+```bash
+git clone https://github.com/vest-tokamak/vaft.git
+cd vaft
+python -m pip install -e .
+python -m pip install -e ".[hsds]"
+hsconfigure
+```

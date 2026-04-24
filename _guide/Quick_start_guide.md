@@ -73,3 +73,20 @@ Saving the data in server is not supported yet. Currently you can only save in l
 >>> shot_39915 = vaft.database.load_ods(39915, directory="public")
 >>> vaft.database.save_ods(shot_39915, shot=39915, env="local")
 ```
+
+Notebook example
+=====
+If you want the full walkthrough with database background, connection checks, and ODS / IDS examples, see the notebook-based [Examples]({{ site.baseurl }}/guide/examples/) guide and start from:
+
+- [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/database_initialization_and_load.ipynb)
+- [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/read_and_convert_data_structure.ipynb)
+
+Representative notebook flow:
+
+```python
+import vaft
+
+connected = vaft.database.is_connect()
+shots = vaft.database.exist_shot("public")
+ods = vaft.database.load_ods(39915, directory="public")
+```

@@ -101,5 +101,24 @@ Diamagnetic Flux
 ```
 ![Diamagnetic Flux of shot #39915]({{ site.baseurl }}/assets/images/magnetics/diamagnetic_flux.png)
 
+Notebook example
+=====
+For broader plotting examples, sample ODS data, and time-convention changes, see:
+
+- [Examples]({{ site.baseurl }}/guide/examples/)
+- [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/plotting_sample_using_vaft_plot_module.ipynb)
+- [`vest_experimental_data_list.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_experimental_data_list.ipynb)
+
+Representative notebook snippet:
+
+```python
+import vaft
+
+ods = vaft.omas.sample_ods()
+vaft.plot.magnetics_time_ip(ods)
+vaft.omas.change_time_convention(ods, convention='breakdown')
+vaft.plot.magnetics_time_ip(ods)
+```
+
 
 Credit : Hongsik-yun (peppertonic18@snu.ac.kr)
