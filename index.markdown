@@ -13,7 +13,7 @@ Databse system uses HSDS and if you want to get the h5 file format follow [h5pyd
 
 ## Example notebooks
 
-If you want runnable examples based on the actual repository notebooks, see the [Examples]({{ site.baseurl }}/guide/Examples/) guide. It summarizes the notebooks under `notebooks/`, includes representative code snippets, and points to plotting and conversion workflows that are already used in VAFT.
+If you want runnable examples based on the actual repository notebooks, see the [Examples]({{ site.baseurl }}/guide/examples/) guide. It summarizes the notebooks under `notebooks/`, includes representative code snippets, and points to plotting and conversion workflows that are already used in VAFT.
 
 
 ## Reporting bugs

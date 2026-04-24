@@ -44,7 +44,7 @@ ods = vaft.database.load_ods(39915, directory="public")
 
 follow the [Learn Usage](https://github.com/vest-tokamak/vaft/blob/main/docs/load_save_example.md)
 
-For notebook-based examples, see the [Examples guide](https://vest-tokamak.github.io/vaft/guide/Examples/).
+For notebook-based examples, see the [Examples guide](https://vest-tokamak.github.io/vaft/guide/examples/).
 
 
 ## Reporting bugs

@@ -4,6 +4,7 @@ author: VEST team
 date: 2026-04-24 16:20
 category: guide
 layout: post
+permalink: /guide/examples/
 ---
 
 # Notebook Examples
