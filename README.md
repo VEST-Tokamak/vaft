@@ -1,55 +1,51 @@
-# VAFT Documentation
+# VEST(Versatile Experimental Spherical Torkamak)
 
-VAFT is the VEST analysis framework for HSDS-backed database access, IMAS and OMAS interoperability, machine mapping, equilibrium workflows, and notebook-based tokamak data analysis.
+This repository serves to provide users with data obtained from experiments on the VEST fusion ST tokamak.
+All users are allowed to read these datasets, but if modification/deletion permissions are needed, please contact email. Databse system uses HSDS and if you want to get the h5 file format follow [h5pyd github](https://github.com/HDFGroup/h5pyd). This repository utilizes hdf5 and ODS data strucure ([omas github](https://github.com/gafusion/omas?tab=readme-ov-file)), if you need more information about this structure can be found on the following website: [omas](https://gafusion.github.io/omas/).
 
 ## Installation
-
-Install from PyPI:
+```bash
+git clone https://github.com/vest-tokamak/vaft.git
+cd vaft
+python -m pip install -e .
+python -m pip install -e ".[hsds]"
+```
+or
 
 ```bash
 python -m pip install vaft
 python -m pip install "vaft[hsds]"
 ```
 
-Install from source:
+## Initial configuration
 
-```bash
-git clone https://github.com/VEST-Tokamak/vaft.git
-cd vaft
-python -m pip install -e .
-python -m pip install -e ".[hsds]"
+in your command line
+
+```
+>> hsconfigure
+Enter new values or accept defaults in brackets with Enter.
+
+Server endpoint []: http://147.46.36.244:5101
+Username []: $your_username$
+Password []: $your_password$
+API Key [None]: 
+Testing connection...
+connection ok
+Quit? (Y/N)Y
 ```
 
-## HSDS configuration
-
-Run:
-
-```bash
-hsconfigure
-```
-
-Server endpoint:
-
-```text
-http://147.46.36.244:5101
-```
-
-Use the username and password assigned to you by the VEST team.
-
-## Basic usage
+## Usage
 
 ```python
 import vaft
 
-if not vaft.database.is_connect():
-    raise RuntimeError("HSDS connection is not ready")
-
 ods = vaft.database.load_ods(39915, directory="public")
 ```
 
-## Documentation
+follow the [Learn Usage](https://github.com/vest-tokamak/vaft/blob/main/docs/load_save_example.md)
 
-- Site: <https://vest-tokamak.github.io/vaft/>
-- Quick start: <https://vest-tokamak.github.io/vaft/guide/Quick_start_guide/>
-- Installation: <https://vest-tokamak.github.io/vaft/guide/Installation/>
-- Repository: <https://github.com/VEST-Tokamak/vaft>
+
+## Reporting bugs
+
+Leave comment on [issue](https://github.com/vest-tokamak/vaft/issues) or mail me (satelite2517@snu.ac.kr)
+If you need more infomation about VEST find [Nuplex](http://nuplex.snu.ac.kr)

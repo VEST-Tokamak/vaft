@@ -1,41 +1,17 @@
 ---
+# Feel free to add content and custom Front Matter to this file.
+# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
 layout: home
-title: VAFT Documentation
+title: VAFT(Versatile Experimental Spherical Torus)
 ---
 
-# VAFT Documentation
+![VAFT](https://vest-tokamak.github.io/vaft/assets/images/IMG_3873.jpg)
 
-VAFT is the VEST analysis framework for HSDS-backed database access, IMAS and OMAS interoperability, equilibrium workflows, and notebook-based tokamak data analysis.
+Hello. This framework is designed to load and analyze tokamak data obtained from experiments on the VEST fusion ST tokamak. All users are allowed to access and read these datasets. However, saving and storing data in the VEST database is currently restricted to authorized users only. If you require authorization, please contact us at this email address: (peppertonic18@snu.ac.kr).
 
-<div class="home-note">
-  Start with installation, run <code>hsconfigure</code>, confirm <code>vaft.database.is_connect()</code>,
-  then load a public shot with <code>vaft.database.load_ods(...)</code>.
-</div>
+Databse system uses HSDS and if you want to get the h5 file format follow [h5pyd github](https://github.com/HDFGroup/h5pyd). This repository utilizes hdf5 and ODS data strucure ([omas github](https://github.com/gafusion/omas?tab=readme-ov-file)), if you need more information about this structure can be found on the following website: [omas](https://gafusion.github.io/omas/).
 
-## Quick Links
 
-- [Quick start]({{ site.baseurl }}/guide/Quick_start_guide/)
-- [Installation]({{ site.baseurl }}/guide/Installation/)
-- [Magnetics guide]({{ site.baseurl }}/guide/Magnetics/)
-- [Equilibrium guide]({{ site.baseurl }}/guide/Equilibrium/)
-- [VAFT repository](https://github.com/VEST-Tokamak/vaft)
+## Reporting bugs
 
-## What VAFT Covers
-
-- Remote access to public VEST HSDS shots
-- ODS and native IDS workflows in the same repository
-- Machine mapping, equilibrium utilities, plotting, and profile fitting
-- Notebook exploration before automated pipeline execution
-
-## Example
-
-```python
-import vaft
-
-if not vaft.database.is_connect():
-    raise RuntimeError("HSDS connection is not ready")
-
-ods = vaft.database.load_ods(39915, directory="public")
-time = ods["magnetics.time"]
-ip = ods["magnetics.ip.0.data"]
-```
+If you need more information about VEST, feel free to leave a comment on the [issue tracker](https://github.com/vest-tokamak/vaft/issues) or email me at (satelite2517@gmail.com). You can also visit [Nuplex](http://nuplex.snu.ac.kr) for additional details.

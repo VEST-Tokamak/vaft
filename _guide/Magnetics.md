@@ -1,58 +1,105 @@
 ---
 title: Magnetics
-author: VEST team
-date: 2026-04-24 14:15
+author: Sun jae Lee
+date: 2024-08-08 20:11
 category: guide
 layout: post
 ---
 
-# Magnetics Data
+__This section is about how to plot and analysis the magnetics data.__
 
-The older magnetics page used legacy `vest.*` plotting calls that no longer match the current repository. This page keeps the focus on the data layout and a minimal working example.
-
-## Load one shot
-
-```python
+Inboard $B_{z}$
+=====
+```python 
 import matplotlib.pyplot as plt
+import numpy as np
 import vaft
 
 ods = vaft.database.load_ods(39915, directory="public")
+
+def plot_inboard_B_z(ods):  # 영역에 따라 분류
+    index_inBz = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] < 0.09)
+
+    # Inboard B filed pol probe (pickup coil)
+    n_rows = 9
+    fig, axs = plt.subplots(n_rows, 3, figsize=(12, 3 * n_rows))
+
+    for i, ax in zip(index_inBz[0], axs.flatten()):
+        radial = ods[f'magnetics.b_field_pol_probe.{i}.position.r']
+        vertical = ods[f'magnetics.b_field_pol_probe.{i}.position.z']
+        position = '(' + str(radial) + ',' + str(vertical) + ')'
+        ax.plot(ods['magnetics.time'], ods[f'magnetics.b_field_pol_probe.{i}.field.data'])
+        ax.set_title(f'Inboard B Field Pol Probe at {position}')
+        if i % 3 == 0:
+            ax.set_ylabel("B Field [T]")
+        if i >= 24:
+            ax.set_xlabel("Time")
+
+    plt.tight_layout()
+    plt.show()
+
+plot_inboard_B_z(ods)
 ```
+![Inboard $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Inboard_B_z.png)
 
-## Example: plasma current trace
+Outboard $B_{z}$
+=====
+```python 
+# Use the same loaded ODS object and the corresponding
+# `magnetics.b_field_pol_probe` paths for outboard probes.
+```
+![Outboard $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Outboard_B_z.png)
 
-```python
-time = ods["magnetics.time"]
-ip = ods["magnetics.ip.0.data"]
 
+Side $B_{z}$
+=====
+```python 
+# Use the same loaded ODS object and the corresponding
+# `magnetics.b_field_pol_probe` paths for side probes.
+```
+![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Side_B_z.png)
+
+
+
+Inboard flux loop
+=====
+```python 
+# Use the loaded ODS object and `magnetics.flux_loop`
+# paths to inspect inboard flux loop signals.
+```
+![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Inboard_flux_loop.png)
+
+
+Outboard flux loop
+=====
+```python 
+# Use the loaded ODS object and `magnetics.flux_loop`
+# paths to inspect outboard flux loop signals.
+```
+![Side $B_z$ of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/Outboard_flux_loop.png)
+
+
+
+Plasma current
+=====
+```python 
 plt.figure(figsize=(8, 4))
-plt.plot(time, ip)
+plt.plot(ods['magnetics.time'], ods['magnetics.ip.0.data'])
 plt.xlabel("Time [s]")
 plt.ylabel("Plasma current [A]")
-plt.title("VEST plasma current")
 plt.tight_layout()
 plt.show()
 ```
+![Plasma current of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/plasma_current.png)
 
-## Typical paths in the magnetics tree
 
-| Quantity | Example ODS path |
-| --- | --- |
-| Common time base | `magnetics.time` |
-| Plasma current | `magnetics.ip.0.data` |
-| Poloidal field probe signal | `magnetics.b_field_pol_probe.<index>.field.data` |
-| Flux loop signal | `magnetics.flux_loop.<index>.flux.data` |
+Diamagnetic Flux
+=====
+```python 
+# Plot the corresponding diamagnetic flux path from `ods`
+# with the same pattern used above.
+```
+![Diamagnetic Flux of shot #39915](https://vest-tokamak.github.io/vest/assets/images/magnetics/diamagnetic_flux.png)
 
-## Example figures from the legacy guide
 
-These figures are kept as quick visual references while the page content is being modernized.
-
-![Inboard Bz]({{ site.baseurl }}/assets/images/magnetics/Inboard_B_z.png)
-![Outboard Bz]({{ site.baseurl }}/assets/images/magnetics/Outboard_B_z.png)
-![Side Bz]({{ site.baseurl }}/assets/images/magnetics/Side_B_z.png)
-![Plasma current]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
-
-<div class="note-card">
-  <strong>Tip:</strong> for richer plotting examples, use the repository notebook
-  `notebooks/plotting_sample_using_vaft_plot_module.ipynb` together with a loaded ODS shot.
-</div>
+Credit : Hongsik-yun (peppertonic18@snu.ac.kr)
