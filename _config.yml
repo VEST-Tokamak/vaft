@@ -1,10 +1,11 @@
 # Configurations
 title:            VAFT
-longtitle:        versatile experimental spherical tokamak
+longtitle:        VEST Analysis Framework for Tokamak Data
 author:           VEST-team
 email:            satelite2517@gmail.com
 description: >
-  Build Jekyll site with the GitBook style.
+  Documentation for VAFT, the VEST analysis framework for HSDS, IMAS, OMAS,
+  equilibrium workflows, and notebook-based tokamak data analysis.
 
 version:          1.0
 gitbook_version:  3.2.3

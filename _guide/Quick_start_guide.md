@@ -1,70 +1,106 @@
 ---
 title: Quick start guide
-author: Sun jae Lee
-date: 2024-08-08 17:28
+author: VEST team
+date: 2026-04-24 14:15
 category: guide
 layout: post
 ---
 
-__This tool only support python.__
+# Quick Start
 
-Install
-=====
+This guide replaces the older `vest` package examples with the current `vaft` workflow. The examples below are aligned with the repository as it exists today.
 
-To use this tool you have to firstly install git. To install the git you can follow this [link](./Installation.md).(You can skip this stage if you already used git before.) If you are familiar with github then clone and install this [vest](https://github.com/satelite2517/vaft). 
-
-If you are not then write the below command in your cmd.
-
-```bash
-git init
-git clone https://github.com/vest-tokamak/vaft.git
-cd vest
-pip install .
-```
-(Currently it's not supported in pypi.)
-
-Update
-=====
-In the terminal, where you're folder for git is in. 
-```bash
-git pull 
-pip install .
-```
-
-Configuration
-=====
-Follow the below line in your command line. If you don't have any authentication just use :
-username : reader
-passward : test
-
-```bash
->> hsconfigure
-Enter new values or accept defaults in brackets with Enter.
-
-Server endpoint []: http://147.46.36.244:5101
-Username []: $your_username$
-Password []: $your_password$
-API Key [None]: 
-Testing connection...
-connection ok
-Quit? (Y/N)Y
-```
-
-Load
-=====
-To load the data,
+## 1. Check that HSDS is reachable
 
 ```python
->>> import vest
->>> shot_39915 = vest.load_shot(shot = 39915)
+import vaft
+
+connected = vaft.database.is_connect()
+print(connected)
 ```
 
-Save 
-=====
-Saving the data in server is not supported yet. Currently you can only save in local.
+`True` means the HSDS server is ready and your local `hsconfigure` settings are usable.
+
+## 2. Load a public shot as ODS
+
+For notebook exploration and analysis, the clearest entry point is `load_ods`.
 
 ```python
->>> import vest
->>> shot_39915 = vest.load_shot(shot = 39915)
->>> vest.save_local(shot_39915, './vest_39915.h5')
+import vaft
+
+ods = vaft.database.load_ods(39915, directory="public")
 ```
+
+The returned object is an OMAS `ODS`, so you can inspect it with dotted paths:
+
+```python
+time = ods["magnetics.time"]
+ip = ods["magnetics.ip.0.data"]
+```
+
+## 3. Discover what data exists
+
+List available public shots:
+
+```python
+shots = vaft.database.exist_shot("public")
+```
+
+Load multiple shots at once:
+
+```python
+ods_list = vaft.database.load_ods([39915, 40330], directory="public")
+```
+
+## 4. Load a native IMAS IDS object
+
+If you need a specific IDS object rather than ODS, use `vaft.database.load` with an explicit `ids_name`.
+
+```python
+eq = vaft.database.load(
+    shot=2,
+    ids_name="equilibrium",
+    directory="public",
+    dd_version="3.41.0",
+)
+```
+
+That path is useful when working directly with IMAS-native objects or writing tooling around IDS files.
+
+## 5. Save locally
+
+Remote write access is restricted. For most users, the safe path is to save generated files locally.
+
+Save IMAS image files locally:
+
+```python
+local_dir = vaft.database.save(eq, shot=2, env="local", dd_version="3.41.0")
+```
+
+Save an ODS-derived shot locally:
+
+```python
+local_dir = vaft.database.save_ods(ods, shot=39915, env="local")
+```
+
+## 6. What VAFT covers
+
+VAFT sits on top of the VEST integrated data platform and is typically used for:
+
+- loading HSDS-backed experimental and modeling data
+- machine mapping into IMAS-compatible structures
+- equilibrium and profile analysis
+- signal processing and visualization
+- notebook exploration before pipeline automation
+
+<div class="note-card">
+  <strong>Tip:</strong> use `load_ods` for fast inspection in notebooks, and use `load(..., ids_name=...)`
+  only when you specifically need a native IMAS IDS object.
+</div>
+
+## Continue
+
+- [Installation]({{ site.baseurl }}/guide/Installation/)
+- [Magnetics guide]({{ site.baseurl }}/guide/Magnetics/)
+- [Equilibrium guide]({{ site.baseurl }}/guide/Equilibrium/)
+- [VAFT repository](https://github.com/VEST-Tokamak/vaft)
