@@ -5,10 +5,10 @@ title: VAFT Documentation
 
 <div class="hero-panel">
   <p class="eyebrow">VEST Tokamak Data Platform</p>
-  <h1>Documentation for VAFT, the VEST analysis framework built on IMAS and OMAS.</h1>
+  <h1>VAFT is the working documentation hub for VEST data access, analysis, and equilibrium workflows.</h1>
   <p class="hero-lead">
-    VAFT provides one place for database access, machine mapping, equilibrium workflows,
-    profile fitting, and analysis notebooks used across the VEST data pipeline.
+    The site now focuses on the current `vaft` package API, public HSDS access, and the
+    notebook-first analysis flow used in the repository today.
   </p>
   <div class="hero-actions">
     <a class="hero-button" href="{{ site.baseurl }}/guide/Quick_start_guide/">Open quick start</a>
@@ -16,6 +16,52 @@ title: VAFT Documentation
     <a class="hero-button ghost" href="https://github.com/VEST-Tokamak/vaft">GitHub</a>
   </div>
 </div>
+
+<div class="stat-strip">
+  <div class="stat-card">
+    <span class="stat-value">HSDS</span>
+    <span class="stat-label">remote VEST shot access</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">IMAS + OMAS</span>
+    <span class="stat-label">both object models supported</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">Python 3.10-3.13</span>
+    <span class="stat-label">current supported runtime</span>
+  </div>
+</div>
+
+## Start Here
+
+<div class="doc-grid">
+  <a class="doc-card primary" href="{{ site.baseurl }}/guide/Quick_start_guide/">
+    <span class="card-label">Guide 01</span>
+    <h2>Quick start</h2>
+    <p>Verify the HSDS connection, load a public shot, and inspect the returned ODS paths.</p>
+    <span class="card-cta">Open guide</span>
+  </a>
+  <a class="doc-card" href="{{ site.baseurl }}/guide/Installation/">
+    <span class="card-label">Guide 02</span>
+    <h2>Installation</h2>
+    <p>Install from PyPI or source and configure the HSDS client for remote database access.</p>
+    <span class="card-cta">Install VAFT</span>
+  </a>
+  <a class="doc-card" href="{{ site.baseurl }}/guide/Magnetics/">
+    <span class="card-label">Guide 03</span>
+    <h2>Magnetics</h2>
+    <p>Load magnetics data from an ODS shot and start from stable, path-based examples.</p>
+    <span class="card-cta">See examples</span>
+  </a>
+  <a class="doc-card" href="{{ site.baseurl }}/guide/Equilibrium/">
+    <span class="card-label">Guide 04</span>
+    <h2>Equilibrium</h2>
+    <p>Move between native IDS objects and notebook-friendly ODS access for equilibrium work.</p>
+    <span class="card-cta">Open workflow</span>
+  </a>
+</div>
+
+## Why VAFT
 
 <div class="feature-grid">
   <section class="feature-card">
@@ -44,10 +90,10 @@ title: VAFT Documentation
   </section>
 </div>
 
-<div class="info-band">
+<div class="info-band accent-band">
   <div>
     <p class="card-label">Recommended path</p>
-    <h2>Start with installation, then verify the database connection, then load a public shot.</h2>
+    <h2>Install the package, run `hsconfigure`, confirm `vaft.database.is_connect()`, then load a public shot.</h2>
   </div>
   <div class="info-actions">
     <a class="text-link" href="{{ site.baseurl }}/guide/Installation/">Install VAFT</a>
@@ -55,39 +101,27 @@ title: VAFT Documentation
   </div>
 </div>
 
-## What You Can Do
-
-<div class="capability-grid">
-  <article class="capability-card">
-    <h3>Load public shots</h3>
-    <p>Use `vaft.database.load_ods` to fetch OMAS ODS data from the VEST HSDS database.</p>
-  </article>
-  <article class="capability-card">
-    <h3>Inspect specific IDS data</h3>
-    <p>Use `vaft.database.load(..., ids_name="equilibrium")` when you need native IMAS objects.</p>
-  </article>
-  <article class="capability-card">
-    <h3>Compare diagnostics</h3>
-    <p>Plot magnetics, equilibrium, and profile quantities in notebooks with standard Python tools.</p>
-  </article>
-  <article class="capability-card">
-    <h3>Bridge to workflows</h3>
-    <p>Connect notebook exploration to the Snakemake-based VEST processing pipeline.</p>
-  </article>
-</div>
-
 ## Core Example
 
-```python
-import vaft
+<div class="capability-grid">
+  <article class="capability-card code-card">
+    <h3>Load a public shot</h3>
+    <pre><code class="language-python">import vaft
 
 if not vaft.database.is_connect():
     raise RuntimeError("HSDS connection is not ready")
 
 ods = vaft.database.load_ods(39915, directory="public")
 time = ods["magnetics.time"]
-ip = ods["magnetics.ip.0.data"]
-```
+ip = ods["magnetics.ip.0.data"]</code></pre>
+  </article>
+  <article class="capability-card">
+    <h3>Use the right object for the job</h3>
+    <p><strong>`load_ods`</strong> is the default notebook entry point for analysis and plotting.</p>
+    <p><strong>`load(..., ids_name=...)`</strong> is the path to use when you need a native IMAS IDS object.</p>
+    <p><strong>`save_ods(..., env="local")`</strong> is the safe route for local export when remote write access is restricted.</p>
+  </article>
+</div>
 
 ## References
 

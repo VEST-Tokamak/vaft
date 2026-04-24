@@ -64,8 +64,6 @@ collections:
 ordered_collections:
   - guide
 #  - posts
-  - pages
-  - others
 
 page_width: 800px
 

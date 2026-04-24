@@ -107,6 +107,13 @@ body {
   height: 18rem;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(215, 166, 74, 0.35), rgba(215, 166, 74, 0));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .eyebrow,
@@ -154,6 +161,7 @@ body {
   background: #fff;
   color: #14314d !important;
   box-shadow: 0 12px 28px rgba(9, 24, 39, 0.18);
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 .hero-button.ghost {
@@ -163,6 +171,14 @@ body {
   box-shadow: none;
 }
 
+.hero-button:hover,
+.text-link:hover,
+.doc-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-strip,
+.doc-grid,
 .feature-grid,
 .capability-grid {
   display: grid;
@@ -171,6 +187,8 @@ body {
   margin: 1.6rem 0 2rem;
 }
 
+.stat-card,
+.doc-card,
 .feature-card,
 .capability-card,
 .info-band,
@@ -180,6 +198,67 @@ body {
   background: var(--vaft-panel);
   box-shadow: var(--vaft-shadow);
   backdrop-filter: blur(14px);
+}
+
+.stat-card {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.stat-value {
+  font-family: "Fraunces", serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--vaft-ink);
+}
+
+.stat-label {
+  color: var(--vaft-muted);
+  font-size: 0.95rem;
+}
+
+.doc-card {
+  grid-column: span 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.5rem;
+  text-decoration: none !important;
+  color: inherit !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.doc-card.primary {
+  background:
+    linear-gradient(135deg, rgba(14, 91, 99, 0.95), rgba(24, 41, 71, 0.96)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+  color: #f7fbff !important;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.doc-card.primary h2,
+.doc-card.primary p,
+.doc-card.primary .card-cta,
+.doc-card.primary .card-label {
+  color: inherit !important;
+}
+
+.doc-card h2 {
+  margin: 0 !important;
+  font-size: 1.7rem !important;
+}
+
+.doc-card p {
+  margin: 0;
+}
+
+.card-cta {
+  margin-top: auto;
+  color: var(--vaft-accent);
+  font-weight: 700;
 }
 
 .feature-card {
@@ -201,6 +280,12 @@ body {
   margin: 2rem 0;
 }
 
+.accent-band {
+  background:
+    linear-gradient(90deg, rgba(215, 166, 74, 0.12), rgba(13, 92, 99, 0.08)),
+    rgba(255, 255, 255, 0.72);
+}
+
 .capability-card {
   grid-column: span 6;
   padding: 1.25rem;
@@ -210,9 +295,14 @@ body {
   margin-top: 0;
 }
 
+.code-card pre {
+  margin-bottom: 0;
+}
+
 .text-link {
   background: rgba(13, 92, 99, 0.08);
   color: var(--vaft-accent) !important;
+  transition: transform 180ms ease, background 180ms ease;
 }
 
 .note-card {
@@ -242,6 +332,8 @@ blockquote {
 }
 
 @media (max-width: 960px) {
+  .stat-card,
+  .doc-card,
   .feature-card,
   .capability-card {
     grid-column: span 12;
