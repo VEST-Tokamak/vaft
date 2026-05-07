@@ -804,8 +804,10 @@ def shafranov_integrals(
     B_p_mid = 0.5 * (B_p_bdry[:-1] + B_p_bdry[1:])
     dl = np.hypot(dR_b, dZ_b)
     with np.errstate(divide="ignore", invalid="ignore"):
-        nR = np.where(dl > 0.0, -dZ_b / dl, 0.0)
-        nZ = np.where(dl > 0.0, dR_b / dl, 0.0)
+        # Boundary is normalized to CCW upstream. For CCW contour, outward unit normal is:
+        # n = (dZ/dl, -dR/dl)
+        nR = np.where(dl > 0.0, dZ_b / dl, 0.0)
+        nZ = np.where(dl > 0.0, -dR_b / dl, 0.0)
 
     Omega = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b))) if volume is None else float(volume)
 
@@ -871,10 +873,18 @@ def efit_virial_volume_integrals(
         B_phi_grid = np.asarray(B_phi_grid, float)
         B_phi_vac_grid = np.asarray(B_phi_vac_grid, float)
         G = 2.0 * MU0 * p_tot_grid + B_p_sq + B_phi_vac_grid**2 - B_phi_grid**2
-        RT_num = np.sum(R_grid * G * weights * dA)
-        RT_den = np.sum(G * weights * dA)
-        if RT_den != 0.0:
-            RT = float(RT_num / RT_den)
+        G_weighted = G * weights * dA
+        RT_num = float(np.nansum(R_grid * G_weighted))
+        RT_den = float(np.nansum(G_weighted))
+        # Guard against near-singular denominator to prevent RT/R0 blow-up.
+        rt_den_scale = float(np.nansum(np.abs(G_weighted)))
+        if (
+            np.isfinite(RT_num)
+            and np.isfinite(RT_den)
+            and rt_den_scale > 0.0
+            and abs(RT_den) > 1e-6 * rt_den_scale
+        ):
+            RT = RT_num / RT_den
 
     phi_dia_comp = np.nan
     if F_grid is not None and F_boundary is not None:

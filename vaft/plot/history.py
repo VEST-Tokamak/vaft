@@ -563,7 +563,11 @@ def _resolve_scaling_series(
         scaling_candidates = {
             'ITER89P': ['tauE_ITER89P', 'tauE_IPB89'],
             'H98y2': ['tauE_H98y2', 'tauE_H98'],
-            'NSTX': ['tauE_NSTX2007', 'tauE_NSTX2006H', 'tauE_NSTX2006L', 'tauE_NSTX'],
+            # Keep NSTX2006H/L distinct so plotting/metrics don't collapse them into one entry.
+            # Retain legacy 'NSTX' as a fallback only when a more specific column isn't present.
+            'NSTX2006H': ['tauE_NSTX2006H', 'tauE_NSTX2007'],
+            'NSTX2006L': ['tauE_NSTX2006L'],
+            'NSTX': ['tauE_NSTX'],
             'Kurskiev2022': ['tauE_Kurskiev2022'],
         }
     else:
@@ -861,7 +865,11 @@ def plot_H_factor_vs_parameters(
 def plot_scaling_metrics_bars(
     metrics_df: pd.DataFrame,
     metric_names: Optional[List[str]] = None,
-    figsize=(12, 4),
+    figsize=(12, 6),
+    include_r: bool = True,
+    r_col: str = "Pearson_r",
+    tick_rotation: int = 20,
+    ncols: int = 2,
 ):
     """Plot bar charts for selected scaling-law metrics."""
     if metric_names is None:
@@ -871,16 +879,34 @@ def plot_scaling_metrics_bars(
     if not valid_metrics:
         raise ValueError(f"No valid metrics found. Available: {list(metrics_df.columns)}")
 
+    scaling_names = [str(x) for x in metrics_df.index.tolist()]
+    x = np.arange(len(scaling_names))
+
+    tick_labels = scaling_names
+
+    # Add an extra bar panel for correlation (r) rather than embedding it in tick labels.
+    if include_r and (r_col in metrics_df.columns) and (r_col not in valid_metrics):
+        valid_metrics = list(valid_metrics) + [r_col]
+
     n_metrics = len(valid_metrics)
-    fig, axes = plt.subplots(1, n_metrics, figsize=figsize)
-    axes = np.atleast_1d(axes)
+    ncols = int(max(1, min(ncols, n_metrics)))
+    nrows = int(np.ceil(n_metrics / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = np.atleast_1d(axes).flatten()
 
     for ax, metric_name in zip(axes, valid_metrics):
         vals = metrics_df[metric_name]
-        ax.bar(metrics_df.index, vals, color='tab:blue', alpha=0.75)
+        ax.bar(x, vals.to_numpy(), color='tab:blue', alpha=0.75)
         ax.set_title(metric_name)
-        ax.tick_params(axis='x', rotation=20)
+        ax.set_xticks(x)
+        ax.set_xticklabels(tick_labels, rotation=tick_rotation, ha="right")
         ax.grid(True, alpha=0.3, axis='y')
+        if metric_name == r_col:
+            ax.axhline(0.0, color='k', linestyle='--', linewidth=1.2, alpha=0.7)
+            ax.set_ylim(-1.0, 1.0)
+
+    for ax in axes[n_metrics:]:
+        ax.set_visible(False)
 
     plt.tight_layout()
     return fig

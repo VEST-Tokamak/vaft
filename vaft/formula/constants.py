@@ -187,7 +187,7 @@ _SCALING_COEFS = {
             "R": 2.66,       # Major radius [m]
             "kappa": 0.78,   # Elongation [-]
         },
-        "density_definition": "volume_avg",
+        "density_definition": "line_avg",
         "reference": "G.S. Kurskiev et al., 2022, Nucl. Fusion 62 016011 (ST multi-machine H-mode engineering scaling)",
         "source_interpretation_note": (
             "Although the paper does not restate all units directly in the regression equation, the coefficient "

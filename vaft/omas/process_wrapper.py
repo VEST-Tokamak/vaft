@@ -1228,7 +1228,16 @@ def compute_virial_equilibrium_quantities_ods(
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
-            RT_over_R0 = RT / R_0
+            rt_candidate = RT / R_0
+            # Additional sanity guard on RT/R0 to avoid closure blow-up when RT denominator is near-singular.
+            if np.isfinite(rt_candidate) and abs(rt_candidate) <= 10.0:
+                RT_over_R0 = rt_candidate
+            else:
+                logger.warning(
+                    "Time slice %s: RT/R0 is abnormal (%.6g); skipping Lao closure for this slice.",
+                    eq_idx,
+                    rt_candidate,
+                )
 
         beta_p_lao = np.nan
         li_lao = np.nan
