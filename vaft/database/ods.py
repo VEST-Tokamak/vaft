@@ -179,6 +179,9 @@ def _load_one_shot(
             verbose=verbose,
             uri="imas:hdf5?path=" + str(shot_dir),
         )
+        # TODO: Revisit the selected-shot density correction from the
+        # confinement_time_for_kps branch and adapt it to this IMAS-backed ODS
+        # loading flow if those overestimated n_e shots still require scaling.
 
         ods.setdefault("dataset_description.data_entry.user", str(directory))
         ods.setdefault("dataset_description.data_entry.pulse", int(shot))

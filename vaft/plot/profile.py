@@ -1309,12 +1309,14 @@ def plot_electron_2d_profile(ods, time_slice=None, figsize=(20, 8)):
         # Create meshgrid for plotting (use 'ij' indexing to match shape convention)
         R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing='ij')
         
-        # Plot n_e (left subplot)
-        n_e_label = r'$n_e$ (m$^{-3}$)'
-        n_e_levels = np.logspace(np.log10(n_e_RZ[n_e_RZ > 0].min()), 
-                                 np.log10(n_e_RZ.max()), 20)
-        cs1 = ax1.contourf(R_mesh, Z_mesh, n_e_RZ, levels=n_e_levels, cmap='plasma', extend='both')
-        ax1.contour(R_mesh, Z_mesh, n_e_RZ, levels=n_e_levels[::3], colors='k', alpha=0.3, linewidths=0.5)
+        # Plot n_e (left subplot), normalized to 1e19 m^-3 for readability
+        n_e_norm_factor = 1e19
+        n_e_RZ_norm = n_e_RZ / n_e_norm_factor
+        n_e_label = r'$n_e$ ($10^{19}$ m$^{-3}$)'
+        n_e_levels = np.logspace(np.log10(n_e_RZ_norm[n_e_RZ_norm > 0].min()),
+                                 np.log10(n_e_RZ_norm.max()), 20)
+        cs1 = ax1.contourf(R_mesh, Z_mesh, n_e_RZ_norm, levels=n_e_levels, cmap='plasma', extend='both')
+        ax1.contour(R_mesh, Z_mesh, n_e_RZ_norm, levels=n_e_levels[::3], colors='k', alpha=0.3, linewidths=0.5)
         cbar1 = plt.colorbar(cs1, ax=ax1)
         cbar1.set_label(n_e_label, fontsize=12)
         ax1.set_xlabel('R (m)', fontsize=12)
@@ -1391,11 +1393,13 @@ def plot_electron_time_volume_averaged(ods, figsize=(12, 6)):
     # Plot
     fig, axs = plt.subplots(2, 1, figsize=figsize, sharex=True)
     
-    # Plot n_e volume average
+    # Plot n_e volume average (normalized to 1e19 m^-3 for readability)
+    n_e_norm_factor = 1e19
+    n_e_vol_norm = n_e_vol / n_e_norm_factor
     valid_n = ~np.isnan(n_e_vol)
     if np.any(valid_n):
-        axs[0].plot(times[valid_n], n_e_vol[valid_n], 'b-o', linewidth=2, markersize=4, label=r'$\langle n_e \rangle_V$')
-        axs[0].set_ylabel(r'$\langle n_e \rangle_V$ (m$^{-3}$)', fontsize=12)
+        axs[0].plot(times[valid_n], n_e_vol_norm[valid_n], 'b-o', linewidth=2, markersize=4, label=r'$\langle n_e \rangle_V$')
+        axs[0].set_ylabel(r'$\langle n_e \rangle_V$ ($10^{19}$ m$^{-3}$)', fontsize=12)
         axs[0].set_title('Volume-Averaged Electron Density', fontsize=14)
         axs[0].grid(True, alpha=0.3)
         axs[0].legend(fontsize=10)

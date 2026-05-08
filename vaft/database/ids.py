@@ -32,7 +32,7 @@ def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     return out_path
 
 def _ids_top_level_name(ids_obj):
-    # 1) IMAS IDS 
+    # 1) IMAS IDS
     name = getattr(getattr(ids_obj, "metadata", None), "name", None)
     if name:
         return name

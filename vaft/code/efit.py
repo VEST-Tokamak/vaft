@@ -1337,7 +1337,7 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         ## (5) Diamagnetic flux with weight
         DFLUX = 'DFLUX= '
         VAL = CSTR['diamagnetic_flux.measured'] * 1000  # diamagnetic flux in mWb
-        VAL = -VAL  # diamagnetic flux is negative to positive
+#        VAL = -VAL  # diamagnetic flux is negative to positive
         DFLUX = DFLUX + f'{VAL} \n'
 
         ## Original SIGDLC is written as the standard deviation but we use the fitting weight instead

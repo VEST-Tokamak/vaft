@@ -34,7 +34,7 @@ def _require_h5pyd() -> None:
 def is_connect() -> bool:
     """
     Check if the user is connected to the HSDS server.
-    
+
     Returns:
         bool: True if connected and server is READY, False otherwise.
     """
@@ -72,7 +72,7 @@ def _get_folder_contents(folder_name: str, sort: int = -1) -> List[str]:
     """Get all contents from custom folder with sorting."""
     try:
         folder = list(h5pyd.Folder("/" + folder_name + "/"))
-        
+
         if sort == 0:
             file_list = list(folder)
         elif sort == 1:
@@ -82,7 +82,7 @@ def _get_folder_contents(folder_name: str, sort: int = -1) -> List[str]:
         else:
             print(f"[WARNING] Invalid sort value: {sort}. Using default (-1, descending)")
             file_list = sorted(folder, reverse=True)
-        
+
         print(file_list)
         return file_list
     except urllib3.exceptions.MaxRetryError:
@@ -103,7 +103,7 @@ def exist_shot(
     - 'ts' or 'thomson_scattering': Thomson scattering processed shots from processed_shots.h5
 
     Args:
-        username (str, optional): The folder to access. 
+        username (str, optional): The folder to access.
             Defaults to 'public'. Options: 'public' or other folder names.
         shot (int, optional): The specific shot number to search for. Only used with ODS filter.
         data_filter (str, optional): Filter type - None for ODS, 'ts' or 'thomson_scattering' for Thomson scattering.
@@ -130,11 +130,11 @@ def exist_shot(
     if data_filter in ('ts', 'thomson_scattering', 'thomson scattering'):
         ts_sort = sort != 0
         return _exist_shot_ts(sort=ts_sort)
-    
+
     # Default folder
     if username is None:
         username = 'public'
-    
+
     # Check for specific shot
     if shot is not None:
         try:
@@ -148,7 +148,7 @@ def exist_shot(
         except urllib3.exceptions.MaxRetryError:
             print("Connection error")
             return False
-    
+
     # List contents based on folder
     if username == 'public':
         return _get_public_folders(sort=sort)
@@ -185,27 +185,27 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
                 return None
 
             shots, timestamps, status = [], [], []
-            
+
             # Get keys with optional sorting
             keys = sorted(g.keys(), key=lambda x: int(x)) if sort else list(g.keys())
-            
+
             for key in keys:
                 try:
                     shots.append(int(key))
                     ts = g[key]["timestamp"][...]
                     st = g[key]["status"][...]
-                    
+
                     # Handle numpy array with object dtype containing bytes
                     if isinstance(ts, np.ndarray) and ts.dtype == object:
                         ts = ts.item().decode('utf-8')
-                    
+
                     if isinstance(st, np.ndarray) and st.dtype == object:
                         st = st.item().decode('utf-8')
-                        
+
                 except Exception as e:
                     print(f"[WARNING] Error processing shot {key}: {e}")
                     ts, st = "N/A", "unknown"
-                    
+
                 timestamps.append(ts)
                 status.append(st)
 

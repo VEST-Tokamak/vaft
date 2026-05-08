@@ -17,7 +17,7 @@
 | **Remote Database Access**  | Load per-shot OMAS ODS data from the VEST HSDS server with a single function call                                                                                       |
 | **Machine Mapping**         | Convert native VEST diagnostic signals into standardized IMAS IDS (magnetics, Thomson scattering, barometry, PF active, TF, spectrometer UV, charge exchange, etc.)     |
 | **Equilibrium & Stability** | Interfaces for EFIT, CHEASE, GPEC(DCON/RDCON) — read/write code I/O in IDS format                                                                                       |
-| **Physics Formulas**        | Equilibrium quantities (poloidal/toroidal flux, safety factor), stability metrics (beta limits, ballooning), confinement scaling laws (IPB89, H98y2), Green's functions |
+| **Physics Formulas**        | Equilibrium quantities (poloidal/toroidal flux, safety factor), stability metrics (beta limits, ballooning), confinement scaling laws (ITER89P, H98y2), Green's functions |
 | **Signal Processing**       | Smoothing, baseline subtraction, noise reduction, electromagnetic field calculations, eddy current modeling                                                             |
 | **Profile Fitting**         | Map kinetic diagnostics (Thomson scattering, CES) onto equilibrium flux surfaces; fit with GP, polynomial, or exponential models                                        |
 | **Visualization**           | Time traces, 1D/2D profiles, flux surface contours, top-view, and operational-space maps                                                                                |
@@ -45,13 +45,7 @@ VEST Data Analysis Platform
 
 ### Installation
 
-Install from PyPI:
-
-```bash
-pip install vaft
-```
-
-Install from source (recommended for development):
+Install from source (recommended):
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -59,18 +53,24 @@ cd vaft
 python -m pip install -e .
 ```
 
-Install optional extras:
+Install optional packages explicitly (`aurorafusion` and `h5pyd` should be installed with `--no-deps`):
 
 ```bash
+# HSDS database client
+python -m pip install --no-deps h5pyd==0.20.0
+# Aurora Open-adas interface for radiative power calculation
+python -m pip install --no-deps "aurorafusion>=3.0.6"
+
 # Development tooling
 python -m pip install -e ".[dev]"
-
-# HSDS database client (source install)
-python -m pip install -e ".[hsds]"
-
-# HSDS database client (PyPI install)
-python -m pip install "vaft[hsds]"
 ```
+
+Install from PyPI (obsolete):
+
+```bash
+pip install vaft
+```
+
 
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2,<3`)

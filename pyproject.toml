@@ -26,6 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
+  "aurorafusion>=3.0.6",
   "astropy==6.1.7",
   "cryptography>=42.0.0",
   "fortranformat",
@@ -40,6 +41,7 @@ dependencies = [
   "numpy>=1.26.4,<3",
   "omas==0.94.2",
   "omfit-classes",
+  "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
   "pyjwt",
@@ -61,7 +63,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-hsds = ["h5pyd==0.20.0"]
 dev = [
   "pytest",
   "black",
@@ -72,14 +73,6 @@ dev = [
 [project.urls]
 homepage = "https://vest-tokamak.github.io/vaft/"
 source = "https://github.com/VEST-Tokamak/vaft"
-
-[dependency-groups]
-dev = [
-  "pytest",
-  "black",
-  "flake8",
-  "ipykernel>=7.2.0",
-]
 
 [tool.setuptools.dynamic]
 version = { attr = "vaft.version.__version__" }

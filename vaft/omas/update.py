@@ -5,6 +5,7 @@ Update derived quantities for the ods data structure.
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import logging
 from vaft.formula import normalize_psi
 from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
@@ -16,6 +17,7 @@ from omfit_classes.fluxSurface import fluxSurfaces
 # update_diagnostics_file(ods, filename)
 
 # print_available_ids(ods)
+logger = logging.getLogger(__name__)
 
 def update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None):
     """
@@ -128,27 +130,124 @@ def update_equilibrium_boundary(ods, time_slice=None):
     """
     Update geometric axis for all time slices.
     """
-    time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
-        [time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
-    
+    def _safe_float(value):
+        try:
+            v = float(value)
+        except Exception:
+            return np.nan
+        return v if np.isfinite(v) else np.nan
+
+    def _fallback_axis(ts):
+        """
+        Best-effort finite axis fallback when boundary outline is unavailable.
+        Preference:
+        1) global magnetic axis
+        2) existing boundary.geometric_axis
+        3) 2D grid center
+        4) hard fallback (0,0)
+        """
+        r0 = np.nan
+        z0 = np.nan
+        if "global_quantities.magnetic_axis.r" in ts:
+            r0 = _safe_float(ts["global_quantities.magnetic_axis.r"])
+        if "global_quantities.magnetic_axis.z" in ts:
+            z0 = _safe_float(ts["global_quantities.magnetic_axis.z"])
+
+        if not np.isfinite(r0) and "boundary.geometric_axis.r" in ts:
+            r0 = _safe_float(ts["boundary.geometric_axis.r"])
+        if not np.isfinite(z0) and "boundary.geometric_axis.z" in ts:
+            z0 = _safe_float(ts["boundary.geometric_axis.z"])
+
+        if (not np.isfinite(r0) or not np.isfinite(z0)) and (
+            "profiles_2d.0.grid.dim1" in ts and "profiles_2d.0.grid.dim2" in ts
+        ):
+            try:
+                r_grid = np.asarray(ts["profiles_2d.0.grid.dim1"], float).reshape(-1)
+                z_grid = np.asarray(ts["profiles_2d.0.grid.dim2"], float).reshape(-1)
+                if not np.isfinite(r0) and r_grid.size:
+                    r0 = _safe_float(0.5 * (np.nanmin(r_grid) + np.nanmax(r_grid)))
+                if not np.isfinite(z0) and z_grid.size:
+                    z0 = _safe_float(0.5 * (np.nanmin(z_grid) + np.nanmax(z_grid)))
+            except Exception:
+                pass
+
+        if not np.isfinite(r0):
+            r0 = 0.0
+        if not np.isfinite(z0):
+            z0 = 0.0
+
+        return float(r0), float(z0)
+
+    if 'equilibrium.time_slice' not in ods or len(ods['equilibrium.time_slice']) == 0:
+        logger.warning("No equilibrium.time_slice found while updating boundary.")
+        return
+
+    if time_slice is None:
+        time_slices = range(len(ods['equilibrium.time_slice']))
+    elif isinstance(time_slice, (int, np.integer)):
+        time_slices = [int(time_slice)]
+    else:
+        time_slices = [int(i) for i in time_slice]
+
     for idx in time_slices:
-        ts = ods['equilibrium']['time_slice'][idx]
-        # check if boundary.outline exists
-        if 'boundary.outline' not in ts:
-            print(f"Warning: boundary.outline not found for time slice {idx}")
+        if idx < 0 or idx >= len(ods['equilibrium.time_slice']):
+            logger.warning("time_slice index %s is out of bounds in update_equilibrium_boundary.", idx)
             continue
-        r_min = ts['boundary.outline']['r'].min()
-        r_max = ts['boundary.outline']['r'].max()
-        z_min = ts['boundary.outline']['z'].min()
-        z_max = ts['boundary.outline']['z'].max()
-        ts['boundary.geometric_axis.r'] = (r_max + r_min) / 2
-        ts['boundary.geometric_axis.z'] = (z_max + z_min) / 2
-        ts['boundary.minor_radius'] = (r_max - r_min) / 2
-        ts['boundary.triangularity_lower'] = ts['profiles_1d.triangularity_lower'][-1]
-        ts['boundary.triangularity_upper'] = ts['profiles_1d.triangularity_upper'][-1]
-        ts['boundary.triangularity'] = (ts['boundary.triangularity_lower'] + ts['boundary.triangularity_upper']) / 2
-        # elongation
-        ts['boundary.elongation'] = ts['profiles_1d.elongation'][-1]
+
+        ts = ods['equilibrium']['time_slice'][idx]
+        if 'boundary.outline.r' not in ts or 'boundary.outline.z' not in ts:
+            logger.warning("boundary.outline not found for time slice %s", idx)
+            r0, z0 = _fallback_axis(ts)
+            ts['boundary.geometric_axis.r'] = r0
+            ts['boundary.geometric_axis.z'] = z0
+            continue
+
+        r_outline = np.asarray(ts['boundary.outline.r'], float).reshape(-1)
+        z_outline = np.asarray(ts['boundary.outline.z'], float).reshape(-1)
+        finite = np.isfinite(r_outline) & np.isfinite(z_outline)
+        r_outline = r_outline[finite]
+        z_outline = z_outline[finite]
+        if r_outline.size < 3:
+            logger.warning("boundary.outline has fewer than 3 valid points for time slice %s", idx)
+            r0, z0 = _fallback_axis(ts)
+            ts['boundary.geometric_axis.r'] = r0
+            ts['boundary.geometric_axis.z'] = z0
+            continue
+
+        r_min = float(np.min(r_outline))
+        r_max = float(np.max(r_outline))
+        z_min = float(np.min(z_outline))
+        z_max = float(np.max(z_outline))
+
+        ts['boundary.geometric_axis.r'] = 0.5 * (r_max + r_min)
+        ts['boundary.geometric_axis.z'] = 0.5 * (z_max + z_min)
+        ts['boundary.minor_radius'] = 0.5 * (r_max - r_min)
+
+        # Profile-derived geometry fields are optional; preserve robustness if profiles are missing.
+        tri_low = np.nan
+        tri_up = np.nan
+        elong = np.nan
+        try:
+            tri_low = float(np.asarray(ts['profiles_1d.triangularity_lower'], float).reshape(-1)[-1])
+        except Exception:
+            pass
+        try:
+            tri_up = float(np.asarray(ts['profiles_1d.triangularity_upper'], float).reshape(-1)[-1])
+        except Exception:
+            pass
+        try:
+            elong = float(np.asarray(ts['profiles_1d.elongation'], float).reshape(-1)[-1])
+        except Exception:
+            pass
+
+        if np.isfinite(tri_low):
+            ts['boundary.triangularity_lower'] = tri_low
+        if np.isfinite(tri_up):
+            ts['boundary.triangularity_upper'] = tri_up
+        if np.isfinite(tri_low) and np.isfinite(tri_up):
+            ts['boundary.triangularity'] = 0.5 * (tri_low + tri_up)
+        if np.isfinite(elong):
+            ts['boundary.elongation'] = elong
 
 def update_equilibrium_coordinates(ods, time_slice=None, plot_opt=0):
     """
