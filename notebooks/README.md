@@ -1,22 +1,87 @@
-# VAFT Pipeline Notebook Collection
+# VAFT Notebook Collection
 
 ## Purpose
 
-This directory collects first-draft English notebook shells for documenting and organizing the incomplete Snakemake-based VAFT pipeline. The notebooks are intended to describe data sources, intermediate products, physics-analysis stages, and open implementation work before the workflows are fully automated.
+This directory contains notebooks for documenting, testing, and organizing VAFT workflows. It now includes both existing exploratory notebooks and first-draft notebook shells for the incomplete Snakemake-based VAFT pipeline.
 
-Existing notebooks in this directory are preserved. The new notebooks added for the pipeline documentation are intentionally non-executable shells at this stage.
+The pipeline notebooks define the intended structure of future reproducible workflows. The existing notebooks provide practical context for database access, OMAS/IMAS conversion, plotting, monitoring, profile fitting, confinement scaling, and publication figure preparation.
 
 ## Relation to the Snakemake-Based VAFT Pipeline
 
-The notebooks are organized around planned Snakemake pipeline stages. Each notebook should eventually explain the expected inputs, expected outputs, validation checks, and downstream dependencies for one pipeline area. The notebooks should not replace Snakemake rules; instead, they should make the rule structure, data contracts, and physics context easier to review.
+The long-term goal is to use Snakemake for reproducible execution, dependency tracking, batch processing, and file organization. Notebooks should support that pipeline by documenting scientific context, inspecting representative data products, and clarifying interfaces between workflow stages.
 
-The expected long-term relationship is:
+The intended division of responsibility is:
 
-- Snakemake rules manage reproducible execution, file dependencies, configuration, and batch processing.
-- Notebooks document the scientific context, inspect representative outputs, and provide review-friendly examples.
-- Shared VAFT source code should hold reusable functions once workflow details are mature enough to implement.
+- Snakemake rules manage execution, input/output dependencies, configuration, and batch processing.
+- VAFT source modules provide reusable database, signal-processing, equilibrium, stability, and plotting functions.
+- Notebooks explain workflow intent, inspect representative cases, validate intermediate products, and record open implementation tasks.
+
+The newly added pipeline notebooks are documentation shells only. They should be expanded gradually as Snakemake rules and reusable VAFT functions become stable.
+
+## Notebook Groups
+
+### Database, Data Structure, and Conversion
+
+- `database_initialization_and_load.ipynb`: Existing guide for VAFT library setup and VEST database loading.
+- `vest_raw_signal_sql_database.ipynb`: Planned documentation for the VEST MySQL raw-signal database structure and 1D signal loading.
+- `vest_experimental_data_list.ipynb`: Existing VEST OMAS initial guide and experimental data overview.
+- `read_and_convert_data_structure.ipynb`: Existing notebook for reading and converting structured equilibrium or diagnostic data. 
+- `imas_omas_data_conversion.ipynb`: Existing notebook for IMAS/OMAS data conversion.
+
+### Core Diagnostic and Startup Pipeline
+
+- `magnetic_diagnostics_processing.ipynb`: Planned raw magnetic diagnostics processing, calibration, filtering, and processed signal format.
+- `fluctuation_diagnostics_analysis.ipynb`: Planned fluctuation diagnostics analysis using magnetic probes, soft X-ray, and interferometry.
+- `eddy_current_calculation_and_startup_analysis.ipynb`: Planned PF passive eddy-current calculation and startup analysis.
+- `fast_camera_video_analysis.ipynb`: Planned VEST camera image/video loading, synchronization, and visual plasma behavior analysis.
+
+### Electromagnetic Response, Equilibrium, and Stability
+
+- `electromagnetic_response_modeling_with_efund.ipynb`: Planned EFUND-aligned electromagnetic response modeling and coupling matrix construction.
+- `magnetic_equilibrium_reconstruction_with_efit.ipynb`: Planned EFIT-based magnetic equilibrium reconstruction.
+- `mhd_equilibrium_analysis.ipynb`: Planned equilibrium loading, coordinate transformation, flux-surface analysis, and MHD interpretation.
+- `linear_ideal_stability_analysis_with_dcon.ipynb`: Planned linear ideal MHD stability analysis using DCON from the GPEC package.
+- `linear_resistive_stability_analysis_with_rdcon.ipynb`: Planned linear resistive MHD stability analysis using RDCON from the GPEC package.
+- `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Planned perturbed equilibrium and 3D response analysis using GPEC.
+
+### Analysis, Visualization, Reporting, and Comparison
+
+- `plotting_sample_using_vaft_plot_module.ipynb`: Existing examples for plotting sample data with the VAFT plot module.
+- `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`: Existing profile-fitting and kinetic-diagnostic example notebook.
+- `confinement_time_scaling.ipynb`: Existing confinement time scaling analysis notebook.
+- `shot_characteristics_classification.ipynb`: Planned representative signal extraction, shot classification, and summary spreadsheet generation.
+- `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
+- `multiple_tokamak_comparison.ipynb`: Planned cross-device comparison for VEST and other tokamaks.
+- `publication_figures.ipynb`: Existing or planned notebook for publication figure preparation.
 
 ## Recommended Reading Order
+
+Use the following order as the main technical path through the notebooks. Existing notebooks are included where they provide useful setup, reference material, or downstream analysis context.
+
+1. `database_initialization_and_load.ipynb`
+2. `vest_raw_signal_sql_database.ipynb`
+3. `vest_experimental_data_list.ipynb`
+4. `read_and_convert_data_structure.ipynb`
+5. `imas_omas_data_conversion.ipynb`
+6. `magnetic_diagnostics_processing.ipynb`
+7. `fluctuation_diagnostics_analysis.ipynb`
+8. `eddy_current_calculation_and_startup_analysis.ipynb`
+9. `electromagnetic_response_modeling_with_efund.ipynb`
+10. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
+11. `mhd_equilibrium_analysis.ipynb`
+12. `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`
+13. `linear_ideal_stability_analysis_with_dcon.ipynb`
+14. `linear_resistive_stability_analysis_with_rdcon.ipynb`
+15. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
+16. `plotting_sample_using_vaft_plot_module.ipynb`
+17. `shot_characteristics_classification.ipynb`
+18. `vest_daily_monitoring.ipynb`
+19. `fast_camera_video_analysis.ipynb`
+20. `confinement_time_scaling.ipynb`
+21. `multiple_tokamak_comparison.ipynb`
+22. `publication_figures.ipynb`
+
+For a shorter review focused only on the planned Snakemake pipeline shells, read:
 
 1. `vest_raw_signal_sql_database.ipynb`
 2. `magnetic_diagnostics_processing.ipynb`
@@ -32,20 +97,21 @@ The expected long-term relationship is:
 12. `fast_camera_video_analysis.ipynb`
 13. `multiple_tokamak_comparison.ipynb`
 
-This order starts with source data and core diagnostics, then moves through electromagnetic response, equilibrium reconstruction, stability analysis, aggregate shot characterization, camera review, and cross-device comparison.
-
 ## Current Development Status
 
-These notebooks are initial documentation shells only. They contain Markdown structure for titles, overviews, objectives, expected inputs, expected outputs, pipeline context, main section headings, summaries, open implementation tasks, and related notebooks.
+The notebook collection is mixed in maturity:
 
-No full workflows, database queries, Snakemake rules, physics calculations, or reusable VAFT source-code changes are implemented in this notebook pass.
+- Existing notebooks contain exploratory examples, setup notes, plotting demonstrations, conversion tests, monitoring views, and analysis prototypes.
+- New pipeline notebooks are first-draft Markdown shells and do not yet implement full workflows.
+- The Snakemake-based VAFT pipeline is still incomplete, so notebook sections should be treated as design documentation until the corresponding rules and source modules are implemented.
 
 ## Open Tasks
 
-- Confirm the authoritative Snakemake rule graph and map each notebook to one or more planned rules.
-- Define stable input and output schemas for each pipeline stage.
-- Add representative shot examples after data-access and privacy constraints are confirmed.
-- Move mature reusable logic into VAFT source modules instead of leaving it embedded in notebooks.
-- Add validation checks, provenance metadata, and quality-control summaries for notebook examples.
-- Decide how notebook outputs should be rendered or archived by the Snakemake pipeline.
-- Keep terminology, file naming, units, and coordinate conventions consistent across notebooks.
+- Map every notebook to the corresponding Snakemake rule, source module, or analysis responsibility.
+- Confirm authoritative input and output schemas for database signals, processed diagnostics, equilibrium files, stability outputs, camera data, and summary spreadsheets.
+- Standardize terminology, file naming, units, coordinate conventions, time-base conventions, and sign conventions across old and new notebooks.
+- Decide which existing exploratory code should be moved into reusable VAFT source modules.
+- Add representative shot examples only after data-access, privacy, and reproducibility requirements are confirmed.
+- Add validation checks, provenance metadata, and quality-control summaries for each pipeline stage.
+- Decide how notebooks should be executed, rendered, or archived by the Snakemake pipeline.
+- ##### Keep existing notebooks available while gradually aligning them with the pipeline documentation structure.

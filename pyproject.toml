@@ -40,7 +40,6 @@ dependencies = [
   "numba",
   "numpy>=1.26.4,<3",
   "omas==0.94.2",
-  "omfit-classes",
   "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
@@ -78,7 +77,25 @@ source = "https://github.com/VEST-Tokamak/vaft"
 version = { attr = "vaft.version.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["vaft"]
+include = ["vaft*"]
+
+[tool.setuptools.package-data]
+vaft = [
+  "data/*.json",
+  "data/*.mat",
+  "data/*.csv",
+  "data/*.txt",
+  "data/*.h5",
+  "data/*.nc",
+  "data/g*",
+  "data/a*",
+  "data/geometry/*.yaml",
+  "data/geometry/*.mat",
+  "data/gpec/vest/templates/*.in",
+  "data/gpec/vest/coils/*.dat",
+  "data/soft_x_ray_geometry/*.csv",
+  "data/imas/*.h5",
+]
 
 [tool.uv]
 override-dependencies = [

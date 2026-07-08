@@ -3,6 +3,8 @@
 #  Usage example: snakemake --cores 8 --configfile config.yaml
 ###############################################################################
 
+import json
+
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
 # --------------------------------------------------------------------------- #
@@ -13,60 +15,273 @@ configfile: "config.yaml"
 # --------------------------------------------------------------------------- #
 BASE_DIR = config["base_dir"]                     # Base path for all output
 SHOTS    = config["shots"]                       # List of shot numbers to process
-CONDA    = config["conda"]                       # Conda environment to use
+CONDA    = config.get("conda")                   # Conda environment to use
+RAW_CONFIG = config.get("raw", {})
+DIAGNOSTICS_CONFIG = config.get("diagnostics", {})
+WALL_CONFIG = config.get("wall", {})
+EDDY_CONFIG = config.get("eddy", {})
+CONSTRAINTS_CONFIG = config.get("constraints", {})
+EFIT_CONFIG = config.get("efit", {})
+VEST_CONFIG = config.get("vest", {})
+CHEASE_CONFIG = config.get("chease", {})
+GPEC_CONFIG = config.get("gpec", {})
 
-# --------------------------------------------------------------------------- #
-# 2) Utility functions
-# --------------------------------------------------------------------------- #
+DEFAULT_UNCERTAINTY = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
+DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
+
+
+def raw_archive_path(wildcards):
+    template = RAW_CONFIG.get("archive_template", "")
+    return template.format(shot=wildcards.shot) if template else ""
+
+def csv(values):
+    return ",".join(str(value) for value in values)
+
+def bool_text(value):
+    return "true" if bool(value) else "false"
+
+def eddy_filament(name):
+    return csv(EDDY_CONFIG.get("filament", {}).get(name, []))
+
 
 rule all:
     input:
-        expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS)
+        expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/omas/{shot}_diagnostics.json", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/omas/{shot}_eddy.json", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/omas/{shot}_constraints.json", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/efit/kfile/kfiles_generated.txt", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/efit/gfile/gfiles_generated.txt", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/efit/efit_status.txt", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/omas/{shot}_efit.json", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/chease/refined_gfiles_generated.txt", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/chease/chease_status.txt", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/omas/{shot}_chease.json", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/linear_stability/gpec_suite_runs.json", base_dir=BASE_DIR, shot=SHOTS),
+        expand("{base_dir}/{shot}/linear_stability/gpec_suite_status.txt", base_dir=BASE_DIR, shot=SHOTS)
 
 ############################################################
 # DAQ Raw Data Extraction
 ############################################################
 rule generate_raw_db_dump:
+    params:
+        raw_mode=lambda wildcards: RAW_CONFIG.get("mode", "sql"),
+        raw_sample=raw_archive_path
     output:
         "{BASE_DIR}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz"
     log:
         "{BASE_DIR}/{shot}/logs/generate_raw_db_dump.log"
     conda:
-        CONDA
+        CONDA if CONDA else None
     shell:
         """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/diagnostics
         mkdir -p {BASE_DIR}/{wildcards.shot}/omas
         mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_raw_db_dump.py --shot {wildcards.shot} --output {output} > {log} 2>&1
+        if [ "{params.raw_mode}" = "archive" ]; then
+            python generate_raw_db_dump.py --shot {wildcards.shot} --sample "{params.raw_sample}" --output {output} > {log} 2>&1
+        else
+            python generate_raw_db_dump.py --shot {wildcards.shot} --output {output} > {log} 2>&1
+        fi
         """
 ############################################################
 # Diagnostics Processing (Modular Scripts)
 ############################################################
+rule generate_diagnostics_ods:
+    input:
+        raw="{BASE_DIR}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz"
+    output:
+        ods="{BASE_DIR}/{shot}/omas/{shot}_diagnostics.json"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_diagnostics_ods.log"
+    params:
+        tstart=DIAGNOSTICS_CONFIG.get("tstart", 0.26),
+        tend=DIAGNOSTICS_CONFIG.get("tend", 0.36),
+        dt=DIAGNOSTICS_CONFIG.get("dt", 4e-5),
+        run=DIAGNOSTICS_CONFIG.get("run", 1),
+        vest_magnetics_processing=json.dumps(VEST_CONFIG.get("magnetics", {}).get("processing", {}))
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_diagnostics_ods.py \
+            --shot {wildcards.shot} \
+            --raw-dump {input.raw} \
+            --output {output.ods} \
+            --tstart {params.tstart} \
+            --tend {params.tend} \
+            --dt {params.dt} \
+            --run {params.run} \
+            --vest-magnetics-processing-json '{params.vest_magnetics_processing}' \
+            > {log} 2>&1
+        """
 
 
-# ############################################################
-# # Eddy Current Calculation (Modular Scripts)
-# ############################################################
+############################################################
+# Eddy Current Calculation
+############################################################
+rule generate_eddy_ods:
+    input:
+        diagnostics="{BASE_DIR}/{shot}/omas/{shot}_diagnostics.json"
+    output:
+        ods="{BASE_DIR}/{shot}/omas/{shot}_eddy.json"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_eddy_ods.log"
+    params:
+        reference_ods=WALL_CONFIG.get("reference_ods", "/Users/yun/git/vaft/vaft/data/39915.json"),
+        filament_r=eddy_filament("r"),
+        filament_z=eddy_filament("z"),
+        filament_fraction=eddy_filament("fraction"),
+        dt_sub=EDDY_CONFIG.get("dt_sub", 5e-5)
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_eddy_ods.py \
+            --shot {wildcards.shot} \
+            --diagnostics-ods {input.diagnostics} \
+            --output {output.ods} \
+            --reference-ods {params.reference_ods} \
+            --filament-r "{params.filament_r}" \
+            --filament-z "{params.filament_z}" \
+            --filament-fraction "{params.filament_fraction}" \
+            --dt-sub {params.dt_sub} \
+            > {log} 2>&1
+        """
 
-# rule generate_eddy_ods:
+############################################################
+# Constraints Transformation
+############################################################
+rule generate_constraints_ods:
+    input:
+        eddy="{BASE_DIR}/{shot}/omas/{shot}_eddy.json"
+    output:
+        ods="{BASE_DIR}/{shot}/omas/{shot}_constraints.json"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_constraints_ods.log"
+    params:
+        timeset=CONSTRAINTS_CONFIG.get("timeset", "auto"),
+        tstep=CONSTRAINTS_CONFIG.get("tstep", 0.001),
+        detect_broken=bool_text(CONSTRAINTS_CONFIG.get("detect_broken", False)),
+        broken=csv(CONSTRAINTS_CONFIG.get("broken", [])),
+        fl_correct_option=CONSTRAINTS_CONFIG.get("fl_correct_option", 0),
+        gaussian_fit_option=CONSTRAINTS_CONFIG.get("gaussian_fit_option", 1),
+        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
+        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2),
+        uncertainty=csv(CONSTRAINTS_CONFIG.get("uncertainty", DEFAULT_UNCERTAINTY)),
+        weighting=csv(CONSTRAINTS_CONFIG.get("weighting", DEFAULT_WEIGHTING)),
+        efit_table_dir=EFIT_CONFIG.get("table_dir", "")
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_constraints_ods.py \
+            --shot {wildcards.shot} \
+            --eddy-ods {input.eddy} \
+            --output {output.ods} \
+            --efit-table-dir "{params.efit_table_dir}" \
+            --timeset {params.timeset} \
+            --tstep {params.tstep} \
+            --uncertainty "{params.uncertainty}" \
+            --weighting "{params.weighting}" \
+            --broken "{params.broken}" \
+            --detect-broken {params.detect_broken} \
+            --fl-correct-option {params.fl_correct_option} \
+            --gaussian-fit-option {params.gaussian_fit_option} \
+            --npprime {params.npprime} \
+            --nffprime {params.nffprime} \
+            > {log} 2>&1
+        """
 
-# rule plot_eddy_ods:
+############################################################
+# EFIT Input/Execution/ODS
+############################################################
+rule generate_kfile:
+    input:
+        constraints="{BASE_DIR}/{shot}/omas/{shot}_constraints.json"
+    output:
+        manifest="{BASE_DIR}/{shot}/efit/kfile/kfiles_generated.txt"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_kfile.log"
+    params:
+        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
+        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2)
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/efit/kfile
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_kfile.py \
+            --shot {wildcards.shot} \
+            --constraints-ods {input.constraints} \
+            --output {output.manifest} \
+            --npprime {params.npprime} \
+            --nffprime {params.nffprime} \
+            > {log} 2>&1
+        """
 
-# ############################################################
-# # Constraints Transformation (Modular Scripts)
-# ############################################################
+rule run_efit_reconstruction:
+    input:
+        kfiles="{BASE_DIR}/{shot}/efit/kfile/kfiles_generated.txt"
+    output:
+        gfiles="{BASE_DIR}/{shot}/efit/gfile/gfiles_generated.txt",
+        status="{BASE_DIR}/{shot}/efit/efit_status.txt"
+    log:
+        "{BASE_DIR}/{shot}/logs/run_efit.log"
+    params:
+        run=bool_text(EFIT_CONFIG.get("run", False)),
+        executable=EFIT_CONFIG.get("executable", ""),
+        args=EFIT_CONFIG.get("args", "65"),
+        timeout=EFIT_CONFIG.get("timeout", "")
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/efit/gfile
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python run_efit_reconstruction.py \
+            --shot {wildcards.shot} \
+            --kfile-manifest {input.kfiles} \
+            --gfile-manifest {output.gfiles} \
+            --status {output.status} \
+            --run {params.run} \
+            --executable "{params.executable}" \
+            --args "{params.args}" \
+            --timeout "{params.timeout}" \
+            > {log} 2>&1
+        """
 
-# rule generate_constraints_ods:
-
-# ############################################################
-# # EFIT Execution (Modular Scripts)
-# ############################################################
-
-# rule generate_kfile:
-
-# rule run_efit_reconstruction:
-
-# rule generate_efit_ods:
+rule generate_efit_ods:
+    input:
+        gfiles="{BASE_DIR}/{shot}/efit/gfile/gfiles_generated.txt",
+        status="{BASE_DIR}/{shot}/efit/efit_status.txt"
+    output:
+        ods="{BASE_DIR}/{shot}/omas/{shot}_efit.json"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_efit_ods.log"
+    params:
+        run=DIAGNOSTICS_CONFIG.get("run", 1)
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_efit_ods.py \
+            --shot {wildcards.shot} \
+            --gfile-manifest {input.gfiles} \
+            --status {input.status} \
+            --output {output.ods} \
+            --run {params.run} \
+            > {log} 2>&1
+        """
 
 # ############################################################
 # # add information to the DB after EFIT run
@@ -95,12 +310,119 @@ rule generate_raw_db_dump:
 # rule save_hsds_db:
 
 
-# ############################################################
-# # Run Chease (Modular Scripts)
-# ############################################################
-# rule run_chease:
+############################################################
+# CHEASE Refinement/ODS
+############################################################
+rule run_chease:
+    input:
+        gfiles="{BASE_DIR}/{shot}/efit/gfile/gfiles_generated.txt"
+    output:
+        refined="{BASE_DIR}/{shot}/chease/refined_gfiles_generated.txt",
+        status="{BASE_DIR}/{shot}/chease/chease_status.txt"
+    log:
+        "{BASE_DIR}/{shot}/logs/run_chease.log"
+    params:
+        run=bool_text(CHEASE_CONFIG.get("run", False)),
+        executable=CHEASE_CONFIG.get("executable", ""),
+        timeout=CHEASE_CONFIG.get("timeout", ""),
+        target_psin=CHEASE_CONFIG.get("target_psin", 0.993),
+        relax=CHEASE_CONFIG.get("relax", 0.5),
+        nideal=CHEASE_CONFIG.get("nideal", 6),
+        nw=CHEASE_CONFIG.get("nw", 513),
+        auto_cocos=bool_text(CHEASE_CONFIG.get("auto_cocos", True)),
+        output_cocos=CHEASE_CONFIG.get("output_cocos", "input"),
+        preserve_boundary_limiter=bool_text(CHEASE_CONFIG.get("preserve_boundary_limiter", True)),
+        create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True))
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/chease
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python run_chease_refinement.py \
+            --shot {wildcards.shot} \
+            --gfile-manifest {input.gfiles} \
+            --output {output.refined} \
+            --status {output.status} \
+            --run {params.run} \
+            --executable "{params.executable}" \
+            --timeout "{params.timeout}" \
+            --target-psin {params.target_psin} \
+            --relax {params.relax} \
+            --nideal {params.nideal} \
+            --nw {params.nw} \
+            --auto-cocos {params.auto_cocos} \
+            --output-cocos "{params.output_cocos}" \
+            --preserve-boundary-limiter {params.preserve_boundary_limiter} \
+            --create-plot {params.create_plot} \
+            > {log} 2>&1
+        """
 
-# rule generate_chease_ods:
+rule generate_chease_ods:
+    input:
+        refined="{BASE_DIR}/{shot}/chease/refined_gfiles_generated.txt",
+        status="{BASE_DIR}/{shot}/chease/chease_status.txt"
+    output:
+        ods="{BASE_DIR}/{shot}/omas/{shot}_chease.json"
+    log:
+        "{BASE_DIR}/{shot}/logs/generate_chease_ods.log"
+    params:
+        run=DIAGNOSTICS_CONFIG.get("run", 1)
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python generate_chease_ods.py \
+            --shot {wildcards.shot} \
+            --refined-gfile-manifest {input.refined} \
+            --status {input.status} \
+            --output {output.ods} \
+            --run {params.run} \
+            > {log} 2>&1
+        """
+
+############################################################
+# GPEC Suite: DCON/RDCON/STRIDE/GPEC
+############################################################
+rule run_gpec_suite:
+    input:
+        refined="{BASE_DIR}/{shot}/chease/refined_gfiles_generated.txt",
+        status="{BASE_DIR}/{shot}/chease/chease_status.txt"
+    output:
+        manifest="{BASE_DIR}/{shot}/linear_stability/gpec_suite_runs.json",
+        status="{BASE_DIR}/{shot}/linear_stability/gpec_suite_status.txt"
+    log:
+        "{BASE_DIR}/{shot}/logs/run_gpec_suite.log"
+    params:
+        gpec_home=GPEC_CONFIG.get("home", "/Users/yun/git/GPEC"),
+        run_mode=GPEC_CONFIG.get("run", "auto"),
+        modules=csv(GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])),
+        modes=csv(GPEC_CONFIG.get("modes", [1, 2])),
+        psilow=GPEC_CONFIG.get("psilow", 0.01),
+        psihigh=GPEC_CONFIG.get("psihigh", 0.994),
+        timeout=GPEC_CONFIG.get("timeout", 1200)
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/{wildcards.shot}/linear_stability
+        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
+        python run_gpec_suite.py \
+            --shot {wildcards.shot} \
+            --refined-gfile-manifest {input.refined} \
+            --output {output.manifest} \
+            --status {output.status} \
+            --gpec-home "{params.gpec_home}" \
+            --run-mode "{params.run_mode}" \
+            --modules "{params.modules}" \
+            --modes "{params.modes}" \
+            --psilow {params.psilow} \
+            --psihigh {params.psihigh} \
+            --timeout {params.timeout} \
+            > {log} 2>&1
+        """
 
 # rule plot_chease:
 
@@ -119,4 +441,3 @@ rule generate_raw_db_dump:
 # # Run DCON (Modular Scripts)
 # ############################################################
 # rule run_dcon:
-

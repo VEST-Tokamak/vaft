@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Callable, Sequence
+
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
@@ -14,6 +17,517 @@ from vaft.compat import cumtrapz_compat
 from vaft.process import define_baseline, subtract_baseline
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
+
+
+@dataclass(frozen=True)
+class VestMagneticsProcessingConfig:
+    """Default VEST magnetics processing settings used by legacy `vfit_md`.
+
+    The values intentionally preserve the long-running VEST EFIT input workflow
+    while making the knobs explicit for reproducibility and parameter scans.
+    """
+
+    time_start: float = 0.0
+    time_end: float = 0.99996
+    sample_count: int = 25_000
+    fast_sample_rate: float = 250_000.0
+    lowpass_cutoff: float = 2_500.0
+    lowpass_taps: int = 251
+    default_index_start: int = 6000
+    default_index_end: int = 8500
+    default_probe_baseline_end: int = 8500
+    late_shot_min: int = 41660
+    transient_shot_min: int = 41446
+    transient_shot_max: int = 41451
+    late_index_start: int = 6500
+    late_index_end: int = 9000
+    late_probe_baseline_end: int = 5000
+    flux_baseline_first_start: int = 3499
+    flux_baseline_first_end: int = 5000
+    flux_baseline_second_start: int = 11999
+    flux_baseline_second_end: int = 15000
+    flux_baseline_late_start: int = 5999
+    flux_baseline_late_end: int = 7000
+    flux_baseline_late_loop_numbers: tuple[int, ...] = (9, 10, 11)
+    calibration_mode: str = "divide"
+    flux_output_per_radian: bool = True
+
+    def timebase(self) -> np.ndarray:
+        return np.linspace(self.time_start, self.time_end, self.sample_count)
+
+    def window_for_shot(self, shot: int) -> tuple[int, int, int]:
+        if self.transient_shot_min <= shot <= self.transient_shot_max or shot >= self.late_shot_min:
+            return self.late_index_start, self.late_index_end, self.late_probe_baseline_end
+        return self.default_index_start, self.default_index_end, self.default_probe_baseline_end
+
+
+DEFAULT_VEST_MAGNETICS_PROCESSING = VestMagneticsProcessingConfig()
+
+
+@dataclass(frozen=True)
+class MirnovSpectrogramResult:
+    """Time-frequency result for one Mirnov waveform."""
+
+    time: np.ndarray
+    frequency: np.ndarray
+    magnitude: np.ndarray
+
+
+@dataclass(frozen=True)
+class ToroidalModeResult:
+    """Cross-phase toroidal mode-number result."""
+
+    frequency: np.ndarray
+    n: np.ndarray
+    power: np.ndarray
+    phase: np.ndarray
+    spectrum_frequency: np.ndarray
+    cross_power: np.ndarray
+    peak_indices: np.ndarray
+    n_raw: np.ndarray
+    n_rounded: np.ndarray
+    coherence: np.ndarray
+
+
+@dataclass(frozen=True)
+class ToroidalPhaseModeFit:
+    """Wrapped toroidal phase fit for one fluctuation frequency."""
+
+    frequency: float
+    n: int
+    intercept: float
+    rms_error: float
+    phase: np.ndarray
+    fitted_phase: np.ndarray
+    amplitude: np.ndarray
+
+
+@dataclass(frozen=True)
+class ToroidalPhaseFitResult:
+    """Mode-line fits from a selected time slice."""
+
+    time: float
+    toroidal_angle: np.ndarray
+    modes: tuple[ToroidalPhaseModeFit, ...]
+    candidate_n: np.ndarray
+
+
+def _calibrated_signal(values: np.ndarray, calibration: float, mode: str) -> np.ndarray:
+    values = np.asarray(values, dtype=float)
+    if mode == "divide":
+        return values / calibration
+    if mode == "multiply":
+        return values * calibration
+    raise ValueError(f"Unsupported VEST magnetics calibration mode: {mode}")
+
+
+def _linear_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
+    valid = indices[(indices >= 0) & (indices < values.size)]
+    if valid.size < 2:
+        return np.zeros(values.size, dtype=float)
+    return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
+
+
+def vest_magnetics_time_window(shot: int, config: VestMagneticsProcessingConfig | None = None) -> np.ndarray:
+    """Return the VEST MD output time window for a shot."""
+    cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    index_start, index_end, _ = cfg.window_for_shot(int(shot))
+    return cfg.timebase()[index_start : index_end + 1]
+
+
+def vest_b_field_pol_probe_legacy(
+    time: np.ndarray,
+    raw: np.ndarray,
+    calibration: float,
+    *,
+    shot: int,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> np.ndarray:
+    """Process one VEST poloidal B-field probe using the legacy EFIT workflow."""
+    cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    _, _, baseline_end = cfg.window_for_shot(int(shot))
+    time = np.asarray(time, dtype=float)
+    raw = np.asarray(raw, dtype=float)
+    if time.size <= 1 or raw.size <= 1:
+        return np.zeros(time.size, dtype=float)
+
+    lowpass = signal.firwin(
+        cfg.lowpass_taps,
+        cfg.lowpass_cutoff,
+        pass_zero="lowpass",
+        fs=cfg.fast_sample_rate,
+    )
+    filtered = signal.lfilter(lowpass, 1, raw)
+    calibrated = _calibrated_signal(filtered, float(calibration), cfg.calibration_mode)
+    integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
+    baseline = _linear_baseline(time, integrated, np.arange(min(baseline_end, integrated.size)))
+    return integrated - baseline
+
+
+def vest_flux_loop_legacy(
+    time: np.ndarray,
+    raw: np.ndarray,
+    calibration: float,
+    *,
+    flux_loop_number: int,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> np.ndarray:
+    """Process one VEST flux loop using the legacy EFIT workflow."""
+    cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    time = np.asarray(time, dtype=float)
+    raw = np.asarray(raw, dtype=float)
+    if time.size <= 1 or raw.size <= 1:
+        return np.zeros(time.size, dtype=float)
+
+    calibrated = _calibrated_signal(raw, float(calibration), cfg.calibration_mode)
+    integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
+    if cfg.flux_output_per_radian:
+        integrated = integrated / (2 * np.pi)
+
+    if int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
+        baseline_indices = np.arange(cfg.flux_baseline_late_start, min(cfg.flux_baseline_late_end, integrated.size))
+    else:
+        first = np.arange(cfg.flux_baseline_first_start, min(cfg.flux_baseline_first_end, integrated.size))
+        second = np.arange(cfg.flux_baseline_second_start, min(cfg.flux_baseline_second_end, integrated.size))
+        baseline_indices = np.concatenate((first, second))
+    baseline = _linear_baseline(time, integrated, baseline_indices)
+    return integrated - baseline
+
+
+def vest_md_signals(
+    shot: int,
+    channels: Sequence[dict],
+    loader: Callable[[int, int], tuple[np.ndarray, np.ndarray] | None],
+    *,
+    indices: Sequence[int] | None = None,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
+    """Process VEST MD channels into flux-loop and B-probe waveforms."""
+    cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    channel_rows = list(channels)
+    if indices is not None:
+        channel_rows = [channel_rows[int(index)] for index in indices]
+
+    magnetics_time = vest_magnetics_time_window(shot, cfg)
+    data_flux_loops: list[np.ndarray] = []
+    data_probes: list[np.ndarray] = []
+    flux_loop_counter = 0
+
+    for channel in channel_rows:
+        field_code = int(channel["field_code"])
+        calibration = float(channel["calibration"])
+        kind = str(channel["kind"])
+        loaded = loader(int(shot), field_code)
+
+        if kind == "flux_loop":
+            flux_loop_counter += 1
+
+        if loaded is None:
+            processed = np.zeros(magnetics_time.size, dtype=float)
+        else:
+            source_time, source_data = loaded
+            source_time = np.asarray(source_time, dtype=float)
+            source_data = np.asarray(source_data, dtype=float)
+            if source_time.size <= 1 or source_data.size <= 1:
+                processed = np.zeros(magnetics_time.size, dtype=float)
+            elif kind == "b_field_pol_probe":
+                processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
+                processed = np.interp(magnetics_time, source_time, processed_full)
+            else:
+                processed_full = vest_flux_loop_legacy(
+                    source_time,
+                    source_data,
+                    calibration,
+                    flux_loop_number=flux_loop_counter,
+                    config=cfg,
+                )
+                processed = np.interp(magnetics_time, source_time, processed_full)
+
+        if kind == "b_field_pol_probe":
+            data_probes.append(processed)
+        else:
+            data_flux_loops.append(processed)
+
+    return magnetics_time, data_flux_loops, data_probes
+
+
+def _firwin_order(sample_rate: float) -> int:
+    order = int(float(sample_rate) * 1e-3)
+    return order + 1 if order % 2 == 0 else order
+
+
+def mirnov_preprocess_signal(
+    data: np.ndarray,
+    *,
+    sample_rate: float = 250_000.0,
+    high_pass_cutoff: float | None = 2_000.0,
+    low_pass_cutoff: float | None = 90_000.0,
+    amplifier_gain: float = 1.0,
+    filter_order: int | None = None,
+) -> np.ndarray:
+    """Apply the MATLAB ``vest_osc`` Mirnov preprocessing chain."""
+    values = np.asarray(data, dtype=float)
+    if values.size == 0:
+        return values.copy()
+    if amplifier_gain == 0:
+        raise ValueError("amplifier_gain must be non-zero.")
+
+    processed = values - float(np.nanmean(values))
+    order = int(filter_order) if filter_order is not None else _firwin_order(sample_rate)
+    nyquist = 0.5 * float(sample_rate)
+
+    for cutoff, pass_zero in ((high_pass_cutoff, False), (low_pass_cutoff, True)):
+        if cutoff is None:
+            continue
+        cutoff = float(cutoff)
+        if cutoff <= 0 or cutoff >= nyquist:
+            continue
+        taps = signal.firwin(order, cutoff, fs=sample_rate, pass_zero=pass_zero, window="hann")
+        if processed.size > 3 * taps.size:
+            processed = signal.filtfilt(taps, 1.0, processed)
+        else:
+            processed = signal.lfilter(taps, 1.0, processed)
+
+    return processed / float(amplifier_gain)
+
+
+def _sample_rate_from_time(time: np.ndarray, default: float = 250_000.0) -> float:
+    if time.size < 2:
+        return float(default)
+    dt = float(np.nanmedian(np.diff(time)))
+    if not np.isfinite(dt) or dt <= 0:
+        return float(default)
+    return 1.0 / dt
+
+
+def mirnov_spectrogram(
+    time: np.ndarray,
+    data: np.ndarray,
+    *,
+    sample_rate: float | None = None,
+    window_size: int = 500,
+    time_resolution: int = 1,
+    time_range: tuple[float, float] | None = None,
+) -> MirnovSpectrogramResult:
+    """Compute the manual Hann-window FFT spectrogram used by ``vest_mirnov``."""
+    time = np.asarray(time, dtype=float)
+    values = np.asarray(data, dtype=float)
+    if time.size != values.size:
+        raise ValueError("time and data must have the same length.")
+    if time.size == 0:
+        return MirnovSpectrogramResult(np.array([]), np.array([]), np.empty((0, 0)))
+
+    window_size = int(window_size)
+    if window_size <= 1 or window_size % 2:
+        raise ValueError("window_size must be an even integer greater than 1.")
+    step = max(1, int(time_resolution))
+    half_window = window_size // 2
+
+    if time_range is None:
+        first = half_window - 1
+        last = values.size - half_window - 1
+    else:
+        first = int(np.searchsorted(time, float(time_range[0]), side="left"))
+        last = int(np.searchsorted(time, float(time_range[1]), side="left"))
+    centers = np.arange(first, last + 1, step, dtype=int)
+    centers = centers[(centers - half_window + 1 >= 0) & (centers + half_window + 1 <= values.size)]
+    if centers.size == 0:
+        frequencies = np.fft.rfftfreq(window_size, d=1.0 / (sample_rate or _sample_rate_from_time(time)))
+        return MirnovSpectrogramResult(np.array([]), frequencies, np.empty((frequencies.size, 0)))
+
+    windows = np.empty((window_size, centers.size), dtype=float)
+    for column, center in enumerate(centers):
+        windows[:, column] = values[center - half_window + 1 : center + half_window + 1]
+
+    fs = float(sample_rate) if sample_rate is not None else _sample_rate_from_time(time)
+    tapered = windows * signal.windows.hann(window_size)[:, np.newaxis]
+    spectrum = np.fft.rfft(tapered, axis=0)
+    magnitude = 2.0 * np.abs(spectrum / window_size)
+    frequencies = np.fft.rfftfreq(window_size, d=1.0 / fs)
+    return MirnovSpectrogramResult(time[centers], frequencies, magnitude)
+
+
+def toroidal_mode_analysis(
+    signal_a: np.ndarray,
+    signal_b: np.ndarray,
+    *,
+    sample_rate: float = 250_000.0,
+    phase_geometry: float = np.pi / 6,
+    peak_threshold: float = 0.1,
+    sensor_count: int = 4,
+    nperseg: int | None = None,
+) -> ToroidalModeResult:
+    """Estimate toroidal mode number from two toroidally separated Mirnov traces."""
+    a = np.asarray(signal_a, dtype=float)
+    b = np.asarray(signal_b, dtype=float)
+    if a.size != b.size:
+        raise ValueError("signal_a and signal_b must have the same length.")
+    if a.size < 2:
+        empty = np.array([])
+        return ToroidalModeResult(empty, empty, empty, empty, empty, empty, empty.astype(int), empty, empty, empty)
+    if phase_geometry == 0:
+        raise ValueError("phase_geometry must be non-zero.")
+
+    segment = min(a.size, int(nperseg) if nperseg is not None else 256)
+    frequencies, cross_power = csd(a, b, fs=sample_rate, nperseg=segment)
+    _, coherence_values = coherence(a, b, fs=sample_rate, nperseg=segment)
+    phase = np.angle(cross_power)
+    n_raw = phase / float(phase_geometry)
+    n_rounded = np.round(n_raw)
+
+    power_abs = np.abs(cross_power)
+    if power_abs.size == 0 or float(np.max(power_abs)) == 0.0:
+        peak_indices = np.array([], dtype=int)
+    else:
+        peaks, _ = find_peaks(power_abs, height=float(peak_threshold) * float(np.max(power_abs)))
+        coherence_threshold = np.tanh(1.96 / np.sqrt(max(1.0, 2.0 * float(sensor_count) - 2.0)))
+        peak_indices = peaks[coherence_values[peaks] > coherence_threshold]
+
+    total_power = float(np.sum(power_abs))
+    relative_power = power_abs[peak_indices] / total_power if total_power > 0 else np.zeros(peak_indices.size)
+    return ToroidalModeResult(
+        frequency=frequencies[peak_indices],
+        n=n_rounded[peak_indices],
+        power=relative_power,
+        phase=phase[peak_indices],
+        spectrum_frequency=frequencies,
+        cross_power=cross_power,
+        peak_indices=peak_indices,
+        n_raw=n_raw,
+        n_rounded=n_rounded,
+        coherence=coherence_values,
+    )
+
+
+def _wrap_phase_radians(values: np.ndarray) -> np.ndarray:
+    return (np.asarray(values, dtype=float) + np.pi) % (2 * np.pi) - np.pi
+
+
+def _fit_wrapped_toroidal_n(
+    toroidal_angle: np.ndarray,
+    phase: np.ndarray,
+    candidate_n: np.ndarray,
+) -> tuple[int, float, float, np.ndarray]:
+    best_n = 0
+    best_intercept = 0.0
+    best_error = np.inf
+    best_fit = np.zeros_like(phase)
+    for n_value in candidate_n:
+        residual_offset = phase + float(n_value) * toroidal_angle
+        intercept = float(np.angle(np.mean(np.exp(1j * residual_offset))))
+        fitted = _wrap_phase_radians(intercept - float(n_value) * toroidal_angle)
+        residual = _wrap_phase_radians(phase - fitted)
+        rms_error = float(np.sqrt(np.mean(residual**2)))
+        if rms_error < best_error:
+            best_n = int(n_value)
+            best_intercept = intercept
+            best_error = rms_error
+            best_fit = fitted
+    return best_n, best_intercept, best_error, best_fit
+
+
+def toroidal_phase_fit_at_time(
+    time: np.ndarray,
+    signals: np.ndarray,
+    toroidal_angle: np.ndarray,
+    *,
+    center_time: float,
+    sample_rate: float | None = None,
+    window_size: int = 500,
+    frequencies: Sequence[float] | None = None,
+    num_modes: int = 2,
+    candidate_n: Sequence[int] = tuple(range(-6, 7)),
+    peak_threshold: float = 0.1,
+) -> ToroidalPhaseFitResult:
+    """Fit wrapped toroidal ``n`` mode lines at one selected time.
+
+    ``signals`` must have shape ``(n_channels, n_time)``. If ``frequencies`` is
+    omitted, dominant frequencies are selected from the channel-averaged FFT
+    magnitude in the selected window.
+    """
+    time = np.asarray(time, dtype=float)
+    data = np.asarray(signals, dtype=float)
+    angles = np.asarray(toroidal_angle, dtype=float)
+    candidates = np.asarray(tuple(candidate_n), dtype=int)
+
+    if data.ndim != 2:
+        raise ValueError("signals must have shape (n_channels, n_time).")
+    if data.shape[0] != angles.size:
+        raise ValueError("toroidal_angle length must match the number of signal channels.")
+    if data.shape[1] != time.size:
+        raise ValueError("signals time dimension must match time length.")
+    if data.shape[0] < 2:
+        raise ValueError("At least two toroidal channels are required.")
+    if candidates.size == 0:
+        raise ValueError("candidate_n must contain at least one integer.")
+
+    window_size = int(window_size)
+    if window_size <= 1 or window_size % 2:
+        raise ValueError("window_size must be an even integer greater than 1.")
+    if time.size < window_size:
+        raise ValueError("time array is shorter than window_size.")
+
+    center_index = int(np.argmin(np.abs(time - float(center_time))))
+    half_window = window_size // 2
+    start = center_index - half_window
+    stop = start + window_size
+    if start < 0:
+        start = 0
+        stop = window_size
+    if stop > time.size:
+        stop = time.size
+        start = stop - window_size
+
+    fs = float(sample_rate) if sample_rate is not None else _sample_rate_from_time(time)
+    window = signal.windows.hann(window_size)
+    windowed = data[:, start:stop] * window[np.newaxis, :]
+    spectrum = np.fft.rfft(windowed, axis=1)
+    spectrum_frequency = np.fft.rfftfreq(window_size, d=1.0 / fs)
+    magnitude = np.abs(spectrum)
+
+    if frequencies is None:
+        average_magnitude = np.mean(magnitude, axis=0)
+        average_magnitude[0] = 0.0
+        if np.max(average_magnitude) <= 0:
+            selected_indices = np.array([], dtype=int)
+        else:
+            peaks, props = find_peaks(average_magnitude, height=float(peak_threshold) * float(np.max(average_magnitude)))
+            if peaks.size == 0:
+                selected_indices = np.array([int(np.argmax(average_magnitude))], dtype=int)
+            else:
+                order = np.argsort(props["peak_heights"])[::-1]
+                selected_indices = peaks[order[: max(1, int(num_modes))]]
+    else:
+        selected_indices = np.array(
+            [int(np.argmin(np.abs(spectrum_frequency - float(freq)))) for freq in frequencies],
+            dtype=int,
+        )
+
+    modes: list[ToroidalPhaseModeFit] = []
+    for frequency_index in selected_indices:
+        complex_values = spectrum[:, frequency_index]
+        phase = _wrap_phase_radians(np.angle(complex_values))
+        amplitude = np.abs(complex_values)
+        best_n, intercept, rms_error, fitted = _fit_wrapped_toroidal_n(angles, phase, candidates)
+        modes.append(
+            ToroidalPhaseModeFit(
+                frequency=float(spectrum_frequency[frequency_index]),
+                n=best_n,
+                intercept=intercept,
+                rms_error=rms_error,
+                phase=phase,
+                fitted_phase=fitted,
+                amplitude=amplitude,
+            )
+        )
+
+    modes.sort(key=lambda item: float(np.mean(item.amplitude)), reverse=True)
+    return ToroidalPhaseFitResult(
+        time=float(time[center_index]),
+        toroidal_angle=angles,
+        modes=tuple(modes),
+        candidate_n=candidates,
+    )
 
 def rogowski_coil_ip(
     time,
@@ -512,4 +1026,3 @@ def flux_loop_flux(
 #         plt.show()
 
 #     return results
-

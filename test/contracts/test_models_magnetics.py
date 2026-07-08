@@ -16,7 +16,7 @@ class MagneticsModelTests(unittest.TestCase):
 
         self.assertEqual(get_path(payload, "magnetics.ids_properties.homogeneous_time"), 1)
         self.assertEqual(len(get_path(payload, "magnetics.flux_loop")), 11)
-        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 64)
+        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 68)
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.r"), 0.592)
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.z"), 0.685)
         self.assertEqual(get_path(payload, "magnetics.b_field_pol_probe.0.position.r"), 0.089)
@@ -34,7 +34,7 @@ class MagneticsModelTests(unittest.TestCase):
         )
         self.assertNoContractFailures(failures)
         self.assertEqual(len(get_path(payload, "magnetics.flux_loop")), 11)
-        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 64)
+        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 68)
 
 
 if __name__ == "__main__":

@@ -42,6 +42,10 @@ from matplotlib.path import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+GEOMETRY_TYPE_POLYGON = 1
+GEOMETRY_TYPE_RECTANGLE = 2
+DT_SUB = 5e-5
+
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
     """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
     
@@ -363,7 +367,8 @@ def compute_impedance_matrices_ods(
 def compute_eddy_currents(
     ods: ODS,
     plasma: List[Tuple[float, float]],
-    ip: List[ndarray]
+    ip: List[ndarray],
+    dt_sub: float = DT_SUB,
     ) -> None:
     """Solve eddy currents in passive loops using precomputed impedance matrices.
     
@@ -400,7 +405,7 @@ def compute_eddy_currents(
             M_mat, 
             coil_plasma_currents, 
             time_arr,
-            dt_sub=DT_SUB
+            dt_sub=dt_sub
         )
 
         # Store results
