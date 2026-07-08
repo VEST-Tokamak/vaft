@@ -114,15 +114,15 @@ __all__ = [
 
 
 def _package_vest_dir() -> Path:
-    return Path(__file__).resolve().parents[1] / "data" / "gpec" / "vest"
+    return Path(__file__).resolve().parents[1] / "data" / "gpec"
 
 
 def _template_dir(config: GPECSuiteConfig) -> Path:
-    return Path(config.templates_dir).expanduser() if config.templates_dir else _package_vest_dir() / "templates"
+    return Path(config.templates_dir).expanduser() if config.templates_dir else _package_vest_dir()
 
 
 def _coil_data_dir(config: GPECSuiteConfig) -> Path:
-    return Path(config.coil_data_dir).expanduser() if config.coil_data_dir else _package_vest_dir() / "coils"
+    return Path(config.coil_data_dir).expanduser() if config.coil_data_dir else _package_vest_dir()
 
 
 def _executable_dir(config: GPECSuiteConfig) -> Path:

@@ -144,7 +144,7 @@ def geqdsk_to_imas_2d(gfile: str,
 
 if __name__ == '__main__':
     # Example usage
-    gfile = '/home/user1/h5pyd/vaft/vaft/data/g039020.031180'
+    gfile = '/home/user1/h5pyd/vaft/vaft/data/efit/g039020.031180'
     n_theta = 129
     out_nc = 'ods_sfl.nc'
 

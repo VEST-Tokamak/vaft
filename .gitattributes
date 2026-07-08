@@ -1,3 +1,4 @@
 *.ipynb filter=nbstripout
 *.ipynb diff=jupyter
 vaft/data/efit_table/**/*.ddd filter=lfs diff=lfs merge=lfs -text
+vaft/data/efit/*.ddd filter=lfs diff=lfs merge=lfs -text

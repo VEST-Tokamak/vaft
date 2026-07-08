@@ -23,7 +23,7 @@ from .utils import resolve_data_root, set_path
 DEFAULT_SAMPLE_RATE = 125e6 / 128.0
 DEFAULT_TIME_OFFSET = 0.285
 DEFAULT_ENERGY_BAND = (0.0, 20_000.0)
-PACKAGED_GEOMETRY_TABLE = "soft_x_ray_geometry/line_of_sight_endpoints.csv"
+PACKAGED_GEOMETRY_TABLE = "geometry/line_of_sight_endpoints.csv"
 
 
 @dataclass(frozen=True)
@@ -96,6 +96,7 @@ def _resolve_digitizer_file(
     root = resolve_data_root(data_root)
     label = str(daq_label)
     candidates = [
+        root / "legacy" / f"digitizer_{label}_{int(shot)}.csv",
         root / f"digitizer_{label}_{int(shot)}.csv",
         root / "soft_x_rays" / f"digitizer_{label}_{int(shot)}.csv",
         root / "raw" / f"digitizer_{label}_{int(shot)}.csv",
@@ -141,7 +142,7 @@ def resolve_sxr_geometry_table(geometry_root: str | Path | None = None) -> Path 
             return candidate
 
     candidates = [
-        resolve_data_root() / "soft_x_ray_geometry" / "line_of_sight_endpoints.csv",
+        resolve_data_root() / "geometry" / "line_of_sight_endpoints.csv",
         resolve_data_root() / "geometry" / "soft_x_rays" / "line_of_sight_endpoints.csv",
         resolve_data_root() / "soft_x_rays" / "geometry" / "line_of_sight_endpoints.csv",
     ]

@@ -16,7 +16,7 @@ def test_chease_sign_forcing_roundtrip():
     from vaft.code import chease
     from vaft.data.resources import sample_geqdsk
 
-    original = sample_geqdsk("g039915.00319")
+    original = sample_geqdsk("efit/g039915.00319")
     original_info = chease._geqdsk_sign_info(original)
 
     flipped, _, flipped_info, _ = chease._force_geqdsk_signs(
@@ -49,12 +49,12 @@ def test_prepare_chease_inputs_from_path_geqdsk_and_ods(tmp_path):
     from vaft.code.chease import CHEASEConfig, prepare_chease_inputs
     from vaft.data.resources import data_path, sample_geqdsk
 
-    source_path = data_path("g039915.00319")
+    source_path = data_path("efit/g039915.00319")
     for idx, source in enumerate(
         [
             source_path,
-            sample_geqdsk("g039915.00319"),
-            sample_geqdsk("g039915.00319").to_omas(),
+            sample_geqdsk("efit/g039915.00319"),
+            sample_geqdsk("efit/g039915.00319").to_omas(),
         ]
     ):
         workdir = tmp_path / f"case_{idx}"
@@ -71,7 +71,7 @@ def test_collect_chease_outputs_parses_refined_copy(tmp_path):
     from vaft.code.chease import CHEASEConfig, collect_chease_outputs, prepare_chease_inputs
     from vaft.data.resources import sample_geqdsk
 
-    source = sample_geqdsk("g039915.00319")
+    source = sample_geqdsk("efit/g039915.00319")
     inputs = prepare_chease_inputs(source, CHEASEConfig(workdir=tmp_path, create_plot=False))
     refined = tmp_path / "input_chease.geqdsk"
     shutil.copy2(inputs.input_geqdsk, refined)
@@ -87,7 +87,7 @@ def test_run_chease_skips_without_executable(tmp_path):
     from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
     from vaft.data.resources import sample_geqdsk
 
-    inputs = prepare_chease_inputs(sample_geqdsk("g039915.00319"), CHEASEConfig(workdir=tmp_path))
+    inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), CHEASEConfig(workdir=tmp_path))
     with pytest.raises(FileNotFoundError):
         run_chease(inputs, CHEASEConfig(workdir=tmp_path, executable="/definitely/missing/chease"))
 
@@ -101,7 +101,7 @@ def test_run_chease_integration_when_available(tmp_path):
     from vaft.data.resources import sample_geqdsk
 
     config = CHEASEConfig(workdir=tmp_path, create_plot=False, timeout=60)
-    inputs = prepare_chease_inputs(sample_geqdsk("g039915.00319"), config)
+    inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), config)
     result = run_chease(inputs, config)
 
     assert result.ok

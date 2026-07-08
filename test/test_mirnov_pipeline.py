@@ -16,7 +16,7 @@ from vaft.process.magnetics import toroidal_mode_analysis, toroidal_phase_fit_at
 
 
 def test_magnetics_mapping_preserves_raw_mirnov_voltage(monkeypatch):
-    monkeypatch.setenv("VAFT_RAW_SAMPLE_PATH", "vaft/data/shot_{shot}.json.gz")
+    monkeypatch.setenv("VAFT_RAW_SAMPLE_PATH", "vaft/data/legacy/shot_{shot}.json.gz")
     monkeypatch.setenv("VAFT_RAW_OFFLINE_ONLY", "1")
 
     payload = {}

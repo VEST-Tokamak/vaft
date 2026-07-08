@@ -5,7 +5,7 @@ shots: # List of shot numbers to process
 cores: 30 # Number of cores to use
 raw:
   mode: sql # sql or archive
-  archive_template: /Users/yun/git/vaft/vaft/data/shot_{shot}.json.gz
+  archive_template: /Users/yun/git/vaft/vaft/data/legacy/shot_{shot}.json.gz
   offline_only: true
 diagnostics:
   tstart: 0.26
@@ -43,7 +43,7 @@ vest:
       calibration_mode: divide
       flux_output_per_radian: true
 wall:
-  reference_ods: /Users/yun/git/vaft/vaft/data/39915.json
+  reference_ods: /Users/yun/git/vaft/vaft/data/omas/39915.json
 eddy:
   filament:
     r:
@@ -96,7 +96,7 @@ constraints:
 efit:
   run: true
   executable: /Users/yun/git/efit/build-mac/efit/efit
-  table_dir: /Users/yun/git/vaft/vaft/data/efit_table/16_coils/
+  table_dir: /Users/yun/git/vaft/vaft/data/efit/
   args: "129"
   timeout: 600
 chease:

@@ -81,20 +81,19 @@ include = ["vaft*"]
 
 [tool.setuptools.package-data]
 vaft = [
-  "data/*.json",
-  "data/*.mat",
-  "data/*.csv",
-  "data/*.txt",
-  "data/*.h5",
-  "data/*.nc",
-  "data/g*",
-  "data/a*",
+  "data/efit/*",
   "data/geometry/*.yaml",
   "data/geometry/*.mat",
-  "data/gpec/vest/templates/*.in",
-  "data/gpec/vest/coils/*.dat",
-  "data/soft_x_ray_geometry/*.csv",
-  "data/imas/*.h5",
+  "data/geometry/*.csv",
+  "data/gpec/*.in",
+  "data/gpec/*.dat",
+  "data/imas/*.nc",
+  "data/legacy/*.csv",
+  "data/legacy/*.gz",
+  "data/legacy/*.h5",
+  "data/legacy/*.mat",
+  "data/legacy/*.txt",
+  "data/omas/*.json",
 ]
 
 [tool.uv]

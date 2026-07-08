@@ -130,7 +130,7 @@ rule generate_eddy_ods:
     log:
         "{BASE_DIR}/{shot}/logs/generate_eddy_ods.log"
     params:
-        reference_ods=WALL_CONFIG.get("reference_ods", "/Users/yun/git/vaft/vaft/data/39915.json"),
+        reference_ods=WALL_CONFIG.get("reference_ods", "/Users/yun/git/vaft/vaft/data/omas/39915.json"),
         filament_r=eddy_filament("r"),
         filament_z=eddy_filament("z"),
         filament_fraction=eddy_filament("fraction"),

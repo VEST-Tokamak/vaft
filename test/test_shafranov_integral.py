@@ -23,10 +23,10 @@ import os
 import re
 import numpy as np
 
-# Data paths: vaft/vaft/data (relative to repo root; test lives in test/)
+# Data paths: vaft/vaft/data/efit (relative to repo root; test lives in test/)
 def _data_dir():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, "vaft", "data")
+    return os.path.join(base, "vaft", "data", "efit")
 
 GFILE_NAME = "g039915.00319"
 AEQ_NAME = "a039915.00319"

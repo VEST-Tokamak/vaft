@@ -13,7 +13,7 @@ def data_path(name: str = "") -> Path:
     return Path(str(target))
 
 
-def sample_geqdsk(name: str = "g039915.00319"):
+def sample_geqdsk(name: str = "efit/g039915.00319"):
     """Load one packaged GEQDSK sample as a :class:`vaft.data.eqdsk.GEQDSK`."""
     from .eqdsk import read_geqdsk
 

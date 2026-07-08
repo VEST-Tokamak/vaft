@@ -3,7 +3,7 @@ from vaft.data.resources import data_path
 
 def sample_ods():
     # load the sample ods file in the package data folder
-    sample_path = data_path('39915.json')
+    sample_path = data_path("omas/39915.json")
 
     # load the ods file
     ods = ODS()
@@ -12,9 +12,9 @@ def sample_ods():
 
 def sample_odc():
     # load the sample odc file in the package data folder
-    data_1 = '39915.json'
-    data_2 = '41524.json'
-    data_3 = '41672.json'
+    data_1 = "omas/39915.json"
+    data_2 = "omas/41524.json"
+    data_3 = "omas/41672.json"
 
     root = data_path()
 
@@ -38,4 +38,4 @@ def sample_gfile():
     """Load the historical packaged sample g-file as a VAFT GEQDSK object."""
     from vaft.data.resources import sample_geqdsk
 
-    return sample_geqdsk("g039915.00317")
+    return sample_geqdsk("efit/g039915.00317")

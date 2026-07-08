@@ -11,7 +11,7 @@ from omas import load_omas_json
 from vaft.data.resources import data_path
 
 
-DEFAULT_REFERENCE_ODS = data_path("39915.json")
+DEFAULT_REFERENCE_ODS = data_path("omas/39915.json")
 
 
 def _resolve_reference(source: str | Path | None, options: dict | None) -> Path:

@@ -4,11 +4,10 @@ from omas import *
 import vaft
 import pkg_resources
 
-data_path = pkg_resources.resource_filename('vest', 'data/39915.json')
+data_path = pkg_resources.resource_filename('vest', 'data/omas/39915.json')
 # load sample ods from file
 ods = ODS()
 ods = ods.load(data_path, consistency_check=False)
 
 # plot pf_active
 vaft.plot.time_pf_active_all_current(ods)
-

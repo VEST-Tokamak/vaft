@@ -150,7 +150,7 @@ class SecureConfigManager:
 # Global Database Pool
 DB_POOL: Optional[MySQLConnectionPool] = None
 
-SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "sql_table.txt"
+SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "legacy" / "sql_table.txt"
 RAW_SAMPLE_PATH_ENV = "VAFT_RAW_SAMPLE_PATH"
 RAW_OFFLINE_ONLY_ENV = "VAFT_RAW_OFFLINE_ONLY"
 

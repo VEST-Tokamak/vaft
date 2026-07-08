@@ -15,7 +15,7 @@ def test_geqdsk_roundtrip(tmp_path):
     from vaft.data import read_geqdsk, write_geqdsk
     from vaft.data.resources import data_path
 
-    geqdsk = read_geqdsk(data_path("g039915.00319"))
+    geqdsk = read_geqdsk(data_path("efit/g039915.00319"))
     out = tmp_path / "g039915.roundtrip"
     write_geqdsk(geqdsk, out)
     reread = read_geqdsk(out)
@@ -29,7 +29,7 @@ def test_geqdsk_to_and_from_omas():
     from vaft.data import from_omas, read_geqdsk
     from vaft.data.resources import data_path
 
-    geqdsk = read_geqdsk(data_path("g039915.00319"))
+    geqdsk = read_geqdsk(data_path("efit/g039915.00319"))
     ods = geqdsk.to_omas(allow_derived_data=False)
     converted = from_omas(ods, allow_derived_data=False)
 
@@ -51,7 +51,7 @@ def test_collect_efit_outputs_discovers_and_parses(tmp_path):
     gdir.mkdir()
     adir.mkdir()
     kdir.mkdir()
-    (gdir / "g039915.00319").write_text(data_path("g039915.00319").read_text())
+    (gdir / "g039915.00319").write_text(data_path("efit/g039915.00319").read_text())
     (adir / "a039915.00319").write_text("dummy")
     (kdir / "k039915.00319").write_text("dummy")
 
@@ -69,7 +69,7 @@ def test_no_omfit_runtime_import_for_geqdsk():
     from vaft.data import read_geqdsk
     from vaft.data.resources import data_path
 
-    read_geqdsk(data_path("g039915.00319"))
+    read_geqdsk(data_path("efit/g039915.00319"))
 
     assert "omfit_classes.omfit_eqdsk" not in sys.modules
     assert "omfit_classes.fluxSurface" not in sys.modules
@@ -81,7 +81,7 @@ def test_sfl_update_is_standalone():
     from vaft.data.resources import data_path
     from vaft.omas.update import update_equilibrium_profiles_2d_sfl_coordinates
 
-    ods = read_geqdsk(data_path("g039915.00319")).to_omas()
+    ods = read_geqdsk(data_path("efit/g039915.00319")).to_omas()
     update_equilibrium_profiles_2d_sfl_coordinates(
         ods,
         time_slice=0,
