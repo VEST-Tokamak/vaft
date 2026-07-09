@@ -1,13 +1,17 @@
-# in this file, we test the all available plot submodule functions
-# we will use the sample ods file in the data folder
-from omas import *
+"""Smoke-test plot submodule functions against the packaged sample ODS."""
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+from omas import ODS
+
 import vaft
-import pkg_resources
+from vaft.data.resources import data_path
 
-data_path = pkg_resources.resource_filename('vest', 'data/omas/39915.json')
-# load sample ods from file
-ods = ODS()
-ods = ods.load(data_path, consistency_check=False)
 
-# plot pf_active
-vaft.plot.time_pf_active_all_current(ods)
+def test_time_pf_active_current_plots():
+    ods = ODS()
+    ods = ods.load(str(data_path("omas/39915.json")), consistency_check=False)
+
+    vaft.plot.time_pf_active_current(ods)

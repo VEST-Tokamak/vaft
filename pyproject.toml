@@ -62,6 +62,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# HSDS support intentionally has no extra: h5pyd must be installed with
+# --no-deps (see README installation notes) to avoid dependency conflicts.
 dev = [
   "pytest",
   "black",

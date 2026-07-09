@@ -75,6 +75,11 @@ class ConstraintUncertaintyTests(unittest.TestCase):
         apply_default_constraint_uncertainties(payload)
 
         for probe_index, probe in enumerate(get_path(payload, "magnetics.b_field_pol_probe")):
+            if "field" not in probe:
+                # Fluctuation (Mirnov) probes intentionally carry only the raw
+                # voltage signal and receive no constraint uncertainty.
+                self.assertIn("voltage", probe)
+                continue
             radial = float(probe["position"]["r"])
             vertical = float(probe["position"]["z"])
             if radial < 0.09:

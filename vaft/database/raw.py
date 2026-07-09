@@ -221,7 +221,8 @@ def init_pool() -> None:
             host=HOSTNAME,
             database=DATABASE,
             user=USERNAME,
-            password=PASSWORD
+            password=PASSWORD,
+            connection_timeout=10,
         )
         logger.info("Database connection pool initialized successfully")
     except Exception as e:
