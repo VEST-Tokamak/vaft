@@ -25,7 +25,8 @@ from .stability import *  # noqa: F401, F403
 from .green import *  # noqa: F401, F403
 
 # Include both submodule accessor names and symbols added by the star imports above.
-__all__ = sorted(set(list(_SUBMODULES.keys()) + list(set(dir()) - _before)))
+# (exclude the snapshot variable itself — it is deleted right below)
+__all__ = sorted(set(list(_SUBMODULES.keys()) + list(set(dir()) - _before - {"_before"})))
 del _before
 
 
