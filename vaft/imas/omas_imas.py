@@ -605,9 +605,15 @@ def save_omas_imas(ods, user=None, machine=None, pulse=None, run=None, occurrenc
             for ds in ods.keys():
                 occ = ids.occurrence.get(ds, ods.get('ids_properties.occurrence', 0))
                 m = getattr(ids, ds)
-                # If all time nodes were empty, homogeneous_time should be 2
-                printd(f"{ds}.ids_properties.homogeneous_time = {ds_homogeneous_time.get(ds, 2)}", topic='imas_code')
-                m.ids_properties.homogeneous_time = ds_homogeneous_time.get(ds, 2)
+                # An explicit ids_properties.homogeneous_time in the ODS wins over the
+                # depth-based inference (deep *.time leaves like channel position times
+                # would otherwise force a homogeneous IDS to heterogeneous).
+                # If all time nodes were empty, homogeneous_time should be 2.
+                homogeneous_time = ods.get(
+                    f'{ds}.ids_properties.homogeneous_time', ds_homogeneous_time.get(ds, 2)
+                )
+                printd(f"{ds}.ids_properties.homogeneous_time = {homogeneous_time}", topic='imas_code')
+                m.ids_properties.homogeneous_time = homogeneous_time
                 ids.put_ids(m, ds, occ)
 
         finally:

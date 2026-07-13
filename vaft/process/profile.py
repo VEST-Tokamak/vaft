@@ -636,22 +636,25 @@ def core_profiles(
     if T_i_function is not None:
         ods[f'{base}.pressure_thermal'] = e_J_per_eV * n_e_recon * (T_e_recon + T_i_recon)
 
-    # --- measurement/fit metadata (rho_tor_norm labels need the equilibrium map) ---
+    # --- measurement/fit metadata (per IMAS DD, measured/reconstructed/rho all
+    # have one entry per measurement point; reconstructed = fit AT those points) ---
     if eq_grid is not None:
         finite_meas = np.isfinite(rho_meas)
-        rho_meas_tor = np.full(rho_meas.shape, np.nan)
-        rho_meas_tor[finite_meas] = np.interp(
-            np.clip(rho_meas[finite_meas], 0, 1), psi_n_grid, rho_tor_grid
-        )
+        rho_meas_psin = np.clip(rho_meas[finite_meas], 0, 1)
+        rho_meas_tor = np.interp(rho_meas_psin, psi_n_grid, rho_tor_grid)
 
         fit_base_n = f'{base}.electrons.density_fit'
         fit_base_t = f'{base}.electrons.temperature_fit'
         ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor
-        ods[f'{fit_base_n}.measured'] = n_e_meas
-        ods[f'{fit_base_n}.reconstructed'] = n_e_recon
+        ods[f'{fit_base_n}.measured'] = n_e_meas[finite_meas]
+        ods[f'{fit_base_n}.reconstructed'] = np.asarray(
+            n_e_function(rho_meas_psin), dtype=float
+        )
         ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor
-        ods[f'{fit_base_t}.measured'] = T_e_meas
-        ods[f'{fit_base_t}.reconstructed'] = T_e_recon
+        ods[f'{fit_base_t}.measured'] = T_e_meas[finite_meas]
+        ods[f'{fit_base_t}.reconstructed'] = np.asarray(
+            T_e_function(rho_meas_psin), dtype=float
+        )
 
         if T_i_function is not None and ti_mapped_rho_position is not None:
             try:
@@ -667,16 +670,18 @@ def core_profiles(
                         pass
                     arr = np.asarray(arr, dtype=float).reshape(-1)
                     ti_meas.append(float(arr[min(ce_idx, arr.size - 1)]))
+                ti_meas = np.asarray(ti_meas, dtype=float)
                 ti_rho = np.asarray(ti_mapped_rho_position, dtype=float).reshape(-1)
                 finite_ti = np.isfinite(ti_rho)
-                ti_rho_tor = np.full(ti_rho.shape, np.nan)
-                ti_rho_tor[finite_ti] = np.interp(
-                    np.clip(ti_rho[finite_ti], 0, 1), psi_n_grid, rho_tor_grid
-                )
+                ti_rho_psin = np.clip(ti_rho[finite_ti], 0, 1)
                 fit_base_ti = f'{base}.ion.0.temperature_fit'
-                ods[f'{fit_base_ti}.rho_tor_norm'] = ti_rho_tor
-                ods[f'{fit_base_ti}.measured'] = np.asarray(ti_meas, dtype=float)
-                ods[f'{fit_base_ti}.reconstructed'] = T_i_recon
+                ods[f'{fit_base_ti}.rho_tor_norm'] = np.interp(
+                    ti_rho_psin, psi_n_grid, rho_tor_grid
+                )
+                ods[f'{fit_base_ti}.measured'] = ti_meas[finite_ti]
+                ods[f'{fit_base_ti}.reconstructed'] = np.asarray(
+                    T_i_function(ti_rho_psin), dtype=float
+                )
             except Exception as exc:
                 print(f"[WARN] could not attach ion temperature_fit metadata: {exc}")
 

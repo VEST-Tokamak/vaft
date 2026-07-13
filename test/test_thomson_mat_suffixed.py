@@ -78,6 +78,33 @@ def test_suffixed_schema_masks_invalid_sigma(tmp_path):
     assert np.isfinite(ne_err[0]) and ne_err[0] > 0
 
 
+def test_suffixed_schema_masks_dead_channel_sentinels(tmp_path):
+    """Te=0.1 eV / Ne=1e17 sentinel entries (dead channels) become NaN."""
+    mat = tmp_path / f"NeTe_{SHOT}.mat"
+    n_t, n_ch = 3, 7
+    te = np.full((n_t, n_ch), 80.0)
+    ne = np.full((n_t, n_ch), 5e18)
+    te[1, 5] = 0.1   # dead Te sentinel
+    ne[1, 5] = 1e17  # dead Ne sentinel
+    sio.savemat(
+        str(mat),
+        {
+            f"tsTime_{SHOT}": np.array([[299, 300, 301]], dtype=np.uint16),
+            f"Rposition_{SHOT}": np.array([[475, 425, 370, 310, 255, 475, 650]], dtype=np.uint16),
+            f"Te_{SHOT}": te,
+            f"Ne_{SHOT}": ne,
+            f"sigmaTe_{SHOT}": np.full((n_t, n_ch), 0.004),
+            f"sigmaNe_{SHOT}": np.full((n_t, n_ch), 4e15),
+        },
+    )
+    ods = ODS()
+    thomson_scattering(ods, SHOT, mat_file=str(mat))
+    te_ch5 = np.asarray(ods["thomson_scattering.channel.5.t_e.data"], float)
+    ne_ch5 = np.asarray(ods["thomson_scattering.channel.5.n_e.data"], float)
+    assert np.isnan(te_ch5[1]) and np.isnan(ne_ch5[1])
+    assert np.isfinite(te_ch5[0]) and np.isfinite(ne_ch5[0])
+
+
 def test_suffixed_filename_found_without_mat_file(tmp_path):
     mat = tmp_path / f"NeTe_{SHOT}.mat"
     _write_suffixed_mat(mat)

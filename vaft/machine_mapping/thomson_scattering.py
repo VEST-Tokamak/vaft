@@ -173,6 +173,16 @@ def _set_dynamic_from_suffixed(mat_data: dict[str, Any], ods: Any, suffix: str) 
     sigma_te = _sanitize_sigma(mat_data[f"sigmaTe{suffix}"])
     sigma_ne = _sanitize_sigma(mat_data[f"sigmaNe{suffix}"])
 
+    # Dead-channel sentinels: the MATLAB pipeline writes Te=0.1 eV / Ne=1e17 m^-3
+    # (with tiny sigmas) for failed measurements — mask them to NaN so they
+    # cannot dominate weighted profile fits downstream.
+    te_sentinel = np.isclose(te, 0.1, rtol=1e-6, atol=0.0)
+    ne_sentinel = np.isclose(ne, 1e17, rtol=1e-6, atol=0.0)
+    te[te_sentinel] = np.nan
+    sigma_te[te_sentinel] = np.nan
+    ne[ne_sentinel] = np.nan
+    sigma_ne[ne_sentinel] = np.nan
+
     set_path(ods, "thomson_scattering.time", time)
     for channel, r_pos in enumerate(r_positions_m):
         prefix = f"thomson_scattering.channel.{channel}"
