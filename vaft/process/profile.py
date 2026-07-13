@@ -75,6 +75,7 @@ def profile_fitting_thomson_scattering(
     rho_points=100,
     fitting_function_te='polynomial',
     fitting_function_ne='polynomial',
+    time_tolerance_ms=1.0,
     ):
     """
     Fit Thomson scattering Te and ne profiles with selectable 1D methods.
@@ -112,8 +113,16 @@ def profile_fitting_thomson_scattering(
     - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='linear', fitting_function_ne='linear')
     - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='core_poly_edge_exp', fitting_function_ne='core_poly_edge_exp')
     """
-    # --- Extract Thomson data ---
-    time_index = np.where(ods['thomson_scattering.time'] == time_ms / 1e3)[0][0]
+    # --- Extract Thomson data (nearest time within tolerance) ---
+    times = np.asarray(ods['thomson_scattering.time'], dtype=float)
+    target_s = time_ms / 1e3
+    time_index = int(np.argmin(np.abs(times - target_s)))
+    if abs(times[time_index] - target_s) > time_tolerance_ms / 1e3:
+        raise ValueError(
+            f"No Thomson time within {time_tolerance_ms} ms of {time_ms} ms "
+            f"(nearest: {times[time_index] * 1e3:.3f} ms)"
+        )
+
     num_channels = len(ods['thomson_scattering.channel'])
     t_e, n_e, t_e_std, n_e_std = [], [], [], []
 
@@ -126,14 +135,34 @@ def profile_fitting_thomson_scattering(
 
     t_e = np.array(t_e, dtype=float)
     n_e = np.array(n_e, dtype=float)
-    t_e_std = np.clip(np.array(t_e_std, dtype=float), 1e-6, None)
-    n_e_std = np.clip(np.array(n_e_std, dtype=float), 1e-6, None)
-    rho = np.clip(np.array(mapped_rho_position, dtype=float).reshape(-1, 1), 0, 1)
+    t_e_std = np.array(t_e_std, dtype=float)
+    n_e_std = np.array(n_e_std, dtype=float)
+    rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
 
-    # density normalization
+    # --- drop invalid channels: non-finite values/sigmas, zero sigma, unmapped rho ---
+    valid = (
+        np.isfinite(rho_flat)
+        & np.isfinite(t_e) & np.isfinite(n_e)
+        & np.isfinite(t_e_std) & (t_e_std > 0)
+        & np.isfinite(n_e_std) & (n_e_std > 0)
+    )
+    if not np.all(valid):
+        print(
+            f"[INFO] dropped {int(np.sum(~valid))} invalid TS channel(s) "
+            f"at {time_ms:.3f} ms (non-finite value/sigma or unmapped position)"
+        )
+    t_e, n_e = t_e[valid], n_e[valid]
+    t_e_std, n_e_std = t_e_std[valid], n_e_std[valid]
+    rho = np.clip(rho_flat[valid].reshape(-1, 1), 0, 1)
+
+    # relative sigma floors (in fit space) so tiny-but-valid sigmas cannot
+    # dominate the weighted fit
+    t_e_std = np.maximum(t_e_std, 1e-3 * np.max(np.abs(t_e)))
+
+    # density normalization (floor applied AFTER normalization)
     n_e_scale = 1e18
     n_e_norm = n_e / n_e_scale
-    n_e_std_norm = n_e_std / n_e_scale
+    n_e_std_norm = np.maximum(n_e_std / n_e_scale, 1e-3 * np.max(np.abs(n_e_norm)))
     rho_eval = np.linspace(0, 1, rho_points)
 
     # --- Te / Ne FITS ---
@@ -152,6 +181,8 @@ def profile_fitting_thomson_scattering(
         fitting_function=fitting_function_te,
         gp_anchor=te_anchor,
     )
+
+    T_e_rho = np.maximum(np.asarray(T_e_rho, dtype=float), 0.0)
 
     def T_e_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0, 1)
@@ -253,6 +284,41 @@ def equilibrium_mapping_charge_exchange(ods, geq):
     return mapped_rho_position
 
 
+def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
+    """Drop channels with non-finite values/rho; handle invalid sigmas.
+
+    Channels whose sigma is non-finite or <= 0 are dropped, unless NO channel
+    has a valid sigma (e.g. data stored without uncertainties) — then all
+    value-valid channels are kept with a uniform relative sigma. Surviving
+    sigmas are floored at 1e-3 * max|value| so a tiny-but-valid sigma cannot
+    dominate the weighted fit.
+    """
+    values = np.asarray(values, dtype=float)
+    sigmas = np.asarray(sigmas, dtype=float)
+    rho = np.asarray(rho, dtype=float).reshape(-1)
+
+    valid = np.isfinite(rho) & np.isfinite(values)
+    sigma_ok = np.isfinite(sigmas) & (sigmas > 0)
+    if np.any(valid & sigma_ok):
+        valid &= sigma_ok
+    else:
+        sigmas = np.full_like(values, np.nan)  # replaced by the floor below
+
+    dropped = int(np.sum(~valid))
+    if dropped:
+        print(
+            f"[INFO] dropped {dropped} invalid {label} channel(s) at {time_ms:.3f} ms"
+        )
+
+    values, sigmas, rho = values[valid], sigmas[valid], rho[valid]
+    floor = 1e-3 * float(np.max(np.abs(values))) if values.size else 1.0
+    if not np.isfinite(floor) or floor <= 0:
+        floor = 1.0
+    sigmas = np.where(np.isfinite(sigmas) & (sigmas > 0), sigmas, floor)
+    sigmas = np.maximum(sigmas, floor)
+    return values, sigmas, rho
+
+
 def profile_fitting_charge_exchange(
     ods,
     time_ms,
@@ -264,6 +330,7 @@ def profile_fitting_charge_exchange(
     fitting_function_ti='polynomial',
     fitting_function_vtor='polynomial',
     ion_index=0,
+    time_tolerance_ms=1.0,
 ):
     """
     Fit charge_exchange (CES) ion temperature and toroidal velocity profiles.
@@ -291,12 +358,12 @@ def profile_fitting_charge_exchange(
         raise ValueError("charge_exchange.time must be 1D")
 
     target_s = time_ms / 1e3
-    idx_candidates = np.where(np.isclose(times, target_s))[0]
-    if len(idx_candidates) == 0:
-        # fallback: nearest time
-        time_index = int(np.argmin(np.abs(times - target_s)))
-    else:
-        time_index = int(idx_candidates[0])
+    time_index = int(np.argmin(np.abs(times - target_s)))
+    if abs(times[time_index] - target_s) > time_tolerance_ms / 1e3:
+        raise ValueError(
+            f"No charge_exchange time within {time_tolerance_ms} ms of {time_ms} ms "
+            f"(nearest: {times[time_index] * 1e3:.3f} ms)"
+        )
 
     num_channels = len(ods['charge_exchange.channel'])
     Ti, Vtor, Ti_std, Vtor_std = [], [], [], []
@@ -325,28 +392,28 @@ def profile_fitting_charge_exchange(
         # Guard for 0D / 1D APIs
         if np.isscalar(ti_vals):
             Ti.append(float(ti_vals))
-            Ti_std.append(max(float(np.abs(ti_errs)), 1e-6))
+            Ti_std.append(float(np.abs(ti_errs)))
         else:
             if time_index >= len(ti_vals):
                 raise IndexError("t_i.data shorter than charge_exchange.time")
             Ti.append(float(ti_vals[time_index]))
-            Ti_std.append(max(float(np.abs(ti_errs[time_index])), 1e-6))
+            Ti_std.append(float(np.abs(ti_errs[time_index])))
 
         if np.isscalar(v_vals):
             Vtor.append(float(v_vals))
-            Vtor_std.append(max(float(np.abs(v_errs)), 1e-6))
+            Vtor_std.append(float(np.abs(v_errs)))
         else:
             if time_index >= len(v_vals):
                 raise IndexError("velocity_tor.data shorter than charge_exchange.time")
             Vtor.append(float(v_vals[time_index]))
-            Vtor_std.append(max(float(np.abs(v_errs[time_index])), 1e-6))
+            Vtor_std.append(float(np.abs(v_errs[time_index])))
 
-    Ti = np.asarray(Ti, dtype=float)
-    Vtor = np.asarray(Vtor, dtype=float)
-    Ti_std = np.asarray(Ti_std, dtype=float)
-    Vtor_std = np.asarray(Vtor_std, dtype=float)
+    rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
+    Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms)
+    Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms)
 
-    rho = np.clip(np.asarray(mapped_rho_position, dtype=float).reshape(-1, 1), 0.0, 1.0)
+    rho = np.clip(rho_ti.reshape(-1, 1), 0.0, 1.0)
+    rho_vtor = np.clip(rho_v.reshape(-1, 1), 0.0, 1.0)
     rho_eval = np.linspace(0.0, 1.0, rho_points)
 
     # --- Fit T_i(ρ) ---
@@ -361,13 +428,15 @@ def profile_fitting_charge_exchange(
         gp_anchor=None,
     )
 
+    Ti_rho = np.maximum(np.asarray(Ti_rho, dtype=float), 0.0)
+
     def Ti_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
         return np.maximum(Ti_function_raw(x), 0.0)
 
     # --- Fit V_tor(ρ) ---
     Vtor_rho, Vtor_std_fit, Vtor_function_raw, coeffs_vtor = fit_profile(
-        rho,
+        rho_vtor,
         Vtor,
         Vtor_std,
         rho_eval,
