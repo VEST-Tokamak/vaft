@@ -6,7 +6,24 @@ import pytest
 pytest.importorskip("omas")
 from omas import ODS
 
-from vaft.process.profile import profile_fitting_thomson_scattering
+from vaft.process.profile import (
+    equilibrium_mapping_charge_exchange,
+    equilibrium_mapping_thomson_scattering,
+    profile_fitting_thomson_scattering,
+)
+
+
+def _fake_geq(r0=0.4, a_out=0.3):
+    """Two circular flux surfaces (levels 0.5, 1.0) centred at (r0, 0)."""
+    theta = np.linspace(0, 2 * np.pi, 181)
+    surfaces = {}
+    levels = [0.5, 1.0]
+    radii = [a_out / 2, a_out]
+    flux = {
+        i: {"R": r0 + a * np.cos(theta), "Z": a * np.sin(theta)}
+        for i, a in enumerate(radii)
+    }
+    return {"fluxSurfaces": {"levels": levels, "flux": flux}}
 
 
 def _make_ts_ods(n_ch=7, times=(0.299, 0.300, 0.301)):
@@ -78,3 +95,32 @@ def test_returned_te_profile_clipped_nonnegative():
     ods, psi_n = _make_ts_ods()
     *_, t_e_rho = _fit(ods, psi_n)
     assert np.all(t_e_rho >= 0.0)
+
+
+def test_ts_mapping_outside_lcfs_is_nan():
+    geq = _fake_geq()
+    ods = ODS()
+    ods["thomson_scattering.ids_properties.homogeneous_time"] = 1
+    # channel 0 inside (near axis), channel 1 far outside the outer surface
+    ods["thomson_scattering.channel.0.position.r"] = 0.45
+    ods["thomson_scattering.channel.0.position.z"] = 0.0
+    ods["thomson_scattering.channel.1.position.r"] = 0.85
+    ods["thomson_scattering.channel.1.position.z"] = 0.0
+    rho = equilibrium_mapping_thomson_scattering(ods, geq)
+    assert np.isfinite(rho[0]) and 0.0 <= rho[0] <= 1.0
+    assert np.isnan(rho[1])
+
+
+def test_ces_mapping_outside_lcfs_is_nan():
+    geq = _fake_geq()
+    ods = ODS()
+    ods["charge_exchange.ids_properties.homogeneous_time"] = 1
+    ods["charge_exchange.time"] = np.array([0.3])
+    for i, r in enumerate([0.45, 0.85]):
+        ods[f"charge_exchange.channel.{i}.position.r.time"] = np.array([0.3])
+        ods[f"charge_exchange.channel.{i}.position.r.data"] = np.array([r])
+        ods[f"charge_exchange.channel.{i}.position.z.time"] = np.array([0.3])
+        ods[f"charge_exchange.channel.{i}.position.z.data"] = np.array([0.0])
+    rho = equilibrium_mapping_charge_exchange(ods, geq)
+    assert np.isfinite(rho[0]) and 0.0 <= rho[0] <= 1.0
+    assert np.isnan(rho[1])

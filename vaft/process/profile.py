@@ -8,6 +8,21 @@ from omas import *
 from vaft.formula import fit_profile
 
 
+def _outermost_surface_path(geq):
+    """Return a matplotlib Path around the outermost traced flux surface.
+
+    Used to detect measurement points outside the plasma; the nearest-surface
+    search would otherwise silently pin them to the edge psi_N level.
+    """
+    from matplotlib.path import Path as _MplPath
+
+    levels = np.asarray(geq['fluxSurfaces']['levels'], dtype=float)
+    outer = int(np.argmax(levels))
+    R = np.asarray(geq['fluxSurfaces']['flux'][outer]['R'], dtype=float)
+    Z = np.asarray(geq['fluxSurfaces']['flux'][outer]['Z'], dtype=float)
+    return _MplPath(np.column_stack([R, Z]))
+
+
 def equilibrium_mapping_thomson_scattering(ods, geq):
     """
     Map Thomson scattering positions to normalized poloidal flux coordinates (rho).
@@ -36,9 +51,13 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
 
     # Initialize list to store mapped rho positions
     mapped_rho_position = []
+    boundary = _outermost_surface_path(geq)
 
     # For each Thomson scattering point, find the closest flux surface
     for r_dot, z_dot in zip(r_t, z_t):
+        if not boundary.contains_point((float(r_dot), float(z_dot))):
+            mapped_rho_position.append(np.nan)
+            continue
         min_dist = float('inf')
         closest_rho = None
 
@@ -60,7 +79,7 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
     # Convert to numpy array
     mapped_rho_position = np.array(mapped_rho_position)
 
-    # Ensure rho values are within [0, 1]
+    # Ensure rho values are within [0, 1] (NaN = outside LCFS, kept as NaN)
     mapped_rho_position = np.clip(mapped_rho_position, 0, 1)
 
     return mapped_rho_position
@@ -260,10 +279,14 @@ def equilibrium_mapping_charge_exchange(ods, geq):
 
     flux_levels = geq['fluxSurfaces']['levels']
     mapped_rho_position = []
+    boundary = _outermost_surface_path(geq)
 
     for r_dot, z_dot in zip(R_ce, Z_ce):
         r_dot = _to_float_scalar(r_dot)
         z_dot = _to_float_scalar(z_dot)
+        if not boundary.contains_point((r_dot, z_dot)):
+            mapped_rho_position.append(np.nan)
+            continue
         min_dist = float('inf')
         closest_rho = None
 
