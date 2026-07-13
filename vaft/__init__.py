@@ -18,6 +18,7 @@ __all__ = [
     "formula",
     "machine_mapping",
     "plot",
+    "data",
     "omas",
     "code",
     "database",
