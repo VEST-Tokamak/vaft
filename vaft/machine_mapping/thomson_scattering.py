@@ -35,6 +35,22 @@ def _as_real_array(values: Any) -> np.ndarray:
     return np.real(np.asarray(values)).astype(float)
 
 
+def _sanitize_sigma(values: Any) -> np.ndarray:
+    """Return sigma as float array with invalid entries masked to NaN.
+
+    MATLAB fit failures show up as complex sigmas (nonzero imaginary part) or
+    zero/negative sigmas; storing those as-is gives the point effectively
+    infinite weight in downstream weighted fits.
+    """
+    arr = np.asarray(values)
+    real = np.real(arr).astype(float).copy()
+    invalid = ~np.isfinite(real) | (real <= 0)
+    if np.iscomplexobj(arr):
+        invalid |= np.imag(arr) != 0
+    real[invalid] = np.nan
+    return real
+
+
 def _normalize_thomson_time_to_seconds(time_values: np.ndarray) -> np.ndarray:
     """Return Thomson time in seconds (MAT time is treated as milliseconds)."""
     time = np.asarray(time_values, dtype=float).reshape(-1)
@@ -43,6 +59,8 @@ def _normalize_thomson_time_to_seconds(time_values: np.ndarray) -> np.ndarray:
 
 def _candidate_thomson_paths(shotnumber: int, data_root: Path) -> list[Path]:
     return [
+        data_root / "thomson_scattering" / f"NeTe_{shotnumber}.mat",
+        data_root / f"NeTe_{shotnumber}.mat",
         data_root / "thomson_scattering" / f"NeTe_Shot{shotnumber}_v9.mat",
         data_root / "thomson_scattering" / f"NeTe_Shot{shotnumber}_v9_rev.mat",
         data_root / f"NeTe_Shot{shotnumber}_v9.mat",
@@ -118,7 +136,7 @@ def _set_dynamic_from_v9(mat_data: dict[str, Any], ods: Any) -> None:
             f"thomson_scattering.channel.{channel}.t_e.data",
             _uarray_or_values(
                 _as_real_array(mat_data[f"{tag}_Te"]).reshape(-1),
-                _as_real_array(mat_data[f"{tag}_sigmaTe"]).reshape(-1),
+                _sanitize_sigma(mat_data[f"{tag}_sigmaTe"]).reshape(-1),
             ),
         )
         set_path(
@@ -126,7 +144,55 @@ def _set_dynamic_from_v9(mat_data: dict[str, Any], ods: Any) -> None:
             f"thomson_scattering.channel.{channel}.n_e.data",
             _uarray_or_values(
                 _as_real_array(mat_data[f"{tag}_Ne"]).reshape(-1),
-                _as_real_array(mat_data[f"{tag}_sigmaNe"]).reshape(-1),
+                _sanitize_sigma(mat_data[f"{tag}_sigmaNe"]).reshape(-1),
+            ),
+        )
+
+
+def _suffixed_key_root(mat_data: dict[str, Any], shotnumber: int) -> str | None:
+    """Return the shot suffix (e.g. '_48224') of a suffixed NeTe MAT, if present."""
+    preferred = f"_{int(shotnumber)}"
+    if f"tsTime{preferred}" in mat_data:
+        return preferred
+    for key in mat_data:
+        if key.startswith("tsTime_"):
+            return key[len("tsTime"):]
+    return None
+
+
+def _set_dynamic_from_suffixed(mat_data: dict[str, Any], ods: Any, suffix: str) -> None:
+    """Load the shot-suffixed schema (tsTime_<shot>, Te_<shot>, ..., Rposition_<shot>).
+
+    Channel count and R positions come from the in-file Rposition vector (mm),
+    so 7-channel files (including the outboard R=0.650 m point) are fully ingested.
+    """
+    time = _normalize_thomson_time_to_seconds(_as_real_array(mat_data[f"tsTime{suffix}"]))
+    r_positions_m = _as_real_array(mat_data[f"Rposition{suffix}"]).reshape(-1) / 1e3
+    te = _as_real_array(mat_data[f"Te{suffix}"])
+    ne = _as_real_array(mat_data[f"Ne{suffix}"])
+    sigma_te = _sanitize_sigma(mat_data[f"sigmaTe{suffix}"])
+    sigma_ne = _sanitize_sigma(mat_data[f"sigmaNe{suffix}"])
+
+    set_path(ods, "thomson_scattering.time", time)
+    for channel, r_pos in enumerate(r_positions_m):
+        prefix = f"thomson_scattering.channel.{channel}"
+        set_path(ods, f"{prefix}.position.r", float(r_pos))
+        set_path(ods, f"{prefix}.position.z", 0)
+        set_path(ods, f"{prefix}.name", f"Polychrometer {channel + 1}")
+        set_path(
+            ods,
+            f"{prefix}.t_e.data",
+            _uarray_or_values(
+                _extract_channel_series(te, channel, time.size),
+                _extract_channel_series(sigma_te, channel, time.size),
+            ),
+        )
+        set_path(
+            ods,
+            f"{prefix}.n_e.data",
+            _uarray_or_values(
+                _extract_channel_series(ne, channel, time.size),
+                _extract_channel_series(sigma_ne, channel, time.size),
             ),
         )
 
@@ -149,8 +215,8 @@ def _set_dynamic_from_simple(mat_data: dict[str, Any], ods: Any) -> None:
     time = _normalize_thomson_time_to_seconds(_as_real_array(mat_data["time"]))
     te = _as_real_array(mat_data["Te"])
     ne = _as_real_array(mat_data["Ne"])
-    sigma_te = _as_real_array(mat_data["sigmaTe"])
-    sigma_ne = _as_real_array(mat_data["sigmaNe"])
+    sigma_te = _sanitize_sigma(mat_data["sigmaTe"])
+    sigma_ne = _sanitize_sigma(mat_data["sigmaNe"])
 
     set_path(ods, "thomson_scattering.time", time)
     for channel, _, _, _ in _CHANNEL_META:
@@ -196,6 +262,11 @@ def vfit_thomson_scattering_dynamic(
         _set_dynamic_from_v9(mat_data, ods)
         return
 
+    suffix = _suffixed_key_root(mat_data, shotnumber)
+    if suffix is not None:
+        _set_dynamic_from_suffixed(mat_data, ods, suffix)
+        return
+
     simple_keys = {"time", "Te", "sigmaTe", "Ne", "sigmaNe"}
     if simple_keys.issubset(mat_data):
         _set_dynamic_from_simple(mat_data, ods)
@@ -204,7 +275,8 @@ def vfit_thomson_scattering_dynamic(
     available = sorted(key for key in mat_data.keys() if not key.startswith("__"))
     raise KeyError(
         f"Unsupported Thomson MAT schema in {source_file}. "
-        f"Expected v9 keys (time_TS/poly*) or simple keys {sorted(simple_keys)}; "
+        f"Expected v9 keys (time_TS/poly*), suffixed keys (tsTime_<shot>/Te_<shot>/...), "
+        f"or simple keys {sorted(simple_keys)}; "
         f"available keys: {available}"
     )
 
