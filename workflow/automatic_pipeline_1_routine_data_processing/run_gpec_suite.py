@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 from typing import Any
 
-from vaft.code.gpec import GPECCaseInputs, GPECSuiteConfig, GPECSuiteResult, run_gpec_suite_case
+from vaft.code.gpec import GPEC_HOME_ENV, GPECCaseInputs, GPECSuiteConfig, GPECSuiteResult, run_gpec_suite_case
 
 
 def _read_manifest(path: Path) -> tuple[Path, ...]:
@@ -51,7 +52,7 @@ def main() -> int:
     parser.add_argument("--refined-gfile-manifest", required=True, type=Path, help="CHEASE refined gfile manifest.")
     parser.add_argument("--output", required=True, type=Path, help="Output JSON run manifest.")
     parser.add_argument("--status", required=True, type=Path, help="Output status text file.")
-    parser.add_argument("--gpec-home", default="/Users/yun/git/GPEC", help="GPEC source/install root.")
+    parser.add_argument("--gpec-home", default="", help=f"GPEC source/install root. Defaults to ${GPEC_HOME_ENV}.")
     parser.add_argument("--run-mode", default="auto", help="auto, prepare_only, or strict.")
     parser.add_argument("--modules", default="dcon,rdcon,stride,gpec", help="Comma-separated suite modules.")
     parser.add_argument("--modes", default="1,2", help="Comma-separated toroidal mode numbers.")
@@ -67,8 +68,10 @@ def main() -> int:
     args.status.parent.mkdir(parents=True, exist_ok=True)
     workdir = args.output.parent
 
+    gpec_home = Path(args.gpec_home).expanduser() if args.gpec_home else None
+
     config = GPECSuiteConfig(
-        gpec_home=Path(args.gpec_home).expanduser(),
+        gpec_home=gpec_home,
         modules=_parse_csv(args.modules, str),
         modes=_parse_csv(args.modes, int),
         run_mode=args.run_mode,
@@ -95,7 +98,7 @@ def main() -> int:
         "refined_gfiles": [str(path) for path in gfiles],
         "workdir": str(workdir),
         "config": {
-            "gpec_home": str(Path(args.gpec_home).expanduser()),
+            "gpec_home": str(gpec_home) if gpec_home else os.environ.get(GPEC_HOME_ENV, ""),
             "modules": list(config.modules),
             "modes": [int(mode) for mode in config.modes],
             "run_mode": args.run_mode,

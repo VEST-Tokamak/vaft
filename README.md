@@ -53,13 +53,15 @@ cd vaft
 python -m pip install -e .
 ```
 
-Install optional packages explicitly (`aurorafusion` and `h5pyd` should be installed with `--no-deps`):
+`aurorafusion` (the Open-ADAS interface used for radiative-power calculations) is a
+required dependency and is installed by the step above.
+
+`h5pyd` is the only package left out of the dependency list — it has no extra, and must
+be installed with `--no-deps` to avoid conflicting pins:
 
 ```bash
 # HSDS database client
 python -m pip install --no-deps h5pyd==0.20.0
-# Aurora Open-adas interface for radiative power calculation
-python -m pip install --no-deps "aurorafusion>=3.0.6"
 
 # Development tooling
 python -m pip install -e ".[dev]"

@@ -7,7 +7,7 @@ per-value sub-directory and collecting each ``TESResult``.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
@@ -52,7 +52,19 @@ def scan_tes(
     Returns
     -------
     list of (value, TESResult)
+
+    Raises
+    ------
+    ValueError
+        If ``param`` is not a field of ``TESConfig``.
     """
+    valid_fields = {entry.name for entry in fields(TESConfig)}
+    if param not in valid_fields:
+        raise ValueError(
+            f"Unknown TESConfig field {param!r}. "
+            f"Valid fields: {', '.join(sorted(valid_fields))}"
+        )
+
     subdir = subdir or _default_subdir
     root = Path(base_config.workdir).expanduser()
     out: list[tuple[Any, TESResult]] = []

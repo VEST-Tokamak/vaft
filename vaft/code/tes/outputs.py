@@ -7,12 +7,15 @@ like the EFIT adapter — and the ``.RESULT`` scalars are parsed into a flat dic
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, Optional
 
 from .config import TESConfig, TESResult
 
+
+_log = logging.getLogger(__name__)
 
 _FLOAT = r"[-+]?\d+\.?\d*(?:[eE][+-]?\d+)?"
 
@@ -65,17 +68,23 @@ def parse_result_scalars(result_file: Path) -> dict[str, Any]:
     return scalars
 
 
-def parse_result_coils(result_file: Path) -> list[dict[str, float]]:
-    """Parse the 'EXT. COIL CURRENT UPDATED' block: base -> updated : delta [kA]."""
+def parse_result_coils(result_file: Path) -> list[dict[str, float | int]]:
+    """Parse the 'EXT. COIL CURRENT UPDATED' block: base -> updated : delta [kA].
+
+    ``index`` is the 1-based coil number as written by TES and stays an ``int``;
+    the three current entries are floats in kA.
+    """
     text = result_file.read_text()
     block = re.search(r"EXT\. COIL CURRENT UPDATED.*?\n([\s\S]+?)(?=\n\n|\Z)", text)
-    coils: list[dict[str, float]] = []
+    coils: list[dict[str, float | int]] = []
     if not block:
         return coils
     for line in block.group(1).splitlines():
+        # ``strip`` so an indented block parses too; TES pads these lines to a
+        # fixed width, and an anchored match would otherwise return no coils at all.
         m = re.match(
             r"\[\s*(\d+)\]\s*(" + _FLOAT + r")\s*-->\s*(" + _FLOAT + r")\s*:\s*(" + _FLOAT + r")",
-            line,
+            line.strip(),
         )
         if m:
             coils.append({
@@ -93,34 +102,47 @@ def collect_tes_outputs(workdir: str | Path, config: Optional[TESConfig] = None)
     The g-file is converted to an ODS equilibrium subtree via
     ``vaft.data.eqdsk.read_geqdsk(...).to_omas()``; ``.RESULT`` scalars and the
     updated coil currents are parsed into ``TESResult.scalars``.
+
+    Parsing is best-effort: a malformed g-file or ``.RESULT`` leaves the other
+    outputs intact and records the failure under the ``_geqdsk_error`` /
+    ``_parse_error`` keys of ``TESResult.scalars`` instead of raising.
     """
     base = Path(workdir).expanduser()
 
-    gfile = _find_one(base, ["g[0-9]*.[0-9]*", "g*"])
-    afile = _find_one(base, ["a[0-9]*.[0-9]*", "a*"])
+    # EFIT names these ``g<shot>.<time>`` / ``a<shot>.<time>``. Requiring a digit
+    # after the leading letter keeps unrelated files (e.g. ``gpec_*`` outputs in a
+    # reused workdir) from being mistaken for a g-file or a-file.
+    gfile = _find_one(base, ["g[0-9]*.[0-9]*", "g[0-9]*"])
+    afile = _find_one(base, ["a[0-9]*.[0-9]*", "a[0-9]*"])
     result_file = _find_one(base, ["*.RESULT"])
     bndry = _find_one(base, ["*.BNDRY"])
     logs = tuple(sorted(p for p in base.glob("*.log") if p.is_file()))
 
     geqdsk: tuple[Any, ...] = ()
     ods = None
+    geqdsk_error: Optional[str] = None
     if gfile is not None:
         try:
             from vaft.data.eqdsk import read_geqdsk
             parsed = read_geqdsk(gfile)
             geqdsk = (parsed,)
             ods = parsed.to_omas(ods=None, time_index=0)
-        except Exception:
+        except Exception as exc:
             geqdsk = ()
             ods = None
+            geqdsk_error = f"{gfile.name}: {exc}"
+            _log.warning("Could not parse TES g-file %s: %s", gfile, exc)
 
     scalars: dict[str, Any] = {}
     if result_file is not None:
         try:
             scalars = parse_result_scalars(result_file)
             scalars["coils"] = parse_result_coils(result_file)
-        except Exception:
-            scalars = {}
+        except Exception as exc:
+            scalars = {"_parse_error": f"{result_file.name}: {exc}"}
+            _log.warning("Could not parse TES .RESULT %s: %s", result_file, exc)
+    if geqdsk_error is not None:
+        scalars["_geqdsk_error"] = geqdsk_error
 
     return TESResult(
         returncode=None,

@@ -19,7 +19,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
-DEFAULT_GPEC_HOME = Path("/Users/yun/git/GPEC")
+GPEC_HOME_ENV = "GPECHOME"
 DEFAULT_MODULES = ("dcon", "rdcon", "stride", "gpec")
 DEFAULT_MODES = (1, 2)
 SUPPORTED_MODULES = frozenset(DEFAULT_MODULES)
@@ -28,9 +28,14 @@ STABILITY_MODULES = frozenset(("dcon", "rdcon", "stride"))
 
 @dataclass(frozen=True)
 class GPECSuiteConfig:
-    """Runtime and VEST-default configuration for the GPEC suite."""
+    """Runtime and VEST-default configuration for the GPEC suite.
 
-    gpec_home: Path | str = DEFAULT_GPEC_HOME
+    ``gpec_home`` defaults to ``None``, in which case the installation root is
+    read from ``$GPECHOME``.  Preparing a case never needs it; only running a
+    module does, and a missing installation is reported there.
+    """
+
+    gpec_home: Path | str | None = None
     executable_dir: Path | str | None = None
     modules: Sequence[str] = DEFAULT_MODULES
     modes: Sequence[int] = DEFAULT_MODES
@@ -125,19 +130,36 @@ def _coil_data_dir(config: GPECSuiteConfig) -> Path:
     return Path(config.coil_data_dir).expanduser() if config.coil_data_dir else _package_vest_dir()
 
 
-def _executable_dir(config: GPECSuiteConfig) -> Path:
+def _gpec_home(config: GPECSuiteConfig) -> Path | None:
+    """Resolve the GPEC installation root from the config or ``$GPECHOME``."""
+    home = config.gpec_home or os.environ.get(GPEC_HOME_ENV)
+    return Path(home).expanduser() if home else None
+
+
+def _executable_dir(config: GPECSuiteConfig) -> Path | None:
     if config.executable_dir:
         return Path(config.executable_dir).expanduser()
-    return Path(config.gpec_home).expanduser() / "bin"
+    home = _gpec_home(config)
+    return home / "bin" if home else None
 
 
-def _executable(config: GPECSuiteConfig, program: str) -> Path:
-    return _executable_dir(config) / program
+def _executable(config: GPECSuiteConfig, program: str) -> Path | None:
+    directory = _executable_dir(config)
+    return directory / program if directory else None
+
+
+def _unconfigured_reason() -> str:
+    return (
+        "GPEC installation is not configured: pass GPECSuiteConfig(gpec_home=...) "
+        f"or GPECSuiteConfig(executable_dir=...), or export ${GPEC_HOME_ENV}"
+    )
 
 
 def _gpec_env(config: GPECSuiteConfig) -> dict[str, str]:
     env = dict(os.environ)
-    env["GPECHOME"] = str(Path(config.gpec_home).expanduser())
+    home = _gpec_home(config)
+    if home is not None:
+        env[GPEC_HOME_ENV] = str(home)
     env.update({str(key): str(value) for key, value in config.env.items()})
     return env
 
@@ -443,6 +465,10 @@ def _run_module(
 
     program = module
     executable = _executable(config, program)
+    if executable is None:
+        if policy == "strict":
+            raise FileNotFoundError(_unconfigured_reason())
+        return GPECModuleRun(module, mode, run_dir, status="skipped", reason=_unconfigured_reason())
     if not executable.exists():
         if policy == "strict":
             raise FileNotFoundError(f"{program} executable not found: {executable}")
@@ -463,7 +489,7 @@ def _run_module(
         status = "completed" if returncode == 0 else "failed"
         if module == "dcon" and returncode == 0:
             match_exec = _executable(config, "match")
-            if match_exec.exists():
+            if match_exec is not None and match_exec.exists():
                 match_rc, match_log = _run_subprocess(match_exec, run_dir, run_dir / "match.log", config=config)
                 commands.append(str(match_exec))
                 logs.append(match_log)
