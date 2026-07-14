@@ -535,12 +535,7 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
     if env_path:
         env_candidate = Path(env_path).expanduser()
         candidates.append(env_candidate / "chease" if env_candidate.is_dir() else env_candidate)
-    candidates.extend(
-        [
-            Path("~/git/chease/src-f90/chease").expanduser(),
-            Path("/Users/yun/git/chease/src-f90/chease"),
-        ]
-    )
+    candidates.append(Path("~/git/chease/src-f90/chease").expanduser())
     for candidate in candidates:
         if candidate.exists() and os.access(candidate, os.X_OK):
             return candidate
