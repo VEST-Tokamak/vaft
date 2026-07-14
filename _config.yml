@@ -1,10 +1,13 @@
 # Configurations
 title:            VAFT
-longtitle:        versatile experimental spherical tokamak
+longtitle:        Versatile Analytical Framework for Tokamak
 author:           VEST-team
-email:            satelite2517@gmail.com
+email:            satelite2517@snu.ac.kr
 description: >
-  Build Jekyll site with the GitBook style.
+  VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant
+  data interface built on OMAS, an HSDS remote database of VEST experimental shots,
+  machine mapping into standard IDSs, equilibrium and stability code interfaces
+  (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 
 version:          1.0
 gitbook_version:  3.2.3
