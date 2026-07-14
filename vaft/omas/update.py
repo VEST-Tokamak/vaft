@@ -9,15 +9,47 @@ import logging
 from vaft.formula import normalize_psi
 from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
-from vaft.compat import apply_omfit_compat_patches, trapz_compat
+from vaft.compat import trapz_compat
 
-apply_omfit_compat_patches()
-from omfit_classes.omfit_eqdsk import OMFITeqdsk
-from omfit_classes.fluxSurface import fluxSurfaces
 # update_diagnostics_file(ods, filename)
 
 # print_available_ids(ods)
 logger = logging.getLogger(__name__)
+
+
+def _geometric_flux_surface_grid(ts, n_theta: int):
+    """Build a dependency-free flux-surface-like grid from axis and boundary."""
+    axis_r = float(ts["global_quantities.magnetic_axis.r"])
+    axis_z = float(ts["global_quantities.magnetic_axis.z"])
+    psi_axis = float(ts["global_quantities.psi_axis"])
+    psi_boundary = float(ts["global_quantities.psi_boundary"])
+    boundary_r = np.asarray(ts["boundary.outline.r"], dtype=float)
+    boundary_z = np.asarray(ts["boundary.outline.z"], dtype=float)
+    if boundary_r.size < 3 or boundary_z.size < 3:
+        raise ValueError("equilibrium boundary outline is required for standalone SFL coordinates")
+
+    theta_boundary = np.unwrap(np.arctan2(boundary_z - axis_z, boundary_r - axis_r))
+    radius_boundary = np.hypot(boundary_r - axis_r, boundary_z - axis_z)
+    order = np.argsort(theta_boundary)
+    theta_boundary = theta_boundary[order]
+    radius_boundary = radius_boundary[order]
+    theta_ext = np.concatenate([theta_boundary - 2 * np.pi, theta_boundary, theta_boundary + 2 * np.pi])
+    radius_ext = np.concatenate([radius_boundary, radius_boundary, radius_boundary])
+
+    theta = np.linspace(-np.pi, np.pi, int(n_theta), endpoint=False)
+    radius_lcfs = np.interp(theta, theta_ext, radius_ext)
+    profiles_1d = ts.get("profiles_1d", {})
+    psi_1d = np.asarray(profiles_1d.get("psi", np.linspace(psi_axis, psi_boundary, 33)), dtype=float)
+    if psi_1d.size < 2:
+        psi_1d = np.linspace(psi_axis, psi_boundary, 33)
+    psi_norm = (psi_1d - psi_axis) / (psi_boundary - psi_axis) if psi_boundary != psi_axis else np.zeros_like(psi_1d)
+    psi_norm = np.clip(psi_norm, 0.0, 1.0)
+    rho = np.sqrt(psi_norm)
+
+    r = axis_r + rho[:, None] * radius_lcfs[None, :] * np.cos(theta)[None, :]
+    z = axis_z + rho[:, None] * radius_lcfs[None, :] * np.sin(theta)[None, :]
+    psi = psi_axis + psi_norm[:, None] * (psi_boundary - psi_axis)
+    return psi_norm, theta, r, z, np.broadcast_to(psi, r.shape), np.broadcast_to(theta, r.shape)
 
 def update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None):
     """
@@ -433,6 +465,10 @@ def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profile
         'boozer': 'boozer'
     }
     actual_method = method_map.get(convention.lower(), 'straight_line')
+    if convention.lower() not in method_map:
+        print(f"Warning: Unknown SFL convention {convention!r}; using geometric straight_line approximation.")
+    elif actual_method not in {'sfl', 'straight_line'}:
+        print(f"Warning: {convention!r} requested; using dependency-free geometric approximation.")
 
     for idx in time_idx_list:
         try:
@@ -442,32 +478,13 @@ def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profile
             print(f"Warning: Time slice index {idx} is out of bounds. Skipping.")
             continue
 
-        eq_obj = OMFITeqdsk()
         try:
-            # OMFITeqdsk.from_omas needs the parent ODS and the time_idx within that ODS
-            eq_obj.from_omas(ods, time_idx=idx)
+            dim1_vals, dim2_vals, R_2d, Z_2d, Psi_2d_values, Theta_2d_values = _geometric_flux_surface_grid(ts, n_theta)
         except Exception as e:
-            print(f"Error creating OMFITeqdsk from ODS for time slice index {idx} (time {time_val}): {e}")
-            print("Please ensure the ODS time slice contains necessary equilibrium data (psi_axis, psi_boundary, R/Z grid, 2D psi, etc.)")
-            continue
-
-        fs = fluxSurfaces(gEQDSK=eq_obj, quiet=True)
-        try:
-            fs.findSurfaces()
-            fs.calc_poloidal_angle(method=actual_method, npts=n_theta)
-        except Exception as e:
-            print(f"Error in fluxSurfaces processing for time slice index {idx} (time {time_val}): {e}")
+            print(f"Error building standalone SFL coordinates for time slice index {idx} (time {time_val}): {e}")
             continue
 
         prof2d = ts['profiles_2d'][profiles_2d_idx]
-
-        dim1_vals = fs['levels']  # Normalized psi
-        if fs['flux'] and len(fs['flux']) > 0 and 'theta' in fs['flux'][0]:
-             dim2_vals = fs['flux'][0]['theta']  # SFL theta coordinates
-        else:
-            print(f"Warning: SFL theta coordinates not found in fluxSurfaces output for time slice {idx}. Skipping SFL update for this slice.")
-            continue
-
 
         prof2d['grid.dim1'] = dim1_vals
         prof2d['grid.dim2'] = dim2_vals
@@ -481,27 +498,6 @@ def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profile
 
         nr = len(dim1_vals)
         nt = len(dim2_vals)
-
-        R_2d = np.zeros((nr, nt))
-        Z_2d = np.zeros((nr, nt))
-        Psi_2d_values = np.zeros((nr, nt)) # Non-normalized psi
-        Theta_2d_values = np.zeros((nr, nt)) # SFL theta
-
-        for k_idx in range(nr):
-            if k_idx < len(fs['flux']):
-                flux_surface_data = fs['flux'][k_idx]
-                R_2d[k_idx, :] = flux_surface_data.get('R', np.zeros(nt))
-                Z_2d[k_idx, :] = flux_surface_data.get('Z', np.zeros(nt))
-                Psi_2d_values[k_idx, :] = flux_surface_data.get('psi', np.zeros(nt)) # Should be a scalar, broadcast if so.
-                # Ensure psi is broadcast if it's scalar from fs['flux'][k]['psi']
-                if np.isscalar(flux_surface_data.get('psi')):
-                     Psi_2d_values[k_idx, :] = flux_surface_data.get('psi') # Broadcasts
-                else:
-                     Psi_2d_values[k_idx, :] = flux_surface_data.get('psi', np.zeros(nt))
-
-                Theta_2d_values[k_idx, :] = flux_surface_data.get('theta', np.zeros(nt))
-            else:
-                print(f"Warning: Not enough flux surface data in fs['flux'] for surface {k_idx}. Expected {nr} surfaces.")
 
         prof2d['r'] = R_2d
         prof2d['z'] = Z_2d

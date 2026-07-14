@@ -1,17 +1,17 @@
-import vest
-import pkg_resources
-from omas import *
+"""Load the packaged sample ODS and check its basic structure."""
 
-# load sample ods from file
-data_path = pkg_resources.resource_filename('vest', 'data/39915.json')
+from omas import ODS
 
-# load the ods file
-ods = ODS()
-ods = ods.load(data_path, consistency_check=False)
+from vaft.data.resources import data_path
 
-# print the ods keys
-print(ods.keys())
 
-# print the ods['equilibrium'] keys
-print(ods['equilibrium'].keys())
+def test_load_sample_ods():
+    sample = data_path("omas/39915.json")
+    assert sample.is_file(), f"packaged sample missing: {sample}"
 
+    ods = ODS()
+    ods = ods.load(str(sample), consistency_check=False)
+
+    assert len(ods.keys()) > 0
+    assert "equilibrium" in ods
+    assert len(ods["equilibrium"].keys()) > 0

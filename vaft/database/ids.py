@@ -14,6 +14,7 @@ import tempfile
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Optional, Union
+import h5py
 import imas
 
 try:
@@ -21,7 +22,7 @@ try:
 except ImportError:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 
-from .utils import _require_h5pyd, is_connect
+from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
@@ -29,7 +30,19 @@ def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     command = ["hsget", remote_uri, str(out_path)]
     subprocess.run(command, capture_output=False, text=True, check=True)
+    ensure_imas_hdf5_userblock(out_path, out_path.parent)
     return out_path
+
+
+def _external_h5_links(master_path: Path) -> list[str]:
+    """Return HDF5 filenames linked by an IMAS master.h5 file."""
+    filenames = []
+    with h5py.File(master_path, "r") as master:
+        for name in master:
+            link = master.get(name, getlink=True)
+            if isinstance(link, h5py.ExternalLink) and link.filename.endswith(".h5"):
+                filenames.append(Path(link.filename).name)
+    return sorted(set(filenames))
 
 def _ids_top_level_name(ids_obj):
     # 1) IMAS IDS
@@ -175,20 +188,25 @@ def load(
         ids_list = [ids_name] if isinstance(ids_name, str) else ids_name
         print(f"[INFO] Creating local staging directory: {shot_dir.absolute()}")
 
-        # Download requested IDS files from HSDS
-        for ids in ids_list:
-            remote_uri = f"hdf5://{directory}/{shot}/{ids}.h5"
-            local_file = shot_dir / f"{ids}.h5"
-            print(f"[INFO] Downloading {ids}.h5 from {remote_uri}...")
-            _download_remote_image(remote_uri, local_file)
-            print(f"[INFO] Saved to: {local_file.absolute()}")
-
-        # Always download master.h5
+        # Download master.h5 first. IMAS-Core expects every external file linked
+        # by master.h5 to be present when opening the data entry, even when the
+        # caller only asks for one IDS.
         master_remote_uri = f"hdf5://{directory}/{shot}/master.h5"
         master_local = shot_dir / "master.h5"
         print(f"[INFO] Downloading master.h5 from {master_remote_uri}...")
         _download_remote_image(master_remote_uri, master_local)
         print(f"[INFO] Saved to: {master_local.absolute()}")
+
+        linked_files = _external_h5_links(master_local)
+        requested_files = [f"{ids}.h5" for ids in ids_list]
+        for filename in sorted(set(linked_files + requested_files)):
+            local_file = shot_dir / filename
+            if local_file.exists():
+                continue
+            remote_uri = f"hdf5://{directory}/{shot}/{filename}"
+            print(f"[INFO] Downloading {filename} from {remote_uri}...")
+            _download_remote_image(remote_uri, local_file)
+            print(f"[INFO] Saved to: {local_file.absolute()}")
 
         # Open and load from local files
         uri = "imas:hdf5?path=" + str(shot_dir)

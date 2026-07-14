@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ import yaml
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
+from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_md_signals
 from vaft.process.signal_processing import smooth, vfit_signal_start_end
 
 from .utils import resolve_data_root, set_path
@@ -19,12 +21,56 @@ from .utils import resolve_data_root, set_path
 DEFAULT_MAGNETICS_TIME = np.linspace(0.0, 0.99996, 25_000)
 PROBE_LENGTH = 0.01
 POLOIDAL_ANGLE = 3 * math.pi / 2
+MIRNOV_TYPE_INDEX = 2
+TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
+    {
+        "field_code": 207,
+        "name": "OutMirnov_130_Bz",
+        "r": 0.796,
+        "z": 0.02,
+        "phi": 0.0,
+        "toroidal_angle": 0.0,
+    },
+    {
+        "field_code": 241,
+        "name": "OutMirnov_530_Bz",
+        "r": 0.796,
+        "z": 0.02,
+        "phi": 2 * math.pi / 3,
+        "toroidal_angle": 2 * math.pi / 3,
+    },
+    {
+        "field_code": 209,
+        "name": "OutMirnov_730_Bz",
+        "r": 0.796,
+        "z": 0.02,
+        "phi": math.pi,
+        "toroidal_angle": math.pi,
+    },
+    {
+        "field_code": 171,
+        "name": "MagneticFieldProbe_C2-05_Bz",
+        "r": 0.796,
+        "z": 0.02,
+        "phi": 4 * math.pi / 3,
+        "toroidal_angle": 4 * math.pi / 3,
+    },
+)
+
+
+@lru_cache(maxsize=1024)
+def _safe_vest_load_cached(shot: int, field: int, sample_path: str, offline_only: str):
+    del sample_path, offline_only
+    return raw_db.vest_load(shot, field)
 
 
 def _safe_vest_load(shot: int, field: int):
-    if not raw_db.sql_loading_available():
-        return None
-    return raw_db.vest_load(shot, field)
+    return _safe_vest_load_cached(
+        int(shot),
+        int(field),
+        os.environ.get(raw_db.RAW_SAMPLE_PATH_ENV, ""),
+        os.environ.get(raw_db.RAW_OFFLINE_ONLY_ENV, ""),
+    )
 
 
 def _geometry_root() -> Path:
@@ -66,6 +112,27 @@ def _interp_or_zero(target_time: np.ndarray, source_time: np.ndarray, values: np
     if source_time.size <= 1 or values.size <= 1:
         return np.zeros(target_time.size, dtype=float)
     return np.interp(target_time, source_time, values)
+
+
+def _raw_time_data_or_empty(shot: int, field_code: int) -> tuple[np.ndarray, np.ndarray]:
+    loaded = _safe_vest_load(shot, field_code)
+    if loaded is None:
+        return np.array([], dtype=float), np.array([], dtype=float)
+    time, data = loaded
+    time = np.asarray(time, dtype=float)
+    data = np.asarray(data, dtype=float)
+    if data.ndim > 1:
+        data = np.squeeze(data)
+    if time.size != data.size:
+        size = min(time.size, data.size)
+        time = time[:size]
+        data = data[:size]
+    return time, data
+
+
+def _set_voltage_signal(ods: object, base_path: str, time: np.ndarray, data: np.ndarray) -> None:
+    set_path(ods, f"{base_path}.voltage.time", np.asarray(time, dtype=float))
+    set_path(ods, f"{base_path}.voltage.data", np.asarray(data, dtype=float))
 
 
 def _polyfit_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
@@ -238,7 +305,7 @@ def vest_diamagnetic_flux(shot: int, plasma_start: float, plasma_end: float) -> 
     baseline = np.polyval(coeff, temp_time)
     baseline[: start_index + 1] = 0.0
 
-    dia_flux_final = dia_flux - baseline
+    dia_flux_final = -1000.0 * (dia_flux - baseline)
     dia_flux_final[end_index:] = 0.0
     return temp_time, dia_flux_final
 
@@ -246,73 +313,16 @@ def vest_diamagnetic_flux(shot: int, plasma_start: float, plasma_end: float) -> 
 def vfit_md(
     shot: int,
     indices: list[int] | np.ndarray | None = None,
+    processing_config: VestMagneticsProcessingConfig | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Process magnetic probe and flux-loop data using YAML channel metadata."""
-    f_sample_fast = 250000
-    f_cut_low = 2500
-    d_low_fast = signal.firwin(251, f_cut_low, pass_zero="lowpass", fs=f_sample_fast)
-
-    index1 = 6000
-    index2 = 8500
-    index3 = 8500
-    if (41446 <= shot <= 41451) or shot >= 41660:
-        index1 = 6500
-        index2 = 9000
-        index3 = 5000
-
-    magnetics_time = DEFAULT_MAGNETICS_TIME[index1 : index2 + 1]
-    channels = _load_md_channels()
-    if indices is not None:
-        channels = [channels[int(index)] for index in indices]
-
-    data_flux_loops: list[np.ndarray] = []
-    data_probes: list[np.ndarray] = []
-    flux_loop_counter = 0
-
-    for channel in channels:
-        field_code = int(channel["field_code"])
-        calibration = float(channel["calibration"])
-        loaded = _safe_vest_load(shot, field_code)
-        if loaded is None:
-            if channel["kind"] == "b_field_pol_probe":
-                data_probes.append(np.zeros(magnetics_time.size, dtype=float))
-            else:
-                data_flux_loops.append(np.zeros(magnetics_time.size, dtype=float))
-            continue
-
-        source_time, source_data = loaded
-        source_time = np.asarray(source_time, dtype=float)
-        source_data = np.asarray(source_data, dtype=float)
-        if source_time.size <= 1 or source_data.size <= 1:
-            if channel["kind"] == "b_field_pol_probe":
-                data_probes.append(np.zeros(magnetics_time.size, dtype=float))
-            else:
-                data_flux_loops.append(np.zeros(magnetics_time.size, dtype=float))
-            continue
-
-        if channel["kind"] == "b_field_pol_probe":
-            filtered = signal.lfilter(d_low_fast, 1, source_data)
-            integrated = -integrate.cumulative_trapezoid(filtered / calibration, source_time, initial=0.0)
-            baseline_end = min(index3, integrated.size)
-            baseline = _polyfit_baseline(source_time, integrated, np.arange(baseline_end))
-            corrected = integrated - baseline
-            data_probes.append(_interp_or_zero(magnetics_time, source_time, corrected))
-        else:
-            flux_loop_counter += 1
-            integrated = -integrate.cumulative_trapezoid(source_data / calibration, source_time, initial=0.0) / (
-                2 * math.pi
-            )
-            if flux_loop_counter in (9, 10, 11):
-                baseline_indices = np.arange(5999, min(7000, integrated.size))
-            else:
-                first = np.arange(3499, min(5000, integrated.size))
-                second = np.arange(11999, min(15000, integrated.size))
-                baseline_indices = np.concatenate((first, second))
-            baseline = _polyfit_baseline(source_time, integrated, baseline_indices)
-            corrected = integrated - baseline
-            data_flux_loops.append(_interp_or_zero(magnetics_time, source_time, corrected))
-
-    return magnetics_time, data_flux_loops, data_probes
+    """Process magnetic probe and flux-loop data using VAFT process helpers."""
+    return vest_md_signals(
+        int(shot),
+        _load_md_channels(),
+        _safe_vest_load,
+        indices=indices,
+        config=processing_config,
+    )
 
 
 def vfit_magnetics_static(ods: object) -> None:
@@ -342,14 +352,53 @@ def vfit_magnetics_static(ods: object) -> None:
             set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)
             set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", r_pos)
             set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", z_pos)
+            set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", 0.0)
             set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
             set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
+            set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", 0.0)
+            set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
             probe_index += 1
 
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+        name = str(channel["name"])
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", f"{name}:phase_reference")
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", float(channel["phi"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", float(channel["toroidal_angle"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
+        probe_index += 1
 
-def vfit_magnetics_dynamic(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
+
+def vfit_mirnov_raw_dynamic(ods: object, shot: int) -> None:
+    """Populate raw Mirnov voltage traces at their native acquisition timebase."""
+    probe_index = 0
+    for channel in _load_static_channels():
+        if channel["kind"] != "b_field_pol_probe":
+            continue
+        time, data = _raw_time_data_or_empty(shot, int(channel["field_code"]))
+        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data)
+        probe_index += 1
+
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+        time, data = _raw_time_data_or_empty(shot, int(channel["field_code"]))
+        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data)
+        probe_index += 1
+
+
+def vfit_magnetics_dynamic(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    processing_config: VestMagneticsProcessingConfig | None = None,
+) -> None:
     """Populate dynamic magnetics nodes with offline zero-waveform fallback."""
-    time, data_flux_loops, data_probes = vfit_md(shot)
+    time, data_flux_loops, data_probes = vfit_md(shot, processing_config=processing_config)
 
     if dt > 0 and time.size > 0:
         start = max(tstart, float(time[0]))
@@ -397,17 +446,32 @@ def vfit_magnetics_dynamic(ods: object, shot: int, tstart: float, tend: float, d
     time_dia, dia_flux = vest_diamagnetic_flux(shot, tstart2, tend2)
     set_path(ods, "magnetics.diamagnetic_flux.0.data", _interp_or_zero(target_time, time_dia, dia_flux))
     set_path(ods, "magnetics.diamagnetic_flux.0.time", target_time)
+    vfit_mirnov_raw_dynamic(ods, shot)
 
 
-def vfit_magnetics_for_shot(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
+def vfit_magnetics_for_shot(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    processing_config: VestMagneticsProcessingConfig | None = None,
+) -> None:
     """Populate canonical static and dynamic magnetics nodes for one shot."""
-    vfit_magnetics_dynamic(ods, shot, tstart, tend, dt)
+    vfit_magnetics_dynamic(ods, shot, tstart, tend, dt, processing_config=processing_config)
     vfit_magnetics_static(ods)
 
 
-def magnetics(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
+def magnetics(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    processing_config: VestMagneticsProcessingConfig | None = None,
+) -> None:
     """Canonical machine_mapping entry point for the magnetics IDS."""
-    vfit_magnetics_for_shot(ods, shot, tstart, tend, dt)
+    vfit_magnetics_for_shot(ods, shot, tstart, tend, dt, processing_config=processing_config)
 
 
 def flux_loop_from_raw_database(ods: object, shot: int) -> None:
@@ -442,8 +506,10 @@ def magnetics_from_raw_database(
     dt: float,
     options: dict | None = None,
 ) -> None:
-    del options
-    magnetics(ods, shot, tstart, tend, dt)
+    processing_config = None
+    if options and "processing_config" in options:
+        processing_config = options["processing_config"]
+    magnetics(ods, shot, tstart, tend, dt, processing_config=processing_config)
 
 
 __all__ = [
@@ -458,6 +524,7 @@ __all__ = [
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
     "vfit_magnetics_static",
+    "vfit_mirnov_raw_dynamic",
     "vfit_plasma_mgods_startend",
 ]
 

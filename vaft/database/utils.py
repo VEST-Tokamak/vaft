@@ -6,8 +6,11 @@ This module provides shared functionality used by multiple database interfaces
 """
 
 import logging
+import shutil
+from pathlib import Path
 from typing import Optional, List, Union
 
+import h5py
 import numpy as np
 import pandas as pd
 import requests
@@ -29,6 +32,36 @@ def _require_h5pyd() -> None:
     """Ensure h5pyd is available."""
     if h5pyd is None:
         raise ImportError(_H5PYD_MSG)
+
+
+def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Path]) -> None:
+    """Restore the IMAS HDF5 userblock stripped by HSDS downloads.
+
+    IMAS-Core stores the data-entry path in a 1024-byte HDF5 userblock.  HSDS
+    ``hsget`` recreates the HDF5 data model but drops that userblock, leaving
+    files that h5py can read but IMAS-Core rejects while opening the entry.
+    Prefixing the existing HDF5 bytes preserves the internal layout and restores
+    the backend metadata IMAS needs.
+    """
+    file_path = Path(path)
+    try:
+        with h5py.File(file_path, "r") as handle:
+            if "HDF5_BACKEND_VERSION" not in handle.attrs:
+                return
+            if handle.userblock_size >= 1024:
+                return
+    except OSError:
+        return
+
+    entry_path = str(Path(entry_dir).resolve()).encode()[:1023] + b"\0"
+    userblock = entry_path.ljust(1024, b"\0")
+    tmp_path = file_path.with_name(file_path.name + ".userblock_tmp")
+
+    with open(tmp_path, "wb") as dst:
+        dst.write(userblock)
+        with open(file_path, "rb") as src:
+            shutil.copyfileobj(src, dst)
+    tmp_path.replace(file_path)
 
 
 def is_connect() -> bool:

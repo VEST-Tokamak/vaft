@@ -94,27 +94,29 @@ class ConfinementScalingTests(unittest.TestCase):
         ip_ma = self.I_p * 1e-6
         p_mw = self.P_loss * 1e-6
         n_19 = self.n_e * 1e-19
-        expected = 4.73e-4 * ip_ma**1.01 * self.B_t**0.70 * n_19**0.07 * p_mw**-0.37
+        # 0.141 is the engineering-unit prefactor stored in _SCALING_COEFS
+        # (SI-published Kaye 2006 coefficient converted to Ip[MA]/n[1e19]/P[MW];
+        # see the conversion_note in vaft/formula/constants.py).
+        expected = 0.141 * ip_ma**1.01 * self.B_t**0.70 * n_19**0.07 * p_mw**-0.37
         self.assertAlmostEqual(got, expected, places=12)
 
-    def test_st_multi_machine_matches_manual_expression_volume_density(self):
-        n_vol = 0.88 * self.n_e
+    def test_st_multi_machine_matches_manual_expression_line_density(self):
+        # Kurskiev2022 is declared with density_definition == "line_avg".
         got = confinement_time_from_engineering_parameters(
             I_p=self.I_p,
             B_t=self.B_t,
             P_loss=self.P_loss,
-            n_e=n_vol,
+            n_e=self.n_e,
             M=self.M,
             R=self.R,
             epsilon=self.epsilon,
             kappa=self.kappa,
             scaling="Kurskiev2022",
-            input_density_definition="volume_avg",
         )
 
         ip_ma = self.I_p * 1e-6
         p_mw = self.P_loss * 1e-6
-        n_19 = n_vol * 1e-19
+        n_19 = self.n_e * 1e-19
         expected = (
             0.066
             * ip_ma**0.53
@@ -127,6 +129,8 @@ class ConfinementScalingTests(unittest.TestCase):
         self.assertAlmostEqual(got, expected, places=12)
 
     def test_density_conversion_requires_explicit_factor(self):
+        # Kurskiev2022 expects line-averaged density; passing volume-averaged
+        # density without an explicit conversion factor must fail loudly.
         with self.assertRaises(ValueError):
             confinement_time_from_engineering_parameters(
                 I_p=self.I_p,
@@ -138,24 +142,13 @@ class ConfinementScalingTests(unittest.TestCase):
                 epsilon=self.epsilon,
                 kappa=self.kappa,
                 scaling="Kurskiev2022",
-                input_density_definition="line_avg",
+                input_density_definition="volume_avg",
             )
 
-    def test_density_conversion_line_to_volume_matches_direct_volume_input(self):
+    def test_density_conversion_volume_to_line_matches_direct_line_input(self):
+        # line_to_volume_factor = n_vol / n_line, so a volume-averaged input of
+        # 0.88 * n_e with factor 0.88 must equal a direct line-averaged n_e.
         converted = confinement_time_from_engineering_parameters(
-            I_p=self.I_p,
-            B_t=self.B_t,
-            P_loss=self.P_loss,
-            n_e=self.n_e,
-            M=self.M,
-            R=self.R,
-            epsilon=self.epsilon,
-            kappa=self.kappa,
-            scaling="Kurskiev2022",
-            input_density_definition="line_avg",
-            line_to_volume_factor=0.88,
-        )
-        direct = confinement_time_from_engineering_parameters(
             I_p=self.I_p,
             B_t=self.B_t,
             P_loss=self.P_loss,
@@ -166,6 +159,18 @@ class ConfinementScalingTests(unittest.TestCase):
             kappa=self.kappa,
             scaling="Kurskiev2022",
             input_density_definition="volume_avg",
+            line_to_volume_factor=0.88,
+        )
+        direct = confinement_time_from_engineering_parameters(
+            I_p=self.I_p,
+            B_t=self.B_t,
+            P_loss=self.P_loss,
+            n_e=self.n_e,
+            M=self.M,
+            R=self.R,
+            epsilon=self.epsilon,
+            kappa=self.kappa,
+            scaling="Kurskiev2022",
         )
         self.assertAlmostEqual(converted, direct, places=12)
 
