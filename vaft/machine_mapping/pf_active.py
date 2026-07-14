@@ -44,8 +44,6 @@ def resolve_geometry_asset(filename: str, geometry_root: str | Path | None = Non
 
 
 def _safe_vest_load(shot: int, field: int):
-    if not raw_db.sql_loading_available():
-        return None
     return raw_db.vest_load(shot, field)
 
 

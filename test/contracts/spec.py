@@ -243,8 +243,6 @@ SAMPLE_FILE_IDS = {
         "spectrometer_uv",
     ),
     "thomson_scattering.json": ("thomson_scattering",),
-    "vfit_ion_doppler_single.json": ("charge_exchange",),
-    "vfit_ion_doppler_profile.json": ("charge_exchange",),
 }
 
 

@@ -12,9 +12,18 @@ Usage:
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import pytest
 from omas import ODS, save_omas_nc
-from vaft.code.omfit_eqdsk import OMFITeqdsk
-from vaft.code.fluxSurface import fluxSurfaces
+
+import vaft  # noqa: F401  (applies NumPy/SciPy compat shims before omfit_classes)
+
+
+def _require_omfit():
+    """Import omfit helpers lazily so collecting this module never pulls
+    omfit_classes into sys.modules (other tests assert its absence)."""
+    _omfit_eqdsk = pytest.importorskip("omfit_classes.omfit_eqdsk", reason="requires omfit-classes")
+    _flux_surface = pytest.importorskip("omfit_classes.fluxSurface", reason="requires omfit-classes")
+    return _omfit_eqdsk.OMFITeqdsk, _flux_surface.fluxSurfaces
 
 
 def plot_sfl_grid(ods: ODS, save_plots: bool = True, method: str = 'straight_line') -> None:
@@ -90,6 +99,7 @@ def geqdsk_to_imas_2d(gfile: str,
     ods      : OMAS ODS with filled equilibrium/time_slice[0]/profiles_2d[0]
     """
     # Read equilibrium
+    OMFITeqdsk, fluxSurfaces = _require_omfit()
     eq = OMFITeqdsk(gfile)
 
     # Build FluxSurface and compute PEST (straight_field_line)
@@ -144,7 +154,7 @@ def geqdsk_to_imas_2d(gfile: str,
 
 if __name__ == '__main__':
     # Example usage
-    gfile = '/home/user1/h5pyd/vaft/vaft/data/g039020.031180'
+    gfile = '/home/user1/h5pyd/vaft/vaft/data/efit/g039020.031180'
     n_theta = 129
     out_nc = 'ods_sfl.nc'
 

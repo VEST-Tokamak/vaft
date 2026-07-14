@@ -1,12 +1,231 @@
 from vaft.formula import green_br_bz, green_r, calculate_distance
 import numpy as np
 
+from dataclasses import dataclass, field
+from pathlib import Path
+import re
+import subprocess
 import statistics
 import math
 from scipy.signal import savgol_filter
 from scipy import interpolate,optimize
 from omas import *
 import os
+from typing import Any, Mapping, Optional, Sequence
+from vaft.machine_mapping.utils import path_exists
+
+
+@dataclass(frozen=True)
+class EFITConfig:
+    """Python-first EFIT workflow configuration."""
+
+    executable: Optional[str] = None
+    workdir: Path | str = Path(".")
+    shot: Optional[int] = None
+    times: Optional[Sequence[float]] = None
+    constraint_options: Mapping[str, Any] = field(default_factory=dict)
+    profile_options: Mapping[str, Any] = field(default_factory=dict)
+    env: Mapping[str, str] = field(default_factory=dict)
+    args: Sequence[str] = ()
+    timeout: Optional[float] = None
+    npprime: int = 2
+    nffprime: int = 2
+    stack_size_kb: Optional[int] = 32768
+
+
+@dataclass
+class EFITInputs:
+    """Input bundle for an EFIT run."""
+
+    workdir: Path
+    ods: Any = None
+    geqdsk: Any = None
+    kfiles: tuple[Path, ...] = ()
+    files: tuple[Path, ...] = ()
+
+
+@dataclass
+class EFITResult:
+    """Collected EFIT run status, files, logs, and parsed equilibria."""
+
+    returncode: Optional[int]
+    workdir: Path
+    gfiles: tuple[Path, ...] = ()
+    afiles: tuple[Path, ...] = ()
+    mfiles: tuple[Path, ...] = ()
+    kfiles: tuple[Path, ...] = ()
+    logs: tuple[Path, ...] = ()
+    stdout: str = ""
+    stderr: str = ""
+    geqdsk: tuple[Any, ...] = ()
+    parse_errors: tuple[str, ...] = ()
+    ods: Any = None
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+
+def _efit_workdir(config: EFITConfig | None = None, workdir: str | Path | None = None) -> Path:
+    if workdir is not None:
+        return Path(workdir).expanduser()
+    if config is not None:
+        return Path(config.workdir).expanduser()
+    return Path(".").expanduser()
+
+
+def _infer_shot(ods: Any = None, config: EFITConfig | None = None) -> int:
+    if config is not None and config.shot is not None:
+        return int(config.shot)
+    if ods is not None:
+        for path in (
+            "dataset_description.data_entry.pulse",
+            "summary.global_quantities.pulse",
+        ):
+            try:
+                return int(ods[path])
+            except Exception:
+                pass
+    raise ValueError("EFIT shot number is required in EFITConfig.shot or ODS metadata")
+
+
+def _find_outputs(workdir: Path, prefix: str, shot: int | None = None) -> tuple[Path, ...]:
+    candidates = []
+    search_roots = [workdir / f"{prefix}file", workdir]
+    pattern = f"{prefix}0{shot}.*" if shot is not None else f"{prefix}*"
+    for root in search_roots:
+        if root.exists():
+            candidates.extend(path for path in root.glob(pattern) if path.is_file())
+    return tuple(sorted(set(candidates)))
+
+
+def _relative_input_names(workdir: Path, kfiles: Sequence[Path]) -> list[str]:
+    names = []
+    for kfile in kfiles:
+        path = Path(kfile)
+        try:
+            names.append(str(path.relative_to(workdir)))
+        except ValueError:
+            names.append(str(path))
+    return names
+
+
+def _efit_stdin(workdir: Path, kfiles: Sequence[Path]) -> str:
+    input_names = _relative_input_names(workdir, kfiles)
+    if not input_names:
+        raise ValueError("At least one EFIT kfile is required")
+    return "2\n{}\n{}\n".format(len(input_names), "\n".join(input_names))
+
+
+def _efit_command(config: EFITConfig) -> list[str]:
+    if not config.executable:
+        raise ValueError("EFITConfig.executable is required to run EFIT")
+    executable = str(config.executable)
+    args = [str(arg) for arg in config.args]
+    if config.stack_size_kb is None:
+        return [executable, *args]
+    return [
+        "bash",
+        "-lc",
+        f"ulimit -s {int(config.stack_size_kb)}; exec \"$@\"",
+        "efit-runner",
+        executable,
+        *args,
+    ]
+
+
+def prepare_efit_inputs(ods: Any, config: EFITConfig) -> EFITInputs:
+    """Prepare EFIT input files from an ODS and workflow configuration."""
+    workdir = _efit_workdir(config)
+    workdir.mkdir(parents=True, exist_ok=True)
+    shot = _infer_shot(ods, config)
+
+    if config.times is not None:
+        try:
+            ods["equilibrium.time"] = np.asarray(config.times)
+        except Exception:
+            pass
+
+    generate_kfile(
+        ods,
+        shot,
+        config.npprime,
+        config.nffprime,
+        save_dir=str(workdir),
+    )
+    kfiles = _find_outputs(workdir, "k", shot)
+    return EFITInputs(workdir=workdir, ods=ods, kfiles=kfiles, files=kfiles)
+
+
+def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
+    """Run EFIT with prepared inputs and collect produced outputs."""
+    workdir = _efit_workdir(config, inputs.workdir)
+    command = _efit_command(config)
+    stdin_text = _efit_stdin(workdir, inputs.kfiles)
+    env = os.environ.copy()
+    env.update(dict(config.env))
+    env.setdefault("OMP_NUM_THREADS", "1")
+    completed = subprocess.run(
+        command,
+        cwd=str(workdir),
+        env=env,
+        input=stdin_text,
+        text=True,
+        capture_output=True,
+        timeout=config.timeout,
+        check=False,
+    )
+    (workdir / "run_efit.out").write_text(completed.stdout, encoding="utf-8")
+    (workdir / "run_efit.err").write_text(completed.stderr, encoding="utf-8")
+    result = collect_efit_outputs(workdir, config)
+    result.returncode = completed.returncode
+    result.stdout = completed.stdout
+    result.stderr = completed.stderr
+    return result
+
+
+def collect_efit_outputs(workdir: str | Path, config: EFITConfig | None = None) -> EFITResult:
+    """Collect EFIT files from a working directory and parse g-files when possible."""
+    base = _efit_workdir(config, workdir)
+    shot = config.shot if config is not None else None
+    gfiles = _find_outputs(base, "g", shot)
+    afiles = _find_outputs(base, "a", shot)
+    mfiles = _find_outputs(base, "m", shot)
+    kfiles = _find_outputs(base, "k", shot)
+    logs = tuple(sorted(path for path in base.rglob("*.log") if path.is_file())) if base.exists() else ()
+
+    parsed = []
+    parse_errors = []
+    for gfile in gfiles:
+        try:
+            from vaft.data.eqdsk import read_geqdsk
+
+            parsed.append(read_geqdsk(gfile))
+        except Exception as exc:
+            parse_errors.append(f"{gfile}: {exc}")
+            continue
+
+    ods = None
+    if parsed:
+        try:
+            for idx, item in enumerate(parsed):
+                ods = item.to_omas(ods=ods, time_index=idx)
+        except Exception as exc:
+            parse_errors.append(f"to_omas: {exc}")
+            ods = None
+
+    return EFITResult(
+        returncode=None,
+        workdir=base,
+        gfiles=gfiles,
+        afiles=afiles,
+        mfiles=mfiles,
+        kfiles=kfiles,
+        logs=logs,
+        geqdsk=tuple(parsed),
+        parse_errors=tuple(parse_errors),
+        ods=ods,
+    )
 
 def gauss_fit4(coef, x):
     return coef[0] * np.exp(-(x - coef[1]) ** 2 / 2 / coef[2] / coef[2]) + coef[3]
@@ -54,6 +273,8 @@ def vfit_equilibrium_form_constraints(EQ,PF,MG,TF, times, constraints, average):
 
     if 'bpol_probe' in constraints:
         for channel in MG['b_field_pol_probe']:
+            if not path_exists(MG, f'b_field_pol_probe.{channel}.field.data'):
+                continue
             time = MG['time']
             data = MG[f'b_field_pol_probe.{channel}.field.data']
             error = MG[f'b_field_pol_probe.{channel}.field.data_error_upper']
@@ -199,20 +420,26 @@ def correct_flux_loop(ods):
     fl_data = MG[f'flux_loop.{nbflux-1}.flux.data']
     fl_time = MG['time']
     #    (fl_time, fl_data) = vest_load(shotnumber, 26)
-    tstart=max(0.24,fl_time[0]+0.01)
-    tend=min(0.35,fl_time[-1]-0.01)
+    tstart=max(0.24,fl_time[0])
+    tend=min(0.305,fl_time[-1])
     (fl_onset, _, _) = vest_signal_onoffsetpeak(fl_time, fl_data, tstart=tstart, tend=tend, threshold=0.01)
     print('Flux Loop Onset Time: ', fl_onset)
 
     # Find the plasma onset and offset time
     (onset, offset) = vest_Halpha_tstart_tend(ods)
+    fl_onset = fl_onset + 0.003
+    onset = onset - 0.003
 
     # Calculate response matrix
     (psi_total, psi_coil, psi_eddy, _, _, _, _, _) = calculate_md_by_ods(ods, method='vectorized')
 
     # Extract the measured and calculated flux loop data
     measured_flux_loop = MG['flux_loop.:.flux.data']
-    calculated_flux_loop = psi_coil + psi_eddy
+    calculated_flux_loop_temp = psi_coil + psi_eddy
+    calculated_flux_loop = np.zeros((nbflux, len(MG['time'])))
+    pf_time = np.asarray(ods['pf_active.time'], dtype=float)
+    for i in range(nbflux):
+        calculated_flux_loop[i, :] = np.interp(MG['time'], pf_time, calculated_flux_loop_temp[i, :])
 
     # Filter the data between the flux loop onset time and plasma onset time
     fl_onset_idx = (np.abs(MG['time'] - fl_onset)).argmin()
@@ -221,13 +448,14 @@ def correct_flux_loop(ods):
     calculated_flux_loop = calculated_flux_loop[:, fl_onset_idx:plas_onset_idx]
 
     # Calculate the scaling factor for each flux loop based on least square fitting
-    scaling_factor = np.zeros(11)
-    for i in range(11):
+    scaling_factor = np.ones(nbflux)
+    for i in range(nbflux):
         measured = measured_flux_loop[i]
         calculated = calculated_flux_loop[i]
 
-        # Using least squares to find the scaling factor
-        scaling_factor[i], _, _, _ = np.linalg.lstsq(calculated[:, np.newaxis], measured, rcond=None)
+        denominator = np.dot(measured, calculated)
+        if denominator != 0.0:
+            scaling_factor[i] = np.dot(measured, measured) / denominator
 
     return scaling_factor
 
@@ -711,7 +939,7 @@ def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
         t_offset (float): Time of signal offset.
     """
     # Parameters
-    smooth_factor = 5
+    smooth_factor = 50
 
     # Smooth the data using Savitzky-Golay filter
     data_smoothed = savgol_filter(data, smooth_factor, 3)  # window size 50, polynomial order 3
@@ -722,7 +950,7 @@ def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
     ind_end = np.argmin(np.abs(time - tend))
 
     # Ensure the specified range is within the data length
-    if ind_start < 1 or ind_end > nbt:
+    if ind_start < 0 or ind_end > nbt or ind_end <= ind_start:
         raise ValueError('Specified time range is out of bounds.',ind_start,ind_end)
 
     mini = np.min(data_smoothed[ind_start:ind_end])
@@ -768,17 +996,16 @@ def vest_Halpha_tstart_tend(ods):
     data = SP['channel.0.processed_line.0.intensity.data']
     time = SP['time']
     #    (time, data) = vest_load(int(shot), 101)
-    smooth_factor = 5
-    # Smooth the data using Savitzky-Golay filter
-    data_smoothed = savgol_filter(data, smooth_factor, 3)  # window size 50, polynomial order 3
+    data_smoothed = smooth(data, 10)
 
     # Look for the minimum (Halpha signal negative) between 0.3 and 0.6 s
     indx1 = min(range(len(time)), key=lambda i: abs(time[i] - 0.3))
     indx2 = min(range(len(time)), key=lambda i: abs(time[i] - 0.36))
-    #    mini = min(data_smoothed[indx1:indx2])
+    mini = min(data_smoothed[indx1:indx2])
 
     # Normalize data
-    #    data = data_smoothed / mini
+    if mini != 0:
+        data_smoothed = data_smoothed / mini
 
     #    plot(time[indx1:indx2], data_smoothed[indx1:indx2])
 
@@ -880,9 +1107,17 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
     Index_sideBz = np.where(np.abs(MG['b_field_pol_probe.:.position.z']) > 0.8)
     Index_outBz = np.where(MG['b_field_pol_probe.:.position.r']>0.795)
     # convert tuple to array
-    Index_inBz = Index_inBz[0]
-    Index_sideBz = Index_sideBz[0]
-    Index_outBz = Index_outBz[0]
+    valid_bpol_indices = np.array(
+        [
+            int(index)
+            for index, _ in enumerate(MG['b_field_pol_probe'])
+            if path_exists(MG, f'b_field_pol_probe.{index}.field.data')
+        ],
+        dtype=int,
+    )
+    Index_inBz = np.intersect1d(Index_inBz[0], valid_bpol_indices)
+    Index_sideBz = np.intersect1d(Index_sideBz[0], valid_bpol_indices)
+    Index_outBz = np.intersect1d(Index_outBz[0], valid_bpol_indices)
 
 #    print('==!==')
 #    print(broken)
@@ -940,7 +1175,7 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
 
     PFP=ods['pf_passive']
     nbloop=len(PFP['loop'])
-    nbprobe=len(MG['b_field_pol_probe'])
+    nbprobe=len(valid_bpol_indices)
     PM=ods['equilibrium.code.parameters']
 
     # Ad hoc diamaagnetic flux constraint sign change 
@@ -1263,7 +1498,7 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
     
 def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
     """
-    Generate kfile such that save_dir/kfile/k0{'[;p/\shotnumber}.* is created
+    Generate k-files under ``save_dir/kfile`` for the requested shot.
     """
 
     # Load the constraints ODS
@@ -1276,6 +1511,26 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
     shft = 10000.0
     TABLE_DIR = "TABLE_DIR = '{}' \n".format(PM['time_slice.0.IN1.INPUT_DIR'])
     INPUT_DIR = "INPUT_DIR = '{}' \n".format(PM['time_slice.0.IN1.INPUT_DIR'])
+
+    def _machine_count(name, default):
+        mhdin = Path(PM['time_slice.0.IN1.INPUT_DIR']).expanduser() / "mhdin.dat"
+        if not mhdin.exists():
+            return default
+        match = re.search(rf"\b{name}\s*=\s*(\d+)", mhdin.read_text(encoding="utf-8", errors="ignore"), re.IGNORECASE)
+        return int(match.group(1)) if match else default
+
+    def _namelist_array(name, values, per_line=4, formatter=str):
+        chunks = [f"{name}= "]
+        for idx, value in enumerate(values, start=1):
+            chunks.append(f"{formatter(value)}, ")
+            if idx % per_line == 0:
+                chunks.append("\n ")
+        return "".join(chunks).rstrip(" \n,") + "\n"
+
+    def _efit16_indices(count: int, target: int) -> list[int]:
+        if target == 16 and count >= 26:
+            return [0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25]
+        return list(range(min(count, target)))
 
     # find the maximum decimal places in the time
     #    for time_idx, _ in enumerate(time):
@@ -1290,40 +1545,23 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         CSTR = EQ[f'time_slice.{time_idx}.constraints']
 
         ## (1) PF Coil currents with weight
-        nbcoil = len(CSTR['pf_current'])
+        nfsum = _machine_count("nfsum", len(CSTR['pf_current']))
+        pf_indices = _efit16_indices(len(CSTR['pf_current']), nfsum)
+        nbcoil = len(pf_indices)
         COILCURRENT = np.zeros(nbcoil)
         BITCURRENT = np.zeros(nbcoil)
-        for i in range(nbcoil):
-            COILCURRENT[i] = CSTR[f'pf_current.{i}.measured']  # Coil current in A
-            BITCURRENT[i] = CSTR[f'pf_current.{i}.measured_error_upper']  # Standard deviation of coil current measurement data in A
-        BRSP = 'BRSP= '
-        BITFC = 'BITFC= '
-        bcpt = 0
-        for i in range(nbcoil):
-            CUR = COILCURRENT[i]
-            BIT = BITCURRENT[i]
-            BRSP = BRSP + f'{CUR} '
-            BITFC = BITFC + f'{BIT} '
-            bcpt = bcpt + 1
-            if bcpt == 3:
-                BRSP = BRSP + '\n'
-                BITFC = BITFC + '\n'
-                bcpt = 0
+        for i, source_index in enumerate(pf_indices):
+            COILCURRENT[i] = CSTR[f'pf_current.{source_index}.measured']  # Coil current in A
+            BITCURRENT[i] = CSTR[f'pf_current.{source_index}.measured_error_upper']  # Standard deviation of coil current measurement data in A
+        BRSP = _namelist_array('BRSP', COILCURRENT, per_line=3)
+        BITFC = _namelist_array('BITFC', BITCURRENT, per_line=3)
         FWTFC = f'FWTFC= 16*{CSTR[f"pf_current.0.weight"]}\n'  # Fitting weight
 
         ## (2) Wall eddy current
         WALLCURRENT = PM[f'time_slice.{time_idx}.IN1.VCURRT']  # Wall current array in A
         nbloop = len(WALLCURRENT)
 
-        wcpt = 0  # wall current print counter
-        VCURRT = 'VCURRT= '
-        for i, val in enumerate(WALLCURRENT):
-            VCURRT = VCURRT + f'{val} '
-            wcpt = wcpt + 1
-            # print 4 numbers per line for VCURRT ?
-            if wcpt == 4:
-                VCURRT = VCURRT + '\n'
-                wcpt = 0
+        VCURRT = _namelist_array('VCURRT', WALLCURRENT, per_line=4)
 
         ## (3) Toroidal magnetic field (TF coil)
         RCENTR = 0.4
@@ -1336,7 +1574,7 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
 
         ## (5) Diamagnetic flux with weight
         DFLUX = 'DFLUX= '
-        VAL = CSTR['diamagnetic_flux.measured'] * 1000  # diamagnetic flux in mWb
+        VAL = abs(CSTR['diamagnetic_flux.measured'] * 1000)  # diamagnetic flux in mWb
 #        VAL = -VAL  # diamagnetic flux is negative to positive
         DFLUX = DFLUX + f'{VAL} \n'
 
@@ -1354,71 +1592,42 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
 
         ## (6) Poloidal magnetic probe with weight
         nbprobe = len(CSTR['bpol_probe'])
-        EXPMP2 = 'EXPMP2= '
-        ecpt = 0
-        for i in range(nbprobe):
-            EXPMP2 = EXPMP2 + f'{CSTR[f"bpol_probe.{i}.measured"]} '
-            ecpt = ecpt + 1
-            if ecpt == 3:
-                EXPMP2 = EXPMP2 + '\n'
-                ecpt = 0
-        cpt = 0
-        FWTMP2 = 'FWTMP2= '  # Validity (0: broken, 1: valid)
-        BITMPI = 'BITMPI= '  # Fitting weight
-        cptmp2 = 0
-        wcptmp2 = 0
+        EXPMP2 = _namelist_array('EXPMP2', [CSTR[f"bpol_probe.{i}.measured"] for i in range(nbprobe)], per_line=3)
+        fwtmp2_values = []
+        bitmpi_values = []
         for i in range(nbprobe):
             if CSTR[f'bpol_probe.{i}.weight'] == 0:  # if the probe is broken
-                FWTMP2 = FWTMP2 + ' 0'
-                cptmp2 = cptmp2 + 1
-                BITMPI = BITMPI + '0.0 '
-                wcptmp2 = wcptmp2 + 1
+                fwtmp2_values.append(0)
+                bitmpi_values.append(0.0)
             else:
                 poids = CSTR[f'bpol_probe.{i}.weight']
                 poids = poids / vbit * shft
-                FWTMP2 = FWTMP2 + ' 1'
-                BITMPI = BITMPI + f' {poids:.3f} '
-                cptmp2 = cptmp2 + 1
-                wcptmp2 = wcptmp2 + 1
-            # print 32 numbers per line for FWTMP2 ?
-            if cptmp2 == 32:
-                FWTMP2 = FWTMP2 + '\n '
-                cptmp2 = 0
-            # print 3 numbers per line for BITMPI ?
-            if wcptmp2 == 3:
-                BITMPI = BITMPI + '\n '
-                wcptmp2 = 0
+                fwtmp2_values.append(1)
+                bitmpi_values.append(poids)
+        FWTMP2 = _namelist_array('FWTMP2', fwtmp2_values, per_line=32)
+        BITMPI = _namelist_array('BITMPI', bitmpi_values, per_line=3, formatter=lambda value: f'{value:.3f}')
 
         ## (4) Flux loops
         nbfl = len(CSTR['flux_loop'])
-        COILS = 'COILS= '
-        ccpt = 0
-        for i in range(len(CSTR['flux_loop'])):
-            VAL = CSTR[f'flux_loop.{i}.measured'] / 2 / np.pi  # Wb to Wb/rad
-            COILS = COILS + f'{VAL} '
-            ccpt = ccpt + 1
-            if ccpt == 3:
-                COILS = COILS + '\n'
-                ccpt = 0
+        COILS = _namelist_array(
+            'COILS',
+            [CSTR[f'flux_loop.{i}.measured'] / 2 / np.pi for i in range(len(CSTR['flux_loop']))],
+            per_line=3,
+        )
 
-        FWTSI = 'FWTSI= '  # Validity (0: broken, 1: valid)
-        PSIBIT = 'PSIBIT= '  # Fitting weight
-        wcptsi = 0
+        fwtsi_values = []
+        psibit_values = []
         for i in range(nbfl):
             if CSTR[f'flux_loop.{i}.weight'] == 0:  # if the flux loop is broken
-                FWTSI = FWTSI + ' 0'
-                PSIBIT = PSIBIT + '0.0 '
-                wcptsi = wcptsi + 1
+                fwtsi_values.append(0)
+                psibit_values.append(0.0)
             else:
                 poids = CSTR[f'flux_loop.{i}.weight']
                 poids = poids / vbit * shft
-                FWTSI = FWTSI + ' 1'
-                PSIBIT = PSIBIT + f' {poids:.3f} '
-                wcptsi = wcptsi + 1
-            # print 3 numbers per line for PSIBIT ?
-            if wcptsi == 3:
-                PSIBIT = PSIBIT + '\n '
-                wcptsi = 0
+                fwtsi_values.append(1)
+                psibit_values.append(poids)
+        FWTSI = _namelist_array('FWTSI', fwtsi_values, per_line=32)
+        PSIBIT = _namelist_array('PSIBIT', psibit_values, per_line=3, formatter=lambda value: f'{value:.3f}')
 
         TTIME = str(int(np.round(time[time_idx], 4) * 1e6))
         #        print('TTIME=',TTIME)
@@ -1471,7 +1680,7 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         f.write('\n')
         f.write(f' RCENTR = {RCENTR}\n')
         f.write(f' ISHOT = {shotnumber}\n')
-        f.write(f' ITIME = {int(time[time_idx]*1000.)}\n')
+        f.write(f' ITIME = {int(round(time[time_idx]*1000.))}\n')
         # if digit > 3: # Add ITIMEU (microsecond) if digit is greater than 3
         #     f.write(f' ITIMEU = {(time[time_idx]*1000-int(time[time_idx]*1000))*1000}\n')
         f.write(BRSP)
@@ -1530,7 +1739,6 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         f.write(' XCOILS = 12*0.0\n')
         f.write(' /\n')
         f.write('                                            MAG\n')
-
         f.close()
 
     
@@ -1543,166 +1751,16 @@ def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_d
     :param time_index: time index to which data is added
 
     :param allow_derived_data: bool
-        Allow data to be drawn from fluxSurfaces, AuxQuantities, etc. May trigger dynamic loading.
+        Populate simple derived equilibrium quantities when available.
 
     :return: ODS
     """
-    if ods is None:
-        ods = ODS()
+    from vaft.data.eqdsk import to_omas as _geqdsk_to_omas
 
-    if self.cocos is None:
-        cocosio = self.native_cocos()  # assume native gEQDSK COCOS
-    else:
-        cocosio = self.cocos
-
-    # delete time_slice before writing, since these quantities all need to be consistent
-    if 'equilibrium.time_slice.%d' % time_index in ods:
-        ods['equilibrium.time_slice.%d' % time_index] = ODS()
-
-    # write derived quantities from fluxSurfaces
-    if self['CURRENT'] != 0.0:
-        flx = self['fluxSurfaces']
-        ods = flx.to_omas(ods, time_index=time_index)
-
-    eqt = ods[f'equilibrium.time_slice.{time_index}']
-
-    # align psi grid
-    psi = np.linspace(self['SIMAG'], self['SIBRY'], len(self['PRES']))
-    if f'equilibrium.time_slice.{time_index}.profiles_1d.psi' in ods:
-        with omas_environment(ods, cocosio=cocosio):
-            m0 = psi[0]
-            M0 = psi[-1]
-            m1 = eqt['profiles_1d.psi'][0]
-            M1 = eqt['profiles_1d.psi'][-1]
-            psi = (psi - m0) / (M0 - m0) * (M1 - m1) + m1
-    coordsio = {f'equilibrium.time_slice.{time_index}.profiles_1d.psi': psi}
-
-    # add gEQDSK quantities
-    with omas_environment(ods, cocosio=cocosio, coordsio=coordsio):
-
-        try:
-            ods['dataset_description.data_entry.pulse'] = int(
-                re.sub('[a-zA-Z]([0-9]+).([0-9]+).*', r'\1', os.path.split(self.filename)[1])
-            )
-        except Exception:
-            ods['dataset_description.data_entry.pulse'] = 0
-
-        try:
-            separator = ''
-            ods['equilibrium.ids_properties.comment'] = self['CASE'][0]
-        except Exception:
-            ods['equilibrium.ids_properties.comment'] = 'omasEQ'
-
-        try:
-            # TODO: this removes any sub ms time info and should be fixed
-            eqt['time'] = float(re.sub('[a-zA-Z]([0-9]+).([0-9]+).*', r'\2', os.path.split(self.filename)[1])) / 1000.0
-        except Exception:
-            eqt['time'] = 0.0
-
-        # *********************
-        # ESSENTIAL
-        # *********************
-        if 'RHOVN' in self:  # EAST gEQDSKs from MDSplus do not always have RHOVN defined
-            rhovn = self['RHOVN']
-        else:
-
-            printd('RHOVN is missing from top level geqdsk, so falling back to RHO from AuxQuantities', topic='OMFITgeqdsk')
-            rhovn = self['AuxQuantities']['RHO']
-
-        # ============0D
-        eqt['global_quantities.magnetic_axis.r'] = self['RMAXIS']
-        eqt['global_quantities.magnetic_axis.z'] = self['ZMAXIS']
-        eqt['global_quantities.psi_axis'] = self['SIMAG']
-        eqt['global_quantities.psi_boundary'] = self['SIBRY']
-        eqt['global_quantities.ip'] = self['CURRENT']
-
-        # ============0D time dependent vacuum_toroidal_field
-        ods['equilibrium.vacuum_toroidal_field.r0'] = self['RCENTR']
-        ods.set_time_array('equilibrium.vacuum_toroidal_field.b0', time_index, self['BCENTR'])
-
-        # ============1D
-        eqt['profiles_1d.f'] = self['FPOL']
-        eqt['profiles_1d.pressure'] = self['PRES']
-        eqt['profiles_1d.f_df_dpsi'] = self['FFPRIM']
-        eqt['profiles_1d.dpressure_dpsi'] = self['PPRIME']
-        eqt['profiles_1d.q'] = self['QPSI']
-        eqt['profiles_1d.rho_tor_norm'] = rhovn
-
-        # ============2D
-        eqt['profiles_2d.0.grid_type.index'] = 1
-        eqt['profiles_2d.0.grid.dim1'] = np.linspace(0, self['RDIM'], self['NW']) + self['RLEFT']
-        eqt['profiles_2d.0.grid.dim2'] = np.linspace(0, self['ZDIM'], self['NH']) - self['ZDIM'] / 2.0 + self['ZMID']
-        eqt['profiles_2d.0.psi'] = self['PSIRZ'].T
-        if 'PCURRT' in self:
-            eqt['profiles_2d.0.j_tor'] = self['PCURRT'].T
-
-        # *********************
-        # DERIVED
-        # *********************
-
-        if self['CURRENT'] != 0.0:
-            # ============0D
-            eqt['global_quantities.magnetic_axis.b_field_tor'] = self['BCENTR'] * self['RCENTR'] / self['RMAXIS']
-            eqt['global_quantities.q_axis'] = self['QPSI'][0]
-            eqt['global_quantities.q_95'] = interpolate.interp1d(np.linspace(0.0, 1.0, len(self['QPSI'])), self['QPSI'])(0.95)
-            eqt['global_quantities.q_min.value'] = self['QPSI'][np.argmin(abs(self['QPSI']))]
-            eqt['global_quantities.q_min.rho_tor_norm'] = rhovn[np.argmin(abs(self['QPSI']))]
-
-            # ============1D
-            Psi1D = np.linspace(self['SIMAG'], self['SIBRY'], len(self['FPOL']))
-            # eqt['profiles_1d.psi'] = Psi1D #no need bacause of coordsio
-            eqt['profiles_1d.phi'] = self['AuxQuantities']['PHI']
-            eqt['profiles_1d.rho_tor'] = rhovn * self['AuxQuantities']['RHOm']
-
-            # ============2D
-            eqt['profiles_2d.0.b_field_r'] = self['AuxQuantities']['Br'].T
-            eqt['profiles_2d.0.b_field_tor'] = self['AuxQuantities']['Bt'].T
-            eqt['profiles_2d.0.b_field_z'] = self['AuxQuantities']['Bz'].T
-            eqt['profiles_2d.0.phi'] = (interpolate.interp1d(
-                Psi1D, self['AuxQuantities']['PHI'],
-                fill_value='extrapolate', bounds_error=False
-            )(self['PSIRZ'])).T
-
-    if self['CURRENT'] != 0.0:
-        # These quantities don't require COCOS or coordinate transformation
-        eqt['boundary.outline.r'] = self['RBBBS']
-        eqt['boundary.outline.z'] = self['ZBBBS']
-        if allow_derived_data and 'Rx1' in self['AuxQuantities'] and 'Zx1' in self['AuxQuantities']:
-            eqt['boundary.x_point.0.r'] = self['AuxQuantities']['Rx1']
-            eqt['boundary.x_point.0.z'] = self['AuxQuantities']['Zx1']
-        if allow_derived_data and 'Rx2' in self['AuxQuantities'] and 'Zx2' in self['AuxQuantities']:
-            eqt['boundary.x_point.1.r'] = self['AuxQuantities']['Rx2']
-            eqt['boundary.x_point.1.z'] = self['AuxQuantities']['Zx2']
-
-    # Set the time array
-    ods.set_time_array('equilibrium.time', time_index, eqt['time'])
-
-    # ============WALL
-    ods['wall.description_2d.0.limiter.type.name'] = 'first_wall'
-    ods['wall.description_2d.0.limiter.type.index'] = 0
-    ods['wall.description_2d.0.limiter.type.description'] = 'first wall'
-    ods['wall.description_2d.0.limiter.unit.0.outline.r'] = self['RLIM']
-    ods['wall.description_2d.0.limiter.unit.0.outline.z'] = self['ZLIM']
-
-    # Set the time array (yes... also for the wall)
-    ods.set_time_array('wall.time', time_index, eqt['time'])
-
-    # Set reconstucted current (not yet in m-files)
-    ods['equilibrium.time_slice'][time_index]['constraints']['ip.reconstructed'] = self['CURRENT']
-
-    # Store auxiliary namelists
-    code_parameters = ods['equilibrium.code.parameters']
-    if 'time_slice' not in code_parameters:
-        code_parameters['time_slice'] = ODS()
-    if time_index not in code_parameters['time_slice']:
-        code_parameters['time_slice'][time_index] = ODS()
-    if 'AuxNamelist' in self:
-        for items in self['AuxNamelist']:
-            if '__comment' not in items:  # probably not needed
-                code_parameters['time_slice'][time_index][items.lower()] = ODS()
-                for item in self['AuxNamelist'][items]:
-                    code_parameters['time_slice'][time_index][items.lower()][item.lower()] = self['AuxNamelist'][items.upper()][
-                        item.upper()
-                    ]
-
-    return ods
+    return _geqdsk_to_omas(
+        self,
+        ods=ods,
+        time_index=time_index,
+        profile_index=profile_index,
+        allow_derived_data=allow_derived_data,
+    )

@@ -1,6 +1,6 @@
 """Lazy database namespace for raw and ODS access.
 
-Notebook and workflow code primarily use ``vaft.database.load`` for ODS/HDF5
+Notebook and workflow code primarily use ``vaft.database.load`` for IMAS/ODS
 shot loading, while raw DAQ access is reached explicitly via
 ``vaft.database.raw``. Resolve flat attribute lookups in that order so the
 public database namespace matches long-standing usage.
@@ -10,7 +10,72 @@ from __future__ import annotations
 
 from importlib import import_module
 
-__all__ = ["raw", "ods"]
+__all__ = [
+    "raw",
+    "ods",
+    "ids",
+    "utils",
+    "load",
+    "save",
+    "load_ids",
+    "save_ids",
+    "load_ods",
+    "save_ods",
+]
+
+
+def load(shot, directory="public", **kwargs):
+    """Load a shot using the historical ODS API, or native IDSs with ids_name.
+
+    ``vaft.database.load(39915)`` and ``vaft.database.load(39915, "public")``
+    have long meant "return an OMAS ODS".  Native IMAS IDS loading requires an
+    explicit ``ids_name`` keyword to avoid confusing the second positional
+    argument with the legacy HSDS directory.
+    """
+    ids_name = kwargs.pop("ids_name", None)
+    if ids_name is not None:
+        from .ids import load as _load_ids
+
+        return _load_ids(shot, ids_name, directory=directory, **kwargs)
+
+    from .ods import load_ods
+
+    return load_ods(shot, directory=directory, **kwargs)
+
+
+def save(ods, shot, *args, **kwargs):
+    """Save ODS data using the historical database API."""
+    from .ods import save_ods
+
+    return save_ods(ods, shot, *args, **kwargs)
+
+
+def load_ids(shot, ids_name, *args, **kwargs):
+    """Load native IMAS IDS object(s)."""
+    from .ids import load as _load_ids
+
+    return _load_ids(shot, ids_name, *args, **kwargs)
+
+
+def save_ids(ids_obj, shot, *args, **kwargs):
+    """Save a native IMAS IDS object."""
+    from .ids import save as _save_ids
+
+    return _save_ids(ids_obj, shot, *args, **kwargs)
+
+
+def load_ods(*args, **kwargs):
+    """Load OMAS ODS data from IMAS-backed storage."""
+    from .ods import load_ods as _load_ods
+
+    return _load_ods(*args, **kwargs)
+
+
+def save_ods(*args, **kwargs):
+    """Save OMAS ODS data to IMAS-backed storage."""
+    from .ods import save_ods as _save_ods
+
+    return _save_ods(*args, **kwargs)
 
 
 def __getattr__(name: str):
@@ -19,7 +84,7 @@ def __getattr__(name: str):
         globals()[name] = module
         return module
 
-    for module_name in ("ods", "raw"):
+    for module_name in ("ods", "ids", "raw", "utils"):
         try:
             module = import_module(f".{module_name}", __name__)
         except Exception:

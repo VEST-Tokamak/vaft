@@ -34,11 +34,11 @@ class RegressionResults:
         
     def get_summary(self) -> pd.DataFrame:
         """Get summary of regression coefficients and p-values."""
-        summary = pd.DataFrame({
-            'Coefficient': self.coefficients,
-            'P-value': self.pvalues,
-            'Significant': self.pvalues < 0.05
-        })
+        idx = self.coefficients.index
+        summary = pd.DataFrame(index=idx)
+        summary['Coefficient'] = self.coefficients
+        summary['P-value'] = self.pvalues.reindex(idx)
+        summary['Significant'] = self.pvalues.reindex(idx) < 0.05
         return summary
     
     def get_exponents(self) -> Dict[str, float]:
@@ -469,3 +469,4 @@ def confinement_time_histogram(df: pd.DataFrame,
     plt.tight_layout()
     
     return fig
+

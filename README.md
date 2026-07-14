@@ -7,7 +7,7 @@
 **VAFT** is an open-source Python library that functions both as a dedicated data platform for the [VEST (Versatile Experiment Spherical Torus)](https://eng.snu.ac.kr/) tokamak at Seoul National University and as a machine- and code-generic data analysis framework built upon the IMAS data model, providing an [IMAS](https://imas.iter.org/)-compliant data interface built on the [OMAS](https://gafusion.github.io/omas/) interface library and an [HSDS](https://github.com/HDFGroup/hsds) remote HDF5 database.
 
 > Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
-> ([doi:10.1088/1361-6587/ad9ba7](https://doi.org/10.1088/1361-6587/ad9ba7))
+> ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
 
 ## Key Features
 
@@ -17,7 +17,7 @@
 | **Remote Database Access**  | Load per-shot OMAS ODS data from the VEST HSDS server with a single function call                                                                                       |
 | **Machine Mapping**         | Convert native VEST diagnostic signals into standardized IMAS IDS (magnetics, Thomson scattering, barometry, PF active, TF, spectrometer UV, charge exchange, etc.)     |
 | **Equilibrium & Stability** | Interfaces for EFIT, CHEASE, GPEC(DCON/RDCON) — read/write code I/O in IDS format                                                                                       |
-| **Physics Formulas**        | Equilibrium quantities (poloidal/toroidal flux, safety factor), stability metrics (beta limits, ballooning), confinement scaling laws (IPB89, H98y2), Green's functions |
+| **Physics Formulas**        | Equilibrium quantities (poloidal/toroidal flux, safety factor), stability metrics (beta limits, ballooning), confinement scaling laws (ITER89P, H98y2), Green's functions |
 | **Signal Processing**       | Smoothing, baseline subtraction, noise reduction, electromagnetic field calculations, eddy current modeling                                                             |
 | **Profile Fitting**         | Map kinetic diagnostics (Thomson scattering, CES) onto equilibrium flux surfaces; fit with GP, polynomial, or exponential models                                        |
 | **Visualization**           | Time traces, 1D/2D profiles, flux surface contours, top-view, and operational-space maps                                                                                |
@@ -45,13 +45,7 @@ VEST Data Analysis Platform
 
 ### Installation
 
-Install from PyPI:
-
-```bash
-pip install vaft
-```
-
-Install from source (recommended for development):
+Install from source (recommended):
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -59,18 +53,26 @@ cd vaft
 python -m pip install -e .
 ```
 
-Install optional extras:
+`aurorafusion` (the Open-ADAS interface used for radiative-power calculations) is a
+required dependency and is installed by the step above.
+
+`h5pyd` is the only package left out of the dependency list — it has no extra, and must
+be installed with `--no-deps` to avoid conflicting pins:
 
 ```bash
+# HSDS database client
+python -m pip install --no-deps h5pyd==0.20.0
+
 # Development tooling
 python -m pip install -e ".[dev]"
-
-# HSDS database client (source install)
-python -m pip install -e ".[hsds]"
-
-# HSDS database client (PyPI install)
-python -m pip install "vaft[hsds]"
 ```
+
+Install from PyPI (obsolete):
+
+```bash
+pip install vaft
+```
+
 
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2,<3`)
@@ -158,7 +160,7 @@ vaft/
 ## Related Resources
 
 - **Documentation**: [vest-tokamak.github.io/vaft](https://vest-tokamak.github.io/vaft/)
-- **Paper**: H.-S. Yun *et al*, "Development of an IMAS-compliant integrated data analysis platform for the VEST tokamak", *Plasma Phys. Control. Fusion* **67** 115021 (2025). [doi:10.1088/1361-6587/ad9ba7](https://doi.org/10.1088/1361-6587/ad9ba7)
+- **Paper**: H.-S. Yun, S. Lee *et al*, "Developing an IMAS-compatible platform for the university-scale tokamak VEST and its application to operating characteristics analysis", *Plasma Phys. Control. Fusion* **67** 115021 (2025). [doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a)
 - **OMAS**: [gafusion.github.io/omas](https://gafusion.github.io/omas/) — Python API for IMAS data structures
 - **OMFIT**: [omfit.io](https://omfit.io/) — Integrated modeling and experimental data analysis framework for tokamak research
 - **HSDS**: [github.com/HDFGroup/hsds](https://github.com/HDFGroup/hsds) — HDF5 REST-based data service
