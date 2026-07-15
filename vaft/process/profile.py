@@ -337,6 +337,71 @@ def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
     return values, sigmas, rho
 
 
+def _leaf_values_and_errors(node, time_index, clamp=False):
+    """Return (nominal, sigma) scalars for an OMAS signal leaf at ``time_index``.
+
+    OMAS (>=0.94.2) splits an assigned uarray immediately into ``<leaf>.data``
+    (nominal) and ``<leaf>.data_error_upper``, so the re-read ``.data`` carries
+    NO uncertainty and ``unumpy.std_devs(<leaf>.data)`` is ALL ZEROS. Read the
+    stored ``.data_error_upper`` explicitly (mirroring the Thomson path) to
+    recover the real per-channel sigma; fall back to any uncertainty still
+    attached to ``.data``, else 0.
+
+    ``node`` is the signal sub-node itself (e.g. ``ods[...ion.0.t_i]``).
+    With ``clamp=True`` an out-of-range ``time_index`` is clamped to the last
+    sample instead of raising (used for best-effort metadata extraction).
+    """
+    data = node['data']
+    try:
+        vals = np.asarray(unumpy.nominal_values(data), dtype=float)
+    except Exception:
+        vals = np.asarray(data, dtype=float)
+
+    errs = None
+    try:
+        errs = np.asarray(unumpy.nominal_values(node['data_error_upper']), dtype=float)
+    except Exception:
+        try:
+            errs = np.asarray(unumpy.std_devs(data), dtype=float)
+        except Exception:
+            errs = None
+    if errs is None or errs.shape != vals.shape:
+        errs = np.zeros_like(vals)
+
+    if vals.ndim == 0:
+        return float(vals), float(np.abs(errs))
+
+    idx = int(time_index)
+    if idx < 0 or idx >= vals.size:
+        if clamp:
+            idx = min(max(idx, 0), vals.size - 1)
+        else:
+            raise IndexError("charge_exchange signal .data shorter than time base")
+    return float(vals[idx]), float(np.abs(errs[idx]))
+
+
+def _sanitize_std(sigmas):
+    """Replace 0 / NaN sigmas with the median of the valid ones.
+
+    Even after :func:`_leaf_values_and_errors` recovers the real errors, a
+    handful of channels can carry an exactly-zero or NaN sigma. A single ~0
+    sigma explodes its ``1/sigma**2`` weight (~1e14) and lets one channel
+    dominate the weighted fit. Substituting the median of the valid sigmas keeps
+    every channel informative without a single-channel blow-up. If NO sigma is
+    usable, fall back to a uniform sigma (an honestly unweighted fit).
+    """
+    sigmas = np.asarray(sigmas, dtype=float).copy()
+    valid = np.isfinite(sigmas) & (sigmas > 0)
+    if not np.any(valid):
+        sigmas[:] = 1.0
+        return sigmas
+    med = float(np.median(sigmas[valid]))
+    if not np.isfinite(med) or med <= 0:
+        med = 1.0
+    sigmas[~valid] = med
+    return sigmas
+
+
 def profile_fitting_charge_exchange(
     ods,
     time_ms,
@@ -389,46 +454,27 @@ def profile_fitting_charge_exchange(
     for i in range(num_channels):
         ion = ods[f'charge_exchange.channel.{i}.ion.{ion_index}']
 
-        ti_u = ion['t_i.data']
-        vtor_u = ion['velocity_tor.data']
+        # OMAS (>=0.94.2) stores an assigned uarray as `<leaf>.data` (nominal) +
+        # `<leaf>.data_error_upper`; the re-read `.data` carries NO uncertainty,
+        # so unumpy.std_devs(<leaf>.data) is ALL ZEROS. Read `.data_error_upper`
+        # explicitly (mirrors the Thomson path) to recover the real sigma.
+        ti_val, ti_err = _leaf_values_and_errors(ion['t_i'], time_index)
+        v_val, v_err = _leaf_values_and_errors(ion['velocity_tor'], time_index)
 
-        # Extract nominal values and std using uncertainties if present
-        try:
-            ti_vals = unumpy.nominal_values(ti_u)
-            ti_errs = unumpy.std_devs(ti_u)
-        except Exception:
-            ti_vals = np.asarray(ti_u, dtype=float)
-            ti_errs = np.zeros_like(ti_vals, dtype=float)
-
-        try:
-            v_vals = unumpy.nominal_values(vtor_u)
-            v_errs = unumpy.std_devs(vtor_u)
-        except Exception:
-            v_vals = np.asarray(vtor_u, dtype=float)
-            v_errs = np.zeros_like(v_vals, dtype=float)
-
-        # Guard for 0D / 1D APIs
-        if np.isscalar(ti_vals):
-            Ti.append(float(ti_vals))
-            Ti_std.append(float(np.abs(ti_errs)))
-        else:
-            if time_index >= len(ti_vals):
-                raise IndexError("t_i.data shorter than charge_exchange.time")
-            Ti.append(float(ti_vals[time_index]))
-            Ti_std.append(float(np.abs(ti_errs[time_index])))
-
-        if np.isscalar(v_vals):
-            Vtor.append(float(v_vals))
-            Vtor_std.append(float(np.abs(v_errs)))
-        else:
-            if time_index >= len(v_vals):
-                raise IndexError("velocity_tor.data shorter than charge_exchange.time")
-            Vtor.append(float(v_vals[time_index]))
-            Vtor_std.append(float(np.abs(v_errs[time_index])))
+        Ti.append(ti_val)
+        Ti_std.append(ti_err)
+        Vtor.append(v_val)
+        Vtor_std.append(v_err)
 
     rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
     Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms)
     Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms)
+
+    # Replace any residual 0/NaN sigma (from OMAS-split leaves) with the
+    # valid-error median so a single near-zero sigma cannot blow up its
+    # 1/sigma**2 weight and dominate the fit.
+    Ti_std = _sanitize_std(Ti_std)
+    Vtor_std = _sanitize_std(Vtor_std)
 
     rho = np.clip(rho_ti.reshape(-1, 1), 0.0, 1.0)
     rho_vtor = np.clip(rho_v.reshape(-1, 1), 0.0, 1.0)
@@ -656,16 +702,18 @@ def core_profiles(
                 ce_times = np.asarray(ods['charge_exchange.time'], dtype=float)
                 ce_idx = int(np.argmin(np.abs(ce_times - target_s)))
                 n_ce = len(ods['charge_exchange.channel'])
-                ti_meas = []
+                ti_meas, ti_meas_err = [], []
                 for i in range(n_ce):
-                    arr = ods[f'charge_exchange.channel.{i}.ion.0.t_i.data']
-                    try:
-                        arr = unumpy.nominal_values(arr)
-                    except Exception:
-                        pass
-                    arr = np.asarray(arr, dtype=float).reshape(-1)
-                    ti_meas.append(float(arr[min(ce_idx, arr.size - 1)]))
+                    # OMAS split the assigned uarray -> read .data + .data_error_upper
+                    val, err = _leaf_values_and_errors(
+                        ods[f'charge_exchange.channel.{i}.ion.0.t_i'],
+                        ce_idx,
+                        clamp=True,
+                    )
+                    ti_meas.append(val)
+                    ti_meas_err.append(err)
                 ti_meas = np.asarray(ti_meas, dtype=float)
+                ti_meas_err = np.asarray(ti_meas_err, dtype=float)
                 ti_rho = np.asarray(ti_mapped_rho_position, dtype=float).reshape(-1)
                 finite_ti = np.isfinite(ti_rho)
                 ti_rho_psin = np.clip(ti_rho[finite_ti], 0, 1)
@@ -674,6 +722,7 @@ def core_profiles(
                     ti_rho_psin, psi_n_grid, rho_tor_grid
                 )
                 ods[f'{fit_base_ti}.measured'] = ti_meas[finite_ti]
+                ods[f'{fit_base_ti}.measured_error_upper'] = ti_meas_err[finite_ti]
                 ods[f'{fit_base_ti}.reconstructed'] = np.asarray(
                     T_i_function(ti_rho_psin), dtype=float
                 )
