@@ -48,6 +48,18 @@ __all__ = [
     "parse_result_scalars",
     "parse_result_coils",
     "scan_tes",
+    "kineticEfit",
+    "KineticEFITConfig",
+    "KineticEFITInputs",
+    "KineticEFITResult",
+    "PressurePoints",
+    "build_kinetic_core_profiles",
+    "kinetic_pressure_points",
+    "inject_pressure_constraint",
+    "scale_plasma",
+    "prepare_kinetic_efit_inputs",
+    "run_kinetic_efit",
+    "run_kinetic_chain",
 ]
 
 _EXPORT_MAP = {
@@ -90,11 +102,22 @@ _EXPORT_MAP = {
     "parse_result_scalars": (".tes", "parse_result_scalars"),
     "parse_result_coils": (".tes", "parse_result_coils"),
     "scan_tes": (".tes", "scan_tes"),
+    "KineticEFITConfig": (".kineticEfit", "KineticEFITConfig"),
+    "KineticEFITInputs": (".kineticEfit", "KineticEFITInputs"),
+    "KineticEFITResult": (".kineticEfit", "KineticEFITResult"),
+    "PressurePoints": (".kineticEfit", "PressurePoints"),
+    "build_kinetic_core_profiles": (".kineticEfit", "build_kinetic_core_profiles"),
+    "kinetic_pressure_points": (".kineticEfit", "kinetic_pressure_points"),
+    "inject_pressure_constraint": (".kineticEfit", "inject_pressure_constraint"),
+    "scale_plasma": (".kineticEfit", "scale_plasma"),
+    "prepare_kinetic_efit_inputs": (".kineticEfit", "prepare_kinetic_efit_inputs"),
+    "run_kinetic_efit": (".kineticEfit", "run_kinetic_efit"),
+    "run_kinetic_chain": (".kineticEfit", "run_kinetic_chain"),
 }
 
 
 def __getattr__(name: str):
-    if name in {"base", "efit", "gpec", "chease", "snakemake", "tes"}:
+    if name in {"base", "efit", "gpec", "chease", "snakemake", "tes", "kineticEfit"}:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
