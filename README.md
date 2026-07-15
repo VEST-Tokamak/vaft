@@ -176,4 +176,4 @@ For database write access, contact [peppertonic18@snu.ac.kr, satelite2517@snu.ac
 
 ## Acknowledgements
 
-The authors would like to thank O Meneghini at Proxima Fusion and J McClenaghan at General Atomics, O Hoenen at ITER Organization for their technical advice. Some parts of the data processing were performed using the code API in the OMFIT integrated modeling framework. This research was supported by the National Research Foundation of Korea (NRF) grant funded by the Korean Government (MSIT) (RS-2023-00281276, RS-202400409564, and RS-2025-02304810).
+The authors would like to thank O Meneghini and J McClenaghan at General Atomics for their technical advice. Some parts of the data processing were performed using the code API in the OMFIT integrated modeling framework [1]. This research was supported by the National Research Foundation of Korea (NRF) grant funded by the Korean Government (MSIT) (RS-2021-NR057187, RS-2023-00281276, RS-2024-00409564, and RS-2025-02304810).
