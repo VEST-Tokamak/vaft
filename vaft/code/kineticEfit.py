@@ -325,6 +325,14 @@ def _raw_ne_te_ti(ods: Any, time_ms: float, geq: Any = None):
     sne = np.array(sne, dtype=float)
     sTe = np.array(sTe, dtype=float)
 
+    # Drop invalid Thomson channels (the shot-suffixed NeTe schema pads dead
+    # polychromators with NaN) so they never reach the EFIT pressure constraint
+    # -- an unfiltered NaN pressure point makes the reconstruction diverge.
+    ts_valid = np.isfinite(R) & np.isfinite(ne) & np.isfinite(Te) & (ne > 0) & (Te > 0)
+    if not np.any(ts_valid):
+        raise RuntimeError(f"no valid Thomson channels in ODS at {time_ms} ms")
+    R, ne, Te, sne, sTe = R[ts_valid], ne[ts_valid], Te[ts_valid], sne[ts_valid], sTe[ts_valid]
+
     # --- Charge exchange Ti (nearest time per channel) ---
     n_cx = len(ods["charge_exchange.channel"])
     cR, cTi, csTi = [], [], []
