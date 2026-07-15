@@ -544,9 +544,9 @@ def _equilibrium_grid_at_time(ods, target_s, tol_s):
 def core_profiles(
     ods,
     time_ms,
-    mapped_rho_position,
-    n_e_function,
-    T_e_function,
+    mapped_rho_position=None,
+    n_e_function=None,
+    T_e_function=None,
     tol_ms=0.1,
     T_i_function=None,
     V_tor_function=None,
@@ -588,24 +588,41 @@ def core_profiles(
     target_s = time_ms / 1e3
     tol_s = time_tolerance_ms / 1e3
 
-    # --- measured TS points (nearest time within tolerance) ---
-    ts_times = np.asarray(ods['thomson_scattering.time'], dtype=float)
-    t_idx = int(np.argmin(np.abs(ts_times - target_s)))
-    if abs(ts_times[t_idx] - target_s) > tol_s:
+    # Write whatever diagnostic is available: electrons need a Thomson (ne/Te) fit,
+    # ions need a charge_exchange (Ti[/Vtor]) fit. At least one is required.
+    have_e = n_e_function is not None and T_e_function is not None
+    have_i = T_i_function is not None
+    if not have_e and not have_i:
         raise ValueError(
-            f"No Thomson time within {time_tolerance_ms} ms of {time_ms} ms "
-            f"(nearest: {ts_times[t_idx] * 1e3:.3f} ms)"
+            "core_profiles needs at least an electron (n_e_function + T_e_function) "
+            "or an ion (T_i_function) fit"
         )
-    num_channels = len(ods['thomson_scattering.channel'])
-    n_e_meas = np.array(
-        [ods[f'thomson_scattering.channel.{i}.n_e.data'][t_idx] for i in range(num_channels)],
-        dtype=float,
-    )
-    T_e_meas = np.array(
-        [ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx] for i in range(num_channels)],
-        dtype=float,
-    )
-    rho_meas = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
+    if have_e and mapped_rho_position is None:
+        raise ValueError(
+            "core_profiles: mapped_rho_position is required when an electron "
+            "(n_e_function + T_e_function) fit is provided"
+        )
+
+    # --- measured TS points (nearest time within tolerance) — electron path only ---
+    n_e_meas = T_e_meas = rho_meas = None
+    if have_e:
+        ts_times = np.asarray(ods['thomson_scattering.time'], dtype=float)
+        t_idx = int(np.argmin(np.abs(ts_times - target_s)))
+        if abs(ts_times[t_idx] - target_s) > tol_s:
+            raise ValueError(
+                f"No Thomson time within {time_tolerance_ms} ms of {time_ms} ms "
+                f"(nearest: {ts_times[t_idx] * 1e3:.3f} ms)"
+            )
+        num_channels = len(ods['thomson_scattering.channel'])
+        n_e_meas = np.array(
+            [ods[f'thomson_scattering.channel.{i}.n_e.data'][t_idx] for i in range(num_channels)],
+            dtype=float,
+        )
+        T_e_meas = np.array(
+            [ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx] for i in range(num_channels)],
+            dtype=float,
+        )
+        rho_meas = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
 
     # --- evaluation grid: equilibrium grid when available, else uniform psi_N ---
     eq_grid = _equilibrium_grid_at_time(ods, target_s, tol_s)
@@ -615,12 +632,13 @@ def core_profiles(
         rho_tor_grid = psi_grid = None
         psi_n_grid = np.linspace(0.0, 1.0, rho_points)
 
-    n_e_recon = np.asarray(n_e_function(psi_n_grid), dtype=float)
-    T_e_recon = np.asarray(T_e_function(psi_n_grid), dtype=float)
+    n_e_recon = np.asarray(n_e_function(psi_n_grid), dtype=float) if have_e else None
+    T_e_recon = np.asarray(T_e_function(psi_n_grid), dtype=float) if have_e else None
+    # Ti falls back to Te only when electrons are present but no ion fit was given.
     T_i_recon = (
         np.asarray(T_i_function(psi_n_grid), dtype=float)
-        if T_i_function is not None
-        else T_e_recon
+        if have_i
+        else (T_e_recon if have_e else None)
     )
     V_tor_recon = (
         np.asarray(V_tor_function(psi_n_grid), dtype=float)
@@ -658,9 +676,10 @@ def core_profiles(
         ods[f'{base}.grid.rho_pol_norm'] = np.sqrt(psi_n_grid)
 
     # We assume all electrons are thermal electrons (because VEST is ohmically heated plasma)
-    ods[f'{base}.electrons.density_thermal'] = n_e_recon
-    ods[f'{base}.electrons.density'] = n_e_recon
-    ods[f'{base}.electrons.temperature'] = T_e_recon
+    if have_e:
+        ods[f'{base}.electrons.density_thermal'] = n_e_recon
+        ods[f'{base}.electrons.density'] = n_e_recon
+        ods[f'{base}.electrons.temperature'] = T_e_recon
 
     # single main ion H+ with n_i ~= n_e (quasi-neutrality, no impurity dilution);
     # Ti(H+) taken equal to the measured impurity Ti when a fit is provided
@@ -669,33 +688,36 @@ def core_profiles(
     ods[f'{base}.ion.0.element.0.a'] = 1.00784
     ods[f'{base}.ion.0.element.0.z_n'] = 1.0
     ods[f'{base}.ion.0.element.0.atoms_n'] = 1
-    ods[f'{base}.ion.0.density_thermal'] = n_e_recon
-    ods[f'{base}.ion.0.density'] = n_e_recon
-    ods[f'{base}.ion.0.temperature'] = T_i_recon
+    if have_e:  # quasi-neutral main-ion density needs the electron density
+        ods[f'{base}.ion.0.density_thermal'] = n_e_recon
+        ods[f'{base}.ion.0.density'] = n_e_recon
+    if T_i_recon is not None:
+        ods[f'{base}.ion.0.temperature'] = T_i_recon
     if V_tor_recon is not None:
         ods[f'{base}.ion.0.velocity.toroidal'] = V_tor_recon
-    if T_i_function is not None:
+    if have_e and have_i:  # kinetic pressure needs both ne and (Te, Ti)
         ods[f'{base}.pressure_thermal'] = e_J_per_eV * n_e_recon * (T_e_recon + T_i_recon)
 
     # --- measurement/fit metadata (per IMAS DD, measured/reconstructed/rho all
     # have one entry per measurement point; reconstructed = fit AT those points) ---
     if eq_grid is not None:
-        finite_meas = np.isfinite(rho_meas)
-        rho_meas_psin = np.clip(rho_meas[finite_meas], 0, 1)
-        rho_meas_tor = np.interp(rho_meas_psin, psi_n_grid, rho_tor_grid)
+        if have_e:
+            finite_meas = np.isfinite(rho_meas)
+            rho_meas_psin = np.clip(rho_meas[finite_meas], 0, 1)
+            rho_meas_tor = np.interp(rho_meas_psin, psi_n_grid, rho_tor_grid)
 
-        fit_base_n = f'{base}.electrons.density_fit'
-        fit_base_t = f'{base}.electrons.temperature_fit'
-        ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor
-        ods[f'{fit_base_n}.measured'] = n_e_meas[finite_meas]
-        ods[f'{fit_base_n}.reconstructed'] = np.asarray(
-            n_e_function(rho_meas_psin), dtype=float
-        )
-        ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor
-        ods[f'{fit_base_t}.measured'] = T_e_meas[finite_meas]
-        ods[f'{fit_base_t}.reconstructed'] = np.asarray(
-            T_e_function(rho_meas_psin), dtype=float
-        )
+            fit_base_n = f'{base}.electrons.density_fit'
+            fit_base_t = f'{base}.electrons.temperature_fit'
+            ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor
+            ods[f'{fit_base_n}.measured'] = n_e_meas[finite_meas]
+            ods[f'{fit_base_n}.reconstructed'] = np.asarray(
+                n_e_function(rho_meas_psin), dtype=float
+            )
+            ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor
+            ods[f'{fit_base_t}.measured'] = T_e_meas[finite_meas]
+            ods[f'{fit_base_t}.reconstructed'] = np.asarray(
+                T_e_function(rho_meas_psin), dtype=float
+            )
 
         if T_i_function is not None and ti_mapped_rho_position is not None:
             try:

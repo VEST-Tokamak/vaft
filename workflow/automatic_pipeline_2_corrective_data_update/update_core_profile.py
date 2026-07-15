@@ -81,7 +81,11 @@ def build_core_profiles_all_times(ods, shotnumber):
         built_kinetic = False
         if has_ion:
             try:
-                build_kinetic_core_profiles(ods, geq, float(time_ms), ion_index=0)
+                # require_thomson: a persisted kinetic slice must have electron density,
+                # otherwise core_profiles_pressures yields an all-zero pressure profile.
+                build_kinetic_core_profiles(
+                    ods, geq, float(time_ms), ion_index=0, require_thomson=True
+                )
                 built_kinetic = True
                 n_kinetic += 1
             except Exception as exc:  # noqa: BLE001

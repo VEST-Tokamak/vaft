@@ -594,49 +594,72 @@ def build_kinetic_core_profiles(
     vtor_mode: str = "polynomial",
     ion_index: int = 0,
     time_tolerance_ms: float = 1.0,
+    require_thomson: bool = False,
+    require_ion: bool = False,
 ) -> Any:
-    """Fit TS+CX kinetic profiles and write ``core_profiles.profiles_1d``.
+    """Fit whatever kinetic diagnostics are present and write ``core_profiles.profiles_1d``.
 
-    Orchestrates (does NOT re-implement) the :mod:`vaft.process.profile`
-    pipeline::
+    Orchestrates (does NOT re-implement) the :mod:`vaft.process.profile` pipeline::
 
-        equilibrium_mapping_thomson_scattering
-          -> profile_fitting_thomson_scattering
-          -> equilibrium_mapping_charge_exchange
-          -> profile_fitting_charge_exchange
-          -> core_profiles(T_i_function, V_tor_function, ti_mapped_rho_position)
+        equilibrium_mapping_thomson_scattering -> profile_fitting_thomson_scattering
+        equilibrium_mapping_charge_exchange   -> profile_fitting_charge_exchange
+          -> core_profiles(...)
+
+    Both diagnostics are OPTIONAL: Thomson scattering supplies ne/Te (electrons)
+    and the charge_exchange (IDS/CES) supplies Ti/Vtor (ions). Whatever is present
+    is written -- Thomson-only gives electron profiles (Ti=Te fallback), ion-only
+    gives ion temperature/velocity, both give the full kinetic slice with
+    ``pressure_thermal``. At least one usable diagnostic is required (or set
+    ``require_thomson`` / ``require_ion`` to fail loudly when one is missing).
 
     Pure ODS -> ODS: the passed ``ods`` is mutated in place and returned.
 
     ``time_tolerance_ms`` is forwarded to ``core_profiles`` for matching the
     equilibrium slice; widen it when the equilibrium and the diagnostic sample
-    are at slightly different times (e.g. demo data), otherwise ``core_profiles``
-    falls back to a psi_N/rho_pol grid instead of the equilibrium rho_tor_norm grid.
+    are at slightly different times.
     """
     from vaft.process import profile as _profile
 
-    rho_ts = _profile.equilibrium_mapping_thomson_scattering(ods, geq)
-    n_e_function, T_e_function, _c_ne, _c_te, _ne_rho, _te_rho = (
-        _profile.profile_fitting_thomson_scattering(
-            ods,
-            time_ms,
-            rho_ts,
-            fitting_function_te=te_mode,
-            fitting_function_ne=ne_mode,
-        )
-    )
+    n_e_function = T_e_function = T_i_function = V_tor_function = None
+    rho_ts = rho_cx = None
 
-    rho_cx = _profile.equilibrium_mapping_charge_exchange(ods, geq)
-    V_tor_function, T_i_function, _c_v, _c_ti, _v_rho, _ti_rho = (
-        _profile.profile_fitting_charge_exchange(
-            ods,
-            time_ms,
-            rho_cx,
-            fitting_function_ti=ti_mode,
-            fitting_function_vtor=vtor_mode,
-            ion_index=ion_index,
+    # --- electrons: Thomson scattering (optional) ---
+    if "thomson_scattering" in ods and len(ods["thomson_scattering.channel"]) > 0:
+        try:
+            rho_ts = _profile.equilibrium_mapping_thomson_scattering(ods, geq)
+            n_e_function, T_e_function, *_ = _profile.profile_fitting_thomson_scattering(
+                ods, time_ms, rho_ts,
+                fitting_function_te=te_mode, fitting_function_ne=ne_mode,
+            )
+        except Exception as exc:  # noqa: BLE001
+            if require_thomson:
+                raise
+            print(f"[INFO] core_profiles at {time_ms} ms: no Thomson fit ({exc})")
+            n_e_function = T_e_function = rho_ts = None
+    elif require_thomson:
+        raise ValueError(f"no thomson_scattering in ODS at {time_ms} ms")
+
+    # --- ions: charge_exchange / IDS / CES (optional) ---
+    if "charge_exchange" in ods and len(ods["charge_exchange.channel"]) > 0:
+        try:
+            rho_cx = _profile.equilibrium_mapping_charge_exchange(ods, geq)
+            V_tor_function, T_i_function, *_ = _profile.profile_fitting_charge_exchange(
+                ods, time_ms, rho_cx,
+                fitting_function_ti=ti_mode, fitting_function_vtor=vtor_mode,
+                ion_index=ion_index,
+            )
+        except Exception as exc:  # noqa: BLE001
+            if require_ion:
+                raise
+            print(f"[INFO] core_profiles at {time_ms} ms: no ion (charge_exchange) fit ({exc})")
+            T_i_function = V_tor_function = rho_cx = None
+    elif require_ion:
+        raise ValueError(f"no charge_exchange in ODS at {time_ms} ms")
+
+    if n_e_function is None and T_i_function is None:
+        raise RuntimeError(
+            f"no usable Thomson or charge_exchange fit at {time_ms} ms -- nothing to write"
         )
-    )
 
     _profile.core_profiles(
         ods,

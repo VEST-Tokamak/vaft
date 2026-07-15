@@ -85,3 +85,68 @@ def test_spline_encoding_has_129_points(kinetic_ods):
     pts = kinetic_pressure_points(ods, TIME_MS, geq=geq, encoding="spline")
     assert len(pts.rpress) == 129
     assert np.all(np.asarray(pts.rpress) <= 0.0)   # spline uses RPRESS = -psi_N
+
+
+# --------------------------------------------------------------------------- #
+# Partial-diagnostic builds: only-Thomson / only-ion / neither
+# --------------------------------------------------------------------------- #
+
+def _build(with_ts, with_cx):
+    import vaft
+
+    vaft.apply_omfit_compat_patches()
+    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
+    from vaft.code.kineticEfit import build_kinetic_core_profiles
+
+    geq = OMFITgeqdsk(str(GFILE))
+    geq["fluxSurfaces"].load()
+    ods = geq.to_omas()
+    ods["equilibrium.ids_properties.homogeneous_time"] = 1
+    if with_ts:
+        vaft.machine_mapping.thomson_scattering(ods, SHOT, str(TS_MAT))
+    if with_cx:
+        vaft.machine_mapping.charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
+    build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0)
+    return ods
+
+
+def _has(ods, path):
+    try:
+        ods[path]
+        return True
+    except Exception:
+        return False
+
+
+def test_thomson_only_writes_electron_profiles():
+    cp = "core_profiles.profiles_1d.0"
+    ods = _build(with_ts=True, with_cx=False)
+    assert _has(ods, f"{cp}.electrons.density")
+    assert _has(ods, f"{cp}.electrons.temperature")
+    assert _has(ods, f"{cp}.ion.0.temperature")          # Ti = Te fallback
+    assert not _has(ods, f"{cp}.ion.0.velocity.toroidal")  # no ion diagnostic
+    assert not _has(ods, f"{cp}.pressure_thermal")         # needs a real ion fit
+
+
+def test_ion_only_writes_ion_profiles_without_electrons():
+    cp = "core_profiles.profiles_1d.0"
+    ods = _build(with_ts=False, with_cx=True)
+    assert _has(ods, f"{cp}.ion.0.temperature")
+    assert _has(ods, f"{cp}.ion.0.velocity.toroidal")
+    assert not _has(ods, f"{cp}.electrons.density")        # no Thomson
+    assert not _has(ods, f"{cp}.ion.0.density")            # quasi-neutral density needs ne
+    assert not _has(ods, f"{cp}.pressure_thermal")
+
+
+def test_no_diagnostics_raises():
+    import vaft
+
+    vaft.apply_omfit_compat_patches()
+    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
+    from vaft.code.kineticEfit import build_kinetic_core_profiles
+
+    geq = OMFITgeqdsk(str(GFILE))
+    geq["fluxSurfaces"].load()
+    ods = geq.to_omas()
+    with pytest.raises(Exception):
+        build_kinetic_core_profiles(ods, geq, TIME_MS, time_tolerance_ms=3.0)
