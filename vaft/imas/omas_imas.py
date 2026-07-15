@@ -379,10 +379,21 @@ def imas_empty(value):
 
     :return: None if value is an IMAS empty
     """
+    # IMAS-Python AL5 leaf nodes are primitive wrapper objects whose payload is
+    # exposed via ``.value``.  Treat that payload like the AL4 scalar/array
+    # values below so filled_paths_in_ids can discover real data.
+    if not isinstance(value, (numpy.ndarray, float, int, str, list)) and hasattr(value, 'value'):
+        try:
+            return imas_empty(value.value)
+        except Exception:
+            pass
+
     # arrays
     if isinstance(value, numpy.ndarray):
         if not value.size:
             return None
+        elif value.ndim == 0:
+            return value.item()
         else:
             return value
     # missing floats
@@ -650,7 +661,7 @@ def infer_fetch_paths(ids, occurrence, paths, time, imas_version, verbose=True):
 
     # fetch relevant IDSs and find available signals
     fetch_paths = []
-    dss = numpy.unique([p[0] for p in requested_paths])
+    dss = [str(ds) for ds in numpy.unique([p[0] for p in requested_paths])]
     ndss = max([len(d) for d in dss])
     for ds in dss:
         if not hasattr(ids, ds):
@@ -691,11 +702,16 @@ def infer_fetch_paths(ids, occurrence, paths, time, imas_version, verbose=True):
             requested_for_ds = [p[1:] for p in requested_paths if len(p) >= 1 and p[0] == ds]
             if not requested_for_ds and any(p[0] == ds for p in requested_paths):
                 requested_for_ds = [[]]
-            # Pass the specific IDS (e.g. equilibrium) so getattr(ids, 'time') resolves; path=[ds] so paths are e.g. ['equilibrium','time']
+            # Pass the specific IDS (e.g. equilibrium) so getattr(ids, 'time')
+            # resolves.  OMAS load_structure(ds)[1] includes the IDS root key
+            # itself, so strip that root before traversing the IDS object.
             ids_ds = getattr(ids, ds)
+            ds_structure = load_structure(ds, imas_version=imas_version)[1]
+            if ds in ds_structure:
+                ds_structure = ds_structure[ds]
             n_before = len(fetch_paths)
             fetch_paths += filled_paths_in_ids(
-                ids_ds, load_structure(ds, imas_version=imas_version)[1], [ds], [],
+                ids_ds, ds_structure, [ds], [],
                 requested_for_ds if requested_for_ds else requested_paths
             )
             has_eq_time = any(p == ['equilibrium', 'time'] for p in fetch_paths)
@@ -834,6 +850,8 @@ def load_omas_imas(
                     # continue for empty data
                     if data is None:
                         continue
+                    if isinstance(data, list):
+                        data = numpy.asarray(data)
                     # add uncertainty
                     if not skip_uncertainties and l2i(path[:-1] + [path[-1] + '_error_upper']) in joined_fetch_paths:
                         stdata = imas_get(ids, path[:-1] + [path[-1] + '_error_upper'], None)
@@ -842,6 +860,8 @@ def load_omas_imas(
                                 data = uarray(data, stdata)
                             except uncertainties.core.NegativeStdDev as _excp:
                                 printe('Error loading uncertainty for %s: %s' % (l2i(path), repr(_excp)))
+                    if isinstance(data, numpy.ndarray) and data.ndim == 0:
+                        data = data.item()
                     # assign data to ODS
                     # NOTE: here we can use setraw since IMAS data is by definition compliant with IMAS
                     ods.setraw(path, data)

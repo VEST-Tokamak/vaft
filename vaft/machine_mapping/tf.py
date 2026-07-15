@@ -23,8 +23,6 @@ TF_HALL_GAIN = -3e4
 
 
 def _safe_vest_load(shot: int, field: int):
-    if not raw_db.sql_loading_available():
-        return None
     return raw_db.vest_load(shot, field)
 
 

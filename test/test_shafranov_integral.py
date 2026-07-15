@@ -23,10 +23,10 @@ import os
 import re
 import numpy as np
 
-# Data paths: vaft/vaft/data (relative to repo root; test lives in test/)
+# Data paths: vaft/vaft/data/efit (relative to repo root; test lives in test/)
 def _data_dir():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, "vaft", "data")
+    return os.path.join(base, "vaft", "data", "efit")
 
 GFILE_NAME = "g039915.00319"
 AEQ_NAME = "a039915.00319"
@@ -687,7 +687,7 @@ def _ods_time_index_for(ods, target_time: float) -> int | None:
     return min(times, key=lambda x: abs(x[1] - target_time))[0]
 
 
-def test_diamagnetic_signal(shot: int, time_s: float, base: str | None = None) -> None:
+def report_diamagnetic_signal(shot: int, time_s: float, base: str | None = None) -> None:
     """
     Review/compare all diamagnetic-flux-related values for a given shot and time.
     Prints a table with:
@@ -773,6 +773,12 @@ def test_shafranov_integral_vs_aeq():
     """Compare Shafranov and virial (S_1..alpha, R_0, Z_0, B_pa, V_p, beta_p, li, W_mag, W_kin):
     aeq, g-file→vaft (with diamagnetic flux from experiment), and ODS (database)→vaft."""
     import pytest
+    if os.environ.get("VAFT_RUN_SERVER_TESTS", "").strip().lower() not in ("1", "true", "yes", "on"):
+        pytest.skip(
+            "integration test: needs the VEST HSDS server for experimental diamagnetic "
+            "flux (S_1 is not comparable to the aeq reference without it); "
+            "set VAFT_RUN_SERVER_TESTS=1 to run"
+        )
     data_dir = _data_dir()
     g_path = os.path.join(data_dir, GFILE_NAME)
     aeq_path = os.path.join(data_dir, AEQ_NAME)
@@ -823,7 +829,7 @@ if __name__ == "__main__":
             sys.exit(1)
         try:
             if diamag_only:
-                test_diamagnetic_signal(shot, time_s, base=base)
+                report_diamagnetic_signal(shot, time_s, base=base)
             else:
                 compare_by_shot_time(shot, time_s, base=base, load_magnetics_from_shot=shot, debug=debug)
         except ImportError as e:

@@ -7,3 +7,5 @@ from .topview import *
 from .analysis import *
 # from .animation import *
 from .history import *
+from .soft_x_rays import *
+from .mirnov import *

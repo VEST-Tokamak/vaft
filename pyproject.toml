@@ -40,13 +40,13 @@ dependencies = [
   "numba",
   "numpy>=1.26.4,<3",
   "omas==0.94.2",
-  "omfit-classes",
   "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
   "pyjwt",
   "PyYAML==6.0.2",
   "requests-unixsocket==0.4.1",
+  "scikit-image",
   "scikit-learn",
   "scipy>=1.13.0,<2",
   "seaborn",
@@ -63,6 +63,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# HSDS support intentionally has no extra: h5pyd must be installed with
+# --no-deps (see README installation notes) to avoid dependency conflicts.
 dev = [
   "pytest",
   "black",
@@ -78,7 +80,24 @@ source = "https://github.com/VEST-Tokamak/vaft"
 version = { attr = "vaft.version.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["vaft"]
+include = ["vaft*"]
+
+[tool.setuptools.package-data]
+vaft = [
+  "data/efit/*",
+  "data/geometry/*.yaml",
+  "data/geometry/*.mat",
+  "data/geometry/*.csv",
+  "data/gpec/*.in",
+  "data/gpec/*.dat",
+  "data/imas/*.nc",
+  "data/legacy/*.csv",
+  "data/legacy/*.gz",
+  "data/legacy/*.h5",
+  "data/legacy/*.mat",
+  "data/legacy/*.txt",
+  "data/omas/*.json",
+]
 
 [tool.uv]
 override-dependencies = [

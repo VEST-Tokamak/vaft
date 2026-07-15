@@ -981,15 +981,12 @@ def plot_pressure_profile_with_geqdsk(shot, time_ms, OMFITgeq, n_e_function, T_e
         T_e_function (callable): Function to compute fitted electron temperature at any rho.
         geqdsk (dict): The GEQDSK equilibrium data containing pressure profiles.
     """
-    # Extract pressure profile from GEQDSK
-    psi = np.zeros(len(geqdsk['fluxSurfaces']['flux']))
-    psi_N = np.zeros(len(geqdsk['fluxSurfaces']['flux']))
-    pressure = np.zeros(len(geqdsk['fluxSurfaces']['flux']))
-
-    for i in range(len(OMFITgeq['fluxSurfaces']['flux'])):
-        psi[i] = OMFITgeq['fluxSurfaces']['flux'][i]['psi']
-        pressure[i] = OMFITgeq['fluxSurfaces']['flux'][i]['p']
-    psi_N = (psi - psi[0]) / (psi[-1] - psi[0])
+    # Extract pressure profile from GEQDSK. ``OMFITgeq`` is retained only for
+    # backward-compatible call signatures; VAFT GEQDSK data is sufficient.
+    _ = OMFITgeq
+    pressure = np.asarray(geqdsk['PRES'], dtype=float)
+    psi = np.linspace(float(geqdsk['SIMAG']), float(geqdsk['SIBRY']), len(pressure))
+    psi_N = (psi - psi[0]) / (psi[-1] - psi[0]) if len(psi) > 1 and psi[-1] != psi[0] else np.zeros_like(psi)
 
     # Evaluate the fitted profiles at the same rho points
     T_e_rho = T_e_function(psi_N)

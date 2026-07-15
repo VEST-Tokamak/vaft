@@ -61,6 +61,9 @@ def _candidate_thomson_paths(shotnumber: int, data_root: Path) -> list[Path]:
     return [
         data_root / "thomson_scattering" / f"NeTe_{shotnumber}.mat",
         data_root / f"NeTe_{shotnumber}.mat",
+        data_root / "legacy" / f"NeTe_Shot{shotnumber}_v9.mat",
+        data_root / "legacy" / f"NeTe_Shot{shotnumber}_v9_rev.mat",
+        data_root / "legacy" / f"{shotnumber}_NeTe.mat",
         data_root / "thomson_scattering" / f"NeTe_Shot{shotnumber}_v9.mat",
         data_root / "thomson_scattering" / f"NeTe_Shot{shotnumber}_v9_rev.mat",
         data_root / f"NeTe_Shot{shotnumber}_v9.mat",

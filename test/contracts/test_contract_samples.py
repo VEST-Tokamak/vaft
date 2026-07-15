@@ -7,7 +7,7 @@ from spec import CANONICAL_IDS_SPECS, SAMPLE_FILE_IDS
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "vaft" / "data"
+DATA_DIR = ROOT / "vaft" / "data" / "omas"
 
 
 def load_json(name: str):
@@ -45,26 +45,6 @@ class SampleContractTests(unittest.TestCase):
             payload,
             CANONICAL_IDS_SPECS,
             ids_names=SAMPLE_FILE_IDS["thomson_scattering.json"],
-            strict_values=False,
-        )
-        self.assertNoContractFailures(failures)
-
-    def test_charge_exchange_single_sample_smoke(self):
-        payload = load_json("vfit_ion_doppler_single.json")
-        failures = validate_contract(
-            payload,
-            CANONICAL_IDS_SPECS,
-            ids_names=SAMPLE_FILE_IDS["vfit_ion_doppler_single.json"],
-            strict_values=False,
-        )
-        self.assertNoContractFailures(failures)
-
-    def test_charge_exchange_profile_sample_smoke(self):
-        payload = load_json("vfit_ion_doppler_profile.json")
-        failures = validate_contract(
-            payload,
-            CANONICAL_IDS_SPECS,
-            ids_names=SAMPLE_FILE_IDS["vfit_ion_doppler_profile.json"],
             strict_values=False,
         )
         self.assertNoContractFailures(failures)

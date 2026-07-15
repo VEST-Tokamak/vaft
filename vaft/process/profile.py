@@ -2,6 +2,7 @@ import vaft
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.interpolate import RegularGridInterpolator
 from scipy.io import loadmat
 from uncertainties import unumpy
 from omas import *
@@ -23,6 +24,67 @@ def _outermost_surface_path(geq):
     return _MplPath(np.column_stack([R, Z]))
 
 
+def _rho_from_equilibrium_points(geq, r_points, z_points):
+    """Map R/Z points to normalized poloidal flux using VAFT GEQDSK/ODS data.
+
+    Points outside the last closed flux surface are returned as NaN rather than
+    pinned to the edge psi_N level.
+    """
+    # Compatibility with legacy precomputed flux-surface dictionaries.
+    try:
+        flux_levels = geq['fluxSurfaces']['levels']
+        boundary = _outermost_surface_path(geq)
+        mapped = []
+        for r_dot, z_dot in zip(r_points, z_points):
+            if not boundary.contains_point((float(r_dot), float(z_dot))):
+                mapped.append(np.nan)
+                continue
+            min_dist = float('inf')
+            closest_rho = None
+            for i in range(len(geq['fluxSurfaces']['flux'])):
+                R = np.asarray(geq['fluxSurfaces']['flux'][i]['R'], dtype=float)
+                Z = np.asarray(geq['fluxSurfaces']['flux'][i]['Z'], dtype=float)
+                dists = np.sqrt((R - r_dot) ** 2 + (Z - z_dot) ** 2)
+                min_flux_dist = np.min(dists)
+                if min_flux_dist < min_dist:
+                    min_dist = min_flux_dist
+                    closest_rho = flux_levels[i]
+            mapped.append(closest_rho)
+        return np.clip(np.asarray(mapped, dtype=float), 0.0, 1.0)
+    except Exception:
+        pass
+
+    try:
+        nw = int(geq['NW'])
+        nh = int(geq['NH'])
+        r_grid = np.linspace(0.0, float(geq['RDIM']), nw) + float(geq['RLEFT'])
+        z_grid = np.linspace(0.0, float(geq['ZDIM']), nh) - float(geq['ZDIM']) / 2.0 + float(geq['ZMID'])
+        psi = np.asarray(geq['PSIRZ'], dtype=float).reshape(nw, nh)
+        psi_axis = float(geq['SIMAG'])
+        psi_boundary = float(geq['SIBRY'])
+    except Exception:
+        try:
+            ts = geq['equilibrium.time_slice.0'] if 'equilibrium.time_slice.0' in geq else geq['equilibrium.time_slice'][0]
+            prof2d = ts['profiles_2d.0']
+            r_grid = np.asarray(prof2d['grid.dim1'], dtype=float)
+            z_grid = np.asarray(prof2d['grid.dim2'], dtype=float)
+            psi = np.asarray(prof2d['psi'], dtype=float)
+            if psi.shape == (z_grid.size, r_grid.size):
+                psi = psi.T
+            psi_axis = float(ts['global_quantities.psi_axis'])
+            psi_boundary = float(ts['global_quantities.psi_boundary'])
+        except Exception as exc:
+            raise ValueError("geq must be a VAFT GEQDSK, OMAS equilibrium ODS, or legacy fluxSurfaces mapping") from exc
+
+    interp = RegularGridInterpolator((r_grid, z_grid), psi, bounds_error=False, fill_value=np.nan)
+    points = np.column_stack([np.asarray(r_points, dtype=float), np.asarray(z_points, dtype=float)])
+    psi_points = interp(points)
+    rho = (psi_points - psi_axis) / (psi_boundary - psi_axis) if psi_boundary != psi_axis else np.zeros_like(psi_points)
+    # Outside the LCFS (rho > 1) → NaN rather than pinning to the edge psi_N level.
+    rho = np.where(rho > 1.0, np.nan, rho)
+    return np.clip(rho, 0.0, 1.0)
+
+
 def equilibrium_mapping_thomson_scattering(ods, geq):
     """
     Map Thomson scattering positions to normalized poloidal flux coordinates (rho).
@@ -37,52 +99,10 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
     Returns:
         numpy.ndarray: An array of mapped rho positions for each Thomson scattering point.
     """
-    # Ensure OMFIT+NumPy runtime shims are active before touching fluxSurfaces.
-    from vaft.compat import apply_omfit_compat_patches
-
-    apply_omfit_compat_patches()
-
     # Extract Thomson scattering positions
     r_t = ods['thomson_scattering.channel.:.position.r']
     z_t = ods['thomson_scattering.channel.:.position.z']
-
-    # Extract flux surface levels (normalized poloidal flux values)
-    flux_levels = geq['fluxSurfaces']['levels']
-
-    # Initialize list to store mapped rho positions
-    mapped_rho_position = []
-    boundary = _outermost_surface_path(geq)
-
-    # For each Thomson scattering point, find the closest flux surface
-    for r_dot, z_dot in zip(r_t, z_t):
-        if not boundary.contains_point((float(r_dot), float(z_dot))):
-            mapped_rho_position.append(np.nan)
-            continue
-        min_dist = float('inf')
-        closest_rho = None
-
-        # Iterate over all flux surfaces
-        for i in range(len(geq['fluxSurfaces']['flux'])):
-            R = geq['fluxSurfaces']['flux'][i]['R']
-            Z = geq['fluxSurfaces']['flux'][i]['Z']
-
-            # Compute distances to all points on this flux surface
-            dists = np.sqrt((R - r_dot) ** 2 + (Z - z_dot) ** 2)
-            min_flux_dist = np.min(dists)
-
-            if min_flux_dist < min_dist:
-                min_dist = min_flux_dist
-                closest_rho = flux_levels[i]  # Normalized poloidal flux value
-
-        mapped_rho_position.append(closest_rho)
-
-    # Convert to numpy array
-    mapped_rho_position = np.array(mapped_rho_position)
-
-    # Ensure rho values are within [0, 1] (NaN = outside LCFS, kept as NaN)
-    mapped_rho_position = np.clip(mapped_rho_position, 0, 1)
-
-    return mapped_rho_position
+    return _rho_from_equilibrium_points(geq, r_t, z_t)
 
 def profile_fitting_thomson_scattering(
     ods,
@@ -277,34 +297,9 @@ def equilibrium_mapping_charge_exchange(ods, geq):
         R_ce = ods["charge_exchange.channel.:.position.r"]
         Z_ce = ods["charge_exchange.channel.:.position.z"]
 
-    flux_levels = geq['fluxSurfaces']['levels']
-    mapped_rho_position = []
-    boundary = _outermost_surface_path(geq)
-
-    for r_dot, z_dot in zip(R_ce, Z_ce):
-        r_dot = _to_float_scalar(r_dot)
-        z_dot = _to_float_scalar(z_dot)
-        if not boundary.contains_point((r_dot, z_dot)):
-            mapped_rho_position.append(np.nan)
-            continue
-        min_dist = float('inf')
-        closest_rho = None
-
-        for i in range(len(geq['fluxSurfaces']['flux'])):
-            R = np.asarray(geq['fluxSurfaces']['flux'][i]['R'], dtype=float)
-            Z = np.asarray(geq['fluxSurfaces']['flux'][i]['Z'], dtype=float)
-            dists = np.sqrt((R - r_dot) ** 2 + (Z - z_dot) ** 2)
-            min_flux_dist = np.min(dists)
-
-            if min_flux_dist < min_dist:
-                min_dist = min_flux_dist
-                closest_rho = flux_levels[i]
-
-        mapped_rho_position.append(closest_rho)
-
-    mapped_rho_position = np.asarray(mapped_rho_position, dtype=float)
-    mapped_rho_position = np.clip(mapped_rho_position, 0.0, 1.0)
-    return mapped_rho_position
+    r_vals = [_to_float_scalar(value) for value in R_ce]
+    z_vals = [_to_float_scalar(value) for value in Z_ce]
+    return _rho_from_equilibrium_points(geq, r_vals, z_vals)
 
 
 def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):

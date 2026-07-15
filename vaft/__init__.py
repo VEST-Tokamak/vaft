@@ -21,6 +21,7 @@ __all__ = [
     "data",
     "omas",
     "code",
+    "data",
     "database",
     "imas",
     "apply_runtime_compat_patches",

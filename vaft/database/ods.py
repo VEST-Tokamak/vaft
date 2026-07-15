@@ -17,13 +17,14 @@ except ImportError:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 
 from ..imas import load_omas_imas, save_omas_imas
-from .utils import _require_h5pyd, is_connect
+from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     """Download one HSDS HDF5 image to a local file via hsget."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["hsget", remote_uri, str(out_path)], capture_output=False, text=True, check=True)
+    ensure_imas_hdf5_userblock(out_path, out_path.parent)
     return out_path
 
 
@@ -79,7 +80,8 @@ def load_ods(
     imas_version: Optional[str] = None,
     skip_uncertainties: bool = False,
     consistency_check: bool = True,
-    verbose: bool = True,
+    verbose: bool = False,
+    path: Optional[Union[str, Path]] = None,
     local_dir: Optional[Union[str, Path]] = None,
 ) -> Union[omas.ODS, list[omas.ODS]]:
     """
@@ -95,6 +97,8 @@ def load_ods(
         skip_uncertainties: Skip uncertainty loading when ``True``.
         consistency_check: Run ODS consistency checks after conversion.
         verbose: Print IMAS loading progress.
+        path: Optional existing IMAS HDF5 directory containing ``master.h5``.
+            When set, files are read directly and no HSDS download is attempted.
         local_dir: Optional local staging base directory. When omitted a temporary directory
             is used and cleaned up automatically.
 
@@ -105,6 +109,9 @@ def load_ods(
     logging.getLogger().setLevel(logging.WARNING)
 
     occurrence = occurrence or {}
+
+    if isinstance(shot, list) and path is not None:
+        raise ValueError("path can only be used when loading a single shot")
 
     if isinstance(shot, list):
         ods_list = []
@@ -119,6 +126,7 @@ def load_ods(
                 skip_uncertainties=skip_uncertainties,
                 consistency_check=consistency_check,
                 verbose=verbose,
+                path=None,
                 local_dir=local_dir,
             )
             print("Successfully loaded ODS data for shot:", s)
@@ -137,6 +145,7 @@ def load_ods(
         skip_uncertainties=skip_uncertainties,
         consistency_check=consistency_check,
         verbose=verbose,
+        path=path,
         local_dir=local_dir,
     )
     print("Successfully loaded ODS data for shot:", s)
@@ -154,10 +163,30 @@ def _load_one_shot(
     skip_uncertainties: bool,
     consistency_check: bool,
     verbose: bool,
+    path: Optional[Union[str, Path]],
     local_dir: Optional[Union[str, Path]],
 ) -> omas.ODS:
     """Load one shot from HSDS IMAS images and convert it to ODS."""
     logging.getLogger().setLevel(logging.WARNING)
+
+    if path is not None:
+        shot_dir = Path(path).expanduser()
+        if not (shot_dir / "master.h5").exists():
+            raise FileNotFoundError(f"No master.h5 found in IMAS HDF5 directory: {shot_dir}")
+        ods = load_omas_imas(
+            occurrence=occurrence,
+            paths=paths,
+            time=time,
+            imas_version=imas_version,
+            skip_uncertainties=skip_uncertainties,
+            consistency_check=consistency_check,
+            verbose=verbose,
+            uri="imas:hdf5?path=" + str(shot_dir),
+        )
+        ods.setdefault("dataset_description.data_entry.user", str(directory))
+        ods.setdefault("dataset_description.data_entry.pulse", int(shot))
+        ods.setdefault("dataset_description.data_entry.run", 0)
+        return ods
 
     staging_ctx = (
         tempfile.TemporaryDirectory(prefix="hsds_imas_ods_")

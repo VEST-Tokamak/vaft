@@ -150,7 +150,35 @@ class SecureConfigManager:
 # Global Database Pool
 DB_POOL: Optional[MySQLConnectionPool] = None
 
-SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "sql_table.txt"
+SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "legacy" / "sql_table.txt"
+RAW_SAMPLE_PATH_ENV = "VAFT_RAW_SAMPLE_PATH"
+RAW_OFFLINE_ONLY_ENV = "VAFT_RAW_OFFLINE_ONLY"
+
+
+def _env_truthy(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def raw_offline_only() -> bool:
+    """Return whether raw loading should avoid all live SQL access."""
+    return _env_truthy(os.environ.get(RAW_OFFLINE_ONLY_ENV))
+
+
+def _format_sample_path(template: str, shot: int) -> str:
+    try:
+        return template.format(shot=int(shot))
+    except Exception:
+        return template
+
+
+def _resolve_sample_path(shot: int, sample_opt: Union[bool, str] = False) -> Optional[str]:
+    if isinstance(sample_opt, str) and sample_opt:
+        return _format_sample_path(sample_opt, shot)
+
+    env_path = os.environ.get(RAW_SAMPLE_PATH_ENV)
+    if env_path:
+        return _format_sample_path(env_path, shot)
+    return None
 
 
 def _require_mysql() -> None:
@@ -193,7 +221,8 @@ def init_pool() -> None:
             host=HOSTNAME,
             database=DATABASE,
             user=USERNAME,
-            password=PASSWORD
+            password=PASSWORD,
+            connection_timeout=10,
         )
         logger.info("Database connection pool initialized successfully")
     except Exception as e:
@@ -308,7 +337,8 @@ def _load_from_sample_file(
 
         file_shot = shot_json.get("shot")
         if file_shot is not None and file_shot != shot:
-            logger.warning(f"JSON shot={file_shot}, requested shot={shot}.")
+            logger.warning(f"JSON shot={file_shot}, requested shot={shot}. Skipping archived sample.")
+            return None
 
         data_dict = shot_json.get("fields", {})
         if not data_dict:
@@ -348,11 +378,11 @@ def _load_from_sample_file(
             logger.error(f"No valid fields loaded from JSON for shot={shot}.")
             return None
         
-        time_ref = time_arrays[0]
+        min_len = min(len(arr) for arr in data_arrays)
+        time_ref = time_arrays[0][:min_len]
         data_stack = np.column_stack([
-            arr[:len(time_ref)] for arr in data_arrays
+            arr[:min_len] for arr in data_arrays
         ])
-        time_ref = time_ref[:min(len(arr) for arr in data_arrays)]
 
         return (time_ref, data_stack.ravel()) if len(fields) == 1 else (time_ref, data_stack)
 
@@ -406,7 +436,21 @@ def load_raw(
         elif isinstance(fields, int):
             fields = [fields]
 
-        # Load from sample file if specified
+        # Load from an explicit or environment-provided archived raw dump first.
+        sample_path = _resolve_sample_path(shot, sample_opt)
+        if sample_path:
+            if os.path.isfile(sample_path):
+                result = _load_from_sample_file(shot, fields, sample_path)
+                return result if result is not None else None
+            if raw_offline_only():
+                logger.warning(f"Archived raw sample not found for shot={shot}: {sample_path}")
+                return None
+
+        if raw_offline_only():
+            logger.warning(f"Offline raw mode is enabled and no archived sample is available for shot={shot}.")
+            return None
+
+        # Load from sample file if specified, preserving historical behavior.
         if isinstance(sample_opt, str):
             result = _load_from_sample_file(shot, fields, sample_opt)
             return result if result is not None else None
@@ -506,8 +550,12 @@ def vest_load(
     shot: int,
     field: int,
     max_retries: int = MAX_RETRIES,
+    sample_opt: Union[bool, str] = False,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """Compatibility wrapper for donor-style single-signal loading."""
+    sample_path = _resolve_sample_path(shot, sample_opt)
+    if sample_path or raw_offline_only():
+        return load_raw(shot, field, max_retries=max_retries, sample_opt=sample_opt)
     if not sql_loading_available():
         return None
     return load_raw(shot, field, max_retries=max_retries)
@@ -518,7 +566,11 @@ def _sql_table_mapping() -> dict[str, int]:
         return json.load(file)
 
 
-def vest_load_by_name(shot: int, name: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+def vest_load_by_name(
+    shot: int,
+    name: str,
+    sample_opt: Union[bool, str] = False,
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """Load a waveform by signal name using the shipped lookup table."""
     try:
         table = _sql_table_mapping()
@@ -531,7 +583,7 @@ def vest_load_by_name(shot: int, name: str) -> Optional[Tuple[np.ndarray, np.nda
         logger.error(f"Unknown signal name in sql_table.txt: {name}")
         return None
 
-    return vest_load(shot, int(field))
+    return vest_load(shot, int(field), sample_opt=sample_opt)
 
 
 vest_load_shotWaveform_2 = vest_load_shot_waveform_2

@@ -17,7 +17,7 @@ from vaft.machine_mapping.thomson_scattering import (
 class TestThomsonMatResolve(unittest.TestCase):
     def test_explicit_mat_path_as_data_root_finds_file(self) -> None:
         data_dir = Path(vaft.__file__).resolve().parent / "data"
-        mat_path = data_dir / "46051_NeTe.mat"
+        mat_path = data_dir / "legacy" / "46051_NeTe.mat"
         resolved = _resolve_thomson_mat_file(46051, data_root=mat_path)
         self.assertEqual(resolved.resolve(), mat_path.resolve())
 

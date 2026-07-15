@@ -308,7 +308,7 @@ def test_virial_closure_relations_match_manual_forms():
 
 
 def test_compute_virial_refreshes_and_fallbacks_boundary_axis():
-    data_path = Path(__file__).resolve().parents[1] / "vaft" / "data" / "39915.json"
+    data_path = Path(__file__).resolve().parents[1] / "vaft" / "data" / "omas" / "39915.json"
     ods = load_omas_json(str(data_path))
     eq_idx = 3
     ts = ods["equilibrium.time_slice"][eq_idx]
@@ -331,7 +331,7 @@ def test_compute_virial_refreshes_and_fallbacks_boundary_axis():
 
 
 def test_compute_virial_recovers_when_geometric_axis_fields_deleted():
-    data_path = Path(__file__).resolve().parents[1] / "vaft" / "data" / "39915.json"
+    data_path = Path(__file__).resolve().parents[1] / "vaft" / "data" / "omas" / "39915.json"
     ods = load_omas_json(str(data_path))
     eq_idx = 3
     ts = ods["equilibrium.time_slice"][eq_idx]
