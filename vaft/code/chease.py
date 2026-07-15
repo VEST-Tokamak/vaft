@@ -26,8 +26,16 @@ class CHEASEConfig:
     workdir: Path | str = Path(".")
     target_psin: float = 0.993
     relax: float = 0.5
-    nideal: int = 6
+    nideal: int = 11
     nw: int = 513
+    # --- jsk95 parity knobs (defaults reproduce eqdsk.py run_mode='jsk95') ---
+    epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}; jsk95 uses 10
+    q95_constraint: bool = True  # drive QSPEC/CSSPEC from q at psi_N=sqrt(q95_psin)
+    q95_psin: float = 0.95  # jsk95 constraint location (qloc = sqrt(this))
+    ncscal: int = 1  # CHEASE current-scaling mode
+    edge_zero: bool = True  # zero positive edge pprime, flatten FF' inward
+    boundary_smoothing: str = "fft"  # "fft" (smooth_bnd) | "arclength" | "none"
+    boundary_fft_num: int = 128  # smooth_bnd nf
     auto_cocos: bool = True
     output_cocos: str = "input"
     preserve_boundary_limiter: bool = True
@@ -360,6 +368,89 @@ def _smooth_boundary(rz: np.ndarray, count: int = 256) -> np.ndarray:
     return np.column_stack([np.interp(target, s, rz[:, 0]), np.interp(target, s, rz[:, 1])])
 
 
+def _smooth_boundary_fft(rz: np.ndarray, nf: int = 128) -> np.ndarray:
+    """Uniform-theta cubic boundary resample matching eqdsk.py ``smooth_bnd``.
+
+    eqdsk's fft/ifft roundtrip (same ``n=nf``) is an identity reconstruction, so
+    the smoothing reduces to a periodic cubic interpolation of the normalized
+    radius ``rad/amin`` versus geometric poloidal angle onto ``nf`` points.
+    """
+    from scipy.interpolate import interp1d
+
+    rz = np.asarray(rz, dtype=float)
+    if rz.shape[0] < 4:
+        return rz
+    if np.linalg.norm(rz[0] - rz[-1]) <= 1.0e-10:
+        rz = rz[:-1]  # smooth_bnd operates on the open contour
+    rcen = float((np.nanmax(rz[:, 0]) + np.nanmin(rz[:, 0])) * 0.5)
+    zcen = float(rz[int(np.nanargmax(rz[:, 0])), 1])
+    amin = float((np.nanmax(rz[:, 0]) - np.nanmin(rz[:, 0])) * 0.5)
+    if amin <= 0.0:
+        return rz
+    rad = np.sqrt((rz[:, 0] - rcen) ** 2 + (rz[:, 1] - zcen) ** 2) / amin
+    theta = np.arctan2(rz[:, 1] - zcen, rz[:, 0] - rcen)
+    order = np.argsort(theta)
+    theta = theta[order]
+    rad = rad[order]
+    # Wrap one full period so the spline is periodic across +/- pi.
+    theta_ext = np.concatenate([theta, theta + 2.0 * np.pi])
+    rad_ext = np.concatenate([rad, rad])
+    keep = np.concatenate([[True], np.diff(theta_ext) > 0.0])  # strictly increasing
+    theta_ext = theta_ext[keep]
+    rad_ext = rad_ext[keep]
+    theta_fine = np.linspace(0.0, 2.0 * np.pi, int(nf))
+    rad_fine = interp1d(theta_ext, rad_ext, kind="cubic")(theta_fine)
+    out = np.empty((int(nf), 2), dtype=float)
+    out[:, 0] = rcen + rad_fine * amin * np.cos(theta_fine)
+    out[:, 1] = zcen + rad_fine * amin * np.sin(theta_fine)
+    return out
+
+
+def _resolve_boundary(rz: np.ndarray, config: "CHEASEConfig") -> np.ndarray:
+    """Dispatch boundary smoothing according to ``config.boundary_smoothing``."""
+    method = str(config.boundary_smoothing).lower()
+    if method in {"arclength", "arc", "arc_length"}:
+        return _smooth_boundary(rz)
+    if method in {"none", "off", "raw"}:
+        return np.asarray(rz, dtype=float)
+    # default / "fft" / "smooth_bnd" / "jsk95": eqdsk.py smooth_bnd parity
+    return _smooth_boundary_fft(rz, int(config.boundary_fft_num))
+
+
+def _edge_zero_profiles(
+    psin: np.ndarray, pprime: np.ndarray, ffprim: np.ndarray, qloc: float
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Zero non-physical edge pprime reversals, flatten FF' inward (eqdsk.py:566-573).
+
+    Walks from the separatrix toward the axis; every point whose ``pprime`` has
+    the OPPOSITE sign to the bulk profile (a spline-undershoot reversal at the
+    edge) is zeroed and ``ffprim`` there is held at its just-outside value.
+
+    eqdsk.py tests a literal ``pprime > 0`` because it operates on the *raw* EFIT
+    gEQDSK whose bulk ``pprime`` is negative. This adapter feeds ``_write_expeq``
+    the COCOS-02-normalized gEQDSK, whose ``pprime`` sign may be flipped, so a
+    literal ``> 0`` test would zero the ENTIRE profile. Testing against the bulk
+    sign (median) reproduces eqdsk's intent regardless of the COCOS convention.
+
+    ``qloc`` is nudged outward exactly as eqdsk.py does when a reversed point
+    falls between ``qloc`` and 0.3 (inert for jsk95 since qloc = sqrt(0.95) > 0.3).
+    """
+    pp = np.array(pprime, dtype=float, copy=True)
+    ff = np.array(ffprim, dtype=float, copy=True)
+    bulk_sign = np.sign(np.median(pp))
+    if bulk_sign == 0.0:
+        bulk_sign = 1.0
+    lenp = len(pp) - 1
+    for i in range(lenp):
+        ii = lenp - i - 1
+        if pp[ii] * bulk_sign < 0.0:  # reversed relative to the bulk => non-physical
+            if qloc < psin[ii] < 0.3:
+                qloc = float(psin[ii] + 0.1)
+            pp[ii] = 0.0
+            ff[ii] = ff[ii + 1]
+    return pp, ff, qloc
+
+
 def _chease_mesh_params(nideal: int) -> dict[str, int]:
     if nideal == 8:
         return {"ns": 100, "nt": 100, "npsi": 300, "nchi": 512, "negp": 0, "ner": 2}
@@ -373,7 +464,7 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         if key not in geqdsk:
             raise ValueError(f"GEQDSK is missing required CHEASE input field {key!r}")
 
-    rz = _smooth_boundary(_target_boundary(geqdsk, config.target_psin))
+    rz = _resolve_boundary(_target_boundary(geqdsk, config.target_psin), config)
     rcen = float((np.nanmax(rz[:, 0]) + np.nanmin(rz[:, 0])) * 0.5)
     zcen = float(rz[int(np.nanargmax(rz[:, 0])), 1])
     amin = float((np.nanmax(rz[:, 0]) - np.nanmin(rz[:, 0])) * 0.5)
@@ -389,6 +480,12 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     pprime = _profile(geqdsk["PPRIME"], NCHEASE)
     pressure = _profile(geqdsk["PRES"], NCHEASE)
     ffprim = _profile(geqdsk["FFPRIM"], NCHEASE)
+
+    # jsk95 parity: constraint location qloc = sqrt(q95_psin); may be nudged
+    # outward by edge-zeroing exactly as eqdsk.py chease_params/make_chease_expeq.
+    qloc = float(np.sqrt(config.q95_psin)) if config.q95_constraint else 0.0
+    if config.edge_zero:
+        pprime, ffprim, qloc = _edge_zero_profiles(psin, pprime, ffprim, qloc)
 
     # CHEASE's inverse-equilibrium EXPEQ convention uses a negative-definite
     # pressure-gradient drive and the opposite FF' sign from EFIT/GEQDSK after
@@ -418,13 +515,28 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         f.write(f"{current:.12g}, TOTAL CURRENT\n")
 
     q = np.asarray(geqdsk["QPSI"], dtype=float).reshape(-1)
-    qval = float(q[0] * np.sign(float(geqdsk["CURRENT"])) * np.sign(float(geqdsk["BCENTR"]))) if q.size else 1.0
+    sign_q = np.sign(float(geqdsk["CURRENT"])) * np.sign(float(geqdsk["BCENTR"]))
+    if config.q95_constraint and config.ncscal == 1 and q.size >= 4:
+        # jsk95 double-sqrt: q is sampled at psi_N = sqrt(q95_psin) (NOT q95_psin),
+        # and CSSPEC = sqrt(qloc) = q95_psin**0.25. See eqdsk.py:1717/763/698.
+        from scipy.interpolate import interp1d
+
+        x_q = np.linspace(0.0, 1.0, q.size)
+        q_at = float(interp1d(x_q, q, kind="cubic", fill_value="extrapolate")(qloc))
+        qval = q_at * sign_q
+        csspec = float(np.sqrt(qloc))
+    else:
+        # Legacy adapter behavior: constrain on-axis q, CSSPEC disabled.
+        qval = float(q[0] * sign_q) if q.size else 1.0
+        csspec = 0.0
     return {
         "ASPCT": aspct,
         "R0EXP": rcen,
         "B0EXP": b0exp,
         "CURRT": current,
         "QSPEC": qval,
+        "CSSPEC": csspec,
+        "QLOC": qloc,
         # CHEASE sees already-normalized COCOS-02 inputs. Keeping these
         # experimental sign fields positive avoids a second sign flip inside
         # CHEASE's inverse solver.
@@ -478,7 +590,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "NTURN=20, NBLC0=16,\n",
         "NBSOPT=0,\n",
         "NBSTRP=1, BSFRAC=0, NBSFUN=1,\n",
-        "EPSLON=1.0E-9, GAMMA=1.6666666667,\n",
+        f"EPSLON=1.0E-{int(config.epslon_exponent)}, GAMMA=1.6666666667,\n",
         "CFBAL=10.00,\n",
         "COCOS_IN = 2,\n",
         "COCOS_OUT = 2,\n",
@@ -490,8 +602,8 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "NTNOVA=12,\n",
         "NITMRUN=1, 99, NITMSHOT=10, 10,\n",
         "NITMOPT=0,\n",
-        "NCSCAL=1,\n",
-        "CSSPEC=0.000000,\n",
+        f"NCSCAL={int(config.ncscal)},\n",
+        f"CSSPEC={float(params.get('CSSPEC', 0.0)):.6f},\n",
         f"NEGP={mesh['negp']}, NER={mesh['ner']},\n",
         f"NIDEAL={int(config.nideal)},\n",
         f"NMESHA=1, NPOIDA=2, SOLPDA=.20,APLACE= {1.0 - 0.5 * width:4.3f}, 1.000,\n",
@@ -531,6 +643,10 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
     if config.executable:
         candidate = Path(config.executable).expanduser()
         return candidate if candidate.exists() and os.access(candidate, os.X_OK) else None
+    chease_env = config.env.get("CHEASE") or os.environ.get("CHEASE")
+    if chease_env:
+        chease_candidate = Path(chease_env).expanduser()
+        candidates.append(chease_candidate / "chease" if chease_candidate.is_dir() else chease_candidate)
     env_path = config.env.get("CHEASE_EXEC_DIR") or os.environ.get("CHEASE_EXEC_DIR")
     if env_path:
         env_candidate = Path(env_path).expanduser()
