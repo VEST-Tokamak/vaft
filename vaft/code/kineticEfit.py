@@ -585,6 +585,7 @@ def build_kinetic_core_profiles(
     ti_mode: str = "polynomial",
     vtor_mode: str = "polynomial",
     ion_index: int = 0,
+    time_tolerance_ms: float = 1.0,
 ) -> Any:
     """Fit TS+CX kinetic profiles and write ``core_profiles.profiles_1d``.
 
@@ -598,6 +599,11 @@ def build_kinetic_core_profiles(
           -> core_profiles(T_i_function, V_tor_function, ti_mapped_rho_position)
 
     Pure ODS -> ODS: the passed ``ods`` is mutated in place and returned.
+
+    ``time_tolerance_ms`` is forwarded to ``core_profiles`` for matching the
+    equilibrium slice; widen it when the equilibrium and the diagnostic sample
+    are at slightly different times (e.g. demo data), otherwise ``core_profiles``
+    falls back to a psi_N/rho_pol grid instead of the equilibrium rho_tor_norm grid.
     """
     from vaft.process import profile as _profile
 
@@ -633,6 +639,7 @@ def build_kinetic_core_profiles(
         T_i_function=T_i_function,
         V_tor_function=V_tor_function,
         ti_mapped_rho_position=rho_cx,
+        time_tolerance_ms=time_tolerance_ms,
     )
     return ods
 
