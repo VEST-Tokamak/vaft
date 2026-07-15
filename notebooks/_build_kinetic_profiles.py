@@ -1,11 +1,14 @@
 """Build VEST kinetic profiles (TS + IDS/CES) into ODS/IMAS.
 
+Thin CLI over ``vaft.code.kineticEfit.build_kinetic_core_profiles``. This script
+owns only I/O and iteration; all profile-fit physics lives in the library.
+
 Per (shot, time):
   - equilibrium   : magnetic-EFIT gfile -> eq.to_omas()          (pre-mapping)
-  - thomson_scattering / charge_exchange IDSs from MAT files     (pre-mapping)
-  - psi_N mapping + profile fits (ne, Te from TS; Ti, Vtor from IDS/CES)
-  - core_profiles : fitted ne/Te/Ti/Vtor + pressure_thermal      (post-mapping)
-    on the equilibrium rho_tor_norm/psi grid, p = e*ne*(Te+Ti), n_i ~= n_e
+  - thomson_scattering / charge_exchange IDSs from MAT files     (raw diagnostics)
+  - build_kinetic_core_profiles(ods, geq, time_ms, ...)          (the whole
+    psi_N mapping + ne/Te/Ti/Vtor fits + core_profiles(pressure_thermal),
+    p = e*ne*(Te+Ti), n_i ~= n_e). Pure ODS->ODS in the library.
 
 Outputs (per slice, under --outdir):
   ods_<shot>_<time>ms.json   OMAS JSON (whole ODS: raw diagnostics + core_profiles)
@@ -13,10 +16,13 @@ Outputs (per slice, under --outdir):
                              IMAS backend is unavailable)
   summary.csv                ne0/Te0/Ti0/Vtor0/p_th0 per slice
 
-Scope ends at the kinetic profiles — no EFIT constraint export, no remote DB.
+Scope ends at the kinetic profiles - no EFIT constraint export, no remote DB.
+For the full kinetic chain (profiles -> kinetic-pressure EFIT -> CHEASE refine)
+use vaft.code.kineticEfit.run_kinetic_chain or the end-to-end notebook.
+
 Defaults: shots 48224/48226/48233 x 299/300/301 ms (298 excluded as artifact).
 Run with the conda `vaft` interpreter:
-  /opt/anaconda3/envs/vaft/bin/python notebooks/build_kinetic_profiles.py
+  /home/user1/miniconda3/envs/vaft/bin/python notebooks/_build_kinetic_profiles.py
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ import argparse
 import csv
 from pathlib import Path
 import sys
+import traceback
 
 import numpy as np
 
@@ -33,7 +40,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import vaft
-from vaft.process import profile as pp
+from vaft.code.kineticEfit import build_kinetic_core_profiles
 
 vaft.apply_omfit_compat_patches()
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
@@ -62,6 +69,7 @@ def _resolve_source(shot: int, source: str) -> tuple[str, str | None]:
 
 
 def build(shot: int, time_ms: int, outdir: Path, args) -> dict:
+    # --- load the magnetic equilibrium + raw kinetic diagnostics (I/O only) ---
     gfile = _gfile(shot, time_ms)
     eq = OMFITgeqdsk(str(gfile))
     eq["fluxSurfaces"].load()
@@ -74,32 +82,21 @@ def build(shot: int, time_ms: int, outdir: Path, args) -> dict:
                  "description": f"VEST kinetic profiles {shot}@{time_ms}ms (TS+ion Doppler)"},
     )
 
-    # --- electrons: Thomson scattering (NeTe_<shot>.mat, native 7-channel schema) ---
+    # electrons: Thomson scattering (NeTe_<shot>.mat, native 7-channel schema)
     vaft.machine_mapping.thomson_scattering(ods, shot)
-    rho_ts = pp.equilibrium_mapping_thomson_scattering(ods, eq)
-    ne_f, te_f, *_ = pp.profile_fitting_thomson_scattering(
-        ods, time_ms=time_ms, mapped_rho_position=rho_ts,
-        Te_order=2, Ne_order=2, rho_points=100,
-        fitting_function_te=args.te_mode, fitting_function_ne=args.ne_mode,
-    )
-
-    # --- ions: IDS or CES into the charge_exchange IDS ---
+    # ions: IDS or CES into the charge_exchange IDS
     source, ce_mat = _resolve_source(shot, args.source)
     vaft.machine_mapping.charge_exchange(ods, shotnumber=shot, options=source, mat_file=ce_mat)
-    rho_ce = pp.equilibrium_mapping_charge_exchange(ods, eq)
-    vtor_f, ti_f, *_ = pp.profile_fitting_charge_exchange(
-        ods, time_ms=time_ms, mapped_rho_position=rho_ce,
-        Ti_order=2, Vtor_order=2, rho_points=100,
-        fitting_function_ti=args.ti_mode, fitting_function_vtor=args.vtor_mode,
+
+    # --- all profile-fit physics: psi_N mapping + ne/Te/Ti/Vtor + core_profiles ---
+    ods = build_kinetic_core_profiles(
+        ods, eq, time_ms,
+        te_mode=args.te_mode, ne_mode=args.ne_mode,
+        ti_mode=args.ti_mode, vtor_mode=args.vtor_mode,
         ion_index=0,
     )
 
-    # --- post-mapping kinetic profiles on the equilibrium grid ---
-    pp.core_profiles(
-        ods, time_ms, rho_ts, ne_f, te_f,
-        T_i_function=ti_f, V_tor_function=vtor_f, ti_mapped_rho_position=rho_ce,
-    )
-
+    # --- persist the whole ODS ---
     out_json = outdir / f"ods_{shot}_{time_ms}ms.json"
     save_omas_json(ods, str(out_json))
 
@@ -137,7 +134,7 @@ def main() -> None:
     ap.add_argument("--te-mode", default="polynomial")
     ap.add_argument("--ne-mode", default="free_exponential",
                     help="density fit; free_exponential gives a small finite edge value "
-                         "(decay is NOT enforced — check the fit if the edge rises)")
+                         "(decay is NOT enforced - check the fit if the edge rises)")
     ap.add_argument("--ti-mode", default="polynomial")
     ap.add_argument("--vtor-mode", default="polynomial")
     args = ap.parse_args()
@@ -155,7 +152,6 @@ def main() -> None:
                       f"(ne0={meta['ne0_m^-3']:.2e}, Te0={meta['Te0_eV']:.0f} eV, "
                       f"Ti0={meta['Ti0_eV']:.0f} eV, p_th0={meta['p_th0_Pa']:.0f} Pa)")
             except Exception as exc:
-                import traceback
                 print(f"[ERR] {shot}@{t}: {exc}")
                 traceback.print_exc()
 
