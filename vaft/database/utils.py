@@ -35,22 +35,47 @@ def _require_h5pyd() -> None:
 
 
 def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Path]) -> None:
-    """Restore the IMAS HDF5 userblock stripped by HSDS downloads.
+    """Repair an IMAS HDF5 image downloaded from HSDS so IMAS-Core can open it.
 
-    IMAS-Core stores the data-entry path in a 1024-byte HDF5 userblock.  HSDS
-    ``hsget`` recreates the HDF5 data model but drops that userblock, leaving
-    files that h5py can read but IMAS-Core rejects while opening the entry.
-    Prefixing the existing HDF5 bytes preserves the internal layout and restores
-    the backend metadata IMAS needs.
+    HSDS ``hsget`` recreates the HDF5 data model but mangles two things IMAS-Core
+    needs:
+
+    1. The ``HDF5_BACKEND_VERSION`` root attribute is rebuilt as a short ASCII
+       fixed-string; IMAS-Core's C reader expects the 20-byte UTF-8 fixed-string
+       its writer produces and otherwise fails with
+       ``Unable to read attribute: HDF5_BACKEND_VERSION``. We rewrite it to the
+       expected datatype.
+    2. The 1024-byte userblock IMAS stores the data-entry path in is dropped. We
+       prefix the existing HDF5 bytes to restore it (preserving the internal
+       layout).
+
+    Both repairs are idempotent.
     """
     file_path = Path(path)
+
+    # (1) normalize the HDF5_BACKEND_VERSION attribute datatype
     try:
-        with h5py.File(file_path, "r") as handle:
+        with h5py.File(file_path, "r+") as handle:
             if "HDF5_BACKEND_VERSION" not in handle.attrs:
                 return
-            if handle.userblock_size >= 1024:
-                return
+            type_id = handle.attrs.get_id("HDF5_BACKEND_VERSION").get_type()
+            if type_id.get_size() != 20 or type_id.get_cset() != h5py.h5t.CSET_UTF8:
+                value = (
+                    np.asarray(handle.attrs["HDF5_BACKEND_VERSION"]).tobytes().rstrip(b"\x00")
+                    or b"1.0"
+                )
+                del handle.attrs["HDF5_BACKEND_VERSION"]
+                handle.attrs.create(
+                    "HDF5_BACKEND_VERSION",
+                    value,
+                    dtype=h5py.string_dtype(encoding="utf-8", length=20),
+                )
+            userblock_size = handle.userblock_size
     except OSError:
+        return
+
+    # (2) restore the userblock if HSDS stripped it
+    if userblock_size >= 1024:
         return
 
     entry_path = str(Path(entry_dir).resolve()).encode()[:1023] + b"\0"
