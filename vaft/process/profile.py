@@ -515,6 +515,29 @@ def profile_fitting_charge_exchange(
         return Vtor_function_raw(x)
 
     return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
+def _grid_from_geq(geq):
+    """Return (rho_tor_norm, psi, psi_N) 1D grid from a geqdsk, or None.
+
+    Used so core_profiles can put profiles on the grid of the SAME equilibrium
+    that was used for the psi_N mapping, without depending on (or mutating) the
+    ODS ``equilibrium`` IDS -- important when the stored equilibrium carries only
+    a time axis with empty ``profiles_1d`` (e.g. after an IMAS-version conversion).
+    """
+    if geq is None:
+        return None
+    try:
+        go = geq.to_omas()
+        base = "equilibrium.time_slice.0.profiles_1d"
+        rho = np.asarray(go[f"{base}.rho_tor_norm"], dtype=float)
+        psi = np.asarray(go[f"{base}.psi"], dtype=float)
+    except Exception:
+        return None
+    if rho.size < 2 or psi.size < 2 or psi[-1] == psi[0]:
+        return None
+    psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+    return rho, psi, psi_n
+
+
 def _equilibrium_grid_at_time(ods, target_s, tol_s):
     """Return (rho_tor_norm, psi, psi_N) of the equilibrium slice at target_s, or None."""
     try:
@@ -553,6 +576,8 @@ def core_profiles(
     ti_mapped_rho_position=None,
     rho_points=100,
     time_tolerance_ms=1.0,
+    geq=None,
+    ti_te_fallback=True,
 ):
     """
     Construct and store core_profiles.profiles_1d from fitted kinetic profiles.
@@ -624,8 +649,11 @@ def core_profiles(
         )
         rho_meas = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
 
-    # --- evaluation grid: equilibrium grid when available, else uniform psi_N ---
-    eq_grid = _equilibrium_grid_at_time(ods, target_s, tol_s)
+    # --- evaluation grid: prefer the mapping geqdsk, then the ODS equilibrium,
+    #     else a uniform psi_N grid ---
+    eq_grid = _grid_from_geq(geq)
+    if eq_grid is None:
+        eq_grid = _equilibrium_grid_at_time(ods, target_s, tol_s)
     if eq_grid is not None:
         rho_tor_grid, psi_grid, psi_n_grid = eq_grid
     else:
@@ -638,7 +666,7 @@ def core_profiles(
     T_i_recon = (
         np.asarray(T_i_function(psi_n_grid), dtype=float)
         if have_i
-        else (T_e_recon if have_e else None)
+        else (T_e_recon if (have_e and ti_te_fallback) else None)
     )
     V_tor_recon = (
         np.asarray(V_tor_function(psi_n_grid), dtype=float)
@@ -681,20 +709,24 @@ def core_profiles(
         ods[f'{base}.electrons.density'] = n_e_recon
         ods[f'{base}.electrons.temperature'] = T_e_recon
 
-    # single main ion H+ with n_i ~= n_e (quasi-neutrality, no impurity dilution);
-    # Ti(H+) taken equal to the measured impurity Ti when a fit is provided
-    ods[f'{base}.ion.0.label'] = 'H+'
-    ods[f'{base}.ion.0.z_ion'] = 1.0
-    ods[f'{base}.ion.0.element.0.a'] = 1.00784
-    ods[f'{base}.ion.0.element.0.z_n'] = 1.0
-    ods[f'{base}.ion.0.element.0.atoms_n'] = 1
-    if have_e:  # quasi-neutral main-ion density needs the electron density
-        ods[f'{base}.ion.0.density_thermal'] = n_e_recon
-        ods[f'{base}.ion.0.density'] = n_e_recon
-    if T_i_recon is not None:
-        ods[f'{base}.ion.0.temperature'] = T_i_recon
-    if V_tor_recon is not None:
-        ods[f'{base}.ion.0.velocity.toroidal'] = V_tor_recon
+    # single main ion H+ with n_i ~= n_e (quasi-neutrality, no impurity dilution).
+    # Write the ion block only when there IS an ion fit, or when electrons are
+    # present and the Ti=Te fallback is enabled. With ti_te_fallback=False a slice
+    # with no ion measurement stays electron-only -- no phantom ni / Ti / velocity.
+    write_ion = have_i or (have_e and ti_te_fallback)
+    if write_ion:
+        ods[f'{base}.ion.0.label'] = 'H+'
+        ods[f'{base}.ion.0.z_ion'] = 1.0
+        ods[f'{base}.ion.0.element.0.a'] = 1.00784
+        ods[f'{base}.ion.0.element.0.z_n'] = 1.0
+        ods[f'{base}.ion.0.element.0.atoms_n'] = 1
+        if have_e:  # quasi-neutral main-ion density needs the electron density
+            ods[f'{base}.ion.0.density_thermal'] = n_e_recon
+            ods[f'{base}.ion.0.density'] = n_e_recon
+        if T_i_recon is not None:
+            ods[f'{base}.ion.0.temperature'] = T_i_recon
+        if V_tor_recon is not None:
+            ods[f'{base}.ion.0.velocity.toroidal'] = V_tor_recon
     if have_e and have_i:  # kinetic pressure needs both ne and (Te, Ti)
         ods[f'{base}.pressure_thermal'] = e_J_per_eV * n_e_recon * (T_e_recon + T_i_recon)
 

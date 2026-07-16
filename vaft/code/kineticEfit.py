@@ -596,6 +596,7 @@ def build_kinetic_core_profiles(
     time_tolerance_ms: float = 1.0,
     require_thomson: bool = False,
     require_ion: bool = False,
+    ti_te_fallback: bool = True,
 ) -> Any:
     """Fit whatever kinetic diagnostics are present and write ``core_profiles.profiles_1d``.
 
@@ -671,6 +672,8 @@ def build_kinetic_core_profiles(
         V_tor_function=V_tor_function,
         ti_mapped_rho_position=rho_cx,
         time_tolerance_ms=time_tolerance_ms,
+        geq=geq,
+        ti_te_fallback=ti_te_fallback,
     )
     return ods
 
