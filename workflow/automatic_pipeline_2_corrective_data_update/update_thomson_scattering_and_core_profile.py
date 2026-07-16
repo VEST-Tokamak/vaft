@@ -24,12 +24,38 @@ How to use:
 import os, shutil, re
 import time
 import numpy as np
+import vaft
+vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
 from vaft import database, machine_mapping, process
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 import h5pyd
 from datetime import datetime
 import omas
 import h5py
+
+_TOTAL_PRESSURE_LEAVES = (
+    "pressure_thermal", "pressure", "pressure_ion_total",
+    "pressure_ion_total_thermal", "pressure_parallel", "pressure_perpendicular",
+)
+
+
+def strip_electron_only_pressure(ods):
+    """Delete slice-total pressure from any core_profiles slice with no ion temperature.
+
+    A Thomson-only slice has no ion measurement, so it must not carry a total
+    (kinetic) pressure computed with a phantom Ti=Te.
+    """
+    if "core_profiles" not in ods:
+        return
+    for i in range(len(ods["core_profiles.profiles_1d"])):
+        b = f"core_profiles.profiles_1d.{i}"
+        if f"{b}.ion.0.temperature" in ods:  # a real kinetic slice keeps its pressure
+            continue
+        for leaf in _TOTAL_PRESSURE_LEAVES:
+            key = f"{b}.{leaf}"
+            if key in ods:
+                del ods[key]
+
 
 def extract_shotnumber_of_thomson_scattering(fname: str):
     """
@@ -180,7 +206,7 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 continue
 
             try:
-                ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn)
+                ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn, geq=geq, ti_te_fallback=False)
                 omas.omas_physics.core_profiles_pressures(ods, update=True)
                 omas.save_omas_json(ods, f"/srv/vest.filedb/public/{shotnumber}/omas/{shotnumber}_core_profile.json")
                 success_count += 1 
@@ -188,6 +214,7 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 print(f"[WARNING] Skipped time {time_ms:.1f} ms during core_profile mapping: {e}")
                 continue
 
+        strip_electron_only_pressure(ods)  # Thomson-only slices carry no total pressure
         database.save(ods, shotnumber)
 
         if success_count > 0:

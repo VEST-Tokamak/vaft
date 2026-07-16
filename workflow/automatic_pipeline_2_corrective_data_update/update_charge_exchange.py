@@ -26,6 +26,9 @@ import time
 from datetime import datetime
 
 import numpy as np
+
+import vaft
+vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 
 from vaft import database, machine_mapping, process
