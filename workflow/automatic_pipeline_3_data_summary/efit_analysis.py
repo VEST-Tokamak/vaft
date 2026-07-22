@@ -13,7 +13,7 @@ import seaborn as sns
 from pathlib import Path
 
 # Set style for better visualization
-plt.style.use('seaborn')
+plt.style.use('seaborn-v0_8')
 sns.set_palette('husl')
 
 def load_efit_data(file_path='efit_history.xlsx'):

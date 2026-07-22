@@ -97,6 +97,7 @@ vaft = [
   "data/legacy/*.mat",
   "data/legacy/*.txt",
   "data/omas/*.json",
+  ".hscfg",
 ]
 
 [tool.uv]
@@ -105,9 +106,6 @@ override-dependencies = [
 ]
 
 [tool.uv.sources]
-omas = [
-  { path = "vendor/omas", editable = true, extra = "imas-python" },
-]
 imas_core = [
   { git = "https://github.com/iterorganization/IMAS-Core", tag = "5.6.0" }
 ]

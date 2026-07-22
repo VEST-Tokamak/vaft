@@ -61,7 +61,7 @@ def load_yaml(path: str) -> Dict[str, Any]:
 
 def _resolve_info_file_path(filename: str | None) -> str:
     if filename is None:
-        return package_data_path("vest.yaml")
+        raise ValueError("'info_file' must be provided; no default mapping YAML is bundled.")
 
     candidate = Path(filename)
     if candidate.is_absolute() and candidate.exists():
@@ -73,7 +73,7 @@ def _resolve_info_file_path(filename: str | None) -> str:
     if packaged.exists():
         return str(packaged)
 
-    return package_data_path("vest.yaml")
+    raise FileNotFoundError(f"Could not resolve diagnostic info file: {filename}")
 
 
 def _deep_merge(base: Any, override: Any) -> Any:
