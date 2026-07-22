@@ -8,6 +8,7 @@ import json
 import logging
 from pathlib import Path
 import tempfile
+import time as wall_time
 from datetime import datetime, timezone
 from typing import Literal, Optional, Union
 
@@ -34,7 +35,7 @@ def _text(value) -> str | None:
     return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value)
 
 
-def _source_revision(directory: str, shot: int) -> tuple[str, dict[str, dict[str, str | None]]]:
+def _source_revision(directory: str, shot: int | str) -> tuple[str, dict[str, dict[str, str | None]]]:
     """Fingerprint canonical IMAS image revisions without reading their payloads."""
     _require_h5pyd()
     domains: dict[str, dict[str, str | None]] = {}
@@ -64,7 +65,7 @@ def _read_derived_manifest(domain) -> dict | None:
         return None
 
 
-def _load_derived_omas_cache(directory: str, shot: int, consistency_check: bool) -> omas.ODS | None:
+def _load_derived_omas_cache(directory: str, shot: int | str, consistency_check: bool) -> omas.ODS | None:
     """Return a verified full-shot ODS cache, or ``None`` when stale/missing."""
     try:
         revision, _ = _source_revision(directory, shot)
@@ -89,13 +90,21 @@ def _load_derived_omas_cache(directory: str, shot: int, consistency_check: bool)
 def _publish_derived_omas_cache(
     ods: omas.ODS,
     directory: str,
-    shot: int,
+    shot: int | str,
     imas_version: str | None,
+    *,
+    settle_seconds: float = 0.0,
 ) -> str:
     """Publish a verified compressed full-ODS materialized view beside a shot."""
     _require_h5pyd()
     from ..version import __version__
 
+    # hsload can return after the domain is readable but before HSDS has
+    # finalized the domain's ``lastModified`` value.  Capture a revision only
+    # after a short post-upload settling interval; otherwise a newly written
+    # derived view can be incorrectly rejected as stale on its first read.
+    if settle_seconds:
+        wall_time.sleep(settle_seconds)
     revision, source_domains = _source_revision(directory, shot)
     with tempfile.NamedTemporaryFile(prefix="vaft-derived-omas-", suffix=".h5") as temporary:
         ods.save(temporary.name)
@@ -131,7 +140,7 @@ def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     return out_path
 
 
-def _download_remote_shot(directory: str, shot: int, shot_dir: Path) -> list[Path]:
+def _download_remote_shot(directory: str, shot: int | str, shot_dir: Path) -> list[Path]:
     """Download every IMAS HDF5 image stored for one shot."""
     _require_h5pyd()
 
@@ -160,7 +169,7 @@ def _upload_local_image(local_path: Path, remote_uri: str) -> str:
     return remote_uri
 
 
-def _upload_local_shot(shot_dir: Path, directory: str, shot: int) -> list[str]:
+def _upload_local_shot(shot_dir: Path, directory: str, shot: int | str) -> list[str]:
     """Upload every generated IMAS HDF5 image for one shot to HSDS."""
     h5_files = sorted(path for path in shot_dir.iterdir() if path.is_file() and path.suffix == ".h5")
     if not h5_files:
@@ -175,7 +184,7 @@ def _upload_local_shot(shot_dir: Path, directory: str, shot: int) -> list[str]:
 
 
 def load_ods(
-    shot: Union[int, list[int]],
+    shot: Union[int, str, list[Union[int, str]]],
     directory: str = "public",
     *,
     occurrence: Optional[dict] = None,
@@ -224,7 +233,7 @@ def load_ods(
         ods_list = []
         for s in shot:
             ods = _load_one_shot(
-                int(s),
+                str(s),
                 directory=directory,
                 occurrence=occurrence,
                 paths=paths,
@@ -242,7 +251,7 @@ def load_ods(
         print("Successfully loaded a list of ODS data")
         return ods_list
 
-    s = int(shot)
+    s = str(shot)
     ods = _load_one_shot(
         s,
         directory=directory,
@@ -262,7 +271,7 @@ def load_ods(
 
 
 def _load_one_shot(
-    shot: int,
+    shot: int | str,
     *,
     directory: str,
     occurrence: dict,
@@ -294,7 +303,8 @@ def _load_one_shot(
             uri="imas:hdf5?path=" + str(shot_dir),
         )
         ods.setdefault("dataset_description.data_entry.user", str(directory))
-        ods.setdefault("dataset_description.data_entry.pulse", int(shot))
+        if str(shot).isdigit():
+            ods.setdefault("dataset_description.data_entry.pulse", int(shot))
         ods.setdefault("dataset_description.data_entry.run", 0)
         return ods
 
@@ -302,7 +312,8 @@ def _load_one_shot(
         derived = _load_derived_omas_cache(directory, shot, consistency_check)
         if derived is not None:
             derived.setdefault("dataset_description.data_entry.user", str(directory))
-            derived.setdefault("dataset_description.data_entry.pulse", int(shot))
+            if str(shot).isdigit():
+                derived.setdefault("dataset_description.data_entry.pulse", int(shot))
             derived.setdefault("dataset_description.data_entry.run", 0)
             return derived
 
@@ -338,14 +349,15 @@ def _load_one_shot(
         # loading flow if those overestimated n_e shots still require scaling.
 
         ods.setdefault("dataset_description.data_entry.user", str(directory))
-        ods.setdefault("dataset_description.data_entry.pulse", int(shot))
+        if str(shot).isdigit():
+            ods.setdefault("dataset_description.data_entry.pulse", int(shot))
         ods.setdefault("dataset_description.data_entry.run", 0)
         return ods
 
 
 def save_ods(
     ods: omas.ODS,
-    shot: int,
+    shot: int | str,
     filename: Optional[str] = None,
     env: str = "server",
     *,
@@ -386,7 +398,11 @@ def save_ods(
     logging.getLogger().setLevel(logging.WARNING)
 
     occurrence = occurrence or {}
-    shot = int(shot)
+    shot_key = str(shot)
+    try:
+        pulse_value = int(shot)
+    except (TypeError, ValueError):
+        pulse_value = int(ods.get("dataset_description.data_entry.pulse"))
     run_value = int(run if run is not None else ods.get("dataset_description.data_entry.run", 0))
 
     if env == "local":
@@ -399,7 +415,7 @@ def save_ods(
             ods,
             user=user,
             machine=machine,
-            pulse=shot,
+            pulse=pulse_value,
             run=run_value,
             occurrence=occurrence,
             new=not any(local_path.glob("*.h5")),
@@ -425,7 +441,7 @@ def save_ods(
             ods,
             user=user,
             machine=machine,
-            pulse=shot,
+            pulse=pulse_value,
             run=run_value,
             occurrence=occurrence,
             new=True,
@@ -433,14 +449,20 @@ def save_ods(
             verbose=verbose,
             uri="imas:hdf5?path=" + str(shot_dir),
         )
-        _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot)
+        _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot_key)
         if materialize_omas_cache:
             try:
-                cache_uri = _publish_derived_omas_cache(ods, directory, shot, imas_version)
+                cache_uri = _publish_derived_omas_cache(
+                    ods,
+                    directory,
+                    shot_key,
+                    imas_version,
+                    settle_seconds=8.0,
+                )
                 print(f"[INFO] Published derived OMAS cache: {cache_uri}")
             except Exception as exc:
                 # Canonical IMAS persistence has succeeded. A derived cache must
                 # never turn that successful write into an application failure.
-                logging.warning("Could not publish derived OMAS cache for shot %s: %s", shot, exc)
+                logging.warning("Could not publish derived OMAS cache for shot %s: %s", shot_key, exc)
 
-    return f"hdf5://{directory}/{shot}/"
+    return f"hdf5://{directory}/{shot_key}/"

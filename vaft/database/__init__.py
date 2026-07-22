@@ -67,7 +67,7 @@ def _occurrence_map(occurrence: int | Mapping[str, int] | None) -> dict[str, int
     return result
 
 
-def _discover_native_ids(source: str, shot: int, version: str) -> list[str]:
+def _discover_native_ids(source: str, shot: int | str, version: str) -> list[str]:
     """List stored domains that the selected IMAS DD can represent natively."""
     from .utils import _require_h5pyd
 
@@ -84,7 +84,7 @@ def _discover_native_ids(source: str, shot: int, version: str) -> list[str]:
     return [name for name in names if factory.exists(name)]
 
 
-def _infer_remote_imas_version(source: str, shot: int, ids: list[str] | None, requested: str | None) -> str:
+def _infer_remote_imas_version(source: str, shot: int | str, ids: list[str] | None, requested: str | None) -> str:
     if requested is not None:
         return requested
     from .utils import _require_h5pyd
@@ -116,7 +116,7 @@ def _infer_remote_imas_version(source: str, shot: int, ids: list[str] | None, re
 
 
 def load(
-    shot: int | list[int],
+    shot: int | str | list[int | str],
     *,
     source: str = "public",
     representation: Literal["omas", "imas"] = "omas",
@@ -135,7 +135,7 @@ def load(
         mapped = {name: value for name, value in occurrences.items() if name != "*"}
         if "*" in occurrences:
             mapped = {name: occurrences["*"] for name in (_root_ids(selected_paths) or [])}
-        version = _infer_remote_imas_version(source, int(shot[0] if isinstance(shot, list) else shot), _root_ids(selected_paths), imas_version)
+        version = _infer_remote_imas_version(source, shot[0] if isinstance(shot, list) else shot, _root_ids(selected_paths), imas_version)
         return load_ods(
             shot,
             directory=source,
@@ -208,7 +208,7 @@ def open(
 
 def save(
     data,
-    shot: int,
+    shot: int | str,
     *,
     target: str = "public",
     representation: Literal["omas", "imas"] | None = None,

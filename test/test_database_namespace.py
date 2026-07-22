@@ -28,6 +28,17 @@ def test_database_load_defaults_to_omas_loader_with_bare_source():
     )
 
 
+def test_database_load_preserves_named_ods_storage_key():
+    load_ods = Mock(return_value="ods")
+    fake_ods = _fake_module("vaft.database.ods", load_ods=load_ods)
+    with patch.dict("sys.modules", {"vaft.database.ods": fake_ods}):
+        result = database.load("39915_test", imas_version="3.41.0")
+
+    assert result == "ods"
+    assert load_ods.call_args.args[0] == "39915_test"
+    assert load_ods.call_args.kwargs["directory"] == "public"
+
+
 def test_database_rejects_uri_and_local_path_sources():
     import pytest
 
