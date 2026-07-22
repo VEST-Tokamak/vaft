@@ -161,6 +161,9 @@ with vaft.imas.load("./equilibrium.nc") as entry:
     equilibrium = entry.get("equilibrium")
 ```
 
+See the [HSDS lazy and per-IDS h5image report](docs/hsds_lazy_h5image_report.md)
+for the architecture, cache policy, and shot 39915 benchmark results.
+
 ### Profile Fitting
 
 ```python
