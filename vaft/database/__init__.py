@@ -67,6 +67,23 @@ def _occurrence_map(occurrence: int | Mapping[str, int] | None) -> dict[str, int
     return result
 
 
+def _discover_native_ids(source: str, shot: int, version: str) -> list[str]:
+    """List stored domains that the selected IMAS DD can represent natively."""
+    from .utils import _require_h5pyd
+
+    _require_h5pyd()
+    from . import utils
+    import imas
+
+    factory = imas.IDSFactory(version)
+    names = sorted(
+        name[:-3]
+        for name in utils.h5pyd.Folder(f"/{source}/{shot}/")
+        if name.endswith(".h5") and name not in {"master.h5", "dataset_description.h5"}
+    )
+    return [name for name in names if factory.exists(name)]
+
+
 def _infer_remote_imas_version(source: str, shot: int, ids: list[str] | None, requested: str | None) -> str:
     if requested is not None:
         return requested
@@ -132,11 +149,13 @@ def load(
     if isinstance(shot, list):
         raise ValueError("representation='imas' loads one shot at a time")
     names = _ids_from_paths(selected_paths)
+    version = _infer_remote_imas_version(source, int(shot), names, imas_version)
     if names is None:
-        raise ValueError("representation='imas' requires paths=<top-level IDS>")
+        names = _discover_native_ids(source, int(shot), version)
+        if not names:
+            raise FileNotFoundError(f"No native IMAS IDS are stored for shot {shot} in '{source}'")
     from .ids import load as load_ids
 
-    version = _infer_remote_imas_version(source, int(shot), names, imas_version)
     return load_ids(
         int(shot),
         names[0] if len(names) == 1 else names,
@@ -151,19 +170,32 @@ def open(
     shot: int,
     *,
     source: str = "public",
-    representation: Literal["omas"] = "omas",
+    representation: Literal["omas", "imas"] = "omas",
     paths: str | list[str] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
 ):
-    """Open a read-only, lazy OMAS ODS backed directly by HSDS selections."""
-    if representation != "omas":
-        raise ValueError("vaft.database.open supports only representation='omas'")
+    """Open a read-only lazy OMAS ODS or native IMAS IDS adapter over HSDS."""
+    if representation not in {"omas", "imas"}:
+        raise ValueError("representation must be 'omas' or 'imas'")
     source = _namespace(source, "source")
     selected_paths = _paths(paths)
     occurrences = _occurrence_map(occurrence)
     if any(value != 0 for value in occurrences.values()):
-        raise ValueError("lazy HSDS ODS currently supports occurrence 0 only")
+        raise ValueError("lazy HSDS access currently supports occurrence 0 only")
+    if representation == "imas":
+        names = _ids_from_paths(selected_paths)
+        stored_version = _infer_remote_imas_version(source, int(shot), names, None)
+        if imas_version is not None and imas_version != stored_version:
+            raise ValueError(
+                "HSDS native lazy IMAS does not perform DD conversion; "
+                f"requested {imas_version}, stored {stored_version}. Use database.load() for eager conversion."
+            )
+        from .lazy_imas import open_imas
+
+        return open_imas(
+            int(shot), directory=source, ids=names, imas_version=stored_version
+        )
     from .lazy_ods import open_ods
 
     return open_ods(

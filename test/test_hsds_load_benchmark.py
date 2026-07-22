@@ -27,6 +27,7 @@ import numpy as np
 import omas
 import pytest
 
+from vaft.database import load as load_database
 from vaft.database import open as open_database
 from vaft.database import staging
 from vaft.imas.omas_imas import load_omas_imas
@@ -36,13 +37,14 @@ from vaft.imas.omas_imas import load_omas_imas
 class Branch:
     ids: str
     path: str
+    native_path: tuple[object, ...]
 
 
 BRANCHES = (
-    Branch("equilibrium", "equilibrium.time_slice.0.profiles_2d.0.psi"),
-    Branch("magnetics", "magnetics.time"),
-    Branch("pf_active", "pf_active.coil.0.current.data"),
-    Branch("barometry", "barometry.time"),
+    Branch("equilibrium", "equilibrium.time_slice.0.profiles_2d.0.psi", ("time_slice", 0, "profiles_2d", 0, "psi")),
+    Branch("magnetics", "magnetics.time", ("time",)),
+    Branch("pf_active", "pf_active.coil.0.current.data", ("coil", 0, "current", "data")),
+    Branch("barometry", "barometry.time", ("time",)),
 )
 
 
@@ -75,6 +77,13 @@ def _same_value(left: Any, right: Any) -> bool:
     if left_array.dtype.kind in "fci" or right_array.dtype.kind in "fci":
         return bool(np.allclose(left_array, right_array, equal_nan=True))
     return bool(np.array_equal(left_array, right_array))
+
+
+def _native_value(ids: Any, branch: Branch) -> Any:
+    value = ids
+    for component in branch.native_path:
+        value = value[component] if isinstance(component, int) else getattr(value, component)
+    return np.asarray(value)
 
 
 def _git_sha(path: Path) -> str | None:
@@ -187,13 +196,49 @@ def _lazy_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[s
     }
 
 
+def _native_eager_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[str, Any]]:
+    ids, load_seconds = _seconds(
+        lambda: load_database(
+            shot, source=directory, representation="imas", paths=branch.ids, cache="off"
+        )
+    )
+    value, lookup_seconds = _seconds(lambda: _native_value(ids, branch))
+    return value, {
+        "load_seconds": load_seconds,
+        "lookup_seconds": lookup_seconds,
+        "total_seconds": load_seconds + lookup_seconds,
+    }
+
+
+def _native_lazy_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[str, Any]]:
+    handle, open_seconds = _seconds(
+        lambda: open_database(shot, source=directory, representation="imas", paths=branch.ids)
+    )
+    try:
+        ids, ids_seconds = _seconds(handle.get)
+        value, selection_seconds = _seconds(lambda: _native_value(ids, branch))
+        _, cached_seconds = _seconds(lambda: _native_value(ids, branch))
+        metrics = handle.metrics
+    finally:
+        handle.close()
+    return value, {
+        "open_seconds": open_seconds,
+        "lazy_ids_seconds": ids_seconds,
+        "first_selection_seconds": selection_seconds,
+        "cached_second_access_seconds": cached_seconds,
+        "total_seconds": open_seconds + ids_seconds + selection_seconds,
+        "hsget_subprocess": False,
+        **metrics,
+    }
+
+
 def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: int = 1) -> dict[str, Any]:
     """Execute repeatable, read-only timing passes and return JSON-ready data."""
     if repeat < 1 or warmup < 0:
         raise ValueError("repeat must be >= 1 and warmup must be >= 0")
     measurements: dict[str, dict[str, list[dict[str, Any]]]] = {
         method: {branch.ids: [] for branch in BRANCHES}
-        for method in ("eager_full", "eager_selective", "lazy_hsds", "legacy_h5image")
+        for method in ("eager_full", "eager_selective", "native_full", "native_eager", "lazy_hsds", "native_lazy", "legacy_h5image")
     }
     branch_state: dict[str, dict[str, Any]] = {branch.ids: {"path": branch.path} for branch in BRANCHES}
 
@@ -208,6 +253,9 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                 )
             )
             full_timing = full_plan["timings"]
+            native_full, native_full_seconds = _seconds(
+                lambda: load_database(shot, source=directory, representation="imas", paths=None, cache="off")
+            )
             for branch in BRANCHES:
                 full_value, full_conversion = _convert_staged_branch(full_stage_dir, branch)
                 full_stats = {
@@ -228,6 +276,16 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                 )
                 legacy_value, legacy_lookup = _seconds(lambda branch=branch: legacy[branch.path])
                 lazy_value, lazy_stats = _lazy_branch(directory, shot, branch)
+                native_eager_value, native_eager_stats = _native_eager_branch(directory, shot, branch)
+                native_lazy_value, native_lazy_stats = _native_lazy_branch(directory, shot, branch)
+                native_full_value, native_full_lookup = _seconds(
+                    lambda branch=branch: _native_value(native_full[branch.ids], branch)
+                )
+                native_full_stats = {
+                    "load_seconds": native_full_seconds,
+                    "lookup_seconds": native_full_lookup,
+                    "total_seconds": native_full_seconds + native_full_lookup,
+                }
                 legacy_record = {**legacy_stats, "lookup_seconds": legacy_lookup, "total_seconds": legacy_stats["total_seconds"] + legacy_lookup}
                 state = branch_state[branch.ids]
                 state.update(
@@ -235,6 +293,9 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                         "eager_value": _value_summary(full_value),
                         "selective_matches_full_eager": _same_value(selective_value, full_value),
                         "lazy_matches_full_eager": _same_value(lazy_value, full_value),
+                        "native_full_matches_full_eager": _same_value(native_full_value, full_value),
+                        "native_eager_matches_full_eager": _same_value(native_eager_value, full_value),
+                        "native_lazy_matches_full_eager": _same_value(native_lazy_value, full_value),
                         "legacy_matches_full_eager": _same_value(legacy_value, full_value),
                     }
                 )
@@ -243,7 +304,10 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                 if iteration >= warmup:
                     measurements["eager_full"][branch.ids].append(full_stats)
                     measurements["eager_selective"][branch.ids].append(selective_stats)
+                    measurements["native_full"][branch.ids].append(native_full_stats)
+                    measurements["native_eager"][branch.ids].append(native_eager_stats)
                     measurements["lazy_hsds"][branch.ids].append(lazy_stats)
+                    measurements["native_lazy"][branch.ids].append(native_lazy_stats)
                     measurements["legacy_h5image"][branch.ids].append(legacy_record)
 
     methods: dict[str, Any] = {}
@@ -256,6 +320,26 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                 "samples": records,
             }
 
+    recommendations: list[str] = []
+    for branch in BRANCHES:
+        name = branch.ids
+        omas_lazy = methods["lazy_hsds"]["per_branch"][name]["metrics"]["total_seconds"]["median_seconds"]
+        selective = methods["eager_selective"]["per_branch"][name]["metrics"]["total_seconds"]["median_seconds"]
+        native_lazy = methods["native_lazy"]["per_branch"][name]["metrics"]["total_seconds"]["median_seconds"]
+        native_eager = methods["native_eager"]["per_branch"][name]["metrics"]["total_seconds"]["median_seconds"]
+        if omas_lazy > selective * 1.1:
+            recommendations.append(
+                f"{name}: direct OMAS lazy is slower than selective eager; profile metadata indexing and consider a server-side metadata index."
+            )
+        if native_lazy > native_eager * 1.1:
+            recommendations.append(
+                f"{name}: native adapter overhead dominates; optimize the IMAS path codec and context/index cache."
+            )
+        if native_lazy <= native_eager * 1.1:
+            recommendations.append(
+                f"{name}: native lazy is competitive; retain direct HSDS selections instead of introducing local staging."
+            )
+
     return {
         "schema_version": 2,
         "directory": directory,
@@ -265,6 +349,7 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
         "runtime": _runtime_context(),
         "branches": branch_state,
         "methods": methods,
+        "recommendations": recommendations,
         "notes": [
             "Selective eager mode uses a temporary partial master and only requested IDS plus dataset_description.",
             "Lazy values report client-side selection metrics; compressed wire bytes and proxy request IDs are not measured.",

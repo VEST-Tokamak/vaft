@@ -130,6 +130,18 @@ equilibrium = vaft.database.load(
 )
 ```
 
+For experimental native lazy access without a local staging directory, open an
+IMAS handle. It returns a read-only, lazy `IDSToplevel`; each requested leaf is
+read directly from the corresponding HSDS IDS domain. This first version
+supports occurrence 0 and an exact stored IMAS DD version.
+
+```python
+with vaft.database.open(
+    39915, source="public", representation="imas", paths="equilibrium"
+) as handle:
+    psi = handle.get().time_slice[0].profiles_2d[0].psi
+```
+
 Local artifacts are deliberately separate from the HSDS API. They are
 content-detected rather than selected by a format flag:
 
