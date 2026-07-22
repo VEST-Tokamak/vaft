@@ -30,7 +30,9 @@ def _paths(paths: str | list[str] | None) -> list[str] | None:
         return None
     values = [paths] if isinstance(paths, str) else list(paths)
     if not values or any(not isinstance(path, str) or not path for path in values):
-        raise ValueError("paths must be a non-empty string or list of non-empty strings")
+        raise ValueError(
+            "paths must be a non-empty string or list of non-empty strings"
+        )
     return values
 
 
@@ -39,7 +41,9 @@ def _ids_from_paths(paths: list[str] | None) -> list[str] | None:
         return None
     names = [path.split(".", 1)[0].split("[", 1)[0] for path in paths]
     if any(name != path for name, path in zip(names, paths)):
-        raise ValueError("representation='imas' accepts top-level IDS names only; use representation='omas' for leaf paths")
+        raise ValueError(
+            "representation='imas' accepts top-level IDS names only; use representation='omas' for leaf paths"
+        )
     return list(dict.fromkeys(names))
 
 
@@ -84,7 +88,9 @@ def _discover_native_ids(source: str, shot: int, version: str) -> list[str]:
     return [name for name in names if factory.exists(name)]
 
 
-def _infer_remote_imas_version(source: str, shot: int, ids: list[str] | None, requested: str | None) -> str:
+def _infer_remote_imas_version(
+    source: str, shot: int, ids: list[str] | None, requested: str | None
+) -> str:
     if requested is not None:
         return requested
     from .utils import _require_h5pyd
@@ -98,7 +104,10 @@ def _infer_remote_imas_version(source: str, shot: int, ids: list[str] | None, re
         try:
             with utils.h5pyd.File(f"hdf5://{source}/{shot}/{name}.h5", "r") as handle:
                 root = handle[name] if name in handle else handle
-                for dataset in ("imas_version", "ids_properties&version_put&data_dictionary"):
+                for dataset in (
+                    "imas_version",
+                    "ids_properties&version_put&data_dictionary",
+                ):
                     if dataset in root:
                         value = root[dataset][()]
                         if isinstance(value, bytes):
@@ -124,6 +133,7 @@ def load(
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
     cache: str = "auto",
+    transport: Literal["auto", "canonical", "h5image"] = "auto",
 ):
     """Materialize an OMAS ODS or native IMAS IDS from remote HSDS storage."""
     source = _namespace(source, "source")
@@ -134,8 +144,15 @@ def load(
 
         mapped = {name: value for name, value in occurrences.items() if name != "*"}
         if "*" in occurrences:
-            mapped = {name: occurrences["*"] for name in (_root_ids(selected_paths) or [])}
-        version = _infer_remote_imas_version(source, int(shot[0] if isinstance(shot, list) else shot), _root_ids(selected_paths), imas_version)
+            mapped = {
+                name: occurrences["*"] for name in (_root_ids(selected_paths) or [])
+            }
+        version = _infer_remote_imas_version(
+            source,
+            int(shot[0] if isinstance(shot, list) else shot),
+            _root_ids(selected_paths),
+            imas_version,
+        )
         return load_ods(
             shot,
             directory=source,
@@ -143,6 +160,7 @@ def load(
             paths=selected_paths,
             imas_version=version,
             cache=cache,
+            transport=transport,
         )
     if representation != "imas":
         raise ValueError("representation must be 'omas' or 'imas'")
@@ -153,7 +171,9 @@ def load(
     if names is None:
         names = _discover_native_ids(source, int(shot), version)
         if not names:
-            raise FileNotFoundError(f"No native IMAS IDS are stored for shot {shot} in '{source}'")
+            raise FileNotFoundError(
+                f"No native IMAS IDS are stored for shot {shot} in '{source}'"
+            )
     from .ids import load as load_ids
 
     return load_ids(
@@ -163,6 +183,7 @@ def load(
         occurrence=occurrences,
         dd_version=version,
         cache=cache,
+        transport=transport,
     )
 
 
@@ -202,7 +223,9 @@ def open(
         int(shot),
         directory=source,
         ids=_root_ids(selected_paths),
-        imas_version=_infer_remote_imas_version(source, int(shot), _root_ids(selected_paths), imas_version),
+        imas_version=_infer_remote_imas_version(
+            source, int(shot), _root_ids(selected_paths), imas_version
+        ),
     )
 
 
@@ -214,26 +237,38 @@ def save(
     representation: Literal["omas", "imas"] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
-    materialize_omas_cache: bool = True,
+    derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
 ):
     """Write an OMAS ODS or native IDS to remote HSDS storage."""
     target = _namespace(target, "target")
     is_ids = _is_imas_ids(data)
     inferred = "imas" if is_ids else "omas"
     if representation is not None and representation != inferred:
-        raise TypeError(f"representation={representation!r} does not match the supplied object")
+        raise TypeError(
+            f"representation={representation!r} does not match the supplied object"
+        )
     if inferred == "imas":
         from .ids import save as save_ids
 
-        return save_ids(data, shot, directory=target, dd_version=imas_version)
+        return save_ids(
+            data,
+            shot,
+            directory=target,
+            dd_version=imas_version,
+            derived_cache=derived_cache,
+        )
     from .ods import save_ods
 
     mapped = _occurrence_map(occurrence)
     if "*" in mapped:
         raise ValueError("OMAS occurrence must be a mapping keyed by IDS name")
     return save_ods(
-        data, shot, directory=target, occurrence=mapped, imas_version=imas_version,
-        materialize_omas_cache=materialize_omas_cache,
+        data,
+        shot,
+        directory=target,
+        occurrence=mapped,
+        imas_version=imas_version,
+        derived_cache=derived_cache,
     )
 
 

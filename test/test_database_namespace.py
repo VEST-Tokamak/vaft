@@ -25,6 +25,7 @@ def test_database_load_defaults_to_omas_loader_with_bare_source():
         paths=None,
         imas_version="3.41.0",
         cache="auto",
+        transport="auto",
     )
 
 
@@ -63,6 +64,7 @@ def test_database_load_uses_native_ids_for_imas_representation():
         occurrence={},
         dd_version="3.41.0",
         cache="auto",
+        transport="auto",
     )
 
 
@@ -97,12 +99,42 @@ def test_database_open_allows_detailed_omas_paths_but_scopes_the_root_ids():
 def test_database_open_routes_native_imas_to_the_direct_adapter():
     open_imas = Mock(return_value="native-lazy")
     fake_lazy = _fake_module("vaft.database.lazy_imas", open_imas=open_imas)
-    with patch.dict("sys.modules", {"vaft.database.lazy_imas": fake_lazy}), patch.object(
-        database, "_infer_remote_imas_version", return_value="3.41.0"
+    with (
+        patch.dict("sys.modules", {"vaft.database.lazy_imas": fake_lazy}),
+        patch.object(database, "_infer_remote_imas_version", return_value="3.41.0"),
     ):
-        result = database.open(39915, representation="imas", paths="equilibrium", imas_version="3.41.0")
+        result = database.open(
+            39915, representation="imas", paths="equilibrium", imas_version="3.41.0"
+        )
 
     assert result == "native-lazy"
     open_imas.assert_called_once_with(
         39915, directory="public", ids=["equilibrium"], imas_version="3.41.0"
     )
+
+
+def test_database_save_forwards_per_ids_derived_policy():
+    save_ods = Mock(return_value="hdf5://public/39915/")
+    fake_ods = _fake_module("vaft.database.ods", save_ods=save_ods)
+    data = object()
+    with patch.dict("sys.modules", {"vaft.database.ods": fake_ods}):
+        result = database.save(data, 39915, derived_cache="imas-images")
+
+    assert result == "hdf5://public/39915/"
+    save_ods.assert_called_once_with(
+        data,
+        39915,
+        directory="public",
+        occurrence={},
+        imas_version=None,
+        derived_cache="imas-images",
+    )
+
+
+def test_native_save_rejects_omas_derived_cache_before_io():
+    import pytest
+
+    from vaft.database import ids
+
+    with pytest.raises(ValueError, match="native IDS save supports"):
+        ids.save(object(), 39915, derived_cache="both")

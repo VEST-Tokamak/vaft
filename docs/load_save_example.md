@@ -5,7 +5,10 @@
 Use `vaft.database.load(shot, source="public")` when a complete local IMAS staging set is needed.
 This eager path invokes `hsget`; when `paths` is supplied it stages only
 the selected top-level IDS and `dataset_description`, using a validated local
-domain cache by default. Pass `cache="off"` to force a fresh download.
+domain cache by default. Pass `cache="off"` to force a fresh download. Eager
+loads prefer validated per-IDS h5image domains when present; use
+`transport="canonical"` to force `hsget` or `transport="h5image"` to require
+the derived path.
 
 Use `vaft.database.open` for selection-based access without a temporary
 staging directory:

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import logging
 import tempfile
+import time
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 import h5py
 import imas
 
@@ -23,6 +24,7 @@ except ImportError:
 
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
 from .transport import run_hsget, run_hsload, verify_uploaded_image
+from .h5image import publish_image
 from .staging import external_h5_links, stage_imas_shot
 
 
@@ -37,6 +39,7 @@ def _external_h5_links(master_path: Path) -> list[str]:
     """Return HDF5 filenames linked by an IMAS master.h5 file."""
     return external_h5_links(master_path)
 
+
 def _ids_top_level_name(ids_obj):
     # 1) IMAS IDS
     name = getattr(getattr(ids_obj, "metadata", None), "name", None)
@@ -47,11 +50,13 @@ def _ids_top_level_name(ids_obj):
     cls = type(ids_obj).__name__
     return cls
 
+
 def save(
     ids: imas.ids_toplevel.IDSToplevel,
     shot: int,
     directory: str = "public",
     dd_version: Optional[str] = None,
+    derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
 ) -> Optional[str]:
     """
     Save one native IMAS IDS to a remote HSDS namespace.
@@ -74,6 +79,15 @@ def save(
 
     ids_name = _ids_top_level_name(ids)
     filename = f"{ids_name}.h5"
+    if derived_cache not in {"auto", "none", "imas-images", "omas", "both"}:
+        raise ValueError(
+            "derived_cache must be 'auto', 'none', 'imas-images', 'omas', or 'both'"
+        )
+    if derived_cache in {"omas", "both"}:
+        raise ValueError(
+            "native IDS save supports only 'auto', 'none', or 'imas-images' derived_cache"
+        )
+    derived_mode = "imas-images" if derived_cache == "auto" else derived_cache
 
     _require_h5pyd()
 
@@ -85,7 +99,9 @@ def save(
         print(f"[INFO] Local staging directory: {_staging_dir.absolute()}")
 
         # Save IDS to local shot directory. This auto-generates master.h5.
-        with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w", dd_version=dd_version) as dbentry:
+        with imas.DBEntry(
+            "imas:hdf5?path=" + str(_staging_dir), "w", dd_version=dd_version
+        ) as dbentry:
             dbentry.put(ids)
         print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
 
@@ -96,6 +112,24 @@ def save(
         master_remote_uri = f"hdf5://{directory}/{shot}/master.h5"
         run_hsload(_staging_dir / "master.h5", master_remote_uri)
         verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
+        if derived_mode == "imas-images":
+            time.sleep(8.0)
+            for local_path in (_staging_dir / filename, _staging_dir / "master.h5"):
+                try:
+                    result = publish_image(
+                        local_path,
+                        directory,
+                        int(shot),
+                        imas_version=dd_version,
+                    )
+                    print(f"[INFO] Published derived IMAS image: {result['uri']}")
+                except Exception as exc:
+                    logging.warning(
+                        "Could not publish derived IMAS image for shot %s (%s): %s",
+                        shot,
+                        local_path.name,
+                        exc,
+                    )
         return ids_remote_uri
 
 
@@ -107,6 +141,7 @@ def load(
     dd_version: Optional[str] = None,
     local_dir: Optional[str] = None,
     cache: str | Path = "auto",
+    transport: Literal["auto", "canonical", "h5image"] = "auto",
 ) -> Union[object, dict[str, object]]:
     """
     Load IDS object(s) from HSDS as native IMAS objects.
@@ -135,7 +170,9 @@ def load(
     try:
         import imas
     except ImportError as exc:
-        raise ImportError("imas package is required to load native IDS objects") from exc
+        raise ImportError(
+            "imas package is required to load native IDS objects"
+        ) from exc
     if not hasattr(imas, "DBEntry"):
         raise RuntimeError("IMAS AL5 DBEntry is required for load_imas")
 
@@ -162,6 +199,7 @@ def load(
             staging_dir=shot_dir,
             requested_ids=ids_list,
             cache=cache,
+            transport=transport,
         )
         print(
             "[INFO] Materialized IMAS files: "
@@ -175,10 +213,19 @@ def load(
         try:
             with imas.DBEntry(uri, "r", dd_version=dd_version) as dbentry:
                 if isinstance(ids_name, str):
-                    value = occurrence.get(ids_name, 0) if isinstance(occurrence, dict) else occurrence
+                    value = (
+                        occurrence.get(ids_name, 0)
+                        if isinstance(occurrence, dict)
+                        else occurrence
+                    )
                     return dbentry.get(ids_name, value)
                 return {
-                    name: dbentry.get(name, occurrence.get(name, 0) if isinstance(occurrence, dict) else occurrence)
+                    name: dbentry.get(
+                        name,
+                        occurrence.get(name, 0)
+                        if isinstance(occurrence, dict)
+                        else occurrence,
+                    )
                     for name in ids_name
                 }
         except Exception as exc:

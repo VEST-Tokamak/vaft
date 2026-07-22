@@ -31,7 +31,15 @@ def fake_hsds(monkeypatch, tmp_path):
     remote.mkdir()
     _make_remote_shot(remote)
     calls: list[str] = []
-    revisions = {name: "revision-1" for name in ("master.h5", "equilibrium.h5", "magnetics.h5", "dataset_description.h5")}
+    revisions = {
+        name: "revision-1"
+        for name in (
+            "master.h5",
+            "equilibrium.h5",
+            "magnetics.h5",
+            "dataset_description.h5",
+        )
+    }
 
     def fake_hsget(uri: str, target: Path) -> Path:
         name = uri.rsplit("/", 1)[-1]
@@ -49,8 +57,17 @@ def fake_hsds(monkeypatch, tmp_path):
 
     monkeypatch.setattr(staging, "run_hsget", fake_hsget)
     monkeypatch.setattr(staging, "ensure_imas_hdf5_userblock", lambda *_: None)
-    monkeypatch.setattr(staging.HSDSDomainCache, "_endpoint", staticmethod(lambda: "test-endpoint"))
+    monkeypatch.setattr(
+        staging.HSDSDomainCache, "_endpoint", staticmethod(lambda: "test-endpoint")
+    )
     monkeypatch.setattr(staging.HSDSDomainCache, "_remote_info", remote_info)
+    monkeypatch.setattr(
+        staging,
+        "materialize_image",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            staging.H5ImageUnavailableError("no derived fixture")
+        ),
+    )
     return remote, calls, revisions
 
 
@@ -63,7 +80,9 @@ def _external_names(master: Path) -> set[str]:
         }
 
 
-def test_selective_staging_only_materializes_requested_ids_and_partial_master(fake_hsds, tmp_path):
+def test_selective_staging_only_materializes_requested_ids_and_partial_master(
+    fake_hsds, tmp_path
+):
     _remote, calls, _revisions = fake_hsds
     output = tmp_path / "stage"
 
@@ -73,7 +92,10 @@ def test_selective_staging_only_materializes_requested_ids_and_partial_master(fa
 
     assert calls == ["master.h5", "dataset_description.h5", "equilibrium.h5"]
     assert plan["files"] == ["master.h5", "dataset_description.h5", "equilibrium.h5"]
-    assert _external_names(output / "master.h5") == {"equilibrium.h5", "dataset_description.h5"}
+    assert _external_names(output / "master.h5") == {
+        "equilibrium.h5",
+        "dataset_description.h5",
+    }
     assert not (output / "magnetics.h5").exists()
 
 
@@ -83,9 +105,16 @@ def test_full_staging_retains_historical_all_linked_behavior(fake_hsds, tmp_path
 
     staging.stage_imas_shot("public", 123, output, requested_ids=None, cache="off")
 
-    assert calls == ["master.h5", "dataset_description.h5", "equilibrium.h5", "magnetics.h5"]
+    assert calls == [
+        "master.h5",
+        "dataset_description.h5",
+        "equilibrium.h5",
+        "magnetics.h5",
+    ]
     assert _external_names(output / "master.h5") == {
-        "equilibrium.h5", "magnetics.h5", "dataset_description.h5"
+        "equilibrium.h5",
+        "magnetics.h5",
+        "dataset_description.h5",
     }
 
 
@@ -93,7 +122,9 @@ def test_cache_hit_avoids_hsget_and_revision_change_redownloads(fake_hsds, tmp_p
     _remote, calls, revisions = fake_hsds
     cache = tmp_path / "cache"
 
-    staging.stage_imas_shot("public", 123, tmp_path / "cold", requested_ids=("equilibrium",), cache=cache)
+    staging.stage_imas_shot(
+        "public", 123, tmp_path / "cold", requested_ids=("equilibrium",), cache=cache
+    )
     assert calls == ["master.h5", "dataset_description.h5", "equilibrium.h5"]
 
     calls.clear()
@@ -105,25 +136,69 @@ def test_cache_hit_avoids_hsget_and_revision_change_redownloads(fake_hsds, tmp_p
 
     revisions["equilibrium.h5"] = "revision-2"
     calls.clear()
-    staging.stage_imas_shot("public", 123, tmp_path / "changed", requested_ids=("equilibrium",), cache=cache)
+    staging.stage_imas_shot(
+        "public", 123, tmp_path / "changed", requested_ids=("equilibrium",), cache=cache
+    )
     assert calls == ["equilibrium.h5"]
 
 
 def test_corrupt_cached_domain_is_not_reused(fake_hsds, tmp_path):
     _remote, calls, _revisions = fake_hsds
     cache = tmp_path / "cache"
-    staging.stage_imas_shot("public", 123, tmp_path / "cold", requested_ids=("equilibrium",), cache=cache)
+    staging.stage_imas_shot(
+        "public", 123, tmp_path / "cold", requested_ids=("equilibrium",), cache=cache
+    )
     cached = next(cache.rglob("equilibrium.h5"))
     cached.write_bytes(b"not an hdf5 file")
 
     calls.clear()
-    staging.stage_imas_shot("public", 123, tmp_path / "corrupt", requested_ids=("equilibrium",), cache=cache)
+    staging.stage_imas_shot(
+        "public", 123, tmp_path / "corrupt", requested_ids=("equilibrium",), cache=cache
+    )
     assert calls == ["equilibrium.h5"]
 
 
 def test_missing_ids_and_invalid_paths_have_actionable_errors(fake_hsds, tmp_path):
     _remote, _calls, _revisions = fake_hsds
     with pytest.raises(FileNotFoundError, match="Available IDS:.*equilibrium"):
-        staging.stage_imas_shot("public", 123, tmp_path / "stage", requested_ids=("not_saved",), cache="off")
+        staging.stage_imas_shot(
+            "public", 123, tmp_path / "stage", requested_ids=("not_saved",), cache="off"
+        )
     with pytest.raises(ValueError, match="non-empty strings"):
         staging.requested_ids_from_paths([None])
+
+
+def test_h5image_transport_avoids_hsget(fake_hsds, monkeypatch, tmp_path):
+    remote, calls, _revisions = fake_hsds
+
+    def restore(_directory, _shot, filename, target, *, source_info):
+        assert source_info["last_modified"] == "revision-1"
+        shutil.copy2(remote / filename, target)
+        return {"transport": "h5image", "logical_bytes": target.stat().st_size}
+
+    monkeypatch.setattr(staging, "materialize_image", restore)
+    plan = staging.stage_imas_shot(
+        "public",
+        123,
+        tmp_path / "stage-h5image",
+        requested_ids=("equilibrium",),
+        cache="off",
+        transport="h5image",
+    )
+
+    assert calls == []
+    assert set(plan["transports"].values()) == {"h5image"}
+
+
+def test_strict_h5image_transport_does_not_fallback(fake_hsds, tmp_path):
+    _remote, calls, _revisions = fake_hsds
+    with pytest.raises(staging.H5ImageUnavailableError, match="no derived fixture"):
+        staging.stage_imas_shot(
+            "public",
+            123,
+            tmp_path / "strict-missing",
+            requested_ids=("equilibrium",),
+            cache="off",
+            transport="h5image",
+        )
+    assert calls == []
