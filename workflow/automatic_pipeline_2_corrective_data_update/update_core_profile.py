@@ -46,6 +46,10 @@ WATCH_DIAG = "/srv/vest.diagnostic"
 PUBLIC_BASE = "/srv/vest.filedb/public"
 CHECK_INTERVAL = 10  # seconds
 
+# kinetic core_profiles records live in their own registry group so they don't
+# collide with the Thomson 'shots' group. Mirrors vaft.database.utils.CP_REGISTRY_GROUP.
+CP_REGISTRY_GROUP = "cp_shots"
+
 
 def geqdsk_for_time(shotnumber, time_ms):
     """Return a loaded CHEASE geqdsk for (shot, time_ms), or None."""
@@ -155,7 +159,7 @@ def process_shot(shotnumber):
 
 
 def main():
-    processed = load_processed_shots()
+    processed = load_processed_shots(group=CP_REGISTRY_GROUP)
     try:
         while True:
             print("[POLLING] Scanning for shots to (re)build core_profiles...")
@@ -168,8 +172,7 @@ def main():
                         continue
                     full_path = os.path.join(WATCH_DIAG, fname)
                     mtime = datetime.fromtimestamp(os.path.getmtime(full_path)).isoformat()
-                    key = f"cp:{shotnumber}"
-                    prev = processed.get(key)
+                    prev = processed.get(shotnumber)
                     if isinstance(prev, dict) and prev.get("timestamp") == mtime:
                         print(f"[SKIP] core_profiles for shot {shotnumber} already built")
                         continue
@@ -182,8 +185,8 @@ def main():
                         print(f"[ERROR] core_profiles build for shot {shotnumber} failed: {exc}")
                         status = "invalid"
 
-                    save_processed_shot(shotnumber, mtime, status=status)
-                    processed[key] = {"timestamp": mtime, "status": status}
+                    save_processed_shot(shotnumber, mtime, status=status, group=CP_REGISTRY_GROUP)
+                    processed[shotnumber] = {"timestamp": mtime, "status": status}
                     print(f"[DONE] shot {shotnumber}: {status}")
             except Exception as exc:  # noqa: BLE001
                 print(f"[ERROR] Polling failed: {exc}")

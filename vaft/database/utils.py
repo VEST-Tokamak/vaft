@@ -25,7 +25,10 @@ _H5PYD_MSG = (
     "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
 )
 
-PROCESSED_H5_PATH = "hdf5://public_omas/processed_shots.h5"
+# Must match the path the corrective updaters write to
+# (workflow/automatic_pipeline_2_corrective_data_update/*.py), otherwise
+# exist_shot() reads a stale copy and never reflects reprocessing.
+PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
 
 
 def _require_h5pyd() -> None:
@@ -154,17 +157,28 @@ def exist_shot(
     data_filter: Optional[str] = None,
     sort: int = -1,
 ) -> Union[List[str], bool, pd.DataFrame, None]:
-    """Return a list of shot names or Thomson scattering data from HSDS.
+    """Return a list of shot names or processed-diagnostic data from HSDS.
 
     Supports multiple filter options and folder-specific behaviors:
     - None (default): Standard ODS/IDS shots from ``public`` directory
     - 'ts' or 'thomson_scattering': Thomson scattering processed shots from processed_shots.h5
+    - 'cx' or 'charge_exchange': Charge exchange (IDS/CES) processed shots from processed_shots.h5
+    - 'cp' or 'core_profiles': Kinetic core_profiles built shots from processed_shots.h5
+
+    Note: the 'ts'/'cx'/'cp' tables are read from the corrective-pipeline registry
+    (``processed_shots.h5``), which logs what the updater *attempted*. A row does
+    not guarantee the shot ODS actually carries that diagnostic — check the
+    ``Status`` column ('invalid' means the run found nothing usable). Each updater
+    writes its own registry group (``shots`` / ``cx_shots`` / ``cp_shots``), so the
+    three listings are independent and never overwrite one another.
 
     Args:
         username (str, optional): The folder to access.
             Defaults to 'public'. Options: 'public' or other folder names.
         shot (int, optional): The specific shot number to search for. Only used with ODS filter.
-        data_filter (str, optional): Filter type - None for ODS, 'ts' or 'thomson_scattering' for Thomson scattering.
+        data_filter (str, optional): Filter type - None for ODS, 'ts'/'thomson_scattering'
+            for Thomson scattering, 'cx'/'charge_exchange' for charge exchange,
+            'cp'/'core_profiles' for kinetic core_profiles.
         sort (int, optional): Sort order for shot listings.
             - 1: Ascending (oldest first)
             - -1: Descending (newest first)
@@ -177,17 +191,27 @@ def exist_shot(
               - True if specific shot exists
               - False if specific shot does not exist
               - Empty list on connection error
-            - For Thomson Scattering (data_filter='ts' or 'thomson_scattering'):
+            - For Thomson Scattering / Charge Exchange / core_profiles:
               - pd.DataFrame with columns: Index, Shot Number, Last Processed, Status
-              - None on error or no data
+              - None on error or no matching data
     """
     _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
+    _filter = data_filter.lower().strip() if isinstance(data_filter, str) else data_filter
+
     # Handle Thomson Scattering filter
-    if data_filter in ('ts', 'thomson_scattering', 'thomson scattering'):
-        ts_sort = sort != 0
-        return _exist_shot_ts(sort=ts_sort)
+    if _filter in ('ts', 'thomson_scattering', 'thomson scattering'):
+        return _exist_shot_ts(sort=sort != 0)
+
+    # Handle Charge Exchange (IDS / CES) filter
+    if _filter in ('cx', 'charge_exchange', 'charge exchange', 'ces', 'ids'):
+        return _exist_shot_cx(sort=sort != 0)
+
+    # Handle kinetic core_profiles filter
+    if _filter in ('cp', 'core_profiles', 'core_profile', 'kinetic',
+                   'kinetic_core_profile'):
+        return _exist_shot_cp(sort=sort != 0)
 
     # Default folder
     if username is None:
@@ -213,12 +237,21 @@ def exist_shot(
     return _get_folder_contents(username, sort=sort)
 
 
+# HDF5 groups inside processed_shots.h5, one per diagnostic. Each updater owns
+# its own group so Thomson and charge_exchange records never collide (both are
+# keyed by bare shot number). Keep these in sync with the corrective updaters in
+# workflow/automatic_pipeline_2_corrective_data_update/.
+TS_REGISTRY_GROUP = "shots"       # update_thomson_scattering_and_core_profile.py
+CX_REGISTRY_GROUP = "cx_shots"    # update_charge_exchange.py
+CP_REGISTRY_GROUP = "cp_shots"    # update_core_profile.py
+
+
 def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
     """
     Retrieve all processed Thomson scattering shots from h5pyd in a formatted table.
 
     Behavior:
-    - Reads 'shots' group (each shotnumber as subgroup) from processed_shots.h5.
+    - Reads the ``shots`` group (each shotnumber as subgroup) from processed_shots.h5.
     - Extracts timestamp and status for each shot.
     - Returns DataFrame with columns: Index, Shot Number, Last Processed, Status.
 
@@ -228,16 +261,78 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
     Returns:
         Union[pd.DataFrame, None]: DataFrame of TS shots or None on error.
     """
+    return _read_processed_registry(
+        sort=sort, group=TS_REGISTRY_GROUP, label="Thomson Scattering"
+    )
+
+
+def _exist_shot_cx(sort: bool = True) -> Union[pd.DataFrame, None]:
+    """
+    Retrieve processed charge_exchange (IDS/CES) shots from h5pyd in a table.
+
+    Identical in shape and behavior to :func:`_exist_shot_ts` — it just reads the
+    charge_exchange registry group (:data:`CX_REGISTRY_GROUP`) instead of the
+    Thomson one, so the two listings never collide.
+
+    Args:
+        sort (bool, optional): Whether to sort shots by shot number. Defaults to True.
+
+    Returns:
+        Union[pd.DataFrame, None]: DataFrame of charge_exchange shots or None.
+    """
+    return _read_processed_registry(
+        sort=sort, group=CX_REGISTRY_GROUP, label="Charge Exchange"
+    )
+
+
+def _exist_shot_cp(sort: bool = True) -> Union[pd.DataFrame, None]:
+    """
+    Retrieve shots with kinetic core_profiles built, in a table.
+
+    Identical in shape and behavior to :func:`_exist_shot_ts`, reading the
+    core_profiles registry group (:data:`CP_REGISTRY_GROUP`). Statuses recorded
+    by ``update_core_profile.py``: ``kinetic_core_profile`` (real Ti/Vtor slice),
+    ``core_profile`` (electron-only slices), ``thomson_only``, ``invalid``.
+
+    Args:
+        sort (bool, optional): Whether to sort shots by shot number. Defaults to True.
+
+    Returns:
+        Union[pd.DataFrame, None]: DataFrame of core_profiles shots or None.
+    """
+    return _read_processed_registry(
+        sort=sort, group=CP_REGISTRY_GROUP, label="Core Profiles"
+    )
+
+
+def _read_processed_registry(
+    sort: bool = True,
+    group: str = TS_REGISTRY_GROUP,
+    label: str = "Processed",
+) -> Union[pd.DataFrame, None]:
+    """
+    Read one diagnostic's shot registry group from ``processed_shots.h5``.
+
+    Args:
+        sort: Whether to sort shots by shot number.
+        group: HDF5 group name to read (e.g. ``shots`` for Thomson,
+            ``cx_shots`` for charge_exchange).
+        label: Human-readable diagnostic name for printed output.
+
+    Returns:
+        DataFrame with columns Index, Shot Number, Last Processed, Status, or
+        None on error / when the group is missing or empty.
+    """
     _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     try:
         with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
-            if "shots" not in f:
-                print("[INFO] No 'shots' group found in processed_shots.h5.")
+            if group not in f:
+                print(f"[INFO] No '{group}' group found in processed_shots.h5.")
                 return None
 
-            g = f["shots"]
+            g = f[group]
             if len(g.keys()) == 0:
                 print("[INFO] No processed shots recorded yet.")
                 return None
@@ -249,7 +344,6 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
 
             for key in keys:
                 try:
-                    shots.append(int(key))
                     ts = g[key]["timestamp"][...]
                     st = g[key]["status"][...]
 
@@ -264,8 +358,13 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
                     print(f"[WARNING] Error processing shot {key}: {e}")
                     ts, st = "N/A", "unknown"
 
+                shots.append(int(key))
                 timestamps.append(ts)
                 status.append(st)
+
+        if not shots:
+            print(f"[INFO] No {label} shots recorded yet.")
+            return None
 
         df = pd.DataFrame({
             "Index": range(1, len(shots) + 1),
@@ -274,7 +373,7 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
             "Status": status
         })
 
-        print("Available Thomson Scattering Shots:\n")
+        print(f"Available {label} Shots:\n")
         print(df.to_string(index=False))
 
         return df

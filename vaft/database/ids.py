@@ -199,6 +199,20 @@ def load(
 
         linked_files = _external_h5_links(master_local)
         requested_files = [f"{ids}.h5" for ids in ids_list]
+
+        # Fail early with a clear message when a requested IDS was never stored
+        # for this shot. Otherwise hsget of the missing image aborts with an
+        # opaque CalledProcessError. master.h5 only links the IDS actually saved,
+        # so anything requested but not linked is absent on HSDS.
+        missing = [f for f in requested_files if f not in linked_files]
+        if missing:
+            available = sorted(f[:-3] for f in linked_files)  # strip ".h5"
+            missing_names = ", ".join(f[:-3] for f in missing)
+            raise FileNotFoundError(
+                f"IDS not stored for shot {shot} in '{directory}': {missing_names}. "
+                f"Available IDS: {', '.join(available) or '(none)'}."
+            )
+
         for filename in sorted(set(linked_files + requested_files)):
             local_file = shot_dir / filename
             if local_file.exists():

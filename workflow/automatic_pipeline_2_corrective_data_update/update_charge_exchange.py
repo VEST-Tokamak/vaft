@@ -43,6 +43,10 @@ WATCH_DIAG = "/srv/vest.diagnostic"
 PUBLIC_BASE = "/srv/vest.filedb/public"
 CHECK_INTERVAL = 10  # seconds
 
+# charge_exchange records live in their own registry group so they don't collide
+# with the Thomson 'shots' group. Mirrors vaft.database.utils.CX_REGISTRY_GROUP.
+CX_REGISTRY_GROUP = "cx_shots"
+
 # Filename prefix -> charge_exchange option; IDS is preferred over CES.
 ION_PATTERNS = (
     (re.compile(r"^IDS[_-](\d+)", re.IGNORECASE), "ids"),
@@ -133,20 +137,27 @@ def fit_charge_exchange_profile_auto_all_times(ods, shotnumber):
 
 
 def process_ion_file(ion_matfile):
-    """One-shot entry point (also usable standalone / from a test)."""
+    """One-shot entry point (also usable standalone / from a test).
+
+    Returns ``(shotnumber, status)`` mirroring the Thomson updater:
+    - ``core_profile``     : ion Ti/Vtor fit succeeded at >=1 time (with CHEASE geqdsk)
+    - ``charge_exchange``  : diagnostic ingested but no usable fit (raw ingest only)
+    """
     loaded = update_charge_exchange_auto(ion_matfile)
     if loaded is None:
         return None
     ods, shotnumber, _option = loaded
+    fitted = 0
     if os.path.exists(f"{PUBLIC_BASE}/{shotnumber}/chease"):
-        fit_charge_exchange_profile_auto_all_times(ods, shotnumber)
+        fitted = fit_charge_exchange_profile_auto_all_times(ods, shotnumber)
     else:
         print(f"[WARNING] CHEASE dir missing for shot {shotnumber}; raw ingest only")
-    return shotnumber, "charge_exchange"
+    status = "core_profile" if fitted > 0 else "charge_exchange"
+    return shotnumber, status
 
 
 def main():
-    processed = load_processed_shots()
+    processed = load_processed_shots(group=CX_REGISTRY_GROUP)
     try:
         while True:
             print("[POLLING] Scanning for new IDS/CES .mat files...")
@@ -158,8 +169,7 @@ def main():
 
                     full_path = os.path.join(WATCH_DIAG, fname)
                     mtime = datetime.fromtimestamp(os.path.getmtime(full_path)).isoformat()
-                    key = f"cx:{shotnumber}"
-                    prev = processed.get(key)
+                    prev = processed.get(shotnumber)
                     if isinstance(prev, dict) and prev.get("timestamp") == mtime:
                         print(f"[SKIP] {option} shot {shotnumber} already processed")
                         continue
@@ -177,8 +187,8 @@ def main():
                         print(f"[ERROR] processing {fname} failed: {exc}")
                         status = "invalid"
 
-                    save_processed_shot(shotnumber, mtime, status=status)
-                    processed[key] = {"timestamp": mtime, "status": status}
+                    save_processed_shot(shotnumber, mtime, status=status, group=CX_REGISTRY_GROUP)
+                    processed[shotnumber] = {"timestamp": mtime, "status": status}
                     print(f"[DONE] charge_exchange shot {shotnumber}: {status}")
             except Exception as exc:  # noqa: BLE001
                 print(f"[ERROR] Polling failed: {exc}")
