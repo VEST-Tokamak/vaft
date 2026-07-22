@@ -214,6 +214,7 @@ def save(
     representation: Literal["omas", "imas"] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
+    materialize_omas_cache: bool = True,
 ):
     """Write an OMAS ODS or native IDS to remote HSDS storage."""
     target = _namespace(target, "target")
@@ -230,7 +231,10 @@ def save(
     mapped = _occurrence_map(occurrence)
     if "*" in mapped:
         raise ValueError("OMAS occurrence must be a mapping keyed by IDS name")
-    return save_ods(data, shot, directory=target, occurrence=mapped, imas_version=imas_version)
+    return save_ods(
+        data, shot, directory=target, occurrence=mapped, imas_version=imas_version,
+        materialize_omas_cache=materialize_omas_cache,
+    )
 
 
 def _is_imas_ids(obj) -> bool:

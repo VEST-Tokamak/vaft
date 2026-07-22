@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+import hashlib
+import json
 import logging
 from pathlib import Path
 import tempfile
+from datetime import datetime, timezone
 from typing import Literal, Optional, Union
 
 import omas
+import numpy as np
 
 try:
     import h5pyd
@@ -19,6 +23,105 @@ from ..imas.omas_imas import load_omas_imas, save_omas_imas
 from .transport import run_hsget, run_hsload, verify_uploaded_image
 from .staging import requested_ids_from_paths, stage_imas_shot
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
+
+
+_DERIVED_CACHE_SCHEMA = 1
+
+
+def _text(value) -> str | None:
+    if value is None:
+        return None
+    return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value)
+
+
+def _source_revision(directory: str, shot: int) -> tuple[str, dict[str, dict[str, str | None]]]:
+    """Fingerprint canonical IMAS image revisions without reading their payloads."""
+    _require_h5pyd()
+    domains: dict[str, dict[str, str | None]] = {}
+    names = sorted(name for name in h5pyd.Folder(f"/{directory}/{shot}/") if name.endswith(".h5"))
+    for name in names:
+        with h5pyd.File(f"hdf5://{directory}/{shot}/{name}", "r") as domain:
+            domains[name] = {
+                "last_modified": _text(getattr(domain, "modified", None)),
+                "backend_version": _text(domain.attrs.get("HDF5_BACKEND_VERSION")),
+            }
+    if any(record["last_modified"] is None for record in domains.values()):
+        raise RuntimeError("HSDS does not expose domain revision metadata; refusing to publish a stale-prone derived cache")
+    payload = json.dumps(domains, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest(), domains
+
+
+def _manifest_bytes(manifest: dict) -> np.ndarray:
+    return np.frombuffer(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode(), dtype=np.uint8)
+
+
+def _read_derived_manifest(domain) -> dict | None:
+    try:
+        raw = np.asarray(domain["manifest"][:], dtype=np.uint8).tobytes()
+        manifest = json.loads(raw.decode("utf-8"))
+        return manifest if isinstance(manifest, dict) else None
+    except Exception:
+        return None
+
+
+def _load_derived_omas_cache(directory: str, shot: int, consistency_check: bool) -> omas.ODS | None:
+    """Return a verified full-shot ODS cache, or ``None`` when stale/missing."""
+    try:
+        revision, _ = _source_revision(directory, shot)
+        with h5pyd.File(f"hdf5://{directory}/{shot}.omas.h5", "r") as domain:
+            manifest = _read_derived_manifest(domain)
+            if manifest is None or manifest.get("source_revision") != revision:
+                return None
+            payload = np.asarray(domain["h5image"][:], dtype=np.uint8)
+            expected = manifest.get("checksum")
+            if expected != hashlib.sha256(payload.tobytes()).hexdigest():
+                return None
+        with tempfile.NamedTemporaryFile(prefix="vaft-derived-omas-", suffix=".h5") as temporary:
+            temporary.write(payload.tobytes())
+            temporary.flush()
+            result = omas.ODS(consistency_check=consistency_check)
+            result.load(temporary.name, consistency_check=consistency_check)
+            return result
+    except Exception:
+        return None
+
+
+def _publish_derived_omas_cache(
+    ods: omas.ODS,
+    directory: str,
+    shot: int,
+    imas_version: str | None,
+) -> str:
+    """Publish a verified compressed full-ODS materialized view beside a shot."""
+    _require_h5pyd()
+    from ..version import __version__
+
+    revision, source_domains = _source_revision(directory, shot)
+    with tempfile.NamedTemporaryFile(prefix="vaft-derived-omas-", suffix=".h5") as temporary:
+        ods.save(temporary.name)
+        temporary.flush()
+        payload = np.frombuffer(Path(temporary.name).read_bytes(), dtype=np.uint8)
+    manifest = {
+        "schema_version": _DERIVED_CACHE_SCHEMA,
+        "source_revision": revision,
+        "source_domains": source_domains,
+        "imas_version": imas_version,
+        "omas_version": getattr(omas, "__version__", None),
+        "vaft_version": __version__,
+        "checksum": hashlib.sha256(payload.tobytes()).hexdigest(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    uri = f"hdf5://{directory}/{shot}.omas.h5"
+    with h5pyd.File(uri, "w") as domain:
+        chunk = max(1, min(int(payload.size), 1024 * 1024))
+        image = domain.create_dataset(
+            "h5image", shape=payload.shape, dtype=np.uint8, chunks=(chunk,),
+            compression="gzip", compression_opts=1, shuffle=True,
+        )
+        image[:] = payload
+        manifest_dataset = domain.create_dataset("manifest", shape=_manifest_bytes(manifest).shape, dtype=np.uint8)
+        manifest_dataset[:] = _manifest_bytes(manifest)
+    return uri
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
@@ -195,6 +298,14 @@ def _load_one_shot(
         ods.setdefault("dataset_description.data_entry.run", 0)
         return ods
 
+    if paths is None and time is None:
+        derived = _load_derived_omas_cache(directory, shot, consistency_check)
+        if derived is not None:
+            derived.setdefault("dataset_description.data_entry.user", str(directory))
+            derived.setdefault("dataset_description.data_entry.pulse", int(shot))
+            derived.setdefault("dataset_description.data_entry.run", 0)
+            return derived
+
     staging_ctx = (
         tempfile.TemporaryDirectory(prefix="hsds_imas_ods_")
         if local_dir is None
@@ -246,6 +357,7 @@ def save_ods(
     run: Optional[int] = None,
     imas_version: Optional[str] = None,
     verbose: bool = True,
+    materialize_omas_cache: bool = True,
 ) -> Optional[str]:
     """
     Save ODS data by converting it to IMAS HDF5 images.
@@ -322,5 +434,13 @@ def save_ods(
             uri="imas:hdf5?path=" + str(shot_dir),
         )
         _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot)
+        if materialize_omas_cache:
+            try:
+                cache_uri = _publish_derived_omas_cache(ods, directory, shot, imas_version)
+                print(f"[INFO] Published derived OMAS cache: {cache_uri}")
+            except Exception as exc:
+                # Canonical IMAS persistence has succeeded. A derived cache must
+                # never turn that successful write into an application failure.
+                logging.warning("Could not publish derived OMAS cache for shot %s: %s", shot, exc)
 
     return f"hdf5://{directory}/{shot}/"
