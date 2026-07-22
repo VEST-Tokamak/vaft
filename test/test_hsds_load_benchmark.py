@@ -27,7 +27,6 @@ import numpy as np
 import omas
 import pytest
 
-from vaft.database import load as load_database
 from vaft.database import open as open_database
 from vaft.database import staging
 from vaft.imas.omas_imas import load_omas_imas
@@ -196,17 +195,34 @@ def _lazy_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[s
     }
 
 
-def _native_eager_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[str, Any]]:
-    ids, load_seconds = _seconds(
-        lambda: load_database(
-            shot, source=directory, representation="imas", paths=branch.ids, cache="off"
+def _native_from_staged(stage_dir: Path, names: list[str]) -> dict[str, Any]:
+    """Convert already-downloaded IMAS images to eager native IDS objects."""
+    import imas
+
+    factory = imas.IDSFactory("3.41.0")
+    with imas.DBEntry("imas:hdf5?path=" + str(stage_dir), "r", dd_version="3.41.0") as entry:
+        return {name: entry.get(name, 0) for name in names if factory.exists(name)}
+
+
+def _native_eager_branch(directory: str, shot: int, branch: Branch, root: Path) -> tuple[Any, dict[str, Any]]:
+    stage_dir = root / branch.ids
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    plan, download_seconds = _seconds(
+        lambda: staging.stage_imas_shot(
+            directory, shot, stage_dir, requested_ids=(branch.ids,), cache="off"
         )
     )
+    native, conversion_seconds = _seconds(lambda: _native_from_staged(stage_dir, [branch.ids]))
+    ids = native[branch.ids]
     value, lookup_seconds = _seconds(lambda: _native_value(ids, branch))
+    timing = plan["timings"]
     return value, {
-        "load_seconds": load_seconds,
+        "download_seconds": download_seconds,
+        "master_fetch_seconds": timing["master_fetch_seconds"],
+        "per_domain_hsget_seconds": float(sum(timing["domain_fetch_seconds"].values())),
+        "object_conversion_seconds": conversion_seconds,
         "lookup_seconds": lookup_seconds,
-        "total_seconds": load_seconds + lookup_seconds,
+        "total_seconds": download_seconds + conversion_seconds + lookup_seconds,
     }
 
 
@@ -253,11 +269,20 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                 )
             )
             full_timing = full_plan["timings"]
-            native_full, native_full_seconds = _seconds(
-                lambda: load_database(shot, source=directory, representation="imas", paths=None, cache="off")
+            full_ods, full_ods_conversion_seconds = _seconds(
+                lambda: load_omas_imas(
+                    consistency_check=False, verbose=False, uri="imas:hdf5?path=" + str(full_stage_dir)
+                )
+            )
+            native_names = [
+                name[:-3] for name in full_plan["files"]
+                if name.endswith(".h5") and name not in {"master.h5", "dataset_description.h5"}
+            ]
+            native_full, native_full_conversion_seconds = _seconds(
+                lambda: _native_from_staged(full_stage_dir, native_names)
             )
             for branch in BRANCHES:
-                full_value, full_conversion = _convert_staged_branch(full_stage_dir, branch)
+                full_value, full_lookup_seconds = _seconds(lambda branch=branch: full_ods[branch.path])
                 full_stats = {
                     "staging_seconds": full_staging_seconds,
                     "master_fetch_seconds": full_timing["master_fetch_seconds"],
@@ -266,25 +291,29 @@ def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: 
                     "partial_master_seconds": 0.0,
                     "staged_files": full_plan["files"],
                     "cache_hits": full_plan["cache_hits"],
-                    "total_seconds": full_staging_seconds
-                    + full_conversion["conversion_seconds"]
-                    + full_conversion["lookup_seconds"],
-                    **full_conversion,
+                    "object_conversion_seconds": full_ods_conversion_seconds,
+                    "lookup_seconds": full_lookup_seconds,
+                    "total_seconds": full_staging_seconds + full_ods_conversion_seconds + full_lookup_seconds,
                 }
                 selective_value, _selective_ods, selective_stats = _eager_branch(
                     directory, shot, branch, root / "eager-selective", requested_ids=(branch.ids,)
                 )
                 legacy_value, legacy_lookup = _seconds(lambda branch=branch: legacy[branch.path])
                 lazy_value, lazy_stats = _lazy_branch(directory, shot, branch)
-                native_eager_value, native_eager_stats = _native_eager_branch(directory, shot, branch)
+                native_eager_value, native_eager_stats = _native_eager_branch(
+                    directory, shot, branch, root / "native-eager-selective"
+                )
                 native_lazy_value, native_lazy_stats = _native_lazy_branch(directory, shot, branch)
                 native_full_value, native_full_lookup = _seconds(
                     lambda branch=branch: _native_value(native_full[branch.ids], branch)
                 )
                 native_full_stats = {
-                    "load_seconds": native_full_seconds,
+                    "download_seconds": full_staging_seconds,
+                    "master_fetch_seconds": full_timing["master_fetch_seconds"],
+                    "per_domain_hsget_seconds": float(sum(full_timing["domain_fetch_seconds"].values())),
+                    "object_conversion_seconds": native_full_conversion_seconds,
                     "lookup_seconds": native_full_lookup,
-                    "total_seconds": native_full_seconds + native_full_lookup,
+                    "total_seconds": full_staging_seconds + native_full_conversion_seconds + native_full_lookup,
                 }
                 legacy_record = {**legacy_stats, "lookup_seconds": legacy_lookup, "total_seconds": legacy_stats["total_seconds"] + legacy_lookup}
                 state = branch_state[branch.ids]
