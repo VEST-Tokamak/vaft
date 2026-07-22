@@ -9,7 +9,6 @@ conversion.
 from __future__ import annotations
 
 import logging
-import subprocess
 import tempfile
 from contextlib import nullcontext
 from pathlib import Path
@@ -20,16 +19,15 @@ import imas
 try:
     import h5pyd
 except ImportError:
-    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
+    h5pyd = None  # optional: pip install 'vaft[hsds]'
 
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
+from .transport import run_hsget, run_hsload, verify_uploaded_image
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     """Download HSDS domain to a local HDF5 file via hsget."""
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    command = ["hsget", remote_uri, str(out_path)]
-    subprocess.run(command, capture_output=False, text=True, check=True)
+    run_hsget(remote_uri, out_path)
     ensure_imas_hdf5_userblock(out_path, out_path.parent)
     return out_path
 
@@ -121,14 +119,14 @@ def save(
 
             # Upload IDS-specific file
             ids_remote_uri = f"hdf5://{username}/{shot}/{filename}"
-            command = ["hsload", str(_staging_dir / filename), ids_remote_uri]
-            subprocess.run(command, capture_output=False, text=True, check=True)
+            run_hsload(_staging_dir / filename, ids_remote_uri)
+            verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
             print(f"[INFO] Uploaded {filename} to {ids_remote_uri}")
 
             # Upload master.h5 (aggregator file)
             master_remote_uri = f"hdf5://{username}/{shot}/master.h5"
-            command = ["hsload", str(_staging_dir / "master.h5"), master_remote_uri]
-            subprocess.run(command, capture_output=False, text=True, check=True)
+            run_hsload(_staging_dir / "master.h5", master_remote_uri)
+            verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
             print(f"[INFO] Uploaded master.h5 to {master_remote_uri}")
 
             return ids_remote_uri

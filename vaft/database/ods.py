@@ -5,7 +5,6 @@ from __future__ import annotations
 from contextlib import nullcontext
 import logging
 from pathlib import Path
-import subprocess
 import tempfile
 from typing import Optional, Union
 
@@ -14,16 +13,16 @@ import omas
 try:
     import h5pyd
 except ImportError:
-    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
+    h5pyd = None  # optional: pip install 'vaft[hsds]'
 
 from ..imas import load_omas_imas, save_omas_imas
+from .transport import run_hsget, run_hsload, verify_uploaded_image
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     """Download one HSDS HDF5 image to a local file via hsget."""
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["hsget", remote_uri, str(out_path)], capture_output=False, text=True, check=True)
+    run_hsget(remote_uri, out_path)
     ensure_imas_hdf5_userblock(out_path, out_path.parent)
     return out_path
 
@@ -52,7 +51,8 @@ def _download_remote_shot(directory: str, shot: int, shot_dir: Path) -> list[Pat
 
 def _upload_local_image(local_path: Path, remote_uri: str) -> str:
     """Upload one local HDF5 image file to HSDS."""
-    subprocess.run(["hsload", str(local_path), remote_uri], capture_output=False, text=True, check=True)
+    run_hsload(local_path, remote_uri)
+    verify_uploaded_image(local_path, remote_uri)
     return remote_uri
 
 

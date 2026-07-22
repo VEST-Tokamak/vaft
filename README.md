@@ -56,12 +56,11 @@ python -m pip install -e .
 `aurorafusion` (the Open-ADAS interface used for radiative-power calculations) is a
 required dependency and is installed by the step above.
 
-`h5pyd` is the only package left out of the dependency list — it has no extra, and must
-be installed with `--no-deps` to avoid conflicting pins:
+Install the optional HSDS client extra for remote database access:
 
 ```bash
-# HSDS database client
-python -m pip install --no-deps h5pyd==0.20.0
+# HSDS database client (h5pyd >=0.20,<0.21)
+python -m pip install -e ".[hsds]"
 
 # Development tooling
 python -m pip install -e ".[dev]"
@@ -109,6 +108,19 @@ ods = vaft.database.load(39915)
 time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
+
+`load` is the backward-compatible eager path: it uses `hsget` to stage complete
+IMAS HDF5 domains before conversion. For exploratory access to selected leaves,
+use the direct lazy path, which opens only the requested IDS domain and transfers
+only the dataset selections that are read:
+
+```python
+with vaft.database.open_ods(39915, ids="equilibrium") as ods:
+    psi = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
+```
+
+The lazy API supports occurrence 0 in this first version. Native IDS and
+non-zero-occurrence workflows continue to use the existing eager staging APIs.
 
 ### Profile Fitting
 

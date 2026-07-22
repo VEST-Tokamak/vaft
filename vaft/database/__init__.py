@@ -20,6 +20,7 @@ __all__ = [
     "load_ids",
     "save_ids",
     "load_ods",
+    "open_ods",
     "save_ods",
 ]
 
@@ -104,6 +105,13 @@ def load_ods(*args, **kwargs):
     return _load_ods(*args, **kwargs)
 
 
+def open_ods(*args, **kwargs):
+    """Open an ODS backed by direct, lazy HSDS dataset selections."""
+    from .lazy_ods import open_ods as _open_ods
+
+    return _open_ods(*args, **kwargs)
+
+
 def save_ods(*args, **kwargs):
     """Save OMAS ODS data to IMAS-backed storage."""
     from .ods import save_ods as _save_ods
@@ -117,7 +125,7 @@ def __getattr__(name: str):
         globals()[name] = module
         return module
 
-    for module_name in ("ods", "ids", "raw", "utils"):
+    for module_name in ("ods", "lazy_ods", "ids", "raw", "utils"):
         try:
             module = import_module(f".{module_name}", __name__)
         except Exception:

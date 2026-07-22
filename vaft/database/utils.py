@@ -19,11 +19,9 @@ import urllib3
 try:
     import h5pyd
 except ImportError:
-    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
+    h5pyd = None  # optional: pip install 'vaft[hsds]'
 
-_H5PYD_MSG = (
-    "h5pyd is required for HSDS support. Install with: pip install h5pyd==0.20.0 --no-deps"
-)
+_H5PYD_MSG = "h5pyd is required for HSDS support. Install with: pip install 'vaft[hsds]'"
 
 # Must match the path the corrective updaters write to
 # (workflow/automatic_pipeline_2_corrective_data_update/*.py), otherwise

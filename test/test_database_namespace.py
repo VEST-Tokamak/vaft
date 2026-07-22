@@ -54,3 +54,13 @@ def test_database_load_ids_alias_routes_to_native_ids_loader():
 
     assert result == "ids"
     load_ids.assert_called_once_with(39915, "dataset_description", directory="public")
+
+
+def test_database_open_ods_routes_to_direct_lazy_loader():
+    open_ods = Mock(return_value="lazy")
+    fake_lazy = _fake_module("vaft.database.lazy_ods", open_ods=open_ods)
+    with patch.dict("sys.modules", {"vaft.database.lazy_ods": fake_lazy}):
+        result = database.open_ods(39915, ids="equilibrium")
+
+    assert result == "lazy"
+    open_ods.assert_called_once_with(39915, ids="equilibrium")
