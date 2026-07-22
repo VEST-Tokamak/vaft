@@ -17,7 +17,7 @@ except ImportError:
     h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
 
 from ..imas import load_omas_imas, save_omas_imas
-from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
+from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
@@ -310,3 +310,44 @@ def save_ods(
         _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot)
 
     return f"hdf5://{directory}/{shot}/"
+
+
+# --------------------------------------------------------------------------- #
+# Deprecated compatibility shims (see issue #38)
+# --------------------------------------------------------------------------- #
+
+def load(shot, directory: str = "public", **kwargs):
+    """Deprecated alias for :func:`load_ods` (issue #38).
+
+    Historic pipeline scripts and notebooks call ``vaft.database.ods.load(shot,
+    directory=...)``, which never existed and raised ``AttributeError``. This shim
+    forwards to :func:`load_ods`; prefer ``vaft.database.load`` or
+    ``vaft.database.load_ods`` in new code.
+    """
+    import warnings
+
+    warnings.warn(
+        "vaft.database.ods.load() is deprecated; use vaft.database.load() "
+        "or vaft.database.load_ods().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return load_ods(shot, directory=directory, **kwargs)
+
+
+def exist_ts_file(*args, **kwargs):
+    """Deprecated shim for the removed ``exist_ts_file`` helper (issue #38).
+
+    Returns the processed Thomson-scattering shots table
+    (``DataFrame`` with columns ``Index, Shot Number, Last Processed, Status``).
+    Prefer ``vaft.database.exist_shot(data_filter='ts')`` in new code.
+    """
+    import warnings
+
+    warnings.warn(
+        "vaft.database.exist_ts_file() is deprecated; use "
+        "vaft.database.exist_shot(data_filter='ts').",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return exist_shot(data_filter="ts")

@@ -9,13 +9,36 @@ from omas import *
 from vaft.formula import fit_profile
 
 
+def _outermost_surface_path(geq):
+    """Return a matplotlib Path around the outermost traced flux surface.
+
+    Used to detect measurement points outside the plasma; the nearest-surface
+    search would otherwise silently pin them to the edge psi_N level.
+    """
+    from matplotlib.path import Path as _MplPath
+
+    levels = np.asarray(geq['fluxSurfaces']['levels'], dtype=float)
+    outer = int(np.argmax(levels))
+    R = np.asarray(geq['fluxSurfaces']['flux'][outer]['R'], dtype=float)
+    Z = np.asarray(geq['fluxSurfaces']['flux'][outer]['Z'], dtype=float)
+    return _MplPath(np.column_stack([R, Z]))
+
+
 def _rho_from_equilibrium_points(geq, r_points, z_points):
-    """Map R/Z points to normalized poloidal flux using VAFT GEQDSK/ODS data."""
+    """Map R/Z points to normalized poloidal flux using VAFT GEQDSK/ODS data.
+
+    Points outside the last closed flux surface are returned as NaN rather than
+    pinned to the edge psi_N level.
+    """
     # Compatibility with legacy precomputed flux-surface dictionaries.
     try:
         flux_levels = geq['fluxSurfaces']['levels']
+        boundary = _outermost_surface_path(geq)
         mapped = []
         for r_dot, z_dot in zip(r_points, z_points):
+            if not boundary.contains_point((float(r_dot), float(z_dot))):
+                mapped.append(np.nan)
+                continue
             min_dist = float('inf')
             closest_rho = None
             for i in range(len(geq['fluxSurfaces']['flux'])):
@@ -57,6 +80,8 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
     points = np.column_stack([np.asarray(r_points, dtype=float), np.asarray(z_points, dtype=float)])
     psi_points = interp(points)
     rho = (psi_points - psi_axis) / (psi_boundary - psi_axis) if psi_boundary != psi_axis else np.zeros_like(psi_points)
+    # Outside the LCFS (rho > 1) → NaN rather than pinning to the edge psi_N level.
+    rho = np.where(rho > 1.0, np.nan, rho)
     return np.clip(rho, 0.0, 1.0)
 
 
@@ -89,6 +114,7 @@ def profile_fitting_thomson_scattering(
     rho_points=100,
     fitting_function_te='polynomial',
     fitting_function_ne='polynomial',
+    time_tolerance_ms=1.0,
     ):
     """
     Fit Thomson scattering Te and ne profiles with selectable 1D methods.
@@ -126,8 +152,16 @@ def profile_fitting_thomson_scattering(
     - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='linear', fitting_function_ne='linear')
     - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='core_poly_edge_exp', fitting_function_ne='core_poly_edge_exp')
     """
-    # --- Extract Thomson data ---
-    time_index = np.where(ods['thomson_scattering.time'] == time_ms / 1e3)[0][0]
+    # --- Extract Thomson data (nearest time within tolerance) ---
+    times = np.asarray(ods['thomson_scattering.time'], dtype=float)
+    target_s = time_ms / 1e3
+    time_index = int(np.argmin(np.abs(times - target_s)))
+    if abs(times[time_index] - target_s) > time_tolerance_ms / 1e3:
+        raise ValueError(
+            f"No Thomson time within {time_tolerance_ms} ms of {time_ms} ms "
+            f"(nearest: {times[time_index] * 1e3:.3f} ms)"
+        )
+
     num_channels = len(ods['thomson_scattering.channel'])
     t_e, n_e, t_e_std, n_e_std = [], [], [], []
 
@@ -140,14 +174,34 @@ def profile_fitting_thomson_scattering(
 
     t_e = np.array(t_e, dtype=float)
     n_e = np.array(n_e, dtype=float)
-    t_e_std = np.clip(np.array(t_e_std, dtype=float), 1e-6, None)
-    n_e_std = np.clip(np.array(n_e_std, dtype=float), 1e-6, None)
-    rho = np.clip(np.array(mapped_rho_position, dtype=float).reshape(-1, 1), 0, 1)
+    t_e_std = np.array(t_e_std, dtype=float)
+    n_e_std = np.array(n_e_std, dtype=float)
+    rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
 
-    # density normalization
+    # --- drop invalid channels: non-finite values/sigmas, zero sigma, unmapped rho ---
+    valid = (
+        np.isfinite(rho_flat)
+        & np.isfinite(t_e) & np.isfinite(n_e)
+        & np.isfinite(t_e_std) & (t_e_std > 0)
+        & np.isfinite(n_e_std) & (n_e_std > 0)
+    )
+    if not np.all(valid):
+        print(
+            f"[INFO] dropped {int(np.sum(~valid))} invalid TS channel(s) "
+            f"at {time_ms:.3f} ms (non-finite value/sigma or unmapped position)"
+        )
+    t_e, n_e = t_e[valid], n_e[valid]
+    t_e_std, n_e_std = t_e_std[valid], n_e_std[valid]
+    rho = np.clip(rho_flat[valid].reshape(-1, 1), 0, 1)
+
+    # relative sigma floors (in fit space) so tiny-but-valid sigmas cannot
+    # dominate the weighted fit
+    t_e_std = np.maximum(t_e_std, 1e-3 * np.max(np.abs(t_e)))
+
+    # density normalization (floor applied AFTER normalization)
     n_e_scale = 1e18
     n_e_norm = n_e / n_e_scale
-    n_e_std_norm = n_e_std / n_e_scale
+    n_e_std_norm = np.maximum(n_e_std / n_e_scale, 1e-3 * np.max(np.abs(n_e_norm)))
     rho_eval = np.linspace(0, 1, rho_points)
 
     # --- Te / Ne FITS ---
@@ -166,6 +220,8 @@ def profile_fitting_thomson_scattering(
         fitting_function=fitting_function_te,
         gp_anchor=te_anchor,
     )
+
+    T_e_rho = np.maximum(np.asarray(T_e_rho, dtype=float), 0.0)
 
     def T_e_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0, 1)
@@ -246,6 +302,106 @@ def equilibrium_mapping_charge_exchange(ods, geq):
     return _rho_from_equilibrium_points(geq, r_vals, z_vals)
 
 
+def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
+    """Drop channels with non-finite values/rho; handle invalid sigmas.
+
+    Channels whose sigma is non-finite or <= 0 are dropped, unless NO channel
+    has a valid sigma (e.g. data stored without uncertainties) — then all
+    value-valid channels are kept with a uniform relative sigma. Surviving
+    sigmas are floored at 1e-3 * max|value| so a tiny-but-valid sigma cannot
+    dominate the weighted fit.
+    """
+    values = np.asarray(values, dtype=float)
+    sigmas = np.asarray(sigmas, dtype=float)
+    rho = np.asarray(rho, dtype=float).reshape(-1)
+
+    valid = np.isfinite(rho) & np.isfinite(values)
+    sigma_ok = np.isfinite(sigmas) & (sigmas > 0)
+    if np.any(valid & sigma_ok):
+        valid &= sigma_ok
+    else:
+        sigmas = np.full_like(values, np.nan)  # replaced by the floor below
+
+    dropped = int(np.sum(~valid))
+    if dropped:
+        print(
+            f"[INFO] dropped {dropped} invalid {label} channel(s) at {time_ms:.3f} ms"
+        )
+
+    values, sigmas, rho = values[valid], sigmas[valid], rho[valid]
+    floor = 1e-3 * float(np.max(np.abs(values))) if values.size else 1.0
+    if not np.isfinite(floor) or floor <= 0:
+        floor = 1.0
+    sigmas = np.where(np.isfinite(sigmas) & (sigmas > 0), sigmas, floor)
+    sigmas = np.maximum(sigmas, floor)
+    return values, sigmas, rho
+
+
+def _leaf_values_and_errors(node, time_index, clamp=False):
+    """Return (nominal, sigma) scalars for an OMAS signal leaf at ``time_index``.
+
+    OMAS (>=0.94.2) splits an assigned uarray immediately into ``<leaf>.data``
+    (nominal) and ``<leaf>.data_error_upper``, so the re-read ``.data`` carries
+    NO uncertainty and ``unumpy.std_devs(<leaf>.data)`` is ALL ZEROS. Read the
+    stored ``.data_error_upper`` explicitly (mirroring the Thomson path) to
+    recover the real per-channel sigma; fall back to any uncertainty still
+    attached to ``.data``, else 0.
+
+    ``node`` is the signal sub-node itself (e.g. ``ods[...ion.0.t_i]``).
+    With ``clamp=True`` an out-of-range ``time_index`` is clamped to the last
+    sample instead of raising (used for best-effort metadata extraction).
+    """
+    data = node['data']
+    try:
+        vals = np.asarray(unumpy.nominal_values(data), dtype=float)
+    except Exception:
+        vals = np.asarray(data, dtype=float)
+
+    errs = None
+    try:
+        errs = np.asarray(unumpy.nominal_values(node['data_error_upper']), dtype=float)
+    except Exception:
+        try:
+            errs = np.asarray(unumpy.std_devs(data), dtype=float)
+        except Exception:
+            errs = None
+    if errs is None or errs.shape != vals.shape:
+        errs = np.zeros_like(vals)
+
+    if vals.ndim == 0:
+        return float(vals), float(np.abs(errs))
+
+    idx = int(time_index)
+    if idx < 0 or idx >= vals.size:
+        if clamp:
+            idx = min(max(idx, 0), vals.size - 1)
+        else:
+            raise IndexError("charge_exchange signal .data shorter than time base")
+    return float(vals[idx]), float(np.abs(errs[idx]))
+
+
+def _sanitize_std(sigmas):
+    """Replace 0 / NaN sigmas with the median of the valid ones.
+
+    Even after :func:`_leaf_values_and_errors` recovers the real errors, a
+    handful of channels can carry an exactly-zero or NaN sigma. A single ~0
+    sigma explodes its ``1/sigma**2`` weight (~1e14) and lets one channel
+    dominate the weighted fit. Substituting the median of the valid sigmas keeps
+    every channel informative without a single-channel blow-up. If NO sigma is
+    usable, fall back to a uniform sigma (an honestly unweighted fit).
+    """
+    sigmas = np.asarray(sigmas, dtype=float).copy()
+    valid = np.isfinite(sigmas) & (sigmas > 0)
+    if not np.any(valid):
+        sigmas[:] = 1.0
+        return sigmas
+    med = float(np.median(sigmas[valid]))
+    if not np.isfinite(med) or med <= 0:
+        med = 1.0
+    sigmas[~valid] = med
+    return sigmas
+
+
 def profile_fitting_charge_exchange(
     ods,
     time_ms,
@@ -257,6 +413,7 @@ def profile_fitting_charge_exchange(
     fitting_function_ti='polynomial',
     fitting_function_vtor='polynomial',
     ion_index=0,
+    time_tolerance_ms=1.0,
 ):
     """
     Fit charge_exchange (CES) ion temperature and toroidal velocity profiles.
@@ -284,12 +441,12 @@ def profile_fitting_charge_exchange(
         raise ValueError("charge_exchange.time must be 1D")
 
     target_s = time_ms / 1e3
-    idx_candidates = np.where(np.isclose(times, target_s))[0]
-    if len(idx_candidates) == 0:
-        # fallback: nearest time
-        time_index = int(np.argmin(np.abs(times - target_s)))
-    else:
-        time_index = int(idx_candidates[0])
+    time_index = int(np.argmin(np.abs(times - target_s)))
+    if abs(times[time_index] - target_s) > time_tolerance_ms / 1e3:
+        raise ValueError(
+            f"No charge_exchange time within {time_tolerance_ms} ms of {time_ms} ms "
+            f"(nearest: {times[time_index] * 1e3:.3f} ms)"
+        )
 
     num_channels = len(ods['charge_exchange.channel'])
     Ti, Vtor, Ti_std, Vtor_std = [], [], [], []
@@ -297,49 +454,30 @@ def profile_fitting_charge_exchange(
     for i in range(num_channels):
         ion = ods[f'charge_exchange.channel.{i}.ion.{ion_index}']
 
-        ti_u = ion['t_i.data']
-        vtor_u = ion['velocity_tor.data']
+        # OMAS (>=0.94.2) stores an assigned uarray as `<leaf>.data` (nominal) +
+        # `<leaf>.data_error_upper`; the re-read `.data` carries NO uncertainty,
+        # so unumpy.std_devs(<leaf>.data) is ALL ZEROS. Read `.data_error_upper`
+        # explicitly (mirrors the Thomson path) to recover the real sigma.
+        ti_val, ti_err = _leaf_values_and_errors(ion['t_i'], time_index)
+        v_val, v_err = _leaf_values_and_errors(ion['velocity_tor'], time_index)
 
-        # Extract nominal values and std using uncertainties if present
-        try:
-            ti_vals = unumpy.nominal_values(ti_u)
-            ti_errs = unumpy.std_devs(ti_u)
-        except Exception:
-            ti_vals = np.asarray(ti_u, dtype=float)
-            ti_errs = np.zeros_like(ti_vals, dtype=float)
+        Ti.append(ti_val)
+        Ti_std.append(ti_err)
+        Vtor.append(v_val)
+        Vtor_std.append(v_err)
 
-        try:
-            v_vals = unumpy.nominal_values(vtor_u)
-            v_errs = unumpy.std_devs(vtor_u)
-        except Exception:
-            v_vals = np.asarray(vtor_u, dtype=float)
-            v_errs = np.zeros_like(v_vals, dtype=float)
+    rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
+    Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms)
+    Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms)
 
-        # Guard for 0D / 1D APIs
-        if np.isscalar(ti_vals):
-            Ti.append(float(ti_vals))
-            Ti_std.append(max(float(np.abs(ti_errs)), 1e-6))
-        else:
-            if time_index >= len(ti_vals):
-                raise IndexError("t_i.data shorter than charge_exchange.time")
-            Ti.append(float(ti_vals[time_index]))
-            Ti_std.append(max(float(np.abs(ti_errs[time_index])), 1e-6))
+    # Replace any residual 0/NaN sigma (from OMAS-split leaves) with the
+    # valid-error median so a single near-zero sigma cannot blow up its
+    # 1/sigma**2 weight and dominate the fit.
+    Ti_std = _sanitize_std(Ti_std)
+    Vtor_std = _sanitize_std(Vtor_std)
 
-        if np.isscalar(v_vals):
-            Vtor.append(float(v_vals))
-            Vtor_std.append(max(float(np.abs(v_errs)), 1e-6))
-        else:
-            if time_index >= len(v_vals):
-                raise IndexError("velocity_tor.data shorter than charge_exchange.time")
-            Vtor.append(float(v_vals[time_index]))
-            Vtor_std.append(max(float(np.abs(v_errs[time_index])), 1e-6))
-
-    Ti = np.asarray(Ti, dtype=float)
-    Vtor = np.asarray(Vtor, dtype=float)
-    Ti_std = np.asarray(Ti_std, dtype=float)
-    Vtor_std = np.asarray(Vtor_std, dtype=float)
-
-    rho = np.clip(np.asarray(mapped_rho_position, dtype=float).reshape(-1, 1), 0.0, 1.0)
+    rho = np.clip(rho_ti.reshape(-1, 1), 0.0, 1.0)
+    rho_vtor = np.clip(rho_v.reshape(-1, 1), 0.0, 1.0)
     rho_eval = np.linspace(0.0, 1.0, rho_points)
 
     # --- Fit T_i(ρ) ---
@@ -354,13 +492,15 @@ def profile_fitting_charge_exchange(
         gp_anchor=None,
     )
 
+    Ti_rho = np.maximum(np.asarray(Ti_rho, dtype=float), 0.0)
+
     def Ti_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
         return np.maximum(Ti_function_raw(x), 0.0)
 
     # --- Fit V_tor(ρ) ---
     Vtor_rho, Vtor_std_fit, Vtor_function_raw, coeffs_vtor = fit_profile(
-        rho,
+        rho_vtor,
         Vtor,
         Vtor_std,
         rho_eval,
@@ -375,38 +515,164 @@ def profile_fitting_charge_exchange(
         return Vtor_function_raw(x)
 
     return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
-def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function, tol_ms=0.1):
+def _grid_from_geq(geq):
+    """Return (rho_tor_norm, psi, psi_N) 1D grid from a geqdsk, or None.
+
+    Used so core_profiles can put profiles on the grid of the SAME equilibrium
+    that was used for the psi_N mapping, without depending on (or mutating) the
+    ODS ``equilibrium`` IDS -- important when the stored equilibrium carries only
+    a time axis with empty ``profiles_1d`` (e.g. after an IMAS-version conversion).
     """
-    Construct and store core_profiles.profiles_1d for given Thomson scattering data.
+    if geq is None:
+        return None
+    try:
+        go = geq.to_omas()
+        base = "equilibrium.time_slice.0.profiles_1d"
+        rho = np.asarray(go[f"{base}.rho_tor_norm"], dtype=float)
+        psi = np.asarray(go[f"{base}.psi"], dtype=float)
+    except Exception:
+        return None
+    if rho.size < 2 or psi.size < 2 or psi[-1] == psi[0]:
+        return None
+    psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+    return rho, psi, psi_n
+
+
+def _equilibrium_grid_at_time(ods, target_s, tol_s):
+    """Return (rho_tor_norm, psi, psi_N) of the equilibrium slice at target_s, or None."""
+    try:
+        eq_times = np.asarray(ods['equilibrium.time'], dtype=float).reshape(-1)
+    except Exception:
+        return None
+    if eq_times.size == 0:
+        return None
+    idx = int(np.argmin(np.abs(eq_times - target_s)))
+    if abs(eq_times[idx] - target_s) > tol_s:
+        return None
+    try:
+        rho = np.asarray(
+            ods[f'equilibrium.time_slice.{idx}.profiles_1d.rho_tor_norm'], dtype=float
+        )
+        psi = np.asarray(
+            ods[f'equilibrium.time_slice.{idx}.profiles_1d.psi'], dtype=float
+        )
+    except Exception:
+        return None
+    if rho.ndim != 1 or rho.shape != psi.shape or psi[-1] == psi[0]:
+        return None
+    psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+    return rho, psi, psi_n
+
+
+def core_profiles(
+    ods,
+    time_ms,
+    mapped_rho_position=None,
+    n_e_function=None,
+    T_e_function=None,
+    tol_ms=0.1,
+    T_i_function=None,
+    V_tor_function=None,
+    ti_mapped_rho_position=None,
+    rho_points=100,
+    time_tolerance_ms=1.0,
+    geq=None,
+    ti_te_fallback=True,
+):
+    """
+    Construct and store core_profiles.profiles_1d from fitted kinetic profiles.
+
+    The fit functions are functions of psi_N (normalized poloidal flux — the
+    coordinate produced by the equilibrium mappers). When the ODS carries an
+    equilibrium slice at the same time, profiles are evaluated at the psi_N of
+    each equilibrium grid point and stored on the equilibrium's rho_tor_norm/psi
+    grid; otherwise a uniform psi_N grid is stored honestly as
+    grid.rho_pol_norm = sqrt(psi_N).
 
     If a profile already exists for the same time (within tol_ms), it is replaced.
 
     ## Arguments:
     - ods: OMAS data structure (mutable)
     - time_ms: time in milliseconds
-    - mapped_rho_position: list of mapped rho_tor_norm positions for Thomson channels
-    - n_e_function, T_e_function: callable fit functions for ne, Te
+    - mapped_rho_position: mapped psi_N positions of the Thomson channels
+    - n_e_function, T_e_function: callable fit functions of psi_N for ne, Te
     - tol_ms: tolerance in milliseconds for duplicate time detection
+    - T_i_function: optional callable Ti(psi_N) from the charge_exchange fit;
+      when given, ion.0.temperature uses real Ti (instead of Ti=Te) and
+      pressure_thermal = e*ne*(Te+Ti) is written (n_i ~= n_e)
+    - V_tor_function: optional callable Vtor(psi_N) -> ion.0.velocity.toroidal
+    - ti_mapped_rho_position: mapped psi_N positions of the charge_exchange
+      channels (for the ion temperature_fit measurement metadata)
+    - rho_points: evaluation points for the no-equilibrium fallback grid
+    - time_tolerance_ms: tolerance for matching thomson/equilibrium times
 
     ## Returns:
     - Updated ods with replaced or appended core_profiles.profiles_1d entry.
     """
-    num_channels = len(ods['thomson_scattering.channel'])
-    n_e_meas, T_e_meas = [], []
-    t_idx = np.where(ods['thomson_scattering.time'] == time_ms / 1e3)[0][0]
+    e_J_per_eV = 1.602176634e-19
+    target_s = time_ms / 1e3
+    tol_s = time_tolerance_ms / 1e3
 
-    for i in range(num_channels):
-        n_e_meas.append(ods[f'thomson_scattering.channel.{i}.n_e.data'][t_idx])
-        T_e_meas.append(ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx])
+    # Write whatever diagnostic is available: electrons need a Thomson (ne/Te) fit,
+    # ions need a charge_exchange (Ti[/Vtor]) fit. At least one is required.
+    have_e = n_e_function is not None and T_e_function is not None
+    have_i = T_i_function is not None
+    if not have_e and not have_i:
+        raise ValueError(
+            "core_profiles needs at least an electron (n_e_function + T_e_function) "
+            "or an ion (T_i_function) fit"
+        )
+    if have_e and mapped_rho_position is None:
+        raise ValueError(
+            "core_profiles: mapped_rho_position is required when an electron "
+            "(n_e_function + T_e_function) fit is provided"
+        )
 
-    n_e_meas = np.array(n_e_meas)
-    T_e_meas = np.array(T_e_meas)
+    # --- measured TS points (nearest time within tolerance) — electron path only ---
+    n_e_meas = T_e_meas = rho_meas = None
+    if have_e:
+        ts_times = np.asarray(ods['thomson_scattering.time'], dtype=float)
+        t_idx = int(np.argmin(np.abs(ts_times - target_s)))
+        if abs(ts_times[t_idx] - target_s) > tol_s:
+            raise ValueError(
+                f"No Thomson time within {time_tolerance_ms} ms of {time_ms} ms "
+                f"(nearest: {ts_times[t_idx] * 1e3:.3f} ms)"
+            )
+        num_channels = len(ods['thomson_scattering.channel'])
+        n_e_meas = np.array(
+            [ods[f'thomson_scattering.channel.{i}.n_e.data'][t_idx] for i in range(num_channels)],
+            dtype=float,
+        )
+        T_e_meas = np.array(
+            [ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx] for i in range(num_channels)],
+            dtype=float,
+        )
+        rho_meas = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
 
-    rho_meas = np.array(mapped_rho_position)
-    rho_fit = np.linspace(0, 1, 100)
+    # --- evaluation grid: prefer the mapping geqdsk, then the ODS equilibrium,
+    #     else a uniform psi_N grid ---
+    eq_grid = _grid_from_geq(geq)
+    if eq_grid is None:
+        eq_grid = _equilibrium_grid_at_time(ods, target_s, tol_s)
+    if eq_grid is not None:
+        rho_tor_grid, psi_grid, psi_n_grid = eq_grid
+    else:
+        rho_tor_grid = psi_grid = None
+        psi_n_grid = np.linspace(0.0, 1.0, rho_points)
 
-    n_e_recon = n_e_function(rho_fit)
-    T_e_recon = T_e_function(rho_fit)
+    n_e_recon = np.asarray(n_e_function(psi_n_grid), dtype=float) if have_e else None
+    T_e_recon = np.asarray(T_e_function(psi_n_grid), dtype=float) if have_e else None
+    # Ti falls back to Te only when electrons are present but no ion fit was given.
+    T_i_recon = (
+        np.asarray(T_i_function(psi_n_grid), dtype=float)
+        if have_i
+        else (T_e_recon if (have_e and ti_te_fallback) else None)
+    )
+    V_tor_recon = (
+        np.asarray(V_tor_function(psi_n_grid), dtype=float)
+        if V_tor_function is not None
+        else None
+    )
 
     # --- check for duplicate time entries ---
     existing_times = []
@@ -429,29 +695,100 @@ def core_profiles(ods, time_ms, mapped_rho_position, n_e_function, T_e_function,
     next_idx = len(ods['core_profiles.profiles_1d']) if 'core_profiles.profiles_1d' in ods else 0
     base = f'core_profiles.profiles_1d.{next_idx}'
 
-    ods[f'{base}.time'] = time_ms / 1000
-    ods[f'{base}.grid.rho_tor_norm'] = rho_fit.tolist()
+    ods[f'{base}.time'] = target_s
+    if eq_grid is not None:
+        ods[f'{base}.grid.rho_tor_norm'] = rho_tor_grid
+        ods[f'{base}.grid.psi'] = psi_grid
+    else:
+        # psi_N-based grid: rho_pol_norm = sqrt(psi_N); do NOT mislabel as rho_tor_norm
+        ods[f'{base}.grid.rho_pol_norm'] = np.sqrt(psi_n_grid)
 
     # We assume all electrons are thermal electrons (because VEST is ohmically heated plasma)
-    ods[f'{base}.electrons.density_thermal'] = n_e_recon.tolist()
-    ods[f'{base}.electrons.density'] = n_e_recon.tolist()
-    ods[f'{base}.electrons.temperature'] = T_e_recon.tolist()
+    if have_e:
+        ods[f'{base}.electrons.density_thermal'] = n_e_recon
+        ods[f'{base}.electrons.density'] = n_e_recon
+        ods[f'{base}.electrons.temperature'] = T_e_recon
 
-    ods[f'{base}.ion.0.label'] = 'H+'
-    ods[f'{base}.ion.0.density_thermal'] = n_e_recon.tolist()
-    ods[f'{base}.ion.0.density'] = n_e_recon.tolist()
-    ods[f'{base}.ion.0.temperature'] = T_e_recon.tolist()
+    # single main ion H+ with n_i ~= n_e (quasi-neutrality, no impurity dilution).
+    # Write the ion block only when there IS an ion fit, or when electrons are
+    # present and the Ti=Te fallback is enabled. With ti_te_fallback=False a slice
+    # with no ion measurement stays electron-only -- no phantom ni / Ti / velocity.
+    write_ion = have_i or (have_e and ti_te_fallback)
+    if write_ion:
+        ods[f'{base}.ion.0.label'] = 'H+'
+        ods[f'{base}.ion.0.z_ion'] = 1.0
+        ods[f'{base}.ion.0.element.0.a'] = 1.00784
+        ods[f'{base}.ion.0.element.0.z_n'] = 1.0
+        ods[f'{base}.ion.0.element.0.atoms_n'] = 1
+        if have_e:  # quasi-neutral main-ion density needs the electron density
+            ods[f'{base}.ion.0.density_thermal'] = n_e_recon
+            ods[f'{base}.ion.0.density'] = n_e_recon
+        if T_i_recon is not None:
+            ods[f'{base}.ion.0.temperature'] = T_i_recon
+        if V_tor_recon is not None:
+            ods[f'{base}.ion.0.velocity.toroidal'] = V_tor_recon
+    if have_e and have_i:  # kinetic pressure needs both ne and (Te, Ti)
+        ods[f'{base}.pressure_thermal'] = e_J_per_eV * n_e_recon * (T_e_recon + T_i_recon)
 
-    fit_base_n = f'{base}.electrons.density_fit'
-    fit_base_t = f'{base}.electrons.temperature_fit'
+    # --- measurement/fit metadata (per IMAS DD, measured/reconstructed/rho all
+    # have one entry per measurement point; reconstructed = fit AT those points) ---
+    if eq_grid is not None:
+        if have_e:
+            finite_meas = np.isfinite(rho_meas)
+            rho_meas_psin = np.clip(rho_meas[finite_meas], 0, 1)
+            rho_meas_tor = np.interp(rho_meas_psin, psi_n_grid, rho_tor_grid)
 
-    ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas.tolist()
-    ods[f'{fit_base_n}.measured'] = n_e_meas.tolist()
-    ods[f'{fit_base_n}.reconstructed'] = n_e_recon.tolist()
+            fit_base_n = f'{base}.electrons.density_fit'
+            fit_base_t = f'{base}.electrons.temperature_fit'
+            ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor
+            ods[f'{fit_base_n}.measured'] = n_e_meas[finite_meas]
+            ods[f'{fit_base_n}.reconstructed'] = np.asarray(
+                n_e_function(rho_meas_psin), dtype=float
+            )
+            ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor
+            ods[f'{fit_base_t}.measured'] = T_e_meas[finite_meas]
+            ods[f'{fit_base_t}.reconstructed'] = np.asarray(
+                T_e_function(rho_meas_psin), dtype=float
+            )
 
-    ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas.tolist()
-    ods[f'{fit_base_t}.measured'] = T_e_meas.tolist()
-    ods[f'{fit_base_t}.reconstructed'] = T_e_recon.tolist()
+        if T_i_function is not None and ti_mapped_rho_position is not None:
+            try:
+                ce_times = np.asarray(ods['charge_exchange.time'], dtype=float)
+                ce_idx = int(np.argmin(np.abs(ce_times - target_s)))
+                n_ce = len(ods['charge_exchange.channel'])
+                ti_meas, ti_meas_err = [], []
+                for i in range(n_ce):
+                    # OMAS split the assigned uarray -> read .data + .data_error_upper
+                    val, err = _leaf_values_and_errors(
+                        ods[f'charge_exchange.channel.{i}.ion.0.t_i'],
+                        ce_idx,
+                        clamp=True,
+                    )
+                    ti_meas.append(val)
+                    ti_meas_err.append(err)
+                ti_meas = np.asarray(ti_meas, dtype=float)
+                ti_meas_err = np.asarray(ti_meas_err, dtype=float)
+                ti_rho = np.asarray(ti_mapped_rho_position, dtype=float).reshape(-1)
+                finite_ti = np.isfinite(ti_rho)
+                ti_rho_psin = np.clip(ti_rho[finite_ti], 0, 1)
+                fit_base_ti = f'{base}.ion.0.temperature_fit'
+                ods[f'{fit_base_ti}.rho_tor_norm'] = np.interp(
+                    ti_rho_psin, psi_n_grid, rho_tor_grid
+                )
+                ods[f'{fit_base_ti}.measured'] = ti_meas[finite_ti]
+                ods[f'{fit_base_ti}.measured_error_upper'] = ti_meas_err[finite_ti]
+                ods[f'{fit_base_ti}.reconstructed'] = np.asarray(
+                    T_i_function(ti_rho_psin), dtype=float
+                )
+            except Exception as exc:
+                print(f"[WARN] could not attach ion temperature_fit metadata: {exc}")
+
+    # --- IDS bookkeeping: homogeneous time base matching profiles_1d order ---
+    ods['core_profiles.ids_properties.homogeneous_time'] = 1
+    n_profiles = len(ods['core_profiles.profiles_1d'])
+    ods['core_profiles.time'] = np.array(
+        [float(ods[f'core_profiles.profiles_1d.{i}.time']) for i in range(n_profiles)]
+    )
 
     print(f"[UPDATED] core_profile at {time_ms:.3f} ms (index {next_idx})")
     return ods

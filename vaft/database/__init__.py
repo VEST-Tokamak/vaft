@@ -31,9 +31,19 @@ def load(shot, directory="public", **kwargs):
     have long meant "return an OMAS ODS".  Native IMAS IDS loading requires an
     explicit ``ids_name`` keyword to avoid confusing the second positional
     argument with the legacy HSDS directory.
+
+    ``dd_version`` is an IDS-only concept (the ODS loader takes ``imas_version``
+    instead), so passing it also routes to the native IDS loader. Because the
+    IDS loader must know *which* IDS to return, ``dd_version`` without
+    ``ids_name`` raises rather than silently falling back to the ODS path.
     """
     ids_name = kwargs.pop("ids_name", None)
-    if ids_name is not None:
+    if ids_name is not None or kwargs.get("dd_version") is not None:
+        if ids_name is None:
+            raise ValueError(
+                "dd_version is only meaningful for native IDS loading; "
+                "pass ids_name=... to choose which IDS to load."
+            )
         from .ids import load as _load_ids
 
         return _load_ids(shot, ids_name, directory=directory, **kwargs)

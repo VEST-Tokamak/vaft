@@ -73,7 +73,8 @@ def read_doppler_single(ods: Any, shotnumber: int, data_root: str | Path | None 
     set_path(ods, "charge_exchange.channel.0.position.r.data", 0.39)
 
     df = pd.read_excel(filename, engine="xlrd")
-    set_path(ods, "charge_exchange.time", np.array(df["Time [ms]"]))
+    # Keep charge_exchange.time in seconds for process/plot consistency.
+    set_path(ods, "charge_exchange.time", np.array(df["Time [ms]"]) / 1e3)
     set_path(
         ods,
         "charge_exchange.channel.0.ion.0.intensity.data",

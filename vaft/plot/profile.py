@@ -810,10 +810,22 @@ def charge_exchange_rho_profiles(
         except Exception:
             shot = None
 
+        try:
+            diag_name = str(ods["charge_exchange.channel.0.name"]).strip().lower()
+        except Exception:
+            diag_name = ""
+
+        if "ion doppler" in diag_name or "ids" in diag_name:
+            diag_label = "IDS"
+        elif "charge exchange" in diag_name or "ces" in diag_name:
+            diag_label = "CES"
+        else:
+            diag_label = "Charge-exchange"
+
         title = (
-            f"CES profiles vs rho @ {float(time_s)*1e3:.1f} ms"
+            f"{diag_label} profiles vs rho @ {float(time_s)*1e3:.1f} ms"
             if np.isfinite(time_s)
-            else "CES profiles vs rho"
+            else f"{diag_label} profiles vs rho"
         )
         if shot is not None:
             title += f" (shot {shot})"
