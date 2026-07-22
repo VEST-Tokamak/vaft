@@ -2,23 +2,23 @@
 
 ### LOAD
 
-Use `vaft.database.load(shot)` when a complete local IMAS staging set is needed.
-This compatibility path invokes `hsget`; when `paths` is supplied it stages only
+Use `vaft.database.load(shot, source="public")` when a complete local IMAS staging set is needed.
+This eager path invokes `hsget`; when `paths` is supplied it stages only
 the selected top-level IDS and `dataset_description`, using a validated local
 domain cache by default. Pass `cache="off"` to force a fresh download.
 
-Use `vaft.database.open_ods` for selection-based access without a temporary
+Use `vaft.database.open` for selection-based access without a temporary
 staging directory:
 
 ```python
 import vaft
 
-with vaft.database.open_ods(39915, ids="equilibrium") as ods:
+with vaft.database.open(39915, source="public", paths="equilibrium") as ods:
     time = ods["equilibrium.time"]
     psi = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
 ```
 
-`ids` may be a string, a list of IDS names, or `None` to discover the available
+`paths` may be a top-level IDS name, a detailed OMAS path, a list, or `None` to discover the available
 domains. Only occurrence 0 is supported lazily; use the eager API for other
 occurrences and native IDS objects.
 

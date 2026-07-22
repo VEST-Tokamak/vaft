@@ -50,12 +50,11 @@ def _ids_top_level_name(ids_obj):
 def save(
     ids: imas.ids_toplevel.IDSToplevel,
     shot: int,
-    env: str = "server",
-    path: Optional[Union[str, Path]] = None,
+    directory: str = "public",
     dd_version: Optional[str] = None,
 ) -> Optional[str]:
     """
-    Save a local IMAS HDF5 image file to HSDS.
+    Save one native IMAS IDS to a remote HSDS namespace.
 
     Workflow for env="server":
     1) Save IDS to local shot directory via imas.DBEntry (auto-generates master.h5)
@@ -66,8 +65,7 @@ def save(
     Args:
         ids: IMAS IDS object to save.
         shot: shot number.
-        env: `server` to upload HSDS, `local` to only validate local file.
-        path: local path for `env="local"`. Default: `~/public/imasdb/VEST/3/{shot}/1`.
+        directory: Bare HSDS namespace such as ``public``.
         dd_version: IMAS DD version.
     Returns:
         HSDS URI string for the IDS file when uploaded, otherwise local path.
@@ -77,61 +75,35 @@ def save(
     ids_name = _ids_top_level_name(ids)
     filename = f"{ids_name}.h5"
 
-    if env == "local":
-        if path is None:
-            path = f'~/public/imasdb/VEST/3/{str(shot)}/1'
-        expanded_path = Path(path).expanduser()
-        expanded_path.mkdir(parents=True, exist_ok=True)
-        print(f"[INFO] Local storage path: {expanded_path.absolute()}")
-        with imas.DBEntry("imas:hdf5?path="+str(expanded_path), "w", dd_version=dd_version) as dbentry:
+    _require_h5pyd()
+
+    if not is_connect():
+        raise ConnectionError("Connection to HSDS server failed")
+
+    with tempfile.TemporaryDirectory(prefix="hsds_tmp_") as tmp_dir:
+        _staging_dir = Path(tmp_dir)
+        print(f"[INFO] Local staging directory: {_staging_dir.absolute()}")
+
+        # Save IDS to local shot directory. This auto-generates master.h5.
+        with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w", dd_version=dd_version) as dbentry:
             dbentry.put(ids)
-        print(f"[INFO] Saved {filename} to: {expanded_path / filename}")
-        print(f"[INFO] Saved master.h5 to: {expanded_path / 'master.h5'}")
-        return str(expanded_path)
-    elif env == "server":
-        _require_h5pyd()
+        print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
 
-        if not is_connect():
-            raise ConnectionError("Connection to HSDS server failed")
-
-        with tempfile.TemporaryDirectory(prefix="hsds_tmp_") as tmp_dir:
-            _staging_dir = Path(tmp_dir)
-            print(f"[INFO] Local staging directory: {_staging_dir.absolute()}")
-
-            # Save IDS to local shot directory
-            # This auto-generates master.h5 along with {ids_name}.h5
-            with imas.DBEntry("imas:hdf5?path=" + str(_staging_dir), "w", dd_version=dd_version) as dbentry:
-                dbentry.put(ids)
-            print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
-            print(f"[INFO] Saved master.h5 to local: {_staging_dir / 'master.h5'}")
-
-            # Upload to HSDS
-            username = (
-                "public"
-                if h5pyd.getServerInfo()["username"] == "admin"
-                else h5pyd.getServerInfo()["username"]
-            )
-
-            # Upload IDS-specific file
-            ids_remote_uri = f"hdf5://{username}/{shot}/{filename}"
-            run_hsload(_staging_dir / filename, ids_remote_uri)
-            verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
-            print(f"[INFO] Uploaded {filename} to {ids_remote_uri}")
-
-            # Upload master.h5 (aggregator file)
-            master_remote_uri = f"hdf5://{username}/{shot}/master.h5"
-            run_hsload(_staging_dir / "master.h5", master_remote_uri)
-            verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
-            print(f"[INFO] Uploaded master.h5 to {master_remote_uri}")
-
-            return ids_remote_uri
+        # Upload to explicitly requested HSDS namespace.
+        ids_remote_uri = f"hdf5://{directory}/{shot}/{filename}"
+        run_hsload(_staging_dir / filename, ids_remote_uri)
+        verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
+        master_remote_uri = f"hdf5://{directory}/{shot}/master.h5"
+        run_hsload(_staging_dir / "master.h5", master_remote_uri)
+        verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
+        return ids_remote_uri
 
 
 def load(
     shot: int,
     ids_name: Union[str, list[str]],
     directory: str = "public",
-    occurrence: int = 0,
+    occurrence: int | dict[str, int] = 0,
     dd_version: Optional[str] = None,
     local_dir: Optional[str] = None,
     cache: str | Path = "auto",
@@ -203,8 +175,12 @@ def load(
         try:
             with imas.DBEntry(uri, "r", dd_version=dd_version) as dbentry:
                 if isinstance(ids_name, str):
-                    return dbentry.get(ids_name, occurrence)
-                return {name: dbentry.get(name, occurrence) for name in ids_name}
+                    value = occurrence.get(ids_name, 0) if isinstance(occurrence, dict) else occurrence
+                    return dbentry.get(ids_name, value)
+                return {
+                    name: dbentry.get(name, occurrence.get(name, 0) if isinstance(occurrence, dict) else occurrence)
+                    for name in ids_name
+                }
         except Exception as exc:
             if "different major version" in str(exc):
                 # This is a DD-version contract error, not an incomplete

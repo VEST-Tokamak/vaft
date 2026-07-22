@@ -1,0 +1,74 @@
+from pathlib import Path
+
+import pytest
+
+import vaft
+
+
+DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"
+GFILE = DATA / "efit" / "g039915.00317"
+GFILES = [DATA / "efit" / "g039915.00317", DATA / "efit" / "g039915.00319"]
+IMAS_NC = DATA / "imas" / "vest_imas_3.40.1.nc"
+
+
+def test_omas_load_detects_single_and_multiple_geqdsk():
+    single = vaft.omas.load(GFILE)
+    multiple = vaft.omas.load(GFILES)
+
+    assert "equilibrium" in single
+    assert len(multiple["equilibrium.time_slice"]) == 2
+
+
+def test_omas_json_and_hdf5_round_trip(tmp_path):
+    source = vaft.omas.load(GFILE)
+    for suffix in (".json", ".h5"):
+        target = tmp_path / f"equilibrium{suffix}"
+        vaft.omas.save(source, target)
+        restored = vaft.omas.load(target)
+        assert restored["equilibrium.time_slice.0.profiles_2d.0.psi"].shape == source[
+            "equilibrium.time_slice.0.profiles_2d.0.psi"
+        ].shape
+
+
+def test_imas_handle_detects_netcdf_and_converts_omas_source(tmp_path):
+    with vaft.imas.load(IMAS_NC) as handle:
+        assert handle.info.format == "imas_netcdf"
+        assert "equilibrium" in handle.ids
+        assert "equilibrium" in handle.info.available_ids
+        assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+
+    json_source = tmp_path / "equilibrium.json"
+    vaft.omas.save(vaft.omas.load(GFILE), json_source)
+    with vaft.imas.load(json_source) as handle:
+        assert handle.info.converted is True
+        assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+
+
+def test_imas_hdf5_round_trip(tmp_path):
+    source = vaft.omas.load(GFILE)
+    target = tmp_path / "imas_entry"
+    vaft.imas.save(source, target)
+    assert (target / "master.h5").exists()
+    with vaft.imas.load(target) as handle:
+        assert handle.info.format == "imas_hdf5"
+        assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+
+    # A single external image is usable without a manually prepared master.
+    with vaft.imas.load(target / "equilibrium.h5") as handle:
+        assert handle.info.format == "imas_images"
+        assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+
+
+def test_imas_netcdf_save_round_trip(tmp_path):
+    source = vaft.omas.load(GFILE)
+    target = tmp_path / "equilibrium.nc"
+    vaft.imas.save(source, target)
+    with vaft.imas.load(target) as handle:
+        assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+
+
+def test_unknown_local_source_is_actionable(tmp_path):
+    unknown = tmp_path / "unknown.bin"
+    unknown.write_bytes(b"not a supported data source")
+    with pytest.raises(ValueError, match="Unsupported local source"):
+        vaft.omas.load(unknown)

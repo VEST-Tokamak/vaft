@@ -1,122 +1,212 @@
-"""Lazy database namespace for raw and ODS access.
+"""Remote HSDS database API.
 
-Notebook and workflow code primarily use ``vaft.database.load`` for IMAS/ODS
-shot loading, while raw DAQ access is reached explicitly via
-``vaft.database.raw``. Resolve flat attribute lookups in that order so the
-public database namespace matches long-standing usage.
+This namespace intentionally accepts only bare HSDS namespaces such as
+``"public"``. Local files belong to :mod:`vaft.omas` and :mod:`vaft.imas`.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from importlib import import_module
+from typing import Literal
+import warnings
 
-__all__ = [
-    "raw",
-    "ods",
-    "ids",
-    "utils",
-    "load",
-    "save",
-    "load_ids",
-    "save_ids",
-    "load_ods",
-    "open_ods",
-    "save_ods",
-]
+__all__ = ["raw", "ods", "ids", "utils", "load", "open", "save"]
 
 
-def load(shot, directory="public", **kwargs):
-    """Load a shot using the historical ODS API, or native IDSs with ids_name.
+def _namespace(value: str, label: str) -> str:
+    if not isinstance(value, str) or not value or value.strip() != value:
+        raise ValueError(f"{label} must be a non-empty bare HSDS namespace")
+    if ":" in value or "/" in value or "\\" in value:
+        raise ValueError(
+            f"{label} must be a bare HSDS namespace such as 'public'; "
+            "the hdf5:// protocol is an internal detail."
+        )
+    return value
 
-    ``vaft.database.load(39915)`` and ``vaft.database.load(39915, "public")``
-    have long meant "return an OMAS ODS".  Native IMAS IDS loading requires an
-    explicit ``ids_name`` keyword to avoid confusing the second positional
-    argument with the legacy HSDS directory.
 
-    ``dd_version`` is an IDS-only concept (the ODS loader takes ``imas_version``
-    instead), so passing it also routes to the native IDS loader. Because the
-    IDS loader must know *which* IDS to return, ``dd_version`` without
-    ``ids_name`` raises rather than silently falling back to the ODS path.
+def _paths(paths: str | list[str] | None) -> list[str] | None:
+    if paths is None:
+        return None
+    values = [paths] if isinstance(paths, str) else list(paths)
+    if not values or any(not isinstance(path, str) or not path for path in values):
+        raise ValueError("paths must be a non-empty string or list of non-empty strings")
+    return values
+
+
+def _ids_from_paths(paths: list[str] | None) -> list[str] | None:
+    if paths is None:
+        return None
+    names = [path.split(".", 1)[0].split("[", 1)[0] for path in paths]
+    if any(name != path for name, path in zip(names, paths)):
+        raise ValueError("representation='imas' accepts top-level IDS names only; use representation='omas' for leaf paths")
+    return list(dict.fromkeys(names))
+
+
+def _root_ids(paths: list[str] | None) -> list[str] | None:
+    """Return the IDS roots used to scope an OMAS request.
+
+    OMAS paths may name a leaf (including an AOS index); only native IMAS
+    dispatch requires the stricter top-level-only validation above.
     """
-    ids_name = kwargs.pop("ids_name", None)
-    if ids_name is not None or kwargs.get("dd_version") is not None:
-        if ids_name is None:
-            raise ValueError(
-                "dd_version is only meaningful for native IDS loading; "
-                "pass ids_name=... to choose which IDS to load."
-            )
-        from .ids import load as _load_ids
-
-        return _load_ids(shot, ids_name, directory=directory, **kwargs)
-
-    from .ods import load_ods
-
-    return load_ods(shot, directory=directory, **kwargs)
+    if paths is None:
+        return None
+    return list(dict.fromkeys(path.split(".", 1)[0].split("[", 1)[0] for path in paths))
 
 
-def save(obj, shot, *args, **kwargs):
-    """Save an OMAS ODS or native IMAS IDS by dispatching on ``obj`` type.
+def _occurrence_map(occurrence: int | Mapping[str, int] | None) -> dict[str, int]:
+    if occurrence is None:
+        return {}
+    if isinstance(occurrence, int):
+        if occurrence < 0:
+            raise ValueError("occurrence must be non-negative")
+        return {"*": occurrence}
+    result = {str(name): int(value) for name, value in occurrence.items()}
+    if any(value < 0 for value in result.values()):
+        raise ValueError("occurrence values must be non-negative")
+    return result
 
-    Native IMAS IDS toplevels (e.g. ``imas.IDSFactory(...).equilibrium()``) are
-    routed to :func:`ids.save`, which accepts ``dd_version``; everything else is
-    treated as an OMAS ODS and routed to :func:`ods.save_ods`. This lets a
-    single ``save`` entry point handle both representations instead of raising a
-    ``TypeError`` when an IDS is passed with IDS-only keywords like
-    ``dd_version``.
-    """
-    if _is_imas_ids(obj):
-        from .ids import save as _save_ids
 
-        return _save_ids(obj, shot, *args, **kwargs)
+def _infer_remote_imas_version(source: str, shot: int, ids: list[str] | None, requested: str | None) -> str:
+    if requested is not None:
+        return requested
+    from .utils import _require_h5pyd
 
+    _require_h5pyd()
+    from . import utils
+    from ..imas.omas_imas import IMAS_DD_VERSION_CONVERSION
+
+    candidates = ["dataset_description", *(ids or [])]
+    for name in candidates:
+        try:
+            with utils.h5pyd.File(f"hdf5://{source}/{shot}/{name}.h5", "r") as handle:
+                root = handle[name] if name in handle else handle
+                for dataset in ("imas_version", "ids_properties&version_put&data_dictionary"):
+                    if dataset in root:
+                        value = root[dataset][()]
+                        if isinstance(value, bytes):
+                            value = value.decode("utf-8", errors="replace")
+                        return str(value)
+        except Exception:
+            continue
+    warnings.warn(
+        f"Could not infer IMAS DD version for HSDS source '{source}' shot {shot}; "
+        f"using {IMAS_DD_VERSION_CONVERSION}",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+    return IMAS_DD_VERSION_CONVERSION
+
+
+def load(
+    shot: int | list[int],
+    *,
+    source: str = "public",
+    representation: Literal["omas", "imas"] = "omas",
+    paths: str | list[str] | None = None,
+    occurrence: int | Mapping[str, int] | None = None,
+    imas_version: str | None = None,
+    cache: str = "auto",
+):
+    """Materialize an OMAS ODS or native IMAS IDS from remote HSDS storage."""
+    source = _namespace(source, "source")
+    selected_paths = _paths(paths)
+    occurrences = _occurrence_map(occurrence)
+    if representation == "omas":
+        from .ods import load_ods
+
+        mapped = {name: value for name, value in occurrences.items() if name != "*"}
+        if "*" in occurrences:
+            mapped = {name: occurrences["*"] for name in (_root_ids(selected_paths) or [])}
+        version = _infer_remote_imas_version(source, int(shot[0] if isinstance(shot, list) else shot), _root_ids(selected_paths), imas_version)
+        return load_ods(
+            shot,
+            directory=source,
+            occurrence=mapped,
+            paths=selected_paths,
+            imas_version=version,
+            cache=cache,
+        )
+    if representation != "imas":
+        raise ValueError("representation must be 'omas' or 'imas'")
+    if isinstance(shot, list):
+        raise ValueError("representation='imas' loads one shot at a time")
+    names = _ids_from_paths(selected_paths)
+    if names is None:
+        raise ValueError("representation='imas' requires paths=<top-level IDS>")
+    from .ids import load as load_ids
+
+    version = _infer_remote_imas_version(source, int(shot), names, imas_version)
+    return load_ids(
+        int(shot),
+        names[0] if len(names) == 1 else names,
+        directory=source,
+        occurrence=occurrences,
+        dd_version=version,
+        cache=cache,
+    )
+
+
+def open(
+    shot: int,
+    *,
+    source: str = "public",
+    representation: Literal["omas"] = "omas",
+    paths: str | list[str] | None = None,
+    occurrence: int | Mapping[str, int] | None = None,
+    imas_version: str | None = None,
+):
+    """Open a read-only, lazy OMAS ODS backed directly by HSDS selections."""
+    if representation != "omas":
+        raise ValueError("vaft.database.open supports only representation='omas'")
+    source = _namespace(source, "source")
+    selected_paths = _paths(paths)
+    occurrences = _occurrence_map(occurrence)
+    if any(value != 0 for value in occurrences.values()):
+        raise ValueError("lazy HSDS ODS currently supports occurrence 0 only")
+    from .lazy_ods import open_ods
+
+    return open_ods(
+        int(shot),
+        directory=source,
+        ids=_root_ids(selected_paths),
+        imas_version=_infer_remote_imas_version(source, int(shot), _root_ids(selected_paths), imas_version),
+    )
+
+
+def save(
+    data,
+    shot: int,
+    *,
+    target: str = "public",
+    representation: Literal["omas", "imas"] | None = None,
+    occurrence: int | Mapping[str, int] | None = None,
+    imas_version: str | None = None,
+):
+    """Write an OMAS ODS or native IDS to remote HSDS storage."""
+    target = _namespace(target, "target")
+    is_ids = _is_imas_ids(data)
+    inferred = "imas" if is_ids else "omas"
+    if representation is not None and representation != inferred:
+        raise TypeError(f"representation={representation!r} does not match the supplied object")
+    if inferred == "imas":
+        from .ids import save as save_ids
+
+        return save_ids(data, shot, directory=target, dd_version=imas_version)
     from .ods import save_ods
 
-    return save_ods(obj, shot, *args, **kwargs)
+    mapped = _occurrence_map(occurrence)
+    if "*" in mapped:
+        raise ValueError("OMAS occurrence must be a mapping keyed by IDS name")
+    return save_ods(data, shot, directory=target, occurrence=mapped, imas_version=imas_version)
 
 
 def _is_imas_ids(obj) -> bool:
-    """Return True if ``obj`` is a native IMAS IDS toplevel."""
     try:
         from imas.ids_toplevel import IDSToplevel
     except Exception:
         return False
-
     return isinstance(obj, IDSToplevel)
-
-
-def load_ids(shot, ids_name, *args, **kwargs):
-    """Load native IMAS IDS object(s)."""
-    from .ids import load as _load_ids
-
-    return _load_ids(shot, ids_name, *args, **kwargs)
-
-
-def save_ids(ids_obj, shot, *args, **kwargs):
-    """Save a native IMAS IDS object."""
-    from .ids import save as _save_ids
-
-    return _save_ids(ids_obj, shot, *args, **kwargs)
-
-
-def load_ods(*args, **kwargs):
-    """Load OMAS ODS data from IMAS-backed storage."""
-    from .ods import load_ods as _load_ods
-
-    return _load_ods(*args, **kwargs)
-
-
-def open_ods(*args, **kwargs):
-    """Open an ODS backed by direct, lazy HSDS dataset selections."""
-    from .lazy_ods import open_ods as _open_ods
-
-    return _open_ods(*args, **kwargs)
-
-
-def save_ods(*args, **kwargs):
-    """Save OMAS ODS data to IMAS-backed storage."""
-    from .ods import save_ods as _save_ods
-
-    return _save_ods(*args, **kwargs)
 
 
 def __getattr__(name: str):
@@ -124,17 +214,6 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
-
-    for module_name in ("ods", "lazy_ods", "ids", "raw", "utils"):
-        try:
-            module = import_module(f".{module_name}", __name__)
-        except Exception:
-            continue
-        if hasattr(module, name):
-            value = getattr(module, name)
-            globals()[name] = value
-            return value
-
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

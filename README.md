@@ -109,20 +109,35 @@ time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
 
-`load` is the backward-compatible eager path for complete ODS exports and
-legacy workflows. Without `paths` it stages the complete shot; with
+`load` is the eager path for complete ODS exports and workflows that need a
+local IMAS staging set. Without `paths` it stages the complete shot; with
 `paths=["equilibrium"]` it stages only that IDS plus `dataset_description` and
 uses a validated local domain cache by default. For exploratory access to
 selected leaves, use the direct lazy path, which opens only the requested IDS
 domain and transfers only the dataset selections that are read:
 
 ```python
-with vaft.database.open_ods(39915, ids="equilibrium") as ods:
+with vaft.database.open(39915, source="public", paths="equilibrium") as ods:
     psi = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
 ```
 
-The lazy API supports occurrence 0 in this first version. Native IDS and
-non-zero-occurrence workflows continue to use the existing eager staging APIs.
+The lazy API supports occurrence 0 in this first version. Native IDS use the
+explicit remote representation:
+
+```python
+equilibrium = vaft.database.load(
+    39915, source="public", representation="imas", paths="equilibrium"
+)
+```
+
+Local artifacts are deliberately separate from the HSDS API. They are
+content-detected rather than selected by a format flag:
+
+```python
+ods = vaft.omas.load("./shot/master.h5")
+with vaft.imas.load("./equilibrium.nc") as entry:
+    equilibrium = entry.get("equilibrium")
+```
 
 ### Profile Fitting
 
@@ -137,9 +152,9 @@ vaft.process.profile_fitting_thomson_scattering(
 ### IMAS Conversion
 
 ```python
-# Convert OMAS ODS ↔ IMAS-Python data entry
-from vaft.imas import omas_imas
-omas_imas.save_omas_imas(ods, pulse=39915, run=0)
+# Write an OMAS ODS as an IMAS HDF5 image set or a native IMAS NetCDF file
+vaft.imas.save(ods, "./shot")
+vaft.imas.save(ods, "./shot.nc")
 ```
 
 ## Library Modules

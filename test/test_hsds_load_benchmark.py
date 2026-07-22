@@ -27,9 +27,9 @@ import numpy as np
 import omas
 import pytest
 
-from vaft.database import open_ods
+from vaft.database import open as open_database
 from vaft.database import staging
-from vaft.imas import load_omas_imas
+from vaft.imas.omas_imas import load_omas_imas
 
 
 @dataclass(frozen=True)
@@ -166,7 +166,9 @@ def _convert_staged_branch(stage_dir: Path, branch: Branch) -> tuple[Any, dict[s
 
 
 def _lazy_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[str, Any]]:
-    lazy, open_seconds = _seconds(lambda: open_ods(shot, directory=directory, ids=branch.ids))
+    lazy, open_seconds = _seconds(
+        lambda: open_database(shot, source=directory, paths=branch.ids)
+    )
     try:
         value, selection_seconds = _seconds(lambda: lazy[branch.path])
         _, cached_seconds = _seconds(lambda: lazy[branch.path])

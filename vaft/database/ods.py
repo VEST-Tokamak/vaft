@@ -15,7 +15,7 @@ try:
 except ImportError:
     h5pyd = None  # optional: pip install 'vaft[hsds]'
 
-from ..imas import load_omas_imas, save_omas_imas
+from ..imas.omas_imas import load_omas_imas, save_omas_imas
 from .transport import run_hsget, run_hsload, verify_uploaded_image
 from .staging import requested_ids_from_paths, stage_imas_shot
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
@@ -180,26 +180,16 @@ def _load_one_shot(
         shot_dir = Path(path).expanduser()
         if not (shot_dir / "master.h5").exists():
             raise FileNotFoundError(f"No master.h5 found in IMAS HDF5 directory: {shot_dir}")
-        try:
-            ods = load_omas_imas(
-                occurrence=occurrence,
-                paths=paths,
-                time=time,
-                imas_version=imas_version,
-                skip_uncertainties=skip_uncertainties,
-                consistency_check=consistency_check,
-                verbose=verbose,
-                uri="imas:hdf5?path=" + str(shot_dir),
-            )
-        except Exception as exc:
-            if requested_ids is not None:
-                requested = ", ".join(requested_ids)
-                raise RuntimeError(
-                    "IMAS could not open the selective partial master for "
-                    f"shot {shot}; required external links are dataset_description "
-                    f"and: {requested}. Check the stored master.h5 links."
-                ) from exc
-            raise
+        ods = load_omas_imas(
+            occurrence=occurrence,
+            paths=paths,
+            time=time,
+            imas_version=imas_version,
+            skip_uncertainties=skip_uncertainties,
+            consistency_check=consistency_check,
+            verbose=verbose,
+            uri="imas:hdf5?path=" + str(shot_dir),
+        )
         ods.setdefault("dataset_description.data_entry.user", str(directory))
         ods.setdefault("dataset_description.data_entry.pulse", int(shot))
         ods.setdefault("dataset_description.data_entry.run", 0)
@@ -334,44 +324,3 @@ def save_ods(
         _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot)
 
     return f"hdf5://{directory}/{shot}/"
-
-
-# --------------------------------------------------------------------------- #
-# Deprecated compatibility shims (see issue #38)
-# --------------------------------------------------------------------------- #
-
-def load(shot, directory: str = "public", **kwargs):
-    """Deprecated alias for :func:`load_ods` (issue #38).
-
-    Historic pipeline scripts and notebooks call ``vaft.database.ods.load(shot,
-    directory=...)``, which never existed and raised ``AttributeError``. This shim
-    forwards to :func:`load_ods`; prefer ``vaft.database.load`` or
-    ``vaft.database.load_ods`` in new code.
-    """
-    import warnings
-
-    warnings.warn(
-        "vaft.database.ods.load() is deprecated; use vaft.database.load() "
-        "or vaft.database.load_ods().",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return load_ods(shot, directory=directory, **kwargs)
-
-
-def exist_ts_file(*args, **kwargs):
-    """Deprecated shim for the removed ``exist_ts_file`` helper (issue #38).
-
-    Returns the processed Thomson-scattering shots table
-    (``DataFrame`` with columns ``Index, Shot Number, Last Processed, Status``).
-    Prefer ``vaft.database.exist_shot(data_filter='ts')`` in new code.
-    """
-    import warnings
-
-    warnings.warn(
-        "vaft.database.exist_ts_file() is deprecated; use "
-        "vaft.database.exist_shot(data_filter='ts').",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return exist_shot(data_filter="ts")

@@ -452,7 +452,7 @@ def from_imas(
     imas_version: Optional[str] = None,
 ) -> GEQDSK:
     """Load equilibrium data from IMAS through OMAS and return GEQDSK."""
-    from vaft.imas import load_omas_imas
+    from vaft.imas.omas_imas import load_omas_imas
 
     if isinstance(source, (str, Path)) and str(source).startswith("imas:"):
         ods = load_omas_imas(
@@ -476,7 +476,7 @@ def to_imas(
 ) -> Any:
     """Convert GEQDSK through OMAS and write to an IMAS target."""
     ods = to_omas(geqdsk)
-    from vaft.imas import save_omas_imas
+    from vaft.imas.omas_imas import save_omas_imas
 
     if isinstance(target, (str, Path)) and str(target).startswith("imas:"):
         return save_omas_imas(
