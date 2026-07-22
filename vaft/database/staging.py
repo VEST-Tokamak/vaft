@@ -96,9 +96,9 @@ def _stringify(value: Any) -> str | None:
 class HSDSDomainCache:
     """Persistent validated cache for HSDS HDF5 images of one shot."""
 
-    def __init__(self, directory: str, shot: int | str, cache: str | Path = "auto") -> None:
+    def __init__(self, directory: str, shot: int, cache: str | Path = "auto") -> None:
         self.directory = directory.strip("/")
-        self.shot = str(shot)
+        self.shot = int(shot)
         self.enabled = cache != "off"
         self.root: Path | None = None
         self._manifest: dict[str, Any] = {"schema_version": 1, "domains": {}}
@@ -213,7 +213,7 @@ class HSDSDomainCache:
 
 def stage_imas_shot(
     directory: str,
-    shot: int | str,
+    shot: int,
     staging_dir: Path,
     *,
     requested_ids: Iterable[str] | None,
