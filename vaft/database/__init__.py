@@ -43,11 +43,34 @@ def load(shot, directory="public", **kwargs):
     return load_ods(shot, directory=directory, **kwargs)
 
 
-def save(ods, shot, *args, **kwargs):
-    """Save ODS data using the historical database API."""
+def save(obj, shot, *args, **kwargs):
+    """Save an OMAS ODS or native IMAS IDS by dispatching on ``obj`` type.
+
+    Native IMAS IDS toplevels (e.g. ``imas.IDSFactory(...).equilibrium()``) are
+    routed to :func:`ids.save`, which accepts ``dd_version``; everything else is
+    treated as an OMAS ODS and routed to :func:`ods.save_ods`. This lets a
+    single ``save`` entry point handle both representations instead of raising a
+    ``TypeError`` when an IDS is passed with IDS-only keywords like
+    ``dd_version``.
+    """
+    if _is_imas_ids(obj):
+        from .ids import save as _save_ids
+
+        return _save_ids(obj, shot, *args, **kwargs)
+
     from .ods import save_ods
 
-    return save_ods(ods, shot, *args, **kwargs)
+    return save_ods(obj, shot, *args, **kwargs)
+
+
+def _is_imas_ids(obj) -> bool:
+    """Return True if ``obj`` is a native IMAS IDS toplevel."""
+    try:
+        from imas.ids_toplevel import IDSToplevel
+    except Exception:
+        return False
+
+    return isinstance(obj, IDSToplevel)
 
 
 def load_ids(shot, ids_name, *args, **kwargs):

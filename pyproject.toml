@@ -7,7 +7,7 @@ name = "vaft"
 authors = [
   { name = "VEST team", email = "peppertonic18@snu.ac.kr" },
 ]
-description = "Versatile Analytical Framework for Tokamak"
+description = "Versatile Analysis Framework for Tokamak"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10,<3.14"

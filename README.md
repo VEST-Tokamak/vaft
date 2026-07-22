@@ -1,4 +1,4 @@
-# VAFT - Versatile Analytical Framework for Tokamak
+# VAFT - Versatile Analysis Framework for Tokamak
 
 [PyPI](https://pypi.org/project/vaft/)
 [Python](https://pypi.org/project/vaft/)
@@ -113,9 +113,11 @@ ip = ods['magnetics.ip.0.data']
 ### Profile Fitting
 
 ```python
-# Map Thomson scattering data onto equilibrium flux coordinates and fit profiles
-vaft.process.equilibrium_mapping_thomson_scattering(ods)
-vaft.process.profile_fitting_thomson_scattering(ods, method='gp')
+# Map Thomson scattering data onto equilibrium flux coordinates, then fit profiles
+mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+vaft.process.profile_fitting_thomson_scattering(
+    ods, time_ms, mapped_rho, fitting_function_te='gp', fitting_function_ne='gp'
+)
 ```
 
 ### IMAS Conversion
@@ -123,7 +125,7 @@ vaft.process.profile_fitting_thomson_scattering(ods, method='gp')
 ```python
 # Convert OMAS ODS ↔ IMAS-Python data entry
 from vaft.imas import omas_imas
-omas_imas.save_omas_to_imas(ods, pulse=39915, run=0)
+omas_imas.save_omas_imas(ods, pulse=39915, run=0)
 ```
 
 ## Library Modules
@@ -174,4 +176,4 @@ For database write access, contact [peppertonic18@snu.ac.kr, satelite2517@snu.ac
 
 ## Acknowledgements
 
-The authors would like to thank O Meneghini at Proxima Fusion and J McClenaghan at General Atomics, O Hoenen at ITER Organization for their technical advice. Some parts of the data processing were performed using the code API in the OMFIT integrated modeling framework. This research was supported by the National Research Foundation of Korea (NRF) grant funded by the Korean Government (MSIT) (RS-2023-00281276, RS-202400409564, and RS-2025-02304810).
+The authors would like to thank O Meneghini and J McClenaghan at General Atomics for their technical advice. Some parts of the data processing were performed using the code API in the OMFIT integrated modeling framework [1]. This research was supported by the National Research Foundation of Korea (NRF) grant funded by the Korean Government (MSIT) (RS-2021-NR057187, RS-2023-00281276, RS-2024-00409564, and RS-2025-02304810).
