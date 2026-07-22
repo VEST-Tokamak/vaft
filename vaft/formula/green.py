@@ -12,6 +12,7 @@ E      : complete elliptic integral of second kind     [-]
 """
 
 import numpy as np
+from scipy.special import ellipe, ellipk
 from typing import Union, Tuple
 from vaft.compat import trapz_compat
 
@@ -55,7 +56,7 @@ def complete_elliptic_integral_k(m: Union[float, np.ndarray]) -> Union[float, np
     Union[float, np.ndarray]
         Complete elliptic integral K(m)
     """
-    return np.ellipk(m)
+    return ellipk(m)
 
 
 def complete_elliptic_integral_e(m: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -72,7 +73,7 @@ def complete_elliptic_integral_e(m: Union[float, np.ndarray]) -> Union[float, np
     Union[float, np.ndarray]
         Complete elliptic integral E(m)
     """
-    return np.ellipe(m)
+    return ellipe(m)
 
 
 # ------------------------------------------------------------------

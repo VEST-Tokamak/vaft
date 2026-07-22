@@ -4,11 +4,36 @@
 ###############################################################################
 
 import json
+import os
+import re
 
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
 # --------------------------------------------------------------------------- #
 configfile: "config.yaml"
+
+
+_ENV_REFERENCE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))")
+
+
+def _expand_config_environment(value):
+    """Expand environment variables in config values and reject missing ones."""
+    if isinstance(value, dict):
+        return {key: _expand_config_environment(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_expand_config_environment(item) for item in value]
+    if not isinstance(value, str):
+        return value
+
+    expanded = os.path.expandvars(value)
+    missing = [match.group("braced") or match.group("bare") for match in _ENV_REFERENCE.finditer(expanded)]
+    if missing:
+        names = ", ".join(sorted(set(missing)))
+        raise ValueError(f"Missing environment variable(s) in config.yaml: {names}")
+    return expanded
+
+
+config.update(_expand_config_environment(config))
 
 # --------------------------------------------------------------------------- #
 # 1) Global constants
@@ -17,6 +42,7 @@ BASE_DIR = config["base_dir"]                     # Base path for all output
 SHOTS    = config["shots"]                       # List of shot numbers to process
 CONDA    = config.get("conda")                   # Conda environment to use
 RAW_CONFIG = config.get("raw", {})
+RAW_PREFLIGHT_CONFIG = RAW_CONFIG.get("preflight", {})
 DIAGNOSTICS_CONFIG = config.get("diagnostics", {})
 WALL_CONFIG = config.get("wall", {})
 EDDY_CONFIG = config.get("eddy", {})
@@ -28,6 +54,8 @@ GPEC_CONFIG = config.get("gpec", {})
 
 DEFAULT_UNCERTAINTY = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
 DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
+REQUIRED_RAW_FIELDS = RAW_PREFLIGHT_CONFIG.get("required_fields", [1, 13, 25, 59, 102])
+RAW_MIN_SAMPLES = RAW_PREFLIGHT_CONFIG.get("min_samples", 2)
 
 
 def raw_archive_path(wildcards):
@@ -44,21 +72,41 @@ def eddy_filament(name):
     return csv(EDDY_CONFIG.get("filament", {}).get(name, []))
 
 
+def eligible_shots(_wildcards):
+    preflight = checkpoints.preflight_raw_dumps.get()
+    with open(preflight.output.eligible, encoding="utf-8") as handle:
+        return [int(shot) for shot in json.load(handle)["eligible_shots"]]
+
+
+def eligible_pipeline_outputs(wildcards):
+    shots = eligible_shots(wildcards)
+    patterns = [
+        "{base_dir}/{shot}/omas/{shot}_diagnostics.json",
+        "{base_dir}/{shot}/omas/{shot}_eddy.json",
+        "{base_dir}/{shot}/omas/{shot}_constraints.json",
+        "{base_dir}/{shot}/efit/kfile/kfiles_generated.txt",
+        "{base_dir}/{shot}/efit/gfile/gfiles_generated.txt",
+        "{base_dir}/{shot}/efit/efit_status.txt",
+        "{base_dir}/{shot}/omas/{shot}_efit.json",
+        "{base_dir}/{shot}/chease/refined_gfiles_generated.txt",
+        "{base_dir}/{shot}/chease/chease_status.txt",
+        "{base_dir}/{shot}/omas/{shot}_chease.json",
+        "{base_dir}/{shot}/linear_stability/gpec_suite_runs.json",
+        "{base_dir}/{shot}/linear_stability/gpec_suite_status.txt",
+    ]
+    return [
+        output
+        for pattern in patterns
+        for output in expand(pattern, base_dir=BASE_DIR, shot=shots)
+    ]
+
+
 rule all:
     input:
         expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/omas/{shot}_diagnostics.json", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/omas/{shot}_eddy.json", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/omas/{shot}_constraints.json", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/efit/kfile/kfiles_generated.txt", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/efit/gfile/gfiles_generated.txt", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/efit/efit_status.txt", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/omas/{shot}_efit.json", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/chease/refined_gfiles_generated.txt", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/chease/chease_status.txt", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/omas/{shot}_chease.json", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/linear_stability/gpec_suite_runs.json", base_dir=BASE_DIR, shot=SHOTS),
-        expand("{base_dir}/{shot}/linear_stability/gpec_suite_status.txt", base_dir=BASE_DIR, shot=SHOTS)
+        BASE_DIR + "/preflight/eligible_shots.json",
+        BASE_DIR + "/preflight/excluded_shots.json",
+        eligible_pipeline_outputs
 
 ############################################################
 # DAQ Raw Data Extraction
@@ -84,6 +132,31 @@ rule generate_raw_db_dump:
             python generate_raw_db_dump.py --shot {wildcards.shot} --output {output} > {log} 2>&1
         fi
         """
+############################################################
+# Required Raw Signal Preflight
+############################################################
+checkpoint preflight_raw_dumps:
+    input:
+        expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS)
+    output:
+        eligible=BASE_DIR + "/preflight/eligible_shots.json",
+        excluded=BASE_DIR + "/preflight/excluded_shots.json"
+    params:
+        required_fields=csv(REQUIRED_RAW_FIELDS),
+        min_samples=RAW_MIN_SAMPLES
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p {BASE_DIR}/preflight
+        python validate_raw_dumps.py \
+            --required-fields "{params.required_fields}" \
+            --min-samples {params.min_samples} \
+            --eligible-output {output.eligible} \
+            --excluded-output {output.excluded} \
+            {input}
+        """
+
 ############################################################
 # Diagnostics Processing (Modular Scripts)
 ############################################################

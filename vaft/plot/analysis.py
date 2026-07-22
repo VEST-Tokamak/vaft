@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import vaft
@@ -16,152 +17,116 @@ plt.rcParams['xtick.labelsize'] = 10
 plt.rcParams['ytick.labelsize'] = 10
 plt.rcParams['legend.fontsize'] = 12
 
-def analysis_diagnostics(ods):
-    """
-    Plot diagnostics
-    """
+def _value(ods, path, default=None):
+    try:
+        if path not in ods:
+            return default
+        return ods[path]
+    except (KeyError, TypeError, ValueError, IndexError):
+        return default
 
-    status=vaft.omas.find_shotclass(ods)
-    shotnumber=vaft.omas.find_shotnumber(ods)
 
-    tstart = vaft.omas.find_breakdown_onset(ods)
-    pulse_length = vaft.omas.find_pulse_duration(ods)
-    tend = tstart + pulse_length
+def _plot_or_mark(axis, time, data, *, label=None, scale=1.0):
+    if time is None or data is None:
+        return False
+    time = np.asarray(time, dtype=float).reshape(-1)
+    data = np.asarray(data, dtype=float).reshape(-1)
+    size = min(time.size, data.size)
+    if size == 0:
+        return False
+    axis.plot(time[:size], data[:size] * scale, label=label)
+    return True
 
-    figsize=(24, 20)  # 더 큰 크기로 변경
-    # Generate 5 x 2 subplots
-    fig, ax = plt.subplots(5, 2, figsize=figsize, dpi=150, squeeze=False)
 
-    # Set the title for the figure
-    time_ip = ods['magnetics.ip.0.time']
-    data_ip=ods['magnetics.ip.0.data']
-    IpPeakTime = np.argmax(data_ip)
-    Bt=ods['tf.b_field_tor_vacuum_r']['data']/0.4
-    fig.suptitle(f'Diagnostics for {shotnumber} - {status} - Bt at Max Ip: {Bt[IpPeakTime]}', fontsize=16)
-    # Plot Ip
-    ax[0, 0].plot(ods['magnetics.time'], data_ip)
-    # Plot Bt at R=0.4m => pressure
-    #    ax[1, 0].plot(ods['tf.time'], ods['tf.b_field_tor_vacuum_r']['data']/0.4)
-    data_pres=ods['barometry.gauge.0.pressure.data'] # pressure
-    time_pres=ods['barometry.gauge.0.pressure.time'] # time
-    ax[1, 0].plot(time_pres, data_pres)
-    # Plot Line Radiation
-    channel_idx = [0, 0, 1, 1, 1]
-    line_idx = [0, 1, 0, 4, 5]
-    line_label = ['Ha (show DaQ)', 'OI', 'Ha (Fast DaQ)', 'C-III', 'O-II']
-    for i in range(5):
-        ax[2, 0].plot(ods[f'spectrometer_uv.time'],\
-                 ods[f'spectrometer_uv.channel.{channel_idx[i]}.processed_line.{line_idx[i]}.intensity.data'], label=line_label[i])
-    ax[2, 0].legend()
-    
-    # Plot PF Coil
-    for i in [1,5,6,9,10]:
-        ax[3, 0].plot(ods['pf_active']['time'],ods['pf_active']['coil'][i-1]['current']['data']/1000,label=ods['pf_active']['coil'][i-1]['name'])
-    ax[3, 0].legend()
+def _mark_missing(axis):
+    if not axis.lines:
+        axis.text(0.5, 0.5, "Data unavailable", ha="center", va="center", transform=axis.transAxes)
 
-    # Plot DiaFlux
-    ax[4, 0].plot(ods['magnetics.time'], ods['magnetics.diamagnetic_flux.0.data'] * 1e3)
 
-    # Find the index of the magnetic probes and flux loops
-    Index_inFlux = np.where(ods['magnetics.flux_loop.:.position.0.r'] < 0.15)
-    Index_OutFlux = np.where(ods['magnetics.flux_loop.:.position.0.r'] > 0.5)
-    Index_inBz = np.where(ods['magnetics.b_field_pol_probe.:.position.r']<0.09)
-    Index_outBz = np.where(ods['magnetics.b_field_pol_probe.:.position.r']>0.795)
-    Index_sideBz = np.where(np.abs(ods['magnetics.b_field_pol_probe.:.position.z']) > 0.8)
-    Index_inBz = Index_inBz[0]
-    Index_sideBz = Index_sideBz[0]
-    Index_outBz = Index_outBz[0]
-    Index_inFlux = Index_inFlux[0]
-    Index_OutFlux = Index_OutFlux[0]
-    nb_inBz = len(Index_inBz)
-    nb_sideBz = len(Index_sideBz)
-    nb_outBz = len(Index_outBz)
-    nb_Bz = nb_inBz + nb_sideBz + nb_outBz
+def analysis_diagnostics(
+    ods,
+    *,
+    time_range=None,
+    save_path=None,
+    show=True,
+    figsize=(16, 14),
+):
+    """Plot a ten-panel overview of available VEST diagnostic signals."""
+    fig, axes = plt.subplots(5, 2, figsize=figsize, dpi=150, squeeze=False, sharex=True)
+    try:
+        shot = vaft.omas.find_shotnumber(ods)
+    except Exception:
+        shot = _value(ods, "dataset_description.data_entry.pulse", "unknown")
+    try:
+        status = vaft.omas.find_shotclass(ods)
+    except Exception:
+        status = "unknown"
+    fig.suptitle(f"Diagnostics for {shot} - {status}", fontsize=16)
 
-    # Set the color map 
-    cmap = plt.get_cmap('tab10')
-    cmap = np.vstack((cmap(np.arange(10)), cmap(np.arange(10)), cmap(np.arange(10))))
-    line_style = ['-'] * 10 + ['--'] * 10 + ['-.'] * 10
-    
-    # # Plot Inboard FL
-    # for i, index in enumerate(Index_inFlux):
-    #     if (index+nb_Bz) not in broken:
-    #         ax[0, 1].plot(ods['magnetics.time'], ods[f'magnetics.flux_loop.{index}.flux.data'], label= f'{nb_Bz + index}', color=cmap[i], linestyle=line_style[i])
-    # ax[0, 1].legend(fontsize = 'x-small', ncol=2)
-    # # Plot Outboard FL
-    # for i, index in enumerate(Index_OutFlux):
-    #     if (index+nb_Bz) not in broken:
-    #         ax[1, 1].plot(ods['magnetics.time'], ods[f'magnetics.flux_loop.{index}.flux.data'], label= f'{nb_Bz + index}', color=cmap[i], linestyle=line_style[i])
-    # ax[1, 1].legend(fontsize = 'x-small')
-    # # Plot Inboard Bz
-    # for i, index in enumerate(Index_inBz):
-    #     if index not in broken:
-    #         ax[2, 1].plot(ods['magnetics.time'], ods[f'magnetics.b_field_pol_probe.{index}.field.data'], label= f'{index}', color=cmap[i], linestyle=line_style[i])
-    # ax[2, 1].legend(ncol=4, fontsize = 'x-small')
-    # # Plot Side Bz
-    # for i, index in enumerate(Index_sideBz):
-    #     if index not in broken:
-    #         ax[3, 1].plot(ods['magnetics.time'], ods[f'magnetics.b_field_pol_probe.{index}.field.data'], label= f'{index}', color=cmap[i], linestyle=line_style[i])
-    # ax[3, 1].legend(ncol=4, fontsize = 'x-small')
-    # # Plot Outboard Bz
-    # for i, index in enumerate(Index_outBz):
-    #     if index not in broken:
-    #         ax[4, 1].plot(ods['magnetics.time'], ods[f'magnetics.b_field_pol_probe.{index}.field.data'], label= f'{index}', color=cmap[i], linestyle=line_style[i])
-    # ax[4, 1].legend(ncol=4, fontsize = 'x-small')
+    magnetics_time = _value(ods, "magnetics.time")
+    _plot_or_mark(axes[0, 0], _value(ods, "magnetics.ip.0.time", magnetics_time), _value(ods, "magnetics.ip.0.data"), scale=1e-3)
+    _plot_or_mark(axes[1, 0], _value(ods, "barometry.gauge.0.pressure.time"), _value(ods, "barometry.gauge.0.pressure.data"))
 
-    # Set the title for each subplot
-    ax[0, 0].set_title('Ip')
-    #    ax[1, 0].set_title('Bt (R=0.4m)')
-    ax[1, 0].set_title('Pressure')
-    ax[2, 0].set_title('Line Radiation (Ha, CIII, OII)')
-    ax[3, 0].set_title('PF Coil')
-    ax[4, 0].set_title('DiaFlux') 
-    ax[0, 1].set_title('Inboard FL')
-    ax[1, 1].set_title('Outboard FL')
-    ax[2, 1].set_title('Inboard Bz')
-    ax[3, 1].set_title('Side Bz')
-    ax[4, 1].set_title('Outboard Bz')
+    uv_time = _value(ods, "spectrometer_uv.time")
+    for channel, line, label in [(0, 0, "Ha (slow)"), (0, 1, "OI"), (1, 0, "Ha (fast)"), (1, 4, "C-III"), (1, 5, "O-II")]:
+        _plot_or_mark(axes[2, 0], uv_time, _value(ods, f"spectrometer_uv.channel.{channel}.processed_line.{line}.intensity.data"), label=label)
 
-    # Set the xlim and xlabel for each subplot
-    ax[0, 0].set_xlim([tstart, tend])
-    ax[1, 0].set_xlim([tstart, tend])
-    ax[2, 0].set_xlim([tstart, tend])
-    ax[3, 0].set_xlim([tstart, tend])
-    ax[4, 0].set_xlim([tstart, tend])
-    ax[0, 1].set_xlim([tstart, tend])
-    ax[1, 1].set_xlim([tstart, tend])
-    ax[2, 1].set_xlim([tstart, tend])
-    ax[3, 1].set_xlim([tstart, tend])
-    ax[4, 1].set_xlim([tstart, tend])
-    ax[4, 0].set_xlabel('Time (ms)')
-    ax[4, 1].set_xlabel('Time (ms)')
+    pf_time = _value(ods, "pf_active.time")
+    for index in (0, 4, 5, 8, 9):
+        _plot_or_mark(
+            axes[3, 0], pf_time,
+            _value(ods, f"pf_active.coil.{index}.current.data"),
+            label=_value(ods, f"pf_active.coil.{index}.name", str(index + 1)), scale=1e-3,
+        )
+    _plot_or_mark(axes[4, 0], _value(ods, "magnetics.diamagnetic_flux.0.time", magnetics_time), _value(ods, "magnetics.diamagnetic_flux.0.data"), scale=1e3)
 
-    # Set the ylabel for each subplot
-    ax[0, 0].set_ylabel('(kA)')
-    ax[1, 0].set_ylabel('(Pa)')
-    ax[2, 0].set_ylabel('(a.u.)')
-    ax[3, 0].set_ylabel('(kA)')
-    ax[4, 0].set_ylabel('(mWb)')
-    ax[0, 1].set_ylabel('(Wb)')
-    ax[1, 1].set_ylabel('(Wb)')
-    ax[2, 1].set_ylabel('(T)')
-    ax[3, 1].set_ylabel('(T)')
-    ax[4, 1].set_ylabel('(T)')
+    flux_groups = (axes[0, 1], axes[1, 1])
+    probe_groups = (axes[2, 1], axes[3, 1], axes[4, 1])
+    try:
+        flux_count = len(ods["magnetics.flux_loop"])
+    except (KeyError, TypeError):
+        flux_count = 0
+    for index in range(flux_count):
+        radius = float(_value(ods, f"magnetics.flux_loop.{index}.position.0.r", np.nan))
+        group = 0 if radius < 0.15 else 1 if radius > 0.5 else None
+        if group is not None:
+            _plot_or_mark(flux_groups[group], magnetics_time, _value(ods, f"magnetics.flux_loop.{index}.flux.data"), label=str(index))
 
-    # Save the figure
-    if not os.path.exists(os.path.join(save_dir, 'plots')):
-        os.makedirs(os.path.join(save_dir, 'plots'))
-    plt.savefig(os.path.join(save_dir, 'plots', f'{shotnumber}_diagnostics.png'))
+    try:
+        probe_count = len(ods["magnetics.b_field_pol_probe"])
+    except (KeyError, TypeError):
+        probe_count = 0
+    for index in range(probe_count):
+        radius = float(_value(ods, f"magnetics.b_field_pol_probe.{index}.position.r", np.nan))
+        z = float(_value(ods, f"magnetics.b_field_pol_probe.{index}.position.z", np.nan))
+        group = 0 if radius < 0.09 else 1 if abs(z) > 0.8 else 2 if radius > 0.795 else None
+        if group is not None:
+            _plot_or_mark(probe_groups[group], magnetics_time, _value(ods, f"magnetics.b_field_pol_probe.{index}.field.data"), label=str(index))
 
-    # Show the plot
-    if show==1:
+    titles = (("Ip", "Inboard FL"), ("Pressure", "Outboard FL"), ("Line Radiation", "Inboard Bz"), ("PF Coil", "Side Bz"), ("DiaFlux", "Outboard Bz"))
+    ylabels = (("kA", "Wb"), ("Pa", "Wb"), ("a.u.", "T"), ("kA", "T"), ("mWb", "T"))
+    for row in range(5):
+        for column in range(2):
+            axis = axes[row, column]
+            axis.set_title(titles[row][column])
+            axis.set_ylabel(ylabels[row][column])
+            axis.grid(True, alpha=0.3)
+            _mark_missing(axis)
+            if axis.lines and any(line.get_label() and not line.get_label().startswith("_") for line in axis.lines):
+                axis.legend(fontsize="x-small", ncol=2)
+            if time_range is not None:
+                axis.set_xlim(time_range)
+    axes[4, 0].set_xlabel("Time [s]")
+    axes[4, 1].set_xlabel("Time [s]")
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+
+    if save_path is not None:
+        target = Path(save_path).expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(target)
+    if show:
         plt.show()
-
-def analysis_electromagnetics(ods):
-    """
-    Plot eddy
-    """
-    pass
+    return fig, axes
 
 def _plot_poloidal_geometry(ax, geometry, color):
     """

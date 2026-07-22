@@ -15,14 +15,10 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Optional, Union
 import h5py
+import h5pyd
 import imas
 
-try:
-    import h5pyd
-except ImportError:
-    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
-
-from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
+from .utils import ensure_imas_hdf5_userblock, is_connect
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
@@ -96,7 +92,6 @@ def save(
         print(f"[INFO] Saved master.h5 to: {expanded_path / 'master.h5'}")
         return str(expanded_path)
     elif env == "server":
-        _require_h5pyd()
 
         if not is_connect():
             raise ConnectionError("Connection to HSDS server failed")
@@ -161,7 +156,6 @@ def load(
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     try:
