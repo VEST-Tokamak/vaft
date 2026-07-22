@@ -3,7 +3,9 @@
 ### LOAD
 
 Use `vaft.database.load(shot)` when a complete local IMAS staging set is needed.
-This compatibility path invokes the external `hsget` command.
+This compatibility path invokes `hsget`; when `paths` is supplied it stages only
+the selected top-level IDS and `dataset_description`, using a validated local
+domain cache by default. Pass `cache="off"` to force a fresh download.
 
 Use `vaft.database.open_ods` for selection-based access without a temporary
 staging directory:

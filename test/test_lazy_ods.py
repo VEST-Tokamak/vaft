@@ -100,6 +100,19 @@ def test_metadata_trie_opens_only_visited_ids_and_does_not_read_leaf(fake_hsds):
     assert "hdf5://public/39915/core_profiles.h5" not in module.opened
 
 
+def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
+    ods, store = make_ods(fake_hsds, ids="equilibrium")
+    value = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
+    _ = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
+
+    metrics = store.metrics
+    assert metrics["ids_domain_open_count"] == 1
+    assert metrics["metadata_dataset_count"] > 0
+    assert metrics["payload_selection_count"] == 1
+    assert metrics["leaf_cache_hits"] >= 1
+    assert metrics["returned_logical_bytes"] == value.nbytes
+
+
 def test_leaf_selection_shape_slicing_and_value_conversion(fake_hsds):
     ods, _ = make_ods(fake_hsds, ids="equilibrium")
     datasets = fake_hsds[1]

@@ -23,6 +23,7 @@ except ImportError:
 
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
 from .transport import run_hsget, run_hsload, verify_uploaded_image
+from .staging import external_h5_links, stage_imas_shot
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
@@ -34,13 +35,7 @@ def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
 
 def _external_h5_links(master_path: Path) -> list[str]:
     """Return HDF5 filenames linked by an IMAS master.h5 file."""
-    filenames = []
-    with h5py.File(master_path, "r") as master:
-        for name in master:
-            link = master.get(name, getlink=True)
-            if isinstance(link, h5py.ExternalLink) and link.filename.endswith(".h5"):
-                filenames.append(Path(link.filename).name)
-    return sorted(set(filenames))
+    return external_h5_links(master_path)
 
 def _ids_top_level_name(ids_obj):
     # 1) IMAS IDS
@@ -139,6 +134,7 @@ def load(
     occurrence: int = 0,
     dd_version: Optional[str] = None,
     local_dir: Optional[str] = None,
+    cache: str | Path = "auto",
 ) -> Union[object, dict[str, object]]:
     """
     Load IDS object(s) from HSDS as native IMAS objects.
@@ -156,6 +152,8 @@ def load(
         occurrence: IDS occurrence index.
         dd_version: IMAS DD version passed to DBEntry.
         local_dir: optional local staging directory. If omitted, temp dir is used.
+        cache: ``"auto"`` (default) stores validated domains locally, ``"off"``
+            always downloads, or a path selects a cache base directory.
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
@@ -186,44 +184,35 @@ def load(
         ids_list = [ids_name] if isinstance(ids_name, str) else ids_name
         print(f"[INFO] Creating local staging directory: {shot_dir.absolute()}")
 
-        # Download master.h5 first. IMAS-Core expects every external file linked
-        # by master.h5 to be present when opening the data entry, even when the
-        # caller only asks for one IDS.
-        master_remote_uri = f"hdf5://{directory}/{shot}/master.h5"
-        master_local = shot_dir / "master.h5"
-        print(f"[INFO] Downloading master.h5 from {master_remote_uri}...")
-        _download_remote_image(master_remote_uri, master_local)
-        print(f"[INFO] Saved to: {master_local.absolute()}")
-
-        linked_files = _external_h5_links(master_local)
-        requested_files = [f"{ids}.h5" for ids in ids_list]
-
-        # Fail early with a clear message when a requested IDS was never stored
-        # for this shot. Otherwise hsget of the missing image aborts with an
-        # opaque CalledProcessError. master.h5 only links the IDS actually saved,
-        # so anything requested but not linked is absent on HSDS.
-        missing = [f for f in requested_files if f not in linked_files]
-        if missing:
-            available = sorted(f[:-3] for f in linked_files)  # strip ".h5"
-            missing_names = ", ".join(f[:-3] for f in missing)
-            raise FileNotFoundError(
-                f"IDS not stored for shot {shot} in '{directory}': {missing_names}. "
-                f"Available IDS: {', '.join(available) or '(none)'}."
-            )
-
-        for filename in sorted(set(linked_files + requested_files)):
-            local_file = shot_dir / filename
-            if local_file.exists():
-                continue
-            remote_uri = f"hdf5://{directory}/{shot}/{filename}"
-            print(f"[INFO] Downloading {filename} from {remote_uri}...")
-            _download_remote_image(remote_uri, local_file)
-            print(f"[INFO] Saved to: {local_file.absolute()}")
+        plan = stage_imas_shot(
+            directory=directory,
+            shot=shot,
+            staging_dir=shot_dir,
+            requested_ids=ids_list,
+            cache=cache,
+        )
+        print(
+            "[INFO] Materialized IMAS files: "
+            + ", ".join(plan["files"])
+            + f" (cache hits: {sum(plan['cache_hits'].values())}/{len(plan['cache_hits'])})"
+        )
 
         # Open and load from local files
         uri = "imas:hdf5?path=" + str(shot_dir)
         print(f"[INFO] Loading from: {shot_dir.absolute()}")
-        with imas.DBEntry(uri, "r", dd_version=dd_version) as dbentry:
-            if isinstance(ids_name, str):
-                return dbentry.get(ids_name, occurrence)
-            return {name: dbentry.get(name, occurrence) for name in ids_name}
+        try:
+            with imas.DBEntry(uri, "r", dd_version=dd_version) as dbentry:
+                if isinstance(ids_name, str):
+                    return dbentry.get(ids_name, occurrence)
+                return {name: dbentry.get(name, occurrence) for name in ids_name}
+        except Exception as exc:
+            if "different major version" in str(exc):
+                # This is a DD-version contract error, not an incomplete
+                # partial master. Preserve IMAS' actionable original message.
+                raise
+            raise RuntimeError(
+                "IMAS could not open the selective partial master for "
+                f"shot {shot}; required external links are dataset_description "
+                f"and: {', '.join(ids_list)}. Check the stored master.h5 links. "
+                f"Original IMAS error: {exc}"
+            ) from exc

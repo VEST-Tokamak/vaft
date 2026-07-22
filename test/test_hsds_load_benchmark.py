@@ -1,40 +1,39 @@
-"""Opt-in, read-only timing comparison for the three HSDS ODS load paths.
+"""Opt-in, read-only timing comparison of VAFT's ODS loading paths.
 
-Run against a known public shot, never as part of the normal unit-test suite::
+This test never writes to HSDS.  It contrasts complete eager materialization,
+selective eager materialization, direct Lazy ODS selection, and the historical
+read-only h5image snapshot.  It is intentionally opt-in because each cold run
+downloads real public data::
 
-    VAFT_RUN_HSDS_BENCHMARK=1 \
-    VAFT_BENCHMARK_SHOT=39915 \
-    VAFT_BENCHMARK_REPORT=/tmp/vaft-hsds-load-benchmark.json \
-    python -m pytest -q -s test/test_hsds_load_benchmark.py
-
-The benchmark deliberately makes no HSDS writes.  It compares the current eager
-IMAS staging path, direct Lazy ODS selections, and the pre-existing legacy
-``hsload --h5image`` domain at ``/{directory}/{shot}.h5``.
+    VAFT_RUN_HSDS_BENCHMARK=1 VAFT_BENCHMARK_SHOT=39915 \
+      python -m pytest -q -s test/test_hsds_load_benchmark.py --repeat=5
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import time
-from typing import Any
+from typing import Any, Callable
 
+import h5py
 import numpy as np
 import omas
 import pytest
 
 from vaft.database import open_ods
-from vaft.database import ods as eager_module
+from vaft.database import staging
 from vaft.imas import load_omas_imas
 
 
 @dataclass(frozen=True)
 class Branch:
-    """A representative leaf used to time one IDS branch."""
-
     ids: str
     path: str
 
@@ -47,19 +46,26 @@ BRANCHES = (
 )
 
 
-def _seconds(callable_: Any) -> tuple[Any, float]:
+def _seconds(callable_: Callable[[], Any]) -> tuple[Any, float]:
     started = time.perf_counter()
     result = callable_()
     return result, time.perf_counter() - started
 
 
+def _summary(samples: list[float]) -> dict[str, float | int]:
+    values = np.asarray(samples, dtype=float)
+    return {
+        "count": int(values.size),
+        "median_seconds": float(np.median(values)),
+        "p95_seconds": float(np.percentile(values, 95)),
+        "min_seconds": float(values.min()),
+        "max_seconds": float(values.max()),
+    }
+
+
 def _value_summary(value: Any) -> dict[str, Any]:
     array = np.asarray(value)
-    return {
-        "dtype": str(array.dtype),
-        "logical_bytes": int(array.nbytes),
-        "shape": list(array.shape),
-    }
+    return {"dtype": str(array.dtype), "logical_bytes": int(array.nbytes), "shape": list(array.shape)}
 
 
 def _same_value(left: Any, right: Any) -> bool:
@@ -71,134 +77,209 @@ def _same_value(left: Any, right: Any) -> bool:
     return bool(np.array_equal(left_array, right_array))
 
 
+def _git_sha(path: Path) -> str | None:
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(path), "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def _runtime_context() -> dict[str, Any]:
+    import h5pyd
+
+    try:
+        endpoint = str(h5pyd.getServerInfo().get("endpoint") or "unknown")
+    except Exception:
+        endpoint = "unavailable"
+    return {
+        "vaft_commit": _git_sha(Path(__file__).resolve().parents[1]),
+        "vest_server_commit": os.environ.get("VEST_SERVER_COMMIT"),
+        "python": sys.version.split()[0],
+        "h5py": h5py.__version__,
+        "h5pyd": h5pyd.__version__,
+        "omas": getattr(omas, "__version__", None),
+        "endpoint_fingerprint": hashlib.sha256(endpoint.encode()).hexdigest()[:16],
+    }
+
+
 def _load_legacy_h5image(directory: str, shot: int, output: Path) -> tuple[omas.ODS, dict[str, float | int]]:
     """Materialize the historical single-image domain and restore its ODS."""
     import h5pyd
 
-    domain_uri = f"hdf5://{directory}/{shot}.h5"
     image_path = output / f"{shot}.legacy.omas.h5"
-    with h5pyd.File(domain_uri, "r") as domain:
+    with h5pyd.File(f"hdf5://{directory}/{shot}.h5", "r") as domain:
         payload, transfer_seconds = _seconds(lambda: domain["h5image"][:])
     _, write_seconds = _seconds(lambda: payload.tofile(image_path))
     legacy = omas.ODS(consistency_check=False)
-    _, conversion_seconds = _seconds(
-        lambda: legacy.load(str(image_path), consistency_check=False)
-    )
+    _, conversion_seconds = _seconds(lambda: legacy.load(str(image_path), consistency_check=False))
     return legacy, {
         "downloaded_bytes": int(payload.nbytes),
         "download_seconds": transfer_seconds,
         "local_image_write_seconds": write_seconds,
-        "ods_conversion_seconds": conversion_seconds,
+        "ods_restore_seconds": conversion_seconds,
         "total_seconds": transfer_seconds + write_seconds + conversion_seconds,
     }
 
 
-def benchmark_load_paths(directory: str, shot: int) -> dict[str, Any]:
-    """Execute one read-only timing pass and return a JSON-serializable report."""
-    report: dict[str, Any] = {
-        "schema_version": 1,
+def _eager_branch(
+    directory: str, shot: int, branch: Branch, root: Path, *, requested_ids: tuple[str, ...] | None
+) -> tuple[Any, Any, dict[str, Any]]:
+    stage_dir = root / ("full" if requested_ids is None else branch.ids)
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    plan, staging_seconds = _seconds(
+        lambda: staging.stage_imas_shot(
+            directory, shot, stage_dir, requested_ids=requested_ids, cache="off"
+        )
+    )
+    ods, conversion_seconds = _seconds(
+        lambda: load_omas_imas(
+            paths=[branch.ids], consistency_check=False, verbose=False, uri="imas:hdf5?path=" + str(stage_dir)
+        )
+    )
+    value, lookup_seconds = _seconds(lambda: ods[branch.path])
+    timing = plan["timings"]
+    return value, ods, {
+        "staging_seconds": staging_seconds,
+        "master_fetch_seconds": timing["master_fetch_seconds"],
+        "domain_resolution_seconds": timing["domain_resolution_seconds"],
+        "per_domain_hsget_seconds": float(sum(timing["domain_fetch_seconds"].values())),
+        "partial_master_seconds": timing["partial_master_seconds"],
+        "staged_files": plan["files"],
+        "cache_hits": plan["cache_hits"],
+        "conversion_seconds": conversion_seconds,
+        "lookup_seconds": lookup_seconds,
+        "total_seconds": staging_seconds + conversion_seconds + lookup_seconds,
+    }
+
+
+def _convert_staged_branch(stage_dir: Path, branch: Branch) -> tuple[Any, dict[str, float]]:
+    """Measure only IMAS-to-ODS conversion and lookup for an already staged shot."""
+    ods, conversion_seconds = _seconds(
+        lambda: load_omas_imas(
+            paths=[branch.ids], consistency_check=False, verbose=False, uri="imas:hdf5?path=" + str(stage_dir)
+        )
+    )
+    value, lookup_seconds = _seconds(lambda: ods[branch.path])
+    return value, {"conversion_seconds": conversion_seconds, "lookup_seconds": lookup_seconds}
+
+
+def _lazy_branch(directory: str, shot: int, branch: Branch) -> tuple[Any, dict[str, Any]]:
+    lazy, open_seconds = _seconds(lambda: open_ods(shot, directory=directory, ids=branch.ids))
+    try:
+        value, selection_seconds = _seconds(lambda: lazy[branch.path])
+        _, cached_seconds = _seconds(lambda: lazy[branch.path])
+        metrics = lazy.store.metrics
+        opened_ids = list(lazy.store.opened_ids)
+    finally:
+        lazy.close()
+    return value, {
+        "open_seconds": open_seconds,
+        "metadata_and_first_selection_seconds": selection_seconds,
+        "cached_second_access_seconds": cached_seconds,
+        "total_seconds": open_seconds + selection_seconds,
+        "opened_ids": opened_ids,
+        "hsget_subprocess": False,
+        **metrics,
+    }
+
+
+def benchmark_load_paths(directory: str, shot: int, *, repeat: int = 5, warmup: int = 1) -> dict[str, Any]:
+    """Execute repeatable, read-only timing passes and return JSON-ready data."""
+    if repeat < 1 or warmup < 0:
+        raise ValueError("repeat must be >= 1 and warmup must be >= 0")
+    measurements: dict[str, dict[str, list[dict[str, Any]]]] = {
+        method: {branch.ids: [] for branch in BRANCHES}
+        for method in ("eager_full", "eager_selective", "lazy_hsds", "legacy_h5image")
+    }
+    branch_state: dict[str, dict[str, Any]] = {branch.ids: {"path": branch.path} for branch in BRANCHES}
+
+    for iteration in range(warmup + repeat):
+        with tempfile.TemporaryDirectory(prefix="vaft-hsds-load-benchmark-") as temporary:
+            root = Path(temporary)
+            legacy, legacy_stats = _load_legacy_h5image(directory, shot, root)
+            full_stage_dir = root / "eager-full" / "full"
+            full_plan, full_staging_seconds = _seconds(
+                lambda: staging.stage_imas_shot(
+                    directory, shot, full_stage_dir, requested_ids=None, cache="off"
+                )
+            )
+            full_timing = full_plan["timings"]
+            for branch in BRANCHES:
+                full_value, full_conversion = _convert_staged_branch(full_stage_dir, branch)
+                full_stats = {
+                    "staging_seconds": full_staging_seconds,
+                    "master_fetch_seconds": full_timing["master_fetch_seconds"],
+                    "domain_resolution_seconds": full_timing["domain_resolution_seconds"],
+                    "per_domain_hsget_seconds": float(sum(full_timing["domain_fetch_seconds"].values())),
+                    "partial_master_seconds": 0.0,
+                    "staged_files": full_plan["files"],
+                    "cache_hits": full_plan["cache_hits"],
+                    "total_seconds": full_staging_seconds
+                    + full_conversion["conversion_seconds"]
+                    + full_conversion["lookup_seconds"],
+                    **full_conversion,
+                }
+                selective_value, _selective_ods, selective_stats = _eager_branch(
+                    directory, shot, branch, root / "eager-selective", requested_ids=(branch.ids,)
+                )
+                legacy_value, legacy_lookup = _seconds(lambda branch=branch: legacy[branch.path])
+                lazy_value, lazy_stats = _lazy_branch(directory, shot, branch)
+                legacy_record = {**legacy_stats, "lookup_seconds": legacy_lookup, "total_seconds": legacy_stats["total_seconds"] + legacy_lookup}
+                state = branch_state[branch.ids]
+                state.update(
+                    {
+                        "eager_value": _value_summary(full_value),
+                        "selective_matches_full_eager": _same_value(selective_value, full_value),
+                        "lazy_matches_full_eager": _same_value(lazy_value, full_value),
+                        "legacy_matches_full_eager": _same_value(legacy_value, full_value),
+                    }
+                )
+                if not state["legacy_matches_full_eager"]:
+                    state["legacy_stale"] = True
+                if iteration >= warmup:
+                    measurements["eager_full"][branch.ids].append(full_stats)
+                    measurements["eager_selective"][branch.ids].append(selective_stats)
+                    measurements["lazy_hsds"][branch.ids].append(lazy_stats)
+                    measurements["legacy_h5image"][branch.ids].append(legacy_record)
+
+    methods: dict[str, Any] = {}
+    for method, per_branch in measurements.items():
+        methods[method] = {"per_branch": {}}
+        for ids_name, records in per_branch.items():
+            numeric_keys = sorted({key for record in records for key, value in record.items() if isinstance(value, (int, float))})
+            methods[method]["per_branch"][ids_name] = {
+                "metrics": {key: _summary([float(record[key]) for record in records]) for key in numeric_keys},
+                "samples": records,
+            }
+
+    return {
+        "schema_version": 2,
         "directory": directory,
         "shot": int(shot),
-        "branches": {},
-        "methods": {},
+        "repeat": repeat,
+        "warmup_excluded": warmup,
+        "runtime": _runtime_context(),
+        "branches": branch_state,
+        "methods": methods,
         "notes": [
-            "Eager IMAS staging downloads the complete shot before paths= limits conversion.",
-            "Legacy h5image is a complete compressed ODS image; IDS lookup after load is local.",
-            "Lazy selection reports returned logical bytes, not compressed HTTP wire bytes.",
+            "Selective eager mode uses a temporary partial master and only requested IDS plus dataset_description.",
+            "Lazy values report client-side selection metrics; compressed wire bytes and proxy request IDs are not measured.",
+            "legacy_stale=true records a historical h5image mismatch without failing this benchmark.",
         ],
     }
-    with tempfile.TemporaryDirectory(prefix="vaft-hsds-load-benchmark-") as temporary:
-        root = Path(temporary)
-        eager_stage = root / "eager" / str(shot)
-        eager_stage.mkdir(parents=True)
-
-        _, eager_download_seconds = _seconds(
-            lambda: eager_module._download_remote_shot(directory, shot, eager_stage)
-        )
-        staged_files = sorted(eager_stage.glob("*.h5"))
-        report["methods"]["eager_imas"] = {
-            "download_seconds": eager_download_seconds,
-            "downloaded_bytes": sum(path.stat().st_size for path in staged_files),
-            "downloaded_files": [path.name for path in staged_files],
-            "per_branch": {},
-        }
-
-        legacy, legacy_stats = _load_legacy_h5image(directory, shot, root)
-        report["methods"]["legacy_h5image"] = {
-            **legacy_stats,
-            "per_branch": {},
-        }
-        report["methods"]["lazy_hsds"] = {"per_branch": {}}
-
-        for branch in BRANCHES:
-            eager, eager_conversion_seconds = _seconds(
-                lambda branch=branch: load_omas_imas(
-                    paths=[branch.ids],
-                    consistency_check=False,
-                    verbose=False,
-                    uri="imas:hdf5?path=" + str(eager_stage),
-                )
-            )
-            eager_value, eager_lookup_seconds = _seconds(lambda: eager[branch.path])
-
-            legacy_value, legacy_lookup_seconds = _seconds(lambda: legacy[branch.path])
-
-            lazy_ods, lazy_open_seconds = _seconds(
-                lambda branch=branch: open_ods(shot, directory=directory, ids=branch.ids)
-            )
-            try:
-                lazy_value, lazy_selection_seconds = _seconds(
-                    lambda: lazy_ods[branch.path]
-                )
-                _, lazy_cached_seconds = _seconds(lambda: lazy_ods[branch.path])
-                opened_ids = list(lazy_ods.store.opened_ids)
-            finally:
-                lazy_ods.close()
-
-            report["branches"][branch.ids] = {
-                "path": branch.path,
-                "eager_value": _value_summary(eager_value),
-                "lazy_matches_eager": _same_value(lazy_value, eager_value),
-                "legacy_matches_eager": _same_value(legacy_value, eager_value),
-            }
-            report["methods"]["eager_imas"]["per_branch"][branch.ids] = {
-                "ods_conversion_seconds": eager_conversion_seconds,
-                "local_lookup_seconds": eager_lookup_seconds,
-                "projected_cold_total_seconds": eager_download_seconds
-                + eager_conversion_seconds
-                + eager_lookup_seconds,
-            }
-            report["methods"]["legacy_h5image"]["per_branch"][branch.ids] = {
-                "local_lookup_seconds": legacy_lookup_seconds,
-                "projected_cold_total_seconds": legacy_stats["total_seconds"]
-                + legacy_lookup_seconds,
-            }
-            report["methods"]["lazy_hsds"]["per_branch"][branch.ids] = {
-                "open_seconds": lazy_open_seconds,
-                "selection_seconds": lazy_selection_seconds,
-                "cached_second_access_seconds": lazy_cached_seconds,
-                "projected_cold_total_seconds": lazy_open_seconds + lazy_selection_seconds,
-                "returned_logical_bytes": int(np.asarray(lazy_value).nbytes),
-                "opened_ids": opened_ids,
-                "hsget_subprocess": False,
-            }
-    return report
 
 
 @pytest.mark.integration
-def test_hsds_load_path_benchmark() -> None:
-    """Write a manual benchmark report when explicitly enabled by the operator."""
+def test_hsds_load_path_benchmark(request: pytest.FixtureRequest) -> None:
     if os.environ.get("VAFT_RUN_HSDS_BENCHMARK") != "1":
         pytest.skip("set VAFT_RUN_HSDS_BENCHMARK=1 to run the read-only HSDS benchmark")
     directory = os.environ.get("VAFT_BENCHMARK_DIRECTORY", "public")
     shot = int(os.environ.get("VAFT_BENCHMARK_SHOT", "39915"))
-    report_path = Path(
-        os.environ.get(
-            "VAFT_BENCHMARK_REPORT",
-            f"/tmp/vaft-hsds-load-benchmark-{directory}-{shot}.json",
-        )
-    )
-    report = benchmark_load_paths(directory, shot)
+    repeat = int(request.config.getoption("--repeat"))
+    report_path = Path(os.environ.get("VAFT_BENCHMARK_REPORT", f"/tmp/vaft-hsds-load-benchmark-{directory}-{shot}.json"))
+    report = benchmark_load_paths(directory, shot, repeat=repeat)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))

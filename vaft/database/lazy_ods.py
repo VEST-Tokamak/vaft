@@ -90,6 +90,13 @@ class HSDSStore(dynamic_ODS):
         self._aos_shape_datasets: dict[str, dict[tuple[Any, ...], Any]] = {}
         self._aos_length_cache: dict[tuple[Any, ...], int] = {}
         self._leaf_cache: dict[str, Any] = {}
+        self._metrics = {
+            "ids_domain_open_count": 0,
+            "metadata_dataset_count": 0,
+            "payload_selection_count": 0,
+            "leaf_cache_hits": 0,
+            "returned_logical_bytes": 0,
+        }
         self.closed = False
         self.active = True
         self.kw = {
@@ -112,6 +119,15 @@ class HSDSStore(dynamic_ODS):
     def opened_ids(self) -> tuple[str, ...]:
         """IDS domains currently opened by this store (primarily diagnostic)."""
         return tuple(self._handles)
+
+    @property
+    def metrics(self) -> dict[str, int]:
+        """Snapshot lightweight client-side lazy-read instrumentation.
+
+        Values describe local h5pyd operations, not compressed wire bytes or
+        reverse-proxy requests (those are intentionally outside this client API).
+        """
+        return dict(self._metrics)
 
     def open(self) -> "HSDSStore":
         if self.closed:
@@ -157,6 +173,7 @@ class HSDSStore(dynamic_ODS):
 
         uri = f"hdf5://{self.directory}/{self.shot}/{ids_name}.h5"
         handle = self._h5pyd.File(uri, "r")
+        self._metrics["ids_domain_open_count"] += 1
         self._handles[ids_name] = handle
         root = handle[ids_name] if ids_name in handle else handle
         records: list[_DatasetRecord] = []
@@ -190,6 +207,7 @@ class HSDSStore(dynamic_ODS):
         }
         self._shape_datasets[ids_name] = shapes
         self._aos_shape_datasets[ids_name] = aos_shapes
+        self._metrics["metadata_dataset_count"] += len(records) + len(shapes) + len(aos_shapes)
         children: dict[tuple[Any, ...], set[Any]] = {}
         for template in [*(record.template for record in records), *aos_shapes]:
             for offset, child in enumerate(template):
@@ -282,6 +300,7 @@ class HSDSStore(dynamic_ODS):
         parts = _path_parts(location)
         cache_key = ".".join(map(str, parts))
         if cache_key in self._leaf_cache:
+            self._metrics["leaf_cache_hits"] += 1
             return self._leaf_cache[cache_key]
         if self.closed:
             raise LazyODSClosedError(
@@ -306,7 +325,9 @@ class HSDSStore(dynamic_ODS):
         selection = indices + trailing
         if not selection:
             selection = ((),)
+        self._metrics["payload_selection_count"] += 1
         value = _decode_value(record.dataset[selection[0] if selection == ((),) else selection])
+        self._metrics["returned_logical_bytes"] += int(np.asarray(value).nbytes)
         self._leaf_cache[cache_key] = value
         return value
 

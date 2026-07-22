@@ -109,10 +109,12 @@ time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
 
-`load` is the backward-compatible eager path: it uses `hsget` to stage complete
-IMAS HDF5 domains before conversion. For exploratory access to selected leaves,
-use the direct lazy path, which opens only the requested IDS domain and transfers
-only the dataset selections that are read:
+`load` is the backward-compatible eager path for complete ODS exports and
+legacy workflows. Without `paths` it stages the complete shot; with
+`paths=["equilibrium"]` it stages only that IDS plus `dataset_description` and
+uses a validated local domain cache by default. For exploratory access to
+selected leaves, use the direct lazy path, which opens only the requested IDS
+domain and transfers only the dataset selections that are read:
 
 ```python
 with vaft.database.open_ods(39915, ids="equilibrium") as ods:

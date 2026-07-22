@@ -6,7 +6,7 @@ from contextlib import nullcontext
 import logging
 from pathlib import Path
 import tempfile
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import omas
 
@@ -17,6 +17,7 @@ except ImportError:
 
 from ..imas import load_omas_imas, save_omas_imas
 from .transport import run_hsget, run_hsload, verify_uploaded_image
+from .staging import requested_ids_from_paths, stage_imas_shot
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
 
 
@@ -83,6 +84,7 @@ def load_ods(
     verbose: bool = False,
     path: Optional[Union[str, Path]] = None,
     local_dir: Optional[Union[str, Path]] = None,
+    cache: Literal["auto", "off"] | str | Path = "auto",
 ) -> Union[omas.ODS, list[omas.ODS]]:
     """
     Load ODS data by reading IMAS images from ``{directory}/{shot}`` and converting via OMAS.
@@ -101,6 +103,8 @@ def load_ods(
             When set, files are read directly and no HSDS download is attempted.
         local_dir: Optional local staging base directory. When omitted a temporary directory
             is used and cleaned up automatically.
+        cache: ``"auto"`` (default) stores validated HSDS domains under the user cache,
+            ``"off"`` always downloads, or a path selects a cache base directory.
 
     Returns:
         One ``omas.ODS`` or a list of ``omas.ODS`` objects.
@@ -128,6 +132,7 @@ def load_ods(
                 verbose=verbose,
                 path=None,
                 local_dir=local_dir,
+                cache=cache,
             )
             print("Successfully loaded ODS data for shot:", s)
             ods_list.append(ods)
@@ -147,6 +152,7 @@ def load_ods(
         verbose=verbose,
         path=path,
         local_dir=local_dir,
+        cache=cache,
     )
     print("Successfully loaded ODS data for shot:", s)
     return ods
@@ -165,6 +171,7 @@ def _load_one_shot(
     verbose: bool,
     path: Optional[Union[str, Path]],
     local_dir: Optional[Union[str, Path]],
+    cache: Literal["auto", "off"] | str | Path,
 ) -> omas.ODS:
     """Load one shot from HSDS IMAS images and convert it to ODS."""
     logging.getLogger().setLevel(logging.WARNING)
@@ -173,16 +180,26 @@ def _load_one_shot(
         shot_dir = Path(path).expanduser()
         if not (shot_dir / "master.h5").exists():
             raise FileNotFoundError(f"No master.h5 found in IMAS HDF5 directory: {shot_dir}")
-        ods = load_omas_imas(
-            occurrence=occurrence,
-            paths=paths,
-            time=time,
-            imas_version=imas_version,
-            skip_uncertainties=skip_uncertainties,
-            consistency_check=consistency_check,
-            verbose=verbose,
-            uri="imas:hdf5?path=" + str(shot_dir),
-        )
+        try:
+            ods = load_omas_imas(
+                occurrence=occurrence,
+                paths=paths,
+                time=time,
+                imas_version=imas_version,
+                skip_uncertainties=skip_uncertainties,
+                consistency_check=consistency_check,
+                verbose=verbose,
+                uri="imas:hdf5?path=" + str(shot_dir),
+            )
+        except Exception as exc:
+            if requested_ids is not None:
+                requested = ", ".join(requested_ids)
+                raise RuntimeError(
+                    "IMAS could not open the selective partial master for "
+                    f"shot {shot}; required external links are dataset_description "
+                    f"and: {requested}. Check the stored master.h5 links."
+                ) from exc
+            raise
         ods.setdefault("dataset_description.data_entry.user", str(directory))
         ods.setdefault("dataset_description.data_entry.pulse", int(shot))
         ods.setdefault("dataset_description.data_entry.run", 0)
@@ -196,7 +213,14 @@ def _load_one_shot(
     with staging_ctx as staging_base:
         shot_dir = Path(staging_base) / str(shot)
         shot_dir.mkdir(parents=True, exist_ok=True)
-        _download_remote_shot(directory=directory, shot=shot, shot_dir=shot_dir)
+        requested_ids = requested_ids_from_paths(paths)
+        stage_imas_shot(
+            directory=directory,
+            shot=shot,
+            staging_dir=shot_dir,
+            requested_ids=requested_ids,
+            cache=cache,
+        )
 
         ods = load_omas_imas(
             occurrence=occurrence,
