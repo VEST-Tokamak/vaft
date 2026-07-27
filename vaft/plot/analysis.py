@@ -26,16 +26,16 @@ def _value(ods, path, default=None):
         return default
 
 
-def _plot_or_mark(axis, time, data, *, label=None, scale=1.0):
+def _plot_series(axis, time, data, *, label=None, scale=1.0):
+    """Draw one signal, skipping it when the ODS does not carry the data."""
     if time is None or data is None:
-        return False
+        return
     time = np.asarray(time, dtype=float).reshape(-1)
     data = np.asarray(data, dtype=float).reshape(-1)
     size = min(time.size, data.size)
     if size == 0:
-        return False
+        return
     axis.plot(time[:size], data[:size] * scale, label=label)
-    return True
 
 
 def _mark_missing(axis):
@@ -64,21 +64,21 @@ def analysis_diagnostics(
     fig.suptitle(f"Diagnostics for {shot} - {status}", fontsize=16)
 
     magnetics_time = _value(ods, "magnetics.time")
-    _plot_or_mark(axes[0, 0], _value(ods, "magnetics.ip.0.time", magnetics_time), _value(ods, "magnetics.ip.0.data"), scale=1e-3)
-    _plot_or_mark(axes[1, 0], _value(ods, "barometry.gauge.0.pressure.time"), _value(ods, "barometry.gauge.0.pressure.data"))
+    _plot_series(axes[0, 0], _value(ods, "magnetics.ip.0.time", magnetics_time), _value(ods, "magnetics.ip.0.data"), scale=1e-3)
+    _plot_series(axes[1, 0], _value(ods, "barometry.gauge.0.pressure.time"), _value(ods, "barometry.gauge.0.pressure.data"))
 
     uv_time = _value(ods, "spectrometer_uv.time")
     for channel, line, label in [(0, 0, "Ha (slow)"), (0, 1, "OI"), (1, 0, "Ha (fast)"), (1, 4, "C-III"), (1, 5, "O-II")]:
-        _plot_or_mark(axes[2, 0], uv_time, _value(ods, f"spectrometer_uv.channel.{channel}.processed_line.{line}.intensity.data"), label=label)
+        _plot_series(axes[2, 0], uv_time, _value(ods, f"spectrometer_uv.channel.{channel}.processed_line.{line}.intensity.data"), label=label)
 
     pf_time = _value(ods, "pf_active.time")
     for index in (0, 4, 5, 8, 9):
-        _plot_or_mark(
+        _plot_series(
             axes[3, 0], pf_time,
             _value(ods, f"pf_active.coil.{index}.current.data"),
             label=_value(ods, f"pf_active.coil.{index}.name", str(index + 1)), scale=1e-3,
         )
-    _plot_or_mark(axes[4, 0], _value(ods, "magnetics.diamagnetic_flux.0.time", magnetics_time), _value(ods, "magnetics.diamagnetic_flux.0.data"), scale=1e3)
+    _plot_series(axes[4, 0], _value(ods, "magnetics.diamagnetic_flux.0.time", magnetics_time), _value(ods, "magnetics.diamagnetic_flux.0.data"), scale=1e3)
 
     flux_groups = (axes[0, 1], axes[1, 1])
     probe_groups = (axes[2, 1], axes[3, 1], axes[4, 1])
@@ -90,7 +90,7 @@ def analysis_diagnostics(
         radius = float(_value(ods, f"magnetics.flux_loop.{index}.position.0.r", np.nan))
         group = 0 if radius < 0.15 else 1 if radius > 0.5 else None
         if group is not None:
-            _plot_or_mark(flux_groups[group], magnetics_time, _value(ods, f"magnetics.flux_loop.{index}.flux.data"), label=str(index))
+            _plot_series(flux_groups[group], magnetics_time, _value(ods, f"magnetics.flux_loop.{index}.flux.data"), label=str(index))
 
     try:
         probe_count = len(ods["magnetics.b_field_pol_probe"])
@@ -101,7 +101,7 @@ def analysis_diagnostics(
         z = float(_value(ods, f"magnetics.b_field_pol_probe.{index}.position.z", np.nan))
         group = 0 if radius < 0.09 else 1 if abs(z) > 0.8 else 2 if radius > 0.795 else None
         if group is not None:
-            _plot_or_mark(probe_groups[group], magnetics_time, _value(ods, f"magnetics.b_field_pol_probe.{index}.field.data"), label=str(index))
+            _plot_series(probe_groups[group], magnetics_time, _value(ods, f"magnetics.b_field_pol_probe.{index}.field.data"), label=str(index))
 
     titles = (("Ip", "Inboard FL"), ("Pressure", "Outboard FL"), ("Line Radiation", "Inboard Bz"), ("PF Coil", "Side Bz"), ("DiaFlux", "Outboard Bz"))
     ylabels = (("kA", "Wb"), ("Pa", "Wb"), ("a.u.", "T"), ("kA", "T"), ("mWb", "T"))

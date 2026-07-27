@@ -62,11 +62,12 @@ plot_ec_launchers_CX_topview = ec_launchers_CX_topview
 plot_pellets_trajectory_CX_topview = pellets_trajectory_CX_topview
 
 
+# Keys double as the IDS root that must be present in the ODS.
 _LAYERS = {
-    "equilibrium": ("equilibrium", equilibrium_CX_topview),
-    "lh_antennas": ("lh_antennas", lh_antennas_CX_topview),
-    "ec_launchers": ("ec_launchers", ec_launchers_CX_topview),
-    "pellets": ("pellets", pellets_trajectory_CX_topview),
+    "equilibrium": equilibrium_CX_topview,
+    "lh_antennas": lh_antennas_CX_topview,
+    "ec_launchers": ec_launchers_CX_topview,
+    "pellets": pellets_trajectory_CX_topview,
 }
 
 
@@ -93,10 +94,9 @@ def plot_topview(
 
     rendered = []
     for layer in selected:
-        root, renderer = _LAYERS[layer]
-        if root not in ods:
+        if layer not in ods:
             continue
-        renderer(
+        _LAYERS[layer](
             ods, time_index=time_index, time=time, ax=ax,
             show=False, **kwargs,
         )

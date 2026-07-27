@@ -4,24 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-import re
 from typing import Any, Optional
 
 import numpy as np
 
 from omas import ODS
 
-from vaft.data.eqdsk import GEQDSK, read_geqdsk
-
-
-_GFILE_NAME = re.compile(r"[A-Za-z]0?(?P<shot>\d+)\.(?P<time>\d+)")
-
-
-def _source_metadata(path: Path) -> tuple[int, float | None]:
-    match = _GFILE_NAME.match(path.name)
-    if match is None:
-        return 0, None
-    return int(match.group("shot")), int(match.group("time")) / 1000.0
+from vaft.data.eqdsk import GEQDSK, infer_source_shot_time, read_geqdsk
 
 
 def _existing_slice_count(ods: ODS) -> int:
@@ -54,7 +43,7 @@ def _normalise_sources(source: Sequence[str | Path]) -> list[Path]:
 
 
 def _resolve_times(paths: list[Path], options: dict[str, Any]) -> tuple[list[int], list[float]]:
-    metadata = [_source_metadata(path) for path in paths]
+    metadata = [infer_source_shot_time(path) for path in paths]
     shots = [shot for shot, _ in metadata]
     inferred_times = [time for _, time in metadata]
 
@@ -70,7 +59,7 @@ def _resolve_times(paths: list[Path], options: dict[str, Any]) -> tuple[list[int
                 "Could not infer time from g-file name; provide options['times'] for: "
                 f"{unresolved}"
             )
-        times = [float(value) for value in inferred_times if value is not None]
+        times = [float(value) for value in inferred_times]
 
     nonzero_shots = {shot for shot in shots if shot != 0}
     if len(nonzero_shots) > 1:
@@ -117,13 +106,9 @@ def equilibrium(
             profile_index=0,
             allow_derived_data=allow_derived_data,
         )
+        # ``to_omas`` already extended ``equilibrium.time`` and ``wall.time``;
+        # both arrays are rewritten wholesale once the loop finishes.
         ods[f"equilibrium.time_slice.{index}.time"] = time
-        try:
-            ods.set_time_array("equilibrium.time", index, time)
-            ods.set_time_array("wall.time", index, time)
-        except Exception:
-            ods[f"equilibrium.time.{index}"] = time
-            ods[f"wall.time.{index}"] = time
 
     all_times = np.concatenate((existing_times, new_times))
     ods["equilibrium.ids_properties.homogeneous_time"] = 1

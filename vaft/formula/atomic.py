@@ -47,7 +47,7 @@ def _as_adf11(source: ADF11Source, expected_type: str) -> ADF11Data:
     """Resolve an ADF11 source and enforce its coefficient class."""
     table = source if isinstance(source, ADF11Data) else read_adf11(source)
     if table.file_type != expected_type:
-        raise ValueError(f"Expected an {expected_type!r} ADF11 table, got {table.file_type!r}")
+        raise ValueError(f"Expected a {expected_type!r} ADF11 table, got {table.file_type!r}")
     return table
 
 
@@ -72,28 +72,11 @@ def interpolate_adf11(
     coordinates.  Linear extrapolation is retained outside the tabulated grid
     to match the established ADF11 calculation path.
 
-    Parameters
-    ----------
-    table : ADF11Data
-        Parsed ADF11 coefficient table.
-    ne_m3 : array-like
-        Electron density in m^-3.
-    te_eV : array-like
-        Electron temperature in eV. Broadcast with ``ne_m3``.
-    multiply_density : bool, optional
-        Multiply coefficients by :math:`n_e[\mathrm{cm}^{-3}]`. This converts
-        ACD/SCD rate coefficients from cm^3/s to transition rates in s^-1.
-
-    Returns
-    -------
-    numpy.ndarray
-        Array with shape ``broadcast(ne_m3, te_eV).shape + (n_blocks,)``.
-
-    Raises
-    ------
-    ValueError
-        If density or temperature contains empty, non-finite, or non-positive
-        values.
+    ``ne_m3`` (m^-3) and ``te_eV`` (eV) are broadcast together; the result has
+    shape ``broadcast(ne_m3, te_eV).shape + (n_blocks,)``.  ``multiply_density``
+    scales by :math:`n_e[\mathrm{cm}^{-3}]`, converting ACD/SCD coefficients
+    from cm^3/s to transition rates in s^-1.  Empty, non-finite or non-positive
+    profiles raise ``ValueError``.
     """
 
     ne, te, shape = _validated_profiles(ne_m3, te_eV)
@@ -140,26 +123,11 @@ def fractional_abundances(
         \tilde f_z=\prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}},\qquad
         f_z=\frac{\tilde f_z}{\sum_k\tilde f_k}.
 
-    Parameters
-    ----------
-    ne_m3 : array-like
-        Electron density in m^-3.
-    te_eV : array-like
-        Electron temperature in eV.
-    acd, scd : ADF11Data or path-like
-        Effective recombination and ionization ADF11 tables.
-
-    Returns
-    -------
-    numpy.ndarray
-        Fractions for the neutral through fully stripped states. The final
-        axis has ``n_rate_blocks + 1`` entries and sums to one.
-
-    Raises
-    ------
-    ValueError
-        If the tables have incompatible charge-state counts or interpolate to
-        invalid rates.
+    ``ne_m3`` is in m^-3 and ``te_eV`` in eV; ``acd``/``scd`` are effective
+    recombination and ionization tables (``ADF11Data`` or path-like).  The
+    returned final axis has ``n_rate_blocks + 1`` entries, running from neutral
+    to fully stripped and summing to one.  Incompatible charge-state counts or
+    invalid interpolated rates raise ``ValueError``.
     """
 
     acd_table = _as_adf11(acd, "acd")
@@ -245,34 +213,15 @@ def line_cooling_coefficient(
     :math:`10^{-6}` converts the result to W m^3. The fully stripped state has
     no line-radiation block and is omitted from the sum.
 
-    Parameters
-    ----------
-    species : str
-        Atomic symbol with configured default ADF11 files, for example ``C``.
-    ne_m3 : array-like
-        Electron density in m^-3.
-    te_eV : array-like
-        Electron temperature in eV.
-    acd, scd, plt : ADF11Data or path-like, optional
-        Explicit tables. Missing tables are resolved through the VAFT
-        OPEN-ADAS cache and downloaded when necessary.
-    cache_dir : path-like, optional
-        Per-call ADF11 cache directory.
+    ``species`` is an atomic symbol with configured default ADF11 files (for
+    example ``C``), ``ne_m3`` is in m^-3 and ``te_eV`` in eV.  Any of ``acd``,
+    ``scd`` and ``plt`` left as ``None`` is resolved through the VAFT OPEN-ADAS
+    cache (``cache_dir``, downloading on a cache miss).  The result is a
+    non-negative coefficient in W m^3 with the broadcast input shape.
 
-    Returns
-    -------
-    numpy.ndarray
-        Non-negative cooling coefficient in W m^3 with the broadcast input
-        shape.
-
-    Raises
-    ------
-    KeyError
-        If no default files are configured for ``species``.
-    ADASDataError
-        If automatic lookup, download, or parsing fails.
-    ValueError
-        If inputs or charge-state dimensions are invalid.
+    Raises ``KeyError`` for an unconfigured species, ``ADASDataError`` when
+    lookup, download or parsing fails, and ``ValueError`` for invalid inputs or
+    mismatched charge-state dimensions.
     """
 
     filenames = default_adf11_files(species)
@@ -283,8 +232,7 @@ def line_cooling_coefficient(
     fractions = fractional_abundances(ne_m3, te_eV, acd_table, scd_table)
     # Unresolved PLT data are treated as density independent, matching the
     # established OPEN-ADAS cooling-factor calculation.
-    ne, te = np.broadcast_arrays(np.asarray(ne_m3, dtype=float), np.asarray(te_eV, dtype=float))
-    _validated_profiles(ne, te)
+    _, te, _ = _validated_profiles(ne_m3, te_eV)
     line_power_cm3 = _interpolate_temperature_only(plt_table, te)
     if line_power_cm3.shape[-1] + 1 != fractions.shape[-1]:
         raise ValueError(

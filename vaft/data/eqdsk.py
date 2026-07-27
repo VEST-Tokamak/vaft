@@ -296,20 +296,33 @@ def _scalar(value: Any, default: float = 0.0) -> float:
         return float(default)
 
 
-def _infer_source_time(source: Optional[Path]) -> float:
+# EFIT ``g<shot>.<time_ms>`` naming, e.g. ``g039915.00319``.  Shared with
+# ``vaft.machine_mapping.equilibrium`` so both infer shot and time identically.
+GFILE_NAME_PATTERN = re.compile(r"[a-zA-Z](?P<shot>\d+)\.(?P<time>\d+)?")
+
+
+def infer_source_shot_time(source: Optional[Path]) -> tuple[int, Optional[float]]:
+    """Infer ``(shot, time_in_seconds)`` from an EFIT g-file name.
+
+    The time is ``None`` when the name carries no numeric time field, so callers
+    can distinguish "unknown" from a genuine ``t = 0``.
+    """
     if source is None:
-        return 0.0
-    match = re.match(r"[a-zA-Z]0?(\d+)\.(\d+)", source.name)
-    if not match:
-        return 0.0
-    return float(match.group(2)) / 1000.0
+        return 0, None
+    match = GFILE_NAME_PATTERN.match(Path(source).name)
+    if match is None:
+        return 0, None
+    time = match.group("time")
+    return int(match.group("shot")), None if time is None else float(time) / 1000.0
+
+
+def _infer_source_time(source: Optional[Path]) -> float:
+    time = infer_source_shot_time(source)[1]
+    return 0.0 if time is None else time
 
 
 def _infer_source_shot(source: Optional[Path]) -> int:
-    if source is None:
-        return 0
-    match = re.match(r"[a-zA-Z]0?(\d+)\.", source.name)
-    return int(match.group(1)) if match else 0
+    return infer_source_shot_time(source)[0]
 
 
 def from_omas(

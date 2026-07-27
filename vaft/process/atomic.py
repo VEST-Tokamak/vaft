@@ -44,27 +44,12 @@ _ELEMENT_NAMES = {
 
 
 def compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIME_MATCH_ATOL) -> float:
-    """Return an absolute tolerance adapted to the native time spacing.
+    """Return an absolute matching tolerance adapted to the native time spacing.
 
-    The tolerance is
-
-    ``max(base_atol, 0.25 * min(diff(unique_finite_times)))``.
-
-    This accepts small floating-point time-coordinate drift without matching
-    adjacent physical slices. With fewer than two distinct finite times,
-    ``base_atol`` is returned.
-
-    Parameters
-    ----------
-    time_array : array-like
-        Candidate time coordinates in seconds.
-    base_atol : float, optional
-        Minimum absolute tolerance in seconds; must be finite and non-negative.
-
-    Returns
-    -------
-    float
-        Absolute matching tolerance in seconds.
+    ``max(base_atol, 0.25 * min(diff(unique_finite_times)))`` in seconds, which
+    absorbs floating-point drift in a time coordinate without ever matching an
+    adjacent physical slice. Falls back to ``base_atol`` when fewer than two
+    distinct finite times are available.
     """
 
     if not np.isfinite(base_atol) or base_atol < 0.0:
@@ -80,20 +65,10 @@ def compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIM
 
 
 def find_time_match_index(time_array: ndarray, target_time: float) -> Optional[int]:
-    """Find the closest time slice within the adaptive absolute tolerance.
+    """Find the index of the time closest to *target_time*, both in seconds.
 
-    Parameters
-    ----------
-    time_array : array-like
-        Candidate times in seconds.
-    target_time : float
-        Requested time in seconds.
-
-    Returns
-    -------
-    int or None
-        Closest matching index, or ``None`` for an empty array, non-finite
-        target, or no candidate within tolerance.
+    Returns ``None`` for an empty array, a non-finite target, or when no
+    candidate falls within :func:`compute_time_match_atol`.
     """
 
     arr = np.asarray(time_array, dtype=float).reshape(-1)
@@ -189,10 +164,10 @@ def _infer_impurity_fraction_from_zeff(z_eff: Optional[float], species: str) -> 
     """
     if z_eff is None or not np.isfinite(z_eff):
         return None
-    charge = _ATOMIC_NUMBERS.get(species)
-    if charge is None or charge <= 1:
+    atomic_number = _ATOMIC_NUMBERS.get(species)
+    if atomic_number is None or atomic_number <= 1:
         return None
-    return max((float(z_eff) - 1.0) / float(charge * (charge - 1)), 0.0)
+    return max((float(z_eff) - 1.0) / float(atomic_number * (atomic_number - 1)), 0.0)
 
 
 def _impurity_fraction_profile(
@@ -239,23 +214,12 @@ def integrate_emissivity_profile(
 
     .. math:: P=\int \epsilon(\rho)\,dV
 
-    by trapezoidal integration in volume coordinates. Otherwise it uses
+    by trapezoidal integration in volume coordinates. Otherwise it falls back to
     ``nanmean(emissivity) * total_volume``. No finite emissivity or no positive
     usable volume produces zero.
 
-    Parameters
-    ----------
-    emissivity_profile : array-like
-        Local emissivity in W/m^3.
-    volume_profile : array-like or None
-        Cumulative enclosed volume in m^3.
-    total_volume : float
-        Total plasma volume in m^3 for fallback integration.
-
-    Returns
-    -------
-    float
-        Integrated power in W.
+    Units: ``emissivity_profile`` in W/m^3, ``volume_profile`` (cumulative
+    enclosed volume) and ``total_volume`` in m^3, result in W.
     """
 
     emissivity = np.asarray(emissivity_profile, dtype=float)

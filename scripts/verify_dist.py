@@ -9,18 +9,29 @@ import zipfile
 from pathlib import Path
 
 
+# Single source of truth for the ``vaft/data`` policy: individually whitelisted
+# files, plus the suffixes allowed inside each shipped category directory.
+# Keep in sync with ``[tool.setuptools.package-data]`` and ``MANIFEST.in``.
+_ALLOWED_DATA_FILES = {
+    "geometry/Coil_info.mat",
+    "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
+    "geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
+    "omas/39915.json",
+}
+_ALLOWED_DATA_SUFFIXES = {
+    "geometry/": (".yaml", ".csv"),
+    "gpec/": (".in", ".dat"),
+    "legacy/": (".txt",),
+}
+
 REQUIRED_FILES = {
     "vaft/.hscfg.example",
     "vaft/machine_mapping/vest.yaml",
-    "vaft/data/geometry/Coil_info.mat",
-    "vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
-    "vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
     "vaft/data/geometry/MD.yaml",
     "vaft/data/geometry/line_of_sight_endpoints.csv",
     "vaft/data/gpec/gpec.in",
     "vaft/data/legacy/sql_table.txt",
-    "vaft/data/omas/39915.json",
-}
+} | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 
 
 def _distribution_names(path: Path) -> set[str]:
@@ -30,11 +41,10 @@ def _distribution_names(path: Path) -> set[str]:
 
     with tarfile.open(path) as archive:
         names = set()
-        for member in archive.getnames():
-            info = archive.getmember(member)
+        for info in archive.getmembers():
             if not info.isfile():
                 continue
-            _, separator, relative = member.partition("/")
+            _, separator, relative = info.name.partition("/")
             if separator and relative:
                 names.add(relative)
         return names
@@ -47,18 +57,12 @@ def _allowed_data_file(name: str) -> bool:
     relative = name.removeprefix("vaft/data/")
     if "/" not in relative:
         return relative.endswith(".py")
-    if relative in {
-        "geometry/Coil_info.mat",
-        "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
-        "geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
-        "omas/39915.json",
-    }:
+    if relative in _ALLOWED_DATA_FILES:
         return True
-    if relative.startswith("geometry/"):
-        return relative.endswith((".yaml", ".csv"))
-    if relative.startswith("gpec/"):
-        return relative.endswith((".in", ".dat"))
-    return relative.startswith("legacy/") and relative.endswith(".txt")
+    for category, suffixes in _ALLOWED_DATA_SUFFIXES.items():
+        if relative.startswith(category):
+            return relative.endswith(suffixes)
+    return False
 
 
 def _verify_distribution(path: Path) -> None:
