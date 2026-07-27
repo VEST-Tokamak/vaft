@@ -11,17 +11,11 @@ from pathlib import Path
 from typing import Optional, List, Union
 
 import h5py
+import h5pyd
 import numpy as np
 import pandas as pd
 import requests
 import urllib3
-
-try:
-    import h5pyd
-except ImportError:
-    h5pyd = None  # optional: pip install 'vaft[hsds]'
-
-_H5PYD_MSG = "h5pyd is required for HSDS support. Install with: pip install 'vaft[hsds]'"
 
 # Must match the path the corrective updaters write to
 # (workflow/automatic_pipeline_2_corrective_data_update/*.py), otherwise
@@ -30,9 +24,7 @@ PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
 
 
 def _require_h5pyd() -> None:
-    """Ensure h5pyd is available."""
-    if h5pyd is None:
-        raise ImportError(_H5PYD_MSG)
+    """Compatibility guard for HSDS modules; h5pyd is a core dependency."""
 
 
 def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Path]) -> None:
@@ -97,7 +89,6 @@ def is_connect() -> bool:
     Returns:
         bool: True if connected and server is READY, False otherwise.
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
     try:
         return h5pyd.getServerInfo().get("state") == "READY"
@@ -193,7 +184,6 @@ def exist_shot(
               - pd.DataFrame with columns: Index, Shot Number, Last Processed, Status
               - None on error or no matching data
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     _filter = data_filter.lower().strip() if isinstance(data_filter, str) else data_filter
@@ -321,7 +311,6 @@ def _read_processed_registry(
         DataFrame with columns Index, Shot Number, Last Processed, Status, or
         None on error / when the group is missing or empty.
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     try:

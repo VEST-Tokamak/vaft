@@ -1,8 +1,9 @@
-from vaft.process import psi_to_radial
 import matplotlib.pyplot as plt
 import numpy as np
+import re
+import warnings
 from omas import ODS, ODC
-from .utils import get_from_path, extract_labels_from_odc
+from .utils import extract_labels_from_odc
 from vaft.omas import odc_or_ods_check
 
 
@@ -222,43 +223,57 @@ def plot_onedim_profile(odc_or_ods, data_path, ylabel, coordinate='rho_tor_norm'
         Additional plotting parameters
     """
     odc = odc_or_ods_check(odc_or_ods)
-    
-    plt.figure(figsize=(6, 4))
-    
-    for key, lbl in zip(odc.keys(), [f"{label} {k}" for k in odc.keys()]):
+    show = kwargs.pop('show', True)
+    figsize = kwargs.pop('figsize', (6, 4))
+    ax = kwargs.pop('ax', None)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    quantity_template = re.sub(
+        r'(equilibrium\.time_slice|core_profiles\.profiles_1d)\.\d+',
+        r'\1.{time_slice_idx}',
+        data_path,
+    )
+    failures = []
+    plotted = 0
+    labels = extract_labels_from_odc(odc, opt=label if label in {'shot', 'pulse', 'run', 'key'} else 'key')
+    for key, extracted_label in zip(odc.keys(), labels):
         ods = odc[key]
         try:
-            # Get radial coordinate
-            rho = get_radial_coordinate(ods, coordinate)
-            
-            # Get profile data
-            data = get_from_path(ods, data_path)
-            
-            if data is None or rho is None:
-                print(f"Missing data for {key}")
-                continue
-                
-            # Plot
-            plt.plot(rho, data, label=lbl, **kwargs)
-            
-        except Exception as e:
-            print(f"Error plotting {key}: {e}")
-            continue
-    
-    plt.xlabel(xlabel)
-    plt.ylabel(f"{ylabel} [{yunit}]" if yunit else ylabel)
-    plt.title(ylabel)
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+            rho, data = _resolve_profile_data(
+                ods,
+                time_slice,
+                quantity_template,
+                coordinate,
+            )
+            ax.plot(rho, data, label=f"{label} {extracted_label}", **kwargs)
+            plotted += 1
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            failures.append(f"{key}: {exc}")
+
+    if plotted == 0:
+        details = "; ".join(failures) if failures else "no ODS entries"
+        warnings.warn(f"No plottable 1D profile data: {details}", RuntimeWarning, stacklevel=2)
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(f"{ylabel} [{yunit}]" if yunit else ylabel)
+    ax.set_title(ylabel)
+    ax.grid(True)
+    if plotted:
+        ax.legend()
+    fig.tight_layout()
+    if show:
+        plt.show()
+    return fig, ax
 
 # 4. 자동 래퍼 함수 생성
 for group, configs in ONEDIM_PLOT_CONFIGS.items():
     for cfg in configs:
         def make_plot_func(data_path, ylabel, coordinate, yunit):
             def plot_func(odc_or_ods, **kwargs):
-                plot_onedim_profile(
+                return plot_onedim_profile(
                     odc_or_ods,
                     data_path,
                     ylabel,
@@ -325,6 +340,43 @@ COORDINATE_DEFINITIONS = {
     #     # 'conversion_func': get_r_major_from_psi # If conversion is needed
     # },
 }
+
+
+def _resolve_profile_data(ods, time_slice_idx, quantity_path_template, coordinate_name):
+    """Resolve a quantity and its matching radial coordinate on one profile grid."""
+    if coordinate_name not in COORDINATE_DEFINITIONS:
+        raise ValueError(f"Unsupported radial coordinate: {coordinate_name}")
+    quantity_path = quantity_path_template.format(time_slice_idx=time_slice_idx)
+
+    if quantity_path.startswith('equilibrium.'):
+        coord_template = COORDINATE_DEFINITIONS[coordinate_name]['path_template']
+        coordinate, quantity = get_1d_profile_data(
+            ods, time_slice_idx, quantity_path_template, coord_template
+        )
+        if coordinate is None or quantity is None:
+            raise ValueError(
+                f"could not resolve {quantity_path} against {coordinate_name}"
+            )
+        return np.asarray(coordinate), np.asarray(quantity)
+
+    if quantity_path.startswith('core_profiles.'):
+        coord_path = f"core_profiles.profiles_1d.{time_slice_idx}.grid.{coordinate_name}"
+    else:
+        raise ValueError(f"Unsupported profile group in path: {quantity_path}")
+
+    try:
+        coordinate = _ensure_1d_numpy_array(ods[coord_path])
+        quantity = _ensure_1d_numpy_array(ods[quantity_path])
+    except KeyError as exc:
+        raise KeyError(f"missing profile path {exc}") from exc
+    if coordinate is None or quantity is None:
+        raise ValueError(f"profile data at {quantity_path} is not one-dimensional")
+    if len(coordinate) != len(quantity):
+        raise ValueError(
+            f"coordinate/data length mismatch for {quantity_path}: "
+            f"{len(coordinate)} != {len(quantity)}"
+        )
+    return np.asarray(coordinate), np.asarray(quantity)
 
 TARGET_QUANTITIES = {
     'equilibrium': { # ODS group name
@@ -1229,4 +1281,3 @@ if __name__ == "__main__":
 
     print("\nAll planned tests executed. If in Jupyter, please check interactive plot behavior.")
     print("Note: For non-Jupyter environments, 'interactive' mode falls back to plotting the first slice.")
-

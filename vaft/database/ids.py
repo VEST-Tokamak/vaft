@@ -14,13 +14,7 @@ import time
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Literal, Optional, Union
-import h5py
 import imas
-
-try:
-    import h5pyd
-except ImportError:
-    h5pyd = None  # optional: pip install 'vaft[hsds]'
 
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
 from .transport import run_hsget, run_hsload, verify_uploaded_image
@@ -164,7 +158,6 @@ def load(
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     try:
