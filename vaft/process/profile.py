@@ -10,17 +10,21 @@ from vaft.formula import fit_profile
 
 
 # Statistical Ti/Te coefficient for VEST slices WITHOUT an ion-temperature
-# measurement (no IDS/charge_exchange). Fitted with an effective-variance
-# weighted through-origin regression (errors in both Te and Ti) over the 9
-# kinetic slices that carry both diagnostics -- shots 48224/48226/48233 @
-# 299/300/301 ms, 5 TS points each, CX Ti error-weighted-fitted vs psi_N and
-# evaluated at the TS psi_N (ids_test/fit_ti_te_ratio.py). Robust to the
-# mapping equilibrium, Ti-fit degree and pairing direction (0.163-0.171);
-# slice-level bootstrap 95% CI [0.14, 0.21]. The sigma is the slice-to-slice
-# scatter (the honest predictive uncertainty for a NEW shot), which dominates
-# the per-point scatter (0.049) and the formal SE (0.010).
+# measurement (no IDS/charge_exchange). Derived from the 9 kinetic slices that
+# carry both diagnostics (shots 48224/48226/48233 @ 299-301 ms) using the
+# FITTED 129-pt core_profiles curves (the same profiles the spline pressure
+# encoding consumes): per slice, the pressure-matching coefficient
+# a = sum(ne^2*Te*Ti)/sum(ne^2*Te^2) on psi_N <= 1 -- i.e. the alpha that
+# preserves the kinetic pressure when Ti is replaced by a*Te. Slice-level
+# mean 0.190 / median 0.155; an independent raw-point pairing (measured TS Te
+# vs the weighted CX Ti fit, effective-variance through-origin regression)
+# cross-checks at 0.170 +/- 0.010, robust to mapping gfile / fit degree /
+# pairing direction (0.163-0.171). The sigma is the fitted-profile
+# slice-to-slice std -- the honest predictive uncertainty for a NEW shot.
+# Known trend: the early 299 ms slices sit high (~0.28) vs the 300/301 ms
+# cluster (~0.14). Derivation: ids_test/fit_ti_te_ratio.py.
 TI_TE_RATIO_VEST = 0.17
-TI_TE_RATIO_VEST_SIGMA = 0.065
+TI_TE_RATIO_VEST_SIGMA = 0.08
 
 
 def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
