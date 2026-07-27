@@ -211,6 +211,7 @@ def profile_fitting_thomson_scattering(
     fitting_function_te='polynomial',
     fitting_function_ne='polynomial',
     time_tolerance_ms=1.0,
+    enforce_physical=True,
     ):
     """
     Fit Thomson scattering Te and ne profiles with selectable 1D methods.
@@ -236,6 +237,12 @@ def profile_fitting_thomson_scattering(
     - uncertainty_option: use uncertainties when fitting (1 = enabled)
     - rho_points: number of evaluation points on ρ in [0, 1]
     - fitting_function_te, fitting_function_ne: fit method selection for Te and ne
+    - enforce_physical: when True (default) a fit whose profile is unphysical over
+      [0, 1] -- Te <= 0 inside the LCFS, or an ne dynamic range above
+      NE_DYNAMIC_RANGE_MAX -- is retried at successively lower order. Thomson
+      often covers only the inner half of psi_N, and a high-order fit
+      extrapolated over the rest can cross zero or collapse by orders of
+      magnitude. Set False for the raw (unguarded) legacy behaviour.
 
     ## Returns:
     - n_e_function, T_e_function: callable fit functions
@@ -306,15 +313,36 @@ def profile_fitting_thomson_scattering(
     if te_anchor_strength is not None:
         te_anchor = (np.array([1.0]), np.array([0.0]), np.array([te_anchor_strength]))
 
-    T_e_rho, T_e_std, T_e_function_raw, coeffs_te = fit_profile(
-        rho,
-        t_e,
-        t_e_std,
-        rho_eval,
-        order=Te_order,
-        uncertainty_option=uncertainty_option,
-        fitting_function=fitting_function_te,
-        gp_anchor=te_anchor,
+    # Physicality guard grid (independent of rho_points so the check is stable).
+    guard_grid = np.linspace(0.0, 1.0, 129)
+
+    def _te_unphysical(fn):
+        y = np.asarray(fn(guard_grid), dtype=float)
+        inside = guard_grid < PHYSICAL_PSIN_MAX
+        if not np.all(np.isfinite(y)):
+            return "non-finite Te"
+        if np.any(y[inside] <= 0.0):
+            first = float(guard_grid[inside][np.argmax(y[inside] <= 0.0)])
+            return f"Te<=0 inside the LCFS (first at psi_N={first:.2f})"
+        return None
+
+    T_e_rho, T_e_std, T_e_function_raw, coeffs_te, Te_order_used = (
+        _fit_profile_until_physical(
+            lambda o: fit_profile(
+                rho, t_e, t_e_std, rho_eval,
+                order=o,
+                uncertainty_option=uncertainty_option,
+                fitting_function=fitting_function_te,
+                gp_anchor=te_anchor,
+            ),
+            Te_order, _te_unphysical, "Te", time_ms,
+        )
+        if enforce_physical else
+        (*fit_profile(
+            rho, t_e, t_e_std, rho_eval,
+            order=Te_order, uncertainty_option=uncertainty_option,
+            fitting_function=fitting_function_te, gp_anchor=te_anchor,
+        ), Te_order)
     )
 
     T_e_rho = np.maximum(np.asarray(T_e_rho, dtype=float), 0.0)
@@ -329,15 +357,35 @@ def profile_fitting_thomson_scattering(
         ne_anchor_sigma_norm = max(0.01 * ne_typ, 1e-4)
         ne_anchor = (np.array([1.0]), np.array([0.0]), np.array([ne_anchor_sigma_norm]))
 
-    n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne = fit_profile(
-        rho,
-        n_e_norm,
-        n_e_std_norm,
-        rho_eval,
-        order=Ne_order,
-        uncertainty_option=uncertainty_option,
-        fitting_function=fitting_function_ne,
-        gp_anchor=ne_anchor,
+    def _ne_unphysical(fn):
+        y = np.asarray(fn(guard_grid), dtype=float)
+        if not np.all(np.isfinite(y)):
+            return "non-finite ne"
+        inside = y[guard_grid < PHYSICAL_PSIN_MAX]
+        lo, hi = float(np.min(inside)), float(np.max(inside))
+        if lo <= 0.0:
+            return "ne<=0 inside the LCFS"
+        if hi / lo > NE_DYNAMIC_RANGE_MAX:
+            return f"ne dynamic range {hi / lo:.1e} inside the LCFS"
+        return None
+
+    n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne, Ne_order_used = (
+        _fit_profile_until_physical(
+            lambda o: fit_profile(
+                rho, n_e_norm, n_e_std_norm, rho_eval,
+                order=o,
+                uncertainty_option=uncertainty_option,
+                fitting_function=fitting_function_ne,
+                gp_anchor=ne_anchor,
+            ),
+            Ne_order, _ne_unphysical, "ne", time_ms,
+        )
+        if enforce_physical else
+        (*fit_profile(
+            rho, n_e_norm, n_e_std_norm, rho_eval,
+            order=Ne_order, uncertainty_option=uncertainty_option,
+            fitting_function=fitting_function_ne, gp_anchor=ne_anchor,
+        ), Ne_order)
     )
 
     n_e_rho = np.maximum(n_e_rho_norm, 0.0) * n_e_scale
@@ -396,6 +444,70 @@ def equilibrium_mapping_charge_exchange(ods, geq):
     r_vals = [_to_float_scalar(value) for value in R_ce]
     z_vals = [_to_float_scalar(value) for value in Z_ce]
     return _rho_from_equilibrium_points(geq, r_vals, z_vals)
+
+
+#: A fitted electron profile is rejected when it goes non-positive, or when the
+#: density spans more than :data:`NE_DYNAMIC_RANGE_MAX`, anywhere *inside* the
+#: LCFS. Both signal a polynomial/exponential extrapolated far outside the
+#: measured psi_N span -- e.g. shot 48224 @ 299 ms, where Thomson covers only
+#: psi_N <= 0.27 and the quadratic crossed zero at psi_N = 0.87 with ne
+#: collapsing by 5e6.
+#:
+#: The checks stop at :data:`PHYSICAL_PSIN_MAX` because the 'polynomial' and
+#: 'exponential' bases carry a ``(1 - psi_N)`` factor that drives the profile to
+#: exactly 0 at psi_N = 1 by construction. That endpoint zero is intended, and
+#: including it would reject every such fit (and make any dynamic-range ratio
+#: meaningless).
+PHYSICAL_PSIN_MAX = 0.98
+TE_POSITIVE_PSIN_MAX = PHYSICAL_PSIN_MAX   # backwards-compatible alias
+NE_DYNAMIC_RANGE_MAX = 1.0e3
+
+
+def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
+                                min_order=2):
+    """Call ``fit_call(order)`` reducing the order until the profile is physical.
+
+    A low-order fit that stays physical is far more trustworthy than a
+    high-order one that has to be extrapolated over most of the profile, so on
+    rejection the order is reduced by one and the fit retried. If no order
+    passes, the lowest-order attempt is returned with a warning (never raises --
+    the caller still gets a usable profile).
+
+    Args:
+        fit_call: ``order -> (y_eval, y_std, function, coeffs)`` (a fit_profile call).
+        order: starting (highest) order.
+        is_unphysical: ``function -> reason str or None``.
+        label, time_ms: for the log messages.
+        min_order: lowest order to try.
+
+    Returns:
+        ``(y_eval, y_std, function, coeffs, order_used)``
+    """
+    lowest = None
+    for candidate in range(int(order), int(min_order) - 1, -1):
+        try:
+            result = fit_call(candidate)
+        except Exception as exc:  # noqa: BLE001 -- try a lower order before giving up
+            print(f"[INFO] {label} fit order {candidate} failed at {time_ms:.3f} ms ({exc})")
+            continue
+        reason = is_unphysical(result[2])
+        lowest = (result, candidate, reason)
+        if reason is None:
+            if candidate != order:
+                print(
+                    f"[INFO] {label} at {time_ms:.3f} ms: order {order} rejected, "
+                    f"using order {candidate} (few/narrow measurement points)"
+                )
+            return (*result, candidate)
+    if lowest is None:
+        raise RuntimeError(f"{label} fit failed at every order at {time_ms:.3f} ms")
+    result, candidate, reason = lowest
+    print(
+        f"[WARNING] {label} at {time_ms:.3f} ms: no order in "
+        f"[{min_order}, {order}] gave a physical profile ({reason}); "
+        f"keeping order {candidate}"
+    )
+    return (*result, candidate)
 
 
 def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
@@ -510,6 +622,7 @@ def profile_fitting_charge_exchange(
     fitting_function_vtor='polynomial',
     ion_index=0,
     time_tolerance_ms=1.0,
+    clamp_to_measured_span=True,
 ):
     """
     Fit charge_exchange (CES) ion temperature and toroidal velocity profiles.
@@ -527,6 +640,11 @@ def profile_fitting_charge_exchange(
         rho_points: number of evaluation points on ρ ∈ [0, 1].
         fitting_function_ti, fitting_function_vtor: fit methods for T_i and V_tor.
         ion_index: ion index within charge_exchange.channel[i].ion.
+        clamp_to_measured_span: when True (default) the returned functions are
+            evaluated on the fitted curve only within the psi_N span the CX
+            channels actually cover, holding the endpoint value outside it (no
+            blind extrapolation). Set False for the legacy free-polynomial
+            behaviour.
 
     Returns:
         (Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho)
@@ -590,8 +708,19 @@ def profile_fitting_charge_exchange(
 
     Ti_rho = np.maximum(np.asarray(Ti_rho, dtype=float), 0.0)
 
+    # No blind extrapolation beyond the psi_N actually covered by CX channels:
+    # outside the measured span the fit is held at its value on the nearest
+    # measured end. Same convention as kineticEfit._ti_weighted_fit_psin. Without
+    # it a polynomial extrapolated inward from a poorly-covered slice can blow up
+    # (48224 @ 298 ms: only 8/40 channels map inside the LCFS, innermost
+    # psi_N = 0.23 -> Ti(axis) = 54 eV against a 21 eV largest measurement).
+    ti_lo, ti_hi = float(np.min(rho_ti)), float(np.max(rho_ti))
+    v_lo, v_hi = float(np.min(rho_v)), float(np.max(rho_v))
+
     def Ti_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
+        if clamp_to_measured_span:
+            x = np.clip(x, ti_lo, ti_hi)
         return np.maximum(Ti_function_raw(x), 0.0)
 
     # --- Fit V_tor(ρ) ---
@@ -608,6 +737,8 @@ def profile_fitting_charge_exchange(
 
     def Vtor_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
+        if clamp_to_measured_span:
+            x = np.clip(x, v_lo, v_hi)
         return Vtor_function_raw(x)
 
     return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
