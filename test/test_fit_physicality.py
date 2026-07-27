@@ -74,7 +74,7 @@ def test_helper_keeps_lowest_order_when_nothing_passes():
     *_, used = _fit_profile_until_physical(
         fit_call, 4, lambda fn: "always bad", "x", 300.0
     )
-    assert used == 2                    # min_order, with a warning -- never raises
+    assert used == 1                    # min_order, with a warning -- never raises
 
 
 def test_helper_skips_orders_that_raise():
@@ -85,6 +85,25 @@ def test_helper_skips_orders_that_raise():
 
     *_, used = _fit_profile_until_physical(fit_call, 4, lambda fn: None, "x", 300.0)
     assert used == 2
+
+
+def test_helper_can_reduce_below_order_two():
+    """A caller that already asks for order 2 must still have room to reduce.
+
+    The electron-only pipeline branch requests Te_order=2; with a floor of 2 it
+    had no fallback and kept an unphysical fit (48226 @ 304/307 ms, Te <= 0 over
+    31 grid points). Order 1 is (1 - psi_N)*c0 -- non-negative by construction.
+    """
+    def fit_call(order):
+        fn = (lambda x: np.ones_like(np.asarray(x, float))) if order == 1 else \
+             (lambda x: -np.ones_like(np.asarray(x, float)))
+        return (None, None, fn, None)
+
+    def bad(fn):
+        return None if fn(np.array([0.5]))[0] > 0 else "negative"
+
+    *_, used = _fit_profile_until_physical(fit_call, 2, bad, "Te", 304.0)
+    assert used == 1
 
 
 # --------------------------------------------------------------------------- #

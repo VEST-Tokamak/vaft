@@ -464,7 +464,7 @@ NE_DYNAMIC_RANGE_MAX = 1.0e3
 
 
 def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
-                                min_order=2):
+                                min_order=1):
     """Call ``fit_call(order)`` reducing the order until the profile is physical.
 
     A low-order fit that stays physical is far more trustworthy than a
@@ -472,6 +472,12 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
     rejection the order is reduced by one and the fit retried. If no order
     passes, the lowest-order attempt is returned with a warning (never raises --
     the caller still gets a usable profile).
+
+    ``min_order`` goes down to 1 because order 1 is the guaranteed-physical
+    fallback: with the ``(1 - psi_N)`` bases it is a single coefficient, i.e. a
+    monotonically decreasing non-negative profile that cannot cross zero inside
+    the LCFS. Callers that already request order 2 (the electron-only pipeline
+    branch) would otherwise have no room to reduce at all.
 
     Args:
         fit_call: ``order -> (y_eval, y_std, function, coeffs)`` (a fit_profile call).
