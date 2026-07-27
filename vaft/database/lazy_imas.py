@@ -19,6 +19,7 @@ try:  # pragma: no cover - guarded by the public constructor
 except ImportError:  # pragma: no cover
     h5pyd = None
 
+from .lazy_common import decode_hdf5_value, discover_hsds_ids, normalize_ids
 from .utils import _require_h5pyd
 
 
@@ -33,23 +34,6 @@ class LazyIMASClosedError(RuntimeError):
 class _Record:
     template: tuple[Any, ...]
     dataset: Any
-
-
-def _decode(value: Any) -> Any:
-    array = np.asarray(value)
-    if array.ndim == 0:
-        item = array.item()
-        return item.decode("utf-8") if isinstance(item, (bytes, np.bytes_)) else item
-    if array.dtype.kind == "S":
-        array = np.char.decode(array, "utf-8")
-    elif array.dtype.kind == "O":
-        array = np.asarray(
-            [item.decode("utf-8") if isinstance(item, (bytes, np.bytes_)) else item for item in array.flat],
-            dtype=object,
-        ).reshape(array.shape)
-    # IMAS HDF5 stores ordinary array dimensions in Fortran order. AOS axes
-    # have been selected before this point, so reverse only remaining axes.
-    return array.transpose() if array.ndim > 1 else array
 
 
 class _IDSIndex:
@@ -106,15 +90,11 @@ class _IDSIndex:
                 selected.append(int(value))
         return tuple(selected)
 
-    @staticmethod
-    def _shape_selection(template: tuple[Any, ...], path: tuple[Any, ...]) -> tuple[Any, ...]:
-        return _IDSIndex._selection(template, path)
-
     def aos_length(self, path: tuple[Any, ...]) -> int:
         record = self.aos_shapes.get(self._path_key(path))
         if record is None:
             return 0
-        value = np.asarray(record.dataset[self._shape_selection(record.template, path)])
+        value = np.asarray(record.dataset[self._selection(record.template, path)])
         self.handle._metrics["payload_selection_count"] += 1
         return int(value.reshape(-1)[0]) if value.size else 0
 
@@ -131,11 +111,11 @@ class _IDSIndex:
         shape_record = self.shapes.get(self._path_key(path))
         if shape_record is not None:
             logical_shape = np.asarray(
-                shape_record.dataset[self._shape_selection(shape_record.template, path)]
+                shape_record.dataset[self._selection(shape_record.template, path)]
             ).reshape(-1)
             if logical_shape.size:
                 value = value[tuple(slice(0, int(size)) for size in logical_shape)]
-        value = _decode(value)
+        value = decode_hdf5_value(value)
         self.handle._metrics["payload_selection_count"] += 1
         self.handle._metrics["returned_logical_bytes"] += int(np.asarray(value).nbytes)
         if isinstance(value, np.ndarray):
@@ -216,7 +196,7 @@ class HSDSIMASHandle:
         self.directory = directory.strip("/")
         self.imas_version = imas_version
         self._h5pyd = h5pyd_module
-        self._requested_ids = self._normalize_ids(ids)
+        self._requested_ids = normalize_ids(ids)
         self._available_ids: tuple[str, ...] | None = self._requested_ids
         self._domains: dict[str, Any] = {}
         self._indexes: dict[str, _IDSIndex] = {}
@@ -231,25 +211,14 @@ class HSDSIMASHandle:
             "returned_logical_bytes": 0,
         }
 
-    @staticmethod
-    def _normalize_ids(ids: str | Iterable[str] | None) -> tuple[str, ...] | None:
-        if ids is None:
-            return None
-        values = (ids,) if isinstance(ids, str) else tuple(ids)
-        result = tuple(dict.fromkeys(str(value).removesuffix(".h5") for value in values))
-        if not result:
-            raise ValueError("paths must contain at least one top-level IDS name")
-        return result
-
     @property
     def ids(self) -> tuple[str, ...]:
         if self._available_ids is None:
             if self.closed:
                 raise LazyIMASClosedError("Cannot discover IDS after close()")
-            folder = self._h5pyd.Folder(f"/{self.directory}/{self.shot}/")
-            self._available_ids = tuple(sorted(
-                name[:-3] for name in folder if name.endswith(".h5") and name != "master.h5"
-            ))
+            self._available_ids = discover_hsds_ids(
+                self._h5pyd, self.directory, self.shot
+            )
         return self._available_ids
 
     @property

@@ -126,8 +126,8 @@ def _infer_remote_imas_version(
 
 def load(
     shot: int | list[int],
-    *,
     source: str = "public",
+    *,
     representation: Literal["omas", "imas"] = "omas",
     paths: str | list[str] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
@@ -144,9 +144,12 @@ def load(
 
         mapped = {name: value for name, value in occurrences.items() if name != "*"}
         if "*" in occurrences:
-            mapped = {
-                name: occurrences["*"] for name in (_root_ids(selected_paths) or [])
-            }
+            roots = _root_ids(selected_paths)
+            mapped = (
+                {name: occurrences["*"] for name in roots}
+                if roots is not None
+                else {"*": occurrences["*"]}
+            )
         version = _infer_remote_imas_version(
             source,
             int(shot[0] if isinstance(shot, list) else shot),
@@ -285,6 +288,18 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
+    # Preserve utility access patterns used by shipped notebooks and workflows.
+    # High-level remote I/O still belongs to load/open/save above; these
+    # compatibility attributes are deprecated at their implementation sites.
+    for module_name in ("ods", "ids", "raw", "utils"):
+        try:
+            module = import_module(f".{module_name}", __name__)
+        except Exception:
+            continue
+        if hasattr(module, name):
+            value = getattr(module, name)
+            globals()[name] = value
+            return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

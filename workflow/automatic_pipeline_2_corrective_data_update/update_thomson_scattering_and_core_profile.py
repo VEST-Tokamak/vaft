@@ -168,7 +168,7 @@ def update_thomson_auto(filepath):
         return None
 
     try:
-        ods = database.load(shotnumber,'public')
+        ods = database.load(shotnumber, source="public")
     except Exception as e:
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {e}")
         return None
@@ -350,7 +350,7 @@ def reset_processed_shots(clear_entire_file=False):
         if "shots" in f:
             del f["shots"]
         for shot in list(f.keys()):
-            ods = database.load(shot,'public')
+            ods = database.load(shot, source="public")
             if 'thomson_scattering' in ods:
                 ods['thomson_scattering'].clear()
             if 'core_profiles' in ods:

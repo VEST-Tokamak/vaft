@@ -536,3 +536,33 @@ def save_ods(
                 )
 
     return f"hdf5://{directory}/{shot}/"
+
+
+# --------------------------------------------------------------------------- #
+# Deprecated compatibility shims (issue #38)
+# --------------------------------------------------------------------------- #
+
+def load(shot, directory: str = "public", **kwargs):
+    """Deprecated compatibility alias for :func:`load_ods`."""
+    import warnings
+
+    warnings.warn(
+        "vaft.database.ods.load() is deprecated; use "
+        "vaft.database.load(shot, source=...).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return load_ods(shot, directory=directory, **kwargs)
+
+
+def exist_ts_file(*args, **kwargs):
+    """Return processed Thomson-scattering shots through the current helper."""
+    import warnings
+
+    warnings.warn(
+        "vaft.database.exist_ts_file() is deprecated; use "
+        "vaft.database.exist_shot(data_filter='ts').",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return exist_shot(data_filter="ts")

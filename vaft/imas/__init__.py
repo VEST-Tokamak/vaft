@@ -6,6 +6,7 @@ Low-level OMAS--IMAS conversion machinery intentionally stays private in
 
 from pathlib import Path
 
+from .._local_io import IMASHandle
 from .omas_imas import IMAS_DD_VERSION_CONVERSION
 
 __all__ = ["IMASHandle", "load", "save", "IMAS_DD_VERSION_CONVERSION"]
@@ -13,10 +14,17 @@ __all__ = ["IMASHandle", "load", "save", "IMAS_DD_VERSION_CONVERSION"]
 
 def load(source, *, imas_version=None):
     """Open any supported local artifact as a native IMAS context manager."""
-    from .._local_io import IMASHandle, open_imas
+    from .._local_io import open_imas
 
-    _ = IMASHandle
     return open_imas(source, imas_version=imas_version)
+
+
+def _occurrence_for(occurrence, ids_name: str) -> int:
+    if occurrence is None:
+        return 0
+    if isinstance(occurrence, int):
+        return occurrence
+    return int(occurrence.get(ids_name, occurrence.get("*", 0)))
 
 
 def save(data, target, *, imas_version=None, occurrence=None):
@@ -27,7 +35,6 @@ def save(data, target, *, imas_version=None, occurrence=None):
 
     target_path = Path(target).expanduser()
     version = imas_version or IMAS_DD_VERSION_CONVERSION
-    occurrence = occurrence or {}
     if isinstance(data, IMASHandle):
         data = data.to_omas()
 
@@ -40,7 +47,8 @@ def save(data, target, *, imas_version=None, occurrence=None):
             uri = "imas:hdf5?path=" + str(target_path)
             mode = "x" if not (target_path / "master.h5").exists() else "w"
         with imas.DBEntry(uri, mode, dd_version=version) as entry:
-            entry.put(data)
+            ids_name = data.metadata.name
+            entry.put(data, _occurrence_for(occurrence, ids_name))
         return target_path
 
     if target_path.suffix.lower() == ".nc":
@@ -52,17 +60,25 @@ def save(data, target, *, imas_version=None, occurrence=None):
             root = Path(temporary)
             save_omas_imas(
                 data,
-                occurrence=occurrence,
+                occurrence=occurrence or {},
                 imas_version=version,
                 new=True,
                 verbose=False,
                 uri="imas:hdf5?path=" + str(root),
             )
             with imas.DBEntry("imas:hdf5?path=" + str(root), "r", dd_version=version) as source_entry:
-                with imas.DBEntry(str(target_path), "x", dd_version=version) as target_entry:
-                    for name in sorted(path.stem for path in root.glob("*.h5") if path.name != "master.h5"):
+                mode = "x" if not target_path.exists() else "w"
+                with imas.DBEntry(str(target_path), mode, dd_version=version) as target_entry:
+                    # Image filenames encode non-zero occurrences (for example,
+                    # ``equilibrium_2.h5``), so derive native IDS names from
+                    # the ODS roots rather than parsing staging filenames.
+                    for name in sorted(data.keys()):
                         try:
-                            target_entry.put(source_entry.get(name, occurrence.get(name, 0)))
+                            occurrence_value = _occurrence_for(occurrence, name)
+                            target_entry.put(
+                                source_entry.get(name, occurrence_value),
+                                occurrence_value,
+                            )
                         except Exception as exc:
                             # Newer public DDs intentionally omit legacy
                             # dataset_description; do not make a valid IDS
@@ -74,7 +90,7 @@ def save(data, target, *, imas_version=None, occurrence=None):
     target_path.mkdir(parents=True, exist_ok=True)
     save_omas_imas(
         data,
-        occurrence=occurrence,
+        occurrence=occurrence or {},
         imas_version=version,
         new=not (target_path / "master.h5").exists(),
         verbose=False,

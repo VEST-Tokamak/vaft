@@ -29,6 +29,24 @@ def test_database_load_defaults_to_omas_loader_with_bare_source():
     )
 
 
+def test_database_load_preserves_global_occurrence_for_full_omas_load():
+    load_ods = Mock(return_value="ods")
+    fake_ods = _fake_module("vaft.database.ods", load_ods=load_ods)
+    with patch.dict("sys.modules", {"vaft.database.ods": fake_ods}):
+        database.load(39915, occurrence=2, imas_version="3.41.0")
+
+    assert load_ods.call_args.kwargs["occurrence"] == {"*": 2}
+
+
+def test_database_load_accepts_legacy_positional_source():
+    load_ods = Mock(return_value="ods")
+    fake_ods = _fake_module("vaft.database.ods", load_ods=load_ods)
+    with patch.dict("sys.modules", {"vaft.database.ods": fake_ods}):
+        result = database.load(39915, "public", imas_version="3.41.0")
+
+    assert result == "ods"
+
+
 def test_database_load_rejects_named_storage_key():
     import pytest
 

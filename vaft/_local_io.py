@@ -162,9 +162,8 @@ def _detect(source: str | Path | Sequence[str | Path]) -> _Descriptor:
         return _Descriptor("omas_json", (path,), None, None)
     if path.suffix.lower() == ".nc":
         version = _imas_version_hdf5(path)
-        if version:
-            return _Descriptor("imas_netcdf", (path,), path, version)
-    if path.suffix.lower() in {".h5", ".hdf5", ".nc"}:
+        return _Descriptor("imas_netcdf", (path,), path, version)
+    if path.suffix.lower() in {".h5", ".hdf5"}:
         if path.name == "master.h5":
             return _Descriptor("imas_hdf5", (path.parent,), path.parent, _imas_version_hdf5(path))
         if _native_image(path):
@@ -216,11 +215,7 @@ def load_ods(source: str | Path | Sequence[str | Path], *, imas_version: str | N
     temporary: tempfile.TemporaryDirectory[str] | None = None
     try:
         if descriptor.format == "imas_images":
-            images = descriptor.paths
-            if len(images) == 1:
-                siblings = tuple(sorted(images[0].parent.glob("*.h5")))
-                images = tuple(item for item in siblings if _native_image(item))
-            temporary, entry_root = _make_partial_entry(images)
+            temporary, entry_root = _make_partial_entry(descriptor.paths)
             uri = "imas:hdf5?path=" + str(entry_root)
         elif descriptor.format == "imas_hdf5":
             assert descriptor.entry_path is not None

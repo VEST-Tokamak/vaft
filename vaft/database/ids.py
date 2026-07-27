@@ -214,7 +214,7 @@ def load(
             with imas.DBEntry(uri, "r", dd_version=dd_version) as dbentry:
                 if isinstance(ids_name, str):
                     value = (
-                        occurrence.get(ids_name, 0)
+                        occurrence.get(ids_name, occurrence.get("*", 0))
                         if isinstance(occurrence, dict)
                         else occurrence
                     )
@@ -222,7 +222,7 @@ def load(
                 return {
                     name: dbentry.get(
                         name,
-                        occurrence.get(name, 0)
+                        occurrence.get(name, occurrence.get("*", 0))
                         if isinstance(occurrence, dict)
                         else occurrence,
                     )

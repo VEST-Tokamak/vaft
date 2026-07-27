@@ -168,6 +168,33 @@ def test_missing_ids_and_invalid_paths_have_actionable_errors(fake_hsds, tmp_pat
         staging.requested_ids_from_paths([None])
 
 
+def test_invalid_transport_is_rejected_before_cache_creation(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        staging.HSDSDomainCache,
+        "__init__",
+        lambda *_args, **_kwargs: pytest.fail("cache must not be constructed"),
+    )
+    with pytest.raises(ValueError, match="transport"):
+        staging.stage_imas_shot(
+            "public",
+            123,
+            tmp_path / "stage",
+            requested_ids=None,
+            transport="invalid",
+        )
+
+
+def test_requested_ids_generator_is_reported_after_staging(fake_hsds, tmp_path):
+    plan = staging.stage_imas_shot(
+        "public",
+        123,
+        tmp_path / "generator",
+        requested_ids=(name for name in ("equilibrium",)),
+        cache="off",
+    )
+    assert plan["selected_ids"] == ["equilibrium"]
+
+
 def test_h5image_transport_avoids_hsget(fake_hsds, monkeypatch, tmp_path):
     remote, calls, _revisions = fake_hsds
 

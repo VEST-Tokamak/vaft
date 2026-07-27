@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 import vaft
+from vaft import _local_io
 
 
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"
@@ -56,15 +57,25 @@ def test_imas_hdf5_round_trip(tmp_path):
     # A single external image is usable without a manually prepared master.
     with vaft.imas.load(target / "equilibrium.h5") as handle:
         assert handle.info.format == "imas_images"
+        assert handle.ids == ("equilibrium",)
         assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+
+    native_target = tmp_path / "native_occurrence"
+    with vaft.imas.load(target) as handle:
+        native = handle.get("equilibrium")
+    vaft.imas.save(native, native_target, occurrence=2)
+    with vaft.imas.load(native_target) as handle:
+        assert type(handle.get("equilibrium", occurrence=2)).__name__ == "IDSToplevel"
 
 
 def test_imas_netcdf_save_round_trip(tmp_path):
     source = vaft.omas.load(GFILE)
     target = tmp_path / "equilibrium.nc"
-    vaft.imas.save(source, target)
+    vaft.imas.save(source, target, occurrence={"equilibrium": 2})
+    # Existing NetCDF targets are replaced with the same occurrence mapping.
+    vaft.imas.save(source, target, occurrence={"equilibrium": 2})
     with vaft.imas.load(target) as handle:
-        assert type(handle.get("equilibrium")).__name__ == "IDSToplevel"
+        assert type(handle.get("equilibrium", occurrence=2)).__name__ == "IDSToplevel"
 
 
 def test_unknown_local_source_is_actionable(tmp_path):
@@ -72,3 +83,19 @@ def test_unknown_local_source_is_actionable(tmp_path):
     unknown.write_bytes(b"not a supported data source")
     with pytest.raises(ValueError, match="Unsupported local source"):
         vaft.omas.load(unknown)
+
+
+def test_netcdf_without_version_metadata_uses_imas_fallback(tmp_path):
+    source = tmp_path / "minimal.nc"
+    with _local_io.h5py.File(source, "w") as handle:
+        handle.create_group("equilibrium")
+    descriptor = _local_io._detect(source)
+    assert descriptor.format == "imas_netcdf"
+    with pytest.warns(RuntimeWarning, match="using 3.41.0"):
+        assert _local_io._resolved_version(descriptor, None) == ("3.41.0", True)
+
+
+def test_imas_handle_is_available_to_star_import():
+    namespace = {}
+    exec("from vaft.imas import *", namespace)
+    assert namespace["IMASHandle"] is vaft.imas.IMASHandle

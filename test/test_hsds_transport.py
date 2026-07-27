@@ -6,7 +6,7 @@ import pytest
 from vaft.database import transport
 
 
-def test_hsget_reports_remote_size_and_progress(monkeypatch, tmp_path, capsys):
+def test_hsget_reports_remote_size_and_progress(monkeypatch, tmp_path, caplog):
     calls = []
 
     def fake_which(command):
@@ -22,13 +22,14 @@ def test_hsget_reports_remote_size_and_progress(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(transport.subprocess, "run", fake_run)
 
     target = tmp_path / "shot" / "equilibrium.h5"
-    assert transport.run_hsget("hdf5://public/1/equilibrium.h5", target) == target
+    with caplog.at_level("INFO", logger=transport.__name__):
+        assert transport.run_hsget("hdf5://public/1/equilibrium.h5", target) == target
     assert calls[-1] == [
         "/tools/hsget",
         "hdf5://public/1/equilibrium.h5",
         str(target),
     ]
-    output = capsys.readouterr().out
+    output = caplog.text
     assert "total_size=1234" in output
     assert f"staging={target}" in output
     assert "status=starting" in output
@@ -66,7 +67,7 @@ def test_nonzero_exit_is_wrapped_with_code_and_remediation(monkeypatch, tmp_path
     assert "permission denied" in str(error)
 
 
-def test_hsload_uses_local_size(monkeypatch, tmp_path, capsys):
+def test_hsload_uses_local_size(monkeypatch, tmp_path, caplog):
     source = tmp_path / "ids.h5"
     source.write_bytes(b"123456")
     monkeypatch.setattr(transport.shutil, "which", lambda command: f"/tools/{command}")
@@ -76,8 +77,9 @@ def test_hsload_uses_local_size(monkeypatch, tmp_path, capsys):
         lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
     )
     remote = "hdf5://public/1/ids.h5"
-    assert transport.run_hsload(source, remote) == remote
-    assert "total_size=6" in capsys.readouterr().out
+    with caplog.at_level("INFO", logger=transport.__name__):
+        assert transport.run_hsload(source, remote) == remote
+    assert "total_size=6" in caplog.text
 
 
 class _LocalRemoteAPI:

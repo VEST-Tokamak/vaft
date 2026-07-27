@@ -285,10 +285,13 @@ def stage_imas_shot(
     The returned dictionary is deliberately small and JSON-friendly so callers
     and benchmarks can report the download plan and cache state.
     """
-    cache_store = HSDSDomainCache(directory, shot, cache)
-    started = time.perf_counter()
     if transport not in {"auto", "canonical", "h5image"}:
         raise ValueError("transport must be 'auto', 'canonical', or 'h5image'")
+    selected_ids = (
+        None if requested_ids is None else tuple(dict.fromkeys(requested_ids))
+    )
+    cache_store = HSDSDomainCache(directory, shot, cache)
+    started = time.perf_counter()
     master, master_hit, master_transport, master_transfer = cache_store.materialize(
         "master.h5", staging_dir, transport=transport
     )
@@ -297,11 +300,11 @@ def stage_imas_shot(
     linked = external_h5_links(master)
     domain_resolution_seconds = time.perf_counter() - started
     partial_master_seconds = 0.0
-    if requested_ids is None:
+    if selected_ids is None:
         selected = linked
     else:
         selected_names = tuple(
-            dict.fromkeys(name.removesuffix(".h5") for name in requested_ids)
+            name.removesuffix(".h5") for name in selected_ids
         )
         requested_files = {f"{name}.h5" for name in selected_names}
         missing = sorted(requested_files - set(linked))
@@ -334,7 +337,7 @@ def stage_imas_shot(
         "cache_hits": hits,
         "transports": transports,
         "transfers": transfers,
-        "selected_ids": None if requested_ids is None else list(requested_ids),
+        "selected_ids": None if selected_ids is None else list(selected_ids),
         "timings": {
             "master_fetch_seconds": master_fetch_seconds,
             "domain_resolution_seconds": domain_resolution_seconds,

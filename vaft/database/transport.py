@@ -7,6 +7,7 @@ actionable without changing the public eager APIs.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import re
 import shutil
@@ -15,6 +16,9 @@ from typing import Sequence
 
 import h5py
 import numpy as np
+
+
+logger = logging.getLogger(__name__)
 
 try:
     import h5pyd
@@ -89,6 +93,24 @@ def _remote_total_size(remote_uri: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _log_progress(
+    command: str,
+    remote_uri: str,
+    total_size: int | None,
+    staging_path: str | Path,
+    status: str,
+) -> None:
+    size_text = str(total_size) if total_size is not None else "unknown"
+    logger.info(
+        "[HSDS] command=%s remote=%s total_size=%s staging=%s status=%s",
+        command,
+        remote_uri,
+        size_text,
+        Path(staging_path),
+        status,
+    )
+
+
 def _run(
     command: str,
     arguments: Sequence[str | Path],
@@ -98,11 +120,7 @@ def _run(
     total_size: int | None,
 ) -> None:
     executable = _require_command(command)
-    size_text = str(total_size) if total_size is not None else "unknown"
-    print(
-        f"[HSDS] command={command} remote={remote_uri} total_size={size_text} "
-        f"staging={Path(staging_path)} status=starting"
-    )
+    _log_progress(command, remote_uri, total_size, staging_path, "starting")
     try:
         result = subprocess.run(
             [executable, *(str(value) for value in arguments)],
@@ -117,10 +135,7 @@ def _run(
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise HSDSCommandError(command, result.returncode, detail)
-    print(
-        f"[HSDS] command={command} remote={remote_uri} total_size={size_text} "
-        f"staging={Path(staging_path)} status=complete"
-    )
+    _log_progress(command, remote_uri, total_size, staging_path, "complete")
 
 
 def run_hsget(remote_uri: str, out_path: str | Path) -> Path:
@@ -222,4 +237,4 @@ def verify_uploaded_image(
             f"Uploaded domain {remote_uri} failed verification: "
             + ", ".join(sorted(set(mismatches)))
         )
-    print(f"[HSDS] remote={remote_uri} status=verified")
+    logger.info("[HSDS] remote=%s status=verified", remote_uri)

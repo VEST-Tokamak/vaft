@@ -20,6 +20,7 @@ try:
 except ImportError:  # pragma: no cover - exercised through the public guard
     h5pyd = None
 
+from .lazy_common import decode_hdf5_value, discover_hsds_ids, normalize_ids
 from .utils import _require_h5pyd
 
 
@@ -41,27 +42,6 @@ def _path_parts(path: Any) -> list[Any]:
     return list(p2l(path))
 
 
-def _decode_value(value: Any) -> Any:
-    """Return conventional OMAS scalar/string/NumPy values."""
-    array = np.asarray(value)
-    if array.ndim == 0:
-        item = array.item()
-        return item.decode("utf-8") if isinstance(item, (bytes, np.bytes_)) else item
-    if array.dtype.kind == "S":
-        array = np.char.decode(array, "utf-8")
-    elif array.dtype.kind == "O":
-        decoded = [
-            item.decode("utf-8") if isinstance(item, (bytes, np.bytes_)) else item
-            for item in array.flat
-        ]
-        array = np.asarray(decoded, dtype=object).reshape(array.shape)
-    # IMAS' HDF5 backend stores each leaf's array dimensions in Fortran order:
-    # a logical (R, Z) array is physically (Z, R). AOS axes have already been
-    # removed by integer selection, so reversing the remaining axes restores
-    # the NumPy/OMAS representation. One-dimensional leaves are unchanged.
-    return array.transpose() if array.ndim > 1 else array
-
-
 class HSDSStore(dynamic_ODS):
     """OMAS dynamic backend for occurrence-zero IMAS HDF5 HSDS domains."""
 
@@ -80,7 +60,7 @@ class HSDSStore(dynamic_ODS):
         self.shot = int(shot)
         self.directory = directory.strip("/")
         self._h5pyd = h5pyd_module
-        self._requested_ids = self._normalize_ids(ids)
+        self._requested_ids = normalize_ids(ids)
         self._available_ids_cache = self._requested_ids
         self._handles: dict[str, Any] = {}
         self._records: dict[str, list[_DatasetRecord]] = {}
@@ -104,16 +84,6 @@ class HSDSStore(dynamic_ODS):
             "directory": self.directory,
             "ids": list(self._requested_ids) if self._requested_ids is not None else None,
         }
-
-    @staticmethod
-    def _normalize_ids(ids: str | Iterable[str] | None) -> tuple[str, ...] | None:
-        if ids is None:
-            return None
-        values = (ids,) if isinstance(ids, str) else tuple(ids)
-        normalized = tuple(dict.fromkeys(str(value).removesuffix(".h5") for value in values))
-        if not normalized:
-            raise ValueError("ids must contain at least one IDS name")
-        return normalized
 
     @property
     def opened_ids(self) -> tuple[str, ...]:
@@ -152,13 +122,9 @@ class HSDSStore(dynamic_ODS):
             return self._available_ids_cache
         if self.closed:
             raise LazyODSClosedError("Cannot discover IDS domains after the lazy ODS is closed")
-        folder = self._h5pyd.Folder(f"/{self.directory}/{self.shot}/")
-        names = [
-            name[:-3]
-            for name in folder
-            if name.endswith(".h5") and name != "master.h5"
-        ]
-        self._available_ids_cache = tuple(sorted(names))
+        self._available_ids_cache = discover_hsds_ids(
+            self._h5pyd, self.directory, self.shot
+        )
         return self._available_ids_cache
 
     def _ensure_index(self, ids_name: str) -> None:
@@ -323,10 +289,8 @@ class HSDSStore(dynamic_ODS):
         else:
             trailing = (slice(None),) * max(0, len(record.dataset.shape) - len(indices))
         selection = indices + trailing
-        if not selection:
-            selection = ((),)
         self._metrics["payload_selection_count"] += 1
-        value = _decode_value(record.dataset[selection[0] if selection == ((),) else selection])
+        value = decode_hdf5_value(record.dataset[selection])
         self._metrics["returned_logical_bytes"] += int(np.asarray(value).nbytes)
         self._leaf_cache[cache_key] = value
         return value

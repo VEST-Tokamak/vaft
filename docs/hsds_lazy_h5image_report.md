@@ -90,6 +90,12 @@ Local files are handled separately by `vaft.omas.load/save` and
 `vaft.imas.load/save`. These importers detect OMAS JSON/HDF5, IMAS HDF5 image
 sets, IMAS NetCDF, and GEQDSK without a format argument.
 
+Shipped workflows have been migrated to this API. For downstream notebooks
+that still use the issue #38 access patterns, `vaft.database.ods.load()` and
+`vaft.database.exist_ts_file()` remain as deprecated forwarding shims.
+`database.load(shot, "public")` is also accepted during migration, although
+new code should spell the namespace as `source="public"`.
+
 ## IMAS to OMAS conversion
 
 For IMAS-Python AL5, VAFT now performs exactly one `DBEntry.get()` per stored

@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import vaft
-from vaft.database import ods as db_ods
+from vaft import database
 
 
 logging.basicConfig(
@@ -44,7 +44,7 @@ REQUIRED_COLUMNS_FOR_REPAIR = [
 
 def get_core_profile_shots() -> List[int]:
     """Return shot numbers whose processed status is `core_profile`."""
-    df = db_ods.exist_ts_file()
+    df = database.exist_shot(data_filter="ts")
     if df is None or len(df) == 0:
         logger.warning("No processed shots found.")
         return []
@@ -280,7 +280,7 @@ def generate_volume_averaged_parameter_sheet(
         if show_shot_progress:
             progress.set_postfix_str(f"shot={shot} ({idx}/{total_targets})")
         try:
-            ods = db_ods.load(int(shot), directory=directory)
+            ods = database.load(int(shot), source=directory)
             shot_rows = extract_volume_averaged_parameters(ods, int(shot))
             if not shot_rows:
                 logger.warning("Shot %s: no rows extracted, keeping existing rows.", shot)

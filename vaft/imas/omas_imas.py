@@ -806,7 +806,7 @@ def infer_fetch_paths(ids, occurrence, paths, time, imas_version, verbose=True):
             continue
 
         # retrieve this occurrence for this IDS
-        occ = occurrence.get(ds, 0)
+        occ = occurrence.get(ds, occurrence.get("*", 0))
 
         # ids.get()
         if time is None:
@@ -894,6 +894,11 @@ def _path_is_requested(path, requested_paths):
     return False
 
 
+def _occurrence_for(occurrence, ids_name):
+    """Resolve an IDS-specific occurrence, including the public wildcard."""
+    return occurrence.get(ids_name, occurrence.get("*", 0))
+
+
 def _iter_al5_primitive_values(ids_toplevel, root):
     """Yield ``(OMAS path, value)`` pairs from one fully loaded AL5 IDS."""
     from imas.ids_primitive import IDSPrimitive
@@ -935,7 +940,7 @@ def _load_al5_ods(
     ods = ODS(imas_version=imas_version, consistency_check=False)
 
     for ds in structures:
-        occ = occurrence.get(ds, 0)
+        occ = _occurrence_for(occurrence, ds)
         try:
             if time is None:
                 native = ids.DBentry.get(ds, occ)
@@ -984,7 +989,7 @@ def _load_al5_ods(
 
     for ds in ods:
         if "ids_properties" in ods[ds]:
-            ods[ds]["ids_properties.occurrence"] = occurrence.get(ds, 0)
+            ods[ds]["ids_properties.occurrence"] = _occurrence_for(occurrence, ds)
     try:
         ods.consistency_check = consistency_check
     except LookupError as exc:
@@ -1227,7 +1232,7 @@ def load_omas_imas(
     # add occurrence information to the ODS
     for ds in ods:
         if "ids_properties" in ods[ds]:
-            ods[ds]["ids_properties.occurrence"] = occurrence.get(ds, 0)
+            ods[ds]["ids_properties.occurrence"] = _occurrence_for(occurrence, ds)
 
     try:
         ods.consistency_check = consistency_check
