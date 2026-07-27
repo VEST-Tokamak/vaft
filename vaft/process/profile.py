@@ -9,6 +9,98 @@ from omas import *
 from vaft.formula import fit_profile
 
 
+# Statistical Ti/Te coefficient for VEST slices WITHOUT an ion-temperature
+# measurement (no IDS/charge_exchange). Fitted with an effective-variance
+# weighted through-origin regression (errors in both Te and Ti) over the 9
+# kinetic slices that carry both diagnostics -- shots 48224/48226/48233 @
+# 299/300/301 ms, 5 TS points each, CX Ti error-weighted-fitted vs psi_N and
+# evaluated at the TS psi_N (ids_test/fit_ti_te_ratio.py). Robust to the
+# mapping equilibrium, Ti-fit degree and pairing direction (0.163-0.171);
+# slice-level bootstrap 95% CI [0.14, 0.21]. The sigma is the slice-to-slice
+# scatter (the honest predictive uncertainty for a NEW shot), which dominates
+# the per-point scatter (0.049) and the formal SE (0.010).
+TI_TE_RATIO_VEST = 0.17
+TI_TE_RATIO_VEST_SIGMA = 0.065
+
+
+def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
+    """Fit the proportionality coefficient alpha of ``Ti = alpha * Te``.
+
+    Effective-variance weighted through-origin regression with errors in BOTH
+    variables: minimizes ``sum_k (Ti_k - a*Te_k)^2 / (sTi_k^2 + a^2*sTe_k^2)``
+    by iterating the weights. This is the estimator used to derive
+    :data:`TI_TE_RATIO_VEST` from the shots that carry both electron (Thomson)
+    and ion (IDS/charge_exchange) profiles; use it to re-derive the coefficient
+    as more two-diagnostic shots become available.
+
+    Args:
+        te, ti: paired temperature samples [eV] (same length, e.g. Te measured
+            at the TS points and the fitted Ti evaluated at the same psi_N).
+        te_std, ti_std: optional 1-sigma uncertainties. ``None`` -> 0 for
+            ``te_std`` / 1 for ``ti_std`` (plain least squares).
+        max_iter, tol: iteration controls for the weight update.
+
+    Returns:
+        dict with
+        - ``alpha``: fitted ratio;
+        - ``alpha_se``: formal standard error, scaled by sqrt(chi2_red) when
+          chi2_red > 1 (conservative);
+        - ``alpha_scatter``: error-weighted scatter of the per-point ratios
+          around their weighted mean -- the *predictive* per-point sigma.
+          For a machine coefficient, combine with the slice-to-slice std;
+        - ``chi2_red``: reduced chi-square of the through-origin model;
+        - ``n_points``: pairs used after non-finite / Te<=0 filtering.
+    """
+    te = np.asarray(te, dtype=float).reshape(-1)
+    ti = np.asarray(ti, dtype=float).reshape(-1)
+    if te.shape != ti.shape:
+        raise ValueError("te and ti must have the same length")
+    ste = (np.zeros_like(te) if te_std is None
+           else np.asarray(te_std, dtype=float).reshape(-1))
+    sti = (np.ones_like(ti) if ti_std is None
+           else np.asarray(ti_std, dtype=float).reshape(-1))
+    if ste.shape != te.shape or sti.shape != ti.shape:
+        raise ValueError("te_std/ti_std must match te/ti in length")
+
+    ok = (np.isfinite(te) & np.isfinite(ti) & (te > 0)
+          & np.isfinite(ste) & (ste >= 0) & np.isfinite(sti) & (sti >= 0))
+    te, ti, ste, sti = te[ok], ti[ok], ste[ok], sti[ok]
+    if te.size < 2:
+        raise ValueError("need at least 2 valid (te, ti) pairs")
+    # a zero effective variance is degenerate; floor sigma_ti like the fitters
+    if np.all(sti == 0):
+        sti = np.ones_like(ti)
+
+    alpha = float(np.sum(ti * te) / np.sum(te * te))
+    for _ in range(int(max_iter)):
+        w = 1.0 / np.clip(sti**2 + alpha**2 * ste**2, 1e-300, None)
+        alpha_new = float(np.sum(w * te * ti) / np.sum(w * te * te))
+        if abs(alpha_new - alpha) < tol:
+            alpha = alpha_new
+            break
+        alpha = alpha_new
+
+    w = 1.0 / np.clip(sti**2 + alpha**2 * ste**2, 1e-300, None)
+    chi2_red = float(np.sum(w * (ti - alpha * te) ** 2) / max(te.size - 1, 1))
+    alpha_se = float(np.sqrt(1.0 / np.sum(w * te**2))) * max(1.0, np.sqrt(chi2_red))
+
+    ratios = ti / te
+    sratios = np.sqrt((sti / te) ** 2 + (ti * ste / te**2) ** 2)
+    sratios = np.where(sratios > 0, sratios, np.nanmedian(sratios[sratios > 0])
+                       if np.any(sratios > 0) else 1.0)
+    wr = 1.0 / sratios**2
+    rmean = float(np.sum(wr * ratios) / np.sum(wr))
+    alpha_scatter = float(np.sqrt(np.sum(wr * (ratios - rmean) ** 2) / np.sum(wr)))
+
+    return {
+        "alpha": alpha,
+        "alpha_se": alpha_se,
+        "alpha_scatter": alpha_scatter,
+        "chi2_red": chi2_red,
+        "n_points": int(te.size),
+    }
+
+
 def _outermost_surface_path(geq):
     """Return a matplotlib Path around the outermost traced flux surface.
 
@@ -578,6 +670,7 @@ def core_profiles(
     time_tolerance_ms=1.0,
     geq=None,
     ti_te_fallback=True,
+    ti_te_ratio=None,
 ):
     """
     Construct and store core_profiles.profiles_1d from fitted kinetic profiles.
@@ -605,6 +698,16 @@ def core_profiles(
       channels (for the ion temperature_fit measurement metadata)
     - rho_points: evaluation points for the no-equilibrium fallback grid
     - time_tolerance_ms: tolerance for matching thomson/equilibrium times
+    - ti_te_fallback: when True (default) and no T_i_function is given, an ion
+      temperature is still written from Te (see ti_te_ratio); when False a slice
+      without an ion measurement stays electron-only (no phantom ion block)
+    - ti_te_ratio: optional statistical coefficient for the Thomson-only
+      fallback. None (default) keeps the legacy Ti = Te fallback and writes NO
+      pressure_thermal. A float alpha writes Ti = alpha*Te AND
+      pressure_thermal = e*ne*(1+alpha)*Te -- the TS-only kinetic pressure.
+      Use TI_TE_RATIO_VEST (fitted on the shots with both diagnostics; see
+      fit_ti_te_ratio) unless you have a shot-specific value. Ignored whenever
+      a real T_i_function is provided or ti_te_fallback=False.
 
     ## Returns:
     - Updated ods with replaced or appended core_profiles.profiles_1d entry.
@@ -662,12 +765,23 @@ def core_profiles(
 
     n_e_recon = np.asarray(n_e_function(psi_n_grid), dtype=float) if have_e else None
     T_e_recon = np.asarray(T_e_function(psi_n_grid), dtype=float) if have_e else None
-    # Ti falls back to Te only when electrons are present but no ion fit was given.
-    T_i_recon = (
-        np.asarray(T_i_function(psi_n_grid), dtype=float)
-        if have_i
-        else (T_e_recon if (have_e and ti_te_fallback) else None)
-    )
+    # Ti falls back to Te (or the statistical ratio*Te) only when electrons are
+    # present but no ion fit was given.
+    ratio_fallback = False
+    if have_i:
+        T_i_recon = np.asarray(T_i_function(psi_n_grid), dtype=float)
+    elif have_e and ti_te_fallback:
+        if ti_te_ratio is not None:
+            T_i_recon = float(ti_te_ratio) * T_e_recon
+            ratio_fallback = True
+            print(
+                f"[INFO] no ion fit at {time_ms:.3f} ms: statistical fallback "
+                f"Ti = {float(ti_te_ratio):.3f}*Te (kinetic pressure written)"
+            )
+        else:
+            T_i_recon = T_e_recon
+    else:
+        T_i_recon = None
     V_tor_recon = (
         np.asarray(V_tor_function(psi_n_grid), dtype=float)
         if V_tor_function is not None
@@ -727,7 +841,10 @@ def core_profiles(
             ods[f'{base}.ion.0.temperature'] = T_i_recon
         if V_tor_recon is not None:
             ods[f'{base}.ion.0.velocity.toroidal'] = V_tor_recon
-    if have_e and have_i:  # kinetic pressure needs both ne and (Te, Ti)
+    # kinetic pressure needs ne and (Te, Ti): either a real ion fit or the
+    # explicit statistical ratio fallback (Ti = ti_te_ratio*Te). The legacy
+    # Ti=Te fallback intentionally writes NO pressure_thermal.
+    if have_e and (have_i or ratio_fallback):
         ods[f'{base}.pressure_thermal'] = e_J_per_eV * n_e_recon * (T_e_recon + T_i_recon)
 
     # --- measurement/fit metadata (per IMAS DD, measured/reconstructed/rho all
