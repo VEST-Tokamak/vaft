@@ -1,12 +1,17 @@
-base_dir: /srv/vest.filedb/public # Base path for all output
+base_dir: ${VAFT_FILEDB_DIR} # Base path for all output
 conda: vaft # Conda environment to activate
 shots: # List of shot numbers to process
 - 39915
 cores: 30 # Number of cores to use
 raw:
   mode: sql # sql or archive
-  archive_template: /Users/yun/git/vaft/vaft/data/legacy/shot_{shot}.json.gz
+  archive_template: ${VAFT_DATA_DIR}/legacy/shot_{shot}.json.gz
   offline_only: true
+  preflight:
+    # A readable archive without these signals is an incomplete DAQ/SQL shot.
+    # It is recorded and excluded from downstream processing.
+    required_fields: [1, 13, 25, 59, 102]
+    min_samples: 2
 diagnostics:
   tstart: 0.26
   tend: 0.36
@@ -43,7 +48,7 @@ vest:
       calibration_mode: divide
       flux_output_per_radian: true
 wall:
-  reference_ods: /Users/yun/git/vaft/vaft/data/omas/39915.json
+  reference_ods: ${VAFT_DATA_DIR}/omas/39915.json
 eddy:
   filament:
     r:
@@ -95,13 +100,13 @@ constraints:
   - 0.01
 efit:
   run: true
-  executable: /Users/yun/git/efit/build-mac/efit/efit
-  table_dir: /Users/yun/git/vaft/vaft/data/efit/
+  executable: ${EFIT}
+  table_dir: ${VAFT_DATA_DIR}/efit/
   args: "129"
   timeout: 600
 chease:
   run: true
-  executable: /Users/yun/git/chease/src-f90/chease
+  executable: ${CHEASE}
   timeout: 600
   target_psin: 0.993
   relax: 0.5
@@ -112,7 +117,7 @@ chease:
   preserve_boundary_limiter: true
   create_plot: true
 gpec:
-  home: /Users/yun/git/GPEC
+  home: ${GPECHOME}
   run: auto
   modules:
   - dcon

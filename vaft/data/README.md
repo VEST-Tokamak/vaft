@@ -1,7 +1,12 @@
 # vaft/data data catalog
 
-`vaft/data` contains packaged sample and fixture data. Data assets are grouped
-one level deep only; Python package files stay at this directory root.
+`vaft/data` contains runtime resources and repository-only samples. Data assets
+are grouped one level deep only; Python package files stay at this directory
+root. The GitHub repository contains every file listed below; the PyPI
+distribution includes only the runtime geometry resources, GPEC templates,
+`legacy/sql_table.txt`, and `omas/39915.json`. Clone the repository to access
+the archived EFIT, IMAS, legacy diagnostic, digitizer, and additional OMAS
+samples.
 
 ## Layout
 
@@ -22,9 +27,11 @@ Use `vaft.data.resources.data_path()` with explicit category paths:
 from vaft.data.resources import data_path
 
 ods_path = data_path("omas/39915.json")
-geqdsk_path = data_path("efit/g039915.00319")
-thomson_path = data_path("legacy/46051_NeTe.mat")
 ```
+
+Repository-only samples such as `efit/g039915.00319` and
+`legacy/46051_NeTe.mat` are available after cloning the repository, not after
+`pip install vaft`.
 
 Flat calls such as `data_path("39915.json")` are intentionally unsupported.
 Deleted duplicate assets from older checkouts are not recreated here.

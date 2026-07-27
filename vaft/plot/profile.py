@@ -462,27 +462,9 @@ def charge_exchange_rho_profiles(
         print("No charge_exchange data found in ODS.")
         return
 
-    # #region agent log
     def _ces_rho_dbg(hypothesis_id, location, message, data):
-        try:
-            import json, time
-
-            payload = {
-                "sessionId": "bd9a35",
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data,
-                "timestamp": int(time.time() * 1000),
-            }
-            with open(
-                "/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a", encoding="utf-8"
-            ) as f:
-                f.write(json.dumps(payload) + "\n")
-        except Exception:
-            pass
-
-    # #endregion
+        """Compatibility no-op for retired diagnostic instrumentation."""
+        return None
 
     try:
         # Local import to avoid circulars at module import time.

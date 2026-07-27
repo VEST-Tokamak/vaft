@@ -1,5 +1,5 @@
 from omas import *
-from vaft.data.resources import data_path
+from vaft.data.resources import data_path, require_repository_sample
 
 def sample_ods():
     # load the sample ods file in the package data folder
@@ -18,13 +18,15 @@ def sample_odc():
 
     root = data_path()
 
+    paths = [require_repository_sample(root / data) for data in (data_1, data_2, data_3)]
+
     # load the ods files
     ods1 = ODS()
-    ods1 = ods1.load(str(root / data_1), consistency_check=False)
+    ods1 = ods1.load(str(paths[0]), consistency_check=False)
     ods2 = ODS()
-    ods2 = ods2.load(str(root / data_2), consistency_check=False)
+    ods2 = ods2.load(str(paths[1]), consistency_check=False)
     ods3 = ODS()
-    ods3 = ods3.load(str(root / data_3), consistency_check=False)
+    ods3 = ods3.load(str(paths[2]), consistency_check=False)
 
     # make the odc file
     odc = ODC()

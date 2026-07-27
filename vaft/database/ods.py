@@ -10,14 +10,10 @@ import tempfile
 from typing import Optional, Union
 
 import omas
-
-try:
-    import h5pyd
-except ImportError:
-    h5pyd = None  # optional: pip install h5pyd==0.20.0 --no-deps
+import h5pyd
 
 from ..imas import load_omas_imas, save_omas_imas
-from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
+from .utils import ensure_imas_hdf5_userblock, exist_shot, is_connect
 
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
@@ -30,7 +26,6 @@ def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
 
 def _download_remote_shot(directory: str, shot: int, shot_dir: Path) -> list[Path]:
     """Download every IMAS HDF5 image stored for one shot."""
-    _require_h5pyd()
 
     try:
         entries = list(h5pyd.Folder(f"/{directory}/{shot}/"))
@@ -105,7 +100,6 @@ def load_ods(
     Returns:
         One ``omas.ODS`` or a list of ``omas.ODS`` objects.
     """
-    _require_h5pyd()
     logging.getLogger().setLevel(logging.WARNING)
 
     occurrence = occurrence or {}
@@ -287,7 +281,6 @@ def save_ods(
     if env != "server":
         raise ValueError(f"Unsupported env: {env!r}")
 
-    _require_h5pyd()
     if not is_connect():
         raise ConnectionError("Connection to HSDS server failed")
 

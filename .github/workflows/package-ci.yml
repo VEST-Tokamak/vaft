@@ -1,0 +1,36 @@
+name: Package CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build distributions
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          twine check dist/*
+
+      - name: Verify data policy and artifact size
+        run: python scripts/verify_dist.py dist --max-wheel-mib 25
+
+      - name: Smoke-test the installed wheel
+        run: |
+          python -m venv /tmp/vaft-wheel-test
+          /tmp/vaft-wheel-test/bin/pip install --no-deps dist/*.whl
+          cd /tmp
+          /tmp/vaft-wheel-test/bin/python -c "import vaft; print(vaft.__version__)"
