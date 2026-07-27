@@ -97,7 +97,6 @@ vaft = [
   "data/legacy/*.mat",
   "data/legacy/*.txt",
   "data/omas/*.json",
-  ".hscfg",
 ]
 
 [tool.uv]
