@@ -17,7 +17,7 @@ from vaft.database import raw as raw_db
 from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_md_signals
 from vaft.process.signal_processing import smooth, vfit_signal_start_end
 
-from .utils import resolve_data_root, set_path
+from .utils import get_path, path_exists, resolve_data_root, set_path
 
 DEFAULT_MAGNETICS_TIME = np.linspace(0.0, 0.99996, 25_000)
 DEFAULT_TSTART = 0.26
@@ -371,6 +371,19 @@ def _set_magnetics_properties(ods: object) -> None:
     set_path(ods, "magnetics.ids_properties.homogeneous_time", 1)
 
 
+def _set_magnetics_time(ods: object, target_time: np.ndarray) -> None:
+    target = np.asarray(target_time, dtype=float)
+    if path_exists(ods, "magnetics.time"):
+        existing = np.asarray(get_path(ods, "magnetics.time"), dtype=float)
+        if existing.shape != target.shape or not np.array_equal(existing, target):
+            raise ValueError(
+                "magnetics.time already exists with a different timebase; "
+                "map signals together or use matching tstart/tend/dt settings"
+            )
+        return
+    set_path(ods, "magnetics.time", target)
+
+
 def _populate_flux_loop_static(ods: object) -> None:
     names = _load_names_by_code()
     geometry = _load_static_channels()
@@ -446,14 +459,14 @@ def vfit_mirnov_raw_dynamic(ods: object, shot: int) -> None:
 
 
 def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
-    set_path(ods, "magnetics.time", context.target_time)
+    _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.flux_loops):
         data = _interp_or_zero(context.target_time, context.source_time, values) * 2 * math.pi
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
 
 
 def _map_probes(ods: object, shot: int, context: _MagneticsContext) -> None:
-    set_path(ods, "magnetics.time", context.target_time)
+    _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.probes):
         data = _interp_or_zero(context.target_time, context.source_time, values)
         set_path(ods, f"magnetics.b_field_pol_probe.{index}.field.data", data)
@@ -461,7 +474,7 @@ def _map_probes(ods: object, shot: int, context: _MagneticsContext) -> None:
 
 
 def _map_ip(ods: object, target_time: np.ndarray, ip_time: np.ndarray, ip: np.ndarray) -> None:
-    set_path(ods, "magnetics.time", target_time)
+    _set_magnetics_time(ods, target_time)
     set_path(ods, "magnetics.ip.0.data", _interp_or_zero(target_time, ip_time, ip))
     set_path(ods, "magnetics.ip.0.time", target_time)
 
@@ -615,7 +628,7 @@ def diamagnetic_flux_rogowski_coil_from_raw_database(
     ip_time, ip = vfit_plasma_current(shot)
     target_time = _build_target_time(ip_time, tstart, tend, dt)
     _set_magnetics_properties(ods)
-    set_path(ods, "magnetics.time", target_time)
+    _set_magnetics_time(ods, target_time)
     _map_diamagnetic_flux(ods, shot, target_time, ip_time, ip)
 
 

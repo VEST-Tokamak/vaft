@@ -32,10 +32,9 @@ def _plot_series(axis, time, data, *, label=None, scale=1.0):
         return
     time = np.asarray(time, dtype=float).reshape(-1)
     data = np.asarray(data, dtype=float).reshape(-1)
-    size = min(time.size, data.size)
-    if size == 0:
+    if time.size == 0 or time.size != data.size:
         return
-    axis.plot(time[:size], data[:size] * scale, label=label)
+    axis.plot(time, data * scale, label=label)
 
 
 def _mark_missing(axis):
@@ -52,6 +51,14 @@ def analysis_diagnostics(
     figsize=(16, 14),
 ):
     """Plot a ten-panel overview of available VEST diagnostic signals."""
+    if time_range is None:
+        try:
+            start = float(vaft.omas.find_breakdown_onset(ods))
+            duration = float(vaft.omas.find_pulse_duration(ods))
+            if np.isfinite(start) and np.isfinite(duration) and duration > 0.0:
+                time_range = (start, start + duration)
+        except (KeyError, TypeError, ValueError, IndexError, AttributeError):
+            pass
     fig, axes = plt.subplots(5, 2, figsize=figsize, dpi=150, squeeze=False, sharex=True)
     try:
         shot = vaft.omas.find_shotnumber(ods)

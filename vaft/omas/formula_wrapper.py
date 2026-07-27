@@ -12,6 +12,9 @@ from vaft.process.equilibrium import psi_to_rz, volume_average
 from vaft.process.atomic import (
     compute_line_radiation_power_series,
     find_time_match_index as _find_time_match_index,
+    integrate_emissivity_profile as _integrate_emissivity_profile,
+    _interp_profile_to_target,
+    _sanitize_rho_grid,
 )
 from vaft.formula import magnetic_shear, ballooning_alpha_from_p_B_R
 from vaft.formula.equilibrium import (
@@ -1011,7 +1014,8 @@ def compute_power_balance(
       else (single-species case only) Z_eff-based scalar estimate, else zero.
     - Priority per species: ODS ion profile > impurity_fractions > Z_eff (single species) > 0.
     - Default species/fractions: C and O with n_imp/n_e = 0.01 each.
-    - Atomic-data download, parsing, and interpolation failures are propagated.
+    - Atomic-data download or parsing failures set the affected species'
+      contribution to zero and emit a warning, preserving offline operation.
     - Total radiation used in balance is:
       P_rad = P_rad_line + P_sync + P_Br
       where P_sync is a cyclotron/synchrotron scaling estimate and P_Br is

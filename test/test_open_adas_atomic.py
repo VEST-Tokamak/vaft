@@ -30,7 +30,7 @@ from vaft.process.atomic import (
 def _adf11_text(blocks: list[list[float]]) -> str:
     lines = ["2 2 2 / synthetic", "", "10.0 14.0", "0.0 2.0"]
     for index, values in enumerate(blocks, start=1):
-        lines.append(f"---------------- /IPRT=1/IGRD=1/TYPE=TEST/Z={index}/")
+        lines.append(f"---------------- /IPRT=1/IGRD=1/TYPE=TEST/Z1={index}/")
         lines.append(" ".join(str(value) for value in values))
     return "\n".join(lines) + "\n"
 
@@ -64,7 +64,15 @@ def test_read_adf11_multiline_grids_and_blocks(tmp_path):
     assert table.log_coefficients.shape == (2, 3, 3)
     np.testing.assert_array_equal(table.log_density_cm3, [10.0, 12.0, 14.0])
     np.testing.assert_array_equal(table.log_temperature_eV, [0.0, 1.0, 2.0])
-    np.testing.assert_array_equal(table.charge, [1, 2])
+    np.testing.assert_array_equal(table.z1, [1, 2])
+    for array in (
+        table.log_density_cm3,
+        table.log_temperature_eV,
+        table.log_coefficients,
+        table.z1,
+        table.metastables,
+    ):
+        assert not array.flags.writeable
 
 
 def test_read_adf11_rejects_malformed_file(tmp_path):
@@ -109,6 +117,7 @@ def test_download_failure_is_explicit(tmp_path):
 
 def test_default_files_reject_unknown_species():
     assert default_adf11_files("C")["plt"] == "plt96_c.dat"
+    assert default_adf11_files("T") == default_adf11_files("D")
     with pytest.raises(KeyError, match="No default ADF11 files"):
         default_adf11_files("U")
 
@@ -129,6 +138,29 @@ def test_interpolation_fractional_abundance_and_cooling(tmp_path):
     np.testing.assert_allclose(cooling, (11.0 / 3.0) * 1.0e-26, rtol=1.0e-13)
 
 
+def test_line_cooling_interpolates_plt_density(tmp_path):
+    acd, scd, plt = _write_tables(tmp_path)
+    plt.write_text(
+        _adf11_text([
+            [-20.0, -18.0, -20.0, -18.0],
+            [-19.0, -17.0, -19.0, -17.0],
+        ]),
+        encoding="ascii",
+    )
+    read_adf11.cache_clear()
+
+    cooling = line_cooling_coefficient(
+        "C",
+        np.asarray([1.0e16, 1.0e20]),
+        np.asarray([10.0, 10.0]),
+        acd=acd,
+        scd=scd,
+        plt=plt,
+    )
+
+    assert cooling[1] > 50.0 * cooling[0]
+
+
 def _minimal_ods() -> ODS:
     ods = ODS()
     ods["equilibrium.time_slice.0.time"] = 0.0
@@ -140,7 +172,7 @@ def _minimal_ods() -> ODS:
     return ods
 
 
-def test_process_line_radiation_fallback_volume_and_error_propagation():
+def test_process_line_radiation_fallback_volume_and_offline_degradation(caplog):
     ods = _minimal_ods()
     with patch("vaft.process.atomic.line_cooling_coefficient", return_value=np.asarray([2.0e-31, 2.0e-31])):
         power = compute_line_radiation_power_series(
@@ -157,15 +189,16 @@ def test_process_line_radiation_fallback_volume_and_error_propagation():
         "vaft.process.atomic.line_cooling_coefficient",
         side_effect=ADASDownloadError("offline"),
     ):
-        with pytest.raises(ADASDownloadError, match="offline"):
-            compute_line_radiation_power_series(
-                ods,
-                eq_indices=[0],
-                eq_times=np.asarray([0.0]),
-                volume_series=np.asarray([2.0]),
-                line_radiation_species=["C"],
-                impurity_fractions={"C": 0.01},
-            )
+        power = compute_line_radiation_power_series(
+            ods,
+            eq_indices=[0],
+            eq_times=np.asarray([0.0]),
+            volume_series=np.asarray([2.0]),
+            line_radiation_species=["C"],
+            impurity_fractions={"C": 0.01},
+        )
+    np.testing.assert_array_equal(power, [0.0])
+    assert "line radiation is zero" in caplog.text
 
 
 def test_atomic_inputs_must_be_finite_and_positive(tmp_path):

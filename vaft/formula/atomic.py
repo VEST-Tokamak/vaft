@@ -153,30 +153,6 @@ def fractional_abundances(
     return relative / normalizer
 
 
-def _interpolate_temperature_only(table: ADF11Data, te_eV) -> np.ndarray:
-    r"""Interpolate a density-independent ADF11 table in log-temperature.
-
-    Unresolved PLT tables are evaluated on their first density column using
-    :math:`C_z(T_e)=10^{\mathcal{I}_1[\log_{10}C_z]}`.
-    """
-
-    te = np.asarray(te_eV, dtype=float)
-    if te.size == 0 or not np.all(np.isfinite(te)) or np.any(te <= 0.0):
-        raise ValueError("Electron temperature must contain only finite positive values in eV")
-    log_te = np.log10(te).reshape(-1)
-    values = np.empty((log_te.size, table.n_charge_states), dtype=float)
-    for index, block in enumerate(table.log_coefficients):
-        interpolation = RegularGridInterpolator(
-            (table.log_temperature_eV,),
-            block[:, 0],
-            method="linear",
-            bounds_error=False,
-            fill_value=None,
-        )
-        values[:, index] = np.power(10.0, interpolation(log_te[:, None]))
-    return values.reshape(te.shape + (table.n_charge_states,))
-
-
 def _resolve_source(
     source: ADF11Source | None,
     file_type: str,
@@ -207,7 +183,8 @@ def line_cooling_coefficient(
     .. math::
 
         L_{z,\mathrm{line}}(n_e,T_e)
-        = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e,T_e)P^{\mathrm{PLT}}_q(T_e).
+        = 10^{-6}\sum_{q=0}^{Z-1}
+          f_q(n_e,T_e)P^{\mathrm{PLT}}_q(n_e,T_e).
 
     ADF11 PLT coefficients are stored in W cm^3, hence the factor
     :math:`10^{-6}` converts the result to W m^3. The fully stripped state has
@@ -230,10 +207,7 @@ def line_cooling_coefficient(
     plt_table = _resolve_source(plt, "plt", filenames, cache_dir)
 
     fractions = fractional_abundances(ne_m3, te_eV, acd_table, scd_table)
-    # Unresolved PLT data are treated as density independent, matching the
-    # established OPEN-ADAS cooling-factor calculation.
-    _, te, _ = _validated_profiles(ne_m3, te_eV)
-    line_power_cm3 = _interpolate_temperature_only(plt_table, te)
+    line_power_cm3 = interpolate_adf11(plt_table, ne_m3, te_eV)
     if line_power_cm3.shape[-1] + 1 != fractions.shape[-1]:
         raise ValueError(
             "PLT and equilibrium tables contain incompatible charge-state counts: "

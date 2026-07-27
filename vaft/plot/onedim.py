@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import re
+import warnings
 from omas import ODS, ODC
 from .utils import extract_labels_from_odc
 from vaft.omas import odc_or_ods_check
@@ -253,15 +254,15 @@ def plot_onedim_profile(odc_or_ods, data_path, ylabel, coordinate='rho_tor_norm'
             failures.append(f"{key}: {exc}")
 
     if plotted == 0:
-        plt.close(fig)
         details = "; ".join(failures) if failures else "no ODS entries"
-        raise ValueError(f"No plottable 1D profile data: {details}")
+        warnings.warn(f"No plottable 1D profile data: {details}", RuntimeWarning, stacklevel=2)
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(f"{ylabel} [{yunit}]" if yunit else ylabel)
     ax.set_title(ylabel)
     ax.grid(True)
-    ax.legend()
+    if plotted:
+        ax.legend()
     fig.tight_layout()
     if show:
         plt.show()

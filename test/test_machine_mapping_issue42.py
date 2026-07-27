@@ -13,6 +13,7 @@ from vaft.machine_mapping import (
     ip_rogowski_coil_from_raw_database,
 )
 from vaft.machine_mapping.magnetics import vfit_magnetics_dynamic
+from vaft.data.eqdsk import infer_source_shot_time
 
 
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data" / "efit"
@@ -29,6 +30,20 @@ def test_equilibrium_merges_and_sorts_gfiles():
     assert len(ods["equilibrium.time_slice"]) == 3
     assert ods["dataset_description.data_entry.pulse"] == 40330
     assert ods["equilibrium.ids_properties.homogeneous_time"] == 1
+
+
+def test_equilibrium_prefers_header_time_for_high_resolution_vfit_name():
+    shot, time = infer_source_shot_time(DATA / "g039020.031180")
+    assert shot == 39020
+    assert time == pytest.approx(0.3118)
+
+
+def test_equilibrium_rejects_out_of_order_append():
+    ods = ODS()
+    equilibrium(ods, [DATA / "g039915.00319"])
+    with pytest.raises(ValueError, match="chronological order"):
+        equilibrium(ods, [DATA / "g039915.00317"])
+    np.testing.assert_allclose(ods["equilibrium.time"], [0.319])
 
 
 def test_equilibrium_validates_inputs_and_supports_replace(tmp_path):
@@ -80,6 +95,21 @@ def test_ip_rogowski_mapper_only_adds_ip(mock_ip):
     ip_rogowski_coil_from_raw_database(payload, 41672, dt=0.01)
     assert "ip" in payload["magnetics"]
     assert "diamagnetic_flux" not in payload["magnetics"]
+
+
+@patch("vaft.machine_mapping.magnetics.vfit_plasma_current")
+@patch("vaft.machine_mapping.magnetics.vfit_md", side_effect=_fake_md)
+def test_split_magnetics_mappers_reject_incompatible_shared_time(mock_md, mock_ip):
+    del mock_md
+    mock_ip.return_value = (
+        np.array([0.27, 0.32, 0.37]),
+        np.array([0.0, 10.0, 0.0]),
+    )
+    payload = {}
+    flux_loop_from_raw_database(payload, 41672, dt=0.0)
+    with pytest.raises(ValueError, match="different timebase"):
+        ip_rogowski_coil_from_raw_database(payload, 41672, dt=0.0)
+    np.testing.assert_allclose(payload["magnetics"]["time"], [0.26, 0.31, 0.36])
 
 
 @patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None)

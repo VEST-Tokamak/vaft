@@ -94,8 +94,15 @@ def equilibrium(
     start_index = _existing_slice_count(ods)
     existing_times = _existing_times(ods)
     new_times = np.asarray([entry[0] for entry in entries], dtype=float)
+    if existing_times.size > 1 and np.any(np.diff(existing_times) <= 0.0):
+        raise ValueError("Existing equilibrium times must be strictly increasing")
     if existing_times.size and np.intersect1d(existing_times, new_times).size:
         raise ValueError("New equilibrium times overlap existing time slices")
+    if existing_times.size and new_times[0] < existing_times[-1]:
+        raise ValueError(
+            "New equilibrium times precede existing time slices; use options['replace'] "
+            "or append files in chronological order"
+        )
 
     allow_derived_data = bool(options.get("allow_derived_data", True))
     for offset, (time, _path, geqdsk, _shot) in enumerate(entries):

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Mapping
 from urllib.error import HTTPError, URLError
@@ -43,7 +44,7 @@ class ADF11Data:
     log_density_cm3: np.ndarray
     log_temperature_eV: np.ndarray
     log_coefficients: np.ndarray
-    charge: np.ndarray
+    z1: np.ndarray
     metastables: np.ndarray
 
     @property
@@ -54,6 +55,7 @@ class ADF11Data:
 _DEFAULT_FILES: Mapping[str, Mapping[str, str]] = {
     "H": {"acd": "acd12_h.dat", "scd": "scd12_h.dat", "plt": "plt12_h.dat"},
     "D": {"acd": "acd12_h.dat", "scd": "scd12_h.dat", "plt": "plt12_h.dat"},
+    "T": {"acd": "acd12_h.dat", "scd": "scd12_h.dat", "plt": "plt12_h.dat"},
     "He": {"acd": "acd96_he.dat", "scd": "scd96_he.dat", "plt": "plt96_he.dat"},
     "Li": {"acd": "acd96_li.dat", "scd": "scd96_li.dat", "plt": "plt96_li.dat"},
     "Be": {"acd": "acd96_be.dat", "scd": "scd96_be.dat", "plt": "plt96_be.dat"},
@@ -228,7 +230,7 @@ def read_adf11(path: str | os.PathLike[str]) -> ADF11Data:
     temperature, cursor = _numbers(lines, cursor, n_temperature, "temperature grid")
 
     blocks: list[np.ndarray] = []
-    charges: list[int] = []
+    z1_values: list[int] = []
     for block in range(n_blocks):
         while cursor < len(lines) and not lines[cursor].strip():
             cursor += 1
@@ -236,16 +238,13 @@ def read_adf11(path: str | os.PathLike[str]) -> ADF11Data:
             raise ADF11FormatError(f"Missing subheader for coefficient block {block + 1}")
         subheader = lines[cursor]
         cursor += 1
-        charge = block + 1
-        for part in subheader.replace("-", " ").split("/"):
-            if "Z=" in part.upper():
-                try:
-                    charge = int(part.split("=", 1)[1].split()[0])
-                except (ValueError, IndexError):
-                    pass
+        z1 = block + 1
+        z1_match = re.search(r"\bZ1\s*=\s*(\d+)", subheader, re.IGNORECASE)
+        if z1_match is not None:
+            z1 = int(z1_match.group(1))
         raw, cursor = _numbers(lines, cursor, n_density * n_temperature, f"coefficient block {block + 1}")
         blocks.append(np.asarray(raw, dtype=float).reshape(n_temperature, n_density))
-        charges.append(charge)
+        z1_values.append(z1)
 
     density_array = np.asarray(density, dtype=float)
     temperature_array = np.asarray(temperature, dtype=float)
@@ -259,13 +258,17 @@ def read_adf11(path: str | os.PathLike[str]) -> ADF11Data:
     ):
         raise ADF11FormatError(f"ADF11 grids and coefficients must be finite with increasing grids: {source}")
 
+    z1_array = np.asarray(z1_values, dtype=int)
+    for array in (density_array, temperature_array, coefficients, z1_array, metastables):
+        array.setflags(write=False)
+
     return ADF11Data(
         path=source,
         file_type=source.name[:3].lower(),
         log_density_cm3=density_array,
         log_temperature_eV=temperature_array,
         log_coefficients=coefficients,
-        charge=np.asarray(charges, dtype=int),
+        z1=z1_array,
         metastables=metastables,
     )
 

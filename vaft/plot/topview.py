@@ -11,10 +11,9 @@ def _render_topview(ods, method_name, *, time_index=None, time=None, ax=None, sh
     else:
         fig = ax.figure
         kwargs.pop("figsize", None)
-    result = getattr(ods, method_name)(time_index=time_index, time=time, ax=ax, **kwargs)
-    if isinstance(result, dict) and result.get("ax") is not None:
-        ax = result["ax"]
-        fig = ax.figure
+    # The supplied axis is authoritative. OMAS renderers return inconsistent
+    # metadata here: some return one Axes and others a mapping of named axes.
+    getattr(ods, method_name)(time_index=time_index, time=time, ax=ax, **kwargs)
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")

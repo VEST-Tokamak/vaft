@@ -39,14 +39,17 @@ def test_plot_onedim_profile_uses_selected_equilibrium_slice():
     plt.close(fig)
 
 
-def test_plot_onedim_profile_raises_instead_of_returning_empty_figure():
-    with pytest.raises(ValueError, match="No plottable"):
-        plot_onedim_profile(
+def test_plot_onedim_profile_warns_and_returns_labelled_empty_figure():
+    with pytest.warns(RuntimeWarning, match="No plottable"):
+        fig, ax = plot_onedim_profile(
             ODS(),
             "equilibrium.time_slice.0.profiles_1d.pressure",
             "Pressure",
             show=False,
         )
+    assert not ax.lines
+    assert ax.get_title() == "Pressure"
+    plt.close(fig)
 
 
 def test_plot_onedim_profile_uses_core_profile_grid():
@@ -74,6 +77,13 @@ class _TopviewODS(dict):
     plot_pellets_trajectory_CX_topview = plot_equilibrium_CX_topview
 
 
+class _MultiAxesTopviewODS(_TopviewODS):
+    def plot_ec_launchers_CX_topview(self, *, time_index=None, time=None, ax=None, **kwargs):
+        del time_index, time, kwargs
+        ax.plot([0.0, 1.0], [1.0, 0.0])
+        return {"stime": (), "ax": {"launcher": ax}}
+
+
 def test_topview_wrapper_and_composite_delegate_to_omas_renderer():
     ods = _TopviewODS(equilibrium={})
     fig, ax = equilibrium_CX_topview(ods, show=False)
@@ -82,4 +92,30 @@ def test_topview_wrapper_and_composite_delegate_to_omas_renderer():
 
     fig, ax = plot_topview(ods, show=False)
     assert len(ax.lines) == 1
+    plt.close(fig)
+
+
+def test_topview_preserves_axis_when_renderer_returns_axes_mapping():
+    ods = _MultiAxesTopviewODS(ec_launchers={})
+    fig, supplied_ax = plt.subplots()
+    returned_fig, returned_ax = plot_topview(ods, ax=supplied_ax, show=False)
+    assert returned_fig is fig
+    assert returned_ax is supplied_ax
+    assert len(returned_ax.lines) == 1
+    plt.close(fig)
+
+
+def test_analysis_diagnostics_skips_mismatched_series_and_uses_plasma_window(monkeypatch):
+    ods = ODS(consistency_check=False)
+    ods["dataset_description.data_entry.pulse"] = 42
+    ods["magnetics.time"] = np.array([0.0, 0.1, 0.2])
+    ods["magnetics.ip.0.data"] = np.array([0.0, 1000.0])
+    monkeypatch.setattr("vaft.omas.find_breakdown_onset", lambda _ods: 0.05)
+    monkeypatch.setattr("vaft.omas.find_pulse_duration", lambda _ods: 0.1)
+
+    fig, axes = analysis_diagnostics(ods, show=False)
+
+    assert not axes[0, 0].lines
+    assert axes[0, 0].texts[0].get_text() == "Data unavailable"
+    np.testing.assert_allclose(axes[0, 0].get_xlim(), [0.05, 0.15])
     plt.close(fig)

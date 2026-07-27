@@ -299,6 +299,26 @@ def _scalar(value: Any, default: float = 0.0) -> float:
 # EFIT ``g<shot>.<time_ms>`` naming, e.g. ``g039915.00319``.  Shared with
 # ``vaft.machine_mapping.equilibrium`` so both infer shot and time identically.
 GFILE_NAME_PATTERN = re.compile(r"[a-zA-Z](?P<shot>\d+)\.(?P<time>\d+)?")
+GFILE_HEADER_PATTERN = re.compile(
+    r"#\s*(?P<shot>\d+)\s+(?P<time>\d+(?:\.\d+)?)\s*(?P<unit>ms)?\b",
+    re.IGNORECASE,
+)
+
+
+def _header_shot_time(source: Path) -> tuple[int, Optional[float]]:
+    try:
+        with source.open(encoding="ascii", errors="ignore") as stream:
+            header = stream.readline()
+    except OSError:
+        return 0, None
+    match = GFILE_HEADER_PATTERN.search(header)
+    if match is None:
+        return 0, None
+    raw_time = float(match.group("time"))
+    # EFIT headers commonly use integer milliseconds with an explicit "ms".
+    # VFIT headers in this repository use 10-microsecond ticks without a unit.
+    scale = 1.0e-3 if match.group("unit") else (1.0e-5 if raw_time >= 1000 else 1.0e-3)
+    return int(match.group("shot")), raw_time * scale
 
 
 def infer_source_shot_time(source: Optional[Path]) -> tuple[int, Optional[float]]:
@@ -309,7 +329,11 @@ def infer_source_shot_time(source: Optional[Path]) -> tuple[int, Optional[float]
     """
     if source is None:
         return 0, None
-    match = GFILE_NAME_PATTERN.match(Path(source).name)
+    path = Path(source)
+    header_shot, header_time = _header_shot_time(path)
+    if header_time is not None:
+        return header_shot, header_time
+    match = GFILE_NAME_PATTERN.match(path.name)
     if match is None:
         return 0, None
     time = match.group("time")

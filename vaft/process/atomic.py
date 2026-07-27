@@ -18,6 +18,7 @@ from omas import ODS
 from scipy.interpolate import interp1d
 
 from vaft.compat import trapz_compat
+from vaft.data.open_adas import ADASDataError
 from vaft.formula.atomic import line_cooling_coefficient
 
 
@@ -296,13 +297,12 @@ def compute_line_radiation_power_series(
     ------
     ValueError
         If array lengths, species labels, or impurity fractions are invalid.
-    ADASDataError
-        Propagated when atomic data cannot be resolved or evaluated.
-
     Notes
     -----
     Missing kinetic profiles or unmatched time slices produce zero for those
-    slices. Atomic-data failures are deliberately not converted to zero.
+    slices. Atomic-data lookup or parsing failures produce zero for the
+    affected species and emit a warning, preserving offline power-balance
+    behavior.
     """
 
     eq_indices = list(eq_indices)
@@ -352,6 +352,7 @@ def compute_line_radiation_power_series(
         return result
 
     warned_zero_fraction: set[str] = set()
+    unavailable_species: set[str] = set()
     for output_index, eq_index in enumerate(eq_indices):
         profile_index = find_time_match_index(profile_times, float(eq_times[output_index]))
         if profile_index is None:
@@ -393,6 +394,8 @@ def compute_line_radiation_power_series(
         total_volume = float(volume_series[output_index])
         slice_power = 0.0
         for species in species_list:
+            if species in unavailable_species:
+                continue
             fraction_profile = _impurity_fraction_profile(cp_slice, rho_cp, rho_target, ne, species)
             if fraction_profile is None:
                 fraction = fraction_map.get(species)
@@ -409,9 +412,18 @@ def compute_line_radiation_power_series(
                 continue
 
             coefficients = np.zeros_like(ne, dtype=float)
-            coefficients[finite] = np.asarray(
-                line_cooling_coefficient(species, ne[finite], te[finite]), dtype=float
-            ).reshape(-1)
+            try:
+                coefficients[finite] = np.asarray(
+                    line_cooling_coefficient(species, ne[finite], te[finite]), dtype=float
+                ).reshape(-1)
+            except ADASDataError as exc:
+                logger.warning(
+                    "OPEN-ADAS data unavailable for %s; its line radiation is zero: %s",
+                    species,
+                    exc,
+                )
+                unavailable_species.add(species)
+                continue
             impurity_density = fraction_profile * ne
             emissivity = np.where(
                 finite,
