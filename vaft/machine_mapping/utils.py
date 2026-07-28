@@ -163,10 +163,25 @@ def get_path(ods: Any, path: str) -> Any:
 
 
 def path_exists(ods: Any, path: str) -> bool:
-    """Return whether a dotted path can be resolved from a dict or ODS object."""
+    """Return whether a dotted path resolves to actual content.
+
+    On an OMAS ODS with dynamic path creation, reading a missing path returns
+    an EMPTY branch instead of raising, so a naive try/except reports every
+    path as existing. That made every ``path_exists`` guard a no-op on ODS
+    inputs -- e.g. dead b-probe channels (48xxx campaign probes 65-68, stored
+    with ``field: null``) sailed through the constraints validity filter and
+    crashed EFIT input generation with ``float * ODS``. An empty ODS branch
+    therefore counts as non-existent.
+    """
     try:
-        get_path(ods, path)
-    except (KeyError, IndexError, TypeError, ValueError):
+        value = get_path(ods, path)
+    except (KeyError, IndexError, TypeError, ValueError, LookupError):
+        return False
+    try:
+        from omas import ODS
+    except ImportError:
+        return True
+    if isinstance(value, ODS) and len(value) == 0:
         return False
     return True
 
