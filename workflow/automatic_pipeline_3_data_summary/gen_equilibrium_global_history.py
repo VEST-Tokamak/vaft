@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import vaft
-from vaft.database import ods as db_ods
+from vaft import database
 
 
 logging.basicConfig(
@@ -86,7 +86,7 @@ REQUIRED_COLUMNS_FOR_REPAIR = [
 
 def get_all_processed_shots() -> List[int]:
     """Return all shot numbers listed in processed_shots index."""
-    df = db_ods.exist_ts_file()
+    df = database.exist_shot(data_filter="ts")
     if df is None or len(df) == 0:
         logger.warning("No processed shots found from exist_ts_file().")
         return []
@@ -453,7 +453,7 @@ def generate_equilibrium_global_history_excel(
 
     for shot in tqdm(target_shots, desc="Processing shots"):
         try:
-            ods = db_ods.load(int(shot), directory=directory)
+            ods = database.load(int(shot), source=directory)
             shot_rows = extract_equilibrium_global_rows(ods, int(shot))
             if not shot_rows:
                 logger.warning("Shot %s: no rows extracted, keeping existing rows.", shot)

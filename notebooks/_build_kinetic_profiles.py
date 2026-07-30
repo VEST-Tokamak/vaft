@@ -105,7 +105,7 @@ def build(shot: int, time_ms: int, outdir: Path, args) -> dict:
         if out_nc.exists():
             out_nc.unlink()
         # a plain *.nc path URI selects the imas-python netCDF backend
-        vaft.imas.save_omas_imas(ods, uri=str(out_nc), new=True, verbose=False)
+        vaft.imas.save(ods, out_nc)
     except Exception as exc:
         print(f"[WARN] IMAS netCDF export skipped for {shot}@{time_ms}ms: {exc}")
 

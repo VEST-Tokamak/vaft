@@ -104,3 +104,8 @@ vaft = [
 imas_core = [
   { git = "https://github.com/iterorganization/IMAS-Core", tag = "5.6.0" }
 ]
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: explicit read-only HSDS or IMAS integration test",
+]

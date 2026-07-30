@@ -23,6 +23,10 @@ import urllib3
 PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
 
 
+def _require_h5pyd() -> None:
+    """Compatibility guard for HSDS modules; h5pyd is a core dependency."""
+
+
 def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Path]) -> None:
     """Repair an IMAS HDF5 image downloaded from HSDS so IMAS-Core can open it.
 

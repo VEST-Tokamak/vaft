@@ -119,6 +119,61 @@ time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
 
+`load` is the eager path for complete ODS exports and workflows that need a
+local IMAS staging set. Without `paths` it stages the complete shot; with
+`paths=["equilibrium"]` it stages only that IDS plus `dataset_description` and
+uses a validated local domain cache by default. For exploratory access to
+selected leaves, use the direct lazy path, which opens only the requested IDS
+domain and transfers only the dataset selections that are read:
+
+When byte-exact per-IDS images are available, eager loads use them by default
+to avoid the many requests made by `hsget`. Use `transport="canonical"` to
+bypass derived images or `transport="h5image"` to require them. Direct lazy
+`open()` always keeps canonical selection-based access.
+
+```python
+with vaft.database.open(39915, source="public", paths="equilibrium") as ods:
+    psi = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
+```
+
+The lazy API supports occurrence 0 in this first version. Native IDS use the
+explicit remote representation:
+
+```python
+equilibrium = vaft.database.load(
+    39915, source="public", representation="imas", paths="equilibrium"
+)
+```
+
+Remote saves keep canonical IMAS images authoritative and can publish derived
+caches alongside them. `derived_cache="auto"` creates per-IDS images; the
+historical full-ODS cache remains readable but is only created explicitly. The choices are
+`"none"`, `"imas-images"`, `"omas"`, and `"both"`.
+
+For experimental native lazy access without a local staging directory, open an
+IMAS handle. It returns a read-only, lazy `IDSToplevel`; each requested leaf is
+read directly from the corresponding HSDS IDS domain. This first version
+supports occurrence 0 and an exact stored IMAS DD version.
+
+```python
+with vaft.database.open(
+    39915, source="public", representation="imas", paths="equilibrium"
+) as handle:
+    psi = handle.get().time_slice[0].profiles_2d[0].psi
+```
+
+Local artifacts are deliberately separate from the HSDS API. They are
+content-detected rather than selected by a format flag:
+
+```python
+ods = vaft.omas.load("./shot/master.h5")
+with vaft.imas.load("./equilibrium.nc") as entry:
+    equilibrium = entry.get("equilibrium")
+```
+
+See the [HSDS lazy and per-IDS h5image report](docs/hsds_lazy_h5image_report.md)
+for the architecture, cache policy, and shot 39915 benchmark results.
+
 ### Profile Fitting
 
 ```python
@@ -132,9 +187,9 @@ vaft.process.profile_fitting_thomson_scattering(
 ### IMAS Conversion
 
 ```python
-# Convert OMAS ODS ↔ IMAS-Python data entry
-from vaft.imas import omas_imas
-omas_imas.save_omas_imas(ods, pulse=39915, run=0)
+# Write an OMAS ODS as an IMAS HDF5 image set or a native IMAS NetCDF file
+vaft.imas.save(ods, "./shot")
+vaft.imas.save(ods, "./shot.nc")
 ```
 
 ## Library Modules
