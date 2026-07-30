@@ -243,6 +243,35 @@ def compute_response_vector(
         plasma_points=plasma_points
     )
 
+def compute_mutual_passive_active(
+    passive_loop_geometry: List[Tuple[str, float, float, float]],
+    coil_geometry: List[List[Tuple[float, float, int]]],
+) -> np.ndarray:
+    """Compute passive-to-active mutual inductance from the current geometry.
+
+    The packaged ``em_coupling.mutual_passive_active`` matrix represents the
+    historical VEST coil geometry.  Newer shots can use a different active-coil
+    geometry, so callers need a geometry-derived fallback when the packaged
+    matrix is not compatible.
+    """
+    coupling = np.zeros((len(passive_loop_geometry), len(coil_geometry)))
+
+    for i_loop, (_, r_loop, z_loop, coefficient) in enumerate(
+        passive_loop_geometry
+    ):
+        for i_coil, elements in enumerate(coil_geometry):
+            if not elements:
+                raise ValueError(f"active coil {i_coil} has no geometry elements")
+            total_turns = sum(element[2] for element in elements)
+            mean_response = sum(
+                green_r(r_loop, z_loop, r_coil, z_coil)
+                for r_coil, z_coil, _ in elements
+            ) / len(elements)
+            coupling[i_loop, i_coil] = coefficient * total_turns * mean_response
+
+    return coupling
+
+
 def compute_impedance_matrices(
     loop_resistances: np.ndarray,
     passive_loop_geometry: List[Tuple[str, float, float, float]],  
@@ -262,8 +291,9 @@ def compute_impedance_matrices(
            - average_r (float),
            - average_z (float),
            - geometry_coef (float)  # e.g. 1.0 or 1.04 ...
-    :param coil_geometry: retained for API compatibility. Active-coil coupling
-        is read from ``mutual_pa`` rather than recomputed from this geometry.
+    :param coil_geometry: active-coil geometry. When provided, its coupling is
+        compared with ``mutual_pa`` and used if the packaged matrix represents
+        a different geometry. ``None`` requires and uses ``mutual_pa`` directly.
     :param mutual_pp: mutual_passive_passive matrix from external (shape = (nbloop, nbloop)).
     :param mutual_pa: mutual_passive_active matrix from external (shape = (nbloop, nbcoil)).
     :param plasma_rz: list of (r, z) for each plasma current element (optional).
@@ -302,11 +332,28 @@ def compute_impedance_matrices(
     # M is the standard passive-to-passive coupling from em_coupling.
     M_mat = mutual_pp
 
-    # The active-coil portion of L is the standard passive-to-active coupling
-    # from em_coupling. Plasma filaments are transient VAFT solver inputs; until
-    # they are represented by pf_plasma.element URIs, compute only that portion.
+    active_coupling = mutual_pa
+    if coil_geometry is not None:
+        geometry_coupling = compute_mutual_passive_active(
+            passive_loop_geometry,
+            coil_geometry,
+        )
+        # The packaged reference agrees with the historical geometry to
+        # floating-point precision. Newer VEST geometries (notably PF6/PF7 in
+        # the 2507 configuration) differ materially and must use the geometry
+        # calculation until versioned em_coupling matrices are available.
+        if not np.allclose(
+            geometry_coupling,
+            mutual_pa,
+            rtol=1e-10,
+            atol=1e-15,
+        ):
+            active_coupling = geometry_coupling
+
+    # Plasma filaments are transient VAFT solver inputs; until they are
+    # represented by pf_plasma.element URIs, compute only that portion here.
     if nbplas == 0:
-        L_mat = mutual_pa
+        L_mat = active_coupling
     else:
         plasma_coupling = np.zeros((nbloop, nbplas))
         for i_loop, (loop_name, r1, z1, coef) in enumerate(passive_loop_geometry):
@@ -314,7 +361,7 @@ def compute_impedance_matrices(
                 plasma_coupling[i_loop, j_plasma] = (
                     coef * green_r(r1, z1, rp, zp)
                 )
-        L_mat = np.hstack((mutual_pa, plasma_coupling))
+        L_mat = np.hstack((active_coupling, plasma_coupling))
 
     return R_mat, L_mat, M_mat
 

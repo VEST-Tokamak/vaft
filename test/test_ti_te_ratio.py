@@ -141,6 +141,20 @@ def test_core_profiles_ratio_ignored_with_real_ion_fit():
     )
 
 
+@pytest.mark.parametrize("ratio", [-0.1, np.nan, np.inf])
+def test_core_profiles_rejects_invalid_ratio(ratio):
+    ods, psi_n_ch = _make_ts_only_ods()
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        core_profiles(
+            ods,
+            300.0,
+            psi_n_ch,
+            _ne,
+            _te,
+            ti_te_ratio=ratio,
+        )
+
+
 # --------------------------------------------------------------------------- #
 # kineticEfit: Thomson-only pressure points (statistical fallback)
 # --------------------------------------------------------------------------- #
@@ -235,6 +249,36 @@ def test_ts_only_custom_ratio_and_sigma():
 def test_ts_only_bad_ratio_string_rejected():
     with pytest.raises(ValueError):
         km._resolve_ti_te_ratio("bogus")
+
+
+@pytest.mark.parametrize(
+    "ratio,sigma",
+    [
+        (-0.1, 0.1),
+        (np.nan, 0.1),
+        (np.inf, 0.1),
+        (0.2, -0.1),
+        (0.2, np.nan),
+    ],
+)
+def test_ts_only_invalid_ratio_or_sigma_rejected(ratio, sigma):
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        km._resolve_ti_te_ratio(ratio, sigma)
+
+
+def test_ts_only_invalid_uncertainties_use_finite_fallbacks():
+    ods = _make_ts_only_raw_ods()
+    ods["thomson_scattering"]["channel"][0]["n_e"]["data_error_upper"][1] = np.nan
+    ods["thomson_scattering"]["channel"][0]["t_e"]["data_error_upper"][1] = 0.0
+
+    R, ne, Te, sne, sTe, *_ = km._raw_ne_te_ti(ods, 300.0, None)
+    assert R.size == 2
+    assert sne[0] == pytest.approx(0.1 * ne[0])
+    assert sTe[0] == pytest.approx(0.1 * Te[0])
+
+    points = km.kinetic_pressure_points(ods, 300.0, None, encoding="raw5")
+    assert np.all(np.isfinite(points.sigpre))
+    assert np.all(np.asarray(points.sigpre) > 0.0)
 
 
 def test_fallback_not_used_when_ion_data_present():

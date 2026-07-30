@@ -320,6 +320,7 @@ def main():
 
 
                     chease_dir = os.path.join(PUBLIC_BASE, f"{shotnumber}/chease")
+                    fitted = False
                     if os.path.exists(chease_dir):
                         try:
                             fitted = fit_thomson_profile_auto_all_times(ods, shotnumber)
