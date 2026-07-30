@@ -59,18 +59,10 @@ def strip_electron_only_pressure(ods):
 
 def extract_shotnumber_of_thomson_scattering(fname: str):
     """
-    Extract shotnumber from a Thomson-scattering filename.
-
-    Supported layouts (all styles present in /srv/vest.diagnostic):
-    - 'Shot40330_v10.mat', 'NeTe_Shot48223_v9_rev.mat'  -> ...Shot<shot>...
-    - '40330_NeTe.mat'                                   -> <shot>_...
-    - 'NeTe_48223.mat'                                   -> NeTe_<shot>
-
-    The ``Shot`` pattern is tried FIRST so that 'NeTe_Shot48223_v9.mat' resolves
-    via the shot tag rather than being mis-parsed by the trailing-number rule.
-
-    Returns None when the name matches no known layout, so callers can log and
-    skip the file instead of silently dropping it.
+    Extract shotnumber from filename.
+    Supports both:
+    - 'Shot40330_v10.mat'
+    - '40330_NeTe.mat'
     """
     match1 = re.search(r"Shot(\d+)", fname, re.IGNORECASE)
     if match1:
@@ -79,14 +71,7 @@ def extract_shotnumber_of_thomson_scattering(fname: str):
     match2 = re.match(r"^(\d+)_", fname)
     if match2:
         return int(match2.group(1))
-
-    # 'NeTe_<shot>.mat' -- the layout used from the 48xxx campaign onward. Without
-    # this the whole batch was skipped silently (shots 48222-48234 never reached
-    # the database), mirroring the '^IDS[_-](\d+)' rule the CES updater already has.
-    match3 = re.match(r"^NeTe[_-](\d+)", fname, re.IGNORECASE)
-    if match3:
-        return int(match3.group(1))
-
+    
     return None
 
 PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
@@ -168,15 +153,19 @@ CHECK_INTERVAL = 10
 
 def update_thomson_auto(filepath):
     filename = os.path.basename(filepath)
-    # Use the shared extractor rather than a second, divergent parser: the old
-    # inline `int(filename.split("_")[0])` raised ValueError on 'NeTe_<shot>.mat'
-    # (int("NeTe")), and returning None here makes the caller's tuple unpacking
-    # fail with a confusing TypeError.
-    shotnumber = extract_shotnumber_of_thomson_scattering(filename)
-    if shotnumber is None:
-        print(f"[ERROR] Could not parse shot number from {filename}")
+    try:
+
+        if "Shot" in filename:
+            # e.g. NeTe_Shot39915_v9_rev.mat → 39915
+            shotnumber = int(filename.split("Shot")[1].split("_")[0])
+        else:
+            # e.g. 46051_NeTe.mat → 46051
+            shotnumber = int(filename.split("_")[0])        
+        
+        print(f"[INFO] Processing shot: {shotnumber}")
+    except Exception as e:
+        print(f"[ERROR] Could not parse shot number from {filename}: {e}")
         return None
-    print(f"[INFO] Processing shot: {shotnumber}")
 
     try:
         ods = database.load(shotnumber, source="public")
@@ -259,11 +248,6 @@ WATCH_DIAG = "/srv/vest.diagnostic"
 PUBLIC_BASE = "/srv/vest.filedb/public"
 CHECK_INTERVAL = 10  # seconds
 
-#: Filenames already reported as unparseable, so the polling loop warns once
-#: per file instead of on every pass.
-_unparsed_reported = set()
-
-
 def main():
     processed_shots = load_processed_shots()
 
@@ -281,14 +265,8 @@ def main():
                     try:
                         shotnumber = extract_shotnumber_of_thomson_scattering(fname)
                         if shotnumber is None:
-                            # Log it: an unrecognised layout previously dropped whole
-                            # campaigns without a trace (see the NeTe_<shot> case).
-                            if fname not in _unparsed_reported:
-                                _unparsed_reported.add(fname)
-                                print(f"[WARNING] no shot number in filename, skipped: {fname}")
                             continue
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"[WARNING] could not parse filename {fname}: {exc}")
+                    except Exception:
                         continue
                     mtime = datetime.fromtimestamp(os.path.getmtime(full_path)).isoformat()
                     prev_info = processed_shots.get(shotnumber)

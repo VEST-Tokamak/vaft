@@ -34,14 +34,6 @@ Design rules honoured here:
   :func:`collect_efit_outputs`; it does the descending PLASMA-scale sweep and
   keeps the *largest* converging scale.  When the EFIT executable cannot be
   resolved it returns a ``status='skipped'`` result instead of raising.
-* Thomson-only shots (no IDS/charge_exchange ion data) fall back to the
-  statistical ``Ti = TI_TE_RATIO_VEST * Te``
-  (:data:`vaft.process.profile.TI_TE_RATIO_VEST`, fitted on the shots that
-  carry both diagnostics), so the kinetic pressure becomes
-  ``p = e*ne*(1+ratio)*Te`` with the ratio scatter propagated into SIGPRE.
-  Control it via ``ti_te_ratio`` (``'auto'`` default / float / ``None`` =
-  strict) on :func:`kinetic_pressure_points`,
-  :func:`build_kinetic_core_profiles` and :class:`KineticEFITConfig`.
 
 Heavy / cyclic dependencies (omas, vaft.process.profile, vaft.code.efit,
 vaft.code.chease) are imported lazily inside the functions that need them.
@@ -83,35 +75,6 @@ SPLINE_SIG_FRAC = 0.15   # SIGPRE = SIG_FRAC * p_kin(axis), constant in Pa
 
 #: Descending PLASMA-scale sweep; first (largest) converging scale wins.
 DEFAULT_SCALES = (1.0, 0.94, 0.90, 0.85, 0.80, 0.75, 0.70, 0.60, 0.50, 0.40)
-
-
-def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None):
-    """Resolve the statistical Ti/Te fallback coefficient to (ratio, sigma).
-
-    ``'auto'`` / ``'vest'`` -> :data:`vaft.process.profile.TI_TE_RATIO_VEST`
-    (fitted on the VEST shots that carry BOTH Thomson and IDS/charge_exchange
-    profiles; see ``vaft.process.profile.fit_ti_te_ratio`` for provenance and
-    the estimator). A float is used as-is. ``ti_te_ratio_sigma=None`` falls
-    back to ``TI_TE_RATIO_VEST_SIGMA`` (the slice-to-slice scatter).
-
-    vaft.process.profile is imported lazily (module keeps heavy deps optional).
-    """
-    from vaft.process import profile as _profile
-
-    if isinstance(ti_te_ratio, str):
-        if ti_te_ratio.lower() not in ("auto", "vest"):
-            raise ValueError(
-                f"ti_te_ratio={ti_te_ratio!r}: expected 'auto'/'vest', a float, or None"
-            )
-        ratio = float(_profile.TI_TE_RATIO_VEST)
-    else:
-        ratio = float(ti_te_ratio)
-    sigma = (
-        float(_profile.TI_TE_RATIO_VEST_SIGMA)
-        if ti_te_ratio_sigma is None
-        else float(ti_te_ratio_sigma)
-    )
-    return ratio, sigma
 
 
 # --------------------------------------------------------------------------- #
@@ -170,11 +133,6 @@ class KineticEFITConfig:
     encoding: str = "raw6"
     scales: Sequence[float] = DEFAULT_SCALES
     grid_size: int = 129  # EFIT grid dimension, passed as the `efit <n>` argument
-    # Thomson-only fallback: Ti = ratio*Te when the ODS has no ion (IDS/CES)
-    # data. 'auto' -> vaft.process.profile.TI_TE_RATIO_VEST; float -> forced;
-    # None -> strict (raise). sigma None -> TI_TE_RATIO_VEST_SIGMA.
-    ti_te_ratio: Any = "auto"
-    ti_te_ratio_sigma: Optional[float] = None
     base_kfile: Optional[str] = None  # path to a base magnetic kfile (e.g. filedb);
     # when set, it is patched with the pressure block instead of building one from
     # the ODS via efit.generate_kfile (which needs magnetics the profile ODS lacks).
@@ -339,36 +297,13 @@ def _ti_weighted_fit_psin(cR, cTi, csTi, geq, R_eval, psi_hi: float = TI_PSI_HI)
 # Raw TS/CX extraction (mirror raw_points(), reading from the ODS trees)
 # --------------------------------------------------------------------------- #
 
-def _raw_ne_te_ti(
-    ods: Any,
-    time_ms: float,
-    geq: Any = None,
-    *,
-    ti_te_ratio: Any = "auto",
-    ti_te_ratio_sigma: Optional[float] = None,
-    return_fallback_meta: bool = False,
-):
+def _raw_ne_te_ti(ods: Any, time_ms: float, geq: Any = None):
     """Return (R, ne, Te, sne, sTe, Ti, sTi) at the matched time.
 
     Mirrors ``raw_points`` in run_efit_raw5pts_batch.py:84-136 but pulls the data
     from the ODS ``thomson_scattering`` / ``charge_exchange`` trees instead of a
     JSON file.  Ti is mapped onto the TS radii: flux-function fit vs psi_N when
     ``geq`` is given, otherwise the legacy Ti(R) fit clamped to CX coverage.
-
-    Thomson-only fallback: when the ODS carries NO usable ion data (no
-    ``charge_exchange`` IDS at all, or no valid Ti channel at this time) and
-    ``ti_te_ratio`` is not None, the ion temperature is estimated statistically
-    as ``Ti = ratio * Te`` with
-    ``sTi = sqrt((ratio*sTe)^2 + (sigma_ratio*Te)^2)`` so the ratio uncertainty
-    propagates honestly into SIGPRE.  ``ti_te_ratio='auto'`` (default) resolves
-    to :data:`vaft.process.profile.TI_TE_RATIO_VEST`; a float forces that
-    coefficient; ``None`` restores the strict behaviour (raise when ion data is
-    missing).  Slices WITH ion data are never affected.
-
-    ``return_fallback_meta=True`` appends ``None`` for measured Ti or the
-    ``(ratio, sigma_ratio)`` pair for statistical Ti. This lets the pressure
-    caller account for the shared Te uncertainty without changing the legacy
-    seven-value return shape.
     """
     target_s = time_ms / 1000.0
 
@@ -398,83 +333,53 @@ def _raw_ne_te_ti(
         raise RuntimeError(f"no valid Thomson channels in ODS at {time_ms} ms")
     R, ne, Te, sne, sTe = R[ts_valid], ne[ts_valid], Te[ts_valid], sne[ts_valid], sTe[ts_valid]
 
-    # --- Charge exchange Ti (nearest time per channel); statistical Ti = ratio*Te
-    #     fallback when the shot has no usable ion data (Thomson-only) ---
-    fallback_meta = None
-    try:
-        n_cx = len(ods["charge_exchange.channel"])
-    except Exception:
-        n_cx = 0
-
+    # --- Charge exchange Ti (nearest time per channel) ---
+    n_cx = len(ods["charge_exchange.channel"])
     cR, cTi, csTi = [], [], []
     for i in range(n_cx):
+        ch = ods[f"charge_exchange.channel.{i}"]
+        rt = np.asarray(ch["position.r.time"], dtype=float)
+        jr = int(np.argmin(np.abs(rt - target_s)))
+        ion = ch[f"ion.{0}"]
+        ti = np.asarray(ion["t_i.data"], dtype=float)
         try:
-            ch = ods[f"charge_exchange.channel.{i}"]
-            rt = np.asarray(ch["position.r.time"], dtype=float)
-            if rt.size == 0:
-                raise ValueError("empty position.r.time")
-            jr = int(np.argmin(np.abs(rt - target_s)))
-            ion = ch[f"ion.{0}"]
-            ti = np.asarray(ion["t_i.data"], dtype=float)
-            if ti.size == 0:
-                raise ValueError("empty t_i.data")
-            try:
-                sti = np.asarray(ion["t_i.data_error_upper"], dtype=float)
-            except Exception:
-                sti = np.zeros_like(ti)
-            j = min(jr, len(ti) - 1)
-            v = ti[j]
-            r = float(ch["position.r.data"][jr])
-            if not np.isfinite(r) or not np.isfinite(v):
-                raise ValueError("non-finite position or Ti")
-            s = sti[j] if j < len(sti) else None
-        except Exception as exc:  # noqa: BLE001 -- one dead channel must not hide good CX data
-            print(
-                f"[INFO] skipped invalid CX Ti channel {i} at {time_ms} ms ({exc})"
-            )
+            sti = np.asarray(ion["t_i.data_error_upper"], dtype=float)
+        except Exception:
+            sti = np.zeros_like(ti)
+        j = min(jr, len(ti) - 1)
+        v = ti[j]
+        if v is None or (isinstance(v, float) and np.isnan(v)):
             continue
-        cR.append(r)
+        cR.append(float(ch["position.r.data"][jr]))
         cTi.append(float(v))
+        s = sti[j] if j < len(sti) else None
         csTi.append(
             float(s) if (s is not None and np.isfinite(s) and s > 0) else 0.1 * abs(v)
         )
-
-    if cR:
-        cR = np.array(cR, dtype=float)
-        cTi = np.array(cTi, dtype=float)
-        csTi = np.array(csTi, dtype=float)
-        o = np.argsort(cR)
-
-        if geq is not None:
-            Ti, sTi = _ti_weighted_fit_psin(cR, cTi, csTi, geq, R)
-        else:
-            try:
-                Ti, sTi = _ti_weighted_fit(cR[o], cTi[o], csTi[o], R)
-                # fit-curve sigma can undershoot the channel errors; keep the local
-                # measurement error as a floor so SIGPRE never claims more than data.
-                sTi = np.maximum(
-                    sTi, np.interp(np.clip(R, cR.min(), cR.max()), cR[o], csTi[o])
-                )
-            except np.linalg.LinAlgError:
-                Ti = np.interp(R, cR[o], cTi[o])
-                sTi = np.interp(R, cR[o], csTi[o])
-    else:
-        if ti_te_ratio is None:
-            raise RuntimeError(
-                f"no valid CX Ti channels in ODS at {time_ms} ms"
-            )
-        ratio, rsig = _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma)
-        print(
-            f"[INFO] kinetic pressure at {time_ms} ms: no usable ion "
-            f"(IDS/charge_exchange) data; statistical fallback "
-            f"Ti = {ratio:.3f}*Te (sigma_ratio {rsig:.3f})"
+    if not cR:
+        raise RuntimeError(
+            f"no valid CX Ti channels in ODS at {time_ms} ms"
         )
-        Ti = ratio * Te
-        sTi = np.sqrt((ratio * sTe) ** 2 + (rsig * Te) ** 2)
-        fallback_meta = (ratio, rsig)
+    cR = np.array(cR, dtype=float)
+    cTi = np.array(cTi, dtype=float)
+    csTi = np.array(csTi, dtype=float)
+    o = np.argsort(cR)
+
+    if geq is not None:
+        Ti, sTi = _ti_weighted_fit_psin(cR, cTi, csTi, geq, R)
+    else:
+        try:
+            Ti, sTi = _ti_weighted_fit(cR[o], cTi[o], csTi[o], R)
+            # fit-curve sigma can undershoot the channel errors; keep the local
+            # measurement error as a floor so SIGPRE never claims more than data.
+            sTi = np.maximum(
+                sTi, np.interp(np.clip(R, cR.min(), cR.max()), cR[o], csTi[o])
+            )
+        except np.linalg.LinAlgError:
+            Ti = np.interp(R, cR[o], cTi[o])
+            sTi = np.interp(R, cR[o], csTi[o])
     Ti = np.maximum(Ti, 0.0)
-    values = (R, ne, Te, sne, sTe, Ti, sTi)
-    return (*values, fallback_meta) if return_fallback_meta else values
+    return R, ne, Te, sne, sTe, Ti, sTi
 
 
 def _spline_pressure(ods: Any, time_ms: float, npts: int = SPLINE_NPTS):
@@ -523,8 +428,6 @@ def kinetic_pressure_points(
     *,
     encoding: str = "raw6",
     sigma_floor: float = 0.05,
-    ti_te_ratio: Any = "auto",
-    ti_te_ratio_sigma: Optional[float] = None,
 ) -> PressurePoints:
     """Build the EFIT ``KPRFIT`` pressure points for the requested encoding.
 
@@ -540,41 +443,17 @@ def kinetic_pressure_points(
         129-pt psi-space profile (``RPRESS=-psi_N``) with the half-cosine
         ``FWTPRE`` taper and constant ``SIGPRE = SPLINE_SIG_FRAC * p(axis)``.
 
-    For measured Ti in the raw encodings ``p = e*ne*(Te+Ti)`` and
+    For the raw encodings ``p = e*ne*(Te+Ti)`` and
     ``SIGPRE = e*sqrt(((Te+Ti)*sne)^2 + (ne*sTe)^2 + (ne*sTi)^2)`` floored at
     ``sigma_floor * p`` (run_efit_raw5pts_batch.py:129-131).
-
-    Thomson-only shots (no IDS/charge_exchange ion data): with the default
-    ``ti_te_ratio='auto'`` the raw encodings substitute the statistical
-    ``Ti = TI_TE_RATIO_VEST * Te`` (see :func:`_raw_ne_te_ti`), i.e.
-    ``p = e*ne*(1+ratio)*Te`` with the ratio uncertainty propagated into
-    SIGPRE and the shared Te error counted once. Pass ``ti_te_ratio=None`` to
-    restore the strict behaviour
-    (raise when ion data is missing) or a float to force a coefficient.
-    Shots with ion data are unaffected.
     """
     enc = encoding.lower()
     if enc in ("raw6", "raw5"):
-        R, ne, Te, sne, sTe, Ti, sTi, fallback_meta = _raw_ne_te_ti(
-            ods, time_ms, geq,
-            ti_te_ratio=ti_te_ratio, ti_te_ratio_sigma=ti_te_ratio_sigma,
-            return_fallback_meta=True,
-        )
+        R, ne, Te, sne, sTe, Ti, sTi = _raw_ne_te_ti(ods, time_ms, geq)
         p = ne * (Te + Ti) * EQE
-        if fallback_meta is None:
-            sig = EQE * np.sqrt(
-                ((Te + Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * sTi) ** 2
-            )
-        else:
-            # Ti = ratio*Te shares the same Te measurement, so Te and Ti are
-            # correlated. Propagate p=e*ne*(1+ratio)*Te directly instead of
-            # treating their temperature uncertainties as independent.
-            ratio, ratio_sigma = fallback_meta
-            sig = EQE * np.sqrt(
-                ((1.0 + ratio) * Te * sne) ** 2
-                + (ne * (1.0 + ratio) * sTe) ** 2
-                + (ne * Te * ratio_sigma) ** 2
-            )
+        sig = EQE * np.sqrt(
+            ((Te + Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * sTi) ** 2
+        )
         sig = np.maximum(sig, sigma_floor * p)   # floor (default 5%)
 
         rpress = [float(x) for x in R]
@@ -718,7 +597,6 @@ def build_kinetic_core_profiles(
     require_thomson: bool = False,
     require_ion: bool = False,
     ti_te_fallback: bool = True,
-    ti_te_ratio: Any = "auto",
 ) -> Any:
     """Fit whatever kinetic diagnostics are present and write ``core_profiles.profiles_1d``.
 
@@ -730,20 +608,10 @@ def build_kinetic_core_profiles(
 
     Both diagnostics are OPTIONAL: Thomson scattering supplies ne/Te (electrons)
     and the charge_exchange (IDS/CES) supplies Ti/Vtor (ions). Whatever is present
-    is written -- ion-only gives ion temperature/velocity, both give the full
-    kinetic slice with ``pressure_thermal``. At least one usable diagnostic is
-    required (or set ``require_thomson`` / ``require_ion`` to fail loudly when
-    one is missing).
-
-    Thomson-only slices (``ti_te_fallback=True`` and no usable ion fit): the ion
-    temperature falls back to ``Ti = ti_te_ratio * Te``. The default
-    ``ti_te_ratio='auto'`` resolves to the statistical
-    :data:`vaft.process.profile.TI_TE_RATIO_VEST` (fitted on the shots carrying
-    both diagnostics) and -- unlike the legacy ``Ti=Te`` fallback -- also writes
-    ``pressure_thermal = e*ne*(1+ratio)*Te``, so the kinetic-EFIT spline
-    encoding works for TS-only shots. Pass ``ti_te_ratio=None`` to restore the
-    legacy ``Ti=Te`` fallback (no pressure written), or a float to force a
-    coefficient. Slices with a real ion fit are unaffected.
+    is written -- Thomson-only gives electron profiles (Ti=Te fallback), ion-only
+    gives ion temperature/velocity, both give the full kinetic slice with
+    ``pressure_thermal``. At least one usable diagnostic is required (or set
+    ``require_thomson`` / ``require_ion`` to fail loudly when one is missing).
 
     Pure ODS -> ODS: the passed ``ods`` is mutated in place and returned.
 
@@ -794,12 +662,6 @@ def build_kinetic_core_profiles(
             f"no usable Thomson or charge_exchange fit at {time_ms} ms -- nothing to write"
         )
 
-    # Resolve the statistical fallback coefficient only when it can be used
-    # (Thomson-only slice with the fallback enabled); None keeps legacy Ti=Te.
-    ratio = None
-    if ti_te_ratio is not None and T_i_function is None and ti_te_fallback:
-        ratio, _ = _resolve_ti_te_ratio(ti_te_ratio)
-
     _profile.core_profiles(
         ods,
         time_ms,
@@ -812,7 +674,6 @@ def build_kinetic_core_profiles(
         time_tolerance_ms=time_tolerance_ms,
         geq=geq,
         ti_te_fallback=ti_te_fallback,
-        ti_te_ratio=ratio,
     )
     return ods
 
@@ -878,9 +739,7 @@ def prepare_kinetic_efit_inputs(
         base_text = Path(base_kfile).read_text() if base_kfile is not None else ""
 
     points = kinetic_pressure_points(
-        ods, config.time_ms, geq, encoding=config.encoding,
-        ti_te_ratio=config.ti_te_ratio,
-        ti_te_ratio_sigma=config.ti_te_ratio_sigma,
+        ods, config.time_ms, geq, encoding=config.encoding
     )
 
     ordered = ((base_kfile,) if base_kfile is not None else ()) + tuple(

@@ -9,102 +9,6 @@ from omas import *
 from vaft.formula import fit_profile
 
 
-# Statistical Ti/Te coefficient for VEST slices WITHOUT an ion-temperature
-# measurement (no IDS/charge_exchange). Derived from the 9 kinetic slices that
-# carry both diagnostics (shots 48224/48226/48233 @ 299-301 ms) using the
-# FITTED 129-pt core_profiles curves (the same profiles the spline pressure
-# encoding consumes): per slice, the pressure-matching coefficient
-# a = sum(ne^2*Te*Ti)/sum(ne^2*Te^2) on psi_N <= 1 -- i.e. the alpha that
-# preserves the kinetic pressure when Ti is replaced by a*Te. Slice-level
-# mean 0.190 / median 0.155; an independent raw-point pairing (measured TS Te
-# vs the weighted CX Ti fit, effective-variance through-origin regression)
-# cross-checks at 0.170 +/- 0.010, robust to mapping gfile / fit degree /
-# pairing direction (0.163-0.171). The sigma is the fitted-profile
-# slice-to-slice std -- the honest predictive uncertainty for a NEW shot.
-# Known trend: the early 299 ms slices sit high (~0.28) vs the 300/301 ms
-# cluster (~0.14). Derivation: ids_test/fit_ti_te_ratio.py.
-TI_TE_RATIO_VEST = 0.17
-TI_TE_RATIO_VEST_SIGMA = 0.08
-
-
-def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
-    """Fit the proportionality coefficient alpha of ``Ti = alpha * Te``.
-
-    Effective-variance weighted through-origin regression with errors in BOTH
-    variables: minimizes ``sum_k (Ti_k - a*Te_k)^2 / (sTi_k^2 + a^2*sTe_k^2)``
-    by iterating the weights. This is the estimator used to derive
-    :data:`TI_TE_RATIO_VEST` from the shots that carry both electron (Thomson)
-    and ion (IDS/charge_exchange) profiles; use it to re-derive the coefficient
-    as more two-diagnostic shots become available.
-
-    Args:
-        te, ti: paired temperature samples [eV] (same length, e.g. Te measured
-            at the TS points and the fitted Ti evaluated at the same psi_N).
-        te_std, ti_std: optional 1-sigma uncertainties. ``None`` -> 0 for
-            ``te_std`` / 1 for ``ti_std`` (plain least squares).
-        max_iter, tol: iteration controls for the weight update.
-
-    Returns:
-        dict with
-        - ``alpha``: fitted ratio;
-        - ``alpha_se``: formal standard error, scaled by sqrt(chi2_red) when
-          chi2_red > 1 (conservative);
-        - ``alpha_scatter``: error-weighted scatter of the per-point ratios
-          around their weighted mean -- the *predictive* per-point sigma.
-          For a machine coefficient, combine with the slice-to-slice std;
-        - ``chi2_red``: reduced chi-square of the through-origin model;
-        - ``n_points``: pairs used after non-finite / Te<=0 filtering.
-    """
-    te = np.asarray(te, dtype=float).reshape(-1)
-    ti = np.asarray(ti, dtype=float).reshape(-1)
-    if te.shape != ti.shape:
-        raise ValueError("te and ti must have the same length")
-    ste = (np.zeros_like(te) if te_std is None
-           else np.asarray(te_std, dtype=float).reshape(-1))
-    sti = (np.ones_like(ti) if ti_std is None
-           else np.asarray(ti_std, dtype=float).reshape(-1))
-    if ste.shape != te.shape or sti.shape != ti.shape:
-        raise ValueError("te_std/ti_std must match te/ti in length")
-
-    ok = (np.isfinite(te) & np.isfinite(ti) & (te > 0)
-          & np.isfinite(ste) & (ste >= 0) & np.isfinite(sti) & (sti >= 0))
-    te, ti, ste, sti = te[ok], ti[ok], ste[ok], sti[ok]
-    if te.size < 2:
-        raise ValueError("need at least 2 valid (te, ti) pairs")
-    # a zero effective variance is degenerate; floor sigma_ti like the fitters
-    if np.all(sti == 0):
-        sti = np.ones_like(ti)
-
-    alpha = float(np.sum(ti * te) / np.sum(te * te))
-    for _ in range(int(max_iter)):
-        w = 1.0 / np.clip(sti**2 + alpha**2 * ste**2, 1e-300, None)
-        alpha_new = float(np.sum(w * te * ti) / np.sum(w * te * te))
-        if abs(alpha_new - alpha) < tol:
-            alpha = alpha_new
-            break
-        alpha = alpha_new
-
-    w = 1.0 / np.clip(sti**2 + alpha**2 * ste**2, 1e-300, None)
-    chi2_red = float(np.sum(w * (ti - alpha * te) ** 2) / max(te.size - 1, 1))
-    alpha_se = float(np.sqrt(1.0 / np.sum(w * te**2))) * max(1.0, np.sqrt(chi2_red))
-
-    ratios = ti / te
-    sratios = np.sqrt((sti / te) ** 2 + (ti * ste / te**2) ** 2)
-    sratios = np.where(sratios > 0, sratios, np.nanmedian(sratios[sratios > 0])
-                       if np.any(sratios > 0) else 1.0)
-    wr = 1.0 / sratios**2
-    rmean = float(np.sum(wr * ratios) / np.sum(wr))
-    alpha_scatter = float(np.sqrt(np.sum(wr * (ratios - rmean) ** 2) / np.sum(wr)))
-
-    return {
-        "alpha": alpha,
-        "alpha_se": alpha_se,
-        "alpha_scatter": alpha_scatter,
-        "chi2_red": chi2_red,
-        "n_points": int(te.size),
-    }
-
-
 def _outermost_surface_path(geq):
     """Return a matplotlib Path around the outermost traced flux surface.
 
@@ -211,7 +115,6 @@ def profile_fitting_thomson_scattering(
     fitting_function_te='polynomial',
     fitting_function_ne='polynomial',
     time_tolerance_ms=1.0,
-    enforce_physical=True,
     ):
     """
     Fit Thomson scattering Te and ne profiles with selectable 1D methods.
@@ -237,12 +140,6 @@ def profile_fitting_thomson_scattering(
     - uncertainty_option: use uncertainties when fitting (1 = enabled)
     - rho_points: number of evaluation points on ρ in [0, 1]
     - fitting_function_te, fitting_function_ne: fit method selection for Te and ne
-    - enforce_physical: when True (default) a fit whose profile is unphysical over
-      [0, 1] -- Te <= 0 inside the LCFS, or an ne dynamic range above
-      NE_DYNAMIC_RANGE_MAX -- is retried at successively lower order. Thomson
-      often covers only the inner half of psi_N, and a high-order fit
-      extrapolated over the rest can cross zero or collapse by orders of
-      magnitude. Set False for the raw (unguarded) legacy behaviour.
 
     ## Returns:
     - n_e_function, T_e_function: callable fit functions
@@ -313,36 +210,15 @@ def profile_fitting_thomson_scattering(
     if te_anchor_strength is not None:
         te_anchor = (np.array([1.0]), np.array([0.0]), np.array([te_anchor_strength]))
 
-    # Physicality guard grid (independent of rho_points so the check is stable).
-    guard_grid = np.linspace(0.0, 1.0, 129)
-
-    def _te_unphysical(fn):
-        y = np.asarray(fn(guard_grid), dtype=float)
-        inside = guard_grid < PHYSICAL_PSIN_MAX
-        if not np.all(np.isfinite(y)):
-            return "non-finite Te"
-        if np.any(y[inside] <= 0.0):
-            first = float(guard_grid[inside][np.argmax(y[inside] <= 0.0)])
-            return f"Te<=0 inside the LCFS (first at psi_N={first:.2f})"
-        return None
-
-    T_e_rho, T_e_std, T_e_function_raw, coeffs_te, Te_order_used = (
-        _fit_profile_until_physical(
-            lambda o: fit_profile(
-                rho, t_e, t_e_std, rho_eval,
-                order=o,
-                uncertainty_option=uncertainty_option,
-                fitting_function=fitting_function_te,
-                gp_anchor=te_anchor,
-            ),
-            Te_order, _te_unphysical, "Te", time_ms,
-        )
-        if enforce_physical else
-        (*fit_profile(
-            rho, t_e, t_e_std, rho_eval,
-            order=Te_order, uncertainty_option=uncertainty_option,
-            fitting_function=fitting_function_te, gp_anchor=te_anchor,
-        ), Te_order)
+    T_e_rho, T_e_std, T_e_function_raw, coeffs_te = fit_profile(
+        rho,
+        t_e,
+        t_e_std,
+        rho_eval,
+        order=Te_order,
+        uncertainty_option=uncertainty_option,
+        fitting_function=fitting_function_te,
+        gp_anchor=te_anchor,
     )
 
     T_e_rho = np.maximum(np.asarray(T_e_rho, dtype=float), 0.0)
@@ -357,35 +233,15 @@ def profile_fitting_thomson_scattering(
         ne_anchor_sigma_norm = max(0.01 * ne_typ, 1e-4)
         ne_anchor = (np.array([1.0]), np.array([0.0]), np.array([ne_anchor_sigma_norm]))
 
-    def _ne_unphysical(fn):
-        y = np.asarray(fn(guard_grid), dtype=float)
-        if not np.all(np.isfinite(y)):
-            return "non-finite ne"
-        inside = y[guard_grid < PHYSICAL_PSIN_MAX]
-        lo, hi = float(np.min(inside)), float(np.max(inside))
-        if lo <= 0.0:
-            return "ne<=0 inside the LCFS"
-        if hi / lo > NE_DYNAMIC_RANGE_MAX:
-            return f"ne dynamic range {hi / lo:.1e} inside the LCFS"
-        return None
-
-    n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne, Ne_order_used = (
-        _fit_profile_until_physical(
-            lambda o: fit_profile(
-                rho, n_e_norm, n_e_std_norm, rho_eval,
-                order=o,
-                uncertainty_option=uncertainty_option,
-                fitting_function=fitting_function_ne,
-                gp_anchor=ne_anchor,
-            ),
-            Ne_order, _ne_unphysical, "ne", time_ms,
-        )
-        if enforce_physical else
-        (*fit_profile(
-            rho, n_e_norm, n_e_std_norm, rho_eval,
-            order=Ne_order, uncertainty_option=uncertainty_option,
-            fitting_function=fitting_function_ne, gp_anchor=ne_anchor,
-        ), Ne_order)
+    n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne = fit_profile(
+        rho,
+        n_e_norm,
+        n_e_std_norm,
+        rho_eval,
+        order=Ne_order,
+        uncertainty_option=uncertainty_option,
+        fitting_function=fitting_function_ne,
+        gp_anchor=ne_anchor,
     )
 
     n_e_rho = np.maximum(n_e_rho_norm, 0.0) * n_e_scale
@@ -444,76 +300,6 @@ def equilibrium_mapping_charge_exchange(ods, geq):
     r_vals = [_to_float_scalar(value) for value in R_ce]
     z_vals = [_to_float_scalar(value) for value in Z_ce]
     return _rho_from_equilibrium_points(geq, r_vals, z_vals)
-
-
-#: A fitted electron profile is rejected when it goes non-positive, or when the
-#: density spans more than :data:`NE_DYNAMIC_RANGE_MAX`, anywhere *inside* the
-#: LCFS. Both signal a polynomial/exponential extrapolated far outside the
-#: measured psi_N span -- e.g. shot 48224 @ 299 ms, where Thomson covers only
-#: psi_N <= 0.27 and the quadratic crossed zero at psi_N = 0.87 with ne
-#: collapsing by 5e6.
-#:
-#: The checks stop at :data:`PHYSICAL_PSIN_MAX` because the 'polynomial' and
-#: 'exponential' bases carry a ``(1 - psi_N)`` factor that drives the profile to
-#: exactly 0 at psi_N = 1 by construction. That endpoint zero is intended, and
-#: including it would reject every such fit (and make any dynamic-range ratio
-#: meaningless).
-PHYSICAL_PSIN_MAX = 0.98
-TE_POSITIVE_PSIN_MAX = PHYSICAL_PSIN_MAX   # backwards-compatible alias
-NE_DYNAMIC_RANGE_MAX = 1.0e3
-
-
-def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
-                                min_order=1):
-    """Call ``fit_call(order)`` reducing the order until the profile is physical.
-
-    A low-order fit that stays physical is far more trustworthy than a
-    high-order one that has to be extrapolated over most of the profile, so on
-    rejection the order is reduced by one and the fit retried. If no order
-    passes, the lowest-order attempt is returned with a warning (never raises --
-    the caller still gets a usable profile).
-
-    ``min_order`` goes down to 1 because order 1 is the guaranteed-physical
-    fallback: with the ``(1 - psi_N)`` bases it is a single coefficient, i.e. a
-    monotonically decreasing non-negative profile that cannot cross zero inside
-    the LCFS. Callers that already request order 2 (the electron-only pipeline
-    branch) would otherwise have no room to reduce at all.
-
-    Args:
-        fit_call: ``order -> (y_eval, y_std, function, coeffs)`` (a fit_profile call).
-        order: starting (highest) order.
-        is_unphysical: ``function -> reason str or None``.
-        label, time_ms: for the log messages.
-        min_order: lowest order to try.
-
-    Returns:
-        ``(y_eval, y_std, function, coeffs, order_used)``
-    """
-    lowest = None
-    for candidate in range(int(order), int(min_order) - 1, -1):
-        try:
-            result = fit_call(candidate)
-        except Exception as exc:  # noqa: BLE001 -- try a lower order before giving up
-            print(f"[INFO] {label} fit order {candidate} failed at {time_ms:.3f} ms ({exc})")
-            continue
-        reason = is_unphysical(result[2])
-        lowest = (result, candidate, reason)
-        if reason is None:
-            if candidate != order:
-                print(
-                    f"[INFO] {label} at {time_ms:.3f} ms: order {order} rejected, "
-                    f"using order {candidate} (few/narrow measurement points)"
-                )
-            return (*result, candidate)
-    if lowest is None:
-        raise RuntimeError(f"{label} fit failed at every order at {time_ms:.3f} ms")
-    result, candidate, reason = lowest
-    print(
-        f"[WARNING] {label} at {time_ms:.3f} ms: no order in "
-        f"[{min_order}, {order}] gave a physical profile ({reason}); "
-        f"keeping order {candidate}"
-    )
-    return (*result, candidate)
 
 
 def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
@@ -628,7 +414,6 @@ def profile_fitting_charge_exchange(
     fitting_function_vtor='polynomial',
     ion_index=0,
     time_tolerance_ms=1.0,
-    clamp_to_measured_span=True,
 ):
     """
     Fit charge_exchange (CES) ion temperature and toroidal velocity profiles.
@@ -646,11 +431,6 @@ def profile_fitting_charge_exchange(
         rho_points: number of evaluation points on ρ ∈ [0, 1].
         fitting_function_ti, fitting_function_vtor: fit methods for T_i and V_tor.
         ion_index: ion index within charge_exchange.channel[i].ion.
-        clamp_to_measured_span: when True (default) the returned functions are
-            evaluated on the fitted curve only within the psi_N span the CX
-            channels actually cover, holding the endpoint value outside it (no
-            blind extrapolation). Set False for the legacy free-polynomial
-            behaviour.
 
     Returns:
         (Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho)
@@ -714,19 +494,8 @@ def profile_fitting_charge_exchange(
 
     Ti_rho = np.maximum(np.asarray(Ti_rho, dtype=float), 0.0)
 
-    # No blind extrapolation beyond the psi_N actually covered by CX channels:
-    # outside the measured span the fit is held at its value on the nearest
-    # measured end. Same convention as kineticEfit._ti_weighted_fit_psin. Without
-    # it a polynomial extrapolated inward from a poorly-covered slice can blow up
-    # (48224 @ 298 ms: only 8/40 channels map inside the LCFS, innermost
-    # psi_N = 0.23 -> Ti(axis) = 54 eV against a 21 eV largest measurement).
-    ti_lo, ti_hi = float(np.min(rho_ti)), float(np.max(rho_ti))
-    v_lo, v_hi = float(np.min(rho_v)), float(np.max(rho_v))
-
     def Ti_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
-        if clamp_to_measured_span:
-            x = np.clip(x, ti_lo, ti_hi)
         return np.maximum(Ti_function_raw(x), 0.0)
 
     # --- Fit V_tor(ρ) ---
@@ -743,16 +512,7 @@ def profile_fitting_charge_exchange(
 
     def Vtor_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
-        if clamp_to_measured_span:
-            x = np.clip(x, v_lo, v_hi)
         return Vtor_function_raw(x)
-
-    # Keep the sampled return values consistent with the public callables.
-    # Several callers persist these arrays directly into core_profiles instead
-    # of re-evaluating the functions, so returning the raw extrapolated fits
-    # would bypass clamp_to_measured_span and reintroduce the pathology.
-    Ti_rho = np.asarray(Ti_function(rho_eval), dtype=float)
-    Vtor_rho = np.asarray(Vtor_function(rho_eval), dtype=float)
 
     return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
 def _grid_from_geq(geq):
@@ -818,7 +578,6 @@ def core_profiles(
     time_tolerance_ms=1.0,
     geq=None,
     ti_te_fallback=True,
-    ti_te_ratio=None,
 ):
     """
     Construct and store core_profiles.profiles_1d from fitted kinetic profiles.
@@ -846,16 +605,6 @@ def core_profiles(
       channels (for the ion temperature_fit measurement metadata)
     - rho_points: evaluation points for the no-equilibrium fallback grid
     - time_tolerance_ms: tolerance for matching thomson/equilibrium times
-    - ti_te_fallback: when True (default) and no T_i_function is given, an ion
-      temperature is still written from Te (see ti_te_ratio); when False a slice
-      without an ion measurement stays electron-only (no phantom ion block)
-    - ti_te_ratio: optional statistical coefficient for the Thomson-only
-      fallback. None (default) keeps the legacy Ti = Te fallback and writes NO
-      pressure_thermal. A float alpha writes Ti = alpha*Te AND
-      pressure_thermal = e*ne*(1+alpha)*Te -- the TS-only kinetic pressure.
-      Use TI_TE_RATIO_VEST (fitted on the shots with both diagnostics; see
-      fit_ti_te_ratio) unless you have a shot-specific value. Ignored whenever
-      a real T_i_function is provided or ti_te_fallback=False.
 
     ## Returns:
     - Updated ods with replaced or appended core_profiles.profiles_1d entry.
@@ -913,23 +662,12 @@ def core_profiles(
 
     n_e_recon = np.asarray(n_e_function(psi_n_grid), dtype=float) if have_e else None
     T_e_recon = np.asarray(T_e_function(psi_n_grid), dtype=float) if have_e else None
-    # Ti falls back to Te (or the statistical ratio*Te) only when electrons are
-    # present but no ion fit was given.
-    ratio_fallback = False
-    if have_i:
-        T_i_recon = np.asarray(T_i_function(psi_n_grid), dtype=float)
-    elif have_e and ti_te_fallback:
-        if ti_te_ratio is not None:
-            T_i_recon = float(ti_te_ratio) * T_e_recon
-            ratio_fallback = True
-            print(
-                f"[INFO] no ion fit at {time_ms:.3f} ms: statistical fallback "
-                f"Ti = {float(ti_te_ratio):.3f}*Te (kinetic pressure written)"
-            )
-        else:
-            T_i_recon = T_e_recon
-    else:
-        T_i_recon = None
+    # Ti falls back to Te only when electrons are present but no ion fit was given.
+    T_i_recon = (
+        np.asarray(T_i_function(psi_n_grid), dtype=float)
+        if have_i
+        else (T_e_recon if (have_e and ti_te_fallback) else None)
+    )
     V_tor_recon = (
         np.asarray(V_tor_function(psi_n_grid), dtype=float)
         if V_tor_function is not None
@@ -989,10 +727,7 @@ def core_profiles(
             ods[f'{base}.ion.0.temperature'] = T_i_recon
         if V_tor_recon is not None:
             ods[f'{base}.ion.0.velocity.toroidal'] = V_tor_recon
-    # kinetic pressure needs ne and (Te, Ti): either a real ion fit or the
-    # explicit statistical ratio fallback (Ti = ti_te_ratio*Te). The legacy
-    # Ti=Te fallback intentionally writes NO pressure_thermal.
-    if have_e and (have_i or ratio_fallback):
+    if have_e and have_i:  # kinetic pressure needs both ne and (Te, Ti)
         ods[f'{base}.pressure_thermal'] = e_J_per_eV * n_e_recon * (T_e_recon + T_i_recon)
 
     # --- measurement/fit metadata (per IMAS DD, measured/reconstructed/rho all

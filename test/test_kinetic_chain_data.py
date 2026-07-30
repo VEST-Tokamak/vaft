@@ -91,7 +91,7 @@ def test_spline_encoding_has_129_points(kinetic_ods):
 # Partial-diagnostic builds: only-Thomson / only-ion / neither
 # --------------------------------------------------------------------------- #
 
-def _build(with_ts, with_cx, **kwargs):
+def _build(with_ts, with_cx):
     import vaft
 
     vaft.apply_omfit_compat_patches()
@@ -106,7 +106,7 @@ def _build(with_ts, with_cx, **kwargs):
         vaft.machine_mapping.thomson_scattering(ods, SHOT, str(TS_MAT))
     if with_cx:
         vaft.machine_mapping.charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
-    build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0, **kwargs)
+    build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0)
     return ods
 
 
@@ -118,33 +118,14 @@ def _has(ods, path):
         return False
 
 
-def test_thomson_only_writes_statistical_kinetic_slice():
-    from vaft.process.profile import TI_TE_RATIO_VEST
-
+def test_thomson_only_writes_electron_profiles():
     cp = "core_profiles.profiles_1d.0"
     ods = _build(with_ts=True, with_cx=False)
     assert _has(ods, f"{cp}.electrons.density")
     assert _has(ods, f"{cp}.electrons.temperature")
+    assert _has(ods, f"{cp}.ion.0.temperature")          # Ti = Te fallback
     assert not _has(ods, f"{cp}.ion.0.velocity.toroidal")  # no ion diagnostic
-    # default ti_te_ratio='auto': Ti = TI_TE_RATIO_VEST * Te and the TS-only
-    # kinetic pressure e*ne*(1+ratio)*Te are written
-    te = np.asarray(ods[f"{cp}.electrons.temperature"], dtype=float)
-    ne = np.asarray(ods[f"{cp}.electrons.density"], dtype=float)
-    ti = np.asarray(ods[f"{cp}.ion.0.temperature"], dtype=float)
-    pth = np.asarray(ods[f"{cp}.pressure_thermal"], dtype=float)
-    np.testing.assert_allclose(ti, TI_TE_RATIO_VEST * te, rtol=1e-10)
-    np.testing.assert_allclose(
-        pth, 1.602176634e-19 * ne * (1.0 + TI_TE_RATIO_VEST) * te, rtol=1e-10
-    )
-
-
-def test_thomson_only_legacy_mode_unchanged():
-    cp = "core_profiles.profiles_1d.0"
-    ods = _build(with_ts=True, with_cx=False, ti_te_ratio=None)
-    te = np.asarray(ods[f"{cp}.electrons.temperature"], dtype=float)
-    ti = np.asarray(ods[f"{cp}.ion.0.temperature"], dtype=float)
-    np.testing.assert_allclose(ti, te, rtol=1e-12)         # legacy Ti = Te
-    assert not _has(ods, f"{cp}.pressure_thermal")         # and no pressure
+    assert not _has(ods, f"{cp}.pressure_thermal")         # needs a real ion fit
 
 
 def test_ion_only_writes_ion_profiles_without_electrons():

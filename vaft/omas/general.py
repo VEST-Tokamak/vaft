@@ -3,7 +3,6 @@ from omas import *
 import numpy as np
 import matplotlib.pyplot as plt
 import re
-import warnings
 
 # ----------------------------------------------------------------------
 # Find information from ODS
@@ -347,24 +346,6 @@ def find_matching_time_indices(ods, time_slice=None, atol: float = 1.0e-6):
     
     return cp_idx, equil_idx, cp_time
 
-def _invalid_imas_path(error):
-    """Return the invalid ODS path reported by OMAS, if available."""
-    error_msg = str(error)
-    if not re.search(
-        r"(?:invalid IMAS|not a valid IMAS|does not satisfy IMAS)",
-        error_msg,
-        flags=re.IGNORECASE,
-    ):
-        return None
-
-    match = re.search(
-        r"location:\s*['\"]?([A-Za-z0-9_.:\[\]-]+)",
-        error_msg,
-        flags=re.IGNORECASE,
-    )
-    return match.group(1) if match else None
-
-
 def combine_ods(ods_list):
     """
     Merge multiple ODS objects while automatically handling invalid IMAS structures.
@@ -379,41 +360,35 @@ def combine_ods(ods_list):
     ODS
         Merged ODS object
     """
-    ods_list = list(ods_list)
-    imas_version = ods_list[0].imas_version if ods_list else ODS().imas_version
-    combined_ods = ODS(imas_version=imas_version)
+    combined_ods = ODS()
 
-    for index, ods in enumerate(ods_list):
-        sanitized_ods = ods.copy()
-        removed_paths = set()
-
-        while True:
-            # Merge into a trial copy so a failed update cannot leave a partial
-            # version of this ODS in the result.
-            trial_ods = combined_ods.copy()
-            try:
-                trial_ods.update(sanitized_ods)
-            except Exception as error:
-                invalid_path = _invalid_imas_path(error)
-                if invalid_path is None or invalid_path in removed_paths:
-                    raise
-
-                try:
-                    del sanitized_ods[invalid_path]
-                except Exception:
-                    raise error
-
-                removed_paths.add(invalid_path)
-                first_error_line = str(error).splitlines()[0]
-                warnings.warn(
-                    f"Skipping invalid IMAS location {invalid_path!r} from "
-                    f"ODS #{index + 1}: {first_error_line}",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                continue
-
-            combined_ods = trial_ods
-            break
+    for i, ods in enumerate(ods_list):
+        try:
+            combined_ods.update(ods)
+            break  # Exit retry loop on successful merge
+        
+        except Exception as e:
+            error_msg = str(e)
+            # Determine if it's an IMAS validity check error based on error message content
+            if "Invalid IMAS" in error_msg or "does not satisfy IMAS" in error_msg:
+                match = re.search(r"location: ['\"](.*?)['\"]", error_msg)
+                if match:
+                    invalid_path = match.group(1)
+                    print(f"[{i+1}st ODS] Invalid IMAS structure found: '{invalid_path}'. Removing this path and retrying merge.")
+                    
+                    try:
+                        del ods[invalid_path]
+                        attempt_count += 1
+                        continue  # After path deletion, return to start of while loop to retry merge
+                    except Exception as del_e:
+                        print(f"Failed to delete path '{invalid_path}': {del_e}. Aborting merge for this ODS.")
+                        break # Exit while loop
+                else:
+                    print(f"[{i+1}st ODS] IMAS structure error occurred but path could not be extracted. Aborting merge. Error: {error_msg}")
+                    break # Exit while loop
+            else:
+                # Re-raise other types of exceptions that we don't know how to handle
+                print(f"[{i+1}st ODS] Unexpected error during merge (not IMAS structure issue): {e}")
+                raise
 
     return combined_ods
