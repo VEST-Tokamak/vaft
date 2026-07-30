@@ -80,10 +80,9 @@ def main() -> int:
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    # The eddy solver caches its impedance matrices in pf_passive (R_mat/L_mat/
-    # M_mat). They are VAFT-internal, not IMAS -- leaving them in the saved ODS
-    # makes every downstream consistency-checked load (combine_ods, IMAS save)
-    # fail with "Invalid IMAS location: pf_passive.L_mat".
+    # Remove legacy VAFT-internal cache keys if they arrived in an older input.
+    # New solver calls keep impedance matrices transient, but these invalid IMAS
+    # locations still make consistency-checked loads and saves fail.
     for cache_key in ("R_mat", "L_mat", "M_mat"):
         if f"pf_passive.{cache_key}" in ods:
             del ods[f"pf_passive.{cache_key}"]
