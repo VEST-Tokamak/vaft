@@ -80,6 +80,12 @@ def main() -> int:
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    # Remove legacy VAFT-internal cache keys if they arrived in an older input.
+    # New solver calls keep impedance matrices transient, but these invalid IMAS
+    # locations still make consistency-checked loads and saves fail.
+    for cache_key in ("R_mat", "L_mat", "M_mat"):
+        if f"pf_passive.{cache_key}" in ods:
+            del ods[f"pf_passive.{cache_key}"]
     save_omas_json(ods, str(args.output))
     LOGGER.info("Eddy ODS saved to %s", args.output)
     return 0
