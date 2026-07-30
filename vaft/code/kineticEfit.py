@@ -346,6 +346,7 @@ def _raw_ne_te_ti(
     *,
     ti_te_ratio: Any = "auto",
     ti_te_ratio_sigma: Optional[float] = None,
+    return_fallback_meta: bool = False,
 ):
     """Return (R, ne, Te, sne, sTe, Ti, sTi) at the matched time.
 
@@ -363,6 +364,11 @@ def _raw_ne_te_ti(
     to :data:`vaft.process.profile.TI_TE_RATIO_VEST`; a float forces that
     coefficient; ``None`` restores the strict behaviour (raise when ion data is
     missing).  Slices WITH ion data are never affected.
+
+    ``return_fallback_meta=True`` appends ``None`` for measured Ti or the
+    ``(ratio, sigma_ratio)`` pair for statistical Ti. This lets the pressure
+    caller account for the shared Te uncertainty without changing the legacy
+    seven-value return shape.
     """
     target_s = time_ms / 1000.0
 
@@ -394,33 +400,46 @@ def _raw_ne_te_ti(
 
     # --- Charge exchange Ti (nearest time per channel); statistical Ti = ratio*Te
     #     fallback when the shot has no usable ion data (Thomson-only) ---
+    fallback_meta = None
     try:
         n_cx = len(ods["charge_exchange.channel"])
-        cR, cTi, csTi = [], [], []
-        for i in range(n_cx):
+    except Exception:
+        n_cx = 0
+
+    cR, cTi, csTi = [], [], []
+    for i in range(n_cx):
+        try:
             ch = ods[f"charge_exchange.channel.{i}"]
             rt = np.asarray(ch["position.r.time"], dtype=float)
+            if rt.size == 0:
+                raise ValueError("empty position.r.time")
             jr = int(np.argmin(np.abs(rt - target_s)))
             ion = ch[f"ion.{0}"]
             ti = np.asarray(ion["t_i.data"], dtype=float)
+            if ti.size == 0:
+                raise ValueError("empty t_i.data")
             try:
                 sti = np.asarray(ion["t_i.data_error_upper"], dtype=float)
             except Exception:
                 sti = np.zeros_like(ti)
             j = min(jr, len(ti) - 1)
             v = ti[j]
-            if v is None or (isinstance(v, float) and np.isnan(v)):
-                continue
-            cR.append(float(ch["position.r.data"][jr]))
-            cTi.append(float(v))
+            r = float(ch["position.r.data"][jr])
+            if not np.isfinite(r) or not np.isfinite(v):
+                raise ValueError("non-finite position or Ti")
             s = sti[j] if j < len(sti) else None
-            csTi.append(
-                float(s) if (s is not None and np.isfinite(s) and s > 0) else 0.1 * abs(v)
+        except Exception as exc:  # noqa: BLE001 -- one dead channel must not hide good CX data
+            print(
+                f"[INFO] skipped invalid CX Ti channel {i} at {time_ms} ms ({exc})"
             )
-        if not cR:
-            raise RuntimeError(
-                f"no valid CX Ti channels in ODS at {time_ms} ms"
-            )
+            continue
+        cR.append(r)
+        cTi.append(float(v))
+        csTi.append(
+            float(s) if (s is not None and np.isfinite(s) and s > 0) else 0.1 * abs(v)
+        )
+
+    if cR:
         cR = np.array(cR, dtype=float)
         cTi = np.array(cTi, dtype=float)
         csTi = np.array(csTi, dtype=float)
@@ -439,19 +458,23 @@ def _raw_ne_te_ti(
             except np.linalg.LinAlgError:
                 Ti = np.interp(R, cR[o], cTi[o])
                 sTi = np.interp(R, cR[o], csTi[o])
-    except Exception as exc:  # noqa: BLE001 -- missing IDS/CES tree, dead channels, ...
+    else:
         if ti_te_ratio is None:
-            raise
+            raise RuntimeError(
+                f"no valid CX Ti channels in ODS at {time_ms} ms"
+            )
         ratio, rsig = _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma)
         print(
-            f"[INFO] kinetic pressure at {time_ms} ms: no ion (IDS/charge_exchange) "
-            f"data ({exc}); statistical fallback Ti = {ratio:.3f}*Te "
-            f"(sigma_ratio {rsig:.3f})"
+            f"[INFO] kinetic pressure at {time_ms} ms: no usable ion "
+            f"(IDS/charge_exchange) data; statistical fallback "
+            f"Ti = {ratio:.3f}*Te (sigma_ratio {rsig:.3f})"
         )
         Ti = ratio * Te
         sTi = np.sqrt((ratio * sTe) ** 2 + (rsig * Te) ** 2)
+        fallback_meta = (ratio, rsig)
     Ti = np.maximum(Ti, 0.0)
-    return R, ne, Te, sne, sTe, Ti, sTi
+    values = (R, ne, Te, sne, sTe, Ti, sTi)
+    return (*values, fallback_meta) if return_fallback_meta else values
 
 
 def _spline_pressure(ods: Any, time_ms: float, npts: int = SPLINE_NPTS):
@@ -517,7 +540,7 @@ def kinetic_pressure_points(
         129-pt psi-space profile (``RPRESS=-psi_N``) with the half-cosine
         ``FWTPRE`` taper and constant ``SIGPRE = SPLINE_SIG_FRAC * p(axis)``.
 
-    For the raw encodings ``p = e*ne*(Te+Ti)`` and
+    For measured Ti in the raw encodings ``p = e*ne*(Te+Ti)`` and
     ``SIGPRE = e*sqrt(((Te+Ti)*sne)^2 + (ne*sTe)^2 + (ne*sTi)^2)`` floored at
     ``sigma_floor * p`` (run_efit_raw5pts_batch.py:129-131).
 
@@ -525,20 +548,33 @@ def kinetic_pressure_points(
     ``ti_te_ratio='auto'`` the raw encodings substitute the statistical
     ``Ti = TI_TE_RATIO_VEST * Te`` (see :func:`_raw_ne_te_ti`), i.e.
     ``p = e*ne*(1+ratio)*Te`` with the ratio uncertainty propagated into
-    SIGPRE.  Pass ``ti_te_ratio=None`` to restore the strict behaviour
+    SIGPRE and the shared Te error counted once. Pass ``ti_te_ratio=None`` to
+    restore the strict behaviour
     (raise when ion data is missing) or a float to force a coefficient.
     Shots with ion data are unaffected.
     """
     enc = encoding.lower()
     if enc in ("raw6", "raw5"):
-        R, ne, Te, sne, sTe, Ti, sTi = _raw_ne_te_ti(
+        R, ne, Te, sne, sTe, Ti, sTi, fallback_meta = _raw_ne_te_ti(
             ods, time_ms, geq,
             ti_te_ratio=ti_te_ratio, ti_te_ratio_sigma=ti_te_ratio_sigma,
+            return_fallback_meta=True,
         )
         p = ne * (Te + Ti) * EQE
-        sig = EQE * np.sqrt(
-            ((Te + Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * sTi) ** 2
-        )
+        if fallback_meta is None:
+            sig = EQE * np.sqrt(
+                ((Te + Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * sTi) ** 2
+            )
+        else:
+            # Ti = ratio*Te shares the same Te measurement, so Te and Ti are
+            # correlated. Propagate p=e*ne*(1+ratio)*Te directly instead of
+            # treating their temperature uncertainties as independent.
+            ratio, ratio_sigma = fallback_meta
+            sig = EQE * np.sqrt(
+                ((1.0 + ratio) * Te * sne) ** 2
+                + (ne * (1.0 + ratio) * sTe) ** 2
+                + (ne * Te * ratio_sigma) ** 2
+            )
         sig = np.maximum(sig, sigma_floor * p)   # floor (default 5%)
 
         rpress = [float(x) for x in R]

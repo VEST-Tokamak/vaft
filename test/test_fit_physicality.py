@@ -215,7 +215,7 @@ def test_ion_fit_does_not_extrapolate_below_measured_span():
     ti = np.array([20.9, 18.0, 15.5, 13.0, 11.0, 9.5, 8.4, 7.6])
     ods = _cx_ods(psin, ti)
 
-    _, ti_fn, *_ = profile_fitting_charge_exchange(
+    vtor_fn, ti_fn, _, _, vtor_rho, ti_rho = profile_fitting_charge_exchange(
         ods, 298.0, psin, fitting_function_ti="polynomial"
     )
     grid = np.linspace(0.0, 1.0, 129)
@@ -227,6 +227,11 @@ def test_ion_fit_does_not_extrapolate_below_measured_span():
     np.testing.assert_allclose(ti_fn(np.array([0.5])), ti_fn(np.array([0.5])))
     # below the span it is held at the innermost measured position
     np.testing.assert_allclose(ti_fn(np.array([0.0])), ti_fn(np.array([psin.min()])))
+    # Sampled return arrays are persisted directly by plotting/database callers,
+    # so they must honor the same endpoint clamp as the public callables.
+    return_grid = np.linspace(0.0, 1.0, ti_rho.size)
+    np.testing.assert_allclose(ti_rho, ti_fn(return_grid))
+    np.testing.assert_allclose(vtor_rho, vtor_fn(return_grid))
 
 
 def test_ion_fit_legacy_extrapolation_still_available():

@@ -747,6 +747,13 @@ def profile_fitting_charge_exchange(
             x = np.clip(x, v_lo, v_hi)
         return Vtor_function_raw(x)
 
+    # Keep the sampled return values consistent with the public callables.
+    # Several callers persist these arrays directly into core_profiles instead
+    # of re-evaluating the functions, so returning the raw extrapolated fits
+    # would bypass clamp_to_measured_span and reintroduce the pathology.
+    Ti_rho = np.asarray(Ti_function(rho_eval), dtype=float)
+    Vtor_rho = np.asarray(Vtor_function(rho_eval), dtype=float)
+
     return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
 def _grid_from_geq(geq):
     """Return (rho_tor_norm, psi, psi_N) 1D grid from a geqdsk, or None.

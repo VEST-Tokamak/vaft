@@ -109,6 +109,7 @@ def test_core_profiles_ratio_fallback_writes_ti_and_pressure():
         E_CHARGE * _ne(psin) * (1.0 + 0.2) * _te(psin),
         rtol=1e-10,
     )
+    assert f"{base}.ion.0.temperature_fit.measured" not in ods
 
 
 def test_core_profiles_legacy_fallback_unchanged():
@@ -201,7 +202,9 @@ def test_ts_only_fallback_default_uses_vest_ratio():
     pts = km.kinetic_pressure_points(ods, 300.0, None, encoding="raw6")
     p_exp = km.EQE * ne * (1.0 + TI_TE_RATIO_VEST) * Te
     sig_exp = km.EQE * np.sqrt(
-        ((Te + Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * sTi) ** 2
+        ((1.0 + TI_TE_RATIO_VEST) * Te * sne) ** 2
+        + (ne * (1.0 + TI_TE_RATIO_VEST) * sTe) ** 2
+        + (ne * Te * TI_TE_RATIO_VEST_SIGMA) ** 2
     )
     sig_exp = np.maximum(sig_exp, 0.05 * p_exp)
     assert len(pts) == len(R) + 1                       # raw6 edge anchor kept
@@ -256,6 +259,12 @@ def test_fallback_not_used_when_ion_data_present():
         cx_channel(0.55, 30.0, 3.0),
         cx_channel(0.65, 30.0, 3.0),
     ]
+    # A single dead/malformed channel must be skipped rather than causing the
+    # outer statistical fallback to discard all four valid measurements.
+    malformed = FakeNode()
+    malformed["position"] = FakeNode()  # missing position.r.time/data
+    malformed["ion"] = []
+    cx["channel"].append(malformed)
     ods["charge_exchange"] = cx
 
     _, _, Te, _, _, Ti, _ = km._raw_ne_te_ti(ods, 300.0, None, ti_te_ratio=0.9)
