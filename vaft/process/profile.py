@@ -920,11 +920,17 @@ def core_profiles(
         T_i_recon = np.asarray(T_i_function(psi_n_grid), dtype=float)
     elif have_e and ti_te_fallback:
         if ti_te_ratio is not None:
-            T_i_recon = float(ti_te_ratio) * T_e_recon
+            ratio = float(ti_te_ratio)
+            if not np.isfinite(ratio) or ratio < 0.0:
+                raise ValueError(
+                    "ti_te_ratio must be finite and non-negative, "
+                    f"got {ratio!r}"
+                )
+            T_i_recon = ratio * T_e_recon
             ratio_fallback = True
             print(
                 f"[INFO] no ion fit at {time_ms:.3f} ms: statistical fallback "
-                f"Ti = {float(ti_te_ratio):.3f}*Te (kinetic pressure written)"
+                f"Ti = {ratio:.3f}*Te (kinetic pressure written)"
             )
         else:
             T_i_recon = T_e_recon

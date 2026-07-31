@@ -111,6 +111,12 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None):
         if ti_te_ratio_sigma is None
         else float(ti_te_ratio_sigma)
     )
+    if not np.isfinite(ratio) or ratio < 0.0:
+        raise ValueError(f"ti_te_ratio must be finite and non-negative, got {ratio!r}")
+    if not np.isfinite(sigma) or sigma < 0.0:
+        raise ValueError(
+            f"ti_te_ratio_sigma must be finite and non-negative, got {sigma!r}"
+        )
     return ratio, sigma
 
 
@@ -397,6 +403,10 @@ def _raw_ne_te_ti(
     if not np.any(ts_valid):
         raise RuntimeError(f"no valid Thomson channels in ODS at {time_ms} ms")
     R, ne, Te, sne, sTe = R[ts_valid], ne[ts_valid], Te[ts_valid], sne[ts_valid], sTe[ts_valid]
+    # Preserve otherwise valid channels whose uncertainty is absent or invalid,
+    # but assign a conservative 10% fallback so EFIT never receives SIGPRE=NaN.
+    sne = np.where(np.isfinite(sne) & (sne > 0.0), sne, 0.1 * np.abs(ne))
+    sTe = np.where(np.isfinite(sTe) & (sTe > 0.0), sTe, 0.1 * np.abs(Te))
 
     # --- Charge exchange Ti (nearest time per channel); statistical Ti = ratio*Te
     #     fallback when the shot has no usable ion data (Thomson-only) ---
