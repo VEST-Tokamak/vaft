@@ -173,13 +173,16 @@ def make_fit_function(mode):
     Build a 1D parametric fit function for polynomial or exponential modes.
 
     Supported modes:
-    - 'polynomial': (1 - x) * poly(x)
-    - 'exponential': (1 - x) * exp(poly(x))
+    - 'polynomial': (1 - x) * poly(x)            -> forced 0 at x=1
+    - 'free_polynomial': poly(x)                 -> no edge constraint
+    - 'exponential': (1 - x) * exp(poly(x))      -> forced 0 at x=1, positive
+    - 'free_exponential': exp(poly(x))           -> always > 0, no edge-zero;
+      monotonic decay (small-but-finite edge) when poly is decreasing
 
     Parameters
     ----------
     mode : str
-        Fitting mode: 'polynomial' or 'exponential'
+        Fitting mode: 'polynomial', 'free_polynomial', 'exponential', or 'free_exponential'
 
     Returns
     -------
@@ -195,6 +198,14 @@ def make_fit_function(mode):
             for k in range(len(coeffs)):
                 s = s + coeffs[k] * x**k
             return (1.0 - x) * s
+    elif mode in {'free_polynomial', 'polynomial_unconstrained', 'unconstrained_polynomial'}:
+        # plain poly(x) -> no boundary constraint at x=1
+        def func(x, *coeffs):
+            x = np.asarray(x, dtype=float)
+            s = 0.0
+            for k in range(len(coeffs)):
+                s = s + coeffs[k] * x**k
+            return s
     elif mode == 'exponential':
         # (1-x)*exp(poly(x)) -> goes to 0 at x=1, stays positive
         def func(x, *coeffs):
@@ -203,6 +214,15 @@ def make_fit_function(mode):
             for k in range(len(coeffs)):
                 s = s + coeffs[k] * x**k
             return (1.0 - x) * np.exp(s)
+    elif mode in {'free_exponential', 'exp_free', 'exponential_unconstrained'}:
+        # exp(poly(x)) -> always > 0, NO edge-zero; monotonic decay if poly decreasing.
+        # Edge value exp(poly(1)) stays small-but-finite (never exactly 0, never rises if c1<0).
+        def func(x, *coeffs):
+            x = np.asarray(x, dtype=float)
+            s = 0.0
+            for k in range(len(coeffs)):
+                s = s + coeffs[k] * x**k
+            return np.exp(s)
     else:
         raise ValueError(f"Invalid fitting function: {mode}")
     return func
@@ -288,7 +308,8 @@ def fit_profile(
     x_eval : array-like
         Evaluation grid (1D)
     order : int, optional
-        Polynomial order (for polynomial/exponential/core_poly_edge_exp), by default 3
+        Number of polynomial coefficients, i.e. polynomial degree ``order - 1``
+        (for polynomial/exponential/core_poly_edge_exp), by default 3
     uncertainty_option : int, optional
         Use y_std as weights if 1, by default 1
     fitting_function : str, optional
@@ -316,6 +337,31 @@ def fit_profile(
     >>> fit_profile(x, y, y_std, x_eval, fitting_function='linear')
     >>> fit_profile(x, y, y_std, x_eval, order=3, fitting_function='core_poly_edge_exp')
     """
+    import warnings
+
+    # --- input sanitization: accept lists, mask non-finite / non-positive-sigma points ---
+    x = np.asarray(x, dtype=float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    if y_std is not None:
+        y_std = np.asarray(y_std, dtype=float).reshape(-1)
+    x_eval = np.asarray(x_eval, dtype=float)
+
+    valid = np.isfinite(x) & np.isfinite(y)
+    if y_std is not None:
+        valid &= np.isfinite(y_std) & (y_std > 0)
+    if not np.all(valid):
+        warnings.warn(
+            f"fit_profile: dropped {int(np.sum(~valid))} invalid data point(s) "
+            "(non-finite value or non-positive sigma)"
+        )
+        x, y = x[valid], y[valid]
+        if y_std is not None:
+            y_std = y_std[valid]
+    if x.size < 2:
+        raise ValueError(
+            "fit_profile requires at least 2 valid data points after masking"
+        )
+
     if fitting_function.lower() == 'gp':
         kernel = gp_kernel or (C(1.0, (1e-3, 1e3)) * RBF(length_scale=0.3, length_scale_bounds=(0.05, 5.0)))
 
@@ -323,7 +369,12 @@ def fit_profile(
             x_anchor, y_anchor, y_std_anchor = gp_anchor
             x_gp = np.append(x.ravel(), np.ravel(x_anchor))
             y_gp = np.append(y, np.ravel(y_anchor))
-            y_std_gp = np.append(y_std, np.ravel(y_std_anchor))
+            y_std_base = (
+                y_std
+                if y_std is not None
+                else np.full(x.size, 1e-5 * max(1.0, float(np.max(np.abs(y)))))
+            )
+            y_std_gp = np.append(y_std_base, np.ravel(y_std_anchor))
         else:
             x_gp = x.ravel()
             y_gp = y
@@ -331,7 +382,7 @@ def fit_profile(
 
         gp = GaussianProcessRegressor(
             kernel=kernel,
-            alpha=y_std_gp**2,
+            alpha=y_std_gp**2 if y_std_gp is not None else 1e-10,
             normalize_y=True,
             n_restarts_optimizer=n_restarts_optimizer,
         )
@@ -347,9 +398,12 @@ def fit_profile(
         return y_eval, y_std_eval, fit_function, coeffs
 
     if fitting_function.lower() == 'linear':
+        sort_idx = np.argsort(x)
+        x_sorted, y_sorted = x[sort_idx], y[sort_idx]
+
         def fit_function(x_input):
             x_arr = np.asarray(x_input, float)
-            return np.interp(x_arr, x.ravel(), y)
+            return np.interp(x_arr, x_sorted, y_sorted)
 
         y_eval = fit_function(x_eval)
         y_std_eval = np.zeros_like(y_eval)
@@ -429,12 +483,41 @@ def fit_profile(
         return y_eval, y_std_eval, fit_function, coeffs
 
     func = make_fit_function(fitting_function)
-    p0 = np.ones(order, dtype=float) * 0.1
 
-    if uncertainty_option == 1 and y_std is not None:
-        coeffs, _ = curve_fit(func, x.ravel(), y, sigma=y_std, absolute_sigma=True, p0=p0)
+    # Scale-aware initial guess: p0=0.1 makes curve_fit silently return the
+    # initial guess for large-magnitude data (e.g. raw ne in m^-3).
+    y_scale = float(np.max(np.abs(y)))
+    if not np.isfinite(y_scale) or y_scale <= 0.0:
+        y_scale = 1.0
+    exp_modes = {
+        'exponential', 'free_exponential', 'exp_free', 'exponential_unconstrained'
+    }
+    p0 = np.full(order, 0.1, dtype=float)
+    if fitting_function.lower() in exp_modes:
+        p0[:] = 0.0
+        p0[0] = np.log(y_scale)
     else:
-        coeffs, _ = curve_fit(func, x.ravel(), y, p0=p0)
+        p0[0] = y_scale
+
+    try:
+        if uncertainty_option == 1 and y_std is not None:
+            coeffs, _ = curve_fit(
+                func, x.ravel(), y, sigma=y_std, absolute_sigma=True, p0=p0,
+                maxfev=20000,
+            )
+        else:
+            coeffs, _ = curve_fit(func, x.ravel(), y, p0=p0, maxfev=20000)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"fit_profile: curve_fit failed to converge for mode "
+            f"'{fitting_function}' (order={order}, {x.size} points, "
+            f"max|y|={y_scale:.3g}): {exc}"
+        ) from exc
+    if np.allclose(coeffs, p0):
+        warnings.warn(
+            f"fit_profile: '{fitting_function}' fit returned its initial guess "
+            "unchanged — the optimizer likely failed; inspect the data scale."
+        )
 
     y_eval = func(x_eval, *coeffs)
     y_std_eval = np.zeros_like(y_eval)

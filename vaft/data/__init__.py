@@ -15,6 +15,7 @@ __all__ = [
     "read_geqdsk",
     "resources",
     "sample_geqdsk",
+    "open_adas",
     "to_imas",
     "to_omas",
     "write_geqdsk",
@@ -34,8 +35,8 @@ _EXPORT_MAP = {
 
 
 def __getattr__(name: str):
-    if name == "resources":
-        module = import_module(".resources", __name__)
+    if name in {"resources", "open_adas"}:
+        module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
     if name not in _EXPORT_MAP:

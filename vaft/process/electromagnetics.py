@@ -243,11 +243,40 @@ def compute_response_vector(
         plasma_points=plasma_points
     )
 
+def compute_mutual_passive_active(
+    passive_loop_geometry: List[Tuple[str, float, float, float]],
+    coil_geometry: List[List[Tuple[float, float, int]]],
+) -> np.ndarray:
+    """Compute passive-to-active mutual inductance from the current geometry.
+
+    The packaged ``em_coupling.mutual_passive_active`` matrix represents the
+    historical VEST coil geometry.  Newer shots can use a different active-coil
+    geometry, so callers need a geometry-derived fallback when the packaged
+    matrix is not compatible.
+    """
+    coupling = np.zeros((len(passive_loop_geometry), len(coil_geometry)))
+
+    for i_loop, (_, r_loop, z_loop, coefficient) in enumerate(
+        passive_loop_geometry
+    ):
+        for i_coil, elements in enumerate(coil_geometry):
+            if not elements:
+                raise ValueError(f"active coil {i_coil} has no geometry elements")
+            total_turns = sum(element[2] for element in elements)
+            mean_response = sum(
+                green_r(r_loop, z_loop, r_coil, z_coil)
+                for r_coil, z_coil, _ in elements
+            ) / len(elements)
+            coupling[i_loop, i_coil] = coefficient * total_turns * mean_response
+
+    return coupling
+
+
 def compute_impedance_matrices(
     loop_resistances: np.ndarray,
     passive_loop_geometry: List[Tuple[str, float, float, float]],  
     # e.g. [(loop_name, average_r, average_z, geometry_coef), ...]
-    coil_geometry: List[List[Tuple[float, float, int]]],  
+    coil_geometry: List[List[Tuple[float, float, int]]] | None,
     # e.g. coil_geometry[i] -> list of (rc, zc, turns_with_sign) for each coil element
     mutual_pp: np.ndarray,       # mutual_passive_passive from ODS
     mutual_pa: np.ndarray,       # mutual_passive_active from ODS
@@ -262,55 +291,77 @@ def compute_impedance_matrices(
            - average_r (float),
            - average_z (float),
            - geometry_coef (float)  # e.g. 1.0 or 1.04 ...
-    :param coil_geometry: list of coils, each coil is a list of (rc, zc, turns).
+    :param coil_geometry: active-coil geometry. When provided, its coupling is
+        compared with ``mutual_pa`` and used if the packaged matrix represents
+        a different geometry. ``None`` requires and uses ``mutual_pa`` directly.
     :param mutual_pp: mutual_passive_passive matrix from external (shape = (nbloop, nbloop)).
     :param mutual_pa: mutual_passive_active matrix from external (shape = (nbloop, nbcoil)).
     :param plasma_rz: list of (r, z) for each plasma current element (optional).
     :return: (R, L, M) for passive loops: R_mat, L_mat, M_mat
     """
     nbloop = len(passive_loop_geometry)
-    nbcoil = len(coil_geometry)
     nbplas = len(plasma_rz)
+    loop_resistances = np.asarray(loop_resistances)
+    mutual_pp = np.asarray(mutual_pp)
+    mutual_pa = np.asarray(mutual_pa)
+
+    if loop_resistances.shape != (nbloop,):
+        raise ValueError(
+            f"loop_resistances must have shape ({nbloop},), "
+            f"got {loop_resistances.shape}"
+        )
+    if mutual_pp.shape != (nbloop, nbloop):
+        raise ValueError(
+            f"mutual_pp must have shape ({nbloop}, {nbloop}), "
+            f"got {mutual_pp.shape}"
+        )
+    if mutual_pa.ndim != 2 or mutual_pa.shape[0] != nbloop:
+        raise ValueError(
+            f"mutual_pa must have {nbloop} passive-loop rows, "
+            f"got shape {mutual_pa.shape}"
+        )
+    if coil_geometry is not None and len(coil_geometry) != mutual_pa.shape[1]:
+        raise ValueError(
+            "coil_geometry and mutual_pa describe different numbers of "
+            f"active coils ({len(coil_geometry)} and {mutual_pa.shape[1]})"
+        )
 
     # Build R (nbloop x nbloop)
-    R_mat = np.zeros((nbloop, nbloop))
-    np.fill_diagonal(R_mat, loop_resistances)
+    R_mat = np.diag(loop_resistances)
 
-    # M among passive loops
-    M_mat = mutual_pp  # shape (nbloop, nbloop)
+    # M is the standard passive-to-passive coupling from em_coupling.
+    M_mat = mutual_pp
 
-    # L with coil + plasma
+    active_coupling = mutual_pa
+    if coil_geometry is not None:
+        geometry_coupling = compute_mutual_passive_active(
+            passive_loop_geometry,
+            coil_geometry,
+        )
+        # The packaged reference agrees with the historical geometry to
+        # floating-point precision. Newer VEST geometries (notably PF6/PF7 in
+        # the 2507 configuration) differ materially and must use the geometry
+        # calculation until versioned em_coupling matrices are available.
+        if not np.allclose(
+            geometry_coupling,
+            mutual_pa,
+            rtol=1e-10,
+            atol=1e-15,
+        ):
+            active_coupling = geometry_coupling
+
+    # Plasma filaments are transient VAFT solver inputs; until they are
+    # represented by pf_plasma.element URIs, compute only that portion here.
     if nbplas == 0:
-        # No plasma => Use existing mutual_passive_active from ODS
-        L_mat = mutual_pa
+        L_mat = active_coupling
     else:
-        # Recompute partial or full (example approach)
-        # For each loop => for each coil => sum geometry. Then plasma similarly
-        L_mat = np.zeros((nbloop, nbcoil + nbplas))
-
-        # Precompute coil total turns for each coil
-        coil_turns = np.zeros(nbcoil)
-        for i_coil in range(nbcoil):
-            total_turns = sum(el[2] for el in coil_geometry[i_coil])
-            coil_turns[i_coil] = total_turns
-
+        plasma_coupling = np.zeros((nbloop, nbplas))
         for i_loop, (loop_name, r1, z1, coef) in enumerate(passive_loop_geometry):
-            # Coil part
-            for j_coil in range(nbcoil):
-                elem_list = coil_geometry[j_coil]
-                n_el = len(elem_list)
-                # For each element in coil j_coil
-                for (rc, zc, turns) in elem_list:
-                    # example usage of green's function
-                    L_mat[i_loop, j_coil] += coef * green_r(r1, z1, rc, zc) / n_el
-                # Scale by total turns
-                L_mat[i_loop, j_coil] *= coil_turns[j_coil]
-
-            # Plasma part
             for j_plasma, (rp, zp) in enumerate(plasma_rz):
-                idx_p = nbcoil + j_plasma
-                L_mat[i_loop, idx_p] = coef * green_r(r1, z1, rp, zp)
-                # If you consider "turns" for each plasma element, multiply by that if needed
+                plasma_coupling[i_loop, j_plasma] = (
+                    coef * green_r(r1, z1, rp, zp)
+                )
+        L_mat = np.hstack((active_coupling, plasma_coupling))
 
     return R_mat, L_mat, M_mat
 

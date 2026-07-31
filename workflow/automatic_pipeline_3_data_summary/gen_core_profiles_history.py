@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import vaft
-from vaft.database import ods as db_ods
+from vaft import database
 from vaft.omas import formula_wrapper
 from vaft.omas.general import find_matching_time_indices
 import logging
@@ -60,7 +60,7 @@ def get_core_profile_shots():
     Returns:
         list: List of shot numbers (integers)
     """
-    df = db_ods.exist_ts_file()
+    df = database.exist_shot(data_filter="ts")
     if df is None:
         logger.warning("No processed shots found.")
         return []
@@ -349,7 +349,7 @@ def generate_core_profiles_history_excel(
         try:
             # Load ODS from database
             logger.info(f"Loading ODS for shot {shot_number}...")
-            ods = db_ods.load(int(shot_number), directory=directory)
+            ods = database.load(int(shot_number), source=directory)
             
             # Extract parameters
             results = extract_confinement_parameters(ods, shot_number, Z_eff=Z_eff)

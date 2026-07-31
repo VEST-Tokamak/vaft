@@ -26,11 +26,11 @@ classifiers = [
 ]
 
 dependencies = [
-  "aurorafusion>=3.0.6",
   "astropy==6.1.7",
   "cryptography>=42.0.0",
   "fortranformat",
-  "h5py==3.11.0",
+  "h5py==3.16.0",
+  "h5pyd==0.20.0",
   "imageio>=2.34.0",
   "ipykernel>=6.29.4",
   "ipython",
@@ -38,7 +38,7 @@ dependencies = [
   "matplotlib>=3.7.3,<4",
   "mysql-connector-python>=8.4.0",
   "numba",
-  "numpy>=1.26.4,<3",
+  "numpy>=2.0.0,<3",
   "omas==0.94.2",
   "openpyxl",
   "opencv-python>=4.9.0.80",
@@ -63,8 +63,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# HSDS support intentionally has no extra: h5pyd must be installed with
-# --no-deps (see README installation notes) to avoid dependency conflicts.
 dev = [
   "pytest",
   "black",
@@ -82,29 +80,32 @@ version = { attr = "vaft.version.__version__" }
 [tool.setuptools.packages.find]
 include = ["vaft*"]
 
+[tool.setuptools]
+# Ship only the package data explicitly listed below.  Repository samples stay
+# available to GitHub users but are not pulled into PyPI distributions.
+include-package-data = false
+
 [tool.setuptools.package-data]
 vaft = [
-  "data/efit/*",
+  ".hscfg.example",
+  "machine_mapping/vest.yaml",
+  "data/geometry/Coil_info.mat",
+  "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
+  "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
   "data/geometry/*.yaml",
-  "data/geometry/*.mat",
   "data/geometry/*.csv",
   "data/gpec/*.in",
   "data/gpec/*.dat",
-  "data/imas/*.nc",
-  "data/legacy/*.csv",
-  "data/legacy/*.gz",
-  "data/legacy/*.h5",
-  "data/legacy/*.mat",
   "data/legacy/*.txt",
-  "data/omas/*.json",
-]
-
-[tool.uv]
-override-dependencies = [
-  "numpy>=2,<3",
+  "data/omas/39915.json",
 ]
 
 [tool.uv.sources]
 imas_core = [
   { git = "https://github.com/iterorganization/IMAS-Core", tag = "5.6.0" }
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: explicit read-only HSDS or IMAS integration test",
 ]

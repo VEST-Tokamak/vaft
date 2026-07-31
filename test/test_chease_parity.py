@@ -1,0 +1,207 @@
+"""jsk95 parity tests for vaft.code.chease.
+
+Pure text/logic assertions -- no CHEASE binary required. Run from the
+feature/kinetic_profile_eq worktree (where vaft/code/chease.py exists) after
+applying the edits in chease_jsk95.md:
+
+    pytest -q scratchpad/port/test_chease_parity.py
+
+These tests exercise:
+  * namelist writer emits EPSLON=1.0E-10 and NIDEAL=11 (jsk95 defaults),
+  * CSSPEC and QSPEC are driven by the q95 (double-sqrt) constraint,
+  * _resolve_executable honors the $CHEASE environment variable.
+"""
+
+import os
+import stat
+
+import numpy as np
+import pytest
+
+from vaft.code import chease as ch
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _fake_geqdsk(n: int = 129):
+    """Minimal dict-backed GEQDSK sufficient for _write_expeq with target_psin=0.
+
+    A plain dict supports both ``key in geqdsk`` and ``geqdsk[key]`` used by
+    _write_expeq, and RBBBS/ZBBBS let _target_boundary short-circuit (no skimage).
+    """
+    x = np.linspace(0.0, 1.0, n)
+    # A monotone, cubically-interpolable q profile: q0=1.86, rising to edge.
+    q = 1.86 + 3.0 * x**2
+
+    # Simple circular boundary, R0=1.0 m, a=0.3 m.
+    theta = np.linspace(0.0, 2.0 * np.pi, 64, endpoint=False)
+    rbbbs = 1.0 + 0.3 * np.cos(theta)
+    zbbbs = 0.0 + 0.3 * np.sin(theta)
+
+    return {
+        "NW": n,
+        "NH": n,
+        "PSIRZ": np.zeros((n, n)),
+        "PPRIME": -np.linspace(1.0, 0.0, n),  # negative-definite interior
+        "FFPRIM": -np.linspace(2.0, 0.5, n),
+        "PRES": np.linspace(5.0e3, 0.0, n),
+        "FPOL": np.linspace(0.5, 0.4, n),
+        "QPSI": q,
+        "RCENTR": 1.0,
+        "BCENTR": 0.5,     # sign(+)
+        "CURRENT": -1.0e5,  # sign(-)  => sign_q = -1
+        "RBBBS": rbbbs,
+        "ZBBBS": zbbbs,
+    }
+
+
+def _expected_q95(q, qloc):
+    from scipy.interpolate import interp1d
+
+    x = np.linspace(0.0, 1.0, len(q))
+    return float(interp1d(x, q, kind="cubic", fill_value="extrapolate")(qloc))
+
+
+# ---------------------------------------------------------------------------
+# (d) EPSLON / NIDEAL defaults
+# ---------------------------------------------------------------------------
+
+def test_namelist_epslon_and_nideal_defaults_match_jsk95():
+    cfg = ch.CHEASEConfig()
+    assert cfg.nideal == 11
+    assert cfg.epslon_exponent == 10
+    params = {
+        "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
+        "QSPEC": 1.9, "CSSPEC": 0.9872864, "QLOC": np.sqrt(0.95),
+        "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
+    }
+    text = "".join(ch._namelist_lines(cfg, params))
+    assert "EPSLON=1.0E-10," in text
+    assert "NIDEAL=11," in text
+    assert "NCSCAL=1," in text
+
+
+def test_namelist_epslon_exponent_is_configurable():
+    cfg = ch.CHEASEConfig(epslon_exponent=9)
+    params = {
+        "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
+        "QSPEC": 1.9, "CSSPEC": 0.0, "QLOC": 0.0,
+        "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
+    }
+    text = "".join(ch._namelist_lines(cfg, params))
+    assert "EPSLON=1.0E-9," in text
+
+
+# ---------------------------------------------------------------------------
+# (a) q95 constraint -> QSPEC / CSSPEC, and namelist CSSPEC wiring
+# ---------------------------------------------------------------------------
+
+def test_csspec_double_sqrt_and_qspec_from_q95(tmp_path):
+    cfg = ch.CHEASEConfig(target_psin=0.0)  # use RBBBS boundary, skip skimage
+    geq = _fake_geqdsk()
+    params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
+
+    qloc = float(np.sqrt(0.95))
+    sign_q = np.sign(geq["CURRENT"]) * np.sign(geq["BCENTR"])  # -1
+    expected_qspec = _expected_q95(geq["QPSI"], qloc) * sign_q
+
+    # CSSPEC is the double sqrt: sqrt(sqrt(0.95)) == 0.95 ** 0.25.
+    assert params["CSSPEC"] == pytest.approx(0.95**0.25, rel=1e-12)
+    assert params["QLOC"] == pytest.approx(qloc, rel=1e-12)
+    # QSPEC is q sampled at psi_N = sqrt(0.95), NOT at 0.95, times the signs.
+    assert params["QSPEC"] == pytest.approx(expected_qspec, rel=1e-9)
+    # Sanity: QSPEC is negative here (sign_q = -1) and q(sqrt0.95) != q(0.95).
+    assert params["QSPEC"] < 0.0
+    assert _expected_q95(geq["QPSI"], qloc) != pytest.approx(
+        _expected_q95(geq["QPSI"], 0.95), rel=1e-6
+    )
+
+
+def test_namelist_emits_q95_csspec(tmp_path):
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+    geq = _fake_geqdsk()
+    params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
+    text = "".join(ch._namelist_lines(cfg, params))
+    assert f"CSSPEC={0.95**0.25:.6f}," in text
+    # QSPEC appears on the CURRT line; check the numeric value is present.
+    assert "CSSPEC=0.000000," not in text
+
+
+def test_legacy_axis_q_when_constraint_disabled(tmp_path):
+    cfg = ch.CHEASEConfig(target_psin=0.0, q95_constraint=False)
+    geq = _fake_geqdsk()
+    params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
+    sign_q = np.sign(geq["CURRENT"]) * np.sign(geq["BCENTR"])
+    assert params["CSSPEC"] == 0.0
+    assert params["QSPEC"] == pytest.approx(geq["QPSI"][0] * sign_q, rel=1e-12)
+    text = "".join(ch._namelist_lines(cfg, params))
+    assert "CSSPEC=0.000000," in text  # byte-identical to pre-jsk95 output
+
+
+# ---------------------------------------------------------------------------
+# (b) edge-zeroing helper
+# ---------------------------------------------------------------------------
+
+def test_edge_zero_zeros_positive_edge_and_flattens_ffprim():
+    psin = np.linspace(0.0, 1.0, 11)
+    pprime = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.5, 0.7, 0.9])
+    ffprim = np.arange(11, dtype=float)
+    pp, ff, qloc = ch._edge_zero_profiles(psin, pprime, ffprim, float(np.sqrt(0.95)))
+    # Positive edge points (indices 8,9) zeroed; index 10 (edge) untouched by loop.
+    assert pp[8] == 0.0 and pp[9] == 0.0
+    assert pp[7] == -1.0
+    # FF' flattened inward across the zeroed band (held at just-outside value).
+    assert ff[9] == pytest.approx(10.0)  # ff[9] <- ff[10]
+    assert ff[8] == pytest.approx(10.0)  # ff[8] <- ff[9] (already updated)
+    # qloc = sqrt(0.95) > 0.3, so the eqdsk nudge branch never fires.
+    assert qloc == pytest.approx(np.sqrt(0.95))
+
+
+# ---------------------------------------------------------------------------
+# (c) FFT boundary smoothing
+# ---------------------------------------------------------------------------
+
+def test_fft_boundary_returns_nf_points_on_circle():
+    theta = np.linspace(0.0, 2.0 * np.pi, 80, endpoint=False)
+    rz = np.column_stack([1.0 + 0.3 * np.cos(theta), 0.3 * np.sin(theta)])
+    out = ch._smooth_boundary_fft(rz, nf=128)
+    assert out.shape == (128, 2)
+    # A circle of minor radius 0.3 about (1.0, 0.0) is reproduced.
+    rad = np.sqrt((out[:, 0] - 1.0) ** 2 + out[:, 1] ** 2)
+    assert np.allclose(rad, 0.3, atol=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# (e) $CHEASE executable resolution
+# ---------------------------------------------------------------------------
+
+def test_resolve_executable_honors_CHEASE_env(tmp_path, monkeypatch):
+    exe = tmp_path / "chease"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
+    monkeypatch.setenv("CHEASE", str(exe))
+    resolved = ch._resolve_executable(ch.CHEASEConfig())
+    assert resolved == exe
+
+
+def test_resolve_executable_CHEASE_dir(tmp_path, monkeypatch):
+    exe = tmp_path / "chease"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
+    monkeypatch.setenv("CHEASE", str(tmp_path))  # directory containing 'chease'
+    resolved = ch._resolve_executable(ch.CHEASEConfig())
+    assert resolved == exe
+
+
+def test_resolve_executable_config_env_precedence(tmp_path, monkeypatch):
+    exe = tmp_path / "chease"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.delenv("CHEASE", raising=False)
+    monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
+    resolved = ch._resolve_executable(ch.CHEASEConfig(env={"CHEASE": str(exe)}))
+    assert resolved == exe

@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import wraps
 from typing import Any
 import sys
+import types
 
 _OMFIT_PATCH_APPLIED = False
 _RUNTIME_PATCH_APPLIED = False
@@ -80,6 +81,29 @@ def _build_interp2d_compat(interpolate_module: Any):
         )
 
     return _interp2d
+
+
+def _install_xarray_plot_compat() -> None:
+    """Provide the legacy ``xarray.plot.plot._PlotMethods`` symbol for OMFIT."""
+    if "xarray.plot.plot" in sys.modules:
+        return
+
+    try:
+        from xarray import DataArray
+    except Exception:
+        return
+
+    compat_module = types.ModuleType("xarray.plot.plot")
+
+    class _PlotMethods:
+        def __init__(self, darray):
+            self._da = darray if isinstance(darray, DataArray) else DataArray(darray)
+
+        def __call__(self, *args, **kwargs):
+            return self._da.plot(*args, **kwargs)
+
+    compat_module._PlotMethods = _PlotMethods
+    sys.modules["xarray.plot.plot"] = compat_module
 
 
 def trapz_compat(y, x=None, dx=1.0, axis: int = -1):
@@ -163,6 +187,8 @@ def apply_omfit_compat_patches() -> None:
         from scipy import interpolate
     except Exception:
         return
+
+    _install_xarray_plot_compat()
 
     # NumPy 2.0 `errstate` objects are not re-entrant, but OMFIT uses
     # decorator-style errstate wrappers that expect re-entrancy.
@@ -252,4 +278,3 @@ def _retrofit_omfit_utils_math_np_errors() -> None:
     mod.np_raised = _np_errors_reentrant(all="raise")
     mod.np_printed = _np_errors_reentrant(all="print")
     mod.np_warned = _np_errors_reentrant(all="warn")
-

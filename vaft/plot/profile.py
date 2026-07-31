@@ -462,27 +462,9 @@ def charge_exchange_rho_profiles(
         print("No charge_exchange data found in ODS.")
         return
 
-    # #region agent log
     def _ces_rho_dbg(hypothesis_id, location, message, data):
-        try:
-            import json, time
-
-            payload = {
-                "sessionId": "bd9a35",
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data,
-                "timestamp": int(time.time() * 1000),
-            }
-            with open(
-                "/Users/yun/git/vaft/.cursor/debug-bd9a35.log", "a", encoding="utf-8"
-            ) as f:
-                f.write(json.dumps(payload) + "\n")
-        except Exception:
-            pass
-
-    # #endregion
+        """Compatibility no-op for retired diagnostic instrumentation."""
+        return None
 
     try:
         # Local import to avoid circulars at module import time.
@@ -810,10 +792,22 @@ def charge_exchange_rho_profiles(
         except Exception:
             shot = None
 
+        try:
+            diag_name = str(ods["charge_exchange.channel.0.name"]).strip().lower()
+        except Exception:
+            diag_name = ""
+
+        if "ion doppler" in diag_name or "ids" in diag_name:
+            diag_label = "IDS"
+        elif "charge exchange" in diag_name or "ces" in diag_name:
+            diag_label = "CES"
+        else:
+            diag_label = "Charge-exchange"
+
         title = (
-            f"CES profiles vs rho @ {float(time_s)*1e3:.1f} ms"
+            f"{diag_label} profiles vs rho @ {float(time_s)*1e3:.1f} ms"
             if np.isfinite(time_s)
-            else "CES profiles vs rho"
+            else f"{diag_label} profiles vs rho"
         )
         if shot is not None:
             title += f" (shot {shot})"

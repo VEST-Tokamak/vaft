@@ -1,0 +1,18 @@
+# Keep repository-only samples out of source distributions.  The wheel uses
+# ``tool.setuptools.package-data``; this manifest applies the same allowlist to
+# the sdist, including when an old ``SOURCES.txt`` is present locally.
+graft vaft
+prune vaft/data
+prune test
+global-exclude *.py[cod]
+
+include vaft/data/*.py
+include vaft/data/geometry/Coil_info.mat
+include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
+include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
+include vaft/data/geometry/*.yaml
+include vaft/data/geometry/*.csv
+include vaft/data/gpec/*.in
+include vaft/data/gpec/*.dat
+include vaft/data/legacy/*.txt
+include vaft/data/omas/39915.json

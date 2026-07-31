@@ -105,7 +105,12 @@ def _resolve_digitizer_file(
         if candidate.exists():
             return candidate
     searched = ", ".join(str(path) for path in candidates)
-    raise FileNotFoundError(f"Cannot find digitizer_{label}_{int(shot)}.csv; searched: {searched}")
+    raise FileNotFoundError(
+        f"Cannot find digitizer_{label}_{int(shot)}.csv. Packaged digitizer "
+        "samples are not included in the PyPI distribution; provide "
+        "digitizer_file/data_root or clone the VAFT GitHub repository. "
+        f"Searched: {searched}"
+    )
 
 
 def _packaged_geometry_table_path() -> Path:

@@ -1,0 +1,7 @@
+# HDFCloud configuration example
+# Copy this file to ~/.hscfg and replace the placeholders with credentials
+# supplied by your HSDS administrator. Do not commit real credentials.
+hs_endpoint = https://your-hsds-server.example
+hs_username = your_username
+hs_password = your_password
+hs_api_key =

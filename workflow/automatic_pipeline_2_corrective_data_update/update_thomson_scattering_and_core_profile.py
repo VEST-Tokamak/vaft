@@ -24,6 +24,8 @@ How to use:
 import os, shutil, re
 import time
 import numpy as np
+import vaft
+vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
 from vaft import database, machine_mapping, process
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 import h5pyd
@@ -31,12 +33,44 @@ from datetime import datetime
 import omas
 import h5py
 
+_TOTAL_PRESSURE_LEAVES = (
+    "pressure_thermal", "pressure", "pressure_ion_total",
+    "pressure_ion_total_thermal", "pressure_parallel", "pressure_perpendicular",
+)
+
+
+def strip_electron_only_pressure(ods):
+    """Delete slice-total pressure from any core_profiles slice with no ion temperature.
+
+    A Thomson-only slice has no ion measurement, so it must not carry a total
+    (kinetic) pressure computed with a phantom Ti=Te.
+    """
+    if "core_profiles" not in ods:
+        return
+    for i in range(len(ods["core_profiles.profiles_1d"])):
+        b = f"core_profiles.profiles_1d.{i}"
+        if f"{b}.ion.0.temperature" in ods:  # a real kinetic slice keeps its pressure
+            continue
+        for leaf in _TOTAL_PRESSURE_LEAVES:
+            key = f"{b}.{leaf}"
+            if key in ods:
+                del ods[key]
+
+
 def extract_shotnumber_of_thomson_scattering(fname: str):
     """
-    Extract shotnumber from filename.
-    Supports both:
-    - 'Shot40330_v10.mat'
-    - '40330_NeTe.mat'
+    Extract shotnumber from a Thomson-scattering filename.
+
+    Supported layouts (all styles present in /srv/vest.diagnostic):
+    - 'Shot40330_v10.mat', 'NeTe_Shot48223_v9_rev.mat'  -> ...Shot<shot>...
+    - '40330_NeTe.mat'                                   -> <shot>_...
+    - 'NeTe_48223.mat'                                   -> NeTe_<shot>
+
+    The ``Shot`` pattern is tried FIRST so that 'NeTe_Shot48223_v9.mat' resolves
+    via the shot tag rather than being mis-parsed by the trailing-number rule.
+
+    Returns None when the name matches no known layout, so callers can log and
+    skip the file instead of silently dropping it.
     """
     match1 = re.search(r"Shot(\d+)", fname, re.IGNORECASE)
     if match1:
@@ -45,19 +79,40 @@ def extract_shotnumber_of_thomson_scattering(fname: str):
     match2 = re.match(r"^(\d+)_", fname)
     if match2:
         return int(match2.group(1))
-    
+
+    # 'NeTe_<shot>.mat' -- the layout used from the 48xxx campaign onward. Without
+    # this the whole batch was skipped silently (shots 48222-48234 never reached
+    # the database), mirroring the '^IDS[_-](\d+)' rule the CES updater already has.
+    match3 = re.match(r"^NeTe[_-](\d+)", fname, re.IGNORECASE)
+    if match3:
+        return int(match3.group(1))
+
     return None
 
 PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
 
-def save_processed_shot(shotnumber, mtime, status="core_profile"):
-    """Save shot number, last modified time, and processing status."""
+# Registry groups inside processed_shots.h5. Each diagnostic owns its own group
+# so Thomson and charge_exchange records (both keyed by bare shot number) never
+# collide. Mirrors vaft.database.utils.{TS,CX}_REGISTRY_GROUP.
+TS_REGISTRY_GROUP = "shots"
+
+# Statuses that must not be downgraded to 'invalid' on a later failed run.
+_SUCCESS_STATUSES = ["core_profile", "thomson_only", "charge_exchange",
+                     "kinetic_core_profile"]
+
+def save_processed_shot(shotnumber, mtime, status="core_profile", group=TS_REGISTRY_GROUP):
+    """Save shot number, last modified time, and processing status.
+
+    ``group`` selects the per-diagnostic registry group (``shots`` for Thomson,
+    ``cx_shots`` for charge_exchange), so the two updaters never overwrite each
+    other's records.
+    """
     try:
         with h5pyd.File(PROCESSED_H5_PATH, "a") as f:
-            if "shots" not in f:
-                f.create_group("shots")
+            if group not in f:
+                f.create_group(group)
 
-            g = f["shots"]
+            g = f[group]
             key = str(shotnumber)
 
             if key in g:
@@ -65,14 +120,15 @@ def save_processed_shot(shotnumber, mtime, status="core_profile"):
                 if isinstance(current_status, bytes):
                     current_status = current_status.decode()
 
-                # core_profile/thomson_only 상태는 invalid로 덮지 않음
-                if current_status in ["core_profile", "thomson_only"] and status == "invalid":
+                # 성공 상태(core_profile/thomson_only/charge_exchange)는 invalid로 덮지 않음
+                if current_status in _SUCCESS_STATUSES and status == "invalid":
                     print(f"[SKIP] Shot {shotnumber} already marked as '{current_status}', not overwriting with 'invalid'")
                     return
 
                 # overwrite values properly using [:]
-                g[key]["timestamp"][...] = np.string_(mtime)
-                g[key]["status"][...] = np.string_(status)
+                # np.string_ was removed in NumPy 2.0; np.bytes_ is the replacement.
+                g[key]["timestamp"][...] = np.bytes_(mtime)
+                g[key]["status"][...] = np.bytes_(status)
                 print(f"[INFO] Updated shot {shotnumber}: status='{status}'")
 
             else:
@@ -87,14 +143,14 @@ def save_processed_shot(shotnumber, mtime, status="core_profile"):
 
 
 
-def load_processed_shots():
-    """Return dict {shotnumber: {'timestamp': ..., 'status': ...}}"""
+def load_processed_shots(group=TS_REGISTRY_GROUP):
+    """Return dict {shotnumber: {'timestamp': ..., 'status': ...}} for one group."""
     shots = {}
     try:
         with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
-            if "shots" not in f:
+            if group not in f:
                 return shots
-            g = f["shots"]
+            g = f[group]
             for key in g.keys():
                 shots[int(key)] = {
                     "timestamp": g[key]["timestamp"][()].decode()
@@ -112,22 +168,18 @@ CHECK_INTERVAL = 10
 
 def update_thomson_auto(filepath):
     filename = os.path.basename(filepath)
-    try:
-
-        if "Shot" in filename:
-            # e.g. NeTe_Shot39915_v9_rev.mat → 39915
-            shotnumber = int(filename.split("Shot")[1].split("_")[0])
-        else:
-            # e.g. 46051_NeTe.mat → 46051
-            shotnumber = int(filename.split("_")[0])        
-        
-        print(f"[INFO] Processing shot: {shotnumber}")
-    except Exception as e:
-        print(f"[ERROR] Could not parse shot number from {filename}: {e}")
+    # Use the shared extractor rather than a second, divergent parser: the old
+    # inline `int(filename.split("_")[0])` raised ValueError on 'NeTe_<shot>.mat'
+    # (int("NeTe")), and returning None here makes the caller's tuple unpacking
+    # fail with a confusing TypeError.
+    shotnumber = extract_shotnumber_of_thomson_scattering(filename)
+    if shotnumber is None:
+        print(f"[ERROR] Could not parse shot number from {filename}")
         return None
+    print(f"[INFO] Processing shot: {shotnumber}")
 
     try:
-        ods = database.load(shotnumber,'public')
+        ods = database.load(shotnumber, source="public")
     except Exception as e:
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {e}")
         return None
@@ -180,7 +232,7 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 continue
 
             try:
-                ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn)
+                ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn, geq=geq, ti_te_fallback=False)
                 omas.omas_physics.core_profiles_pressures(ods, update=True)
                 omas.save_omas_json(ods, f"/srv/vest.filedb/public/{shotnumber}/omas/{shotnumber}_core_profile.json")
                 success_count += 1 
@@ -188,6 +240,7 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 print(f"[WARNING] Skipped time {time_ms:.1f} ms during core_profile mapping: {e}")
                 continue
 
+        strip_electron_only_pressure(ods)  # Thomson-only slices carry no total pressure
         database.save(ods, shotnumber)
 
         if success_count > 0:
@@ -206,6 +259,11 @@ WATCH_DIAG = "/srv/vest.diagnostic"
 PUBLIC_BASE = "/srv/vest.filedb/public"
 CHECK_INTERVAL = 10  # seconds
 
+#: Filenames already reported as unparseable, so the polling loop warns once
+#: per file instead of on every pass.
+_unparsed_reported = set()
+
+
 def main():
     processed_shots = load_processed_shots()
 
@@ -223,8 +281,14 @@ def main():
                     try:
                         shotnumber = extract_shotnumber_of_thomson_scattering(fname)
                         if shotnumber is None:
+                            # Log it: an unrecognised layout previously dropped whole
+                            # campaigns without a trace (see the NeTe_<shot> case).
+                            if fname not in _unparsed_reported:
+                                _unparsed_reported.add(fname)
+                                print(f"[WARNING] no shot number in filename, skipped: {fname}")
                             continue
-                    except Exception:
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[WARNING] could not parse filename {fname}: {exc}")
                         continue
                     mtime = datetime.fromtimestamp(os.path.getmtime(full_path)).isoformat()
                     prev_info = processed_shots.get(shotnumber)
@@ -256,6 +320,7 @@ def main():
 
 
                     chease_dir = os.path.join(PUBLIC_BASE, f"{shotnumber}/chease")
+                    fitted = False
                     if os.path.exists(chease_dir):
                         try:
                             fitted = fit_thomson_profile_auto_all_times(ods, shotnumber)
@@ -308,7 +373,7 @@ def reset_processed_shots(clear_entire_file=False):
         if "shots" in f:
             del f["shots"]
         for shot in list(f.keys()):
-            ods = database.load(shot,'public')
+            ods = database.load(shot, source="public")
             if 'thomson_scattering' in ods:
                 ods['thomson_scattering'].clear()
             if 'core_profiles' in ods:

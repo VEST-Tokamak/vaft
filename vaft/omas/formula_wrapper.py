@@ -1,5 +1,4 @@
 from typing import List, Tuple, Dict, Any, Optional
-import re
 import numpy as np
 from numpy import ndarray
 from scipy.interpolate import interp1d
@@ -10,6 +9,13 @@ logger = logging.getLogger(__name__)
 from vaft.omas.process_wrapper import compute_volume_averaged_pressure
 from vaft.process import compute_response_matrix
 from vaft.process.equilibrium import psi_to_rz, volume_average
+from vaft.process.atomic import (
+    compute_line_radiation_power_series,
+    find_time_match_index as _find_time_match_index,
+    integrate_emissivity_profile as _integrate_emissivity_profile,
+    _interp_profile_to_target,
+    _sanitize_rho_grid,
+)
 from vaft.formula import magnetic_shear, ballooning_alpha_from_p_B_R
 from vaft.formula.equilibrium import (
     loss_power_from_p_heat_dWdt_p_rad,
@@ -395,9 +401,14 @@ def _compute_tau_E_scaling_from_eng_params(
     return tau_E
 
 
-def compute_tau_E_scaling(ods, time_slice: int, scaling: str = "IBP98y2", 
-                          Z_eff: float = 2.0, M: float = 1.0,
-                          eng_params: Optional[Dict[str, float]] = None) -> float:
+def compute_tau_E_scaling(
+    ods,
+    time_slice: int,
+    scaling: str,
+    Z_eff: float = 2.0,
+    M: float = 1.0,
+    eng_params: Optional[Dict[str, float]] = None,
+) -> float:
     """
     Compute confinement time from scaling law using engineering parameters.
     
@@ -410,8 +421,8 @@ def compute_tau_E_scaling(ods, time_slice: int, scaling: str = "IBP98y2",
         OMAS data structure
     time_slice : int
         Time slice index for equilibrium
-    scaling : str, optional
-        Scaling law name, by default "IBP98y2"
+    scaling : str
+        Required confinement-scaling law name.
     Z_eff : float, optional
         Effective charge number, by default 2.0
     M : float, optional
@@ -813,445 +824,6 @@ def compute_bremsstrahlung_power(
     
     return P_B_pressure, P_B_electron
 
-_DEFAULT_LINE_RADIATION_SPECIES = ("C", "O")
-_DEFAULT_IMPURITY_FRACTIONS = {"C": 1.0e-2, "O": 1.0e-2}
-_DEFAULT_TIME_MATCH_ATOL = 1.0e-6
-_ATOMIC_NUMBERS = {
-    "H": 1,
-    "D": 1,
-    "T": 1,
-    "He": 2,
-    "Li": 3,
-    "Be": 4,
-    "B": 5,
-    "C": 6,
-    "N": 7,
-    "O": 8,
-    "Ne": 10,
-    "Ar": 18,
-    "Kr": 36,
-    "Xe": 54,
-    "W": 74,
-}
-
-
-def _compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIME_MATCH_ATOL) -> float:
-    """
-    Compute a robust absolute tolerance for matching time slices.
-
-    The tolerance is bounded below by ``base_atol`` and, when possible,
-    adapted to the native spacing of the provided time array.
-    """
-    arr = np.asarray(time_array, dtype=float).reshape(-1)
-    arr = arr[np.isfinite(arr)]
-    if arr.size < 2:
-        return float(base_atol)
-
-    diffs = np.diff(np.unique(np.sort(arr)))
-    positive = diffs[diffs > 0.0]
-    if positive.size == 0:
-        return float(base_atol)
-
-    return float(max(base_atol, 0.25 * float(np.min(positive))))
-
-
-def _find_time_match_index(time_array: ndarray, target_time: float) -> Optional[int]:
-    """Return index of the nearest matching time slice, or ``None`` if no close match exists."""
-    arr = np.asarray(time_array, dtype=float).reshape(-1)
-    if arr.size == 0 or not np.isfinite(target_time):
-        return None
-
-    atol = _compute_time_match_atol(arr)
-    close_idx = np.where(np.isclose(arr, float(target_time), rtol=0.0, atol=atol))[0]
-    if close_idx.size == 0:
-        return None
-
-    # Pick the closest candidate when multiple slices are within tolerance.
-    idx = int(close_idx[np.argmin(np.abs(arr[close_idx] - float(target_time)))])
-    return idx
-
-
-def _normalize_atomic_symbol(label: Any) -> Optional[str]:
-    """Normalize an impurity label to atomic symbol form (e.g. 'carbon6+' -> 'C')."""
-    if label is None:
-        return None
-    if isinstance(label, bytes):
-        text = label.decode("utf-8", errors="ignore")
-    else:
-        text = str(label)
-    text = text.strip()
-    if not text:
-        return None
-
-    match = re.match(r"([A-Za-z]+)", text)
-    if not match:
-        return None
-    token = match.group(1)
-
-    # Prefer one-letter symbols first to avoid mapping names like "carbon" to "Ca".
-    cand1 = token[0].upper()
-    if cand1 in _ATOMIC_NUMBERS:
-        return cand1
-
-    if len(token) >= 2:
-        cand2 = token[:2].capitalize()
-        if cand2 in _ATOMIC_NUMBERS:
-            return cand2
-
-    return None
-
-
-def _sanitize_rho_grid(rho: ndarray) -> Optional[ndarray]:
-    """Return sorted, unique, finite rho grid (or None if not enough points)."""
-    rho_arr = np.asarray(rho, dtype=float).reshape(-1)
-    rho_arr = rho_arr[np.isfinite(rho_arr)]
-    if rho_arr.size < 2:
-        return None
-    rho_arr = np.unique(np.sort(rho_arr))
-    return rho_arr if rho_arr.size >= 2 else None
-
-
-def _interp_profile_to_target(
-    rho_src: ndarray,
-    profile_src: ndarray,
-    rho_target: ndarray,
-) -> Optional[ndarray]:
-    """Interpolate 1D profile from source rho grid to target rho grid."""
-    rho_src_arr = np.asarray(rho_src, dtype=float).reshape(-1)
-    prof_src_arr = np.asarray(profile_src, dtype=float).reshape(-1)
-    rho_tgt_arr = np.asarray(rho_target, dtype=float).reshape(-1)
-
-    if rho_src_arr.size != prof_src_arr.size or rho_src_arr.size < 2 or rho_tgt_arr.size == 0:
-        return None
-
-    finite_src = np.isfinite(rho_src_arr) & np.isfinite(prof_src_arr)
-    if np.count_nonzero(finite_src) < 2:
-        return None
-
-    rho_src_arr = rho_src_arr[finite_src]
-    prof_src_arr = prof_src_arr[finite_src]
-    sort_idx = np.argsort(rho_src_arr)
-    rho_src_arr = rho_src_arr[sort_idx]
-    prof_src_arr = prof_src_arr[sort_idx]
-
-    unique_mask = np.concatenate(([True], np.diff(rho_src_arr) > 1e-10))
-    rho_src_arr = rho_src_arr[unique_mask]
-    prof_src_arr = prof_src_arr[unique_mask]
-    if rho_src_arr.size < 2:
-        return None
-
-    out = np.full(rho_tgt_arr.shape, np.nan, dtype=float)
-    finite_tgt = np.isfinite(rho_tgt_arr)
-    if not np.any(finite_tgt):
-        return out
-
-    interp = interp1d(
-        rho_src_arr,
-        prof_src_arr,
-        kind="linear",
-        bounds_error=False,
-        fill_value=(prof_src_arr[0], prof_src_arr[-1]),
-    )
-    out[finite_tgt] = interp(rho_tgt_arr[finite_tgt])
-    return out
-
-
-def _infer_impurity_fraction_from_zeff(Z_eff: Optional[float], species: str) -> Optional[float]:
-    """
-    Infer n_imp/n_e from Z_eff for a single-impurity, hydrogenic-main-ion model:
-    Z_eff = 1 + (n_imp / n_e) * Z * (Z - 1).
-    """
-    if Z_eff is None or not np.isfinite(Z_eff):
-        return None
-    Z = _ATOMIC_NUMBERS.get(species)
-    if Z is None or Z <= 1:
-        return None
-    fraction = (float(Z_eff) - 1.0) / float(Z * (Z - 1))
-    return max(float(fraction), 0.0)
-
-
-def _impurity_fraction_profile_from_core_profiles(
-    cp_ts: ODS,
-    rho_cp: ndarray,
-    rho_target: ndarray,
-    n_e_target: ndarray,
-    species: str,
-) -> Optional[ndarray]:
-    """Get n_imp/n_e profile from core_profiles ion densities when available."""
-    if "ion" not in cp_ts:
-        return None
-
-    for ion_idx in range(len(cp_ts["ion"])):
-        ion_ts = cp_ts["ion"][ion_idx]
-        ion_symbol = _normalize_atomic_symbol(ion_ts["label"] if "label" in ion_ts else None)
-        if ion_symbol != species:
-            continue
-
-        density_key = None
-        if "density" in ion_ts:
-            density_key = "density"
-        elif "density_thermal" in ion_ts:
-            density_key = "density_thermal"
-        if density_key is None:
-            continue
-
-        n_imp_cp = np.asarray(ion_ts[density_key], dtype=float)
-        n_imp_target = _interp_profile_to_target(rho_cp, n_imp_cp, rho_target)
-        if n_imp_target is None:
-            continue
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            frac = np.where(n_e_target > 0.0, n_imp_target / n_e_target, 0.0)
-        frac = np.nan_to_num(frac, nan=0.0, posinf=0.0, neginf=0.0)
-        return np.clip(frac, 0.0, None)
-
-    return None
-
-
-def _integrate_emissivity_profile(
-    emissivity_profile: ndarray,
-    volume_profile: Optional[ndarray],
-    total_volume: float,
-) -> float:
-    """Integrate emissivity [W/m^3] over volume to obtain power [W]."""
-    from vaft.compat import trapz_compat
-
-    emiss = np.asarray(emissivity_profile, dtype=float)
-    finite_emiss = np.isfinite(emiss)
-    if not np.any(finite_emiss):
-        return 0.0
-
-    if volume_profile is not None:
-        vol = np.asarray(volume_profile, dtype=float)
-        if vol.shape == emiss.shape:
-            finite = finite_emiss & np.isfinite(vol)
-            if np.count_nonzero(finite) >= 2:
-                vol_f = vol[finite]
-                em_f = emiss[finite]
-                order = np.argsort(vol_f)
-                vol_f = vol_f[order]
-                em_f = em_f[order]
-                # Integrate using cumulative volume coordinate where available.
-                if np.ptp(vol_f) > 0.0:
-                    return float(trapz_compat(em_f, x=vol_f))
-
-    if np.isfinite(total_volume) and total_volume > 0.0:
-        return float(np.nanmean(emiss[finite_emiss]) * total_volume)
-    return 0.0
-
-
-def _compute_aurora_line_radiation_power_series(
-    ods: ODS,
-    eq_indices: List[int],
-    eq_times: ndarray,
-    volume_series: ndarray,
-    line_radiation_species: Optional[List[str]] = None,
-    impurity_fractions: Optional[Dict[str, float]] = None,
-    Z_eff: Optional[float] = None,
-) -> ndarray:
-    """
-    Estimate line-radiation power series using Aurora cooling factors.
-
-    Model:
-        P_rad_line = ∫ n_e * n_imp * Lz_line(Te, ne) dV
-
-    Notes:
-    - Priority per species: ODS ion profile > impurity_fractions > Z_eff estimate
-      (single-species only) > 0.
-    - Uses equilibrium-profile volume integration when profiles_1d.volume is available.
-    - Falls back to volume-averaged emissivity * total volume otherwise.
-    - If impurity profiles are unavailable in ODS, scalar impurity_fractions are used.
-    - Aurora/ADAS lookup failures are handled by skipping the failing species.
-    """
-    P_rad_line = np.zeros(len(eq_indices), dtype=float)
-
-    if "core_profiles.profiles_1d" not in ods:
-        logger.warning("core_profiles missing; Aurora line radiation set to zero.")
-        return P_rad_line
-
-    try:
-        import aurora  # aurorafusion package
-    except Exception as exc:
-        logger.warning(
-            "Aurora is not available (%s). Setting line radiation to zero for this call.",
-            exc,
-        )
-        return P_rad_line
-
-    cp_profiles = ods["core_profiles.profiles_1d"]
-    cp_times = np.asarray(
-        [float(cp_profiles[j]["time"]) if "time" in cp_profiles[j] else float(j) for j in range(len(cp_profiles))],
-        dtype=float,
-    )
-
-    normalized_fraction_map: Dict[str, float] = {}
-    if impurity_fractions is None:
-        normalized_fraction_map = dict(_DEFAULT_IMPURITY_FRACTIONS)
-    elif impurity_fractions:
-        for key, value in impurity_fractions.items():
-            species = _normalize_atomic_symbol(key)
-            if species is None:
-                continue
-            try:
-                fraction = float(value)
-            except (TypeError, ValueError):
-                logger.warning("Ignoring non-numeric impurity fraction for %s: %r", key, value)
-                continue
-            normalized_fraction_map[species] = max(fraction, 0.0)
-
-    if line_radiation_species is not None:
-        species_list = []
-        for s in line_radiation_species:
-            symbol = _normalize_atomic_symbol(s)
-            if symbol and symbol not in species_list:
-                species_list.append(symbol)
-    else:
-        species_list = list(_DEFAULT_LINE_RADIATION_SPECIES)
-
-    if not species_list:
-        return P_rad_line
-
-    warned_zero_fraction = set()
-    warned_lookup_failure = set()
-    warned_shape_failure = set()
-
-    for k, eq_idx in enumerate(eq_indices):
-        eq_time = float(eq_times[k])
-        cp_idx = _find_time_match_index(cp_times, eq_time)
-        if cp_idx is None:
-            continue
-
-        cp_ts = cp_profiles[int(cp_idx)]
-        eq_ts = ods["equilibrium.time_slice"][eq_idx]
-
-        grid = cp_ts["grid"] if "grid" in cp_ts else (ods["core_profiles.grid"] if "core_profiles.grid" in ods else ODS())
-        if "rho_tor_norm" not in grid:
-            continue
-        rho_cp = np.asarray(grid["rho_tor_norm"], dtype=float)
-        if "electrons.density" not in cp_ts or "electrons.temperature" not in cp_ts:
-            continue
-
-        n_e_cp = np.asarray(cp_ts["electrons.density"], dtype=float)
-        T_e_cp = np.asarray(cp_ts["electrons.temperature"], dtype=float)
-
-        eq_profiles_1d = eq_ts["profiles_1d"] if "profiles_1d" in eq_ts else ODS()
-        rho_eq = None
-        if "rho_tor_norm" in eq_profiles_1d:
-            rho_eq = _sanitize_rho_grid(eq_profiles_1d["rho_tor_norm"])
-        rho_target = rho_eq if rho_eq is not None else _sanitize_rho_grid(rho_cp)
-        if rho_target is None:
-            continue
-
-        n_e = _interp_profile_to_target(rho_cp, n_e_cp, rho_target)
-        T_e = _interp_profile_to_target(rho_cp, T_e_cp, rho_target)
-        if n_e is None or T_e is None:
-            continue
-
-        finite_kin = np.isfinite(n_e) & np.isfinite(T_e) & (n_e > 0.0) & (T_e > 0.0)
-        if not np.any(finite_kin):
-            continue
-        valid_idx = np.where(finite_kin)[0]
-
-        volume_profile = None
-        if "volume" in eq_profiles_1d and "rho_tor_norm" in eq_profiles_1d:
-            volume_profile = _interp_profile_to_target(
-                np.asarray(eq_profiles_1d["rho_tor_norm"], dtype=float),
-                np.asarray(eq_profiles_1d["volume"], dtype=float),
-                rho_target,
-            )
-
-        total_volume = float(volume_series[k]) if k < len(volume_series) else np.nan
-        p_line_slice = 0.0
-
-        for species in species_list:
-            # Prefer explicit/ODS impurity density fractions. If unavailable and only
-            # one species is requested, estimate scalar n_imp/n_e from Z_eff.
-            frac_profile = _impurity_fraction_profile_from_core_profiles(
-                cp_ts=cp_ts,
-                rho_cp=rho_cp,
-                rho_target=rho_target,
-                n_e_target=n_e,
-                species=species,
-            )
-
-            if frac_profile is None:
-                frac_scalar = normalized_fraction_map.get(species)
-                if frac_scalar is None and len(species_list) == 1:
-                    frac_scalar = _infer_impurity_fraction_from_zeff(Z_eff, species)
-                if frac_scalar is None:
-                    frac_scalar = 0.0
-                frac_profile = np.full_like(n_e, frac_scalar, dtype=float)
-
-            frac_profile = np.where(np.isfinite(frac_profile), np.clip(frac_profile, 0.0, None), 0.0)
-            if not np.any(frac_profile > 0.0):
-                if species not in warned_zero_fraction:
-                    logger.warning(
-                        "No impurity fraction available for %s; line radiation from this species is zero.",
-                        species,
-                    )
-                    warned_zero_fraction.add(species)
-                continue
-
-            try:
-                # Aurora can fail with KeyError('ccd') when ne contains zeros because
-                # its internal n0/ne handling creates NaN; evaluate only on strictly
-                # positive, finite kinetic points.
-                ne_valid_cm3 = np.asarray(n_e[valid_idx], dtype=float) * 1e-6
-                Te_valid_eV = np.asarray(T_e[valid_idx], dtype=float)
-                line_coeff, _ = aurora.radiation.get_cooling_factors(
-                    imp=species,
-                    ne_cm3=ne_valid_cm3,
-                    Te_eV=Te_valid_eV,
-                    plot=False,
-                )
-            except Exception as exc:
-                if species not in warned_lookup_failure:
-                    logger.warning(
-                        "Aurora/ADAS cooling-factor lookup failed for species=%s "
-                        "(first at eq_idx=%d): %s. Skipping this species.",
-                        species,
-                        eq_idx,
-                        exc,
-                    )
-                    warned_lookup_failure.add(species)
-                continue
-
-            line_coeff_raw = np.asarray(line_coeff, dtype=float).reshape(-1)
-            line_coeff = np.zeros_like(n_e, dtype=float)
-            if line_coeff_raw.size == valid_idx.size:
-                line_coeff[valid_idx] = np.clip(line_coeff_raw, 0.0, None)
-            elif line_coeff_raw.size == 1:
-                line_coeff[valid_idx] = max(float(line_coeff_raw[0]), 0.0)
-            elif line_coeff_raw.size == n_e.size:
-                line_coeff = np.clip(line_coeff_raw, 0.0, None)
-            else:
-                if species not in warned_shape_failure:
-                    logger.warning(
-                        "Unexpected Aurora cooling-factor shape for species=%s "
-                        "(first at eq_idx=%d): %d (expected %d valid or %d full). "
-                        "Skipping this species.",
-                        species,
-                        eq_idx,
-                        line_coeff_raw.size,
-                        valid_idx.size,
-                        n_e.size,
-                    )
-                    warned_shape_failure.add(species)
-                continue
-
-            n_imp = frac_profile * n_e
-            emissivity = np.where(
-                finite_kin,
-                np.clip(line_coeff, 0.0, None) * np.clip(n_e, 0.0, None) * np.clip(n_imp, 0.0, None),
-                np.nan,
-            )
-            p_line_slice += _integrate_emissivity_profile(emissivity, volume_profile, total_volume)
-
-        P_rad_line[k] = max(float(p_line_slice), 0.0)
-
-    return P_rad_line
-
-
 def _estimate_reference_bt_from_eq_time_slice(eq_ts: ODS, r_ref: float = 0.4) -> float:
     """
     Estimate toroidal field [T] at reference major radius using magnetic-axis values.
@@ -1426,15 +998,15 @@ def compute_power_balance(
     Z_eff: Optional[float] = 2.0,
     ) -> Dict[str, ndarray]:
     """
-    Compute power balance time series with optional Aurora-based line radiation:
+    Compute power balance time series with optional OPEN-ADAS line radiation:
 
     - P_ohm_flux = I_p * V_res (flux-based calculation)
     - P_ohm_diss = ∫_V η J_φ² dV (dissipation-based calculation from core profiles)
     - P_heat = P_ohm_diss + P_aux = P_ohm_diss
     - P_loss = P_heat - dW/dt - P_rad
 
-    Aurora line-radiation model:
-    - Uses line cooling coefficients from aurora.radiation.get_cooling_factors.
+    OPEN-ADAS line-radiation model:
+    - Uses ADF11 equilibrium line cooling coefficients from VAFT's atomic modules.
     - Computes P_rad_line = ∫ n_e * n_imp * Lz_line(Te, ne) dV.
     - Uses profile integration with equilibrium profiles_1d.volume when available;
       otherwise falls back to volume-averaged emissivity times total plasma volume.
@@ -1442,8 +1014,8 @@ def compute_power_balance(
       else (single-species case only) Z_eff-based scalar estimate, else zero.
     - Priority per species: ODS ion profile > impurity_fractions > Z_eff (single species) > 0.
     - Default species/fractions: C and O with n_imp/n_e = 0.01 each.
-    - If Aurora is unavailable, line radiation is set to zero with a warning.
-    - ADAS/cooling-factor lookup failures skip only failing species with warnings.
+    - Atomic-data download or parsing failures set the affected species'
+      contribution to zero and emit a warning, preserving offline operation.
     - Total radiation used in balance is:
       P_rad = P_rad_line + P_sync + P_Br
       where P_sync is a cyclotron/synchrotron scaling estimate and P_Br is
@@ -1577,7 +1149,7 @@ def compute_power_balance(
 
     line_rad_requested = bool(include_line_radiation)
     if line_rad_requested:
-        P_rad_line = _compute_aurora_line_radiation_power_series(
+        P_rad_line = compute_line_radiation_power_series(
             ods=ods,
             eq_indices=idxs,
             eq_times=t,

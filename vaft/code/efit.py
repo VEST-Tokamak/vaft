@@ -15,6 +15,11 @@ from typing import Any, Mapping, Optional, Sequence
 from vaft.machine_mapping.utils import path_exists
 
 
+# Environment variable naming the EFIT binary (or the directory containing it),
+# mirroring GPEC's ``$GPECHOME`` and CHEASE's ``$CHEASE_EXEC_DIR`` conventions.
+EFIT_EXEC_ENV = "EFIT"
+
+
 @dataclass(frozen=True)
 class EFITConfig:
     """Python-first EFIT workflow configuration."""
@@ -60,10 +65,12 @@ class EFITResult:
     geqdsk: tuple[Any, ...] = ()
     parse_errors: tuple[str, ...] = ()
     ods: Any = None
+    status: str = "completed"
+    reason: str = ""
 
     @property
     def ok(self) -> bool:
-        return self.returncode == 0
+        return self.status == "completed" and self.returncode == 0
 
 
 def _efit_workdir(config: EFITConfig | None = None, workdir: str | Path | None = None) -> Path:
@@ -117,10 +124,46 @@ def _efit_stdin(workdir: Path, kfiles: Sequence[Path]) -> str:
     return "2\n{}\n{}\n".format(len(input_names), "\n".join(input_names))
 
 
-def _efit_command(config: EFITConfig) -> list[str]:
-    if not config.executable:
+def _resolve_efit_executable(config: EFITConfig) -> Path | None:
+    """Resolve the EFIT binary from ``config.executable`` or ``$EFIT``.
+
+    Mirrors the GPEC (``$GPECHOME``) and CHEASE (``$CHEASE_EXEC_DIR``)
+    conventions. An explicit ``EFITConfig.executable`` wins for backward
+    compatibility; otherwise ``$EFIT`` (from ``config.env`` or the process
+    environment) may name either the ``efit`` binary itself or the directory
+    that contains it. Returns ``None`` when nothing is configured; a configured
+    but not-yet-existing path is returned so the caller can report it.
+    """
+    if config.executable:
+        candidate = Path(config.executable).expanduser()
+        return candidate / "efit" if candidate.is_dir() else candidate
+    env_path = config.env.get(EFIT_EXEC_ENV) or os.environ.get(EFIT_EXEC_ENV)
+    if env_path:
+        env_candidate = Path(env_path).expanduser()
+        return env_candidate / "efit" if env_candidate.is_dir() else env_candidate
+    return None
+
+
+def _efit_unconfigured_reason() -> str:
+    return (
+        "EFIT executable is not configured: pass EFITConfig(executable=...) "
+        f"or export ${EFIT_EXEC_ENV} to the efit binary (or its directory)."
+    )
+
+
+def find_efit_executable(config: EFITConfig | None = None) -> Path | None:
+    """Return the EFIT executable resolved from config or ``$EFIT`` (or ``None``)."""
+    exe = _resolve_efit_executable(config or EFITConfig())
+    if exe is not None and exe.exists() and os.access(exe, os.X_OK):
+        return exe
+    return None
+
+
+def _efit_command(config: EFITConfig, executable: str | Path | None = None) -> list[str]:
+    resolved = executable if executable is not None else config.executable
+    if not resolved:
         raise ValueError("EFITConfig.executable is required to run EFIT")
-    executable = str(config.executable)
+    executable = str(resolved)
     args = [str(arg) for arg in config.args]
     if config.stack_size_kb is None:
         return [executable, *args]
@@ -158,9 +201,30 @@ def prepare_efit_inputs(ods: Any, config: EFITConfig) -> EFITInputs:
 
 
 def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
-    """Run EFIT with prepared inputs and collect produced outputs."""
+    """Run EFIT with prepared inputs and collect produced outputs.
+
+    The EFIT binary is resolved from ``EFITConfig.executable`` or the ``$EFIT``
+    environment variable (see :func:`_resolve_efit_executable`). When no usable
+    binary is found the run degrades to a skipped :class:`EFITResult` rather
+    than raising, mirroring the GPEC suite's behaviour.
+    """
     workdir = _efit_workdir(config, inputs.workdir)
-    command = _efit_command(config)
+    executable = _resolve_efit_executable(config)
+    if executable is None:
+        return EFITResult(
+            returncode=None,
+            workdir=workdir,
+            status="skipped",
+            reason=_efit_unconfigured_reason(),
+        )
+    if not (executable.exists() and os.access(executable, os.X_OK)):
+        return EFITResult(
+            returncode=None,
+            workdir=workdir,
+            status="skipped",
+            reason=f"missing executable: {executable}",
+        )
+    command = _efit_command(config, executable)
     stdin_text = _efit_stdin(workdir, inputs.kfiles)
     env = os.environ.copy()
     env.update(dict(config.env))
@@ -179,6 +243,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     (workdir / "run_efit.err").write_text(completed.stderr, encoding="utf-8")
     result = collect_efit_outputs(workdir, config)
     result.returncode = completed.returncode
+    result.status = "completed" if completed.returncode == 0 else "failed"
     result.stdout = completed.stdout
     result.stderr = completed.stderr
     return result

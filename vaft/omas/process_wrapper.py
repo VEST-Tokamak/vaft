@@ -313,6 +313,11 @@ def compute_impedance_matrices_ods(
         # Get mutual inductances
         mutual_pp = em["mutual_passive_passive"]
         mutual_pa = em["mutual_passive_active"]
+        if np.shape(mutual_pa) != (nbloop, nbcoil):
+            raise ValueError(
+                "em_coupling.mutual_passive_active must have shape "
+                f"({nbloop}, {nbcoil}), got {np.shape(mutual_pa)}"
+            )
 
         # Extract loop geometries
         passive_loop_geometry = []
@@ -332,17 +337,27 @@ def compute_impedance_matrices_ods(
             coef = 1.0 if loop_name == "W11" else 1.04
             passive_loop_geometry.append((loop_name, r_avg, z_avg, coef))
 
-        # Extract coil geometries
+        # Extract the current shot's active-coil geometry. The packaged
+        # em_coupling matrix represents the historical configuration, while
+        # newer shots can use a different PF6/PF7 geometry.
         coil_geometry = []
         for i_coil in range(nbcoil):
-            n_elem = len(pf[f"coil.{i_coil}.element"])
-            c_geom = []
-            for j_el in range(n_elem):
-                turns = pf[f"coil.{i_coil}.element.{j_el}.turns_with_sign"]
-                rc = pf[f"coil.{i_coil}.element.{j_el}.geometry.rectangle.r"]
-                zc = pf[f"coil.{i_coil}.element.{j_el}.geometry.rectangle.z"]
-                c_geom.append((rc, zc, turns))
-            coil_geometry.append(c_geom)
+            elements = []
+            for i_element in range(len(pf[f"coil.{i_coil}.element"])):
+                elements.append(
+                    (
+                        pf[
+                            f"coil.{i_coil}.element.{i_element}.geometry.rectangle.r"
+                        ],
+                        pf[
+                            f"coil.{i_coil}.element.{i_element}.geometry.rectangle.z"
+                        ],
+                        pf[
+                            f"coil.{i_coil}.element.{i_element}.turns_with_sign"
+                        ],
+                    )
+                )
+            coil_geometry.append(elements)
 
         # Compute impedance matrices
         R_mat, L_mat, M_mat = compute_impedance_matrices(
@@ -353,11 +368,6 @@ def compute_impedance_matrices_ods(
             mutual_pa,
             plasma
         )
-
-        # Store results in ODS
-        pfp["R_mat"] = R_mat
-        pfp["L_mat"] = L_mat
-        pfp["M_mat"] = M_mat
 
         return R_mat, L_mat, M_mat
     except KeyError as e:

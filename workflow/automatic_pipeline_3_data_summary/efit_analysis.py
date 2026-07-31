@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
-# Set style for better visualization
-plt.style.use('seaborn-v0_8')
-sns.set_palette('husl')
+# Use seaborn's public theming API; the legacy Matplotlib ``seaborn`` style
+# alias was removed in Matplotlib 3.6.
+sns.set_theme(style="darkgrid", palette="husl")
 
 def load_efit_data(file_path='efit_history.xlsx'):
     """Load EFIT data from Excel file.
@@ -123,4 +123,4 @@ if __name__ == "__main__":
         plot_efit_histograms(efit_df)
         
         # Calculate and display statistics
-        calculate_efit_statistics(efit_df) 
+        calculate_efit_statistics(efit_df)
