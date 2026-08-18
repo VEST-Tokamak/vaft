@@ -47,6 +47,11 @@ def _channel_identifier(ods: Any, index: int) -> str:
 def _channel_array_and_number(ods: Any, index: int) -> tuple[str | None, int | None]:
     identifier = _channel_identifier(ods, index)
     parts = identifier.split(":")
+    if len(parts) >= 4 and parts[-2].lower() in {"be", "al", "none"}:
+        try:
+            return parts[-3], int(parts[-1])
+        except ValueError:
+            return parts[-3], None
     if len(parts) >= 3:
         try:
             return parts[-2], int(parts[-1])
@@ -99,7 +104,16 @@ def _channel_time_and_signal(ods: Any, channel: int) -> tuple[np.ndarray, np.nda
         time = _as_array(ods["soft_x_rays.time"])
     data = _as_array(ods[f"{base}.data"])
     if data.ndim > 1:
-        data = data[:, 0]
+        # IMAS defines brightness.data as (energy_band, time).  Preserve
+        # compatibility with older VEST ODS files that used (time, 1).
+        if data.shape[0] == 1:
+            data = data[0]
+        elif data.shape[1] == 1:
+            data = data[:, 0]
+        else:
+            raise ValueError(
+                f"Channel {channel} has multiple energy bands; select a band before plotting."
+            )
     data = np.squeeze(data)
     if time.size != data.size:
         raise ValueError(f"Channel {channel} has inconsistent brightness time/data lengths.")
