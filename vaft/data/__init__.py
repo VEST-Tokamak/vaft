@@ -19,6 +19,8 @@ __all__ = [
     "to_imas",
     "to_omas",
     "write_geqdsk",
+    "VFITResult",
+    "read_vfit",
 ]
 
 _EXPORT_MAP = {
@@ -31,6 +33,8 @@ _EXPORT_MAP = {
     "write_geqdsk": (".eqdsk", "write_geqdsk"),
     "data_path": (".resources", "data_path"),
     "sample_geqdsk": (".resources", "sample_geqdsk"),
+    "VFITResult": (".vfit", "VFITResult"),
+    "read_vfit": (".vfit", "read_vfit"),
 }
 
 

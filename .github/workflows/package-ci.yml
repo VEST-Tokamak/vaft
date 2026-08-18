@@ -26,7 +26,7 @@ jobs:
           twine check dist/*
 
       - name: Verify data policy and artifact size
-        run: python scripts/verify_dist.py dist --max-wheel-mib 25
+        run: python test/verify_dist.py dist --max-wheel-mib 25
 
       - name: Smoke-test the installed wheel
         run: |

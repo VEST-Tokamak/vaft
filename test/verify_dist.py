@@ -11,7 +11,7 @@ from pathlib import Path
 
 # Single source of truth for the ``vaft/data`` policy: individually whitelisted
 # files, plus the suffixes allowed inside each shipped category directory.
-# Keep in sync with ``[tool.setuptools.package-data]`` and ``MANIFEST.in``.
+# Keep in sync with ``[tool.setuptools.package-data]``.
 _ALLOWED_DATA_FILES = {
     "geometry/Coil_info.mat",
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
@@ -21,7 +21,7 @@ _ALLOWED_DATA_FILES = {
 _ALLOWED_DATA_SUFFIXES = {
     "geometry/": (".yaml", ".csv"),
     "gpec/": (".in", ".dat"),
-    "legacy/": (".txt",),
+    "legacy/": (".txt", ".yaml"),
 }
 
 REQUIRED_FILES = {
@@ -30,6 +30,7 @@ REQUIRED_FILES = {
     "vaft/data/geometry/MD.yaml",
     "vaft/data/geometry/line_of_sight_endpoints.csv",
     "vaft/data/gpec/gpec.in",
+    "vaft/data/legacy/diagnostic-trigger-settings.yaml",
     "vaft/data/legacy/sql_table.txt",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 

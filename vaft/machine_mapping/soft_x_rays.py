@@ -14,16 +14,30 @@ from functools import lru_cache
 import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+import warnings
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from .utils import resolve_data_root, set_path
 
-DEFAULT_SAMPLE_RATE = 125e6 / 128.0
-DEFAULT_TIME_OFFSET = 0.285
+# ``sample_v3.py`` records a waveform relative to its digitizer trigger and
+# then decimates it.  The two known digitizers use different decimation.
+DEFAULT_SAMPLE_RATES: dict[str, float] = {
+    "17592": 125e6 / 32.0,
+    "22577": 125e6 / 128.0,
+}
+# Kept as a compatibility alias for callers that explicitly build a 22577 axis.
+DEFAULT_SAMPLE_RATE = DEFAULT_SAMPLE_RATES["22577"]
+DEFAULT_TIME_OFFSET = 0.0
 DEFAULT_ENERGY_BAND = (0.0, 20_000.0)
 PACKAGED_GEOMETRY_TABLE = "geometry/line_of_sight_endpoints.csv"
+PACKAGED_TRIGGER_SETTINGS = "legacy/diagnostic-trigger-settings.yaml"
+# The 455xx SXR CSV campaign has no SXR entry in the legacy settings table.
+# It is allowed to inherit HXR timing because paired SXR/HXR records in the
+# later campaign have the same 285 ms trigger start.
+HXR_FALLBACK_SHOT_RANGE = range(45531, 45541)
 
 
 @dataclass(frozen=True)
@@ -33,6 +47,27 @@ class SXRArraySpec:
     file_template: str
     channels: int
     label: str
+
+
+@dataclass(frozen=True)
+class SXRDigitizerBlock:
+    """One contiguous digitizer block and its physical channel semantics."""
+
+    array: str
+    start: int
+    count: int
+    filter_material: str | None = None
+    filter_thickness_m: float | None = None
+    reverse_spatial_order: bool = False
+
+
+@dataclass(frozen=True)
+class SXRTimeAlignment:
+    """Resolved relation between a CSV trigger axis and the shot clock."""
+
+    offset_seconds: float
+    source: str
+    detail: str
 
 
 DEFAULT_ARRAY_SPECS: dict[str, SXRArraySpec] = {
@@ -66,12 +101,19 @@ DEFAULT_ARRAY_SPECS: dict[str, SXRArraySpec] = {
     ),
 }
 
-# Conservative defaults matching the tutorial notebooks in VEST_Soft X-ray.
-# Unknown/unassigned digitizer channels are still stored as brightness traces,
-# but without LOS metadata.
-DEFAULT_DIGITIZER_ARRAYS: dict[str, tuple[tuple[str, int, int], ...]] = {
-    "22577": (("lowermid", 0, 16), ("bottom", 16, 16)),
-    "17592": (("horizontal", 0, 20), ("vertical", 20, 20)),
+# Canonical wiring from the VEST SXR profiles.  Source columns retain digitizer
+# order; ``array_channel`` is the physical order used by the LOS table.
+DEFAULT_DIGITIZER_ARRAYS: dict[str, tuple[SXRDigitizerBlock, ...]] = {
+    "17592": (
+        SXRDigitizerBlock("vertical", 0, 20),
+        SXRDigitizerBlock("horizontal", 20, 20),
+    ),
+    "22577": (
+        SXRDigitizerBlock("bottom", 0, 16, "Be", 0.2e-6),
+        SXRDigitizerBlock("bottom", 16, 16, "Al", 0.2e-6),
+        SXRDigitizerBlock("lowermid", 32, 16, "Be", 0.2e-6, True),
+        SXRDigitizerBlock("lowermid", 48, 16, "Al", 0.2e-6, True),
+    ),
 }
 
 
@@ -117,6 +159,99 @@ def _packaged_geometry_table_path() -> Path:
     from vaft.data.resources import data_path
 
     return data_path(PACKAGED_GEOMETRY_TABLE)
+
+
+def _packaged_trigger_settings_path() -> Path:
+    from vaft.data.resources import data_path
+
+    return data_path(PACKAGED_TRIGGER_SETTINGS)
+
+
+def resolve_sxr_trigger_settings(
+    trigger_settings_path: str | Path | None = None,
+) -> Path | None:
+    """Resolve the packaged or caller-provided diagnostic trigger settings."""
+    if trigger_settings_path is not None:
+        path = Path(trigger_settings_path).expanduser()
+        if not path.exists():
+            raise FileNotFoundError(f"SXR trigger settings file not found: {path}")
+        return path
+    packaged = _packaged_trigger_settings_path()
+    return packaged if packaged.exists() else None
+
+
+@lru_cache(maxsize=4)
+def _load_trigger_settings(path: str) -> Mapping[str, Any]:
+    with Path(path).open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    shots = data.get("shots", {})
+    if not isinstance(shots, Mapping):
+        raise ValueError("Diagnostic trigger settings must contain a 'shots' mapping.")
+    return shots
+
+
+def resolve_sxr_time_alignment(
+    shot: int,
+    *,
+    trigger_settings_path: str | Path | None = None,
+    allow_hxr_fallback: bool = True,
+) -> SXRTimeAlignment:
+    """Resolve a machine-time offset for a trigger-relative SXR CSV.
+
+    Direct ``SXR`` settings are authoritative.  The 45531--45540 campaign has
+    no direct SXR record, but its HXR trigger is an approved 285 ms fallback
+    based on the paired SXR/HXR campaign records and legacy SXR notebook.
+    Missing settings intentionally leave data trigger-relative and warn rather
+    than inventing a machine-time offset.
+    """
+    path = resolve_sxr_trigger_settings(trigger_settings_path)
+    if path is None:
+        detail = "No diagnostic trigger-settings file is available; using trigger-relative time."
+        warnings.warn(detail, RuntimeWarning, stacklevel=2)
+        return SXRTimeAlignment(0.0, "trigger_relative", detail)
+
+    settings = _load_trigger_settings(str(path))
+    entry = settings.get(int(shot), settings.get(str(int(shot))))
+    if not isinstance(entry, Mapping):
+        detail = f"Shot {shot} is absent from trigger settings; using trigger-relative time."
+        warnings.warn(detail, RuntimeWarning, stacklevel=2)
+        return SXRTimeAlignment(0.0, "trigger_relative", detail)
+
+    sxr = entry.get("SXR")
+    if isinstance(sxr, Mapping) and sxr.get("start_time_ms") is not None:
+        start_ms = float(sxr["start_time_ms"])
+        return SXRTimeAlignment(start_ms * 1e-3, "sxr_trigger", f"SXR start_time_ms={start_ms:g}")
+
+    hxr = entry.get("HXR")
+    if (
+        allow_hxr_fallback
+        and int(shot) in HXR_FALLBACK_SHOT_RANGE
+        and isinstance(hxr, Mapping)
+        and hxr.get("start_time_ms") is not None
+    ):
+        start_ms = float(hxr["start_time_ms"])
+        detail = (
+            f"Inferred SXR start from HXR start_time_ms={start_ms:g} for the "
+            "455xx co-trigger campaign."
+        )
+        return SXRTimeAlignment(start_ms * 1e-3, "hxr_fallback", detail)
+
+    detail = f"Shot {shot} has no usable SXR trigger setting; using trigger-relative time."
+    warnings.warn(detail, RuntimeWarning, stacklevel=2)
+    return SXRTimeAlignment(0.0, "trigger_relative", detail)
+
+
+def _sample_rate_for_daq(daq_label: str | int, sample_rate: float | None) -> float:
+    if sample_rate is not None:
+        return float(sample_rate)
+    label = str(daq_label)
+    try:
+        return DEFAULT_SAMPLE_RATES[label]
+    except KeyError as exc:
+        raise ValueError(
+            f"No archived sample_v3 sampling profile is known for digitizer {label}; "
+            "pass sample_rate explicitly."
+        ) from exc
 
 
 def resolve_sxr_geometry_table(geometry_root: str | Path | None = None) -> Path | None:
@@ -224,7 +359,7 @@ def build_time_axis(
     sample_rate: float = DEFAULT_SAMPLE_RATE,
     time_offset: float = DEFAULT_TIME_OFFSET,
 ) -> np.ndarray:
-    """Return seconds for digitizer samples."""
+    """Return seconds for digitizer samples from the trigger-relative archive axis."""
     if sample_rate <= 0:
         raise ValueError("sample_rate must be positive.")
     return np.arange(samples, dtype=float) / float(sample_rate) + float(time_offset)
@@ -236,23 +371,26 @@ def default_channel_map(daq_label: str | int, n_channels: int) -> list[dict[str,
     mapping: list[dict[str, Any]] = []
     used: set[int] = set()
 
-    for array_name, start, count in DEFAULT_DIGITIZER_ARRAYS.get(label, ()):  # known DAQs
-        spec = DEFAULT_ARRAY_SPECS[array_name]
-        for offset in range(count):
-            source_column = start + offset
+    for block in DEFAULT_DIGITIZER_ARRAYS.get(label, ()):  # known DAQs
+        spec = DEFAULT_ARRAY_SPECS[block.array]
+        for offset in range(block.count):
+            source_column = block.start + offset
             if source_column >= n_channels:
                 continue
-            array_channel = offset + 1
-            mapping.append(
-                {
-                    "source_column": source_column,
-                    "daq_label": label,
-                    "array": array_name,
-                    "array_channel": array_channel,
-                    "name": f"{spec.label} Ch {array_channel}",
-                    "identifier": f"{label}:{array_name}:{array_channel}",
-                }
-            )
+            array_channel = block.count - offset if block.reverse_spatial_order else offset + 1
+            filter_label = f" {block.filter_material}" if block.filter_material else ""
+            entry: dict[str, Any] = {
+                "source_column": source_column,
+                "daq_label": label,
+                "array": block.array,
+                "array_channel": array_channel,
+                "name": f"{spec.label}{filter_label} Ch {array_channel}",
+                "identifier": f"{label}:{block.array}:{block.filter_material or 'none'}:{array_channel}",
+            }
+            if block.filter_material is not None:
+                entry["filter_material"] = block.filter_material
+                entry["filter_thickness_m"] = block.filter_thickness_m
+            mapping.append(entry)
             used.add(source_column)
 
     for source_column in range(n_channels):
@@ -365,6 +503,32 @@ def _normalise_channel_map(channel_map: Iterable[Mapping[str, Any]]) -> list[dic
     return sorted(normalised, key=lambda item: item["source_column"])
 
 
+def _set_filter_metadata(ods: Any, prefix: str, item: Mapping[str, Any]) -> None:
+    """Write only filter facts that are known for the mapped channel."""
+    material = item.get("filter_material")
+    thickness = item.get("filter_thickness_m")
+    if material is None or thickness is None:
+        return
+
+    material_name = str(material)
+    material_key = material_name.lower()
+    if material_key == "be":
+        material_index = 10  # standard IMAS materials_identifier: beryllium
+        description = "Beryllium filter."
+    elif material_key == "al":
+        # Aluminium is not available in the IMAS 3.41 standard material list.
+        material_index = -1
+        description = "Aluminum filter (private VEST material identifier)."
+    else:
+        raise ValueError(f"Unsupported SXR filter material {material_name!r}.")
+
+    filter_prefix = f"{prefix}.filter_window.0"
+    set_path(ods, f"{filter_prefix}.material.index", material_index)
+    set_path(ods, f"{filter_prefix}.material.name", material_name)
+    set_path(ods, f"{filter_prefix}.material.description", description)
+    set_path(ods, f"{filter_prefix}.thickness", float(thickness))
+
+
 def vfit_soft_x_rays_static(
     ods: Any,
     *,
@@ -381,7 +545,11 @@ def vfit_soft_x_rays_static(
     resolved_geometry = None if geometry_table else resolve_sxr_geometry_root(geometry_root)
     set_path(ods, "soft_x_rays.ids_properties.homogeneous_time", 1)
     set_path(ods, "soft_x_rays.ids_properties.name", "VEST soft X-ray arrays")
-    set_path(ods, "soft_x_rays.ids_properties.comment", "VEST SXR digitizer data mapped by vaft")
+    set_path(
+        ods,
+        "soft_x_rays.ids_properties.comment",
+        "VEST SXR digitizer data; relative calibrated signal proxy, not absolute brightness.",
+    )
     set_path(ods, "soft_x_rays.ids_properties.creation_date", datetime.now(timezone.utc).isoformat())
 
     lower, upper = energy_band
@@ -393,14 +561,9 @@ def vfit_soft_x_rays_static(
         set_path(ods, f"{prefix}.identifier", identifier)
         set_path(ods, f"{prefix}.energy_band.0.lower_bound", float(lower))
         set_path(ods, f"{prefix}.energy_band.0.upper_bound", float(upper))
-        set_path(ods, f"{prefix}.etendue", float(item.get("etendue", 1.0)))
-        set_path(ods, f"{prefix}.etendue_method.index", -1)
-        set_path(ods, f"{prefix}.etendue_method.name", "proxy")
-        set_path(
-            ods,
-            f"{prefix}.etendue_method.description",
-            "Default unit etendue; digitizer voltage is stored as brightness proxy unless calibrated.",
-        )
+        if item.get("etendue") is not None:
+            set_path(ods, f"{prefix}.etendue", float(item["etendue"]))
+        _set_filter_metadata(ods, prefix, item)
 
         endpoints = _geometry_for_channel(geometry_table, resolved_geometry, item)
         if endpoints is None:
@@ -439,10 +602,13 @@ def vfit_soft_x_rays_dynamic(
         signal = values[:, source_column].astype(float, copy=True)
         if baseline_range is not None:
             start, stop = baseline_range
-            baseline = np.mean(signal[slice(start, stop)])
+            baseline_values = signal[slice(start, stop)]
+            if baseline_values.size == 0:
+                raise ValueError("baseline_range selects no SXR samples.")
+            baseline = np.mean(baseline_values)
             signal = signal - baseline
         signal = float(polarity) * float(brightness_scale) * signal
-        brightness = signal.reshape(-1, 1)
+        brightness = signal.reshape(1, -1)
         prefix = f"soft_x_rays.channel.{idx}"
         set_path(ods, f"{prefix}.brightness.time", time_values)
         set_path(ods, f"{prefix}.brightness.data", brightness)
@@ -459,15 +625,24 @@ def soft_x_rays(
     digitizer_file: str | Path | None = None,
     geometry_root: str | Path | None = None,
     channel_map: Sequence[Mapping[str, Any]] | None = None,
-    sample_rate: float = DEFAULT_SAMPLE_RATE,
-    time_offset: float = DEFAULT_TIME_OFFSET,
+    sample_rate: float | None = None,
+    time_offset: float | None = None,
+    time_reference: str = "auto",
+    trigger_settings_path: str | Path | None = None,
     energy_band: tuple[float, float] = DEFAULT_ENERGY_BAND,
     brightness_scale: float = 1.0,
     baseline_range: tuple[int | None, int | None] | None = None,
     polarity: float = 1.0,
     channels_as_rows: bool = True,
 ) -> None:
-    """Populate ``ods`` with VEST SXR data from ``digitizer_{daq_label}_{shot}.csv``."""
+    """Populate ``ods`` with VEST SXR data from ``digitizer_{daq_label}_{shot}.csv``.
+
+    ``sample_v3.py`` CSVs start at their digitizer trigger.  By default,
+    ``time_reference='auto'`` translates that axis to the shot clock using the
+    packaged diagnostic trigger settings.  Use ``time_reference='archive'``
+    for a zero-origin archive axis, or provide ``time_offset`` to override
+    either convention explicitly.
+    """
     source_file = _resolve_digitizer_file(
         shot=shot,
         daq_label=daq_label,
@@ -475,7 +650,16 @@ def soft_x_rays(
         digitizer_file=digitizer_file,
     )
     data = load_digitizer_csv(source_file, channels_as_rows=channels_as_rows)
-    time = build_time_axis(data.shape[0], sample_rate=sample_rate, time_offset=time_offset)
+    resolved_rate = _sample_rate_for_daq(daq_label, sample_rate)
+    if time_offset is not None:
+        alignment = SXRTimeAlignment(float(time_offset), "explicit", "Caller-provided time_offset.")
+    elif time_reference == "auto":
+        alignment = resolve_sxr_time_alignment(shot, trigger_settings_path=trigger_settings_path)
+    elif time_reference == "archive":
+        alignment = SXRTimeAlignment(0.0, "trigger_relative", "Archive trigger-relative time requested.")
+    else:
+        raise ValueError("time_reference must be 'auto' or 'archive'.")
+    time = build_time_axis(data.shape[0], sample_rate=resolved_rate, time_offset=alignment.offset_seconds)
     mapping = list(channel_map) if channel_map is not None else default_channel_map(daq_label, data.shape[1])
 
     vfit_soft_x_rays_static(
@@ -495,17 +679,28 @@ def soft_x_rays(
         polarity=polarity,
     )
     set_path(ods, "soft_x_rays.ids_properties.source", str(source_file))
+    set_path(
+        ods,
+        "soft_x_rays.ids_properties.comment",
+        (
+            "VEST SXR digitizer data; relative calibrated signal proxy, not absolute brightness. "
+            f"Time alignment: {alignment.source} ({alignment.detail}) "
+            f"sample_rate_hz={resolved_rate:g}."
+        ),
+    )
 
 
 def soft_x_rays_from_digitizer_csv(
     shot: int,
     daq_label: str | int,
+    *,
+    consistency_check: bool = True,
     **kwargs: Any,
 ):
     """Create and return an OMAS ODS filled with one VEST SXR digitizer file."""
     from omas import ODS
 
-    ods = ODS()
+    ods = ODS(consistency_check=consistency_check)
     soft_x_rays(ods, shot, daq_label, **kwargs)
     return ods
 
@@ -518,9 +713,13 @@ def save_soft_x_rays_ods(
 ):
     """Build and save a soft_x_rays ODS. The file extension selects OMAS format."""
     output = Path(output_path).expanduser()
-    consistency_check = kwargs.pop("consistency_check", False)
-    ods = soft_x_rays_from_digitizer_csv(shot, daq_label, **kwargs)
-    ods.consistency_check = consistency_check
+    consistency_check = kwargs.pop("consistency_check", True)
+    ods = soft_x_rays_from_digitizer_csv(
+        shot,
+        daq_label,
+        consistency_check=consistency_check,
+        **kwargs,
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     ods.save(str(output))
     return ods
@@ -533,14 +732,20 @@ __all__ = [
     "DEFAULT_DIGITIZER_ARRAYS",
     "DEFAULT_ENERGY_BAND",
     "DEFAULT_SAMPLE_RATE",
+    "DEFAULT_SAMPLE_RATES",
     "PACKAGED_GEOMETRY_TABLE",
+    "PACKAGED_TRIGGER_SETTINGS",
     "DEFAULT_TIME_OFFSET",
+    "SXRDigitizerBlock",
+    "SXRTimeAlignment",
     "build_time_axis",
     "default_channel_map",
     "load_digitizer_csv",
     "load_sxr_geometry_table",
     "resolve_sxr_geometry_root",
     "resolve_sxr_geometry_table",
+    "resolve_sxr_time_alignment",
+    "resolve_sxr_trigger_settings",
     "save_soft_x_rays_ods",
     "soft_x_rays",
     "soft_x_rays_from_digitizer_csv",

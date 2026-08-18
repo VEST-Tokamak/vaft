@@ -97,6 +97,7 @@ vaft = [
   "data/gpec/*.in",
   "data/gpec/*.dat",
   "data/legacy/*.txt",
+  "data/legacy/*.yaml",
   "data/omas/39915.json",
 ]
 

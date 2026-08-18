@@ -15,4 +15,5 @@ include vaft/data/geometry/*.csv
 include vaft/data/gpec/*.in
 include vaft/data/gpec/*.dat
 include vaft/data/legacy/*.txt
+include vaft/data/legacy/*.yaml
 include vaft/data/omas/39915.json

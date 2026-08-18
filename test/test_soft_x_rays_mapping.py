@@ -1,9 +1,12 @@
+import inspect
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from omas import ODS
 
+import vaft.machine_mapping.soft_x_rays as sxr_mapping
 from vaft.machine_mapping.soft_x_rays import (
     build_time_axis,
     default_channel_map,
@@ -12,6 +15,7 @@ from vaft.machine_mapping.soft_x_rays import (
     save_soft_x_rays_ods,
     soft_x_rays,
     soft_x_rays_from_digitizer_csv,
+    resolve_sxr_time_alignment,
 )
 
 
@@ -30,13 +34,27 @@ def test_build_time_axis_uses_seconds():
     np.testing.assert_allclose(got, [0.2, 0.3, 0.4])
 
 
-def test_default_channel_map_keeps_unassigned_digitizer_channels():
-    mapping = default_channel_map("22577", 34)
-    assert mapping[0]["array"] == "lowermid"
-    assert mapping[0]["daq_label"] == "22577"
-    assert mapping[16]["array"] == "bottom"
-    assert mapping[32]["array"] is None
-    assert mapping[33]["source_column"] == 33
+def test_default_channel_map_uses_canonical_wiring_and_filters():
+    top = default_channel_map("17592", 40)
+    assert (top[0]["array"], top[0]["array_channel"]) == ("vertical", 1)
+    assert (top[19]["array"], top[19]["array_channel"]) == ("vertical", 20)
+    assert (top[20]["array"], top[20]["array_channel"]) == ("horizontal", 1)
+    assert (top[39]["array"], top[39]["array_channel"]) == ("horizontal", 20)
+
+    mapping = default_channel_map("22577", 64)
+    assert (mapping[0]["array"], mapping[0]["filter_material"], mapping[0]["array_channel"]) == (
+        "bottom", "Be", 1,
+    )
+    assert (mapping[16]["array"], mapping[16]["filter_material"], mapping[16]["array_channel"]) == (
+        "bottom", "Al", 1,
+    )
+    assert (mapping[32]["array"], mapping[32]["filter_material"], mapping[32]["array_channel"]) == (
+        "lowermid", "Be", 16,
+    )
+    assert (mapping[63]["array"], mapping[63]["filter_material"], mapping[63]["array_channel"]) == (
+        "lowermid", "Al", 1,
+    )
+    assert all(item["filter_thickness_m"] == pytest.approx(0.2e-6) for item in mapping)
 
 
 def test_packaged_soft_x_ray_geometry_table_is_available():
@@ -82,6 +100,9 @@ def test_soft_x_rays_uses_packaged_phi_for_default_daq_mapping(tmp_path):
         ods["soft_x_rays.channel.0.line_of_sight.first_point.phi"],
         2.0 * np.pi / 3.0,
     )
+    assert ods["soft_x_rays.channel.0.filter_window.0.material.index"] == 10
+    assert ods["soft_x_rays.channel.0.filter_window.0.thickness"] == pytest.approx(0.2e-6)
+    assert "etendue" not in ods["soft_x_rays.channel.0"].keys()
 
 
 def test_soft_x_rays_maps_digitizer_csv_to_omas_brightness(tmp_path):
@@ -123,11 +144,11 @@ def test_soft_x_rays_maps_digitizer_csv_to_omas_brightness(tmp_path):
 
     np.testing.assert_allclose(ods["soft_x_rays.time"], [0.0, 0.5, 1.0, 1.5])
     np.testing.assert_allclose(
-        ods["soft_x_rays.channel.0.brightness.data"][:, 0],
+        ods["soft_x_rays.channel.0.brightness.data"][0],
         [0.0, 1.0, 2.0, 3.0],
     )
     np.testing.assert_allclose(
-        ods["soft_x_rays.channel.1.brightness.data"][:, 0],
+        ods["soft_x_rays.channel.1.brightness.data"][0],
         [0.0, 10.0, 20.0, 30.0],
     )
     assert ods["soft_x_rays.channel.0.name"] == "LM Ch 1"
@@ -150,7 +171,7 @@ def test_soft_x_rays_populates_existing_ods(tmp_path):
         time_offset=0.0,
     )
     assert ods["soft_x_rays.channel.0.identifier"] == "Only Ch"
-    assert ods["soft_x_rays.channel.0.brightness.data"].shape == (3, 1)
+    assert ods["soft_x_rays.channel.0.brightness.data"].shape == (1, 3)
 
 
 def test_save_soft_x_rays_ods_accepts_consistency_check_true(tmp_path):
@@ -170,4 +191,95 @@ def test_save_soft_x_rays_ods_accepts_consistency_check_true(tmp_path):
     )
     assert output.exists()
     assert ods.consistency_check is True
-    assert ods["soft_x_rays.channel.0.brightness.data"].shape == (3, 1)
+    assert ods["soft_x_rays.channel.0.brightness.data"].shape == (1, 3)
+
+
+def test_trigger_settings_prefers_explicit_sxr_over_hxr(tmp_path):
+    settings = tmp_path / "trigger-settings.yaml"
+    settings.write_text(
+        "shots:\n"
+        "  47370:\n"
+        "    SXR:\n"
+        "      start_time_ms: 287\n"
+        "    HXR:\n"
+        "      start_time_ms: 285\n",
+        encoding="utf-8",
+    )
+    alignment = resolve_sxr_time_alignment(47370, trigger_settings_path=settings)
+    assert alignment.source == "sxr_trigger"
+    assert alignment.offset_seconds == pytest.approx(0.287)
+
+
+def test_trigger_settings_uses_migrated_early_sxr_record():
+    alignment = resolve_sxr_time_alignment(39350)
+    assert alignment.source == "sxr_trigger"
+    assert alignment.offset_seconds == pytest.approx(0.300)
+
+
+def test_trigger_settings_uses_455xx_hxr_fallback():
+    alignment = resolve_sxr_time_alignment(45539)
+    assert alignment.source == "hxr_fallback"
+    assert alignment.offset_seconds == pytest.approx(0.285)
+    assert "Inferred SXR start" in alignment.detail
+
+
+def test_trigger_settings_missing_shot_keeps_archive_axis():
+    with pytest.warns(RuntimeWarning, match="trigger-relative"):
+        alignment = resolve_sxr_time_alignment(12345)
+    assert alignment.source == "trigger_relative"
+    assert alignment.offset_seconds == 0.0
+
+
+def test_mapper_uses_sample_v3_rate_and_trigger_settings_by_default(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    np.savetxt(data_root / "digitizer_22577_45539.csv", np.array([[1.0, 2.0, 3.0]]), delimiter=",")
+    ods = soft_x_rays_from_digitizer_csv(45539, 22577, data_root=data_root)
+    np.testing.assert_allclose(
+        ods["soft_x_rays.time"],
+        0.285 + np.arange(3) / (125e6 / 128.0),
+    )
+
+
+def test_mapper_uses_17592_sample_v3_rate_by_default(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    np.savetxt(data_root / "digitizer_17592_45539.csv", np.array([[1.0, 2.0, 3.0]]), delimiter=",")
+    ods = soft_x_rays_from_digitizer_csv(45539, 17592, data_root=data_root)
+    np.testing.assert_allclose(
+        ods["soft_x_rays.time"],
+        0.285 + np.arange(3) / (125e6 / 32.0),
+    )
+
+
+def test_aluminum_filter_uses_private_material_identifier(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    np.savetxt(
+        data_root / "digitizer_22577_45539.csv",
+        np.arange(34, dtype=float).reshape(17, 2),
+        delimiter=",",
+    )
+    ods = soft_x_rays_from_digitizer_csv(45539, 22577, data_root=data_root)
+    assert ods["soft_x_rays.channel.16.filter_window.0.material.index"] == -1
+    assert ods["soft_x_rays.channel.16.filter_window.0.material.name"] == "Al"
+
+
+def test_explicit_time_override_beats_trigger_settings(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    np.savetxt(data_root / "digitizer_22577_45539.csv", np.array([[1.0, 2.0]]), delimiter=",")
+    ods = soft_x_rays_from_digitizer_csv(
+        45539,
+        22577,
+        data_root=data_root,
+        time_offset=0.1,
+    )
+    np.testing.assert_allclose(ods["soft_x_rays.time"], 0.1 + np.arange(2) / (125e6 / 128.0))
+    assert "explicit" in ods["soft_x_rays.ids_properties.comment"]
+
+
+def test_sxr_mapper_does_not_use_raw_database_trigger_correction():
+    source = inspect.getsource(sxr_mapping)
+    assert "from vaft.database import raw" not in source
+    assert "_daq_trigger_time_correction" not in source

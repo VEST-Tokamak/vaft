@@ -27,7 +27,7 @@ jobs:
           python -m pip install --upgrade build twine
           python -m build
           twine check dist/*
-          python scripts/verify_dist.py dist --max-wheel-mib 25
+          python test/verify_dist.py dist --max-wheel-mib 25
 
       - uses: actions/upload-artifact@v4
         with:
