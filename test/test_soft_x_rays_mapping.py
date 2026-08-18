@@ -210,6 +210,12 @@ def test_trigger_settings_prefers_explicit_sxr_over_hxr(tmp_path):
     assert alignment.offset_seconds == pytest.approx(0.287)
 
 
+def test_trigger_settings_uses_migrated_early_sxr_record():
+    alignment = resolve_sxr_time_alignment(39350)
+    assert alignment.source == "sxr_trigger"
+    assert alignment.offset_seconds == pytest.approx(0.300)
+
+
 def test_trigger_settings_uses_455xx_hxr_fallback():
     alignment = resolve_sxr_time_alignment(45539)
     assert alignment.source == "hxr_fallback"

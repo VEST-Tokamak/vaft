@@ -30,6 +30,7 @@ REQUIRED_FILES = {
     "vaft/data/geometry/MD.yaml",
     "vaft/data/geometry/line_of_sight_endpoints.csv",
     "vaft/data/gpec/gpec.in",
+    "vaft/data/legacy/diagnostic-trigger-settings.yaml",
     "vaft/data/legacy/sql_table.txt",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 

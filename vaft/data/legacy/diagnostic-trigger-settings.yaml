@@ -316,7 +316,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39350
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39350
@@ -325,7 +325,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39351
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39350
@@ -334,7 +334,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39352
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39352
@@ -343,7 +343,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39353
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39353
@@ -352,7 +352,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39354
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39354
@@ -361,7 +361,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39355
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39355
@@ -374,7 +374,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39356
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39356
@@ -387,7 +387,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39357
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39357
@@ -400,7 +400,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39358
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39358
@@ -413,7 +413,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39359
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39359
@@ -426,7 +426,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39360
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39360
@@ -439,7 +439,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39361
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39361
@@ -452,7 +452,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39362
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39362
@@ -465,7 +465,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39363
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39363
@@ -478,7 +478,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39364
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39364
@@ -491,7 +491,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39365
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39365
@@ -504,7 +504,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39366
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39366
@@ -517,7 +517,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39367
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39367
@@ -530,7 +530,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39368
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39368
@@ -543,7 +543,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39369
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39369
@@ -556,7 +556,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39370
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39370
@@ -569,7 +569,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39371
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39371
@@ -582,7 +582,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39372
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39372
@@ -595,7 +595,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39373
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39373
@@ -608,7 +608,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39374
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39374
@@ -621,7 +621,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39375
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39375
@@ -634,7 +634,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39376
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39376
@@ -647,7 +647,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39377
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39377
@@ -660,7 +660,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39378
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39378
@@ -673,7 +673,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39379
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39379
@@ -686,7 +686,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39380
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39380
@@ -699,7 +699,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39381
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39381
@@ -712,7 +712,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39443
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39443
@@ -721,7 +721,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39444
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39444
@@ -730,7 +730,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39445
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39445
@@ -739,7 +739,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39446
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39446
@@ -748,7 +748,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39447
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39447
@@ -757,7 +757,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39448
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39448
@@ -766,7 +766,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39449
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39449
@@ -775,7 +775,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39450
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39450
@@ -784,7 +784,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39451
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39451
@@ -793,7 +793,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39452
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39452
@@ -802,7 +802,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39453
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39453
@@ -811,7 +811,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39454
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39454
@@ -820,7 +820,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39455
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39455
@@ -829,7 +829,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39456
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39456
@@ -838,7 +838,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39457
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39457
@@ -847,7 +847,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39458
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39458
@@ -856,7 +856,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39459
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39459
@@ -865,7 +865,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39460
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39460
@@ -874,7 +874,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39461
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39461
@@ -883,7 +883,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39462
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39462
@@ -892,7 +892,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39463
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39463
@@ -901,7 +901,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39464
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39464
@@ -910,7 +910,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39465
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39465
@@ -919,7 +919,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39466
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39466
@@ -928,7 +928,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39467
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39467
@@ -937,7 +937,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39468
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39468
@@ -946,7 +946,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39469
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39469
@@ -955,7 +955,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39470
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39470
@@ -964,7 +964,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39471
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39471
@@ -973,7 +973,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39472
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39472
@@ -982,7 +982,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39473
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39473
@@ -991,7 +991,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39474
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39474
@@ -1000,7 +1000,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39475
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39475
@@ -1009,7 +1009,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39476
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39476
@@ -1018,7 +1018,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39477
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39477
@@ -1027,7 +1027,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39478
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39478
@@ -1036,7 +1036,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39479
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39479
@@ -1045,7 +1045,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39480
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39480
@@ -1054,7 +1054,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39481
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39481
@@ -1063,7 +1063,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39482
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39482
@@ -1072,7 +1072,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39483
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39483
@@ -1081,7 +1081,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39484
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39484
@@ -1090,7 +1090,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39504
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39504
@@ -1099,7 +1099,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39505
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39505
@@ -1108,7 +1108,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39506
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39506
@@ -1125,7 +1125,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39507
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39507
@@ -1142,7 +1142,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39508
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39508
@@ -1159,7 +1159,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39509
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39509
@@ -1180,7 +1180,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39510
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39510
@@ -1201,7 +1201,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39511
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39511
@@ -1222,7 +1222,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39512
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39512
@@ -1243,7 +1243,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39513
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39513
@@ -1264,7 +1264,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39514
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39514
@@ -1285,7 +1285,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39515
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39515
@@ -1306,7 +1306,7 @@ shots:
       measured_position_m:
         - 0.6
       source_shot: 39516
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39516
@@ -1327,7 +1327,7 @@ shots:
       measured_position_m:
         - 0.65
       source_shot: 39517
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39517
@@ -1348,7 +1348,7 @@ shots:
       measured_position_m:
         - 0.65
       source_shot: 39518
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39518
@@ -1369,7 +1369,7 @@ shots:
       measured_position_m:
         - 0.65
       source_shot: 39518
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39519
@@ -1402,7 +1402,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39520
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39520
@@ -1423,7 +1423,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39521
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39521
@@ -1444,7 +1444,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39522
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39522
@@ -1465,7 +1465,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39523
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39523
@@ -1486,7 +1486,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39524
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39524
@@ -1507,7 +1507,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39525
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39525
@@ -1528,7 +1528,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39526
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39526
@@ -1549,7 +1549,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39527
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39527
@@ -1570,7 +1570,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39528
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39528
@@ -1591,7 +1591,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39529
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39529
@@ -1612,7 +1612,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39530
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39530
@@ -1633,7 +1633,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39531
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39531
@@ -1692,7 +1692,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39542
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39542
@@ -1701,7 +1701,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39543
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39543
@@ -1710,7 +1710,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39544
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39544
@@ -1719,7 +1719,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39545
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39545
@@ -1728,7 +1728,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39546
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39546
@@ -1737,7 +1737,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39547
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39547
@@ -1746,7 +1746,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39548
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39548
@@ -1755,7 +1755,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39549
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39549
@@ -1764,7 +1764,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39550
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39550
@@ -1773,7 +1773,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39551
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39551
@@ -1782,7 +1782,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39552
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39552
@@ -1791,7 +1791,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39553
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39553
@@ -1800,7 +1800,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39554
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39554
@@ -1809,7 +1809,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39555
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39555
@@ -1818,7 +1818,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39556
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39556
@@ -1827,7 +1827,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39557
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39557
@@ -1836,7 +1836,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39558
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39558
@@ -1845,7 +1845,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39559
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39559
@@ -1854,7 +1854,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39560
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39560
@@ -1863,7 +1863,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39561
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39561
@@ -1872,7 +1872,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39562
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39562
@@ -1881,7 +1881,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39563
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39563
@@ -1890,7 +1890,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39564
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39564
@@ -1899,7 +1899,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39565
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39565
@@ -1908,7 +1908,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39566
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39566
@@ -1917,7 +1917,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39567
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39567
@@ -1926,7 +1926,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39568
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39568
@@ -1935,7 +1935,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39569
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39569
@@ -1944,7 +1944,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39570
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39570
@@ -1953,7 +1953,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39571
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39571
@@ -1962,7 +1962,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39572
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39572
@@ -1971,7 +1971,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39573
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39573
@@ -1980,7 +1980,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39574
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39574
@@ -1989,7 +1989,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39575
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39575
@@ -1998,7 +1998,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39576
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39576
@@ -2007,7 +2007,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39577
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39577
@@ -2016,7 +2016,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39578
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39578
@@ -2025,7 +2025,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39606
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39606
@@ -2034,7 +2034,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39607
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39607
@@ -2051,7 +2051,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39608
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39608
@@ -2068,7 +2068,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39609
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39609
@@ -2085,7 +2085,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39610
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39610
@@ -2106,7 +2106,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39611
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39611
@@ -2127,7 +2127,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39612
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39612
@@ -2148,7 +2148,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39613
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39613
@@ -2169,7 +2169,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39614
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39614
@@ -2190,7 +2190,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39615
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39615
@@ -2211,7 +2211,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39616
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39616
@@ -2232,7 +2232,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39617
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39617
@@ -2253,7 +2253,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39618
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39618
@@ -2274,7 +2274,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39619
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39619
@@ -2295,7 +2295,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39620
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39620
@@ -2316,7 +2316,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 310
       source_shot: 39621
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39621
@@ -2337,7 +2337,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39622
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39622
@@ -2346,7 +2346,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39623
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39623
@@ -2355,7 +2355,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39624
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39624
@@ -2364,7 +2364,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39625
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39625
@@ -2377,7 +2377,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39626
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39626
@@ -2390,7 +2390,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39627
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39627
@@ -2403,7 +2403,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39628
@@ -2416,7 +2416,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39629
@@ -2429,7 +2429,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39630
@@ -2442,7 +2442,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39631
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -2451,7 +2451,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39632
@@ -2468,7 +2468,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39633
@@ -2485,7 +2485,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39634
@@ -2502,7 +2502,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39635
@@ -2519,7 +2519,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39636
@@ -2536,7 +2536,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39637
@@ -2553,7 +2553,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39638
@@ -2570,7 +2570,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39639
@@ -2587,7 +2587,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39640
@@ -2604,7 +2604,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39641
@@ -2621,7 +2621,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39642
@@ -2638,7 +2638,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39643
@@ -2655,7 +2655,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39644
@@ -2672,7 +2672,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39628
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39645
@@ -2867,7 +2867,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39785
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39785
@@ -2892,7 +2892,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39786
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39786
@@ -2917,7 +2917,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39787
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39787
@@ -2930,7 +2930,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39831
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39831
@@ -2939,7 +2939,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39832
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39832
@@ -2948,7 +2948,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39833
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39833
@@ -2957,7 +2957,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39834
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39834
@@ -2966,7 +2966,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39835
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39835
@@ -2975,7 +2975,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39836
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39836
@@ -2984,7 +2984,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39837
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39837
@@ -2993,7 +2993,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39838
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39838
@@ -3002,7 +3002,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39839
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39839
@@ -3011,7 +3011,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39840
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39840
@@ -3020,7 +3020,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39841
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39841
@@ -3029,7 +3029,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39842
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39842
@@ -3038,7 +3038,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39843
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39843
@@ -3047,7 +3047,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39844
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39844
@@ -3056,7 +3056,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39845
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39845
@@ -3065,7 +3065,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39846
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39846
@@ -3078,7 +3078,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39847
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39847
@@ -3091,7 +3091,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39848
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39848
@@ -3104,7 +3104,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39849
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39849
@@ -3117,7 +3117,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39850
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39850
@@ -3130,7 +3130,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39851
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39851
@@ -3143,7 +3143,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39852
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39852
@@ -3152,7 +3152,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39860
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39860
@@ -3161,7 +3161,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39861
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39861
@@ -3170,7 +3170,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39862
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39862
@@ -3179,7 +3179,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39863
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39863
@@ -3188,7 +3188,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39864
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39864
@@ -3197,7 +3197,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39865
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39865
@@ -3206,7 +3206,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39866
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39866
@@ -3215,7 +3215,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39867
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39867
@@ -3224,7 +3224,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39868
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39868
@@ -3233,7 +3233,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39869
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39869
@@ -3242,7 +3242,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39870
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39870
@@ -3251,7 +3251,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39871
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39871
@@ -3260,7 +3260,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39872
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39872
@@ -3269,7 +3269,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39873
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39873
@@ -3278,7 +3278,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39874
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39874
@@ -3287,7 +3287,7 @@ shots:
       measured_position_m:
         - 0.8
       source_shot: 39875
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39875
@@ -3300,7 +3300,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39889
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39889
@@ -3317,7 +3317,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39890
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39890
@@ -3334,7 +3334,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39891
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39891
@@ -3355,7 +3355,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39892
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39892
@@ -3376,7 +3376,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39893
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39893
@@ -3397,7 +3397,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39894
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39894
@@ -3418,7 +3418,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39895
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39895
@@ -3439,7 +3439,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39896
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39896
@@ -3460,7 +3460,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39897
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39897
@@ -3481,7 +3481,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39898
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39898
@@ -3502,7 +3502,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39899
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39899
@@ -3523,7 +3523,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 39900
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39900
@@ -3566,7 +3566,7 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 39903
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39903
@@ -3587,7 +3587,7 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 39904
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39904
@@ -3608,7 +3608,7 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 39905
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39905
@@ -3629,7 +3629,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39906
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39906
@@ -3650,7 +3650,7 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 39907
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39907
@@ -3671,7 +3671,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39908
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39908
@@ -3692,7 +3692,7 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 39909
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39909
@@ -3713,7 +3713,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39910
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39910
@@ -3734,7 +3734,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39910
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39911
@@ -3755,7 +3755,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39910
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39912
@@ -3776,7 +3776,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39910
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39913
@@ -3797,7 +3797,7 @@ shots:
       start_time_ms: 120
       end_time_ms: 120
       source_shot: 39910
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39914
@@ -3818,7 +3818,7 @@ shots:
       start_time_ms: 108
       end_time_ms: 108
       source_shot: 39915
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39915
@@ -3839,7 +3839,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 39916
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39916
@@ -3860,7 +3860,7 @@ shots:
       start_time_ms: 124
       end_time_ms: 124
       source_shot: 39917
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39917
@@ -3881,7 +3881,7 @@ shots:
       start_time_ms: 124
       end_time_ms: 124
       source_shot: 39917
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 39917
@@ -4787,7 +4787,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40075
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40075
@@ -4800,7 +4800,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40076
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40076
@@ -4813,7 +4813,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40077
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40077
@@ -4826,7 +4826,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40078
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40078
@@ -4839,7 +4839,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40079
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40079
@@ -4852,7 +4852,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40080
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40080
@@ -4865,7 +4865,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40081
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40081
@@ -4878,7 +4878,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40082
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40082
@@ -4891,7 +4891,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40083
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40083
@@ -4904,7 +4904,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40084
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40084
@@ -4917,7 +4917,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40085
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40085
@@ -4930,7 +4930,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40086
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40086
@@ -4943,7 +4943,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40087
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40087
@@ -4956,7 +4956,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40088
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40088
@@ -4969,7 +4969,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40089
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40089
@@ -4982,7 +4982,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40090
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40090
@@ -4995,7 +4995,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40091
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40091
@@ -5008,7 +5008,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40092
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40092
@@ -5021,7 +5021,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40093
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40093
@@ -5034,7 +5034,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40094
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40094
@@ -5047,7 +5047,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40095
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40095
@@ -5060,7 +5060,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40096
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40096
@@ -5073,7 +5073,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40097
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40097
@@ -5086,7 +5086,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40098
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40098
@@ -5099,7 +5099,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40099
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40099
@@ -5112,7 +5112,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40100
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40100
@@ -5125,7 +5125,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40101
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40101
@@ -5138,7 +5138,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40102
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40102
@@ -5151,7 +5151,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40103
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40103
@@ -5164,7 +5164,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40104
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40104
@@ -5177,7 +5177,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40105
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40105
@@ -5190,7 +5190,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40106
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40106
@@ -5203,7 +5203,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40107
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40107
@@ -5216,7 +5216,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40108
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40108
@@ -5229,7 +5229,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40109
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40109
@@ -5242,7 +5242,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40109
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40109
@@ -5255,7 +5255,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40109
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40109
@@ -5268,7 +5268,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40112
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40112
@@ -5281,7 +5281,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40113
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40113
@@ -5294,7 +5294,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40114
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40114
@@ -5307,7 +5307,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40115
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40115
@@ -5320,7 +5320,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40116
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40116
@@ -5333,7 +5333,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40117
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40117
@@ -5346,7 +5346,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40118
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40118
@@ -5359,7 +5359,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40119
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40119
@@ -5372,7 +5372,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40119
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40119
@@ -5385,7 +5385,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40119
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40119
@@ -5398,7 +5398,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40119
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40119
@@ -5429,7 +5429,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40125
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40125
@@ -5446,7 +5446,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40126
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40126
@@ -5463,7 +5463,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40127
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40127
@@ -5480,7 +5480,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40128
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40128
@@ -5505,7 +5505,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40129
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5526,7 +5526,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40130
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5547,7 +5547,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40131
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5568,7 +5568,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40132
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5589,7 +5589,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40133
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5610,7 +5610,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40134
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5631,7 +5631,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40135
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5652,7 +5652,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40136
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5673,7 +5673,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40137
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5694,7 +5694,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40138
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5715,7 +5715,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40139
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5736,7 +5736,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40140
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40129
@@ -5926,7 +5926,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40174
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40174
@@ -5943,7 +5943,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -5960,7 +5960,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -5977,7 +5977,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -5994,7 +5994,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -6011,7 +6011,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -6028,7 +6028,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -6045,7 +6045,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40175
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40175
@@ -6062,7 +6062,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40184
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40184
@@ -6079,7 +6079,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40185
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40185
@@ -6096,7 +6096,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40185
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40185
@@ -6113,7 +6113,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40185
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40185
@@ -6130,7 +6130,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40185
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40185
@@ -6547,7 +6547,7 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 40280
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40280
@@ -6568,7 +6568,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40281
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40281
@@ -6589,7 +6589,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40282
@@ -6610,7 +6610,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40283
@@ -6631,7 +6631,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40284
@@ -6652,7 +6652,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40285
@@ -6673,7 +6673,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40286
@@ -6694,7 +6694,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40287
@@ -6715,7 +6715,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40288
@@ -6736,7 +6736,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40289
@@ -6757,7 +6757,7 @@ shots:
       start_time_ms: 116
       end_time_ms: 116
       source_shot: 40282
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40290
@@ -6820,7 +6820,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40302
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40302
@@ -6829,7 +6829,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40303
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40303
@@ -6838,7 +6838,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40304
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40304
@@ -6847,7 +6847,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40305
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40305
@@ -6856,7 +6856,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40306
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40306
@@ -6865,7 +6865,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40307
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40307
@@ -6874,7 +6874,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40308
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40308
@@ -6887,7 +6887,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40309
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40309
@@ -6900,7 +6900,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40310
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40310
@@ -6913,7 +6913,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40311
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40311
@@ -6926,7 +6926,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40312
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40312
@@ -6939,7 +6939,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40313
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40313
@@ -6952,7 +6952,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40314
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40314
@@ -6965,7 +6965,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40315
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40315
@@ -6978,7 +6978,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40316
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40316
@@ -6991,7 +6991,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40317
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40317
@@ -7004,7 +7004,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40318
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40318
@@ -7021,7 +7021,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40319
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40319
@@ -7034,7 +7034,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40320
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40320
@@ -7051,7 +7051,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40321
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40321
@@ -7068,7 +7068,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40322
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40322
@@ -7085,7 +7085,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40323
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40323
@@ -7106,7 +7106,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40324
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40324
@@ -7127,7 +7127,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40325
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40325
@@ -7148,7 +7148,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40326
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40326
@@ -7169,7 +7169,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40327
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40327
@@ -7190,7 +7190,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40328
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40328
@@ -7211,7 +7211,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40329
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40329
@@ -7232,7 +7232,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40330
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40330
@@ -7253,7 +7253,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40331
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40331
@@ -7274,7 +7274,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40332
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40332
@@ -7295,7 +7295,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40333
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40333
@@ -7316,7 +7316,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40334
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40334
@@ -7337,7 +7337,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40335
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40335
@@ -7358,7 +7358,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7379,7 +7379,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7400,7 +7400,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7421,7 +7421,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7442,7 +7442,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7463,7 +7463,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7484,7 +7484,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7505,7 +7505,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7526,7 +7526,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7547,7 +7547,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7568,7 +7568,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7589,7 +7589,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7610,7 +7610,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7631,7 +7631,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7652,7 +7652,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7673,7 +7673,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7694,7 +7694,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7715,7 +7715,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7736,7 +7736,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7757,7 +7757,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7778,7 +7778,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7799,7 +7799,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7820,7 +7820,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7841,7 +7841,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7862,7 +7862,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7883,7 +7883,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7904,7 +7904,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7925,7 +7925,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7946,7 +7946,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40336
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 40336
@@ -7967,7 +7967,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40366
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40366
@@ -7984,7 +7984,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40367
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40367
@@ -8001,7 +8001,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40368
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40368
@@ -8018,7 +8018,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40369
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40369
@@ -8035,7 +8035,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40370
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40370
@@ -8052,7 +8052,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40372
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40372
@@ -8069,7 +8069,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40373
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40373
@@ -8086,7 +8086,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40374
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40374
@@ -8103,7 +8103,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40375
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40375
@@ -8120,7 +8120,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40376
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40376
@@ -8137,7 +8137,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40377
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40377
@@ -8154,7 +8154,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40378
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40378
@@ -8171,7 +8171,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40379
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40379
@@ -8188,7 +8188,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40380
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40380
@@ -8205,7 +8205,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40381
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40381
@@ -8222,7 +8222,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40382
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40382
@@ -8239,7 +8239,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40383
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40383
@@ -8256,7 +8256,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40384
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40384
@@ -8273,7 +8273,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40385
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40385
@@ -8290,7 +8290,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40386
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40386
@@ -8307,7 +8307,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40387
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40387
@@ -8400,7 +8400,7 @@ shots:
       measured_position_m:
         - 0.4
       source_shot: 40404
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40404
@@ -8409,7 +8409,7 @@ shots:
       measured_position_m:
         - 0.45
       source_shot: 40405
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40405
@@ -8418,7 +8418,7 @@ shots:
       measured_position_m:
         - 0.5
       source_shot: 40406
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40406
@@ -8427,7 +8427,7 @@ shots:
       measured_position_m:
         - 0.55
       source_shot: 40407
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40407
@@ -8436,7 +8436,7 @@ shots:
       measured_position_m:
         - 0.6
       source_shot: 40408
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40408
@@ -8445,7 +8445,7 @@ shots:
       measured_position_m:
         - 0.65
       source_shot: 40409
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40409
@@ -8454,7 +8454,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40410
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40410
@@ -8463,7 +8463,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40411
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40411
@@ -8472,7 +8472,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40412
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40412
@@ -8481,7 +8481,7 @@ shots:
       measured_position_m:
         - 0.73
       source_shot: 40413
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40413
@@ -8490,7 +8490,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40414
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40414
@@ -8499,7 +8499,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40414
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40415
@@ -8508,7 +8508,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40414
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40416
@@ -8517,7 +8517,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40414
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40417
@@ -8526,7 +8526,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40414
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40418
@@ -8535,7 +8535,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40414
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40419
@@ -8544,7 +8544,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40420
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40420
@@ -8553,7 +8553,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40421
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40421
@@ -8562,7 +8562,7 @@ shots:
       measured_position_m:
         - 0.73
       source_shot: 40422
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40422
@@ -8571,7 +8571,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40423
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40423
@@ -8580,7 +8580,7 @@ shots:
       measured_position_m:
         - 0.68
       source_shot: 40424
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40424
@@ -8589,7 +8589,7 @@ shots:
       measured_position_m:
         - 0.65
       source_shot: 40426
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40426
@@ -8598,7 +8598,7 @@ shots:
       measured_position_m:
         - 0.63
       source_shot: 40427
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40427
@@ -8607,7 +8607,7 @@ shots:
       measured_position_m:
         - 0.6
       source_shot: 40428
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40428
@@ -8616,7 +8616,7 @@ shots:
       measured_position_m:
         - 0.58
       source_shot: 40429
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40429
@@ -8625,7 +8625,7 @@ shots:
       measured_position_m:
         - 0.55
       source_shot: 40430
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40430
@@ -8634,7 +8634,7 @@ shots:
       measured_position_m:
         - 0.53
       source_shot: 40431
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40431
@@ -8643,7 +8643,7 @@ shots:
       measured_position_m:
         - 0.5
       source_shot: 40432
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40432
@@ -8652,7 +8652,7 @@ shots:
       measured_position_m:
         - 0.45
       source_shot: 40433
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40433
@@ -8661,7 +8661,7 @@ shots:
       measured_position_m:
         - 0.4
       source_shot: 40434
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40434
@@ -8670,7 +8670,7 @@ shots:
       measured_position_m:
         - 0.35
       source_shot: 40435
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40435
@@ -8679,7 +8679,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40436
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40436
@@ -8688,7 +8688,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40437
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40437
@@ -8697,7 +8697,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40438
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40438
@@ -8706,7 +8706,7 @@ shots:
       measured_position_m:
         - 0.73
       source_shot: 40439
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40439
@@ -8715,7 +8715,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40440
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40440
@@ -8724,7 +8724,7 @@ shots:
       measured_position_m:
         - 0.68
       source_shot: 40441
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40441
@@ -8733,7 +8733,7 @@ shots:
       measured_position_m:
         - 0.65
       source_shot: 40442
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40442
@@ -8742,7 +8742,7 @@ shots:
       measured_position_m:
         - 0.63
       source_shot: 40443
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40443
@@ -8751,7 +8751,7 @@ shots:
       measured_position_m:
         - 0.6
       source_shot: 40444
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40444
@@ -8760,7 +8760,7 @@ shots:
       measured_position_m:
         - 0.58
       source_shot: 40445
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40445
@@ -8769,7 +8769,7 @@ shots:
       measured_position_m:
         - 0.55
       source_shot: 40446
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40446
@@ -8778,7 +8778,7 @@ shots:
       measured_position_m:
         - 0.53
       source_shot: 40447
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40447
@@ -8787,7 +8787,7 @@ shots:
       measured_position_m:
         - 0.5
       source_shot: 40448
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40448
@@ -8796,7 +8796,7 @@ shots:
       measured_position_m:
         - 0.48
       source_shot: 40449
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40449
@@ -8805,7 +8805,7 @@ shots:
       measured_position_m:
         - 0.45
       source_shot: 40450
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40450
@@ -8814,7 +8814,7 @@ shots:
       measured_position_m:
         - 0.43
       source_shot: 40451
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40451
@@ -8823,7 +8823,7 @@ shots:
       measured_position_m:
         - 0.4
       source_shot: 40452
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40452
@@ -8832,7 +8832,7 @@ shots:
       measured_position_m:
         - 0.38
       source_shot: 40453
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40453
@@ -8841,7 +8841,7 @@ shots:
       measured_position_m:
         - 0.35
       source_shot: 40454
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40454
@@ -8850,7 +8850,7 @@ shots:
       measured_position_m:
         - 0.33
       source_shot: 40455
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 40455
@@ -8863,7 +8863,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40467
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40467
@@ -8880,7 +8880,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40468
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40468
@@ -8901,7 +8901,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40469
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40469
@@ -8922,7 +8922,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40470
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40470
@@ -8943,7 +8943,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40471
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40471
@@ -8964,7 +8964,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40472
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40472
@@ -8985,7 +8985,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40473
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40473
@@ -9006,7 +9006,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40474
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40474
@@ -9272,7 +9272,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39631
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9281,7 +9281,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 39631
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9290,7 +9290,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40517
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9299,7 +9299,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40518
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9308,7 +9308,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40519
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9317,7 +9317,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40520
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9326,7 +9326,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40521
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9335,7 +9335,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40522
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9344,7 +9344,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40523
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9353,7 +9353,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40524
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9362,7 +9362,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40525
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9371,7 +9371,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40526
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9380,7 +9380,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40527
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9389,7 +9389,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40528
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9398,7 +9398,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40529
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9407,7 +9407,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40530
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9416,7 +9416,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40531
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9425,7 +9425,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40532
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 301
       source_shot: 39631
@@ -9900,7 +9900,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40568
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40568
@@ -9917,7 +9917,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40569
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40569
@@ -9934,7 +9934,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40570
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40570
@@ -9951,7 +9951,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40571
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40571
@@ -9968,7 +9968,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40572
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40572
@@ -9985,7 +9985,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40573
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40573
@@ -10002,7 +10002,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40574
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40574
@@ -10019,7 +10019,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40575
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40575
@@ -10036,7 +10036,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40576
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40576
@@ -10053,7 +10053,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40577
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40577
@@ -10070,7 +10070,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40578
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40578
@@ -10087,7 +10087,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40579
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40579
@@ -10104,7 +10104,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40580
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40580
@@ -10121,7 +10121,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40581
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40581
@@ -10138,7 +10138,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40582
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40582
@@ -10155,7 +10155,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40583
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40583
@@ -10172,7 +10172,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40584
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40584
@@ -10189,7 +10189,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40585
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40585
@@ -10206,7 +10206,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40586
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40586
@@ -10686,7 +10686,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40677
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40677
@@ -10703,7 +10703,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40678
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40678
@@ -10720,7 +10720,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40679
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40679
@@ -10737,7 +10737,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40680
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40680
@@ -10754,7 +10754,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40681
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40681
@@ -10771,7 +10771,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40682
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40682
@@ -10788,7 +10788,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40683
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40683
@@ -10805,7 +10805,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40684
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40684
@@ -10822,7 +10822,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40685
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40685
@@ -10839,7 +10839,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40686
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40686
@@ -10856,7 +10856,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40687
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40687
@@ -10873,7 +10873,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40688
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40688
@@ -10890,7 +10890,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40689
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40689
@@ -10907,7 +10907,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40690
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40690
@@ -10924,7 +10924,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40691
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40691
@@ -10941,7 +10941,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40692
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40692
@@ -10958,7 +10958,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40693
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40693
@@ -10975,7 +10975,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40694
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40694
@@ -10992,7 +10992,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40695
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40695
@@ -11013,7 +11013,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40696
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40696
@@ -11034,7 +11034,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40697
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40697
@@ -11055,7 +11055,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40698
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40698
@@ -11076,7 +11076,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40699
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40699
@@ -11101,7 +11101,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40700
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40700
@@ -11126,7 +11126,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40701
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40701
@@ -11151,7 +11151,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40702
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40702
@@ -11176,7 +11176,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40703
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40703
@@ -11201,7 +11201,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40704
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40704
@@ -11226,7 +11226,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40705
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40705
@@ -11251,7 +11251,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40706
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40706
@@ -11276,7 +11276,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40707
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40707
@@ -11301,7 +11301,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40708
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40708
@@ -11326,7 +11326,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40709
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40709
@@ -11351,7 +11351,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40710
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40710
@@ -11376,7 +11376,7 @@ shots:
       measured_position_m:
         - 0.75
       source_shot: 40711
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 40711
@@ -13403,7 +13403,7 @@ shots:
       measured_position_m:
         - 0.78
       source_shot: 40984
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40984
@@ -13416,7 +13416,7 @@ shots:
       measured_position_m:
         - 0.7
       source_shot: 40985
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40985
@@ -13429,7 +13429,7 @@ shots:
       measured_position_m:
         - 0.48
       source_shot: 40986
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40986
@@ -13442,7 +13442,7 @@ shots:
       measured_position_m:
         - 0.43
       source_shot: 40987
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40987
@@ -13455,7 +13455,7 @@ shots:
       measured_position_m:
         - 0.43
       source_shot: 40988
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40988
@@ -13468,7 +13468,7 @@ shots:
       measured_position_m:
         - 0.43
       source_shot: 40989
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40989
@@ -13481,7 +13481,7 @@ shots:
       measured_position_m:
         - 0.43
       source_shot: 40989
-    SXR1:
+    SXR:
       start_time_ms: -3700
       end_time_ms: -3700
       source_shot: 40989
@@ -15382,72 +15382,72 @@ shots:
       end_time_ms: 340
       source_shot: 41416
   41439:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41439
   41440:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41440
   41441:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41441
   41442:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41442
   41443:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41443
   41444:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41444
   41445:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41445
   41446:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41446
   41447:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41447
   41448:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41448
   41449:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41449
   41450:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41450
   41451:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41451
   41452:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 41451
@@ -15817,7 +15817,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41562
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41562
@@ -15830,7 +15830,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41563
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41563
@@ -15847,7 +15847,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41564
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41564
@@ -15864,7 +15864,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41565
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41565
@@ -15881,7 +15881,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41566
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41566
@@ -15898,7 +15898,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41567
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41567
@@ -15915,7 +15915,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41568
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41568
@@ -15932,7 +15932,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41569
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41569
@@ -15949,7 +15949,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41570
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41570
@@ -15966,7 +15966,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41571
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41571
@@ -15983,7 +15983,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41572
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41572
@@ -16000,7 +16000,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41573
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41573
@@ -16017,7 +16017,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41574
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41574
@@ -16034,7 +16034,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41575
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41575
@@ -16051,7 +16051,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41576
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41576
@@ -16068,7 +16068,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41577
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41577
@@ -16085,7 +16085,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41578
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41578
@@ -16102,7 +16102,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 41579
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41579
@@ -16119,7 +16119,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41582
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41582
@@ -16132,7 +16132,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41583
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41583
@@ -16145,7 +16145,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41584
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41584
@@ -16158,7 +16158,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41585
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41585
@@ -16171,7 +16171,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41586
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41586
@@ -16184,7 +16184,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41587
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41587
@@ -16197,7 +16197,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41588
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41588
@@ -16210,7 +16210,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41589
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41589
@@ -16223,7 +16223,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41590
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41590
@@ -16236,7 +16236,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41591
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41591
@@ -16249,7 +16249,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41592
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41592
@@ -16262,7 +16262,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41593
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41593
@@ -16275,7 +16275,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41594
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41594
@@ -16288,7 +16288,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41595
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41595
@@ -16301,7 +16301,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41596
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41596
@@ -16314,7 +16314,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41597
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41597
@@ -16327,7 +16327,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41598
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41598
@@ -16340,7 +16340,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41599
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41599
@@ -16353,7 +16353,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41600
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41600
@@ -16366,7 +16366,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41601
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41601
@@ -16379,7 +16379,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41602
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41602
@@ -16392,7 +16392,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41603
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41603
@@ -17030,7 +17030,7 @@ shots:
       start_time_ms: 190
       end_time_ms: 190
       source_shot: 41674
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41674
@@ -20181,7 +20181,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42459
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42459
@@ -20194,7 +20194,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42460
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42460
@@ -20207,7 +20207,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42461
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42461
@@ -20220,7 +20220,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42462
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42462
@@ -20233,7 +20233,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42463
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42463
@@ -20246,7 +20246,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42464
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42464
@@ -20259,7 +20259,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42465
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42465
@@ -20272,7 +20272,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42466
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42466
@@ -20285,7 +20285,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42467
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42467
@@ -20298,7 +20298,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42468
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42468
@@ -20311,7 +20311,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42469
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42469
@@ -20324,7 +20324,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42470
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42470
@@ -20337,7 +20337,7 @@ shots:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42470
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 300
       source_shot: 42471
@@ -26054,157 +26054,157 @@ shots:
       end_time_ms: 340
       source_shot: 43216
   43450:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43450
   43451:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43451
   43452:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43452
   43453:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43453
   43454:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43454
   43455:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43455
   43456:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43456
   43457:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43457
   43458:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43458
   43459:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43459
   43460:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43460
   43461:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43461
   43462:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43462
   43463:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43463
   43464:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43464
   43465:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43465
   43466:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43466
   43467:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43467
   43468:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43468
   43469:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43469
   43470:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43470
   43471:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43471
   43472:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43472
   43473:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43473
   43474:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43474
   43475:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43475
   43476:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43476
   43477:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43477
   43478:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43478
   43479:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43479
   43480:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43480
@@ -27215,22 +27215,22 @@ shots:
         - 0.6
       source_shot: 43758
   43791:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43791
   43792:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43792
   43793:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43793
   43794:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43794
@@ -27239,7 +27239,7 @@ shots:
       end_time_ms: 106
       source_shot: 43794
   43795:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43795
@@ -27248,7 +27248,7 @@ shots:
       end_time_ms: 106
       source_shot: 43795
   43796:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43796
@@ -27257,7 +27257,7 @@ shots:
       end_time_ms: 106
       source_shot: 43796
   43797:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43797
@@ -27266,7 +27266,7 @@ shots:
       end_time_ms: 106
       source_shot: 43797
   43798:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43798
@@ -27275,7 +27275,7 @@ shots:
       end_time_ms: 106
       source_shot: 43798
   43799:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43799
@@ -27284,7 +27284,7 @@ shots:
       end_time_ms: 106
       source_shot: 43799
   43800:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43800
@@ -27293,7 +27293,7 @@ shots:
       end_time_ms: 106
       source_shot: 43800
   43801:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43801
@@ -27302,7 +27302,7 @@ shots:
       end_time_ms: 106
       source_shot: 43801
   43802:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43802
@@ -27311,7 +27311,7 @@ shots:
       end_time_ms: 106
       source_shot: 43802
   43803:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43803
@@ -27320,7 +27320,7 @@ shots:
       end_time_ms: 106
       source_shot: 43803
   43804:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43804
@@ -27329,7 +27329,7 @@ shots:
       end_time_ms: 106
       source_shot: 43804
   43805:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43805
@@ -27338,7 +27338,7 @@ shots:
       end_time_ms: 106
       source_shot: 43805
   43806:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43806
@@ -27347,7 +27347,7 @@ shots:
       end_time_ms: 106
       source_shot: 43806
   43807:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43807
@@ -27356,7 +27356,7 @@ shots:
       end_time_ms: 106
       source_shot: 43807
   43808:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43808
@@ -27365,7 +27365,7 @@ shots:
       end_time_ms: 106
       source_shot: 43808
   43809:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43809
@@ -27374,7 +27374,7 @@ shots:
       end_time_ms: 106
       source_shot: 43809
   43810:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43810
@@ -27383,7 +27383,7 @@ shots:
       end_time_ms: 106
       source_shot: 43810
   43811:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43811
@@ -27392,7 +27392,7 @@ shots:
       end_time_ms: 106
       source_shot: 43811
   43812:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43812
@@ -27401,7 +27401,7 @@ shots:
       end_time_ms: 106
       source_shot: 43812
   43813:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43813
@@ -27410,7 +27410,7 @@ shots:
       end_time_ms: 106
       source_shot: 43813
   43814:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43814
@@ -27419,7 +27419,7 @@ shots:
       end_time_ms: 106
       source_shot: 43814
   43815:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43815
@@ -27428,7 +27428,7 @@ shots:
       end_time_ms: 106
       source_shot: 43815
   43816:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43816
@@ -27437,7 +27437,7 @@ shots:
       end_time_ms: 106
       source_shot: 43816
   43817:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43817
@@ -27446,7 +27446,7 @@ shots:
       end_time_ms: 106
       source_shot: 43817
   43818:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43818
@@ -27455,7 +27455,7 @@ shots:
       end_time_ms: 106
       source_shot: 43818
   43819:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43819
@@ -27464,7 +27464,7 @@ shots:
       end_time_ms: 106
       source_shot: 43819
   43820:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43820
@@ -27473,7 +27473,7 @@ shots:
       end_time_ms: 106
       source_shot: 43820
   43821:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43821
@@ -27482,7 +27482,7 @@ shots:
       end_time_ms: 106
       source_shot: 43821
   43822:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43822
@@ -27491,7 +27491,7 @@ shots:
       end_time_ms: 106
       source_shot: 43822
   43823:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43823
@@ -27500,7 +27500,7 @@ shots:
       end_time_ms: 106
       source_shot: 43823
   43824:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43824
@@ -27509,7 +27509,7 @@ shots:
       end_time_ms: 106
       source_shot: 43824
   43825:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43825
@@ -27518,7 +27518,7 @@ shots:
       end_time_ms: 106
       source_shot: 43825
   43826:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43826
@@ -27527,7 +27527,7 @@ shots:
       end_time_ms: 106
       source_shot: 43826
   43827:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43827
@@ -27536,7 +27536,7 @@ shots:
       end_time_ms: 106
       source_shot: 43827
   43828:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 43828
@@ -27765,7 +27765,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43857
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43857
@@ -27778,7 +27778,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43858
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43858
@@ -27791,7 +27791,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43859
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43859
@@ -27804,7 +27804,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43860
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43860
@@ -27817,7 +27817,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43861
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43861
@@ -27830,7 +27830,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43862
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43862
@@ -27843,7 +27843,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43863
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43863
@@ -27856,7 +27856,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43864
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43864
@@ -27869,7 +27869,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43865
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43865
@@ -27882,7 +27882,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43866
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43866
@@ -27895,7 +27895,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43867
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43867
@@ -27908,7 +27908,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43868
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43868
@@ -27921,7 +27921,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43869
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43869
@@ -27934,7 +27934,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43870
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43870
@@ -27947,7 +27947,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43871
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43871
@@ -27960,7 +27960,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43872
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43872
@@ -27973,7 +27973,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43873
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43873
@@ -27986,7 +27986,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43874
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43874
@@ -27999,7 +27999,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43875
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43875
@@ -28012,7 +28012,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43876
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43876
@@ -28025,7 +28025,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43877
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43877
@@ -28038,7 +28038,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43878
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43878
@@ -28051,7 +28051,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43879
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43879
@@ -28064,7 +28064,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43880
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43880
@@ -28077,7 +28077,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43881
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43881
@@ -28090,7 +28090,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43882
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43882
@@ -28103,7 +28103,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43883
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43883
@@ -28116,7 +28116,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43884
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43884
@@ -28129,7 +28129,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43885
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43885
@@ -28142,7 +28142,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43885
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43885
@@ -28155,7 +28155,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43885
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43885
@@ -28168,7 +28168,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43885
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43885
@@ -28181,7 +28181,7 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 43885
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 43885
@@ -28426,142 +28426,142 @@ shots:
         - 0.6
       source_shot: 43930
   43933:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43933
   43934:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43934
   43935:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43935
   43936:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43936
   43937:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43937
   43938:
-    SXR1:
+    SXR:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 43938
   43939:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43939
   43940:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43940
   43941:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43941
   43942:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43942
   43943:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43943
   43944:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43944
   43945:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43945
   43946:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43946
   43947:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43947
   43948:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43948
   43949:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43949
   43950:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43950
   43951:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43951
   43952:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43952
   43953:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43953
   43954:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43954
   43955:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43955
   43956:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43956
   43957:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43957
   43958:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43958
   43959:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43959
   43960:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
@@ -29234,7 +29234,7 @@ shots:
       end_time_ms: 310
       source_shot: 44169
   44170:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44170
@@ -29243,7 +29243,7 @@ shots:
       end_time_ms: 325
       source_shot: 44170
   44171:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44171
@@ -29252,7 +29252,7 @@ shots:
       end_time_ms: 325
       source_shot: 44171
   44172:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44172
@@ -29261,7 +29261,7 @@ shots:
       end_time_ms: 325
       source_shot: 44172
   44173:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44173
@@ -29270,7 +29270,7 @@ shots:
       end_time_ms: 325
       source_shot: 44173
   44174:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44174
@@ -29279,7 +29279,7 @@ shots:
       end_time_ms: 325
       source_shot: 44174
   44175:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44175
@@ -29288,7 +29288,7 @@ shots:
       end_time_ms: 325
       source_shot: 44175
   44176:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44176
@@ -29297,7 +29297,7 @@ shots:
       end_time_ms: 325
       source_shot: 44176
   44177:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44177
@@ -29306,7 +29306,7 @@ shots:
       end_time_ms: 325
       source_shot: 44177
   44178:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44178
@@ -29315,7 +29315,7 @@ shots:
       end_time_ms: 325
       source_shot: 44178
   44179:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44179
@@ -29324,7 +29324,7 @@ shots:
       end_time_ms: 325
       source_shot: 44179
   44180:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44179
@@ -29333,7 +29333,7 @@ shots:
       end_time_ms: 325
       source_shot: 44179
   44181:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44179
@@ -29342,7 +29342,7 @@ shots:
       end_time_ms: 325
       source_shot: 44179
   44182:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44179
@@ -29351,7 +29351,7 @@ shots:
       end_time_ms: 325
       source_shot: 44179
   44183:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44183
@@ -29360,7 +29360,7 @@ shots:
       end_time_ms: 325
       source_shot: 44183
   44184:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44184
@@ -29369,7 +29369,7 @@ shots:
       end_time_ms: 325
       source_shot: 44184
   44185:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44185
@@ -29378,7 +29378,7 @@ shots:
       end_time_ms: 325
       source_shot: 44185
   44186:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44186
@@ -29387,7 +29387,7 @@ shots:
       end_time_ms: 325
       source_shot: 44186
   44187:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44187
@@ -29396,7 +29396,7 @@ shots:
       end_time_ms: 325
       source_shot: 44187
   44188:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44188
@@ -29405,7 +29405,7 @@ shots:
       end_time_ms: 325
       source_shot: 44188
   44189:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44189
@@ -29414,7 +29414,7 @@ shots:
       end_time_ms: 325
       source_shot: 44189
   44190:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44190
@@ -29423,7 +29423,7 @@ shots:
       end_time_ms: 325
       source_shot: 44190
   44191:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44191
@@ -29432,7 +29432,7 @@ shots:
       end_time_ms: 325
       source_shot: 44191
   44192:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44192
@@ -29441,7 +29441,7 @@ shots:
       end_time_ms: 325
       source_shot: 44192
   44193:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44193
@@ -29450,7 +29450,7 @@ shots:
       end_time_ms: 325
       source_shot: 44193
   44194:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44194
@@ -29459,7 +29459,7 @@ shots:
       end_time_ms: 325
       source_shot: 44194
   44195:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44195
@@ -29468,7 +29468,7 @@ shots:
       end_time_ms: 325
       source_shot: 44195
   44196:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44196
@@ -29477,7 +29477,7 @@ shots:
       end_time_ms: 325
       source_shot: 44196
   44197:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44197
@@ -29486,7 +29486,7 @@ shots:
       end_time_ms: 325
       source_shot: 44197
   44198:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44198
@@ -29495,7 +29495,7 @@ shots:
       end_time_ms: 325
       source_shot: 44198
   44199:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44199
@@ -29504,7 +29504,7 @@ shots:
       end_time_ms: 325
       source_shot: 44199
   44200:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44200
@@ -29513,7 +29513,7 @@ shots:
       end_time_ms: 325
       source_shot: 44200
   44201:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44201
@@ -29522,7 +29522,7 @@ shots:
       end_time_ms: 325
       source_shot: 44201
   44202:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44202
@@ -29531,7 +29531,7 @@ shots:
       end_time_ms: 325
       source_shot: 44202
   44203:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44203
@@ -29540,7 +29540,7 @@ shots:
       end_time_ms: 325
       source_shot: 44203
   44204:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44204
@@ -29549,7 +29549,7 @@ shots:
       end_time_ms: 325
       source_shot: 44204
   44205:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44205
@@ -29558,7 +29558,7 @@ shots:
       end_time_ms: 325
       source_shot: 44205
   44206:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44206
@@ -29567,7 +29567,7 @@ shots:
       end_time_ms: 325
       source_shot: 44206
   44207:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44207
@@ -29576,7 +29576,7 @@ shots:
       end_time_ms: 325
       source_shot: 44207
   44208:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44208
@@ -29585,7 +29585,7 @@ shots:
       end_time_ms: 325
       source_shot: 44208
   44209:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44209
@@ -29594,7 +29594,7 @@ shots:
       end_time_ms: 325
       source_shot: 44209
   44210:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44210
@@ -29603,7 +29603,7 @@ shots:
       end_time_ms: 325
       source_shot: 44210
   44211:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44211
@@ -29612,7 +29612,7 @@ shots:
       end_time_ms: 325
       source_shot: 44211
   44212:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44212
@@ -29621,7 +29621,7 @@ shots:
       end_time_ms: 325
       source_shot: 44212
   44213:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44213
@@ -29705,7 +29705,7 @@ shots:
         - 0.27
       source_shot: 44284
   44312:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44312
@@ -29714,7 +29714,7 @@ shots:
       end_time_ms: 325
       source_shot: 44312
   44313:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44313
@@ -29723,7 +29723,7 @@ shots:
       end_time_ms: 325
       source_shot: 44313
   44314:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44314
@@ -29732,7 +29732,7 @@ shots:
       end_time_ms: 325
       source_shot: 44314
   44315:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44315
@@ -29741,7 +29741,7 @@ shots:
       end_time_ms: 325
       source_shot: 44315
   44316:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44316
@@ -29750,7 +29750,7 @@ shots:
       end_time_ms: 325
       source_shot: 44316
   44317:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44317
@@ -29759,7 +29759,7 @@ shots:
       end_time_ms: 325
       source_shot: 44317
   44318:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44318
@@ -29768,7 +29768,7 @@ shots:
       end_time_ms: 325
       source_shot: 44318
   44319:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44319
@@ -29777,7 +29777,7 @@ shots:
       end_time_ms: 325
       source_shot: 44319
   44320:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44320
@@ -29786,7 +29786,7 @@ shots:
       end_time_ms: 325
       source_shot: 44320
   44321:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44321
@@ -29795,7 +29795,7 @@ shots:
       end_time_ms: 325
       source_shot: 44321
   44322:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44322
@@ -29804,7 +29804,7 @@ shots:
       end_time_ms: 325
       source_shot: 44322
   44323:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44323
@@ -29813,7 +29813,7 @@ shots:
       end_time_ms: 325
       source_shot: 44323
   44324:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44324
@@ -29822,7 +29822,7 @@ shots:
       end_time_ms: 325
       source_shot: 44324
   44325:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44325
@@ -29831,7 +29831,7 @@ shots:
       end_time_ms: 325
       source_shot: 44325
   44326:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44326
@@ -29840,7 +29840,7 @@ shots:
       end_time_ms: 325
       source_shot: 44326
   44327:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44327
@@ -29849,7 +29849,7 @@ shots:
       end_time_ms: 325
       source_shot: 44327
   44328:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44328
@@ -29858,7 +29858,7 @@ shots:
       end_time_ms: 325
       source_shot: 44328
   44329:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44329
@@ -29867,7 +29867,7 @@ shots:
       end_time_ms: 325
       source_shot: 44329
   44330:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44330
@@ -29876,7 +29876,7 @@ shots:
       end_time_ms: 325
       source_shot: 44330
   44331:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44331
@@ -29885,7 +29885,7 @@ shots:
       end_time_ms: 325
       source_shot: 44331
   44332:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44332
@@ -29894,7 +29894,7 @@ shots:
       end_time_ms: 325
       source_shot: 44332
   44333:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44333
@@ -29903,7 +29903,7 @@ shots:
       end_time_ms: 325
       source_shot: 44333
   44334:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44334
@@ -29912,7 +29912,7 @@ shots:
       end_time_ms: 325
       source_shot: 44334
   44335:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44335
@@ -29921,7 +29921,7 @@ shots:
       end_time_ms: 325
       source_shot: 44335
   44336:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44336
@@ -29930,7 +29930,7 @@ shots:
       end_time_ms: 325
       source_shot: 44336
   44337:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44337
@@ -29939,7 +29939,7 @@ shots:
       end_time_ms: 325
       source_shot: 44337
   44338:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44338
@@ -29948,7 +29948,7 @@ shots:
       end_time_ms: 325
       source_shot: 44338
   44339:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44339
@@ -29957,7 +29957,7 @@ shots:
       end_time_ms: 325
       source_shot: 44339
   44340:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44340
@@ -29966,7 +29966,7 @@ shots:
       end_time_ms: 325
       source_shot: 44340
   44341:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44341
@@ -29975,7 +29975,7 @@ shots:
       end_time_ms: 325
       source_shot: 44341
   44342:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44342
@@ -29984,7 +29984,7 @@ shots:
       end_time_ms: 325
       source_shot: 44342
   44343:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44343
@@ -29993,7 +29993,7 @@ shots:
       end_time_ms: 325
       source_shot: 44343
   44344:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44344
@@ -30002,7 +30002,7 @@ shots:
       end_time_ms: 325
       source_shot: 44344
   44345:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44345
@@ -30011,7 +30011,7 @@ shots:
       end_time_ms: 325
       source_shot: 44345
   44346:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44346
@@ -30020,7 +30020,7 @@ shots:
       end_time_ms: 325
       source_shot: 44346
   44347:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44347
@@ -30029,7 +30029,7 @@ shots:
       end_time_ms: 325
       source_shot: 44347
   44348:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44348
@@ -30038,7 +30038,7 @@ shots:
       end_time_ms: 325
       source_shot: 44348
   44349:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44349
@@ -30047,7 +30047,7 @@ shots:
       end_time_ms: 325
       source_shot: 44349
   44350:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44350
@@ -30056,7 +30056,7 @@ shots:
       end_time_ms: 325
       source_shot: 44350
   44351:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44351
@@ -30065,7 +30065,7 @@ shots:
       end_time_ms: 325
       source_shot: 44351
   44352:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44352
@@ -30074,7 +30074,7 @@ shots:
       end_time_ms: 325
       source_shot: 44352
   44353:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44353
@@ -30083,7 +30083,7 @@ shots:
       end_time_ms: 325
       source_shot: 44353
   44354:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44354
@@ -30092,7 +30092,7 @@ shots:
       end_time_ms: 325
       source_shot: 44354
   44355:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44355
@@ -30101,7 +30101,7 @@ shots:
       end_time_ms: 325
       source_shot: 44355
   44356:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44356
@@ -30110,7 +30110,7 @@ shots:
       end_time_ms: 325
       source_shot: 44356
   44357:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44357
@@ -30119,7 +30119,7 @@ shots:
       end_time_ms: 325
       source_shot: 44357
   44358:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44358
@@ -30128,7 +30128,7 @@ shots:
       end_time_ms: 325
       source_shot: 44358
   44359:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44359
@@ -30137,7 +30137,7 @@ shots:
       end_time_ms: 325
       source_shot: 44359
   44360:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44360
@@ -30146,7 +30146,7 @@ shots:
       end_time_ms: 325
       source_shot: 44360
   44361:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44361
@@ -30155,7 +30155,7 @@ shots:
       end_time_ms: 325
       source_shot: 44361
   44362:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44362
@@ -30164,7 +30164,7 @@ shots:
       end_time_ms: 325
       source_shot: 44362
   44363:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44363
@@ -30173,7 +30173,7 @@ shots:
       end_time_ms: 325
       source_shot: 44363
   44364:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44364
@@ -30182,7 +30182,7 @@ shots:
       end_time_ms: 325
       source_shot: 44364
   44365:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 325
       source_shot: 44364
@@ -32214,7 +32214,7 @@ shots:
       end_time_ms: 285
       source_shot: 44992
   45031:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
@@ -32414,317 +32414,317 @@ shots:
       end_time_ms: 100
       source_shot: 45087
   45121:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45122:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45123:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45124:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45125:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45126:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45127:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45128:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45129:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45130:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45131:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45132:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45133:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45134:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45135:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45136:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45137:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45138:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45139:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45140:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45141:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45142:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45143:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45144:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45145:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45146:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45147:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45148:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45149:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45150:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45151:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45152:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45153:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45154:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45155:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45156:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45157:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45158:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45159:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45160:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45161:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45162:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45163:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45164:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45167:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45168:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45169:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45170:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45171:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45172:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45173:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45174:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45175:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45176:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45177:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45178:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45179:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45180:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45181:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45182:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45183:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45184:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45185:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
@@ -32741,277 +32741,277 @@ shots:
         - 0.4
       source_shot: 45243
   45276:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45277:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45278:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45279:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45280:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45281:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45282:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45283:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45284:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45285:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45286:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45287:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45288:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45289:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45290:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45291:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45292:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45293:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45294:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45295:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45296:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45297:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45298:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45299:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45300:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45301:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45302:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45303:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45304:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45305:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45306:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45307:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45308:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45309:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45310:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45311:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45312:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45313:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45314:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45315:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45316:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45317:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45318:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45319:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45320:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45321:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45322:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45323:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45324:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45325:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45326:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45327:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45328:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45329:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
   45330:
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 335
       source_shot: 43960
@@ -36570,7 +36570,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46960
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46960
@@ -36579,7 +36579,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46961
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46961
@@ -36588,7 +36588,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46962
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46962
@@ -36597,7 +36597,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46963
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46963
@@ -36606,7 +36606,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46964
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46964
@@ -36615,7 +36615,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46965
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46965
@@ -36624,7 +36624,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46966
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46966
@@ -36633,7 +36633,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46967
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46967
@@ -36642,7 +36642,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46968
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46968
@@ -36651,7 +36651,7 @@ shots:
       start_time_ms: 290
       end_time_ms: 290
       source_shot: 46969
-    SXR1:
+    SXR:
       start_time_ms: 285
       end_time_ms: 285
       source_shot: 46969
