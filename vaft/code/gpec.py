@@ -17,6 +17,7 @@ import shutil
 import subprocess
 from typing import Any, Mapping, Optional, Sequence
 
+from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
 GPEC_HOME_ENV = "GPECHOME"
@@ -144,14 +145,22 @@ def _executable_dir(config: GPECSuiteConfig) -> Path | None:
 
 
 def _executable(config: GPECSuiteConfig, program: str) -> Path | None:
-    directory = _executable_dir(config)
-    return directory / program if directory else None
+    if config.executable_dir:
+        return Path(config.executable_dir).expanduser() / program
+    home = _gpec_home(config)
+    return executable_from_home(
+        home,
+        home_variable=GPEC_HOME_ENV,
+        relative_path=Path("bin") / program,
+        code_name=f"GPEC suite ({program})",
+    )
 
 
 def _unconfigured_reason() -> str:
-    return (
-        "GPEC installation is not configured: pass GPECSuiteConfig(gpec_home=...) "
-        f"or GPECSuiteConfig(executable_dir=...), or export ${GPEC_HOME_ENV}"
+    return missing_home_message(
+        home_variable=GPEC_HOME_ENV,
+        relative_path="bin/{dcon,match,rdcon,stride,gpec}",
+        code_name="GPEC suite",
     )
 
 
@@ -469,10 +478,11 @@ def _run_module(
         if policy == "strict":
             raise FileNotFoundError(_unconfigured_reason())
         return GPECModuleRun(module, mode, run_dir, status="skipped", reason=_unconfigured_reason())
-    if not executable.exists():
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        reason = f"missing or non-executable {program}: {executable}"
         if policy == "strict":
-            raise FileNotFoundError(f"{program} executable not found: {executable}")
-        return GPECModuleRun(module, mode, run_dir, status="skipped", reason=f"missing executable: {executable}")
+            raise FileNotFoundError(reason)
+        return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
 
     if module == "gpec":
         dcon_dir = _module_dir(inputs, "dcon", mode)
@@ -489,7 +499,7 @@ def _run_module(
         status = "completed" if returncode == 0 else "failed"
         if module == "dcon" and returncode == 0:
             match_exec = _executable(config, "match")
-            if match_exec is not None and match_exec.exists():
+            if match_exec is not None and match_exec.is_file() and os.access(match_exec, os.X_OK):
                 match_rc, match_log = _run_subprocess(match_exec, run_dir, run_dir / "match.log", config=config)
                 commands.append(str(match_exec))
                 logs.append(match_log)

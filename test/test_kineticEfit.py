@@ -236,6 +236,7 @@ def test_scale_plasma_missing_raises():
 # --------------------------------------------------------------------------- #
 
 def test_run_kinetic_efit_skipped_without_executable(tmp_path, monkeypatch):
+    monkeypatch.delenv("EFITHOME", raising=False)
     monkeypatch.delenv("EFIT", raising=False)
     ods = _make_raw_ods()
     pts = km.kinetic_pressure_points(ods, 300.0, None, encoding="raw6")
@@ -258,6 +259,7 @@ def test_run_kinetic_efit_skipped_without_executable(tmp_path, monkeypatch):
 
 
 def test_run_kinetic_efit_skipped_bad_executable_path(tmp_path, monkeypatch):
+    monkeypatch.delenv("EFITHOME", raising=False)
     monkeypatch.delenv("EFIT", raising=False)
     ods = _make_raw_ods()
     pts = km.kinetic_pressure_points(ods, 300.0, None, encoding="raw6")

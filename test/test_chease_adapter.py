@@ -93,8 +93,8 @@ def test_run_chease_skips_without_executable(tmp_path):
 
 
 @pytest.mark.skipif(
-    not os.environ.get("CHEASE_EXEC_DIR"),
-    reason="CHEASE integration test requires CHEASE_EXEC_DIR",
+    not (os.environ.get("CHEASEHOME") or os.environ.get("CHEASE_EXEC_DIR")),
+    reason="CHEASE integration test requires CHEASEHOME or CHEASE_EXEC_DIR",
 )
 def test_run_chease_integration_when_available(tmp_path):
     from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease

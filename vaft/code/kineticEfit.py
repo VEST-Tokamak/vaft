@@ -58,6 +58,8 @@ from typing import Any, List, Mapping, Optional, Sequence
 
 import numpy as np
 
+from ._executables import executable_from_home, missing_home_message
+
 # --------------------------------------------------------------------------- #
 # Physical / formatting constants (lifted from the ids_test scripts)
 # --------------------------------------------------------------------------- #
@@ -83,6 +85,9 @@ SPLINE_SIG_FRAC = 0.15   # SIGPRE = SIG_FRAC * p_kin(axis), constant in Pa
 
 #: Descending PLASMA-scale sweep; first (largest) converging scale wins.
 DEFAULT_SCALES = (1.0, 0.94, 0.90, 0.85, 0.80, 0.75, 0.70, 0.60, 0.50, 0.40)
+EFIT_HOME_ENV = "EFITHOME"
+EFIT_HOME_EXECUTABLE = Path("bin/efit")
+EFIT_COMPATIBILITY_ENV = "EFIT"
 
 
 def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None):
@@ -668,19 +673,28 @@ def scale_plasma(kfile_text: str, scale: float) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Executable resolution ($EFIT convention, copied from chease._resolve_executable)
+# Executable resolution (canonical $EFITHOME with legacy $EFIT compatibility)
 # --------------------------------------------------------------------------- #
 
 def _resolve_efit_executable(config: KineticEFITConfig) -> Optional[Path]:
-    """Return the EFIT executable from ``config.executable`` or ``$EFIT``.
+    """Return EFIT from explicit config, ``$EFITHOME``, or legacy ``$EFIT``.
 
-    Returns ``None`` (never raises) when nothing usable is found, so callers can
-    degrade to a ``status='skipped'`` result.
+    An incomplete ``$EFITHOME`` installation raises an actionable exception.
+    When no executable is configured, callers may still return a skipped run.
     """
     if config.executable:
         cand = Path(config.executable).expanduser()
         return cand if cand.exists() and os.access(cand, os.X_OK) else None
-    env_path = config.env.get("EFIT") or os.environ.get("EFIT")
+    environment = {**os.environ, **dict(config.env)}
+    home_executable = executable_from_home(
+        environment.get(EFIT_HOME_ENV),
+        home_variable=EFIT_HOME_ENV,
+        relative_path=EFIT_HOME_EXECUTABLE,
+        code_name="EFIT",
+    )
+    if home_executable is not None:
+        return home_executable
+    env_path = environment.get(EFIT_COMPATIBILITY_ENV)
     if env_path:
         cand = Path(env_path).expanduser()
         if cand.exists() and os.access(cand, os.X_OK):
@@ -915,7 +929,7 @@ def run_kinetic_efit(
     Reuses :func:`vaft.code.efit.run_efit` (which internally calls
     ``collect_efit_outputs``) for each scale.  Convergence is detected from a
     produced g-file; ``chi2`` is parsed from the EFIT log when available.  When
-    the EFIT executable cannot be resolved (``$EFIT`` unset and
+    the EFIT executable cannot be resolved (``$EFITHOME`` and ``$EFIT`` unset and
     ``config.executable`` None) a ``status='skipped'`` result is returned instead
     of raising.
     """
@@ -930,8 +944,12 @@ def run_kinetic_efit(
             returncode=None,
             workdir=workdir,
             status="skipped",
-            reason="EFIT executable unresolved: set KineticEFITConfig.executable "
-                   "or the $EFIT environment variable",
+            reason=missing_home_message(
+                home_variable=EFIT_HOME_ENV,
+                relative_path=EFIT_HOME_EXECUTABLE,
+                code_name="EFIT",
+                compatibility_variables=(EFIT_COMPATIBILITY_ENV,),
+            ),
         )
 
     if not inputs.base_kfile_text:

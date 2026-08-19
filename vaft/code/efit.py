@@ -14,9 +14,12 @@ import os
 from typing import Any, Mapping, Optional, Sequence
 from vaft.machine_mapping.utils import path_exists
 
+from ._executables import executable_from_home, missing_home_message
 
-# Environment variable naming the EFIT binary (or the directory containing it),
-# mirroring GPEC's ``$GPECHOME`` and CHEASE's ``$CHEASE_EXEC_DIR`` conventions.
+
+# Canonical EFIT installation root and its historical executable-oriented name.
+EFIT_HOME_ENV = "EFITHOME"
+EFIT_HOME_EXECUTABLE = Path("bin/efit")
 EFIT_EXEC_ENV = "EFIT"
 
 
@@ -125,19 +128,26 @@ def _efit_stdin(workdir: Path, kfiles: Sequence[Path]) -> str:
 
 
 def _resolve_efit_executable(config: EFITConfig) -> Path | None:
-    """Resolve the EFIT binary from ``config.executable`` or ``$EFIT``.
+    """Resolve EFIT from an explicit path, ``$EFITHOME``, or legacy ``$EFIT``.
 
-    Mirrors the GPEC (``$GPECHOME``) and CHEASE (``$CHEASE_EXEC_DIR``)
-    conventions. An explicit ``EFITConfig.executable`` wins for backward
-    compatibility; otherwise ``$EFIT`` (from ``config.env`` or the process
-    environment) may name either the ``efit`` binary itself or the directory
-    that contains it. Returns ``None`` when nothing is configured; a configured
-    but not-yet-existing path is returned so the caller can report it.
+    The existing explicit adapter option remains authoritative for backward
+    compatibility.  A configured ``$EFITHOME`` must contain ``bin/efit`` and
+    fails immediately when that installation is incomplete.  The historical
+    ``$EFIT`` lookup is used only when ``$EFITHOME`` is absent.
     """
     if config.executable:
         candidate = Path(config.executable).expanduser()
         return candidate / "efit" if candidate.is_dir() else candidate
-    env_path = config.env.get(EFIT_EXEC_ENV) or os.environ.get(EFIT_EXEC_ENV)
+    environment = {**os.environ, **dict(config.env)}
+    home_executable = executable_from_home(
+        environment.get(EFIT_HOME_ENV),
+        home_variable=EFIT_HOME_ENV,
+        relative_path=EFIT_HOME_EXECUTABLE,
+        code_name="EFIT",
+    )
+    if home_executable is not None:
+        return home_executable
+    env_path = environment.get(EFIT_EXEC_ENV)
     if env_path:
         env_candidate = Path(env_path).expanduser()
         return env_candidate / "efit" if env_candidate.is_dir() else env_candidate
@@ -145,14 +155,16 @@ def _resolve_efit_executable(config: EFITConfig) -> Path | None:
 
 
 def _efit_unconfigured_reason() -> str:
-    return (
-        "EFIT executable is not configured: pass EFITConfig(executable=...) "
-        f"or export ${EFIT_EXEC_ENV} to the efit binary (or its directory)."
+    return missing_home_message(
+        home_variable=EFIT_HOME_ENV,
+        relative_path=EFIT_HOME_EXECUTABLE,
+        code_name="EFIT",
+        compatibility_variables=(EFIT_EXEC_ENV,),
     )
 
 
 def find_efit_executable(config: EFITConfig | None = None) -> Path | None:
-    """Return the EFIT executable resolved from config or ``$EFIT`` (or ``None``)."""
+    """Return EFIT resolved from explicit config, ``$EFITHOME``, or ``$EFIT``."""
     exe = _resolve_efit_executable(config or EFITConfig())
     if exe is not None and exe.exists() and os.access(exe, os.X_OK):
         return exe
@@ -203,10 +215,10 @@ def prepare_efit_inputs(ods: Any, config: EFITConfig) -> EFITInputs:
 def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     """Run EFIT with prepared inputs and collect produced outputs.
 
-    The EFIT binary is resolved from ``EFITConfig.executable`` or the ``$EFIT``
-    environment variable (see :func:`_resolve_efit_executable`). When no usable
-    binary is found the run degrades to a skipped :class:`EFITResult` rather
-    than raising, mirroring the GPEC suite's behaviour.
+    The EFIT binary is resolved from ``EFITConfig.executable``, ``$EFITHOME``,
+    or the legacy ``$EFIT`` variable. An incomplete ``$EFITHOME`` installation
+    raises immediately; an unconfigured installation degrades to a skipped
+    :class:`EFITResult`.
     """
     workdir = _efit_workdir(config, inputs.workdir)
     executable = _resolve_efit_executable(config)

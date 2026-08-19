@@ -34,11 +34,15 @@ def case(tmp_path):
 
 
 def test_gpec_home_falls_back_to_environment(monkeypatch, tmp_path):
+    executable = tmp_path / "gpec/bin/dcon"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
     config = gpec.GPECSuiteConfig()
 
     assert gpec._gpec_home(config) == tmp_path / "gpec"
-    assert gpec._executable(config, "dcon") == tmp_path / "gpec" / "bin" / "dcon"
+    assert gpec._executable(config, "dcon") == executable
 
 
 def test_config_gpec_home_overrides_environment(monkeypatch, tmp_path):

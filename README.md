@@ -86,6 +86,10 @@ pip install vaft
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
+External-code installation roots and VAFT runtime paths are configured through
+the process environment. See [Runtime environment variables](docs/environment.md)
+for the `{CODE}HOME` layouts, compatibility variables, and shell examples.
+
 ### Connect to the VEST Database
 
 If you will use the remote VEST HSDS database, configure your HSDS credentials:
