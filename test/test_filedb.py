@@ -138,6 +138,20 @@ def test_legacy_resolution_is_explicit_and_read_only(tmp_path):
         db.resolve_legacy_readonly(39915, "omas", "missing.json", require_exists=True)
 
 
+def test_legacy_stability_resolution_accepts_only_positive_mode_directories(tmp_path):
+    db = FileDB(tmp_path)
+
+    resolved = db.resolve_legacy_readonly(
+        39915, "linear_stability", "0.319", "dcon", "nn=1", "result.dat"
+    )
+
+    assert resolved.path == (
+        tmp_path / "39915/linear_stability/0.319/dcon/nn=1/result.dat"
+    )
+    with pytest.raises(FileDBPathError, match="positive integer"):
+        db.resolve_legacy_readonly(39915, "linear_stability", "dcon", "nn=0")
+
+
 def _tree_snapshot(root: Path) -> list[tuple[str, str, bytes | None]]:
     result = []
     for path in sorted(root.rglob("*")):

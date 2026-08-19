@@ -67,6 +67,7 @@ class ArtifactClass(str, Enum):
 
 
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_LEGACY_MODE_COMPONENT = re.compile(r"^n{1,2}=[1-9]\d*$")
 _ENV_REFERENCE = re.compile(
     r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|"
     r"(?P<bare>[A-Za-z_][A-Za-z0-9_]*))"
@@ -124,6 +125,17 @@ def _component(value: Any, label: str) -> str:
     if value in {".", ".."}:
         raise FileDBPathError(f"{label} cannot be {value!r}")
     return value
+
+
+def _legacy_stability_component(value: Any) -> str:
+    if isinstance(value, str) and _LEGACY_MODE_COMPONENT.fullmatch(value):
+        return value
+    if isinstance(value, str) and "=" in value:
+        raise FileDBPathError(
+            "legacy stability mode components must be n=<positive integer> or "
+            f"nn=<positive integer>; got {value!r}"
+        )
+    return _component(value, "legacy stability path component")
 
 
 def _absent(value: Any, label: str, domain: str) -> None:
@@ -351,9 +363,12 @@ class FileDB:
             raise FileDBPathError(
                 f"Invalid legacy area {area!r}; expected one of: {allowed}"
             )
-        parts = tuple(
-            _component(part, "legacy relative path component") for part in relative
-        )
+        if area == "linear_stability":
+            parts = tuple(_legacy_stability_component(part) for part in relative)
+        else:
+            parts = tuple(
+                _component(part, "legacy relative path component") for part in relative
+            )
         path = self.root / str(shot_value) / area
         if parts:
             path = path.joinpath(*parts)
@@ -455,7 +470,7 @@ def _legacy_code_and_mode(
         (
             index
             for index, part in enumerate(parts)
-            if re.fullmatch(r"n{1,2}=\d+", part)
+            if _LEGACY_MODE_COMPONENT.fullmatch(part)
         ),
         None,
     )
