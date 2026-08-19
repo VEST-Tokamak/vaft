@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from vaft.io import (
+from vaft.database.filedb import (
     ArtifactClass,
     FileDB,
     FileDBConfigError,
@@ -225,7 +225,7 @@ def test_workflow_main_uses_only_the_canonical_resolver():
     workflow = Path(__file__).parents[1] / "workflow/main/Snakefile"
     text = workflow.read_text()
 
-    assert "from vaft.io import FileDB" in text
+    assert "from vaft.database.filedb import FileDB" in text
     assert "/srv/vest.filedb/public" not in text
     assert "imas/baseline" not in text
     assert "omas/baseline" not in text

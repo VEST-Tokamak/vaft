@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import vaft
-from vaft.io import _local as _local_io
+import vaft.database._local as _local_io
 
 
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"

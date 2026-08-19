@@ -654,7 +654,7 @@ def write_comparison_reports(
 
 
 def _load_local_ods(path: str | Path):
-    from ..io._local import load_ods
+    from ..database._local import load_ods
 
     ods, _ = load_ods(path)
     return ods

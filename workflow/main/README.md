@@ -1,7 +1,7 @@
 # VEST `workflow/main`
 
 This is the scaffold for the maintained OMAS-first VEST pipeline. All local
-paths must come from `vaft.io.FileDB`; rules must not reconstruct paths or
+paths must come from `vaft.database.filedb.FileDB`; rules must not reconstruct paths or
 refer to the legacy `/srv/vest.filedb/public/{shot}` layout.
 
 Set `VAFT_FILEDB_DIR` to the deployment root and add shots to `config.yaml`.
@@ -11,5 +11,5 @@ The legacy server remains a read-only reference. Audit a mounted or copied
 shot-first tree without modifying it:
 
 ```bash
-python -m vaft.io.filedb audit /path/to/legacy --target-root /path/to/FileDB
+python -m vaft.database.filedb audit /path/to/legacy --target-root /path/to/FileDB
 ```

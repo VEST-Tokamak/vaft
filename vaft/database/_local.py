@@ -1,4 +1,4 @@
-"""Private local-source detection and conversion used by :mod:`vaft.imas` and
+"""Private local-source detection shared by :mod:`vaft.imas` and
 :mod:`vaft.omas`.
 
 The public modules deliberately expose different result types, but share one

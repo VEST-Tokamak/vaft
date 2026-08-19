@@ -1,6 +1,6 @@
 """Scaffold for the maintained OMAS-first VEST production workflow."""
 
-from vaft.io import FileDB
+from vaft.database.filedb import FileDB
 
 
 configfile: "config.yaml"

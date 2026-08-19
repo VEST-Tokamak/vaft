@@ -196,8 +196,7 @@ vaft.imas.save(ods, "./shot.nc")
 
 ```
 vaft/
-├── io/                # Local artifacts and canonical FileDB layout
-├── database/          # Remote database access (HSDS, raw SQL)
+├── database/          # HSDS/SQL access and canonical FileDB layout
 ├── machine_mapping/   # Native-to-IDS diagnostic conversion (70+ functions)
 ├── formula/           # Physics formulas (equilibrium, stability, Green's functions)
 ├── process/           # Signal processing, EM modeling, profile fitting

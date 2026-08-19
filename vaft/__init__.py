@@ -24,7 +24,6 @@ __all__ = [
     "data",
     "database",
     "imas",
-    "io",
     "apply_runtime_compat_patches",
     "apply_omfit_compat_patches",
 ]
