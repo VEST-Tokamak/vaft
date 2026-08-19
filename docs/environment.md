@@ -67,9 +67,13 @@ configuration-precedence system.
 | Variable | Value type | Required | Purpose and default |
 | --- | --- | --- | --- |
 | `VAFT_FILEDB_DIR` | Directory path | For local FileDB workflows | Root of the canonical OMAS-first FileDB. |
-| `VAFT_ADAS_DIR` | Directory path | No | OPEN-ADAS cache/data root. Defaults to the platform user-cache directory. |
-| `VAFT_RAW_SAMPLE_PATH` | File path or path template | No | Offline raw-data dump; `{shot}` may be used in the path. |
-| `VAFT_RAW_OFFLINE_ONLY` | Boolean option (`1`, `true`, `yes`, or `on`) | No | Disables live raw SQL access. Defaults to false. |
+
+OPEN-ADAS cache paths and archived raw-data sources are ordinary call inputs,
+not process-wide configuration. Pass `cache_dir=` to the OPEN-ADAS helpers to
+override their platform user-cache default. Pass `raw_source=` to diagnostic
+machine-mapping helpers (or `sample_opt=` to the low-level raw database helper)
+to read an archived raw dump; a path template may contain `{shot}`. When an
+archived source is supplied, VAFT does not fall back to live SQL.
 
 ## Machine-specific overrides
 
@@ -113,7 +117,6 @@ export EFITHOME=/opt/efit
 export TESHOME=/opt/tes
 
 export VAFT_FILEDB_DIR=/data/VEST/FileDB
-export VAFT_ADAS_DIR="$HOME/.cache/vaft/open_adas"
 ```
 
 Start a new shell or source the file after editing it.

@@ -151,17 +151,7 @@ class SecureConfigManager:
 DB_POOL: Optional[MySQLConnectionPool] = None
 
 SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "legacy" / "sql_table.txt"
-RAW_SAMPLE_PATH_ENV = "VAFT_RAW_SAMPLE_PATH"
-RAW_OFFLINE_ONLY_ENV = "VAFT_RAW_OFFLINE_ONLY"
-
-
-def _env_truthy(value: str | None) -> bool:
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def raw_offline_only() -> bool:
-    """Return whether raw loading should avoid all live SQL access."""
-    return _env_truthy(os.environ.get(RAW_OFFLINE_ONLY_ENV))
+RawSource = str | os.PathLike[str]
 
 
 def _format_sample_path(template: str, shot: int) -> str:
@@ -171,13 +161,12 @@ def _format_sample_path(template: str, shot: int) -> str:
         return template
 
 
-def _resolve_sample_path(shot: int, sample_opt: Union[bool, str] = False) -> Optional[str]:
-    if isinstance(sample_opt, str) and sample_opt:
-        return _format_sample_path(sample_opt, shot)
-
-    env_path = os.environ.get(RAW_SAMPLE_PATH_ENV)
-    if env_path:
-        return _format_sample_path(env_path, shot)
+def _resolve_sample_path(
+    shot: int,
+    sample_opt: bool | RawSource = False,
+) -> Optional[str]:
+    if isinstance(sample_opt, (str, os.PathLike)) and os.fspath(sample_opt):
+        return _format_sample_path(os.fspath(sample_opt), shot)
     return None
 
 
@@ -414,7 +403,7 @@ def load_raw(
     fields: Optional[Union[int, List[int]]] = None,
     max_retries: int = MAX_RETRIES,
     daq_type: Optional[int] = None,
-    sample_opt: Union[bool, str] = False
+    sample_opt: bool | RawSource = False
     ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     High-level data loader for the VEST database.
@@ -424,7 +413,7 @@ def load_raw(
         fields: Field code(s) to load
         max_retries: Maximum number of connection retries
         daq_type: DAQ type
-        sample_opt: Sample file path or False for DB loading
+        sample_opt: Authoritative sample file path or False for live DB loading
 
     Returns:
         Tuple of (time_array, data_array) as np.ndarrays or None if loading fails
@@ -436,23 +425,14 @@ def load_raw(
         elif isinstance(fields, int):
             fields = [fields]
 
-        # Load from an explicit or environment-provided archived raw dump first.
+        # An explicit archived source is authoritative and never falls back to SQL.
         sample_path = _resolve_sample_path(shot, sample_opt)
         if sample_path:
-            if os.path.isfile(sample_path):
-                result = _load_from_sample_file(shot, fields, sample_path)
-                return result if result is not None else None
-            if raw_offline_only():
-                logger.warning(f"Archived raw sample not found for shot={shot}: {sample_path}")
-                return None
-
-        if raw_offline_only():
-            logger.warning(f"Offline raw mode is enabled and no archived sample is available for shot={shot}.")
-            return None
-
-        # Load from sample file if specified, preserving historical behavior.
-        if isinstance(sample_opt, str):
-            result = _load_from_sample_file(shot, fields, sample_opt)
+            if not os.path.isfile(sample_path):
+                raise FileNotFoundError(
+                    f"Archived raw source not found for shot={shot}: {sample_path}"
+                )
+            result = _load_from_sample_file(shot, fields, sample_path)
             return result if result is not None else None
 
         # Initialize DB pool if needed
@@ -514,6 +494,8 @@ def load_raw(
             logger.error("Could not retrieve data after max_retries.")
         return None
 
+    except FileNotFoundError:
+        raise
     except Exception as e:
         logger.error(f"Error in load_raw: {e}")
         return None
@@ -550,12 +532,12 @@ def vest_load(
     shot: int,
     field: int,
     max_retries: int = MAX_RETRIES,
-    sample_opt: Union[bool, str] = False,
+    sample_opt: bool | RawSource = False,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """Compatibility wrapper for donor-style single-signal loading."""
     sample_path = _resolve_sample_path(shot, sample_opt)
-    if sample_path or raw_offline_only():
-        return load_raw(shot, field, max_retries=max_retries, sample_opt=sample_opt)
+    if sample_path:
+        return load_raw(shot, field, max_retries=max_retries, sample_opt=sample_path)
     if not sql_loading_available():
         return None
     return load_raw(shot, field, max_retries=max_retries)
@@ -569,7 +551,7 @@ def _sql_table_mapping() -> dict[str, int]:
 def vest_load_by_name(
     shot: int,
     name: str,
-    sample_opt: Union[bool, str] = False,
+    sample_opt: bool | RawSource = False,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """Load a waveform by signal name using the shipped lookup table."""
     try:

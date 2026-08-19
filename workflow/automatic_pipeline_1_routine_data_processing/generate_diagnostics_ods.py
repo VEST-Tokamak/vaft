@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 from pathlib import Path
 
 from omas import ODS, save_omas_json
@@ -44,9 +43,6 @@ def build_diagnostics_ods(
     if not raw_dump.exists():
         raise FileNotFoundError(f"Raw dump not found: {raw_dump}")
 
-    os.environ["VAFT_RAW_SAMPLE_PATH"] = str(raw_dump)
-    os.environ["VAFT_RAW_OFFLINE_ONLY"] = "1"
-
     ods = ODS()
     magnetics_processing_config = (
         VestMagneticsProcessingConfig(**vest_magnetics_processing)
@@ -58,11 +54,19 @@ def build_diagnostics_ods(
         shot,
         {"source_type": "shot", "run": run, "machine": "VEST"},
     )
-    pf_active(ods, shot, tstart, tend, dt)
-    spectrometer_uv(ods, shot, tstart, tend, dt)
-    barometry(ods, shot, tstart, tend, dt)
-    tf(ods, shot, tstart, tend, dt)
-    magnetics(ods, shot, tstart, tend, dt, processing_config=magnetics_processing_config)
+    pf_active(ods, shot, tstart, tend, dt, raw_source=raw_dump)
+    spectrometer_uv(ods, shot, tstart, tend, dt, raw_source=raw_dump)
+    barometry(ods, shot, tstart, tend, dt, raw_source=raw_dump)
+    tf(ods, shot, tstart, tend, dt, raw_source=raw_dump)
+    magnetics(
+        ods,
+        shot,
+        tstart,
+        tend,
+        dt,
+        processing_config=magnetics_processing_config,
+        raw_source=raw_dump,
+    )
     return ods
 
 

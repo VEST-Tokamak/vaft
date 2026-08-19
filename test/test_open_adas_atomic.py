@@ -83,14 +83,11 @@ def test_read_adf11_rejects_malformed_file(tmp_path):
         read_adf11(source)
 
 
-def test_cache_hit_and_environment_override(tmp_path, monkeypatch):
-    root = tmp_path / "shared"
-    cached = root / "adf11" / "acd96_c.dat"
-    cached.parent.mkdir(parents=True)
+def test_cache_hit_uses_explicit_cache_directory(tmp_path):
+    cached = tmp_path / "acd96_c.dat"
     cached.write_text("cached", encoding="ascii")
-    monkeypatch.setenv("VAFT_ADAS_DIR", str(root))
 
-    assert get_adf11_path("acd96_c.dat") == cached
+    assert get_adf11_path("acd96_c.dat", cache_dir=tmp_path) == cached
 
 
 def test_cache_miss_downloads_atomically(tmp_path):

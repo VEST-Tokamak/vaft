@@ -143,10 +143,5 @@ def test_environment_reference_documents_supported_names():
         encoding="utf-8"
     )
 
-    for name in _EXTERNAL_ENVIRONMENT + (
-        "VAFT_FILEDB_DIR",
-        "VAFT_ADAS_DIR",
-        "VAFT_RAW_SAMPLE_PATH",
-        "VAFT_RAW_OFFLINE_ONLY",
-    ):
+    for name in _EXTERNAL_ENVIRONMENT + ("VAFT_FILEDB_DIR",):
         assert f"`{name}`" in reference
