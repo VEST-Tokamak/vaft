@@ -1,0 +1,3 @@
+filedb:
+  root: ${VAFT_FILEDB_DIR}
+shots: []

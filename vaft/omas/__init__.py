@@ -52,7 +52,7 @@ def load(source, *, imas_version=None):
     ``source`` may be OMAS JSON/HDF5, an IMAS netCDF file, an IMAS HDF5
     directory/image set, a GEQDSK file, or a sequence of GEQDSK files.
     """
-    from .._local_io import load_ods
+    from ..database._local import load_ods
 
     ods, _info = load_ods(source, imas_version=imas_version)
     return ods

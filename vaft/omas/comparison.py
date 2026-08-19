@@ -7,14 +7,13 @@ access out of production and CI execution.
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from fnmatch import fnmatchcase
 import json
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import yaml
@@ -225,7 +224,9 @@ class ODSComparison:
             ]
         )
         if not non_exact:
-            lines.append("| _none_ | exact | exact | All selected paths match exactly. |")
+            lines.append(
+                "| _none_ | exact | exact | All selected paths match exactly. |"
+            )
         else:
             for entry in non_exact:
                 detail = entry.message.replace("|", "\\|").replace("\n", " ")
@@ -322,8 +323,10 @@ def _flatten(value: Any) -> dict[str, Any]:
         if isinstance(node, Mapping):
             for key, child in node.items():
                 visit(child, f"{prefix}.{key}" if prefix else str(key))
-        elif isinstance(node, (list, tuple)) and node and all(
-            isinstance(child, Mapping) for child in node
+        elif (
+            isinstance(node, (list, tuple))
+            and node
+            and all(isinstance(child, Mapping) for child in node)
         ):
             for index, child in enumerate(node):
                 visit(child, f"{prefix}.{index}")
@@ -384,7 +387,8 @@ def _errors(
 
 
 def _mismatch_classification(
-    tolerance: Tolerance, default: ParityClassification = ParityClassification.REGRESSION
+    tolerance: Tolerance,
+    default: ParityClassification = ParityClassification.REGRESSION,
 ) -> ParityClassification:
     return tolerance.mismatch_classification or default
 
@@ -498,7 +502,9 @@ def compare_ods(
                 _entry(
                     path=path,
                     classification=_mismatch_classification(tolerance),
-                    kind=(DifferenceKind.TIME if _is_time(path) else DifferenceKind.SHAPE),
+                    kind=(
+                        DifferenceKind.TIME if _is_time(path) else DifferenceKind.SHAPE
+                    ),
                     message=(
                         f"Time coordinate shape differs: {_shape(expected)} != {_shape(actual)}."
                         if _is_time(path)
@@ -641,9 +647,7 @@ def write_comparison_reports(
     if written_json is not None:
         written_json.parent.mkdir(parents=True, exist_ok=True)
         written_json.write_text(
-            json.dumps(
-                comparison.to_dict(), indent=2, sort_keys=True, allow_nan=False
-            )
+            json.dumps(comparison.to_dict(), indent=2, sort_keys=True, allow_nan=False)
             + "\n",
             encoding="utf-8",
         )
@@ -651,45 +655,6 @@ def write_comparison_reports(
         written_markdown.parent.mkdir(parents=True, exist_ok=True)
         written_markdown.write_text(comparison.to_markdown(), encoding="utf-8")
     return written_json, written_markdown
-
-
-def _load_local_ods(path: str | Path):
-    from .._local_io import load_ods
-
-    ods, _ = load_ods(path)
-    return ods
-
-
-def main(argv: Iterable[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("reference", type=Path)
-    parser.add_argument("candidate", type=Path)
-    parser.add_argument("--tolerances", type=Path)
-    parser.add_argument("--path", action="append", dest="paths")
-    parser.add_argument(
-        "--scope",
-        choices=("union", "reference", "intersection"),
-        default="union",
-    )
-    parser.add_argument("--json-report", type=Path)
-    parser.add_argument("--markdown-report", type=Path)
-    args = parser.parse_args(list(argv) if argv is not None else None)
-    comparison = compare_ods(
-        _load_local_ods(args.reference),
-        _load_local_ods(args.candidate),
-        policy=args.tolerances,
-        paths=args.paths,
-        scope=args.scope,
-        reference_label=str(args.reference),
-        candidate_label=str(args.candidate),
-    )
-    write_comparison_reports(
-        comparison,
-        json_path=args.json_report,
-        markdown_path=args.markdown_report,
-    )
-    print(comparison.to_markdown())
-    return 0 if comparison.passed else 1
 
 
 __all__ = [
@@ -704,7 +669,3 @@ __all__ = [
     "load_tolerance_policy",
     "write_comparison_reports",
 ]
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

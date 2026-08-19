@@ -21,6 +21,7 @@ __all__ = [
     "data",
     "omas",
     "code",
+    "cli",
     "data",
     "database",
     "imas",
