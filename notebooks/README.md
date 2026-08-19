@@ -22,6 +22,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 
 ### Database, Data Structure, and Conversion
 
+- `initialize_external_fusion_codes.ipynb`: External-code root initialization, executable layout, and validation.
 - `database_initialization_and_load.ipynb`: Existing guide for VAFT library setup and VEST database loading.
 - `vest_raw_signal_sql_database.ipynb`: Planned documentation for the VEST MySQL raw-signal database structure and 1D signal loading.
 - `vest_experimental_data_list.ipynb`: Existing VEST OMAS initial guide and experimental data overview.
@@ -58,28 +59,29 @@ The newly added pipeline notebooks are documentation shells only. They should be
 
 Use the following order as the main technical path through the notebooks. Existing notebooks are included where they provide useful setup, reference material, or downstream analysis context.
 
-1. `database_initialization_and_load.ipynb`
-2. `vest_raw_signal_sql_database.ipynb`
-3. `vest_experimental_data_list.ipynb`
-4. `read_and_convert_data_structure.ipynb`
-5. `imas_omas_data_conversion.ipynb`
-6. `magnetic_diagnostics_processing.ipynb`
-7. `fluctuation_diagnostics_analysis.ipynb`
-8. `eddy_current_calculation_and_startup_analysis.ipynb`
-9. `electromagnetic_response_modeling_with_efund.ipynb`
-10. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
-11. `mhd_equilibrium_analysis.ipynb`
-12. `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`
-13. `linear_ideal_stability_analysis_with_dcon.ipynb`
-14. `linear_resistive_stability_analysis_with_rdcon.ipynb`
-15. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
-16. `plotting_sample_using_vaft_plot_module.ipynb`
-17. `shot_characteristics_classification.ipynb`
-18. `vest_daily_monitoring.ipynb`
-19. `fast_camera_video_analysis.ipynb`
-20. `confinement_time_scaling.ipynb`
-21. `multiple_tokamak_comparison.ipynb`
-22. `publication_figures.ipynb`
+1. `initialize_external_fusion_codes.ipynb`
+2. `database_initialization_and_load.ipynb`
+3. `vest_raw_signal_sql_database.ipynb`
+4. `vest_experimental_data_list.ipynb`
+5. `read_and_convert_data_structure.ipynb`
+6. `imas_omas_data_conversion.ipynb`
+7. `magnetic_diagnostics_processing.ipynb`
+8. `fluctuation_diagnostics_analysis.ipynb`
+9. `eddy_current_calculation_and_startup_analysis.ipynb`
+10. `electromagnetic_response_modeling_with_efund.ipynb`
+11. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
+12. `mhd_equilibrium_analysis.ipynb`
+13. `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`
+14. `linear_ideal_stability_analysis_with_dcon.ipynb`
+15. `linear_resistive_stability_analysis_with_rdcon.ipynb`
+16. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
+17. `plotting_sample_using_vaft_plot_module.ipynb`
+18. `shot_characteristics_classification.ipynb`
+19. `vest_daily_monitoring.ipynb`
+20. `fast_camera_video_analysis.ipynb`
+21. `confinement_time_scaling.ipynb`
+22. `multiple_tokamak_comparison.ipynb`
+23. `publication_figures.ipynb`
 
 For a shorter review focused only on the planned Snakemake pipeline shells, read:
 

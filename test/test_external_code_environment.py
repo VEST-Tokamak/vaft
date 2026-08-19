@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -138,9 +139,14 @@ def test_unconfigured_message_names_home_and_expected_layout():
     assert "$EFIT" in message
 
 
-def test_environment_reference_documents_supported_names():
-    reference = (Path(__file__).parents[1] / "docs/environment.md").read_text(
-        encoding="utf-8"
+def test_initialization_notebook_documents_supported_names():
+    notebook_path = (
+        Path(__file__).parents[1]
+        / "notebooks/initialize_external_fusion_codes.ipynb"
+    )
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    reference = "\n".join(
+        "".join(cell.get("source", [])) for cell in notebook["cells"]
     )
 
     for name in _EXTERNAL_ENVIRONMENT + ("VAFT_FILEDB_DIR",):

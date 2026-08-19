@@ -82,7 +82,7 @@ pip install vaft
 
 외부 코드 설치 루트와 VAFT 런타임 경로는 프로세스 환경 변수로 설정합니다.
 `{CODE}HOME` 디렉터리 구조, 호환 변수 및 셸 설정 예시는
-[런타임 환경 변수](docs/environment.md)를 참고하세요.
+[외부 핵융합 코드 초기화 노트북](notebooks/initialize_external_fusion_codes.ipynb)을 참고하세요.
 
 ### VEST 데이터베이스 연결
 

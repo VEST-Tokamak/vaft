@@ -86,9 +86,20 @@ pip install vaft
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
-External-code installation roots and VAFT runtime paths are configured through
-the process environment. See [Runtime environment variables](docs/environment.md)
-for the `{CODE}HOME` layouts, compatibility variables, and shell examples.
+### Initialize external fusion codes
+
+Set the installation roots for the codes you use before starting VAFT:
+
+```bash
+export GPECHOME=/path/to/gpec
+export CHEASEHOME=/path/to/chease
+export EFITHOME=/path/to/efit
+export TESHOME=/path/to/tes
+```
+
+Each executable belongs under its root's `bin/` directory. See
+[Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
+for layouts, compatibility variables, FileDB configuration, and validation.
 
 ### Connect to the VEST Database
 
@@ -217,6 +228,7 @@ vaft/
 
 | Notebook                                                                                                                               | Description                                 |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [initialize_external_fusion_codes](notebooks/initialize_external_fusion_codes.ipynb)                                                   | Configure and verify external code roots    |
 | [database_initialization_and_load](notebooks/database_initialization_and_load.ipynb)                                                   | Core data loading and framework basics      |
 | [plotting_sample_using_vaft_plot_module](notebooks/plotting_sample_using_vaft_plot_module.ipynb)                                       | Visualization examples with the plot module |
 | [profile_fitting_using_equilibrium_and_kinetic_diagnostics](notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Thomson/CES mapping and profile fitting     |
