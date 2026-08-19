@@ -23,8 +23,8 @@ __all__ = [
     "code",
     "data",
     "database",
-    "filedb",
     "imas",
+    "io",
     "apply_runtime_compat_patches",
     "apply_omfit_compat_patches",
 ]

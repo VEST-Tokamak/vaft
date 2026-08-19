@@ -1,4 +1,4 @@
-"""Canonical local FileDB paths and read-only legacy-layout auditing.
+"""Canonical local FileDB paths and read-only legacy-layout auditing APIs.
 
 The canonical resolver is deliberately pure: resolving a path never creates a
 directory or touches an existing artifact.  The old shot-first layout is

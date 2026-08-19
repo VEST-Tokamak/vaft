@@ -74,7 +74,10 @@ def _imas_version_hdf5(path: Path) -> str | None:
             for root in roots:
                 if root is None:
                     continue
-                for name in ("imas_version", "ids_properties&version_put&data_dictionary"):
+                for name in (
+                    "imas_version",
+                    "ids_properties&version_put&data_dictionary",
+                ):
                     if name in root:
                         return _decode(root[name][()])
     except OSError:
@@ -83,10 +86,16 @@ def _imas_version_hdf5(path: Path) -> str | None:
 
 
 def _is_geqdsk(path: Path) -> bool:
-    if not path.is_file() or path.suffix.lower() in {".h5", ".hdf5", ".nc", ".json", ".gz"}:
+    if not path.is_file() or path.suffix.lower() in {
+        ".h5",
+        ".hdf5",
+        ".nc",
+        ".json",
+        ".gz",
+    }:
         return False
     try:
-        from .data.eqdsk import read_geqdsk
+        from ..data.eqdsk import read_geqdsk
 
         read_geqdsk(path)
         return True
@@ -99,8 +108,12 @@ def _native_image(path: Path) -> bool:
         with h5py.File(path, "r") as handle:
             if "h5image" in handle:
                 return False
-            if any(isinstance(handle.get(name, getlink=True), h5py.ExternalLink) for name in handle):
+            if any(
+                isinstance(handle.get(name, getlink=True), h5py.ExternalLink)
+                for name in handle
+            ):
                 return True
+
             def flat_names(group: h5py.Group) -> bool:
                 return any("&" in name or name.endswith("_SHAPE") for name in group)
 
@@ -112,7 +125,9 @@ def _native_image(path: Path) -> bool:
         return False
 
 
-def _make_partial_entry(images: Iterable[Path]) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+def _make_partial_entry(
+    images: Iterable[Path],
+) -> tuple[tempfile.TemporaryDirectory[str], Path]:
     """Create an isolated IMAS HDF5 entry for IDS image files without master."""
     temp = tempfile.TemporaryDirectory(prefix="vaft-local-imas-")
     root = Path(temp.name)
@@ -125,7 +140,9 @@ def _make_partial_entry(images: Iterable[Path]) -> tuple[tempfile.TemporaryDirec
         copied.append(destination)
     if not copied:
         temp.cleanup()
-        raise ValueError("No IMAS IDS HDF5 images were available to build a partial entry")
+        raise ValueError(
+            "No IMAS IDS HDF5 images were available to build a partial entry"
+        )
     with h5py.File(root / "master.h5", "w") as master:
         # IMAS AL5 identifies an HDF5 entry through these root attributes.
         # Copy them from an image before adding the synthetic external links.
@@ -142,7 +159,9 @@ def _detect(source: str | Path | Sequence[str | Path]) -> _Descriptor:
     if len(paths) > 1:
         if all(_is_geqdsk(path) for path in paths):
             return _Descriptor("geqdsk_collection", paths, None, None)
-        raise ValueError("Multiple local sources are supported only for a GEQDSK collection")
+        raise ValueError(
+            "Multiple local sources are supported only for a GEQDSK collection"
+        )
 
     path = paths[0]
     if path.is_dir():
@@ -152,10 +171,16 @@ def _detect(source: str | Path | Sequence[str | Path]) -> _Descriptor:
         gfiles = tuple(sorted(item for item in path.iterdir() if _is_geqdsk(item)))
         if gfiles:
             return _Descriptor("geqdsk_collection", gfiles, None, None)
-        images = tuple(sorted(item for item in path.glob("*.h5") if _native_image(item)))
+        images = tuple(
+            sorted(item for item in path.glob("*.h5") if _native_image(item))
+        )
         if images:
-            return _Descriptor("imas_images", images, None, _imas_version_hdf5(images[0]))
-        raise ValueError(f"Could not identify a supported local source in directory: {path}")
+            return _Descriptor(
+                "imas_images", images, None, _imas_version_hdf5(images[0])
+            )
+        raise ValueError(
+            f"Could not identify a supported local source in directory: {path}"
+        )
 
     if _is_geqdsk(path):
         return _Descriptor("geqdsk", (path,), None, None)
@@ -166,14 +191,18 @@ def _detect(source: str | Path | Sequence[str | Path]) -> _Descriptor:
         return _Descriptor("imas_netcdf", (path,), path, version)
     if path.suffix.lower() in {".h5", ".hdf5"}:
         if path.name == "master.h5":
-            return _Descriptor("imas_hdf5", (path.parent,), path.parent, _imas_version_hdf5(path))
+            return _Descriptor(
+                "imas_hdf5", (path.parent,), path.parent, _imas_version_hdf5(path)
+            )
         if _native_image(path):
             return _Descriptor("imas_images", (path,), None, _imas_version_hdf5(path))
         return _Descriptor("omas_hdf5", (path,), None, None)
     raise ValueError(f"Unsupported local source: {path}")
 
 
-def _resolved_version(descriptor: _Descriptor, requested: str | None) -> tuple[str, bool]:
+def _resolved_version(
+    descriptor: _Descriptor, requested: str | None
+) -> tuple[str, bool]:
     if requested is not None:
         return requested, False
     if descriptor.imas_version:
@@ -188,7 +217,7 @@ def _resolved_version(descriptor: _Descriptor, requested: str | None) -> tuple[s
 
 def _merge_geqdsk(paths: tuple[Path, ...]):
     from omas import ODS
-    from .data.eqdsk import read_geqdsk, to_omas
+    from ..data.eqdsk import read_geqdsk, to_omas
 
     records = [read_geqdsk(path) for path in paths]
     records.sort(key=lambda item: (float(item.get("TIME", 0.0)), str(item.source)))
@@ -198,7 +227,9 @@ def _merge_geqdsk(paths: tuple[Path, ...]):
     return ods
 
 
-def load_ods(source: str | Path | Sequence[str | Path], *, imas_version: str | None = None):
+def load_ods(
+    source: str | Path | Sequence[str | Path], *, imas_version: str | None = None
+):
     """Load any supported local source and normalize it to an OMAS ODS."""
     descriptor = _detect(source)
     version, fallback = _resolved_version(descriptor, imas_version)
@@ -232,9 +263,11 @@ def load_ods(source: str | Path | Sequence[str | Path], *, imas_version: str | N
         else:  # imas_netcdf
             assert descriptor.entry_path is not None
             uri = str(descriptor.entry_path)
-        from .imas.omas_imas import load_omas_imas
+        from ..imas.omas_imas import load_omas_imas
 
-        ods = load_omas_imas(uri=uri, imas_version=version, occurrence={}, verbose=False)
+        ods = load_omas_imas(
+            uri=uri, imas_version=version, occurrence={}, verbose=False
+        )
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
     finally:
         if temporary is not None:
@@ -244,7 +277,12 @@ def load_ods(source: str | Path | Sequence[str | Path], *, imas_version: str | N
 class IMASHandle(AbstractContextManager["IMASHandle"]):
     """A native IMAS entry with ownership of any temporary conversion store."""
 
-    def __init__(self, source: str | Path | Sequence[str | Path], *, imas_version: str | None = None):
+    def __init__(
+        self,
+        source: str | Path | Sequence[str | Path],
+        *,
+        imas_version: str | None = None,
+    ):
         self._descriptor = _detect(source)
         self._version, fallback = _resolved_version(self._descriptor, imas_version)
         self._temporary: tempfile.TemporaryDirectory[str] | None = None
@@ -283,7 +321,7 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
             ids_hint = tuple(sorted(ods.keys()))
             self._temporary = tempfile.TemporaryDirectory(prefix="vaft-imas-handle-")
             root = Path(self._temporary.name)
-            from .imas.omas_imas import save_omas_imas
+            from ..imas.omas_imas import save_omas_imas
 
             save_omas_imas(
                 ods,
@@ -335,5 +373,7 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
         self.close()
 
 
-def open_imas(source: str | Path | Sequence[str | Path], *, imas_version: str | None = None) -> IMASHandle:
+def open_imas(
+    source: str | Path | Sequence[str | Path], *, imas_version: str | None = None
+) -> IMASHandle:
     return IMASHandle(source, imas_version=imas_version)

@@ -6,7 +6,7 @@ Low-level OMAS--IMAS conversion machinery intentionally stays private in
 
 from pathlib import Path
 
-from .._local_io import IMASHandle
+from ..io._local import IMASHandle
 from .omas_imas import IMAS_DD_VERSION_CONVERSION
 
 __all__ = ["IMASHandle", "load", "save", "IMAS_DD_VERSION_CONVERSION"]
@@ -14,7 +14,7 @@ __all__ = ["IMASHandle", "load", "save", "IMAS_DD_VERSION_CONVERSION"]
 
 def load(source, *, imas_version=None):
     """Open any supported local artifact as a native IMAS context manager."""
-    from .._local_io import open_imas
+    from ..io._local import open_imas
 
     return open_imas(source, imas_version=imas_version)
 
@@ -30,7 +30,7 @@ def _occurrence_for(occurrence, ids_name: str) -> int:
 def save(data, target, *, imas_version=None, occurrence=None):
     """Write OMAS, native IDS, or an IMAS handle to local IMAS HDF5/NetCDF."""
     import imas
-    from .._local_io import IMASHandle
+    from ..io._local import IMASHandle
     from .omas_imas import save_omas_imas
 
     target_path = Path(target).expanduser()
