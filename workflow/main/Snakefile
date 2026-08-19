@@ -1,0 +1,30 @@
+"""Scaffold for the maintained OMAS-first VEST production workflow."""
+
+from vaft.filedb import FileDB
+
+
+configfile: "config.yaml"
+
+
+FILEDB = FileDB.from_config(config)
+SHOTS = [int(shot) for shot in config.get("shots", [])]
+
+
+def final_efit_ods(shot):
+    return str(
+        FILEDB.omas("efit", shot=shot, artifact="output")
+        / f"{shot}_efit.json.gz"
+    )
+
+
+def final_chease_ods(shot):
+    return str(
+        FILEDB.omas("chease", shot=shot, artifact="output")
+        / f"{shot}_chease.json.gz"
+    )
+
+
+rule all:
+    input:
+        [final_efit_ods(shot) for shot in SHOTS],
+        [final_chease_ods(shot) for shot in SHOTS]
