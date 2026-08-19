@@ -175,6 +175,30 @@ def test_integer_and_nonfinite_differences_produce_strict_json(tmp_path):
     assert by_path["tf.b_field_tor_vacuum_r.data"]["max_abs_error"] is None
 
 
+def test_scalar_numeric_differences_are_reported():
+    result = compare_ods({"tf.r0": 0.4}, {"tf.r0": np.float64(0.41)})
+
+    assert not result.passed
+    entry = result.entries[0]
+    assert entry.path == "tf.r0"
+    assert entry.max_abs_error == pytest.approx(0.01)
+    assert entry.max_rel_error == pytest.approx(0.025)
+
+
+def test_zero_reference_error_is_json_serializable(tmp_path):
+    result = compare_ods(
+        {"equilibrium.time_slice.0.global_quantities.ip": 0.0},
+        {"equilibrium.time_slice.0.global_quantities.ip": 1.0},
+    )
+    report = tmp_path / "zero-reference.json"
+
+    write_comparison_reports(result, json_path=report)
+    entry = json.loads(report.read_text())["entries"][0]
+
+    assert entry["max_abs_error"] == 1.0
+    assert entry["max_rel_error"] is None
+
+
 def test_reference_manifest_and_repository_artifacts_verify_offline():
     manifest = load_reference_manifest(MANIFEST)
 

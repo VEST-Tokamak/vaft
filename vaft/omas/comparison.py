@@ -358,8 +358,10 @@ def _numeric(value: Any) -> bool:
 def _errors(
     reference: np.ndarray, candidate: np.ndarray
 ) -> tuple[float | None, float | None]:
-    ref = np.asarray(reference)
-    got = np.asarray(candidate)
+    # Flatten so the same boolean-indexing path handles both arrays and 0-d
+    # scalar leaves.
+    ref = np.asarray(reference).reshape(-1)
+    got = np.asarray(candidate).reshape(-1)
     finite = np.isfinite(ref) & np.isfinite(got)
     if not np.array_equal(ref[~finite], got[~finite], equal_nan=True):
         return None, None
@@ -374,7 +376,11 @@ def _errors(
         where=denominator != 0.0,
     )
     relative[(denominator == 0.0) & (absolute == 0.0)] = 0.0
-    return float(np.max(absolute)), float(np.max(relative))
+    max_relative = float(np.max(relative))
+    return (
+        float(np.max(absolute)),
+        max_relative if np.isfinite(max_relative) else None,
+    )
 
 
 def _mismatch_classification(
