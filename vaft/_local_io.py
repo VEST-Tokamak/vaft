@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, replace
+import gzip
 from pathlib import Path
 import shutil
 import tempfile
@@ -209,7 +210,15 @@ def load_ods(source: str | Path | Sequence[str | Path], *, imas_version: str | N
         from omas import ODS
 
         ods = ODS(consistency_check=False)
-        ods.load(str(descriptor.paths[0]), consistency_check=False)
+        source_path = descriptor.paths[0]
+        if source_path.suffixes[-2:] == [".json", ".gz"]:
+            with tempfile.NamedTemporaryFile(suffix=".json") as plain:
+                with gzip.open(source_path, "rb") as compressed:
+                    shutil.copyfileobj(compressed, plain)
+                plain.flush()
+                ods.load(plain.name, consistency_check=False)
+        else:
+            ods.load(str(source_path), consistency_check=False)
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
 
     temporary: tempfile.TemporaryDirectory[str] | None = None
