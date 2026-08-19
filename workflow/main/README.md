@@ -11,5 +11,5 @@ The legacy server remains a read-only reference. Audit a mounted or copied
 shot-first tree without modifying it:
 
 ```bash
-python -m vaft.database.filedb audit /path/to/legacy --target-root /path/to/FileDB
+python -m vaft.cli filedb audit /path/to/legacy --target-root /path/to/FileDB
 ```

@@ -196,6 +196,7 @@ vaft.imas.save(ods, "./shot.nc")
 
 ```
 vaft/
+├── cli/               # Command-line workflow dispatch
 ├── database/          # HSDS/SQL access and canonical FileDB layout
 ├── machine_mapping/   # Native-to-IDS diagnostic conversion (70+ functions)
 ├── formula/           # Physics formulas (equilibrium, stability, Green's functions)

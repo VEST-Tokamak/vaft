@@ -7,13 +7,11 @@ available only through explicitly named read-only APIs.
 
 from __future__ import annotations
 
-import argparse
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from enum import Enum
 import hashlib
-import json
 import os
 from pathlib import Path
 import re
@@ -649,24 +647,6 @@ def audit_legacy_filedb(
         symlinks=symlinks,
         missing_products=tuple(missing),
     )
-
-
-def main(argv: Iterable[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    audit = subparsers.add_parser(
-        "audit", help="run a read-only legacy migration audit"
-    )
-    audit.add_argument("legacy_root", type=Path)
-    audit.add_argument("--target-root", type=Path)
-    args = parser.parse_args(list(argv) if argv is not None else None)
-    report = audit_legacy_filedb(args.legacy_root, target_root=args.target_root)
-    print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
 
 
 __all__ = [

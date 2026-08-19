@@ -48,7 +48,7 @@ replace the existing reference generation.
 ## Comparing a candidate ODS
 
 ```bash
-python -m vaft.omas.comparison \
+python -m vaft.cli compare-ods \
   test/data/vest_reference/shot-39915-compact.json.gz \
   path/to/candidate.json.gz \
   --tolerances test/data/vest_reference/tolerances.yaml \
