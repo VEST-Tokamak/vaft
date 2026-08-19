@@ -390,6 +390,8 @@ class LegacyAuditEntry:
 class LegacyCollision:
     proposed_target: str
     sources: tuple[str, ...]
+    existing_target: bool = False
+    existing_target_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -449,6 +451,20 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _existing_path_kind(path: Path) -> str | None:
+    """Return the occupied destination kind, including broken symlinks."""
+
+    if path.is_symlink():
+        return "symlink"
+    if path.is_file():
+        return "file"
+    if path.is_dir():
+        return "directory"
+    if path.exists():
+        return "other"
+    return None
 
 
 def _legacy_code_and_mode(
@@ -606,11 +622,18 @@ def audit_legacy_filedb(
         if proposed_text is not None:
             target_sources[proposed_text].append(source)
 
-    collisions = tuple(
-        LegacyCollision(target_path, tuple(sorted(sources)))
-        for target_path, sources in sorted(target_sources.items())
-        if len(sources) > 1
-    )
+    collisions: list[LegacyCollision] = []
+    for target_path, sources in sorted(target_sources.items()):
+        existing_target_kind = _existing_path_kind(Path(target_path))
+        if len(sources) > 1 or existing_target_kind is not None:
+            collisions.append(
+                LegacyCollision(
+                    proposed_target=target_path,
+                    sources=tuple(sorted(sources)),
+                    existing_target=existing_target_kind is not None,
+                    existing_target_kind=existing_target_kind,
+                )
+            )
     duplicates = tuple(
         LegacyDuplicate(checksum, size, tuple(sorted(sources)))
         for (size, checksum), sources in sorted(duplicate_sources.items())
@@ -642,7 +665,7 @@ def audit_legacy_filedb(
         legacy_root=str(source_root),
         target_root=str(target.root),
         entries=tuple(entries),
-        collisions=collisions,
+        collisions=tuple(collisions),
         duplicates=duplicates,
         symlinks=symlinks,
         missing_products=tuple(missing),

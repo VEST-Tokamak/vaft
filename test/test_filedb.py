@@ -221,6 +221,37 @@ def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     )
 
 
+def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
+    legacy_root = tmp_path / "public"
+    target_root = tmp_path / "new-FileDB"
+    source_omas = legacy_root / "39915/omas"
+    source_omas.mkdir(parents=True)
+    (source_omas / "39915_efit.json").write_text("new efit")
+    (source_omas / "39915_eddy.json").write_text("new eddy")
+
+    existing_file = target_root / "omas/efit/39915/output/39915_efit.json"
+    existing_file.parent.mkdir(parents=True)
+    existing_file.write_text("existing efit")
+    broken_symlink = target_root / "omas/eddy/39915/output/39915_eddy.json"
+    broken_symlink.parent.mkdir(parents=True)
+    broken_symlink.symlink_to(target_root / "missing-eddy.json")
+    before = _tree_snapshot(target_root)
+
+    report = audit_legacy_filedb(legacy_root, target_root=target_root)
+
+    assert _tree_snapshot(target_root) == before
+    assert len(report.collisions) == 2
+    collisions = {item.proposed_target: item for item in report.collisions}
+    file_collision = collisions[str(existing_file)]
+    assert file_collision.sources == ("39915/omas/39915_efit.json",)
+    assert file_collision.existing_target is True
+    assert file_collision.existing_target_kind == "file"
+    symlink_collision = collisions[str(broken_symlink)]
+    assert symlink_collision.sources == ("39915/omas/39915_eddy.json",)
+    assert symlink_collision.existing_target is True
+    assert symlink_collision.existing_target_kind == "symlink"
+
+
 def test_workflow_main_uses_only_the_canonical_resolver():
     workflow = Path(__file__).parents[1] / "workflow/main/Snakefile"
     text = workflow.read_text()
