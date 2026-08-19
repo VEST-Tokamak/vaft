@@ -79,6 +79,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/gpec/*.in" in manifest
     assert "include vaft/data/gpec/*.dat" in manifest
     assert "include vaft/data/legacy/*.txt" in manifest
+    assert "include vaft/data/legacy/*.yaml" in manifest
     assert "include vaft/data/omas/39915.json" in manifest
 
 
