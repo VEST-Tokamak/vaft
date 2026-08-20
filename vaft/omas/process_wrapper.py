@@ -337,33 +337,11 @@ def compute_impedance_matrices_ods(
             coef = 1.0 if loop_name == "W11" else 1.04
             passive_loop_geometry.append((loop_name, r_avg, z_avg, coef))
 
-        # Extract the current shot's active-coil geometry. The packaged
-        # em_coupling matrix represents the historical configuration, while
-        # newer shots can use a different PF6/PF7 geometry.
-        coil_geometry = []
-        for i_coil in range(nbcoil):
-            elements = []
-            for i_element in range(len(pf[f"coil.{i_coil}.element"])):
-                elements.append(
-                    (
-                        pf[
-                            f"coil.{i_coil}.element.{i_element}.geometry.rectangle.r"
-                        ],
-                        pf[
-                            f"coil.{i_coil}.element.{i_element}.geometry.rectangle.z"
-                        ],
-                        pf[
-                            f"coil.{i_coil}.element.{i_element}.turns_with_sign"
-                        ],
-                    )
-                )
-            coil_geometry.append(elements)
-
         # Compute impedance matrices
         R_mat, L_mat, M_mat = compute_impedance_matrices(
             loop_res,
             passive_loop_geometry,
-            coil_geometry,
+            None,
             mutual_pp,
             mutual_pa,
             plasma

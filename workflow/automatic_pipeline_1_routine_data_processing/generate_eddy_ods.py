@@ -29,6 +29,7 @@ def _csv_floats(text: str) -> list[float]:
 
 def build_eddy_ods(
     *,
+    shot: int,
     diagnostics_ods: Path,
     reference_ods: Path,
     filament_r: list[float],
@@ -43,7 +44,7 @@ def build_eddy_ods(
 
     ods = load_omas_json(str(diagnostics_ods), consistency_check=False)
     pf_passive(ods, reference_ods)
-    em_coupling(ods, reference_ods)
+    em_coupling(ods, reference_ods, shot=shot)
 
     pf_time = np.asarray(ods["pf_active.time"], dtype=float)
     ip_time = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
@@ -71,6 +72,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     LOGGER.info("Generating eddy ODS for shot %s from %s", args.shot, args.diagnostics_ods)
     ods = build_eddy_ods(
+        shot=args.shot,
         diagnostics_ods=args.diagnostics_ods,
         reference_ods=args.reference_ods,
         filament_r=_csv_floats(args.filament_r),
