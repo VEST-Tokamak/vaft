@@ -1,14 +1,4 @@
-"""Global test configuration.
-
-The suite must be runnable outside the VEST intranet, so force the raw-DB
-layer into offline mode (zero-waveform fallbacks) unless the invoker
-explicitly overrides it, e.g. ``VAFT_RAW_OFFLINE_ONLY=0 pytest test/`` on a
-machine with live MySQL access.
-"""
-
-import os
-
-os.environ.setdefault("VAFT_RAW_OFFLINE_ONLY", "1")
+"""Global test configuration."""
 
 
 def pytest_addoption(parser):

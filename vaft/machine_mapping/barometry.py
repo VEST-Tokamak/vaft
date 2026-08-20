@@ -15,8 +15,16 @@ DEFAULT_DT = 4e-5
 MEDIAN_KERNEL = 101
 
 
-def _safe_vest_load(shot: int, field: int):
-    return raw_db.vest_load(shot, field)
+def _safe_vest_load(
+    shot: int,
+    field: int,
+    raw_source: raw_db.RawSource | None = None,
+):
+    return raw_db.vest_load(
+        shot,
+        field,
+        sample_opt=False if raw_source is None else raw_source,
+    )
 
 
 def _build_target_time(
@@ -43,8 +51,16 @@ def vfit_barometry_static(ods: object) -> None:
     set_path(ods, "barometry.gauge.0.type.description", "PKR-251 Main Gauge")
 
 
-def vfit_barometry_dynamic(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
-    loaded = _safe_vest_load(shot, BAROMETRY_FIELD_CODE)
+def vfit_barometry_dynamic(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
+    loaded = _safe_vest_load(shot, BAROMETRY_FIELD_CODE, raw_source)
     if loaded is None:
         time = _build_target_time(np.array([]), tstart, tend, dt)
         set_path(ods, "barometry.gauge.0.pressure.time", time)
@@ -69,9 +85,17 @@ def vfit_barometry_dynamic(ods: object, shot: int, tstart: float, tend: float, d
     set_path(ods, "barometry.gauge.0.pressure.data", data)
 
 
-def barometry(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
+def barometry(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
     vfit_barometry_static(ods)
-    vfit_barometry_dynamic(ods, shot, tstart, tend, dt)
+    vfit_barometry_dynamic(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
 def barometry_from_raw_database(
@@ -82,8 +106,8 @@ def barometry_from_raw_database(
     dt: float,
     options: dict | None = None,
 ) -> None:
-    del options
-    barometry(ods, shot, tstart, tend, dt)
+    raw_source = options.get("raw_source") if options else None
+    barometry(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
 __all__ = [

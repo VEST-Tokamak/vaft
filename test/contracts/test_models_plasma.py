@@ -1,10 +1,12 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 
 class PlasmaModelTests(unittest.TestCase):
-    def test_vfit_plasma_current_returns_offline_zero_waveform_without_sql(self):
+    @patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None)
+    def test_vfit_plasma_current_returns_zero_waveform_without_raw_data(self, _load):
         from vaft.machine_mapping import vfit_plasma_current
 
         time, ip = vfit_plasma_current(41672)

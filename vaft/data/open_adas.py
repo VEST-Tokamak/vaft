@@ -119,11 +119,6 @@ def sys_platform() -> str:
 def _resolve_cache_dir(cache_dir: str | os.PathLike[str] | None) -> Path:
     if cache_dir is not None:
         return Path(cache_dir).expanduser()
-    configured = os.environ.get("VAFT_ADAS_DIR")
-    if configured:
-        root = Path(configured).expanduser()
-        adf11 = root / "adf11"
-        return adf11 if adf11.is_dir() or not root.name.lower().startswith("adf11") else root
     return _user_cache_dir()
 
 

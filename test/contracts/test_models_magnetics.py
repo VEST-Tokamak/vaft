@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from helpers import get_path, validate_contract, format_failures
 from spec import CANONICAL_IDS_SPECS
@@ -21,7 +22,8 @@ class MagneticsModelTests(unittest.TestCase):
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.z"), 0.685)
         self.assertEqual(get_path(payload, "magnetics.b_field_pol_probe.0.position.r"), 0.089)
 
-    def test_vfit_magnetics_for_shot_satisfies_contract_offline(self):
+    @patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None)
+    def test_vfit_magnetics_for_shot_satisfies_contract_without_raw_data(self, _load):
         from vaft.machine_mapping import vfit_magnetics_for_shot
 
         payload = {}

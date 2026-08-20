@@ -29,8 +29,16 @@ SIGNALS: list[tuple[int, int, int, str, float]] = [
 ]
 
 
-def _safe_vest_load(shot: int, field: int):
-    return raw_db.vest_load(shot, field)
+def _safe_vest_load(
+    shot: int,
+    field: int,
+    raw_source: raw_db.RawSource | None = None,
+):
+    return raw_db.vest_load(
+        shot,
+        field,
+        sample_opt=False if raw_source is None else raw_source,
+    )
 
 
 def _build_time_axis(t_start: float, t_end: float, dt: float) -> np.ndarray:
@@ -46,7 +54,15 @@ def _needs_legacy_time_shift(shot: int) -> bool:
     return (41446 <= shot <= 41451) or (shot >= 41660)
 
 
-def vfit_filterscope(ods: object, shot: int, t_start: float, t_end: float, dt: float) -> None:
+def vfit_filterscope(
+    ods: object,
+    shot: int,
+    t_start: float,
+    t_end: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
     set_path(ods, "spectrometer_uv.ids_properties.comment", "VEST filterscope data")
     set_path(ods, "spectrometer_uv.ids_properties.homogeneous_time", 1)
 
@@ -66,7 +82,7 @@ def vfit_filterscope(ods: object, shot: int, t_start: float, t_end: float, dt: f
 
     for field, channel, line, _, _ in SIGNALS:
         intensity_key = f"spectrometer_uv.channel.{channel}.processed_line.{line}.intensity.data"
-        loaded = _safe_vest_load(shot, field)
+        loaded = _safe_vest_load(shot, field, raw_source)
         if loaded is None:
             set_path(ods, intensity_key, np.zeros(time.size))
             continue
@@ -85,9 +101,17 @@ def vfit_filterscope(ods: object, shot: int, t_start: float, t_end: float, dt: f
     set_path(ods, "spectrometer_uv.time", time)
 
 
-def spectrometer_uv(ods: object, shot: int, t_start: float, t_end: float, dt: float) -> None:
+def spectrometer_uv(
+    ods: object,
+    shot: int,
+    t_start: float,
+    t_end: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
     """Canonical machine_mapping entry point for the spectrometer_uv IDS."""
-    vfit_filterscope(ods, shot, t_start, t_end, dt)
+    vfit_filterscope(ods, shot, t_start, t_end, dt, raw_source=raw_source)
 
 
 def filterscope_from_raw_database(
@@ -98,8 +122,8 @@ def filterscope_from_raw_database(
     dt: float,
     options: dict | None = None,
 ) -> None:
-    del options
-    spectrometer_uv(ods, shot, tstart, tend, dt)
+    raw_source = options.get("raw_source") if options else None
+    spectrometer_uv(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
 __all__ = ["filterscope_from_raw_database", "spectrometer_uv", "vfit_filterscope"]

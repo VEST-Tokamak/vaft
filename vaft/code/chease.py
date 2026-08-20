@@ -12,10 +12,14 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
+from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
 MU0 = 4.0e-7 * np.pi
 NCHEASE = 401
+CHEASE_HOME_ENV = "CHEASEHOME"
+CHEASE_HOME_EXECUTABLE = Path("bin/chease")
+CHEASE_COMPATIBILITY_ENVS = ("CHEASE", "CHEASE_EXEC_DIR")
 
 
 @dataclass(frozen=True)
@@ -643,11 +647,20 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
     if config.executable:
         candidate = Path(config.executable).expanduser()
         return candidate if candidate.exists() and os.access(candidate, os.X_OK) else None
-    chease_env = config.env.get("CHEASE") or os.environ.get("CHEASE")
+    environment = {**os.environ, **dict(config.env)}
+    home_executable = executable_from_home(
+        environment.get(CHEASE_HOME_ENV),
+        home_variable=CHEASE_HOME_ENV,
+        relative_path=CHEASE_HOME_EXECUTABLE,
+        code_name="CHEASE",
+    )
+    if home_executable is not None:
+        return home_executable
+    chease_env = environment.get("CHEASE")
     if chease_env:
         chease_candidate = Path(chease_env).expanduser()
         candidates.append(chease_candidate / "chease" if chease_candidate.is_dir() else chease_candidate)
-    env_path = config.env.get("CHEASE_EXEC_DIR") or os.environ.get("CHEASE_EXEC_DIR")
+    env_path = environment.get("CHEASE_EXEC_DIR")
     if env_path:
         env_candidate = Path(env_path).expanduser()
         candidates.append(env_candidate / "chease" if env_candidate.is_dir() else env_candidate)
@@ -658,7 +671,7 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
 
 
 def find_chease_executable(config: CHEASEConfig | None = None) -> Path | None:
-    """Return the CHEASE executable resolved from config, environment, or common paths."""
+    """Resolve CHEASE from explicit config, ``$CHEASEHOME``, or legacy variables."""
     return _resolve_executable(config or CHEASEConfig())
 
 
@@ -886,7 +899,14 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     config = config or CHEASEConfig(workdir=inputs.workdir)
     executable = _resolve_executable(config)
     if executable is None:
-        raise FileNotFoundError("CHEASE executable not found; set CHEASEConfig.executable or CHEASE_EXEC_DIR")
+        raise FileNotFoundError(
+            missing_home_message(
+                home_variable=CHEASE_HOME_ENV,
+                relative_path=CHEASE_HOME_EXECUTABLE,
+                code_name="CHEASE",
+                compatibility_variables=CHEASE_COMPATIBILITY_ENVS,
+            )
+        )
     if inputs.expeq is None or not inputs.expeq.exists():
         raise FileNotFoundError(f"Missing EXPEQ file in {inputs.workdir}")
     if inputs.namelist is None or not inputs.namelist.exists():

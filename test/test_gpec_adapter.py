@@ -34,11 +34,15 @@ def case(tmp_path):
 
 
 def test_gpec_home_falls_back_to_environment(monkeypatch, tmp_path):
+    executable = tmp_path / "gpec/bin/dcon"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
     config = gpec.GPECSuiteConfig()
 
     assert gpec._gpec_home(config) == tmp_path / "gpec"
-    assert gpec._executable(config, "dcon") == tmp_path / "gpec" / "bin" / "dcon"
+    assert gpec._executable(config, "dcon") == executable
 
 
 def test_config_gpec_home_overrides_environment(monkeypatch, tmp_path):
@@ -106,3 +110,25 @@ def test_run_without_installation_raises_in_strict_mode(no_gpec_env, case):
             case,
             gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="strict"),
         )
+
+
+def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
+    monkeypatch,
+    tmp_path,
+    case,
+):
+    dcon = tmp_path / "gpec/bin/dcon"
+    dcon.parent.mkdir(parents=True)
+    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    dcon.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.returncode == 0
+    assert record.commands == (str(dcon),)

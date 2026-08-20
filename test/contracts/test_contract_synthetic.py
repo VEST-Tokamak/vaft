@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fixtures import canonical_minimal_fixture
 from helpers import format_failures, get_path, validate_contract
@@ -42,7 +43,8 @@ class SyntheticContractTests(unittest.TestCase):
         self.assertEqual(get_path(payload, "thomson_scattering.channel.0.position.r"), 0.475)
         self.assertEqual(get_path(payload, "thomson_scattering.channel.0.name"), "Polychrometer 1R1")
 
-    def test_pf_active_builder_populates_full_contract_offline(self):
+    @patch("vaft.machine_mapping.pf_active._safe_vest_load", return_value=None)
+    def test_pf_active_builder_populates_full_contract_without_raw_data(self, _load):
         from vaft.machine_mapping import vfit_pf_active_for_shot
 
         payload = {}

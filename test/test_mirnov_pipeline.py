@@ -15,12 +15,16 @@ from vaft.process.magnetics import mirnov_spectrogram as compute_mirnov_spectrog
 from vaft.process.magnetics import toroidal_mode_analysis, toroidal_phase_fit_at_time
 
 
-def test_magnetics_mapping_preserves_raw_mirnov_voltage(monkeypatch):
-    monkeypatch.setenv("VAFT_RAW_SAMPLE_PATH", "vaft/data/legacy/shot_{shot}.json.gz")
-    monkeypatch.setenv("VAFT_RAW_OFFLINE_ONLY", "1")
-
+def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     payload = {}
-    vfit_magnetics_for_shot(payload, shot=44740, tstart=0.26, tend=0.34, dt=4e-5)
+    vfit_magnetics_for_shot(
+        payload,
+        shot=44740,
+        tstart=0.26,
+        tend=0.34,
+        dt=4e-5,
+        raw_source="vaft/data/legacy/shot_{shot}.json.gz",
+    )
 
     mapped_time = np.asarray(get_path(payload, "magnetics.time"))
     field_data = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.0.field.data"))
