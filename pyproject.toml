@@ -92,6 +92,7 @@ vaft = [
   "data/geometry/Coil_info.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
+  "data/geometry/VEST_em_coupling_pf_versions.npz",
   "data/geometry/*.yaml",
   "data/geometry/*.csv",
   "data/gpec/*.in",

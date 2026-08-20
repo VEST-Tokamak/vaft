@@ -19,6 +19,7 @@ PF_WIDTH_BY_COIL = [0.0172, 0.04, 0.028, 0.028, 0.042, 0.042, 0.042, 0.042, 0.04
 PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.93]
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
 PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648, 0.0648, 0.0648]
+PF_GEOMETRY_2507_FIRST_SHOT = 45958
 
 
 def _candidate_geometry_roots() -> list[Path]:
@@ -62,8 +63,20 @@ def _build_time_axis(source_time: np.ndarray, tstart: float, tend: float, dt: fl
     return np.array([tstart], dtype=float)
 
 
+def pf_geometry_version_for_shot(shot: int | None) -> str:
+    """Return the PF geometry version used for *shot*.
+
+    Keeping this boundary in one public helper ensures that static PF geometry
+    and geometry-dependent coupling matrices always select the same version.
+    ``None`` retains the historical geometry for backward compatibility.
+    """
+    if shot is not None and shot >= PF_GEOMETRY_2507_FIRST_SHOT:
+        return "2507"
+    return "1906"
+
+
 def _geometry_profile_for_shot(shot: int | None) -> tuple[str, list[float]]:
-    if shot is not None and shot > 45957:
+    if pf_geometry_version_for_shot(shot) == "2507":
         return "VEST_DiscretizedCoilGeometry_Full_ver_2507.mat", PF_HEIGHT_BY_COIL_2507
     return "VEST_DiscretizedCoilGeometry_Full_ver_1906.mat", PF_HEIGHT_BY_COIL_1906
 
@@ -259,8 +272,10 @@ def pf_active_from_raw_database(
 
 
 __all__ = [
+    "PF_GEOMETRY_2507_FIRST_SHOT",
     "pf_active",
     "pf_active_from_raw_database",
+    "pf_geometry_version_for_shot",
     "resolve_geometry_asset",
     "vfit_pf",
     "vfit_pf_active_dynamic",

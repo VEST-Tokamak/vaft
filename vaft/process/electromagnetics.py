@@ -277,7 +277,7 @@ def compute_impedance_matrices(
     passive_loop_geometry: List[Tuple[str, float, float, float]],  
     # e.g. [(loop_name, average_r, average_z, geometry_coef), ...]
     coil_geometry: List[List[Tuple[float, float, int]]] | None,
-    # e.g. coil_geometry[i] -> list of (rc, zc, turns_with_sign) for each coil element
+    # Retained for API compatibility; canonical coupling now comes from mutual_pa.
     mutual_pp: np.ndarray,       # mutual_passive_passive from ODS
     mutual_pa: np.ndarray,       # mutual_passive_active from ODS
     plasma_rz: List[Tuple[float, float]]
@@ -291,9 +291,9 @@ def compute_impedance_matrices(
            - average_r (float),
            - average_z (float),
            - geometry_coef (float)  # e.g. 1.0 or 1.04 ...
-    :param coil_geometry: active-coil geometry. When provided, its coupling is
-        compared with ``mutual_pa`` and used if the packaged matrix represents
-        a different geometry. ``None`` requires and uses ``mutual_pa`` directly.
+    :param coil_geometry: retained for backward compatibility and shape
+        validation. The solver no longer derives or substitutes coupling from
+        geometry; callers must provide the canonical ``mutual_pa`` matrix.
     :param mutual_pp: mutual_passive_passive matrix from external (shape = (nbloop, nbloop)).
     :param mutual_pa: mutual_passive_active matrix from external (shape = (nbloop, nbcoil)).
     :param plasma_rz: list of (r, z) for each plasma current element (optional).
@@ -325,35 +325,16 @@ def compute_impedance_matrices(
             "coil_geometry and mutual_pa describe different numbers of "
             f"active coils ({len(coil_geometry)} and {mutual_pa.shape[1]})"
         )
-
     # Build R (nbloop x nbloop)
     R_mat = np.diag(loop_resistances)
 
     # M is the standard passive-to-passive coupling from em_coupling.
     M_mat = mutual_pp
 
-    active_coupling = mutual_pa
-    if coil_geometry is not None:
-        geometry_coupling = compute_mutual_passive_active(
-            passive_loop_geometry,
-            coil_geometry,
-        )
-        # The packaged reference agrees with the historical geometry to
-        # floating-point precision. Newer VEST geometries (notably PF6/PF7 in
-        # the 2507 configuration) differ materially and must use the geometry
-        # calculation until versioned em_coupling matrices are available.
-        if not np.allclose(
-            geometry_coupling,
-            mutual_pa,
-            rtol=1e-10,
-            atol=1e-15,
-        ):
-            active_coupling = geometry_coupling
-
     # Plasma filaments are transient VAFT solver inputs; until they are
     # represented by pf_plasma.element URIs, compute only that portion here.
     if nbplas == 0:
-        L_mat = active_coupling
+        L_mat = mutual_pa
     else:
         plasma_coupling = np.zeros((nbloop, nbplas))
         for i_loop, (loop_name, r1, z1, coef) in enumerate(passive_loop_geometry):
@@ -361,7 +342,7 @@ def compute_impedance_matrices(
                 plasma_coupling[i_loop, j_plasma] = (
                     coef * green_r(r1, z1, rp, zp)
                 )
-        L_mat = np.hstack((active_coupling, plasma_coupling))
+        L_mat = np.hstack((mutual_pa, plasma_coupling))
 
     return R_mat, L_mat, M_mat
 

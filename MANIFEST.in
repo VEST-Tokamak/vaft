@@ -10,6 +10,7 @@ include vaft/data/*.py
 include vaft/data/geometry/Coil_info.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
+include vaft/data/geometry/VEST_em_coupling_pf_versions.npz
 include vaft/data/geometry/*.yaml
 include vaft/data/geometry/*.csv
 include vaft/data/gpec/*.in
