@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from scipy import ndimage, signal
 
+from vaft.database import raw as raw_db
 from vaft.database._local import load_ods
 from vaft.omas.vest_upstream import (
     archive_raw_source,
@@ -127,6 +128,25 @@ def test_plain_raw_archive_is_normalized_to_the_gzip_workflow_product(tmp_path):
         payload = json.load(handle)
     assert payload["shot"] == 39915
     assert set(payload["fields"]) == {"13"}
+
+
+def test_live_raw_export_honors_a_plain_json_output(tmp_path, monkeypatch):
+    output = tmp_path / "vest_daq_raw.json"
+
+    def fake_dump(shot, path):
+        assert shot == 39915
+        assert path.endswith(".json.gz")
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            json.dump({"shot": shot, "fields": {"13": {"data": [1.0]}}}, handle)
+        return True
+
+    monkeypatch.setattr(raw_db, "dump_all_raw_signals_for_shot", fake_dump)
+
+    manifest = archive_raw_source(shot=39915, output=output)
+
+    assert json.loads(output.read_text(encoding="utf-8"))["shot"] == 39915
+    assert manifest["source"] == {"kind": "vest-sql", "name": None}
+    assert sorted(path.name for path in tmp_path.iterdir()) == [output.name]
 
 
 def test_explicit_raw_archive_rejects_a_different_shot(tmp_path):

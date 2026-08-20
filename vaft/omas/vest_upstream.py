@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import tempfile
 from typing import Any, Callable
 
 import numpy as np
@@ -471,12 +472,29 @@ def archive_raw_source(
         source_kind = "archive"
         source_name = source_path.name
     else:
-        if not raw_db.dump_all_raw_signals_for_shot(int(shot), str(output_path)):
-            raise RuntimeError(f"Failed to export VEST raw data for shot {shot}")
+        temporary_dump: Path | None = None
+        dump_path = output_path
+        if output_path.suffix != ".gz":
+            with tempfile.NamedTemporaryFile(
+                dir=output_path.parent,
+                prefix=f".{output_path.name}.",
+                suffix=".json.gz",
+                delete=False,
+            ) as handle:
+                temporary_dump = Path(handle.name)
+            dump_path = temporary_dump
+        try:
+            if not raw_db.dump_all_raw_signals_for_shot(int(shot), str(dump_path)):
+                raise RuntimeError(f"Failed to export VEST raw data for shot {shot}")
+            with gzip.open(dump_path, "rt", encoding="utf-8") as handle:
+                source_payload = json.load(handle)
+            if temporary_dump is not None:
+                _write_raw_payload(output_path, source_payload)
+        finally:
+            if temporary_dump is not None:
+                temporary_dump.unlink(missing_ok=True)
         source_kind = "vest-sql"
         source_name = None
-        with gzip.open(output_path, "rt", encoding="utf-8") as handle:
-            source_payload = json.load(handle)
     field_codes = sorted(int(code) for code in source_payload["fields"])
     return {
         "schema_version": 1,
