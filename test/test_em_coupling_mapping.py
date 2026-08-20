@@ -2,7 +2,10 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from vaft.machine_mapping.em_coupling import em_coupling
+from vaft.machine_mapping.em_coupling import (
+    calculate_em_coupling_from_raw_database,
+    em_coupling,
+)
 from vaft.machine_mapping.pf_active import (
     pf_geometry_version_for_shot,
     vfit_pf_active_static,
@@ -147,3 +150,17 @@ def test_coupling_rejects_passive_loop_order_mismatch():
 
     with pytest.raises(ValueError, match="loop ordering"):
         em_coupling(ods, shot=45958)
+
+
+@pytest.mark.parametrize("legacy_call", [False, True])
+def test_raw_mapping_entry_point_selects_coupling_for_shot(legacy_call):
+    ods = ODS(consistency_check=False)
+    vfit_pf_active_static(ods, shot=48223)
+    pf_passive(ods)
+
+    if legacy_call:
+        calculate_em_coupling_from_raw_database(ods, {"shot": 48223})
+    else:
+        calculate_em_coupling_from_raw_database(ods, 48223)
+
+    assert "PF geometry 2507" in ods["em_coupling.ids_properties.comment"]

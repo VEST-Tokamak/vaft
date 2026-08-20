@@ -169,8 +169,22 @@ def em_coupling(
     )
 
 
-def calculate_em_coupling_from_raw_database(ods: Any, options: dict | None = None) -> None:
-    em_coupling(ods, options=options)
+def calculate_em_coupling_from_raw_database(
+    ods: Any,
+    shot: int | dict | None = None,
+    options: dict | None = None,
+) -> None:
+    """Populate coupling for a shot through the raw-mapping entry point.
+
+    Passing an options dictionary as the second positional argument remains
+    supported for callers using the historical ``(ods, options)`` signature.
+    """
+    if isinstance(shot, dict):
+        if options is not None:
+            raise TypeError("options were provided both positionally and by keyword")
+        options = shot
+        shot = options.get("shot")
+    em_coupling(ods, options=options, shot=shot)
 
 
 __all__ = [
