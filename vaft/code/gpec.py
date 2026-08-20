@@ -156,6 +156,12 @@ def _executable(config: GPECSuiteConfig, program: str) -> Path | None:
     )
 
 
+def _optional_executable(config: GPECSuiteConfig, program: str) -> Path | None:
+    """Return an optional companion executable without making it mandatory."""
+    directory = _executable_dir(config)
+    return directory / program if directory is not None else None
+
+
 def _unconfigured_reason() -> str:
     return missing_home_message(
         home_variable=GPEC_HOME_ENV,
@@ -498,7 +504,7 @@ def _run_module(
         logs.append(log_path)
         status = "completed" if returncode == 0 else "failed"
         if module == "dcon" and returncode == 0:
-            match_exec = _executable(config, "match")
+            match_exec = _optional_executable(config, "match")
             if match_exec is not None and match_exec.is_file() and os.access(match_exec, os.X_OK):
                 match_rc, match_log = _run_subprocess(match_exec, run_dir, run_dir / "match.log", config=config)
                 commands.append(str(match_exec))

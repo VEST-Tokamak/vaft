@@ -110,3 +110,25 @@ def test_run_without_installation_raises_in_strict_mode(no_gpec_env, case):
             case,
             gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="strict"),
         )
+
+
+def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
+    monkeypatch,
+    tmp_path,
+    case,
+):
+    dcon = tmp_path / "gpec/bin/dcon"
+    dcon.parent.mkdir(parents=True)
+    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    dcon.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.returncode == 0
+    assert record.commands == (str(dcon),)

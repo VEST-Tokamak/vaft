@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from vaft.database import raw
+from vaft.machine_mapping.pf_active import PF_COIL_COUNT, vfit_pf
 
 
 def _write_raw_dump(path, shot: int) -> None:
@@ -47,3 +48,16 @@ def test_missing_explicit_raw_source_does_not_fallback_to_sql(tmp_path, monkeypa
 
     with pytest.raises(FileNotFoundError, match="Archived raw source not found"):
         raw.load_raw(123, 13, sample_opt=tmp_path / "missing_{shot}.json.gz")
+
+
+def test_pf_mapping_does_not_require_optional_reference_archive(tmp_path):
+    requested_shot = 41672
+    _write_raw_dump(tmp_path / f"shot_{requested_shot}.json.gz", requested_shot)
+
+    time, currents = vfit_pf(
+        requested_shot,
+        raw_source=tmp_path / "shot_{shot}.json.gz",
+    )
+
+    assert time.size > 0
+    assert len(currents) == PF_COIL_COUNT

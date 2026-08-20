@@ -55,6 +55,20 @@ def _safe_vest_load(
     )
 
 
+def _optional_reference_load(
+    shot: int,
+    field: int,
+    raw_source: raw_db.RawSource | None = None,
+):
+    """Load optional calibration data without requiring a second archive."""
+    if raw_source is None:
+        return _safe_vest_load(shot, field)
+    try:
+        return _safe_vest_load(shot, field, raw_source)
+    except FileNotFoundError:
+        return None
+
+
 def _build_time_axis(source_time: np.ndarray, tstart: float, tend: float, dt: float) -> np.ndarray:
     if dt > 0:
         start = max(tstart, float(source_time[0])) if source_time.size > 0 else tstart
@@ -134,7 +148,11 @@ def vfit_pf(
     if first_loaded is not None and len(first_loaded[0]) > 1:
         reference_time = np.asarray(first_loaded[0], dtype=float)
 
-    pf2_reference = _safe_vest_load(PF2_REFERENCE_SHOT, PF2_REFERENCE_FIELD_CODE, raw_source)
+    pf2_reference = _optional_reference_load(
+        PF2_REFERENCE_SHOT,
+        PF2_REFERENCE_FIELD_CODE,
+        raw_source,
+    )
     if pf2_reference is None:
         pf2_noise = np.zeros(reference_time.size, dtype=float)
     else:
