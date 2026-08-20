@@ -6,12 +6,15 @@ import copy
 from pathlib import Path
 from typing import Optional
 
-from omas import ODS, load_omas_json
+from omas import ODS
 
 from vaft.data.resources import data_path
+from vaft.machine_mapping.static_geometry import load_static_ods
 
 
-DEFAULT_REFERENCE_ODS = data_path("omas/39915.json")
+DEFAULT_STATIC_GEOMETRY = data_path("geometry/VEST_static_geometry.json.gz")
+# Kept as an import-level compatibility name for callers that referenced it.
+DEFAULT_REFERENCE_ODS = DEFAULT_STATIC_GEOMETRY
 
 
 def _resolve_reference(source: str | Path | None, options: Optional[dict]) -> Path:
@@ -25,15 +28,15 @@ def _resolve_reference(source: str | Path | None, options: Optional[dict]) -> Pa
 
 
 def pf_passive(ods: ODS, source: str | Path | None = None, options: Optional[dict] = None) -> None:
-    """Populate static VEST passive-loop geometry from a packaged reference ODS.
+    """Populate canonical VEST passive-loop geometry from a static asset.
 
-    The reference contains historical eddy-current time traces. Those traces are
-    intentionally removed here so target-shot currents can be computed fresh.
+    An explicitly supplied legacy ODS may contain historical eddy-current time
+    traces. Those traces are removed so target-shot currents are computed fresh.
     """
     if options is None:
         options = {}
     reference_path = _resolve_reference(source, options)
-    reference = load_omas_json(str(reference_path), consistency_check=False)
+    reference = load_static_ods(reference_path)
     if "pf_passive" not in reference:
         raise KeyError(f"Reference ODS has no pf_passive IDS: {reference_path}")
 
@@ -49,4 +52,4 @@ def pf_passive(ods: ODS, source: str | Path | None = None, options: Optional[dic
             pass
 
 
-__all__ = ["pf_passive", "DEFAULT_REFERENCE_ODS"]
+__all__ = ["pf_passive", "DEFAULT_REFERENCE_ODS", "DEFAULT_STATIC_GEOMETRY"]

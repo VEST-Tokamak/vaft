@@ -89,6 +89,11 @@ def _load_md_channels() -> list[dict[str, Any]]:
         return yaml.safe_load(handle)["channels"]
 
 
+def vest_md_channel_definitions() -> tuple[dict[str, Any], ...]:
+    """Return ordered VEST MD channel metadata for provenance/preflight."""
+    return tuple(dict(channel) for channel in _load_md_channels())
+
+
 @lru_cache(maxsize=1)
 def _load_static_channels() -> list[dict[str, Any]]:
     with open(_geometry_root() / "VEST_MagneticsGeometry_Full_ver_2302.yaml", "r", encoding="utf-8") as handle:
@@ -137,11 +142,13 @@ def _prepare_magnetics_context(
     dt: float,
     processing_config: VestMagneticsProcessingConfig | None,
     raw_source: raw_db.RawSource | None = None,
+    allow_missing_channels: bool = False,
 ) -> _MagneticsContext:
     source_time, flux_loops, probes = vfit_md(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
+        allow_missing_channels=allow_missing_channels,
     )
     source_time = np.asarray(source_time, dtype=float)
     return _MagneticsContext(
@@ -380,6 +387,7 @@ def vfit_md(
     processing_config: VestMagneticsProcessingConfig | None = None,
     *,
     raw_source: raw_db.RawSource | None = None,
+    allow_missing_channels: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process magnetic probe and flux-loop data using VAFT process helpers."""
     return vest_md_signals(
@@ -388,6 +396,7 @@ def vfit_md(
         lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
         indices=indices,
         config=processing_config,
+        allow_missing=allow_missing_channels,
     )
 
 
@@ -491,6 +500,8 @@ def vfit_mirnov_raw_dynamic(
 def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.flux_loops):
+        if np.asarray(values).size < 2:
+            continue
         data = _interpolate_signal(context.target_time, context.source_time, values) * 2 * math.pi
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
 
@@ -503,6 +514,8 @@ def _map_probes(
 ) -> None:
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.probes):
+        if np.asarray(values).size < 2:
+            continue
         data = _interpolate_signal(context.target_time, context.source_time, values)
         set_path(ods, f"magnetics.b_field_pol_probe.{index}.field.data", data)
     vfit_mirnov_raw_dynamic(ods, shot, raw_source=raw_source)
@@ -571,7 +584,15 @@ def vfit_magnetics_dynamic(
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
     """Populate dynamic magnetics nodes from required raw waveforms."""
-    context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
+    context = _prepare_magnetics_context(
+        shot,
+        tstart,
+        tend,
+        dt,
+        processing_config,
+        raw_source,
+        allow_missing_channels=True,
+    )
     _map_flux_loops(ods, context)
     _map_probes(ods, shot, context, raw_source)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
@@ -590,6 +611,9 @@ def vfit_magnetics_for_shot(
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
     """Populate canonical static and dynamic magnetics nodes for one shot."""
+    # Create the full ordered channel structures first so a missing early
+    # channel can remain empty without shifting or invalidating later channels.
+    vfit_magnetics_static(ods)
     vfit_magnetics_dynamic(
         ods,
         shot,
@@ -599,7 +623,6 @@ def vfit_magnetics_for_shot(
         processing_config=processing_config,
         raw_source=raw_source,
     )
-    vfit_magnetics_static(ods)
 
 
 def magnetics(
@@ -727,6 +750,7 @@ __all__ = [
     "ip_rogowski_coil_from_raw_database",
     "magnetics_from_raw_database",
     "vest_diamagnetic_flux",
+    "vest_md_channel_definitions",
     "magnetics",
     "vfit_plasma_current",
     "vfit_md",

@@ -200,6 +200,7 @@ def vest_md_signals(
     *,
     indices: Sequence[int] | None = None,
     config: VestMagneticsProcessingConfig | None = None,
+    allow_missing: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process VEST MD channels into flux-loop and B-probe waveforms."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
@@ -221,12 +222,22 @@ def vest_md_signals(
         if kind == "flux_loop":
             flux_loop_counter += 1
 
-        source_time, source_data = raw_db.require_signal(
-            loaded,
-            shot=shot,
-            field=field_code,
-            signal_name=str(channel.get("name", kind)),
-        )
+        try:
+            source_time, source_data = raw_db.require_signal(
+                loaded,
+                shot=shot,
+                field=field_code,
+                signal_name=str(channel.get("name", kind)),
+            )
+        except raw_db.RawSignalUnavailableError:
+            if not allow_missing:
+                raise
+            missing = np.array([], dtype=float)
+            if kind == "b_field_pol_probe":
+                data_probes.append(missing)
+            else:
+                data_flux_loops.append(missing)
+            continue
         if kind == "b_field_pol_probe":
             processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
             processed = np.interp(magnetics_time, source_time, processed_full)

@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-import copy
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from omas import ODS, load_omas_json
+from omas import ODS
 
 from vaft.data.resources import data_path
 from vaft.machine_mapping.pf_active import (
     pf_geometry_version_for_shot,
     vfit_pf_active_static,
 )
+from vaft.machine_mapping.static_geometry import load_static_ods
 
 
-DEFAULT_REFERENCE_ODS = data_path("omas/39915.json")
+DEFAULT_STATIC_GEOMETRY = data_path("geometry/VEST_static_geometry.json.gz")
+# Kept for callers importing the historical name.
+DEFAULT_REFERENCE_ODS = DEFAULT_STATIC_GEOMETRY
 DEFAULT_VERSIONED_COUPLING = data_path("geometry/VEST_em_coupling_pf_versions.npz")
 
 
@@ -112,17 +114,14 @@ def em_coupling(
 ) -> None:
     """Populate canonical, PF-geometry-versioned VEST coupling data.
 
-    The reference ODS remains the source for the unchanged passive-to-passive
-    matrix. Active-coil matrices come from a compact packaged asset selected by
-    the same shot boundary as :func:`pf_active`.
+    All matrices come from a compact packaged asset selected by the same shot
+    boundary as :func:`pf_active`. An explicitly supplied legacy ODS remains
+    accepted as an override for passive geometry and its passive-passive matrix.
     """
     if shot is None and options is not None:
         shot = options.get("shot")
     reference_path = _resolve_reference(source, options)
-    reference = load_omas_json(str(reference_path), consistency_check=False)
-    if "em_coupling" not in reference:
-        raise KeyError(f"Reference ODS has no em_coupling IDS: {reference_path}")
-
+    reference = load_static_ods(reference_path)
     geometry_version = pf_geometry_version_for_shot(shot)
     with np.load(DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
         mutual_aa = np.asarray(
@@ -131,6 +130,9 @@ def em_coupling(
         mutual_pa = np.asarray(
             versioned[f"mutual_passive_active_{geometry_version}"], dtype=float
         )
+        packaged_mutual_pp = np.asarray(
+            versioned["mutual_passive_passive"], dtype=float
+        )
 
     n_passive, n_active = mutual_pa.shape
     if mutual_aa.shape != (n_active, n_active):
@@ -138,8 +140,10 @@ def em_coupling(
             "Versioned mutual_active_active matrix has incompatible shape "
             f"{mutual_aa.shape} for {n_active} active coils"
         )
-    mutual_pp = np.asarray(
-        reference["em_coupling.mutual_passive_passive"], dtype=float
+    mutual_pp = (
+        np.asarray(reference["em_coupling.mutual_passive_passive"], dtype=float)
+        if "em_coupling.mutual_passive_passive" in reference
+        else packaged_mutual_pp
     )
     if mutual_pp.shape != (n_passive, n_passive):
         raise ValueError(
@@ -154,7 +158,6 @@ def em_coupling(
         n_passive=n_passive,
     )
 
-    ods["em_coupling"] = copy.deepcopy(reference["em_coupling"])
     ods["em_coupling.active_coils"] = _coordinate_uris(
         "pf_active", "coil", n_active
     )
@@ -163,6 +166,7 @@ def em_coupling(
     )
     ods["em_coupling.mutual_active_active"] = mutual_aa
     ods["em_coupling.mutual_passive_active"] = mutual_pa
+    ods["em_coupling.mutual_passive_passive"] = mutual_pp
     ods["em_coupling.ids_properties.comment"] = (
         "VEST electromagnetic coupling for PF geometry "
         f"{geometry_version}; selected for shot {shot if shot is not None else 'unspecified'}"
@@ -191,5 +195,6 @@ __all__ = [
     "calculate_em_coupling_from_raw_database",
     "em_coupling",
     "DEFAULT_REFERENCE_ODS",
+    "DEFAULT_STATIC_GEOMETRY",
     "DEFAULT_VERSIONED_COUPLING",
 ]
