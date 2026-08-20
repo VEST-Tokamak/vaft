@@ -1,14 +1,10 @@
 import unittest
 from unittest.mock import patch
 
-from helpers import get_path, validate_contract, format_failures
-from spec import CANONICAL_IDS_SPECS
+from helpers import get_path
 
 
 class MagneticsModelTests(unittest.TestCase):
-    def assertNoContractFailures(self, failures):
-        self.assertEqual(failures, {}, format_failures(failures))
-
     def test_vfit_magnetics_static_populates_yaml_geometry(self):
         from vaft.machine_mapping import vfit_magnetics_static
 
@@ -23,20 +19,13 @@ class MagneticsModelTests(unittest.TestCase):
         self.assertEqual(get_path(payload, "magnetics.b_field_pol_probe.0.position.r"), 0.089)
 
     @patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None)
-    def test_vfit_magnetics_for_shot_satisfies_contract_without_raw_data(self, _load):
+    def test_vfit_magnetics_for_shot_rejects_missing_raw_data(self, _load):
+        from vaft.database.raw import RawSignalUnavailableError
         from vaft.machine_mapping import vfit_magnetics_for_shot
 
         payload = {}
-        vfit_magnetics_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
-
-        failures = validate_contract(
-            payload,
-            CANONICAL_IDS_SPECS,
-            ids_names=("magnetics",),
-        )
-        self.assertNoContractFailures(failures)
-        self.assertEqual(len(get_path(payload, "magnetics.flux_loop")), 11)
-        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 68)
+        with self.assertRaisesRegex(RawSignalUnavailableError, "shot 41672"):
+            vfit_magnetics_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
 
 
 if __name__ == "__main__":

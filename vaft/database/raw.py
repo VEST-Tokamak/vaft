@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-from __future__ import annotations
 """
 MySQL-based VEST Database Access and Plotting
 
@@ -9,15 +6,16 @@ via a connection pool, load data by shot/field, correct time arrays for DAQ
 triggers, retrieve date or shot lists, and plot results.
 """
 
+from __future__ import annotations
+
 import gzip
 import json
 import logging
 import os
 import re
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import yaml
@@ -152,6 +150,79 @@ DB_POOL: Optional[MySQLConnectionPool] = None
 
 SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "legacy" / "sql_table.txt"
 RawSource = str | os.PathLike[str]
+
+
+class RawSignalUnavailableError(LookupError):
+    """Raised when a required VEST raw waveform is absent or unusable."""
+
+    def __init__(
+        self,
+        shot: int,
+        field: int | str,
+        reason: str,
+        *,
+        signal_name: str | None = None,
+    ) -> None:
+        self.shot = int(shot)
+        self.field = field
+        self.reason = str(reason)
+        self.signal_name = signal_name
+        label = f" ({signal_name})" if signal_name else ""
+        super().__init__(
+            f"Required VEST raw signal is unavailable for shot {self.shot}, "
+            f"field {self.field}{label}: {self.reason}. Verify that the raw "
+            "archive contains this field or that the VEST SQL service returned data."
+        )
+
+
+def require_signal(
+    loaded: Optional[Tuple[np.ndarray, np.ndarray]],
+    *,
+    shot: int,
+    field: int | str,
+    signal_name: str | None = None,
+    min_samples: int = 2,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Validate and return a required single-channel raw waveform.
+
+    Raw database readers retain their legacy ``None`` return for compatibility.
+    Scientific mappers call this helper at the point where a missing waveform
+    would otherwise be indistinguishable from a real zero-valued measurement.
+    """
+    if loaded is None:
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            "the data source returned no waveform",
+            signal_name=signal_name,
+        )
+
+    time_values, data_values = loaded
+    time_array = np.asarray(time_values, dtype=float).reshape(-1)
+    data_array = np.asarray(data_values, dtype=float)
+    if data_array.ndim > 1 and sum(size > 1 for size in data_array.shape) > 1:
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            f"expected one data channel, received shape {data_array.shape}",
+            signal_name=signal_name,
+        )
+    data_array = data_array.reshape(-1)
+    if time_array.size != data_array.size:
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            f"time/data lengths differ ({time_array.size} != {data_array.size})",
+            signal_name=signal_name,
+        )
+    if time_array.size < int(min_samples):
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            f"received {time_array.size} sample(s); at least {int(min_samples)} are required",
+            signal_name=signal_name,
+        )
+    return time_array, data_array
 
 
 def _format_sample_path(template: str, shot: int) -> str:

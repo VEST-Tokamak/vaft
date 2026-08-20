@@ -60,22 +60,13 @@ def vfit_barometry_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    loaded = _safe_vest_load(shot, BAROMETRY_FIELD_CODE, raw_source)
-    if loaded is None:
-        time = _build_target_time(np.array([]), tstart, tend, dt)
-        set_path(ods, "barometry.gauge.0.pressure.time", time)
-        set_path(ods, "barometry.gauge.0.pressure.data", np.zeros_like(time))
-        return
-
-    source_time, source_data = loaded
-    source_time = np.asarray(source_time, dtype=float)
-    source_data = np.asarray(source_data, dtype=float)
+    source_time, source_data = raw_db.require_signal(
+        _safe_vest_load(shot, BAROMETRY_FIELD_CODE, raw_source),
+        shot=shot,
+        field=BAROMETRY_FIELD_CODE,
+        signal_name="PKR-251 main gauge",
+    )
     time = _build_target_time(source_time, tstart, tend, dt)
-
-    if source_data.size <= 1 or source_time.size <= 1:
-        set_path(ods, "barometry.gauge.0.pressure.time", time)
-        set_path(ods, "barometry.gauge.0.pressure.data", np.zeros_like(time))
-        return
 
     pressure_torr = medfilt(source_data, kernel_size=MEDIAN_KERNEL)
     pressure_pa = pressure_torr * TORR_TO_PA

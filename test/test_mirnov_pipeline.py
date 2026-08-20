@@ -40,6 +40,9 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     assert get_path(payload, "magnetics.b_field_pol_probe.67.type.index") == 2
     assert np.isclose(get_path(payload, "magnetics.b_field_pol_probe.67.toroidal_angle"), 4 * np.pi / 3)
     assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.voltage.data")).size == 25_000
+    assert get_path(payload, "magnetics.b_field_pol_probe.67.voltage.validity") == 0
+    assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.64.voltage.data")).size == 0
+    assert get_path(payload, "magnetics.b_field_pol_probe.64.voltage.validity") == -2
     assert not path_exists(payload, "magnetics.b_field_pol_probe.67.field.data")
 
 

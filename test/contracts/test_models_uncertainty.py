@@ -5,6 +5,10 @@ import numpy as np
 from helpers import get_path
 
 
+SHOT = 44740
+RAW_SOURCE = "vaft/data/legacy/shot_{shot}.json.gz"
+
+
 class ConstraintUncertaintyTests(unittest.TestCase):
     def test_default_constraint_uncertainties_follow_donor_defaults(self):
         from vaft.machine_mapping import (
@@ -17,10 +21,10 @@ class ConstraintUncertaintyTests(unittest.TestCase):
         )
 
         payload = {}
-        vfit_pf_active_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
+        vfit_pf_active_for_shot(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
         vfit_tf_static(payload)
-        vfit_tf_dynamic(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
-        vfit_magnetics_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
+        vfit_tf_dynamic(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
+        vfit_magnetics_for_shot(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
         apply_default_constraint_uncertainties(payload)
 
         pf_data = np.asarray(get_path(payload, "pf_active.coil.0.current.data"), dtype=float)
@@ -71,7 +75,7 @@ class ConstraintUncertaintyTests(unittest.TestCase):
         )
 
         payload = {}
-        vfit_magnetics_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
+        vfit_magnetics_for_shot(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
         apply_default_constraint_uncertainties(payload)
 
         for probe_index, probe in enumerate(get_path(payload, "magnetics.b_field_pol_probe")):
@@ -116,10 +120,10 @@ class ConstraintUncertaintyTests(unittest.TestCase):
         )
 
         payload = {}
-        vfit_pf_active_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
+        vfit_pf_active_for_shot(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
         vfit_tf_static(payload)
-        vfit_tf_dynamic(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
-        vfit_magnetics_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
+        vfit_tf_dynamic(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
+        vfit_magnetics_for_shot(payload, shot=SHOT, tstart=0.24, tend=0.34, dt=4e-5, raw_source=RAW_SOURCE)
 
         self.assertFalse(path_exists(payload, "pf_active.coil.0.current.data_error_upper"))
         self.assertFalse(path_exists(payload, "tf.b_field_tor_vacuum_r.data_error_upper"))
