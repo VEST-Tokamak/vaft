@@ -7,9 +7,9 @@ from pathlib import Path
 
 import numpy as np
 import scipy.io
+from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.signal_processing import smooth, vest_coil_current_noise_reduction
 
 from .utils import set_path
 
@@ -20,6 +20,9 @@ PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.9
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
 PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648, 0.0648, 0.0648]
 PF_GEOMETRY_2507_FIRST_SHOT = 45958
+PF_FILTER_SAMPLE_RATE = 25_000.0
+PF_FILTER_CUTOFF = 2_500.0
+PF_FILTER_TAPS = 251
 
 
 def _candidate_geometry_roots() -> list[Path]:
@@ -107,8 +110,10 @@ def _coil_gain_by_index(shot: int) -> dict[int, float]:
                 gain = -5e4
             elif 38360 < shot < 38401:
                 gain = 5e4
-            else:
+            elif shot < 45965:
                 gain = -5e4
+            else:
+                gain = -1e4
         elif coil_index == 1:
             gain = 1e3
         elif coil_index == 4:
@@ -121,6 +126,22 @@ def _coil_gain_by_index(shot: int) -> dict[int, float]:
             continue
         gains[coil_index] = gain
     return gains
+
+
+def _legacy_pf_filter(values: np.ndarray) -> np.ndarray:
+    taps = signal.firwin(
+        PF_FILTER_TAPS,
+        PF_FILTER_CUTOFF,
+        pass_zero="lowpass",
+        fs=PF_FILTER_SAMPLE_RATE,
+    )
+    # scipy.signal.filtfilt requires a long acquisition. Tiny synthetic test
+    # dumps retain a deterministic forward-filter fallback.
+    if values.size > 3 * (taps.size - 1):
+        filtered = signal.filtfilt(taps, 1, values)
+    else:
+        filtered = signal.lfilter(taps, 1, values)
+    return ndimage.uniform_filter1d(filtered, size=min(10, values.size))
 
 
 def vfit_pf(
@@ -156,8 +177,7 @@ def vfit_pf(
             field_code = int(coil_codes[code_index])
             waveform_time, raw_values = required_signals[field_code]
             current = raw_values - _baseline_mean(raw_values, 5000)
-            current = smooth(current, 50)
-            current = vest_coil_current_noise_reduction(current) * coil_gains.get(coil_index, 0.0)
+            current = _legacy_pf_filter(current) * coil_gains.get(coil_index, 0.0)
             current = _coerce_signal_to_reference(reference_time, waveform_time, current)
             code_index += 1
         else:

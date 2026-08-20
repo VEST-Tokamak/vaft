@@ -12,7 +12,7 @@ samples.
 
 | Directory | Files | Purpose |
 | --- | --- | --- |
-| `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, and soft X-ray geometry metadata |
+| `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_static_geometry.json.gz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata |
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `omas/` | `39915.json`, `41524.json`, `41672.json`, `thomson_scattering.json` | OMAS/ODS sample and contract-test payloads |
 | `imas/` | `vest_imas_3.40.1.nc` | IMAS-format sample container |
@@ -37,10 +37,15 @@ Flat calls such as `data_path("39915.json")` are intentionally unsupported.
 Deleted duplicate assets from older checkouts are not recreated here.
 
 `geometry/VEST_em_coupling_pf_versions.npz` is a compact extraction of the
-active-active and passive-active matrices from the legacy 1909 and 2507 VEST
-coupling assets. The source SHA-256 checksums are
+active-active, passive-active, and passive-passive matrices from the legacy
+VEST coupling assets. `VEST_static_geometry.json.gz` contains only wall and
+passive-loop geometry; it deliberately contains no shot waveform. The source
+SHA-256 checksums for the geometry-dependent coupling assets are
 `0f0d34ea98a14c32791db7bf5804bce537782993ab1cd7a9ca809b62d925eddf`
 (1909) and
 `71c10a410b4bb180d5366f1bb7191a1a14e9277142af2cd20246af181f5b6830`
 (2507). The 1909 matrix is the coupling counterpart of VAFT's 1906 PF
 geometry; the differing suffixes are retained from the source asset names.
+`VEST_MagneticsGeometry_Full_ver_2302.yaml` retains its historical filename
+for API compatibility, while its source metadata, channel order, and
+calibration values reflect the production 2409 magnetic geometry.

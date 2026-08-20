@@ -1,30 +1,177 @@
-"""Scaffold for the maintained OMAS-first VEST production workflow."""
+"""Maintained OMAS-first VEST production workflow."""
+
+import json
+import shlex
+from pathlib import Path
 
 from vaft.database.filedb import FileDB
+from vaft.omas.vest_upstream import machine_era_for_shot
 
 
-configfile: "config.yaml"
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
 FILEDB = FileDB.from_config(config)
 SHOTS = [int(shot) for shot in config.get("shots", [])]
+RAW_SOURCE = config.get("raw_source")
+DIAGNOSTICS = config.get("diagnostics", {})
+EDDY = config.get("eddy", {})
 
 
-def final_efit_ods(shot):
-    return str(
-        FILEDB.omas("efit", shot=shot, artifact="output")
-        / f"{shot}_efit.json.gz"
-    )
+def _product(stage, shot, name):
+    return str(FILEDB.omas(stage, shot=shot, artifact="output") / name)
 
 
-def final_chease_ods(shot):
-    return str(
-        FILEDB.omas("chease", shot=shot, artifact="output")
-        / f"{shot}_chease.json.gz"
-    )
+def _metadata(stage, shot):
+    return str(FILEDB.omas(stage, shot=shot, artifact="metadata") / "manifest.json")
+
+
+def raw_product(shot):
+    return str(FILEDB.raw(shot, artifact="output") / "vest_daq_raw.json.gz")
+
+
+def raw_metadata(shot):
+    return str(FILEDB.raw(shot, artifact="metadata") / "manifest.json")
+
+
+def static_product_for_version(version):
+    directory = FILEDB.omas("static", machine_version=version, artifact="output")
+    return str(directory / "static.json.gz")
+
+
+def static_metadata_for_version(version):
+    directory = FILEDB.omas("static", machine_version=version, artifact="metadata")
+    return str(directory / "manifest.json")
+
+
+_STATIC_SENTINEL = "VEST_MACHINE_VERSION"
+_SHOT_SENTINEL = 987654321
+STATIC_OUTPUT_PATTERN = static_product_for_version(_STATIC_SENTINEL).replace(
+    _STATIC_SENTINEL, "{machine_version}"
+)
+STATIC_METADATA_PATTERN = static_metadata_for_version(_STATIC_SENTINEL).replace(
+    _STATIC_SENTINEL, "{machine_version}"
+)
+RAW_OUTPUT_PATTERN = raw_product(_SHOT_SENTINEL).replace(str(_SHOT_SENTINEL), "{shot}")
+RAW_METADATA_PATTERN = raw_metadata(_SHOT_SENTINEL).replace(str(_SHOT_SENTINEL), "{shot}")
+DIAGNOSTICS_OUTPUT_PATTERN = _product(
+    "diagnostics", _SHOT_SENTINEL, "diagnostics.json.gz"
+).replace(str(_SHOT_SENTINEL), "{shot}")
+DIAGNOSTICS_METADATA_PATTERN = _metadata("diagnostics", _SHOT_SENTINEL).replace(
+    str(_SHOT_SENTINEL), "{shot}"
+)
+EDDY_OUTPUT_PATTERN = _product(
+    "eddy", _SHOT_SENTINEL, "eddy.json.gz"
+).replace(str(_SHOT_SENTINEL), "{shot}")
+EDDY_METADATA_PATTERN = _metadata("eddy", _SHOT_SENTINEL).replace(
+    str(_SHOT_SENTINEL), "{shot}"
+)
+
+
+def _raw_source_path(shot):
+    if not RAW_SOURCE:
+        return None
+    return str(RAW_SOURCE).format(shot=int(shot))
+
+
+def _raw_input(wildcards):
+    source = _raw_source_path(wildcards.shot)
+    return [] if source is None else [source]
+
+
+def _raw_source_argument(wildcards):
+    source = _raw_source_path(wildcards.shot)
+    return "" if source is None else "--source " + shlex.quote(source)
+
+
+def _static_for_shot(wildcards):
+    return static_product_for_version(machine_era_for_shot(int(wildcards.shot)).name)
+
+
+def _diagnostics_product(shot):
+    return _product("diagnostics", shot, "diagnostics.json.gz")
+
+
+def _eddy_product(shot):
+    return _product("eddy", shot, "eddy.json.gz")
 
 
 rule all:
     input:
-        [final_efit_ods(shot) for shot in SHOTS],
-        [final_chease_ods(shot) for shot in SHOTS]
+        [_eddy_product(shot) for shot in SHOTS],
+        [_metadata("eddy", shot) for shot in SHOTS],
+
+
+rule archive_raw:
+    input:
+        _raw_input
+    output:
+        data=RAW_OUTPUT_PATTERN,
+        metadata=RAW_METADATA_PATTERN,
+    params:
+        source_arg=_raw_source_argument
+    shell:
+        "python -m vaft.cli vest-upstream raw --shot {wildcards.shot} "
+        "{params.source_arg} --output {output.data:q} --metadata {output.metadata:q}"
+
+
+rule build_static:
+    output:
+        data=STATIC_OUTPUT_PATTERN,
+        metadata=STATIC_METADATA_PATTERN,
+    shell:
+        "python -m vaft.cli vest-upstream static "
+        "--machine-version {wildcards.machine_version:q} "
+        "--output {output.data:q} --metadata {output.metadata:q}"
+
+
+rule build_diagnostics:
+    input:
+        raw=lambda wildcards: raw_product(int(wildcards.shot)),
+        static=_static_for_shot,
+    output:
+        data=DIAGNOSTICS_OUTPUT_PATTERN,
+        metadata=DIAGNOSTICS_METADATA_PATTERN,
+    params:
+        tstart=float(DIAGNOSTICS.get("tstart", 0.26)),
+        tend=float(DIAGNOSTICS.get("tend", 0.36)),
+        dt=float(DIAGNOSTICS.get("dt", 4e-5)),
+        run=int(DIAGNOSTICS.get("run", 1)),
+        magnetics=json.dumps(
+            DIAGNOSTICS.get("vest_magnetics_processing", {}), separators=(",", ":")
+        ),
+    shell:
+        "python -m vaft.cli vest-upstream diagnostics --shot {wildcards.shot} "
+        "--raw-source {input.raw:q} --static-ods {input.static:q} "
+        "--output {output.data:q} --metadata {output.metadata:q} "
+        "--tstart {params.tstart} --tend {params.tend} --dt {params.dt} --run {params.run} "
+        "--vest-magnetics-processing-json {params.magnetics:q}"
+
+
+rule build_eddy:
+    input:
+        diagnostics=lambda wildcards: _diagnostics_product(int(wildcards.shot)),
+        static=_static_for_shot,
+    output:
+        data=EDDY_OUTPUT_PATTERN,
+        metadata=EDDY_METADATA_PATTERN,
+    params:
+        r=",".join(
+            str(value) for value in EDDY.get("filament_r", [0.35, 0.35, 0.35])
+        ),
+        z=",".join(
+            str(value) for value in EDDY.get("filament_z", [0.25, 0.0, -0.25])
+        ),
+        fraction=",".join(
+            str(value)
+            for value in EDDY.get(
+                "filament_fraction", [1 / 3, 1 / 3, 1 / 3]
+            )
+        ),
+        dt_sub=float(EDDY.get("dt_sub", 5e-5)),
+    shell:
+        "python -m vaft.cli vest-upstream eddy --shot {wildcards.shot} "
+        "--diagnostics-ods {input.diagnostics:q} --static-ods {input.static:q} "
+        "--output {output.data:q} --metadata {output.metadata:q} "
+        "--filament-r {params.r:q} --filament-z {params.z:q} "
+        "--filament-fraction {params.fraction:q} --dt-sub {params.dt_sub}"

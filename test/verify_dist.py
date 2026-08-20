@@ -17,6 +17,7 @@ _ALLOWED_DATA_FILES = {
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
     "geometry/VEST_em_coupling_pf_versions.npz",
+    "geometry/VEST_static_geometry.json.gz",
     "omas/39915.json",
 }
 _ALLOWED_DATA_SUFFIXES = {
