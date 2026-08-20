@@ -249,10 +249,12 @@ def load_raw_data(
             loaded = raw_db.load(int(source), numeric_field)
         except (TypeError, ValueError):
             loaded = raw_db.vest_load_by_name(int(source), str(field))
-        if loaded is None:
-            return np.array([0.0]), np.array([0.0])
-        time, data = loaded
-        return np.asarray(time), np.asarray(data)
+        return raw_db.require_signal(
+            loaded,
+            shot=int(source),
+            field=field,
+            signal_name=str(field),
+        )
 
     file_format = options.get("file_format", "mat")
     if file_format != "mat":

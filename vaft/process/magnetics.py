@@ -1,19 +1,14 @@
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
+from ipywidgets import IntSlider, interact
 from scipy import signal
-import matplotlib.pyplot as plt
-from scipy.signal import savgol_filter
-from numpy.polynomial.polynomial import polyfit, polyval
-import statistics
-import scipy
-from ipywidgets import interact, IntSlider
-import numpy as np
-from scipy.signal import csd, coherence, find_peaks
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
+from scipy.signal import coherence, csd, find_peaks, savgol_filter
+
 from vaft.compat import cumtrapz_compat
+from vaft.database import raw as raw_db
 from vaft.process import define_baseline, subtract_baseline
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
@@ -25,6 +20,10 @@ class VestMagneticsProcessingConfig:
 
     The values intentionally preserve the long-running VEST EFIT input workflow
     while making the knobs explicit for reproducibility and parameter scans.
+    Shots 41446--41451 and shots from 41660 onward use indices 6500--9000
+    with a 5000-sample probe baseline. Other shots use indices 6000--8500
+    with an 8500-sample probe baseline. These are legacy acquisition-era
+    policies, not automatic signal-quality decisions.
     """
 
     time_start: float = 0.0
@@ -149,7 +148,7 @@ def vest_b_field_pol_probe_legacy(
     time = np.asarray(time, dtype=float)
     raw = np.asarray(raw, dtype=float)
     if time.size <= 1 or raw.size <= 1:
-        return np.zeros(time.size, dtype=float)
+        raise ValueError("VEST poloidal-field processing requires at least two samples")
 
     lowpass = signal.firwin(
         cfg.lowpass_taps,
@@ -177,7 +176,7 @@ def vest_flux_loop_legacy(
     time = np.asarray(time, dtype=float)
     raw = np.asarray(raw, dtype=float)
     if time.size <= 1 or raw.size <= 1:
-        return np.zeros(time.size, dtype=float)
+        raise ValueError("VEST flux-loop processing requires at least two samples")
 
     calibrated = _calibrated_signal(raw, float(calibration), cfg.calibration_mode)
     integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
@@ -222,26 +221,24 @@ def vest_md_signals(
         if kind == "flux_loop":
             flux_loop_counter += 1
 
-        if loaded is None:
-            processed = np.zeros(magnetics_time.size, dtype=float)
+        source_time, source_data = raw_db.require_signal(
+            loaded,
+            shot=shot,
+            field=field_code,
+            signal_name=str(channel.get("name", kind)),
+        )
+        if kind == "b_field_pol_probe":
+            processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
+            processed = np.interp(magnetics_time, source_time, processed_full)
         else:
-            source_time, source_data = loaded
-            source_time = np.asarray(source_time, dtype=float)
-            source_data = np.asarray(source_data, dtype=float)
-            if source_time.size <= 1 or source_data.size <= 1:
-                processed = np.zeros(magnetics_time.size, dtype=float)
-            elif kind == "b_field_pol_probe":
-                processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
-                processed = np.interp(magnetics_time, source_time, processed_full)
-            else:
-                processed_full = vest_flux_loop_legacy(
-                    source_time,
-                    source_data,
-                    calibration,
-                    flux_loop_number=flux_loop_counter,
-                    config=cfg,
-                )
-                processed = np.interp(magnetics_time, source_time, processed_full)
+            processed_full = vest_flux_loop_legacy(
+                source_time,
+                source_data,
+                calibration,
+                flux_loop_number=flux_loop_counter,
+                config=cfg,
+            )
+            processed = np.interp(magnetics_time, source_time, processed_full)
 
         if kind == "b_field_pol_probe":
             data_probes.append(processed)

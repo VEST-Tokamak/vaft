@@ -8,14 +8,13 @@ from vaft.database import raw
 from vaft.machine_mapping.pf_active import PF_COIL_COUNT, vfit_pf
 
 
-def _write_raw_dump(path, shot: int) -> None:
+def _write_raw_dump(path, shot: int, fields: dict[int, list[float]] | None = None) -> None:
+    fields = fields or {13: [1.0, 2.0, 3.0]}
     payload = {
         "shot": shot,
         "fields": {
-            "13": {
-                "data": [1.0, 2.0, 3.0],
-                "type": "slow",
-            }
+            str(field): {"data": data, "type": "slow"}
+            for field, data in fields.items()
         },
     }
     with gzip.open(path, "wt", encoding="utf-8") as handle:
@@ -52,7 +51,11 @@ def test_missing_explicit_raw_source_does_not_fallback_to_sql(tmp_path, monkeypa
 
 def test_pf_mapping_does_not_require_optional_reference_archive(tmp_path):
     requested_shot = 41672
-    _write_raw_dump(tmp_path / f"shot_{requested_shot}.json.gz", requested_shot)
+    _write_raw_dump(
+        tmp_path / f"shot_{requested_shot}.json.gz",
+        requested_shot,
+        {field: [1.0, 2.0, 3.0] for field in (5, 59, 62, 65)},
+    )
 
     time, currents = vfit_pf(
         requested_shot,

@@ -15,11 +15,6 @@ from .utils import set_path
 
 PF_COIL_COUNT = 10
 COPPER_RESISTIVITY = 1.68e-8
-DEFAULT_SAMPLE_COUNT = 25_000
-DEFAULT_TIME_AXIS = np.linspace(0.0, 0.99996, DEFAULT_SAMPLE_COUNT)
-PF_REFERENCE_FIELD_CODE = 59
-PF2_REFERENCE_SHOT = 32527
-PF2_REFERENCE_FIELD_CODE = 4
 PF_WIDTH_BY_COIL = [0.0172, 0.04, 0.028, 0.028, 0.042, 0.042, 0.042, 0.042, 0.042, 0.042]
 PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.93]
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
@@ -55,20 +50,6 @@ def _safe_vest_load(
     )
 
 
-def _optional_reference_load(
-    shot: int,
-    field: int,
-    raw_source: raw_db.RawSource | None = None,
-):
-    """Load optional calibration data without requiring a second archive."""
-    if raw_source is None:
-        return _safe_vest_load(shot, field)
-    try:
-        return _safe_vest_load(shot, field, raw_source)
-    except FileNotFoundError:
-        return None
-
-
 def _build_time_axis(source_time: np.ndarray, tstart: float, tend: float, dt: float) -> np.ndarray:
     if dt > 0:
         start = max(tstart, float(source_time[0])) if source_time.size > 0 else tstart
@@ -98,8 +79,6 @@ def _coerce_signal_to_reference(
     signal_time: np.ndarray,
     signal_values: np.ndarray,
 ) -> np.ndarray:
-    if signal_time.size <= 1 or signal_values.size <= 1:
-        return np.zeros(reference_time.size, dtype=float)
     if signal_time.size == reference_time.size and np.allclose(signal_time, reference_time):
         return signal_values
     return np.interp(reference_time, signal_time, signal_values)
@@ -143,46 +122,37 @@ def vfit_pf(
     coil_gains = _coil_gain_by_index(shot)
     active_coils = set(int(index) for index in coil_numbers.tolist())
 
-    reference_time = DEFAULT_TIME_AXIS.copy()
-    first_loaded = _safe_vest_load(shot, int(coil_codes[0]), raw_source) if coil_codes.size > 0 else None
-    if first_loaded is not None and len(first_loaded[0]) > 1:
-        reference_time = np.asarray(first_loaded[0], dtype=float)
+    if coil_codes.size == 0:
+        raise ValueError("Coil_info.mat defines no active PF coil signals")
 
-    pf2_reference = _optional_reference_load(
-        PF2_REFERENCE_SHOT,
-        PF2_REFERENCE_FIELD_CODE,
-        raw_source,
-    )
-    if pf2_reference is None:
-        pf2_noise = np.zeros(reference_time.size, dtype=float)
-    else:
-        _, temp_pf2_noise = pf2_reference
-        pf2_noise = vest_coil_current_noise_reduction(np.asarray(temp_pf2_noise, dtype=float)) * coil_gains.get(1, 0.0)
-        pf2_noise = _coerce_signal_to_reference(reference_time, DEFAULT_TIME_AXIS, pf2_noise)
+    required_signals = {
+        int(field_code): raw_db.require_signal(
+            _safe_vest_load(shot, int(field_code), raw_source),
+            shot=shot,
+            field=int(field_code),
+            signal_name="PF active coil current",
+        )
+        for field_code in np.unique(coil_codes)
+    }
+    reference_time = required_signals[int(coil_codes[0])][0]
 
     pf_data: list[np.ndarray] = []
     code_index = 0
     for coil_index in range(PF_COIL_COUNT):
         if coil_index in active_coils:
             field_code = int(coil_codes[code_index])
-            loaded = _safe_vest_load(shot, field_code, raw_source)
-            if loaded is None:
-                current = np.zeros(reference_time.size, dtype=float)
-            else:
-                waveform_time, raw_values = loaded
-                waveform_time = np.asarray(waveform_time, dtype=float)
-                raw_values = np.asarray(raw_values, dtype=float)
-                current = raw_values - _baseline_mean(raw_values, 5000)
-                current = smooth(current, 50)
-                current = vest_coil_current_noise_reduction(current) * coil_gains.get(coil_index, 0.0)
-                current = _coerce_signal_to_reference(reference_time, waveform_time, current)
+            waveform_time, raw_values = required_signals[field_code]
+            current = raw_values - _baseline_mean(raw_values, 5000)
+            current = smooth(current, 50)
+            current = vest_coil_current_noise_reduction(current) * coil_gains.get(coil_index, 0.0)
+            current = _coerce_signal_to_reference(reference_time, waveform_time, current)
             code_index += 1
         else:
+            # Coil_info.mat intentionally marks this hardware channel disabled;
+            # unlike a missing acquired signal, an explicit zero is meaningful.
             current = np.zeros(reference_time.size, dtype=float)
         pf_data.append(current)
 
-    if len(pf_data) > 1:
-        pf_data[1] = np.zeros(reference_time.size, dtype=float)
     return reference_time, pf_data
 
 
@@ -231,14 +201,8 @@ def vfit_pf_active_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    reference = _safe_vest_load(shot, PF_REFERENCE_FIELD_CODE, raw_source)
     waveform_time, pf_data = vfit_pf(shot, raw_source=raw_source)
-    if reference is not None and len(reference[0]) > 1:
-        source_time = np.asarray(reference[0], dtype=float)
-    else:
-        source_time = waveform_time
-
-    time_axis = _build_time_axis(source_time, tstart, tend, dt)
+    time_axis = _build_time_axis(waveform_time, tstart, tend, dt)
     set_path(ods, "pf_active.time", time_axis)
 
     for coil_index in range(PF_COIL_COUNT):

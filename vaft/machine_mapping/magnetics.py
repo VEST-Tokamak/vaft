@@ -19,7 +19,6 @@ from vaft.process.signal_processing import smooth, vfit_signal_start_end
 
 from .utils import get_path, path_exists, resolve_data_root, set_path
 
-DEFAULT_MAGNETICS_TIME = np.linspace(0.0, 0.99996, 25_000)
 DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
 DEFAULT_DT = 4e-5
@@ -103,16 +102,12 @@ def _load_names_by_code() -> dict[int, str]:
     return {int(entry["field_code"]): str(entry["name"]) for entry in entries}
 
 
-def _default_signal() -> tuple[np.ndarray, np.ndarray]:
-    return DEFAULT_MAGNETICS_TIME.copy(), np.zeros(DEFAULT_MAGNETICS_TIME.size, dtype=float)
-
-
 def _fallback_window(tstart: float, tend: float, dt: float) -> np.ndarray:
     if dt > 0:
         if tend <= tstart:
             return np.array([tstart], dtype=float)
         return np.arange(tstart, tend, dt)
-    return DEFAULT_MAGNETICS_TIME[6000:8501]
+    return np.linspace(0.0, 0.99996, 25_000)[6000:8501]
 
 
 def _build_target_time(source_time: np.ndarray, tstart: float, tend: float, dt: float) -> np.ndarray:
@@ -157,35 +152,39 @@ def _prepare_magnetics_context(
     )
 
 
-def _interp_or_zero(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
+def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
     if source_time.size <= 1 or values.size <= 1:
-        return np.zeros(target_time.size, dtype=float)
+        raise ValueError("Cannot interpolate a signal with fewer than two samples")
     return np.interp(target_time, source_time, values)
 
 
-def _raw_time_data_or_empty(
+def _raw_time_data_with_validity(
     shot: int,
     field_code: int,
     raw_source: raw_db.RawSource | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
-    loaded = _safe_vest_load(shot, field_code, raw_source)
-    if loaded is None:
-        return np.array([], dtype=float), np.array([], dtype=float)
-    time, data = loaded
-    time = np.asarray(time, dtype=float)
-    data = np.asarray(data, dtype=float)
-    if data.ndim > 1:
-        data = np.squeeze(data)
-    if time.size != data.size:
-        size = min(time.size, data.size)
-        time = time[:size]
-        data = data[:size]
-    return time, data
+) -> tuple[np.ndarray, np.ndarray, int]:
+    try:
+        time, data = raw_db.require_signal(
+            _safe_vest_load(shot, field_code, raw_source),
+            shot=shot,
+            field=field_code,
+            signal_name="raw Mirnov voltage",
+        )
+    except raw_db.RawSignalUnavailableError:
+        return np.array([], dtype=float), np.array([], dtype=float), -2
+    return time, data, 0
 
 
-def _set_voltage_signal(ods: object, base_path: str, time: np.ndarray, data: np.ndarray) -> None:
+def _set_voltage_signal(
+    ods: object,
+    base_path: str,
+    time: np.ndarray,
+    data: np.ndarray,
+    validity: int,
+) -> None:
     set_path(ods, f"{base_path}.voltage.time", np.asarray(time, dtype=float))
     set_path(ods, f"{base_path}.voltage.data", np.asarray(data, dtype=float))
+    set_path(ods, f"{base_path}.voltage.validity", int(validity))
 
 
 def _polyfit_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
@@ -201,24 +200,26 @@ def vfit_plasma_current(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return processed plasma-current waveform with offline zero fallback."""
+    """Return the processed plasma-current waveform."""
     if ref == -1:
         x_ip = 102
         x_flux_loop = 25
         ind_mutual = 2.8e-4 if shot < 17455 else 5.0e-4
 
-        loaded_ip = _safe_vest_load(shot, x_ip, raw_source)
-        loaded_flux = _safe_vest_load(shot, x_flux_loop, raw_source)
-        if loaded_ip is None or loaded_flux is None:
-            return _default_signal()
-
-        time, raw_ip = loaded_ip
-        _, raw_flux = loaded_flux
-        time = np.asarray(time, dtype=float)
-        raw_ip = np.asarray(raw_ip, dtype=float)
-        raw_flux = np.asarray(raw_flux, dtype=float)
-        if time.size <= 1 or raw_ip.size <= 1 or raw_flux.size <= 1:
-            return _default_signal()
+        time, raw_ip = raw_db.require_signal(
+            _safe_vest_load(shot, x_ip, raw_source),
+            shot=shot,
+            field=x_ip,
+            signal_name="plasma-current Rogowski coil",
+        )
+        flux_time, raw_flux = raw_db.require_signal(
+            _safe_vest_load(shot, x_flux_loop, raw_source),
+            shot=shot,
+            field=x_flux_loop,
+            signal_name="plasma-current flux compensation",
+        )
+        if flux_time.size != time.size or not np.allclose(flux_time, time):
+            raw_flux = np.interp(time, flux_time, raw_flux)
 
         if (41446 <= shot <= 41451) or shot >= 41660:
             x_time = np.arange(7250, 8750)
@@ -239,18 +240,20 @@ def vfit_plasma_current(
             ip = -ip
         return time, ip
 
-    loaded_ref = _safe_vest_load(ref, 102, raw_source)
-    loaded_shot = _safe_vest_load(shot, 102, raw_source)
-    if loaded_ref is None or loaded_shot is None:
-        return _default_signal()
-
-    _, reference_values = loaded_ref
-    time, shot_values = loaded_shot
-    time = np.asarray(time, dtype=float)
-    reference_values = np.asarray(reference_values, dtype=float)
-    shot_values = np.asarray(shot_values, dtype=float)
-    if time.size <= 1 or reference_values.size <= 1 or shot_values.size <= 1:
-        return _default_signal()
+    reference_time, reference_values = raw_db.require_signal(
+        _safe_vest_load(ref, 102, raw_source),
+        shot=ref,
+        field=102,
+        signal_name="reference plasma-current Rogowski coil",
+    )
+    time, shot_values = raw_db.require_signal(
+        _safe_vest_load(shot, 102, raw_source),
+        shot=shot,
+        field=102,
+        signal_name="plasma-current Rogowski coil",
+    )
+    if reference_time.size != time.size or not np.allclose(reference_time, time):
+        reference_values = np.interp(time, reference_time, reference_values)
 
     sample_rate = 25e3
     cutoff_frequency = 2.5e3
@@ -326,17 +329,14 @@ def vest_diamagnetic_flux(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Compute corrected diamagnetic flux waveform with offline zero fallback."""
+    """Compute the corrected diamagnetic flux waveform."""
     field_code = 246 if shot < 37505 else 4 if shot < 38452 else 257
-    loaded = _safe_vest_load(shot, field_code, raw_source)
-    if loaded is None:
-        return _default_signal()
-
-    temp_time, raw_values = loaded
-    temp_time = np.asarray(temp_time, dtype=float)
-    raw_values = np.asarray(raw_values, dtype=float)
-    if temp_time.size <= 1 or raw_values.size <= 1:
-        return _default_signal()
+    temp_time, raw_values = raw_db.require_signal(
+        _safe_vest_load(shot, field_code, raw_source),
+        shot=shot,
+        field=field_code,
+        signal_name="diamagnetic flux",
+    )
 
     turn_tf = 24
     ind_tf = 9.3e-4
@@ -478,20 +478,20 @@ def vfit_mirnov_raw_dynamic(
     for channel in _load_static_channels():
         if channel["kind"] != "b_field_pol_probe":
             continue
-        time, data = _raw_time_data_or_empty(shot, int(channel["field_code"]), raw_source)
-        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data)
+        time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
+        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
 
     for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
-        time, data = _raw_time_data_or_empty(shot, int(channel["field_code"]), raw_source)
-        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data)
+        time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
+        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
 
 
 def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.flux_loops):
-        data = _interp_or_zero(context.target_time, context.source_time, values) * 2 * math.pi
+        data = _interpolate_signal(context.target_time, context.source_time, values) * 2 * math.pi
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
 
 
@@ -503,14 +503,14 @@ def _map_probes(
 ) -> None:
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.probes):
-        data = _interp_or_zero(context.target_time, context.source_time, values)
+        data = _interpolate_signal(context.target_time, context.source_time, values)
         set_path(ods, f"magnetics.b_field_pol_probe.{index}.field.data", data)
     vfit_mirnov_raw_dynamic(ods, shot, raw_source=raw_source)
 
 
 def _map_ip(ods: object, target_time: np.ndarray, ip_time: np.ndarray, ip: np.ndarray) -> None:
     _set_magnetics_time(ods, target_time)
-    set_path(ods, "magnetics.ip.0.data", _interp_or_zero(target_time, ip_time, ip))
+    set_path(ods, "magnetics.ip.0.data", _interpolate_signal(target_time, ip_time, ip))
     set_path(ods, "magnetics.ip.0.time", target_time)
 
 
@@ -556,7 +556,7 @@ def _map_diamagnetic_flux(
     tstart2, tend2 = _plasma_window(ods, shot, target_time, ip_time, ip, raw_source)
 
     time_dia, dia_flux = vest_diamagnetic_flux(shot, tstart2, tend2, raw_source=raw_source)
-    set_path(ods, "magnetics.diamagnetic_flux.0.data", _interp_or_zero(target_time, time_dia, dia_flux))
+    set_path(ods, "magnetics.diamagnetic_flux.0.data", _interpolate_signal(target_time, time_dia, dia_flux))
     set_path(ods, "magnetics.diamagnetic_flux.0.time", target_time)
 
 
@@ -570,7 +570,7 @@ def vfit_magnetics_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    """Populate dynamic magnetics nodes with offline zero-waveform fallback."""
+    """Populate dynamic magnetics nodes from required raw waveforms."""
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _map_flux_loops(ods, context)
     _map_probes(ods, shot, context, raw_source)

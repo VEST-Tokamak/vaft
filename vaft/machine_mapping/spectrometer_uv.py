@@ -80,19 +80,19 @@ def vfit_filterscope(
     time = _build_time_axis(t_start, t_end, dt)
     shift = 0.26 if _needs_legacy_time_shift(shot) else 0.24
 
+    loaded_signals = {
+        field: raw_db.require_signal(
+            _safe_vest_load(shot, field, raw_source),
+            shot=shot,
+            field=field,
+            signal_name=label,
+        )
+        for field, _, _, label, _ in SIGNALS
+    }
+
     for field, channel, line, _, _ in SIGNALS:
         intensity_key = f"spectrometer_uv.channel.{channel}.processed_line.{line}.intensity.data"
-        loaded = _safe_vest_load(shot, field, raw_source)
-        if loaded is None:
-            set_path(ods, intensity_key, np.zeros(time.size))
-            continue
-
-        source_time, source_data = loaded
-        source_time = np.asarray(source_time, dtype=float)
-        source_data = np.asarray(source_data, dtype=float)
-        if source_time.size <= 1 or source_data.size <= 1:
-            set_path(ods, intensity_key, np.zeros(time.size))
-            continue
+        source_time, source_data = loaded_signals[field]
 
         if source_time[-1] < 0.1:
             source_time = source_time + shift

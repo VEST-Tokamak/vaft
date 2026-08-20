@@ -34,10 +34,6 @@ def _safe_vest_load(
     )
 
 
-def _default_signal() -> Signal:
-    return np.array([0.0]), np.array([0.0])
-
-
 def _build_target_time_axis(
     source_time: np.ndarray,
     tstart: float,
@@ -60,13 +56,12 @@ def vfit_tf_current(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> Signal:
-    loaded = _safe_vest_load(shot, TF_FIELD_CODE, raw_source)
-    if loaded is None:
-        return _default_signal()
-
-    time_tf, raw_tf = loaded
-    if len(raw_tf) == 0:
-        return _default_signal()
+    time_tf, raw_tf = raw_db.require_signal(
+        _safe_vest_load(shot, TF_FIELD_CODE, raw_source),
+        shot=shot,
+        field=TF_FIELD_CODE,
+        signal_name="TF coil current",
+    )
 
     taps = signal.firwin(26, TF_CUTOFF_FREQUENCY, pass_zero="lowpass", fs=TF_SAMPLE_RATE)
     data_raw_tf = np.asarray(raw_tf, dtype=float) * TF_HALL_GAIN
