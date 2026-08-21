@@ -2350,3 +2350,25 @@ def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_d
         profile_index=profile_index,
         allow_derived_data=allow_derived_data,
     )
+
+
+# Kinetic pressure is an EFIT constraint mode, not a separate code adapter.
+# The implementation stays private to avoid making this already-large module
+# harder to navigate while presenting one canonical public namespace.
+from ._efit_kinetic import (  # noqa: E402,F401
+    EQE,
+    KineticEFITConfig,
+    KineticEFITInputs,
+    KineticEFITResult,
+    PressurePoints,
+    SPLINE_SIG_FRAC,
+    _raw_ne_te_ti,
+    _resolve_ti_te_ratio,
+    build_kinetic_core_profiles,
+    inject_pressure_constraint,
+    kinetic_pressure_points,
+    prepare_kinetic_efit_inputs,
+    run_kinetic_chain,
+    run_kinetic_efit,
+    scale_plasma,
+)

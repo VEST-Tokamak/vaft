@@ -716,7 +716,7 @@ def profile_fitting_charge_exchange(
 
     # No blind extrapolation beyond the psi_N actually covered by CX channels:
     # outside the measured span the fit is held at its value on the nearest
-    # measured end. Same convention as kineticEfit._ti_weighted_fit_psin. Without
+    # measured end. Same convention as efit._ti_weighted_fit_psin. Without
     # it a polynomial extrapolated inward from a poorly-covered slice can blow up
     # (48224 @ 298 ms: only 8/40 channels map inside the LCFS, innermost
     # psi_N = 0.23 -> Ti(axis) = 54 eV against a 21 eV largest measurement).

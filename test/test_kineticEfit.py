@@ -1,23 +1,62 @@
-"""Binary-free unit tests for vaft/code/kineticEfit.py.
+"""Binary-free unit tests for kinetic constraints in ``vaft.code.efit``.
 
 These tests exercise the pure-Python namelist / math logic only; none of them
 run the EFIT binary.  A tiny dict-backed fake ODS mimics the OMAS dotted-path
 access used by ``kinetic_pressure_points`` so we can assert the pressure math
 without constructing a real omas.ODS.
 
-Run with:  pytest test_kineticEfit.py -q
-(the module under test must be importable, e.g. copied to vaft/code/kineticEfit.py
-or placed on PYTHONPATH; this test imports it as a sibling ``kineticEfit``.)
+Run with: ``pytest test/test_kineticEfit.py -q``.
 """
 
-import os
+import importlib
+import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 # --- import the module under test from the installed package ----------------
-from vaft.code import kineticEfit as km
+from vaft.code import efit as km
+
+
+def test_kinetic_api_is_owned_by_efit_namespace():
+    import vaft.code
+
+    assert "kineticEfit" not in vaft.code.__all__
+    assert vaft.code.run_kinetic_efit is km.run_kinetic_efit
+    assert vaft.code.KineticEFITConfig is km.KineticEFITConfig
+
+
+def test_legacy_module_warns_and_forwards_to_efit():
+    import vaft.code
+
+    vaft.code.__dict__.pop("kineticEfit", None)
+    sys.modules.pop("vaft.code.kineticEfit", None)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        legacy = importlib.import_module("vaft.code.kineticEfit")
+
+    assert legacy.run_kinetic_efit is km.run_kinetic_efit
+    assert any(item.category is DeprecationWarning for item in caught)
+    assert "vaft.code.efit" in str(caught[0].message)
+
+
+def test_repository_consumers_use_canonical_efit_import():
+    root = Path(__file__).resolve().parents[1]
+    legacy_module = "vaft.code." + "kineticEfit"
+    legacy_package_import = "from vaft.code import " + "kineticEfit"
+    offenders = []
+
+    for directory in ("notebooks", "scripts", "workflow", "test"):
+        for path in (root / directory).rglob("*"):
+            if path == Path(__file__).resolve() or path.suffix not in {".py", ".ipynb"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            if legacy_module in text or legacy_package_import in text:
+                offenders.append(str(path.relative_to(root)))
+
+    assert offenders == []
 
 
 # --------------------------------------------------------------------------- #
@@ -49,7 +88,6 @@ class FakeNode(dict):
 def _make_raw_ods():
     """ODS with thomson_scattering + charge_exchange at t = 0.300 s."""
     t = [0.299, 0.300, 0.301]
-    it = 1  # nearest index to 300 ms
 
     def ts_channel(r, ne, sne, te, ste):
         ch = FakeNode()
