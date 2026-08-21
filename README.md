@@ -149,6 +149,35 @@ Each slice reports runtime, output, numerical, and physical status separately.
 The stable failure taxonomy is available as `vaft.code.EFIT_FAILURE_CODES`, and
 each status round-trips through JSON with `to_dict()` and `from_dict()`.
 
+### EFIT scientific configuration
+
+Routine k-file settings are available as typed, validated objects instead of
+generator literals. Defaults preserve the existing VEST routine semantics:
+
+```python
+from vaft.code import (
+    EFITConfig,
+    EFITNumericsConfig,
+    EFITProfileConfig,
+    prepare_efit_inputs,
+)
+
+config = EFITConfig(
+    shot=39915,
+    workdir="efit/39915/work",
+    profile=EFITProfileConfig(kppcur=3, kffcur=2),
+    numerics=EFITNumericsConfig(relaxation=0.8, max_iterations=200),
+    provenance={"geometry_version": "vest-2025-07", "source": "main"},
+)
+inputs = prepare_efit_inputs(ods, config)
+```
+
+Preparation writes `efit_configuration.json` with the resolved configuration,
+its stable hash, VAFT version, provenance, and k-file checksums. Use
+`vaft.code.efit_parameter_grid()` with dotted paths such as
+`profile.kppcur` or `constraints.group_weights.bpol_probe` for deterministic
+convergence scans that do not require the EFIT binary.
+
 `load` is the eager path for complete ODS exports and workflows that need a
 local IMAS staging set. Without `paths` it stages the complete shot; with
 `paths=["equilibrium"]` it stages only that IDS plus `dataset_description` and

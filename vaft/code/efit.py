@@ -2,11 +2,14 @@ from vaft.formula import green_br_bz, green_r, calculate_distance
 import numpy as np
 
 from dataclasses import dataclass, field
+import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
 import statistics
 import math
+from numbers import Integral
 from scipy.signal import savgol_filter
 from scipy import interpolate,optimize
 from omas import *
@@ -20,6 +23,13 @@ from .efit_status import (
     EFITValidationConfig,
     apply_temporal_continuity,
     validate_efit_slice,
+)
+from .efit_config import (
+    EFITConstraintConfig,
+    EFITInitializationConfig,
+    EFITNumericsConfig,
+    EFITProfileConfig,
+    EFITScientificConfig,
 )
 
 
@@ -45,6 +55,54 @@ class EFITConfig:
     npprime: int = 2
     nffprime: int = 2
     stack_size_kb: Optional[int] = 32768
+    profile: EFITProfileConfig | None = None
+    initialization: EFITInitializationConfig = field(
+        default_factory=EFITInitializationConfig
+    )
+    numerics: EFITNumericsConfig = field(default_factory=EFITNumericsConfig)
+    constraints: EFITConstraintConfig = field(default_factory=EFITConstraintConfig)
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("npprime", "nffprime"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+            object.__setattr__(self, name, int(value))
+        if self.profile is not None:
+            if self.npprime not in (2, self.profile.kppcur):
+                raise ValueError(
+                    "npprime conflicts with profile.kppcur; use the typed profile only"
+                )
+            if self.nffprime not in (2, self.profile.kffcur):
+                raise ValueError(
+                    "nffprime conflicts with profile.kffcur; use the typed profile only"
+                )
+        if self.timeout is not None and self.timeout <= 0:
+            raise ValueError("timeout must be greater than zero")
+        if self.stack_size_kb is not None and self.stack_size_kb <= 0:
+            raise ValueError("stack_size_kb must be greater than zero")
+        if self.times is not None and any(
+            not math.isfinite(float(value)) for value in self.times
+        ):
+            raise ValueError("EFIT times must be finite")
+
+    def scientific_config(self) -> EFITScientificConfig:
+        """Return the fully resolved scientific configuration.
+
+        The historical ``npprime`` and ``nffprime`` fields are honored when a
+        typed profile configuration was not supplied.
+        """
+        profile = self.profile or EFITProfileConfig(
+            kppcur=self.npprime,
+            kffcur=self.nffprime,
+        )
+        return EFITScientificConfig(
+            profile=profile,
+            initialization=self.initialization,
+            numerics=self.numerics,
+            constraints=self.constraints,
+        )
 
 
 @dataclass
@@ -56,6 +114,8 @@ class EFITInputs:
     geqdsk: Any = None
     kfiles: tuple[Path, ...] = ()
     files: tuple[Path, ...] = ()
+    configuration: Mapping[str, Any] = field(default_factory=dict)
+    manifest: Path | None = None
 
 
 @dataclass
@@ -77,6 +137,7 @@ class EFITResult:
     status: str = "completed"
     reason: str = ""
     slice_statuses: tuple[EFITSliceStatus, ...] = ()
+    configuration: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -86,6 +147,105 @@ class EFITResult:
     def usable(self) -> bool:
         """Whether at least one collected slice is scientifically usable."""
         return any(status.usable for status in self.slice_statuses)
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {str(key): _json_value(value[key]) for key in sorted(value)}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def resolved_efit_configuration(config: EFITConfig) -> dict[str, Any]:
+    """Return the canonical JSON-compatible configuration for an EFIT run."""
+    scientific = config.scientific_config()
+    return {
+        "schema_version": 1,
+        "scientific": scientific.to_dict(),
+        "scientific_sha256": scientific.sha256,
+        "execution": {
+            "shot": int(config.shot) if config.shot is not None else None,
+            "times": (
+                [float(value) for value in config.times]
+                if config.times is not None
+                else None
+            ),
+            "args": [str(value) for value in config.args],
+            "timeout": float(config.timeout) if config.timeout is not None else None,
+            "stack_size_kb": config.stack_size_kb,
+            "requested_executable": (
+                str(config.executable) if config.executable is not None else None
+            ),
+        },
+        "provenance": _json_value(config.provenance),
+    }
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _vaft_revision() -> str | None:
+    repository = Path(__file__).resolve().parents[2]
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            text=True,
+            capture_output=True,
+            timeout=2.0,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    revision = completed.stdout.strip()
+    return revision if completed.returncode == 0 and revision else None
+
+
+def _write_efit_configuration_manifest(
+    config: EFITConfig,
+    kfiles: Sequence[Path],
+    destination: Path,
+) -> Path:
+    from vaft.version import __version__
+
+    resolved = resolved_efit_configuration(config)
+    payload = {
+        "requested": {
+            "legacy_profile_orders": {
+                "npprime": config.npprime,
+                "nffprime": config.nffprime,
+            },
+            "typed_profile_supplied": config.profile is not None,
+            "scientific": resolved["scientific"],
+            "execution": resolved["execution"],
+            "provenance": resolved["provenance"],
+        },
+        "resolved": resolved,
+        "vaft_version": __version__,
+        "vaft_revision": _vaft_revision(),
+        "kfiles": [
+            {
+                "path": str(path),
+                "sha256": _file_sha256(path),
+            }
+            for path in sorted(Path(path) for path in kfiles)
+        ],
+    }
+    destination.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    return destination
 
 
 def _efit_workdir(config: EFITConfig | None = None, workdir: str | Path | None = None) -> Path:
@@ -219,9 +379,22 @@ def prepare_efit_inputs(ods: Any, config: EFITConfig) -> EFITInputs:
         config.npprime,
         config.nffprime,
         save_dir=str(workdir),
+        config=config,
     )
     kfiles = _find_outputs(workdir, "k", shot)
-    return EFITInputs(workdir=workdir, ods=ods, kfiles=kfiles, files=kfiles)
+    manifest = _write_efit_configuration_manifest(
+        config,
+        kfiles,
+        workdir / "efit_configuration.json",
+    )
+    return EFITInputs(
+        workdir=workdir,
+        ods=ods,
+        kfiles=kfiles,
+        files=(*kfiles, manifest),
+        configuration=resolved_efit_configuration(config),
+        manifest=manifest,
+    )
 
 
 def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
@@ -375,6 +548,7 @@ def _skipped_efit_result(
         status="skipped",
         reason=reason,
         slice_statuses=statuses,
+        configuration=resolved_efit_configuration(config),
     )
 
 
@@ -466,13 +640,19 @@ def collect_efit_outputs(
     status_shot = int(shot) if shot is not None else 0
     statuses = []
     for case in cases:
+        case_kfile = file_maps["kfile"].get(case)
+        kfile_sha256 = (
+            _file_sha256(case_kfile)
+            if case_kfile is not None and case_kfile.is_file()
+            else None
+        )
         statuses.append(
             validate_efit_slice(
                 shot=status_shot,
                 time=_efit_case_time(case),
                 runtime_status=runtime_status,
                 returncode=returncode,
-                kfile=file_maps["kfile"].get(case),
+                kfile=case_kfile,
                 gfile=file_maps["gfile"].get(case),
                 afile=file_maps["afile"].get(case),
                 mfile=file_maps["mfile"].get(case),
@@ -491,14 +671,9 @@ def collect_efit_outputs(
                         or (config is not None and config.executable)
                         else None
                     ),
+                    "kfile_sha256": kfile_sha256,
                     "configuration": (
-                        {
-                            "npprime": config.npprime,
-                            "nffprime": config.nffprime,
-                            "args": [str(value) for value in config.args],
-                            "timeout": config.timeout,
-                            "stack_size_kb": config.stack_size_kb,
-                        }
+                        resolved_efit_configuration(config)
                         if config is not None
                         else {}
                     ),
@@ -520,6 +695,9 @@ def collect_efit_outputs(
         parse_errors=tuple(parse_errors),
         ods=ods,
         slice_statuses=tuple(statuses),
+        configuration=(
+            resolved_efit_configuration(config) if config is not None else {}
+        ),
     )
 
 def gauss_fit4(coef, x):
@@ -1791,10 +1969,59 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
 
 
     
-def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
+def generate_kfile(
+    ods,
+    shotnumber,
+    npprime=None,
+    nffprime=None,
+    save_dir='./tmp',
+    *,
+    config: EFITConfig | EFITScientificConfig | None = None,
+):
     """
     Generate k-files under ``save_dir/kfile`` for the requested shot.
+
+    ``npprime`` and ``nffprime`` remain supported for legacy callers.  New
+    callers should supply an :class:`EFITConfig` or
+    :class:`EFITScientificConfig` so every scientific namelist choice is
+    explicit and serializable.
     """
+
+    for name, value in (("npprime", npprime), ("nffprime", nffprime)):
+        if value is not None and (
+            isinstance(value, bool)
+            or not isinstance(value, Integral)
+            or value <= 0
+        ):
+            raise ValueError(f"{name} must be a positive integer")
+
+    if isinstance(config, EFITConfig):
+        scientific = config.scientific_config()
+    elif isinstance(config, EFITScientificConfig):
+        scientific = config
+        if npprime is not None and npprime != scientific.profile.kppcur:
+            raise ValueError(
+                "npprime conflicts with config.profile.kppcur; omit the legacy "
+                "argument or make the values equal"
+            )
+        if nffprime is not None and nffprime != scientific.profile.kffcur:
+            raise ValueError(
+                "nffprime conflicts with config.profile.kffcur; omit the legacy "
+                "argument or make the values equal"
+            )
+    elif config is None:
+        scientific = EFITScientificConfig(
+            profile=EFITProfileConfig(
+                kppcur=2 if npprime is None else npprime,
+                kffcur=2 if nffprime is None else nffprime,
+            )
+        )
+    else:
+        raise TypeError("config must be EFITConfig, EFITScientificConfig, or None")
+    profile = scientific.profile
+    initialization = scientific.initialization
+    numerics = scientific.numerics
+    constraint_config = scientific.constraints
 
     # Load the constraints ODS
     EQ = ods['equilibrium']
@@ -1802,8 +2029,8 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
     PM = ods['equilibrium.code.parameters']
 
     # Define the kfile parameters
-    vbit = 10
-    shft = 10000.0
+    vbit = constraint_config.legacy_vbit
+    shft = constraint_config.legacy_weight_scale
     TABLE_DIR = "TABLE_DIR = '{}' \n".format(PM['time_slice.0.IN1.INPUT_DIR'])
     INPUT_DIR = "INPUT_DIR = '{}' \n".format(PM['time_slice.0.IN1.INPUT_DIR'])
 
@@ -1827,6 +2054,25 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
             return [0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25]
         return list(range(min(count, target)))
 
+    def _weight(cstr, path: str, group: str) -> float:
+        original = float(cstr[f'{path}.weight'])
+        if original == 0.0:
+            return 0.0
+        return float(constraint_config.group_weights.get(group, original))
+
+    def _measurement_error(
+        cstr, path: str, fallback: float, *, unit_scale: float = 1.0
+    ) -> float:
+        if constraint_config.uncertainty_mode == "legacy_weight":
+            return float(fallback)
+        try:
+            value = abs(float(cstr[f'{path}.measured_error_upper']))
+        except Exception as exc:
+            raise ValueError(
+                f"standard_deviation mode requires {path}.measured_error_upper"
+            ) from exc
+        return value * unit_scale
+
     # find the maximum decimal places in the time
     #    for time_idx, _ in enumerate(time):
     #        if time_idx == 0:
@@ -1843,43 +2089,68 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         nfsum = _machine_count("nfsum", len(CSTR['pf_current']))
         pf_indices = _efit16_indices(len(CSTR['pf_current']), nfsum)
         nbcoil = len(pf_indices)
+        matrix = constraint_config.coil_constraint_matrix
+        if len(matrix) != nbcoil:
+            raise ValueError(
+                "coil_constraint_matrix row count must match the selected "
+                f"PF coil count ({len(matrix)} != {nbcoil})"
+            )
+        column_count = len(matrix[0])
         COILCURRENT = np.zeros(nbcoil)
         BITCURRENT = np.zeros(nbcoil)
         for i, source_index in enumerate(pf_indices):
             COILCURRENT[i] = CSTR[f'pf_current.{source_index}.measured']  # Coil current in A
-            BITCURRENT[i] = CSTR[f'pf_current.{source_index}.measured_error_upper']  # Standard deviation of coil current measurement data in A
+            BITCURRENT[i] = _measurement_error(
+                CSTR,
+                f'pf_current.{source_index}',
+                CSTR[f'pf_current.{source_index}.measured_error_upper'],
+            )
         BRSP = _namelist_array('BRSP', COILCURRENT, per_line=3)
         BITFC = _namelist_array('BITFC', BITCURRENT, per_line=3)
-        FWTFC = f'FWTFC= 16*{CSTR[f"pf_current.0.weight"]}\n'  # Fitting weight
+        pf_weight = _weight(CSTR, 'pf_current.0', 'pf_current')
+        FWTFC = f'FWTFC= {nbcoil}*{pf_weight}\n'
 
         ## (2) Wall eddy current
-        WALLCURRENT = PM[f'time_slice.{time_idx}.IN1.VCURRT']  # Wall current array in A
-        nbloop = len(WALLCURRENT)
+        WALLCURRENT = PM[f'time_slice.{time_idx}.IN1.VCURRT']
+        if constraint_config.wall_current_mode == "disabled":
+            WALLCURRENT = np.zeros(len(WALLCURRENT))
 
         VCURRT = _namelist_array('VCURRT', WALLCURRENT, per_line=4)
 
         ## (3) Toroidal magnetic field (TF coil)
-        RCENTR = 0.4
+        RCENTR = initialization.rzero
         BTOR = CSTR['b_field_tor_vacuum_r.measured'] / RCENTR
 
         ## (4) Plasma current with weight
-        PLASMA = f'PLASMA= {CSTR["ip.measured"]}'  # Plasma current in A
-        BITIP = f'BITIP= {CSTR["ip.weight"]/vbit*shft}'
-        FWTCUR = f'FWTCUR= {CSTR["ip.weight"]}'  # Fitting weight
+        plasma_weight = _weight(CSTR, 'ip', 'plasma_current')
+        PLASMA = f'PLASMA= {CSTR["ip.measured"]}'
+        BITIP = f'BITIP= {_measurement_error(CSTR, "ip", plasma_weight/vbit*shft)}'
+        FWTCUR = f'FWTCUR= {plasma_weight}'
 
         ## (5) Diamagnetic flux with weight
-        DFLUX = 'DFLUX= '
-        VAL = abs(CSTR['diamagnetic_flux.measured'] * 1000)  # diamagnetic flux in mWb
-#        VAL = -VAL  # diamagnetic flux is negative to positive
-        DFLUX = DFLUX + f'{VAL} \n'
+        flux_scale = (
+            1000.0
+            if constraint_config.diamagnetic_flux_input_units == "Wb"
+            else 1.0
+        )
+        VAL = float(CSTR['diamagnetic_flux.measured']) * flux_scale
+        if constraint_config.diamagnetic_flux_sign == "absolute":
+            VAL = abs(VAL)
+        elif constraint_config.diamagnetic_flux_sign == "negative":
+            VAL = -abs(VAL)
+        DFLUX = f'DFLUX= {VAL} \n'
 
         ## Original SIGDLC is written as the standard deviation but we use the fitting weight instead
-        SIGDLC = f'SIGDLC= {CSTR["diamagnetic_flux.weight"]*shft*1000.}'  # Fitting weights of diamagnetic flux measurement data in mWb
+        diamagnetic_weight = _weight(
+            CSTR, 'diamagnetic_flux', 'diamagnetic_flux'
+        )
+        SIGDLC = f'SIGDLC= {_measurement_error(CSTR, "diamagnetic_flux", diamagnetic_weight*shft*flux_scale, unit_scale=flux_scale)}'
         # SIGDLC=f'SIGDLC= {CSTR["diamagnetic_flux.measured_error_upper"]*1000}' # Standard deviation of diamagnetic flux measurement data in mWb
         # SIGDLC=f'SIGDLC= {VAL*CSTR["diamagnetic_flux.weight"]}' # set sigdlc as measured value * weight
 
         if (
-            CSTR['diamagnetic_flux.weight'] == 0
+            not constraint_config.use_diamagnetic_flux
+            or diamagnetic_weight == 0
         ):  # if the diamagnetic flux weight is 0, the diamagnetic flux is not considered as a constraint
             FWTDLC = 'FWTDLC= 0'
         else:
@@ -1891,16 +2162,28 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         fwtmp2_values = []
         bitmpi_values = []
         for i in range(nbprobe):
-            if CSTR[f'bpol_probe.{i}.weight'] == 0:  # if the probe is broken
+            weight = _weight(CSTR, f'bpol_probe.{i}', 'bpol_probe')
+            if weight == 0:  # if the probe is broken or the group is disabled
                 fwtmp2_values.append(0)
                 bitmpi_values.append(0.0)
             else:
-                poids = CSTR[f'bpol_probe.{i}.weight']
-                poids = poids / vbit * shft
                 fwtmp2_values.append(1)
-                bitmpi_values.append(poids)
+                bitmpi_values.append(
+                    _measurement_error(
+                        CSTR,
+                        f'bpol_probe.{i}',
+                        weight / vbit * shft,
+                    )
+                )
         FWTMP2 = _namelist_array('FWTMP2', fwtmp2_values, per_line=32)
-        BITMPI = _namelist_array('BITMPI', bitmpi_values, per_line=3, formatter=lambda value: f'{value:.3f}')
+        uncertainty_formatter = (
+            (lambda value: f'{value:.9g}')
+            if constraint_config.uncertainty_mode == 'standard_deviation'
+            else (lambda value: f'{value:.3f}')
+        )
+        BITMPI = _namelist_array(
+            'BITMPI', bitmpi_values, per_line=3, formatter=uncertainty_formatter
+        )
 
         ## (4) Flux loops
         nbfl = len(CSTR['flux_loop'])
@@ -1913,16 +2196,24 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         fwtsi_values = []
         psibit_values = []
         for i in range(nbfl):
-            if CSTR[f'flux_loop.{i}.weight'] == 0:  # if the flux loop is broken
+            weight = _weight(CSTR, f'flux_loop.{i}', 'flux_loop')
+            if weight == 0:  # if the flux loop is broken or the group is disabled
                 fwtsi_values.append(0)
                 psibit_values.append(0.0)
             else:
-                poids = CSTR[f'flux_loop.{i}.weight']
-                poids = poids / vbit * shft
                 fwtsi_values.append(1)
-                psibit_values.append(poids)
+                psibit_values.append(
+                    _measurement_error(
+                        CSTR,
+                        f'flux_loop.{i}',
+                        weight / vbit * shft,
+                        unit_scale=1.0 / (2.0 * np.pi),
+                    )
+                )
         FWTSI = _namelist_array('FWTSI', fwtsi_values, per_line=32)
-        PSIBIT = _namelist_array('PSIBIT', psibit_values, per_line=3, formatter=lambda value: f'{value:.3f}')
+        PSIBIT = _namelist_array(
+            'PSIBIT', psibit_values, per_line=3, formatter=uncertainty_formatter
+        )
 
         TTIME = str(int(np.round(time[time_idx], 4) * 1e6))
         #        print('TTIME=',TTIME)
@@ -1946,30 +2237,33 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         f = open(fullfile, 'w')
         f.write(' &IN1\n')  # the main namelist in the kfile
         f.write(' IOUT=4\n')  # write one measurement file for each slice in m0sssss.ttttt
-        f.write(' AELIP = 0.3\n')  # Minor radius in meters of ellipse for current initialization
-        f.write(
-            ' CUTIP = 5000.0\n'
-        )  # If Ip is less than CUTIP = 5 kA, the plasma is not initialized and conduct only the vacuum calculation
-        f.write(' EELIP = 1.6\n')  # Initial elongation of the plasma
-        f.write(
-            ' FCURBD = 1\n'
-        )  # FF' Boundary condition (1 means force FF'=0 at the boundary, if 0, FF' have a finite value at the boundary - H-mode)
+        f.write(f' AELIP = {initialization.minor_radius}\n')
+        f.write(f' CUTIP = {initialization.current_threshold}\n')
+        f.write(f' EELIP = {initialization.elongation}\n')
+        f.write(f' ZELIP = {initialization.zzero}\n')
+        f.write(f' FCURBD = {profile.fcurbd}\n')
         f.write(' IECURR = 0\n')  # 0 means that the Ohmic coil flag is ignored (Not classify 5
-        f.write(' IFITVS = 0\n')
+        passive_flags = {
+            'fixed_currents': (1, 0),
+            'fit_currents': (1, 1),
+            'disabled': (0, 0),
+        }
+        ivesel, ifitvs = passive_flags[constraint_config.passive_structure_mode]
+        f.write(f' IFITVS = {ifitvs}\n')
         # f.write(' ERRMIN = 1.0e-3\n') # Minimum relative error for the fitting (Default is 1.0e-2 - fitted < 1 min, if 1.0e-3 - fitted < 3 min)
         # f.write(' SAICON = 60.0\n') # Minimum chi2 error for the fitting (Default is 80.0)
         f.write(INPUT_DIR)
-        f.write(' IVESEL = 1\n')
+        f.write(f' IVESEL = {ivesel}\n')
         f.write(' KCALPA = 0\n')
         f.write(' KCGAMA = 0\n')
-        f.write(f' KFFCUR = {nffprime}\n')
-        f.write(' KFFFNC = 0\n')
-        f.write(f' KPPCUR = {npprime}\n')
-        f.write(' KPPFNC = 0\n')
-        f.write(' PCURBD = 1\n')
-        f.write(' RELIP = 0.4\n')
-        f.write(' RZERO = 0.4\n')
-        f.write(' SERROR = 0.0005\n')
+        f.write(f' KFFCUR = {profile.kffcur}\n')
+        f.write(f' KFFFNC = {profile.kfffnc}\n')
+        f.write(f' KPPCUR = {profile.kppcur}\n')
+        f.write(f' KPPFNC = {profile.kppfnc}\n')
+        f.write(f' PCURBD = {profile.pcurbd}\n')
+        f.write(f' RELIP = {initialization.rzero}\n')
+        f.write(f' RZERO = {initialization.rzero}\n')
+        f.write(f' SERROR = {numerics.measurement_error_floor}\n')
         f.write(TABLE_DIR)
         f.write(VCURRT)
         f.write('\n')
@@ -2008,30 +2302,27 @@ def generate_kfile(ods, shotnumber, npprime, nffprime, save_dir='./tmp'):
         f.write('\n')
         f.write(f' BTOR = {BTOR}\n')
 
-        f.write(' RELAX = 1.\n')  # No relaxation
-        # f.write(' RELAX = 0.8\n') # Relaxation (It says it can help the convergence in document, but it seems to not work well, even worse)
-        # f.write(' RELAX = 0.5\n') # Backaveraging (It says it can help the convergence in document, but it seems to not work well, even worse)
-
-        f.write(' ERROR = 1e-05\n')
-        f.write(' MXITER = -100\n')
+        f.write(f' RELAX = {numerics.relaxation}\n')
+        f.write(f' ERROR = {numerics.error_tolerance}\n')
+        f.write(f' MXITER = {-int(numerics.max_iterations)}\n')
         f.write(' NBDRY = 0\n')
         f.write(' /\n')
         f.write(' &INWANT\n')
-        f.write(' CCOILS(1,1) = 1.0 -1.0 14*0.0\n')
-        f.write(' CCOILS(1,2) = 1.0 0.0 -1.0 13*0.0\n')
-        f.write(' CCOILS(1,3) = 1.0 2*0.0 -1.0 12*0.0\n')
-        f.write(' CCOILS(1,4) = 1.0 3*0.0 -1.0 11*0.0\n')
-        f.write(' CCOILS(1,5) = 1.0 4*0.0 -1.0 10*0.0\n')
-        f.write(' CCOILS(1,6) = 1.0 5*0.0 -1.0 9*0.0\n')
-        f.write(' CCOILS(1,7) = 1.0 6*0.0 -1.0 8*0.0\n')
-        f.write(' CCOILS(1,8) = 8*0.0 1.0 -1.0 6*0.0\n')
-        f.write(' CCOILS(1,9) = 10*0.0 1.0 -1.0 4*0.0\n')
-        f.write(' CCOILS(1,10) = 12*0.0 1.0 -1.0 2*0.0\n')
-        f.write(' CCOILS(1,11) = 14*0.0 1.0 -1.0\n')
-        f.write(' CCOILS(1,12) = 13*0.0 1.0 -1.0 0.0\n')
-        f.write(' KCCOILS = 12\n')
-        f.write(' NCCOIL = 0\n')
-        f.write(' XCOILS = 12*0.0\n')
+        for column in range(column_count):
+            f.write(
+                _namelist_array(
+                    f'CCOILS(1,{column + 1})',
+                    [matrix[row][column] for row in range(nbcoil)],
+                    per_line=8,
+                )
+            )
+        f.write(f' KCCOILS = {column_count}\n')
+        f.write(f' NCCOIL = {constraint_config.nccoil}\n')
+        f.write(
+            _namelist_array(
+                'XCOILS', constraint_config.coil_constraint_targets, per_line=8
+            )
+        )
         f.write(' /\n')
         f.write('                                            MAG\n')
         f.close()
