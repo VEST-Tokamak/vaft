@@ -3,12 +3,15 @@ import subprocess
 
 import numpy as np
 
-from vaft.code.efit import EFITConfig, EFITInputs, collect_efit_outputs, run_efit
-from vaft.code.efit_status import (
+from vaft.code.efit import (
     EFIT_FAILURE_CODES,
+    EFITConfig,
+    EFITInputs,
     EFITSliceStatus,
     EFITValidationConfig,
     apply_temporal_continuity,
+    collect_efit_outputs,
+    run_efit,
     validate_efit_slice,
 )
 from vaft.data.resources import data_path

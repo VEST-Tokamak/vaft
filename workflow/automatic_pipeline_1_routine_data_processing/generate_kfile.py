@@ -10,8 +10,7 @@ from pathlib import Path
 
 from omas import load_omas_json
 
-from vaft.code.efit import generate_kfile
-from vaft.code.efit_config import EFITScientificConfig
+from vaft.code.efit import EFITScientificConfig, generate_kfile
 
 
 LOGGER = logging.getLogger("vaft.generate_kfile")

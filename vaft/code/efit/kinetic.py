@@ -43,10 +43,12 @@ Design rules honoured here:
   strict) on :func:`kinetic_pressure_points`,
   :func:`build_kinetic_core_profiles` and :class:`KineticEFITConfig`.
 
-Heavy / cyclic dependencies (omas, vaft.process.profile, vaft.code.efit,
-vaft.code.chease) are imported lazily inside the functions that need them. The
-public symbols are re-exported by :mod:`vaft.code.efit`; this private module is
-not a sibling external-code adapter.
+Heavy dependencies (omas, vaft.process.profile, vaft.code.chease) are imported
+lazily inside the functions that need them. ``vaft.code.efit.magnetic`` and
+``vaft.code.efit.kfile`` are imported at module top since this module is a
+sibling inside the ``vaft.code.efit`` package (no circular import). The public
+symbols are re-exported by :mod:`vaft.code.efit`; this module is not a sibling
+external-code adapter in its own right.
 """
 
 from __future__ import annotations
@@ -58,6 +60,17 @@ from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence
 
 import numpy as np
+
+from .magnetic import (
+    EFITConfig,
+    EFITInputs,
+    run_efit,
+    find_efit_executable as _magnetic_find_efit_executable,
+    _infer_shot,
+    _find_outputs,
+    _efit_unconfigured_reason,
+)
+from .kfile import generate_kfile
 
 # --------------------------------------------------------------------------- #
 # Physical / formatting constants (lifted from the ids_test scripts)
@@ -672,10 +685,8 @@ def scale_plasma(kfile_text: str, scale: float) -> str:
 
 def _resolve_efit_executable(config: KineticEFITConfig) -> Optional[Path]:
     """Resolve EFIT through the canonical adapter configuration."""
-    from vaft.code import efit as _efit
-
-    return _efit.find_efit_executable(
-        _efit.EFITConfig(
+    return _magnetic_find_efit_executable(
+        EFITConfig(
             executable=config.executable,
             workdir=config.workdir,
             shot=config.shot,
@@ -859,14 +870,12 @@ def prepare_kinetic_efit_inputs(
     the pressure points are built with :func:`kinetic_pressure_points` for the
     encoding in ``config``.
     """
-    from vaft.code import efit as _efit
-
     workdir = Path(config.workdir).expanduser()
     workdir.mkdir(parents=True, exist_ok=True)
 
     shot = config.shot
     if shot is None:
-        shot = _efit._infer_shot(ods, None)
+        shot = _infer_shot(ods, None)
 
     if config.time_ms is None:
         raise ValueError("KineticEFITConfig.time_ms is required to build pressure points")
@@ -878,9 +887,9 @@ def prepare_kinetic_efit_inputs(
         base_text = base_kfile.read_text()
         kfiles = (base_kfile,)
     else:
-        # Base magnetic kfile via efit.generate_kfile (needs magnetics in the ODS).
-        _efit.generate_kfile(ods, shot, 2, 2, save_dir=str(workdir))
-        kfiles = _efit._find_outputs(workdir, "k", shot)
+        # Base magnetic kfile via generate_kfile (needs magnetics in the ODS).
+        generate_kfile(ods, shot, 2, 2, save_dir=str(workdir))
+        kfiles = _find_outputs(workdir, "k", shot)
         base_kfile = _select_kfile(kfiles, config.time_ms)
         base_text = Path(base_kfile).read_text() if base_kfile is not None else ""
 
@@ -916,8 +925,6 @@ def run_kinetic_efit(
     ``config.executable`` None) a ``status='skipped'`` result is returned instead
     of raising.
     """
-    from vaft.code import efit as _efit
-
     workdir = Path(config.workdir).expanduser()
     workdir.mkdir(parents=True, exist_ok=True)
 
@@ -927,7 +934,7 @@ def run_kinetic_efit(
             returncode=None,
             workdir=workdir,
             status="skipped",
-            reason=_efit._efit_unconfigured_reason(),
+            reason=_efit_unconfigured_reason(),
         )
 
     if not inputs.base_kfile_text:
@@ -964,7 +971,7 @@ def run_kinetic_efit(
         kpath = scale_dir / kname
         kpath.write_text(patched)
 
-        efit_config = _efit.EFITConfig(
+        efit_config = EFITConfig(
             executable=str(exe),
             workdir=scale_dir,
             shot=config.shot,
@@ -972,10 +979,10 @@ def run_kinetic_efit(
             env=config.env,
             timeout=config.timeout,
         )
-        efit_inputs = _efit.EFITInputs(
+        efit_inputs = EFITInputs(
             workdir=scale_dir, kfiles=(kpath,), files=(kpath,)
         )
-        efit_result = _efit.run_efit(efit_inputs, efit_config)
+        efit_result = run_efit(efit_inputs, efit_config)
         last = efit_result
 
         if efit_result.gfiles:
