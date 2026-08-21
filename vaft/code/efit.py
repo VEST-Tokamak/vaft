@@ -9,6 +9,7 @@ import re
 import subprocess
 import statistics
 import math
+from numbers import Integral
 from scipy.signal import savgol_filter
 from scipy import interpolate,optimize
 from omas import *
@@ -63,6 +64,11 @@ class EFITConfig:
     provenance: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        for name in ("npprime", "nffprime"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+            object.__setattr__(self, name, int(value))
         if self.profile is not None:
             if self.npprime not in (2, self.profile.kppcur):
                 raise ValueError(
@@ -1966,8 +1972,8 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
 def generate_kfile(
     ods,
     shotnumber,
-    npprime=2,
-    nffprime=2,
+    npprime=None,
+    nffprime=None,
     save_dir='./tmp',
     *,
     config: EFITConfig | EFITScientificConfig | None = None,
@@ -1981,13 +1987,34 @@ def generate_kfile(
     explicit and serializable.
     """
 
+    for name, value in (("npprime", npprime), ("nffprime", nffprime)):
+        if value is not None and (
+            isinstance(value, bool)
+            or not isinstance(value, Integral)
+            or value <= 0
+        ):
+            raise ValueError(f"{name} must be a positive integer")
+
     if isinstance(config, EFITConfig):
         scientific = config.scientific_config()
     elif isinstance(config, EFITScientificConfig):
         scientific = config
+        if npprime is not None and npprime != scientific.profile.kppcur:
+            raise ValueError(
+                "npprime conflicts with config.profile.kppcur; omit the legacy "
+                "argument or make the values equal"
+            )
+        if nffprime is not None and nffprime != scientific.profile.kffcur:
+            raise ValueError(
+                "nffprime conflicts with config.profile.kffcur; omit the legacy "
+                "argument or make the values equal"
+            )
     elif config is None:
         scientific = EFITScientificConfig(
-            profile=EFITProfileConfig(kppcur=npprime, kffcur=nffprime)
+            profile=EFITProfileConfig(
+                kppcur=2 if npprime is None else npprime,
+                kffcur=2 if nffprime is None else nffprime,
+            )
         )
     else:
         raise TypeError("config must be EFITConfig, EFITScientificConfig, or None")

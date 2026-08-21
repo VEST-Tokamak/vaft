@@ -29,8 +29,16 @@ def main() -> int:
     parser.add_argument(
         "--output", required=True, type=Path, help="Manifest file to write."
     )
-    parser.add_argument("--npprime", default=2, type=int, help="EFIT KPPCUR value.")
-    parser.add_argument("--nffprime", default=2, type=int, help="EFIT KFFCUR value.")
+    parser.add_argument(
+        "--npprime",
+        type=int,
+        help="EFIT KPPCUR override; defaults to 2 without --config.",
+    )
+    parser.add_argument(
+        "--nffprime",
+        type=int,
+        help="EFIT KFFCUR override; defaults to 2 without --config.",
+    )
     parser.add_argument(
         "--config",
         type=Path,

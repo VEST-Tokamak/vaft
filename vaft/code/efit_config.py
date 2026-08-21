@@ -12,6 +12,7 @@ import hashlib
 from itertools import product
 import json
 import math
+from numbers import Integral
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
@@ -62,15 +63,23 @@ class EFITProfileConfig:
     def __post_init__(self) -> None:
         for name in ("kppcur", "kffcur"):
             value = getattr(self, name)
-            if isinstance(value, bool) or int(value) != value or value <= 0:
+            if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
+            object.__setattr__(self, name, int(value))
         for name in ("kppfnc", "kfffnc"):
             value = getattr(self, name)
-            if isinstance(value, bool) or int(value) != value or value < 0:
+            if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
+            object.__setattr__(self, name, int(value))
         for name in ("pcurbd", "fcurbd"):
-            if getattr(self, name) not in (0, 1):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, Integral)
+                or value not in (0, 1)
+            ):
                 raise ValueError(f"{name} must be 0 or 1")
+            object.__setattr__(self, name, int(value))
 
 
 @dataclass(frozen=True)
@@ -110,10 +119,11 @@ class EFITNumericsConfig:
         )
         if (
             isinstance(self.max_iterations, bool)
-            or int(self.max_iterations) != self.max_iterations
+            or not isinstance(self.max_iterations, Integral)
             or self.max_iterations <= 0
         ):
             raise ValueError("max_iterations must be a positive integer")
+        object.__setattr__(self, "max_iterations", int(self.max_iterations))
 
 
 @dataclass(frozen=True)
@@ -194,10 +204,11 @@ class EFITConstraintConfig:
             raise ValueError("coil_constraint_targets values must be finite")
         if (
             isinstance(self.nccoil, bool)
-            or int(self.nccoil) != self.nccoil
+            or not isinstance(self.nccoil, Integral)
             or self.nccoil < 0
         ):
             raise ValueError("nccoil must be a non-negative integer")
+        object.__setattr__(self, "nccoil", int(self.nccoil))
         object.__setattr__(
             self, "group_weights", MappingProxyType(dict(self.group_weights))
         )

@@ -93,6 +93,38 @@ def test_legacy_profile_order_arguments_remain_supported(tmp_path):
     assert " KFFCUR = 4" in text
 
 
+def test_scientific_config_rejects_conflicting_legacy_profile_orders(tmp_path):
+    ods = _constraints_ods(tmp_path)
+    scientific = EFITScientificConfig(profile=EFITProfileConfig(kppcur=3))
+
+    with pytest.raises(ValueError, match="npprime conflicts"):
+        generate_kfile(
+            ods,
+            39915,
+            npprime=4,
+            save_dir=str(tmp_path),
+            config=scientific,
+        )
+
+
+def test_scientific_config_accepts_matching_legacy_profile_orders(tmp_path):
+    ods = _constraints_ods(tmp_path)
+    scientific = EFITScientificConfig(profile=EFITProfileConfig(kppcur=3, kffcur=4))
+
+    generate_kfile(
+        ods,
+        39915,
+        npprime=3,
+        nffprime=4,
+        save_dir=str(tmp_path),
+        config=scientific,
+    )
+    text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
+
+    assert " KPPCUR = 3" in text
+    assert " KFFCUR = 4" in text
+
+
 def test_typed_settings_reach_their_namelist_fields(tmp_path):
     profile = EFITProfileConfig(
         kppcur=3, kffcur=4, kppfnc=1, kfffnc=2, pcurbd=0, fcurbd=0
@@ -218,13 +250,28 @@ def test_scientific_configuration_round_trips_through_json():
     assert restored.sha256 == original.sha256
 
 
+def test_integral_scalar_types_are_canonicalized_before_hashing():
+    numpy_config = EFITScientificConfig(
+        profile=EFITProfileConfig(kppcur=np.int64(2)),
+        numerics=EFITNumericsConfig(max_iterations=np.int64(100)),
+        constraints=EFITConstraintConfig(nccoil=np.int64(0)),
+    )
+
+    assert numpy_config.to_dict() == EFITScientificConfig().to_dict()
+    assert numpy_config.sha256 == EFITScientificConfig().sha256
+
+
 @pytest.mark.parametrize(
     "factory, message",
     [
         (lambda: EFITProfileConfig(kppcur=-1), "kppcur"),
+        (lambda: EFITProfileConfig(kppcur=2.0), "kppcur"),
+        (lambda: EFITProfileConfig(kppfnc=0.0), "kppfnc"),
+        (lambda: EFITProfileConfig(pcurbd=1.0), "pcurbd"),
         (lambda: EFITProfileConfig(pcurbd=2), "pcurbd"),
         (lambda: EFITInitializationConfig(minor_radius=0), "minor_radius"),
         (lambda: EFITNumericsConfig(error_tolerance=0), "error_tolerance"),
+        (lambda: EFITNumericsConfig(max_iterations=100.0), "max_iterations"),
         (
             lambda: EFITConstraintConfig(diamagnetic_flux_sign="legacy"),
             "diamagnetic_flux_sign",
@@ -233,6 +280,7 @@ def test_scientific_configuration_round_trips_through_json():
             lambda: EFITConstraintConfig(group_weights={"unknown": 1.0}),
             "unknown EFIT diagnostic",
         ),
+        (lambda: EFITConstraintConfig(nccoil=0.0), "nccoil"),
         (
             lambda: EFITConstraintConfig(
                 coil_constraint_matrix=((1.0, 0.0),),
@@ -250,6 +298,9 @@ def test_invalid_scientific_configuration_fails_before_execution(factory, messag
 def test_legacy_and_typed_profile_conflicts_fail_early():
     with pytest.raises(ValueError, match="npprime conflicts"):
         EFITConfig(npprime=4, profile=EFITProfileConfig(kppcur=3))
+
+    with pytest.raises(ValueError, match="npprime must be a positive integer"):
+        EFITConfig(npprime=2.0)
 
 
 def test_custom_coil_matrix_is_validated_against_selected_machine_coils(tmp_path):
