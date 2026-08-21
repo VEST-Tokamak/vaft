@@ -1,6 +1,42 @@
 """Canonical and compatibility machine_mapping namespace for VEST."""
 
+import warnings
 from importlib import import_module
+
+
+_LEGACY_REPLACEMENTS = {
+    "VEST_DiamagneticFlux": "vest_diamagnetic_flux",
+    "vfit_barometry_dynamic": None,
+    "vfit_barometry_static": None,
+    "vfit_charge_exchange": "charge_exchange",
+    "vfit_dataset_description": None,
+    "vfit_filterscope": "spectrometer_uv",
+    "vfit_ion_doppler_spectroscophy": "charge_exchange",
+    "vfit_magnetics_dynamic": None,
+    "vfit_magnetics_for_shot": "magnetics",
+    "vfit_magnetics_static": None,
+    "vfit_mirnov_raw_dynamic": None,
+    "vfit_pf_active_dynamic": None,
+    "vfit_pf_active_for_shot": "pf_active",
+    "vfit_pf_active_static": None,
+    "vfit_soft_x_rays_dynamic": None,
+    "vfit_soft_x_rays_static": None,
+    "vfit_tf_dynamic": None,
+    "vfit_tf_static": None,
+    "vfit_thomson_scattering_dynamic": None,
+    "vfit_thomson_scattering_static": None,
+    # These remain supported VEST source-policy functions while their canonical
+    # physical-data replacements are designed in later #103 phases.
+    "vfit_md": None,
+    "vfit_PlasmaCurrent": None,
+    "vfit_plasma_current": None,
+    "vfit_pf": None,
+    "vfit_plasmaMGods_startend": None,
+    "vfit_plasma_mgods_startend": None,
+    "vfit_tf_btR": None,
+    "vfit_tf_bt_r": None,
+    "vfit_tf_current": None,
+}
 
 __all__ = [
     "DEFAULT_CONSTRAINT_UNCERTAINTIES",
@@ -33,7 +69,6 @@ __all__ = [
     "pf_active_from_raw_database",
     "pf_geometry_version_for_shot",
     "pf_passive",
-    "pf_plasma",
     "read_doppler_profile",
     "read_doppler_single",
     "resolve_geometry_asset",
@@ -112,7 +147,6 @@ _EXPORT_MAP = {
     "pf_geometry_version_for_shot": (".pf_active", "pf_geometry_version_for_shot"),
     "raw_database_info": (".utils", "raw_database_info"),
     "pf_passive": (".pf_passive", "pf_passive"),
-    "pf_plasma": (".pf_plasma", "pf_plasma"),
     "read_doppler_profile": (".charge_exchange", "read_doppler_profile"),
     "read_doppler_single": (".charge_exchange", "read_doppler_single"),
     "resolve_geometry_asset": (".pf_active", "resolve_geometry_asset"),
@@ -158,11 +192,30 @@ _EXPORT_MAP = {
     "vfit_thomson_scattering_static": (".thomson_scattering", "vfit_thomson_scattering_static"),
 }
 
+_LEGACY_EXPORT_MAP = {
+    name: _EXPORT_MAP.pop(name) for name in _LEGACY_REPLACEMENTS
+}
+__all__ = [name for name in __all__ if name in _EXPORT_MAP]
+
 
 def __getattr__(name: str):
-    if name not in _EXPORT_MAP:
+    if name in _EXPORT_MAP:
+        module_name, attribute = _EXPORT_MAP[name]
+    elif name in _LEGACY_EXPORT_MAP:
+        replacement = _LEGACY_REPLACEMENTS[name]
+        guidance = (
+            f" use vaft.machine_mapping.{replacement}() instead."
+            if replacement is not None
+            else " import it from its diagnostic module while migration is in progress."
+        )
+        warnings.warn(
+            f"vaft.machine_mapping.{name} is a legacy compatibility API;{guidance}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        module_name, attribute = _LEGACY_EXPORT_MAP[name]
+    else:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_name, attribute = _EXPORT_MAP[name]
     module = import_module(module_name, __name__)
     value = getattr(module, attribute)
     globals()[name] = value
