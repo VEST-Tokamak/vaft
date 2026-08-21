@@ -15,7 +15,7 @@ from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
 from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_md_signals
-from vaft.process.signal_processing import smooth, vfit_signal_start_end
+from vaft.process.signal_processing import detect_active_window, smooth
 
 from .utils import get_path, path_exists, resolve_data_root, set_path
 
@@ -545,7 +545,9 @@ def _plasma_window(
         minimum = float(np.min(window)) if window.size > 0 else -1.0
         if minimum != 0.0:
             normalized = h_data / minimum
-            tstart2, tend2 = vfit_signal_start_end(h_time[index_a:index_b], normalized[index_a:index_b])
+            tstart2, tend2 = detect_active_window(
+                h_time[index_a:index_b], normalized[index_a:index_b]
+            )
         else:
             tstart2, tend2 = vfit_plasma_mgods_startend(ods)
     else:
