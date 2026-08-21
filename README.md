@@ -134,6 +134,21 @@ time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
 
+### EFIT slice status
+
+`vaft.code.run_efit()` preserves its backward-compatible process-level
+`result.ok` property. Use `result.usable` and `result.slice_statuses` when the
+scientific usability of the generated equilibria matters:
+
+```python
+for status in result.slice_statuses:
+    print(status.time, status.overall_status, status.failure_codes)
+```
+
+Each slice reports runtime, output, numerical, and physical status separately.
+The stable failure taxonomy is available as `vaft.code.EFIT_FAILURE_CODES`, and
+each status round-trips through JSON with `to_dict()` and `from_dict()`.
+
 `load` is the eager path for complete ODS exports and workflows that need a
 local IMAS staging set. Without `paths` it stages the complete shot; with
 `paths=["equilibrium"]` it stages only that IDS plus `dataset_description` and

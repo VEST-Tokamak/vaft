@@ -15,6 +15,12 @@ from typing import Any, Mapping, Optional, Sequence
 from vaft.machine_mapping.utils import path_exists
 
 from ._executables import executable_from_home, missing_home_message
+from .efit_status import (
+    EFITSliceStatus,
+    EFITValidationConfig,
+    apply_temporal_continuity,
+    validate_efit_slice,
+)
 
 
 # Canonical EFIT installation root and its historical executable-oriented name.
@@ -70,10 +76,16 @@ class EFITResult:
     ods: Any = None
     status: str = "completed"
     reason: str = ""
+    slice_statuses: tuple[EFITSliceStatus, ...] = ()
 
     @property
     def ok(self) -> bool:
         return self.status == "completed" and self.returncode == 0
+
+    @property
+    def usable(self) -> bool:
+        """Whether at least one collected slice is scientifically usable."""
+        return any(status.usable for status in self.slice_statuses)
 
 
 def _efit_workdir(config: EFITConfig | None = None, workdir: str | Path | None = None) -> Path:
@@ -223,76 +235,281 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     workdir = _efit_workdir(config, inputs.workdir)
     executable = _resolve_efit_executable(config)
     if executable is None:
-        return EFITResult(
-            returncode=None,
-            workdir=workdir,
-            status="skipped",
+        return _skipped_efit_result(
+            inputs,
+            config,
             reason=_efit_unconfigured_reason(),
         )
     if not (executable.exists() and os.access(executable, os.X_OK)):
-        return EFITResult(
-            returncode=None,
-            workdir=workdir,
-            status="skipped",
-            reason=f"missing executable: {executable}",
+        reason = f"missing executable: {executable}"
+        return _skipped_efit_result(
+            inputs,
+            config,
+            reason=reason,
+            executable=executable,
         )
     command = _efit_command(config, executable)
     stdin_text = _efit_stdin(workdir, inputs.kfiles)
     env = os.environ.copy()
     env.update(dict(config.env))
     env.setdefault("OMP_NUM_THREADS", "1")
-    completed = subprocess.run(
-        command,
-        cwd=str(workdir),
-        env=env,
-        input=stdin_text,
-        text=True,
-        capture_output=True,
-        timeout=config.timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(workdir),
+            env=env,
+            input=stdin_text,
+            text=True,
+            capture_output=True,
+            timeout=config.timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        stdout = error.stdout or ""
+        stderr = error.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        (workdir / "run_efit.out").write_text(stdout, encoding="utf-8")
+        (workdir / "run_efit.err").write_text(stderr, encoding="utf-8")
+        result = collect_efit_outputs(
+            workdir,
+            config,
+            runtime_status="timeout",
+            runtime_reason=f"EFIT timed out after {config.timeout} seconds",
+            executable=executable,
+            expected_kfiles=inputs.kfiles,
+        )
+        result.status = "failed"
+        result.reason = f"EFIT timed out after {config.timeout} seconds"
+        result.stdout = stdout
+        result.stderr = stderr
+        return result
+    except OSError as error:
+        result = collect_efit_outputs(
+            workdir,
+            config,
+            runtime_status="runtime_error",
+            runtime_reason=str(error),
+            executable=executable,
+            expected_kfiles=inputs.kfiles,
+        )
+        result.status = "failed"
+        result.reason = str(error)
+        result.stderr = str(error)
+        return result
     (workdir / "run_efit.out").write_text(completed.stdout, encoding="utf-8")
     (workdir / "run_efit.err").write_text(completed.stderr, encoding="utf-8")
-    result = collect_efit_outputs(workdir, config)
-    result.returncode = completed.returncode
+    result = collect_efit_outputs(
+        workdir,
+        config,
+        returncode=completed.returncode,
+        runtime_status="completed",
+        executable=executable,
+        expected_kfiles=inputs.kfiles,
+    )
     result.status = "completed" if completed.returncode == 0 else "failed"
     result.stdout = completed.stdout
     result.stderr = completed.stderr
     return result
 
 
-def collect_efit_outputs(workdir: str | Path, config: EFITConfig | None = None) -> EFITResult:
-    """Collect EFIT files from a working directory and parse g-files when possible."""
+def _efit_case_key(path: Path) -> str:
+    """Return the common shot/time portion of a k-, g-, a-, or m-file name."""
+    name = (
+        path.name[1:]
+        if path.name[:1].lower() in {"k", "g", "a", "m"}
+        else path.name
+    )
+    try:
+        shot, suffix = name.rsplit(".", 1)
+        return f"{shot}.{int(suffix)}"
+    except (ValueError, TypeError):
+        return name
+
+
+def _efit_case_time(case: str) -> float:
+    """Decode the conventional millisecond suffix used by VEST EFIT files."""
+    try:
+        return int(case.rsplit(".", 1)[1]) / 1000.0
+    except (IndexError, ValueError):
+        return float("nan")
+
+
+def _skipped_efit_result(
+    inputs: EFITInputs,
+    config: EFITConfig,
+    *,
+    reason: str,
+    executable: str | Path | None = None,
+) -> EFITResult:
+    """Build skipped slice statuses without collecting stale workdir outputs."""
+    kfiles_by_time = {
+        _efit_case_time(_efit_case_key(Path(path))): Path(path)
+        for path in inputs.kfiles
+    }
+    times = set(kfiles_by_time)
+    if config.times is not None:
+        times.update(round(float(value) * 1000) / 1000 for value in config.times)
+    statuses = tuple(
+        validate_efit_slice(
+            shot=int(config.shot or 0),
+            time=time_value,
+            runtime_status="runtime_error",
+            returncode=None,
+            kfile=kfiles_by_time.get(time_value),
+            gfile=None,
+            provenance={
+                "runtime_reason": reason,
+                "executable": str(executable) if executable is not None else None,
+                "attempt_logs": [],
+            },
+        )
+        for time_value in sorted(times)
+    )
+    return EFITResult(
+        returncode=None,
+        workdir=Path(inputs.workdir),
+        kfiles=tuple(Path(path) for path in inputs.kfiles),
+        status="skipped",
+        reason=reason,
+        slice_statuses=statuses,
+    )
+
+
+def collect_efit_outputs(
+    workdir: str | Path,
+    config: EFITConfig | None = None,
+    *,
+    returncode: int | None = None,
+    runtime_status: str = "collected",
+    runtime_reason: str = "",
+    executable: str | Path | None = None,
+    expected_kfiles: Sequence[str | Path] = (),
+    validation_config: EFITValidationConfig | None = None,
+) -> EFITResult:
+    """Collect EFIT files and assign independent status to every attempted slice."""
     base = _efit_workdir(config, workdir)
     shot = config.shot if config is not None else None
     gfiles = _find_outputs(base, "g", shot)
     afiles = _find_outputs(base, "a", shot)
     mfiles = _find_outputs(base, "m", shot)
-    kfiles = _find_outputs(base, "k", shot)
-    logs = tuple(sorted(path for path in base.rglob("*.log") if path.is_file())) if base.exists() else ()
+    kfiles = tuple(
+        sorted(
+            set(_find_outputs(base, "k", shot))
+            | {Path(path) for path in expected_kfiles}
+        )
+    )
+    logs = (
+        tuple(
+            sorted(
+                path
+                for path in base.rglob("*")
+                if path.is_file()
+                and (
+                    path.suffix == ".log"
+                    or path.name in {"run_efit.out", "run_efit.err"}
+                )
+            )
+        )
+        if base.exists()
+        else ()
+    )
 
-    parsed = []
-    parse_errors = []
+    parsed_by_case = {}
+    parse_error_by_case = {}
     for gfile in gfiles:
+        case = _efit_case_key(gfile)
         try:
             from vaft.data.eqdsk import read_geqdsk
 
-            parsed.append(read_geqdsk(gfile))
+            parsed_by_case[case] = read_geqdsk(gfile)
         except Exception as exc:
-            parse_errors.append(f"{gfile}: {exc}")
+            parse_error_by_case[case] = f"{gfile}: {exc}"
             continue
 
+    parsed_cases = sorted(parsed_by_case, key=_efit_case_time)
+    parsed = [parsed_by_case[case] for case in parsed_cases]
+    parse_errors = list(parse_error_by_case.values())
     ods = None
+    conversion_error = None
     if parsed:
         try:
             for idx, item in enumerate(parsed):
                 ods = item.to_omas(ods=ods, time_index=idx)
+            times = np.asarray([_efit_case_time(case) for case in parsed_cases])
+            ods["equilibrium.time"] = times
+            for idx, time_value in enumerate(times):
+                ods[f"equilibrium.time_slice.{idx}.time"] = time_value
         except Exception as exc:
-            parse_errors.append(f"to_omas: {exc}")
+            conversion_error = f"to_omas: {exc}"
+            parse_errors.append(conversion_error)
             ods = None
 
+    file_maps = {
+        "kfile": {_efit_case_key(path): path for path in kfiles},
+        "gfile": {_efit_case_key(path): path for path in gfiles},
+        "afile": {_efit_case_key(path): path for path in afiles},
+        "mfile": {_efit_case_key(path): path for path in mfiles},
+    }
+    cases = sorted(
+        set().union(*(mapping.keys() for mapping in file_maps.values())),
+        key=_efit_case_time,
+    )
+    if config is not None and config.shot is not None and config.times is not None:
+        configured_cases = {
+            f"0{int(config.shot)}.{int(round(float(time_value) * 1000))}"
+            for time_value in config.times
+        }
+        cases = sorted(set(cases) | configured_cases, key=_efit_case_time)
+    status_shot = int(shot) if shot is not None else 0
+    statuses = []
+    for case in cases:
+        statuses.append(
+            validate_efit_slice(
+                shot=status_shot,
+                time=_efit_case_time(case),
+                runtime_status=runtime_status,
+                returncode=returncode,
+                kfile=file_maps["kfile"].get(case),
+                gfile=file_maps["gfile"].get(case),
+                afile=file_maps["afile"].get(case),
+                mfile=file_maps["mfile"].get(case),
+                geqdsk=parsed_by_case.get(case),
+                parse_error=(
+                    parse_error_by_case.get(case)
+                    or (conversion_error if case in parsed_by_case else None)
+                ),
+                provenance={
+                    "case": case,
+                    "runtime_reason": runtime_reason,
+                    "attempt_logs": [str(path) for path in logs],
+                    "executable": (
+                        str(executable or config.executable)
+                        if executable is not None
+                        or (config is not None and config.executable)
+                        else None
+                    ),
+                    "configuration": (
+                        {
+                            "npprime": config.npprime,
+                            "nffprime": config.nffprime,
+                            "args": [str(value) for value in config.args],
+                            "timeout": config.timeout,
+                            "stack_size_kb": config.stack_size_kb,
+                        }
+                        if config is not None
+                        else {}
+                    ),
+                },
+                config=validation_config,
+            )
+        )
+    statuses = list(apply_temporal_continuity(statuses, validation_config))
+
     return EFITResult(
-        returncode=None,
+        returncode=returncode,
         workdir=base,
         gfiles=gfiles,
         afiles=afiles,
@@ -302,6 +519,7 @@ def collect_efit_outputs(workdir: str | Path, config: EFITConfig | None = None) 
         geqdsk=tuple(parsed),
         parse_errors=tuple(parse_errors),
         ods=ods,
+        slice_statuses=tuple(statuses),
     )
 
 def gauss_fit4(coef, x):
