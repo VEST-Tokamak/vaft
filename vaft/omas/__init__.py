@@ -1,9 +1,12 @@
+from os import fspath
+
+from omas import load_omas_json as _omas_load_omas_json
+
 from .general import *
 from .process_wrapper import *
 from .formula_wrapper import *
 from .update import *
 from .sample import *
-
 
 _REFERENCE_EXPORTS = {
     "ArtifactVerification",
@@ -44,6 +47,11 @@ def __getattr__(name):
 
 def __dir__():
     return sorted(set(globals()) | _REFERENCE_EXPORTS | _COMPARISON_EXPORTS)
+
+
+def load_omas_json(source, *args, **kwargs):
+    """Load OMAS JSON from a string or any :class:`os.PathLike` path."""
+    return _omas_load_omas_json(fspath(source), *args, **kwargs)
 
 
 def load(source, *, imas_version=None):
