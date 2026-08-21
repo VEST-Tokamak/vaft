@@ -282,7 +282,7 @@ def test_ts_only_invalid_uncertainties_use_finite_fallbacks():
 
 
 def test_fallback_not_used_when_ion_data_present():
-    # rebuild the two-diagnostic fixture from test_efit_kinetic and check the
+    # rebuild the two-diagnostic fixture from test_kineticEfit and check the
     # ratio parameter does not perturb the CX-based Ti
     t = [0.299, 0.300, 0.301]
 
