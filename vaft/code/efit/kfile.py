@@ -10,7 +10,7 @@ import statistics
 from numbers import Integral
 from pathlib import Path
 from scipy import optimize
-from omas import ODS
+from omas import ODS, save_omas_json
 from vaft.machine_mapping.utils import path_exists
 
 from .legacy import (
