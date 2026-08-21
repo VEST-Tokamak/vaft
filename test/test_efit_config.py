@@ -5,14 +5,16 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from vaft.code.efit import EFITConfig, generate_kfile, prepare_efit_inputs
-from vaft.code.efit_config import (
+from vaft.code.efit import (
+    EFITConfig,
     EFITConstraintConfig,
     EFITInitializationConfig,
     EFITNumericsConfig,
     EFITProfileConfig,
     EFITScientificConfig,
     efit_parameter_grid,
+    generate_kfile,
+    prepare_efit_inputs,
 )
 
 
