@@ -8,6 +8,14 @@ from .formula_wrapper import *
 from .update import *
 from .sample import *
 
+#: Plotting adapters live in ``.plotting`` and are resolved lazily so that
+#: importing ``vaft.omas`` does not pull in Matplotlib.
+def _plotting_exports() -> frozenset:
+    from .plotting import __all__ as names
+
+    return frozenset(names)
+
+
 _REFERENCE_EXPORTS = {
     "ArtifactVerification",
     "ReferenceManifestError",
@@ -29,7 +37,37 @@ _COMPARISON_EXPORTS = {
 }
 
 
+_PLOTTING_EXPORTS: frozenset | None = None
+
+
+def _is_plotting_export(name: str) -> bool:
+    global _PLOTTING_EXPORTS
+    if name != "plotting" and not (
+        name.startswith("plot_")
+        or name in {
+            "available_plots",
+            "disable_plot_methods",
+            "enable_plot_methods",
+            "extract_labels_from_odc",
+            "normalize_entries",
+            "render_plot",
+        }
+    ):
+        return False
+    if _PLOTTING_EXPORTS is None:
+        _PLOTTING_EXPORTS = _plotting_exports()
+    return name == "plotting" or name in _PLOTTING_EXPORTS or name == "render_plot"
+
+
 def __getattr__(name):
+    if _is_plotting_export(name):
+        from . import plotting
+
+        value = plotting if name == "plotting" else getattr(
+            plotting, "render" if name == "render_plot" else name
+        )
+        globals()[name] = value
+        return value
     if name in _REFERENCE_EXPORTS:
         from . import reference
 
@@ -46,7 +84,13 @@ def __getattr__(name):
 
 
 def __dir__():
-    return sorted(set(globals()) | _REFERENCE_EXPORTS | _COMPARISON_EXPORTS)
+    return sorted(
+        set(globals())
+        | _REFERENCE_EXPORTS
+        | _COMPARISON_EXPORTS
+        | _plotting_exports()
+        | {"plotting", "render_plot"}
+    )
 
 
 def load_omas_json(source, *args, **kwargs):

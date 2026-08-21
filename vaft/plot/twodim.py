@@ -282,7 +282,7 @@ def vacuum_psi_contour(ods, time=None, cmap='viridis', fontsize=12, savepath=Non
     ax.set_xlabel('')
     ax.set_ylabel('')
 
-    plt.title(f'Vacuum $\psi$ contour at\n t={time*1000:.1f}ms', fontsize=fontsize*1.1, y=1.02)
+    plt.title(f'Vacuum $\\psi$ contour at\n t={time*1000:.1f}ms', fontsize=fontsize*1.1, y=1.02)
     
     # Determine plot limits based on chamber boundary if available, otherwise based on psi data extent
     if plot_chamber_boundary and chamberboundary_data is not None:

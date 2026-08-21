@@ -34,7 +34,6 @@ from vaft.omas.update import update_equilibrium_boundary
 from scipy.interpolate import interp1d
 import logging
 import vaft.process
-import matplotlib.pyplot as plt
 from matplotlib.path import Path
 
 
@@ -465,36 +464,10 @@ def compute_point_vacuum_fields_ods(
             bz_c
         )
 
-        # Plot if requested
+        # Plot if requested.  Rendering is delegated to vaft.plot; this
+        # namespace only shapes the data into the view model (issue #63).
         if plot_opt:
-            n_points = psi_out.shape[1] if psi_out.ndim == 2 else 1
-            fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-            if n_points == 1:
-                psi_plot = psi_out[:, 0] if psi_out.ndim == 2 else psi_out
-                br_plot = br_out[:, 0] if br_out.ndim == 2 else br_out
-                bz_plot = bz_out[:, 0] if bz_out.ndim == 2 else bz_out
-                label = f"(r={rz[0][0]:.3f}, z={rz[0][1]:.3f})" if isinstance(rz[0], (list, tuple)) else str(rz[0])
-                axs[0].plot(time_arr, psi_plot, label=label)
-                axs[1].plot(time_arr, br_plot, label=label)
-                axs[2].plot(time_arr, bz_plot, label=label)
-            else:
-                for i in range(n_points):
-                    psi_plot = psi_out[:, i]
-                    br_plot = br_out[:, i]
-                    bz_plot = bz_out[:, i]
-                    label = f"(r={rz[i][0]:.3f}, z={rz[i][1]:.3f})" if isinstance(rz[i], (list, tuple)) else str(rz[i])
-                    axs[0].plot(time_arr, psi_plot, label=label)
-                    axs[1].plot(time_arr, br_plot, label=label)
-                    axs[2].plot(time_arr, bz_plot, label=label)
-            axs[0].set_ylabel("ψ_out")
-            axs[1].set_ylabel("B_r")
-            axs[2].set_ylabel("B_z")
-            axs[2].set_xlabel("Time [s]")
-            axs[0].set_title(f"Vacuum Field Quantities at Each Time Step (Mode: {mode})")
-            for ax in axs:
-                ax.legend()
-            plt.tight_layout(rect=[0, 0, 1, 0.97])
-            plt.show()
+            _plot_vacuum_field_quantities(time_arr, psi_out, br_out, bz_out, rz, mode)
         return time_arr, psi_out, br_out, bz_out
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
@@ -1898,3 +1871,42 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
         )
 
     return np.asarray(pressure_vol_avg_list, float)
+
+
+def _point_label(rz, index: int) -> str:
+    point = rz[index]
+    if isinstance(point, (list, tuple)):
+        return f"(r={point[0]:.3f}, z={point[1]:.3f})"
+    return str(point)
+
+
+def _plot_vacuum_field_quantities(time_arr, psi_out, br_out, bz_out, rz, mode):
+    """Render the vacuum-field diagnostic panels through ``vaft.plot``."""
+    from vaft.plot import LineSeries, Panels, Series, render_panels
+
+    n_points = psi_out.shape[1] if psi_out.ndim == 2 else 1
+    panels = []
+    for values, label, unit in (
+        (psi_out, "psi_out", "Wb"),
+        (br_out, "B_r", "T"),
+        (bz_out, "B_z", "T"),
+    ):
+        traces = []
+        for index in range(n_points):
+            column = values[:, index] if values.ndim == 2 else values
+            traces.append(
+                Series(x=time_arr, y=column, label=_point_label(rz, index))
+            )
+        panels.append(
+            LineSeries(
+                series=tuple(traces), x_label="Time", x_unit="s",
+                y_label=label, y_unit=unit,
+            )
+        )
+    return render_panels(
+        Panels(
+            models=tuple(panels),
+            suptitle=f"Vacuum Field Quantities at Each Time Step (Mode: {mode})",
+        ),
+        figsize=(10, 8),
+    )

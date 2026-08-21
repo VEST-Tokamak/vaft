@@ -19,10 +19,10 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import yaml
-try:
-    import matplotlib.pyplot as plt
+try:  # Rendering lives in vaft.plot; this is only an availability probe.
+    import matplotlib as _matplotlib
 except ImportError:
-    plt = None
+    _matplotlib = None
 try:
     from cryptography.fernet import Fernet
 except ImportError:
@@ -252,7 +252,7 @@ def _require_fernet() -> None:
 
 
 def _require_matplotlib() -> None:
-    if plt is None:
+    if _matplotlib is None:
         raise ImportError("matplotlib is required for raw plotting helpers")
 
 
@@ -704,21 +704,33 @@ def plot(
     semilogy_opt: bool = False,
     norm_opt: bool = False,
     xlims=None,
-    ) -> None:
+    *,
+    ax=None,
+    show: bool = True,
+):
     """
-    Plots data for the 3 standard scenarios:
+    Plots raw waveforms for the 3 standard scenarios:
 
     1. Single shot, single field -> single line plot.
     2. Multiple shots, single field -> multiple lines, one per shot.
     3. Single shot, multiple fields -> multiple lines, one per field.
 
-    For multiple data sets, a legend is shown. Units/names fetched from DB.
+    This function loads and labels the data; rendering is delegated to
+    :func:`vaft.plot.render_line_series`, so no Matplotlib code lives in the
+    database namespace (issue #63).
+
     :param shots: int or list of int
     :param fields: int or list of int
-    :param semilogy_opt: If True, uses semilogy. Defaults to False.
+    :param semilogy_opt: If True, uses a logarithmic y axis. Defaults to False.
     :param norm_opt: If True, normalizes data to (-1, 1). Defaults to False.
+    :param xlims: Optional ``(low, high)`` time limits.
+    :param ax: Optional axes to draw into.
+    :param show: Display the figure. Defaults to True for backward compatibility.
+    :return: ``(Figure, Axes)``, or ``None`` when no data could be loaded.
     """
     _require_matplotlib()
+    from vaft.plot import LineSeries, Series, render_line_series
+
     if isinstance(shots, int):
         shots = [shots]
     if isinstance(fields, int):
@@ -728,66 +740,39 @@ def plot(
         """Normalizes the data to the range (-1, 1)."""
         return 2 * (data - data.min()) / (data.max() - data.min()) - 1
 
+    traces: list = []
+    norm_status = "Normalized" if norm_opt else "Raw"
+    y_label = ""
+
     # 1) Single shot, single field
     if len(shots) == 1 and len(fields) == 1:
-        shot = shots[0]
-        field = fields[0]
-        # load
+        shot, field = shots[0], fields[0]
         loaded = load_raw(shot, field)
         if loaded is None:
             print("No data loaded.")
-            return
+            return None
         time_vals, data_vals = loaded
-
         if norm_opt:
             data_vals = normalize(data_vals)
-
-        fname, funit = name(field)
-        label_str = f"shot {shot}, field {field}"
-
-        if semilogy_opt:
-            plt.semilogy(time_vals, data_vals, label=label_str)
-        else:
-            plt.plot(time_vals, data_vals, label=label_str)
-
-        norm_status = "Normalized" if norm_opt else "Raw"
-        plt.title(f"shot={shot}, field={field}, name={fname} ({norm_status})")
-        plt.xlabel("time (s)")
-        if xlims is not None and len(xlims) == 2:
-            plt.xlim(xlims)
-        plt.ylabel(f"{funit}")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+        fname, y_label = name(field)
+        title = f"shot={shot}, field={field}, name={fname} ({norm_status})"
+        traces.append(
+            Series(x=time_vals, y=data_vals, label=f"shot {shot}, field {field}")
+        )
 
     # 2) multiple shots, single field
     elif len(shots) > 1 and len(fields) == 1:
         field = fields[0]
-        fname, funit = name(field)
-
-        for sh in shots:
-            loaded = load_raw(sh, field)
+        fname, y_label = name(field)
+        title = f"field={field}, name={fname} ({norm_status})"
+        for shot in shots:
+            loaded = load_raw(shot, field)
             if loaded is None:
                 continue
-            tvals, dvals = loaded
-
+            time_vals, data_vals = loaded
             if norm_opt:
-                dvals = normalize(dvals)
-
-            if semilogy_opt:
-                plt.semilogy(tvals, dvals, label=f"shot {sh}")
-            else:
-                plt.plot(tvals, dvals, label=f"shot {sh}")
-
-        norm_status = "Normalized" if norm_opt else "Raw"
-        plt.title(f"field={field}, name={fname} ({norm_status})")
-        if xlims is not None and len(xlims) == 2:
-            plt.xlim(xlims)
-        plt.xlabel("time (s)")
-        plt.ylabel(f"{funit}")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+                data_vals = normalize(data_vals)
+            traces.append(Series(x=time_vals, y=data_vals, label=f"shot {shot}"))
 
     # 3) single shot, multiple fields
     elif len(shots) == 1 and len(fields) > 1:
@@ -795,32 +780,39 @@ def plot(
         loaded = load_raw(shot, fields)
         if loaded is None:
             print("No data loaded.")
-            return
+            return None
         time_vals, data_vals = loaded  # data_vals => shape (N, #fields)
-
-        for idx, fld in enumerate(fields):
-            col = data_vals[:, idx]
+        title = f"shot={shot} ({norm_status})"
+        for index, field in enumerate(fields):
+            column = data_vals[:, index]
             if norm_opt:
-                col = normalize(col)
-
-            fname, funit = name(fld)
-            lbl = f"{fname}[{funit}]"
-            if semilogy_opt:
-                plt.semilogy(time_vals, col, label=lbl)
-            else:
-                plt.plot(time_vals, col, label=lbl)
-
-        norm_status = "Normalized" if norm_opt else "Raw"
-        plt.title(f"shot={shot} ({norm_status})")
-        if xlims is not None and len(xlims) == 2:
-            plt.xlim(xlims)
-        plt.xlabel("time (s)")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+                column = normalize(column)
+            fname, funit = name(field)
+            traces.append(
+                Series(x=time_vals, y=column, label=f"{fname}[{funit}]")
+            )
 
     else:
-        print("Error: Unsupported shot-field configuration for plotting.")
+        raise ValueError(
+            "plot() supports one shot with one or many fields, or many shots "
+            f"with one field; got {len(shots)} shots and {len(fields)} fields"
+        )
+
+    if not traces:
+        print("No data loaded.")
+        return None
+
+    model = LineSeries(
+        series=tuple(traces),
+        x_label="time",
+        x_unit="s",
+        y_label=y_label,
+        title=title,
+        x_limits=tuple(xlims) if xlims is not None and len(xlims) == 2 else None,
+        log_y=bool(semilogy_opt),
+    )
+    return render_line_series(model, ax=ax, show=show, figsize=(8.0, 4.0))
+
 
 def date_from_shot(shot: int) -> tuple:
     """
@@ -997,13 +989,9 @@ def dump_all_raw_signals_for_shot(
         "fields": {}
     }
 
-    # Prepare subplot if plot_opt is True
-    if plot_opt == 1:
-        n_fields = len(field_codes)
-        n_cols = int(np.ceil(np.sqrt(n_fields)))
-        n_rows = int(np.ceil(n_fields / n_cols))
-        plt.figure(figsize=(20, 20))
-        plot_idx = 1
+    # Collect one panel model per field when plotting is requested; rendering
+    # happens once at the end through vaft.plot (issue #63).
+    panel_models: list = []
 
     for fcode in field_codes:
         try:
@@ -1029,30 +1017,18 @@ def dump_all_raw_signals_for_shot(
             "data": data.tolist()
         }
 
-        # Display signal as subplot if plot_opt is True
+        # Collect the signal as a panel model if plot_opt is True
         if plot_opt == 1:
-            plt.subplot(n_rows, n_cols, plot_idx)
-            plt.plot(time, data)
-            field_name, field_remark = name(fcode)
-            title = f"Field {fcode}"
-            if field_name:
-                title += f"\n{field_name}"
-            if field_remark:
-                title += f"\n{field_remark}"
-            plt.title(title, fontsize=8)
-            plt.grid(True)
-            plot_idx += 1
+            panel_models.append(_field_panel(fcode, time, data))
 
     if not shot_data["fields"]:
         print(f"[store_shot_as_json] No data loaded for shot {shot}")
         return False
 
-    # Save all subplots if plot_opt is True
-    if plot_opt == 1:
-        plt.tight_layout()
+    # Render and save all panels if plot_opt is True
+    if plot_opt == 1 and panel_models:
         plot_path = output_path.replace('.json.gz', '_signals.png')
-        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        plt.close()
+        _save_field_panels(panel_models, plot_path)
         print(f"[store_shot_as_json] Signal plots saved to {plot_path}")
 
     # 3) Save as gzip compressed JSON
@@ -1110,12 +1086,8 @@ def compare_db_and_dumped_raw_signals_for_shot(
     elif not output_path.endswith(".gz"):
         output_path += ".gz"
 
-    # 3) Set up subplot layout
-    n_fields = len(field_codes)
-    n_cols = int(np.ceil(np.sqrt(n_fields)))
-    n_rows = int(np.ceil(n_fields / n_cols))
-    plt.figure(figsize=(20, 20))
-    plot_idx = 1
+    # 3) Collect one comparison panel per field
+    panel_models: list = []
 
     # 4) Compare DB and JSON data for each field
     for fcode in field_codes:
@@ -1130,47 +1102,80 @@ def compare_db_and_dumped_raw_signals_for_shot(
                 print(f"[compare_signals] Failed to load data for field {fcode}")
                 continue
 
-            # Create subplot
-            plt.subplot(n_rows, n_cols, plot_idx)
-            
-            # Plot DB data
-            plt.plot(db_time, db_data, 'b-', label='DB Data', alpha=0.7)
-            
-            # Plot JSON data
-            plt.plot(json_time, json_data, 'r--', label='JSON Data', alpha=0.7)
-            
-            # Set title
-            field_name, field_remark = name(fcode)
-            title = f"Field {fcode}"
-            if field_name:
-                title += f"\n{field_name}"
-            if field_remark:
-                title += f"\n{field_remark}"
-            
-            # Calculate data difference
+            # Calculate data difference for the panel title
             if len(db_data) == len(json_data):
                 max_diff = np.max(np.abs(db_data - json_data))
-                title += f"\nMax Diff: {max_diff:.2e}"
+                suffix = f"Max Diff: {max_diff:.2e}"
             else:
-                title += f"\nLength Mismatch: DB={len(db_data)}, JSON={len(json_data)}"
-            
-            plt.title(title, fontsize=8)
-            plt.grid(True)
-            plt.legend(fontsize=6)
-            plot_idx += 1
+                suffix = f"Length Mismatch: DB={len(db_data)}, JSON={len(json_data)}"
+
+            panel_models.append(
+                _field_panel(
+                    fcode,
+                    [db_time, json_time],
+                    [db_data, json_data],
+                    labels=("DB Data", "JSON Data"),
+                    styles=({"color": "b", "alpha": 0.7},
+                            {"color": "r", "linestyle": "--", "alpha": 0.7}),
+                    title_suffix=suffix,
+                )
+            )
 
         except Exception as e:
             print(f"[compare_signals] Error processing field {fcode}: {e}")
             continue
 
-    # 5) Save all plots
-    plt.tight_layout()
+    # 5) Render and save all panels
+    if not panel_models:
+        print(f"[compare_signals] No comparable fields for shot {shot}")
+        return False
     plot_path = output_path.replace('.json.gz', '_comparison.png')
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-    plt.close()
+    _save_field_panels(panel_models, plot_path)
     print(f"[compare_signals] Comparison plots saved to {plot_path}")
-    
+
     return True
+
+
+def _field_panel(
+    field_code,
+    times,
+    values,
+    *,
+    labels=("",),
+    styles=({},),
+    title_suffix: str = "",
+):
+    """Build the ``LineSeries`` panel model for one raw field."""
+    from vaft.plot import LineSeries, Series
+
+    if not isinstance(times, (list, tuple)):
+        times, values = [times], [values]
+    field_name, field_remark = name(field_code)
+    title_parts = [f"Field {field_code}"]
+    if field_name:
+        title_parts.append(str(field_name))
+    if field_remark:
+        title_parts.append(str(field_remark))
+    if title_suffix:
+        title_parts.append(title_suffix)
+    traces = tuple(
+        Series(x=time, y=data, label=label, style=dict(style))
+        for time, data, label, style in zip(times, values, labels, styles)
+    )
+    return LineSeries(series=traces, x_label="time", x_unit="s",
+                      title="\n".join(title_parts))
+
+
+def _save_field_panels(panel_models, plot_path):
+    """Render the collected field panels into a square grid and save it."""
+    from vaft.plot import Panels, render_panels, save_figure
+
+    columns = int(np.ceil(np.sqrt(len(panel_models))))
+    figure, _ = render_panels(
+        Panels(models=tuple(panel_models), ncols=columns, share_x=False),
+        figsize=(20, 20),
+    )
+    return save_figure(figure, plot_path)
 
 
 # MAIN FUNCTION - SIMPLE TEST ROUTINE
