@@ -1,9 +1,19 @@
 ---
-title: Magnetics
+title: Experimental interpretation
 author: Sun jae Lee
 date: 2026-07-01 09:50
 category: guide
 layout: post
+permalink: /workflows/experimental-interpretation/
+guide:
+  architecture: Diagnostic interpretation layer between mapped measurements and physics workflows.
+  prerequisites: A magnetics ODS or the archived shot 44740 fixture.
+  expected: Conditioned signals, plots, spectrograms, and interpretable mode-analysis inputs.
+related:
+  notebooks: [fluctuation-diagnostics, plotting-sample]
+  api: [mapping, process, plot]
+  data_sources: [raw-daq, raw-44740]
+  outputs: [mirnov-spectrogram, first-result]
 ---
 
 The `magnetics` IDS is the backbone of every VEST analysis: it feeds the equilibrium reconstruction,

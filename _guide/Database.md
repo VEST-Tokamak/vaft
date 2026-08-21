@@ -1,10 +1,20 @@
 ---
-title: Database and data access
+title: Database and data sources
 author: VEST team
 date: 2026-07-01 09:20
 category: guide
 layout: post
 mermaid: true
+permalink: /reference/database-data-sources/
+guide:
+  architecture: I/O boundary for HSDS, FileDB/local IMAS images, packaged data, and raw SQL signals.
+  prerequisites: Packaged data for offline use or h5pyd configuration for public HSDS reads.
+  expected: An eager or lazy ODS, native IDS, local file result, or raw waveform without implicit writes.
+related:
+  notebooks: [database-initialization, data-conversion]
+  api: [database, omas, imas]
+  data_sources: [hsds-public, raw-daq, sample-ods]
+  outputs: [hsds-39915, imas-roundtrip]
 ---
 
 `vaft.database` is the I/O layer of VAFT. It has **two independent back-ends**, and knowing which one
@@ -50,17 +60,13 @@ vaft.database.exist_shot('public')  # defined in database/utils.py
 vaft.database.load_raw(39915, 102)  # defined in database/raw.py
 ```
 
-The names declared in `__all__` are the four submodules (`raw`, `ods`, `ids`, `utils`) plus
-`load`, `save`, `load_ids`, `save_ids`, `load_ods`, `save_ods`.
+The supported high-level remote API is `load`, `open`, and `save`. The `raw`, `filedb`, `ods`,
+`ids`, and `utils` modules remain available for specialized and compatibility workflows.
 
 ## Connecting to HSDS
 
-`h5pyd` is the HSDS client. It is deliberately **not** a declared dependency — install it with
-`--no-deps` so it cannot re-pin the numerical stack:
-
-```bash
-python -m pip install --no-deps h5pyd==0.20.0
-```
+`h5pyd` is a declared VAFT dependency on `develop`; a normal `pip install .` installs the compatible
+client and its `hsconfigure` command. Do not install a separately pinned `--no-deps` copy.
 
 Then write your credentials with `hsconfigure`:
 
@@ -71,12 +77,10 @@ hsconfigure
 | Field | Value |
 | --- | --- |
 | Server endpoint | `http://147.46.36.244:5101` |
-| Username / Password | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
+| Username / Password | Use the read-only public account distributed by the VEST project. |
 
-This writes `~/.hscfg`; `h5pyd` also picks up an `.hscfg` in the current working directory. Transfers
-shell out to the **`hsget` / `hsload` command-line tools** that ship with `h5pyd`, so they must be on
-your `$PATH` — a missing binary surfaces as `FileNotFoundError`, a failed transfer as
-`CalledProcessError`. Check the connection from Python:
+This writes `~/.hscfg`; `h5pyd` also recognizes a project-local `.hscfg`. Never commit that file.
+Check the connection from Python:
 
 ```python
 import vaft
@@ -84,9 +88,9 @@ import vaft
 vaft.database.is_connect()   # True when the HSDS server reports state == "READY"
 ```
 
-Every HSDS entry point calls an internal `h5pyd` guard first, so a missing `h5pyd` raises `ImportError`
-carrying the install hint above — even for a purely local load. See
-[Installation]({{ site.baseurl }}/guide/Installation/) for the full environment setup.
+Local OMAS and IMAS operations do not require HSDS at all; use `vaft.omas.load/save` or
+`vaft.imas.load/save` for those paths. See [Start here]({{ site.baseurl }}/workflows/start-here/) for
+the full environment setup.
 
 ## Listing shots
 
@@ -112,91 +116,90 @@ exist_shot(username=None, shot=None, data_filter=None, sort=-1)
 - Shot folders come back as **strings**, not ints. A connection failure prints `Connection error`
   and returns `[]` / `False`.
 
-## Loading a shot as ODS
+## Eager and lazy HSDS access
 
-`vaft.database.load` is the everyday entry point, and it returns an **OMAS ODS**:
+`vaft.database.load` materializes data before returning it. The default representation is an
+**OMAS ODS**:
 
 ```python
 import vaft
 
-ods = vaft.database.load(39915)
+ods = vaft.database.load(39915, source="public", paths="magnetics")
 
 time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
 
-It forwards to `vaft.database.ods.load_ods`, whose real signature is:
+The current high-level signature is:
 
 ```python
-load_ods(
-    shot,                      # int or list[int]
-    directory="public",
-    *,
-    occurrence=None,
-    paths=None,
-    time=None,
-    imas_version=None,
-    skip_uncertainties=False,
-    consistency_check=True,
-    verbose=False,
-    path=None,
-    local_dir=None,
-)
+load(shot, source="public", *, representation="omas", paths=None,
+     occurrence=None, imas_version=None, cache="auto", transport="auto")
 ```
 
-Under the hood it `hsget`s every `*.h5` under `/{directory}/{shot}/` into a staging directory and
-converts the IMAS entry to an ODS.
+Set `representation="imas"` for native IDS objects. OMAS `paths` may point at an IDS root or leaf;
+native IMAS requests accept top-level IDS names only.
 
 ```python
-# Only the IDSs you need — much faster than a full shot
-ods = vaft.database.load(39915, paths=['magnetics'])
-
 # Several shots at once -> list of ODS
-ods_list = vaft.database.load_ods([39915, 39916, 39917])
+ods_list = vaft.database.load([39915, 39916, 39917], paths="magnetics")
 
-# Read an IMAS directory that already exists locally (must contain master.h5); no HSDS traffic
-ods = vaft.database.load_ods(39915, path='~/public/imasdb/VEST/3/39915/0')
+# Native IDS materialization
+equilibrium = vaft.database.load(
+    39915, representation="imas", paths="equilibrium"
+)
 
-# Keep the downloaded images instead of using a self-deleting temp dir
-ods = vaft.database.load_ods(39915, local_dir='./staging')
+# Lazy, read-only access: data is fetched only when a path is touched
+with vaft.database.open(39915, source="public", paths="equilibrium") as remote:
+    times = remote["equilibrium.time"]
 ```
 
-Things worth knowing:
+`open()` returns a context-managed lazy OMAS or native-IMAS adapter and never exposes a write
+operation. Lazy native IMAS access does not convert Data Dictionary versions; use eager `load()`
+when conversion is required.
 
-- The second positional argument is **`directory`**, not an IDS name: `load(39915, "public_omas")`
-  selects a folder.
-- `path=` combined with a list of shots raises `ValueError`.
-- After loading, `dataset_description.data_entry.user`, `.pulse` and `.run` are filled in from
-  `directory`, `shot` and `0` if they are not already present.
-- Loading is chatty: it prints `[INFO] Downloading …` lines and
-  `Successfully loaded ODS data for shot: <n>`.
+## Local OMAS, IMAS, and FileDB paths
 
-## Saving ODS
+Local artifact I/O belongs to the representation modules:
 
 ```python
-save_ods(ods, shot, filename=None, env="server", *,
-         directory="public", path=None, occurrence=None,
-         user=None, machine=None, run=None, imas_version=None, verbose=True)
+import vaft
+
+ods = vaft.omas.sample_ods()
+vaft.omas.save(ods, "/tmp/shot.json.gz")
+restored = vaft.omas.load("/tmp/shot.json.gz")
+
+# Native IMAS AL5/URI targets use the corresponding bridge
+vaft.imas.save(ods, "imas:hdf5?path=/tmp/imas-entry")
+restored = vaft.imas.load("imas:hdf5?path=/tmp/imas-entry")
+```
+
+`vaft.database.filedb.FileDB` resolves canonical, OMAS-first archive locations without writing:
+
+```python
+from vaft.database.filedb import FileDB
+
+db = FileDB.from_config({"filedb": {"root": "/srv/vest.filedb"}})
+path = db.path("omas", shot=39915)
+```
+
+Set `VAFT_FILEDB_DIR` when the configuration uses that environment reference. The audit helpers are
+read-only and propose legacy-to-canonical mappings without moving data.
+
+## Saving to HSDS
+
+```python
+save(data, shot, *, target="public", representation=None, occurrence=None,
+     imas_version=None, derived_cache="auto")
 ```
 
 ```python
-# Upload to HSDS (write access is admin-restricted)
-uri = vaft.database.save_ods(ods, 39915)                        # -> "hdf5://public/39915/"
-uri = vaft.database.save(ods, 39915, directory="public")        # same thing
-
-# Write IMAS images locally only
-local = vaft.database.save_ods(ods, 39915, env="local")
-# -> "~/public/imasdb/VEST/3/39915/0"  (the trailing component is the run number)
+# Remote writes are admin-restricted; ordinary documentation and analysis are read-only.
+uri = vaft.database.save(ods, 39915, target="my-authorized-namespace")
 ```
 
-- `filename` is a **compatibility parameter and is ignored**. IMAS-backed storage writes a folder of
-  images per shot, not a single `{shot}.h5`, so `save_ods` returns the folder URI
-  `hdf5://{directory}/{shot}/`.
-- `directory` and everything after it are **keyword-only**. Writing `save(ods, shot, 'public')`
-  silently passes `'public'` as the ignored `filename` — always spell out `directory="public"`.
-- `env="server"` requires a live connection and raises `ConnectionError` otherwise. Any `env` other
-  than `"server"` / `"local"` raises `ValueError`.
-- `run` is taken from the `run=` argument, else from `dataset_description.data_entry.run`, else `0`.
+`target` must be a bare HSDS namespace, never an `hdf5://` URI. VAFT infers OMAS versus native IMAS
+from the supplied object and rejects a conflicting explicit `representation`.
 
 ## Native IMAS IDS objects
 

@@ -1,10 +1,20 @@
 ---
-title: API reference
+title: VAFT API
 author: VEST team
 date: 2026-07-01 11:20
 category: guide
 layout: post
 mermaid: true
+permalink: /reference/api/
+guide:
+  architecture: Developer-facing map of stable package entry points on develop.
+  prerequisites: An installed VAFT environment; sample-data calls work offline.
+  expected: Direct links and signatures for database, OMAS/IMAS, mapping, process, plotting, and code adapters.
+related:
+  notebooks: [database-initialization, data-conversion, plotting-sample]
+  api: [database, omas, imas, mapping, process, plot, code]
+  data_sources: [sample-ods, hsds-public]
+  outputs: [first-result, hsds-39915, imas-roundtrip]
 ---
 
 This page is the map of the `vaft` package: what each subpackage is for, the entry points you are
@@ -14,7 +24,7 @@ real ones — copy them.
 ```python
 import vaft
 
-vaft.__version__          # '0.1.0'
+vaft.__version__          # '0.5.0' on the inspected develop baseline
 ```
 
 Importing `vaft` is cheap. The top-level package exposes its subpackages **lazily** (`__getattr__`),
@@ -64,43 +74,34 @@ The historical, and still the shortest, way to get a shot:
 ```python
 import vaft
 
-ods = vaft.database.load(39915)                          # omas.ODS, directory="public"
-ods = vaft.database.load_ods(39915, directory="public")  # same thing, explicit
+ods = vaft.database.load(39915, source="public")        # eager omas.ODS
+with vaft.database.open(39915, source="public") as remote:
+    times = remote["equilibrium.time"]                   # lazy, read-only
 ```
 
-`load()` returns an ODS unless you pass `ids_name`, in which case it delegates to the native IMAS
-loader. The second positional argument is the HSDS `directory`, **not** an IDS name — which is why
-the IDS path is keyword-only:
+`load()` returns an ODS unless `representation="imas"` is requested. `paths` scopes OMAS requests to
+IDS roots or leaves; native requests accept top-level IDS names:
 
 ```python
-eq = vaft.database.load(39915, ids_name="equilibrium")   # IMAS IDSToplevel
-eq = vaft.database.load_ids(39915, "equilibrium")        # same thing, explicit
+eq = vaft.database.load(
+    39915, source="public", representation="imas", paths="equilibrium"
+)
 ```
 
 Full signatures:
 
 ```python
-vaft.database.load_ods(
-    shot,                      # int, or list[int] to get several shots
-    directory="public",
-    *, occurrence=None, paths=None, time=None, imas_version=None,
-    skip_uncertainties=False, consistency_check=True, verbose=False,
-    path=None, local_dir=None,
-)
-
-vaft.database.save_ods(
-    ods, shot, filename=None, env="server",
-    *, directory="public", path=None, occurrence=None,
-    user=None, machine=None, run=None, imas_version=None, verbose=True,
-)
-
-vaft.database.load_ids(shot, ids_name, directory="public", occurrence=0,
-                       dd_version=None, local_dir=None)
-vaft.database.save_ids(ids_obj, shot, env="server", path=None, dd_version=None)
+vaft.database.load(shot, source="public", *, representation="omas", paths=None,
+                   occurrence=None, imas_version=None, cache="auto", transport="auto")
+vaft.database.open(shot, *, source="public", representation="omas", paths=None,
+                   occurrence=None, imas_version=None)
+vaft.database.save(data, shot, *, target="public", representation=None,
+                   occurrence=None, imas_version=None, derived_cache="auto")
 ```
 
-`paths=` and `time=` are pass-through filters: fetch only the IDS subtrees or the single time slice
-you need instead of the whole shot. `ids_name` also accepts a list of IDS names.
+For local files use `vaft.omas.load/save` or `vaft.imas.load/save`; use
+`vaft.database.filedb.FileDB` to resolve canonical archive paths. Remote save access is restricted and
+is never required by the documentation examples.
 
 ## Raw DAQ access
 
@@ -383,6 +384,10 @@ Adapters for the external codes that VAFT drives. They all share one shape: a `*
 executable, run options), an `*Inputs` object produced by `prepare_*`, a `run_*` that executes the
 code, and a `collect_*` / `*Result` pair that reads the outputs back.
 
+When a configuration does not supply an executable explicitly, adapters follow the documented
+installation roots: `EFITHOME`, `CHEASEHOME`, `GPECHOME`, and `TESHOME`. Missing binaries are a
+readiness state, not a failure of deterministic input preparation.
+
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
 
@@ -438,33 +443,33 @@ Each subpackage has at least one notebook that exercises it end to end:
 
 | Area | Notebook |
 | --- | --- |
-| `vaft.database` | [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/database_initialization_and_load.ipynb) |
-| `vaft.database.raw` | [`vest_raw_signal_sql_database.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_raw_signal_sql_database.ipynb) |
-| `vaft.data`, `vaft.imas` | [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/imas_omas_data_conversion.ipynb), [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/read_and_convert_data_structure.ipynb) |
-| `vaft.machine_mapping`, `vaft.process.magnetics` | [`magnetic_diagnostics_processing.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_diagnostics_processing.ipynb) |
-| `vaft.process.electromagnetics` | [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/electromagnetic_response_modeling_with_efund.ipynb), [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) |
-| `vaft.code` | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb), [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb), [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb), [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/forward_equilibrium_using_TES.ipynb) |
-| `vaft.formula`, `vaft.process.statistical_analysis` | [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/confinement_time_scaling.ipynb), [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/tokamak_power_balance.ipynb) |
-| `vaft.plot` | [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/plotting_sample_using_vaft_plot_module.ipynb) |
+| `vaft.database` | [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/database_initialization_and_load.ipynb) |
+| `vaft.database.raw` | [`vest_raw_signal_sql_database.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_raw_signal_sql_database.ipynb) |
+| `vaft.data`, `vaft.imas` | [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/imas_omas_data_conversion.ipynb), [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/read_and_convert_data_structure.ipynb) |
+| `vaft.machine_mapping`, `vaft.process.magnetics` | [`magnetic_diagnostics_processing.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_diagnostics_processing.ipynb) |
+| `vaft.process.electromagnetics` | [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/electromagnetic_response_modeling_with_efund.ipynb), [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) |
+| `vaft.code` | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb), [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb), [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb), [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) |
+| `vaft.formula`, `vaft.process.statistical_analysis` | [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/confinement_time_scaling.ipynb), [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/tokamak_power_balance.ipynb) |
+| `vaft.plot` | [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/plotting_sample_using_vaft_plot_module.ipynb) |
 
 The Snakemake pipelines that stitch these together live under
-[`workflow/`](https://github.com/VEST-Tokamak/vaft/tree/main/workflow):
+[`workflow/`](https://github.com/VEST-Tokamak/vaft/tree/{{ site.data.notebook_outputs.source_commit }}/workflow):
 `automatic_pipeline_1_routine_data_processing` (raw DAQ to diagnostics ODS to constraints to EFIT and
 CHEASE), `automatic_pipeline_2_corrective_data_update` (re-run equilibrium and profile updates on
 existing shots), and `automatic_pipeline_3_data_summary` (multi-shot history tables and figures).
 
 # Source
 
-Browse the package on GitHub: [`vaft/`](https://github.com/VEST-Tokamak/vaft/tree/main/vaft) —
-[`database/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/__init__.py),
-[`omas/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/omas/__init__.py),
-[`process/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/process/__init__.py),
-[`formula/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/__init__.py),
-[`machine_mapping/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/machine_mapping/__init__.py),
-[`plot/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/plot/__init__.py),
-[`code/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/code/__init__.py),
-[`data/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/data/__init__.py),
-[`imas/`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/imas/__init__.py).
+Browse the package on GitHub: [`vaft/`](https://github.com/VEST-Tokamak/vaft/tree/{{ site.data.notebook_outputs.source_commit }}/vaft) —
+[`database/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/database/__init__.py),
+[`omas/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/omas/__init__.py),
+[`process/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/process/__init__.py),
+[`formula/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/formula/__init__.py),
+[`machine_mapping/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/machine_mapping/__init__.py),
+[`plot/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/plot/__init__.py),
+[`code/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/code/__init__.py),
+[`data/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/data/__init__.py),
+[`imas/`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/vaft/imas/__init__.py).
 
 # See also
 

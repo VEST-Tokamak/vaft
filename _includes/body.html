@@ -18,7 +18,11 @@
                         <h1 id="{{ page.id }}">{{ site.title | escape }}</h1>
                     {% endif %}
 
+                    {%- include guide-overview.html -%}
+
                     {{ content }}
+
+                    {%- include related-resources.html -%}
 
                     {%- if jekyll.environment != 'dev' and site.disqushandler -%}
                         {%- include disqus.html -%}

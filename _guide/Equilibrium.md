@@ -3,7 +3,8 @@ title: Equilibrium
 author: VEST team
 date: 2026-07-01 10:00
 category: guide
-layout: post
+layout: redirect
+redirect_to: /workflows/equilibrium-kinetic-profiles/
 ---
 
 __This section describes how to load, analyze, and plot equilibrium data, and how to drive the external equilibrium codes shipped with VAFT.__

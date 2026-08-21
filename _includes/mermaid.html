@@ -1,10 +1,36 @@
 <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
     function render_mermaid() {
+        prepare_mermaid_blocks();
         mermaid.initialize({
             startOnLoad: false,
             theme: "default",
         });
-        window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
     }
 
     function initialize_mermaid() {

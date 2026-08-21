@@ -1,10 +1,20 @@
 ---
-title: Physics formulas
+title: Operations and statistical analysis
 author: VEST team
 date: 2026-07-01 10:40
 category: guide
 layout: post
 mermaid: true
+permalink: /workflows/operations-statistical-analysis/
+guide:
+  architecture: Pure physics formulas and ODS-aware wrappers for single- and multi-shot analysis.
+  prerequisites: Scalars, NumPy arrays, or an ODS with the required physical quantities.
+  expected: Limits, confinement metrics, statistical summaries, tables, and comparison plots.
+related:
+  notebooks: [confinement-scaling, plotting-sample]
+  api: [process, plot]
+  data_sources: [sample-ods, hsds-public]
+  outputs: [confinement-scaling, hsds-39915]
 ---
 
 `vaft.formula` is the **physics layer** of VAFT: closed-form expressions, empirical scalings and

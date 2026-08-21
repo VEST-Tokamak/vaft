@@ -3,8 +3,8 @@
 This branch is the **source of the VAFT documentation site** published at
 <https://vest-tokamak.github.io/vaft/>.
 
-It contains only the Jekyll site. **The VAFT library itself lives on the
-[`main` branch](https://github.com/VEST-Tokamak/vaft/tree/main)** — install
+It contains only the Jekyll site. **The VAFT library itself is maintained on the
+[`develop` branch](https://github.com/VEST-Tokamak/vaft/tree/develop)** — install
 instructions, source, and notebooks belong there, not here. Do not duplicate
 library documentation in this README; document the library *on the site*.
 
@@ -15,7 +15,8 @@ The site uses the remote theme [`sighingnow/jekyll-gitbook`](https://github.com/
 
 | Path | Purpose |
 | --- | --- |
-| `_guide/` | The `guide` collection — the documentation chapters that make up the sidebar. One file per chapter. |
+| `_data/navigation.yml` | Explicit titles, stable IDs, order, and canonical URLs for the two flat sidebar sections. |
+| `_guide/` | Canonical workflow and reference source pages plus hidden legacy redirect sources. |
 | `_pages/` | The `pages` collection (About, Contact). |
 | `_others/`, `_posts/` | Theme demo/legacy content, kept for reference. |
 | `index.markdown` | Site landing page (`layout: home`). |
@@ -23,17 +24,10 @@ The site uses the remote theme [`sighingnow/jekyll-gitbook`](https://github.com/
 | `_config.yml` | Jekyll config: collections, permalinks, kramdown/MathJax, remote theme. |
 | `Gemfile` | Ruby dependencies for local preview. |
 
-**Sidebar order is `date` ascending.** Guide pages currently run from `09:00`
-(Installation) to `11:20` (API reference) on the same day — to insert a chapter,
-give it a time that slots between its neighbours. To reorder chapters, change
-their `date`.
-
-**URLs** come from `permalink: /:collection/:title/`, where `:title` is the file
-basename, case preserved: `_guide/Installation.md` → `/vaft/guide/Installation/`.
-The one exception is `_guide/Examples.md`, which pins `permalink: /guide/examples/`
-in its front matter (`guide/Examples.md` is a redirect stub kept for the old
-capitalised URL). Cross-link internally with `{{ site.baseurl }}/guide/<Basename>/`
-— never hardcode the domain.
+Sidebar order and canonical URLs come only from `_data/navigation.yml`; page dates
+do not control navigation. Cross-link canonical routes with `{{ site.baseurl }}`.
+Every retired `/guide/.../` or `/pages/.../` URL must have a redirect document and
+an entry in `_data/page_migrations.yml`.
 
 ## Adding or editing a guide page
 
@@ -57,14 +51,46 @@ math with `$...$` via MathJax, and images referenced as
 
 ## Preview locally
 
+Use a current Ruby rather than the macOS system Ruby. On Apple Silicon, a
+one-time Homebrew setup is:
+
+```bash
+brew install ruby
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+gem install bundler -v 2.5.16
+```
+
 ```bash
 bundle install
-bundle exec jekyll serve
+bundle exec jekyll serve --livereload
 ```
 
 Then open <http://localhost:4000/vaft/> (the `baseurl` is `/vaft`, so the trailing
 path matters). Pushing to `gh-pages` triggers the GitHub Pages build, which
 deploys the live site — there is no Actions workflow.
+
+## Visual regression checks
+
+The layout suite runs locally against Chromium and WebKit at desktop and mobile
+viewports. Install its dependencies and browser engines once:
+
+```bash
+npm install
+npx playwright install chromium webkit
+```
+
+Run the committed snapshots with `npm run test:visual`. After an intentional
+layout change, review the rendered site and refresh baselines with
+`npm run test:visual:update`.
+
+Run `npm run test:docs` for a clean Jekyll build, internal-link checks, migration
+coverage, resource-ID validation, and notebook artifact/provenance SHA checks.
+Notebook provenance remains intentionally invalid until the separately authorized
+companion-branch commit is pinned with:
+
+```bash
+ruby scripts/finalize_notebook_provenance.rb <40-character-commit-sha>
+```
 
 ## Notes
 

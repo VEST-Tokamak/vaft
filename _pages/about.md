@@ -1,9 +1,19 @@
 ---
-title: About
+title: VEST and tokamak physics background
 author: VEST team
 date: 2026-07-01 12:00
 category: pages
 layout: post
+permalink: /reference/vest-tokamak-physics/
+guide:
+  architecture: Scientific and platform context for the workflows and library reference.
+  prerequisites: None.
+  expected: A concise understanding of VEST, VAFT, IMAS/OMAS/HSDS, and how to cite the platform.
+related:
+  notebooks: [plotting-sample, confinement-scaling]
+  api: [omas, process, plot]
+  data_sources: [sample-ods, hsds-public]
+  outputs: [first-result, confinement-scaling]
 ---
 
 **VAFT** — the *Versatile Analytical Framework for Tokamak* — is an open-source Python library

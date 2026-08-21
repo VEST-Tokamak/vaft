@@ -1,10 +1,6 @@
 ---
-layout: post
-title: Examples
+layout: redirect
+title: Notebooks
 permalink: /guide/Examples/
+redirect_to: /reference/notebooks/
 ---
-
-<meta http-equiv="refresh" content="0; url={{ site.baseurl }}/guide/examples/" />
-<script>window.location.replace("{{ site.baseurl }}/guide/examples/");</script>
-
-If you are not redirected automatically, open [Examples]({{ site.baseurl }}/guide/examples/).

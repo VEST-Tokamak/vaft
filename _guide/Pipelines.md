@@ -5,6 +5,16 @@ date: 2026-07-01 11:00
 category: guide
 layout: post
 mermaid: true
+permalink: /workflows/automated-pipelines/
+guide:
+  architecture: Snakemake orchestration over mapping, equilibrium, profiles, stability, and reports.
+  prerequisites: Workflow configuration, source data, VAFT, and only the external binaries required by selected stages.
+  expected: Auditable routine, corrective, and summary products with explicit skipped-stage semantics.
+related:
+  notebooks: [pipeline-overview, external-codes]
+  api: [database, mapping, process, code]
+  data_sources: [raw-daq, hsds-public, external-codes]
+  outputs: [pipeline-overview, external-readiness]
 ---
 
 The `workflow/` directory of the repository holds the batch pipelines that turn a raw VEST shot into

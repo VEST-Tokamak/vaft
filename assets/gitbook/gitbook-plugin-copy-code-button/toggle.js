@@ -1,86 +1,72 @@
-require(["gitbook", "jquery"], function (gitbook, $) {
-    function selectElementText(el) {
-        var range = document.createRange();
-        range.selectNodeContents(el);
-        var selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }
+require(['gitbook', 'jquery'], function (gitbook, $) {
+    function fallbackCopy(text) {
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
 
-    function getSelectedText() {
-        var t = '';
-        if (window.getSelection) {
-            t = window.getSelection();
-        } else if (document.getSelection) {
-            t = document.getSelection();
-        } else if (document.selection) {
-            t = document.selection.createRange().text;
+        try {
+            return document.execCommand('copy');
+        } catch (error) {
+            console.warn('Copy to clipboard failed.', error);
+            return false;
+        } finally {
+            document.body.removeChild(textarea);
         }
-        return t;
     }
 
-    function copyToClipboard(text) {
-        if (window.clipboardData && window.clipboardData.setData) {
-            // IE specific code path to prevent textarea being shown while dialog is visible.
-            return clipboardData.setData("Text", text);
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text)
+                .then(function () { return true; })
+                .catch(function () { return fallbackCopy(text); });
+        }
 
-        } else if (document.queryCommandSupported && document.queryCommandSupported("copy")) {
-            var textarea = document.createElement("textarea");
-            textarea.textContent = text;
-            textarea.style.position = "fixed";  // Prevent scrolling to bottom of page in MS Edge.
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                return document.execCommand("copy");  // Security exception may be thrown by some browsers.
-            } catch (ex) {
-                console.warn("Copy to clipboard failed.", ex);
-                return false;
-            } finally {
-                document.body.removeChild(textarea);
+        return Promise.resolve(fallbackCopy(text));
+    }
+
+    function addCopyButtons() {
+        $('.markdown-section pre').each(function () {
+            var $pre = $(this);
+            var isMermaid = $pre.hasClass('mermaid-diagram') ||
+                $pre.find('.language-mermaid').length > 0;
+
+            if (isMermaid || $pre.closest('.code-block-wrapper').length) {
+                return;
             }
-        }
-    }
 
-    function expand(chapter) {
-        chapter.show();
-        if (chapter.parent().attr('class') != 'summary'
-            && chapter.parent().attr('class') != 'book-summary'
-            && chapter.length != 0
-        ) {
-            expand(chapter.parent());
-        }
-    }
+            var $highlight = $pre.parent('.highlight');
+            var $block = $highlight.length ? $highlight : $pre;
+            $block.wrap('<div class="code-block-wrapper"></div>');
 
-    gitbook.events.bind("page.change", function () {
-        $("pre").each(function () {
-            $(this).css("position", "relative");
-
-            var $copyCodeButton = $("<button class='copy-code-button'>Copy</button>");
-            $copyCodeButton.css({ "position": "absolute", "top": "5px", "right": "5px", "padding": "3px", "background-color": "#313E4E", "color": "white", "border-radius": "5px", "-moz-border-radius": "5px", "-webkit-border-radius": "5px", "border": "2px solid #CCCCCC" });
-            $copyCodeButton.click(function () {
-                var $codeContainer = $(this).siblings("code");
-                if ($codeContainer) {
-                    selectElementText($codeContainer.get(0));
-                    var selectedText = getSelectedText();
-
-                    var buttonNewText = "";
-                    if (copyToClipboard(selectedText) == true) {
-                        buttonNewText = "Copied";
-                        selectElementText($codeContainer.get(0));
-                    } else {
-                        buttonNewText = "Unable to copy";
-                        selectElementText($codeContainer.get(0));
-                    }
-
-                    $(this).text(buttonNewText);
-                    var that = this;
-                    setTimeout(function () {
-                        $(that).text("Copy");
-                    }, 2000);
-                }
+            var $wrapper = $block.parent('.code-block-wrapper');
+            var $button = $('<button>', {
+                'type': 'button',
+                'class': 'copy-code-button',
+                'aria-label': 'Copy code to clipboard',
+                'text': 'Copy'
             });
 
-            $(this).append($copyCodeButton);
+            $button.on('click', function () {
+                var code = $wrapper.find('pre code').first().text();
+                var button = this;
+
+                copyText(code).then(function (copied) {
+                    $(button).text(copied ? 'Copied' : 'Unable to copy');
+                    window.setTimeout(function () {
+                        $(button).text('Copy');
+                    }, 2000);
+                });
+            });
+
+            $wrapper.append($button);
         });
-    });
+    }
+
+    gitbook.events.on('start', addCopyButtons);
+    gitbook.events.on('page.change', addCopyButtons);
+    $(addCopyButtons);
 });

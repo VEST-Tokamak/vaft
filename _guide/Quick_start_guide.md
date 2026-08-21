@@ -3,7 +3,8 @@ title: Quick start guide
 author: Sun jae Lee
 date: 2026-07-01 09:10
 category: guide
-layout: post
+layout: redirect
+redirect_to: /workflows/start-here/
 ---
 
 __This tool only supports Python.__

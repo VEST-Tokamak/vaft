@@ -1,0 +1,13 @@
+{
+  "name": "vaft-documentation",
+  "private": true,
+  "scripts": {
+    "docs:serve": "bundle exec jekyll serve --livereload",
+    "test:docs": "bundle exec jekyll build && ruby scripts/validate_docs.rb",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots=all"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

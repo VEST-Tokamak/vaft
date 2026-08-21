@@ -21,7 +21,7 @@ remote_theme: sighingnow/jekyll-gitbook
 
 toc:
   enabled: true
-  h_min:   1
+  h_min:   2
   h_max:   3
 
 # customize the link favicon in header, will be {{site.baseurl}}/{{site.favicon_path}}
@@ -39,7 +39,7 @@ kramdown:
   syntax_highlighter_opts:
     guess_lang:           true
 
-syntax_highlighter_style: colorful
+syntax_highlighter_style: monokai
 
 markdown_ext:             markdown,mkdown,mkdn,mkd,md
 
@@ -51,6 +51,12 @@ permalink:                /:categories/:title
 
 exclude:
   - _drafts
+  - _posts
+  - _others
+  - node_modules
+  - playwright-report
+  - test-results
+  - tests
 
 collections:
   guide:
@@ -60,6 +66,9 @@ collections:
     output: true
     permalink: /:collection/:path/
   others:
+    output: true
+    permalink: /:collection/:path/
+  redirects:
     output: true
     permalink: /:collection/:path/
 

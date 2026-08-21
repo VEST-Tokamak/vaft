@@ -11,12 +11,19 @@
         {% endif %}
     </head>
     <body>
-        <div class="book">
+        {% capture rendered_page_toc %}{% include toc.html html=content sanitize=true h_min=2 h_max=3 class="page-toc-list" item_class="page-toc-item.page-toc-level-%level%" submenu_class="page-toc-submenu.page-toc-level-%level%" anchor_class="page-toc-link" %}{% endcapture %}
+        {% assign rendered_page_toc = rendered_page_toc | strip %}
+        <div class="book{% if rendered_page_toc contains '<li' %} has-page-toc{% endif %}">
 
             {%- include toc-date.html -%}
 
             <div class="book-body">
                 <div class="book-header" role="navigation">
+                    {% if rendered_page_toc contains '<li' %}
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    {% endif %}
                     <!-- Title -->
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
@@ -42,6 +49,10 @@
                     {% endif %}
                 </div>
             </div>
+
+            {% if rendered_page_toc contains '<li' %}
+                {% include page-toc.html toc=rendered_page_toc %}
+            {% endif %}
 
             <script>
             var gitbook = gitbook || [];

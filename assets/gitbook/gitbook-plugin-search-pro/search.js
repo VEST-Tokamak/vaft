@@ -6,6 +6,7 @@ require([
     var state = gitbook.state;
     var INDEX_DATA = {};
     var usePushState = (typeof history.pushState !== 'undefined');
+    var lastResultUrl = null;
 
     // DOM Elements
     var $body = $('body');
@@ -211,20 +212,25 @@ require([
 
     function showResult() {
         var keyword, type;
+        if (lastResultUrl === location.href) {
+            return;
+        }
+        lastResultUrl = location.href;
         if (/\b(q|h)=([^&]+)/.test(location.search)) {
             type = RegExp.$1;
             keyword = decodeURIComponent(RegExp.$2);
             if (type === 'q') {
                 launchSearch(keyword);
+                $('#book-search-input input').val(keyword);
+                $('#book-search-input-inside input').val(keyword);
             } else {
                 highLightPageInner(keyword);
             }
-            $('#book-search-input input').val(keyword);
-            $('#book-search-input-inside input').val(keyword);
         }
     }
 
     gitbook.events.on('page.change', showResult);
+    $(showResult);
 
     function getParameterByName(name) {
         var url = window.location.href;

@@ -1,10 +1,20 @@
 ---
-title: Signal processing and EM modeling
+title: Electromagnetic modeling
 author: VEST team
 date: 2026-07-01 10:30
 category: guide
 layout: post
 mermaid: true
+permalink: /workflows/electromagnetic-modeling/
+guide:
+  architecture: Numerical processing and electromagnetic response beneath ODS-aware wrappers.
+  prerequisites: Coil, passive-structure, sensor geometry, and optional external-code roots.
+  expected: Response matrices, eddy-current results, or a readiness/input-preparation report.
+related:
+  notebooks: [external-codes, chease-refinement, em-response]
+  api: [process, code]
+  data_sources: [external-codes, sample-ods]
+  outputs: [external-readiness, equilibrium-inputs]
 ---
 
 `vaft.process` is the **computation layer** of VAFT. Almost every function in it takes plain NumPy

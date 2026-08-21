@@ -1,0 +1,42 @@
+{% assign output_ids = include.ids %}
+{% if output_ids %}
+<div class="notebook-output-grid">
+  {% for output_id in output_ids %}
+    {% assign output = site.data.notebook_outputs.outputs[output_id] %}
+    {% assign output_has_image = false %}
+    {% for artifact in output.artifacts %}
+      {% assign extension = artifact.path | split: '.' | last %}
+      {% if extension == 'png' or extension == 'jpg' or extension == 'jpeg' or extension == 'webp' %}{% assign output_has_image = true %}{% endif %}
+    {% endfor %}
+    <article class="notebook-output{% if output_has_image %} notebook-output-has-image{% endif %}" id="output-{{ output_id }}" data-output-id="{{ output_id }}">
+      <h3 id="output-title-{{ output_id }}">{{ output.title }}</h3>
+      {% for artifact in output.artifacts %}
+        {% assign extension = artifact.path | split: '.' | last %}
+        {% if extension == 'png' or extension == 'jpg' or extension == 'jpeg' or extension == 'webp' %}
+          <figure>
+            <a href="{{ site.baseurl }}/{{ artifact.path }}"><img src="{{ site.baseurl }}/{{ artifact.path }}" alt="{{ artifact.alt | escape }}" loading="lazy"></a>
+            <figcaption>{{ artifact.caption }}</figcaption>
+          </figure>
+        {% else %}
+          <p><a class="output-artifact-link" href="{{ site.baseurl }}/{{ artifact.path }}">Open {{ extension | upcase }} artifact</a> — {{ artifact.caption }}</p>
+        {% endif %}
+      {% endfor %}
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>{{ output.notebook_path }}</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>{{ output.notebook_sha256 }}</code></dd>
+          <dt>Execution mode</dt><dd>{{ output.execution_mode }}</dd>
+          <dt>Data</dt><dd>{{ output.data_source }}</dd>
+          <dt>Shot / time</dt><dd>{{ output.shot }} / {{ output.time_slice }}</dd>
+          <dt>Python / VAFT</dt><dd>{{ site.data.notebook_outputs.python_version }} / {{ site.data.notebook_outputs.vaft_version }}</dd>
+          <dt>Executed</dt><dd>{{ site.data.notebook_outputs.timestamp }}</dd>
+          {% for artifact in output.artifacts %}
+            <dt>{{ artifact.path | split: '/' | last }} SHA-256</dt><dd><code>{{ artifact.sha256 }}</code></dd>
+          {% endfor %}
+        </dl>
+      </details>
+    </article>
+  {% endfor %}
+</div>
+{% endif %}

@@ -5,6 +5,16 @@ date: 2026-07-01 10:10
 category: guide
 layout: post
 mermaid: true
+permalink: /workflows/mhd-stability/
+guide:
+  architecture: Screens equilibria analytically before optional DCON, RDCON, and GPEC execution.
+  prerequisites: Reconstructed equilibrium and, for full runs, configured GPEC-suite binaries.
+  expected: Stability margins plus deterministic run inputs or collected solver outputs.
+related:
+  notebooks: [external-codes, ideal-stability, resistive-stability]
+  api: [code, process]
+  data_sources: [external-codes]
+  outputs: [external-readiness, equilibrium-inputs]
 ---
 
 VAFT answers stability questions at two levels of fidelity, and they are meant to be used in that

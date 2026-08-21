@@ -1,15 +1,24 @@
 ---
-title: Examples
+title: Notebooks
 author: VEST team
 date: 2026-07-01 11:10
 category: guide
 layout: post
-permalink: /guide/examples/
+permalink: /reference/notebooks/
+guide:
+  architecture: Executable examples and immutable provenance connecting develop source to published outputs.
+  prerequisites: The pinned companion source, its documented environment, and optional public HSDS configuration.
+  expected: A complete notebook inventory and verified artifact cards with hashes and execution context.
+  status: All nine allowlisted notebooks executed; immutable companion commit is pending commit authorization.
+related:
+  notebooks: [database-initialization, plotting-sample, fluctuation-diagnostics, kinetic-efit, chease-refinement, confinement-scaling, external-codes, pipeline-overview]
+  api: [database, omas, imas, mapping, process, plot, code]
+  data_sources: [sample-ods, hsds-public, raw-44740, kinetic-48224, external-codes]
 ---
 
 # Notebook Examples
 
-The VAFT repository ships **27 example notebooks** under [`notebooks/`](https://github.com/VEST-Tokamak/vaft/tree/main/notebooks). This page indexes all of them, groups them by theme, and shows verified code for the ones you are most likely to start from.
+The companion source tree contains **31 notebooks**: all 30 notebooks present on the inspected `develop` baseline plus the generated pipeline overview. This page inventories every notebook and publishes only outputs produced by the guarded documentation allowlist.
 
 ![VAFT overview]({{ site.baseurl }}/assets/images/IMG_3873.jpg)
 
@@ -17,18 +26,26 @@ The VAFT repository ships **27 example notebooks** under [`notebooks/`](https://
 
 The notebooks are at two different levels of maturity, and it saves a lot of time to know which is which before you open one:
 
-- **Runnable** — the notebook contains executable cells and a working data path. 16 notebooks.
+- **Runnable** — the notebook contains executable cells and a working data path. 20 notebooks (19 retained plus the new pipeline overview).
 - **Design shell** — the notebook is currently a structured markdown outline (objectives, expected inputs and outputs, planned sections) with **no code cells yet**. 11 notebooks. They are useful as specifications of where a pipeline stage is heading, but they will not execute anything.
 
 Design shells are marked *(design shell)* below.
+
+## Verified notebook outputs
+
+The export runner sets `MPLBACKEND=Agg`, requires `VAFT_DOCS_READ_ONLY=1`, and rejects remote-save APIs before execution. External EFIT, CHEASE, DCON/RDCON, GPEC and TES binaries are optional: the published baseline records deterministic input preparation or readiness when a usable binary result is unavailable.
+
+{% assign verified_output_ids = "first-result,hsds-39915,imas-roundtrip,mirnov-spectrogram,kinetic-profile,equilibrium-inputs,external-readiness,confinement-scaling,pipeline-overview" | split: "," %}
+{% include notebook-outputs.html ids=verified_output_ids %}
 
 ## Getting started and the database
 
 | Notebook | Purpose |
 | --- | --- |
-| [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/database_initialization_and_load.ipynb) | Install VAFT, verify the HSDS connection, list public shots, and load a shot into an ODS. |
-| [`vest_experimental_data_list.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_experimental_data_list.ipynb) | Tour of IMAS/OMAS concepts and of which VEST diagnostics are mapped into the database today. |
-| [`vest_raw_signal_sql_database.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_raw_signal_sql_database.ipynb) | Reach the legacy SQL DAQ store: field codes, slow vs fast channels, and raw waveform retrieval. |
+| [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/database_initialization_and_load.ipynb) | Install VAFT, verify the HSDS connection, list public shots, and load a shot into an ODS. |
+| [`vest_experimental_data_list.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_experimental_data_list.ipynb) | Tour of IMAS/OMAS concepts and of which VEST diagnostics are mapped into the database today. |
+| [`vest_raw_signal_sql_database.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_raw_signal_sql_database.ipynb) | Reach the legacy SQL DAQ store: field codes, slow vs fast channels, and raw waveform retrieval. |
+| [`verify_exist_shot_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/verify_exist_shot_and_load.ipynb) | Inspect published-shot status and verify selected read paths without changing the remote namespace. |
 
 Start here. This is the shortest path from a fresh install to a shot in memory.
 
@@ -53,8 +70,8 @@ If you have no network access, every example below can also be driven from the p
 
 | Notebook | Purpose |
 | --- | --- |
-| [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/read_and_convert_data_structure.ipynb) | Walk an equilibrium ODS key by key — `equilibrium.time_slice`, `profiles_1d`, and the rest of the hierarchy. |
-| [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/imas_omas_data_conversion.ipynb) | Bridge OMAS ODS objects and native IMAS AL5 HDF5 storage, in both directions. |
+| [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/read_and_convert_data_structure.ipynb) | Walk an equilibrium ODS key by key — `equilibrium.time_slice`, `profiles_1d`, and the rest of the hierarchy. |
+| [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/imas_omas_data_conversion.ipynb) | Bridge OMAS ODS objects and native IMAS AL5 HDF5 storage, in both directions. |
 
 The packaged samples are the fastest way to get a realistic ODS without touching the network:
 
@@ -92,10 +109,10 @@ Related reading: [Data structures]({{ site.baseurl }}/guide/Data_structures/) an
 
 | Notebook | Purpose |
 | --- | --- |
-| [`magnetic_diagnostics_processing.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_diagnostics_processing.ipynb) | *(design shell)* Planned preprocessing, filtering, calibration, and sign conventions for `ip`, flux loops, and poloidal probes. |
-| [`soft_x_ray_signal_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/soft_x_ray_signal_analysis.ipynb) | Map digitizer CSVs into a soft X-ray ODS, then plot lines of sight, signals, and spectrograms. |
-| [`fluctuation_diagnostics_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/fluctuation_diagnostics_analysis.ipynb) | Mirnov coil fluctuation work: spectrograms, toroidal mode spectra, and mode-number fits. |
-| [`fast_camera_video_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/fast_camera_video_analysis.ipynb) | *(design shell)* Planned camera image and video loading, plasma-behavior observation, and synchronization. |
+| [`magnetic_diagnostics_processing.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_diagnostics_processing.ipynb) | *(design shell)* Planned preprocessing, filtering, calibration, and sign conventions for `ip`, flux loops, and poloidal probes. |
+| [`soft_x_ray_signal_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/soft_x_ray_signal_analysis.ipynb) | Map digitizer CSVs into a soft X-ray ODS, then plot lines of sight, signals, and spectrograms. |
+| [`fluctuation_diagnostics_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/fluctuation_diagnostics_analysis.ipynb) | Mirnov coil fluctuation work: spectrograms, toroidal mode spectra, and mode-number fits. |
+| [`fast_camera_video_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/fast_camera_video_analysis.ipynb) | *(design shell)* Planned camera image and video loading, plasma-behavior observation, and synchronization. |
 
 ![Probe example]({{ site.baseurl }}/assets/images/magnetics/Inboard_B_z.png)
 
@@ -118,15 +135,16 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 
 | Notebook | Purpose |
 | --- | --- |
-| [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb) | Refine a GEQDSK with CHEASE: build `EXPEQ` and the namelist, resolve the binary, run, collect outputs. |
-| [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/forward_equilibrium_using_TES.ipynb) | Forward (Grad-Shafranov) equilibrium solve with TES, driven straight from an ODS. |
-| [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/electromagnetic_response_modeling_with_efund.ipynb) | *(design shell)* Planned EFUND response modeling over wall geometry, PF active and PF passive structures. |
-| [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) | *(design shell)* Planned PF-passive eddy-current ODE solve and tokamak startup / null analysis. |
-| [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb) | *(design shell)* Planned EFIT reconstruction from magnetics, eddy currents, and PF coil information. |
-| [`mhd_equilibrium_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/mhd_equilibrium_analysis.ipynb) | *(design shell)* Planned equilibrium loading, representative quantities, and coordinate transformations. |
-| [`linear_ideal_stability_analysis_with_dcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb) | *(design shell)* Planned ideal MHD stability (delta-W) with DCON from the GPEC package. |
-| [`linear_resistive_stability_analysis_with_rdcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb) | *(design shell)* Planned resistive stability (Delta-prime) with RDCON. |
-| [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb) | *(design shell)* Planned perturbed equilibrium and non-axisymmetric 3D response with GPEC. |
+| [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb) | Refine a GEQDSK with CHEASE: build `EXPEQ` and the namelist, resolve the binary, run, collect outputs. |
+| [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) | Forward (Grad-Shafranov) equilibrium solve with TES, driven straight from an ODS. |
+| [`initialize_external_fusion_codes.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/initialize_external_fusion_codes.ipynb) | Read-only readiness checks for the `GPECHOME`, `CHEASEHOME`, `EFITHOME`, and `TESHOME` conventions. |
+| [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/electromagnetic_response_modeling_with_efund.ipynb) | *(design shell)* Planned EFUND response modeling over wall geometry, PF active and PF passive structures. |
+| [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) | *(design shell)* Planned PF-passive eddy-current ODE solve and tokamak startup / null analysis. |
+| [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb) | *(design shell)* Planned EFIT reconstruction from magnetics, eddy currents, and PF coil information. |
+| [`mhd_equilibrium_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/mhd_equilibrium_analysis.ipynb) | *(design shell)* Planned equilibrium loading, representative quantities, and coordinate transformations. |
+| [`linear_ideal_stability_analysis_with_dcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb) | *(design shell)* Planned ideal MHD stability (delta-W) with DCON from the GPEC package. |
+| [`linear_resistive_stability_analysis_with_rdcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb) | *(design shell)* Planned resistive stability (Delta-prime) with RDCON. |
+| [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb) | *(design shell)* Planned perturbed equilibrium and non-axisymmetric 3D response with GPEC. |
 
 CHEASE is the most complete code-coupling example in the repository. The `prepare_*` / `run_*` / `collect_*` triple is the pattern every code wrapper in `vaft.code` follows:
 
@@ -169,9 +187,10 @@ Both binaries are optional: the notebooks degrade to input generation when the e
 
 | Notebook | Purpose |
 | --- | --- |
-| [`profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Map Thomson scattering onto equilibrium flux surfaces to fit core `Te` and `ne` profiles. |
-| [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/confinement_time_scaling.ipynb) | Single-shot workflow test, then a dataset-wide confinement-time scaling and regression study. |
-| [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/tokamak_power_balance.ipynb) | Ohmic input against radiated and conducted losses, with an Aurora-based impurity treatment. |
+| [`profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Map Thomson scattering onto equilibrium flux surfaces to fit core `Te` and `ne` profiles. |
+| [`kinetic_efit_end_to_end.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/kinetic_efit_end_to_end.ipynb) | Build electron and ion profiles from the paired shot 48224 repository inputs at 300 ms. |
+| [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/confinement_time_scaling.ipynb) | Single-shot workflow test, then a dataset-wide confinement-time scaling and regression study. |
+| [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/tokamak_power_balance.ipynb) | Ohmic input against radiated and conducted losses, with an Aurora-based impurity treatment. |
 
 The profile notebook is the largest runnable example that stays inside pure VAFT:
 
@@ -191,10 +210,10 @@ See [Profiles]({{ site.baseurl }}/guide/Profiles/) and [Formula]({{ site.baseurl
 
 | Notebook | Purpose |
 | --- | --- |
-| [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/plotting_sample_using_vaft_plot_module.ipynb) | The plot module tour: naming conventions, ODS vs ODC input, and time-convention shifts. |
-| [`publication_figures.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/publication_figures.ipynb) | Reproduce publication-quality composite figures at print DPI. |
-| [`verification_and_validation.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/verification_and_validation.ipynb) | Cross-check volume-averaged parameters across shots and export a V&V spreadsheet. |
-| [`multiple_tokamak_comparison.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/multiple_tokamak_comparison.ipynb) | *(design shell)* Planned cross-device comparison of geometry, equilibrium, and diagnostic signals. |
+| [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/plotting_sample_using_vaft_plot_module.ipynb) | The plot module tour: naming conventions, ODS vs ODC input, and time-convention shifts. |
+| [`publication_figures.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/publication_figures.ipynb) | Reproduce publication-quality composite figures at print DPI. |
+| [`verification_and_validation.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/verification_and_validation.ipynb) | Cross-check volume-averaged parameters across shots and export a V&V spreadsheet. |
+| [`multiple_tokamak_comparison.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/multiple_tokamak_comparison.ipynb) | *(design shell)* Planned cross-device comparison of geometry, equilibrium, and diagnostic signals. |
 
 The plot module names functions as `{ids}_{coordinate}_{quantity}` — for example `time_magnetics_ip`. Any plot function accepts a single ODS, an ODC, or a list of ODS objects, which is what makes shot overlays trivial:
 
@@ -229,14 +248,15 @@ See [Plotting]({{ site.baseurl }}/guide/Plotting/) for the full catalogue.
 
 | Notebook | Purpose |
 | --- | --- |
-| [`vest_daily_monitoring.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_daily_monitoring.ipynb) | Day-to-day shot health check: load the day's shots into an ODC and compare key signals. |
-| [`shot_characteristics_classification.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/shot_characteristics_classification.ipynb) | *(design shell)* Planned representative-signal extraction, shot classification, and summary sheets. |
+| [`vest_daily_monitoring.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_daily_monitoring.ipynb) | Day-to-day shot health check: load the day's shots into an ODC and compare key signals. |
+| [`shot_characteristics_classification.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/shot_characteristics_classification.ipynb) | *(design shell)* Planned representative-signal extraction, shot classification, and summary sheets. |
+| [`automated_pipeline_overview.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/automated_pipeline_overview.ipynb) | Deterministic stage and product summary for routine, corrective, and history-table Snakemake paths. |
 
 These pair with the automated Snakemake stages described in [Pipelines]({{ site.baseurl }}/guide/Pipelines/).
 
-## Known issues in the notebooks on `main`
+## Notebook maturity and remaining legacy APIs
 
-Some notebooks on `main` have not caught up with two API changes. If you hit one of these, the fix is mechanical — and the working form is what this page uses throughout.
+The nine documentation-allowlisted notebooks are repaired on the companion branch. Some other runnable notebooks retained from the `develop` baseline still demonstrate older discovery or file-loading APIs; the working forms below are the migration path.
 
 **1. `vaft.database.exist_ts_file()` does not exist.** It is called by `tokamak_power_balance.ipynb` and `verification_and_validation.ipynb` to discover processed shots. There is no replacement helper in the package; supply the shot list directly, as `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb` now does:
 
@@ -263,14 +283,14 @@ Note that `load_omas_json` *does* exist in the upstream `omas` package (`from om
 
 A newcomer should work through the runnable notebooks in this order:
 
-1. [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/database_initialization_and_load.ipynb) — install, connect, load your first shot.
-2. [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/read_and_convert_data_structure.ipynb) — learn the ODS hierarchy before you plot anything.
-3. [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/plotting_sample_using_vaft_plot_module.ipynb) — the plot naming convention pays for itself immediately.
-4. [`vest_experimental_data_list.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_experimental_data_list.ipynb) — find out which diagnostics are actually mapped.
-5. [`profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) — the first real physics workflow.
-6. [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb) — how VAFT wraps an external code.
-7. [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/confinement_time_scaling.ipynb) — scale up from one shot to the whole dataset.
+1. [`database_initialization_and_load.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/database_initialization_and_load.ipynb) — install, connect, load your first shot.
+2. [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/read_and_convert_data_structure.ipynb) — learn the ODS hierarchy before you plot anything.
+3. [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/plotting_sample_using_vaft_plot_module.ipynb) — the plot naming convention pays for itself immediately.
+4. [`vest_experimental_data_list.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_experimental_data_list.ipynb) — find out which diagnostics are actually mapped.
+5. [`profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) — the first real physics workflow.
+6. [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb) — how VAFT wraps an external code.
+7. [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/confinement_time_scaling.ipynb) — scale up from one shot to the whole dataset.
 
-Then branch by interest: [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/imas_omas_data_conversion.ipynb) for interoperability, [`soft_x_ray_signal_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/soft_x_ray_signal_analysis.ipynb) and [`fluctuation_diagnostics_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/fluctuation_diagnostics_analysis.ipynb) for diagnostics, [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/forward_equilibrium_using_TES.ipynb) for forward modeling, and [`publication_figures.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/publication_figures.ipynb) when it is time to write the paper.
+Then branch by interest: [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/imas_omas_data_conversion.ipynb) for interoperability, [`soft_x_ray_signal_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/soft_x_ray_signal_analysis.ipynb) and [`fluctuation_diagnostics_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/fluctuation_diagnostics_analysis.ipynb) for diagnostics, [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) for forward modeling, and [`publication_figures.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/publication_figures.ipynb) when it is time to write the paper.
 
 If you have not installed VAFT yet, start at [Installation]({{ site.baseurl }}/guide/Installation/) and the [Quick start guide]({{ site.baseurl }}/guide/Quick_start_guide/). The complete function list is in the [API reference]({{ site.baseurl }}/guide/API_reference/).

@@ -1,10 +1,20 @@
 ---
-title: Kinetic profiles and fitting
+title: Equilibrium and kinetic profiles
 author: VEST team
 date: 2026-07-01 10:20
 category: guide
 layout: post
 mermaid: true
+permalink: /workflows/equilibrium-kinetic-profiles/
+guide:
+  architecture: Joins reconstructed equilibrium geometry to fitted kinetic diagnostics.
+  prerequisites: GEQDSK equilibrium plus Thomson and charge-exchange measurements.
+  expected: A core_profiles IDS and deterministic equilibrium-code input bundle.
+related:
+  notebooks: [kinetic-efit, chease-refinement]
+  api: [process, code, plot]
+  data_sources: [kinetic-48224, external-codes]
+  outputs: [kinetic-profile, equilibrium-inputs]
 ---
 
 Kinetic diagnostics on VEST — Thomson scattering (TS) and charge exchange spectroscopy (CES) — measure

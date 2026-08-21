@@ -8,5 +8,7 @@ gem 'jekyll-feed'
 gem 'jekyll-readme-index'
 gem 'jemoji'
 gem 'webrick'
+gem 'logger'
+gem 'csv'
 
 # gem "rails"

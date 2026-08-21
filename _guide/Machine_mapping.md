@@ -1,10 +1,20 @@
 ---
-title: Machine mapping
+title: Data access and IMAS
 author: VEST team
 date: 2026-07-01 09:40
 category: guide
 layout: post
 mermaid: true
+permalink: /workflows/data-access-imas/
+guide:
+  architecture: Boundary between VEST-native signals and IMAS-aligned OMAS structures.
+  prerequisites: A packaged sample, public HSDS shot, or archived raw diagnostic source.
+  expected: A mapped ODS whose IDS paths can be consumed by processing and plotting layers.
+related:
+  notebooks: [database-initialization, data-conversion]
+  api: [database, omas, imas, mapping]
+  data_sources: [sample-ods, hsds-public, raw-daq]
+  outputs: [hsds-39915, imas-roundtrip]
 ---
 
 `vaft.machine_mapping` is the layer that turns **VEST machine reality** — DAQ field codes, coil geometry

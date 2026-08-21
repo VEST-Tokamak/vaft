@@ -20,6 +20,21 @@ open to all users; writing to the database is restricted to authorized accounts.
 > to operating characteristics analysis"
 > ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
 
+## Choose a path
+
+<div class="entry-paths">
+  <a class="entry-path-card" data-entry-path="workflows" href="{{ site.baseurl }}/workflows/start-here/">
+    <strong>Research workflows</strong>
+    <span>Move from data access through diagnostics, equilibrium, profiles, stability, and reproducible analysis outputs.</span>
+    <span>Start here with a working result →</span>
+  </a>
+  <a class="entry-path-card" data-entry-path="reference" href="{{ site.baseurl }}/reference/api/">
+    <strong>Library and data reference</strong>
+    <span>Find the VAFT API, IMAS concepts, database sources, notebooks, citations, and support contacts.</span>
+    <span>Open the VAFT API reference →</span>
+  </a>
+</div>
+
 ## Key features
 
 | Capability | Description |
@@ -67,33 +82,21 @@ Install from source, add the HSDS client, then configure your connection:
 git clone https://github.com/VEST-Tokamak/vaft.git
 cd vaft
 python -m pip install -e .
-python -m pip install --no-deps h5pyd==0.20.0
-hsconfigure
 ```
 
-See [Installation]({{ site.baseurl }}/guide/Installation/) for the full dependency matrix and
-[Quick start guide]({{ site.baseurl }}/guide/Quick_start_guide/) for the HSDS credentials and a first
-end-to-end session.
+The source install includes `h5pyd`. Start with the packaged offline sample, then configure HSDS only
+when you need public VEST data. See [Start here]({{ site.baseurl }}/workflows/start-here/) for both paths.
 
 ## Documentation
 
 | Guide | Contents |
 | --- | --- |
-| [Installation]({{ site.baseurl }}/guide/Installation/) | Supported Python versions, dependencies, editable install, HSDS client |
-| [Quick start guide]({{ site.baseurl }}/guide/Quick_start_guide/) | Connect to the database and load your first shot |
-| [Database and data access]({{ site.baseurl }}/guide/Database/) | HSDS remote store, ODS/IDS loading and saving, raw DAQ signals |
-| [Data structures (ODS, IDS, IMAS)]({{ site.baseurl }}/guide/Data_structures/) | How VEST data is organized under the IMAS data model |
-| [Machine mapping]({{ site.baseurl }}/guide/Machine_mapping/) | Native VEST diagnostics → standardized IMAS IDSs |
-| [Magnetics]({{ site.baseurl }}/guide/Magnetics/) | Magnetic probes, flux loops, plasma current, diamagnetic flux |
-| [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) | EFIT and CHEASE reconstruction and refinement |
-| [MHD stability]({{ site.baseurl }}/guide/Stability/) | Linear stability with DCON, RDCON, STRIDE and GPEC |
-| [Kinetic profiles and fitting]({{ site.baseurl }}/guide/Profiles/) | Thomson scattering and CES mapping onto flux coordinates |
-| [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) | Smoothing, baselines, electromagnetic fields, eddy currents |
-| [Physics formulas]({{ site.baseurl }}/guide/Formula/) | Equilibrium, stability, confinement scaling, Green's functions |
-| [Plotting]({{ site.baseurl }}/guide/Plotting/) | Time traces, 1D/2D profiles, flux surfaces, top view |
-| [Automated pipelines]({{ site.baseurl }}/guide/Pipelines/) | Snakemake workflows from raw DAQ to stability analysis |
-| [Examples]({{ site.baseurl }}/guide/examples/) | Runnable examples based on the repository notebooks |
-| [API reference]({{ site.baseurl }}/guide/API_reference/) | Module-by-module reference for the `vaft` package |
+| [Research workflows]({{ site.baseurl }}/workflows/start-here/) | Start with an offline result and continue through the VEST analysis chain |
+| [Data access and IMAS]({{ site.baseurl }}/workflows/data-access-imas/) | Load, inspect, map and convert experimental data |
+| [Equilibrium and kinetic profiles]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/) | Reconstruct equilibria and fit diagnostic profiles |
+| [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) | Snakemake routine, corrective and summary workflows |
+| [VAFT API]({{ site.baseurl }}/reference/api/) | Module-by-module library reference |
+| [Notebooks]({{ site.baseurl }}/reference/notebooks/) | Runnable notebooks, design shells and verified outputs |
 
 ## Resources
 

@@ -1,10 +1,20 @@
 ---
-title: Data structures (ODS, IDS, IMAS)
+title: Fusion data structure and IMAS concepts
 author: VEST team
 date: 2026-07-01 09:30
 category: guide
 layout: post
 mermaid: true
+permalink: /reference/imas-concepts/
+guide:
+  architecture: Conceptual contract shared by database, mapping, processing, and plotting code.
+  prerequisites: Familiarity with Python containers; no database access is required for samples.
+  expected: Correct IDS-path navigation, time-base handling, and local OMAS/IMAS conversion choices.
+related:
+  notebooks: [data-conversion, database-initialization]
+  api: [omas, imas, database]
+  data_sources: [sample-ods, hsds-public]
+  outputs: [imas-roundtrip, hsds-39915]
 ---
 
 VAFT stores **every** VEST shot — raw diagnostics, processed signals, equilibria, kinetic profiles — in the

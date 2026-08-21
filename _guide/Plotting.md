@@ -3,7 +3,8 @@ title: Plotting
 author: VEST team
 date: 2026-07-01 10:50
 category: guide
-layout: post
+layout: redirect
+redirect_to: /workflows/experimental-interpretation/
 ---
 
 `vaft.plot` draws OMAS-formatted VEST data: raw diagnostic traces, reconstructed

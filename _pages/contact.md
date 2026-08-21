@@ -1,9 +1,19 @@
 ---
-title: Contact
+title: Contacts
 author: VEST team
 date: 2026-07-01 12:10
 category: pages
 layout: post
+permalink: /reference/contacts/
+guide:
+  architecture: Human support boundary for data access, contribution, and issue reporting.
+  prerequisites: A reproducible example and environment details when reporting a defect.
+  expected: The correct public-access path, issue tracker, or maintainer contact route.
+related:
+  notebooks: [database-initialization]
+  api: [database]
+  data_sources: [hsds-public]
+  outputs: [hsds-39915]
 ---
 
 VAFT is developed and maintained by the VEST team at Seoul National University. This page collects
