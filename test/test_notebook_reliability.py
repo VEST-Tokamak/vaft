@@ -1,0 +1,80 @@
+"""Structural and portability contracts for user-facing notebooks."""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+import nbformat
+
+
+ROOT = Path(__file__).resolve().parents[1]
+NOTEBOOKS = ROOT / "notebooks"
+MACHINE_PATH_PREFIXES = ("/home/", "/Users/", "/srv/")
+DEPRECATED_CALLS = {
+    "vaft.database.exist_ts_file",
+    "vaft.database.ods.load",
+}
+
+
+def _attribute_name(node: ast.AST) -> str | None:
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def test_all_notebooks_are_valid_and_python_cells_compile():
+    failures = []
+    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+        try:
+            book = nbformat.read(path, as_version=4)
+            nbformat.validate(book)
+        except Exception as error:  # report every invalid notebook together
+            failures.append(f"{path.name}: {type(error).__name__}: {error}")
+            continue
+
+        for index, cell in enumerate(book.cells):
+            if cell.cell_type != "code":
+                continue
+            try:
+                compile(cell.source, f"{path.name}:cell-{index}", "exec")
+            except SyntaxError as error:
+                failures.append(f"{path.name}:cell-{index}: {error}")
+
+    assert failures == []
+
+
+def test_notebooks_avoid_deprecated_database_calls_and_machine_paths():
+    failures = []
+    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+        book = nbformat.read(path, as_version=4)
+        for index, cell in enumerate(book.cells):
+            if cell.cell_type != "code":
+                continue
+            tree = ast.parse(cell.source, filename=f"{path.name}:cell-{index}")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    name = _attribute_name(node.func)
+                    if name in DEPRECATED_CALLS:
+                        failures.append(f"{path.name}:cell-{index}: {name}")
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    if node.value.startswith(MACHINE_PATH_PREFIXES):
+                        failures.append(
+                            f"{path.name}:cell-{index}: user-specific path {node.value!r}"
+                        )
+
+    assert failures == []
+
+
+def test_load_omas_json_accepts_pathlike_input():
+    import vaft
+
+    sample = ROOT / "vaft" / "data" / "omas" / "39915.json"
+    ods = vaft.omas.load_omas_json(sample, consistency_check=False)
+
+    assert len(ods) > 0

@@ -148,8 +148,9 @@ plt.show()
             """import json
 import numpy as np
 
-with vaft.database.open(39915, source="public", paths="equilibrium") as remote:
-    times = np.asarray(remote["equilibrium.time"], dtype=float)
+if os.environ.get("VAFT_DOCS_LIVE_HSDS") == "1":
+    with vaft.database.open(39915, source="public", paths="equilibrium") as remote:
+        times = np.asarray(remote["equilibrium.time"], dtype=float)
     summary = {
         "shot": 39915,
         "namespace": "public",
@@ -158,6 +159,13 @@ with vaft.database.open(39915, source="public", paths="equilibrium") as remote:
         "time_slices": int(times.size),
         "first_time_s": float(times[0]),
         "last_time_s": float(times[-1]),
+    }
+else:
+    summary = {
+        "shot": 39915,
+        "namespace": "public",
+        "status": "skipped offline",
+        "enable_with": "VAFT_DOCS_LIVE_HSDS=1",
     }
 
 text = json.dumps(summary, indent=2)
