@@ -1,6 +1,6 @@
 """Build VEST kinetic profiles (TS + IDS/CES) into ODS/IMAS.
 
-Thin CLI over ``vaft.code.kineticEfit.build_kinetic_core_profiles``. This script
+Thin CLI over ``vaft.code.efit.build_kinetic_core_profiles``. This script
 owns only I/O and iteration; all profile-fit physics lives in the library.
 
 Per (shot, time):
@@ -18,7 +18,7 @@ Outputs (per slice, under --outdir):
 
 Scope ends at the kinetic profiles - no EFIT constraint export, no remote DB.
 For the full kinetic chain (profiles -> kinetic-pressure EFIT -> CHEASE refine)
-use vaft.code.kineticEfit.run_kinetic_chain or the end-to-end notebook.
+use vaft.code.efit.run_kinetic_chain or the end-to-end notebook.
 
 Defaults: shots 48224/48226/48233 x 299/300/301 ms (298 excluded as artifact).
 Run with the conda `vaft` interpreter:
@@ -40,7 +40,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import vaft
-from vaft.code.kineticEfit import build_kinetic_core_profiles
+from vaft.code.efit import build_kinetic_core_profiles
 
 vaft.apply_omfit_compat_patches()
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk

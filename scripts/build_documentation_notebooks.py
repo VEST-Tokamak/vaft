@@ -216,7 +216,7 @@ KINETIC = notebook(
 import matplotlib.pyplot as plt
 import numpy as np
 import vaft
-from vaft.code.kineticEfit import build_kinetic_core_profiles
+from vaft.code.efit import build_kinetic_core_profiles
 from vaft.data import read_geqdsk
 
 shot = 48224

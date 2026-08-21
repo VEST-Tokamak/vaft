@@ -1,5 +1,5 @@
 """Tests for the statistical Ti/Te ratio: estimator, core_profiles fallback,
-and the Thomson-only kinetic pressure path in vaft.code.kineticEfit.
+and the Thomson-only kinetic pressure path in vaft.code.efit.
 
 The coefficient (TI_TE_RATIO_VEST) is fitted offline on the shots that carry
 BOTH electron (Thomson) and ion (IDS/charge_exchange) profiles
@@ -18,7 +18,7 @@ from vaft.process.profile import (
     core_profiles,
     fit_ti_te_ratio,
 )
-from vaft.code import kineticEfit as km
+from vaft.code import efit as km
 
 E_CHARGE = 1.602176634e-19
 
@@ -156,7 +156,7 @@ def test_core_profiles_rejects_invalid_ratio(ratio):
 
 
 # --------------------------------------------------------------------------- #
-# kineticEfit: Thomson-only pressure points (statistical fallback)
+# EFIT kinetic mode: Thomson-only pressure points (statistical fallback)
 # --------------------------------------------------------------------------- #
 
 class FakeNode(dict):
