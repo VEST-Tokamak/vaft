@@ -15,7 +15,6 @@ from typing import Any
 import nbformat
 from nbclient import NotebookClient
 
-
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS = ROOT / "notebooks"
 ALLOWLIST = (
@@ -47,8 +46,8 @@ EXPECTED_ARTIFACTS = (
 # The compact database notebook deliberately replaces vaft.database.save with a
 # guard. Calls and lower-level write-enabled APIs remain forbidden.
 FORBIDDEN = (
-    re.compile(r"(?<![.=])\b(?:save_ods|save_ids|save_shot_as|write_to_hdf5)\s*\("),
-    re.compile(r"\bvaft\.database\.save\s*\((?!\s*\*args)"),
+    re.compile(r"\b(?:save_ods|save_ids|save_shot_as|write_to_hdf5)\s*\("),
+    re.compile(r"\bvaft\.database\.save\s*\("),
     re.compile(r"\b(?:hsload|h5py\.File)\s*\([^\n]*[\"'](?:w|a|r\+)"),
 )
 
@@ -70,14 +69,20 @@ def dependency_hash() -> str:
     return hashlib.sha256(freeze.encode()).hexdigest()
 
 
+def validate_source(source: str, label: str) -> None:
+    for pattern in FORBIDDEN:
+        if pattern.search(source):
+            raise RuntimeError(
+                f"{label}: rejected remote or write-enabled API: {pattern.pattern}"
+            )
+
+
 def validate_notebook(path: Path) -> None:
     book = nbformat.read(path, as_version=4)
     if not book.metadata.get("vaft_docs", {}).get("read_only"):
         raise RuntimeError(f"{path.name}: missing vaft_docs.read_only metadata")
     source = "\n".join(cell.source for cell in book.cells if cell.cell_type == "code")
-    for pattern in FORBIDDEN:
-        if pattern.search(source):
-            raise RuntimeError(f"{path.name}: rejected remote or write-enabled API: {pattern.pattern}")
+    validate_source(source, path.name)
 
 
 def execute(path: Path, output: Path) -> None:
