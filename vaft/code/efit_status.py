@@ -354,13 +354,13 @@ def apply_temporal_continuity(
     if cfg.maximum_axis_step is None:
         return tuple(ordered)
     output: list[EFITSliceStatus] = []
-    previous: EFITSliceStatus | None = None
+    previous_with_axis: EFITSliceStatus | None = None
     for status in ordered:
         current = status
-        if previous is not None:
+        if previous_with_axis is not None:
             previous_axis = (
-                previous.metrics.get("magnetic_axis_r"),
-                previous.metrics.get("magnetic_axis_z"),
+                previous_with_axis.metrics.get("magnetic_axis_r"),
+                previous_with_axis.metrics.get("magnetic_axis_z"),
             )
             current_axis = (
                 status.metrics.get("magnetic_axis_r"),
@@ -392,7 +392,11 @@ def apply_temporal_continuity(
                         metrics=metrics,
                     )
         output.append(current)
-        previous = status
+        if (
+            status.metrics.get("magnetic_axis_r") is not None
+            and status.metrics.get("magnetic_axis_z") is not None
+        ):
+            previous_with_axis = status
     return tuple(output)
 
 

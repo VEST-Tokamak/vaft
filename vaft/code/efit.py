@@ -235,29 +235,19 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     workdir = _efit_workdir(config, inputs.workdir)
     executable = _resolve_efit_executable(config)
     if executable is None:
-        result = collect_efit_outputs(
-            workdir,
+        return _skipped_efit_result(
+            inputs,
             config,
-            runtime_status="runtime_error",
-            runtime_reason=_efit_unconfigured_reason(),
-            expected_kfiles=inputs.kfiles,
+            reason=_efit_unconfigured_reason(),
         )
-        result.status = "skipped"
-        result.reason = _efit_unconfigured_reason()
-        return result
     if not (executable.exists() and os.access(executable, os.X_OK)):
         reason = f"missing executable: {executable}"
-        result = collect_efit_outputs(
-            workdir,
+        return _skipped_efit_result(
+            inputs,
             config,
-            runtime_status="runtime_error",
-            runtime_reason=reason,
+            reason=reason,
             executable=executable,
-            expected_kfiles=inputs.kfiles,
         )
-        result.status = "skipped"
-        result.reason = reason
-        return result
     command = _efit_command(config, executable)
     stdin_text = _efit_stdin(workdir, inputs.kfiles)
     env = os.environ.copy()
@@ -327,9 +317,16 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
 
 def _efit_case_key(path: Path) -> str:
     """Return the common shot/time portion of a k-, g-, a-, or m-file name."""
-    if path.name[:1].lower() in {"k", "g", "a", "m"}:
-        return path.name[1:]
-    return path.name
+    name = (
+        path.name[1:]
+        if path.name[:1].lower() in {"k", "g", "a", "m"}
+        else path.name
+    )
+    try:
+        shot, suffix = name.rsplit(".", 1)
+        return f"{shot}.{int(suffix)}"
+    except (ValueError, TypeError):
+        return name
 
 
 def _efit_case_time(case: str) -> float:
@@ -338,6 +335,47 @@ def _efit_case_time(case: str) -> float:
         return int(case.rsplit(".", 1)[1]) / 1000.0
     except (IndexError, ValueError):
         return float("nan")
+
+
+def _skipped_efit_result(
+    inputs: EFITInputs,
+    config: EFITConfig,
+    *,
+    reason: str,
+    executable: str | Path | None = None,
+) -> EFITResult:
+    """Build skipped slice statuses without collecting stale workdir outputs."""
+    kfiles_by_time = {
+        _efit_case_time(_efit_case_key(Path(path))): Path(path)
+        for path in inputs.kfiles
+    }
+    times = set(kfiles_by_time)
+    if config.times is not None:
+        times.update(round(float(value) * 1000) / 1000 for value in config.times)
+    statuses = tuple(
+        validate_efit_slice(
+            shot=int(config.shot or 0),
+            time=time_value,
+            runtime_status="runtime_error",
+            returncode=None,
+            kfile=kfiles_by_time.get(time_value),
+            gfile=None,
+            provenance={
+                "runtime_reason": reason,
+                "executable": str(executable) if executable is not None else None,
+                "attempt_logs": [],
+            },
+        )
+        for time_value in sorted(times)
+    )
+    return EFITResult(
+        returncode=None,
+        workdir=Path(inputs.workdir),
+        kfiles=tuple(Path(path) for path in inputs.kfiles),
+        status="skipped",
+        reason=reason,
+        slice_statuses=statuses,
+    )
 
 
 def collect_efit_outputs(
@@ -421,7 +459,7 @@ def collect_efit_outputs(
     )
     if config is not None and config.shot is not None and config.times is not None:
         configured_cases = {
-            f"0{int(config.shot)}.{int(round(float(time_value) * 1000)):05d}"
+            f"0{int(config.shot)}.{int(round(float(time_value) * 1000))}"
             for time_value in config.times
         }
         cases = sorted(set(cases) | configured_cases, key=_efit_case_time)

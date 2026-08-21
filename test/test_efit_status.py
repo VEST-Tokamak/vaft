@@ -251,3 +251,81 @@ def test_timeout_has_slice_status_and_attempt_logs(tmp_path, monkeypatch):
     assert result.slice_statuses[0].overall_status == "runtime_failed"
     assert {"runtime_error", "timeout"} <= set(result.slice_statuses[0].failure_codes)
     assert {path.name for path in result.logs} == {"run_efit.err", "run_efit.out"}
+
+
+def test_skipped_run_does_not_collect_stale_outputs(tmp_path, monkeypatch):
+    monkeypatch.delenv("EFITHOME", raising=False)
+    monkeypatch.delenv("EFIT", raising=False)
+    kdir = tmp_path / "kfile"
+    gdir = tmp_path / "gfile"
+    kdir.mkdir()
+    gdir.mkdir()
+    kfile = kdir / "k039915.00319"
+    kfile.write_text("input", encoding="utf-8")
+    (gdir / "g039915.00319").write_text(
+        data_path("efit/g039915.00319").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    result = run_efit(
+        EFITInputs(tmp_path, kfiles=(kfile,)),
+        EFITConfig(workdir=tmp_path, shot=39915),
+    )
+
+    assert result.status == "skipped"
+    assert result.gfiles == ()
+    assert result.geqdsk == ()
+    assert result.ods is None
+    assert result.slice_statuses[0].overall_status == "runtime_failed"
+
+
+def test_continuity_compares_across_a_failed_middle_slice(tmp_path):
+    paths = _output_files(tmp_path)
+    first = validate_efit_slice(
+        shot=39915,
+        time=0.1,
+        runtime_status="completed",
+        returncode=0,
+        geqdsk=_valid_geqdsk(RMAXIS=0.4),
+        **paths,
+    )
+    failed = validate_efit_slice(
+        shot=39915,
+        time=0.2,
+        runtime_status="completed",
+        returncode=0,
+        kfile=paths["kfile"],
+        gfile=None,
+    )
+    third = validate_efit_slice(
+        shot=39915,
+        time=0.3,
+        runtime_status="completed",
+        returncode=0,
+        geqdsk=_valid_geqdsk(RMAXIS=0.8),
+        **paths,
+    )
+
+    statuses = apply_temporal_continuity(
+        (first, failed, third), EFITValidationConfig(maximum_axis_step=0.1)
+    )
+
+    assert "temporal_discontinuity" in statuses[2].failure_codes
+
+
+def test_early_time_file_names_match_configured_slice(tmp_path):
+    (tmp_path / "kfile").mkdir()
+    (tmp_path / "gfile").mkdir()
+    (tmp_path / "kfile" / "k039915.0050").write_text("input", encoding="utf-8")
+    (tmp_path / "gfile" / "g039915.0050").write_text(
+        data_path("efit/g039915.00319").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    result = collect_efit_outputs(
+        tmp_path, EFITConfig(shot=39915, times=(0.05,))
+    )
+
+    assert len(result.slice_statuses) == 1
+    assert result.slice_statuses[0].time == 0.05
+    assert result.slice_statuses[0].usable
