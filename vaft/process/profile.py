@@ -1,6 +1,5 @@
 import vaft
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.io import loadmat

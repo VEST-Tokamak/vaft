@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 from ipywidgets import IntSlider, interact
 from scipy import signal
@@ -689,30 +688,20 @@ def b_field_pol_probe_field(
 
     if plot_opt:
         def interactive_plot(index):
-            plt.figure(figsize=(10, 8))
-
-            # Plot 1: Raw and filtered signals
-            plt.subplot(2, 1, 1)
-            plt.plot(time, raw[:, index], label="Raw (gain applied)", alpha=0.7)
-            plt.plot(time, filtered_raw[:, index], label="Filtered Signal", alpha=0.7)
-            plt.title(f"B-field Signal Processing: Index {index}\nBaseline: {baseline_type}")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Signal")
-            plt.legend()
-            plt.grid()
-
-            # Plot 2: Integrated signal and baseline-corrected signal
-            plt.subplot(2, 1, 2)
-            plt.plot(time, integrated_flux[:, index], label="Integrated Signal", alpha=0.7)
-            plt.plot(time, baselines[:, index], label="Baseline", alpha=0.7)
-            plt.plot(time, field[:, index], label="Baseline-Corrected Signal", alpha=0.7)
-            plt.xlabel("Time (s)")
-            plt.ylabel("Flux")
-            plt.legend()
-            plt.grid()
-
-            plt.tight_layout()
-            plt.show()
+            return _plot_signal_processing_panels(
+                time,
+                title=f"B-field Signal Processing: Index {index}\n"
+                      f"Baseline: {baseline_type}",
+                raw_traces=(
+                    ("Raw (gain applied)", raw[:, index]),
+                    ("Filtered Signal", filtered_raw[:, index]),
+                ),
+                corrected_traces=(
+                    ("Integrated Signal", integrated_flux[:, index]),
+                    ("Baseline", baselines[:, index]),
+                    ("Baseline-Corrected Signal", field[:, index]),
+                ),
+            )
 
         interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 
@@ -802,29 +791,17 @@ def flux_loop_flux(
 
     if plot_opt:
         def interactive_plot(index):
-            plt.figure(figsize=(10, 8))
-
-            # Plot 1: Raw signal
-            plt.subplot(2, 1, 1)
-            plt.plot(time, raw[:, index], label="Raw (gain applied)", alpha=0.7)
-            plt.title(f"Flux Loop Signal Processing: Index {index}\nBaseline: {baseline_type}")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Signal")
-            plt.legend()
-            plt.grid()
-
-            # Plot 2: Integrated signal and baseline-corrected signal
-            plt.subplot(2, 1, 2)
-            plt.plot(time, integrated_data[:, index], label="Integrated Signal", alpha=0.7)
-            plt.plot(time, baselines[:, index], label="Baseline", alpha=0.7)
-            plt.plot(time, processed_data[:, index], label="Baseline-Corrected Signal", alpha=0.7)
-            plt.xlabel("Time (s)")
-            plt.ylabel("Flux")
-            plt.legend()
-            plt.grid()
-
-            plt.tight_layout()
-            plt.show()
+            return _plot_signal_processing_panels(
+                time,
+                title=f"Flux Loop Signal Processing: Index {index}\n"
+                      f"Baseline: {baseline_type}",
+                raw_traces=(("Raw (gain applied)", raw[:, index]),),
+                corrected_traces=(
+                    ("Integrated Signal", integrated_data[:, index]),
+                    ("Baseline", baselines[:, index]),
+                    ("Baseline-Corrected Signal", processed_data[:, index]),
+                ),
+            )
 
         interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 
@@ -1034,3 +1011,33 @@ def flux_loop_flux(
 #         plt.show()
 
 #     return results
+
+
+def _plot_signal_processing_panels(time, *, title, raw_traces, corrected_traces):
+    """Render the raw/corrected signal-processing panels through ``vaft.plot``.
+
+    Processing owns the numerics; rendering is delegated so no Matplotlib code
+    lives in this namespace (issue #63).
+    """
+    from vaft.plot import LineSeries, Panels, Series, render_panels
+
+    def _panel(traces, y_label, panel_title=""):
+        return LineSeries(
+            series=tuple(
+                Series(x=time, y=values, label=label, style={"alpha": 0.7})
+                for label, values in traces
+            ),
+            x_label="Time", x_unit="s", y_label=y_label, title=panel_title,
+        )
+
+    return render_panels(
+        Panels(
+            models=(
+                _panel(raw_traces, "Signal", title),
+                _panel(corrected_traces, "Flux"),
+            ),
+            share_x=True,
+        ),
+        figsize=(10, 8),
+        show=True,
+    )
