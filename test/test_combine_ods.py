@@ -140,3 +140,39 @@ def test_combine_ods_stays_within_a_ci_safe_time_budget_for_a_large_contaminated
     elapsed = _time_combine(_eddy_like_ods(n_loops=950, n_bad=40))
 
     assert elapsed < 10.0, f"combine_ods took {elapsed:.2f}s, expected under 10s"
+
+
+def test_combine_ods_keeps_array_indexed_valid_leaves():
+    # Regression for a Cursor Bugbot finding on this fix: the fast pre-pass
+    # validates each leaf via OMAS's imas_structure(imas_version, location)
+    # with the raw, non-normalized location string (numeric AoS indices like
+    # ".0." intact) -- exactly the contract OMAS's own __setitem__ uses,
+    # since imas_structure normalizes internally (`ulocation = o2u(location)`)
+    # before its cached lookup. Nothing before this test asserted that
+    # array-indexed valid leaves actually survive alongside pruned siblings.
+    ods = ODS(consistency_check=False)
+    ods["dataset_description.data_entry.pulse"] = 39915
+    for index in range(3):
+        ods[f"equilibrium.time_slice.{index}.time"] = float(index) * 0.1
+        ods[f"equilibrium.time_slice.{index}.profiles_1d.pressure"] = np.linspace(0, 1, 5)
+    for index in range(5):
+        ods[f"pf_passive.loop.{index}.name"] = f"loop{index}"
+        ods[f"pf_passive.loop.{index}.element.0.geometry.outline.r"] = np.linspace(0, 1, 4)
+    ods["pf_passive.R_mat"] = np.eye(2)
+
+    with pytest.warns(RuntimeWarning, match="pf_passive.R_mat"):
+        combined = combine_ods([ods])
+
+    for index in range(3):
+        assert combined[f"equilibrium.time_slice.{index}.time"] == pytest.approx(index * 0.1)
+        np.testing.assert_array_equal(
+            combined[f"equilibrium.time_slice.{index}.profiles_1d.pressure"],
+            np.linspace(0, 1, 5),
+        )
+    for index in range(5):
+        assert combined[f"pf_passive.loop.{index}.name"] == f"loop{index}"
+        np.testing.assert_array_equal(
+            combined[f"pf_passive.loop.{index}.element.0.geometry.outline.r"],
+            np.linspace(0, 1, 4),
+        )
+    assert "pf_passive.R_mat" not in combined
