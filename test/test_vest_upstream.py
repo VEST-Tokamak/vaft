@@ -148,6 +148,48 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
 
 
+def test_barometry_time_is_heterogeneous_not_homogeneous(tmp_path):
+    """barometry stores time per-gauge, so homogeneous_time must be 0, not 1.
+
+    Per the DD, homogeneous_time=1 means the IDS's dynamic quantities share a
+    single time array at the IDS root (`<ids>.time`); barometry never writes
+    one, only `gauge.0.pressure.time`. homogeneous_time=1 without a root
+    `.time` claims a time base that does not exist -- the correct value for
+    "time values are stored in the various time fields at lower levels" is 0.
+    """
+    shot = 43017
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {13: np.linspace(1.0, 2.0, 200).tolist()})
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(
+        static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json"
+    )
+
+    ods, diagnostics_manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=static_path,
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+    assert diagnostics_manifest["channel_status"]["barometry"]["status"] == "success"
+
+    assert ods["barometry.ids_properties.homogeneous_time"] == 0
+    assert "barometry.time" not in ods
+    assert "barometry.gauge.0.pressure.time" in ods
+
+    output_path = tmp_path / "diagnostics.json"
+    metadata_path = tmp_path / "diagnostics-manifest.json"
+    write_stage_product(ods, diagnostics_manifest, output=output_path, metadata=metadata_path)
+
+    from omas import load_omas_json
+
+    reloaded = load_omas_json(str(output_path), consistency_check=True)
+    assert reloaded["barometry.ids_properties.homogeneous_time"] == 0
+
+
 def test_eddy_ods_carries_no_stage_specific_impedance_cache_keys(tmp_path):
     """pf_passive comes from the curated static ODS, which never holds a cache.
 
