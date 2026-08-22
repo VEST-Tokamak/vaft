@@ -127,6 +127,62 @@ def test_missing_data_produces_an_actionable_error(sample_ods):
         vomas.plot_equilibrium_field_psi(empty)
 
 
+def test_tf_field_divides_by_reference_radius(sample_ods):
+    # Regression: tf.b_field_tor_vacuum_r.data is B_t * R [T*m], not B_t [T];
+    # the adapter must divide by tf.r0 to recover the field itself.
+    ods = ODS(consistency_check=False)
+    ods["tf.time"] = np.array([0.0, 0.1, 0.2])
+    ods["tf.b_field_tor_vacuum_r.data"] = np.array([0.4, 0.4, 0.4])
+    ods["tf.r0"] = 0.4
+
+    figure, axes = vomas.plot_tf_time_b_field_tor(ods)
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [1.0, 1.0, 1.0])
+    plt.close(figure)
+
+    figure, axes = vomas.plot_tf_time_b_field_tor_vacuum_r(ods)
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.4, 0.4, 0.4])
+    plt.close(figure)
+
+
+def test_tf_field_tolerates_a_missing_reference_radius():
+    ods = ODS(consistency_check=False)
+    ods["tf.time"] = np.array([0.0, 0.1])
+    ods["tf.b_field_tor_vacuum_r.data"] = np.array([0.4, 0.4])
+
+    figure, axes = vomas.plot_tf_time_b_field_tor(ods)
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.4, 0.4])
+    plt.close(figure)
+
+
+def test_power_balance_computes_the_real_terms_not_just_its_inputs(sample_ods):
+    # Regression: this used to compose plasma current / MHD energy / T_e panels
+    # -- the inputs to a power balance, not the balance itself.
+    figure, axes = vomas.plot_summary_time_power_balance(sample_ods)
+    assert axes.shape == (5, 1)
+    labelled = [
+        {line.get_label() for line in ax.lines if not line.get_label().startswith("_")}
+        for ax in axes.ravel()
+    ]
+    assert labelled[0] == {"dW_th/dt"}
+    assert labelled[1] == {"dW_mag,p/dt"}
+    assert labelled[2] == {"P_in", "P_ohm"}
+    assert labelled[3] == {"P_loss", "P_trans", "P_rad"}
+    assert labelled[4] == {"P_rad", "P_Br", "P_sync", "P_line"}
+    plt.close(figure)
+
+
+def test_machine_topview_includes_pellet_geometry():
+    # Regression: the builder's own error message named "pellets" as a
+    # supported IDS but never actually read one.
+    ods = ODS(consistency_check=False)
+    ods["pellets.time_slice.0.pellet.0.path_geometry.first_point.r"] = 0.9
+    ods["pellets.time_slice.0.pellet.0.path_geometry.first_point.phi"] = 0.5
+
+    figure, axes = vomas.plot_machine_geometry_topview(ods)
+    assert any("Pellet" in line.get_label() for line in axes.lines)
+    plt.close(figure)
+
+
 def test_partial_composites_drop_the_absent_panels(sample_ods):
     figure, axes = vomas.plot_summary_time_beta(sample_ods)
     assert axes.size >= 1

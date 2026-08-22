@@ -249,6 +249,9 @@ class LineRecipe:
     scale: float = 1.0
     label_path: str = ""
     weight_path: str = ""
+    #: Optional scalar ODS path (e.g. ``"tf.r0"``) whose value divides ``y_path``.
+    #: Missing or zero divides by 1.0 rather than raising or producing inf/nan.
+    divide_by_path: str = ""
     title: str = ""
 
 
@@ -449,6 +452,9 @@ RECIPES: dict[str, Any] = {
         y_path="tf.b_field_tor_vacuum_r.data", x_paths=("tf.b_field_tor_vacuum_r.time",
                                                         "tf.time"),
         y_label="Toroidal Field", y_unit="T", title="Toroidal Field",
+        # tf.b_field_tor_vacuum_r.data is B_t * R [T*m]; divide by the reference
+        # radius to recover the field itself, matching the legacy renderer.
+        divide_by_path="tf.r0",
     ),
     "tf_time_b_field_tor_vacuum_r": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
@@ -674,11 +680,6 @@ RECIPES: dict[str, Any] = {
                  "equilibrium_time_beta_n"),
         suptitle="Beta",
     ),
-    "summary_time_power_balance": PanelRecipe(
-        members=("equilibrium_time_plasma_current", "equilibrium_time_w_mhd",
-                 "core_profiles_time_electron_temperature"),
-        suptitle="Power Balance Inputs",
-    ),
     "summary_time_voltage_consumption": PanelRecipe(
         members=("magnetics_time_ip", "magnetics_time_flux_loop_voltage"),
         suptitle="Voltage Consumption",
@@ -821,6 +822,20 @@ def _build_equilibrium_topview(
     )
 
 
+def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
+    """Return ``(r, phi)`` for each pellet path's first point at ``time_slice``."""
+    positions = []
+    pellet_count = _count(ods, f"pellets.time_slice.{time_slice}.pellet")
+    for index in range(pellet_count):
+        base = f"pellets.time_slice.{time_slice}.pellet.{index}.path_geometry.first_point"
+        radius = _get(ods, f"{base}.r")
+        if radius is None:
+            continue
+        phi = _get(ods, f"{base}.phi", 0.0)
+        positions.append((float(radius), float(phi or 0.0)))
+    return positions
+
+
 def _build_machine_topview(ods: Any, *, time_slice: int = 0, **_: Any) -> GeometryLayers:
     """Compose the plasma extent with launcher, antenna and pellet geometry."""
     layers: list[GeometryLayer] = []
@@ -847,6 +862,13 @@ def _build_machine_topview(ods: Any, *, time_slice: int = 0, **_: Any) -> Geomet
                     label=f"{label} {index}", style=style,
                 )
             )
+    for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
+        layers.append(
+            GeometryLayer(
+                r=[radius * np.cos(phi)], z=[radius * np.sin(phi)], kind="points",
+                label=f"Pellet {index}", style={"marker": "*", "color": "#984ea3"},
+            )
+        )
     if not layers:
         raise ValueError(
             "none of the top-view IDS (equilibrium, lh_antennas, ec_launchers, "
@@ -954,6 +976,122 @@ RECIPES["core_profiles_field_electron_density"] = CallableRecipe(
 )
 
 
+def _nearest_time_index(reference: np.ndarray, target: float, tolerance: float) -> int | None:
+    if reference.size == 0:
+        return None
+    index = int(np.argmin(np.abs(reference - target)))
+    return index if np.abs(reference[index] - target) <= tolerance else None
+
+
+def _build_power_balance(ods: Any, **_: Any) -> Panels:
+    """The five-panel power-balance figure computed by ``compute_power_balance``.
+
+    Mirrors ``vaft.plot.time.time_power_balance``: dW_th/dt, dW_mag,p/dt,
+    input/ohmic power, loss decomposition, and radiation decomposition -- not
+    just the inputs to that computation.
+    """
+    from vaft.omas.formula_wrapper import compute_bremsstrahlung_power, compute_power_balance
+
+    try:
+        power_balance = compute_power_balance(ods)
+    except Exception as exc:
+        raise ValueError(f"failed to compute power balance: {exc}") from exc
+
+    t = np.asarray(power_balance["time"], dtype=float)
+    if t.size == 0:
+        raise ValueError("compute_power_balance returned no time points")
+
+    dW_thdt = np.asarray(power_balance.get("dWdt", np.zeros_like(t)), dtype=float)
+    V_ind = np.asarray(power_balance.get("V_ind", np.full_like(t, np.nan)), dtype=float)
+
+    eq_count = _count(ods, "equilibrium.time_slice")
+    eq_times = np.asarray(
+        [float(_get(ods, f"equilibrium.time_slice.{i}.time", i)) for i in range(eq_count)],
+        dtype=float,
+    )
+    eq_ip = np.asarray(
+        [float(_get(ods, f"equilibrium.time_slice.{i}.global_quantities.ip", np.nan))
+         for i in range(eq_count)],
+        dtype=float,
+    )
+
+    # Robust time-matching tolerance for equilibrium/core_profiles links.
+    tolerance = 1e-4
+    if t.size > 1:
+        diffs = np.diff(np.sort(t))
+        finite = diffs[np.isfinite(diffs) & (diffs > 0.0)]
+        if finite.size:
+            tolerance = max(tolerance, 0.1 * float(np.min(finite)))
+
+    ip_matched = np.full_like(t, np.nan, dtype=float)
+    for i, tt in enumerate(t):
+        index = _nearest_time_index(eq_times, tt, tolerance)
+        if index is not None:
+            ip_matched[i] = eq_ip[index]
+    dW_magdt = V_ind * ip_matched
+
+    P_in = np.asarray(power_balance.get("P_heat", np.zeros_like(t)), dtype=float)
+    P_ohm = np.asarray(
+        power_balance.get("P_ohm_diss", power_balance.get("P_ohm_flux", np.zeros_like(t))),
+        dtype=float,
+    )
+
+    P_rad = np.asarray(power_balance.get("P_rad", np.zeros_like(t)), dtype=float)
+    P_trans = np.asarray(
+        power_balance.get("P_trans", power_balance.get("P_loss", np.zeros_like(t))),
+        dtype=float,
+    )
+    P_loss = np.asarray(power_balance.get("P_loss_total", P_rad + P_trans), dtype=float)
+
+    P_line = np.asarray(power_balance.get("P_rad_line", np.zeros_like(P_rad)), dtype=float)
+    P_Br = np.asarray(power_balance.get("P_Br", np.full_like(P_rad, np.nan)), dtype=float)
+    if np.all(~np.isfinite(P_Br)):
+        P_Br = np.full_like(P_rad, np.nan, dtype=float)
+        cp_count = _count(ods, "core_profiles.profiles_1d")
+        if cp_count:
+            cp_times = np.asarray(
+                [float(_get(ods, f"core_profiles.profiles_1d.{i}.time", i))
+                 for i in range(cp_count)],
+                dtype=float,
+            )
+            for i, tt in enumerate(t):
+                index = _nearest_time_index(cp_times, tt, tolerance)
+                if index is None:
+                    continue
+                try:
+                    _, p_br_electron = compute_bremsstrahlung_power(ods, time_slice=int(index))
+                    P_Br[i] = float(p_br_electron)
+                except Exception:
+                    # Keep the figure robust when a few slices fail.
+                    P_Br[i] = np.nan
+
+    P_sync = np.asarray(power_balance.get("P_sync", np.full_like(P_rad, np.nan)), dtype=float)
+    if np.all(~np.isfinite(P_sync)):
+        # No direct synchrotron model in this pipeline yet; use the residual.
+        P_sync = P_rad - P_line - np.nan_to_num(P_Br, nan=0.0)
+
+    def _panel(traces: list[Series], title: str = "") -> LineSeries:
+        return LineSeries(series=tuple(traces), x_label="Time", x_unit="s",
+                          y_label="", y_unit="W", title=title)
+
+    panels = (
+        _panel([Series(x=t, y=dW_thdt, label="dW_th/dt")]),
+        _panel([Series(x=t, y=dW_magdt, label="dW_mag,p/dt")]),
+        _panel([Series(x=t, y=P_in, label="P_in"), Series(x=t, y=P_ohm, label="P_ohm")]),
+        _panel([Series(x=t, y=P_loss, label="P_loss"), Series(x=t, y=P_trans, label="P_trans"),
+               Series(x=t, y=P_rad, label="P_rad")]),
+        _panel([Series(x=t, y=P_rad, label="P_rad"), Series(x=t, y=P_Br, label="P_Br"),
+               Series(x=t, y=P_sync, label="P_sync"), Series(x=t, y=P_line, label="P_line")]),
+    )
+    return Panels(models=panels, ncols=1, share_x=True, suptitle="Power Balance")
+
+
+RECIPES["summary_time_power_balance"] = CallableRecipe(
+    builder=_build_power_balance,
+    description="Power-balance terms computed by vaft.omas.compute_power_balance.",
+)
+
+
 # ---------------------------------------------------------------------------
 # Model construction
 # ---------------------------------------------------------------------------
@@ -979,6 +1117,17 @@ def _weight(ods: Any, template: str, index: int) -> float:
     if values is None:
         return 1.0
     return float(np.sum(np.abs(np.asarray(values, dtype=float))))
+
+
+def _divisor(ods: Any, path: str) -> float:
+    """Read a scalar ODS value for dividing a trace; 1.0 when absent or zero."""
+    if not path:
+        return 1.0
+    value = _get(ods, path)
+    if value is None:
+        return 1.0
+    value = float(np.asarray(value, dtype=float).ravel()[0])
+    return value if value != 0.0 else 1.0
 
 
 def _build_line_traces(
@@ -1041,6 +1190,7 @@ def _build_line_traces(
     time = _first_time(ods, recipe.x_paths)
     if time is None or time.size != y.size:
         time = np.arange(y.size, dtype=float)
+    y = y / _divisor(ods, recipe.divide_by_path)
     return [Series(x=time * time_scale, y=y * value_scale, label=entry_label)]
 
 
