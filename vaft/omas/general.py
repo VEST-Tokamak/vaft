@@ -364,6 +364,65 @@ def _invalid_imas_path(error):
     return match.group(1) if match else None
 
 
+#: Locations under this suffix are exempt from IMAS structure validation
+#: (OMAS treats ``*.code.parameters.*`` as free-form user metadata); see
+#: ``omas_core.ODS.__setitem__``. The fast pre-pass below must honor the same
+#: exemption or it would prune legitimate metadata the real merge accepts.
+_CODE_PARAMETERS_INFIX = ".code.parameters."
+
+
+def _prune_invalid_imas_paths(ods, imas_version):
+    """Remove every schema-invalid leaf from ``ods`` in a single pass.
+
+    ``combine_ods`` discovers invalid locations by attempting a real merge and
+    parsing the exception OMAS raises -- correct, but each discovery costs a
+    full ``combined_ods.copy()`` and a full ``trial_ods.update(sanitized_ods)``
+    retried from scratch. Once ``combined_ods`` has grown large across a
+    backfill, paying that per invalid leaf turns one contaminated input with
+    N invalid locations into N+1 full-tree merges.
+
+    A location's validity does not depend on what is already in
+    ``combined_ods`` (OMAS's structure lookup is a pure function of the
+    location string and the IMAS version), so it can be checked directly with
+    the same cached lookup OMAS itself uses internally, without touching
+    ``combined_ods`` at all. This turns discovery into one walk over
+    ``ods.paths()`` plus O(n) cached, no-copy schema lookups.
+
+    Returns the set of removed locations (as dotted strings), so the caller
+    can warn about them and the exception-driven retry loop in
+    :func:`combine_ods` never rediscovers them.
+    """
+    try:
+        from omas.omas_utils import imas_structure, l2o
+    except ImportError:
+        # Defensive: if a future OMAS release moves this private helper,
+        # skip the fast path. combine_ods still works via the exception-driven
+        # retry loop below, just without this speedup.
+        return set()
+
+    removed = set()
+    for path in ods.paths():
+        location = l2o(path)
+        if _CODE_PARAMETERS_INFIX in location:
+            continue
+        try:
+            imas_structure(imas_version, location)
+            continue
+        except (LookupError, TypeError):
+            pass
+
+        if location in removed:
+            continue
+        try:
+            del ods[location]
+        except Exception:
+            # Leave it for the exception-driven retry loop to sort out.
+            continue
+        removed.add(location)
+
+    return removed
+
+
 def combine_ods(ods_list):
     """
     Merge multiple ODS objects while automatically handling invalid IMAS structures.
@@ -384,11 +443,26 @@ def combine_ods(ods_list):
 
     for index, ods in enumerate(ods_list):
         sanitized_ods = ods.copy()
-        removed_paths = set()
+
+        # Fast pre-pass: find and remove every schema-invalid leaf up front, so
+        # the retry loop below normally runs once regardless of how many
+        # invalid locations this input has. See _prune_invalid_imas_paths.
+        removed_paths = _prune_invalid_imas_paths(sanitized_ods, imas_version)
+        for location in sorted(removed_paths):
+            warnings.warn(
+                f"Skipping invalid IMAS location {location!r} from "
+                f"ODS #{index + 1}: Not a valid IMAS {imas_version} location: "
+                f"{location}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         while True:
             # Merge into a trial copy so a failed update cannot leave a partial
-            # version of this ODS in the result.
+            # version of this ODS in the result. The pre-pass above means this
+            # normally succeeds on the first attempt; it remains as a
+            # defensive fallback for any invalid location the static
+            # structure lookup does not catch.
             trial_ods = combined_ods.copy()
             try:
                 trial_ods.update(sanitized_ods)
