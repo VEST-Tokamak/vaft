@@ -241,6 +241,45 @@ def _resolve_sample_path(
     return None
 
 
+def _archive_payload(shot: int, sample_path: str) -> dict:
+    """Read and validate one archived raw dump.
+
+    An archive that cannot be trusted is an export failure, not a missing
+    signal, so every problem here raises instead of degrading to SQL.
+    """
+    if not os.path.isfile(sample_path):
+        raise FileNotFoundError(
+            f"Archived raw source not found for shot={shot}: {sample_path}"
+        )
+    opener = gzip.open if sample_path.endswith(".gz") else open
+    with opener(sample_path, "rt", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Raw archive is not a JSON object: {sample_path}")
+    archive_shot = payload.get("shot")
+    try:
+        archive_shot_number = int(archive_shot)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f"Raw archive has no valid shot number: {sample_path}"
+        ) from error
+    if archive_shot_number != int(shot):
+        raise ValueError(
+            f"Raw archive shot mismatch: requested {shot}, but {sample_path} "
+            f"contains shot {archive_shot}"
+        )
+    fields = payload.get("fields")
+    if not isinstance(fields, dict) or not fields:
+        raise ValueError(f"Raw archive has no fields mapping: {sample_path}")
+    return payload
+
+
+def _archive_field_codes(shot: int, sample_path: str) -> list[int]:
+    """Return the field codes an archived raw dump actually carries."""
+    payload = _archive_payload(shot, sample_path)
+    return sorted(int(code) for code in payload["fields"])
+
+
 def _require_mysql() -> None:
     if mysql_connector is None:
         raise ImportError("mysql-connector-python is required for SQL loading")
@@ -901,8 +940,8 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     """
     global DB_POOL
     if DB_POOL is None:
-        print("Error: DB_POOL is not initialized. Run init_pool() first.")
-        return None
+        logger.info("DB_POOL not initialized. Initializing automatically...")
+        init_pool()
 
     attempts = 0
     while attempts < max_retries:
@@ -957,7 +996,8 @@ def dump_all_raw_signals_for_shot(
     max_retries: int = 3,
     daq_type: int = 0,
     slow_dt_threshold: float = 5e-6,  # Time interval threshold for slow DAQ [4e-5 sec/sample] vs Fast DAQ [4e-6 sec/sample] classification
-    plot_opt: bool = False
+    plot_opt: bool = False,
+    sample_opt: bool | RawSource = False
     ) -> bool:
     """
     Store shot data as JSON GZIP file (.json.gz) with the following steps:
@@ -967,6 +1007,11 @@ def dump_all_raw_signals_for_shot(
     4. Create shot_data = { "shot": shot, "fields": {fcode: {type, data}} }
     5. Save as gzip compressed JSON (.json.gz)
     6. If plot_opt is True, display and save signals as subplots
+
+    ``sample_opt`` is an authoritative archived raw source, using the same
+    convention as :func:`load_raw`: the field codes come from the archive and no
+    step falls back to SQL. The archive is re-derived rather than copied, so the
+    output is a canonical dump regardless of how the source was written.
     """
     if plot_opt == 1:
         _require_matplotlib()
@@ -977,8 +1022,12 @@ def dump_all_raw_signals_for_shot(
     elif not output_path.endswith(".gz"):
         output_path += ".gz"
 
-    # 1) Retrieve field codes
-    field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
+    # 1) Retrieve field codes, from the archive when one is given
+    sample_path = _resolve_sample_path(shot, sample_opt)
+    if sample_path is not None:
+        field_codes = _archive_field_codes(shot, sample_path)
+    else:
+        field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
     if not field_codes:
         print(f"[store_shot_as_json] No valid field codes for shot {shot}")
         return False
@@ -998,7 +1047,8 @@ def dump_all_raw_signals_for_shot(
             time, data = load_raw(
                 shot, fcode,
                 max_retries=max_retries,
-                daq_type=daq_type
+                daq_type=daq_type,
+                sample_opt=sample_opt
             )
         except Exception as e:
             print(f"[store_shot_as_json] load_raw failed for field {fcode}: {e}")

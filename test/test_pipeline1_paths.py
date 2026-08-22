@@ -1,0 +1,125 @@
+"""Parity tests for pipeline 1's path helper.
+
+`shot_first` must reproduce the literal paths pipeline 1 has always used, so
+its output stays diffable against `/srv/vest.filedb/public`. `filedb` must
+match `vaft.database.filedb.FileDB`'s canonical grammar exactly, with no path
+reconstructed by hand.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+from vaft.database.filedb import FileDB
+
+
+SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "workflow"
+    / "automatic_pipeline_1_routine_data_processing"
+    / "paths.py"
+)
+SPEC = importlib.util.spec_from_file_location("pipeline1_paths", SCRIPT)
+MODULE = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(MODULE)
+
+BASE_DIR = "/srv/vest.filedb/public"
+SHOT = 48226
+VERSION = "vest-43017-45957-pf1906"
+
+
+def test_shot_first_reproduces_the_legacy_literal_paths():
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.SHOT_FIRST)
+
+    assert paths.raw_dump(SHOT) == f"{BASE_DIR}/{SHOT}/diagnostics/vest_{SHOT}_daq_raw.json.gz"
+    assert paths.diagnostics_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_diagnostics.json"
+    assert paths.eddy_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_eddy.json"
+    assert paths.constraints_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_constraints.json"
+    assert paths.kfile_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/efit/kfile/kfiles_generated.txt"
+    assert paths.gfile_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/efit/gfile/gfiles_generated.txt"
+    assert paths.efit_status(SHOT) == f"{BASE_DIR}/{SHOT}/efit/efit_status.txt"
+    assert paths.efit_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_efit.json"
+    assert paths.chease_refined(SHOT) == f"{BASE_DIR}/{SHOT}/chease/refined_gfiles_generated.txt"
+    assert paths.chease_status(SHOT) == f"{BASE_DIR}/{SHOT}/chease/chease_status.txt"
+    assert paths.chease_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_chease.json"
+    assert paths.gpec_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/gpec_suite_runs.json"
+    assert paths.gpec_status(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/gpec_suite_status.txt"
+    assert paths.preflight_eligible() == f"{BASE_DIR}/preflight/eligible_shots.json"
+    assert paths.preflight_excluded() == f"{BASE_DIR}/preflight/excluded_shots.json"
+
+    # New in this phase: mirrors the legacy `static_file_dir`.
+    assert paths.static_ods(VERSION) == f"{BASE_DIR}/static/{VERSION}/static.json"
+
+
+def test_filedb_layout_matches_the_canonical_resolver():
+    filedb = FileDB(BASE_DIR)
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
+
+    assert paths.raw_dump(SHOT) == str(
+        filedb.raw(SHOT, artifact="output") / f"vest_{SHOT}_daq_raw.json.gz"
+    )
+    assert paths.diagnostics_ods(SHOT) == str(
+        filedb.omas("diagnostics", shot=SHOT, artifact="output") / "diagnostics.json"
+    )
+    assert paths.eddy_ods(SHOT) == str(
+        filedb.omas("eddy", shot=SHOT, artifact="output") / "eddy.json"
+    )
+    # Issue #77: EFIT constraints live under omas/efit/{shot}/work.
+    assert paths.constraints_ods(SHOT) == str(
+        filedb.omas("efit", shot=SHOT, artifact="work") / "constraints.json"
+    )
+    assert paths.efit_ods(SHOT) == str(
+        filedb.omas("efit", shot=SHOT, artifact="output") / "efit.json"
+    )
+    assert paths.chease_ods(SHOT) == str(
+        filedb.omas("chease", shot=SHOT, artifact="output") / "chease.json"
+    )
+    assert paths.kfile_manifest(SHOT) == str(
+        filedb.efit(SHOT, artifact="input") / "kfiles_generated.txt"
+    )
+    assert paths.gfile_manifest(SHOT) == str(
+        filedb.efit(SHOT, artifact="output") / "gfiles_generated.txt"
+    )
+    assert paths.chease_refined(SHOT) == str(
+        filedb.chease(SHOT, artifact="output") / "refined_gfiles_generated.txt"
+    )
+    assert paths.static_ods(VERSION) == str(
+        filedb.omas("static", machine_version=VERSION, artifact="output") / "static.json"
+    )
+    assert paths.static_manifest(VERSION) == str(
+        filedb.omas("static", machine_version=VERSION, artifact="metadata") / "manifest.json"
+    )
+
+
+def test_unknown_layout_is_rejected():
+    with pytest.raises(ValueError):
+        MODULE.PipelinePaths(BASE_DIR, "not-a-real-layout")
+
+
+@pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
+def test_shot_pattern_produces_a_snakemake_wildcard(layout):
+    paths = MODULE.PipelinePaths(BASE_DIR, layout)
+    pattern = paths.shot_pattern("diagnostics_ods")
+    assert "{shot}" in pattern
+    assert str(MODULE._SHOT_SENTINEL) not in pattern
+
+
+@pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
+def test_version_pattern_produces_a_snakemake_wildcard(layout):
+    paths = MODULE.PipelinePaths(BASE_DIR, layout)
+    pattern = paths.version_pattern("static_ods")
+    assert "{machine_version}" in pattern
+    assert MODULE._VERSION_SENTINEL not in pattern
+
+
+def test_linear_stability_paths_stay_shot_first_in_both_layouts():
+    """FileDB's gpec/{code}/{shot}/n={n} grammar needs a per-mode split this
+    phase does not attempt; both layouts keep the shot-first aggregate path
+    rather than inventing one the resolver would reject."""
+    for layout in (MODULE.SHOT_FIRST, MODULE.FILEDB):
+        paths = MODULE.PipelinePaths(BASE_DIR, layout)
+        assert paths.gpec_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/gpec_suite_runs.json"

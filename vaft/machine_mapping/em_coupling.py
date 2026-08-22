@@ -171,6 +171,10 @@ def em_coupling(
         "VEST electromagnetic coupling for PF geometry "
         f"{geometry_version}; selected for shot {shot if shot is not None else 'unspecified'}"
     )
+    # em_coupling has no dynamic counterpart in VAFT, so per the DD's
+    # `homogeneous_time` rule ("if only constant or static nodes are filled,
+    # homogeneous_time must be set to 2") this IDS is always independent.
+    ods["em_coupling.ids_properties.homogeneous_time"] = 2
 
 
 def calculate_em_coupling_from_raw_database(

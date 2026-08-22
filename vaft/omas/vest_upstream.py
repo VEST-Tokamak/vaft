@@ -134,6 +134,13 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
         f"VEST electromagnetic coupling; machine era {era.name}; "
         f"PF geometry {era.pf_geometry}"
     )
+    # pf_active, pf_passive, magnetics, and tf each have a dynamic counterpart
+    # that legitimately sets homogeneous_time=1 once it adds a `.time` node
+    # (the per-shot diagnostics stage). This product never adds one, so per
+    # the DD's homogeneous_time rule it must be 2, not whatever their static
+    # or asset-inherited default is.
+    for ids_name in ("pf_active", "pf_passive", "magnetics", "tf"):
+        ods[f"{ids_name}.ids_properties.homogeneous_time"] = 2
     pf_geometry_asset = resolve_geometry_asset(
         f"VEST_DiscretizedCoilGeometry_Full_ver_{era.pf_geometry}.mat"
     )
@@ -250,6 +257,12 @@ def build_diagnostics_ods(
             statuses[name] = {"status": "unavailable", "reason": str(error), **details}
             return
         _copy_ids(ods, component, ids_names)
+        for ids_name in ids_names:
+            # A component built by copying static geometry (homogeneous_time=2,
+            # no `.time` node) and then adding dynamic data now has a `.time`
+            # node, so homogeneous_time must become 1 to match it.
+            if f"{ids_name}.time" in component:
+                ods[f"{ids_name}.ids_properties.homogeneous_time"] = 1
         statuses[name] = {"status": component_status, **details}
 
     run_component(
@@ -395,9 +408,10 @@ def build_eddy_ods(
     plasma = list(zip(filament_r, filament_z))
     plasma_currents = [ip_on_pf_time * fraction for fraction in filament_fraction]
     compute_eddy_currents(ods, plasma, plasma_currents, dt_sub=dt_sub)
-    for cache_key in ("R_mat", "L_mat", "M_mat"):
-        if f"pf_passive.{cache_key}" in ods:
-            del ods[f"pf_passive.{cache_key}"]
+    # pf_passive was copied from static (homogeneous_time=2, no `.time` node);
+    # compute_eddy_currents() just added one, so this must become 1 to match.
+    if "pf_passive.time" in ods:
+        ods["pf_passive.ids_properties.homogeneous_time"] = 1
     manifest = {
         "schema_version": 1,
         "stage": "eddy",
