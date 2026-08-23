@@ -256,3 +256,50 @@ def test_constraints_and_kfile_survive_missing_channels(
     for i in range(n_flux):
         assert np.isfinite(coils[i])
         assert fwtsi[i] == (0 if i in missing_flux else 1)
+
+
+def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, tmp_path):
+    """EXPMP2/FWTMP2 must match EFIT's own dprobe.dat/mhdin.dat probe count.
+
+    VAFT's magnetics IDS carries 68 b_field_pol_probe entries: 64 real,
+    EFIT-fitted probes (vest_md_channel_definitions()) followed by 4
+    toroidal-mirnov phase-reference channels that are not part of EFIT's
+    B-pol fitting set (`magpri` in dprobe.dat/mhdin.dat is 64, not 68).
+    Writing all 68 into EXPMP2/FWTMP2/BITMPI overflows what EFIT's compiled
+    geometry table expects and is rejected as an invalid namelist line --
+    reproduced against the real packaged EFIT-AI build in this test.
+    """
+    from vaft.data.resources import data_path
+
+    ods = copy.deepcopy(full_eddy_ods)
+    n_probes = len(ods["magnetics.b_field_pol_probe"])
+    assert n_probes == 68
+
+    # A missing channel inside the real 64-probe range must still show up
+    # as a zero-weight placeholder within the clamped array.
+    del ods["magnetics.b_field_pol_probe.10.field.data"]
+
+    times = np.array([0.30, 0.301])
+    ods["equilibrium.time"] = times
+    efit_table_dir = str(data_path("efit"))
+    generate_constraints_ods(
+        ods, SHOT, str(tmp_path), efit_table_dir, times,
+        DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
+        broken=[], fit=0, FFCUR=2, PPCUR=2,
+    )
+
+    config = _build_kfile_config(nbcoil=16)
+    kfile_dir = tmp_path / "magpri-kfile"
+    generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
+    kfiles = sorted((kfile_dir / "kfile").glob("*"))
+    assert kfiles, "generate_kfile produced no k-file"
+    text = kfiles[0].read_text()
+
+    expmp2 = _extract_array(text, "EXPMP2", "BITMPI")
+    fwtmp2 = _extract_array(text, "FWTMP2", "PLASMA")
+
+    assert len(expmp2) == 64
+    assert len(fwtmp2) == 64
+    assert all(np.isfinite(value) for value in expmp2)
+    assert fwtmp2[10] == 0
+    assert all(value == 1 for i, value in enumerate(fwtmp2) if i != 10)

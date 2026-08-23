@@ -677,7 +677,18 @@ def generate_kfile(
             FWTDLC = 'FWTDLC= 1'
 
         ## (6) Poloidal magnetic probe with weight
-        nbprobe = len(CSTR['bpol_probe'])
+        # magpri (dprobe.dat/mhdin.dat) is EFIT's own count of physically
+        # fitted probes -- for VEST this is 64, the leading `bpol_probe`
+        # entries built from vest_md_channel_definitions(). VAFT's OMAS
+        # magnetics IDS additionally carries 4 trailing toroidal-mirnov
+        # phase-reference channels (identifier suffix ":phase_reference")
+        # that are not part of EFIT's B-pol fitting set; writing all of
+        # them into EXPMP2/FWTMP2/BITMPI overflows what EFIT's compiled
+        # geometry table expects and is rejected as an invalid namelist
+        # line. Same pattern as `nfsum` for PF coils above: read the real
+        # count from the table when available, keep every probe otherwise
+        # (offline/no-table tests).
+        nbprobe = _machine_count("magpri", len(CSTR['bpol_probe']))
         EXPMP2 = _namelist_array('EXPMP2', [CSTR[f"bpol_probe.{i}.measured"] for i in range(nbprobe)], per_line=3)
         fwtmp2_values = []
         bitmpi_values = []
