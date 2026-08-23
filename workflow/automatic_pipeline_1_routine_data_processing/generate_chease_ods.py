@@ -7,7 +7,9 @@ import argparse
 import logging
 from pathlib import Path
 
-from omas import ODS, save_omas_json
+import copy
+
+from omas import ODS, load_omas_json, save_omas_json
 
 from vaft.data.eqdsk import read_geqdsk
 
@@ -35,6 +37,16 @@ def main() -> int:
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
     parser.add_argument("--refined-gfile-manifest", required=True, type=Path, help="Input CHEASE refined gfile manifest.")
     parser.add_argument("--status", required=True, type=Path, help="Input CHEASE status file.")
+    parser.add_argument(
+        "--static-ods",
+        type=Path,
+        help=(
+            "Versioned static machine ODS. When given, its wall IDS replaces "
+            "whatever limiter geqdsk.to_omas() reconstructed from the refined "
+            "gfiles' own RLIM/ZLIM, so the wall ODS stays the single source of "
+            "truth for limiter geometry rather than a per-gfile round trip."
+        ),
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output CHEASE ODS JSON.")
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
     args = parser.parse_args()
@@ -60,6 +72,11 @@ def main() -> int:
         ods["dataset_description.data_entry.run"] = int(args.run)
         if parse_errors:
             ods["equilibrium.ids_properties.comment"] = "CHEASE parse warnings: " + "; ".join(parse_errors[:5])
+        if args.static_ods is not None:
+            static = load_omas_json(str(args.static_ods), consistency_check=False)
+            if "wall" in static:
+                ods["wall"] = copy.deepcopy(static["wall"])
+                LOGGER.info("Replaced reconstructed wall with the canonical static ODS wall")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     save_omas_json(ods, str(args.output))

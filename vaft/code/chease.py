@@ -979,7 +979,20 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
     from vaft.data.eqdsk import read_geqdsk
 
     raw = base / "EQDSK_COCOS_02.OUT"
-    refined_candidates = sorted(base.glob("*_chease.geqdsk")) + sorted(base.glob("*_chease.gfile")) + sorted(base.glob("*_chease.g"))
+    # `_refined_output_path()` names the restored file `<stem>_chease<suffix>`,
+    # where `<suffix>` is whatever Path.suffix finds after the last dot in the
+    # *input* name -- for VEST's `g<shot>.<time>` gfiles (no .geqdsk/.gfile/.g
+    # extension) that is the numeric time, e.g. `g039915_chease.00319`. A glob
+    # restricted to the conventional GEQDSK extensions never matches that name
+    # and silently falls back to the raw, pre-restore CHEASE output below,
+    # discarding run_chease()'s boundary/limiter restoration entirely.
+    refined_candidates = sorted(
+        path
+        for path in base.glob("*_chease*")
+        if path.is_file()
+        and not path.name.startswith(".")  # exclude AppleDouble/dotfile sidecars
+        and path.suffix.lower() not in {".json", ".png", ".log"}
+    )
     refined = refined_candidates[0] if refined_candidates else (raw if raw.exists() else None)
     preferred_inputs = [
         base / "source.geqdsk",
