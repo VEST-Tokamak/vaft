@@ -44,7 +44,10 @@ def _build_target_time(
 
 def vfit_barometry_static(ods: object) -> None:
     set_path(ods, "barometry.ids_properties.comment", "VEST Pressure Gauge data")
-    set_path(ods, "barometry.ids_properties.homogeneous_time", 1)
+    # barometry never gets a top-level `.time`; each gauge stores its own
+    # `pressure.time`. Per the DD, homogeneous_time=1 requires the shared
+    # time node just below the IDS root, so storage at a lower level is 0.
+    set_path(ods, "barometry.ids_properties.homogeneous_time", 0)
     set_path(ods, "barometry.gauge.0.name", "PKR-251 Main Gauge")
     set_path(ods, "barometry.gauge.0.type.index", 0)
     set_path(ods, "barometry.gauge.0.type.name", "Penning")

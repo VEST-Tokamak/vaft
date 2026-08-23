@@ -1,3 +1,4 @@
+import copy
 import gzip
 import json
 
@@ -7,9 +8,13 @@ from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
 from vaft.database._local import load_ods
+from omas import ODS
+
+from vaft.omas import save as save_ods
 from vaft.omas.vest_upstream import (
     archive_raw_source,
     build_diagnostics_ods,
+    build_eddy_ods,
     build_static_ods,
     machine_era_for_shot,
     write_stage_product,
@@ -58,6 +63,47 @@ def test_static_product_is_not_a_reference_shot_container():
     ]
 
 
+def test_static_product_marks_time_independent_ids_as_such():
+    """No IDS in the static product ever gets a `.time` node.
+
+    Per the IMAS DD, `homogeneous_time` must be 2 when only constant/static
+    nodes are filled. `pf_active`/`magnetics`/`tf` default to 1 in their
+    shared static builders (correct once the per-shot diagnostics stage adds
+    `.time`), and `pf_passive` inherits 1 from the packaged asset -- both
+    need an explicit override here since this product never adds `.time`.
+    `wall` and `em_coupling` have no dynamic counterpart at all, so they are
+    fixed at the source instead.
+    """
+    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+
+    for ids_name in ("wall", "em_coupling", "pf_active", "pf_passive", "magnetics", "tf"):
+        assert ods[f"{ids_name}.ids_properties.homogeneous_time"] == 2
+        assert f"{ids_name}.time" not in ods
+
+
+def test_static_wall_completeness():
+    """The wall's limiter description is self-describing without its manifest.
+
+    `description_2d.type` is a distinct node from `limiter.type` and was
+    never populated; the outline is a genuinely closed polygon but the DD's
+    `closed` flag was never set to say so.
+    """
+    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+
+    description = ods["wall.description_2d.0"]
+    assert description["type.index"] == 1
+    assert "vessel" not in description
+
+    n_units = len(description["limiter.unit"])
+    assert n_units >= 1
+    for unit_index in range(n_units):
+        unit = description[f"limiter.unit.{unit_index}"]
+        r = unit["outline.r"]
+        z = unit["outline.z"]
+        assert unit["closed"] == int(r[0] == r[-1] and z[0] == z[-1])
+        assert unit["name"]
+
+
 def _write_raw_dump(path, shot, fields):
     payload = {
         "shot": shot,
@@ -100,6 +146,155 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert "barometry" in ods
     assert "tf" not in ods
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
+
+
+def test_barometry_time_is_heterogeneous_not_homogeneous(tmp_path):
+    """barometry stores time per-gauge, so homogeneous_time must be 0, not 1.
+
+    Per the DD, homogeneous_time=1 means the IDS's dynamic quantities share a
+    single time array at the IDS root (`<ids>.time`); barometry never writes
+    one, only `gauge.0.pressure.time`. homogeneous_time=1 without a root
+    `.time` claims a time base that does not exist -- the correct value for
+    "time values are stored in the various time fields at lower levels" is 0.
+    """
+    shot = 43017
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {13: np.linspace(1.0, 2.0, 200).tolist()})
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(
+        static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json"
+    )
+
+    ods, diagnostics_manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=static_path,
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+    assert diagnostics_manifest["channel_status"]["barometry"]["status"] == "success"
+
+    assert ods["barometry.ids_properties.homogeneous_time"] == 0
+    assert "barometry.time" not in ods
+    assert "barometry.gauge.0.pressure.time" in ods
+
+    output_path = tmp_path / "diagnostics.json"
+    metadata_path = tmp_path / "diagnostics-manifest.json"
+    write_stage_product(ods, diagnostics_manifest, output=output_path, metadata=metadata_path)
+
+    from omas import load_omas_json
+
+    reloaded = load_omas_json(str(output_path), consistency_check=True)
+    assert reloaded["barometry.ids_properties.homogeneous_time"] == 0
+
+
+def test_eddy_ods_carries_no_stage_specific_impedance_cache_keys(tmp_path):
+    """pf_passive comes from the curated static ODS, which never holds a cache.
+
+    A previous stage-specific workaround stripped `pf_passive.{R,L,M}_mat` from
+    the eddy product after the fact. Nothing writes those keys any more: the
+    solver keeps the impedance matrices as locals, and the versioned static
+    ODS carries only `pf_passive.{ids_properties,loop}`. This asserts the
+    invariant holds without any stripping step, including a consistency-checked
+    reload (those keys are not valid IMAS locations).
+    """
+    shot = 43017
+    static_path = tmp_path / "static.json"
+    static_manifest = tmp_path / "static-manifest.json"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=static_manifest)
+
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    # pf_active must carry real per-coil currents: build_eddy_ods does not
+    # backfill it from the static ODS the way build_diagnostics_ods does.
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    diagnostics["pf_active.time"] = time
+    n_coils = len(diagnostics["pf_active.coil"])
+    for coil_index in range(n_coils):
+        diagnostics[f"pf_active.coil.{coil_index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{coil_index}.current.data"] = np.zeros_like(time)
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+
+    ods, eddy_manifest = build_eddy_ods(
+        shot=shot,
+        diagnostics_ods=diagnostics_path,
+        static_ods=static_path,
+        filament_r=[0.35, 0.35, 0.35],
+        filament_z=[0.25, 0.0, -0.25],
+        filament_fraction=[1 / 3, 1 / 3, 1 / 3],
+        dt_sub=5e-5,
+    )
+
+    assert "pf_passive.R_mat" not in ods
+    assert "pf_passive.L_mat" not in ods
+    assert "pf_passive.M_mat" not in ods
+
+    output_path = tmp_path / "eddy.json"
+    metadata_path = tmp_path / "eddy-manifest.json"
+    write_stage_product(ods, eddy_manifest, output=output_path, metadata=metadata_path)
+
+    # A stray cache key is not a valid IMAS location, so a consistency-checked
+    # reload is the strongest check that none survived.
+    from omas import load_omas_json
+
+    reloaded = load_omas_json(str(output_path), consistency_check=True)
+    assert "pf_passive.R_mat" not in reloaded
+    assert "pf_passive.L_mat" not in reloaded
+    assert "pf_passive.M_mat" not in reloaded
+
+
+def test_eddy_ods_updates_homogeneous_time_for_ids_that_gain_a_time_node(tmp_path):
+    """pf_passive goes from independent (2) to homogeneous (1) once eddy adds `.time`.
+
+    pf_passive is copied from the static product, which is independent
+    (homogeneous_time=2, no `.time`). compute_eddy_currents() then adds
+    `pf_passive.time`, so the flag must flip to 1 to match -- copying the
+    static value forward unchanged would leave it claiming "no time" while a
+    time array is actually present. wall/em_coupling never gain `.time`, so
+    they must stay at 2.
+    """
+    shot = 43017
+    static_path = tmp_path / "static.json"
+    static_manifest = tmp_path / "static-manifest.json"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=static_manifest)
+    assert static["pf_passive.ids_properties.homogeneous_time"] == 2
+
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    diagnostics["pf_active.time"] = time
+    n_coils = len(diagnostics["pf_active.coil"])
+    for coil_index in range(n_coils):
+        diagnostics[f"pf_active.coil.{coil_index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{coil_index}.current.data"] = np.zeros_like(time)
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+
+    ods, _ = build_eddy_ods(
+        shot=shot,
+        diagnostics_ods=diagnostics_path,
+        static_ods=static_path,
+        filament_r=[0.35, 0.35, 0.35],
+        filament_z=[0.25, 0.0, -0.25],
+        filament_fraction=[1 / 3, 1 / 3, 1 / 3],
+        dt_sub=5e-5,
+    )
+
+    assert "pf_passive.time" in ods
+    assert ods["pf_passive.ids_properties.homogeneous_time"] == 1
+    assert "wall.time" not in ods
+    assert ods["wall.ids_properties.homogeneous_time"] == 2
+    assert "em_coupling.time" not in ods
+    assert ods["em_coupling.ids_properties.homogeneous_time"] == 2
 
 
 def test_explicit_raw_archive_is_copied_with_machine_readable_provenance(tmp_path):

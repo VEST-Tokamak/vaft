@@ -163,9 +163,14 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
             prof2d = ts['profiles_2d.0']
             r_grid = np.asarray(prof2d['grid.dim1'], dtype=float)
             z_grid = np.asarray(prof2d['grid.dim2'], dtype=float)
+            # The DD declares psi(:,:)'s coordinates as [grid.dim1, grid.dim2],
+            # i.e. axis 0 = dim1 (R) and axis 1 = dim2 (Z). A shape-based
+            # "is this secretly transposed?" heuristic is ambiguous whenever
+            # dim1 and dim2 have the same length (VEST's EFIT/CHEASE grids
+            # always are: 129x129, 513x513) and silently transposes psi that
+            # was already written correctly. Trust the DD convention
+            # unconditionally (see vaft.data.eqdsk.from_omas).
             psi = np.asarray(prof2d['psi'], dtype=float)
-            if psi.shape == (z_grid.size, r_grid.size):
-                psi = psi.T
             psi_axis = float(ts['global_quantities.psi_axis'])
             psi_boundary = float(ts['global_quantities.psi_boundary'])
         except Exception as exc:
