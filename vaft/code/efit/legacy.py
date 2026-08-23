@@ -12,7 +12,6 @@ import numpy as np
 import statistics
 import math
 from scipy.signal import savgol_filter
-from vaft.machine_mapping.utils import path_exists
 
 
 def gauss_fit4(coef, x):
@@ -61,12 +60,25 @@ def vfit_equilibrium_form_constraints(EQ,PF,MG,TF, times, constraints, average):
 
     if 'bpol_probe' in constraints:
         for channel in MG['b_field_pol_probe']:
-            if not path_exists(MG, f'b_field_pol_probe.{channel}.field.data'):
+            label = MG[f'b_field_pol_probe.{channel}.identifier']
+            if f'b_field_pol_probe.{channel}.field.data' not in MG:
+                # No raw data for this channel. OMAS array-of-structures grow
+                # contiguously from index 0, so silently omitting an index
+                # breaks every later index (and, via `nbprobe`, the
+                # flux_loop `broken`-index offset). Preserve the position
+                # and identity with a finite, explicitly zero-weighted
+                # placeholder instead: weight=0 already means "excluded
+                # from fitting" to the k-file writer, the same as a
+                # legacy-listed broken channel.
+                for i in range(nbt):
+                    EQ[f'time_slice.{i}.constraints.bpol_probe.{channel}.measured'] = 0.0
+                    EQ[f'time_slice.{i}.constraints.bpol_probe.{channel}.measured_error_upper'] = 0.0
+                    EQ[f'time_slice.{i}.constraints.bpol_probe.{channel}.source'] = label
+                    EQ[f'time_slice.{i}.constraints.bpol_probe.{channel}.weight'] = 0.0
                 continue
             time = MG['time']
             data = MG[f'b_field_pol_probe.{channel}.field.data']
             error = MG[f'b_field_pol_probe.{channel}.field.data_error_upper']
-            label = MG[f'b_field_pol_probe.{channel}.identifier']
             for i in range(nbt):
                 const = statistics.mean(np.interp(ave_time[i], time, data))
                 const_error = statistics.mean(np.interp(ave_time[i], time, error))
@@ -76,10 +88,18 @@ def vfit_equilibrium_form_constraints(EQ,PF,MG,TF, times, constraints, average):
 
     if 'flux_loop' in constraints:
         for channel in MG['flux_loop']:
+            label = MG[f'flux_loop.{channel}.identifier']
+            if f'flux_loop.{channel}.flux.data' not in MG:
+                # Same missing-channel placeholder as bpol_probe above.
+                for i in range(nbt):
+                    EQ[f'time_slice.{i}.constraints.flux_loop.{channel}.measured'] = 0.0
+                    EQ[f'time_slice.{i}.constraints.flux_loop.{channel}.measured_error_upper'] = 0.0
+                    EQ[f'time_slice.{i}.constraints.flux_loop.{channel}.source'] = label
+                    EQ[f'time_slice.{i}.constraints.flux_loop.{channel}.weight'] = 0.0
+                continue
             time = MG['time']
             data = MG[f'flux_loop.{channel}.flux.data']
             error = MG[f'flux_loop.{channel}.flux.data_error_upper']
-            label = MG[f'flux_loop.{channel}.identifier']
             for i in range(nbt):
                 # const=statistics.mean(np.interp(ave_time[i],time,data/2/math.pi)) # Origianl version
                 # const_error=statistics.mean(np.interp(ave_time[i],time,error/2/math.pi))

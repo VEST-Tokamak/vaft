@@ -11,7 +11,6 @@ from numbers import Integral
 from pathlib import Path
 from scipy import optimize
 from omas import ODS, save_omas_json
-from vaft.machine_mapping.utils import path_exists
 
 from .legacy import (
     gauss_fit4,
@@ -88,7 +87,7 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
         [
             int(index)
             for index, _ in enumerate(MG['b_field_pol_probe'])
-            if path_exists(MG, f'b_field_pol_probe.{index}.field.data')
+            if f'b_field_pol_probe.{index}.field.data' in MG
         ],
         dtype=int,
     )
@@ -120,15 +119,27 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
     ## (6) Flux loops
     Index_inFlux = np.where(MG['flux_loop.:.position.0.r'] < 0.15)
     Index_OutFlux = np.where(MG['flux_loop.:.position.0.r'] > 0.5)
+    # Same missing-data guard as valid_bpol_indices above: a flux loop
+    # without raw data has no `flux.data` to read, so it must be excluded
+    # here too, before vfit_equilibrium_form_constraints's placeholder logic
+    # is even reached.
+    valid_flux_indices = np.array(
+        [
+            int(index)
+            for index, _ in enumerate(MG['flux_loop'])
+            if f'flux_loop.{index}.flux.data' in MG
+        ],
+        dtype=int,
+    )
 
     # conduct ad-hoc correction for the flux loop signal
     if fl_correct_coeff is not None:
-        for i in range(len(MG['flux_loop'])):
+        for i in valid_flux_indices:
             MG[f'flux_loop.{i}.flux.data'] = MG[f'flux_loop.{i}.flux.data'] / fl_correct_coeff[i]        
 
     # convert tuple to array
-    Index_inFlux = Index_inFlux[0].astype(int)
-    Index_OutFlux = Index_OutFlux[0].astype(int)
+    Index_inFlux = np.intersect1d(Index_inFlux[0].astype(int), valid_flux_indices)
+    Index_OutFlux = np.intersect1d(Index_OutFlux[0].astype(int), valid_flux_indices)
 
     for i in Index_inFlux:
         MG[f'flux_loop.{i}.flux.time']=MG['time']
@@ -152,7 +163,12 @@ def generate_constraints_ods(ods,shotnumber, save_dir, efit_table_dir, time, unc
 
     PFP=ods['pf_passive']
     nbloop=len(PFP['loop'])
-    nbprobe=len(valid_bpol_indices)
+    # The total probe count, not just those with data: flux_loop's `broken`
+    # index offset (`j + nbprobe` below) must stay stable regardless of
+    # which probes happen to be missing for a given shot, or the same
+    # `broken` config list would silently exclude different physical
+    # channels depending on real-time data availability.
+    nbprobe=len(MG['b_field_pol_probe'])
     PM=ods['equilibrium.code.parameters']
 
     # Ad hoc diamaagnetic flux constraint sign change 
