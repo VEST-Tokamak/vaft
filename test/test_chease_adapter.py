@@ -1,8 +1,16 @@
+import copy
 import os
 import shutil
 
 import numpy as np
 import pytest
+
+
+def _assert_flat_ods_equal(a, b) -> None:
+    flat_a, flat_b = a.flat(), b.flat()
+    assert set(flat_a) == set(flat_b)
+    for key, value in flat_a.items():
+        np.testing.assert_array_equal(value, flat_b[key])
 
 
 def test_chease_import_smoke_without_external_runner():
@@ -193,3 +201,72 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     refined_zlim = np.asarray(result.refined_ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
     assert np.array_equal(source_rlim, refined_rlim)
     assert np.array_equal(source_zlim, refined_zlim)
+
+
+def test_prepare_chease_inputs_keeps_the_original_ods_as_source(tmp_path):
+    """`inputs.source` must stay the caller's actual ODS object (not a copy
+    or a re-derived GEQDSK), since `_preserve_source_wall()` keys off it.
+    """
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path
+
+    source_ods = read_geqdsk(data_path("efit/g039915.00319")).to_omas()
+    inputs = prepare_chease_inputs(source_ods, CHEASEConfig(workdir=tmp_path, create_plot=False))
+
+    assert inputs.source is source_ods
+
+
+def test_preserve_source_wall_copies_an_ods_sources_wall_onto_the_result():
+    """CHEASE refines the equilibrium only -- an ODS input's `wall` IDS must
+    come back out identical, not merely numerically close.
+
+    Unit-tested directly against `_preserve_source_wall()` rather than a
+    full `run_chease()` call: the ODS-derived EXPEQ this repository's own
+    sample equilibrium produces does not currently converge in CHEASE's
+    solver (a separate, pre-existing numerical gap in the ODS-to-GEQDSK
+    round trip, unrelated to wall/limiter handling), so gating this
+    assertion on a real CHEASE run would make the test depend on unrelated,
+    unresolved convergence behavior instead of the invariant it checks.
+    Routing the wall through the refined GEQDSK's own RLIM/ZLIM (as the
+    g-file case does, and as this used to do before this fix) would also
+    round-trip through EQDSK's E14.6 fixed-format text serialization, which
+    only carries 6 significant digits -- this copies the *original* input
+    ODS's `wall` IDS directly instead, so it is provably unchanged rather
+    than a lossy reconstruction.
+    """
+    from omas import ODS
+    from vaft.code.chease import CHEASEResult, _preserve_source_wall
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path
+
+    source_ods = read_geqdsk(data_path("efit/g039915.00319")).to_omas()
+    original_wall = copy.deepcopy(source_ods["wall"])
+
+    refined_ods = ODS()
+    refined_ods["wall.description_2d.0.limiter.unit.0.outline.r"] = [0.0, 1.0]
+    refined_ods["wall.description_2d.0.limiter.unit.0.outline.z"] = [0.0, 1.0]
+    result = CHEASEResult(returncode=0, workdir=None, refined_ods=refined_ods)
+
+    _preserve_source_wall(result, source_ods)
+
+    _assert_flat_ods_equal(result.refined_ods["wall"], original_wall)
+    # The copy must be independent of the caller's object.
+    result.refined_ods["wall.description_2d.0.limiter.unit.0.outline.r"] = [9.0]
+    _assert_flat_ods_equal(source_ods["wall"], original_wall)
+
+
+def test_preserve_source_wall_is_a_noop_for_a_geqdsk_path_source():
+    """A g-file source has no ODS `wall` to copy -- must leave the
+    to_omas()-reconstructed wall (already exact, per
+    test_run_chease_preserves_source_limiter_from_a_file_path) untouched.
+    """
+    from vaft.code.chease import CHEASEResult, _preserve_source_wall
+    from vaft.data.resources import sample_geqdsk
+
+    reconstructed = object()
+    result = CHEASEResult(returncode=0, workdir=None, refined_ods=reconstructed)
+
+    _preserve_source_wall(result, sample_geqdsk("efit/g039915.00319"))
+
+    assert result.refined_ods is reconstructed

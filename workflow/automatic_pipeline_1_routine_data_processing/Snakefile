@@ -480,8 +480,7 @@ rule run_chease:
 rule generate_chease_ods:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
-        status=PATHS.shot_pattern("chease_status"),
-        static=static_ods_for_shot
+        status=PATHS.shot_pattern("chease_status")
     output:
         ods=PATHS.shot_pattern("chease_ods")
     log:
@@ -497,7 +496,6 @@ rule generate_chease_ods:
             --shot {wildcards.shot} \
             --refined-gfile-manifest {input.refined} \
             --status {input.status} \
-            --static-ods {input.static} \
             --output {output.ods} \
             --run {params.run} \
             > {log} 2>&1

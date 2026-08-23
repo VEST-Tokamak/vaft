@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 import json
 import os
@@ -759,6 +760,25 @@ def _restore_boundary_limiter(refined: Any, source: Any):
     return item
 
 
+def _preserve_source_wall(result: "CHEASEResult", source: Any) -> None:
+    """Make an ODS-sourced run's `wall` provably identical to the input's.
+
+    CHEASE refines the equilibrium only. For a g-file input, the wall never
+    existed in the first place: RLIM/ZLIM is restored exactly by
+    `_restore_boundary_limiter()`, and `geqdsk.to_omas()` derives `wall`
+    from those unchanged values. For an ODS input, go one step further and
+    skip that GEQDSK text round trip entirely -- EQDSK's E14.6 fixed-format
+    only carries 6 significant digits -- by copying the input ODS's own
+    `wall` IDS directly onto the result, so it is provably unchanged rather
+    than merely numerically close.
+    """
+    from omas import ODS
+
+    if result.refined_ods is None or not isinstance(source, ODS) or "wall" not in source:
+        return
+    result.refined_ods["wall"] = copy.deepcopy(source["wall"])
+
+
 def _comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
     metrics = {}
     for name, key in (
@@ -965,6 +985,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
+    _preserve_source_wall(result, inputs.source)
     if config.cleanup and result.ok:
         # Keep the returned paths meaningful only for non-cleanup workflows; cleanup is
         # intended for fire-and-forget integration jobs.
