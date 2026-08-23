@@ -981,11 +981,10 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
             )
         write_geqdsk(refined, refined_target)
 
-    result = collect_chease_outputs(inputs.workdir, config)
+    result = collect_chease_outputs(inputs.workdir, config, source=inputs.source)
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
-    _preserve_source_wall(result, inputs.source)
     if config.cleanup and result.ok:
         # Keep the returned paths meaningful only for non-cleanup workflows; cleanup is
         # intended for fire-and-forget integration jobs.
@@ -993,8 +992,14 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     return result
 
 
-def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = None) -> CHEASEResult:
-    """Collect CHEASE files from a working directory and parse refined GEQDSK."""
+def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = None, source: Any = None) -> CHEASEResult:
+    """Collect CHEASE files from a working directory and parse refined GEQDSK.
+
+    `source` is the original input passed to `prepare_chease_inputs`/`refine_equilibrium`
+    (an ODS or a GEQDSK). When it is an ODS, its `wall` IDS is copied onto the
+    result verbatim so the invariant "CHEASE never invents or replaces limiter
+    geometry" holds for every caller of this function, not only `run_chease()`.
+    """
     base = Path(workdir).expanduser()
     config = config or CHEASEConfig(workdir=base)
     from vaft.data.eqdsk import read_geqdsk
@@ -1063,7 +1068,7 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
         "raw": tuple(path for path in (raw,) if path.exists()),
         "inputs": tuple(path for path in (base / "EXPEQ", base / "chease_namelist") if path.exists()),
     }
-    return CHEASEResult(
+    result = CHEASEResult(
         returncode=None,
         workdir=base,
         input_geqdsk=input_geqdsk,
@@ -1076,6 +1081,8 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
         comparison=comparison,
         stdout=_read_optional(base / "chease.log") if base.exists() else "",
     )
+    _preserve_source_wall(result, source)
+    return result
 
 
 def refine_equilibrium(source: Any, config: CHEASEConfig | None = None) -> CHEASEResult:
