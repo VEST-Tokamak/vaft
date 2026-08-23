@@ -361,9 +361,15 @@ def from_omas(
     prof2d = ts[f"profiles_2d.{profile_index}"]
     r = np.asarray(prof2d["grid.dim1"], dtype=float)
     z = np.asarray(prof2d["grid.dim2"], dtype=float)
+    # The DD declares psi(:,:)'s coordinates as [grid.dim1, grid.dim2], i.e.
+    # axis 0 = dim1 (R) and axis 1 = dim2 (Z) -- exactly what to_omas() below
+    # writes (`psi.reshape(nw, nh)`, nw=len(R)). A shape-based "is this
+    # secretly transposed?" heuristic is ambiguous whenever nw == nh (VEST's
+    # EFIT/CHEASE grids always are: 129x129, 513x513) and was silently
+    # transposing psi that to_omas() had already written correctly -- this
+    # was the sole source of a "xin not in ascending order" CHEASE failure
+    # on every ODS-sourced refinement. Trust the DD convention unconditionally.
     psi = np.asarray(prof2d["psi"], dtype=float)
-    if psi.shape == (z.size, r.size):
-        psi = psi.T
     nw, nh = int(r.size), int(z.size)
 
     psi_axis = float(_path_get(ts, "global_quantities.psi_axis", np.nanmin(psi)))

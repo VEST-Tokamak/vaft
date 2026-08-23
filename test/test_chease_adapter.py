@@ -203,6 +203,71 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     assert np.array_equal(source_zlim, refined_zlim)
 
 
+@pytest.mark.skipif(
+    not (os.environ.get("CHEASEHOME") or os.environ.get("CHEASE_EXEC_DIR") or os.environ.get("CHEASE")),
+    reason="CHEASE integration test requires CHEASEHOME, CHEASE_EXEC_DIR, or CHEASE",
+)
+def test_run_chease_gfile_and_equivalent_ods_input_agree(tmp_path):
+    """A g-file and the ODS built from that same g-file must both refine,
+    reach the same equilibrium, and each preserve its own input's
+    limiter/wall unchanged.
+
+    This is an end-to-end regression for the from_omas() PSIRZ transpose
+    bug (see test_eqdsk_omas_roundtrip.py): before that fix, this ODS input
+    failed deep inside CHEASE's spline setup ("xin not in ascending order")
+    on every run, an intrinsic-looking failure that was actually caused by
+    VAFT feeding CHEASE a self-inconsistent equilibrium (RMAXIS/boundary
+    computed from correctly-oriented PSIRZ, but the flux map itself
+    transposed under it).
+    """
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path
+
+    source_path = data_path("efit/g039915.00319")
+    source_ods = read_geqdsk(source_path).to_omas()
+
+    def _run(source, workdir):
+        config = CHEASEConfig(
+            workdir=workdir,
+            create_plot=False,
+            timeout=60,
+            target_psin=0.993,
+            relax=0.5,
+            nideal=6,
+            nw=513,
+            preserve_boundary_limiter=True,
+        )
+        inputs = prepare_chease_inputs(source, config)
+        return inputs, run_chease(inputs, config)
+
+    inputs_gfile, result_gfile = _run(source_path, tmp_path / "from_gfile")
+    inputs_ods, result_ods = _run(source_ods, tmp_path / "from_ods")
+
+    assert result_gfile.ok, result_gfile.stderr
+    assert result_ods.ok, result_ods.stderr
+
+    refined_gfile = read_geqdsk(result_gfile.refined_geqdsk)
+    refined_ods_geqdsk = read_geqdsk(result_ods.refined_geqdsk)
+    for key in ("RMAXIS", "ZMAXIS", "SIMAG", "SIBRY", "CURRENT", "BCENTR"):
+        np.testing.assert_allclose(
+            float(refined_gfile[key]), float(refined_ods_geqdsk[key]), err_msg=key
+        )
+
+    # Each path preserves its own input's limiter/wall, unchanged.
+    np.testing.assert_array_equal(
+        np.asarray(refined_gfile["RLIM"], dtype=float), np.asarray(inputs_gfile.geqdsk["RLIM"], dtype=float)
+    )
+    np.testing.assert_array_equal(
+        np.asarray(result_ods.refined_ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float),
+        np.asarray(source_ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float),
+    )
+    np.testing.assert_array_equal(
+        np.asarray(result_ods.refined_ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float),
+        np.asarray(source_ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float),
+    )
+
+
 def test_prepare_chease_inputs_keeps_the_original_ods_as_source(tmp_path):
     """`inputs.source` must stay the caller's actual ODS object (not a copy
     or a re-derived GEQDSK), since `_preserve_source_wall()` keys off it.
