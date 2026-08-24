@@ -279,6 +279,66 @@ def test_explicit_time_override_beats_trigger_settings(tmp_path):
     assert "explicit" in ods["soft_x_rays.ids_properties.comment"]
 
 
+def test_shot_level_mapper_merges_available_daqs_without_duplicate_channels(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    np.savetxt(
+        data_root / "digitizer_17592_12345.csv",
+        np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]]),
+        delimiter=",",
+    )
+    np.savetxt(
+        data_root / "digitizer_22577_12345.csv",
+        np.array([[100.0, 200.0, 300.0], [1000.0, 2000.0, 3000.0]]),
+        delimiter=",",
+    )
+
+    ods = soft_x_rays_from_digitizer_csv(12345, data_root=data_root, time_offset=0.0)
+
+    assert len(ods["soft_x_rays.channel"]) == 4
+    assert [ods[f"soft_x_rays.channel.{index}.identifier"] for index in range(4)] == [
+        "17592:vertical:none:1",
+        "17592:vertical:none:2",
+        "22577:bottom:Be:1",
+        "22577:bottom:Be:2",
+    ]
+    np.testing.assert_allclose(
+        ods["soft_x_rays.channel.0.brightness.time"],
+        np.arange(3) / (125e6 / 32.0),
+    )
+    np.testing.assert_allclose(
+        ods["soft_x_rays.channel.2.brightness.time"],
+        np.arange(3) / (125e6 / 128.0),
+    )
+    assert ods["soft_x_rays.ids_properties.homogeneous_time"] == 0
+    assert "digitizer_17592_12345.csv" in ods["soft_x_rays.ids_properties.source"]
+    assert "digitizer_22577_12345.csv" in ods["soft_x_rays.ids_properties.source"]
+
+    soft_x_rays(ods, 12345, data_root=data_root, time_offset=0.0)
+    assert len(ods["soft_x_rays.channel"]) == 4
+
+
+def test_shot_level_mapper_supports_one_available_daq(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    np.savetxt(data_root / "digitizer_17592_12345.csv", np.array([[1.0, 2.0, 3.0]]), delimiter=",")
+
+    ods = soft_x_rays_from_digitizer_csv(12345, data_root=data_root, time_offset=0.0)
+
+    assert len(ods["soft_x_rays.channel"]) == 1
+    assert ods["soft_x_rays.channel.0.identifier"] == "17592:vertical:none:1"
+    assert ods["soft_x_rays.ids_properties.homogeneous_time"] == 1
+
+
+def test_explicit_digitizer_file_can_infer_its_daq_label(tmp_path):
+    digitizer_file = tmp_path / "digitizer_22577_12345.csv"
+    np.savetxt(digitizer_file, np.array([[1.0, 2.0, 3.0]]), delimiter=",")
+
+    ods = soft_x_rays_from_digitizer_csv(12345, digitizer_file=digitizer_file, time_offset=0.0)
+
+    assert ods["soft_x_rays.channel.0.identifier"] == "22577:bottom:Be:1"
+
+
 def test_sxr_mapper_does_not_use_raw_database_trigger_correction():
     source = inspect.getsource(sxr_mapping)
     assert "from vaft.database import raw" not in source
