@@ -454,6 +454,12 @@ def _load_from_sample_file(
 
             raw_data = entry.get("data", [])
             if not raw_data:
+                # A field present in an archive with no samples is distinct
+                # from a missing field.  Preserve it for single-field callers
+                # (notably the dump re-exporter) so it can be recorded as an
+                # empty, flagged channel instead of disappearing silently.
+                if len(fields) == 1:
+                    return np.array([], dtype=float), np.array([], dtype=float)
                 logger.warning(f"No data array for field {fld}. Skipping...")
                 continue
 
@@ -1081,9 +1087,15 @@ def dump_all_raw_signals_for_shot(
     # 1) Retrieve field codes, from the archive when one is given
     sample_path = _resolve_sample_path(shot, sample_opt)
     pulse_datetime: str | None = None
+    archived_field_types: dict[str, str] = {}
     if sample_path is not None:
         archive_payload = _archive_payload(shot, sample_path)
         field_codes = sorted(int(code) for code in archive_payload["fields"])
+        archived_field_types = {
+            str(code): entry.get("type")
+            for code, entry in archive_payload["fields"].items()
+            if isinstance(entry, dict) and entry.get("type") in {"fast", "slow"}
+        }
         # Carry the source archive's own pulse_datetime forward as-is (it was
         # already an ISO 8601 string from a prior SQL-backed dump); no new SQL
         # call is made in archive mode, matching every other field here.
@@ -1118,7 +1130,7 @@ def dump_all_raw_signals_for_shot(
 
     for fcode in field_codes:
         try:
-            time, data = load_raw(
+            loaded = load_raw(
                 shot, fcode,
                 max_retries=max_retries,
                 daq_type=daq_type,
@@ -1128,13 +1140,23 @@ def dump_all_raw_signals_for_shot(
             print(f"[store_shot_as_json] load_raw failed for field {fcode}: {e}")
             continue
 
-        if len(time) < 2:
-            print(f"[store_shot_as_json] insufficient time points for field {fcode}")
+        if loaded is None:
+            print(f"[store_shot_as_json] no data loaded for field {fcode}")
             continue
 
-        # Classify as fast/slow based on sampling interval
-        is_slow = (time[1] - time[0]) >= slow_dt_threshold
-        daq_label = "slow" if is_slow else "fast"
+        time, data = loaded
+        data = np.asarray(data, dtype=float).reshape(-1)
+
+        if len(time) < 2:
+            # A DAQ cadence cannot be inferred without two timestamps.  An
+            # archive already carries its original label; for SQL data retain
+            # the field faithfully and make that uncertainty explicit.
+            daq_label = archived_field_types.get(str(fcode), "unknown")
+            print(f"[store_shot_as_json] insufficient time points for field {fcode}")
+        else:
+            # Classify as fast/slow based on sampling interval
+            is_slow = (time[1] - time[0]) >= slow_dt_threshold
+            daq_label = "slow" if is_slow else "fast"
 
         shot_data["fields"][str(fcode)] = {
             "type": daq_label,
@@ -1146,7 +1168,7 @@ def dump_all_raw_signals_for_shot(
             print(f"[store_shot_as_json] field {fcode} flagged: {quality_flag}")
 
         # Collect the signal as a panel model if plot_opt is True
-        if plot_opt == 1:
+        if plot_opt == 1 and len(time) >= 2:
             panel_models.append(_field_panel(fcode, time, data))
 
     if not shot_data["fields"]:

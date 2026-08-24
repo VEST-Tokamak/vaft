@@ -148,6 +148,37 @@ def test_dump_flags_dead_channels_without_dropping_their_data(tmp_path, monkeypa
     assert "1" not in payload["field_quality"]
 
 
+def test_archive_redump_keeps_and_flags_empty_fields(tmp_path, monkeypatch):
+    def unexpected_sql_call(shot):
+        pytest.fail("archive mode must not call date_from_shot")
+
+    monkeypatch.setattr(raw, "date_from_shot", unexpected_sql_call)
+    source = tmp_path / "shot_39915.json.gz"
+    with gzip.open(source, "wt", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "shot": 39915,
+                "fields": {
+                    "1": {"type": "slow", "data": []},
+                    "2": {"type": "fast", "data": [1.0, 2.0, 3.0]},
+                },
+            },
+            handle,
+        )
+
+    output = tmp_path / "redumped.json.gz"
+    assert raw.dump_all_raw_signals_for_shot(
+        shot=39915,
+        output_path=str(output),
+        sample_opt=str(tmp_path / "shot_{shot}.json.gz"),
+    )
+
+    payload = _read_dump(output)
+    assert payload["fields"]["1"] == {"type": "slow", "data": []}
+    assert payload["fields"]["2"]["data"] == [1.0, 2.0, 3.0]
+    assert payload["field_quality"] == {"1": "empty"}
+
+
 def test_dump_omits_field_quality_key_when_nothing_is_flagged(tmp_path, monkeypatch):
     monkeypatch.setattr(raw, "get_all_field_codes_for_shot", lambda shot, max_retries=3: [1])
     monkeypatch.setattr(raw, "date_from_shot", lambda shot: (None, None))
