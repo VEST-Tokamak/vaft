@@ -93,6 +93,38 @@ def test_trace_field_line_direction_both_is_symmetric_about_start():
     assert np.all(np.diff(both["phi"]) > 0)
 
 
+def test_trace_field_line_arc_length_is_monotonic_for_backward():
+    b_field, R, Z = _build_field_interpolator()
+    r0_start, z0_start = R0 + 0.1, 0.0
+    trace = trace_field_line(
+        r0_start, z0_start, 0.0, b_field, dphi=np.deg2rad(1.0), max_length_m=2.0, direction="backward"
+    )
+    arc = trace["arc_length_m"]
+    # arc_length_m is documented as cumulative along the returned array's
+    # order, not distance from phi0 -- for "backward" the array is reversed
+    # into increasing-phi order, so naively reusing the per-branch values
+    # (which start at 0 at phi0, the *last* array element here) made this
+    # monotonically decrease instead.
+    assert arc[0] == pytest.approx(0.0)
+    assert np.all(np.diff(arc) >= 0)
+    assert arc[-1] > 0.0
+
+
+def test_trace_field_line_arc_length_is_monotonic_for_both():
+    b_field, R, Z = _build_field_interpolator()
+    r0_start, z0_start = R0 + 0.1, 0.0
+    trace = trace_field_line(
+        r0_start, z0_start, 0.0, b_field, dphi=np.deg2rad(1.0), max_length_m=2.0, direction="both"
+    )
+    arc = trace["arc_length_m"]
+    # Previously this decreased toward phi0 then increased again (a "V"
+    # measuring distance *from* phi0), which isn't a monotonic running total
+    # along the array and made distance-based consumers incorrect.
+    assert arc[0] == pytest.approx(0.0)
+    assert np.all(np.diff(arc) >= 0)
+    assert arc[-1] == pytest.approx(arc.max())
+
+
 def test_trace_field_line_rejects_invalid_direction():
     b_field, _, _ = _build_field_interpolator()
     with pytest.raises(ValueError):
@@ -200,6 +232,46 @@ def test_compute_camera_visible_field_line_overlay_returns_projected_points():
     }
     assert result["field_line_uv"].shape[1] == 2
     assert result["field_line_uv"].shape[0] >= 1
+
+
+def test_compute_camera_visible_field_line_overlay_preserves_discontinuities(monkeypatch):
+    """A gap of invalid samples in the middle of a trace must survive as NaN,
+    not be compacted away -- compacting would let a renderer draw a single
+    connected polyline through the gap, fabricating a segment that doesn't
+    correspond to any real part of the field line (see PR #128 review).
+    """
+    import vaft.omas.process_wrapper as pw
+
+    ods = _build_ods()
+    captured = {}
+
+    def fake_project_points(world_cm, rvec, tvec, camera_matrix, dist_coeffs):
+        n = world_cm.shape[0]
+        captured["n"] = n
+        uv = np.column_stack([np.arange(n, dtype=float), np.arange(n, dtype=float)])
+        valid = np.ones(n, dtype=bool)
+        mid = n // 2
+        valid[mid : mid + 2] = False  # a deliberate gap, not just a single dropped point
+        return uv, valid
+
+    monkeypatch.setattr(pw, "project_points", fake_project_points)
+
+    result = compute_camera_visible_field_line_overlay(
+        ods, SHOT, r0=R0 + 0.1, z0=0.0, frame_index=0, dphi_deg=1.0, max_length_m=5.0,
+    )
+    uv = result["field_line_uv"]
+    valid = result["field_line_valid"]
+    n = captured["n"]
+
+    # Not compacted: still the full trajectory length, gap included.
+    assert uv.shape == (n, 2)
+    assert valid.shape == (n,)
+    assert (~valid).sum() >= 2
+
+    nan_rows = np.isnan(uv).any(axis=1)
+    np.testing.assert_array_equal(nan_rows, ~valid)
+    # Valid rows keep their real projected positions, unperturbed.
+    np.testing.assert_array_equal(uv[valid], np.column_stack([np.arange(n), np.arange(n)])[valid])
 
 
 def test_compute_camera_visible_field_line_overlay_unsupported_shot_raises():

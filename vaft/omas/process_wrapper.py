@@ -2248,6 +2248,15 @@ def compute_camera_visible_field_line_overlay(
     pixel_uv, valid_mask = project_points(
         world_cm, pose["rvec"], pose["tvec"], intrinsics["camera_matrix"], intrinsics["dist_coeffs"]
     )
+    # Compacting with pixel_uv[valid_mask] would discard invalid samples'
+    # positions in the trajectory, so a renderer drawing the remaining points
+    # as one connected polyline would join two visible runs across a gap
+    # (behind the camera / outside the distortion guard) with a fabricated
+    # straight segment. Keep the full-length array and mark invalid samples
+    # as NaN instead -- matplotlib breaks a plotted line at NaN, so the
+    # discontinuity is preserved without any renderer-side changes.
+    field_line_uv = pixel_uv.copy()
+    field_line_uv[~valid_mask] = np.nan
 
     return {
         "frame_index": resolved_frame_index,
@@ -2255,7 +2264,7 @@ def compute_camera_visible_field_line_overlay(
         "equilibrium_time_index": trace["equilibrium_time_index"],
         "equilibrium_time": trace["equilibrium_time"],
         "image_shape": image_shape,
-        "field_line_uv": pixel_uv[valid_mask],
+        "field_line_uv": field_line_uv,
         "field_line_valid": valid_mask,
         "trace": trace,
     }

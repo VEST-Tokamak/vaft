@@ -1066,7 +1066,10 @@ def trace_field_line(
 
     Returns a dict with ``phi``, ``R``, ``Z`` (1D arrays, meters/radians, in
     increasing-phi order regardless of ``direction``), ``arc_length_m``
-    (cumulative, meters), and ``termination_reason``.
+    (meters, monotonically increasing from ``0.0`` at the first returned
+    point to the total path length at the last -- i.e. cumulative distance
+    along the array in its returned order, not distance from ``phi0``), and
+    ``termination_reason``.
     """
     if direction not in ("forward", "backward", "both"):
         raise ValueError("direction must be 'forward', 'backward', or 'both'.")
@@ -1134,30 +1137,54 @@ def trace_field_line(
             arc_list.append(arc)
         return phi_list, R_list, Z_list, arc_list, reason
 
+    def _cumulative_arc_length(phi: list[float], R: list[float], Z: list[float]) -> np.ndarray:
+        """Recompute a monotonically increasing cumulative arc length for an
+        assembled (phi, R, Z) sequence, in its given order.
+
+        Each branch's own ``arc_list`` measures distance *from phi0*, so for
+        ``"backward"`` (reversed into increasing-phi order) or ``"both"``
+        (two branches concatenated around the shared phi0 point) simply
+        reusing those values gives a non-monotonic result -- decreasing
+        toward phi0, then increasing again -- rather than a running total
+        along the returned array. Recomputing from consecutive-point
+        distances (the same formula used while stepping) makes it monotonic
+        and consistent with the documented "cumulative" contract regardless
+        of ``direction``.
+        """
+        phi_arr = np.asarray(phi, dtype=float)
+        R_arr = np.asarray(R, dtype=float)
+        Z_arr = np.asarray(Z, dtype=float)
+        if phi_arr.size == 0:
+            return np.asarray([], dtype=float)
+        d_phi = np.diff(phi_arr)
+        d_R = np.diff(R_arr)
+        d_Z = np.diff(Z_arr)
+        R_avg = (R_arr[:-1] + R_arr[1:]) / 2.0
+        segment_lengths = np.sqrt(d_R**2 + d_Z**2 + (R_avg * d_phi) ** 2)
+        return np.concatenate([[0.0], np.cumsum(segment_lengths)])
+
     if direction in ("forward", "both"):
         phi_f, R_f, Z_f, arc_f, reason_f = _run_branch(dphi)
     if direction in ("backward", "both"):
         phi_b, R_b, Z_b, arc_b, reason_b = _run_branch(-dphi)
 
     if direction == "forward":
-        phi_all, R_all, Z_all, arc_all, reason = phi_f, R_f, Z_f, arc_f, reason_f
+        phi_all, R_all, Z_all, reason = phi_f, R_f, Z_f, reason_f
     elif direction == "backward":
         phi_all = list(reversed(phi_b))
         R_all = list(reversed(R_b))
         Z_all = list(reversed(Z_b))
-        arc_all = list(reversed(arc_b))
         reason = reason_b
     else:
         phi_all = list(reversed(phi_b[1:])) + phi_f
         R_all = list(reversed(R_b[1:])) + R_f
         Z_all = list(reversed(Z_b[1:])) + Z_f
-        arc_all = [arc_b[i] for i in range(len(arc_b) - 1, 0, -1)] + arc_f
         reason = f"backward:{reason_b}, forward:{reason_f}"
 
     return {
         "phi": np.asarray(phi_all, dtype=float),
         "R": np.asarray(R_all, dtype=float),
         "Z": np.asarray(Z_all, dtype=float),
-        "arc_length_m": np.asarray(arc_all, dtype=float),
+        "arc_length_m": _cumulative_arc_length(phi_all, R_all, Z_all),
         "termination_reason": reason,
     }
