@@ -94,6 +94,7 @@ vaft = [
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
   "data/geometry/*.yaml",
   "data/geometry/*.csv",
+  "data/geometry/camera_visible/*.json",
   "data/gpec/*.in",
   "data/gpec/*.dat",
   "data/legacy/*.txt",

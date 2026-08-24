@@ -12,6 +12,7 @@ include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
 include vaft/data/geometry/*.yaml
 include vaft/data/geometry/*.csv
+include vaft/data/geometry/camera_visible/*.json
 include vaft/data/gpec/*.in
 include vaft/data/gpec/*.dat
 include vaft/data/legacy/*.txt

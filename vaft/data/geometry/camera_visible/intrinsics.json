@@ -1,0 +1,13 @@
+{
+  "fx": 555.760,
+  "fy": 555.463,
+  "cx": 519.476,
+  "cy": 644.235,
+  "k1": -0.3300,
+  "k2": 0.1427,
+  "k3": -0.0326,
+  "p1": 0.0,
+  "p2": 0.0,
+  "image_size": [1024, 1280],
+  "source": "Parsed from CameraParams3.mat (MATLAB cameraParameters MCOS object, extracted via fixed-offset byte parsing of __function_workspace__). See VEST_Fast Camera_Diagnostics/CALIBRATION.md section 'Cell 4 -- camera intrinsics' for the extraction method and offsets. image_size is [width, height] in pixels."
+}

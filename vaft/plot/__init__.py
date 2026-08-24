@@ -9,3 +9,4 @@ from .analysis import *
 from .history import *
 from .soft_x_rays import *
 from .mirnov import *
+from .camera_visible import *
