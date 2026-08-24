@@ -10,7 +10,7 @@ from omas import ODS
 from vaft.process.equilibrium import make_equilibrium_field_interpolator, trace_field_line
 from vaft.process.camera_geometry import trajectory_world_points
 from vaft.omas.process_wrapper import compute_field_line_trace, compute_camera_visible_field_line_overlay
-from vaft.plot.camera_visible import plot_camera_visible_field_line
+from vaft.omas import plot_camera_visible_image_field_line as plot_camera_visible_field_line
 
 SHOT = 39915  # a packaged calibrated shot
 
@@ -211,10 +211,10 @@ def test_compute_camera_visible_field_line_overlay_unsupported_shot_raises():
 def test_plot_camera_visible_field_line_draws_line_and_endpoints():
     ods = _build_ods()
     fig, ax = plot_camera_visible_field_line(
-        ods, SHOT, R0 + 0.1, 0.0, frame_index=0, dphi_deg=1.0, max_length_m=5.0, show=False,
+        ods, shot=SHOT, r0=R0 + 0.1, z0=0.0, frame_index=0, dphi_deg=1.0, max_length_m=5.0, show=False,
     )
     assert len(ax.images) == 1
-    labels = [line.get_label() for line in ax.lines] + [c.get_label() for c in ax.collections]
+    labels = [line.get_label() for line in ax.lines]
     assert "Field line" in labels
     assert "Start" in labels
     plt.close(fig)
@@ -223,10 +223,10 @@ def test_plot_camera_visible_field_line_draws_line_and_endpoints():
 def test_plot_camera_visible_field_line_can_include_efit_overlay():
     ods = _build_ods()
     fig, ax = plot_camera_visible_field_line(
-        ods, SHOT, R0 + 0.1, 0.0, frame_index=0, dphi_deg=1.0, max_length_m=5.0,
+        ods, shot=SHOT, r0=R0 + 0.1, z0=0.0, frame_index=0, dphi_deg=1.0, max_length_m=5.0,
         show_wall=True, show_lcfs=True, show_magnetic_axis=True, show=False,
     )
-    labels = [c.get_label() for c in ax.collections]
+    labels = [line.get_label() for line in ax.lines]
     assert "Wall" in labels
     assert "LCFS" in labels
     assert "Magnetic axis" in labels

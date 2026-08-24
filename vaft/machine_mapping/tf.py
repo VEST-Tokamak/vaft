@@ -22,12 +22,16 @@ TF_CUTOFF_FREQUENCY = 2.5e3
 TF_HALL_GAIN = -3e4
 
 
-def _safe_vest_load(shot: int, field: int):
-    return raw_db.vest_load(shot, field)
-
-
-def _default_signal() -> Signal:
-    return np.array([0.0]), np.array([0.0])
+def _safe_vest_load(
+    shot: int,
+    field: int,
+    raw_source: raw_db.RawSource | None = None,
+):
+    return raw_db.vest_load(
+        shot,
+        field,
+        sample_opt=False if raw_source is None else raw_source,
+    )
 
 
 def _build_target_time_axis(
@@ -47,14 +51,17 @@ def _build_target_time_axis(
     return np.arange(start, end, dt)
 
 
-def vfit_tf_current(shot: int) -> Signal:
-    loaded = _safe_vest_load(shot, TF_FIELD_CODE)
-    if loaded is None:
-        return _default_signal()
-
-    time_tf, raw_tf = loaded
-    if len(raw_tf) == 0:
-        return _default_signal()
+def vfit_tf_current(
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> Signal:
+    time_tf, raw_tf = raw_db.require_signal(
+        _safe_vest_load(shot, TF_FIELD_CODE, raw_source),
+        shot=shot,
+        field=TF_FIELD_CODE,
+        signal_name="TF coil current",
+    )
 
     taps = signal.firwin(26, TF_CUTOFF_FREQUENCY, pass_zero="lowpass", fs=TF_SAMPLE_RATE)
     data_raw_tf = np.asarray(raw_tf, dtype=float) * TF_HALL_GAIN
@@ -67,14 +74,26 @@ def vfit_tf_current(shot: int) -> Signal:
     return np.asarray(time_tf, dtype=float), np.asarray(tf_current_waveform, dtype=float)
 
 
-def vfit_tf_bt_r(shot: int) -> Signal:
-    time, tf_current = vfit_tf_current(shot)
+def vfit_tf_bt_r(
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> Signal:
+    time, tf_current = vfit_tf_current(shot, raw_source=raw_source)
     bt_r = 4 * math.pi * 1e-7 * TF_TURN_NUMBER * tf_current / (2.0 * math.pi)
     return time, bt_r
 
 
-def vfit_tf_dynamic(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
-    source_time, tf_current = vfit_tf_current(shot)
+def vfit_tf_dynamic(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
+    source_time, tf_current = vfit_tf_current(shot, raw_source=raw_source)
     target_time = _build_target_time_axis(source_time, tstart, tend, dt)
 
     bt_r = 4 * math.pi * 1e-7 * TF_TURN_NUMBER * tf_current / (2.0 * math.pi)
@@ -93,9 +112,17 @@ def vfit_tf_static(ods: object) -> None:
     set_path(ods, "tf.r0", TF_REFERENCE_RADIUS)
 
 
-def tf(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
+def tf(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
     vfit_tf_static(ods)
-    vfit_tf_dynamic(ods, shot, tstart, tend, dt)
+    vfit_tf_dynamic(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
 def tf_from_raw_database(
@@ -106,8 +133,8 @@ def tf_from_raw_database(
     dt: float,
     options: dict | None = None,
 ) -> None:
-    del options
-    tf(ods, shot, tstart, tend, dt)
+    raw_source = options.get("raw_source") if options else None
+    tf(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
 __all__ = [

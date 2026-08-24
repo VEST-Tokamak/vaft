@@ -1,7 +1,9 @@
-"""Remote HSDS database API.
+"""Database access and storage infrastructure.
 
-This namespace intentionally accepts only bare HSDS namespaces such as
-``"public"``. Local files belong to :mod:`vaft.omas` and :mod:`vaft.imas`.
+The high-level :func:`load`, :func:`open`, and :func:`save` APIs operate on
+remote HSDS namespaces. Canonical local FileDB paths live in
+:mod:`vaft.database.filedb`; local OMAS/IMAS artifact loading remains exposed
+through :mod:`vaft.omas` and :mod:`vaft.imas`.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from importlib import import_module
 from typing import Literal
 import warnings
 
-__all__ = ["raw", "ods", "ids", "utils", "load", "open", "save"]
+__all__ = ["raw", "ods", "ids", "utils", "filedb", "load", "open", "save"]
 
 
 def _namespace(value: str, label: str) -> str:

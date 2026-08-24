@@ -181,6 +181,7 @@ def test_resolve_executable_honors_CHEASE_env(tmp_path, monkeypatch):
     exe = tmp_path / "chease"
     exe.write_text("#!/bin/sh\n")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.delenv("CHEASEHOME", raising=False)
     monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
     monkeypatch.setenv("CHEASE", str(exe))
     resolved = ch._resolve_executable(ch.CHEASEConfig())
@@ -191,6 +192,7 @@ def test_resolve_executable_CHEASE_dir(tmp_path, monkeypatch):
     exe = tmp_path / "chease"
     exe.write_text("#!/bin/sh\n")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.delenv("CHEASEHOME", raising=False)
     monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
     monkeypatch.setenv("CHEASE", str(tmp_path))  # directory containing 'chease'
     resolved = ch._resolve_executable(ch.CHEASEConfig())
@@ -201,6 +203,7 @@ def test_resolve_executable_config_env_precedence(tmp_path, monkeypatch):
     exe = tmp_path / "chease"
     exe.write_text("#!/bin/sh\n")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.delenv("CHEASEHOME", raising=False)
     monkeypatch.delenv("CHEASE", raising=False)
     monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
     resolved = ch._resolve_executable(ch.CHEASEConfig(env={"CHEASE": str(exe)}))

@@ -8,7 +8,7 @@ import pytest
 from omas import ODS
 
 from vaft.omas.process_wrapper import compute_camera_visible_efit_overlay
-from vaft.plot.camera_visible import plot_camera_visible_efit_overlay
+from vaft.omas import plot_camera_visible_image_efit_overlay as plot_camera_visible_efit_overlay
 
 SHOT = 39915  # one of the three packaged calibrated shots
 
@@ -112,11 +112,11 @@ def test_compute_overlay_disable_flux_surfaces():
 
 def test_plot_camera_visible_efit_overlay_adds_scatter_layers():
     ods = _build_ods()
-    fig, ax = plot_camera_visible_efit_overlay(ods, SHOT, frame_index=0, show=False)
-    # base image + at least wall/lcfs/mag-axis/flux-surface scatter layers
+    fig, ax = plot_camera_visible_efit_overlay(ods, shot=SHOT, frame_index=0, show=False)
+    # base image + at least wall/lcfs/mag-axis/flux-surface overlay layers
     assert len(ax.images) == 1
-    assert len(ax.collections) >= 3
-    labels = [c.get_label() for c in ax.collections]
+    assert len(ax.lines) >= 3
+    labels = [line.get_label() for line in ax.lines]
     assert "Wall" in labels
     assert "LCFS" in labels
     assert "Magnetic axis" in labels
@@ -126,10 +126,10 @@ def test_plot_camera_visible_efit_overlay_adds_scatter_layers():
 def test_plot_camera_visible_efit_overlay_respects_visibility_flags():
     ods = _build_ods()
     fig, ax = plot_camera_visible_efit_overlay(
-        ods, SHOT, frame_index=0, show_wall=False, show_magnetic_axis=False,
+        ods, shot=SHOT, frame_index=0, show_wall=False, show_magnetic_axis=False,
         flux_surface_levels=(), show=False,
     )
-    labels = [c.get_label() for c in ax.collections]
+    labels = [line.get_label() for line in ax.lines]
     assert "Wall" not in labels
     assert "Magnetic axis" not in labels
     assert "LCFS" in labels
@@ -138,6 +138,6 @@ def test_plot_camera_visible_efit_overlay_respects_visibility_flags():
 
 def test_plot_camera_visible_efit_overlay_title_mentions_shot():
     ods = _build_ods()
-    fig, ax = plot_camera_visible_efit_overlay(ods, SHOT, frame_index=2, show=False)
+    fig, ax = plot_camera_visible_efit_overlay(ods, shot=SHOT, frame_index=2, show=False)
     assert str(SHOT) in ax.get_title()
     plt.close(fig)

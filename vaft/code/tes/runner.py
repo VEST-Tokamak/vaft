@@ -5,22 +5,45 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
 
+from .._executables import executable_from_home, missing_home_message
 from .config import TESConfig, TESInputs, TESResult
 from .outputs import collect_tes_outputs
 
+TES_HOME_ENV = "TESHOME"
+TES_HOME_EXECUTABLE = Path("bin/rtes")
+TES_COMPATIBILITY_ENV = "RTES"
+
 
 def _resolve_executable(config: TESConfig) -> str:
-    exe = config.executable or os.environ.get("RTES")
+    if config.executable:
+        exe = Path(config.executable).expanduser()
+    else:
+        home_executable = executable_from_home(
+            os.environ.get(TES_HOME_ENV),
+            home_variable=TES_HOME_ENV,
+            relative_path=TES_HOME_EXECUTABLE,
+            code_name="TES/RTES",
+        )
+        exe = home_executable or (
+            Path(os.environ[TES_COMPATIBILITY_ENV]).expanduser()
+            if os.environ.get(TES_COMPATIBILITY_ENV)
+            else None
+        )
     if not exe:
         raise ValueError(
-            "TESConfig.executable is required to run TES "
-            "(or set the RTES environment variable to the rtes binary path)."
+            missing_home_message(
+                home_variable=TES_HOME_ENV,
+                relative_path=TES_HOME_EXECUTABLE,
+                code_name="TES/RTES",
+                compatibility_variables=(TES_COMPATIBILITY_ENV,),
+            )
         )
-    if not Path(exe).expanduser().exists():
+    if not exe.is_file():
         raise FileNotFoundError(f"rtes binary not found: {exe}")
-    return str(Path(exe).expanduser())
+    if not os.access(exe, os.X_OK):
+        raise PermissionError(f"rtes binary is not executable: {exe}")
+    return str(exe)
 
 
 def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:

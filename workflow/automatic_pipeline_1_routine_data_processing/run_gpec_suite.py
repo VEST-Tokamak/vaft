@@ -52,10 +52,22 @@ def main() -> int:
     parser.add_argument("--refined-gfile-manifest", required=True, type=Path, help="CHEASE refined gfile manifest.")
     parser.add_argument("--output", required=True, type=Path, help="Output JSON run manifest.")
     parser.add_argument("--status", required=True, type=Path, help="Output status text file.")
+    parser.add_argument(
+        "--workdir",
+        type=Path,
+        default=None,
+        help="GPEC-suite run tree root. Defaults to --output's directory (the whole-shot aggregate case).",
+    )
     parser.add_argument("--gpec-home", default="", help=f"GPEC source/install root. Defaults to ${GPEC_HOME_ENV}.")
     parser.add_argument("--run-mode", default="auto", help="auto, prepare_only, or strict.")
     parser.add_argument("--modules", default="dcon,rdcon,stride,gpec", help="Comma-separated suite modules.")
     parser.add_argument("--modes", default="1,2", help="Comma-separated toroidal mode numbers.")
+    parser.add_argument(
+        "--code", default="", help="Single GPEC-suite module for this target (e.g. dcon). Overrides --modules."
+    )
+    parser.add_argument(
+        "--mode", default=None, type=int, help="Single toroidal mode for this target. Overrides --modes."
+    )
     parser.add_argument("--psilow", default=0.01, type=float, help="Minimum normalized psi.")
     parser.add_argument("--psihigh", default=0.994, type=float, help="Maximum normalized psi.")
     parser.add_argument("--timeout", default=1200.0, type=float, help="Per executable timeout in seconds.")
@@ -66,14 +78,15 @@ def main() -> int:
     gfiles = _read_manifest(args.refined_gfile_manifest)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.status.parent.mkdir(parents=True, exist_ok=True)
-    workdir = args.output.parent
+    # prepare_gpec_suite_case()/run_gpec_suite_case() already create workdir.
+    workdir = args.workdir if args.workdir is not None else args.output.parent
 
     gpec_home = Path(args.gpec_home).expanduser() if args.gpec_home else None
 
     config = GPECSuiteConfig(
         gpec_home=gpec_home,
-        modules=_parse_csv(args.modules, str),
-        modes=_parse_csv(args.modes, int),
+        modules=(args.code,) if args.code else _parse_csv(args.modules, str),
+        modes=(args.mode,) if args.mode is not None else _parse_csv(args.modes, int),
         run_mode=args.run_mode,
         templates_dir=Path(args.templates_dir).expanduser() if args.templates_dir else None,
         coil_data_dir=Path(args.coil_data_dir).expanduser() if args.coil_data_dir else None,

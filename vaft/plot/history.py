@@ -5,12 +5,14 @@ This module provides visualization functions for statistical analysis results
 of confinement time scaling laws.
 """
 
+import math
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from matplotlib.ticker import ScalarFormatter
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional, Tuple, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1389,4 +1391,106 @@ def plot_ohmic_power_flux_vs_dissipation_method(ods_or_odc, figsize=(5, 6)):
     ax.set_aspect('equal', adjustable='box')
     
     plt.tight_layout()
+    return fig
+
+
+def confinement_time_histogram(df: pd.DataFrame,
+                               eng_params: Optional[List[str]] = None,
+                               m: Optional[int] = None,
+                               n: Optional[int] = None,
+                               figsize: Optional[Tuple[float, float]] = None,
+                               bins: Union[int, str] = 30,
+                               alpha: float = 0.7,
+                               edgecolor: str = 'black',
+                               **kwargs):
+    """
+    Plot histograms for confinement_time parameter sets in an m x n grid layout.
+
+    Moved here from ``vaft.process.statistical_analysis`` so that processing
+    stays free of Matplotlib (issue #63).  Cross-shot statistics have no
+    canonical view model yet, so this stays a legacy renderer.
+    """
+    
+    # 1. Parameter Selection
+    if eng_params is None:
+        exclude_cols = {'shot', 'time'}
+        # Only select numeric columns to avoid plotting errors
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        available_params = [col for col in numeric_cols if col not in exclude_cols]
+    else:
+        # Filter provided list to columns actually present in the DataFrame
+        available_params = [p for p in eng_params if p in df.columns]
+    
+    num_params = len(available_params)
+    
+    if num_params == 0:
+        logger.warning("No valid numeric parameters found to plot.")
+        fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No valid parameters to plot', 
+                ha='center', va='center', transform=ax.transAxes)
+        return fig
+    
+    # 2. Dynamic Grid Calculation with Error Prevention
+    # Ensure m * n is always >= num_params to avoid IndexError
+    if m is None and n is None:
+        n = math.ceil(math.sqrt(num_params))
+        m = math.ceil(num_params / n)
+    elif m is None:
+        m = math.ceil(num_params / n)
+    elif n is None:
+        n = math.ceil(num_params / m)
+    
+    # Safeguard: Force grid expansion if user-provided dimensions are too small
+    if m * n < num_params:
+        logger.warning(f"Provided grid {m}x{n} is smaller than {num_params} params. Adjusting rows.")
+        m = math.ceil(num_params / n)
+    
+    # 3. Figure Initialization
+    if figsize is None:
+        width = max(4, n * 3)
+        height = max(3, m * 2.5)
+        figsize = (width, height)
+    
+    # Use squeeze=False so 'axes' is always a 2D array
+    fig, axes = plt.subplots(m, n, figsize=figsize, squeeze=False)
+    axes_flat = axes.flatten()
+    
+    # 4. Keyword Argument Handling
+    # Merges default values with user-provided kwargs to avoid "multiple values for argument" errors
+    plot_settings = {
+        'bins': bins,
+        'alpha': alpha,
+        'edgecolor': edgecolor
+    }
+    plot_settings.update(kwargs)
+    
+    # 5. Plotting Loop
+    for idx, param in enumerate(available_params):
+        ax = axes_flat[idx]
+        
+        # Data Cleaning: Remove NaNs and handle infinite values
+        # Infinite values can break histogram binning logic
+        data = df[param].replace([np.inf, -np.inf], np.nan).dropna()
+        
+        if len(data) == 0:
+            ax.set_title(f"{param} (No Data)", fontsize=10)
+            ax.axis('off')
+            continue
+        
+        try:
+            ax.hist(data, **plot_settings)
+            ax.set_title(param, fontsize=10, fontweight='bold')
+            ax.set_xlabel('Value', fontsize=9)
+            ax.set_ylabel('Frequency', fontsize=9)
+            ax.grid(True, alpha=0.3)
+        except Exception as e:
+            logger.error(f"Error plotting parameter '{param}': {e}")
+            ax.set_title(f"Error: {param}", color='red')
+
+    # 6. Post-processing: Hide unused subplots
+    for idx in range(num_params, len(axes_flat)):
+        axes_flat[idx].axis('off')
+    
+    plt.tight_layout()
+    
     return fig

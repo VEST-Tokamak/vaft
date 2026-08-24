@@ -1,9 +1,29 @@
+import warnings
+
 import numpy as np
-from numpy import ndarray
-from typing import List, Dict, Any, Tuple
-import scipy.signal as signal
-from scipy.optimize import curve_fit
+import scipy.signal as scipy_signal
 from scipy.interpolate import UnivariateSpline
+from scipy.optimize import curve_fit
+
+
+__all__ = [
+    "detect_active_window",
+    "define_baseline",
+    "exp_baseline",
+    "is_signal_active",
+    "linear_baseline",
+    "process_signal",
+    "quadratic_baseline",
+    "signal_on_offset",
+    "smooth",
+    "subtract_baseline",
+    "vest_coil_current_noise_reduction",
+    # Direct compatibility imports remain available for one deprecation cycle.
+    "VEST_CoilCurrentNoiseReduction",
+    "signal_onoffset",
+    "vfit_signal_start_end",
+    "vfit_signal_startend",
+]
 
 
 def smooth(array, span: int) -> np.ndarray:
@@ -58,37 +78,45 @@ def vest_coil_current_noise_reduction(data) -> np.ndarray:
     return smoothed
 
 
-def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, float]:
-    """Detect an active signal window containing the main peak."""
+def detect_active_window(time, signal, threshold: float = 0.01) -> tuple[float, float]:
+    """Return the active time window that contains a signal's main peak.
+
+    This operation is machine-independent.  VEST source selection and
+    calibration belong in :mod:`vaft.machine_mapping`; callers should pass the
+    resulting physical signal to this processing function.
+    """
     time_values = np.asarray(time, dtype=float)
-    data_values = np.asarray(data, dtype=float)
+    data_values = np.asarray(signal, dtype=float)
     if time_values.ndim != 1 or data_values.ndim != 1:
-        raise ValueError("`time` and `data` must be one-dimensional.")
+        raise ValueError("`time` and `signal` must be one-dimensional.")
     if time_values.size != data_values.size:
-        raise ValueError("`time` and `data` must have the same length.")
+        raise ValueError("`time` and `signal` must have the same length.")
     if time_values.size == 0:
-        raise ValueError("`time` and `data` must not be empty.")
+        raise ValueError("`time` and `signal` must not be empty.")
 
     peak_index = int(np.argmax(data_values))
-    start_index = -1
-    end_index = -1
+    if data_values[peak_index] < threshold:
+        return float(time_values[0]), float(time_values[-1])
 
-    for idx, value in enumerate(data_values):
-        if value >= threshold:
-            if start_index == -1:
-                start_index = idx
-        else:
-            end_index = idx - 1
-            if start_index != -1 and start_index < peak_index < end_index:
-                break
-            start_index = -1
+    start_index = peak_index
+    while start_index > 0 and data_values[start_index - 1] >= threshold:
+        start_index -= 1
 
-    if start_index == -1:
-        start_index = 0
-    if end_index == -1:
-        end_index = time_values.size - 1
+    end_index = peak_index
+    while end_index + 1 < data_values.size and data_values[end_index + 1] >= threshold:
+        end_index += 1
 
     return float(time_values[start_index]), float(time_values[end_index])
+
+
+def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, float]:
+    """Deprecated compatibility wrapper for :func:`detect_active_window`."""
+    warnings.warn(
+        "vfit_signal_start_end() is deprecated; use detect_active_window().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return detect_active_window(time, data, threshold=threshold)
 
 
 def process_signal(time, data, options=None):
@@ -136,7 +164,7 @@ def process_signal(time, data, options=None):
                     f"For 'bandpass' filter, cutoff must satisfy "
                     f"0 < low ({low}) < high ({high}) < fs/2 ({nyquist})."
                 )
-            b, a = signal.butter(order, [low, high], btype="band", fs=fs)
+            b, a = scipy_signal.butter(order, [low, high], btype="band", fs=fs)
         elif filter_type in ("lowpass", "highpass"):
             cutoff_val = float(
                 cutoff[0] if isinstance(cutoff, (list, tuple, np.ndarray)) else cutoff
@@ -147,11 +175,11 @@ def process_signal(time, data, options=None):
                     f"for '{filter_type}' filter."
                 )
             btype = "low" if filter_type == "lowpass" else "high"
-            b, a = signal.butter(order, cutoff_val, btype=btype, fs=fs)
+            b, a = scipy_signal.butter(order, cutoff_val, btype=btype, fs=fs)
         else:
             raise ValueError(f"Unsupported filter type: {filter_type}")
 
-        data = signal.filtfilt(b, a, data)
+        data = scipy_signal.filtfilt(b, a, data)
 
     return time, data
 
@@ -252,34 +280,45 @@ def signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False)
     if verbose:
         print("threshold for signal detection:", threshold)
     # Smooth the data
-    data=signal.savgol_filter(data, smooth_window, 3)
-
-    # Find the onset and offset of a signal (e.g. Halpha signal)
-    nbt=len(time)
-
-    # index of maximum value
-    indxm=min(range(len(data)), key=lambda i: abs(data[i]-max(data)))
-    indxs=-1
-    indxe=-1
-    # We are looking for windows that constain continue data above threshold.
-    # The window we are looking for, must contain the maximum value
-    for i in range(nbt):
-        if data[i]>= threshold:
-            if indxs==-1:
-                indxs=i # start of the window
-        else:
-            indxe=i-1 # end of the window
-            if indxs < indxm and indxm < indxe:
-                break # if the windiw contains the maximum, we stop
-            indxs=-1
-    onset = time[indxs]
-    offset = time[indxe]
-    return onset, offset
+    smoothed = scipy_signal.savgol_filter(data, smooth_window, 3)
+    return detect_active_window(time, smoothed, threshold=threshold)
 
 
-VEST_CoilCurrentNoiseReduction = vest_coil_current_noise_reduction
-vfit_signal_startend = vfit_signal_start_end
-signal_onoffset = signal_on_offset
+def VEST_CoilCurrentNoiseReduction(data):  # noqa: N802
+    """Deprecated compatibility wrapper for the snake-case function."""
+    warnings.warn(
+        "VEST_CoilCurrentNoiseReduction() is deprecated; use "
+        "vest_coil_current_noise_reduction().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return vest_coil_current_noise_reduction(data)
+
+
+def vfit_signal_startend(time, data, threshold: float = 0.01):
+    """Deprecated compatibility wrapper for :func:`detect_active_window`."""
+    warnings.warn(
+        "vfit_signal_startend() is deprecated; use detect_active_window().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return detect_active_window(time, data, threshold=threshold)
+
+
+def signal_onoffset(time, data, smooth_window=5, threshold=0.01, verbose=False):
+    """Deprecated compatibility wrapper for :func:`signal_on_offset`."""
+    warnings.warn(
+        "signal_onoffset() is deprecated; use signal_on_offset().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return signal_on_offset(
+        time,
+        data,
+        smooth_window=smooth_window,
+        threshold=threshold,
+        verbose=verbose,
+    )
 
 def is_signal_active(
     data,

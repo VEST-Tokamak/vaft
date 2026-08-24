@@ -50,6 +50,7 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/geometry/Coil_info.mat" in package_data
     assert "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat" in package_data
     assert "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in package_data
+    assert "data/geometry/VEST_em_coupling_pf_versions.npz" in package_data
     assert "data/efit/*" not in package_data
     assert "data/imas/*.nc" not in package_data
     assert "data/legacy/*.csv" not in package_data
@@ -58,6 +59,7 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/legacy/*.mat" not in package_data
     assert "data/omas/*.json" not in package_data
     assert "data/omas/39915.json" in package_data
+    assert "data/geometry/VEST_static_geometry.json.gz" in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
 
     example = (ROOT / "vaft" / ".hscfg.example").read_text(encoding="utf-8")
@@ -74,6 +76,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/geometry/Coil_info.mat" in manifest
     assert "include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat" in manifest
     assert "include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in manifest
+    assert "include vaft/data/geometry/VEST_em_coupling_pf_versions.npz" in manifest
     assert "include vaft/data/geometry/*.yaml" in manifest
     assert "include vaft/data/geometry/*.csv" in manifest
     assert "include vaft/data/gpec/*.in" in manifest
@@ -81,6 +84,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/legacy/*.txt" in manifest
     assert "include vaft/data/legacy/*.yaml" in manifest
     assert "include vaft/data/omas/39915.json" in manifest
+    assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 
 def test_vest_yaml_has_canonical_top_level_diagnostic_structure():

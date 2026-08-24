@@ -86,6 +86,21 @@ pip install vaft
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
+### Initialize external fusion codes
+
+Set the installation roots for the codes you use before starting VAFT:
+
+```bash
+export GPECHOME=/path/to/gpec
+export CHEASEHOME=/path/to/chease
+export EFITHOME=/path/to/efit
+export TESHOME=/path/to/tes
+```
+
+Each executable belongs under its root's `bin/` directory. See
+[Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
+for layouts, compatibility variables, FileDB configuration, and validation.
+
 ### Connect to the VEST Database
 
 If you will use the remote VEST HSDS database, configure your HSDS credentials:
@@ -118,6 +133,50 @@ ods = vaft.database.load(39915)
 time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
+
+### EFIT slice status
+
+`vaft.code.run_efit()` preserves its backward-compatible process-level
+`result.ok` property. Use `result.usable` and `result.slice_statuses` when the
+scientific usability of the generated equilibria matters:
+
+```python
+for status in result.slice_statuses:
+    print(status.time, status.overall_status, status.failure_codes)
+```
+
+Each slice reports runtime, output, numerical, and physical status separately.
+The stable failure taxonomy is available as `vaft.code.EFIT_FAILURE_CODES`, and
+each status round-trips through JSON with `to_dict()` and `from_dict()`.
+
+### EFIT scientific configuration
+
+Routine k-file settings are available as typed, validated objects instead of
+generator literals. Defaults preserve the existing VEST routine semantics:
+
+```python
+from vaft.code import (
+    EFITConfig,
+    EFITNumericsConfig,
+    EFITProfileConfig,
+    prepare_efit_inputs,
+)
+
+config = EFITConfig(
+    shot=39915,
+    workdir="efit/39915/work",
+    profile=EFITProfileConfig(kppcur=3, kffcur=2),
+    numerics=EFITNumericsConfig(relaxation=0.8, max_iterations=200),
+    provenance={"geometry_version": "vest-2025-07", "source": "main"},
+)
+inputs = prepare_efit_inputs(ods, config)
+```
+
+Preparation writes `efit_configuration.json` with the resolved configuration,
+its stable hash, VAFT version, provenance, and k-file checksums. Use
+`vaft.code.efit_parameter_grid()` with dotted paths such as
+`profile.kppcur` or `constraints.group_weights.bpol_probe` for deterministic
+convergence scans that do not require the EFIT binary.
 
 `load` is the eager path for complete ODS exports and workflows that need a
 local IMAS staging set. Without `paths` it stages the complete shot; with
@@ -171,9 +230,6 @@ with vaft.imas.load("./equilibrium.nc") as entry:
     equilibrium = entry.get("equilibrium")
 ```
 
-See the [HSDS lazy and per-IDS h5image report](docs/hsds_lazy_h5image_report.md)
-for the architecture, cache policy, and shot 39915 benchmark results.
-
 ### Profile Fitting
 
 ```python
@@ -196,7 +252,8 @@ vaft.imas.save(ods, "./shot.nc")
 
 ```
 vaft/
-├── database/          # Remote database access (HSDS, raw SQL)
+├── cli/               # Command-line workflow dispatch
+├── database/          # HSDS/SQL access and canonical FileDB layout
 ├── machine_mapping/   # Native-to-IDS diagnostic conversion (70+ functions)
 ├── formula/           # Physics formulas (equilibrium, stability, Green's functions)
 ├── process/           # Signal processing, EM modeling, profile fitting
@@ -212,6 +269,7 @@ vaft/
 
 | Notebook                                                                                                                               | Description                                 |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [initialize_external_fusion_codes](notebooks/initialize_external_fusion_codes.ipynb)                                                   | Configure and verify external code roots    |
 | [database_initialization_and_load](notebooks/database_initialization_and_load.ipynb)                                                   | Core data loading and framework basics      |
 | [plotting_sample_using_vaft_plot_module](notebooks/plotting_sample_using_vaft_plot_module.ipynb)                                       | Visualization examples with the plot module |
 | [profile_fitting_using_equilibrium_and_kinetic_diagnostics](notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Thomson/CES mapping and profile fitting     |

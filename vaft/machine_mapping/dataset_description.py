@@ -15,10 +15,12 @@ def vfit_dataset_description(
     machine: str = "VEST",
     pulse_type: str = "pulse",
     user: str | None = None,
+    description: str | None = None,
 ) -> None:
     """Populate canonical dataset metadata for a VEST pulse/run pair."""
     username = user or os.environ.get("USER", "unknown")
-    set_path(ods, "dataset_description.ids_properties.comment", "Wall from vfit_machine_description")
+    comment = description or "VEST dataset"
+    set_path(ods, "dataset_description.ids_properties.comment", comment)
     set_path(ods, "dataset_description.ids_properties.homogeneous_time", 2)
     set_path(ods, "dataset_description.data_entry.machine", machine)
     set_path(ods, "dataset_description.data_entry.pulse", shot)
@@ -41,8 +43,9 @@ def dataset_description(
         shot=int(source),
         run=int(options.get("run", 0)),
         machine=options.get("machine", "VEST"),
-        pulse_type=options.get("pulse_type", "pulse"),
+        pulse_type=options.get("pulse_type", options.get("source_type", "pulse")),
         user=options.get("user"),
+        description=options.get("description"),
     )
 
 

@@ -80,6 +80,10 @@ pip install vaft
 **지원 Python 버전**: 3.10 -- 3.13
 **기본 수치 연산 스택**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
+외부 코드 설치 루트와 VAFT 런타임 경로는 프로세스 환경 변수로 설정합니다.
+`{CODE}HOME` 디렉터리 구조, 호환 변수 및 셸 설정 예시는
+[외부 핵융합 코드 초기화 노트북](notebooks/initialize_external_fusion_codes.ipynb)을 참고하세요.
+
 ### VEST 데이터베이스 연결
 
 원격 VEST HSDS 데이터베이스를 사용하려면 HSDS 자격 증명을 설정하세요.

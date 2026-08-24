@@ -1,0 +1,20 @@
+filedb:
+  root: ${VAFT_FILEDB_DIR}
+shots: []
+
+# Optional archive or path template, for example /data/raw/vest_{shot}_daq_raw.json.gz.
+# If omitted, VAFT exports the shot from the configured VEST SQL database.
+raw_source: null
+
+diagnostics:
+  tstart: 0.26
+  tend: 0.36
+  dt: 0.00004
+  run: 1
+  vest_magnetics_processing: {}
+
+eddy:
+  filament_r: [0.35, 0.35, 0.35]
+  filament_z: [0.25, 0.0, -0.25]
+  filament_fraction: [0.3333333333333333, 0.3333333333333333, 0.3333333333333333]
+  dt_sub: 0.00005

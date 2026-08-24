@@ -7,15 +7,19 @@ import matplotlib.patches as patches
 from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
 
 
-# matplotlib 설정 개선
-plt.rcParams['figure.dpi'] = 150
-plt.rcParams['savefig.dpi'] = 300
-plt.rcParams['font.size'] = 12
-plt.rcParams['axes.titlesize'] = 14
-plt.rcParams['axes.labelsize'] = 12
-plt.rcParams['xtick.labelsize'] = 10
-plt.rcParams['ytick.labelsize'] = 10
-plt.rcParams['legend.fontsize'] = 12
+# Styling used by this module's composite figures.  These are applied per
+# figure rather than written into the global plt.rcParams: importing a plotting
+# module must not change the appearance of every other figure in the session.
+_STYLE = {
+    "figure.dpi": 150,
+    "savefig.dpi": 300,
+    "font.size": 12,
+    "axes.titlesize": 14,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 12,
+}
 
 def _value(ods, path, default=None):
     try:
@@ -59,7 +63,10 @@ def analysis_diagnostics(
                 time_range = (start, start + duration)
         except (KeyError, TypeError, ValueError, IndexError, AttributeError):
             pass
-    fig, axes = plt.subplots(5, 2, figsize=figsize, dpi=150, squeeze=False, sharex=True)
+    with plt.rc_context(_STYLE):
+        fig, axes = plt.subplots(
+            5, 2, figsize=figsize, dpi=150, squeeze=False, sharex=True
+        )
     try:
         shot = vaft.omas.find_shotnumber(ods)
     except Exception:
@@ -348,13 +355,14 @@ def time_equilibrium_analysis(ods, xunit='s', xlim='plasma'):
     xlim_processed = handle_xlim(ods, xlim)
     vacuum_time, vacuum_vloop, _, vacuum_bz = compute_point_vacuum_fields_ods(ods, [(0.4, 0.0)], mode='vacuum')
 
-    fig, axs = plt.subplots(
-        3, 2,
-        figsize=(14, 12),  # 3x2 레이아웃에 맞는 크기
-        dpi=150,
-        sharex=True,
-        gridspec_kw={'hspace': 0.15, 'wspace': 0.25}
-    )
+    with plt.rc_context(_STYLE):
+        fig, axs = plt.subplots(
+            3, 2,
+            figsize=(14, 12),  # 3x2 레이아웃에 맞는 크기
+            dpi=150,
+            sharex=True,
+            gridspec_kw={'hspace': 0.15, 'wspace': 0.25},
+        )
 
     fig.subplots_adjust(
         left=0.1, right=0.9,

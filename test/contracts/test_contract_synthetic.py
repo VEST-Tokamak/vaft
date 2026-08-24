@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fixtures import canonical_minimal_fixture
 from helpers import format_failures, get_path, validate_contract
@@ -42,24 +43,14 @@ class SyntheticContractTests(unittest.TestCase):
         self.assertEqual(get_path(payload, "thomson_scattering.channel.0.position.r"), 0.475)
         self.assertEqual(get_path(payload, "thomson_scattering.channel.0.name"), "Polychrometer 1R1")
 
-    def test_pf_active_builder_populates_full_contract_offline(self):
+    @patch("vaft.machine_mapping.pf_active._safe_vest_load", return_value=None)
+    def test_pf_active_builder_rejects_missing_raw_data(self, _load):
+        from vaft.database.raw import RawSignalUnavailableError
         from vaft.machine_mapping import vfit_pf_active_for_shot
 
         payload = {}
-        vfit_pf_active_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
-
-        failures = validate_contract(
-            payload,
-            CANONICAL_IDS_SPECS,
-            ids_names=("pf_active",),
-        )
-        self.assertNoContractFailures(failures)
-        self.assertEqual(len(get_path(payload, "pf_active.coil")), 10)
-        self.assertTrue(len(get_path(payload, "pf_active.coil.0.element")) > 0)
-        self.assertEqual(
-            len(get_path(payload, "pf_active.coil.0.current.time")),
-            len(get_path(payload, "pf_active.time")),
-        )
+        with self.assertRaisesRegex(RawSignalUnavailableError, "shot 41672, field 5"):
+            vfit_pf_active_for_shot(payload, shot=41672, tstart=0.24, tend=0.34, dt=4e-5)
 
     def test_dataset_description_builder_populates_contract_on_plain_dict(self):
         from vaft.machine_mapping import vfit_dataset_description
@@ -77,6 +68,19 @@ class SyntheticContractTests(unittest.TestCase):
         self.assertEqual(get_path(payload, "dataset_description.data_entry.pulse"), 39915)
         self.assertEqual(get_path(payload, "dataset_description.data_entry.run"), 1)
         self.assertEqual(get_path(payload, "dataset_description.data_entry.user"), "tester")
+
+    def test_dataset_description_preserves_source_type_and_description_options(self):
+        from vaft.machine_mapping.dataset_description import dataset_description
+
+        payload = {}
+        dataset_description(
+            payload,
+            39915,
+            {"source_type": "shot", "description": "raw fixture", "run": 2},
+        )
+
+        self.assertEqual(get_path(payload, "dataset_description.data_entry.pulse_type"), "shot")
+        self.assertEqual(get_path(payload, "dataset_description.ids_properties.comment"), "raw fixture")
 
     def test_canonical_minimal_fixture_satisfies_all_contracts(self):
         payload = canonical_minimal_fixture()

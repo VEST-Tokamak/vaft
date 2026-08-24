@@ -1,0 +1,199 @@
+schema_version: 1
+reference_id: vest-legacy-2026-08-19-v1
+captured_at: "2026-08-19T07:35:00Z"
+source:
+  host: 147.46.36.244
+  ssh_port: 2222
+  workflow_root: /home/user1/test/laurent/VEST_database/OMAS
+  filedb_root: /srv/vest.filedb/public
+  omas_version: 0.94.2
+  role: read-only reference implementation and outputs
+  limitation: >-
+    Legacy ODS products do not record a workflow commit. The active workflow
+    hashes were captured independently of each artifact's historical creation.
+workflow:
+  entrypoint: Snakefile
+  configuration: config.yaml
+  rules:
+    - all
+    - linear_stability_done
+    - generate_diagnostics_ods
+    - plot_diagnostics_ods
+    - generate_eddy_ods
+    - plot_eddy_ods
+    - generate_constraints_ods
+    - generate_kfile
+    - run_efit_reconstruction
+    - generate_efit_ods
+    - run_chease
+    - generate_chease_ods
+    - plot_chease
+    - combine_ods
+    - plot_extra_efit
+    - save_hsds_db
+    - run_stability_code
+    - generate_mhd_linear_ods
+    - test_omfit_call
+  dag:
+    - diagnostics -> eddy
+    - diagnostics + eddy -> constraints
+    - constraints -> kfile -> efit -> efit_ods
+    - efit -> chease -> chease_ods
+    - diagnostics + eddy + constraints + chease_ods -> combined_ods -> HSDS
+    - chease -> DCON/RDCON/STRIDE -> linear_stability_done
+    - generate_mhd_linear_ods is disconnected from rule all
+naming:
+  efit: "{k|g|a|m}0{shot}.{time_ms:05d}"
+  stability: "{time_ms}/{code}/nn={n}"
+  status_success: success
+  status_failure: fail
+  completion_marker: empty touch file
+failure_behavior:
+  snakemake_retries: 0
+  raw_database_retry: internal helper retry only
+  efit_low_current_policy: skip kfiles below 5000 A plasma current
+  efit_execution: run independently per kfile and expect g/a/m outputs
+  status_scripts: EFIT and CHEASE ODS generators catch exceptions and write fail status without a nonzero exit
+  stability_runner: may catch internal exceptions; Snakemake relies on expected output presence
+  aggregation: CHEASE success gates equilibrium inclusion; the legacy EFIT ODS is not merged into the final combined ODS
+  completion_state: empty marker files may report completion without structured per-case results
+inventory:
+  shot: 39915
+  total_files: 1578
+  groups:
+    root: {files: 2, bytes: 8298}
+    diagnostics: {files: 5, bytes: 7913172}
+    omas: {files: 61, bytes: 1331533083}
+    efit: {files: 148, bytes: 23286923}
+    chease: {files: 19, bytes: 36010283}
+    linear_stability: {files: 467, bytes: 258725936}
+    stability_analysis: {files: 664, bytes: 332742110}
+    imas: {files: 36, bytes: 280668442}
+    logs: {files: 176, bytes: 2037394}
+shots:
+  "39915":
+    role: complete successful reference
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: success, chease: success, stability: success, publication: success}
+    equilibrium_times_ms: [316, 317, 318, 319, 320, 322, 325, 327]
+  "43016":
+    role: immediately before first machine-configuration boundary
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: success, chease: success, stability: success, publication: success}
+  "43017":
+    role: first machine-configuration boundary and known equilibrium failure
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: fail, chease: fail, stability: legacy_marker_only, publication: partial}
+  "45966":
+    role: immediately before second machine-configuration boundary
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: fail, chease: fail, stability: legacy_marker_only, publication: partial}
+  "45967":
+    role: second machine-configuration boundary and known equilibrium failure
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: fail, chease: fail, stability: legacy_marker_only, publication: partial}
+  "48224":
+    role: recent equilibrium and publication failure case
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: fail, chease: fail, stability: legacy_marker_only, publication: unavailable}
+  "48226":
+    role: recent flux-correction and equilibrium failure case
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: fail, chease: fail, stability: legacy_marker_only, publication: unavailable}
+  "48233":
+    role: recent equilibrium failure case
+    expected: {diagnostics: success, eddy: success, constraints: success, efit: fail, chease: fail, stability: legacy_marker_only, publication: unavailable}
+  "22027":
+    role: incomplete diagnostic-only legacy case
+    expected: {legacy_diagnostic_file: present, diagnostics_ods: unavailable, eddy: unavailable, constraints: unavailable, efit: unavailable, chease: unavailable, stability: unavailable, publication: unavailable}
+compact_fixtures:
+  - id: shot-39915-combined-compact
+    path: shot-39915-compact.json.gz
+    source_artifact: shot.39915.combined
+    source_sha256: 46a258ce9780539d7300b7a799b3faefc28b1d5391cf1573e6a6e35cd9f037a3
+    selected_leaves: 115
+    materialized_leaves: 123
+    selectors:
+      - "dataset_description.*"
+      - "wall.*"
+      - "barometry.*"
+      - "tf.*"
+      - "pf_active.ids_properties.*"
+      - "pf_active.time"
+      - "pf_active.coil.0.name"
+      - "pf_active.coil.0.identifier"
+      - "pf_active.coil.0.current.data"
+      - "pf_active.coil.0.element.0.*"
+      - "pf_active.coil.9.name"
+      - "pf_active.coil.9.identifier"
+      - "pf_active.coil.9.current.data"
+      - "pf_active.coil.9.element.0.*"
+      - "magnetics.ids_properties.*"
+      - "magnetics.ip.0.*"
+      - "magnetics.flux_loop.0.flux.data"
+      - "magnetics.flux_loop.0.identifier"
+      - "magnetics.flux_loop.0.name"
+      - "magnetics.flux_loop.0.position.0.*"
+      - "magnetics.b_field_pol_probe.0.*"
+      - "spectrometer_uv.ids_properties.*"
+      - "spectrometer_uv.time"
+      - "spectrometer_uv.channel.0.*"
+      - "pf_passive.ids_properties.*"
+      - "pf_passive.time"
+      - "pf_passive.loop.0.*"
+      - "em_coupling.mutual_active_active"
+      - "em_coupling.mutual_passive_active"
+      - "equilibrium.ids_properties.*"
+      - "equilibrium.time"
+      - "equilibrium.vacuum_toroidal_field.*"
+      - "equilibrium.time_slice.0.time"
+      - "equilibrium.time_slice.0.global_quantities.*"
+      - "equilibrium.time_slice.0.boundary.outline.*"
+      - "equilibrium.time_slice.0.profiles_1d.psi"
+      - "equilibrium.time_slice.0.profiles_1d.pressure"
+      - "equilibrium.time_slice.0.profiles_1d.dpressure_dpsi"
+      - "equilibrium.time_slice.0.profiles_1d.f"
+      - "equilibrium.time_slice.0.profiles_1d.f_df_dpsi"
+      - "equilibrium.time_slice.0.profiles_1d.j_tor"
+      - "equilibrium.time_slice.0.profiles_1d.q"
+      - "equilibrium.time_slice.0.profiles_1d.rho_tor_norm"
+artifacts:
+  - {id: workflow.snakefile, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/Snakefile, sha256: 9e042aadfa30bfd52fc630ddf3e0ee023b1771f64728fe0a31222cfba1bd71b8}
+  - {id: workflow.config, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/config.yaml, sha256: 5682b8a9c2bb0d02086143787df19a70269bf98b112dc85c84d3e6d3699183d6}
+  - {id: workflow.generate_diagnostics, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_diagnostics_ods.py, sha256: 781948381f0ce28d88e912c6a76f2b2e7febdf7a9e637d9ddfa7ba9f0e1408b9}
+  - {id: workflow.generate_eddy, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_eddy_ods.py, sha256: e003a2f2dfc80b4e00333503a7aed35e61265ffc5168a2ea75ee63b67df1b3d3}
+  - {id: workflow.generate_constraints, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_constraints_ods.py, sha256: b768a12578446c315d483cb92fa9f2d1fadf006a27b74f2c6c4f28d79d7e768f}
+  - {id: workflow.generate_kfile, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_kfile.py, sha256: 760ad56a4236f64d095e6ceafab62db0cf8a132fd749d78b2f25de2b34d7b310}
+  - {id: workflow.run_efit, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/run_efit_reconstruction.py, sha256: b41ae42ad4fd523af5502d59d8f3fe390bfa79294dd0a231bfb5c6892c0c34dc}
+  - {id: workflow.generate_efit, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_efit_ods.py, sha256: 53ad1aaa8b32b33fdfad6a892d7c16bf1068be1b21853a702c7042c2ed93d1e7}
+  - {id: workflow.run_chease, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/run_chease.py, sha256: a0979b7e4bf00535cf9a958bc8f0ca909573123337341b6a6e396bab27959234}
+  - {id: workflow.generate_chease, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_chease_ods.py, sha256: a3dfd60e65e6295de352933e85303531b914bd6c3279455a149cd944ae49770e}
+  - {id: workflow.combine, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/combine_ods.py, sha256: 0ac39d6614d7c16584d2c5bee7ed9fc81799f7d6a167b99919d9c05b6e1fd994}
+  - {id: workflow.publish, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/save_hsds_db.py, sha256: 4f5d796102815090471200e8cc7cd19ed7baffb1dfaf81af52e01264940c77e7}
+  - {id: workflow.generate_mhd_linear, storage: external, path: /home/user1/test/laurent/VEST_database/OMAS/generate_mhd_linear_ods.py, sha256: 04fa8381ed18a6ed316a267bb8f1b15e16dbf20c28fb7f524beb70fd2c12c633}
+  - {id: repository.config_snapshot, storage: repository, path: config.snapshot.yaml, size: 1325, sha256: 66babd0723e76fd213373893dcf9b12d4c1e0b3c85fe73860f6934f63a46644a}
+  - {id: repository.tolerances, storage: repository, path: tolerances.yaml, size: 1637, sha256: 5e404b03d882dca29679368efe15cb39a3a6f7c70d4924b5f8e607b59981052b}
+  - {id: repository.shot_39915_compact, storage: repository, path: shot-39915-compact.json.gz, size: 374382, sha256: 2ab156ef33cf544f421e82d810c70f7d3e3fb30eff564c2adcdcac5fc40b149a}
+  - {id: shot.39915.diagnostics, storage: external, path: /srv/vest.filedb/public/39915/omas/39915_diagnostics.json, size: 26786453, sha256: ffda0bd702ad1fa7b2d092bec4774512bee992f67e3c125a122782a12dd384c7}
+  - {id: shot.39915.eddy, storage: external, path: /srv/vest.filedb/public/39915/omas/39915_eddy.json, size: 75337799, sha256: d02794835f5e01d658b792dffdcc82a2102ff5af866524676ed9527009d07211}
+  - {id: shot.39915.constraints, storage: external, path: /srv/vest.filedb/public/39915/omas/39915_constraints.json, size: 718807, sha256: ee040c89f664f34c20566845e90d1ed7c5f212577b65d475117b9bf9f046cf48}
+  - {id: shot.39915.efit, storage: external, path: /srv/vest.filedb/public/39915/omas/39915_efit.json, size: 19194300, sha256: f4e6f76e7a25393363d8ebb572cf81b81ff0c9994de769f8b4303f2a315d16a5}
+  - {id: shot.39915.chease, storage: external, path: /srv/vest.filedb/public/39915/omas/39915_chease.json, size: 324130081, sha256: 15e5b2c70e577c3079fb288e8626a2c4a00879ef7a66b21101fc7ebb054664b0}
+  - {id: shot.39915.combined, storage: external, path: /srv/vest.filedb/public/39915/omas/39915_combined.json, size: 399467585, sha256: 46a258ce9780539d7300b7a799b3faefc28b1d5391cf1573e6a6e35cd9f037a3}
+  - {id: shot.39915.efit_status, storage: external, path: /srv/vest.filedb/public/39915/efit/efit_status.txt, size: 7, sha256: aee408847d35e44e99430f0979c3357b85fe8dbb4535a494301198adbee85f27}
+  - {id: shot.39915.chease_status, storage: external, path: /srv/vest.filedb/public/39915/chease/chease_status.txt, size: 7, sha256: aee408847d35e44e99430f0979c3357b85fe8dbb4535a494301198adbee85f27}
+  - {id: shot.43016.combined, storage: external, path: /srv/vest.filedb/public/43016/omas/43016_combined.json, size: 360390018, sha256: c3555a8c4120907002c3aa2723a2ab0b36f324aef6d1b2b0060979d31ca98eeb}
+  - {id: shot.43016.efit_status, storage: external, path: /srv/vest.filedb/public/43016/efit/efit_status.txt, size: 7, sha256: aee408847d35e44e99430f0979c3357b85fe8dbb4535a494301198adbee85f27}
+  - {id: shot.43016.chease_status, storage: external, path: /srv/vest.filedb/public/43016/chease/chease_status.txt, size: 7, sha256: aee408847d35e44e99430f0979c3357b85fe8dbb4535a494301198adbee85f27}
+  - {id: shot.43017.combined, storage: external, path: /srv/vest.filedb/public/43017/omas/43017_combined.json, size: 81020014, sha256: 7c37f96ae1f8ae01ada01150096b246970f5684c1b35223ee8b305c83965e627}
+  - {id: shot.43017.efit_status, storage: external, path: /srv/vest.filedb/public/43017/efit/efit_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.43017.chease_status, storage: external, path: /srv/vest.filedb/public/43017/chease/chease_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.45966.combined, storage: external, path: /srv/vest.filedb/public/45966/omas/45966_combined.json, size: 77013444, sha256: be001eafa277720eb62673c99b258b22716c13de6d19666ec8e67f465294e09b}
+  - {id: shot.45966.efit_status, storage: external, path: /srv/vest.filedb/public/45966/efit/efit_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.45966.chease_status, storage: external, path: /srv/vest.filedb/public/45966/chease/chease_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.45967.combined, storage: external, path: /srv/vest.filedb/public/45967/omas/45967_combined.json, size: 80134824, sha256: 06bf96b34b0ec0c8e4d2e9a339f847715c3a7f1e379f257bbb5aa52606213c58}
+  - {id: shot.45967.efit_status, storage: external, path: /srv/vest.filedb/public/45967/efit/efit_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.45967.chease_status, storage: external, path: /srv/vest.filedb/public/45967/chease/chease_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.48224.combined, storage: external, path: /srv/vest.filedb/public/48224/omas/48224_combined.json, size: 81017109, sha256: 2d2f1c2f70663b2ffe5923139505361e23deaf46f1eda79e1cf6004096ab1aef}
+  - {id: shot.48224.efit_status, storage: external, path: /srv/vest.filedb/public/48224/efit/efit_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.48224.chease_status, storage: external, path: /srv/vest.filedb/public/48224/chease/chease_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.48226.combined, storage: external, path: /srv/vest.filedb/public/48226/omas/48226_combined.json, size: 80777219, sha256: 147e66d382eaf010287d790b25ef51d39cf61e84cad85e11d62f902890e0b7ca}
+  - {id: shot.48226.efit_status, storage: external, path: /srv/vest.filedb/public/48226/efit/efit_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.48226.chease_status, storage: external, path: /srv/vest.filedb/public/48226/chease/chease_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.48233.combined, storage: external, path: /srv/vest.filedb/public/48233/omas/48233_combined.json, size: 80882537, sha256: 51a1a75bb48303dd54b2f0eef9bef5f76cae3ae4ad0395768a3f2915086aa8e0}
+  - {id: shot.48233.efit_status, storage: external, path: /srv/vest.filedb/public/48233/efit/efit_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.48233.chease_status, storage: external, path: /srv/vest.filedb/public/48233/chease/chease_status.txt, size: 4, sha256: 51280dabfbc880cdc5f92cc2f4f22c8032de5aba401c3268250a11eeb2df1f73}
+  - {id: shot.22027.legacy_diagnostic, storage: external, path: /srv/vest.filedb/public/22027/diagnostics/NeTe_Shot22027.mat, size: 2671, sha256: d364737f0b0d6c6d685c35e7fa9ad42a80626435f7e52d788d37fca86172138c}

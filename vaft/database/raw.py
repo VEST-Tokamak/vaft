@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-from __future__ import annotations
 """
 MySQL-based VEST Database Access and Plotting
 
@@ -9,22 +6,23 @@ via a connection pool, load data by shot/field, correct time arrays for DAQ
 triggers, retrieve date or shot lists, and plot results.
 """
 
+from __future__ import annotations
+
 import gzip
 import json
 import logging
 import os
 import re
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import yaml
-try:
-    import matplotlib.pyplot as plt
+try:  # Rendering lives in vaft.plot; this is only an availability probe.
+    import matplotlib as _matplotlib
 except ImportError:
-    plt = None
+    _matplotlib = None
 try:
     from cryptography.fernet import Fernet
 except ImportError:
@@ -151,17 +149,80 @@ class SecureConfigManager:
 DB_POOL: Optional[MySQLConnectionPool] = None
 
 SQL_TABLE_PATH = Path(__file__).resolve().parents[1] / "data" / "legacy" / "sql_table.txt"
-RAW_SAMPLE_PATH_ENV = "VAFT_RAW_SAMPLE_PATH"
-RAW_OFFLINE_ONLY_ENV = "VAFT_RAW_OFFLINE_ONLY"
+RawSource = str | os.PathLike[str]
 
 
-def _env_truthy(value: str | None) -> bool:
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+class RawSignalUnavailableError(LookupError):
+    """Raised when a required VEST raw waveform is absent or unusable."""
+
+    def __init__(
+        self,
+        shot: int,
+        field: int | str,
+        reason: str,
+        *,
+        signal_name: str | None = None,
+    ) -> None:
+        self.shot = int(shot)
+        self.field = field
+        self.reason = str(reason)
+        self.signal_name = signal_name
+        label = f" ({signal_name})" if signal_name else ""
+        super().__init__(
+            f"Required VEST raw signal is unavailable for shot {self.shot}, "
+            f"field {self.field}{label}: {self.reason}. Verify that the raw "
+            "archive contains this field or that the VEST SQL service returned data."
+        )
 
 
-def raw_offline_only() -> bool:
-    """Return whether raw loading should avoid all live SQL access."""
-    return _env_truthy(os.environ.get(RAW_OFFLINE_ONLY_ENV))
+def require_signal(
+    loaded: Optional[Tuple[np.ndarray, np.ndarray]],
+    *,
+    shot: int,
+    field: int | str,
+    signal_name: str | None = None,
+    min_samples: int = 2,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Validate and return a required single-channel raw waveform.
+
+    Raw database readers retain their legacy ``None`` return for compatibility.
+    Scientific mappers call this helper at the point where a missing waveform
+    would otherwise be indistinguishable from a real zero-valued measurement.
+    """
+    if loaded is None:
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            "the data source returned no waveform",
+            signal_name=signal_name,
+        )
+
+    time_values, data_values = loaded
+    time_array = np.asarray(time_values, dtype=float).reshape(-1)
+    data_array = np.asarray(data_values, dtype=float)
+    if data_array.ndim > 1 and sum(size > 1 for size in data_array.shape) > 1:
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            f"expected one data channel, received shape {data_array.shape}",
+            signal_name=signal_name,
+        )
+    data_array = data_array.reshape(-1)
+    if time_array.size != data_array.size:
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            f"time/data lengths differ ({time_array.size} != {data_array.size})",
+            signal_name=signal_name,
+        )
+    if time_array.size < int(min_samples):
+        raise RawSignalUnavailableError(
+            shot,
+            field,
+            f"received {time_array.size} sample(s); at least {int(min_samples)} are required",
+            signal_name=signal_name,
+        )
+    return time_array, data_array
 
 
 def _format_sample_path(template: str, shot: int) -> str:
@@ -171,14 +232,52 @@ def _format_sample_path(template: str, shot: int) -> str:
         return template
 
 
-def _resolve_sample_path(shot: int, sample_opt: Union[bool, str] = False) -> Optional[str]:
-    if isinstance(sample_opt, str) and sample_opt:
-        return _format_sample_path(sample_opt, shot)
-
-    env_path = os.environ.get(RAW_SAMPLE_PATH_ENV)
-    if env_path:
-        return _format_sample_path(env_path, shot)
+def _resolve_sample_path(
+    shot: int,
+    sample_opt: bool | RawSource = False,
+) -> Optional[str]:
+    if isinstance(sample_opt, (str, os.PathLike)) and os.fspath(sample_opt):
+        return _format_sample_path(os.fspath(sample_opt), shot)
     return None
+
+
+def _archive_payload(shot: int, sample_path: str) -> dict:
+    """Read and validate one archived raw dump.
+
+    An archive that cannot be trusted is an export failure, not a missing
+    signal, so every problem here raises instead of degrading to SQL.
+    """
+    if not os.path.isfile(sample_path):
+        raise FileNotFoundError(
+            f"Archived raw source not found for shot={shot}: {sample_path}"
+        )
+    opener = gzip.open if sample_path.endswith(".gz") else open
+    with opener(sample_path, "rt", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Raw archive is not a JSON object: {sample_path}")
+    archive_shot = payload.get("shot")
+    try:
+        archive_shot_number = int(archive_shot)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f"Raw archive has no valid shot number: {sample_path}"
+        ) from error
+    if archive_shot_number != int(shot):
+        raise ValueError(
+            f"Raw archive shot mismatch: requested {shot}, but {sample_path} "
+            f"contains shot {archive_shot}"
+        )
+    fields = payload.get("fields")
+    if not isinstance(fields, dict) or not fields:
+        raise ValueError(f"Raw archive has no fields mapping: {sample_path}")
+    return payload
+
+
+def _archive_field_codes(shot: int, sample_path: str) -> list[int]:
+    """Return the field codes an archived raw dump actually carries."""
+    payload = _archive_payload(shot, sample_path)
+    return sorted(int(code) for code in payload["fields"])
 
 
 def _require_mysql() -> None:
@@ -192,7 +291,7 @@ def _require_fernet() -> None:
 
 
 def _require_matplotlib() -> None:
-    if plt is None:
+    if _matplotlib is None:
         raise ImportError("matplotlib is required for raw plotting helpers")
 
 
@@ -414,7 +513,7 @@ def load_raw(
     fields: Optional[Union[int, List[int]]] = None,
     max_retries: int = MAX_RETRIES,
     daq_type: Optional[int] = None,
-    sample_opt: Union[bool, str] = False
+    sample_opt: bool | RawSource = False
     ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     High-level data loader for the VEST database.
@@ -424,7 +523,7 @@ def load_raw(
         fields: Field code(s) to load
         max_retries: Maximum number of connection retries
         daq_type: DAQ type
-        sample_opt: Sample file path or False for DB loading
+        sample_opt: Authoritative sample file path or False for live DB loading
 
     Returns:
         Tuple of (time_array, data_array) as np.ndarrays or None if loading fails
@@ -436,23 +535,14 @@ def load_raw(
         elif isinstance(fields, int):
             fields = [fields]
 
-        # Load from an explicit or environment-provided archived raw dump first.
+        # An explicit archived source is authoritative and never falls back to SQL.
         sample_path = _resolve_sample_path(shot, sample_opt)
         if sample_path:
-            if os.path.isfile(sample_path):
-                result = _load_from_sample_file(shot, fields, sample_path)
-                return result if result is not None else None
-            if raw_offline_only():
-                logger.warning(f"Archived raw sample not found for shot={shot}: {sample_path}")
-                return None
-
-        if raw_offline_only():
-            logger.warning(f"Offline raw mode is enabled and no archived sample is available for shot={shot}.")
-            return None
-
-        # Load from sample file if specified, preserving historical behavior.
-        if isinstance(sample_opt, str):
-            result = _load_from_sample_file(shot, fields, sample_opt)
+            if not os.path.isfile(sample_path):
+                raise FileNotFoundError(
+                    f"Archived raw source not found for shot={shot}: {sample_path}"
+                )
+            result = _load_from_sample_file(shot, fields, sample_path)
             return result if result is not None else None
 
         # Initialize DB pool if needed
@@ -514,6 +604,8 @@ def load_raw(
             logger.error("Could not retrieve data after max_retries.")
         return None
 
+    except FileNotFoundError:
+        raise
     except Exception as e:
         logger.error(f"Error in load_raw: {e}")
         return None
@@ -550,12 +642,12 @@ def vest_load(
     shot: int,
     field: int,
     max_retries: int = MAX_RETRIES,
-    sample_opt: Union[bool, str] = False,
+    sample_opt: bool | RawSource = False,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """Compatibility wrapper for donor-style single-signal loading."""
     sample_path = _resolve_sample_path(shot, sample_opt)
-    if sample_path or raw_offline_only():
-        return load_raw(shot, field, max_retries=max_retries, sample_opt=sample_opt)
+    if sample_path:
+        return load_raw(shot, field, max_retries=max_retries, sample_opt=sample_path)
     if not sql_loading_available():
         return None
     return load_raw(shot, field, max_retries=max_retries)
@@ -569,7 +661,7 @@ def _sql_table_mapping() -> dict[str, int]:
 def vest_load_by_name(
     shot: int,
     name: str,
-    sample_opt: Union[bool, str] = False,
+    sample_opt: bool | RawSource = False,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """Load a waveform by signal name using the shipped lookup table."""
     try:
@@ -651,21 +743,33 @@ def plot(
     semilogy_opt: bool = False,
     norm_opt: bool = False,
     xlims=None,
-    ) -> None:
+    *,
+    ax=None,
+    show: bool = True,
+):
     """
-    Plots data for the 3 standard scenarios:
+    Plots raw waveforms for the 3 standard scenarios:
 
     1. Single shot, single field -> single line plot.
     2. Multiple shots, single field -> multiple lines, one per shot.
     3. Single shot, multiple fields -> multiple lines, one per field.
 
-    For multiple data sets, a legend is shown. Units/names fetched from DB.
+    This function loads and labels the data; rendering is delegated to
+    :func:`vaft.plot.render_line_series`, so no Matplotlib code lives in the
+    database namespace (issue #63).
+
     :param shots: int or list of int
     :param fields: int or list of int
-    :param semilogy_opt: If True, uses semilogy. Defaults to False.
+    :param semilogy_opt: If True, uses a logarithmic y axis. Defaults to False.
     :param norm_opt: If True, normalizes data to (-1, 1). Defaults to False.
+    :param xlims: Optional ``(low, high)`` time limits.
+    :param ax: Optional axes to draw into.
+    :param show: Display the figure. Defaults to True for backward compatibility.
+    :return: ``(Figure, Axes)``, or ``None`` when no data could be loaded.
     """
     _require_matplotlib()
+    from vaft.plot import LineSeries, Series, render_line_series
+
     if isinstance(shots, int):
         shots = [shots]
     if isinstance(fields, int):
@@ -675,66 +779,39 @@ def plot(
         """Normalizes the data to the range (-1, 1)."""
         return 2 * (data - data.min()) / (data.max() - data.min()) - 1
 
+    traces: list = []
+    norm_status = "Normalized" if norm_opt else "Raw"
+    y_label = ""
+
     # 1) Single shot, single field
     if len(shots) == 1 and len(fields) == 1:
-        shot = shots[0]
-        field = fields[0]
-        # load
+        shot, field = shots[0], fields[0]
         loaded = load_raw(shot, field)
         if loaded is None:
             print("No data loaded.")
-            return
+            return None
         time_vals, data_vals = loaded
-
         if norm_opt:
             data_vals = normalize(data_vals)
-
-        fname, funit = name(field)
-        label_str = f"shot {shot}, field {field}"
-
-        if semilogy_opt:
-            plt.semilogy(time_vals, data_vals, label=label_str)
-        else:
-            plt.plot(time_vals, data_vals, label=label_str)
-
-        norm_status = "Normalized" if norm_opt else "Raw"
-        plt.title(f"shot={shot}, field={field}, name={fname} ({norm_status})")
-        plt.xlabel("time (s)")
-        if xlims is not None and len(xlims) == 2:
-            plt.xlim(xlims)
-        plt.ylabel(f"{funit}")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+        fname, y_label = name(field)
+        title = f"shot={shot}, field={field}, name={fname} ({norm_status})"
+        traces.append(
+            Series(x=time_vals, y=data_vals, label=f"shot {shot}, field {field}")
+        )
 
     # 2) multiple shots, single field
     elif len(shots) > 1 and len(fields) == 1:
         field = fields[0]
-        fname, funit = name(field)
-
-        for sh in shots:
-            loaded = load_raw(sh, field)
+        fname, y_label = name(field)
+        title = f"field={field}, name={fname} ({norm_status})"
+        for shot in shots:
+            loaded = load_raw(shot, field)
             if loaded is None:
                 continue
-            tvals, dvals = loaded
-
+            time_vals, data_vals = loaded
             if norm_opt:
-                dvals = normalize(dvals)
-
-            if semilogy_opt:
-                plt.semilogy(tvals, dvals, label=f"shot {sh}")
-            else:
-                plt.plot(tvals, dvals, label=f"shot {sh}")
-
-        norm_status = "Normalized" if norm_opt else "Raw"
-        plt.title(f"field={field}, name={fname} ({norm_status})")
-        if xlims is not None and len(xlims) == 2:
-            plt.xlim(xlims)
-        plt.xlabel("time (s)")
-        plt.ylabel(f"{funit}")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+                data_vals = normalize(data_vals)
+            traces.append(Series(x=time_vals, y=data_vals, label=f"shot {shot}"))
 
     # 3) single shot, multiple fields
     elif len(shots) == 1 and len(fields) > 1:
@@ -742,32 +819,39 @@ def plot(
         loaded = load_raw(shot, fields)
         if loaded is None:
             print("No data loaded.")
-            return
+            return None
         time_vals, data_vals = loaded  # data_vals => shape (N, #fields)
-
-        for idx, fld in enumerate(fields):
-            col = data_vals[:, idx]
+        title = f"shot={shot} ({norm_status})"
+        for index, field in enumerate(fields):
+            column = data_vals[:, index]
             if norm_opt:
-                col = normalize(col)
-
-            fname, funit = name(fld)
-            lbl = f"{fname}[{funit}]"
-            if semilogy_opt:
-                plt.semilogy(time_vals, col, label=lbl)
-            else:
-                plt.plot(time_vals, col, label=lbl)
-
-        norm_status = "Normalized" if norm_opt else "Raw"
-        plt.title(f"shot={shot} ({norm_status})")
-        if xlims is not None and len(xlims) == 2:
-            plt.xlim(xlims)
-        plt.xlabel("time (s)")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+                column = normalize(column)
+            fname, funit = name(field)
+            traces.append(
+                Series(x=time_vals, y=column, label=f"{fname}[{funit}]")
+            )
 
     else:
-        print("Error: Unsupported shot-field configuration for plotting.")
+        raise ValueError(
+            "plot() supports one shot with one or many fields, or many shots "
+            f"with one field; got {len(shots)} shots and {len(fields)} fields"
+        )
+
+    if not traces:
+        print("No data loaded.")
+        return None
+
+    model = LineSeries(
+        series=tuple(traces),
+        x_label="time",
+        x_unit="s",
+        y_label=y_label,
+        title=title,
+        x_limits=tuple(xlims) if xlims is not None and len(xlims) == 2 else None,
+        log_y=bool(semilogy_opt),
+    )
+    return render_line_series(model, ax=ax, show=show, figsize=(8.0, 4.0))
+
 
 def date_from_shot(shot: int) -> tuple:
     """
@@ -856,8 +940,8 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     """
     global DB_POOL
     if DB_POOL is None:
-        print("Error: DB_POOL is not initialized. Run init_pool() first.")
-        return None
+        logger.info("DB_POOL not initialized. Initializing automatically...")
+        init_pool()
 
     attempts = 0
     while attempts < max_retries:
@@ -912,7 +996,8 @@ def dump_all_raw_signals_for_shot(
     max_retries: int = 3,
     daq_type: int = 0,
     slow_dt_threshold: float = 5e-6,  # Time interval threshold for slow DAQ [4e-5 sec/sample] vs Fast DAQ [4e-6 sec/sample] classification
-    plot_opt: bool = False
+    plot_opt: bool = False,
+    sample_opt: bool | RawSource = False
     ) -> bool:
     """
     Store shot data as JSON GZIP file (.json.gz) with the following steps:
@@ -922,6 +1007,11 @@ def dump_all_raw_signals_for_shot(
     4. Create shot_data = { "shot": shot, "fields": {fcode: {type, data}} }
     5. Save as gzip compressed JSON (.json.gz)
     6. If plot_opt is True, display and save signals as subplots
+
+    ``sample_opt`` is an authoritative archived raw source, using the same
+    convention as :func:`load_raw`: the field codes come from the archive and no
+    step falls back to SQL. The archive is re-derived rather than copied, so the
+    output is a canonical dump regardless of how the source was written.
     """
     if plot_opt == 1:
         _require_matplotlib()
@@ -932,8 +1022,12 @@ def dump_all_raw_signals_for_shot(
     elif not output_path.endswith(".gz"):
         output_path += ".gz"
 
-    # 1) Retrieve field codes
-    field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
+    # 1) Retrieve field codes, from the archive when one is given
+    sample_path = _resolve_sample_path(shot, sample_opt)
+    if sample_path is not None:
+        field_codes = _archive_field_codes(shot, sample_path)
+    else:
+        field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
     if not field_codes:
         print(f"[store_shot_as_json] No valid field codes for shot {shot}")
         return False
@@ -944,20 +1038,17 @@ def dump_all_raw_signals_for_shot(
         "fields": {}
     }
 
-    # Prepare subplot if plot_opt is True
-    if plot_opt == 1:
-        n_fields = len(field_codes)
-        n_cols = int(np.ceil(np.sqrt(n_fields)))
-        n_rows = int(np.ceil(n_fields / n_cols))
-        plt.figure(figsize=(20, 20))
-        plot_idx = 1
+    # Collect one panel model per field when plotting is requested; rendering
+    # happens once at the end through vaft.plot (issue #63).
+    panel_models: list = []
 
     for fcode in field_codes:
         try:
             time, data = load_raw(
                 shot, fcode,
                 max_retries=max_retries,
-                daq_type=daq_type
+                daq_type=daq_type,
+                sample_opt=sample_opt
             )
         except Exception as e:
             print(f"[store_shot_as_json] load_raw failed for field {fcode}: {e}")
@@ -976,30 +1067,18 @@ def dump_all_raw_signals_for_shot(
             "data": data.tolist()
         }
 
-        # Display signal as subplot if plot_opt is True
+        # Collect the signal as a panel model if plot_opt is True
         if plot_opt == 1:
-            plt.subplot(n_rows, n_cols, plot_idx)
-            plt.plot(time, data)
-            field_name, field_remark = name(fcode)
-            title = f"Field {fcode}"
-            if field_name:
-                title += f"\n{field_name}"
-            if field_remark:
-                title += f"\n{field_remark}"
-            plt.title(title, fontsize=8)
-            plt.grid(True)
-            plot_idx += 1
+            panel_models.append(_field_panel(fcode, time, data))
 
     if not shot_data["fields"]:
         print(f"[store_shot_as_json] No data loaded for shot {shot}")
         return False
 
-    # Save all subplots if plot_opt is True
-    if plot_opt == 1:
-        plt.tight_layout()
+    # Render and save all panels if plot_opt is True
+    if plot_opt == 1 and panel_models:
         plot_path = output_path.replace('.json.gz', '_signals.png')
-        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        plt.close()
+        _save_field_panels(panel_models, plot_path)
         print(f"[store_shot_as_json] Signal plots saved to {plot_path}")
 
     # 3) Save as gzip compressed JSON
@@ -1057,12 +1136,8 @@ def compare_db_and_dumped_raw_signals_for_shot(
     elif not output_path.endswith(".gz"):
         output_path += ".gz"
 
-    # 3) Set up subplot layout
-    n_fields = len(field_codes)
-    n_cols = int(np.ceil(np.sqrt(n_fields)))
-    n_rows = int(np.ceil(n_fields / n_cols))
-    plt.figure(figsize=(20, 20))
-    plot_idx = 1
+    # 3) Collect one comparison panel per field
+    panel_models: list = []
 
     # 4) Compare DB and JSON data for each field
     for fcode in field_codes:
@@ -1077,47 +1152,80 @@ def compare_db_and_dumped_raw_signals_for_shot(
                 print(f"[compare_signals] Failed to load data for field {fcode}")
                 continue
 
-            # Create subplot
-            plt.subplot(n_rows, n_cols, plot_idx)
-            
-            # Plot DB data
-            plt.plot(db_time, db_data, 'b-', label='DB Data', alpha=0.7)
-            
-            # Plot JSON data
-            plt.plot(json_time, json_data, 'r--', label='JSON Data', alpha=0.7)
-            
-            # Set title
-            field_name, field_remark = name(fcode)
-            title = f"Field {fcode}"
-            if field_name:
-                title += f"\n{field_name}"
-            if field_remark:
-                title += f"\n{field_remark}"
-            
-            # Calculate data difference
+            # Calculate data difference for the panel title
             if len(db_data) == len(json_data):
                 max_diff = np.max(np.abs(db_data - json_data))
-                title += f"\nMax Diff: {max_diff:.2e}"
+                suffix = f"Max Diff: {max_diff:.2e}"
             else:
-                title += f"\nLength Mismatch: DB={len(db_data)}, JSON={len(json_data)}"
-            
-            plt.title(title, fontsize=8)
-            plt.grid(True)
-            plt.legend(fontsize=6)
-            plot_idx += 1
+                suffix = f"Length Mismatch: DB={len(db_data)}, JSON={len(json_data)}"
+
+            panel_models.append(
+                _field_panel(
+                    fcode,
+                    [db_time, json_time],
+                    [db_data, json_data],
+                    labels=("DB Data", "JSON Data"),
+                    styles=({"color": "b", "alpha": 0.7},
+                            {"color": "r", "linestyle": "--", "alpha": 0.7}),
+                    title_suffix=suffix,
+                )
+            )
 
         except Exception as e:
             print(f"[compare_signals] Error processing field {fcode}: {e}")
             continue
 
-    # 5) Save all plots
-    plt.tight_layout()
+    # 5) Render and save all panels
+    if not panel_models:
+        print(f"[compare_signals] No comparable fields for shot {shot}")
+        return False
     plot_path = output_path.replace('.json.gz', '_comparison.png')
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-    plt.close()
+    _save_field_panels(panel_models, plot_path)
     print(f"[compare_signals] Comparison plots saved to {plot_path}")
-    
+
     return True
+
+
+def _field_panel(
+    field_code,
+    times,
+    values,
+    *,
+    labels=("",),
+    styles=({},),
+    title_suffix: str = "",
+):
+    """Build the ``LineSeries`` panel model for one raw field."""
+    from vaft.plot import LineSeries, Series
+
+    if not isinstance(times, (list, tuple)):
+        times, values = [times], [values]
+    field_name, field_remark = name(field_code)
+    title_parts = [f"Field {field_code}"]
+    if field_name:
+        title_parts.append(str(field_name))
+    if field_remark:
+        title_parts.append(str(field_remark))
+    if title_suffix:
+        title_parts.append(title_suffix)
+    traces = tuple(
+        Series(x=time, y=data, label=label, style=dict(style))
+        for time, data, label, style in zip(times, values, labels, styles)
+    )
+    return LineSeries(series=traces, x_label="time", x_unit="s",
+                      title="\n".join(title_parts))
+
+
+def _save_field_panels(panel_models, plot_path):
+    """Render the collected field panels into a square grid and save it."""
+    from vaft.plot import Panels, render_panels, save_figure
+
+    columns = int(np.ceil(np.sqrt(len(panel_models))))
+    figure, _ = render_panels(
+        Panels(models=tuple(panel_models), ncols=columns, share_x=False),
+        figsize=(20, 20),
+    )
+    return save_figure(figure, plot_path)
 
 
 # MAIN FUNCTION - SIMPLE TEST ROUTINE

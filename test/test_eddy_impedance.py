@@ -1,8 +1,6 @@
 import numpy as np
-from omas import ODS, load_omas_json
+from omas import ODS
 
-from vaft.data.resources import data_path
-from vaft.machine_mapping.pf_active import vfit_pf_active_static
 from vaft.omas.process_wrapper import compute_impedance_matrices_ods
 from vaft.process import (
     compute_impedance_matrices,
@@ -10,7 +8,7 @@ from vaft.process import (
 )
 
 
-def test_impedance_uses_em_coupling_when_geometry_is_not_provided():
+def test_impedance_uses_canonical_em_coupling_matrix():
     loop_resistances = np.array([2.0, 3.0])
     passive_loop_geometry = [
         ("W11", 0.3, 0.1, 1.0),
@@ -34,65 +32,20 @@ def test_impedance_uses_em_coupling_when_geometry_is_not_provided():
     assert L_mat.shape == (2, 2)
 
 
-def test_impedance_uses_current_geometry_when_reference_coupling_differs():
-    reference = load_omas_json(
-        str(data_path("omas/39915.json")),
-        consistency_check=False,
-    )
-    passive_geometry = []
-    for index in range(5):
-        loop = reference[f"pf_passive.loop.{index}"]
-        if loop["element.0.geometry.geometry_type"] == 1:
-            r = np.mean(loop["element.0.geometry.outline.r"])
-            z = np.mean(loop["element.0.geometry.outline.z"])
-        else:
-            r = loop["element.0.geometry.rectangle.r"]
-            z = loop["element.0.geometry.rectangle.z"]
-        passive_geometry.append(
-            (
-                loop["name"],
-                r,
-                z,
-                1.0 if loop["name"] == "W11" else 1.04,
-            )
-        )
-
-    current = ODS(consistency_check=False)
-    vfit_pf_active_static(current, shot=48223)
-    pf6_geometry = [
-        [
-            (
-                current[
-                    f"pf_active.coil.5.element.{index}.geometry.rectangle.r"
-                ],
-                current[
-                    f"pf_active.coil.5.element.{index}.geometry.rectangle.z"
-                ],
-                current[
-                    f"pf_active.coil.5.element.{index}.turns_with_sign"
-                ],
-            )
-            for index in range(len(current["pf_active.coil.5.element"]))
-        ]
-    ]
-    reference_coupling = np.asarray(
-        reference["em_coupling.mutual_passive_active"],
-    )[:5, 5:6]
-    expected = compute_mutual_passive_active(
-        passive_geometry,
-        pf6_geometry,
-    )
-    assert not np.allclose(expected, reference_coupling, rtol=1e-3, atol=1e-12)
+def test_impedance_does_not_replace_canonical_coupling_from_geometry():
+    canonical = np.array([[0.4], [0.5]])
+    incompatible_geometry = [[(4.0, 3.0, 100)]]
 
     _, L_mat, _ = compute_impedance_matrices(
-        np.ones(5),
-        passive_geometry,
-        pf6_geometry,
-        np.eye(5),
-        reference_coupling,
+        np.array([2.0, 3.0]),
+        [("W11", 0.3, 0.1, 1.0), ("W12", 0.4, -0.1, 1.04)],
+        incompatible_geometry,
+        np.eye(2),
+        canonical,
         [],
     )
-    np.testing.assert_allclose(L_mat, expected)
+
+    np.testing.assert_array_equal(L_mat, canonical)
 
 
 def test_impedance_wrapper_does_not_write_non_imas_cache_locations():

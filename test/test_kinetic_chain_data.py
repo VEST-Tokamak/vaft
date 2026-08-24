@@ -33,7 +33,7 @@ def kinetic_ods():
 
     vaft.apply_omfit_compat_patches()
     from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from vaft.code.kineticEfit import build_kinetic_core_profiles
+    from vaft.code.efit import build_kinetic_core_profiles
 
     geq = OMFITgeqdsk(str(GFILE))
     geq["fluxSurfaces"].load()
@@ -68,7 +68,7 @@ def test_core_profiles_on_equilibrium_grid_are_physical(kinetic_ods):
 
 def test_raw6_pressure_points_drop_invalid_ts_channels(kinetic_ods):
     ods, geq = kinetic_ods
-    from vaft.code.kineticEfit import kinetic_pressure_points
+    from vaft.code.efit import kinetic_pressure_points
 
     pts = kinetic_pressure_points(ods, TIME_MS, geq=geq, encoding="raw6")
     # NeTe_48224 has 7 polychromators, 2 padded with NaN -> 5 valid + 1 edge anchor
@@ -80,7 +80,7 @@ def test_raw6_pressure_points_drop_invalid_ts_channels(kinetic_ods):
 
 def test_spline_encoding_has_129_points(kinetic_ods):
     ods, geq = kinetic_ods
-    from vaft.code.kineticEfit import kinetic_pressure_points
+    from vaft.code.efit import kinetic_pressure_points
 
     pts = kinetic_pressure_points(ods, TIME_MS, geq=geq, encoding="spline")
     assert len(pts.rpress) == 129
@@ -96,7 +96,7 @@ def _build(with_ts, with_cx, **kwargs):
 
     vaft.apply_omfit_compat_patches()
     from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from vaft.code.kineticEfit import build_kinetic_core_profiles
+    from vaft.code.efit import build_kinetic_core_profiles
 
     geq = OMFITgeqdsk(str(GFILE))
     geq["fluxSurfaces"].load()
@@ -162,7 +162,7 @@ def test_no_diagnostics_raises():
 
     vaft.apply_omfit_compat_patches()
     from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from vaft.code.kineticEfit import build_kinetic_core_profiles
+    from vaft.code.efit import build_kinetic_core_profiles
 
     geq = OMFITgeqdsk(str(GFILE))
     geq["fluxSurfaces"].load()

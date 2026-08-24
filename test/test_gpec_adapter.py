@@ -34,11 +34,15 @@ def case(tmp_path):
 
 
 def test_gpec_home_falls_back_to_environment(monkeypatch, tmp_path):
+    executable = tmp_path / "gpec/bin/dcon"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
     config = gpec.GPECSuiteConfig()
 
     assert gpec._gpec_home(config) == tmp_path / "gpec"
-    assert gpec._executable(config, "dcon") == tmp_path / "gpec" / "bin" / "dcon"
+    assert gpec._executable(config, "dcon") == executable
 
 
 def test_config_gpec_home_overrides_environment(monkeypatch, tmp_path):
@@ -84,7 +88,7 @@ def test_prepare_works_without_a_gpec_installation(no_gpec_env, case):
 
     # nn is templated per mode, and the site-specific default is gone from coil.in.
     assert "nn=1" in (run_dir / "dcon.in").read_text()
-    packaged_coil = Path(gpec.__file__).resolve().parents[1] / "data" / "gpec" / "coil.in"
+    packaged_coil = Path(gpec.__file__).resolve().parents[2] / "data" / "gpec" / "coil.in"
     assert 'data_dir=""' in packaged_coil.read_text()
 
 
@@ -106,3 +110,156 @@ def test_run_without_installation_raises_in_strict_mode(no_gpec_env, case):
             case,
             gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="strict"),
         )
+
+
+def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
+    monkeypatch,
+    tmp_path,
+    case,
+):
+    dcon = tmp_path / "gpec/bin/dcon"
+    dcon.parent.mkdir(parents=True)
+    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    dcon.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.returncode == 0
+    assert record.commands == (str(dcon),)
+
+
+def test_prepare_writes_rdcon_and_rmatch_without_a_gpec_installation(no_gpec_env, case):
+    result = gpec.prepare_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,)),
+    )
+
+    assert result.ok
+    run_dir = case.workdir / "00325" / "rdcon" / "nn=1"
+    for name in ("equil.in", "vac.in", "rdcon.in", "rmatch.in", case.geqdsk.name):
+        assert (run_dir / name).exists(), f"{name} was not materialized"
+    assert "nn=1" in (run_dir / "rdcon.in").read_text()
+    # rmatch.in is copied verbatim (no `nn` key) and must not reference DCON's
+    # directory -- it reads vmat.bin from its own run directory.
+    assert 'vmat_filename="vmat.bin"' in (run_dir / "rmatch.in").read_text()
+
+
+def test_prepare_writes_stride_without_a_gpec_installation(no_gpec_env, case):
+    result = gpec.prepare_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("stride",), modes=(2,)),
+    )
+
+    assert result.ok
+    run_dir = case.workdir / "00325" / "stride" / "nn=2"
+    for name in ("equil.in", "vac.in", "stride.in", case.geqdsk.name):
+        assert (run_dir / name).exists(), f"{name} was not materialized"
+    assert "nn=2" in (run_dir / "stride.in").read_text()
+
+
+def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):
+    rdcon = tmp_path / "gpec/bin/rdcon"
+    rmatch = tmp_path / "gpec/bin/rmatch"
+    rdcon.parent.mkdir(parents=True)
+    rdcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    rdcon.chmod(0o755)
+    rmatch.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    rmatch.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.commands == (str(rdcon), str(rmatch))
+
+
+def test_run_if_available_fails_when_rmatch_exits_nonzero(monkeypatch, tmp_path, case):
+    rdcon = tmp_path / "gpec/bin/rdcon"
+    rmatch = tmp_path / "gpec/bin/rmatch"
+    rdcon.parent.mkdir(parents=True)
+    rdcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    rdcon.chmod(0o755)
+    rmatch.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    rmatch.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode == 1
+
+
+def test_run_if_available_skips_stride_cleanly_when_missing(no_gpec_env, case):
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("stride",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert result.ok  # a skip is not a failure
+    assert record.status == "skipped"
+
+
+def test_verify_outputs_fails_a_completed_run_missing_the_expected_variable(monkeypatch, tmp_path, case):
+    """``verify_outputs`` catches a solver that exits 0 without writing real physics content."""
+    dcon = tmp_path / "gpec/bin/dcon"
+    dcon.parent.mkdir(parents=True)
+    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    dcon.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto", verify_outputs=True),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert "dcon_output_n1.nc" in record.reason
+
+
+def test_solver_companion_executables_takes_no_config_argument():
+    """`Solver.companion_executables` no longer accepts a `config` -- none of
+    the four solvers ever consulted it, so it was dead protocol surface."""
+    from vaft.code.gpec._solvers import SOLVERS
+
+    for solver in SOLVERS.values():
+        solver.companion_executables()  # must not require a config argument
+        with pytest.raises(TypeError):
+            solver.companion_executables(gpec.GPECSuiteConfig())
+
+
+def test_runtime_module_dir_resolves_from_workdir_and_time_ms_without_a_geqdsk(tmp_path):
+    """`_runtime.module_dir` no longer needs a `GPECCaseInputs` (and therefore no
+    placeholder GEQDSK path) when `time_ms` is already known -- callers like
+    `build_mhd_linear_ods` that only have a run manifest's time label can call
+    it directly."""
+    from vaft.code.gpec import _runtime as rt
+
+    run_dir = rt.module_dir(tmp_path, 325, "dcon", 1)
+
+    assert run_dir == tmp_path / "00325" / "dcon" / "nn=1"
+
+
+def test_runtime_module_dir_falls_back_to_geqdsk_only_when_time_ms_is_none(tmp_path):
+    from vaft.code.gpec import _runtime as rt
+
+    geqdsk = tmp_path / "g039915.00325"
+
+    run_dir = rt.module_dir(tmp_path, None, "dcon", 1, geqdsk=geqdsk)
+
+    assert run_dir == tmp_path / "00325" / "dcon" / "nn=1"

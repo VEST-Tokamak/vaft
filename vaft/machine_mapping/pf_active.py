@@ -7,23 +7,22 @@ from pathlib import Path
 
 import numpy as np
 import scipy.io
+from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.signal_processing import smooth, vest_coil_current_noise_reduction
 
 from .utils import set_path
 
 PF_COIL_COUNT = 10
 COPPER_RESISTIVITY = 1.68e-8
-DEFAULT_SAMPLE_COUNT = 25_000
-DEFAULT_TIME_AXIS = np.linspace(0.0, 0.99996, DEFAULT_SAMPLE_COUNT)
-PF_REFERENCE_FIELD_CODE = 59
-PF2_REFERENCE_SHOT = 32527
-PF2_REFERENCE_FIELD_CODE = 4
 PF_WIDTH_BY_COIL = [0.0172, 0.04, 0.028, 0.028, 0.042, 0.042, 0.042, 0.042, 0.042, 0.042]
 PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.93]
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
 PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648, 0.0648, 0.0648]
+PF_GEOMETRY_2507_FIRST_SHOT = 45958
+PF_FILTER_SAMPLE_RATE = 25_000.0
+PF_FILTER_CUTOFF = 2_500.0
+PF_FILTER_TAPS = 251
 
 
 def _candidate_geometry_roots() -> list[Path]:
@@ -43,8 +42,16 @@ def resolve_geometry_asset(filename: str, geometry_root: str | Path | None = Non
     raise FileNotFoundError(f"Cannot resolve geometry asset {filename!r}; searched {searched}")
 
 
-def _safe_vest_load(shot: int, field: int):
-    return raw_db.vest_load(shot, field)
+def _safe_vest_load(
+    shot: int,
+    field: int,
+    raw_source: raw_db.RawSource | None = None,
+):
+    return raw_db.vest_load(
+        shot,
+        field,
+        sample_opt=False if raw_source is None else raw_source,
+    )
 
 
 def _build_time_axis(source_time: np.ndarray, tstart: float, tend: float, dt: float) -> np.ndarray:
@@ -59,8 +66,20 @@ def _build_time_axis(source_time: np.ndarray, tstart: float, tend: float, dt: fl
     return np.array([tstart], dtype=float)
 
 
+def pf_geometry_version_for_shot(shot: int | None) -> str:
+    """Return the PF geometry version used for *shot*.
+
+    Keeping this boundary in one public helper ensures that static PF geometry
+    and geometry-dependent coupling matrices always select the same version.
+    ``None`` retains the historical geometry for backward compatibility.
+    """
+    if shot is not None and shot >= PF_GEOMETRY_2507_FIRST_SHOT:
+        return "2507"
+    return "1906"
+
+
 def _geometry_profile_for_shot(shot: int | None) -> tuple[str, list[float]]:
-    if shot is not None and shot > 45957:
+    if pf_geometry_version_for_shot(shot) == "2507":
         return "VEST_DiscretizedCoilGeometry_Full_ver_2507.mat", PF_HEIGHT_BY_COIL_2507
     return "VEST_DiscretizedCoilGeometry_Full_ver_1906.mat", PF_HEIGHT_BY_COIL_1906
 
@@ -76,8 +95,6 @@ def _coerce_signal_to_reference(
     signal_time: np.ndarray,
     signal_values: np.ndarray,
 ) -> np.ndarray:
-    if signal_time.size <= 1 or signal_values.size <= 1:
-        return np.zeros(reference_time.size, dtype=float)
     if signal_time.size == reference_time.size and np.allclose(signal_time, reference_time):
         return signal_values
     return np.interp(reference_time, signal_time, signal_values)
@@ -93,8 +110,10 @@ def _coil_gain_by_index(shot: int) -> dict[int, float]:
                 gain = -5e4
             elif 38360 < shot < 38401:
                 gain = 5e4
-            else:
+            elif shot < 45965:
                 gain = -5e4
+            else:
+                gain = -1e4
         elif coil_index == 1:
             gain = 1e3
         elif coil_index == 4:
@@ -109,49 +128,64 @@ def _coil_gain_by_index(shot: int) -> dict[int, float]:
     return gains
 
 
-def vfit_pf(shot: int, geometry_root: str | Path | None = None) -> tuple[np.ndarray, list[np.ndarray]]:
+def _legacy_pf_filter(values: np.ndarray) -> np.ndarray:
+    taps = signal.firwin(
+        PF_FILTER_TAPS,
+        PF_FILTER_CUTOFF,
+        pass_zero="lowpass",
+        fs=PF_FILTER_SAMPLE_RATE,
+    )
+    # scipy.signal.filtfilt requires a long acquisition. Tiny synthetic test
+    # dumps retain a deterministic forward-filter fallback.
+    if values.size > 3 * (taps.size - 1):
+        filtered = signal.filtfilt(taps, 1, values)
+    else:
+        filtered = signal.lfilter(taps, 1, values)
+    return ndimage.uniform_filter1d(filtered, size=min(10, values.size))
+
+
+def vfit_pf(
+    shot: int,
+    geometry_root: str | Path | None = None,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> tuple[np.ndarray, list[np.ndarray]]:
     coil_info = scipy.io.loadmat(resolve_geometry_asset("Coil_info.mat", geometry_root=geometry_root))
     coil_numbers = np.asarray(coil_info["CoilNumber"][0], dtype=int) - 1
     coil_codes = np.asarray(coil_info["CoilCode"][0], dtype=int)
     coil_gains = _coil_gain_by_index(shot)
     active_coils = set(int(index) for index in coil_numbers.tolist())
 
-    reference_time = DEFAULT_TIME_AXIS.copy()
-    first_loaded = _safe_vest_load(shot, int(coil_codes[0])) if coil_codes.size > 0 else None
-    if first_loaded is not None and len(first_loaded[0]) > 1:
-        reference_time = np.asarray(first_loaded[0], dtype=float)
+    if coil_codes.size == 0:
+        raise ValueError("Coil_info.mat defines no active PF coil signals")
 
-    pf2_reference = _safe_vest_load(PF2_REFERENCE_SHOT, PF2_REFERENCE_FIELD_CODE)
-    if pf2_reference is None:
-        pf2_noise = np.zeros(reference_time.size, dtype=float)
-    else:
-        _, temp_pf2_noise = pf2_reference
-        pf2_noise = vest_coil_current_noise_reduction(np.asarray(temp_pf2_noise, dtype=float)) * coil_gains.get(1, 0.0)
-        pf2_noise = _coerce_signal_to_reference(reference_time, DEFAULT_TIME_AXIS, pf2_noise)
+    required_signals = {
+        int(field_code): raw_db.require_signal(
+            _safe_vest_load(shot, int(field_code), raw_source),
+            shot=shot,
+            field=int(field_code),
+            signal_name="PF active coil current",
+        )
+        for field_code in np.unique(coil_codes)
+    }
+    reference_time = required_signals[int(coil_codes[0])][0]
 
     pf_data: list[np.ndarray] = []
     code_index = 0
     for coil_index in range(PF_COIL_COUNT):
         if coil_index in active_coils:
             field_code = int(coil_codes[code_index])
-            loaded = _safe_vest_load(shot, field_code)
-            if loaded is None:
-                current = np.zeros(reference_time.size, dtype=float)
-            else:
-                waveform_time, raw_values = loaded
-                waveform_time = np.asarray(waveform_time, dtype=float)
-                raw_values = np.asarray(raw_values, dtype=float)
-                current = raw_values - _baseline_mean(raw_values, 5000)
-                current = smooth(current, 50)
-                current = vest_coil_current_noise_reduction(current) * coil_gains.get(coil_index, 0.0)
-                current = _coerce_signal_to_reference(reference_time, waveform_time, current)
+            waveform_time, raw_values = required_signals[field_code]
+            current = raw_values - _baseline_mean(raw_values, 5000)
+            current = _legacy_pf_filter(current) * coil_gains.get(coil_index, 0.0)
+            current = _coerce_signal_to_reference(reference_time, waveform_time, current)
             code_index += 1
         else:
+            # Coil_info.mat intentionally marks this hardware channel disabled;
+            # unlike a missing acquired signal, an explicit zero is meaningful.
             current = np.zeros(reference_time.size, dtype=float)
         pf_data.append(current)
 
-    if len(pf_data) > 1:
-        pf_data[1] = np.zeros(reference_time.size, dtype=float)
     return reference_time, pf_data
 
 
@@ -191,15 +225,17 @@ def vfit_pf_active_static(
         element_counts[coil_index] += 1
 
 
-def vfit_pf_active_dynamic(ods: object, shot: int, tstart: float, tend: float, dt: float) -> None:
-    reference = _safe_vest_load(shot, PF_REFERENCE_FIELD_CODE)
-    waveform_time, pf_data = vfit_pf(shot)
-    if reference is not None and len(reference[0]) > 1:
-        source_time = np.asarray(reference[0], dtype=float)
-    else:
-        source_time = waveform_time
-
-    time_axis = _build_time_axis(source_time, tstart, tend, dt)
+def vfit_pf_active_dynamic(
+    ods: object,
+    shot: int,
+    tstart: float,
+    tend: float,
+    dt: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
+    waveform_time, pf_data = vfit_pf(shot, raw_source=raw_source)
+    time_axis = _build_time_axis(waveform_time, tstart, tend, dt)
     set_path(ods, "pf_active.time", time_axis)
 
     for coil_index in range(PF_COIL_COUNT):
@@ -215,9 +251,11 @@ def vfit_pf_active_for_shot(
     tend: float,
     dt: float,
     geometry_root: str | Path | None = None,
+    *,
+    raw_source: raw_db.RawSource | None = None,
 ) -> None:
     vfit_pf_active_static(ods, shot=shot, geometry_root=geometry_root)
-    vfit_pf_active_dynamic(ods, shot=shot, tstart=tstart, tend=tend, dt=dt)
+    vfit_pf_active_dynamic(ods, shot=shot, tstart=tstart, tend=tend, dt=dt, raw_source=raw_source)
 
 
 def pf_active(
@@ -227,8 +265,18 @@ def pf_active(
     tend: float,
     dt: float,
     geometry_root: str | Path | None = None,
+    *,
+    raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    vfit_pf_active_for_shot(ods, shot, tstart, tend, dt, geometry_root=geometry_root)
+    vfit_pf_active_for_shot(
+        ods,
+        shot,
+        tstart,
+        tend,
+        dt,
+        geometry_root=geometry_root,
+        raw_source=raw_source,
+    )
 
 
 def pf_active_from_raw_database(
@@ -239,13 +287,15 @@ def pf_active_from_raw_database(
     dt: float,
     options: dict | None = None,
 ) -> None:
-    del options
-    pf_active(ods, shot, tstart, tend, dt)
+    raw_source = options.get("raw_source") if options else None
+    pf_active(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
 __all__ = [
+    "PF_GEOMETRY_2507_FIRST_SHOT",
     "pf_active",
     "pf_active_from_raw_database",
+    "pf_geometry_version_for_shot",
     "resolve_geometry_asset",
     "vfit_pf",
     "vfit_pf_active_dynamic",

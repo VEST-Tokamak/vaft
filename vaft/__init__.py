@@ -14,6 +14,7 @@ from .compat import apply_omfit_compat_patches, apply_runtime_compat_patches
 from .version import __version__
 
 __all__ = [
+    "__version__",
     "process",
     "formula",
     "machine_mapping",
@@ -21,7 +22,7 @@ __all__ = [
     "data",
     "omas",
     "code",
-    "data",
+    "cli",
     "database",
     "imas",
     "apply_runtime_compat_patches",

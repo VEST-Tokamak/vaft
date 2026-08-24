@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import datetime
+import warnings
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -249,10 +250,12 @@ def load_raw_data(
             loaded = raw_db.load(int(source), numeric_field)
         except (TypeError, ValueError):
             loaded = raw_db.vest_load_by_name(int(source), str(field))
-        if loaded is None:
-            return np.array([0.0]), np.array([0.0])
-        time, data = loaded
-        return np.asarray(time), np.asarray(data)
+        return raw_db.require_signal(
+            loaded,
+            shot=int(source),
+            field=field,
+            signal_name=str(field),
+        )
 
     file_format = options.get("file_format", "mat")
     if file_format != "mat":
@@ -269,7 +272,13 @@ def load_raw_data(
 def process_signal(
     time: np.ndarray, data: np.ndarray, options: Optional[Dict[str, Any]] = None
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Thin wrapper delegating signal conditioning to `vaft.process.signal_processing`."""
+    """Deprecated wrapper for :func:`vaft.process.process_signal`."""
+    warnings.warn(
+        "vaft.machine_mapping.utils.process_signal() is deprecated; use "
+        "vaft.process.process_signal().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return process_signal_impl(time, data, options)
 
 

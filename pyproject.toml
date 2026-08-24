@@ -68,6 +68,8 @@ dev = [
   "black",
   "flake8",
   "ipykernel>=7.2.0",
+  "nbclient>=0.10",
+  "nbformat>=5.10",
 ]
 
 [project.urls]
@@ -92,6 +94,8 @@ vaft = [
   "data/geometry/Coil_info.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
+  "data/geometry/VEST_em_coupling_pf_versions.npz",
+  "data/geometry/VEST_static_geometry.json.gz",
   "data/geometry/*.yaml",
   "data/geometry/*.csv",
   "data/geometry/camera_visible/*.json",

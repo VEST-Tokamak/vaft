@@ -1,0 +1,50 @@
+schema_version: 1
+defaults:
+  numeric:
+    rtol: 0.0
+    atol: 0.0
+    equal_nan: true
+    mismatch_classification: unintended_regression
+  time:
+    rtol: 0.0
+    atol: 1.0e-9
+    equal_nan: true
+    mismatch_classification: unintended_regression
+rules:
+  - path: "magnetics.*.data"
+    rtol: 1.0e-6
+    atol: 1.0e-10
+    note: Deterministic diagnostic signal parity.
+  - path: "pf_active.coil.*.current.data"
+    rtol: 1.0e-6
+    atol: 1.0e-6
+    note: PF-current mapping parity.
+  - path: "pf_passive.loop.*.current"
+    rtol: 1.0e-5
+    atol: 1.0e-6
+    note: Eddy-current solver parity.
+  - path: "equilibrium.time"
+    rtol: 0.0
+    atol: 5.0e-7
+    note: Half-microsecond time alignment limit.
+  - path: "equilibrium.time_slice.*.global_quantities.*"
+    rtol: 5.0e-4
+    atol: 1.0e-8
+    note: External-code global equilibrium tolerance.
+  - path: "equilibrium.time_slice.*.profiles_1d.*"
+    rtol: 2.0e-3
+    atol: 1.0e-8
+    note: Profiles are compared on the stored common grid.
+  - path: "equilibrium.time_slice.*.boundary.outline.*"
+    rtol: 1.0e-4
+    atol: 1.0e-4
+    note: CHEASE/EFIT boundary-coordinate tolerance in metres.
+  - path: "dataset_description.ids_properties.creation_date"
+    mismatch_classification: intentional_improvement
+    note: Creation timestamps are intentionally regenerated.
+  - path: "dataset_description.process.*"
+    mismatch_classification: intentional_improvement
+    note: VAFT-native workflow provenance is an intentional addition.
+  - path: "mhd_linear.*"
+    mismatch_classification: unavailable_reference
+    note: The legacy combined ODS does not contain finalized mhd_linear data.

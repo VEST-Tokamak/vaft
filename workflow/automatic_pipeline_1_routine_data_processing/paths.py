@@ -1,0 +1,292 @@
+"""Product paths for pipeline 1, in either the legacy or the canonical layout.
+
+Two layouts are supported through the ``layout`` config key:
+
+``shot_first`` (default)
+    The legacy server hierarchy, ``{base_dir}/{shot}/{area}/...``, which matches
+    the reference output at ``/srv/vest.filedb/public`` path for path and keeps
+    this pipeline directly diffable against it.
+
+``filedb``
+    The canonical OMAS-first grammar from issue #77, resolved through
+    :class:`vaft.database.filedb.FileDB` so no path is reconstructed by hand.
+
+Only the Snakefile imports this module; the stage scripts receive explicit
+``--output`` paths and stay layout-agnostic.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from vaft.database.filedb import FileDB, GPECCode
+
+
+SHOT_FIRST = "shot_first"
+FILEDB = "filedb"
+LAYOUTS = (SHOT_FIRST, FILEDB)
+
+# `vaft.code.gpec`'s module key for ideal-GPEC is the literal executable name
+# "gpec"; FileDB's `GPECCode` enum spells the same code "ideal-gpec" to keep
+# it unambiguous next to "gpec" the whole-suite package. Translated here, at
+# the workflow-script boundary, rather than renaming either side.
+_GPEC_CODE_ALIASES = {"gpec": GPECCode.IDEAL_GPEC}
+
+
+def _gpec_code(code: str):
+    return _GPEC_CODE_ALIASES.get(code, code)
+
+# Substituted back into Snakemake wildcards after a concrete path is resolved.
+# FileDB validates shot numbers and version components, so a wildcard token can
+# not be passed through the resolver directly.
+_SHOT_SENTINEL = 987654321
+_VERSION_SENTINEL = "VESTMACHINEVERSIONSENTINEL"
+_MODE_SENTINEL = 123456789
+# A real, valid `GPECCode` value used purely as a substitution placeholder --
+# unlike shot/version/mode, `FileDB.gpec()` validates its `code` argument
+# against the `GPECCode` enum, so an arbitrary sentinel string is rejected.
+_CODE_SENTINEL = "dcon"
+
+
+# Which FileDB domain owns each stage's log. Stages absent from this map, such
+# as the linear-stability aggregate, fall back to the shot-first log directory.
+_LOG_OWNER = {
+    "generate_raw_db_dump": ("raw", None),
+    "generate_static_ods": ("omas", "static"),
+    "generate_diagnostics_ods": ("omas", "diagnostics"),
+    "generate_eddy_ods": ("omas", "eddy"),
+    "generate_constraints_ods": ("omas", "efit"),
+    "generate_kfile": ("efit", None),
+    "run_efit": ("efit", None),
+    "generate_efit_ods": ("omas", "efit"),
+    "run_chease": ("chease", None),
+    "generate_chease_ods": ("omas", "chease"),
+}
+
+
+class PipelinePaths:
+    """Resolve every pipeline 1 product for the configured layout."""
+
+    def __init__(self, base_dir: str, layout: str = SHOT_FIRST) -> None:
+        if layout not in LAYOUTS:
+            raise ValueError(
+                f"Unknown layout {layout!r}; expected one of: {', '.join(LAYOUTS)}"
+            )
+        self.base_dir = str(base_dir).rstrip("/")
+        self.layout = layout
+        self._filedb = FileDB(self.base_dir) if layout == FILEDB else None
+
+    @classmethod
+    def from_config(cls, config) -> "PipelinePaths":
+        return cls(config["base_dir"], config.get("layout", SHOT_FIRST))
+
+    # -- internal ---------------------------------------------------------
+    def _shot_dir(self, shot, area: str) -> Path:
+        return Path(self.base_dir) / str(shot) / area
+
+    def _omas(self, stage: str, shot, artifact: str) -> Path:
+        return self._filedb.omas(stage, shot=shot, artifact=artifact)
+
+    # -- raw --------------------------------------------------------------
+    def raw_dump(self, shot) -> str:
+        """The canonical raw DAQ dump.
+
+        The shot number stays in the file name in both layouts so the preflight
+        can keep cross-checking it against the payload.
+        """
+        name = f"vest_{shot}_daq_raw.json.gz"
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "diagnostics") / name)
+        return str(self._filedb.raw(shot, artifact="output") / name)
+
+    def raw_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "metadata") / "raw_manifest.json")
+        return str(self._filedb.raw(shot, artifact="metadata") / "manifest.json")
+
+    # -- static machine era ------------------------------------------------
+    def static_ods(self, machine_version) -> str:
+        if self.layout == SHOT_FIRST:
+            # Mirrors the legacy `static_file_dir`, one directory per era.
+            return str(Path(self.base_dir) / "static" / str(machine_version) / "static.json")
+        directory = self._filedb.omas(
+            "static", machine_version=str(machine_version), artifact="output"
+        )
+        return str(directory / "static.json")
+
+    def static_manifest(self, machine_version) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(Path(self.base_dir) / "static" / str(machine_version) / "manifest.json")
+        directory = self._filedb.omas(
+            "static", machine_version=str(machine_version), artifact="metadata"
+        )
+        return str(directory / "manifest.json")
+
+    # -- OMAS stage products ----------------------------------------------
+    def diagnostics_ods(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "omas") / f"{shot}_diagnostics.json")
+        return str(self._omas("diagnostics", shot, "output") / "diagnostics.json")
+
+    def diagnostics_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "metadata") / "diagnostics_manifest.json")
+        return str(self._omas("diagnostics", shot, "metadata") / "manifest.json")
+
+    def eddy_ods(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "omas") / f"{shot}_eddy.json")
+        return str(self._omas("eddy", shot, "output") / "eddy.json")
+
+    def eddy_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "metadata") / "eddy_manifest.json")
+        return str(self._omas("eddy", shot, "metadata") / "manifest.json")
+
+    def constraints_ods(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "omas") / f"{shot}_constraints.json")
+        # Issue #77 places EFIT constraints under `omas/efit/{shot}/work`.
+        return str(self._omas("efit", shot, "work") / "constraints.json")
+
+    def efit_ods(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "omas") / f"{shot}_efit.json")
+        return str(self._omas("efit", shot, "output") / "efit.json")
+
+    def chease_ods(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "omas") / f"{shot}_chease.json")
+        return str(self._omas("chease", shot, "output") / "chease.json")
+
+    # -- external code artifacts -------------------------------------------
+    def kfile_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "efit") / "kfile" / "kfiles_generated.txt")
+        return str(self._filedb.efit(shot, artifact="input") / "kfiles_generated.txt")
+
+    def gfile_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "efit") / "gfile" / "gfiles_generated.txt")
+        return str(self._filedb.efit(shot, artifact="output") / "gfiles_generated.txt")
+
+    def efit_status(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "efit") / "efit_status.txt")
+        return str(self._filedb.efit(shot, artifact="metadata") / "efit_status.txt")
+
+    def chease_refined(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "chease") / "refined_gfiles_generated.txt")
+        return str(
+            self._filedb.chease(shot, artifact="output") / "refined_gfiles_generated.txt"
+        )
+
+    def chease_status(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "chease") / "chease_status.txt")
+        return str(self._filedb.chease(shot, artifact="metadata") / "chease_status.txt")
+
+    # -- linear stability ---------------------------------------------------
+    # One status/manifest pair per (shot, code, mode): `run_gpec_module`
+    # writes one, retriable independently of every other cell, matching
+    # FileDB's own GPEC grammar (`gpec/{code}/{shot}/n={n}/`) directly.
+    def gpec_module_status(self, shot, code: str, mode: int) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "status.txt")
+        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="metadata") / "status.txt")
+
+    def gpec_module_manifest(self, shot, code: str, mode: int) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "run.json")
+        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="output") / "run.json")
+
+    def gpec_workdir(self, shot) -> str:
+        """Root of the on-disk GPEC-suite run tree for one shot.
+
+        `vaft.code.gpec` lays every module out under one shared root as
+        ``{workdir}/{time_label}/{module}/nn={mode}`` -- module comes *after*
+        the shared root. FileDB's canonical grammar is the opposite order,
+        ``gpec/{code}/{shot}/n={mode}`` -- code comes first, so there is no
+        single shared root under that layout for the adapter's own directory
+        convention to nest under. The run tree itself therefore stays
+        shot-first in both layouts; only the lightweight per-(code, mode)
+        status/manifest bookkeeping records (`gpec_module_status`/
+        `gpec_module_manifest` above) use FileDB under `filedb`.
+        """
+        return str(self._shot_dir(shot, "linear_stability"))
+
+    def mhd_linear_ods(self, shot) -> str:
+        # No FileDB `OMASStage` member exists yet for mhd_linear (only
+        # static/diagnostics/eddy/efit/chease), and adding one is a FileDB
+        # schema change this phase does not attempt, so this per-shot product
+        # (folding every configured (code, mode) cell together) stays
+        # shot-first in both layouts, like `gpec_workdir` above.
+        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+
+    def mhd_linear_manifest(self, shot) -> str:
+        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json")
+
+    # -- batch-level and per-shot ancillary ---------------------------------
+    def log(self, shot, name: str) -> str:
+        """Per-shot stage log.
+
+        Under ``filedb`` the log lands in the ``log`` artifact of the domain that
+        owns the stage, so a rule's log sits beside its own products.
+        """
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "logs") / f"{name}.log")
+        owner = _LOG_OWNER.get(name)
+        if owner is None:
+            return str(self._shot_dir(shot, "logs") / f"{name}.log")
+        domain, stage = owner
+        if domain == "omas":
+            directory = self._omas(stage, shot, "log")
+        else:
+            directory = self._filedb.resolve(domain, shot=shot, artifact="log")
+        return str(directory / f"{name}.log")
+
+    def static_log(self, machine_version, name: str) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(
+                Path(self.base_dir) / "static" / str(machine_version) / f"{name}.log"
+            )
+        directory = self._filedb.omas(
+            "static", machine_version=str(machine_version), artifact="log"
+        )
+        return str(directory / f"{name}.log")
+
+    def preflight_eligible(self) -> str:
+        return str(Path(self.base_dir) / "preflight" / "eligible_shots.json")
+
+    def preflight_excluded(self) -> str:
+        return str(Path(self.base_dir) / "preflight" / "excluded_shots.json")
+
+    # -- Snakemake wildcard patterns ----------------------------------------
+    def shot_pattern(self, product: str, *args) -> str:
+        """Return ``product`` with the shot replaced by a ``{shot}`` wildcard."""
+        resolved = getattr(self, product)(_SHOT_SENTINEL, *args)
+        return resolved.replace(str(_SHOT_SENTINEL), "{shot}")
+
+    def version_pattern(self, product: str, *args) -> str:
+        """Return ``product`` with a ``{machine_version}`` wildcard."""
+        resolved = getattr(self, product)(_VERSION_SENTINEL, *args)
+        return resolved.replace(_VERSION_SENTINEL, "{machine_version}")
+
+    def gpec_module_pattern(self, product: str) -> str:
+        """Return a ``gpec_module_*`` product with ``{shot}``/``{code}``/``{mode}`` wildcards."""
+        resolved = getattr(self, product)(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL)
+        resolved = resolved.replace(str(_SHOT_SENTINEL), "{shot}")
+        resolved = resolved.replace(str(_MODE_SENTINEL), "{mode}")
+        # `_CODE_SENTINEL` ("dcon") is a real code name, so a blind substring
+        # replace could also rewrite an unrelated occurrence elsewhere in the
+        # path. `code` is always emitted as a whole path segment (never glued
+        # to other text), so only swap segments that match it exactly.
+        segments = [
+            "{code}" if segment == _CODE_SENTINEL else segment
+            for segment in Path(resolved).parts
+        ]
+        return str(Path(*segments))
+
+
+__all__ = ["FILEDB", "LAYOUTS", "SHOT_FIRST", "PipelinePaths"]
