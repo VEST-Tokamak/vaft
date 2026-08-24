@@ -27,7 +27,11 @@ def main() -> int:
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     LOGGER.info("Building static ODS for machine era %s", args.machine_version)
     ods, manifest = build_static_ods(args.machine_version)
     write_stage_product(ods, manifest, output=args.output, metadata=args.metadata)

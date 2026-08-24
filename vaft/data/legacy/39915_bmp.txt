@@ -1,0 +1,150 @@
+Frame_Rate: 2500
+Frame_Size: 1024x1280
+Type: GX-8
+Version: 1.01
+ID: 5
+CID: 1955
+MCFF_Version: 10001
+MCFF_Length: 302140416 Bytes
+Media_Type: NET
+FrameTime: TRIGGER
+TriggerSelect: CENTER
+CustomTriggerValue: 0
+Trigger Filter: 20.0us
+TopFrame: 700
+BottomFrame: 850
+Frames: 151
+Rec_Time: 23/07/04 16:07:17.440922
+Scene_No.: 14524
+Comment: 
+EventFrameList: 
+EventTimeList: 
+Event AbsTime List:
+RecBeginFrame: -1083
+RecEndFrame: 1083
+ShutterSpeed: 50k(20.0us)
+CustomShutterValueNumerator: 397486
+CustomShutterValueDenominator: 1000000000
+SensorTemp: 49
+CameraSN: 1806
+Blocks : 1
+BlockInfo:1/0 230704160717 440 922 -1083..1083
+ESTMode: OFF
+EST Filter: 0.0us
+TriggerTimeList : 1/0 230704160717 440 922
+TriggerFrameList: 0 
+SyncStatus: 
+VideoFormat: NTSC
+Exposure Signal EPO Polarity: NEGATIVE
+ExposureTiming: K4 Compatible
+DRES Mode: OFF
+Pixel Bit Depth: 12bit
+Sensor Filter: BW
+Rec Trigger Mode: NORMAL
+CameraTime: Internal Time
+Exposure phase: 0
+Black Balance: OFF
+Black Balance State: VALID
+TimeStamp:  ON
+RGB Matrix: OFF
+Luminance encoding: NORMAL
+AOI: FULL
+ImageTrigger:  OFF
+AEC: OFF
+CameraSync: Internal
+Frame Straddling: OFF
+Variable Frame Rate: OFF
+BINNING: 0
+; Recording Information -------------------
+Frame_Rate: 2500
+Recording Mode: Normal
+Field,Frame No.,Absolute Time,Relative Time
+Top Frame,-1083,23/07/04 16:07:17.007722,-00000.433200
+Bottom Frame,+1083,23/07/04 16:07:17.874122,+00000.433200
+Trigger Frame,+0,23/07/04 16:07:17.440922,+00000.000000
+T0 Frame,+0,23/07/04 16:07:17.440922,+00000.000000
+
+; File Information ------------------------
+File Type : .bmp
+Frame_Rate: 2500
+Conversion Range : 700  -> 850
+ConversionBlockInfo :1/0 700..850
+File T0 :0
+Recording Mode: Normal
+Field,Frame No.,Absolute Time,Relative Time
+Top Frame,+700,23/07/04 16:07:17.720922,+00000.280000
+Bottom Frame,+850,23/07/04 16:07:17.780922,+00000.340000
+Trigger Frame,+0,23/07/04 16:07:17.440922,+00000.000000
+T0 Frame,+0,23/07/04 16:07:17.440922,+00000.000000
+
+Video codec : (uncompress)
+FCC HANDLER : 
+QUALITY : 0
+AWB_FRMNO : 
+ShutterSpeed : 50k
+
+[CONV_PARAM]
+RESIZE_SEL=0
+CUT_SEL=0
+CRECT_X=192
+CRECT_Y=400
+CRECT_BL0_X=192
+CRECT_BL0_Y=400
+CRECT_H=480
+CRECT_W=640
+SI_TYPE=0
+SI_REC_COMMENT=0
+SI_FRAME_TYPE=0
+SI_FONTSIZE_TYPE=0
+BEGIN_FRAME=700
+END_FRAME=850
+BEGIN_TIME=+0.280000
+END_TIME=+0.340000
+FILE_TYPE=bmp
+VIDEO_CODEC=(uncompress)
+FCC_HANDLER=541215044
+QUALITY=7500
+COMP_KEYFRM=15
+COMP_BPS=0
+COMP_STATE=
+SEG_SEL=0
+GAIN_SEL=NORMAL
+GAMMA_SEL=0
+ENH_SEL=4
+WB_SEL=-1
+CHROMA=0
+KNEE=0
+LPF_ENB=1
+CHGAIN_NUM=0
+CHGAIN_DENOM=100
+HUE=0
+CONTRAST=100
+BRIGHTNESS=0
+GAMMA_COEFF=-1.00
+ENH_IDX=-1
+LPF_IDX=-1
+LUT_SEL=NORMAL
+CUSTOM_LUT_MIN=0
+CUSTOM_LUT_MAX=4000
+CUSTOM_LUT_GAMMA=100
+CONVERT_TYPE=2
+CONVERT_ANGLE=0
+TB_REVERS=0
+LR_REVERS=0
+WB_RGAIN=1.0000000
+WB_BGAIN=1.0000000
+WB_YRGAIN=1.0000000
+WB_YBGAIN=1.0000000
+WB_YGGAIN=1.0000000
+SOFT_MJPEG=0
+AVI_FPS_SCALE=1
+AVI_FPS_RATE=5
+INPUT_BLACK_LEVEL=64
+RGB_MATRIX=0
+FRAME_RATE=2500
+AVI_CONV_TYPE=2
+BPC=8
+CH_COUNT=1
+IMAGE_TYPE=BW
+BINNING=0
+

@@ -12,11 +12,12 @@ for example :func:`magnetics_time_ip`, :func:`equilibrium_profile_pressure`, and
 ``<domain>`` is the IDS root the plot belongs to -- ``magnetics``,
 ``equilibrium``, ``pf_active``, ``pf_passive``, ``tf``, ``wall``,
 ``soft_x_rays``, ``core_profiles``, ``thomson_scattering``, ``charge_exchange``,
-``barometry``, ``spectrometer_uv`` -- plus two composed domains, ``machine`` for
-cross-IDS machine views and ``summary`` for cross-IDS summary panels.
-``<view>`` is one of ``time``, ``profile``, ``field``, ``geometry``,
-``spectrogram``, ``overview``.  ``<quantity>`` may be dropped when the domain and
-view are already unambiguous, as in ``soft_x_rays_spectrogram``.
+``barometry``, ``spectrometer_uv``, ``camera_visible`` -- plus two composed
+domains, ``machine`` for cross-IDS machine views and ``summary`` for cross-IDS
+summary panels.  ``<view>`` is one of ``time``, ``profile``, ``field``,
+``geometry``, ``spectrogram``, ``overview``, ``image``, ``animation``.
+``<quantity>`` may be dropped when the domain and view are already
+unambiguous, as in ``soft_x_rays_spectrogram``.
 
 There is no redundant ``plot_`` prefix here; adapter layers and object methods
 use ``plot_<canonical-stem>``, so ``vaft.plot.magnetics_time_ip`` is rendered
@@ -41,7 +42,9 @@ Every canonical renderer has this shape::
 * ``show=False`` -- rendering never displays implicitly.  Pass ``show=True`` to
   call ``plt.show()``.
 * The return value is ``(Figure, Axes)``, or ``(Figure, ndarray[Axes])`` for
-  multi-panel renderers.
+  multi-panel renderers -- with one exception: ``<domain>_animation_<quantity>``
+  renderers return ``(Figure, Axes, FuncAnimation)``, since none of the other
+  view kinds models a time animation.
 
 Renderers take a typed view model from :mod:`vaft.plot.models` plus styling and
 layout options, and nothing else.  None of them interprets an OMAS
@@ -65,6 +68,11 @@ construction, so renderers never need defensive checks.
   geometry overlays, used by ``<domain>_field_<quantity>``.
 * :class:`~vaft.plot.models.GeometryLayers` -- polylines, polygons and point sets
   in a machine view, used by ``<domain>_geometry_<quantity>``.
+* :class:`~vaft.plot.models.Image2D` -- a raster image in pixel space (e.g. a
+  camera frame) with optional pixel-space overlays, drawn with ``imshow``
+  rather than a contour -- used by ``<domain>_image_<quantity>``.
+* :class:`~vaft.plot.models.ImageSequence` -- a sequence of raster frames on a
+  shared color scale, used by ``<domain>_animation_<quantity>``.
 * :class:`~vaft.plot.models.Spectrogram` -- a ``(frequency, time)`` magnitude map.
 * :class:`~vaft.plot.models.Panels` -- a grid of the above rendered into one
   figure, used by ``<domain>_overview`` and the composite renderers.
@@ -75,6 +83,7 @@ construction, so renderers never need defensive checks.
 The shared bodies that do the drawing are public for ad-hoc plots with no
 canonical name: :func:`render_line_series`, :func:`render_profile_1d`,
 :func:`render_field_2d`, :func:`render_geometry_layers`,
+:func:`render_image_2d`, :func:`render_image_sequence`,
 :func:`render_spectrogram` and :func:`render_panels`.
 
 Discovery
@@ -147,6 +156,8 @@ from .models import (
     Field2D,
     GeometryLayer,
     GeometryLayers,
+    Image2D,
+    ImageSequence,
     LineSeries,
     Panels,
     Profile1D,
@@ -157,6 +168,7 @@ from .models import (
 from .registry import PlotSpec, available_plots, canonical_names, get_spec
 from .renderers.fields import render_field_2d
 from .renderers.geometry import render_geometry_layers
+from .renderers.images import render_image_2d, render_image_sequence
 from .renderers.lines import render_line_series
 from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
@@ -184,6 +196,12 @@ from .renderers.geometry import (
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
     wall_geometry_poloidal,
+)
+from .renderers.images import (
+    camera_visible_animation_frames,
+    camera_visible_image_efit_overlay,
+    camera_visible_image_field_line,
+    camera_visible_image_frame,
 )
 from .renderers.lines import (
     barometry_time_pressure,
@@ -259,6 +277,8 @@ _SUPPORT_EXPORTS = (
     "Field2D",
     "GeometryLayer",
     "GeometryLayers",
+    "Image2D",
+    "ImageSequence",
     "LineSeries",
     "Panels",
     "PlotSpec",
@@ -272,6 +292,8 @@ _SUPPORT_EXPORTS = (
     "migration_table",
     "render_field_2d",
     "render_geometry_layers",
+    "render_image_2d",
+    "render_image_sequence",
     "render_line_series",
     "render_panels",
     "render_profile_1d",

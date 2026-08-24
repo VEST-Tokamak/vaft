@@ -15,6 +15,8 @@ from vaft.plot.models import (
     Field2D,
     GeometryLayer,
     GeometryLayers,
+    Image2D,
+    ImageSequence,
     LineSeries,
     Panels,
     Profile1D,
@@ -39,6 +41,11 @@ def _minimal_model(model_type):
         return GeometryLayers(
             layers=(GeometryLayer(r=x, z=x, kind="polygon", label="wall"),)
         )
+    if model_type is Image2D:
+        return Image2D(values=np.outer(x, x), value_label="counts")
+    if model_type is ImageSequence:
+        frames = tuple(np.full((4, 4), i) for i in range(3))
+        return ImageSequence(frames=frames, time=np.array([0.0, 0.1, 0.2]))
     if model_type is Spectrogram:
         time, frequency = np.linspace(0.0, 1.0, 6), np.linspace(0.0, 5.0, 4)
         return Spectrogram(
@@ -59,10 +66,25 @@ def _panel_count(model):
     return len(model.models) if isinstance(model, Panels) else 1
 
 
+def _call_renderer(spec, model, **kwargs):
+    """Call a renderer and return its ``(figure, axes)``.
+
+    Every renderer returns ``(Figure, Axes)`` except
+    ``<domain>_animation_<quantity>`` renderers (``spec.view == "animation"``),
+    which return a third element, a ``FuncAnimation`` -- the one documented
+    exception to the contract (see ``vaft/plot/__init__.py``'s docstring).
+    """
+    result = spec.renderer(model, **kwargs)
+    if spec.view == "animation":
+        figure, axes, _anim = result
+        return figure, axes
+    return result
+
+
 @pytest.mark.parametrize("spec", _SPECS, ids=_SPEC_IDS)
 def test_renderer_returns_figure_and_axes(spec):
     model = _minimal_model(spec.model)
-    figure, axes = spec.renderer(model)
+    figure, axes = _call_renderer(spec, model)
     assert isinstance(figure, Figure)
     if isinstance(axes, np.ndarray):
         assert axes.size >= _panel_count(model)
@@ -83,7 +105,7 @@ def test_renderer_draws_into_supplied_axes_without_new_figure(spec):
         figure, target = plt.subplots(panels, 1, squeeze=False)
     before = set(plt.get_fignums())
 
-    returned_figure, returned_axes = spec.renderer(model, ax=target)
+    returned_figure, returned_axes = _call_renderer(spec, model, ax=target)
 
     assert returned_figure is figure
     assert set(plt.get_fignums()) == before
@@ -98,7 +120,7 @@ def test_renderer_does_not_show_by_default(spec, monkeypatch):
         raise AssertionError(f"{spec.name} called plt.show() with show=False")
 
     monkeypatch.setattr(plt, "show", explode)
-    figure, _ = spec.renderer(_minimal_model(spec.model))
+    figure, _ = _call_renderer(spec, _minimal_model(spec.model))
     plt.close(figure)
 
 
@@ -106,7 +128,7 @@ def test_renderer_does_not_show_by_default(spec, monkeypatch):
 def test_renderer_shows_when_asked(spec, monkeypatch):
     calls = []
     monkeypatch.setattr(plt, "show", lambda *a, **k: calls.append(1))
-    figure, _ = spec.renderer(_minimal_model(spec.model), show=True)
+    figure, _ = _call_renderer(spec, _minimal_model(spec.model), show=True)
     assert calls == [1]
     plt.close(figure)
 

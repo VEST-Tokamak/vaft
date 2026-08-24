@@ -5,9 +5,10 @@ Importing this package registers every canonical renderer in
 application code imports them from there rather than reaching into these modules.
 """
 
-from . import fields, geometry, lines, panels, profiles, spectrograms
+from . import fields, geometry, images, lines, panels, profiles, spectrograms
 from .fields import render_field_2d
 from .geometry import draw_geometry_layer, render_geometry_layers
+from .images import render_image_2d, render_image_sequence
 from .lines import render_line_series
 from .panels import render_panels
 from .profiles import render_profile_1d
@@ -17,11 +18,14 @@ __all__ = [
     "draw_geometry_layer",
     "fields",
     "geometry",
+    "images",
     "lines",
     "panels",
     "profiles",
     "render_field_2d",
     "render_geometry_layers",
+    "render_image_2d",
+    "render_image_sequence",
     "render_line_series",
     "render_panels",
     "render_profile_1d",

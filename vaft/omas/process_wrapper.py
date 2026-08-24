@@ -2,6 +2,8 @@ from typing import List, Tuple, Dict, Any, Optional
 from numpy import ndarray
 import numpy as np
 from omas import *
+from pathlib import Path
+
 from vaft.process import (
     compute_br_bz_phi,
     compute_response_matrix,
@@ -20,6 +22,13 @@ from vaft.process import (
     calculate_reconstructed_diamagnetic_flux,
     calculate_diamagnetism,
     prepare_boundary_for_shafranov,
+    extract_flux_surface_contours,
+    make_equilibrium_field_interpolator,
+    project_points,
+    sweep_toroidal,
+    toroidal_ring,
+    trace_field_line,
+    trajectory_world_points,
 )
 from vaft.formula import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
@@ -1871,6 +1880,394 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
         )
 
     return np.asarray(pressure_vol_avg_list, float)
+
+
+# =====================================================================
+
+# FAST-camera EFIT overlay: pinhole projection of equilibrium/wall geometry
+# into camera pixel space. Read-only: computes and returns projected pixel
+# coordinates, never writes them back into the ods.
+# =====================================================================
+
+
+_CAMERA_VISIBLE_CALIBRATED_SHOTS = (34764, 39915, 47518)
+_DEFAULT_FLUX_SURFACE_LEVELS = (0.25, 0.5, 0.75, 0.95)
+
+
+def _load_camera_intrinsics(intrinsics_path: str | Path | None = None) -> dict:
+    """Load the shared VEST FAST-camera intrinsics (fx, fy, cx, cy, distortion)."""
+    import json
+
+    from vaft.machine_mapping import resolve_geometry_asset
+
+    if intrinsics_path is not None:
+        path = Path(intrinsics_path).expanduser()
+    else:
+        path = resolve_geometry_asset("camera_visible/intrinsics.json")
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    camera_matrix = np.array(
+        [[data["fx"], 0.0, data["cx"]], [0.0, data["fy"], data["cy"]], [0.0, 0.0, 1.0]],
+        dtype=float,
+    )
+    dist_coeffs = np.array(
+        [data["k1"], data["k2"], data["p1"], data["p2"], data["k3"]], dtype=float
+    )
+    return {
+        "camera_matrix": camera_matrix,
+        "dist_coeffs": dist_coeffs,
+        "image_size": tuple(data["image_size"]),
+    }
+
+
+def _load_camera_pose(shot: int, pose_path: str | Path | None = None) -> dict:
+    """Load a calibrated FAST-camera pose (rvec, tvec) for one shot."""
+    import json
+
+    from vaft.machine_mapping import resolve_geometry_asset
+
+    if pose_path is not None:
+        path = Path(pose_path).expanduser()
+    else:
+        try:
+            path = resolve_geometry_asset(f"camera_visible/pose_{int(shot)}.json")
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(
+                f"No calibrated FAST-camera pose is packaged for shot {shot}. "
+                f"Calibrated shots: {_CAMERA_VISIBLE_CALIBRATED_SHOTS}. "
+                "Provide pose_path to use an external pose file."
+            ) from exc
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    return {
+        "rvec": np.array(data["rvec"], dtype=float),
+        "tvec": np.array(data["tvec"], dtype=float),
+        "convention": data.get("convention"),
+    }
+
+
+def _nearest_index(values: np.ndarray, target: float) -> int:
+    return int(np.argmin(np.abs(np.asarray(values, dtype=float) - float(target))))
+
+
+def _resolve_camera_frame(
+    ods: Any,
+    *,
+    channel: int,
+    detector: int,
+    frame_index: int | None,
+    frame_time: float | None,
+) -> tuple[int, float, tuple[int, ...]]:
+    """Resolve a camera_visible frame index/time by explicit index or nearest time."""
+    frame_prefix = f"camera_visible.channel.{channel}.detector.{detector}.frame"
+    n_frames = len(ods[frame_prefix])
+    frame_times = np.asarray(
+        [float(ods[f"{frame_prefix}.{i}.time"]) for i in range(n_frames)], dtype=float
+    )
+    if frame_index is not None and frame_time is not None:
+        raise ValueError("Specify at most one of frame_index or frame_time.")
+    if frame_index is not None:
+        resolved_frame_index = int(frame_index)
+    elif frame_time is not None:
+        resolved_frame_index = _nearest_index(frame_times, frame_time)
+    else:
+        resolved_frame_index = 0
+    resolved_frame_time = float(frame_times[resolved_frame_index])
+    image_shape = np.asarray(ods[f"{frame_prefix}.{resolved_frame_index}.image_raw"]).shape
+    return resolved_frame_index, resolved_frame_time, image_shape
+
+
+def _resolve_equilibrium_time_slice(ods: Any, time: float) -> tuple[int, float, Any]:
+    """Resolve the equilibrium time slice nearest to ``time``."""
+    equilibrium_times = np.asarray(ods["equilibrium.time"], dtype=float)
+    equilibrium_time_index = _nearest_index(equilibrium_times, time)
+    equilibrium_time = float(equilibrium_times[equilibrium_time_index])
+    time_slice = ods[f"equilibrium.time_slice.{equilibrium_time_index}"]
+    return equilibrium_time_index, equilibrium_time, time_slice
+
+
+def compute_camera_visible_efit_overlay(
+    ods: Any,
+    shot: int,
+    *,
+    channel: int = 0,
+    detector: int = 0,
+    frame_index: int | None = None,
+    frame_time: float | None = None,
+    theta_deg_range: tuple[float, float] = (-90.0, 90.0),
+    n_theta: int = 181,
+    flux_surface_levels: tuple[float, ...] = _DEFAULT_FLUX_SURFACE_LEVELS,
+    pose_path: str | Path | None = None,
+    intrinsics_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Project equilibrium/wall geometry into FAST-camera pixel space for one frame.
+
+    Reads ``camera_visible`` (frame selection), ``equilibrium`` (LCFS, magnetic
+    axis, psi grid, nearest time slice), and ``wall`` (limiter outline) from
+    ``ods``; forward-projects each through the calibrated pinhole camera model
+    for ``shot`` (see :mod:`vaft.process.camera_geometry`). Nothing is written
+    back into ``ods`` -- this returns plain arrays only.
+
+    Select the camera frame by ``frame_index`` or nearest ``frame_time``
+    (defaults to the first frame if neither is given). Flux surfaces are
+    derived from the equilibrium's 2D psi grid at the requested normalized-psi
+    ``flux_surface_levels`` (not the LCFS-only ``boundary.outline``, which is
+    used directly as the LCFS overlay).
+    """
+    intrinsics = _load_camera_intrinsics(intrinsics_path)
+    pose = _load_camera_pose(shot, pose_path)
+    camera_matrix = intrinsics["camera_matrix"]
+    dist_coeffs = intrinsics["dist_coeffs"]
+    rvec = pose["rvec"]
+    tvec = pose["tvec"]
+
+    resolved_frame_index, resolved_frame_time, image_shape = _resolve_camera_frame(
+        ods, channel=channel, detector=detector, frame_index=frame_index, frame_time=frame_time
+    )
+    equilibrium_time_index, equilibrium_time, time_slice = _resolve_equilibrium_time_slice(
+        ods, resolved_frame_time
+    )
+
+    theta_rad = np.deg2rad(np.linspace(theta_deg_range[0], theta_deg_range[1], n_theta))
+
+    def _project_rz(r_m: np.ndarray, z_m: np.ndarray) -> np.ndarray:
+        world_cm = sweep_toroidal(r_m, z_m, theta_rad)
+        pixel_uv, valid_mask = project_points(world_cm, rvec, tvec, camera_matrix, dist_coeffs)
+        return pixel_uv[valid_mask]
+
+    wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+    wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    wall_uv = _project_rz(wall_r, wall_z)
+
+    lcfs_r = np.asarray(time_slice["boundary.outline.r"], dtype=float)
+    lcfs_z = np.asarray(time_slice["boundary.outline.z"], dtype=float)
+    lcfs_uv = _project_rz(lcfs_r, lcfs_z)
+
+    mag_r = float(time_slice["global_quantities.magnetic_axis.r"])
+    mag_z = float(time_slice["global_quantities.magnetic_axis.z"])
+    mag_axis_world_cm = toroidal_ring(mag_r, mag_z, theta_rad)
+    mag_axis_uv_all, mag_axis_valid = project_points(
+        mag_axis_world_cm, rvec, tvec, camera_matrix, dist_coeffs
+    )
+    magnetic_axis_uv = mag_axis_uv_all[mag_axis_valid]
+
+    flux_surfaces_uv: dict[float, np.ndarray] = {}
+    if flux_surface_levels:
+        R_grid = np.asarray(time_slice["profiles_2d.0.grid.dim1"], dtype=float)
+        Z_grid = np.asarray(time_slice["profiles_2d.0.grid.dim2"], dtype=float)
+        psi_grid = _read_psi_grid(time_slice, R_grid, Z_grid)
+        psi_axis = float(time_slice["global_quantities.psi_axis"])
+        psi_boundary = float(time_slice["global_quantities.psi_boundary"])
+        contours = extract_flux_surface_contours(
+            psi_grid, R_grid, Z_grid, psi_axis, psi_boundary, flux_surface_levels
+        )
+        for level, segments in contours.items():
+            projected_segments = [_project_rz(r_pts, z_pts) for r_pts, z_pts in segments]
+            projected_segments = [seg for seg in projected_segments if seg.size > 0]
+            flux_surfaces_uv[level] = (
+                np.concatenate(projected_segments, axis=0)
+                if projected_segments
+                else np.empty((0, 2))
+            )
+
+    return {
+        "frame_index": resolved_frame_index,
+        "frame_time": resolved_frame_time,
+        "equilibrium_time_index": equilibrium_time_index,
+        "equilibrium_time": equilibrium_time,
+        "image_shape": image_shape,
+        "wall_uv": wall_uv,
+        "lcfs_uv": lcfs_uv,
+        "magnetic_axis_uv": magnetic_axis_uv,
+        "flux_surfaces_uv": flux_surfaces_uv,
+    }
+
+
+# =====================================================================
+
+# Magnetic field-line tracing from an equilibrium time slice, and its
+# projection onto FAST-camera pixel space. Read-only, like the EFIT overlay
+# above: computes and returns arrays, never writes back into ods.
+# =====================================================================
+
+
+
+def _read_psi_grid(time_slice: Any, R_grid: np.ndarray, Z_grid: np.ndarray) -> np.ndarray:
+    """Read ``profiles_2d.0.psi``, asserting the ``(len(R), len(Z))`` orientation.
+
+    ``vaft.data.eqdsk.to_omas`` (the only writer this pipeline uses) reliably
+    stores this as ``(nw, nh) = (R.size, Z.size)`` -- see its
+    ``prof2d["psi"] = PSIRZ.reshape(nw, nh)``. A shape-equality guess at
+    whether to transpose is genuinely ambiguous for a square grid (EFIT's
+    common 129x129/65x65 default), and silently transposing a
+    correctly-oriented square array corrupts it without raising: verified
+    against this exact 129x129 grid, psi_N at the magnetic axis reads
+    ~0.0000 untransposed vs. 1.49 (badly wrong) if transposed. Raise instead
+    of guessing.
+    """
+    psi_grid = np.asarray(time_slice["profiles_2d.0.psi"], dtype=float)
+    expected_shape = (R_grid.size, Z_grid.size)
+    if psi_grid.shape != expected_shape:
+        raise ValueError(
+            f"profiles_2d.0.psi has shape {psi_grid.shape}, expected {expected_shape} "
+            "= (len(grid.dim1), len(grid.dim2)) per vaft.data.eqdsk.to_omas's convention."
+        )
+    return psi_grid
+
+
+def _equilibrium_field_slice_data(time_slice: Any) -> dict[str, np.ndarray]:
+    """Read psi grid + F(psi) profile data needed to build a field interpolator."""
+    R_grid = np.asarray(time_slice["profiles_2d.0.grid.dim1"], dtype=float)
+    Z_grid = np.asarray(time_slice["profiles_2d.0.grid.dim2"], dtype=float)
+    psi_grid = _read_psi_grid(time_slice, R_grid, Z_grid)
+    return {
+        "psi_grid": psi_grid,
+        "R_grid": R_grid,
+        "Z_grid": Z_grid,
+        "psi_1d": np.asarray(time_slice["profiles_1d.psi"], dtype=float),
+        "f_1d": np.asarray(time_slice["profiles_1d.f"], dtype=float),
+    }
+
+
+def compute_field_line_trace(
+    ods: Any,
+    *,
+    r0: float,
+    z0: float,
+    phi0: float = 0.0,
+    time: float | None = None,
+    time_index: int | None = None,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 50.0,
+    direction: str = "forward",
+    use_wall_boundary: bool = True,
+) -> dict[str, Any]:
+    """Trace a magnetic field line from ``(r0, z0, phi0)`` using an equilibrium time slice.
+
+    Reads the psi grid and ``F(psi) = R*B_phi`` profile from
+    ``ods['equilibrium.time_slice.N']`` (nearest to ``time``, or ``time_index``
+    directly, or the first slice if neither is given) and integrates
+    ``dR/dphi = R*B_R/B_phi``, ``dZ/dphi = R*B_Z/B_phi`` with fixed-step RK4
+    (see :func:`vaft.process.equilibrium.trace_field_line` for the full
+    integration/termination contract). If ``use_wall_boundary`` and
+    ``ods['wall...outline']`` is present, the trace also terminates on
+    leaving the limiter polygon. Returns plain arrays; nothing is written
+    back into ``ods``.
+    """
+    if time_index is not None and time is not None:
+        raise ValueError("Specify at most one of time_index or time.")
+    if time_index is not None:
+        equilibrium_time_index = int(time_index)
+        equilibrium_time = float(ods["equilibrium.time"][equilibrium_time_index])
+        time_slice = ods[f"equilibrium.time_slice.{equilibrium_time_index}"]
+    elif time is not None:
+        equilibrium_time_index, equilibrium_time, time_slice = _resolve_equilibrium_time_slice(ods, time)
+    else:
+        equilibrium_time_index, equilibrium_time, time_slice = _resolve_equilibrium_time_slice(
+            ods, float(ods["equilibrium.time"][0])
+        )
+
+    field_data = _equilibrium_field_slice_data(time_slice)
+    b_field = make_equilibrium_field_interpolator(
+        field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
+        field_data["psi_1d"], field_data["f_1d"],
+    )
+
+    wall_r = wall_z = None
+    if use_wall_boundary:
+        try:
+            wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+            wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+        except Exception:
+            wall_r = wall_z = None
+
+    r_bounds = (float(field_data["R_grid"].min()), float(field_data["R_grid"].max()))
+    z_bounds = (float(field_data["Z_grid"].min()), float(field_data["Z_grid"].max()))
+
+    trace = trace_field_line(
+        r0, z0, phi0, b_field,
+        dphi=np.deg2rad(dphi_deg),
+        max_length_m=max_length_m,
+        direction=direction,
+        wall_r=wall_r, wall_z=wall_z,
+        r_bounds=r_bounds, z_bounds=z_bounds,
+    )
+
+    return {
+        "equilibrium_time_index": equilibrium_time_index,
+        "equilibrium_time": equilibrium_time,
+        "start_point": {"r0": float(r0), "z0": float(z0), "phi0": float(phi0)},
+        "dphi_deg": float(dphi_deg),
+        "max_length_m": float(max_length_m),
+        "direction": direction,
+        **trace,
+    }
+
+
+def compute_camera_visible_field_line_overlay(
+    ods: Any,
+    shot: int,
+    *,
+    r0: float,
+    z0: float,
+    phi0: float = 0.0,
+    channel: int = 0,
+    detector: int = 0,
+    frame_index: int | None = None,
+    frame_time: float | None = None,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 50.0,
+    direction: str = "forward",
+    use_wall_boundary: bool = True,
+    pose_path: str | Path | None = None,
+    intrinsics_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Project a traced magnetic field line into FAST-camera pixel space for one frame.
+
+    Combines :func:`compute_field_line_trace` (equilibrium time slice nearest
+    the resolved camera frame's time) with the calibrated pinhole projection
+    used by :func:`compute_camera_visible_efit_overlay`. Nothing is written
+    back into ``ods``.
+    """
+    intrinsics = _load_camera_intrinsics(intrinsics_path)
+    pose = _load_camera_pose(shot, pose_path)
+
+    resolved_frame_index, resolved_frame_time, image_shape = _resolve_camera_frame(
+        ods, channel=channel, detector=detector, frame_index=frame_index, frame_time=frame_time
+    )
+
+    trace = compute_field_line_trace(
+        ods, r0=r0, z0=z0, phi0=phi0, time=resolved_frame_time,
+        dphi_deg=dphi_deg, max_length_m=max_length_m, direction=direction,
+        use_wall_boundary=use_wall_boundary,
+    )
+
+    world_cm = trajectory_world_points(trace["R"], trace["Z"], trace["phi"])
+    pixel_uv, valid_mask = project_points(
+        world_cm, pose["rvec"], pose["tvec"], intrinsics["camera_matrix"], intrinsics["dist_coeffs"]
+    )
+    # Compacting with pixel_uv[valid_mask] would discard invalid samples'
+    # positions in the trajectory, so a renderer drawing the remaining points
+    # as one connected polyline would join two visible runs across a gap
+    # (behind the camera / outside the distortion guard) with a fabricated
+    # straight segment. Keep the full-length array and mark invalid samples
+    # as NaN instead -- matplotlib breaks a plotted line at NaN, so the
+    # discontinuity is preserved without any renderer-side changes.
+    field_line_uv = pixel_uv.copy()
+    field_line_uv[~valid_mask] = np.nan
+
+    return {
+        "frame_index": resolved_frame_index,
+        "frame_time": resolved_frame_time,
+        "equilibrium_time_index": trace["equilibrium_time_index"],
+        "equilibrium_time": trace["equilibrium_time"],
+        "image_shape": image_shape,
+        "field_line_uv": field_line_uv,
+        "field_line_valid": valid_mask,
+        "trace": trace,
+    }
 
 
 def _point_label(rz, index: int) -> str:
