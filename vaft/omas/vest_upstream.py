@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import asdict, dataclass
+from datetime import datetime
 import gzip
 import hashlib
 import json
@@ -100,11 +101,30 @@ def _disabled_pf_coils() -> list[str]:
     return [f"PF{index}" for index in range(1, PF_COIL_COUNT + 1) if index not in active]
 
 
-def _archived_field_codes(path: Path) -> set[int]:
+def _read_raw_payload(path: Path) -> dict[str, Any]:
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    return {int(code) for code in payload.get("fields", {})}
+        return json.load(handle)
+
+
+def _archived_field_codes(path: Path) -> set[int]:
+    return {int(code) for code in _read_raw_payload(path).get("fields", {})}
+
+
+def _archived_pulse_datetime(path: Path) -> datetime | None:
+    """The raw dump's own SQL-sourced pulse_datetime, if it carries one.
+
+    Populated by `vaft.database.raw.dump_all_raw_signals_for_shot` from the
+    authoritative `shot` table (or carried forward from an archive) -- absent
+    for older dumps written before that field existed, which is not an error.
+    """
+    raw_value = _read_raw_payload(path).get("pulse_datetime")
+    if not isinstance(raw_value, str):
+        return None
+    try:
+        return datetime.fromisoformat(raw_value)
+    except ValueError:
+        return None
 
 
 def _write_raw_payload(path: Path, payload: dict[str, Any]) -> None:
@@ -238,6 +258,7 @@ def build_diagnostics_ods(
             "machine": "VEST",
             "user": "vaft",
             "description": f"VEST diagnostics; machine era {era.name}",
+            "pulse_datetime": _archived_pulse_datetime(raw_path),
         },
     )
     statuses: dict[str, Any] = {}

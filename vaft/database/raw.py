@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import time
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
 
@@ -274,12 +275,6 @@ def _archive_payload(shot: int, sample_path: str) -> dict:
     return payload
 
 
-def _archive_field_codes(shot: int, sample_path: str) -> list[int]:
-    """Return the field codes an archived raw dump actually carries."""
-    payload = _archive_payload(shot, sample_path)
-    return sorted(int(code) for code in payload["fields"])
-
-
 def _require_mysql() -> None:
     if mysql_connector is None:
         raise ImportError("mysql-connector-python is required for SQL loading")
@@ -459,6 +454,12 @@ def _load_from_sample_file(
 
             raw_data = entry.get("data", [])
             if not raw_data:
+                # A field present in an archive with no samples is distinct
+                # from a missing field.  Preserve it for single-field callers
+                # (notably the dump re-exporter) so it can be recorded as an
+                # empty, flagged channel instead of disappearing silently.
+                if len(fields) == 1:
+                    return np.array([], dtype=float), np.array([], dtype=float)
                 logger.warning(f"No data array for field {fld}. Skipping...")
                 continue
 
@@ -853,6 +854,78 @@ def plot(
     return render_line_series(model, ax=ax, show=show, figsize=(8.0, 4.0))
 
 
+def _parse_date_boundary(value: str | date) -> date:
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def list_shots(
+    *,
+    shot_min: int | None = None,
+    shot_max: int | None = None,
+    start_date: str | date | None = None,
+    end_date: str | date | None = None,
+) -> list[tuple[int, datetime]]:
+    """Return ``(shotNumber, recordDateTime)`` pairs from the SQL ``shot`` table.
+
+    Queries the authoritative SQL ``shot`` table directly -- no HSDS/FileDB
+    scan and no waveform payload is touched. Every filter is optional and
+    combinable:
+
+    - ``shot_min``/``shot_max`` restrict by shot-number range (inclusive);
+    - ``start_date``/``end_date`` restrict by calendar date (``YYYY-MM-DD``
+      strings or :class:`datetime.date`), inclusive on both ends -- a single
+      exact-date query is just ``start_date == end_date``;
+    - shot-number and date filters combine as an intersection when both are
+      given.
+
+    Results are ordered ascending by shot number, which for VEST is also
+    ascending acquisition time. An empty result set is a normal outcome, not
+    a database failure, and returns ``[]``.
+    """
+    global DB_POOL
+    if DB_POOL is None:
+        logger.info("DB_POOL not initialized. Initializing automatically...")
+        init_pool()
+
+    clauses: list[str] = []
+    params: list[Any] = []
+    if shot_min is not None:
+        clauses.append("shotNumber >= %s")
+        params.append(int(shot_min))
+    if shot_max is not None:
+        clauses.append("shotNumber <= %s")
+        params.append(int(shot_max))
+    if start_date is not None:
+        clauses.append("recordDateTime >= %s")
+        params.append(datetime.combine(_parse_date_boundary(start_date), datetime.min.time()))
+    if end_date is not None:
+        # Inclusive end_date -> exclusive upper bound at the start of the next day,
+        # so an index on recordDateTime is usable and DST/rounding edge cases in
+        # the last microsecond of the day are never a boundary concern.
+        clauses.append("recordDateTime < %s")
+        params.append(
+            datetime.combine(_parse_date_boundary(end_date) + timedelta(days=1), datetime.min.time())
+        )
+
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    query = f"SELECT shotNumber, recordDateTime FROM shot{where} ORDER BY shotNumber ASC"
+
+    conn = DB_POOL.get_connection()
+    try:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
+
+    return [(int(shot_number), record_datetime) for shot_number, record_datetime in rows]
+
+
 def date_from_shot(shot: int) -> tuple:
     """
     Returns (date_str, datetime_obj) for the given shot number from the shot table.
@@ -860,25 +933,11 @@ def date_from_shot(shot: int) -> tuple:
     :param shot: Shot number.
     :return: (date_str in 'YYYY-MM-DD', datetime_obj).
     """
-    global DB_POOL
-    if DB_POOL is None:
-        print("Error: DB_POOL not initialized. run init_pool() first.")
+    results = list_shots(shot_min=shot, shot_max=shot)
+    if not results:
         return None, None
-
-    conn = DB_POOL.get_connection()
-    cursor = conn.cursor()
-    com = f"SELECT recordDateTime FROM shot WHERE shotNumber = {shot}"
-    cursor.execute(com)
-    result = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    if result is None:
-        return None, None
-
-    datetime_obj = result[0]
-    date_str = datetime_obj.strftime("%Y-%m-%d")
-    return date_str, datetime_obj
+    _, datetime_obj = results[0]
+    return datetime_obj.strftime("%Y-%m-%d"), datetime_obj
 
 def shots_from_date(date_str: str) -> list:
     """
@@ -887,25 +946,8 @@ def shots_from_date(date_str: str) -> list:
     :param date_str: e.g. '2023-06-01'
     :return: list of shot numbers
     """
-    global DB_POOL
-    if DB_POOL is None:
-        print("Error: DB_POOL not initialized. run init_pool() first.")
-        return []
-
-    conn = DB_POOL.get_connection()
-    cursor = conn.cursor()
-    com = (
-        "SELECT DISTINCT shotNumber FROM shot "
-        f"WHERE DATE(recordDateTime) = '{date_str}'"
-    )
-    cursor.execute(com)
-    results = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    if results:
-        return [int(x[0]) for x in results]
-    return []
+    results = list_shots(start_date=date_str, end_date=date_str)
+    return [shot_number for shot_number, _ in results]
 
 def last_shot() -> int:
     """
@@ -990,6 +1032,26 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     print("Error: Could not retrieve field codes after max_retries.")
     return None
 
+def _flagged_field_quality(data: np.ndarray) -> str | None:
+    """Return a quality flag for a field's data, or ``None`` if it looks real.
+
+    ``"empty"``: no samples at all. ``"all_nan"``: every sample is NaN/inf.
+    ``"all_zero"``: every finite sample is exactly zero -- a flatlined/dead
+    channel, not a genuinely quiet signal (a real signal crossing zero still
+    has nonzero samples elsewhere). ``None`` means the data is not flagged;
+    the field is not marked at all in that case, rather than recording an
+    "ok" entry for every one of the (typically 100+) fields in a dump.
+    """
+    if data.size == 0:
+        return "empty"
+    finite = data[np.isfinite(data)]
+    if finite.size == 0:
+        return "all_nan"
+    if np.all(finite == 0.0):
+        return "all_zero"
+    return None
+
+
 def dump_all_raw_signals_for_shot(
     shot: int,
     output_path: str = None,
@@ -1024,10 +1086,31 @@ def dump_all_raw_signals_for_shot(
 
     # 1) Retrieve field codes, from the archive when one is given
     sample_path = _resolve_sample_path(shot, sample_opt)
+    pulse_datetime: str | None = None
+    archived_field_types: dict[str, str] = {}
     if sample_path is not None:
-        field_codes = _archive_field_codes(shot, sample_path)
+        archive_payload = _archive_payload(shot, sample_path)
+        field_codes = sorted(int(code) for code in archive_payload["fields"])
+        archived_field_types = {
+            str(code): entry.get("type")
+            for code, entry in archive_payload["fields"].items()
+            if isinstance(entry, dict) and entry.get("type") in {"fast", "slow"}
+        }
+        # Carry the source archive's own pulse_datetime forward as-is (it was
+        # already an ISO 8601 string from a prior SQL-backed dump); no new SQL
+        # call is made in archive mode, matching every other field here.
+        archived_pulse_datetime = archive_payload.get("pulse_datetime")
+        if isinstance(archived_pulse_datetime, str):
+            pulse_datetime = archived_pulse_datetime
     else:
         field_codes = get_all_field_codes_for_shot(shot, max_retries=max_retries)
+        try:
+            _, pulse_datetime_obj = date_from_shot(shot)
+        except Exception as e:
+            print(f"[store_shot_as_json] Could not resolve pulse_datetime for shot {shot}: {e}")
+        else:
+            if pulse_datetime_obj is not None:
+                pulse_datetime = pulse_datetime_obj.isoformat()
     if not field_codes:
         print(f"[store_shot_as_json] No valid field codes for shot {shot}")
         return False
@@ -1037,14 +1120,17 @@ def dump_all_raw_signals_for_shot(
         "shot": shot,
         "fields": {}
     }
+    if pulse_datetime is not None:
+        shot_data["pulse_datetime"] = pulse_datetime
 
     # Collect one panel model per field when plotting is requested; rendering
     # happens once at the end through vaft.plot (issue #63).
     panel_models: list = []
+    flagged_fields: dict[str, str] = {}
 
     for fcode in field_codes:
         try:
-            time, data = load_raw(
+            loaded = load_raw(
                 shot, fcode,
                 max_retries=max_retries,
                 daq_type=daq_type,
@@ -1054,26 +1140,43 @@ def dump_all_raw_signals_for_shot(
             print(f"[store_shot_as_json] load_raw failed for field {fcode}: {e}")
             continue
 
-        if len(time) < 2:
-            print(f"[store_shot_as_json] insufficient time points for field {fcode}")
+        if loaded is None:
+            print(f"[store_shot_as_json] no data loaded for field {fcode}")
             continue
 
-        # Classify as fast/slow based on sampling interval
-        is_slow = (time[1] - time[0]) >= slow_dt_threshold
-        daq_label = "slow" if is_slow else "fast"
+        time, data = loaded
+        data = np.asarray(data, dtype=float).reshape(-1)
+
+        if len(time) < 2:
+            # A DAQ cadence cannot be inferred without two timestamps.  An
+            # archive already carries its original label; for SQL data retain
+            # the field faithfully and make that uncertainty explicit.
+            daq_label = archived_field_types.get(str(fcode), "unknown")
+            print(f"[store_shot_as_json] insufficient time points for field {fcode}")
+        else:
+            # Classify as fast/slow based on sampling interval
+            is_slow = (time[1] - time[0]) >= slow_dt_threshold
+            daq_label = "slow" if is_slow else "fast"
 
         shot_data["fields"][str(fcode)] = {
             "type": daq_label,
             "data": data.tolist()
         }
+        quality_flag = _flagged_field_quality(data)
+        if quality_flag is not None:
+            flagged_fields[str(fcode)] = quality_flag
+            print(f"[store_shot_as_json] field {fcode} flagged: {quality_flag}")
 
         # Collect the signal as a panel model if plot_opt is True
-        if plot_opt == 1:
+        if plot_opt == 1 and len(time) >= 2:
             panel_models.append(_field_panel(fcode, time, data))
 
     if not shot_data["fields"]:
         print(f"[store_shot_as_json] No data loaded for shot {shot}")
         return False
+
+    if flagged_fields:
+        shot_data["field_quality"] = flagged_fields
 
     # Render and save all panels if plot_opt is True
     if plot_opt == 1 and panel_models:
