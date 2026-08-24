@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import numpy as np
 from omas import ODS
@@ -427,6 +427,90 @@ def build_eddy_ods(
             for r, z, fraction in zip(filament_r, filament_z, filament_fraction)
         ],
         "dt_sub": float(dt_sub),
+    }
+    return ods, manifest
+
+
+def build_mhd_linear_ods(
+    *,
+    shot: int,
+    time_values: Sequence[int | str],
+    workdir: str | Path,
+    modules: Sequence[str] = ("dcon", "rdcon", "stride"),
+    modes: Sequence[int] = (1, 2),
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the ``mhd_linear`` IDS from a completed GPEC-suite run directory.
+
+    ``time_values`` is the shot's set of refined-gfile time labels (whatever
+    ``GPECCaseInputs.time_ms`` was for each ``run_gpec_suite_case`` call, in
+    milliseconds) -- one ``mhd_linear.time_slice`` entry is built per value,
+    in order. Reads DCON/RDCON/STRIDE ``.nc`` output already written by
+    :func:`vaft.code.gpec.run_gpec_suite_case` under
+    ``{workdir}/{time_label}/{module}/nn={mode}/`` -- computed via the same
+    helper the adapter itself uses (:mod:`vaft.code.gpec._runtime`) so this
+    never re-derives, and risks diverging from, that directory grammar.
+
+    A missing or unparseable ``(time, module, mode)`` cell is recorded in the
+    manifest's ``modules_modes`` breakdown rather than aborting the whole
+    build -- one failed RDCON case should not prevent DCON's results from
+    being captured.
+    """
+    from vaft.code.gpec import _runtime as gpec_runtime
+    from vaft.machine_mapping.mhd_linear import mhd_linear as mhd_linear_mapper
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST linear MHD stability (DCON/RDCON/STRIDE); machine era {era.name}",
+        },
+    )
+
+    ods["mhd_linear"]["ids_properties"]["homogeneous_time"] = 1
+    ods["mhd_linear"]["time"] = [float(t) / 1000.0 for t in time_values]
+
+    modules_modes: dict[str, Any] = {}
+    inputs_hashes: dict[str, str] = {}
+    workdir_path = Path(workdir)
+    for time_slice, time_ms in enumerate(time_values):
+        for module in modules:
+            for mode in modes:
+                key = f"t={time_ms}/{module}/n={mode}"
+                run_dir = gpec_runtime.module_dir(workdir_path, time_ms, module, mode)
+                if not run_dir.is_dir():
+                    modules_modes[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
+                    continue
+                try:
+                    extras = mhd_linear_mapper(ods, str(run_dir), {"time_slice": time_slice, "module": module})
+                except Exception as exc:
+                    modules_modes[key] = {"status": "failed", "reason": str(exc)}
+                    continue
+                if not extras:
+                    modules_modes[key] = {"status": "no_output", "reason": "no matching .nc output found"}
+                    continue
+                modules_modes[key] = {"status": "success", "modes": extras}
+                for nc_path in sorted(run_dir.glob("*.nc")):
+                    inputs_hashes[f"{key}/{nc_path.name}"] = sha256_file(nc_path)
+
+    status = "success" if any(cell["status"] == "success" for cell in modules_modes.values()) else "empty"
+    manifest = {
+        "schema_version": 1,
+        "stage": "mhd_linear",
+        "shot": shot,
+        "time_values": list(time_values),
+        "machine_version": era.name,
+        "status": status,
+        "input": inputs_hashes,
+        "modules_modes": modules_modes,
     }
     return ods, manifest
 

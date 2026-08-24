@@ -15,6 +15,7 @@ from vaft.omas.vest_upstream import (
     archive_raw_source,
     build_diagnostics_ods,
     build_eddy_ods,
+    build_mhd_linear_ods,
     build_static_ods,
     machine_era_for_shot,
     write_stage_product,
@@ -382,6 +383,102 @@ def test_stage_writer_is_byte_deterministic(tmp_path):
         )
         outputs.append(output.read_bytes())
     assert outputs[0] == outputs[1]
+
+
+def _write_gpec_output(workdir, module, mode, *, time_label="00319", **variables):
+    import xarray as xr
+
+    run_dir = workdir / time_label / module / f"nn={mode}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{module}_output_n{mode}.nc"
+    if module == "dcon":
+        ds = xr.Dataset(
+            {"W_t_eigenvalue": (("i", "mode"), [[variables["w_t"]]])},
+            coords={"i": [0], "mode": [1]},
+        )
+    else:
+        ds = xr.Dataset({"Delta_prime": (("a", "b", "c"), [[[variables["delta_prime"]]]])})
+    ds.to_netcdf(run_dir / filename)
+    return run_dir
+
+
+def test_build_mhd_linear_ods_reuses_the_adapters_directory_layout_and_round_trips(tmp_path):
+    workdir = tmp_path / "gpec"
+    _write_gpec_output(workdir, "dcon", 1, w_t=-0.42)
+    _write_gpec_output(workdir, "rdcon", 1, delta_prime=1.23)
+    # STRIDE mode 1 deliberately left unrun -- exercises the "missing" cell.
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00319"],
+        workdir=workdir,
+        modules=("dcon", "rdcon", "stride"),
+        modes=(1,),
+    )
+
+    assert ods["mhd_linear.ids_properties.homogeneous_time"] == 1
+    assert ods["mhd_linear.time"] == pytest.approx([0.319])
+    modes = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"]
+    assert len(modes) == 2
+    assert {mode["n_tor"] for mode in modes.values()} == {1}
+
+    assert manifest["status"] == "success"
+    assert manifest["modules_modes"]["t=00319/dcon/n=1"]["status"] == "success"
+    assert manifest["modules_modes"]["t=00319/rdcon/n=1"]["status"] == "success"
+    assert manifest["modules_modes"]["t=00319/stride/n=1"]["status"] == "missing"
+    assert manifest["input"]  # at least one .nc file hashed
+
+    output = tmp_path / "mhd_linear.json"
+    metadata = tmp_path / "mhd_linear_manifest.json"
+    write_stage_product(ods, manifest, output=output, metadata=metadata)
+    reloaded, _ = load_ods(output)
+    assert len(reloaded["mhd_linear"]["time_slice"][0]["toroidal_mode"]) == 2
+
+
+def test_build_mhd_linear_ods_covers_multiple_refined_time_slices(tmp_path):
+    workdir = tmp_path / "gpec"
+    _write_gpec_output(workdir, "dcon", 1, time_label="00300", w_t=-0.1)
+    _write_gpec_output(workdir, "dcon", 1, time_label="00320", w_t=-0.2)
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00300", "00320"],
+        workdir=workdir,
+        modules=("dcon",),
+        modes=(1,),
+    )
+
+    assert ods["mhd_linear.time"] == pytest.approx([0.300, 0.320])
+    assert len(ods["mhd_linear"]["time_slice"]) == 2
+    assert ods["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]["energy_perturbed"] == pytest.approx(-0.1)
+    assert ods["mhd_linear"]["time_slice"][1]["toroidal_mode"][0]["energy_perturbed"] == pytest.approx(-0.2)
+    assert manifest["modules_modes"]["t=00300/dcon/n=1"]["status"] == "success"
+    assert manifest["modules_modes"]["t=00320/dcon/n=1"]["status"] == "success"
+
+
+def test_build_mhd_linear_ods_does_not_construct_a_gpec_case_inputs(tmp_path, monkeypatch):
+    """`build_mhd_linear_ods` used to fabricate a `GPECCaseInputs` with a fake
+    `geqdsk=Path("unused")` just to call `module_dir`. It must resolve run
+    directories directly from `workdir`/`time_ms` instead."""
+    import vaft.code.gpec as gpec_pkg
+
+    workdir = tmp_path / "gpec"
+    _write_gpec_output(workdir, "dcon", 1, w_t=-0.42)
+
+    def _fail_if_constructed(*args, **kwargs):
+        raise AssertionError("build_mhd_linear_ods must not construct GPECCaseInputs")
+
+    monkeypatch.setattr(gpec_pkg, "GPECCaseInputs", _fail_if_constructed)
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00319"],
+        workdir=workdir,
+        modules=("dcon",),
+        modes=(1,),
+    )
+
+    assert manifest["modules_modes"]["t=00319/dcon/n=1"]["status"] == "success"
 
 
 def test_pf_current_processing_matches_the_reference_filter(tmp_path):

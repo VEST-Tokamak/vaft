@@ -50,6 +50,35 @@ def test_every_artifact_class_is_supported_without_materialization(tmp_path, art
     assert not path.exists()
 
 
+@pytest.mark.parametrize("code", list(GPECCode))
+@pytest.mark.parametrize("mode", [1, 2, 6])
+@pytest.mark.parametrize(
+    "artifact",
+    ["input", "output", "log", "plot", "config", "work", "metadata"],
+)
+def test_gpec_supports_every_code_mode_and_artifact_class_without_materialization(
+    tmp_path, code, mode, artifact
+):
+    """DCON/RDCON/STRIDE need distinct modes per code (unlike legacy's shared
+    scan list) and the full artifact-class set to store input namelists,
+    solver output, logs, and run metadata for each (code, mode) cell."""
+    db = FileDB(tmp_path / "FileDB")
+    root = tmp_path / "FileDB"
+
+    path = db.gpec(code, 39915, mode, artifact=artifact)
+
+    assert path == root / f"gpec/{code.value}/39915/n={mode}/{artifact}"
+    assert not path.exists()
+
+
+def test_gpec_multiple_modes_of_the_same_code_do_not_collide(tmp_path):
+    db = FileDB(tmp_path / "FileDB")
+
+    paths = {db.gpec(GPECCode.RDCON, 39915, mode) for mode in (1, 2, 3, 4, 5, 6)}
+
+    assert len(paths) == 6
+
+
 def test_enum_arguments_and_same_shot_resolve_without_collisions(tmp_path):
     db = FileDB(tmp_path)
     paths = {
