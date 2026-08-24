@@ -48,7 +48,11 @@ def main() -> int:
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
 
     gfiles = _read_manifest(args.refined_gfile_manifest)
     time_values = [_time_label(gfile) for gfile in gfiles]

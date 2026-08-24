@@ -52,7 +52,11 @@ def main() -> int:
     parser.add_argument("--timeout", default="", help="Optional EFIT timeout in seconds.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     if not args.kfile_manifest.exists():
         raise FileNotFoundError(f"Kfile manifest not found: {args.kfile_manifest}")
 

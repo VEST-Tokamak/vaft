@@ -86,7 +86,11 @@ def main() -> int:
     parser.add_argument("--nffprime", default=2, type=int, help="EFIT KFFCUR value.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     if _bool(args.detect_broken):
         LOGGER.warning("Automatic broken-channel detection is not enabled in the offline VAFT workflow; using --broken only.")
     ods = load_omas_json(str(args.eddy_ods), consistency_check=False)

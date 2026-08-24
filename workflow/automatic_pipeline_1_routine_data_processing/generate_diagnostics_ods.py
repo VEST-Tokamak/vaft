@@ -39,7 +39,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     LOGGER.info("Generating diagnostics ODS for shot %s from %s", args.shot, args.raw_dump)
     ods, manifest = build_diagnostics_ods(
         shot=args.shot,

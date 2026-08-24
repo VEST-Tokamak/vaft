@@ -39,7 +39,11 @@ def main() -> int:
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     status_text = args.status.read_text(encoding="utf-8").strip() if args.status.exists() else "unknown"
     gfiles = _read_manifest(args.refined_gfile_manifest)
 

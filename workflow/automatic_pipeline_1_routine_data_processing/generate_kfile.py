@@ -45,8 +45,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
     ods = load_omas_json(str(args.constraints_ods), consistency_check=False)
 

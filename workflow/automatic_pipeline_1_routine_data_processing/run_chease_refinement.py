@@ -66,7 +66,11 @@ def main() -> int:
     parser.add_argument("--create-plot", default="true", help="Create comparison plots for refined gfiles.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     gfiles = _read_manifest(args.gfile_manifest)
     output_dir = args.output.parent
     work_root = output_dir / "work"
