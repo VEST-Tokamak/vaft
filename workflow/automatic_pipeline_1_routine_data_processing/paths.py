@@ -19,18 +19,33 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vaft.database.filedb import FileDB
+from vaft.database.filedb import FileDB, GPECCode
 
 
 SHOT_FIRST = "shot_first"
 FILEDB = "filedb"
 LAYOUTS = (SHOT_FIRST, FILEDB)
 
+# `vaft.code.gpec`'s module key for ideal-GPEC is the literal executable name
+# "gpec"; FileDB's `GPECCode` enum spells the same code "ideal-gpec" to keep
+# it unambiguous next to "gpec" the whole-suite package. Translated here, at
+# the workflow-script boundary, rather than renaming either side.
+_GPEC_CODE_ALIASES = {"gpec": GPECCode.IDEAL_GPEC}
+
+
+def _gpec_code(code: str):
+    return _GPEC_CODE_ALIASES.get(code, code)
+
 # Substituted back into Snakemake wildcards after a concrete path is resolved.
 # FileDB validates shot numbers and version components, so a wildcard token can
 # not be passed through the resolver directly.
 _SHOT_SENTINEL = 987654321
 _VERSION_SENTINEL = "VESTMACHINEVERSIONSENTINEL"
+_MODE_SENTINEL = 123456789
+# A real, valid `GPECCode` value used purely as a substitution placeholder --
+# unlike shot/version/mode, `FileDB.gpec()` validates its `code` argument
+# against the `GPECCode` enum, so an arbitrary sentinel string is rejected.
+_CODE_SENTINEL = "dcon"
 
 
 # Which FileDB domain owns each stage's log. Stages absent from this map, such
@@ -173,15 +188,45 @@ class PipelinePaths:
         return str(self._filedb.chease(shot, artifact="metadata") / "chease_status.txt")
 
     # -- linear stability ---------------------------------------------------
-    # The FileDB GPEC grammar is `gpec/{code}/{shot}/n={n}/`, but this rule emits
-    # one per-shot aggregate for the whole suite. Splitting it into per-(code,
-    # mode) targets is a later-phase change, so both layouts keep the shot-first
-    # location here rather than inventing a path the resolver would reject.
-    def gpec_manifest(self, shot) -> str:
-        return str(self._shot_dir(shot, "linear_stability") / "gpec_suite_runs.json")
+    # One status/manifest pair per (shot, code, mode): `run_gpec_module`
+    # writes one, retriable independently of every other cell, matching
+    # FileDB's own GPEC grammar (`gpec/{code}/{shot}/n={n}/`) directly.
+    def gpec_module_status(self, shot, code: str, mode: int) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "status.txt")
+        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="metadata") / "status.txt")
 
-    def gpec_status(self, shot) -> str:
-        return str(self._shot_dir(shot, "linear_stability") / "gpec_suite_status.txt")
+    def gpec_module_manifest(self, shot, code: str, mode: int) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "run.json")
+        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="output") / "run.json")
+
+    def gpec_workdir(self, shot) -> str:
+        """Root of the on-disk GPEC-suite run tree for one shot.
+
+        `vaft.code.gpec` lays every module out under one shared root as
+        ``{workdir}/{time_label}/{module}/nn={mode}`` -- module comes *after*
+        the shared root. FileDB's canonical grammar is the opposite order,
+        ``gpec/{code}/{shot}/n={mode}`` -- code comes first, so there is no
+        single shared root under that layout for the adapter's own directory
+        convention to nest under. The run tree itself therefore stays
+        shot-first in both layouts (like `gpec_manifest`/`gpec_status`
+        above); only the lightweight per-(code, mode) status/manifest
+        bookkeeping records use FileDB under `filedb`.
+        """
+        return str(self._shot_dir(shot, "linear_stability"))
+
+    def mhd_linear_ods(self, shot) -> str:
+        # No FileDB `OMASStage` member exists yet for mhd_linear (only
+        # static/diagnostics/eddy/efit/chease), and adding one is a FileDB
+        # schema change this phase does not attempt, so this per-shot product
+        # (folding every configured (code, mode) cell together) stays
+        # shot-first in both layouts, like the gpec_manifest/gpec_status
+        # aggregate above.
+        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+
+    def mhd_linear_manifest(self, shot) -> str:
+        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json")
 
     # -- batch-level and per-shot ancillary ---------------------------------
     def log(self, shot, name: str) -> str:
@@ -228,6 +273,13 @@ class PipelinePaths:
         """Return ``product`` with a ``{machine_version}`` wildcard."""
         resolved = getattr(self, product)(_VERSION_SENTINEL, *args)
         return resolved.replace(_VERSION_SENTINEL, "{machine_version}")
+
+    def gpec_module_pattern(self, product: str) -> str:
+        """Return a ``gpec_module_*`` product with ``{shot}``/``{code}``/``{mode}`` wildcards."""
+        resolved = getattr(self, product)(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL)
+        resolved = resolved.replace(str(_SHOT_SENTINEL), "{shot}")
+        resolved = resolved.replace(_CODE_SENTINEL, "{code}")
+        return resolved.replace(str(_MODE_SENTINEL), "{mode}")
 
 
 __all__ = ["FILEDB", "LAYOUTS", "SHOT_FIRST", "PipelinePaths"]

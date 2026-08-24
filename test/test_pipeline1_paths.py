@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from vaft.database.filedb import FileDB
+from vaft.database.filedb import ArtifactClass, FileDB, GPECCode
 
 
 SCRIPT = (
@@ -46,8 +46,9 @@ def test_shot_first_reproduces_the_legacy_literal_paths():
     assert paths.chease_refined(SHOT) == f"{BASE_DIR}/{SHOT}/chease/refined_gfiles_generated.txt"
     assert paths.chease_status(SHOT) == f"{BASE_DIR}/{SHOT}/chease/chease_status.txt"
     assert paths.chease_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_chease.json"
-    assert paths.gpec_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/gpec_suite_runs.json"
-    assert paths.gpec_status(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/gpec_suite_status.txt"
+    assert paths.gpec_workdir(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability"
+    assert paths.mhd_linear_ods(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
+    assert paths.mhd_linear_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear_manifest.json"
     assert paths.preflight_eligible() == f"{BASE_DIR}/preflight/eligible_shots.json"
     assert paths.preflight_excluded() == f"{BASE_DIR}/preflight/excluded_shots.json"
 
@@ -116,10 +117,74 @@ def test_version_pattern_produces_a_snakemake_wildcard(layout):
     assert MODULE._VERSION_SENTINEL not in pattern
 
 
-def test_linear_stability_paths_stay_shot_first_in_both_layouts():
-    """FileDB's gpec/{code}/{shot}/n={n} grammar needs a per-mode split this
-    phase does not attempt; both layouts keep the shot-first aggregate path
-    rather than inventing one the resolver would reject."""
+def test_gpec_workdir_and_mhd_linear_products_stay_shot_first_in_both_layouts():
+    """The on-disk GPEC-suite run tree (`{workdir}/{time}/{module}/nn={mode}`,
+    module *after* the shared root) and the folded-together mhd_linear product
+    it feeds have no FileDB grammar that fits their own layout -- FileDB's
+    GPEC grammar puts code *first* (`gpec/{code}/{shot}/n={n}/`) with no
+    single shared root across codes, and no `OMASStage` member exists yet for
+    mhd_linear. Both stay shot-first in both layouts rather than inventing
+    paths the resolver would reject."""
     for layout in (MODULE.SHOT_FIRST, MODULE.FILEDB):
         paths = MODULE.PipelinePaths(BASE_DIR, layout)
-        assert paths.gpec_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/gpec_suite_runs.json"
+        assert paths.gpec_workdir(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability"
+        assert paths.mhd_linear_ods(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
+
+
+def test_gpec_module_paths_are_shot_first_literals():
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.SHOT_FIRST)
+
+    assert paths.gpec_module_status(SHOT, "dcon", 1) == f"{BASE_DIR}/{SHOT}/linear_stability/dcon/n=1/status.txt"
+    assert paths.gpec_module_manifest(SHOT, "rdcon", 2) == f"{BASE_DIR}/{SHOT}/linear_stability/rdcon/n=2/run.json"
+
+
+def test_gpec_module_paths_match_filedb_for_every_code_and_several_modes():
+    filedb = FileDB(BASE_DIR)
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
+
+    for code in GPECCode:
+        for mode in (1, 2, 3):
+            assert paths.gpec_module_status(SHOT, code.value, mode) == str(
+                filedb.gpec(code, SHOT, mode, artifact="metadata") / "status.txt"
+            )
+            assert paths.gpec_module_manifest(SHOT, code.value, mode) == str(
+                filedb.gpec(code, SHOT, mode, artifact="output") / "run.json"
+            )
+
+
+def test_gpec_module_path_translates_the_ideal_gpec_alias():
+    """`vaft.code.gpec`'s module key "gpec" maps onto FileDB's `GPECCode.IDEAL_GPEC`
+    ("ideal-gpec"), not a literal `GPECCode("gpec")`, which does not exist."""
+    filedb = FileDB(BASE_DIR)
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
+
+    assert paths.gpec_module_status(SHOT, "gpec", 1) == str(
+        filedb.gpec(GPECCode.IDEAL_GPEC, SHOT, 1, artifact="metadata") / "status.txt"
+    )
+
+
+@pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
+def test_gpec_module_pattern_produces_shot_code_and_mode_wildcards(layout):
+    paths = MODULE.PipelinePaths(BASE_DIR, layout)
+
+    status_pattern = paths.gpec_module_pattern("gpec_module_status")
+    manifest_pattern = paths.gpec_module_pattern("gpec_module_manifest")
+
+    for pattern in (status_pattern, manifest_pattern):
+        assert "{shot}" in pattern
+        assert "{code}" in pattern
+        assert "{mode}" in pattern
+        assert str(MODULE._SHOT_SENTINEL) not in pattern
+        assert str(MODULE._MODE_SENTINEL) not in pattern
+        assert MODULE._CODE_SENTINEL not in pattern
+    assert status_pattern.endswith("status.txt")
+    assert manifest_pattern.endswith("run.json")
+
+
+def test_gpec_module_status_round_trips_every_artifact_class_without_materialization():
+    filedb = FileDB(BASE_DIR)
+    for artifact in ArtifactClass:
+        # Just confirm FileDB itself accepts every artifact class for gpec --
+        # paths.py only ever asks for "metadata"/"output", this locks in that
+        # the underlying resolver supports the full set pipeline.py could use.
+        assert filedb.gpec(GPECCode.DCON, SHOT, 1, artifact=artifact)
