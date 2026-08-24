@@ -14,6 +14,7 @@ include vaft/data/geometry/VEST_em_coupling_pf_versions.npz
 include vaft/data/geometry/VEST_static_geometry.json.gz
 include vaft/data/geometry/*.yaml
 include vaft/data/geometry/*.csv
+include vaft/data/geometry/camera_visible/*.json
 include vaft/data/gpec/*.in
 include vaft/data/gpec/*.dat
 include vaft/data/legacy/*.txt

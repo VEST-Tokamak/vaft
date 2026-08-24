@@ -14,7 +14,7 @@ declared data requirements and the actual reads cannot drift apart.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
@@ -22,6 +22,8 @@ from vaft.plot.models import (
     Field2D,
     GeometryLayer,
     GeometryLayers,
+    Image2D,
+    ImageSequence,
     LineSeries,
     Panels,
     Profile1D,
@@ -1089,6 +1091,210 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
 RECIPES["summary_time_power_balance"] = CallableRecipe(
     builder=_build_power_balance,
     description="Power-balance terms computed by vaft.omas.compute_power_balance.",
+)
+
+
+# ---------------------------------------------------------------------------
+# camera_visible: raster frames and their pinhole-projected EFIT/field-line
+# overlays. This needs real computation (frame resolution, projection), not a
+# path read, so it uses CallableRecipe -- the extraction logic itself lives in
+# vaft.omas.process_wrapper (already covered by its own tests); these builders
+# only repackage its dict outputs into Image2D/GeometryLayer view models.
+# ---------------------------------------------------------------------------
+
+
+def _camera_visible_frame_prefix(channel: int, detector: int) -> str:
+    return f"camera_visible.channel.{channel}.detector.{detector}.frame"
+
+
+def _camera_visible_channel_name(ods: Any, channel: int) -> str:
+    return str(_get(ods, f"camera_visible.channel.{channel}.name", f"Camera Ch {channel}"))
+
+
+def _resolve_camera_visible_frame(ods: Any, *, channel: int, detector: int, options: Mapping[str, Any]):
+    from vaft.omas.process_wrapper import _resolve_camera_frame
+
+    return _resolve_camera_frame(
+        ods, channel=channel, detector=detector,
+        frame_index=options.get("frame_index"), frame_time=options.get("time"),
+    )
+
+
+def _camera_visible_frame_image(ods: Any, *, channel: int, detector: int, frame_index: int) -> np.ndarray:
+    path = f"{_camera_visible_frame_prefix(channel, detector)}.{frame_index}.image_raw"
+    image = _array(ods, path)
+    if image is None:
+        raise ValueError(f"{path} is not available")
+    return image
+
+
+def _efit_overlay_layers(overlay: Mapping[str, Any], *, options: Mapping[str, Any]) -> list[GeometryLayer]:
+    layers: list[GeometryLayer] = []
+    if options.get("show_wall", True) and overlay["wall_uv"].size:
+        layers.append(GeometryLayer(
+            r=overlay["wall_uv"][:, 0], z=overlay["wall_uv"][:, 1], kind="points",
+            label="Wall", style={"marker": "o", "markersize": 1, "color": "yellow"},
+        ))
+    if options.get("show_lcfs", True) and overlay["lcfs_uv"].size:
+        layers.append(GeometryLayer(
+            r=overlay["lcfs_uv"][:, 0], z=overlay["lcfs_uv"][:, 1], kind="points",
+            label="LCFS", style={"marker": "o", "markersize": 1.5, "color": "magenta"},
+        ))
+    if options.get("show_magnetic_axis", True) and overlay["magnetic_axis_uv"].size:
+        layers.append(GeometryLayer(
+            r=overlay["magnetic_axis_uv"][:, 0], z=overlay["magnetic_axis_uv"][:, 1], kind="points",
+            label="Magnetic axis", style={"marker": "+", "markersize": 8, "color": "cyan"},
+        ))
+    flux_surfaces_uv = overlay.get("flux_surfaces_uv") or {}
+    for index, level in enumerate(sorted(flux_surfaces_uv)):
+        points = flux_surfaces_uv[level]
+        if points.size == 0:
+            continue
+        layers.append(GeometryLayer(
+            r=points[:, 0], z=points[:, 1], kind="points",
+            label="psi surfaces" if index == 0 else "",
+            style={"marker": "o", "markersize": 1, "color": "tab:cyan"},
+        ))
+    return layers
+
+
+def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get("title", f"{channel_name} frame {idx} @ t={resolved_time:.4f}s")
+    return Image2D(values=image, value_label="Digital levels", title=title)
+
+
+def _build_camera_visible_image_efit_overlay(ods: Any, **options: Any) -> Image2D:
+    from vaft.omas.process_wrapper import compute_camera_visible_efit_overlay
+
+    shot = options["shot"]
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
+
+    overlay = compute_camera_visible_efit_overlay(
+        ods, shot, channel=channel, detector=detector, frame_index=idx,
+        flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95))),
+    )
+    layers = _efit_overlay_layers(overlay, options=options)
+
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title", f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} EFIT overlay"
+    )
+    return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
+
+
+def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
+    from vaft.omas.process_wrapper import (
+        compute_camera_visible_efit_overlay,
+        compute_camera_visible_field_line_overlay,
+    )
+
+    shot = options["shot"]
+    r0 = float(options["r0"])
+    z0 = float(options["z0"])
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
+
+    result = compute_camera_visible_field_line_overlay(
+        ods, shot, r0=r0, z0=z0, phi0=float(options.get("phi0", 0.0)),
+        channel=channel, detector=detector, frame_index=idx,
+        dphi_deg=float(options.get("dphi_deg", 1.0)),
+        max_length_m=float(options.get("max_length_m", 50.0)),
+        direction=options.get("direction", "forward"),
+        use_wall_boundary=options.get("use_wall_boundary", True),
+    )
+
+    layers: list[GeometryLayer] = []
+    field_line_uv = result["field_line_uv"]
+    if field_line_uv.shape[0] >= 2:
+        layers.append(GeometryLayer(
+            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline",
+            label="Field line", style={"color": "red", "linewidth": 1.5},
+        ))
+        layers.append(GeometryLayer(
+            r=field_line_uv[:1, 0], z=field_line_uv[:1, 1], kind="points",
+            label="Start", style={"marker": "o", "markersize": 8, "color": "lime"},
+        ))
+        layers.append(GeometryLayer(
+            r=field_line_uv[-1:, 0], z=field_line_uv[-1:, 1], kind="points",
+            label="End", style={"marker": "o", "markersize": 8, "color": "blue"},
+        ))
+    elif field_line_uv.shape[0] == 1:
+        layers.append(GeometryLayer(
+            r=field_line_uv[:1, 0], z=field_line_uv[:1, 1], kind="points",
+            label="Start", style={"marker": "o", "markersize": 8, "color": "lime"},
+        ))
+
+    if options.get("show_wall") or options.get("show_lcfs") or options.get("show_magnetic_axis") or options.get("flux_surface_levels"):
+        efit_overlay = compute_camera_visible_efit_overlay(
+            ods, shot, channel=channel, detector=detector, frame_index=idx,
+            flux_surface_levels=tuple(options.get("flux_surface_levels", ())),
+        )
+        layers.extend(_efit_overlay_layers(efit_overlay, options=options))
+
+    reason = result["trace"]["termination_reason"]
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} field line\n"
+        f"R0={r0:.3f}m, Z0={z0:.3f}m, stop: {reason}",
+    )
+    return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
+
+
+def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSequence:
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    prefix = _camera_visible_frame_prefix(channel, detector)
+    n_frames = _count(ods, prefix)
+    indices = options.get("frame_indices")
+    if indices is None:
+        indices = range(n_frames)
+
+    frames = []
+    times = []
+    for index in indices:
+        image = _array(ods, f"{prefix}.{index}.image_raw")
+        if image is None:
+            continue
+        frames.append(image)
+        times.append(float(_get(ods, f"{prefix}.{index}.time", 0.0)))
+    if not frames:
+        raise ValueError("No camera_visible frames available to animate.")
+
+    return ImageSequence(frames=tuple(frames), time=np.asarray(times, dtype=float), value_label="Digital levels")
+
+
+RECIPES["camera_visible_image_frame"] = CallableRecipe(
+    builder=_build_camera_visible_image_frame,
+    description="One FAST-camera frame, selected by frame_index or nearest time.",
+)
+RECIPES["camera_visible_image_efit_overlay"] = CallableRecipe(
+    builder=_build_camera_visible_image_efit_overlay,
+    description="FAST-camera frame with the projected EFIT/wall overlay (requires shot=).",
+)
+RECIPES["camera_visible_image_field_line"] = CallableRecipe(
+    builder=_build_camera_visible_image_field_line,
+    description="FAST-camera frame with a projected traced field line (requires shot=, r0=, z0=).",
+)
+RECIPES["camera_visible_animation_frames"] = CallableRecipe(
+    builder=_build_camera_visible_animation_frames,
+    description="Animate a sequence of FAST-camera frames on a shared color scale.",
 )
 
 

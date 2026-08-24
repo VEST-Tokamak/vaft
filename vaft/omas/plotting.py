@@ -42,17 +42,32 @@ _EXTRACTION_OPTIONS = frozenset(
         "channels",
         "contour_levels",
         "coordinate",
+        "detector",
+        "dphi_deg",
+        "direction",
+        "flux_surface_levels",
+        "frame_index",
+        "frame_indices",
         "log_y",
         "max_frequency",
+        "max_length_m",
+        "phi0",
         "quantity",
+        "r0",
         "sample_rate",
+        "shot",
+        "show_lcfs",
+        "show_magnetic_axis",
+        "show_wall",
         "time",
         "time_resolution",
         "time_slice",
         "title",
+        "use_wall_boundary",
         "window_size",
         "x_limits",
         "xunit",
+        "z0",
         "yunit",
     }
 )
@@ -172,6 +187,69 @@ def plot_barometry_time_pressure(
     Renders with :func:`vaft.plot.barometry_time_pressure`.
     """
     return render("barometry_time_pressure", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_frame(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One FAST-camera frame, selected by ``frame_index=`` or nearest ``time=``.
+
+    Renders with :func:`vaft.plot.camera_visible_image_frame`.
+    """
+    return render("camera_visible_image_frame", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_efit_overlay(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """FAST-camera frame with the projected EFIT/wall overlay.
+
+    Requires ``shot=`` (one of the calibrated shots: 34764, 39915, 47518).
+    Renders with :func:`vaft.plot.camera_visible_image_efit_overlay`.
+    """
+    return render("camera_visible_image_efit_overlay", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_field_line(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """FAST-camera frame with a projected traced magnetic field line.
+
+    Requires ``shot=``, ``r0=``, ``z0=`` (the field-line start point, in
+    meters). Renders with :func:`vaft.plot.camera_visible_image_field_line`.
+    """
+    return render("camera_visible_image_field_line", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_animation_frames(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+):
+    """Animate a sequence of FAST-camera frames on a shared color scale.
+
+    Returns ``(Figure, Axes, FuncAnimation)``. Renders with
+    :func:`vaft.plot.camera_visible_animation_frames`.
+    """
+    return render("camera_visible_animation_frames", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_charge_exchange_geometry_poloidal(
@@ -1291,6 +1369,10 @@ __all__ = [
     "extract_labels_from_odc",
     "normalize_entries",
     "plot_barometry_time_pressure",
+    "plot_camera_visible_animation_frames",
+    "plot_camera_visible_image_efit_overlay",
+    "plot_camera_visible_image_field_line",
+    "plot_camera_visible_image_frame",
     "plot_charge_exchange_geometry_poloidal",
     "plot_charge_exchange_profile_ion_temperature",
     "plot_charge_exchange_profile_velocity_tor",

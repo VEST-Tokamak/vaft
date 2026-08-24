@@ -22,6 +22,8 @@ __all__ = [
     "Field2D",
     "GeometryLayer",
     "GeometryLayers",
+    "Image2D",
+    "ImageSequence",
     "LineSeries",
     "Panels",
     "Profile1D",
@@ -273,6 +275,108 @@ class GeometryLayers(ViewModel):
                     f"got {type(layer).__name__}"
                 )
         object.__setattr__(self, "layers", layers)
+
+
+@dataclass(frozen=True)
+class Image2D(ViewModel):
+    """A raster image in pixel space, e.g. one camera frame, with optional overlays.
+
+    Unlike :class:`Field2D` (a scalar field on a physical ``(r, z)`` grid,
+    rendered as contours), ``values`` is drawn directly with ``imshow`` --
+    the right tool for a dense pixel raster, where a per-pixel contour
+    computation would be both far too slow and would destroy the image's own
+    detail. ``overlays`` reuses :class:`GeometryLayer`, with its ``r``/``z``
+    fields holding pixel *column*/*row* coordinates instead of physical
+    machine coordinates -- the same drawing code applies unchanged, since
+    :func:`~vaft.plot.renderers.geometry.draw_geometry_layer` never assumes a
+    particular coordinate system.
+    """
+
+    values: np.ndarray
+    value_label: str = ""
+    x_label: str = "Column"
+    y_label: str = "Row"
+    title: str = ""
+    cmap: str = "gray"
+    vmin: float | None = None
+    vmax: float | None = None
+    origin: str = "upper"
+    aspect_equal: bool = True
+    overlays: tuple[GeometryLayer, ...] = ()
+
+    def __post_init__(self) -> None:
+        values = as_model_array(self.values, where="Image2D.values")
+        if values.ndim != 2:
+            raise ValueError(f"Image2D.values must be 2D; got shape {values.shape}")
+        object.__setattr__(self, "values", values)
+        if self.origin not in ("upper", "lower"):
+            raise ValueError(f"Image2D.origin must be 'upper' or 'lower'; got {self.origin!r}")
+        if isinstance(self.overlays, GeometryLayer):
+            object.__setattr__(self, "overlays", (self.overlays,))
+        else:
+            _reject_data_objects(self.overlays, where="Image2D.overlays")
+            overlays = tuple(self.overlays)
+            for layer in overlays:
+                if not isinstance(layer, GeometryLayer):
+                    raise TypeError(
+                        f"Image2D.overlays entries must be GeometryLayer; got {type(layer).__name__}"
+                    )
+            object.__setattr__(self, "overlays", overlays)
+        if self.vmin is not None:
+            object.__setattr__(self, "vmin", float(self.vmin))
+        if self.vmax is not None:
+            object.__setattr__(self, "vmax", float(self.vmax))
+
+
+@dataclass(frozen=True)
+class ImageSequence(ViewModel):
+    """A sequence of raster frames sharing one color scale, e.g. an animation.
+
+    ``vmin``/``vmax`` default to the sequence's own overall min/max so every
+    frame is drawn on the same intensity scale, keeping frames directly
+    comparable -- explicit values override that.
+    """
+
+    frames: tuple[np.ndarray, ...]
+    time: np.ndarray
+    value_label: str = ""
+    x_label: str = "Column"
+    y_label: str = "Row"
+    title: str = ""
+    cmap: str = "gray"
+    vmin: float | None = None
+    vmax: float | None = None
+    origin: str = "upper"
+    aspect_equal: bool = True
+
+    def __post_init__(self) -> None:
+        _reject_data_objects(self.frames, where="ImageSequence.frames")
+        frames = tuple(
+            as_model_array(frame, where="ImageSequence.frames[i]") for frame in self.frames
+        )
+        if not frames:
+            raise ValueError("ImageSequence.frames must contain at least one frame")
+        shape = frames[0].shape
+        for frame in frames:
+            if frame.ndim != 2:
+                raise ValueError(f"ImageSequence frames must be 2D; got shape {frame.shape}")
+            if frame.shape != shape:
+                raise ValueError("ImageSequence frames must all share the same shape")
+        object.__setattr__(self, "frames", frames)
+
+        time = as_model_array(self.time, where="ImageSequence.time")
+        if time.ndim != 1 or time.size != len(frames):
+            raise ValueError(
+                f"ImageSequence.time must be 1D with length {len(frames)}; got shape {time.shape}"
+            )
+        object.__setattr__(self, "time", time)
+
+        if self.origin not in ("upper", "lower"):
+            raise ValueError(f"ImageSequence.origin must be 'upper' or 'lower'; got {self.origin!r}")
+        vmin = self.vmin if self.vmin is not None else min(float(f.min()) for f in frames)
+        vmax = self.vmax if self.vmax is not None else max(float(f.max()) for f in frames)
+        object.__setattr__(self, "vmin", float(vmin))
+        object.__setattr__(self, "vmax", float(vmax))
 
 
 @dataclass(frozen=True)

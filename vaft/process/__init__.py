@@ -1,5 +1,6 @@
 from .profile import *
 from .equilibrium import *
+from .camera_geometry import *
 from .signal_processing import *
 from .electromagnetics import *
 from .numerical import *

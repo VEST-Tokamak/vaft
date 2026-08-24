@@ -920,3 +920,271 @@ def computed_diamagnetism_from_phi(
 
 
 psi_to_RZ = psi_to_rz
+
+
+def extract_flux_surface_contours(
+    psi_grid: np.ndarray,
+    R: np.ndarray,
+    Z: np.ndarray,
+    psi_axis: float,
+    psi_boundary: float,
+    levels_norm: Any,
+) -> dict[float, list[tuple[np.ndarray, np.ndarray]]]:
+    """Extract iso-normalized-psi contours from a 2D (R, Z) psi grid.
+
+    ``psi_grid`` must be shaped ``(len(R), len(Z))`` (first axis indexed by
+    ``R``, second by ``Z``), matching the standard IMAS
+    ``equilibrium.time_slice[:].profiles_2d[:].psi`` layout with
+    ``grid.dim1``/``grid.dim2`` as ``R``/``Z``. ``levels_norm`` are normalized
+    psi values (0 = magnetic axis, 1 = boundary/LCFS).
+
+    Returns a dict keyed by each requested level, each value a list of
+    ``(R_pts, Z_pts)`` contour segments (a level can have more than one
+    disconnected contour, e.g. inside a diverted plasma). A level with no
+    contour in the grid maps to an empty list.
+    """
+    from skimage import measure
+
+    psi_grid = np.asarray(psi_grid, dtype=float)
+    R = np.asarray(R, dtype=float).reshape(-1)
+    Z = np.asarray(Z, dtype=float).reshape(-1)
+    if psi_grid.shape != (R.size, Z.size):
+        raise ValueError(
+            f"psi_grid shape {psi_grid.shape} must equal (len(R), len(Z)) = {(R.size, Z.size)}."
+        )
+    if psi_boundary == psi_axis:
+        raise ValueError("psi_boundary must differ from psi_axis to normalize.")
+
+    psi_norm_grid = (psi_grid - psi_axis) / (psi_boundary - psi_axis)
+
+    def _index_to_rz(contour: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        row_idx, col_idx = contour[:, 0], contour[:, 1]
+        r_pts = np.interp(row_idx, np.arange(R.size), R)
+        z_pts = np.interp(col_idx, np.arange(Z.size), Z)
+        return r_pts, z_pts
+
+    contours: dict[float, list[tuple[np.ndarray, np.ndarray]]] = {}
+    for level in levels_norm:
+        level = float(level)
+        raw_contours = measure.find_contours(psi_norm_grid, level=level)
+        contours[level] = [_index_to_rz(contour) for contour in raw_contours]
+
+    return contours
+
+
+def make_equilibrium_field_interpolator(
+    R_grid_1d: np.ndarray,
+    Z_grid_1d: np.ndarray,
+    psi_grid: np.ndarray,
+    psi_1d: np.ndarray,
+    f_1d: np.ndarray,
+):
+    """Build a callable ``(R, Z) -> (B_R, B_Z, B_phi)`` for one equilibrium time slice.
+
+    Same EFIT Weber/rad psi convention as :func:`poloidal_field_at_boundary`:
+    ``B_R = -(1/R) dPsi/dZ``, ``B_Z = (1/R) dPsi/dR`` (from a bicubic spline
+    over the 2D psi grid, built once and reused for every evaluation), and
+    ``B_phi = F(psi)/R`` with ``F = R*B_phi`` interpolated from
+    ``profiles_1d.{psi, f}`` (``psi_1d``, ``f_1d``). ``psi_grid`` must be
+    shaped ``(len(R_grid_1d), len(Z_grid_1d))``, matching
+    :func:`extract_flux_surface_contours`.
+
+    ``F(psi)`` is only defined over ``psi_1d`` (axis to boundary); points
+    outside that range (e.g. beyond the LCFS, in the scrape-off layer) clip to
+    the nearest edge value of ``F`` -- the same clip-and-interpolate
+    convention already used by :func:`psi_to_rz`. This is an approximation
+    for field lines that leave the confined region: the toroidal field there
+    is treated as this clipped ``F(psi)/R`` rather than the true vacuum field.
+    """
+    R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
+    Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
+    psi_grid = np.asarray(psi_grid, dtype=float)
+    if psi_grid.shape != (R_grid_1d.size, Z_grid_1d.size):
+        raise ValueError(
+            f"psi_grid shape {psi_grid.shape} must equal "
+            f"(len(R_grid_1d), len(Z_grid_1d)) = {(R_grid_1d.size, Z_grid_1d.size)}."
+        )
+
+    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
+    f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
+    if psi_1d.size != f_1d.size:
+        raise ValueError("psi_1d and f_1d must have the same length.")
+    sort_idx = np.argsort(psi_1d)
+    psi_1d_sorted = psi_1d[sort_idx]
+    f_1d_sorted = f_1d[sort_idx]
+
+    psi_spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
+
+    def b_field(R: float, Z: float) -> tuple[float, float, float]:
+        dpsi_dR = float(psi_spline.ev(R, Z, dx=1, dy=0))
+        dpsi_dZ = float(psi_spline.ev(R, Z, dx=0, dy=1))
+        B_R = -(1.0 / R) * dpsi_dZ
+        B_Z = (1.0 / R) * dpsi_dR
+
+        psi_here = float(psi_spline.ev(R, Z))
+        psi_clipped = np.clip(psi_here, psi_1d_sorted[0], psi_1d_sorted[-1])
+        F = float(np.interp(psi_clipped, psi_1d_sorted, f_1d_sorted))
+        B_phi = F / R
+
+        return B_R, B_Z, B_phi
+
+    return b_field
+
+
+def trace_field_line(
+    R0: float,
+    Z0: float,
+    phi0: float,
+    b_field,
+    *,
+    dphi: float = np.deg2rad(1.0),
+    max_length_m: float = 50.0,
+    direction: str = "forward",
+    wall_r: np.ndarray | None = None,
+    wall_z: np.ndarray | None = None,
+    r_bounds: tuple[float, float] | None = None,
+    z_bounds: tuple[float, float] | None = None,
+) -> dict[str, Any]:
+    """Trace a magnetic field line from ``(R0, Z0, phi0)`` using the equilibrium field.
+
+    Integrates ``dR/dphi = R*B_R/B_phi``, ``dZ/dphi = R*B_Z/B_phi`` with
+    classic fixed-step 4th-order Runge-Kutta (RK4) in the toroidal angle
+    ``phi``, using ``dphi`` (radians) as the step size. ``b_field`` is a
+    callable ``(R, Z) -> (B_R, B_Z, B_phi)``, e.g. from
+    :func:`make_equilibrium_field_interpolator`.
+
+    ``direction`` is ``"forward"`` (increasing phi, default), ``"backward"``
+    (decreasing phi), or ``"both"`` (both branches concatenated, anchored at
+    the start point).
+
+    Terminates when any of the following is hit first: the traced point
+    leaves the ``(wall_r, wall_z)`` limiter polygon (if given), the
+    cumulative 3D arc length exceeds ``max_length_m``, the point leaves
+    ``r_bounds``/``z_bounds`` (if given -- a safety net against extrapolating
+    far outside the equilibrium grid), or ``B_phi`` is (numerically) zero.
+    The stopping reason is reported in the returned ``termination_reason``.
+
+    Returns a dict with ``phi``, ``R``, ``Z`` (1D arrays, meters/radians, in
+    increasing-phi order regardless of ``direction``), ``arc_length_m``
+    (meters, monotonically increasing from ``0.0`` at the first returned
+    point to the total path length at the last -- i.e. cumulative distance
+    along the array in its returned order, not distance from ``phi0``), and
+    ``termination_reason``.
+    """
+    if direction not in ("forward", "backward", "both"):
+        raise ValueError("direction must be 'forward', 'backward', or 'both'.")
+    if dphi <= 0:
+        raise ValueError("dphi must be positive.")
+
+    from matplotlib.path import Path as MplPath
+
+    wall_polygon = None
+    if wall_r is not None and wall_z is not None:
+        wall_polygon = MplPath(np.column_stack([np.asarray(wall_r, float), np.asarray(wall_z, float)]))
+
+    def _derivative(R: float, Z: float) -> tuple[float, float]:
+        B_R, B_Z, B_phi = b_field(R, Z)
+        if B_phi == 0.0:
+            raise FloatingPointError("B_phi is zero; cannot parameterize the field line by phi here.")
+        return R * B_R / B_phi, R * B_Z / B_phi
+
+    def _rk4_step(R: float, Z: float, step: float) -> tuple[float, float]:
+        k1_R, k1_Z = _derivative(R, Z)
+        k2_R, k2_Z = _derivative(R + 0.5 * step * k1_R, Z + 0.5 * step * k1_Z)
+        k3_R, k3_Z = _derivative(R + 0.5 * step * k2_R, Z + 0.5 * step * k2_Z)
+        k4_R, k4_Z = _derivative(R + step * k3_R, Z + step * k3_Z)
+        R_next = R + (step / 6.0) * (k1_R + 2.0 * k2_R + 2.0 * k3_R + k4_R)
+        Z_next = Z + (step / 6.0) * (k1_Z + 2.0 * k2_Z + 2.0 * k3_Z + k4_Z)
+        return R_next, Z_next
+
+    def _in_bounds(R: float, Z: float) -> bool:
+        if r_bounds is not None and not (r_bounds[0] <= R <= r_bounds[1]):
+            return False
+        if z_bounds is not None and not (z_bounds[0] <= Z <= z_bounds[1]):
+            return False
+        if wall_polygon is not None and not wall_polygon.contains_point((R, Z)):
+            return False
+        return True
+
+    def _run_branch(step: float) -> tuple[list[float], list[float], list[float], list[float], str]:
+        phi_list = [phi0]
+        R_list = [R0]
+        Z_list = [Z0]
+        arc_list = [0.0]
+        reason = "max_length_m"
+        R, Z, phi, arc = R0, Z0, phi0, 0.0
+        while arc < max_length_m:
+            try:
+                R_next, Z_next = _rk4_step(R, Z, step)
+            except FloatingPointError:
+                reason = "b_phi_zero"
+                break
+            if not _in_bounds(R_next, Z_next):
+                reason = "wall" if wall_polygon is not None and not wall_polygon.contains_point((R_next, Z_next)) else "out_of_bounds"
+                break
+            phi_next = phi + step
+            d_arc = np.sqrt(
+                (R_next - R) ** 2 + (Z_next - Z) ** 2 + ((R + R_next) / 2.0 * step) ** 2
+            )
+            arc_next = arc + d_arc
+            if arc_next > max_length_m:
+                reason = "max_length_m"
+                break
+            R, Z, phi, arc = R_next, Z_next, phi_next, arc_next
+            phi_list.append(phi)
+            R_list.append(R)
+            Z_list.append(Z)
+            arc_list.append(arc)
+        return phi_list, R_list, Z_list, arc_list, reason
+
+    def _cumulative_arc_length(phi: list[float], R: list[float], Z: list[float]) -> np.ndarray:
+        """Recompute a monotonically increasing cumulative arc length for an
+        assembled (phi, R, Z) sequence, in its given order.
+
+        Each branch's own ``arc_list`` measures distance *from phi0*, so for
+        ``"backward"`` (reversed into increasing-phi order) or ``"both"``
+        (two branches concatenated around the shared phi0 point) simply
+        reusing those values gives a non-monotonic result -- decreasing
+        toward phi0, then increasing again -- rather than a running total
+        along the returned array. Recomputing from consecutive-point
+        distances (the same formula used while stepping) makes it monotonic
+        and consistent with the documented "cumulative" contract regardless
+        of ``direction``.
+        """
+        phi_arr = np.asarray(phi, dtype=float)
+        R_arr = np.asarray(R, dtype=float)
+        Z_arr = np.asarray(Z, dtype=float)
+        if phi_arr.size == 0:
+            return np.asarray([], dtype=float)
+        d_phi = np.diff(phi_arr)
+        d_R = np.diff(R_arr)
+        d_Z = np.diff(Z_arr)
+        R_avg = (R_arr[:-1] + R_arr[1:]) / 2.0
+        segment_lengths = np.sqrt(d_R**2 + d_Z**2 + (R_avg * d_phi) ** 2)
+        return np.concatenate([[0.0], np.cumsum(segment_lengths)])
+
+    if direction in ("forward", "both"):
+        phi_f, R_f, Z_f, arc_f, reason_f = _run_branch(dphi)
+    if direction in ("backward", "both"):
+        phi_b, R_b, Z_b, arc_b, reason_b = _run_branch(-dphi)
+
+    if direction == "forward":
+        phi_all, R_all, Z_all, reason = phi_f, R_f, Z_f, reason_f
+    elif direction == "backward":
+        phi_all = list(reversed(phi_b))
+        R_all = list(reversed(R_b))
+        Z_all = list(reversed(Z_b))
+        reason = reason_b
+    else:
+        phi_all = list(reversed(phi_b[1:])) + phi_f
+        R_all = list(reversed(R_b[1:])) + R_f
+        Z_all = list(reversed(Z_b[1:])) + Z_f
+        reason = f"backward:{reason_b}, forward:{reason_f}"
+
+    return {
+        "phi": np.asarray(phi_all, dtype=float),
+        "R": np.asarray(R_all, dtype=float),
+        "Z": np.asarray(Z_all, dtype=float),
+        "arc_length_m": _cumulative_arc_length(phi_all, R_all, Z_all),
+        "termination_reason": reason,
+    }
