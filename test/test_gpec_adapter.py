@@ -230,3 +230,36 @@ def test_verify_outputs_fails_a_completed_run_missing_the_expected_variable(monk
     (record,) = result.records
     assert record.status == "failed"
     assert "dcon_output_n1.nc" in record.reason
+
+
+def test_solver_companion_executables_takes_no_config_argument():
+    """`Solver.companion_executables` no longer accepts a `config` -- none of
+    the four solvers ever consulted it, so it was dead protocol surface."""
+    from vaft.code.gpec._solvers import SOLVERS
+
+    for solver in SOLVERS.values():
+        solver.companion_executables()  # must not require a config argument
+        with pytest.raises(TypeError):
+            solver.companion_executables(gpec.GPECSuiteConfig())
+
+
+def test_runtime_module_dir_resolves_from_workdir_and_time_ms_without_a_geqdsk(tmp_path):
+    """`_runtime.module_dir` no longer needs a `GPECCaseInputs` (and therefore no
+    placeholder GEQDSK path) when `time_ms` is already known -- callers like
+    `build_mhd_linear_ods` that only have a run manifest's time label can call
+    it directly."""
+    from vaft.code.gpec import _runtime as rt
+
+    run_dir = rt.module_dir(tmp_path, 325, "dcon", 1)
+
+    assert run_dir == tmp_path / "00325" / "dcon" / "nn=1"
+
+
+def test_runtime_module_dir_falls_back_to_geqdsk_only_when_time_ms_is_none(tmp_path):
+    from vaft.code.gpec import _runtime as rt
+
+    geqdsk = tmp_path / "g039915.00325"
+
+    run_dir = rt.module_dir(tmp_path, None, "dcon", 1, geqdsk=geqdsk)
+
+    assert run_dir == tmp_path / "00325" / "dcon" / "nn=1"

@@ -456,6 +456,31 @@ def test_build_mhd_linear_ods_covers_multiple_refined_time_slices(tmp_path):
     assert manifest["modules_modes"]["t=00320/dcon/n=1"]["status"] == "success"
 
 
+def test_build_mhd_linear_ods_does_not_construct_a_gpec_case_inputs(tmp_path, monkeypatch):
+    """`build_mhd_linear_ods` used to fabricate a `GPECCaseInputs` with a fake
+    `geqdsk=Path("unused")` just to call `module_dir`. It must resolve run
+    directories directly from `workdir`/`time_ms` instead."""
+    import vaft.code.gpec as gpec_pkg
+
+    workdir = tmp_path / "gpec"
+    _write_gpec_output(workdir, "dcon", 1, w_t=-0.42)
+
+    def _fail_if_constructed(*args, **kwargs):
+        raise AssertionError("build_mhd_linear_ods must not construct GPECCaseInputs")
+
+    monkeypatch.setattr(gpec_pkg, "GPECCaseInputs", _fail_if_constructed)
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00319"],
+        workdir=workdir,
+        modules=("dcon",),
+        modes=(1,),
+    )
+
+    assert manifest["modules_modes"]["t=00319/dcon/n=1"]["status"] == "success"
+
+
 def test_pf_current_processing_matches_the_reference_filter(tmp_path):
     shot = 39915
     source = tmp_path / "raw.json.gz"

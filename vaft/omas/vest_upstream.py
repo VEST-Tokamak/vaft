@@ -456,7 +456,6 @@ def build_mhd_linear_ods(
     build -- one failed RDCON case should not prevent DCON's results from
     being captured.
     """
-    from vaft.code.gpec import GPECCaseInputs
     from vaft.code.gpec import _runtime as gpec_runtime
     from vaft.machine_mapping.mhd_linear import mhd_linear as mhd_linear_mapper
 
@@ -481,12 +480,12 @@ def build_mhd_linear_ods(
 
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}
+    workdir_path = Path(workdir)
     for time_slice, time_ms in enumerate(time_values):
-        case = GPECCaseInputs(shot=shot, time_ms=time_ms, geqdsk=Path("unused"), workdir=Path(workdir))
         for module in modules:
             for mode in modes:
                 key = f"t={time_ms}/{module}/n={mode}"
-                run_dir = gpec_runtime.module_dir(case, module, mode)
+                run_dir = gpec_runtime.module_dir(workdir_path, time_ms, module, mode)
                 if not run_dir.is_dir():
                     modules_modes[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
                     continue

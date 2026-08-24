@@ -46,7 +46,7 @@ class Solver(Protocol):
         """Filenames this solver (and any companion it chains) is expected to produce."""
         ...
 
-    def companion_executables(self, config: "GPECSuiteConfig") -> tuple[str, ...]:
+    def companion_executables(self) -> tuple[str, ...]:
         """Executable names to run after this solver succeeds, in order."""
         ...
 
@@ -97,7 +97,7 @@ class DCONSolver:
             "solutions.bin",
         )
 
-    def companion_executables(self, config: "GPECSuiteConfig") -> tuple[str, ...]:
+    def companion_executables(self) -> tuple[str, ...]:
         return ("match",)
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
@@ -122,7 +122,7 @@ class RDCONSolver:
             "vmat.bin",
         )
 
-    def companion_executables(self, config: "GPECSuiteConfig") -> tuple[str, ...]:
+    def companion_executables(self) -> tuple[str, ...]:
         return ("rmatch",)
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
@@ -138,7 +138,7 @@ class STRIDESolver:
     def output_patterns(self, mode: int) -> tuple[str, ...]:
         return (f"stride_output_n{mode}.nc", "stride.out", "delta_prime.out")
 
-    def companion_executables(self, config: "GPECSuiteConfig") -> tuple[str, ...]:
+    def companion_executables(self) -> tuple[str, ...]:
         return ()
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
@@ -173,7 +173,7 @@ class IdealGPECSolver:
             f"gpec_bnormal_pest_n{mode}.out",
         )
 
-    def companion_executables(self, config: "GPECSuiteConfig") -> tuple[str, ...]:
+    def companion_executables(self) -> tuple[str, ...]:
         return ()
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:

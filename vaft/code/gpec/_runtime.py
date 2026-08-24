@@ -19,7 +19,7 @@ from .._executables import executable_from_home, missing_home_message
 from ._types import GPEC_HOME_ENV
 
 if TYPE_CHECKING:
-    from ._types import GPECCaseInputs, GPECSuiteConfig
+    from ._types import GPECSuiteConfig
 
 
 def package_vest_dir() -> Path:
@@ -95,16 +95,31 @@ def run_policy(config: "GPECSuiteConfig") -> str:
     raise ValueError(f"Unsupported GPEC run_mode: {config.run_mode!r}")
 
 
-def time_label(inputs: "GPECCaseInputs") -> str:
-    if inputs.time_ms is not None:
-        text = str(inputs.time_ms)
+def time_label(time_ms: int | str | None, geqdsk: Path | None = None) -> str:
+    """Directory label for one case's time point.
+
+    Callers that only know ``time_ms`` (e.g. building result paths from a run
+    manifest, with no GEQDSK on hand) can omit ``geqdsk`` entirely; it is only
+    consulted as a fallback when ``time_ms`` is ``None``.
+    """
+    if time_ms is not None:
+        text = str(time_ms)
         return text if len(text) >= 5 or not text.isdigit() else f"{int(text):05d}"
-    suffix = inputs.geqdsk.name.rsplit(".", maxsplit=1)[-1]
-    return suffix if suffix != inputs.geqdsk.name else inputs.geqdsk.stem
+    if geqdsk is None:
+        raise ValueError("time_label requires time_ms or geqdsk")
+    suffix = geqdsk.name.rsplit(".", maxsplit=1)[-1]
+    return suffix if suffix != geqdsk.name else geqdsk.stem
 
 
-def module_dir(inputs: "GPECCaseInputs", module: str, mode: int) -> Path:
-    return inputs.workdir / time_label(inputs) / module / f"nn={mode}"
+def module_dir(
+    workdir: Path,
+    time_ms: int | str | None,
+    module: str,
+    mode: int,
+    *,
+    geqdsk: Path | None = None,
+) -> Path:
+    return workdir / time_label(time_ms, geqdsk) / module / f"nn={mode}"
 
 
 def _format_value(value: Any) -> str:

@@ -181,6 +181,21 @@ def test_gpec_module_pattern_produces_shot_code_and_mode_wildcards(layout):
     assert manifest_pattern.endswith("run.json")
 
 
+def test_gpec_module_pattern_does_not_corrupt_an_unrelated_dcon_substring():
+    """The `{code}` substitution used to be a blind `str.replace("dcon", ...)`,
+    which would also rewrite any unrelated "dcon" substring elsewhere in the
+    resolved path (e.g. inside the base dir itself). It must only ever swap
+    the whole path segment produced for the `code` argument."""
+    base_dir = "/srv/vest.filedb/mrdcon-archive"
+    paths = MODULE.PipelinePaths(base_dir, MODULE.SHOT_FIRST)
+
+    status_pattern = paths.gpec_module_pattern("gpec_module_status")
+
+    assert status_pattern.startswith("/srv/vest.filedb/mrdcon-archive/")
+    assert "{code}" in status_pattern
+    assert status_pattern.count("{code}") == 1
+
+
 def test_gpec_module_status_round_trips_every_artifact_class_without_materialization():
     filedb = FileDB(BASE_DIR)
     for artifact in ArtifactClass:

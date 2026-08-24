@@ -278,8 +278,16 @@ class PipelinePaths:
         """Return a ``gpec_module_*`` product with ``{shot}``/``{code}``/``{mode}`` wildcards."""
         resolved = getattr(self, product)(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL)
         resolved = resolved.replace(str(_SHOT_SENTINEL), "{shot}")
-        resolved = resolved.replace(_CODE_SENTINEL, "{code}")
-        return resolved.replace(str(_MODE_SENTINEL), "{mode}")
+        resolved = resolved.replace(str(_MODE_SENTINEL), "{mode}")
+        # `_CODE_SENTINEL` ("dcon") is a real code name, so a blind substring
+        # replace could also rewrite an unrelated occurrence elsewhere in the
+        # path. `code` is always emitted as a whole path segment (never glued
+        # to other text), so only swap segments that match it exactly.
+        segments = [
+            "{code}" if segment == _CODE_SENTINEL else segment
+            for segment in Path(resolved).parts
+        ]
+        return str(Path(*segments))
 
 
 __all__ = ["FILEDB", "LAYOUTS", "SHOT_FIRST", "PipelinePaths"]
