@@ -697,6 +697,29 @@ def _existing_sxr_channel_count(ods: Any) -> int:
         return 0
 
 
+def _existing_sxr_source_files(ods: Any) -> list[str]:
+    """Read the existing semicolon-delimited IDS source provenance."""
+    path = "soft_x_rays.ids_properties.source"
+    if not path_exists(ods, path):
+        return []
+    if isinstance(ods, dict):
+        value = ods["soft_x_rays"]["ids_properties"]["source"]
+    else:
+        value = ods[path]
+    return [entry.strip() for entry in str(value).split(";") if entry.strip()]
+
+
+def _clear_sxr_global_time(ods: Any) -> None:
+    """Remove a global time axis when SXR channels have heterogeneous clocks."""
+    path = "soft_x_rays.time"
+    if not path_exists(ods, path):
+        return
+    if isinstance(ods, dict):
+        ods.get("soft_x_rays", {}).pop("time", None)
+    else:
+        del ods[path]
+
+
 def _normalise_source_map(
     daq_label: str,
     data: np.ndarray,
@@ -798,6 +821,17 @@ def soft_x_rays(
     existing_identifiers = _existing_sxr_channel_identifiers(ods)
     channel_offset = _existing_sxr_channel_count(ods)
     homogeneous_time = len(sources) == 1 and channel_offset == 0
+    existing_sources = _existing_sxr_source_files(ods)
+    existing_comment = ""
+    comment_path = "soft_x_rays.ids_properties.comment"
+    if path_exists(ods, comment_path):
+        existing_comment = str(
+            ods[comment_path]
+            if not isinstance(ods, dict)
+            else ods["soft_x_rays"]["ids_properties"]["comment"]
+        )
+    if not homogeneous_time:
+        _clear_sxr_global_time(ods)
     source_details: list[str] = []
 
     for label, source_file in sources:
@@ -857,14 +891,18 @@ def soft_x_rays(
 
     if sources and not source_details:
         return
-    set_path(ods, "soft_x_rays.ids_properties.source", "; ".join(str(path) for _, path in sources))
+    all_sources = list(dict.fromkeys([*existing_sources, *(str(path) for _, path in sources)]))
+    set_path(ods, "soft_x_rays.ids_properties.source", "; ".join(all_sources))
+    new_comment = (
+        "VEST SXR digitizer data; relative calibrated signal proxy, not absolute brightness. "
+        f"Sources: {'; '.join(source_details)}."
+    )
     set_path(
         ods,
         "soft_x_rays.ids_properties.comment",
-        (
-            "VEST SXR digitizer data; relative calibrated signal proxy, not absolute brightness. "
-            f"Sources: {'; '.join(source_details)}."
-        ),
+        f"{existing_comment} Sources appended: {'; '.join(source_details)}."
+        if existing_comment
+        else new_comment,
     )
 
 

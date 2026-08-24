@@ -339,6 +339,29 @@ def test_explicit_digitizer_file_can_infer_its_daq_label(tmp_path):
     assert ods["soft_x_rays.channel.0.identifier"] == "22577:bottom:Be:1"
 
 
+def test_explicit_daq_calls_clear_global_time_and_preserve_provenance(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    first_source = data_root / "digitizer_17592_12345.csv"
+    second_source = data_root / "digitizer_22577_12345.csv"
+    np.savetxt(first_source, np.array([[1.0, 2.0, 3.0]]), delimiter=",")
+    np.savetxt(second_source, np.array([[10.0, 20.0, 30.0]]), delimiter=",")
+    ods = ODS()
+
+    soft_x_rays(ods, 12345, 17592, data_root=data_root, time_offset=0.0)
+    np.testing.assert_allclose(ods["soft_x_rays.time"], np.arange(3) / (125e6 / 32.0))
+
+    soft_x_rays(ods, 12345, 22577, data_root=data_root, time_offset=0.0)
+
+    assert len(ods["soft_x_rays.channel"]) == 2
+    assert ods["soft_x_rays.ids_properties.homogeneous_time"] == 0
+    assert "time" not in ods["soft_x_rays"].keys()
+    assert str(first_source) in ods["soft_x_rays.ids_properties.source"]
+    assert str(second_source) in ods["soft_x_rays.ids_properties.source"]
+    assert str(first_source) in ods["soft_x_rays.ids_properties.comment"]
+    assert str(second_source) in ods["soft_x_rays.ids_properties.comment"]
+
+
 def test_sxr_mapper_does_not_use_raw_database_trigger_correction():
     source = inspect.getsource(sxr_mapping)
     assert "from vaft.database import raw" not in source
