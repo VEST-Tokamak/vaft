@@ -24,11 +24,74 @@ from vaft.omas.vest_upstream import sha256_file, write_manifest
 LOGGER = logging.getLogger("vaft.generate_raw_db_dump")
 
 
-def _inventory(output_path: Path) -> list[int]:
-    """Return the field codes the written dump actually carries."""
+def _read_dump(output_path: Path) -> dict:
     with gzip.open(output_path, "rt", encoding="utf-8") as handle:
-        payload = json.load(handle)
+        return json.load(handle)
+
+
+def _inventory(payload: dict) -> list[int]:
+    """Return the field codes the written dump actually carries."""
     return sorted(int(code) for code in payload.get("fields", {}))
+
+
+def build_raw_manifest(shot: int, output: Path, source_kind: str, sample_name: str | None) -> dict:
+    """Build the raw-stage manifest dict for an already-written dump.
+
+    Shared by the single-shot CLI below and any batch driver (e.g.
+    ``dump_all_shots.py``) so both produce byte-identical manifest shapes.
+    """
+    dump_payload = _read_dump(output)
+    field_codes = _inventory(dump_payload)
+    field_quality = dump_payload.get("field_quality", {})
+    return {
+        "schema_version": 1,
+        "stage": "raw",
+        "shot": shot,
+        "status": "success",
+        "source": {"kind": source_kind, "name": sample_name},
+        "inventory": {"field_count": len(field_codes), "field_codes": field_codes},
+        "pulse_datetime": dump_payload.get("pulse_datetime"),
+        "quality_summary": {
+            "flagged_field_count": len(field_quality),
+            "all_zero": sorted(
+                (code for code, flag in field_quality.items() if flag == "all_zero"), key=int
+            ),
+            "all_nan": sorted(
+                (code for code, flag in field_quality.items() if flag == "all_nan"), key=int
+            ),
+            "empty": sorted(
+                (code for code, flag in field_quality.items() if flag == "empty"), key=int
+            ),
+        },
+        "output": {"name": output.name, "sha256": sha256_file(output)},
+    }
+
+
+def dump_shot(shot: int, output: Path, metadata: Path | None, sample: str = "") -> None:
+    """Export one shot's raw signals and, if requested, its stage manifest.
+
+    Shared by ``main()`` below and any batch driver -- one place owns the
+    dump-then-manifest sequence so a single-shot Snakemake rule and a
+    multi-shot backfill behave identically.
+    """
+    output.parent.mkdir(parents=True, exist_ok=True)
+    sample = sample.strip()
+    source_kind = "archive" if sample else "vest-sql"
+    LOGGER.info("Exporting raw signals for shot %s from %s", shot, source_kind)
+    if not dump_all_raw_signals_for_shot(
+        shot=shot,
+        output_path=str(output),
+        sample_opt=sample if sample else False,
+    ):
+        raise RuntimeError(f"Failed to export VEST raw data for shot {shot}")
+
+    if metadata is not None:
+        metadata.parent.mkdir(parents=True, exist_ok=True)
+        manifest = build_raw_manifest(shot, output, source_kind, Path(sample).name if sample else None)
+        write_manifest(manifest, metadata)
+        LOGGER.info("Raw manifest saved to %s", metadata)
+
+    LOGGER.info("Raw db dump saved to %s", output)
 
 
 def main() -> int:
@@ -43,36 +106,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-
-    sample = args.sample.strip()
-    source_kind = "archive" if sample else "vest-sql"
-    LOGGER.info("Exporting raw signals for shot %s from %s", args.shot, source_kind)
-    if not dump_all_raw_signals_for_shot(
-        shot=args.shot,
-        output_path=str(args.output),
-        sample_opt=sample if sample else False,
-    ):
-        raise RuntimeError(f"Failed to export VEST raw data for shot {args.shot}")
-
-    if args.metadata:
-        field_codes = _inventory(args.output)
-        write_manifest(
-            {
-                "schema_version": 1,
-                "stage": "raw",
-                "shot": args.shot,
-                "status": "success",
-                "source": {"kind": source_kind, "name": Path(sample).name if sample else None},
-                "inventory": {"field_count": len(field_codes), "field_codes": field_codes},
-                "output": {"name": args.output.name, "sha256": sha256_file(args.output)},
-            },
-            args.metadata,
-        )
-        LOGGER.info("Raw manifest saved to %s", args.metadata)
-
-    LOGGER.info("Raw db dump saved to %s", args.output)
+    # force=True: vaft.database.raw (imported above) already calls
+    # logging.basicConfig() at import time, and whichever call runs first
+    # normally wins -- silently dropping this script's own INFO-level
+    # progress log lines depending on import order otherwise.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True)
+    dump_shot(args.shot, args.output, args.metadata, args.sample)
     return 0
 
 

@@ -105,7 +105,7 @@ def test_static_wall_completeness():
         assert unit["name"]
 
 
-def _write_raw_dump(path, shot, fields):
+def _write_raw_dump(path, shot, fields, pulse_datetime=None):
     payload = {
         "shot": shot,
         "fields": {
@@ -113,6 +113,8 @@ def _write_raw_dump(path, shot, fields):
             for field, values in fields.items()
         },
     }
+    if pulse_datetime is not None:
+        payload["pulse_datetime"] = pulse_datetime
     with gzip.open(path, "wt", encoding="utf-8") as handle:
         json.dump(payload, handle)
 
@@ -147,6 +149,63 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert "barometry" in ods
     assert "tf" not in ods
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
+
+
+def test_diagnostics_ods_carries_the_raw_dumps_pulse_datetime(tmp_path):
+    """A raw dump carrying pulse_datetime (issue #126) must reach dataset_description.
+
+    dump_all_raw_signals_for_shot() writes pulse_datetime from the SQL `shot`
+    table when it runs against live SQL; build_diagnostics_ods() must read it
+    back out of the archived dump and set dataset_description.pulse_time_begin,
+    with no live SQL call of its own.
+    """
+    shot = 43017
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(
+        raw,
+        shot,
+        {13: np.linspace(1.0, 2.0, 200).tolist()},
+        pulse_datetime="2026-05-01T08:30:00",
+    )
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(
+        static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json"
+    )
+
+    ods, _ = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=static_path,
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    assert ods["dataset_description.pulse_time_begin"] == "2026-05-01T08:30:00"
+
+
+def test_diagnostics_ods_leaves_pulse_time_unset_for_a_dump_without_one(tmp_path):
+    """Older dumps written before pulse_datetime existed must not break the stage."""
+    shot = 43017
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {13: np.linspace(1.0, 2.0, 200).tolist()})
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(
+        static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json"
+    )
+
+    ods, _ = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=static_path,
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    assert "dataset_description.pulse_time_begin" not in ods
 
 
 def test_barometry_time_is_heterogeneous_not_homogeneous(tmp_path):
