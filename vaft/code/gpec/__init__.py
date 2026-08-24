@@ -114,7 +114,7 @@ def prepare_gpec_suite_case(
     eq_filename = geqdsk.name
     for mode in modes:
         for module in modules:
-            run_dir = rt.module_dir(inputs, module, mode)
+            run_dir = rt.module_dir(inputs.workdir, inputs.time_ms, module, mode, geqdsk=geqdsk)
             run_dir.mkdir(parents=True, exist_ok=True)
             if module in STABILITY_MODULES:
                 rt.copy_gfile_for_gpec(geqdsk, run_dir / eq_filename, shot=inputs.shot, time_ms=inputs.time_ms)
@@ -132,7 +132,7 @@ def prepare_gpec_suite_case(
                 mode=mode,
                 inputs=inputs,
                 config=config,
-                dcon_dir=rt.module_dir(inputs, "dcon", mode).resolve(),
+                dcon_dir=rt.module_dir(inputs.workdir, inputs.time_ms, "dcon", mode, geqdsk=geqdsk).resolve(),
             )
             SOLVERS[module].prepare(ctx)
             records.append(_prepared_record(module, mode, run_dir))
@@ -154,7 +154,7 @@ def _run_module(
     module: str,
     mode: int,
 ) -> GPECModuleRun:
-    run_dir = rt.module_dir(inputs, module, mode)
+    run_dir = rt.module_dir(inputs.workdir, inputs.time_ms, module, mode, geqdsk=inputs.geqdsk)
     policy = rt.run_policy(config)
     solver = SOLVERS[module]
     if policy == "prepare_only":
@@ -176,7 +176,7 @@ def _run_module(
         return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
 
     if module == "gpec":
-        dcon_dir = rt.module_dir(inputs, "dcon", mode)
+        dcon_dir = rt.module_dir(inputs.workdir, inputs.time_ms, "dcon", mode, geqdsk=inputs.geqdsk)
         required = ("euler.bin", "psi_in.bin")
         missing = [name for name in required if not (dcon_dir / name).exists()]
         if missing:
@@ -190,7 +190,7 @@ def _run_module(
         status = "completed" if returncode == 0 else "failed"
         reason = ""
         if returncode == 0:
-            for companion in solver.companion_executables(config):
+            for companion in solver.companion_executables():
                 companion_exec = rt.optional_executable(config, companion)
                 if companion_exec is not None and companion_exec.is_file() and os.access(companion_exec, os.X_OK):
                     companion_rc, companion_log = rt.run_subprocess(
