@@ -210,9 +210,9 @@ class PipelinePaths:
         ``gpec/{code}/{shot}/n={mode}`` -- code comes first, so there is no
         single shared root under that layout for the adapter's own directory
         convention to nest under. The run tree itself therefore stays
-        shot-first in both layouts (like `gpec_manifest`/`gpec_status`
-        above); only the lightweight per-(code, mode) status/manifest
-        bookkeeping records use FileDB under `filedb`.
+        shot-first in both layouts; only the lightweight per-(code, mode)
+        status/manifest bookkeeping records (`gpec_module_status`/
+        `gpec_module_manifest` above) use FileDB under `filedb`.
         """
         return str(self._shot_dir(shot, "linear_stability"))
 
@@ -221,8 +221,7 @@ class PipelinePaths:
         # static/diagnostics/eddy/efit/chease), and adding one is a FileDB
         # schema change this phase does not attempt, so this per-shot product
         # (folding every configured (code, mode) cell together) stays
-        # shot-first in both layouts, like the gpec_manifest/gpec_status
-        # aggregate above.
+        # shot-first in both layouts, like `gpec_workdir` above.
         return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
 
     def mhd_linear_manifest(self, shot) -> str:

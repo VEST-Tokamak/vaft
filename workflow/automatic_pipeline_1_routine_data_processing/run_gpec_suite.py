@@ -78,8 +78,8 @@ def main() -> int:
     gfiles = _read_manifest(args.refined_gfile_manifest)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.status.parent.mkdir(parents=True, exist_ok=True)
+    # prepare_gpec_suite_case()/run_gpec_suite_case() already create workdir.
     workdir = args.workdir if args.workdir is not None else args.output.parent
-    workdir.mkdir(parents=True, exist_ok=True)
 
     gpec_home = Path(args.gpec_home).expanduser() if args.gpec_home else None
 
