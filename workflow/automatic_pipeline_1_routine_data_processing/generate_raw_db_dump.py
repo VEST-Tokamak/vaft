@@ -43,7 +43,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     sample = args.sample.strip()

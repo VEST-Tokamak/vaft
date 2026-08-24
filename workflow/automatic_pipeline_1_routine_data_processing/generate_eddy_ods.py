@@ -40,7 +40,11 @@ def main() -> int:
     parser.add_argument("--dt-sub", default=5e-5, type=float, help="Sub-step for eddy-current integration.")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     LOGGER.info("Generating eddy ODS for shot %s from %s", args.shot, args.diagnostics_ods)
     ods, manifest = build_eddy_ods(
         shot=args.shot,
