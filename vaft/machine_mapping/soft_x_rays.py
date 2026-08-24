@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 import os
 from pathlib import Path
+import re
 from typing import Any, Iterable, Mapping, Sequence
 import warnings
 
@@ -20,7 +21,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .utils import resolve_data_root, set_path
+from .utils import path_exists, resolve_data_root, set_path
 
 # ``sample_v3.py`` records a waveform relative to its digitizer trigger and
 # then decimates it.  The two known digitizers use different decimation.
@@ -153,6 +154,43 @@ def _resolve_digitizer_file(
         "digitizer_file/data_root or clone the VAFT GitHub repository. "
         f"Searched: {searched}"
     )
+
+
+def _digitizer_file_candidates(
+    shot: int,
+    daq_label: str | int,
+    data_root: str | Path | None,
+) -> list[Path]:
+    """Return candidate locations for one archived SXR digitizer file."""
+    root = resolve_data_root(data_root)
+    filename = f"digitizer_{str(daq_label)}_{int(shot)}.csv"
+    return [
+        root / "legacy" / filename,
+        root / filename,
+        root / "soft_x_rays" / filename,
+        root / "raw" / filename,
+    ]
+
+
+def _discover_digitizer_files(shot: int, data_root: str | Path | None = None) -> list[tuple[str, Path]]:
+    """Find supported SXR digitizers for a shot in deterministic DAQ order."""
+    labels = sorted(
+        set(DEFAULT_SAMPLE_RATES) | set(DEFAULT_DIGITIZER_ARRAYS),
+        key=lambda value: (int(value), value),
+    )
+    found: list[tuple[str, Path]] = []
+    for label in labels:
+        for candidate in _digitizer_file_candidates(shot, label, data_root):
+            if candidate.exists():
+                found.append((label, candidate))
+                break
+    return found
+
+
+def _daq_label_from_filename(path: str | Path, shot: int) -> str | None:
+    """Infer a DAQ label from the standard digitizer filename, if present."""
+    match = re.fullmatch(rf"digitizer_(.+)_{int(shot)}\.csv", Path(path).name)
+    return match.group(1) if match else None
 
 
 def _packaged_geometry_table_path() -> Path:
@@ -533,6 +571,8 @@ def vfit_soft_x_rays_static(
     ods: Any,
     *,
     channel_map: Sequence[Mapping[str, Any]],
+    channel_offset: int = 0,
+    homogeneous_time: bool = True,
     geometry_root: str | Path | None = None,
     energy_band: tuple[float, float] = DEFAULT_ENERGY_BAND,
     phi: float = 0.0,
@@ -543,7 +583,7 @@ def vfit_soft_x_rays_static(
     geometry_table_path = resolve_sxr_geometry_table(geometry_root)
     geometry_table = load_sxr_geometry_table(geometry_table_path) if geometry_table_path else {}
     resolved_geometry = None if geometry_table else resolve_sxr_geometry_root(geometry_root)
-    set_path(ods, "soft_x_rays.ids_properties.homogeneous_time", 1)
+    set_path(ods, "soft_x_rays.ids_properties.homogeneous_time", int(homogeneous_time))
     set_path(ods, "soft_x_rays.ids_properties.name", "VEST soft X-ray arrays")
     set_path(
         ods,
@@ -553,7 +593,7 @@ def vfit_soft_x_rays_static(
     set_path(ods, "soft_x_rays.ids_properties.creation_date", datetime.now(timezone.utc).isoformat())
 
     lower, upper = energy_band
-    for idx, item in enumerate(_normalise_channel_map(channel_map)):
+    for idx, item in enumerate(_normalise_channel_map(channel_map), start=channel_offset):
         name = str(item.get("name") or f"SXR Ch {idx + 1}")
         identifier = str(item.get("identifier") or name)
         prefix = f"soft_x_rays.channel.{idx}"
@@ -582,6 +622,8 @@ def vfit_soft_x_rays_dynamic(
     data: np.ndarray,
     time: np.ndarray,
     channel_map: Sequence[Mapping[str, Any]],
+    channel_offset: int = 0,
+    set_global_time: bool = True,
     brightness_scale: float = 1.0,
     baseline_range: tuple[int | None, int | None] | None = None,
     polarity: float = 1.0,
@@ -594,8 +636,9 @@ def vfit_soft_x_rays_dynamic(
     if values.shape[0] != time_values.size:
         raise ValueError("data time dimension must match time length.")
 
-    set_path(ods, "soft_x_rays.time", time_values)
-    for idx, item in enumerate(_normalise_channel_map(channel_map)):
+    if set_global_time:
+        set_path(ods, "soft_x_rays.time", time_values)
+    for idx, item in enumerate(_normalise_channel_map(channel_map), start=channel_offset):
         source_column = int(item["source_column"])
         if source_column < 0 or source_column >= values.shape[1]:
             raise IndexError(f"source_column {source_column} is outside data shape {values.shape}")
@@ -616,15 +659,108 @@ def vfit_soft_x_rays_dynamic(
         set_path(ods, f"{prefix}.validity_timed.data", np.zeros(time_values.size, dtype=int))
 
 
+def _existing_sxr_channel_identifiers(ods: Any) -> set[str]:
+    """Return channel identifiers already present in an ODS or dict."""
+    try:
+        channels = (
+            ods["soft_x_rays.channel"]
+            if not isinstance(ods, dict)
+            else ods["soft_x_rays"]["channel"]
+        )
+        channel_count = len(channels)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return set()
+
+    identifiers: set[str] = set()
+    for index in range(channel_count):
+        path = f"soft_x_rays.channel.{index}.identifier"
+        if path_exists(ods, path):
+            value = (
+                ods[path]
+                if not isinstance(ods, dict)
+                else ods["soft_x_rays"]["channel"][index]["identifier"]
+            )
+            identifiers.add(str(value))
+    return identifiers
+
+
+def _existing_sxr_channel_count(ods: Any) -> int:
+    """Return the current channel-array length without creating ODS branches."""
+    try:
+        channels = (
+            ods["soft_x_rays.channel"]
+            if not isinstance(ods, dict)
+            else ods["soft_x_rays"]["channel"]
+        )
+        return len(channels)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return 0
+
+
+def _existing_sxr_source_files(ods: Any) -> list[str]:
+    """Read the existing semicolon-delimited IDS source provenance."""
+    path = "soft_x_rays.ids_properties.source"
+    if not path_exists(ods, path):
+        return []
+    if isinstance(ods, dict):
+        value = ods["soft_x_rays"]["ids_properties"]["source"]
+    else:
+        value = ods[path]
+    return [entry.strip() for entry in str(value).split(";") if entry.strip()]
+
+
+def _clear_sxr_global_time(ods: Any) -> None:
+    """Remove a global time axis when SXR channels have heterogeneous clocks."""
+    path = "soft_x_rays.time"
+    if not path_exists(ods, path):
+        return
+    if isinstance(ods, dict):
+        ods.get("soft_x_rays", {}).pop("time", None)
+    else:
+        del ods[path]
+
+
+def _normalise_source_map(
+    daq_label: str,
+    data: np.ndarray,
+    channel_map: Sequence[Mapping[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Fill source metadata and reject ambiguous channels before writing an IDS."""
+    mapping = list(channel_map) if channel_map is not None else default_channel_map(daq_label, data.shape[1])
+    prepared: list[dict[str, Any]] = []
+    identifiers: set[str] = set()
+    source_columns: set[int] = set()
+    for item in _normalise_channel_map(mapping):
+        entry = dict(item)
+        entry.setdefault("daq_label", daq_label)
+        entry.setdefault(
+            "name", f"Digitizer {daq_label} Ch {int(entry['source_column']) + 1}"
+        )
+        entry.setdefault("identifier", str(entry["name"]))
+        identifier = str(entry["identifier"])
+        source_column = int(entry["source_column"])
+        if identifier in identifiers:
+            raise ValueError(
+                f"Duplicate SXR channel identifier {identifier!r} for digitizer {daq_label}."
+            )
+        if source_column in source_columns:
+            raise ValueError(f"Duplicate SXR source_column {source_column} for digitizer {daq_label}.")
+        identifiers.add(identifier)
+        source_columns.add(source_column)
+        prepared.append(entry)
+    return prepared
+
+
 def soft_x_rays(
     ods: Any,
     shot: int,
-    daq_label: str | int,
+    daq_label: str | int | None = None,
     *,
     data_root: str | Path | None = None,
     digitizer_file: str | Path | None = None,
     geometry_root: str | Path | None = None,
     channel_map: Sequence[Mapping[str, Any]] | None = None,
+    channel_maps: Mapping[str | int, Sequence[Mapping[str, Any]]] | None = None,
     sample_rate: float | None = None,
     time_offset: float | None = None,
     time_reference: str = "auto",
@@ -635,7 +771,14 @@ def soft_x_rays(
     polarity: float = 1.0,
     channels_as_rows: bool = True,
 ) -> None:
-    """Populate ``ods`` with VEST SXR data from ``digitizer_{daq_label}_{shot}.csv``.
+    """Populate one shot-level SXR IDS from all available digitizer files.
+
+    With no ``daq_label`` this is the canonical API: all supported SXR files
+    found for ``shot`` are appended in DAQ-label/source-column order.  Pass a
+    ``daq_label`` (or ``digitizer_file`` with a label) to retain the legacy
+    single-source behavior.  Each channel retains its native DAQ time axis in
+    ``brightness.time``; the IDS is marked non-homogeneous when sources have
+    different acquisition axes.
 
     ``sample_v3.py`` CSVs start at their digitizer trigger.  By default,
     ``time_reference='auto'`` translates that axis to the shot clock using the
@@ -643,61 +786,134 @@ def soft_x_rays(
     for a zero-origin archive axis, or provide ``time_offset`` to override
     either convention explicitly.
     """
-    source_file = _resolve_digitizer_file(
-        shot=shot,
-        daq_label=daq_label,
-        data_root=data_root,
-        digitizer_file=digitizer_file,
-    )
-    data = load_digitizer_csv(source_file, channels_as_rows=channels_as_rows)
-    resolved_rate = _sample_rate_for_daq(daq_label, sample_rate)
-    if time_offset is not None:
-        alignment = SXRTimeAlignment(float(time_offset), "explicit", "Caller-provided time_offset.")
-    elif time_reference == "auto":
-        alignment = resolve_sxr_time_alignment(shot, trigger_settings_path=trigger_settings_path)
-    elif time_reference == "archive":
-        alignment = SXRTimeAlignment(0.0, "trigger_relative", "Archive trigger-relative time requested.")
+    if digitizer_file is not None:
+        inferred_label = _daq_label_from_filename(digitizer_file, shot)
+        if daq_label is None:
+            if inferred_label is None:
+                raise ValueError(
+                    "daq_label is required when digitizer_file does not use "
+                    "digitizer_{daq}_{shot}.csv naming."
+                )
+            daq_label = inferred_label
+        sources = [
+            (str(daq_label), _resolve_digitizer_file(shot, daq_label, data_root, digitizer_file))
+        ]
+    elif daq_label is not None:
+        sources = [(str(daq_label), _resolve_digitizer_file(shot, daq_label, data_root))]
     else:
-        raise ValueError("time_reference must be 'auto' or 'archive'.")
-    time = build_time_axis(data.shape[0], sample_rate=resolved_rate, time_offset=alignment.offset_seconds)
-    mapping = list(channel_map) if channel_map is not None else default_channel_map(daq_label, data.shape[1])
+        sources = _discover_digitizer_files(shot, data_root)
+        if not sources:
+            raise FileNotFoundError(
+                f"No supported SXR digitizer CSV files found for shot {int(shot)}. "
+                "Provide data_root, digitizer_file, or daq_label for an explicit source."
+            )
 
-    vfit_soft_x_rays_static(
-        ods,
-        channel_map=mapping,
-        geometry_root=geometry_root,
-        energy_band=energy_band,
-        brightness_scale=brightness_scale,
+    if channel_map is not None and len(sources) > 1:
+        raise ValueError(
+            "channel_map applies to one DAQ; use channel_maps when mapping multiple digitizers."
+        )
+    if time_reference not in {"auto", "archive"}:
+        raise ValueError("time_reference must be 'auto' or 'archive'.")
+
+    normalised_channel_maps = {
+        str(label): mapping for label, mapping in (channel_maps or {}).items()
+    }
+    existing_identifiers = _existing_sxr_channel_identifiers(ods)
+    channel_offset = _existing_sxr_channel_count(ods)
+    homogeneous_time = len(sources) == 1 and channel_offset == 0
+    existing_sources = _existing_sxr_source_files(ods)
+    existing_comment = ""
+    comment_path = "soft_x_rays.ids_properties.comment"
+    if path_exists(ods, comment_path):
+        existing_comment = str(
+            ods[comment_path]
+            if not isinstance(ods, dict)
+            else ods["soft_x_rays"]["ids_properties"]["comment"]
+        )
+    if not homogeneous_time:
+        _clear_sxr_global_time(ods)
+    source_details: list[str] = []
+
+    for label, source_file in sources:
+        try:
+            data = load_digitizer_csv(source_file, channels_as_rows=channels_as_rows)
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Malformed SXR digitizer CSV {source_file}: {exc}") from exc
+        if data.ndim != 2 or not data.shape[0] or not data.shape[1] or not np.isfinite(data).all():
+            raise ValueError(
+                f"Malformed SXR digitizer CSV {source_file}: "
+                "expected a finite, non-empty 2D array."
+            )
+
+        mapping_for_source = channel_map if channel_map is not None else (
+            normalised_channel_maps.get(label) if channel_maps is not None else None
+        )
+        mapping = _normalise_source_map(label, data, mapping_for_source)
+        mapping = [item for item in mapping if str(item["identifier"]) not in existing_identifiers]
+        if not mapping:
+            continue
+
+        resolved_rate = _sample_rate_for_daq(label, sample_rate)
+        if time_offset is not None:
+            alignment = SXRTimeAlignment(float(time_offset), "explicit", "Caller-provided time_offset.")
+        elif time_reference == "auto":
+            alignment = resolve_sxr_time_alignment(shot, trigger_settings_path=trigger_settings_path)
+        else:
+            alignment = SXRTimeAlignment(0.0, "trigger_relative", "Archive trigger-relative time requested.")
+        time = build_time_axis(data.shape[0], sample_rate=resolved_rate, time_offset=alignment.offset_seconds)
+
+        vfit_soft_x_rays_static(
+            ods,
+            channel_map=mapping,
+            channel_offset=channel_offset,
+            homogeneous_time=homogeneous_time,
+            geometry_root=geometry_root,
+            energy_band=energy_band,
+            brightness_scale=brightness_scale,
+        )
+        vfit_soft_x_rays_dynamic(
+            ods,
+            data=data,
+            time=time,
+            channel_map=mapping,
+            channel_offset=channel_offset,
+            set_global_time=homogeneous_time,
+            brightness_scale=brightness_scale,
+            baseline_range=baseline_range,
+            polarity=polarity,
+        )
+        channel_offset += len(mapping)
+        existing_identifiers.update(str(item["identifier"]) for item in mapping)
+        source_details.append(
+            f"{label}:{source_file} sample_rate_hz={resolved_rate:g}; "
+            f"time_alignment={alignment.source}"
+        )
+
+    if sources and not source_details:
+        return
+    all_sources = list(dict.fromkeys([*existing_sources, *(str(path) for _, path in sources)]))
+    set_path(ods, "soft_x_rays.ids_properties.source", "; ".join(all_sources))
+    new_comment = (
+        "VEST SXR digitizer data; relative calibrated signal proxy, not absolute brightness. "
+        f"Sources: {'; '.join(source_details)}."
     )
-    vfit_soft_x_rays_dynamic(
-        ods,
-        data=data,
-        time=time,
-        channel_map=mapping,
-        brightness_scale=brightness_scale,
-        baseline_range=baseline_range,
-        polarity=polarity,
-    )
-    set_path(ods, "soft_x_rays.ids_properties.source", str(source_file))
     set_path(
         ods,
         "soft_x_rays.ids_properties.comment",
-        (
-            "VEST SXR digitizer data; relative calibrated signal proxy, not absolute brightness. "
-            f"Time alignment: {alignment.source} ({alignment.detail}) "
-            f"sample_rate_hz={resolved_rate:g}."
-        ),
+        f"{existing_comment} Sources appended: {'; '.join(source_details)}."
+        if existing_comment
+        else new_comment,
     )
 
 
 def soft_x_rays_from_digitizer_csv(
     shot: int,
-    daq_label: str | int,
+    daq_label: str | int | None = None,
     *,
     consistency_check: bool = True,
     **kwargs: Any,
 ):
-    """Create and return an OMAS ODS filled with one VEST SXR digitizer file."""
+    """Create a shot-level ODS, discovering all SXR DAQs when no label is given."""
     from omas import ODS
 
     ods = ODS(consistency_check=consistency_check)
@@ -708,10 +924,10 @@ def soft_x_rays_from_digitizer_csv(
 def save_soft_x_rays_ods(
     output_path: str | Path,
     shot: int,
-    daq_label: str | int,
+    daq_label: str | int | None = None,
     **kwargs: Any,
 ):
-    """Build and save a soft_x_rays ODS. The file extension selects OMAS format."""
+    """Build and save one shot-level soft_x_rays ODS in the selected OMAS format."""
     output = Path(output_path).expanduser()
     consistency_check = kwargs.pop("consistency_check", True)
     ods = soft_x_rays_from_digitizer_csv(
