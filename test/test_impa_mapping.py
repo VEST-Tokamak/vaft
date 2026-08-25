@@ -16,6 +16,7 @@ from vaft.machine_mapping.impa import (
     HALL_PROBE_TYPE_INDEX,
     IMPA_IDENTIFIER_PREFIX,
     impa,
+    impa_expected_fields,
     impa_probe_indices,
     impa_probe_node,
     load_impa_inputs,
@@ -541,3 +542,70 @@ def test_inactive_bz_sensors_are_flagged_on_the_reference_shots():
     assert np.nanmax(result.crosstalk.r_squared[finite]) < 0.5
     assert result.quality.checks["bz_sensors"] == "warning"
     assert any("may be inactive" in reason for reason in result.quality.reasons)
+
+
+# ---------------------------------------------------------------------------
+# regressions: cross-era channel-count mismatches
+# ---------------------------------------------------------------------------
+def test_expected_fields_are_narrowed_for_the_seven_channel_era():
+    """The preflight field list must match what the mapper actually reads.
+
+    The 2022-04-23 block wires seven Hall channels, not eight (field 121 is
+    absent).  A preflight built from the unfiltered default channel map would
+    expect 121 too and record a perfectly valid shot as missing a channel.
+    """
+    assert impa_expected_fields(REFERENCE_SHOT) == [114, 115, 116, 117, 118, 119, 120]
+    assert impa_expected_fields(39204) == list(IMPA_FIELDS)
+
+
+@pytest.mark.skipif(
+    not Path(IMPA_SAMPLE.format(shot=REFERENCE_SHOT)).is_file(),
+    reason="archived IMPA sample is not available",
+)
+def test_a_reference_from_a_different_era_channel_count_does_not_crash():
+    """process_impa_shot(39204, reference_shot=35376) used to raise.
+
+    35376 (2022, seven channels: 114-120) calibrating 39204 (eight channels,
+    114-121) previously broadcast a length-7 array against a length-8 one and
+    crashed. The reference must instead be aligned onto the target's own
+    channel layout by field code, leaving 39204's field 121 -- which 35376
+    never wired -- uncalibrated rather than crashing the whole shot.
+    """
+    result, _ = process_impa_shot(39204, raw_source=IMPA_SAMPLE, reference_shot=REFERENCE_SHOT)
+
+    assert result.geometry.r.size == 8
+    assert result.coupling.alpha.size == 8
+    # Channels 0-6 (fields 114-120) got 35376's calibration transferred...
+    np.testing.assert_allclose(np.abs(result.coupling.alpha[:7]), 1.0, atol=0.05)
+    # ...and channel 7 (field 121, unwired in the reference) is uncalibrated,
+    # not silently reused from a neighbour.
+    assert np.isnan(result.geometry.r[7])
+    assert np.isnan(result.coupling.alpha[7])
+    assert not result.channel_valid[7] or np.isnan(result.b_z[7]).all()
+
+
+def test_a_reference_with_no_shared_field_code_is_rejected_clearly():
+    """A reference sharing no channel at all with the target must not crash."""
+    from vaft.process.impa import ImpaGeometryFit, ImpaQuality, ImpaResult
+
+    fake_time = np.zeros(4)
+    fake_reference = ImpaResult(
+        time=fake_time,
+        b_measured=np.zeros((2, 4)),
+        tf_pickup=np.zeros((2, 4)),
+        b_z=np.zeros((2, 4)),
+        channel_valid=np.ones(2, dtype=bool),
+        geometry=ImpaGeometryFit(r=np.array([0.5, 0.55]), z=np.zeros(2), method="configured"),
+        coupling=None,
+        window=None,
+        quality=ImpaQuality(status="valid", checks={}),
+        provenance={"shot": 99999},
+    )
+    from vaft.machine_mapping.impa import _align_reference_to_target
+
+    with pytest.raises(ValueError, match="no raw field code"):
+        _align_reference_to_target(
+            fake_reference,
+            reference_specs=[{"field": 999}, {"field": 998}],
+            target_specs=[{"field": 114}, {"field": 115}],
+        )

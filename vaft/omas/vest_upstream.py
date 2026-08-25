@@ -22,7 +22,7 @@ from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
-from vaft.machine_mapping.impa import impa as impa_mapper, resolve_impa_config
+from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
 from vaft.machine_mapping.magnetics import (
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     vest_md_channel_definitions,
@@ -364,10 +364,11 @@ def build_diagnostics_ods(
             impa_mapper(component, shot, tstart, tend, dt, raw_source=raw_path)
         )
 
-    impa_fields = sorted(
-        int(channel["field"])
-        for channel in (resolve_impa_config(shot).get("channels") or {}).values()
-    )
+    # This shot's own era may not wire every channel (the 2022-04-23 block
+    # runs seven, not eight); use the same effective per-shot field list the
+    # mapper reads, not the unfiltered default, so an intentionally-absent
+    # channel is not reported as missing.
+    impa_fields = sorted(impa_expected_fields(shot))
     missing_impa_channels = sorted(
         field for field in impa_fields if field not in archived_fields
     )

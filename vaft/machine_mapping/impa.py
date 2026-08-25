@@ -11,6 +11,7 @@ Machine constants live in ``vaft/machine_mapping/vest.yaml`` under
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from typing import Any, Mapping
 
@@ -33,6 +34,7 @@ __all__ = [
     "IMPA_IDENTIFIER_PREFIX",
     "IMPA_PROBE_NODES",
     "impa",
+    "impa_expected_fields",
     "impa_from_raw_database",
     "impa_probe_indices",
     "impa_probe_node",
@@ -80,6 +82,20 @@ def resolve_impa_config(shot: int, info_file: str | None = None) -> dict[str, An
             f"No IMPA configuration for shot {shot}; expected magnetics.impa in the VEST machine mapping"
         )
     return dict(impa_config)
+
+
+def impa_expected_fields(shot: int, config: Mapping[str, Any] | None = None) -> list[int]:
+    """Return the raw Hall field codes this shot's era actually wires.
+
+    Applies the same ``shot_era_overrides`` channel narrowing that
+    :func:`impa`/:func:`process_impa_shot` use internally -- the 2022-04-23
+    block wires seven channels, not eight -- so a preflight/availability check
+    built from this agrees with what the mapper actually reads instead of
+    assuming every era wires all eight and flagging an intentionally-absent
+    channel as missing.
+    """
+    config = dict(config) if config is not None else resolve_impa_config(shot)
+    return [int(spec["field"]) for spec in _channel_specs(config, int(shot))]
 
 
 def _channel_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]:
@@ -286,6 +302,68 @@ def load_impa_inputs(
     }
 
 
+def _reindex_by_field(values: np.ndarray, indices: list[int | None], n_target: int) -> np.ndarray:
+    """Reorder a per-channel array onto a target channel layout.
+
+    Target positions with no matching source channel come back as the
+    array's own "missing" value (``NaN`` for float arrays, ``False`` for
+    bool), so those channels read as uncalibrated rather than borrowing a
+    neighbour's number.
+    """
+    values = np.asarray(values)
+    fill = False if values.dtype.kind == "b" else np.nan
+    out = np.full(n_target, fill, dtype=values.dtype)
+    for target_index, source_index in enumerate(indices):
+        if source_index is not None and source_index < values.shape[0]:
+            out[target_index] = values[source_index]
+    return out
+
+
+def _align_reference_to_target(
+    reference: ImpaResult,
+    reference_specs: list[dict[str, Any]],
+    target_specs: list[dict[str, Any]],
+) -> ImpaResult:
+    """Reindex a reference calibration onto this shot's own channel layout.
+
+    A reference shot may come from a different era with a different set of
+    wired channels (the 2022 alignment block runs seven, later shots eight),
+    so the two arrays cannot simply be broadcast against each other.  Align by
+    field code instead: a target channel whose field the reference never
+    wired is left uncalibrated rather than crashing the whole shot or silently
+    reusing an unrelated neighbour's fit.
+    """
+    reference_field_to_index = {int(spec["field"]): index for index, spec in enumerate(reference_specs)}
+    indices = [reference_field_to_index.get(int(spec["field"])) for spec in target_specs]
+    n_target = len(target_specs)
+    if all(index is None for index in indices):
+        raise ValueError(
+            "IMPA reference shares no raw field code with this shot's channels; "
+            "its calibration cannot be transferred"
+        )
+
+    geometry = dataclasses.replace(
+        reference.geometry,
+        r=_reindex_by_field(reference.geometry.r, indices, n_target),
+        z=_reindex_by_field(reference.geometry.z, indices, n_target),
+    )
+    coupling = reference.coupling
+    if coupling is not None:
+        coupling = dataclasses.replace(
+            coupling,
+            alpha=_reindex_by_field(coupling.alpha, indices, n_target),
+            beta=_reindex_by_field(coupling.beta, indices, n_target),
+            tilt_deg=_reindex_by_field(coupling.tilt_deg, indices, n_target),
+            coupling_ratio=_reindex_by_field(coupling.coupling_ratio, indices, n_target),
+            rmse=_reindex_by_field(coupling.rmse, indices, n_target),
+            nrmse=_reindex_by_field(coupling.nrmse, indices, n_target),
+            r_squared=_reindex_by_field(coupling.r_squared, indices, n_target),
+            residual_trend=_reindex_by_field(coupling.residual_trend, indices, n_target),
+            bound_hit=_reindex_by_field(coupling.bound_hit, indices, n_target),
+        )
+    return dataclasses.replace(reference, geometry=geometry, coupling=coupling)
+
+
 def process_impa_shot(
     shot: int,
     *,
@@ -297,12 +375,16 @@ def process_impa_shot(
 
     ``reference_shot`` optionally names a TF reference taken with the array in
     the same position; its geometry and coupling are then applied to ``shot``
-    instead of being re-fitted.  The single-shot path never requires one.
+    instead of being re-fitted.  The reference is aligned onto this shot's own
+    channel layout by raw field code first, so a reference from an era with a
+    different wired-channel count still applies cleanly.  The single-shot path
+    never requires one.
     """
     config = dict(config) if config is not None else resolve_impa_config(shot)
     reference = None
+    reference_specs = None
     if reference_shot is not None:
-        reference, _ = process_impa_shot(
+        reference, reference_inputs = process_impa_shot(
             int(reference_shot), raw_source=raw_source, config=config
         )
         if not reference.quality.is_usable:
@@ -310,7 +392,10 @@ def process_impa_shot(
                 f"IMPA reference shot {reference_shot} is not usable as a calibration "
                 f"({reference.quality.status}): {'; '.join(reference.quality.reasons)}"
             )
+        reference_specs = reference_inputs["specs"]
     inputs = load_impa_inputs(shot, config, raw_source=raw_source)
+    if reference is not None:
+        reference = _align_reference_to_target(reference, reference_specs, inputs["specs"])
     geometry = config.get("geometry") or {}
     quality = config.get("quality") or {}
     crosstalk_config = config.get("crosstalk") or {}

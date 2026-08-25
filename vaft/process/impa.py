@@ -1198,6 +1198,15 @@ def process_impa(
     z_values = np.full(n_channels, float(z)) if np.isscalar(z) else np.asarray(z, dtype=float)
 
     if reference is not None:
+        reference_size = int(np.size(reference.geometry.r))
+        if reference_size != n_channels:
+            raise ValueError(
+                f"IMPA reference calibration has {reference_size} channels but this "
+                f"shot has {n_channels}; align the reference onto this shot's channel "
+                "layout by field code before calling process_impa (see "
+                "vaft.machine_mapping.impa.process_impa_shot), or supply a reference "
+                "with a matching channel count."
+            )
         geometry = ImpaGeometryFit(
             r=np.asarray(reference.geometry.r, dtype=float),
             z=np.asarray(reference.geometry.z, dtype=float),

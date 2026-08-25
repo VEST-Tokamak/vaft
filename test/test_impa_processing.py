@@ -546,3 +546,24 @@ def test_geometry_fit_is_invariant_to_the_configured_gain_sign():
     assert fit_pos.r0 == pytest.approx(fit_neg.r0, abs=1e-6)
     assert fit_pos.nrmse < 1e-6
     assert fit_neg.nrmse < 1e-6
+
+
+def test_process_impa_rejects_a_reference_with_a_different_channel_count():
+    """A caller that bypasses process_impa_shot's alignment gets a clear error.
+
+    process_impa() has no field-code metadata to align by, so a mismatched
+    reference must raise before broadcasting two differently-shaped arrays
+    against each other -- not fail deep inside remove_tf_pickup with a
+    confusing shape-mismatch traceback.
+    """
+    time = _time()
+    i_tf = _tf_ramp(time)
+    reference_radii = 0.4 + np.arange(7) * 0.05
+    reference_raw = _synthetic_array(time, i_tf, reference_radii, np.ones(7)) / (2.0 / 15.0)
+    reference = process_impa(time, reference_raw, i_tf, r=reference_radii)
+
+    target_radii = 0.4 + np.arange(8) * 0.05
+    target_raw = _synthetic_array(time, i_tf, target_radii, np.ones(8)) / (2.0 / 15.0)
+
+    with pytest.raises(ValueError, match="7 channels but this shot has 8"):
+        process_impa(time, target_raw, i_tf, reference=reference)
