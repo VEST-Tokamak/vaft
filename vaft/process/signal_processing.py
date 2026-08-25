@@ -11,6 +11,7 @@ __all__ = [
     "define_baseline",
     "exp_baseline",
     "is_signal_active",
+    "line_average_density",
     "linear_baseline",
     "process_signal",
     "quadratic_baseline",
@@ -24,6 +25,19 @@ __all__ = [
     "vfit_signal_start_end",
     "vfit_signal_startend",
 ]
+
+
+def line_average_density(n_e_line, path_length_m: float) -> np.ndarray:
+    """Return line-average electron density given an explicit chord length.
+
+    ``n_e_line`` is a line-integrated density (m^-2); dividing by the
+    diagnostic's known path length gives a line-average density (m^-3). No
+    calibration or geometry is inferred here -- ``path_length_m`` must be
+    supplied by the caller.
+    """
+    if path_length_m <= 0:
+        raise ValueError(f"path_length_m must be positive, got {path_length_m}")
+    return np.asarray(n_e_line, dtype=float) / float(path_length_m)
 
 
 def smooth(array, span: int) -> np.ndarray:

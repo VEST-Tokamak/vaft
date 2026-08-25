@@ -16,7 +16,7 @@ samples.
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `omas/` | `39915.json`, `41524.json`, `41672.json`, `thomson_scattering.json` | OMAS/ODS sample and contract-test payloads |
 | `imas/` | `vest_imas_3.40.1.nc` | IMAS-format sample container |
-| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `shot_44740.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
+| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
 
 ## Access
@@ -49,3 +49,8 @@ geometry; the differing suffixes are retained from the source asset names.
 `VEST_MagneticsGeometry_Full_ver_2302.yaml` retains its historical filename
 for API compatibility, while its source metadata, channel order, and
 calibration values reflect the production 2409 magnetic geometry.
+
+`legacy/47230_056789_LID_1_100.mat` and `legacy/47230_ALL_LID_1_100.mat` are
+downsampled (1/100) postprocessed line-integrated-density samples for shot
+47230, used by `vaft.machine_mapping.interferometer` (94 GHz horizontal and
+282 GHz vertical systems respectively).

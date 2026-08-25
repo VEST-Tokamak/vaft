@@ -782,6 +782,32 @@
         2:
           label: Lower Corner [V]
           field: 217
+
+  # VEST interferometer systems (see issue #153). Postprocessed line-integrated
+  # density (line_den) is ingested directly; these values must not be treated
+  # as raw phase and must not receive a second phase-to-density conversion.
+  interferometer:
+    horizontal_94ghz:
+      physical_channels: [5, 6, 7, 8, 9]
+      z_m: [0.000, -0.075, -0.150, -0.225, -0.300]
+      phi_rad: 5.240
+      launch_r_m: 0.8
+      mirror_r_m: 0.1
+      path_length_m: 1.4
+      wavelength_m: 0.00319
+      phase_to_n_e_line: 1.1136e17
+      identifiers: ["94GHz_H_ch05", "94GHz_H_ch06", "94GHz_H_ch07", "94GHz_H_ch08", "94GHz_H_ch09"]
+      filename_pattern: "{shot}_{tokens}_LID.mat"
+    vertical_282ghz:
+      r_m: 0.4
+      phi_rad: 3.665
+      z_bottom_m: -1.2
+      z_top_m: 1.2
+      path_length_m: 2.4
+      wavelength_m: 0.00106
+      phase_to_n_e_line: 3.3409e17
+      identifier: "282GHz_V_ch01"
+      filename_pattern: "{shot}_ALL_LID.mat"
 # –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # Shot-specific overrides
 20259:
@@ -1026,11 +1052,12 @@ diagnostic_registry:
     ids: interferometer
     ids_path: interferometer
     responsible: [{name: 변준혁}]
-    source: {type: unknown}
+    source: {type: file, formats: [mat], patterns: ["{shot}_{tokens}_LID.mat", "{shot}_ALL_LID.mat"]}
     availability: If-requested
-    lifecycle: in_maintenance
-    mapping_status: not_implemented
-    quantities: {static: [position, line_of_sight, optical_path, wavelength], measured: [phase], derived: [line_integrated_electron_density, validity]}
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.interferometer, entrypoint: interferometer}
+    quantities: {static: [position, line_of_sight, optical_path, wavelength], measured: [line_den], derived: [n_e_line, n_e_line_average]}
   disruption.halo_currents:
     name: Outboard limiter current monitor
     family: edge_diagnostics
