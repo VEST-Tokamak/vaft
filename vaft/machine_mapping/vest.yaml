@@ -484,12 +484,12 @@
             turns: 1
             area: 0.01
 
-    # Internal Magnetic Probe Array: eight midplane Hall probes.
-    # Canonical VAFT sign convention: I_TF = raw_field_1 * -3e4 (see `tf` below)
-    # together with an IMPA gain of +2/15 T/V.  The legacy
-    # VEST_IMPAProcessing.m pairing (-2/15 with +3e4) is algebraically
-    # identical apart from the overall polarity of the reported Bz;
-    # vest_impa_position.m already used the convention adopted here.
+    # Internal Magnetic Probe Array: eight midplane Hall probes, plus a
+    # co-located Bz sensor per position.  Sign convention: I_TF = raw_field_1
+    # * -3e4 (see `tf` below) together with a Hall gain of -2/15 T/V -- the
+    # "Data gain" on the array's own DAQ wiring datasheet, the authoritative
+    # hardware configuration.  daq_channel is that datasheet's DAQ device/line
+    # (Dev8 for Hall, Dev15 for Bz), recorded for provenance only.
     impa:
       label: "Internal Magnetic Probe Array"
       channels:
@@ -497,51 +497,61 @@
           label: "IMPA 01"
           field: 114
           daq_type: 0
+          daq_channel: "Dev8/0"
         1:
           label: "IMPA 02"
           field: 115
           daq_type: 0
+          daq_channel: "Dev8/1"
         2:
           label: "IMPA 03"
           field: 116
           daq_type: 0
+          daq_channel: "Dev8/2"
         3:
           label: "IMPA 04"
           field: 117
           daq_type: 0
+          daq_channel: "Dev8/3"
         4:
           label: "IMPA 05"
           field: 118
           daq_type: 0
+          daq_channel: "Dev8/4"
         5:
           label: "IMPA 06"
           field: 119
           daq_type: 0
+          daq_channel: "Dev8/5"
         6:
           label: "IMPA 07"
           field: 120
           daq_type: 0
+          daq_channel: "Dev8/6"
         7:
           label: "IMPA 08"
           field: 121
           daq_type: 0
-      # Vertical-field sensors at the same eight positions (Yang et al., Rev.
-      # Sci. Instrum. 85, 11D809 (2014)).  These carry the physics measurement;
-      # the Hall channels above establish where they are and how they are
-      # aligned.
+          daq_channel: "Dev8/7"
+      # Vertical-field sensors, one per position (Yang et al., Rev. Sci.
+      # Instrum. 85, 11D809 (2014)).  These carry the physics measurement; the
+      # Hall channels above establish where they are and how they are aligned.
+      # Per the wiring datasheet they are NOT co-located with their same-index
+      # Hall sensor -- see geometry.bz_radial_offset below.
       bz_channels:
-        0: {label: "IMPA Bz 01", field: 122, daq_type: 0}
-        1: {label: "IMPA Bz 02", field: 123, daq_type: 0}
-        2: {label: "IMPA Bz 03", field: 124, daq_type: 0}
-        3: {label: "IMPA Bz 04", field: 125, daq_type: 0}
-        4: {label: "IMPA Bz 05", field: 126, daq_type: 0}
-        5: {label: "IMPA Bz 06", field: 127, daq_type: 0}
-        6: {label: "IMPA Bz 07", field: 128, daq_type: 0}
-        7: {label: "IMPA Bz 08", field: 129, daq_type: 0}
+        0: {label: "IMPA Bz 01", field: 122, daq_type: 0, daq_channel: "Dev15/0"}
+        1: {label: "IMPA Bz 02", field: 123, daq_type: 0, daq_channel: "Dev15/1"}
+        2: {label: "IMPA Bz 03", field: 124, daq_type: 0, daq_channel: "Dev15/2"}
+        3: {label: "IMPA Bz 04", field: 125, daq_type: 0, daq_channel: "Dev15/3"}
+        4: {label: "IMPA Bz 05", field: 126, daq_type: 0, daq_channel: "Dev15/4"}
+        5: {label: "IMPA Bz 06", field: 127, daq_type: 0, daq_channel: "Dev15/5"}
+        6: {label: "IMPA Bz 07", field: 128, daq_type: 0, daq_channel: "Dev15/6"}
+        7: {label: "IMPA Bz 08", field: 129, daq_type: 0, daq_channel: "Dev15/7"}
 
-      # Radial-field sensors 130-137 are retired; the 2014 design used B_R only
-      # to confirm the probe sat at the midplane, where B_R ~ 0.  They are
-      # deliberately not mapped.
+      # Radial-field sensors 130-137 are retired -- the wiring datasheet
+      # assigns them no DAQ channel at all, confirming they were never
+      # connected, not merely quiet.  The 2014 design used B_R only to confirm
+      # the probe sat at the midplane, where B_R ~ 0.  Deliberately not mapped.
       br_channels_retired: [130, 131, 132, 133, 134, 135, 136, 137]
 
       crosstalk:
@@ -559,6 +569,13 @@
         # angle to the midplane projects its rigid 5 cm spacing onto a shorter
         # radial step, so the ratio recovers the incident angle.
         fit_pitch: true
+        # Per the wiring datasheet, the Bz and (retired) Br sensors are not
+        # co-located with their same-index Hall sensor: within one probe
+        # housing, Hall_i sits at R0+0.05*i, Bz_i at R0+0.01+0.05*i, and
+        # Br_i at R0+0.02+0.05*i.  These offsets are fixed hardware, not
+        # fitted.
+        bz_radial_offset: 0.01
+        br_radial_offset: 0.02
         r0_initial: 0.4
         # Upper bound covers the outboard vessel: the verified 2022-04-23
         # alignment shots put the outermost wired channel at ~0.80 m, just
@@ -571,10 +588,20 @@
         r: null
       calibration:
         type: linear
-        gain: 0.13333333333333333   # +2/15 T/V
-        # The array's cabling polarity is not the same in every campaign, so
-        # the sign is resolved per shot range.  Only ranges verified against
-        # real data belong here; extend as further campaigns are validated.
+        # -2/15 T/V, from the DAQ wiring datasheet ("Data gain" column,
+        # -0.13333) -- the authoritative hardware configuration, not inferred
+        # from either legacy MATLAB script.  Channel-to-DAQ mapping: Hall1-8 =
+        # fields 114-121 on Dev8/0-7; Bz1-8 = fields 122-129 on Dev15/0-7;
+        # Br1-8 = fields 130-137, no DAQ channel assigned (retired).  Every
+        # Hall-type sensor (Hall and Bz) runs off the same 12 V supply.
+        gain: -0.13333333333333333
+        # The datasheet leaves the Bz "Data gain" column blank -- Bz sensors
+        # are wired to a separate DAQ card (Dev15) and their raw-voltage-to-
+        # tesla factor is not established.  Do not assume it equals the Hall
+        # gain; leave unset until confirmed, so field values stay in their
+        # native volts rather than fabricating a Tesla scale from an unverified
+        # assumption.
+        bz_gain: null
         shot_era_overrides:
           # 2022-04-23 IMPA alignment block (35376-35385).  Verified on
           # 35376-35379 and 35385: with this sign the rigid 5 cm array fits

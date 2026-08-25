@@ -65,7 +65,9 @@ def test_configuration_lists_the_eight_canonical_raw_fields():
 
     fields = [int(channel["field"]) for channel in config["channels"].values()]
     assert fields == list(IMPA_FIELDS)
-    assert config["calibration"]["gain"] == pytest.approx(2.0 / 15.0)
+    # -2/15 T/V, from the DAQ wiring datasheet's "Data gain" column (-0.13333),
+    # not either legacy MATLAB script's convention.
+    assert config["calibration"]["gain"] == pytest.approx(-2.0 / 15.0)
     assert config["tf_compensation"]["tf_turns"] == 24
 
 
@@ -122,7 +124,7 @@ def test_39204_does_not_meet_the_reference_conditions(result_39204):
     assert any("toroidally aligned" in reason for reason in result_39204.quality.reasons)
     assert result_39204.geometry.nrmse > 0.2
 
-    alpha = result_39204.coupling.alpha
+    alpha = np.abs(result_39204.coupling.alpha)
     assert np.nanmax(alpha) > 0.9        # most channels do face the TF
     assert np.nanmin(alpha) < 0.5        # but the innermost ones do not
 
@@ -328,11 +330,16 @@ def test_a_low_tf_shot_still_yields_a_calibration_window():
     reason=f"archived IMPA sample for shot {SECOND_REFERENCE} is not available",
 )
 def test_channel_ordering_is_reproducible_across_both_reference_shots():
-    """Wiring order is hardware, and it does reproduce: R increases with index."""
+    """Wiring order is hardware, and it does reproduce: R increases with index.
+
+    The sign of the measured field follows the configured Hall gain polarity
+    and is not itself a check; only the monotonic *magnitude* falloff with
+    channel index is the wiring-order signature.
+    """
     for shot in (39204, SECOND_REFERENCE):
         result, inputs = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
         peak = int(np.argmax(np.abs(inputs["i_tf"])))
-        profile = result.b_measured[:, peak]
+        profile = np.abs(result.b_measured[:, peak])
 
         assert np.all(profile > 0), shot
         assert np.all(np.diff(profile) < 0), shot
@@ -357,7 +364,9 @@ def test_geometry_is_a_per_shot_quantity_for_this_insertable_array():
         peak = int(np.argmax(np.abs(inputs["i_tf"])))
         # Response per unit TF drive, free of any assumed radius; its
         # reciprocal is the radius implied by a toroidally aligned probe.
-        kappa = result.b_measured[:, peak] / (2.0e-7 * 24 * inputs["i_tf"][peak])
+        # Sign is the configured gain's polarity, not physical -- compare
+        # magnitudes.
+        kappa = np.abs(result.b_measured[:, peak] / (2.0e-7 * 24 * inputs["i_tf"][peak]))
         implied[shot] = 1.0 / kappa
         r0[shot] = result.geometry.r0
 
@@ -506,7 +515,9 @@ def test_bz_sensors_are_mapped_at_the_positions_the_hall_channels_resolved():
     for hall_index, bz_index in zip(tor, pol):
         hall_r = ods[f"magnetics.b_field_tor_probe.{hall_index}.position.r"]
         bz_r = ods[f"magnetics.b_field_pol_probe.{bz_index}.position.r"]
-        assert bz_r == pytest.approx(hall_r)
+        # Per the DAQ wiring datasheet, the Bz sensor in a probe housing sits
+        # 1 cm further out than its same-index Hall sensor, not co-located.
+        assert bz_r == pytest.approx(hall_r + 0.01)
         assert ods[f"magnetics.b_field_pol_probe.{bz_index}.type.name"] == "hall"
 
     assert [c["field"] for c in status["bz_channels"].values()] == list(BZ_FIELDS[:REFERENCE_CHANNELS])

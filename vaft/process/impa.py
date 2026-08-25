@@ -38,11 +38,18 @@ compensated internal field::
 Sign convention
 ---------------
 VAFT uses ``I_TF = raw_field_1 * -3e4`` (as :mod:`vaft.machine_mapping.tf`
-already does) together with an IMPA gain of ``+2/15`` T/V.  The legacy MATLAB
-``VEST_IMPAProcessing.m`` used ``-2/15`` with ``+3e4``; both give an identical
-``B_meas / Bt`` ratio, so the two conventions differ only in the overall
-polarity of the reported ``Bz``.  ``vest_impa_position.m`` already used the
-convention adopted here.
+already does) together with an IMPA Hall gain of ``-2/15`` T/V.  This is the
+"Data gain" recorded on the array's own DAQ wiring datasheet -- the
+authoritative hardware configuration -- and does not match either legacy
+MATLAB script exactly (``VEST_IMPAProcessing.m`` used ``-2/15`` with ``+3e4``;
+``vest_impa_position.m`` used ``+2/15`` with ``-3e4``).  All three pairings
+give the same ``B_meas / Bt`` ratio up to an overall sign, so the fits here are
+sign-agnostic (they detect the working polarity from the data rather than
+assuming ``alpha`` is positive) and only ``|alpha|`` carries physical meaning.
+
+The datasheet leaves the Bz sensors' own volts-to-tesla gain unspecified, so
+Bz waveforms stay in native volts throughout; see
+:class:`ImpaCrosstalkFit` for what that means for the crosstalk angle.
 
 Geometry / coupling degeneracy
 ------------------------------
@@ -300,6 +307,10 @@ class ImpaResult:
     coupling: ImpaCouplingFit | None
     window: TfCalibrationWindow | None
     quality: ImpaQuality
+    #: Bz sensor positions: Hall geometry.r plus the fixed hardware offset --
+    #: the Bz sensor in one probe housing is not co-located with its Hall
+    #: neighbour.
+    bz_r: np.ndarray | None = None
     #: Raw vertical-field waveforms from the dedicated Bz sensors, if wired.
     b_z_raw: np.ndarray | None = None
     #: Those waveforms with the toroidal-field crosstalk removed.
@@ -617,11 +628,20 @@ def fit_impa_geometry(
     positions = np.arange(n_channels, dtype=float)
     fitted_positions = positions[usable]
 
+    # This fit assumes every probe is fully aligned with the toroidal field
+    # (|alpha| = 1), matching the legacy vest_impa_position.m model, but the
+    # measured *sign* depends on the configured Hall gain's polarity, which
+    # this function has no reason to know.  Detect it once from the data
+    # instead of hard-coding a positive coupling.
+    nominal_radii = float(r0_initial) + fitted_positions * float(pitch)
+    nominal_model = toroidal_field(nominal_radii[:, None], i_tf[None, idx], turns)
+    sign = 1.0 if float(np.sum(fitted * nominal_model)) >= 0 else -1.0
+
     def residual(params: np.ndarray) -> np.ndarray:
         step = params[1] if fit_pitch else float(pitch)
         radii = params[0] + fitted_positions * step
         model = toroidal_field(radii[:, None], i_tf[None, idx], turns)
-        return (fitted - model).ravel()
+        return (fitted - sign * model).ravel()
 
     if fit_pitch:
         solution = optimize.least_squares(
@@ -671,17 +691,27 @@ class ImpaCrosstalkFit:
 
     Following Yang et al., Rev. Sci. Instrum. 85, 11D809 (2014): during a
     TF-only interval the true vertical field is negligible, so whatever the Bz
-    sensor reads there is crosstalk from the toroidal field, and the ratio of
-    the two gives the sensor's incident angle.
+    sensor reads there is crosstalk from the toroidal field.
+
+    ``b_z_raw`` is native Hall-sensor volts and ``b_toroidal`` is tesla, so the
+    fitted slope is in **volts per tesla**, not a dimensionless projection --
+    turning it into ``sin(angle)`` needs the Bz sensor's own volts-to-tesla
+    gain, which the DAQ wiring datasheet does not specify.  ``sin_angle`` and
+    ``angle_deg`` are populated only when a ``bz_gain`` is supplied; otherwise
+    they are NaN rather than silently wrong.  Crosstalk *removal* needs no
+    gain at all -- it subtracts ``slope * b_toroidal`` in the same raw volts
+    the sensor already reports.
     """
 
-    #: ``B_z_raw = sin(angle) * B_toroidal`` over the calibration window.
-    sin_angle: np.ndarray
-    angle_deg: np.ndarray
+    #: ``B_z_raw[V] = slope_v_per_t[V/T] * B_toroidal[T] + offset[V]``.
+    slope_v_per_t: np.ndarray
     offset: np.ndarray
     r_squared: np.ndarray
     nrmse: np.ndarray
     n_samples: int
+    #: Only finite where ``bz_gain`` was supplied to :func:`fit_impa_crosstalk`.
+    sin_angle: np.ndarray
+    angle_deg: np.ndarray
     bound_hit: np.ndarray
 
 
@@ -691,14 +721,21 @@ def fit_impa_crosstalk(
     window: TfCalibrationWindow,
     *,
     max_angle_deg: float = 30.0,
+    bz_gain: float | None = None,
 ) -> ImpaCrosstalkFit:
-    """Measure each Bz sensor's toroidal-field crosstalk on a TF-only window."""
+    """Measure each Bz sensor's toroidal-field crosstalk on a TF-only window.
+
+    Pass ``bz_gain`` [T/V] only once the Bz sensor's own calibration is known;
+    without it the fit still yields the crosstalk slope and its goodness of
+    fit, which is enough to judge whether a sensor is picking up the field at
+    all, just not to convert that into a misalignment angle.
+    """
     b_toroidal = np.atleast_2d(np.asarray(b_toroidal, dtype=float))
     b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
     idx = np.asarray(window.indices, dtype=int)
     n_channels = b_z_raw.shape[0]
 
-    sin_angle = np.full(n_channels, np.nan)
+    slope = np.full(n_channels, np.nan)
     offset = np.full(n_channels, np.nan)
     r_squared = np.full(n_channels, np.nan)
     nrmse = np.full(n_channels, np.nan)
@@ -712,24 +749,33 @@ def fit_impa_crosstalk(
             continue
         design = np.vstack([x, np.ones_like(x)]).T
         solution, *_ = np.linalg.lstsq(design, y, rcond=None)
-        sin_angle[channel], offset[channel] = float(solution[0]), float(solution[1])
+        slope[channel], offset[channel] = float(solution[0]), float(solution[1])
         residual = y - design @ solution
         spread = float(np.std(y))
         nrmse[channel] = float(np.sqrt(np.mean(residual**2))) / spread if spread > 0 else np.inf
         total = float(np.sum((y - np.mean(y)) ** 2))
         r_squared[channel] = 1.0 - float(np.sum(residual**2)) / total if total > 0 else np.nan
 
-    with np.errstate(invalid="ignore"):
-        angle = np.degrees(np.arcsin(np.clip(sin_angle, -1.0, 1.0)))
-        bound_hit = np.abs(angle) > float(max_angle_deg)
+    if bz_gain is not None:
+        with np.errstate(invalid="ignore"):
+            sin_angle = np.clip(slope * float(bz_gain), -1.0, 1.0)
+            angle = np.degrees(np.arcsin(sin_angle))
+            bound_hit = np.abs(angle) > float(max_angle_deg)
+    else:
+        sin_angle = np.full(n_channels, np.nan)
+        angle = np.full(n_channels, np.nan)
+        # No angle bound is checkable without a gain; a sensor that shows no
+        # crosstalk at all is still caught by the r-squared threshold.
+        bound_hit = np.zeros(n_channels, dtype=bool)
 
     return ImpaCrosstalkFit(
-        sin_angle=sin_angle,
-        angle_deg=angle,
+        slope_v_per_t=slope,
         offset=offset,
         r_squared=r_squared,
         nrmse=nrmse,
         n_samples=int(idx.size),
+        sin_angle=sin_angle,
+        angle_deg=angle,
         bound_hit=bound_hit,
     )
 
@@ -741,7 +787,9 @@ def remove_bz_crosstalk(
 ) -> np.ndarray:
     """Subtract the toroidal-field bleed from each vertical-field waveform.
 
-    The toroidal field is taken from the co-located Hall channel rather than a
+    Works entirely in the Bz sensor's native volts, so it needs no gain: the
+    fitted ``slope_v_per_t * b_toroidal`` is already in those same volts.  The
+    toroidal field is taken from the co-located Hall channel rather than a
     model, so the correction follows the real field the sensor saw.
     """
     b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
@@ -749,7 +797,7 @@ def remove_bz_crosstalk(
     channels = min(b_z_raw.shape[0], b_toroidal.shape[0])
     corrected = np.full_like(b_z_raw, np.nan)
     for channel in range(channels):
-        slope = crosstalk.sin_angle[channel]
+        slope = crosstalk.slope_v_per_t[channel]
         if not np.isfinite(slope):
             continue
         corrected[channel] = (
@@ -1059,11 +1107,13 @@ def validate_impa(
 
     if crosstalk is not None:
         bz_state = "valid"
-        finite = np.isfinite(crosstalk.sin_angle)
+        finite = np.isfinite(crosstalk.slope_v_per_t)
         if not finite.any():
             bz_state = "invalid"
             reasons.append("no Bz sensor produced a finite crosstalk calibration")
         else:
+            # A misalignment-angle bound can only be checked once the Bz
+            # sensor's own gain is known; bound_hit is all-False without one.
             if np.any(crosstalk.bound_hit[finite]):
                 bz_state = _worst(bz_state, "invalid")
                 hits = np.flatnonzero(finite & crosstalk.bound_hit).tolist()
@@ -1105,6 +1155,8 @@ def process_impa(
     fit_pitch: bool = False,
     max_crosstalk_angle_deg: float = 30.0,
     min_crosstalk_r_squared: float = 0.8,
+    bz_gain: float | None = None,
+    bz_radial_offset: float = 0.0,
 ) -> ImpaResult:
     """Run the full single-shot IMPA pipeline.
 
@@ -1235,7 +1287,11 @@ def process_impa(
         bz_channel_valid = np.asarray(bz_channel_valid, dtype=bool)
         if window is not None:
             crosstalk = fit_impa_crosstalk(
-                b_measured, b_z_raw, window, max_angle_deg=max_crosstalk_angle_deg
+                b_measured,
+                b_z_raw,
+                window,
+                max_angle_deg=max_crosstalk_angle_deg,
+                bz_gain=bz_gain,
             )
             b_z_corrected = remove_bz_crosstalk(b_z_raw, b_measured, crosstalk)
 
@@ -1288,6 +1344,7 @@ def process_impa(
         coupling=coupling,
         window=window,
         quality=quality,
+        bz_r=(geometry.r + float(bz_radial_offset)) if b_z_raw is not None else None,
         b_z_raw=b_z_raw,
         b_z_corrected=b_z_corrected,
         crosstalk=crosstalk,

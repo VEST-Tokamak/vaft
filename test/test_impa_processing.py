@@ -436,8 +436,11 @@ def test_crosstalk_fit_recovers_a_known_misalignment_angle():
     b_z_raw = np.sin(np.radians(angles))[:, None] * b_toroidal
 
     window, _ = find_tf_calibration_window(time, i_tf)
-    fit = fit_impa_crosstalk(b_toroidal, b_z_raw, window)
+    # bz_gain=1.0: the synthetic Bz "volts" are already tesla, so the slope
+    # equals sin(angle) directly.
+    fit = fit_impa_crosstalk(b_toroidal, b_z_raw, window, bz_gain=1.0)
 
+    np.testing.assert_allclose(fit.slope_v_per_t, np.sin(np.radians(angles)), atol=1e-6)
     np.testing.assert_allclose(fit.angle_deg, angles, atol=1e-6)
     assert np.all(fit.r_squared > 0.999)
     assert not np.any(fit.bound_hit)
@@ -467,10 +470,13 @@ def test_crosstalk_removal_recovers_the_vertical_field_underneath():
 
     window, _ = find_tf_calibration_window(time, i_tf, ip)
     assert window.end_time <= 0.40
-    fit = fit_impa_crosstalk(b_toroidal, b_z_raw, window)
+    fit = fit_impa_crosstalk(b_toroidal, b_z_raw, window, bz_gain=1.0)
     np.testing.assert_allclose(fit.angle_deg, angles, atol=1e-6)
 
-    recovered = remove_bz_crosstalk(b_z_raw, b_toroidal, fit)
+    # Removal itself needs no gain -- it works in the sensor's native volts.
+    fit_no_gain = fit_impa_crosstalk(b_toroidal, b_z_raw, window)
+    assert np.all(np.isnan(fit_no_gain.angle_deg))
+    recovered = remove_bz_crosstalk(b_z_raw, b_toroidal, fit_no_gain)
     np.testing.assert_allclose(recovered[:, plasma], true_bz[:, plasma], atol=1e-9)
 
 
@@ -486,6 +492,10 @@ def test_an_inactive_bz_sensor_is_flagged_rather_than_trusted():
 
     assert result.quality.checks["bz_sensors"] == "warning"
     assert any("may be inactive" in reason for reason in result.quality.reasons)
+    # No angle is reported without a configured Bz gain; the sensor's own
+    # calibration is not established.
+    assert np.all(np.isnan(result.crosstalk.angle_deg))
+    assert np.all(np.isfinite(result.crosstalk.slope_v_per_t))
 
 
 def test_incident_angle_is_recovered_from_the_rigid_pitch():
@@ -513,3 +523,26 @@ def test_a_radial_insertion_reports_no_incident_angle():
     result = process_impa(time, raw, i_tf, pitch=0.05, fit_pitch=True)
 
     assert result.geometry.incident_angle_deg == pytest.approx(0.0, abs=1.0)
+
+
+def test_geometry_fit_is_invariant_to_the_configured_gain_sign():
+    """R0 must not depend on whether the Hall gain convention is +2/15 or -2/15.
+
+    Confirmed by the DAQ wiring datasheet: the array's real Hall gain is
+    negative (-2/15), opposite the sign this module used to assume by default.
+    The geometry fit must detect the working polarity from the data rather
+    than hard-coding alpha=+1.
+    """
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.4 + np.arange(8) * 0.05
+    positive = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0)
+    negative = -positive
+
+    window, _ = find_tf_calibration_window(time, i_tf)
+    fit_pos = fit_impa_geometry(positive, i_tf, window, pitch=0.05)
+    fit_neg = fit_impa_geometry(negative, i_tf, window, pitch=0.05)
+
+    assert fit_pos.r0 == pytest.approx(fit_neg.r0, abs=1e-6)
+    assert fit_pos.nrmse < 1e-6
+    assert fit_neg.nrmse < 1e-6

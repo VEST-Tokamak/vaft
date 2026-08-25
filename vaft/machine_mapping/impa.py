@@ -338,6 +338,8 @@ def process_impa_shot(
         fit_pitch=bool(geometry.get("fit_pitch", False)),
         max_crosstalk_angle_deg=float(crosstalk_config.get("max_angle_deg", 30.0)),
         min_crosstalk_r_squared=float(crosstalk_config.get("min_r_squared", 0.8)),
+        bz_gain=config.get("calibration", {}).get("bz_gain"),
+        bz_radial_offset=float(geometry.get("bz_radial_offset", 0.0)),
     )
     object.__setattr__(result, "provenance", {**result.provenance, "shot": int(shot)})
     return result, inputs
@@ -548,9 +550,12 @@ def impa(
             wired = bool(result.bz_channel_valid[offset]) if result.bz_channel_valid is not None else False
             bz_validity, bz_reason = _bz_channel_status(result, offset, wired)
 
+            # Fixed hardware offset from the Hall sensor in the same probe
+            # housing; the two are not co-located.
+            bz_r = float(result.bz_r[offset]) if result.bz_r is not None else float(result.geometry.r[offset])
             set_path(ods, f"{prefix}.name", name)
             set_path(ods, f"{prefix}.identifier", f"{IMPA_IDENTIFIER_PREFIX}{name}")
-            set_path(ods, f"{prefix}.position.r", float(result.geometry.r[offset]))
+            set_path(ods, f"{prefix}.position.r", bz_r)
             set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
             set_path(ods, f"{prefix}.position.phi", 0.0)
             set_path(ods, f"{prefix}.length", PROBE_LENGTH)
@@ -594,13 +599,14 @@ def impa(
                 "probe_index": index,
                 "validity": int(bz_validity),
                 "reason": bz_reason,
-                "r": float(result.geometry.r[offset]),
+                "r": bz_r,
             }
             if result.crosstalk is not None:
                 bz_status[name].update(
                     {
-                        "crosstalk_angle_deg": float(result.crosstalk.angle_deg[offset]),
+                        "crosstalk_slope_v_per_t": float(result.crosstalk.slope_v_per_t[offset]),
                         "crosstalk_r_squared": float(result.crosstalk.r_squared[offset]),
+                        "crosstalk_angle_deg": float(result.crosstalk.angle_deg[offset]),
                     }
                 )
 
