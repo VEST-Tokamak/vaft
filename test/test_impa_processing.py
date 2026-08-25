@@ -9,6 +9,8 @@ import pytest
 
 from vaft.process.impa import (
     ImpaProcessingConfig,
+    fit_impa_crosstalk,
+    remove_bz_crosstalk,
     TfWindowCriteria,
     find_tf_calibration_window,
     fit_impa_geometry,
@@ -413,3 +415,101 @@ def test_legacy_compensation_saturates_when_a_probe_is_toroidally_aligned():
     # The legacy model can only explain the signal with a tilt far beyond its
     # own +/-10 degree bound, so every channel saturates.
     assert np.all(result["bound_hit"])
+
+
+# ---------------------------------------------------------------------------
+# vertical-field sensors and their toroidal crosstalk
+# ---------------------------------------------------------------------------
+def test_crosstalk_fit_recovers_a_known_misalignment_angle():
+    """A tilted Bz sensor reads sin(theta) of the toroidal field.
+
+    Yang et al. (Rev. Sci. Instrum. 85, 11D809) calibrate exactly this way:
+    on a TF-only interval the true vertical field is negligible, so the Bz
+    sensor's whole reading is toroidal bleed-through.
+    """
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.45 + np.arange(3) * 0.05
+    b_toroidal = _synthetic_array(time, i_tf, radii, np.ones(3), noise=0.0)
+
+    angles = np.array([2.0, -3.5, 0.5])
+    b_z_raw = np.sin(np.radians(angles))[:, None] * b_toroidal
+
+    window, _ = find_tf_calibration_window(time, i_tf)
+    fit = fit_impa_crosstalk(b_toroidal, b_z_raw, window)
+
+    np.testing.assert_allclose(fit.angle_deg, angles, atol=1e-6)
+    assert np.all(fit.r_squared > 0.999)
+    assert not np.any(fit.bound_hit)
+
+
+def test_crosstalk_removal_recovers_the_vertical_field_underneath():
+    """Calibrate on the TF-only phase, then correct the phase with plasma.
+
+    The correction is only unbiased if the calibration window really is free
+    of vertical field -- fitting it against an interval that already contains
+    the signal would absorb the signal into the crosstalk slope.
+    """
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.45 + np.arange(2) * 0.05
+    b_toroidal = _synthetic_array(time, i_tf, radii, np.ones(2), noise=0.0)
+
+    # A plasma exists only after 0.40 s, so the clean window sits before it.
+    plasma = time >= 0.40
+    ip = np.where(plasma, 50_000.0, 0.0)
+    true_bz = np.zeros((2, time.size))
+    true_bz[0, plasma] = 1.5e-3 * np.sin(2 * np.pi * 4 * time[plasma])
+    true_bz[1, plasma] = -1.0e-3 * np.sin(2 * np.pi * 4 * time[plasma])
+
+    angles = np.array([2.0, -3.0])
+    b_z_raw = np.sin(np.radians(angles))[:, None] * b_toroidal + true_bz
+
+    window, _ = find_tf_calibration_window(time, i_tf, ip)
+    assert window.end_time <= 0.40
+    fit = fit_impa_crosstalk(b_toroidal, b_z_raw, window)
+    np.testing.assert_allclose(fit.angle_deg, angles, atol=1e-6)
+
+    recovered = remove_bz_crosstalk(b_z_raw, b_toroidal, fit)
+    np.testing.assert_allclose(recovered[:, plasma], true_bz[:, plasma], atol=1e-9)
+
+
+def test_an_inactive_bz_sensor_is_flagged_rather_than_trusted():
+    """A disconnected sensor shows no toroidal bleed at all."""
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.45 + np.arange(2) * 0.05
+    raw = _synthetic_array(time, i_tf, radii, np.ones(2)) / (2.0 / 15.0)
+    dead = np.random.default_rng(1).normal(0.0, 1e-5, (2, time.size))
+
+    result = process_impa(time, raw, i_tf, r=radii, b_z_raw=dead)
+
+    assert result.quality.checks["bz_sensors"] == "warning"
+    assert any("may be inactive" in reason for reason in result.quality.reasons)
+
+
+def test_incident_angle_is_recovered_from_the_rigid_pitch():
+    """A probe pushed in at an angle projects its 5 cm spacing onto less."""
+    time = _time()
+    i_tf = _tf_ramp(time)
+    incident = 30.0
+    projected = 0.05 * np.cos(np.radians(incident))
+    radii = 0.45 + np.arange(8) * projected
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0) / (2.0 / 15.0)
+
+    result = process_impa(time, raw, i_tf, pitch=0.05, fit_pitch=True)
+
+    assert result.geometry.pitch == pytest.approx(projected, abs=1e-4)
+    assert result.geometry.incident_angle_deg == pytest.approx(incident, abs=0.5)
+    assert result.geometry.nominal_pitch == 0.05
+
+
+def test_a_radial_insertion_reports_no_incident_angle():
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.45 + np.arange(8) * 0.05
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0) / (2.0 / 15.0)
+
+    result = process_impa(time, raw, i_tf, pitch=0.05, fit_pitch=True)
+
+    assert result.geometry.incident_angle_deg == pytest.approx(0.0, abs=1.0)

@@ -525,9 +525,40 @@
           label: "IMPA 08"
           field: 121
           daq_type: 0
+      # Vertical-field sensors at the same eight positions (Yang et al., Rev.
+      # Sci. Instrum. 85, 11D809 (2014)).  These carry the physics measurement;
+      # the Hall channels above establish where they are and how they are
+      # aligned.
+      bz_channels:
+        0: {label: "IMPA Bz 01", field: 122, daq_type: 0}
+        1: {label: "IMPA Bz 02", field: 123, daq_type: 0}
+        2: {label: "IMPA Bz 03", field: 124, daq_type: 0}
+        3: {label: "IMPA Bz 04", field: 125, daq_type: 0}
+        4: {label: "IMPA Bz 05", field: 126, daq_type: 0}
+        5: {label: "IMPA Bz 06", field: 127, daq_type: 0}
+        6: {label: "IMPA Bz 07", field: 128, daq_type: 0}
+        7: {label: "IMPA Bz 08", field: 129, daq_type: 0}
+
+      # Radial-field sensors 130-137 are retired; the 2014 design used B_R only
+      # to confirm the probe sat at the midplane, where B_R ~ 0.  They are
+      # deliberately not mapped.
+      br_channels_retired: [130, 131, 132, 133, 134, 135, 136, 137]
+
+      crosstalk:
+        # A slight probe misalignment lets the toroidal field bleed into the
+        # vertical-field sensor.  During a TF-only interval the true Bz is
+        # negligible, so whatever the Bz sensor reads there is crosstalk, and
+        # its ratio to the measured toroidal field gives the incident angle.
+        max_angle_deg: 30.0
+        min_r_squared: 0.8
+
       geometry:
         z: 0.0
         radial_pitch: 0.05
+        # Fit the effective radial pitch as well as R0: a probe inserted at an
+        # angle to the midplane projects its rigid 5 cm spacing onto a shorter
+        # radial step, so the ratio recovers the incident angle.
+        fit_pitch: true
         r0_initial: 0.4
         # Upper bound covers the outboard vessel: the verified 2022-04-23
         # alignment shots put the outermost wired channel at ~0.80 m, just
@@ -554,6 +585,7 @@
             # Field 121 is not wired in this campaign; the array runs seven
             # channels at the same rigid 5 cm pitch.
             channels: [114, 115, 116, 117, 118, 119, 120]
+            bz_channels: [122, 123, 124, 125, 126, 127, 128]
       processing:
         sample_rate: 25000
         signal_lowpass_hz: 250      # physics waveform (VEST_IMPAProcessing.m)

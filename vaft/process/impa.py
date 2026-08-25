@@ -1,6 +1,24 @@
 """Generic algorithms for the VEST Internal Magnetic Probe Array (IMPA).
 
-The IMPA is an eight-channel Hall-probe array on the VEST midplane.  Every
+The IMPA is an insertable midplane probe carrying, at each of eight radial
+positions, a toroidal-field Hall sensor (raw fields 114-121) and a
+vertical-field sensor (122-129).  The radial-field sensors (130-137) are
+retired: the original design used them only to confirm the probe sat at the
+midplane, where ``B_R ~ 0``.
+
+The two sets play different roles, following Yang et al., Rev. Sci. Instrum.
+85, 11D809 (2014):
+
+* the Hall channels establish *where the array is* -- the toroidal field goes
+  as ``1/R``, so measuring it against the known TF coil current gives each
+  sensor's radius, and the fitted spacing against the rigid as-built 5 cm
+  pitch gives the probe's incident angle;
+* they also establish *how each vertical sensor is aligned*: on a TF-only
+  interval the true vertical field is negligible, so whatever the Bz sensor
+  reads there is toroidal crosstalk, and its ratio to the measured toroidal
+  field is the sensor's misalignment angle;
+* the vertical sensors, once corrected for that crosstalk, carry the physics
+  measurement -- ``mu0 J_phi ~= -dB_Z/dR`` at the midplane.  Every
 routine here works on plain arrays so the machine-specific parts -- raw field
 codes, shot-era geometry and thresholds -- stay in
 ``vaft.machine_mapping.impa`` and ``vaft/machine_mapping/vest.yaml``.
@@ -89,6 +107,7 @@ from scipy import ndimage, optimize, signal
 __all__ = [
     "IMPA_CHANNEL_COUNT",
     "ImpaCouplingFit",
+    "ImpaCrosstalkFit",
     "ImpaGeometryFit",
     "ImpaProcessingConfig",
     "ImpaQuality",
@@ -96,6 +115,7 @@ __all__ = [
     "TfCalibrationWindow",
     "TfWindowCriteria",
     "find_tf_calibration_window",
+    "fit_impa_crosstalk",
     "fit_impa_geometry",
     "fit_impa_tf_coupling",
     "impa_calibrate_signals",
@@ -103,6 +123,7 @@ __all__ = [
     "legacy_impa_compensation",
     "legacy_impa_position",
     "process_impa",
+    "remove_bz_crosstalk",
     "remove_tf_pickup",
     "toroidal_field",
     "validate_impa",
@@ -235,6 +256,11 @@ class ImpaGeometryFit:
     method: str
     r0: float | None = None
     pitch: float | None = None
+    #: The rigid, as-built channel spacing this array is known to have.
+    nominal_pitch: float | None = None
+    #: Insertion angle away from a purely radial midplane path, in degrees,
+    #: implied by the fitted pitch falling short of the nominal one.
+    incident_angle_deg: float | None = None
     rmse: float | None = None
     nrmse: float | None = None
     monotonic: bool = True
@@ -274,6 +300,12 @@ class ImpaResult:
     coupling: ImpaCouplingFit | None
     window: TfCalibrationWindow | None
     quality: ImpaQuality
+    #: Raw vertical-field waveforms from the dedicated Bz sensors, if wired.
+    b_z_raw: np.ndarray | None = None
+    #: Those waveforms with the toroidal-field crosstalk removed.
+    b_z_corrected: np.ndarray | None = None
+    crosstalk: ImpaCrosstalkFit | None = None
+    bz_channel_valid: np.ndarray | None = None
     provenance: Mapping[str, Any] = field(default_factory=dict)
 
 
@@ -552,6 +584,7 @@ def fit_impa_geometry(
     turns: int = 24,
     r0_initial: float = 0.4,
     r_bounds: Sequence[float] = (0.1, 0.9),
+    fit_pitch: bool = False,
 ) -> ImpaGeometryFit:
     """Self-calibrate ``R_0`` from the TF ``1/R`` profile over a full window.
 
@@ -578,28 +611,50 @@ def fit_impa_geometry(
     fitted = observed[usable]
     fitted_offsets = offsets[usable]
 
+    # The array is rigid, so the physical spacing is fixed; a probe inserted at
+    # an angle to the midplane projects it onto a shorter radial step, and the
+    # ratio of the fitted to the nominal pitch recovers that incident angle.
+    positions = np.arange(n_channels, dtype=float)
+    fitted_positions = positions[usable]
+
     def residual(params: np.ndarray) -> np.ndarray:
-        radii = params[0] + fitted_offsets
+        step = params[1] if fit_pitch else float(pitch)
+        radii = params[0] + fitted_positions * step
         model = toroidal_field(radii[:, None], i_tf[None, idx], turns)
         return (fitted - model).ravel()
 
-    solution = optimize.least_squares(
-        residual,
-        [float(np.clip(r0_initial, lower, upper))],
-        bounds=([lower], [upper]),
-    )
+    if fit_pitch:
+        solution = optimize.least_squares(
+            residual,
+            [float(np.clip(r0_initial, lower, upper)), float(pitch)],
+            bounds=([lower, 1e-3], [upper, float(pitch)]),
+        )
+        fitted_pitch = float(solution.x[1])
+    else:
+        solution = optimize.least_squares(
+            residual,
+            [float(np.clip(r0_initial, lower, upper)), float(pitch)],
+            bounds=([lower, float(pitch) - 1e-9], [upper, float(pitch) + 1e-9]),
+        )
+        fitted_pitch = float(pitch)
     r0 = float(solution.x[0])
     final = residual(solution.x)
     rmse = float(np.sqrt(np.mean(final**2)))
     spread = float(np.std(fitted))
-    radii = r0 + offsets
+    radii = r0 + positions * fitted_pitch
+    # arccos of the projected-to-physical pitch ratio; 0 deg is a purely radial
+    # insertion in the midplane.
+    ratio = float(np.clip(fitted_pitch / float(pitch), -1.0, 1.0)) if pitch else 1.0
+    incident_angle = float(math.degrees(math.acos(ratio)))
 
     return ImpaGeometryFit(
         r=radii,
         z=np.full(n_channels, float(z)),
         method="tf_profile_fit",
         r0=r0,
-        pitch=float(pitch),
+        pitch=fitted_pitch,
+        nominal_pitch=float(pitch),
+        incident_angle_deg=incident_angle,
         rmse=rmse,
         nrmse=rmse / spread if spread > 0 else float("inf"),
         monotonic=bool(np.all(np.diff(radii) > 0)),
@@ -608,6 +663,99 @@ def fit_impa_geometry(
         n_samples=int(idx.size),
         n_channels_fitted=int(np.count_nonzero(usable)),
     )
+
+
+@dataclass(frozen=True)
+class ImpaCrosstalkFit:
+    """Toroidal-field bleed into each vertical-field sensor.
+
+    Following Yang et al., Rev. Sci. Instrum. 85, 11D809 (2014): during a
+    TF-only interval the true vertical field is negligible, so whatever the Bz
+    sensor reads there is crosstalk from the toroidal field, and the ratio of
+    the two gives the sensor's incident angle.
+    """
+
+    #: ``B_z_raw = sin(angle) * B_toroidal`` over the calibration window.
+    sin_angle: np.ndarray
+    angle_deg: np.ndarray
+    offset: np.ndarray
+    r_squared: np.ndarray
+    nrmse: np.ndarray
+    n_samples: int
+    bound_hit: np.ndarray
+
+
+def fit_impa_crosstalk(
+    b_toroidal: np.ndarray,
+    b_z_raw: np.ndarray,
+    window: TfCalibrationWindow,
+    *,
+    max_angle_deg: float = 30.0,
+) -> ImpaCrosstalkFit:
+    """Measure each Bz sensor's toroidal-field crosstalk on a TF-only window."""
+    b_toroidal = np.atleast_2d(np.asarray(b_toroidal, dtype=float))
+    b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
+    idx = np.asarray(window.indices, dtype=int)
+    n_channels = b_z_raw.shape[0]
+
+    sin_angle = np.full(n_channels, np.nan)
+    offset = np.full(n_channels, np.nan)
+    r_squared = np.full(n_channels, np.nan)
+    nrmse = np.full(n_channels, np.nan)
+
+    for channel in range(n_channels):
+        if channel >= b_toroidal.shape[0]:
+            break
+        x = b_toroidal[channel, idx]
+        y = b_z_raw[channel, idx]
+        if y.size < 2 or not np.all(np.isfinite(y)) or not np.all(np.isfinite(x)) or np.allclose(x, x[0]):
+            continue
+        design = np.vstack([x, np.ones_like(x)]).T
+        solution, *_ = np.linalg.lstsq(design, y, rcond=None)
+        sin_angle[channel], offset[channel] = float(solution[0]), float(solution[1])
+        residual = y - design @ solution
+        spread = float(np.std(y))
+        nrmse[channel] = float(np.sqrt(np.mean(residual**2))) / spread if spread > 0 else np.inf
+        total = float(np.sum((y - np.mean(y)) ** 2))
+        r_squared[channel] = 1.0 - float(np.sum(residual**2)) / total if total > 0 else np.nan
+
+    with np.errstate(invalid="ignore"):
+        angle = np.degrees(np.arcsin(np.clip(sin_angle, -1.0, 1.0)))
+        bound_hit = np.abs(angle) > float(max_angle_deg)
+
+    return ImpaCrosstalkFit(
+        sin_angle=sin_angle,
+        angle_deg=angle,
+        offset=offset,
+        r_squared=r_squared,
+        nrmse=nrmse,
+        n_samples=int(idx.size),
+        bound_hit=bound_hit,
+    )
+
+
+def remove_bz_crosstalk(
+    b_z_raw: np.ndarray,
+    b_toroidal: np.ndarray,
+    crosstalk: ImpaCrosstalkFit,
+) -> np.ndarray:
+    """Subtract the toroidal-field bleed from each vertical-field waveform.
+
+    The toroidal field is taken from the co-located Hall channel rather than a
+    model, so the correction follows the real field the sensor saw.
+    """
+    b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
+    b_toroidal = np.atleast_2d(np.asarray(b_toroidal, dtype=float))
+    channels = min(b_z_raw.shape[0], b_toroidal.shape[0])
+    corrected = np.full_like(b_z_raw, np.nan)
+    for channel in range(channels):
+        slope = crosstalk.sin_angle[channel]
+        if not np.isfinite(slope):
+            continue
+        corrected[channel] = (
+            b_z_raw[channel] - slope * b_toroidal[channel] - crosstalk.offset[channel]
+        )
+    return corrected
 
 
 def remove_tf_pickup(b_measured: np.ndarray, tf_pickup: np.ndarray, alpha: np.ndarray) -> np.ndarray:
@@ -776,6 +924,8 @@ def validate_impa(
     window_reasons: Sequence[str] = (),
     orientation: str = "toroidal",
     alpha_tolerance: float = 0.15,
+    crosstalk: ImpaCrosstalkFit | None = None,
+    min_crosstalk_r_squared: float = 0.8,
 ) -> ImpaQuality:
     """Grade one processed IMPA shot as ``valid``/``warning``/``invalid``."""
     checks: dict[str, str] = {}
@@ -907,6 +1057,26 @@ def validate_impa(
         checks["compensated_signal"] = "invalid"
         reasons.append("compensated Bz is not finite on any usable channel")
 
+    if crosstalk is not None:
+        bz_state = "valid"
+        finite = np.isfinite(crosstalk.sin_angle)
+        if not finite.any():
+            bz_state = "invalid"
+            reasons.append("no Bz sensor produced a finite crosstalk calibration")
+        else:
+            if np.any(crosstalk.bound_hit[finite]):
+                bz_state = _worst(bz_state, "invalid")
+                hits = np.flatnonzero(finite & crosstalk.bound_hit).tolist()
+                reasons.append(f"Bz sensor incident angle exceeds the configured limit on channels {hits}")
+            weak = finite & (crosstalk.r_squared < min_crosstalk_r_squared)
+            if np.any(weak):
+                bz_state = _worst(bz_state, "warning")
+                reasons.append(
+                    "the toroidal field does not explain the Bz sensor signal on channels "
+                    f"{np.flatnonzero(weak).tolist()}; those sensors may be inactive"
+                )
+        checks["bz_sensors"] = bz_state
+
     return ImpaQuality(status=_worst(*checks.values()), checks=checks, reasons=tuple(reasons))
 
 
@@ -930,6 +1100,11 @@ def process_impa(
     r0_initial: float = 0.4,
     max_normalized_rmse: float = 0.1,
     reference: ImpaResult | None = None,
+    b_z_raw: np.ndarray | None = None,
+    bz_channel_valid: np.ndarray | None = None,
+    fit_pitch: bool = False,
+    max_crosstalk_angle_deg: float = 30.0,
+    min_crosstalk_r_squared: float = 0.8,
 ) -> ImpaResult:
     """Run the full single-shot IMPA pipeline.
 
@@ -1005,6 +1180,7 @@ def process_impa(
             turns=config.tf_turns,
             r0_initial=r0_initial,
             r_bounds=r_bounds,
+            fit_pitch=fit_pitch,
         )
     else:
         # Without a window there is nothing to calibrate against; record the
@@ -1047,6 +1223,22 @@ def process_impa(
         else:
             b_z = remove_tf_pickup(b_measured, tf_pickup, coupling.alpha)
 
+    # The Hall channels have now established where each position is and how
+    # the toroidal field appears there; that is what makes the co-located Bz
+    # sensors interpretable.
+    crosstalk = None
+    b_z_corrected = None
+    if b_z_raw is not None:
+        b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
+        if bz_channel_valid is None:
+            bz_channel_valid = np.all(np.isfinite(b_z_raw), axis=1)
+        bz_channel_valid = np.asarray(bz_channel_valid, dtype=bool)
+        if window is not None:
+            crosstalk = fit_impa_crosstalk(
+                b_measured, b_z_raw, window, max_angle_deg=max_crosstalk_angle_deg
+            )
+            b_z_corrected = remove_bz_crosstalk(b_z_raw, b_measured, crosstalk)
+
     quality = validate_impa(
         time,
         raw,
@@ -1062,6 +1254,8 @@ def process_impa(
         window_reasons=window_reasons,
         orientation=config.orientation,
         alpha_tolerance=config.alpha_tolerance,
+        crosstalk=crosstalk,
+        min_crosstalk_r_squared=min_crosstalk_r_squared,
     )
 
     provenance: dict[str, Any] = {
@@ -1072,6 +1266,7 @@ def process_impa(
         "tf_turns": int(config.tf_turns),
         "geometry_method": geometry.method,
         "orientation": config.orientation,
+        "incident_angle_deg": geometry.incident_angle_deg,
         "sign_convention": "I_TF = raw * -3e4; IMPA gain from configuration",
         "reference_shot_used": reference is not None,
     }
@@ -1093,5 +1288,9 @@ def process_impa(
         coupling=coupling,
         window=window,
         quality=quality,
+        b_z_raw=b_z_raw,
+        b_z_corrected=b_z_corrected,
+        crosstalk=crosstalk,
+        bz_channel_valid=bz_channel_valid,
         provenance=provenance,
     )

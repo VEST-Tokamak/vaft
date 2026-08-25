@@ -216,12 +216,15 @@ def test_impa_channels_are_appended_without_moving_existing_probe_indices():
 
     impa(ods, REFERENCE_SHOT, raw_source=IMPA_SAMPLE)
 
-    # A toroidally mounted array lands in b_field_tor_probe, so the existing
-    # poloidal probes are untouched.
-    assert len(ods["magnetics.b_field_pol_probe"]) == pol_before
+    # The Hall channels land in b_field_tor_probe and the vertical-field
+    # sensors are appended after the existing poloidal probes; either way no
+    # existing index moves.
     assert [ods[f"magnetics.b_field_pol_probe.{i}.name"] for i in range(pol_before)] == names_before
     assert impa_probe_node(ods) == "magnetics.b_field_tor_probe"
-    assert impa_probe_indices(ods) == list(range(REFERENCE_CHANNELS))
+    assert impa_probe_indices(ods, "magnetics.b_field_tor_probe") == list(range(REFERENCE_CHANNELS))
+    assert impa_probe_indices(ods, "magnetics.b_field_pol_probe") == list(
+        range(pol_before, pol_before + REFERENCE_CHANNELS)
+    )
 
 
 def test_mapped_impa_probes_carry_hall_metadata_and_geometry():
@@ -251,8 +254,8 @@ def test_mapped_impa_probes_carry_hall_metadata_and_geometry():
 def test_a_valid_shot_gets_a_field_waveform_and_a_rejected_one_does_not():
     good = ODS(consistency_check=False)
     good_status = impa(good, REFERENCE_SHOT, 0.10, 0.60, 4.0e-5, raw_source=IMPA_SAMPLE)
-    assert good_status["status"] == "valid"
-    for index in impa_probe_indices(good):
+    assert good_status["checks"]["geometry"] == "valid"
+    for index in impa_probe_indices(good, "magnetics.b_field_tor_probe"):
         prefix = f"{good_status['ids_node']}.{index}"
         assert good[f"{prefix}.field.validity"] >= 0
         assert good[f"{prefix}.field.data"].size > 1
@@ -260,7 +263,7 @@ def test_a_valid_shot_gets_a_field_waveform_and_a_rejected_one_does_not():
     bad = ODS(consistency_check=False)
     bad_status = impa(bad, 39204, raw_source=IMPA_SAMPLE)
     assert bad_status["status"] == "invalid"
-    for index in impa_probe_indices(bad):
+    for index in impa_probe_indices(bad, "magnetics.b_field_tor_probe"):
         prefix = f"{bad_status['ids_node']}.{index}"
         assert bad[f"{prefix}.field.validity"] < 0
         # A zero-filled trace would be indistinguishable from a measurement.
@@ -404,11 +407,17 @@ def test_alignment_shots_classify_as_valid(shot):
     """
     result, _ = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
 
-    assert result.quality.status == "valid", result.quality.reasons
+    # The Hall-side calibration -- position and alignment -- is what these
+    # shots certify.  The vertical-field sensors are judged separately.
+    assert result.quality.checks["geometry"] == "valid", result.quality.reasons
+    assert result.quality.checks["tf_coupling"] == "valid", result.quality.reasons
+    assert result.quality.is_usable
     assert result.geometry.n_channels_fitted == REFERENCE_CHANNELS
     assert 0.45 <= result.geometry.r0 <= 0.52
     assert result.geometry.nrmse < 0.15
     np.testing.assert_allclose(np.abs(result.coupling.alpha[:REFERENCE_CHANNELS]), 1.0, atol=0.05)
+    # A purely radial insertion in the midplane.
+    assert result.geometry.incident_angle_deg == pytest.approx(0.0, abs=1.0)
 
 
 @pytest.mark.skipif(
@@ -451,7 +460,8 @@ def test_a_reference_shot_calibration_transfers_to_another_shot():
 
     assert borrowed.provenance["reference_shot_used"] is True
     assert borrowed.geometry.method == "reference_shot:35376"
-    assert borrowed.quality.status == "valid"
+    assert borrowed.quality.is_usable
+    assert borrowed.quality.checks["tf_coupling"] == "valid"
     assert abs(borrowed.geometry.r0 - own.geometry.r0) < 0.02
 
 
@@ -463,3 +473,60 @@ def test_an_unusable_reference_shot_is_refused():
     """A reference with the probe withdrawn must not calibrate anything."""
     with pytest.raises(ValueError, match="not usable as a calibration"):
         process_impa_shot(35376, raw_source=IMPA_SAMPLE, reference_shot=PROBE_OUT_SHOT)
+
+
+# ---------------------------------------------------------------------------
+# dedicated vertical-field sensors (fields 122-129)
+# ---------------------------------------------------------------------------
+BZ_FIELDS = (122, 123, 124, 125, 126, 127, 128, 129)
+RETIRED_BR_FIELDS = (130, 131, 132, 133, 134, 135, 136, 137)
+
+
+def test_the_configuration_maps_the_bz_sensors_and_retires_br():
+    config = resolve_impa_config(REFERENCE_SHOT)
+
+    assert [int(c["field"]) for c in config["bz_channels"].values()] == list(BZ_FIELDS)
+    assert tuple(config["br_channels_retired"]) == RETIRED_BR_FIELDS
+
+
+@pytest.mark.skipif(
+    not Path(IMPA_SAMPLE.format(shot=REFERENCE_SHOT)).is_file(),
+    reason="archived IMPA sample is not available",
+)
+def test_bz_sensors_are_mapped_at_the_positions_the_hall_channels_resolved():
+    """Position comes from the Hall array; the Bz sensors inherit it."""
+    ods = ODS(consistency_check=False)
+    status = impa(ods, REFERENCE_SHOT, 0.10, 0.60, 4.0e-5, raw_source=IMPA_SAMPLE)
+
+    tor = impa_probe_indices(ods, "magnetics.b_field_tor_probe")
+    pol = impa_probe_indices(ods, "magnetics.b_field_pol_probe")
+    assert len(tor) == REFERENCE_CHANNELS
+    assert len(pol) == REFERENCE_CHANNELS
+
+    for hall_index, bz_index in zip(tor, pol):
+        hall_r = ods[f"magnetics.b_field_tor_probe.{hall_index}.position.r"]
+        bz_r = ods[f"magnetics.b_field_pol_probe.{bz_index}.position.r"]
+        assert bz_r == pytest.approx(hall_r)
+        assert ods[f"magnetics.b_field_pol_probe.{bz_index}.type.name"] == "hall"
+
+    assert [c["field"] for c in status["bz_channels"].values()] == list(BZ_FIELDS[:REFERENCE_CHANNELS])
+
+
+@pytest.mark.skipif(
+    not Path(IMPA_SAMPLE.format(shot=REFERENCE_SHOT)).is_file(),
+    reason="archived IMPA sample is not available",
+)
+def test_inactive_bz_sensors_are_flagged_on_the_reference_shots():
+    """The Bz sensors are wired and digitising but show no toroidal bleed.
+
+    A sensor that is really in the field must pick up some crosstalk; these
+    show r^2 well below the threshold, so they are reported rather than
+    turned into a physics waveform without comment.
+    """
+    result, _ = process_impa_shot(REFERENCE_SHOT, raw_source=IMPA_SAMPLE)
+
+    assert result.crosstalk is not None
+    finite = np.isfinite(result.crosstalk.r_squared)
+    assert np.nanmax(result.crosstalk.r_squared[finite]) < 0.5
+    assert result.quality.checks["bz_sensors"] == "warning"
+    assert any("may be inactive" in reason for reason in result.quality.reasons)

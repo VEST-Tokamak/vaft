@@ -11,6 +11,7 @@ Machine constants live in ``vaft/machine_mapping/vest.yaml`` under
 
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping
 
 import numpy as np
@@ -44,11 +45,11 @@ __all__ = [
 HALL_PROBE_TYPE_INDEX = 3
 #: Identifier prefix so consumers select IMPA semantically, never by index.
 IMPA_IDENTIFIER_PREFIX = "impa:"
-#: The array lands in the node matching how it is mounted.  A toroidally
-#: aligned probe measures the toroidal field and belongs in
-#: ``b_field_tor_probe``; only a poloidal mounting yields a Bz for
-#: ``b_field_pol_probe``.
-IMPA_PROBE_NODES = ("magnetics.b_field_pol_probe", "magnetics.b_field_tor_probe")
+#: Both nodes can carry IMPA data: the Hall channels measure the toroidal
+#: field and belong in ``b_field_tor_probe``, while the dedicated vertical-field
+#: sensors map to ``b_field_pol_probe``.  The Hall node is listed first because
+#: it carries the array's position calibration.
+IMPA_PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
 #: A midplane probe measuring the vertical field looks "up" in the poloidal plane.
 IMPA_POLOIDAL_ANGLE = 0.0
 
@@ -114,6 +115,25 @@ def _resolve_gain(calibration: Mapping[str, Any], shot: int) -> float:
         if int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
             return float(era.get("gain", gain))
     return gain
+
+
+def _bz_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]:
+    """Return the dedicated vertical-field channels wired for ``shot``."""
+    channels = config.get("bz_channels") or {}
+    specs = []
+    for key in sorted(channels, key=lambda value: int(value)):
+        entry = dict(channels[key])
+        entry["index"] = int(key)
+        specs.append(entry)
+    for era in (config.get("calibration") or {}).get("shot_era_overrides") or ():
+        if not int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
+            continue
+        wired = era.get("bz_channels")
+        if wired:
+            allowed = {int(field) for field in wired}
+            specs = [spec for spec in specs if int(spec["field"]) in allowed]
+        break
+    return specs
 
 
 def _processing_config(config: Mapping[str, Any], shot: int) -> ImpaProcessingConfig:
@@ -212,6 +232,24 @@ def load_impa_inputs(
         raw[index] = values
         channel_valid[index] = True
 
+    bz_specs = _bz_specs(config, shot)
+    bz_raw = np.full((len(bz_specs), n_samples), np.nan) if bz_specs else None
+    bz_valid = np.zeros(len(bz_specs), dtype=bool) if bz_specs else None
+    for index, spec in enumerate(bz_specs):
+        field = int(spec["field"])
+        try:
+            bz_time, values = raw_db.require_signal(
+                _safe_vest_load(shot, field, raw_source),
+                shot=shot,
+                field=field,
+                signal_name=f"raw IMPA Bz voltage ({spec.get('label', field)})",
+            )
+        except raw_db.RawSignalUnavailableError as error:
+            notes.append(str(error))
+            continue
+        bz_raw[index] = _resample(reference_time, bz_time, values)
+        bz_valid[index] = True
+
     tf_time, i_tf = vfit_tf_current(shot, raw_source=raw_source)
     i_tf = _resample(reference_time, tf_time, i_tf)
 
@@ -241,6 +279,9 @@ def load_impa_inputs(
         "ip": ip,
         "pf_currents": pf_currents,
         "specs": specs,
+        "bz_specs": bz_specs,
+        "bz_raw": bz_raw,
+        "bz_channel_valid": bz_valid,
         "notes": notes,
     }
 
@@ -272,6 +313,7 @@ def process_impa_shot(
     inputs = load_impa_inputs(shot, config, raw_source=raw_source)
     geometry = config.get("geometry") or {}
     quality = config.get("quality") or {}
+    crosstalk_config = config.get("crosstalk") or {}
     r_bounds = geometry.get("r_bounds", (0.1, 0.8))
     configured_r = geometry.get("r")
 
@@ -291,6 +333,11 @@ def process_impa_shot(
         r0_initial=float(geometry.get("r0_initial", 0.4)),
         max_normalized_rmse=float(quality.get("max_normalized_rmse", 0.1)),
         reference=reference,
+        b_z_raw=inputs["bz_raw"],
+        bz_channel_valid=inputs["bz_channel_valid"],
+        fit_pitch=bool(geometry.get("fit_pitch", False)),
+        max_crosstalk_angle_deg=float(crosstalk_config.get("max_angle_deg", 30.0)),
+        min_crosstalk_r_squared=float(crosstalk_config.get("min_r_squared", 0.8)),
     )
     object.__setattr__(result, "provenance", {**result.provenance, "shot": int(shot)})
     return result, inputs
@@ -311,7 +358,12 @@ def _existing_probe_count(ods: Any, node: str) -> int:
 
 
 def impa_probe_node(ods: Any) -> str | None:
-    """Return which magnetics node holds this ODS's IMPA channels, if any."""
+    """Return the primary magnetics node holding this ODS's IMPA channels.
+
+    When both are populated this is the Hall node, which carries the array's
+    resolved positions; pass an explicit node to :func:`impa_probe_indices` to
+    address the vertical-field sensors.
+    """
     for node in IMPA_PROBE_NODES:
         if _impa_indices_in(ods, node):
             return node
@@ -354,6 +406,19 @@ def _target_time(source_time: np.ndarray, tstart: float, tend: float, dt: float)
         if end > start:
             return np.arange(start, end, dt)
     return source_time
+
+
+def _bz_channel_status(result: ImpaResult, index: int, wired: bool) -> tuple[int, str]:
+    """Return the IDS validity flag and a reason for one vertical-field sensor."""
+    if not wired:
+        return -2, "raw signal unavailable"
+    if result.crosstalk is None or not np.isfinite(result.crosstalk.sin_angle[index]):
+        return -1, "crosstalk calibration could not be fitted"
+    if result.quality.checks.get("bz_sensors") == "invalid":
+        return -1, "vertical-field sensor calibration was rejected"
+    if result.quality.checks.get("bz_sensors") == "warning":
+        return 1, "calibration accepted with warnings; sensor may be inactive"
+    return 0, "valid"
 
 
 def _channel_status(result: ImpaResult, index: int) -> tuple[int, str]:
@@ -467,6 +532,78 @@ def impa(
                 }
             )
 
+    # The dedicated vertical-field sensors sit at the positions the Hall
+    # channels just established, so they map as poloidal-field probes there.
+    bz_status: dict[str, Any] = {}
+    bz_specs = inputs["bz_specs"]
+    if bz_specs and result.b_z_corrected is not None:
+        bz_base = _existing_probe_count(ods, "magnetics.b_field_pol_probe")
+        # A vertical-field sensor is only interpretable at a position the Hall
+        # channels resolved, so never map more than the geometry covers.
+        mappable = min(len(bz_specs), int(np.size(result.geometry.r)))
+        for offset, spec in enumerate(bz_specs[:mappable]):
+            index = bz_base + offset
+            prefix = f"magnetics.b_field_pol_probe.{index}"
+            name = str(spec.get("label", f"IMPA Bz {offset + 1:02d}"))
+            wired = bool(result.bz_channel_valid[offset]) if result.bz_channel_valid is not None else False
+            bz_validity, bz_reason = _bz_channel_status(result, offset, wired)
+
+            set_path(ods, f"{prefix}.name", name)
+            set_path(ods, f"{prefix}.identifier", f"{IMPA_IDENTIFIER_PREFIX}{name}")
+            set_path(ods, f"{prefix}.position.r", float(result.geometry.r[offset]))
+            set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
+            set_path(ods, f"{prefix}.position.phi", 0.0)
+            set_path(ods, f"{prefix}.length", PROBE_LENGTH)
+            set_path(ods, f"{prefix}.toroidal_angle", 0.0)
+            set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
+            set_path(ods, f"{prefix}.type.name", "hall")
+            set_path(
+                ods,
+                f"{prefix}.type.description",
+                "VEST internal magnetic probe array (Hall probe, vertical field)",
+            )
+            if result.crosstalk is not None and np.isfinite(result.crosstalk.angle_deg[offset]):
+                # The measured misalignment is the sensor's real orientation.
+                set_path(
+                    ods,
+                    f"{prefix}.poloidal_angle",
+                    IMPA_POLOIDAL_ANGLE + math.radians(float(result.crosstalk.angle_deg[offset])),
+                )
+            else:
+                set_path(ods, f"{prefix}.poloidal_angle", IMPA_POLOIDAL_ANGLE)
+
+            if wired and inputs["bz_raw"] is not None:
+                set_path(ods, f"{prefix}.voltage.time", np.asarray(result.time, dtype=float))
+                set_path(ods, f"{prefix}.voltage.data", np.asarray(inputs["bz_raw"][offset], dtype=float))
+            set_path(ods, f"{prefix}.voltage.validity", int(bz_validity))
+            set_path(ods, f"{prefix}.field.validity", int(bz_validity))
+
+            if bz_validity >= 0:
+                values = np.asarray(result.b_z_corrected[offset], dtype=float)
+                finite = np.isfinite(values)
+                if finite.any():
+                    set_path(ods, f"{prefix}.field.time", target_time)
+                    set_path(
+                        ods,
+                        f"{prefix}.field.data",
+                        np.interp(target_time, result.time[finite], values[finite]),
+                    )
+
+            bz_status[name] = {
+                "field": int(spec["field"]),
+                "probe_index": index,
+                "validity": int(bz_validity),
+                "reason": bz_reason,
+                "r": float(result.geometry.r[offset]),
+            }
+            if result.crosstalk is not None:
+                bz_status[name].update(
+                    {
+                        "crosstalk_angle_deg": float(result.crosstalk.angle_deg[offset]),
+                        "crosstalk_r_squared": float(result.crosstalk.r_squared[offset]),
+                    }
+                )
+
     status: dict[str, Any] = {
         "shot": int(shot),
         "status": result.quality.status,
@@ -477,6 +614,9 @@ def impa(
         "provenance": dict(result.provenance),
         "geometry_method": result.geometry.method,
         "channels": channel_status,
+        "bz_channels": bz_status,
+        "incident_angle_deg": result.geometry.incident_angle_deg,
+        "fitted_pitch": result.geometry.pitch,
     }
     if result.geometry.r0 is not None:
         status["r0"] = float(result.geometry.r0)
