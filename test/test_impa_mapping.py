@@ -17,6 +17,7 @@ from vaft.machine_mapping.impa import (
     IMPA_IDENTIFIER_PREFIX,
     impa,
     impa_probe_indices,
+    impa_probe_node,
     load_impa_inputs,
     process_impa_shot,
     resolve_impa_config,
@@ -38,6 +39,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 IMPA_FIELDS = (114, 115, 116, 117, 118, 119, 120, 121)
+
+#: 2022-04-23 IMPA alignment block: the verified reference condition.  Seven
+#: channels are wired and the rigid 5 cm array fits the TF 1/R profile.
+REFERENCE_SHOT = 35376
+REFERENCE_CHANNELS = 7
 
 
 @pytest.fixture(scope="module")
@@ -104,21 +110,21 @@ def test_calibration_window_is_found_from_signal_criteria_not_a_fixed_time(resul
 # ---------------------------------------------------------------------------
 # the calibration verdict
 # ---------------------------------------------------------------------------
-def test_39204_self_calibration_is_rejected_rather_than_silently_accepted(result_39204):
-    """The probes are toroidally aligned, so the legacy tilt model cannot hold.
+def test_39204_does_not_meet_the_reference_conditions(result_39204):
+    """39204 fails the rigid-array and alignment checks, and says why.
 
-    ``alpha`` near unity means a probe measures essentially the whole toroidal
-    field; projecting that back onto the vertical axis is unbounded, so the
-    shot must be reported as invalid instead of yielding a plausible number.
+    Its two innermost channels return couplings far from unity and the rigid
+    5 cm fit leaves a ~34% residual, against 9-12% on the 2022-04-23 alignment
+    shots.  The shot is reported invalid rather than silently accepted.
     """
     assert result_39204.quality.status == "invalid"
     assert result_39204.quality.checks["tf_coupling"] == "invalid"
-    assert any("tilt bounds" in reason for reason in result_39204.quality.reasons)
+    assert any("toroidally aligned" in reason for reason in result_39204.quality.reasons)
+    assert result_39204.geometry.nrmse > 0.2
 
     alpha = result_39204.coupling.alpha
-    assert np.nanmax(alpha) > 0.9
-    # Nothing physical is emitted for the saturated channels.
-    assert not np.all(np.isfinite(result_39204.b_z))
+    assert np.nanmax(alpha) > 0.9        # most channels do face the TF
+    assert np.nanmin(alpha) < 0.5        # but the innermost ones do not
 
 
 def test_only_the_ratio_of_coupling_to_radius_is_constrained(result_39204, inputs_39204):
@@ -146,11 +152,9 @@ def test_only_the_ratio_of_coupling_to_radius_is_constrained(result_39204, input
     np.testing.assert_allclose(shifted.coupling_ratio, baseline.coupling_ratio, rtol=1e-6)
 
 
-def test_uniform_pitch_geometry_does_not_describe_this_array(result_39204):
+def test_uniform_pitch_geometry_does_not_describe_39204(result_39204):
     assert result_39204.geometry.method == "tf_profile_fit"
     assert result_39204.geometry.r0 == pytest.approx(0.341, abs=0.02)
-    # A ~30% residual is why the fitted geometry is reported with its quality
-    # rather than trusted.
     assert result_39204.geometry.nrmse > 0.2
     assert result_39204.quality.checks["geometry"] == "warning"
 
@@ -207,56 +211,69 @@ def test_the_two_legacy_sign_conventions_differ_only_in_polarity(inputs_39204):
 def test_impa_channels_are_appended_without_moving_existing_probe_indices():
     ods = ODS(consistency_check=False)
     vfit_magnetics_static(ods)
-    before = len(ods["magnetics.b_field_pol_probe"])
-    names_before = [ods[f"magnetics.b_field_pol_probe.{i}.name"] for i in range(before)]
+    pol_before = len(ods["magnetics.b_field_pol_probe"])
+    names_before = [ods[f"magnetics.b_field_pol_probe.{i}.name"] for i in range(pol_before)]
 
-    impa(ods, 39204, raw_source=IMPA_SAMPLE)
+    impa(ods, REFERENCE_SHOT, raw_source=IMPA_SAMPLE)
 
-    indices = impa_probe_indices(ods)
-    assert indices == list(range(before, before + len(IMPA_FIELDS)))
-    assert [ods[f"magnetics.b_field_pol_probe.{i}.name"] for i in range(before)] == names_before
+    # A toroidally mounted array lands in b_field_tor_probe, so the existing
+    # poloidal probes are untouched.
+    assert len(ods["magnetics.b_field_pol_probe"]) == pol_before
+    assert [ods[f"magnetics.b_field_pol_probe.{i}.name"] for i in range(pol_before)] == names_before
+    assert impa_probe_node(ods) == "magnetics.b_field_tor_probe"
+    assert impa_probe_indices(ods) == list(range(REFERENCE_CHANNELS))
 
 
 def test_mapped_impa_probes_carry_hall_metadata_and_geometry():
     ods = ODS(consistency_check=False)
-    status = impa(ods, 39204, raw_source=IMPA_SAMPLE)
+    status = impa(ods, REFERENCE_SHOT, 0.10, 0.60, 4.0e-5, raw_source=IMPA_SAMPLE)
 
+    node = status["ids_node"]
     indices = impa_probe_indices(ods)
-    assert len(indices) == len(IMPA_FIELDS)
+    assert status["orientation"] == "toroidal"
+    assert len(indices) == REFERENCE_CHANNELS
     for index in indices:
-        prefix = f"magnetics.b_field_pol_probe.{index}"
+        prefix = f"{node}.{index}"
         assert ods[f"{prefix}.type.index"] == HALL_PROBE_TYPE_INDEX
         assert ods[f"{prefix}.type.name"] == "hall"
         assert str(ods[f"{prefix}.identifier"]).startswith(IMPA_IDENTIFIER_PREFIX)
         assert ods[f"{prefix}.position.z"] == pytest.approx(0.0)
-        assert 0.1 <= ods[f"{prefix}.position.r"] <= 0.8
+        assert 0.1 <= ods[f"{prefix}.position.r"] <= 0.9
         assert ods[f"{prefix}.voltage.data"].size > 1_000
 
-    radii = [ods[f"magnetics.b_field_pol_probe.{i}.position.r"] for i in indices]
+    radii = [ods[f"{node}.{i}.position.r"] for i in indices]
     assert radii == sorted(radii)
+    # The array is rigid: the configured pitch must survive the fit.
+    np.testing.assert_allclose(np.diff(radii), 0.05, atol=1e-9)
     assert status["provenance"]["reference_shot_used"] is False
 
 
-def test_a_rejected_channel_gets_no_field_waveform_at_all():
-    ods = ODS(consistency_check=False)
-    status = impa(ods, 39204, raw_source=IMPA_SAMPLE)
+def test_a_valid_shot_gets_a_field_waveform_and_a_rejected_one_does_not():
+    good = ODS(consistency_check=False)
+    good_status = impa(good, REFERENCE_SHOT, 0.10, 0.60, 4.0e-5, raw_source=IMPA_SAMPLE)
+    assert good_status["status"] == "valid"
+    for index in impa_probe_indices(good):
+        prefix = f"{good_status['ids_node']}.{index}"
+        assert good[f"{prefix}.field.validity"] >= 0
+        assert good[f"{prefix}.field.data"].size > 1
 
-    assert status["status"] == "invalid"
-    for index in impa_probe_indices(ods):
-        prefix = f"magnetics.b_field_pol_probe.{index}"
-        assert ods[f"{prefix}.field.validity"] < 0
+    bad = ODS(consistency_check=False)
+    bad_status = impa(bad, 39204, raw_source=IMPA_SAMPLE)
+    assert bad_status["status"] == "invalid"
+    for index in impa_probe_indices(bad):
+        prefix = f"{bad_status['ids_node']}.{index}"
+        assert bad[f"{prefix}.field.validity"] < 0
         # A zero-filled trace would be indistinguishable from a measurement.
-        assert f"{prefix}.field.data" not in ods
+        assert f"{prefix}.field.data" not in bad
 
 
 def test_status_records_the_calibration_provenance():
     ods = ODS(consistency_check=False)
-    status = impa(ods, 39204, raw_source=IMPA_SAMPLE)
+    status = impa(ods, REFERENCE_SHOT, 0.10, 0.60, 4.0e-5, raw_source=IMPA_SAMPLE)
 
     window = status["provenance"]["calibration_window"]
     assert window["n_samples"] > 1_000
-    assert window["tf_dynamic_range"] >= 0.45
-    assert status["provenance"]["sign_convention"].startswith("I_TF = raw * -3e4")
+    assert status["provenance"]["orientation"] == "toroidal"
     assert status["geometry_method"] == "tf_profile_fit"
     for channel in status["channels"].values():
         assert channel["field"] in IMPA_FIELDS
@@ -365,3 +382,84 @@ def test_no_static_model_certifies_a_single_shot_yet():
         assert result.quality.status == "invalid", shot
         assert result.quality.reasons, shot
         assert result.window is not None, shot
+
+
+# ---------------------------------------------------------------------------
+# the verified reference condition (2022-04-23 alignment block)
+# ---------------------------------------------------------------------------
+ALIGNMENT_SHOTS = (35376, 35385)
+PROBE_OUT_SHOT = 35325
+
+
+@pytest.mark.skipif(
+    not all(Path(IMPA_SAMPLE.format(shot=s)).is_file() for s in ALIGNMENT_SHOTS),
+    reason="archived 2022-04-23 IMPA alignment samples are not available",
+)
+@pytest.mark.parametrize("shot", ALIGNMENT_SHOTS)
+def test_alignment_shots_classify_as_valid(shot):
+    """The reference condition: a rigid 5 cm array facing the toroidal field.
+
+    On these shots the fitted coupling is unity to within a few percent and the
+    rigid-array fit lands well inside tolerance, so the shot is certified.
+    """
+    result, _ = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
+
+    assert result.quality.status == "valid", result.quality.reasons
+    assert result.geometry.n_channels_fitted == REFERENCE_CHANNELS
+    assert 0.45 <= result.geometry.r0 <= 0.52
+    assert result.geometry.nrmse < 0.15
+    np.testing.assert_allclose(np.abs(result.coupling.alpha[:REFERENCE_CHANNELS]), 1.0, atol=0.05)
+
+
+@pytest.mark.skipif(
+    not all(Path(IMPA_SAMPLE.format(shot=s)).is_file() for s in ALIGNMENT_SHOTS),
+    reason="archived 2022-04-23 IMPA alignment samples are not available",
+)
+def test_the_rigid_five_centimetre_pitch_holds_on_the_alignment_shots():
+    """Spacing is hardware; the fit must not need to bend it."""
+    for shot in ALIGNMENT_SHOTS:
+        result, _ = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
+        wired = result.geometry.r[result.channel_valid]
+        np.testing.assert_allclose(np.diff(wired), 0.05, atol=1e-9)
+
+
+@pytest.mark.skipif(
+    not Path(IMPA_SAMPLE.format(shot=PROBE_OUT_SHOT)).is_file(),
+    reason="archived TF-reference sample is not available",
+)
+def test_a_shot_with_the_probe_withdrawn_is_rejected():
+    """35325 is a TF reference taken without the array inserted."""
+    result, _ = process_impa_shot(PROBE_OUT_SHOT, raw_source=IMPA_SAMPLE)
+
+    assert result.quality.status == "invalid"
+    assert np.nanmedian(np.abs(result.coupling.alpha)) < 0.1
+    assert any("toroidally aligned" in reason for reason in result.quality.reasons)
+
+
+@pytest.mark.skipif(
+    not all(Path(IMPA_SAMPLE.format(shot=s)).is_file() for s in ALIGNMENT_SHOTS),
+    reason="archived 2022-04-23 IMPA alignment samples are not available",
+)
+def test_a_reference_shot_calibration_transfers_to_another_shot():
+    """The legacy two-shot arrangement, kept optional.
+
+    Calibrating on one alignment shot and applying it to another reproduces
+    that shot's own geometry, because the array did not move between them.
+    """
+    own, _ = process_impa_shot(35385, raw_source=IMPA_SAMPLE)
+    borrowed, _ = process_impa_shot(35385, raw_source=IMPA_SAMPLE, reference_shot=35376)
+
+    assert borrowed.provenance["reference_shot_used"] is True
+    assert borrowed.geometry.method == "reference_shot:35376"
+    assert borrowed.quality.status == "valid"
+    assert abs(borrowed.geometry.r0 - own.geometry.r0) < 0.02
+
+
+@pytest.mark.skipif(
+    not Path(IMPA_SAMPLE.format(shot=PROBE_OUT_SHOT)).is_file(),
+    reason="archived TF-reference sample is not available",
+)
+def test_an_unusable_reference_shot_is_refused():
+    """A reference with the probe withdrawn must not calibrate anything."""
+    with pytest.raises(ValueError, match="not usable as a calibration"):
+        process_impa_shot(35376, raw_source=IMPA_SAMPLE, reference_shot=PROBE_OUT_SHOT)

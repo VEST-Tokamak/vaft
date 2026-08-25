@@ -203,13 +203,13 @@ def magnetics_time_b_field_pol_probe_field(
     view="time",
     quantity="impa_field",
     model=LineSeries,
-    description="Compensated internal Bz from the IMPA Hall-probe array.",
+    description="Calibrated field from the IMPA Hall-probe array.",
     ids=("magnetics",),
-    required_paths=("magnetics.b_field_pol_probe.{i}.field.data",),
+    required_paths=("magnetics.b_field_tor_probe.{i}.field.data",),
     optional_paths=(
-        "magnetics.b_field_pol_probe.{i}.identifier",
-        "magnetics.b_field_pol_probe.{i}.field.time",
-        "magnetics.b_field_pol_probe.{i}.position.r",
+        "magnetics.b_field_tor_probe.{i}.identifier",
+        "magnetics.b_field_tor_probe.{i}.position.r",
+        "magnetics.b_field_pol_probe.{i}.field.data",
     ),
 )
 def magnetics_time_impa_field(
@@ -219,7 +219,7 @@ def magnetics_time_impa_field(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Compensated internal Bz from the IMPA Hall-probe array."""
+    """Calibrated field from the IMPA Hall-probe array."""
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -230,10 +230,10 @@ def magnetics_time_impa_field(
     model=LineSeries,
     description="Raw IMPA Hall-probe voltages, one trace per channel.",
     ids=("magnetics",),
-    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    required_paths=("magnetics.b_field_tor_probe.{i}.voltage.data",),
     optional_paths=(
-        "magnetics.b_field_pol_probe.{i}.identifier",
-        "magnetics.b_field_pol_probe.{i}.voltage.time",
+        "magnetics.b_field_tor_probe.{i}.identifier",
+        "magnetics.b_field_pol_probe.{i}.voltage.data",
     ),
 )
 def magnetics_time_impa_voltage(

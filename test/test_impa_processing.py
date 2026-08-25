@@ -43,10 +43,14 @@ def _tf_ramp(time: np.ndarray, peak: float = 12_000.0) -> np.ndarray:
     )
 
 
-def _synthetic_array(time, i_tf, radii, alpha, offset=0.0, bz=0.0):
+def _synthetic_array(time, i_tf, radii, alpha, offset=0.0, bz=0.0, noise=1e-6, seed=0):
+    """Build probe waveforms, with a little noise so plateaus look analogue."""
     bt = toroidal_field(np.asarray(radii)[:, None], i_tf[None, :])
     alpha = np.asarray(alpha, dtype=float)[:, None]
-    return alpha * bt + np.sqrt(1.0 - alpha**2) * bz + offset
+    values = alpha * bt + np.sqrt(1.0 - alpha**2) * bz + offset
+    if noise:
+        values = values + np.random.default_rng(seed).normal(0.0, noise, values.shape)
+    return values
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +140,7 @@ def test_coupling_regression_recovers_a_known_alpha_and_offset():
     radii = 0.4 + np.arange(4) * 0.05
     alpha = np.array([0.05, -0.10, 0.15, 0.02])
     offset = 1.0e-3
-    measured = _synthetic_array(time, i_tf, radii, alpha, offset=offset)
+    measured = _synthetic_array(time, i_tf, radii, alpha, offset=offset, noise=0.0)
 
     window, _ = find_tf_calibration_window(time, i_tf)
     fit = fit_impa_tf_coupling(measured, i_tf, radii, window)
@@ -166,7 +170,7 @@ def test_geometry_fit_recovers_a_known_r0():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.37 + np.arange(8) * 0.05
-    measured = _synthetic_array(time, i_tf, radii, np.ones(8))
+    measured = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0)
 
     window, _ = find_tf_calibration_window(time, i_tf)
     fit = fit_impa_geometry(measured, i_tf, window, pitch=0.05)
@@ -199,7 +203,7 @@ def test_tf_pickup_removal_round_trips_an_injected_vertical_field():
     radii = np.array([0.4, 0.5])
     alpha = np.array([0.08, -0.05])
     bz = 2.0e-3 * np.sin(2 * np.pi * 5 * time)
-    measured = _synthetic_array(time, i_tf, radii, alpha, bz=bz)
+    measured = _synthetic_array(time, i_tf, radii, alpha, bz=bz, noise=0.0)
 
     pickup = alpha[:, None] * toroidal_field(radii[:, None], i_tf[None, :])
     recovered = remove_tf_pickup(measured, pickup, alpha)
@@ -249,7 +253,13 @@ def test_process_impa_reports_valid_for_a_well_behaved_synthetic_array():
     measured = _synthetic_array(time, i_tf, radii, alpha, bz=bz)
     raw = measured / (2.0 / 15.0)
 
-    result = process_impa(time, raw, i_tf, r=radii)
+    result = process_impa(
+        time,
+        raw,
+        i_tf,
+        r=radii,
+        config=ImpaProcessingConfig(orientation="poloidal"),
+    )
 
     assert result.quality.status == "valid"
     assert result.window is not None
@@ -271,17 +281,65 @@ def test_process_impa_reports_invalid_without_a_calibration_window():
     assert result.geometry.method == "nominal_uncalibrated"
 
 
-def test_process_impa_reports_invalid_for_toroidally_aligned_probes():
+def test_a_toroidal_array_is_rejected_by_the_poloidal_model():
+    """The legacy near-vertical model cannot describe a toroidal mounting."""
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.4 + np.arange(8) * 0.05
     raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (2.0 / 15.0)
 
-    result = process_impa(time, raw, i_tf, r=radii)
+    result = process_impa(
+        time, raw, i_tf, r=radii, config=ImpaProcessingConfig(orientation="poloidal")
+    )
 
     assert result.quality.status == "invalid"
     assert result.quality.checks["tf_coupling"] == "invalid"
     assert any("tilt bounds" in reason for reason in result.quality.reasons)
+
+
+def test_a_toroidal_array_is_accepted_by_the_toroidal_model():
+    """The same array is exactly what a toroidal mounting should look like."""
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.4 + np.arange(8) * 0.05
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (2.0 / 15.0)
+
+    result = process_impa(time, raw, i_tf, r=radii)  # toroidal is the default
+
+    assert result.quality.status == "valid"
+    assert result.quality.checks["tf_coupling"] == "valid"
+    np.testing.assert_allclose(result.coupling.alpha, 1.0, atol=1e-3)
+
+
+def test_a_poloidal_array_is_rejected_by_the_toroidal_model():
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.4 + np.arange(8) * 0.05
+    raw = _synthetic_array(time, i_tf, radii, np.full(8, 0.05)) / (2.0 / 15.0)
+
+    result = process_impa(time, raw, i_tf, r=radii)
+
+    assert result.quality.checks["tf_coupling"] == "invalid"
+    assert any("toroidally aligned" in reason for reason in result.quality.reasons)
+
+
+def test_a_reference_shot_calibration_can_be_reused():
+    """A reference taken with the array in place calibrates another shot."""
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.42 + np.arange(8) * 0.05
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (2.0 / 15.0)
+    reference = process_impa(time, raw, i_tf)
+
+    # A shot with no clean TF interval of its own still calibrates.
+    quiet = process_impa(time, raw, i_tf, ip=np.full_like(time, 50_000.0), reference=reference)
+
+    assert quiet.window is None
+    assert quiet.provenance["reference_shot_used"] is True
+    assert quiet.geometry.method.startswith("reference_shot")
+    np.testing.assert_allclose(quiet.geometry.r, reference.geometry.r)
+    assert quiet.quality.checks["calibration_window"] == "warning"
+    assert quiet.quality.status in ("valid", "warning")
 
 
 def test_missing_channels_are_reported_and_never_silently_zero_filled():

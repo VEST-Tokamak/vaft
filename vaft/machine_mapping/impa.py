@@ -11,7 +11,6 @@ Machine constants live in ``vaft/machine_mapping/vest.yaml`` under
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Any, Mapping
 
 import numpy as np
@@ -31,9 +30,11 @@ from .utils import _deep_merge, _normalize_shot_key, _resolve_info_file_path, lo
 __all__ = [
     "HALL_PROBE_TYPE_INDEX",
     "IMPA_IDENTIFIER_PREFIX",
+    "IMPA_PROBE_NODES",
     "impa",
     "impa_from_raw_database",
     "impa_probe_indices",
+    "impa_probe_node",
     "load_impa_inputs",
     "process_impa_shot",
     "resolve_impa_config",
@@ -43,6 +44,11 @@ __all__ = [
 HALL_PROBE_TYPE_INDEX = 3
 #: Identifier prefix so consumers select IMPA semantically, never by index.
 IMPA_IDENTIFIER_PREFIX = "impa:"
+#: The array lands in the node matching how it is mounted.  A toroidally
+#: aligned probe measures the toroidal field and belongs in
+#: ``b_field_tor_probe``; only a poloidal mounting yields a Bz for
+#: ``b_field_pol_probe``.
+IMPA_PROBE_NODES = ("magnetics.b_field_pol_probe", "magnetics.b_field_tor_probe")
 #: A midplane probe measuring the vertical field looks "up" in the poloidal plane.
 IMPA_POLOIDAL_ANGLE = 0.0
 
@@ -55,8 +61,9 @@ def _safe_vest_load(shot: int, field: int, raw_source: raw_db.RawSource | None =
     )
 
 
-@lru_cache(maxsize=8)
 def _vest_config(info_file: str | None) -> Mapping[str, Any]:
+    # Deliberately uncached: the mapping file is small, this is not a hot path,
+    # and a cache here would serve stale settings to anything that rewrites it.
     return load_yaml(_resolve_info_file_path(info_file))
 
 
@@ -74,7 +81,12 @@ def resolve_impa_config(shot: int, info_file: str | None = None) -> dict[str, An
     return dict(impa_config)
 
 
-def _channel_specs(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _channel_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]:
+    """Return the channels wired for ``shot``, in array order.
+
+    A campaign may not wire every position -- the 2022-04-23 block runs seven
+    channels, without field 121 -- so an era may narrow the default set.
+    """
     channels = config.get("channels") or {}
     specs = []
     for key in sorted(channels, key=lambda value: int(value)):
@@ -83,10 +95,28 @@ def _channel_specs(config: Mapping[str, Any]) -> list[dict[str, Any]]:
         specs.append(entry)
     if not specs:
         raise ValueError("The IMPA configuration defines no channels")
+
+    for era in (config.get("calibration") or {}).get("shot_era_overrides") or ():
+        if not int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
+            continue
+        wired = era.get("channels")
+        if wired:
+            allowed = {int(field) for field in wired}
+            specs = [spec for spec in specs if int(spec["field"]) in allowed]
+        break
     return specs
 
 
-def _processing_config(config: Mapping[str, Any]) -> ImpaProcessingConfig:
+def _resolve_gain(calibration: Mapping[str, Any], shot: int) -> float:
+    """Return the Hall gain for ``shot``, honouring verified shot-era ranges."""
+    gain = float(calibration.get("gain", 2.0 / 15.0))
+    for era in calibration.get("shot_era_overrides") or ():
+        if int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
+            return float(era.get("gain", gain))
+    return gain
+
+
+def _processing_config(config: Mapping[str, Any], shot: int) -> ImpaProcessingConfig:
     processing = config.get("processing") or {}
     calibration = config.get("calibration") or {}
     tf_compensation = config.get("tf_compensation") or {}
@@ -95,11 +125,13 @@ def _processing_config(config: Mapping[str, Any]) -> ImpaProcessingConfig:
         sample_rate=float(processing.get("sample_rate", 25_000.0)),
         signal_lowpass_hz=float(processing.get("signal_lowpass_hz", 250.0)),
         position_lowpass_hz=float(processing.get("position_lowpass_hz", 2_500.0)),
-        gain=float(calibration.get("gain", 2.0 / 15.0)),
+        gain=_resolve_gain(calibration, shot),
         baseline=str(processing.get("baseline", "first_sample")),
         baseline_samples=int(processing.get("baseline_samples", 2_500)),
         tf_turns=int(tf_compensation.get("tf_turns", 24)),
         tilt_bounds_deg=(float(min(bounds)), float(max(bounds))),
+        orientation=str(tf_compensation.get("orientation", "toroidal")),
+        alpha_tolerance=float(tf_compensation.get("alpha_tolerance", 0.15)),
     )
 
 
@@ -140,7 +172,7 @@ def load_impa_inputs(
     shot; missing Ip or PF context only disables the corresponding
     clean-window criterion, which the returned notes make explicit.
     """
-    specs = _channel_specs(config)
+    specs = _channel_specs(config, int(shot))
     notes: list[str] = []
 
     reference_time: np.ndarray | None = None
@@ -218,9 +250,25 @@ def process_impa_shot(
     *,
     raw_source: raw_db.RawSource | None = None,
     config: Mapping[str, Any] | None = None,
+    reference_shot: int | None = None,
 ) -> tuple[ImpaResult, dict[str, Any]]:
-    """Resolve configuration, load one shot and run the IMPA pipeline."""
+    """Resolve configuration, load one shot and run the IMPA pipeline.
+
+    ``reference_shot`` optionally names a TF reference taken with the array in
+    the same position; its geometry and coupling are then applied to ``shot``
+    instead of being re-fitted.  The single-shot path never requires one.
+    """
     config = dict(config) if config is not None else resolve_impa_config(shot)
+    reference = None
+    if reference_shot is not None:
+        reference, _ = process_impa_shot(
+            int(reference_shot), raw_source=raw_source, config=config
+        )
+        if not reference.quality.is_usable:
+            raise ValueError(
+                f"IMPA reference shot {reference_shot} is not usable as a calibration "
+                f"({reference.quality.status}): {'; '.join(reference.quality.reasons)}"
+            )
     inputs = load_impa_inputs(shot, config, raw_source=raw_source)
     geometry = config.get("geometry") or {}
     quality = config.get("quality") or {}
@@ -231,7 +279,7 @@ def process_impa_shot(
         inputs["time"],
         inputs["raw"],
         inputs["i_tf"],
-        config=_processing_config(config),
+        config=_processing_config(config, int(shot)),
         criteria=_window_criteria(config),
         ip=inputs["ip"],
         pf_currents=inputs["pf_currents"],
@@ -242,38 +290,60 @@ def process_impa_shot(
         r_bounds=(float(min(r_bounds)), float(max(r_bounds))),
         r0_initial=float(geometry.get("r0_initial", 0.4)),
         max_normalized_rmse=float(quality.get("max_normalized_rmse", 0.1)),
+        reference=reference,
     )
+    object.__setattr__(result, "provenance", {**result.provenance, "shot": int(shot)})
     return result, inputs
 
 
-def _existing_probe_count(ods: Any) -> int:
+def _probe_node(orientation: str) -> str:
+    return "magnetics.b_field_tor_probe" if orientation == "toroidal" else "magnetics.b_field_pol_probe"
+
+
+def _existing_probe_count(ods: Any, node: str) -> int:
     """Return the current probe-array length without creating ODS branches."""
+    leaf = node.split(".")[-1]
     try:
-        probes = (
-            ods["magnetics.b_field_pol_probe"]
-            if not isinstance(ods, dict)
-            else ods["magnetics"]["b_field_pol_probe"]
-        )
+        probes = ods[node] if not isinstance(ods, dict) else ods["magnetics"][leaf]
         return len(probes)
     except (KeyError, IndexError, TypeError, ValueError):
         return 0
 
 
-def impa_probe_indices(ods: Any) -> list[int]:
-    """Return the probe indices holding IMPA channels, located by identifier."""
+def impa_probe_node(ods: Any) -> str | None:
+    """Return which magnetics node holds this ODS's IMPA channels, if any."""
+    for node in IMPA_PROBE_NODES:
+        if _impa_indices_in(ods, node):
+            return node
+    return None
+
+
+def _impa_indices_in(ods: Any, node: str) -> list[int]:
+    leaf = node.split(".")[-1]
     indices = []
-    for index in range(_existing_probe_count(ods)):
-        path = f"magnetics.b_field_pol_probe.{index}.identifier"
+    for index in range(_existing_probe_count(ods, node)):
+        path = f"{node}.{index}.identifier"
         if not path_exists(ods, path):
             continue
-        value = (
-            ods[path]
-            if not isinstance(ods, dict)
-            else ods["magnetics"]["b_field_pol_probe"][index]["identifier"]
-        )
+        value = ods[path] if not isinstance(ods, dict) else ods["magnetics"][leaf][index]["identifier"]
         if str(value).startswith(IMPA_IDENTIFIER_PREFIX):
             indices.append(index)
     return indices
+
+
+def impa_probe_indices(ods: Any, node: str | None = None) -> list[int]:
+    """Return the probe indices holding IMPA channels, located by identifier.
+
+    Searches both magnetics probe nodes unless ``node`` names one, since the
+    array lands in whichever matches its mounting.
+    """
+    if node is not None:
+        return _impa_indices_in(ods, node)
+    for candidate in IMPA_PROBE_NODES:
+        found = _impa_indices_in(ods, candidate)
+        if found:
+            return found
+    return []
 
 
 def _target_time(source_time: np.ndarray, tstart: float, tend: float, dt: float) -> np.ndarray:
@@ -309,22 +379,27 @@ def impa(
     dt: float = 4.0e-5,
     *,
     raw_source: raw_db.RawSource | None = None,
+    reference_shot: int | None = None,
 ) -> dict[str, Any]:
-    """Map one shot's compensated IMPA ``Bz`` into ``magnetics.b_field_pol_probe``.
+    """Map one shot's calibrated IMPA measurement into the magnetics IDS.
 
     The eight channels are appended after the probes already present and are
     identified by ``identifier``; existing probe indices never move.  Returns a
     status dictionary carrying the calibration provenance and quality verdict.
     """
-    result, inputs = process_impa_shot(int(shot), raw_source=raw_source)
+    result, inputs = process_impa_shot(
+        int(shot), raw_source=raw_source, reference_shot=reference_shot
+    )
     specs = inputs["specs"]
-    base = _existing_probe_count(ods)
+    orientation = str(result.provenance.get("orientation", "toroidal"))
+    node = _probe_node(orientation)
+    base = _existing_probe_count(ods, node)
     target_time = _target_time(result.time, tstart, tend, dt)
 
     channel_status: dict[str, Any] = {}
     for offset, spec in enumerate(specs):
         index = base + offset
-        prefix = f"magnetics.b_field_pol_probe.{index}"
+        prefix = f"{node}.{index}"
         name = str(spec.get("label", f"IMPA {offset + 1:02d}"))
         validity, reason = _channel_status(result, offset)
 
@@ -350,7 +425,10 @@ def impa(
         # A failed channel is left without a field waveform: a zero-filled
         # trace would be indistinguishable from a real measurement.
         if validity >= 0:
-            values = np.asarray(result.b_z[offset], dtype=float)
+            # ``b_field_tor_probe.field`` is the toroidal field the probe
+            # measures; only a poloidal mounting yields a compensated Bz.
+            measurement = result.b_measured if orientation == "toroidal" else result.b_z
+            values = np.asarray(measurement[offset], dtype=float)
             finite = np.isfinite(values)
             if finite.any():
                 set_path(ods, f"{prefix}.field.time", target_time)
@@ -392,6 +470,8 @@ def impa(
     status: dict[str, Any] = {
         "shot": int(shot),
         "status": result.quality.status,
+        "orientation": orientation,
+        "ids_node": node,
         "checks": dict(result.quality.checks),
         "reasons": list(result.quality.reasons) + list(inputs["notes"]),
         "provenance": dict(result.provenance),

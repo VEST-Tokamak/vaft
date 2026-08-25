@@ -237,7 +237,7 @@ def magnetics_overview(
     domain="magnetics", view="overview", quantity="impa",
     description="IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.",
     ids=("magnetics", "tf"),
-    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    required_paths=("magnetics.b_field_tor_probe.{i}.voltage.data",),
 )
 def magnetics_overview_impa(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any

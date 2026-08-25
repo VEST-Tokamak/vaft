@@ -749,11 +749,26 @@ RECIPES: dict[str, Any] = {
 _IMPA_IDENTIFIER_PREFIX = "impa:"
 
 
-def _impa_probe_indices(ods: Any) -> list[int]:
+#: The array lands in whichever magnetics node matches its mounting.
+_IMPA_PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
+
+
+def _impa_probe_node(ods: Any) -> str:
+    """Return the magnetics node holding IMPA channels for this ODS."""
+    for node in _IMPA_PROBE_NODES:
+        for index in range(_count(ods, node)):
+            identifier = _get(ods, f"{node}.{index}.identifier")
+            if identifier is not None and str(identifier).startswith(_IMPA_IDENTIFIER_PREFIX):
+                return node
+    return _IMPA_PROBE_NODES[-1]
+
+
+def _impa_probe_indices(ods: Any, node: str | None = None) -> list[int]:
     """Return the probe indices holding IMPA channels, in array order."""
+    node = node or _impa_probe_node(ods)
     indices = []
-    for index in range(_count(ods, "magnetics.b_field_pol_probe")):
-        identifier = _get(ods, f"magnetics.b_field_pol_probe.{index}.identifier")
+    for index in range(_count(ods, node)):
+        identifier = _get(ods, f"{node}.{index}.identifier")
         if identifier is not None and str(identifier).startswith(_IMPA_IDENTIFIER_PREFIX):
             indices.append(index)
     return indices
@@ -761,10 +776,13 @@ def _impa_probe_indices(ods: Any) -> list[int]:
 
 def _build_impa_lines(ods: Any, *, quantity: str = "field", **_: Any) -> LineSeries:
     """Build per-channel IMPA traces for the compensated field or raw voltage."""
-    label, unit = ("Bz", "T") if quantity == "field" else ("Probe voltage", "V")
+    node = _impa_probe_node(ods)
+    toroidal = node.endswith("b_field_tor_probe")
+    field_label = "Bt" if toroidal else "Bz"
+    label, unit = (field_label, "T") if quantity == "field" else ("Probe voltage", "V")
     series = []
-    for index in _impa_probe_indices(ods):
-        prefix = f"magnetics.b_field_pol_probe.{index}"
+    for index in _impa_probe_indices(ods, node):
+        prefix = f"{node}.{index}"
         values = _array(ods, f"{prefix}.{quantity}.data")
         if values is None:
             continue
@@ -779,7 +797,7 @@ def _build_impa_lines(ods: Any, *, quantity: str = "field", **_: Any) -> LineSer
         x_unit="s",
         y_label=label,
         y_unit=unit,
-        title="IMPA compensated Bz" if quantity == "field" else "IMPA raw voltage",
+        title=f"IMPA calibrated {field_label}" if quantity == "field" else "IMPA raw voltage",
     )
 
 
@@ -792,17 +810,18 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
     # The compensated field is preferred, but a shot whose calibration was
     # rejected has none -- and that is exactly when the shape check matters
     # most, so fall back to the raw voltage.
+    node = _impa_probe_node(ods)
     quantity = "field"
     if not any(
-        _array(ods, f"magnetics.b_field_pol_probe.{index}.field.data") is not None
-        for index in _impa_probe_indices(ods)
+        _array(ods, f"{node}.{index}.field.data") is not None
+        for index in _impa_probe_indices(ods, node)
     ):
         quantity = "voltage"
 
     radii, values = [], []
     axis = None
-    for index in _impa_probe_indices(ods):
-        prefix = f"magnetics.b_field_pol_probe.{index}"
+    for index in _impa_probe_indices(ods, node):
+        prefix = f"{node}.{index}"
         radius = _get(ods, f"{prefix}.position.r")
         trace = _array(ods, f"{prefix}.{quantity}.data")
         if radius is None or trace is None:
@@ -858,7 +877,11 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
                 )
             )
 
-    label, unit = ("Bz", "T") if quantity == "field" else ("Probe voltage", "V")
+    label, unit = (
+        ("Bt" if node.endswith("b_field_tor_probe") else "Bz", "T")
+        if quantity == "field"
+        else ("Probe voltage", "V")
+    )
     return Profile1D(
         series=tuple(series),
         coordinate_label="R [m]",

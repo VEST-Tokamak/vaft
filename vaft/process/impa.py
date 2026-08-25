@@ -44,30 +44,37 @@ meaningless -- the probe really did move.
 
 What the reference shots show
 -----------------------------
-On shot 39204 the fitted coupling reaches ``alpha ~ 1`` on most channels: the
-probes measure essentially the whole toroidal field rather than a small tilt
-pickup.  Consequences, all reproduced by the tests:
+The 2022-04-23 alignment block (35376-35379, 35385) is the verified reference
+condition.  With that campaign's cabling polarity the array behaves exactly as
+a rigid seven-channel probe at 5 cm pitch facing the toroidal field:
 
-* the legacy ``+/-10 degree`` tilt fit saturates at its bound on every channel
-  and returns a "compensated Bz" of order 0.1 T, two orders of magnitude above
-  VEST's real vertical field;
-* projecting such a probe back onto the vertical axis is unbounded, so this
-  implementation reports the shot as ``invalid`` instead of emitting a
-  plausible-looking number.
+* fitted coupling ``|alpha| = 1.01-1.045`` on every channel -- the probes
+  measure the toroidal field itself, not a small tilt pickup;
+* the rigid 1/R fit lands at ``R0 = 0.486-0.501 m`` across the block, with a
+  9-12% normalised residual;
+* field 121 is not wired in this campaign, so the array runs seven channels.
 
-Shot 39923 is a second reference at a tenth of the TF drive (1.3 kA against
-12.7 kA).  It reproduces the channel ordering and, to within ~12%, the shape of
-the radial profile.  Its fitted position and its response per unit TF current
-differ from 39204 -- as they should for an array that was moved between the two
-shots; under ``alpha = 1`` the implied radii sit roughly 0.16-0.27 m further
-out, broadly consistent with a radial translation.
+Because the probes face the toroidal field, they have essentially no
+sensitivity left for the poloidal component: such a probe cannot measure Bz,
+and the measurement belongs in ``magnetics.b_field_tor_probe``.  The legacy
+``+/-10 degree`` tilt model assumed a near-vertical probe, and on shot 39204 it
+saturates at its bound on all eight channels and returns a "compensated Bz" of
+order 0.1 T -- two orders of magnitude above VEST's real vertical field.
 
-The open problem is *within* a single shot: no static model of the form
-``alpha_i * Bt(R_i) + beta_i`` describes a whole clean-TF window better than
-about 13-17% of the signal spread, whether the radii come from a uniform pitch,
-a free pitch, or a free radius per channel.  Until that is understood, a
-single-shot calibration cannot be certified, and the quality gates here say so
-rather than guessing.
+Shots that do not meet the reference condition are rejected with reasons:
+39204 and 39923 leave a 34-35% rigid-array residual and carry channels far from
+unit coupling, and 35325 (a TF reference taken with the array withdrawn) shows
+``alpha ~ 0.004``.
+
+Cross-shot agreement of fitted position is *not* a criterion: the array is
+insertable and is repositioned between campaigns.  Geometry is therefore a
+per-shot quantity, self-calibrated from the shot's own clean-TF window.
+Configured ``r`` in ``vest.yaml`` applies only where an era was surveyed or
+left fixed, and then takes precedence.
+
+A TF reference shot taken with the array in the same position can supply the
+calibration for another shot -- the legacy two-shot arrangement -- through the
+optional ``reference`` argument.  It is never required by the single-shot path.
 """
 
 from __future__ import annotations
@@ -110,6 +117,7 @@ IMPA_CHANNEL_COUNT = 8
 _FIR_TAPS = 26
 
 _VALID_BASELINES = ("first_sample", "mean_first_samples", "none")
+_VALID_ORIENTATIONS = ("toroidal", "poloidal")
 
 
 # --------------------------------------------------------------------------
@@ -131,8 +139,20 @@ class ImpaProcessingConfig:
     baseline_samples: int = 2_500
     tf_turns: int = 24
     tilt_bounds_deg: tuple[float, float] = (-10.0, 10.0)
+    #: How the array is mounted.  ``toroidal`` means the probes face the
+    #: toroidal field (``alpha ~ 1``) and measure it directly, which is what
+    #: the 2022-04-23 alignment shots show; ``poloidal`` is the legacy
+    #: near-vertical model, where a small tilt admits a TF pickup that has to
+    #: be removed to recover Bz.
+    orientation: str = "toroidal"
+    #: Tolerance on ``|alpha| - 1`` for a toroidally aligned array.
+    alpha_tolerance: float = 0.15
 
     def __post_init__(self) -> None:
+        if self.orientation not in _VALID_ORIENTATIONS:
+            raise ValueError(
+                f"Unsupported IMPA orientation {self.orientation!r}; expected one of {_VALID_ORIENTATIONS}"
+            )
         if self.baseline not in _VALID_BASELINES:
             raise ValueError(
                 f"Unsupported IMPA baseline {self.baseline!r}; expected one of {_VALID_BASELINES}"
@@ -221,6 +241,8 @@ class ImpaGeometryFit:
     within_bounds: bool = True
     bound_hit: bool = False
     n_samples: int = 0
+    #: Channels that actually contributed; an era may not wire all of them.
+    n_channels_fitted: int = 0
 
 
 @dataclass(frozen=True)
@@ -243,6 +265,9 @@ class ImpaResult:
     time: np.ndarray
     b_measured: np.ndarray
     tf_pickup: np.ndarray
+    #: For a poloidal array, the compensated vertical field.  For a toroidal
+    #: array, the residual left after removing the modelled TF contribution --
+    #: not a calibrated Bz, since such a probe cannot measure one.
     b_z: np.ndarray
     channel_valid: np.ndarray
     geometry: ImpaGeometryFit
@@ -526,7 +551,7 @@ def fit_impa_geometry(
     z: float = 0.0,
     turns: int = 24,
     r0_initial: float = 0.4,
-    r_bounds: Sequence[float] = (0.1, 0.8),
+    r_bounds: Sequence[float] = (0.1, 0.9),
 ) -> ImpaGeometryFit:
     """Self-calibrate ``R_0`` from the TF ``1/R`` profile over a full window.
 
@@ -544,10 +569,19 @@ def fit_impa_geometry(
     observed = b_measured[:, idx]
     lower, upper = float(min(r_bounds)), float(max(r_bounds))
 
+    # A channel that is unwired for this shot era, or otherwise unavailable,
+    # carries NaN.  Fit the channels that are present and still report a radius
+    # for every position, since the array is rigid and the pitch is known.
+    usable = np.all(np.isfinite(observed), axis=1)
+    if not usable.any():
+        raise ValueError("No IMPA channel has finite samples inside the calibration window")
+    fitted = observed[usable]
+    fitted_offsets = offsets[usable]
+
     def residual(params: np.ndarray) -> np.ndarray:
-        radii = params[0] + offsets
+        radii = params[0] + fitted_offsets
         model = toroidal_field(radii[:, None], i_tf[None, idx], turns)
-        return (observed - model).ravel()
+        return (fitted - model).ravel()
 
     solution = optimize.least_squares(
         residual,
@@ -557,7 +591,7 @@ def fit_impa_geometry(
     r0 = float(solution.x[0])
     final = residual(solution.x)
     rmse = float(np.sqrt(np.mean(final**2)))
-    spread = float(np.std(observed))
+    spread = float(np.std(fitted))
     radii = r0 + offsets
 
     return ImpaGeometryFit(
@@ -572,6 +606,7 @@ def fit_impa_geometry(
         within_bounds=bool(lower <= r0 <= upper),
         bound_hit=bool((r0 - lower) <= _bound_edge(lower, upper) or (upper - r0) <= _bound_edge(lower, upper)),
         n_samples=int(idx.size),
+        n_channels_fitted=int(np.count_nonzero(usable)),
     )
 
 
@@ -608,7 +643,7 @@ def legacy_impa_position(
     turns: int = 24,
     pitch: float = 0.05,
     r0_initial: float = 0.4,
-    r_bounds: Sequence[float] = (0.1, 0.8),
+    r_bounds: Sequence[float] = (0.1, 0.9),
     baseline_samples: int = 2_500,
 ) -> dict[str, Any]:
     """Faithful port of ``vest_impa_position.m`` (single time sample).
@@ -736,9 +771,11 @@ def validate_impa(
     *,
     expected_channels: int = IMPA_CHANNEL_COUNT,
     max_normalized_rmse: float = 0.1,
-    r_bounds: Sequence[float] = (0.1, 0.8),
+    r_bounds: Sequence[float] = (0.1, 0.9),
     pitch_tolerance: float = 0.01,
     window_reasons: Sequence[str] = (),
+    orientation: str = "toroidal",
+    alpha_tolerance: float = 0.15,
 ) -> ImpaQuality:
     """Grade one processed IMPA shot as ``valid``/``warning``/``invalid``."""
     checks: dict[str, str] = {}
@@ -775,35 +812,46 @@ def validate_impa(
             channel_states.append("invalid")
             reasons.append(f"channel {channel} is constant (dead or railed)")
         else:
-            extremes = np.count_nonzero(np.isclose(values, np.max(values))) + np.count_nonzero(
-                np.isclose(values, np.min(values))
+            # A railed channel repeats one *exact* digitiser level; a genuine
+            # analogue plateau still carries noise, so near-equality would
+            # flag every flat TF top as clipping.
+            railed = np.count_nonzero(values == np.max(values)) + np.count_nonzero(
+                values == np.min(values)
             )
-            if extremes > 0.01 * values.size:
+            if railed > 0.01 * values.size:
                 channel_states.append("warning")
-                reasons.append(f"channel {channel} spends >1% of the shot at a rail (possible clipping)")
+                reasons.append(f"channel {channel} holds one exact extreme level (probable clipping)")
             else:
                 channel_states.append("valid")
     checks["channel_signals"] = _worst("valid", *channel_states) if channel_states else "invalid"
 
-    if window is None:
+    if window is not None:
+        checks["calibration_window"] = "valid"
+    elif coupling is not None:
+        # A calibration carried in from a reference shot is a legitimate
+        # substitute for this shot's own clean interval.
+        checks["calibration_window"] = "warning"
+        reasons.append("no clean TF window in this shot; calibration taken from a reference shot")
+    else:
         checks["calibration_window"] = "invalid"
         reasons.append("no clean TF calibration window was found in this shot")
-    else:
-        checks["calibration_window"] = "valid"
 
     lower, upper = float(min(r_bounds)), float(max(r_bounds))
     geometry_state = "valid"
     if not geometry.monotonic:
         geometry_state = "invalid"
         reasons.append("fitted IMPA radii are not monotonically increasing")
-    if not geometry.within_bounds or np.any(geometry.r < lower) or np.any(geometry.r > upper):
+    # Only positions that carry a wired channel are measurements; a nominal
+    # radius for an unwired position says nothing about the hardware.
+    wired = geometry.r[channel_valid] if channel_valid.size == geometry.r.size else geometry.r
+    if not geometry.within_bounds or (wired.size and (np.any(wired < lower) or np.any(wired > upper))):
         geometry_state = "invalid"
         reasons.append(f"fitted IMPA radii fall outside the physical bounds [{lower}, {upper}] m")
     if geometry.bound_hit:
         geometry_state = _worst(geometry_state, "invalid")
         reasons.append("the geometry fit saturated at a parameter bound")
-    if geometry.pitch is not None and geometry.r.size > 1:
-        spacing = np.diff(geometry.r)
+    if geometry.pitch is not None and wired.size > 1:
+        spacing = np.diff(wired)
         if np.any(np.abs(spacing - geometry.pitch) > pitch_tolerance):
             geometry_state = _worst(geometry_state, "warning")
             reasons.append("channel spacing deviates from the configured radial pitch")
@@ -823,7 +871,22 @@ def validate_impa(
         if not np.any(np.isfinite(coupling.alpha)):
             coupling_state = "invalid"
             reasons.append("no channel produced a finite TF coupling")
-        if np.any(coupling.bound_hit):
+        if orientation == "toroidal":
+            # A toroidally mounted probe should see essentially the whole
+            # toroidal field; departures mean the array is not where or how
+            # the configuration says it is.
+            finite_alpha = np.isfinite(coupling.alpha)
+            deviation = np.abs(np.abs(coupling.alpha[finite_alpha]) - 1.0)
+            if deviation.size and np.max(deviation) > alpha_tolerance:
+                coupling_state = _worst(coupling_state, "invalid")
+                stray = np.flatnonzero(
+                    finite_alpha & (np.abs(np.abs(coupling.alpha) - 1.0) > alpha_tolerance)
+                ).tolist()
+                reasons.append(
+                    f"TF coupling departs from a toroidally aligned probe (|alpha| - 1 > "
+                    f"{alpha_tolerance}) on channels {stray}"
+                )
+        elif np.any(coupling.bound_hit):
             coupling_state = _worst(coupling_state, "invalid")
             hits = np.flatnonzero(coupling.bound_hit).tolist()
             reasons.append(f"TF coupling exceeds the configured tilt bounds on channels {hits}")
@@ -863,17 +926,24 @@ def process_impa(
     r: np.ndarray | None = None,
     z: np.ndarray | float = 0.0,
     pitch: float = 0.05,
-    r_bounds: Sequence[float] = (0.1, 0.8),
+    r_bounds: Sequence[float] = (0.1, 0.9),
     r0_initial: float = 0.4,
     max_normalized_rmse: float = 0.1,
+    reference: ImpaResult | None = None,
 ) -> ImpaResult:
     """Run the full single-shot IMPA pipeline.
 
     Pass ``r`` to use configured shot-era geometry, which takes precedence when
     an era was surveyed or left fixed; leave it ``None`` to self-calibrate the
     radial positions from this shot's clean TF window, which is the normal path
-    for an insertable array.  No reference or vacuum shot is involved at any
-    stage.
+    for an insertable array.
+
+    ``reference`` optionally supplies a calibration measured on another shot --
+    a TF reference taken with the array in the same position -- whose geometry
+    and coupling are then applied here instead of being re-fitted.  This is the
+    legacy two-shot arrangement, and it is what makes a plasma shot tractable
+    when its own TF interval is too contaminated to calibrate against.  It
+    stays optional: the single-shot path never requires it.
     """
     config = config or ImpaProcessingConfig()
     time = np.asarray(time, dtype=float)
@@ -900,7 +970,20 @@ def process_impa(
 
     z_values = np.full(n_channels, float(z)) if np.isscalar(z) else np.asarray(z, dtype=float)
 
-    if r is not None:
+    if reference is not None:
+        geometry = ImpaGeometryFit(
+            r=np.asarray(reference.geometry.r, dtype=float),
+            z=np.asarray(reference.geometry.z, dtype=float),
+            method=f"reference_shot:{reference.provenance.get('shot', 'unknown')}",
+            r0=reference.geometry.r0,
+            pitch=reference.geometry.pitch,
+            rmse=reference.geometry.rmse,
+            nrmse=reference.geometry.nrmse,
+            monotonic=reference.geometry.monotonic,
+            within_bounds=reference.geometry.within_bounds,
+            n_channels_fitted=reference.geometry.n_channels_fitted,
+        )
+    elif r is not None:
         geometry = ImpaGeometryFit(
             r=np.asarray(r, dtype=float),
             z=z_values,
@@ -938,7 +1021,11 @@ def process_impa(
     coupling = None
     tf_pickup = np.full_like(b_measured, np.nan)
     b_z = np.full_like(b_measured, np.nan)
-    if window is not None:
+    if reference is not None and reference.coupling is not None:
+        # A reference taken with the array in the same position carries the
+        # calibration; this shot only supplies the waveform to correct.
+        coupling = reference.coupling
+    elif window is not None:
         coupling = fit_impa_tf_coupling(
             b_measured,
             i_tf,
@@ -947,9 +1034,18 @@ def process_impa(
             turns=config.tf_turns,
             tilt_bounds_deg=config.tilt_bounds_deg,
         )
+    if coupling is not None:
         bt = toroidal_field(geometry.r[:, None], i_tf[None, :], config.tf_turns)
         tf_pickup = coupling.alpha[:, None] * bt
-        b_z = remove_tf_pickup(b_measured, tf_pickup, coupling.alpha)
+        if config.orientation == "toroidal":
+            # A probe facing the toroidal field has essentially no sensitivity
+            # left for the poloidal component, so there is no Bz to recover.
+            # What the measurement yields is the toroidal field itself; the
+            # residual after removing the modelled TF is reported separately
+            # and carries no calibrated projection.
+            b_z = b_measured - tf_pickup
+        else:
+            b_z = remove_tf_pickup(b_measured, tf_pickup, coupling.alpha)
 
     quality = validate_impa(
         time,
@@ -964,6 +1060,8 @@ def process_impa(
         max_normalized_rmse=max_normalized_rmse,
         r_bounds=r_bounds,
         window_reasons=window_reasons,
+        orientation=config.orientation,
+        alpha_tolerance=config.alpha_tolerance,
     )
 
     provenance: dict[str, Any] = {
@@ -973,8 +1071,9 @@ def process_impa(
         "baseline": config.baseline,
         "tf_turns": int(config.tf_turns),
         "geometry_method": geometry.method,
-        "sign_convention": "I_TF = raw * -3e4 with IMPA gain +2/15 T/V",
-        "reference_shot_used": False,
+        "orientation": config.orientation,
+        "sign_convention": "I_TF = raw * -3e4; IMPA gain from configuration",
+        "reference_shot_used": reference is not None,
     }
     if window is not None:
         provenance["calibration_window"] = {

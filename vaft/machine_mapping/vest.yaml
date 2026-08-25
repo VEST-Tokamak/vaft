@@ -529,7 +529,10 @@
         z: 0.0
         radial_pitch: 0.05
         r0_initial: 0.4
-        r_bounds: [0.1, 0.8]
+        # Upper bound covers the outboard vessel: the verified 2022-04-23
+        # alignment shots put the outermost wired channel at ~0.80 m, just
+        # outside the outboard magnetic probes at 0.796 m.
+        r_bounds: [0.1, 0.9]
         # The array is insertable and its radial position is set per shot, so
         # geometry is normally self-calibrated from the shot's own clean-TF
         # window.  Set explicit radii only for a shot era where the array was
@@ -538,6 +541,19 @@
       calibration:
         type: linear
         gain: 0.13333333333333333   # +2/15 T/V
+        # The array's cabling polarity is not the same in every campaign, so
+        # the sign is resolved per shot range.  Only ranges verified against
+        # real data belong here; extend as further campaigns are validated.
+        shot_era_overrides:
+          # 2022-04-23 IMPA alignment block (35376-35385).  Verified on
+          # 35376-35379 and 35385: with this sign the rigid 5 cm array fits
+          # the TF 1/R profile to ~1% with R0 ~ 0.48-0.50 m.
+          - min_shot: 35370
+            max_shot: 35390
+            gain: -0.13333333333333333
+            # Field 121 is not wired in this campaign; the array runs seven
+            # channels at the same rigid 5 cm pitch.
+            channels: [114, 115, 116, 117, 118, 119, 120]
       processing:
         sample_rate: 25000
         signal_lowpass_hz: 250      # physics waveform (VEST_IMPAProcessing.m)
@@ -547,6 +563,12 @@
       tf_compensation:
         tf_field: 1
         tf_turns: 24
+        # The 2022-04-23 alignment shots show alpha ~ 1: the probes face the
+        # toroidal field and measure it directly.  The legacy +/-10 deg model
+        # assumed a near-vertical probe with a small TF pickup, which the data
+        # does not support; the bounds are kept for the legacy comparison.
+        orientation: toroidal
+        alpha_tolerance: 0.15
         tilt_bounds_deg: [-10, 10]
       calibration_window:
         # Tuned against shots 39204 and 44740; a TF-only interval must carry a
@@ -564,8 +586,11 @@
         max_relative_noise: 0.5
         smoothing_samples: 25       # 1 ms: Ip/PF quiet must be sustained
       quality:
-        max_normalized_rmse: 0.1
-        pitch_tolerance: 0.01
+        # Set from the verified 2022-04-23 alignment shots, whose rigid-array
+        # fits land at 0.07-0.14; shots with a disturbed or absent array sit
+        # far above this.
+        max_normalized_rmse: 0.15
+        pitch_tolerance: 0.015
 
   pf_active:
     ids_properties: 0

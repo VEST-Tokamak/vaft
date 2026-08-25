@@ -322,11 +322,11 @@ def charge_exchange_profile_velocity_tor(
     model=Profile1D,
     description="IMPA measured field against probe radius with the 1/R toroidal-field model.",
     ids=("magnetics", "tf"),
-    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    required_paths=("magnetics.b_field_tor_probe.{i}.voltage.data",),
     optional_paths=(
-        "magnetics.b_field_pol_probe.{i}.identifier",
-        "magnetics.b_field_pol_probe.{i}.field.data",
-        "magnetics.b_field_pol_probe.{i}.position.r",
+        "magnetics.b_field_tor_probe.{i}.identifier",
+        "magnetics.b_field_tor_probe.{i}.position.r",
+        "magnetics.b_field_pol_probe.{i}.voltage.data",
         "tf.coil.{i}.current.data",
     ),
 )
