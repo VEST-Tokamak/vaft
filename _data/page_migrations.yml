@@ -52,3 +52,6 @@
 - legacy_url: /pages/contact/
   disposition: migrated
   canonical_url: /reference/contacts/
+- legacy_url: /reference/vest-systems/
+  disposition: renamed
+  canonical_url: /reference/vest-diagnostics/

@@ -1,0 +1,109 @@
+{schema_version: 1, source: {path: vaft/machine_mapping/vest.yaml, sha256: c6ad0524ed3f9e67582d8ed34c5424df7a35637c86c0f5a5a81bd557d6b89cbe},
+  diagnostics: [{id: barometry.gauge, name: Vacuum gauges, family: edge_diagnostics,
+      category: Diagnostics, ids: barometry, ids_path: barometry.gauge, responsible: [
+        {name: 정원익}, {name: 전찬휘}], source: {type: raw_daq, backends: [mysql, archived_raw_dump]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: bremsstrahlung_visible, name: Visible bremsstrahlung spectroscopy, family: spectroscopy_radiation,
+      category: Diagnostics, ids: bremsstrahlung_visible, ids_path: bremsstrahlung_visible,
+      responsible: [{name: 유정원}], source: {type: unknown}, availability: If-requested,
+      lifecycle: in_maintenance, mapping_status: not_implemented}, {id: camera_visible,
+      name: FAST camera, family: imaging, category: Diagnostics, ids: camera_visible,
+      ids_path: camera_visible, responsible: [{name: Joint}], source: {type: file,
+        formats: [bmp, text], patterns: ['{shot}/{shot}_{frame:08d}.bmp', '{shot}/{shot}_bmp.txt']},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: charge_exchange.ces, name: Charge-exchange / beam-emission spectroscopy,
+      family: kinetic_diagnostics, category: Diagnostics, ids: charge_exchange, ids_path: charge_exchange,
+      responsible: [{name: 이원석}, {name: 엄태희}], source: {type: file, formats: [mat],
+        patterns: ['CES_{shot}.mat']}, availability: If-requested, lifecycle: available,
+      mapping_status: implemented}, {id: charge_exchange.ion_doppler, name: Ion Doppler
+        spectroscopy, family: kinetic_diagnostics, category: Diagnostics, ids: charge_exchange,
+      ids_path: charge_exchange, responsible: [{name: 이원석}, {name: 엄태희}], source: {
+        type: file, formats: [mat, xls], patterns: ['IDS_{shot}.mat', 'ion_doppler_spectroscophy/{shot}.csv']},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: dataset_description, name: Data description, family: information, category: Information
+        and control, ids: dataset_description, ids_path: dataset_description, responsible: [
+        {name: Joint}], source: {type: raw_daq, backends: [mysql, archived_raw_dump]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: disruption.halo_currents, name: Outboard limiter current monitor, family: edge_diagnostics,
+      category: Diagnostics, ids: disruption, ids_path: disruption.halo_currents,
+      responsible: [{name: Joint}], source: {type: raw_daq, backends: [mysql, archived_raw_dump]},
+      availability: If-requested, lifecycle: in_maintenance, mapping_status: not_implemented},
+    {id: ech, name: Electron cyclotron heating, family: heating_current_drive, category: Heating
+        and current drive, ids: ec_launchers, ids_path: ec_launchers, responsible: [
+        {name: 변준혁}], source: {type: raw_daq, backends: [mysql, archived_raw_dump]},
+      availability: If-requested, lifecycle: in_maintenance, mapping_status: not_implemented},
+    {id: em_coupling, name: Electromagnetic coupling model, family: machine_models,
+      category: Device and model, ids: em_coupling, ids_path: em_coupling, responsible: [],
+      source: {type: reference_ods, formats: [json_gz], patterns: [geometry/VEST_static_geometry.json.gz]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: gas_injection, name: Gas injection, family: machine_systems, category: Information
+        and control, ids: gas_injection, ids_path: gas_injection, responsible: [{
+          name: Joint}], source: {type: unknown}, availability: If-requested, lifecycle: in_maintenance,
+      mapping_status: not_implemented}, {id: gas_pumping, name: Gas pumping, family: machine_systems,
+      category: Information and control, ids: gas_pumping, ids_path: gas_pumping,
+      responsible: [{name: 정원익}, {name: 전찬휘}], source: {type: unknown}, availability: If-requested,
+      lifecycle: in_maintenance, mapping_status: not_implemented}, {id: hard_x_rays,
+      name: Hard X-ray detector, family: spectroscopy_radiation, category: Diagnostics,
+      ids: hard_x_rays, ids_path: hard_x_rays, responsible: [{name: 임수빈}], source: {
+        type: unknown}, availability: If-requested, lifecycle: in_maintenance, mapping_status: not_implemented},
+    {id: helicity_injection, name: Helicity injection, family: heating_current_drive,
+      category: Heating and current drive, ids: not_developed, ids_path: not_developed,
+      responsible: [{name: 박종윤}, {name: 김태경}], source: {type: unknown}, availability: If-requested,
+      lifecycle: in_maintenance, mapping_status: not_implemented}, {id: interferometer,
+      name: Interferometer, family: edge_diagnostics, category: Diagnostics, ids: interferometer,
+      ids_path: interferometer, responsible: [{name: 변준혁}], source: {type: unknown},
+      availability: If-requested, lifecycle: in_maintenance, mapping_status: not_implemented},
+    {id: langmuir_probes.embedded, name: Triple Langmuir probe, family: edge_diagnostics,
+      category: Diagnostics, ids: langmuir_probes, ids_path: langmuir_probes.embedded,
+      responsible: [{name: 변준혁}], source: {type: unknown}, availability: If-requested,
+      lifecycle: in_maintenance, mapping_status: not_implemented}, {id: magnetics.b_field_pol_probe,
+      name: Magnetic probes (Mirnov coils), family: magnetic_diagnostics, category: Diagnostics,
+      ids: magnetics, ids_path: magnetics.b_field_pol_probe, responsible: [{name: 남건우}],
+      source: {type: raw_daq, backends: [mysql, archived_raw_dump]}, availability: If-requested,
+      lifecycle: available, mapping_status: implemented}, {id: magnetics.diamagnetic_flux,
+      name: Diamagnetic-flux Rogowski coil, family: magnetic_diagnostics, category: Diagnostics,
+      ids: magnetics, ids_path: magnetics.diamagnetic_flux, responsible: [{name: 김태경}],
+      source: {type: raw_daq, backends: [mysql, archived_raw_dump]}, availability: If-requested,
+      lifecycle: available, mapping_status: implemented}, {id: magnetics.flux_loop,
+      name: Flux loops, family: magnetic_diagnostics, category: Diagnostics, ids: magnetics,
+      ids_path: magnetics.flux_loop, responsible: [{name: 남건우}], source: {type: raw_daq,
+        backends: [mysql, archived_raw_dump]}, availability: If-requested, lifecycle: available,
+      mapping_status: implemented}, {id: magnetics.internal_probe, name: Internal
+        magnetic probes, family: magnetic_diagnostics, category: Diagnostics, ids: magnetics,
+      ids_path: magnetics.b_field_pol_probe, responsible: [{name: 남건우}], source: {
+        type: raw_daq, backends: [mysql, archived_raw_dump]}, availability: If-requested,
+      lifecycle: available, mapping_status: partial}, {id: magnetics.ip, name: Plasma-current
+        Rogowski coil, family: magnetic_diagnostics, category: Diagnostics, ids: magnetics,
+      ids_path: magnetics.ip, responsible: [{name: Joint}], source: {type: raw_daq,
+        backends: [mysql, archived_raw_dump]}, availability: If-requested, lifecycle: available,
+      mapping_status: implemented}, {id: nbi, name: Neutral beam injection, family: heating_current_drive,
+      category: Heating and current drive, ids: nbi, ids_path: nbi, responsible: [
+        {name: 정윤호}], source: {type: unknown}, availability: If-requested, lifecycle: in_maintenance,
+      mapping_status: not_implemented}, {id: pf_active, name: PF coils, family: machine_systems,
+      category: Information and control, ids: pf_active, ids_path: pf_active, responsible: [
+        {name: Joint}], source: {type: raw_daq, backends: [mysql, archived_raw_dump]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: pf_passive, name: Passive structures, family: machine_models, category: Device
+        and model, ids: pf_passive, ids_path: pf_passive, responsible: [], source: {
+        type: reference_ods, formats: [json_gz], patterns: [geometry/VEST_static_geometry.json.gz]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: soft_x_rays, name: Soft X-ray detector, family: spectroscopy_radiation, category: Diagnostics,
+      ids: soft_x_rays, ids_path: soft_x_rays, responsible: [{name: 임수빈}, {name: 이명원}],
+      source: {type: file, formats: [csv], patterns: ['digitizer_{daq_label}_{shot}.csv']},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: spectrometer_uv, name: Filterscope spectroscopy, family: spectroscopy_radiation,
+      category: Diagnostics, ids: spectrometer_uv, ids_path: spectrometer_uv, responsible: [
+        {name: Joint}], source: {type: raw_daq, backends: [mysql, archived_raw_dump]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: tf, name: TF coils, family: machine_systems, category: Information and control,
+      ids: tf, ids_path: tf, responsible: [{name: Joint}], source: {type: raw_daq,
+        backends: [mysql, archived_raw_dump]}, availability: If-requested, lifecycle: available,
+      mapping_status: implemented}, {id: thomson_scattering, name: Thomson scattering
+        spectroscopy, family: kinetic_diagnostics, category: Diagnostics, ids: thomson_scattering,
+      ids_path: thomson_scattering, responsible: [{name: 김중화}, {name: 이종민}], source: {
+        type: file, formats: [mat], patterns: ['NeTe_Shot{shot}_v9_rev.mat', '{shot}_NeTe.mat']},
+      availability: If-requested, lifecycle: available, mapping_status: implemented},
+    {id: wall, name: First wall and limiter geometry, family: machine_models, category: Device
+        and model, ids: wall, ids_path: wall, responsible: [{name: 정원익}, {name: 전찬휘}],
+      source: {type: reference_ods, formats: [json_gz], patterns: [geometry/VEST_static_geometry.json.gz]},
+      availability: If-requested, lifecycle: available, mapping_status: implemented}]}

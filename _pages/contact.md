@@ -81,7 +81,7 @@ the same repository.
 
 ## Diagnostic and heating-system enquiries
 
-The [VEST systems inventory]({{ site.baseurl }}/reference/vest-systems/) names the manager recorded
+The [VEST diagnostics and data availability]({{ site.baseurl }}/reference/vest-diagnostics/) page names the manager recorded
 for each diagnostic, control, or heating/current-drive system. Individual technical email addresses
 are not published there. Email the VAFT maintainer for routing, naming the system and shot number
 where applicable.
@@ -92,7 +92,7 @@ where applicable.
 | --- | --- |
 | Library maintainer, general questions | [satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr) |
 | Database write access, VEST data policy | [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
-| Diagnostic or heating-system technical enquiry | [VEST systems inventory]({{ site.baseurl }}/reference/vest-systems/) → [satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr) |
+| Diagnostic or heating-system technical enquiry | [VEST diagnostics and data availability]({{ site.baseurl }}/reference/vest-diagnostics/) → [satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr) |
 | Bugs, feature requests, patches | [GitHub issues](https://github.com/VEST-Tokamak/vaft/issues) |
 
 ## The lab

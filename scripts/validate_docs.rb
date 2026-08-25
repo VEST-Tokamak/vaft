@@ -38,6 +38,32 @@ canonical_urls.each do |url|
   errors << "canonical navigation target is not built: #{url}" unless output_path(url)
 end
 
+diagnostic_snapshot = data("vest_diagnostics.yml")
+%w[schema_version source diagnostics].each do |field|
+  errors << "diagnostic snapshot missing #{field}" unless diagnostic_snapshot.key?(field)
+end
+source = diagnostic_snapshot.fetch("source", {})
+errors << "diagnostic snapshot source checksum is invalid" unless source["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
+diagnostics = diagnostic_snapshot.fetch("diagnostics", [])
+errors << "diagnostic snapshot has no diagnostics" unless diagnostics.is_a?(Array) && !diagnostics.empty?
+ids = diagnostics.map { |item| item["id"] }
+errors << "diagnostic snapshot has duplicate IDs" unless ids.uniq.length == ids.length
+diagnostics.each do |item|
+  %w[id name ids ids_path responsible source availability lifecycle mapping_status].each do |field|
+    errors << "diagnostic #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
+  end
+end
+registry_source = ENV["VAFT_REGISTRY_SOURCE"]
+if registry_source && !registry_source.empty?
+  registry_path = Pathname(registry_source) / "vaft/machine_mapping/vest.yaml"
+  if registry_path.file?
+    actual = Digest::SHA256.file(registry_path).hexdigest
+    errors << "diagnostic snapshot does not match VAFT_REGISTRY_SOURCE" unless actual == source["sha256"]
+  else
+    errors << "VAFT_REGISTRY_SOURCE has no vest.yaml: #{registry_path}"
+  end
+end
+
 migrations = data("page_migrations.yml")
 legacy_urls = migrations.map { |item| item.fetch("legacy_url") }
 errors << "duplicate legacy URL in page_migrations.yml" unless legacy_urls.uniq.length == legacy_urls.length

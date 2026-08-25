@@ -96,7 +96,7 @@ when you need public VEST data. See [Start here]({{ site.baseurl }}/workflows/st
 | [Equilibrium and kinetic profiles]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/) | Reconstruct equilibria and fit diagnostic profiles |
 | [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) | Snakemake routine, corrective and summary workflows |
 | [VAFT API]({{ site.baseurl }}/reference/api/) | Module-by-module library reference |
-| [VEST systems inventory]({{ site.baseurl }}/reference/vest-systems/) | Diagnostics, controls, heating/current-drive and VAFT mapping status |
+| [VEST diagnostics and data availability]({{ site.baseurl }}/reference/vest-diagnostics/) | Generated registry of data source, availability, lifecycle and VAFT mapping status |
 | [Notebooks]({{ site.baseurl }}/reference/notebooks/) | Runnable notebooks, design shells and verified outputs |
 
 ## Resources
