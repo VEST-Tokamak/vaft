@@ -22,6 +22,7 @@ from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
+from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
 from vaft.machine_mapping.magnetics import (
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     vest_md_channel_definitions,
@@ -351,6 +352,58 @@ def build_diagnostics_ods(
         component_status="partial" if missing_magnetics_channels else "success",
         missing_channels=missing_magnetics_channels,
     )
+
+    # IMPA extends magnetics.b_field_pol_probe, so the component is seeded from
+    # the magnetics IDS built above and copied back.  A failed IMPA calibration
+    # must never discard valid magnetics data.
+    impa_status: dict[str, Any] = {}
+
+    def _map_impa(component: ODS) -> None:
+        _copy_ids(component, ods, ("magnetics",))
+        impa_status.update(
+            impa_mapper(component, shot, tstart, tend, dt, raw_source=raw_path)
+        )
+
+    # This shot's own era may not wire every channel (the 2022-04-23 block
+    # runs seven, not eight); use the same effective per-shot field list the
+    # mapper reads, not the unfiltered default, so an intentionally-absent
+    # channel is not reported as missing.
+    impa_fields = sorted(impa_expected_fields(shot))
+    missing_impa_channels = sorted(
+        field for field in impa_fields if field not in archived_fields
+    )
+    if "magnetics" in ods:
+        run_component(
+            "impa",
+            ("magnetics",),
+            _map_impa,
+            component_status="partial" if missing_impa_channels else "success",
+            missing_channels=missing_impa_channels,
+        )
+        if impa_status:
+            statuses["impa"].update(
+                {
+                    "calibration_status": impa_status.get("status"),
+                    "checks": impa_status.get("checks", {}),
+                    "reasons": impa_status.get("reasons", []),
+                    "geometry_method": impa_status.get("geometry_method"),
+                    "r0": impa_status.get("r0"),
+                    "geometry_nrmse": impa_status.get("geometry_nrmse"),
+                    "calibration_window": impa_status.get("provenance", {}).get(
+                        "calibration_window"
+                    ),
+                }
+            )
+            # A rejected self-calibration is a real quality outcome, not a
+            # successful mapping.
+            if impa_status.get("status") == "invalid":
+                statuses["impa"]["status"] = "partial"
+    else:
+        statuses["impa"] = {
+            "status": "unavailable",
+            "reason": "magnetics IDS is unavailable, so IMPA channels cannot be appended",
+            "missing_channels": missing_impa_channels,
+        }
 
     successes = sum(value["status"] == "success" for value in statuses.values())
     unavailable = sorted(

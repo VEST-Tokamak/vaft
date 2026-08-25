@@ -912,6 +912,66 @@ def plot_magnetics_overview(
     return render("magnetics_overview", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_magnetics_overview_impa(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.
+
+    Renders with :func:`vaft.plot.magnetics_overview_impa`.
+    """
+    return render("magnetics_overview_impa", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_magnetics_profile_impa_tf(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """IMPA measured field against probe radius with the 1/R toroidal-field model.
+
+    Renders with :func:`vaft.plot.magnetics_profile_impa_tf`.
+    """
+    return render("magnetics_profile_impa_tf", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_magnetics_time_impa_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Compensated internal Bz from the IMPA Hall-probe array.
+
+    Renders with :func:`vaft.plot.magnetics_time_impa_field`.
+    """
+    return render("magnetics_time_impa_field", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_magnetics_time_impa_voltage(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Raw IMPA Hall-probe voltages, one trace per channel.
+
+    Renders with :func:`vaft.plot.magnetics_time_impa_voltage`.
+    """
+    return render("magnetics_time_impa_voltage", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_magnetics_spectrogram_mirnov(
     source: Any,
     *,
@@ -1417,6 +1477,10 @@ __all__ = [
     "plot_machine_geometry_topview",
     "plot_magnetics_geometry_poloidal",
     "plot_magnetics_overview",
+    "plot_magnetics_overview_impa",
+    "plot_magnetics_profile_impa_tf",
+    "plot_magnetics_time_impa_field",
+    "plot_magnetics_time_impa_voltage",
     "plot_magnetics_spectrogram_mirnov",
     "plot_magnetics_time_b_field_pol_probe_field",
     "plot_magnetics_time_diamagnetic_flux",

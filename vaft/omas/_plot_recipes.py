@@ -715,6 +715,23 @@ RECIPES: dict[str, Any] = {
                  "equilibrium_time_li", "equilibrium_time_q95"),
         ncols=2, share_x=False, suptitle="Equilibrium Analysis Overview",
     ),
+    "magnetics_time_impa_field": CallableRecipe(
+        builder=lambda ods, **options: _build_impa_lines(ods, quantity="field", **options),
+        description="Compensated internal Bz from the IMPA Hall-probe array.",
+    ),
+    "magnetics_time_impa_voltage": CallableRecipe(
+        builder=lambda ods, **options: _build_impa_lines(ods, quantity="voltage", **options),
+        description="Raw IMPA Hall-probe voltages.",
+    ),
+    "magnetics_profile_impa_tf": CallableRecipe(
+        builder=lambda ods, **options: _build_impa_tf_profile(ods, **options),
+        description="IMPA measured field against probe radius with the 1/R model.",
+    ),
+    "magnetics_overview_impa": PanelRecipe(
+        members=("magnetics_time_impa_voltage", "magnetics_time_impa_field",
+                 "magnetics_profile_impa_tf", "tf_time_coil_current"),
+        ncols=2, share_x=False, suptitle="IMPA Validation Overview",
+    ),
     "soft_x_rays_overview": PanelRecipe(
         members=("soft_x_rays_time_power", "soft_x_rays_geometry_lines_of_sight"),
         share_x=False, suptitle="Soft X-ray Overview",
@@ -725,6 +742,153 @@ RECIPES: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 # Builders for the plots that need computation rather than a plain path read
 # ---------------------------------------------------------------------------
+
+
+#: Identifier prefix written by :mod:`vaft.machine_mapping.impa`.  IMPA probes
+#: are located semantically so their position in the probe array can change.
+_IMPA_IDENTIFIER_PREFIX = "impa:"
+
+
+#: The array lands in whichever magnetics node matches its mounting.
+_IMPA_PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
+
+
+def _impa_probe_node(ods: Any) -> str:
+    """Return the magnetics node holding IMPA channels for this ODS."""
+    for node in _IMPA_PROBE_NODES:
+        for index in range(_count(ods, node)):
+            identifier = _get(ods, f"{node}.{index}.identifier")
+            if identifier is not None and str(identifier).startswith(_IMPA_IDENTIFIER_PREFIX):
+                return node
+    return _IMPA_PROBE_NODES[-1]
+
+
+def _impa_probe_indices(ods: Any, node: str | None = None) -> list[int]:
+    """Return the probe indices holding IMPA channels, in array order."""
+    node = node or _impa_probe_node(ods)
+    indices = []
+    for index in range(_count(ods, node)):
+        identifier = _get(ods, f"{node}.{index}.identifier")
+        if identifier is not None and str(identifier).startswith(_IMPA_IDENTIFIER_PREFIX):
+            indices.append(index)
+    return indices
+
+
+def _build_impa_lines(ods: Any, *, quantity: str = "field", **_: Any) -> LineSeries:
+    """Build per-channel IMPA traces for the compensated field or raw voltage."""
+    node = _impa_probe_node(ods)
+    toroidal = node.endswith("b_field_tor_probe")
+    field_label = "Bt" if toroidal else "Bz"
+    label, unit = (field_label, "T") if quantity == "field" else ("Probe voltage", "V")
+    series = []
+    for index in _impa_probe_indices(ods, node):
+        prefix = f"{node}.{index}"
+        values = _array(ods, f"{prefix}.{quantity}.data")
+        if values is None:
+            continue
+        time = _first_time(ods, (f"{prefix}.{quantity}.time", "magnetics.time"))
+        if time is None or time.size != values.size:
+            time = np.arange(values.size, dtype=float)
+        name = _get(ods, f"{prefix}.name") or f"IMPA {index}"
+        series.append(Series(x=time, y=values, label=str(name)))
+    return LineSeries(
+        series=tuple(series),
+        x_label="Time",
+        x_unit="s",
+        y_label=label,
+        y_unit=unit,
+        title=f"IMPA calibrated {field_label}" if quantity == "field" else "IMPA raw voltage",
+    )
+
+
+def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> Profile1D:
+    """IMPA field against probe radius, next to the 1/R toroidal-field model.
+
+    Channel order, polarity and a mis-fitted radial position all show up as a
+    departure from the smooth 1/R curve.
+    """
+    # The compensated field is preferred, but a shot whose calibration was
+    # rejected has none -- and that is exactly when the shape check matters
+    # most, so fall back to the raw voltage.
+    node = _impa_probe_node(ods)
+    quantity = "field"
+    if not any(
+        _array(ods, f"{node}.{index}.field.data") is not None
+        for index in _impa_probe_indices(ods, node)
+    ):
+        quantity = "voltage"
+
+    radii, values = [], []
+    axis = None
+    for index in _impa_probe_indices(ods, node):
+        prefix = f"{node}.{index}"
+        radius = _get(ods, f"{prefix}.position.r")
+        trace = _array(ods, f"{prefix}.{quantity}.data")
+        if radius is None or trace is None:
+            continue
+        if axis is None:
+            axis = _first_time(ods, (f"{prefix}.{quantity}.time", "magnetics.time"))
+        sample = 0 if axis is None or time is None else int(np.argmin(np.abs(axis - float(time))))
+        if quantity == "voltage":
+            # Hall probes sit on a large zero-field offset; remove it with the
+            # same first-sample convention the processing uses so the shape
+            # comparison is fair.
+            trace = trace - trace[0]
+        radii.append(float(radius))
+        values.append(float(trace[min(sample, trace.size - 1)]))
+
+    series = []
+    if radii:
+        order = np.argsort(radii)
+        r_array = np.asarray(radii)[order]
+        b_array = np.asarray(values)[order]
+        series.append(
+            Series(
+                x=r_array,
+                y=b_array,
+                label="IMPA measurement",
+                style={"marker": "o", "linestyle": "none"},
+            )
+        )
+        model_r = np.linspace(max(r_array.min() * 0.8, 1e-3), r_array.max() * 1.2, 201)
+        tf_current = _array(ods, "tf.coil.0.current.data")
+        if quantity == "field" and tf_current is not None:
+            tf_time = _first_time(ods, ("tf.time",))
+            sample = 0
+            if tf_time is not None and time is not None:
+                sample = int(np.argmin(np.abs(tf_time - float(time))))
+            current = float(tf_current[min(sample, tf_current.size - 1)])
+            series.append(
+                Series(
+                    x=model_r,
+                    y=4.0e-7 * np.pi * 24 * current / (2.0 * np.pi * model_r),
+                    label="mu0 N I / 2 pi R",
+                )
+            )
+        elif np.all(np.isfinite(b_array)) and b_array[-1] != 0.0:
+            # Raw volts cannot carry the absolute model, so compare the shape
+            # only, anchored on the outermost channel.
+            series.append(
+                Series(
+                    x=model_r,
+                    y=b_array[-1] * r_array[-1] / model_r,
+                    label="1/R shape (scaled)",
+                    style={"linestyle": "--"},
+                )
+            )
+
+    label, unit = (
+        ("Bt" if node.endswith("b_field_tor_probe") else "Bz", "T")
+        if quantity == "field"
+        else ("Probe voltage", "V")
+    )
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="R [m]",
+        y_label=label,
+        y_unit=unit,
+        title="IMPA radial profile against the toroidal-field model",
+    )
 
 
 def _build_lines_of_sight(ods: Any, *, channels: Any = None, **_: Any) -> GeometryLayers:
