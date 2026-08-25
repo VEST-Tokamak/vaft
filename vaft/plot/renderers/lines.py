@@ -201,6 +201,55 @@ def magnetics_time_b_field_pol_probe_field(
 @renderer(
     domain="magnetics",
     view="time",
+    quantity="impa_field",
+    model=LineSeries,
+    description="Compensated internal Bz from the IMPA Hall-probe array.",
+    ids=("magnetics",),
+    required_paths=("magnetics.b_field_pol_probe.{i}.field.data",),
+    optional_paths=(
+        "magnetics.b_field_pol_probe.{i}.identifier",
+        "magnetics.b_field_pol_probe.{i}.field.time",
+        "magnetics.b_field_pol_probe.{i}.position.r",
+    ),
+)
+def magnetics_time_impa_field(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Compensated internal Bz from the IMPA Hall-probe array."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    view="time",
+    quantity="impa_voltage",
+    model=LineSeries,
+    description="Raw IMPA Hall-probe voltages, one trace per channel.",
+    ids=("magnetics",),
+    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    optional_paths=(
+        "magnetics.b_field_pol_probe.{i}.identifier",
+        "magnetics.b_field_pol_probe.{i}.voltage.time",
+    ),
+)
+def magnetics_time_impa_voltage(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Raw IMPA Hall-probe voltages."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    view="time",
     quantity="mirnov_voltage",
     model=LineSeries,
     description="Raw or preprocessed Mirnov coil voltage traces.",
@@ -898,6 +947,8 @@ __all__ = [
     "magnetics_time_diamagnetic_flux",
     "magnetics_time_flux_loop_flux",
     "magnetics_time_flux_loop_voltage",
+    "magnetics_time_impa_field",
+    "magnetics_time_impa_voltage",
     "magnetics_time_ip",
     "magnetics_time_mirnov_voltage",
     "pf_active_time_current",

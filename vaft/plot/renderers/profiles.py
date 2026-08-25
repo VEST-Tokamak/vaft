@@ -20,6 +20,7 @@ from ..registry import renderer
 from ..style import axis_label, finalize, resolve_axes
 
 __all__ = [
+    "magnetics_profile_impa_tf",
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
     "core_profiles_profile_electron_density",
@@ -311,4 +312,30 @@ def charge_exchange_profile_velocity_tor(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Charge-exchange toroidal rotation versus position."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    view="profile",
+    quantity="impa_tf",
+    model=Profile1D,
+    description="IMPA measured field against probe radius with the 1/R toroidal-field model.",
+    ids=("magnetics", "tf"),
+    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    optional_paths=(
+        "magnetics.b_field_pol_probe.{i}.identifier",
+        "magnetics.b_field_pol_probe.{i}.field.data",
+        "magnetics.b_field_pol_probe.{i}.position.r",
+        "tf.coil.{i}.current.data",
+    ),
+)
+def magnetics_profile_impa_tf(
+    model: Profile1D,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """IMPA radial profile against the 1/R toroidal-field model."""
     return render_profile_1d(model, ax=ax, show=show, **style)

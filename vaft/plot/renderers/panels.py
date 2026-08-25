@@ -30,6 +30,7 @@ __all__ = [
     "equilibrium_overview",
     "equilibrium_time_virial",
     "magnetics_overview",
+    "magnetics_overview_impa",
     "render_panels",
     "soft_x_rays_overview",
     "spectrometer_uv_time_impurity",
@@ -229,6 +230,19 @@ def magnetics_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Shot diagnostic overview panels."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="magnetics", view="overview", quantity="impa",
+    description="IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.",
+    ids=("magnetics", "tf"),
+    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+)
+def magnetics_overview_impa(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """IMPA validation overview panels."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

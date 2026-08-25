@@ -146,6 +146,12 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert diagnostics_manifest["channel_status"]["barometry"]["status"] == "success"
     for name in ("pf_active", "spectrometer_uv", "tf", "magnetics"):
         assert diagnostics_manifest["channel_status"][name]["status"] == "unavailable"
+    # IMPA extends magnetics, so it cannot be mapped when magnetics is missing;
+    # it must say so rather than fail the build.
+    assert diagnostics_manifest["channel_status"]["impa"]["status"] == "unavailable"
+    assert diagnostics_manifest["channel_status"]["impa"]["missing_channels"] == [
+        114, 115, 116, 117, 118, 119, 120, 121
+    ]
     assert "barometry" in ods
     assert "tf" not in ods
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
