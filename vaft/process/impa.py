@@ -33,35 +33,41 @@ measures ``alpha_i * mu0 * N * I_TF / (2 * pi * R_i)``.  Only the ratio
 ``kappa_i = alpha_i / R_i`` is observable: assuming ``alpha_i = 1`` yields the
 radial position (the legacy ``vest_impa_position`` method), while a known
 ``R_i`` yields the coupling.  The two cannot be recovered simultaneously from
-TF data alone, which is why configured shot-era geometry always takes
-precedence and every self-calibrated result carries its fit quality.
+TF data alone.
 
-What shot 39204 shows
----------------------
-On the reference shot the fitted coupling reaches ``alpha ~ 1`` on most
-channels: the probes measure essentially the whole toroidal field rather than a
-small tilt pickup.  Consequences, all reproduced by the tests:
+The IMPA is an insertable array whose radial position is set per shot, so
+geometry is a per-shot quantity: self-calibration from the shot's own clean-TF
+window is the primary geometry source, not a fallback.  Configured ``r`` in
+``vest.yaml`` applies only to a shot era where the array was surveyed or left
+fixed, and then takes precedence.  Comparing fitted positions between shots is
+meaningless -- the probe really did move.
+
+What the reference shots show
+-----------------------------
+On shot 39204 the fitted coupling reaches ``alpha ~ 1`` on most channels: the
+probes measure essentially the whole toroidal field rather than a small tilt
+pickup.  Consequences, all reproduced by the tests:
 
 * the legacy ``+/-10 degree`` tilt fit saturates at its bound on every channel
   and returns a "compensated Bz" of order 0.1 T, two orders of magnitude above
   VEST's real vertical field;
-* the legacy uniform 5 cm pitch model leaves a ~30% residual, and no static
-  geometry -- not even a free radius per channel -- explains the measurement to
-  better than ~20% across the TF ramp;
 * projecting such a probe back onto the vertical axis is unbounded, so this
   implementation reports the shot as ``invalid`` instead of emitting a
   plausible-looking number.
 
-Shot 39923 is a second reference, at a tenth of the TF drive (1.3 kA against
+Shot 39923 is a second reference at a tenth of the TF drive (1.3 kA against
 12.7 kA).  It reproduces the channel ordering and, to within ~12%, the shape of
-the radial profile -- but its response per unit TF current is smaller by a
-factor of about 1.45, and the fitted ``R0`` lands 27 cm away.  Probe geometry
-cannot move that far between shots, so the two shots do not agree on a
-calibration.
+the radial profile.  Its fitted position and its response per unit TF current
+differ from 39204 -- as they should for an array that was moved between the two
+shots; under ``alpha = 1`` the implied radii sit roughly 0.16-0.27 m further
+out, broadly consistent with a radial translation.
 
-Extracting a vertical field from this array therefore needs an independent
-geometry/orientation survey recorded in ``vest.yaml``; the self-calibration
-path exists to validate such a survey, not to replace it.
+The open problem is *within* a single shot: no static model of the form
+``alpha_i * Bt(R_i) + beta_i`` describes a whole clean-TF window better than
+about 13-17% of the signal spread, whether the radii come from a uniform pitch,
+a free pitch, or a free radius per channel.  Until that is understood, a
+single-shot calibration cannot be certified, and the quality gates here say so
+rather than guessing.
 """
 
 from __future__ import annotations
@@ -526,8 +532,9 @@ def fit_impa_geometry(
 
     This is the ``vest_impa_position`` model -- uniform channel pitch and unit
     TF coupling -- fitted across every window sample instead of one hard-coded
-    time.  It is a fallback for shots without configured geometry, and its
-    residuals must be checked before the result is trusted.
+    time.  Because the array is insertable, this is the normal geometry source
+    for a shot rather than a fallback; its residuals still have to be checked
+    before the result is trusted.
     """
     b_measured = np.atleast_2d(np.asarray(b_measured, dtype=float))
     i_tf = np.asarray(i_tf, dtype=float)
@@ -862,10 +869,11 @@ def process_impa(
 ) -> ImpaResult:
     """Run the full single-shot IMPA pipeline.
 
-    Pass ``r`` to use configured shot-era geometry (always preferred); leave it
-    ``None`` to self-calibrate the radial positions from the clean TF window
-    with the legacy ``1/R`` model.  No reference or vacuum shot is involved at
-    any stage.
+    Pass ``r`` to use configured shot-era geometry, which takes precedence when
+    an era was surveyed or left fixed; leave it ``None`` to self-calibrate the
+    radial positions from this shot's clean TF window, which is the normal path
+    for an insertable array.  No reference or vacuum shot is involved at any
+    stage.
     """
     config = config or ImpaProcessingConfig()
     time = np.asarray(time, dtype=float)

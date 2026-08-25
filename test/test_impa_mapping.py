@@ -322,34 +322,46 @@ def test_channel_ordering_is_reproducible_across_both_reference_shots():
     not Path(IMPA_SAMPLE.format(shot=SECOND_REFERENCE)).is_file(),
     reason=f"archived IMPA sample for shot {SECOND_REFERENCE} is not available",
 )
-def test_self_calibration_does_not_reproduce_across_shots():
-    """The two reference shots disagree, which is why a survey is required.
+def test_geometry_is_a_per_shot_quantity_for_this_insertable_array():
+    """The array is inserted per shot, so fitted positions legitimately differ.
 
-    Measured on the archived samples: the response per unit TF differs by a
-    factor of about 1.45 (with an 18% channel-to-channel spread in that
-    factor), and the fitted ``R0`` moves by 27 cm.  Probe geometry is hardware
-    and cannot move that far between shots, so the self-calibration is not a
-    substitute for a measured geometry/orientation survey.  This test pins the
-    disagreement so it cannot be quietly papered over.
+    Cross-shot agreement is therefore *not* a correctness criterion: the probe
+    really did move between 39204 and 39923.  Under the ``alpha = 1`` reading
+    the implied radii sit roughly 0.16-0.27 m further out on 39923, broadly a
+    radial translation.  This test records that the difference is real and
+    ordered, so nobody later mistakes it for a calibration bug.
     """
-    kappa, r0 = {}, {}
+    implied, r0 = {}, {}
     for shot in (39204, SECOND_REFERENCE):
         result, inputs = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
         peak = int(np.argmax(np.abs(inputs["i_tf"])))
-        # Response per unit TF drive, free of any assumed radius.
-        kappa[shot] = result.b_measured[:, peak] / (
-            2.0e-7 * 24 * inputs["i_tf"][peak]
-        )
+        # Response per unit TF drive, free of any assumed radius; its
+        # reciprocal is the radius implied by a toroidally aligned probe.
+        kappa = result.b_measured[:, peak] / (2.0e-7 * 24 * inputs["i_tf"][peak])
+        implied[shot] = 1.0 / kappa
         r0[shot] = result.geometry.r0
-        assert result.quality.status == "invalid"
 
-    ratio = kappa[39204] / kappa[SECOND_REFERENCE]
-    assert np.mean(ratio) == pytest.approx(1.45, abs=0.1)
-    assert np.ptp(ratio) / np.mean(ratio) > 0.1
-    assert abs(r0[39204] - r0[SECOND_REFERENCE]) > 0.1
+    shift = implied[SECOND_REFERENCE] - implied[39204]
+    assert np.all(shift > 0.1)          # moved outward on every channel
+    assert np.ptp(shift) < 0.2          # by a broadly similar amount
+    assert r0[SECOND_REFERENCE] > r0[39204]
 
-    # The normalised shape is far closer than the absolute response, so the
-    # array is recognisably the same hardware seen through a different scale.
-    shape_a = kappa[39204] / kappa[39204][0]
-    shape_b = kappa[SECOND_REFERENCE] / kappa[SECOND_REFERENCE][0]
-    assert np.max(np.abs(shape_a - shape_b) / shape_a) < 0.2
+
+@pytest.mark.skipif(
+    not Path(IMPA_SAMPLE.format(shot=SECOND_REFERENCE)).is_file(),
+    reason=f"archived IMPA sample for shot {SECOND_REFERENCE} is not available",
+)
+def test_no_static_model_certifies_a_single_shot_yet():
+    """Both reference shots are classified invalid, for reasons they state.
+
+    The open problem is within one shot, not between shots: a static
+    ``alpha_i * Bt(R_i) + beta_i`` model does not describe a whole clean-TF
+    window, so neither shot can be certified.  The pipeline must say so rather
+    than emit a plausible-looking waveform.
+    """
+    for shot in (39204, SECOND_REFERENCE):
+        result, _ = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
+
+        assert result.quality.status == "invalid", shot
+        assert result.quality.reasons, shot
+        assert result.window is not None, shot

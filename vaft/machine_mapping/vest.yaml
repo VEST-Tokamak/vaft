@@ -530,10 +530,10 @@
         radial_pitch: 0.05
         r0_initial: 0.4
         r_bounds: [0.1, 0.8]
-        # Explicit shot-era radii take precedence over self-calibration.
-        # Left unset because no measured survey exists yet: on shot 39204 the
-        # uniform 5 cm model leaves a ~30% residual, so the fitted positions
-        # are reported with their quality rather than trusted silently.
+        # The array is insertable and its radial position is set per shot, so
+        # geometry is normally self-calibrated from the shot's own clean-TF
+        # window.  Set explicit radii only for a shot era where the array was
+        # surveyed or left fixed; they then take precedence.
         r: null
       calibration:
         type: linear
