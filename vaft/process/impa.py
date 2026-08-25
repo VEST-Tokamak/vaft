@@ -52,6 +52,13 @@ small tilt pickup.  Consequences, all reproduced by the tests:
   implementation reports the shot as ``invalid`` instead of emitting a
   plausible-looking number.
 
+Shot 39923 is a second reference, at a tenth of the TF drive (1.3 kA against
+12.7 kA).  It reproduces the channel ordering and, to within ~12%, the shape of
+the radial profile -- but its response per unit TF current is smaller by a
+factor of about 1.45, and the fitted ``R0`` lands 27 cm away.  Probe geometry
+cannot move that far between shots, so the two shots do not agree on a
+calibration.
+
 Extracting a vertical field from this array therefore needs an independent
 geometry/orientation survey recorded in ``vest.yaml``; the self-calibration
 path exists to validate such a survey, not to replace it.
@@ -132,7 +139,13 @@ class ImpaProcessingConfig:
 class TfWindowCriteria:
     """Signal-based conditions a clean TF calibration interval must satisfy."""
 
-    tf_current_min: float = 5_000.0
+    #: Absolute floor: the TF must actually be energised.
+    tf_current_min: float = 500.0
+    #: ...and reach this fraction of the shot's own |I_TF| peak.  VEST runs
+    #: legitimate low-TF shots (39923 peaks at 1.3 kA against 39204's 12.7 kA),
+    #: so a fixed ampere threshold tuned on one shot silently rejects them;
+    #: what matters is that the probes see a strong TF drive for that shot.
+    tf_current_min_fraction: float = 0.5
     ip_max: float = 3_000.0
     pf_current_max: float = 500.0
     min_duration: float = 5.0e-3
@@ -334,11 +347,12 @@ def find_tf_calibration_window(
     if not np.all(np.diff(time) > 0):
         return None, ("time axis is not strictly increasing",)
 
-    mask = np.isfinite(i_tf) & (np.abs(i_tf) >= criteria.tf_current_min)
+    tf_peak = float(np.nanmax(np.abs(i_tf))) if i_tf.size else 0.0
+    tf_threshold = max(criteria.tf_current_min, criteria.tf_current_min_fraction * tf_peak)
+    mask = np.isfinite(i_tf) & (np.abs(i_tf) >= tf_threshold)
     if not mask.any():
         reasons.append(
-            f"no sample reaches |I_TF| >= {criteria.tf_current_min:g} A "
-            f"(peak {np.nanmax(np.abs(i_tf)) if i_tf.size else 0.0:.0f} A)"
+            f"no sample reaches |I_TF| >= {tf_threshold:g} A (peak {tf_peak:.0f} A)"
         )
         return None, tuple(reasons)
 
@@ -402,6 +416,7 @@ def find_tf_calibration_window(
     dynamic_range = float((np.max(tf_window) - np.min(tf_window)) / peak) if peak else 0.0
     metrics = {
         "candidate_intervals": float(len(candidates)),
+        "tf_current_threshold": float(tf_threshold),
         "tf_current_mean": float(np.mean(tf_window)),
         "tf_current_peak": peak,
         "tf_dynamic_range": dynamic_range,

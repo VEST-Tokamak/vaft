@@ -108,6 +108,9 @@ def _window_criteria(config: Mapping[str, Any]) -> TfWindowCriteria:
     defaults = TfWindowCriteria()
     return TfWindowCriteria(
         tf_current_min=float(window.get("tf_current_min", defaults.tf_current_min)),
+        tf_current_min_fraction=float(
+            window.get("tf_current_min_fraction", defaults.tf_current_min_fraction)
+        ),
         ip_max=float(window.get("ip_max", defaults.ip_max)),
         pf_current_max=float(window.get("pf_current_max", defaults.pf_current_max)),
         min_duration=float(window.get("min_duration", defaults.min_duration)),
