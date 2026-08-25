@@ -77,7 +77,7 @@ hsconfigure
 | Field | Value |
 | --- | --- |
 | Server endpoint | `http://147.46.36.244:5101` |
-| Username / Password | Use the read-only public account distributed by the VEST project. |
+| Username / Password | `reader` / `test` (read-only public account) |
 
 This writes `~/.hscfg`; `h5pyd` also recognizes a project-local `.hscfg`. Never commit that file.
 Check the connection from Python:

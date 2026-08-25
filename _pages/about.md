@@ -104,11 +104,9 @@ Korean Government (MSIT) (RS-2023-00281276, RS-202400409564, and RS-2025-0230481
 
 ## License
 
-VAFT is distributed under the **Apache License 2.0**, as declared by the package classifier
-(`License :: OSI Approved :: Apache Software License`) in `pyproject.toml`. Note that the license
-text itself has not yet been committed to the repository; if you need the formal terms in writing
-before using VAFT in your project, please [raise an issue](https://github.com/VEST-Tokamak/vaft/issues)
-so the maintainers can add the file.
+VAFT is distributed under the [Apache License 2.0](https://github.com/VEST-Tokamak/vaft/blob/main/LICENSE),
+as declared by the package classifier (`License :: OSI Approved :: Apache Software License`) in
+`pyproject.toml`.
 
 ## Getting in touch
 

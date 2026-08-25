@@ -2,7 +2,6 @@
 title:            VAFT
 longtitle:        Versatile Analytical Framework for Tokamak
 author:           VEST-team
-email:            satelite2517@snu.ac.kr
 description: >
   VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant
   data interface built on OMAS, an HSDS remote database of VEST experimental shots,

@@ -41,6 +41,9 @@ sections:
       - id: vest-tokamak-physics
         title: VEST and tokamak physics background
         url: /reference/vest-tokamak-physics/
+      - id: vest-systems
+        title: VEST systems inventory
+        url: /reference/vest-systems/
       - id: notebooks
         title: Notebooks
         url: /reference/notebooks/

@@ -96,6 +96,7 @@ when you need public VEST data. See [Start here]({{ site.baseurl }}/workflows/st
 | [Equilibrium and kinetic profiles]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/) | Reconstruct equilibria and fit diagnostic profiles |
 | [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) | Snakemake routine, corrective and summary workflows |
 | [VAFT API]({{ site.baseurl }}/reference/api/) | Module-by-module library reference |
+| [VEST systems inventory]({{ site.baseurl }}/reference/vest-systems/) | Diagnostics, controls, heating/current-drive and VAFT mapping status |
 | [Notebooks]({{ site.baseurl }}/reference/notebooks/) | Runnable notebooks, design shells and verified outputs |
 
 ## Resources
@@ -109,11 +110,7 @@ when you need public VEST data. See [Start here]({{ site.baseurl }}/workflows/st
 
 ## Contact and support
 
-All users may read the VEST datasets. Saving and storing data in the VEST database is restricted to
-authorized users — request write access at
-[peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr).
-
-Questions, bug reports and feature requests are welcome on the
-[issue tracker](https://github.com/VEST-Tokamak/vaft/issues), or by email at
-[satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr). For more about the laboratory and the VEST
+All users may read the VEST datasets, while shared-database writes require authorization. For
+maintenance, write access, technical-system routing, and issue reporting, use
+[Contacts]({{ site.baseurl }}/reference/contacts/). For more about the laboratory and the VEST
 device, visit [Nuplex](http://nuplex.snu.ac.kr).

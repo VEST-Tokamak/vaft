@@ -87,9 +87,9 @@ To load the data,
 Save
 =====
 `save_ods` defaults to `env="server"`, which uploads the shot to HSDS. That path is restricted to
-authorized accounts — the public `reader` account is read-only, so request write access from
-[peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr). Writing IMAS images to a local directory
-with `env="local"` works with any account.
+authorized accounts — the public `reader` account is read-only. See
+[Contacts]({{ site.baseurl }}/reference/contacts/) to request write access. Writing IMAS images to a
+local directory with `env="local"` works with any account.
 
 ```python
 >>> import vaft

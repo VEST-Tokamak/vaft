@@ -16,8 +16,9 @@ related:
   outputs: [hsds-39915]
 ---
 
-VAFT is developed and maintained by the VEST team at Seoul National University. This page collects
-the practical routes: getting data, getting write access, reporting bugs, and reaching a human.
+VAFT is developed and maintained by the VEST team at Seoul National University. This is the
+canonical route for human support: public data access, privileged writes, library maintenance, and
+VEST technical-system enquiries.
 
 ## Reading the VEST database
 
@@ -54,7 +55,7 @@ The full procedure, including environment setup, is in the
 [Quick start guide]({{ site.baseurl }}/guide/Quick_start_guide/) and
 [Installation]({{ site.baseurl }}/guide/Installation/) guides.
 
-## Requesting write access
+## Database write access and data policy
 
 Saving to the shared database — uploading shots, writing into a directory of your own — is
 restricted to authorized users. To request write credentials, contact:
@@ -66,9 +67,11 @@ access is granted you can still run the entire analysis chain locally: load a sh
 account (or use the sample data packaged in `vaft.data`), process it, and save the result to a
 local file.
 
-## Reporting bugs and requesting features
+## VAFT maintenance, bugs, and features
 
-File them on the issue tracker, not by email — that way the discussion stays with the code:
+For a library-maintenance question, contact
+**[satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr)**. File bugs, feature requests, and patches
+on the issue tracker — that way the discussion stays with the code:
 
 **[github.com/VEST-Tokamak/vaft/issues](https://github.com/VEST-Tokamak/vaft/issues)**
 
@@ -76,12 +79,20 @@ A useful report states the VAFT commit or version, your Python version, the shot
 problem is data-dependent), the call you made, and the full traceback. Pull requests are welcome on
 the same repository.
 
-## Maintainers
+## Diagnostic and heating-system enquiries
+
+The [VEST systems inventory]({{ site.baseurl }}/reference/vest-systems/) names the manager recorded
+for each diagnostic, control, or heating/current-drive system. Individual technical email addresses
+are not published there. Email the VAFT maintainer for routing, naming the system and shot number
+where applicable.
+
+## Contact routes
 
 | Purpose | Contact |
 | --- | --- |
 | Library maintainer, general questions | [satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr) |
 | Database write access, VEST data policy | [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
+| Diagnostic or heating-system technical enquiry | [VEST systems inventory]({{ site.baseurl }}/reference/vest-systems/) → [satelite2517@snu.ac.kr](mailto:satelite2517@snu.ac.kr) |
 | Bugs, feature requests, patches | [GitHub issues](https://github.com/VEST-Tokamak/vaft/issues) |
 
 ## The lab

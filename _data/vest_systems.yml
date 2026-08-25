@@ -1,0 +1,166 @@
+# Maintained from notebooks/vest_experimental_data_list.ipynb in the VAFT source repository.
+# `manager` identifies the VEST technical owner recorded there. Individual email addresses are
+# intentionally not published here; requests are routed through /reference/contacts/.
+systems:
+  - category: Information and control
+    system: Data description
+    ids: dataset_description
+    module: vaft.machine_mapping.dataset_description
+    status: Implemented
+    manager: Joint
+  - category: Information and control
+    system: PF coil
+    ids: pf_active
+    module: vaft.machine_mapping.pf_active
+    status: Implemented
+    manager: Joint
+  - category: Information and control
+    system: TF coil
+    ids: tf
+    module: vaft.machine_mapping.tf
+    status: Implemented
+    manager: Joint
+  - category: Information and control
+    system: Gas pumping
+    ids: gas_pumping
+    module: —
+    status: Not yet mapped
+    manager: 정원익, 전찬휘
+  - category: Information and control
+    system: Gas injection
+    ids: gas_injection
+    module: —
+    status: Not yet mapped
+    manager: Joint
+  - category: Heating and current drive
+    system: Electron cyclotron heating (ECH)
+    ids: ec_launchers
+    module: —
+    status: Not yet mapped
+    manager: 변준혁
+  - category: Heating and current drive
+    system: Neutral beam injection (NBI)
+    ids: nbi
+    module: —
+    status: Not yet mapped
+    manager: 정윤호
+  - category: Heating and current drive
+    system: Helicity injection
+    ids: Not developed
+    module: —
+    status: Not developed
+    manager: 박종윤, 김태경
+  - category: Diagnostics
+    system: Plasma-current Rogowski coil
+    ids: magnetics.ip
+    module: vaft.machine_mapping.magnetics
+    status: Implemented
+    manager: Joint
+  - category: Diagnostics
+    system: Flux loops
+    ids: magnetics.flux_loop
+    module: vaft.machine_mapping.magnetics
+    status: Implemented
+    manager: 남건우
+  - category: Diagnostics
+    system: Magnetic probes (Mirnov coils)
+    ids: magnetics.b_field_pol_probe
+    module: vaft.machine_mapping.magnetics
+    status: Implemented
+    manager: 남건우
+  - category: Diagnostics
+    system: Diamagnetic-flux Rogowski coil
+    ids: magnetics.diamagnetic_flux
+    module: vaft.machine_mapping.magnetics
+    status: Implemented
+    manager: 김태경
+  - category: Diagnostics
+    system: Internal magnetic probes
+    ids: magnetics.b_field_pol_probe
+    module: vaft.machine_mapping.magnetics
+    status: Implemented
+    manager: 남건우
+  - category: Diagnostics
+    system: Fast camera
+    ids: camera_visible
+    module: vaft.machine_mapping.camera_visible
+    status: Implemented
+    manager: Joint
+  - category: Diagnostics
+    system: Filterscope spectroscopy
+    ids: spectrometer_uv
+    module: vaft.machine_mapping.spectrometer_uv
+    status: Implemented
+    manager: Joint
+  - category: Diagnostics
+    system: Triple Langmuir probe
+    ids: langmuir_probes.embedded
+    module: —
+    status: Not yet mapped
+    manager: 변준혁
+  - category: Diagnostics
+    system: Interferometer
+    ids: interferometer
+    module: —
+    status: Not yet mapped
+    manager: 변준혁
+  - category: Diagnostics
+    system: Outboard limiter current monitor
+    ids: disruption.halo_currents
+    module: —
+    status: Not yet mapped
+    manager: Joint
+  - category: Diagnostics
+    system: Visible bremsstrahlung spectroscopy
+    ids: bremsstrahlung_visible
+    module: —
+    status: Not yet mapped
+    manager: 유정원
+  - category: Diagnostics
+    system: Vacuum gauges
+    ids: barometry.gauge
+    module: vaft.machine_mapping.barometry
+    status: Implemented
+    manager: 정원익, 전찬휘
+  - category: Diagnostics
+    system: Charge-exchange / beam-emission spectroscopy
+    ids: charge_exchange
+    module: vaft.machine_mapping.charge_exchange
+    status: Implemented
+    manager: 이원석, 엄태희
+  - category: Diagnostics
+    system: Ion Doppler spectroscopy
+    ids: charge_exchange
+    module: vaft.machine_mapping.charge_exchange
+    status: Implemented
+    manager: 이원석, 엄태희
+  - category: Diagnostics
+    system: Hard X-ray detector
+    ids: hard_x_rays
+    module: —
+    status: Not yet mapped
+    manager: 임수빈
+  - category: Diagnostics
+    system: Soft X-ray detector
+    ids: soft_x_rays
+    module: vaft.machine_mapping.soft_x_rays
+    status: Implemented
+    manager: 임수빈, 이명원
+  - category: Diagnostics
+    system: Thomson scattering spectroscopy
+    ids: thomson_scattering
+    module: vaft.machine_mapping.thomson_scattering
+    status: Implemented
+    manager: 김중화, 이종민
+  - category: Device and model
+    system: First wall and limiter geometry
+    ids: wall
+    module: vaft.machine_mapping.wall
+    status: Implemented (static geometry)
+    manager: 정원익, 전찬휘
+  - category: Device and model
+    system: Passive structures and electromagnetic coupling
+    ids: pf_passive, em_coupling
+    module: vaft.machine_mapping.pf_passive, vaft.machine_mapping.em_coupling
+    status: Implemented (reference-ODS based)
+    manager: Not listed
