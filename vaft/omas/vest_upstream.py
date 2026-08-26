@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 from omas import ODS

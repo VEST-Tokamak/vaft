@@ -1327,11 +1327,12 @@ diagnostic_registry:
     ids: interferometer
     ids_path: interferometer
     responsible: [{name: 변준혁}]
-    source: {type: unknown}
+    source: {type: file, formats: [mat], patterns: ["{shot}_{tokens}_LID.mat", "{shot}_ALL_LID.mat"]}
     availability: If-requested
-    lifecycle: in_maintenance
-    mapping_status: not_implemented
-    quantities: {static: [position, line_of_sight, optical_path, wavelength], measured: [phase], derived: [line_integrated_electron_density, validity]}
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.interferometer, entrypoint: interferometer}
+    quantities: {static: [position, line_of_sight, optical_path, wavelength], measured: [line_den], derived: [n_e_line, n_e_line_average]}
   disruption.halo_currents:
     name: Outboard limiter current monitor
     family: edge_diagnostics

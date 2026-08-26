@@ -2,7 +2,7 @@ base_dir: ${VAFT_FILEDB_DIR} # Base path for all output
 # Product layout: `shot_first` reproduces the legacy /srv/vest.filedb/public
 # hierarchy this pipeline is validated against; `filedb` resolves the canonical
 # OMAS-first grammar through vaft.database.filedb.FileDB.
-layout: shot_first
+layout: filedb
 conda: vaft # Conda environment to activate
 shots: # List of shot numbers to process
 - 39915

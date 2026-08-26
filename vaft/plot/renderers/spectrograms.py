@@ -12,6 +12,7 @@ from ..registry import renderer
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "interferometer_spectrogram",
     "magnetics_spectrogram_mirnov",
     "render_spectrogram",
     "soft_x_rays_spectrogram",
@@ -82,4 +83,20 @@ def soft_x_rays_spectrogram(
     model: Spectrogram, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Time-frequency map of one soft X-ray channel."""
+    return render_spectrogram(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="interferometer",
+    view="spectrogram",
+    model=Spectrogram,
+    description="Time-frequency map of one interferometer channel's line density.",
+    ids=("interferometer",),
+    required_paths=("interferometer.channel.{i}.n_e_line.data",),
+    optional_paths=("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
+)
+def interferometer_spectrogram(
+    model: Spectrogram, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Time-frequency map of one interferometer channel's line density."""
     return render_spectrogram(model, ax=ax, show=show, **style)

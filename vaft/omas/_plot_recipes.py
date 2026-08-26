@@ -577,6 +577,12 @@ RECIPES: dict[str, Any] = {
         label_path="soft_x_rays.channel.{i}.name",
         title="Soft X-ray Signals",
     ),
+    "interferometer_time_n_e_line": LineRecipe(
+        y_path="interferometer.channel.{i}.n_e_line.data", index="channel",
+        x_paths=("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
+        y_label="Line-integrated Electron Density", y_unit="10^18 m^-2", scale=1e-18,
+        label_path="interferometer.channel.{i}.name", title="Interferometer Line Density",
+    ),
     "thomson_scattering_time_electron_temperature": LineRecipe(
         y_path="thomson_scattering.channel.{i}.t_e.data",
         index="channel",
@@ -867,6 +873,10 @@ RECIPES: dict[str, Any] = {
         container="soft_x_rays.channel",
         label_path="soft_x_rays.channel.{i}.name",
     ),
+    "interferometer_spectrogram": CallableRecipe(
+        builder=lambda ods, **options: _build_interferometer_spectrogram(ods, **options),
+        description="Time-frequency map of one interferometer channel's density fluctuation.",
+    ),
     # --- composites ----------------------------------------------------------
     "summary_time_energy": PanelRecipe(
         members=(
@@ -955,12 +965,79 @@ RECIPES: dict[str, Any] = {
         share_x=False,
         suptitle="Soft X-ray Overview",
     ),
+    "interferometer_overview": PanelRecipe(
+        members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
+        suptitle="Interferometer Overview",
+    ),
 }
 
 
 # ---------------------------------------------------------------------------
 # Builders for the plots that need computation rather than a plain path read
 # ---------------------------------------------------------------------------
+
+
+def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: Any) -> Spectrogram:
+    """Time-frequency map of one interferometer channel's density *fluctuation*.
+
+    ``n_e_line`` is a line-integrated density, not an AC-coupled signal like a
+    Mirnov voltage: its quasi-DC trend (up to ~1e19 m^-2) dwarfs any kHz-scale
+    fluctuation, so a spectrogram of the raw trace is dominated by the ~0 Hz
+    bin and shows nothing else. This high-pass filters the trend out first.
+    The default window/step also adapt to the actual sample rate rather than
+    assuming the ~250 kHz Mirnov default, since interferometer MAT files can
+    be sampled far faster.
+    """
+    from scipy.signal import butter, filtfilt
+
+    from vaft.process import mirnov_spectrogram as compute_spectrogram
+
+    index = int(channel)
+    signal_values = _array(ods, f"interferometer.channel.{index}.n_e_line.data")
+    if signal_values is None:
+        raise ValueError(f"interferometer.channel.{index}.n_e_line.data is not available")
+    time = _first_time(
+        ods,
+        (f"interferometer.channel.{index}.n_e_line.time", "interferometer.time"),
+    )
+    if time is None or time.size != signal_values.size:
+        time = np.arange(signal_values.size, dtype=float)
+
+    sample_rate = options.get("sample_rate")
+    if sample_rate is None:
+        steps = np.diff(time)
+        positive = steps[steps > 0]
+        sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
+    sample_rate = float(sample_rate)
+    nyquist = sample_rate / 2.0
+
+    fluctuation = signal_values
+    highpass_cutoff = float(options.get("highpass_cutoff", 200.0))
+    if signal_values.size > 32 and 0.0 < highpass_cutoff < nyquist:
+        b, a = butter(4, highpass_cutoff / nyquist, btype="highpass")
+        fluctuation = filtfilt(b, a, signal_values)
+
+    window_size = options.get("window_size")
+    if window_size is None:
+        target_df = float(options.get("target_df", 300.0))
+        window_size = max(64, int(round(sample_rate / target_df)))
+        window_size -= window_size % 2
+    else:
+        window_size = int(window_size)
+    time_resolution = options.get("time_resolution")
+    time_resolution = int(time_resolution) if time_resolution else max(1, window_size // 40)
+
+    result = compute_spectrogram(
+        time, fluctuation, sample_rate=sample_rate,
+        window_size=window_size, time_resolution=time_resolution,
+    )
+    return Spectrogram.from_result(
+        result,
+        max_frequency=options.get("max_frequency"),
+        cmap=options.get("cmap", "turbo"),
+        title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
+        value_label="Fluctuation Magnitude",
+    )
 
 
 #: Identifier prefix written by :mod:`vaft.machine_mapping.impa`.  IMPA probes

@@ -778,6 +778,31 @@ def soft_x_rays_time_power(
 
 
 @renderer(
+    domain="interferometer",
+    view="time",
+    quantity="n_e_line",
+    model=LineSeries,
+    description="Interferometer line-integrated electron density history.",
+    ids=("interferometer",),
+    required_paths=("interferometer.channel.{i}.n_e_line.data",),
+    optional_paths=(
+        "interferometer.channel.{i}.n_e_line.time",
+        "interferometer.time",
+        "interferometer.channel.{i}.name",
+    ),
+)
+def interferometer_time_n_e_line(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Interferometer line-integrated electron density history."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
     domain="thomson_scattering",
     view="time",
     quantity="electron_temperature",
@@ -943,6 +968,7 @@ __all__ = [
     "equilibrium_time_w_mag",
     "equilibrium_time_w_mhd",
     "equilibrium_time_w_tot",
+    "interferometer_time_n_e_line",
     "magnetics_time_b_field_pol_probe_field",
     "magnetics_time_diamagnetic_flux",
     "magnetics_time_flux_loop_flux",
