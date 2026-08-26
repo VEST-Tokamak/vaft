@@ -79,9 +79,11 @@ class ConstraintUncertaintyTests(unittest.TestCase):
         apply_default_constraint_uncertainties(payload)
 
         for probe_index, probe in enumerate(get_path(payload, "magnetics.b_field_pol_probe")):
-            if "field" not in probe:
-                # Fluctuation (Mirnov) probes intentionally carry only the raw
-                # voltage signal and receive no constraint uncertainty.
+            if "field" not in probe or np.asarray(probe["field"]["data"]).size == 0:
+                # Toroidal-reference and fluctuation (Mirnov) probes carry only
+                # the raw voltage signal -- their `field` is explicitly empty,
+                # not an IMAS scalar NaN placeholder -- and receive no
+                # constraint uncertainty.
                 self.assertIn("voltage", probe)
                 continue
             radial = float(probe["position"]["r"])

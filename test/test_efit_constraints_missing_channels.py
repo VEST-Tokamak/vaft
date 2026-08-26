@@ -30,7 +30,11 @@ from omas import load_omas_json
 
 from vaft.code.efit import generate_constraints_ods, generate_kfile
 from vaft.code.efit.config import EFITConstraintConfig, EFITProfileConfig, EFITScientificConfig
-from vaft.machine_mapping.magnetics import TOROIDAL_MIRNOV_REFERENCE_CHANNELS, vest_md_channel_definitions
+from vaft.machine_mapping.magnetics import (
+    LIMITER_SHUNT_CHANNELS,
+    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
+    vest_equilibrium_magnetics_channel_definitions,
+)
 from vaft.omas.vest_upstream import (
     build_diagnostics_ods,
     build_eddy_ods,
@@ -46,10 +50,18 @@ DEFAULT_UNCERTAINTY = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
 DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
 
 
+def _efit_bpol_probe_count() -> int:
+    return sum(
+        channel["kind"] == "b_field_pol_probe"
+        for channel in vest_equilibrium_magnetics_channel_definitions()
+    )
+
+
 def _all_magnetics_field_codes() -> list[int]:
-    defs = vest_md_channel_definitions()
+    defs = vest_equilibrium_magnetics_channel_definitions()
     codes = {int(d["field_code"]) for d in defs}
     codes |= {int(c["field_code"]) for c in TOROIDAL_MIRNOV_REFERENCE_CHANNELS}
+    codes |= {int(c["field_code"]) for c in LIMITER_SHUNT_CHANNELS}
     return sorted(codes)
 
 
@@ -60,14 +72,14 @@ def _write_raw_dump(path: Path, shot: int, n_samples: int) -> None:
     regardless of any time array supplied here, so `n_samples` must be large
     enough for the dump to cover the diagnostics window (0.26-0.36 s).
     """
-    codes = _all_magnetics_field_codes() + [1, 5, 59, 62, 65, 102, 257]
+    codes = _all_magnetics_field_codes() + [1, 5, 25, 59, 62, 65, 109, 257]
     t = np.arange(n_samples) * SLOW_DT
     fields = {}
     for code in sorted(set(codes)):
-        if code == 102:
+        if code == 109:
             # A plasma-current-like waveform so the Ip>20kA constraint
             # time-selection window is non-empty.
-            data = 60000 * np.clip(np.sin((t - 0.26) / 0.1 * np.pi), 0, None)
+            data = 6.0e9 * np.clip(np.sin((t - 0.26) / 0.1 * np.pi), 0, None)
         else:
             data = np.sin(t * 10) * 0.01 + 0.02
         fields[str(code)] = {"data": data.tolist(), "type": "slow"}
@@ -77,11 +89,12 @@ def _write_raw_dump(path: Path, shot: int, n_samples: int) -> None:
 
 @pytest.fixture(scope="module")
 def full_eddy_ods(tmp_path_factory):
-    """One fully-populated eddy ODS: no channel is naturally missing.
+    """One eddy ODS containing every channel used by EFIT.
 
     Built once per test module (the raw->static->diagnostics->eddy chain is
     expensive); each test takes a deep copy so it can delete channels
-    without affecting other tests.
+    without affecting other tests.  Diagnostic-only phase-reference probes
+    retain their natural empty waveforms.
     """
     tmp = tmp_path_factory.mktemp("constraints_fixture")
     raw_path = tmp / "raw.json.gz"
@@ -105,21 +118,10 @@ def full_eddy_ods(tmp_path_factory):
         filament_fraction=[1 / 3, 1 / 3, 1 / 3], dt_sub=5e-5,
     )
 
-    # A handful of toroidal-mirnov reference channels never get data from
-    # this synthetic dump's field codes; fill them so the fixture has zero
-    # naturally-missing channels and every test's missing set is exact.
-    time_axis = eddy_ods["magnetics.time"]
-    for i in range(len(eddy_ods["magnetics.b_field_pol_probe"])):
-        if "field.data" not in eddy_ods[f"magnetics.b_field_pol_probe.{i}"]:
-            eddy_ods[f"magnetics.b_field_pol_probe.{i}.field.data"] = np.full_like(time_axis, 1e-3)
-    for i in range(len(eddy_ods["magnetics.flux_loop"])):
-        if "flux.data" not in eddy_ods[f"magnetics.flux_loop.{i}"]:
-            eddy_ods[f"magnetics.flux_loop.{i}.flux.data"] = np.full_like(time_axis, 1e-3)
-
-    n_probes = len(eddy_ods["magnetics.b_field_pol_probe"])
-    n_flux = len(eddy_ods["magnetics.flux_loop"])
-    assert all(f"magnetics.b_field_pol_probe.{i}.field.data" in eddy_ods for i in range(n_probes))
-    assert all(f"magnetics.flux_loop.{i}.flux.data" in eddy_ods for i in range(n_flux))
+    # The trailing toroidal-Mirnov phase-reference probes are intentionally
+    # outside EFIT's dprobe/mhdin geometry.  Their empty data must not enter
+    # constraint construction; EFIT uses only the MD probes below.
+    assert len(eddy_ods["magnetics.b_field_pol_probe"]) > _efit_bpol_probe_count()
     return eddy_ods
 
 
@@ -149,18 +151,18 @@ def _build_kfile_config(nbcoil: int) -> EFITScientificConfig:
     [
         ((0,), (), "bpol-missing-first"),
         ((33,), (), "bpol-missing-middle"),
-        ((0, 5, 10, 30, 67), (), "bpol-missing-multiple"),
+        ((0, 5, 10, 30, 63), (), "bpol-missing-multiple"),
         ((), (0,), "flux-missing-first"),
         ((), (5,), "flux-missing-middle"),
         ((), (0, 3, 10), "flux-missing-multiple"),
-        ((0, 67), (0, 10), "both-missing"),
+        ((0, 63), (0, 10), "both-missing"),
     ],
 )
 def test_constraints_and_kfile_survive_missing_channels(
     full_eddy_ods, tmp_path, missing_probes, missing_flux, case_id
 ):
     ods = copy.deepcopy(full_eddy_ods)
-    n_probes = len(ods["magnetics.b_field_pol_probe"])
+    n_probes = _efit_bpol_probe_count()
     n_flux = len(ods["magnetics.flux_loop"])
 
     probe_identifiers = {
@@ -259,15 +261,14 @@ def test_constraints_and_kfile_survive_missing_channels(
 
 
 def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, tmp_path):
-    """EXPMP2/FWTMP2 must match EFIT's own dprobe.dat/mhdin.dat probe count.
+    """Constraint generation and EXPMP2/FWTMP2 use EFIT's real probe count.
 
     VAFT's magnetics IDS carries 68 b_field_pol_probe entries: 64 real,
-    EFIT-fitted probes (vest_md_channel_definitions()) followed by 4
+    EFIT-fitted probes (vest_equilibrium_magnetics_channel_definitions()) followed by 4
     toroidal-mirnov phase-reference channels that are not part of EFIT's
     B-pol fitting set (`magpri` in dprobe.dat/mhdin.dat is 64, not 68).
-    Writing all 68 into EXPMP2/FWTMP2/BITMPI overflows what EFIT's compiled
-    geometry table expects and is rejected as an invalid namelist line --
-    reproduced against the real packaged EFIT-AI build in this test.
+    Trailing phase-reference channels are not constraints and must not be
+    materialized into the equilibrium constraint IDS.
     """
     from vaft.data.resources import data_path
 
@@ -287,6 +288,8 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, 
         DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
         broken=[], fit=0, FFCUR=2, PPCUR=2,
     )
+
+    assert len(ods["equilibrium.time_slice.0.constraints.bpol_probe"]) == 64
 
     config = _build_kfile_config(nbcoil=16)
     kfile_dir = tmp_path / "magpri-kfile"

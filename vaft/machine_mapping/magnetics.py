@@ -14,10 +14,18 @@ import yaml
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_md_signals
+from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibrium_magnetics_signals
 from vaft.process.signal_processing import detect_active_window, smooth
 
-from .utils import get_path, path_exists, resolve_data_root, set_path
+from .utils import (
+    calibrate_vest_signal,
+    get_path,
+    path_exists,
+    resolve_data_root,
+    resolve_shot_revisions,
+    resolve_vest_diagnostic,
+    set_path,
+)
 
 DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
@@ -25,6 +33,10 @@ DEFAULT_DT = 4e-5
 PROBE_LENGTH = 0.01
 POLOIDAL_ANGLE = 3 * math.pi / 2
 MIRNOV_TYPE_INDEX = 2
+OUTBOARD_MIRNOV_MAJOR_RADIUS = 0.796
+# Fluctuation Mirnov probes became physically operational at this shot; the
+# 30-channel array (issue #155) is only mapped for shot >= this boundary.
+FLUCTUATION_MIRNOV_FIRST_SHOT = 44156
 TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
     {
         "field_code": 207,
@@ -33,6 +45,7 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "z": 0.02,
         "phi": 0.0,
         "toroidal_angle": 0.0,
+        "gain": 9.0e-4,
     },
     {
         "field_code": 241,
@@ -41,6 +54,7 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "z": 0.02,
         "phi": 2 * math.pi / 3,
         "toroidal_angle": 2 * math.pi / 3,
+        "gain": -9.0e-4,
     },
     {
         "field_code": 209,
@@ -49,6 +63,7 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "z": 0.02,
         "phi": math.pi,
         "toroidal_angle": math.pi,
+        "gain": 9.0e-4,
     },
     {
         "field_code": 171,
@@ -57,8 +72,35 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "z": 0.02,
         "phi": 4 * math.pi / 3,
         "toroidal_angle": 4 * math.pi / 3,
+        "gain": 0.004529,
     },
 )
+
+# Database identifiers, rather than older UI labels, define the physical
+# limiter segment. The 0.1 ohm-equivalent resistance stores the Pearson Model
+# 411 transfer sensitivity (0.1 V/A), not a limiter-ground resistor. Fig. 5
+# of Lee et al. (2018) provides only approximate R-Z locations, while IMAS
+# 3.41 shunt positions are electrical terminal endpoints, so no position is
+# written until authoritative endpoint geometry is available.
+LIMITER_SHUNT_CHANNELS = (
+    {
+        "field_code": 216,
+        "identifier": "LimiterCurrentMonitor_LC",
+        "name": "Lower-corner limiter current monitor",
+    },
+    {
+        "field_code": 217,
+        "identifier": "LimiterCurrentMonitor_UC",
+        "name": "Upper-corner limiter current monitor",
+    },
+    {
+        "field_code": 218,
+        "identifier": "LimiterCurrentMonitor_MM",
+        "name": "Midplane limiter current monitor",
+    },
+)
+LIMITER_SHUNT_RESISTANCE = 0.1
+LIMITER_SHUNT_BASELINE_WINDOW = (0.0, 0.2)
 
 
 @lru_cache(maxsize=1024)
@@ -84,14 +126,25 @@ def _geometry_root() -> Path:
 
 
 @lru_cache(maxsize=1)
-def _load_md_channels() -> list[dict[str, Any]]:
+def _load_equilibrium_magnetics_channels() -> list[dict[str, Any]]:
     with open(_geometry_root() / "MD.yaml", "r", encoding="utf-8") as handle:
         return yaml.safe_load(handle)["channels"]
 
 
-def vest_md_channel_definitions() -> tuple[dict[str, Any], ...]:
-    """Return ordered VEST MD channel metadata for provenance/preflight."""
-    return tuple(dict(channel) for channel in _load_md_channels())
+def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ...]:
+    """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight."""
+    return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
+
+
+@lru_cache(maxsize=1)
+def _load_fluctuation_mirnov_channels() -> list[dict[str, Any]]:
+    with open(_geometry_root() / "FluctuationMirnov.yaml", "r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)["channels"]
+
+
+def fluctuation_mirnov_channel_definitions() -> tuple[dict[str, Any], ...]:
+    """Return ordered VEST outboard fluctuation-Mirnov channel metadata for provenance."""
+    return tuple(dict(channel) for channel in _load_fluctuation_mirnov_channels())
 
 
 @lru_cache(maxsize=1)
@@ -144,7 +197,7 @@ def _prepare_magnetics_context(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> _MagneticsContext:
-    source_time, flux_loops, probes = vfit_md(
+    source_time, flux_loops, probes = vfit_equilibrium_magnetics(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
@@ -182,6 +235,24 @@ def _raw_time_data_with_validity(
     return time, data, 0
 
 
+def _crop_native_window(
+    time: np.ndarray,
+    data: np.ndarray,
+    *,
+    tstart: float | None,
+    tend: float | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Restrict a native-rate waveform to the half-open analysis window."""
+    if tstart is None or tend is None:
+        return np.asarray(time, dtype=float), np.asarray(data, dtype=float)
+    time_array = np.asarray(time, dtype=float)
+    data_array = np.asarray(data, dtype=float)
+    if time_array.shape != data_array.shape:
+        raise ValueError("Raw voltage time and data arrays must have identical shapes")
+    keep = (time_array >= tstart) & (time_array < tend)
+    return time_array[keep], data_array[keep]
+
+
 def _set_voltage_signal(
     ods: object,
     base_path: str,
@@ -201,6 +272,23 @@ def _polyfit_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.nda
     return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
 
 
+def _plasma_processing_for_shot(shot: int) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Resolve nested plasma-current processing eras declared in vest.yaml."""
+    config = resolve_vest_diagnostic(shot, "plasma_current")
+    processing = config["processing"]
+
+    def nested(name: str) -> dict[str, Any]:
+        item = processing[name]
+        return resolve_shot_revisions(
+            {key: value for key, value in item.items() if key != "revisions"},
+            item.get("revisions"),
+            shot,
+            context=f"VEST plasma_current {name}",
+        )
+
+    return config, nested("reference"), nested("baseline"), nested("sign")
+
+
 def vfit_plasma_current(
     shot: int,
     ref: int = -1,
@@ -208,15 +296,16 @@ def vfit_plasma_current(
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the processed plasma-current waveform."""
+    config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
+    plasma_field = int(config["source"]["field"])
     if ref == -1:
-        x_ip = 102
-        x_flux_loop = 25
-        ind_mutual = 2.8e-4 if shot < 17455 else 5.0e-4
+        x_flux_loop = int(reference_config["field"])
+        ind_mutual = float(reference_config["mutual_inductance"])
 
         time, raw_ip = raw_db.require_signal(
-            _safe_vest_load(shot, x_ip, raw_source),
+            _safe_vest_load(shot, plasma_field, raw_source),
             shot=shot,
-            field=x_ip,
+            field=plasma_field,
             signal_name="plasma-current Rogowski coil",
         )
         flux_time, raw_flux = raw_db.require_signal(
@@ -228,45 +317,48 @@ def vfit_plasma_current(
         if flux_time.size != time.size or not np.allclose(flux_time, time):
             raw_flux = np.interp(time, flux_time, raw_flux)
 
-        if (41446 <= shot <= 41451) or shot >= 41660:
-            x_time = np.arange(7250, 8750)
-        else:
-            x_time = np.arange(6000, 8500)
-        x_window = 500
+        x_time = np.arange(
+            int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
+        )
+        x_window = int(baseline_config["lookback"])
         x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
         x_base = x_base[(x_base >= 0) & (x_base < time.size)]
         if x_base.size < 2:
             x_base = np.arange(min(500, time.size), dtype=int)
 
-        ip_shot = raw_ip - np.polyval(np.polyfit(time[x_base], raw_ip[x_base], 1), time)
-        ip_ref = raw_flux * 11 / ind_mutual
+        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
+        ip_shot = calibrated_ip - np.polyval(np.polyfit(time[x_base], calibrated_ip[x_base], 1), time)
+        ip_ref = raw_flux * float(reference_config["flux_gain"]) / ind_mutual
         ip_ref = ip_ref - np.polyval(np.polyfit(time[x_base], ip_ref[x_base], 1), time)
-        ip = ip_shot - ip_ref
-
-        if shot >= 20259:
-            ip = -ip
+        ip = (ip_shot - ip_ref) * float(sign_config["multiply"])
         return time, ip
 
+    reference_source = resolve_vest_diagnostic(ref, "plasma_current")
     reference_time, reference_values = raw_db.require_signal(
-        _safe_vest_load(ref, 102, raw_source),
+        _safe_vest_load(ref, int(reference_source["source"]["field"]), raw_source),
         shot=ref,
-        field=102,
+        field=int(reference_source["source"]["field"]),
         signal_name="reference plasma-current Rogowski coil",
     )
     time, shot_values = raw_db.require_signal(
-        _safe_vest_load(shot, 102, raw_source),
+        _safe_vest_load(shot, plasma_field, raw_source),
         shot=shot,
-        field=102,
+        field=plasma_field,
         signal_name="plasma-current Rogowski coil",
     )
     if reference_time.size != time.size or not np.allclose(reference_time, time):
         reference_values = np.interp(time, reference_time, reference_values)
 
-    sample_rate = 25e3
-    cutoff_frequency = 2.5e3
-    taps = signal.firwin(26, cutoff_frequency, pass_zero="lowpass", fs=sample_rate)
-    plasma_current = -(shot_values - reference_values)
-    baseline_index = min(7499, plasma_current.size - 1)
+    comparison = config["processing"]["reference_comparison"]
+    taps = signal.firwin(
+        int(comparison["taps"]), float(comparison["cutoff_frequency"]),
+        pass_zero="lowpass", fs=float(comparison["sample_rate"]),
+    )
+    plasma_current = -(
+        calibrate_vest_signal(shot_values, config["calibration"])
+        - calibrate_vest_signal(reference_values, reference_source["calibration"])
+    )
+    baseline_index = min(int(comparison["baseline_index"]), plasma_current.size - 1)
     plasma_current = plasma_current - plasma_current[baseline_index]
     return time, signal.lfilter(taps, 1, plasma_current)
 
@@ -381,7 +473,7 @@ def vest_diamagnetic_flux(
     return temp_time, dia_flux_final
 
 
-def vfit_md(
+def vfit_equilibrium_magnetics(
     shot: int,
     indices: list[int] | np.ndarray | None = None,
     processing_config: VestMagneticsProcessingConfig | None = None,
@@ -390,9 +482,9 @@ def vfit_md(
     allow_missing_channels: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process magnetic probe and flux-loop data using VAFT process helpers."""
-    return vest_md_signals(
+    return vest_equilibrium_magnetics_signals(
         int(shot),
-        _load_md_channels(),
+        _load_equilibrium_magnetics_channels(),
         lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
         indices=indices,
         config=processing_config,
@@ -469,11 +561,81 @@ def _populate_probe_static(ods: object) -> None:
         probe_index += 1
 
 
+def _populate_fluctuation_mirnov_static(ods: object) -> None:
+    """Append the 45/135/225 deg outboard fluctuation-Mirnov array (issue #155).
+
+    Continues the existing ``b_field_pol_probe`` index sequence so equilibrium
+    probe ordering/indices are never shifted. Only called for shots at or
+    after ``FLUCTUATION_MIRNOV_FIRST_SHOT``, since these probes are not
+    physically wired before that shot.
+    """
+    probe_index = (
+        len(get_path(ods, "magnetics.b_field_pol_probe"))
+        if path_exists(ods, "magnetics.b_field_pol_probe")
+        else 0
+    )
+    for channel in _load_fluctuation_mirnov_channels():
+        identifier = str(channel["identifier"])
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", identifier)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", OUTBOARD_MIRNOV_MAJOR_RADIUS)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
+        set_path(
+            ods,
+            f"magnetics.b_field_pol_probe.{probe_index}.position.phi",
+            math.radians(float(channel["toroidal_angle_deg"])),
+        )
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
+        set_path(
+            ods,
+            f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle",
+            math.radians(float(channel["toroidal_angle_deg"])),
+        )
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
+        probe_index += 1
+
+
+def _map_fluctuation_mirnov_voltage(
+    ods: object,
+    shot: int,
+    *,
+    start_index: int,
+    raw_source: raw_db.RawSource | None = None,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Populate native-rate raw voltage for the fluctuation-Mirnov array.
+
+    ``start_index`` must match the first index written by
+    :func:`_populate_fluctuation_mirnov_static`. Mirrors
+    :func:`vfit_mirnov_raw_dynamic`'s crop-without-resample policy. Only
+    called for shot >= ``FLUCTUATION_MIRNOV_FIRST_SHOT``.
+    """
+    probe_index = start_index
+    for channel in _load_fluctuation_mirnov_channels():
+        time, data, validity = _raw_time_data_with_validity(shot, int(channel["field"]), raw_source)
+        if validity == 0:
+            time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
+        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
+        probe_index += 1
+
+
+def _populate_limiter_shunt_static(ods: object) -> None:
+    """Populate electrical limiter monitors without inventing endpoint geometry."""
+    for index, channel in enumerate(LIMITER_SHUNT_CHANNELS):
+        base_path = f"magnetics.shunt.{index}"
+        set_path(ods, f"{base_path}.name", str(channel["name"]))
+        set_path(ods, f"{base_path}.identifier", str(channel["identifier"]))
+        set_path(ods, f"{base_path}.resistance", LIMITER_SHUNT_RESISTANCE)
+
+
 def vfit_magnetics_static(ods: object) -> None:
     """Populate static magnetics metadata from YAML geometry assets."""
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
     _populate_probe_static(ods)
+    _populate_limiter_shunt_static(ods)
 
 
 def vfit_mirnov_raw_dynamic(
@@ -481,20 +643,70 @@ def vfit_mirnov_raw_dynamic(
     shot: int,
     *,
     raw_source: raw_db.RawSource | None = None,
+    tstart: float | None = None,
+    tend: float | None = None,
 ) -> None:
-    """Populate raw Mirnov voltage traces at their native acquisition timebase."""
+    """Populate raw Mirnov voltage traces at their native acquisition timebase.
+
+    When an analysis window is supplied, samples are cropped to
+    ``tstart <= time < tend`` without interpolation or downsampling.
+    """
     probe_index = 0
     for channel in _load_static_channels():
         if channel["kind"] != "b_field_pol_probe":
             continue
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
+        if validity == 0:
+            time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
 
     for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
+        if validity == 0:
+            time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
+
+
+def _baseline_correct_limiter_voltage(
+    time: np.ndarray, data: np.ndarray
+) -> np.ndarray | None:
+    """Remove the robust 0.0--0.2 s pre-plasma baseline from a shunt voltage."""
+    start, end = LIMITER_SHUNT_BASELINE_WINDOW
+    time_array = np.asarray(time, dtype=float)
+    data_array = np.asarray(data, dtype=float)
+    samples = data_array[(time_array >= start) & (time_array < end)]
+    samples = samples[np.isfinite(samples)]
+    if samples.size == 0:
+        return None
+    return data_array - np.median(samples)
+
+
+def vfit_limiter_shunts_dynamic(
+    ods: object,
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> None:
+    """Map baseline-corrected limiter-monitor voltages at their native timebase.
+
+    Stored voltage divided by ``magnetics.shunt[].resistance`` reconstructs
+    Pearson Model 411 monitor current under VAFT's effective-V/I convention.
+    """
+    for index, channel in enumerate(LIMITER_SHUNT_CHANNELS):
+        time, data, validity = _raw_time_data_with_validity(
+            shot, int(channel["field_code"]), raw_source
+        )
+        if validity == 0:
+            corrected = _baseline_correct_limiter_voltage(time, data)
+            if corrected is None:
+                time = np.array([], dtype=float)
+                data = np.array([], dtype=float)
+                validity = -2
+            else:
+                data = corrected
+        _set_voltage_signal(ods, f"magnetics.shunt.{index}", time, data, validity)
 
 
 def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
@@ -503,6 +715,7 @@ def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
         if np.asarray(values).size < 2:
             continue
         data = _interpolate_signal(context.target_time, context.source_time, values) * 2 * math.pi
+        set_path(ods, f"magnetics.flux_loop.{index}.flux.time", context.target_time)
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
 
 
@@ -511,14 +724,75 @@ def _map_probes(
     shot: int,
     context: _MagneticsContext,
     raw_source: raw_db.RawSource | None = None,
+    tstart: float | None = None,
+    tend: float | None = None,
 ) -> None:
     _set_magnetics_time(ods, context.target_time)
+    # Static geometry assets may carry scalar NaN placeholders for probes that
+    # have no mapped processed field. In heterogeneous mode they are treated
+    # as malformed dynamic signals, so omit them rather than assigning a time
+    # coordinate to a non-waveform.
+    probe_count = (
+        len(get_path(ods, "magnetics.b_field_pol_probe"))
+        if path_exists(ods, "magnetics.b_field_pol_probe")
+        else 0
+    )
+    for index in range(probe_count):
+        data_path = f"magnetics.b_field_pol_probe.{index}.field.data"
+        if not path_exists(ods, data_path):
+            continue
+        data = np.asarray(get_path(ods, data_path))
+        if data.ndim == 0:
+            set_path(ods, data_path, np.array([], dtype=float))
+            set_path(
+                ods,
+                f"magnetics.b_field_pol_probe.{index}.field.time",
+                np.array([], dtype=float),
+            )
+    mapped_probe_count = len(context.probes)
     for index, values in enumerate(context.probes):
         if np.asarray(values).size < 2:
+            set_path(
+                ods,
+                f"magnetics.b_field_pol_probe.{index}.field.time",
+                np.array([], dtype=float),
+            )
+            set_path(
+                ods,
+                f"magnetics.b_field_pol_probe.{index}.field.data",
+                np.array([], dtype=float),
+            )
             continue
         data = _interpolate_signal(context.target_time, context.source_time, values)
+        set_path(ods, f"magnetics.b_field_pol_probe.{index}.field.time", context.target_time)
         set_path(ods, f"magnetics.b_field_pol_probe.{index}.field.data", data)
-    vfit_mirnov_raw_dynamic(ods, shot, raw_source=raw_source)
+    vfit_mirnov_raw_dynamic(
+        ods, shot, raw_source=raw_source, tstart=tstart, tend=tend
+    )
+    if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        fluctuation_start_index = len(get_path(ods, "magnetics.b_field_pol_probe"))
+        _populate_fluctuation_mirnov_static(ods)
+        _map_fluctuation_mirnov_voltage(
+            ods,
+            shot,
+            start_index=fluctuation_start_index,
+            raw_source=raw_source,
+            tstart=tstart,
+            tend=tend,
+        )
+    # Toroidal reference probes are raw-voltage-only channels; their processed
+    # field signal is explicitly empty, not an IMAS scalar NaN placeholder.
+    for index in range(mapped_probe_count, len(get_path(ods, "magnetics.b_field_pol_probe"))):
+        set_path(
+            ods,
+            f"magnetics.b_field_pol_probe.{index}.field.time",
+            np.array([], dtype=float),
+        )
+        set_path(
+            ods,
+            f"magnetics.b_field_pol_probe.{index}.field.data",
+            np.array([], dtype=float),
+        )
 
 
 def _map_ip(ods: object, target_time: np.ndarray, ip_time: np.ndarray, ip: np.ndarray) -> None:
@@ -584,6 +858,7 @@ def vfit_magnetics_dynamic(
     processing_config: VestMagneticsProcessingConfig | None = None,
     *,
     raw_source: raw_db.RawSource | None = None,
+    target_time: np.ndarray | None = None,
 ) -> None:
     """Populate dynamic magnetics nodes from required raw waveforms."""
     context = _prepare_magnetics_context(
@@ -595,8 +870,16 @@ def vfit_magnetics_dynamic(
         raw_source,
         allow_missing_channels=True,
     )
+    if target_time is not None:
+        context = _MagneticsContext(
+            source_time=context.source_time,
+            target_time=np.asarray(target_time, dtype=float),
+            flux_loops=context.flux_loops,
+            probes=context.probes,
+        )
     _map_flux_loops(ods, context)
-    _map_probes(ods, shot, context, raw_source)
+    _map_probes(ods, shot, context, raw_source, tstart=tstart, tend=tend)
+    vfit_limiter_shunts_dynamic(ods, shot, raw_source=raw_source)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     _map_ip(ods, context.target_time, ip_time, ip)
     _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)
@@ -746,19 +1029,24 @@ def magnetics_from_raw_database(
 
 
 __all__ = [
+    "LIMITER_SHUNT_CHANNELS",
+    "LIMITER_SHUNT_BASELINE_WINDOW",
+    "LIMITER_SHUNT_RESISTANCE",
     "b_field_pol_probe_from_raw_database",
     "diamagnetic_flux_rogowski_coil_from_raw_database",
     "flux_loop_from_raw_database",
     "ip_rogowski_coil_from_raw_database",
     "magnetics_from_raw_database",
     "vest_diamagnetic_flux",
-    "vest_md_channel_definitions",
+    "vest_equilibrium_magnetics_channel_definitions",
+    "fluctuation_mirnov_channel_definitions",
     "magnetics",
     "vfit_plasma_current",
-    "vfit_md",
+    "vfit_equilibrium_magnetics",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
     "vfit_magnetics_static",
+    "vfit_limiter_shunts_dynamic",
     "vfit_mirnov_raw_dynamic",
     "vfit_plasma_mgods_startend",
 ]

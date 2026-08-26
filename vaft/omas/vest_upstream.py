@@ -24,8 +24,11 @@ from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
 from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
 from vaft.machine_mapping.magnetics import (
+    FLUCTUATION_MIRNOV_FIRST_SHOT,
+    LIMITER_SHUNT_CHANNELS,
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
-    vest_md_channel_definitions,
+    fluctuation_mirnov_channel_definitions,
+    vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
     vfit_magnetics_static,
 )
@@ -39,6 +42,7 @@ from vaft.machine_mapping.pf_passive import DEFAULT_STATIC_GEOMETRY, pf_passive
 from vaft.machine_mapping.spectrometer_uv import spectrometer_uv
 from vaft.machine_mapping.tf import vfit_tf_dynamic, vfit_tf_static
 from vaft.machine_mapping.wall import wall
+from vaft.machine_mapping.utils import get_path, path_exists
 from vaft.omas import save
 from vaft.omas.process_wrapper import compute_eddy_currents
 from vaft.process.magnetics import VestMagneticsProcessingConfig
@@ -227,6 +231,195 @@ def _copy_ids(target: ODS, source: ODS, ids_names: tuple[str, ...]) -> None:
             target[ids_name] = copy.deepcopy(source[ids_name])
 
 
+def _canonical_diagnostics_time(tstart: float, tend: float, dt: float) -> np.ndarray:
+    """Build the one processed grid used by the diagnostics product.
+
+    Diagnostics windows are always half-open: ``tstart <= t < tend``.  Native
+    acquisition timebases are handled explicitly by their mapper and are not
+    selected by overloading a non-positive ``dt`` value.
+    """
+    tstart, tend, dt = float(tstart), float(tend), float(dt)
+    if not all(np.isfinite(value) for value in (tstart, tend, dt)):
+        raise ValueError("Diagnostics tstart, tend, and dt must be finite")
+    if tend <= tstart:
+        raise ValueError("Diagnostics tend must be greater than tstart")
+    if dt <= 0.0:
+        raise ValueError("Diagnostics dt must be positive; native time is an explicit mapper mode")
+    time = np.arange(tstart, tend, dt, dtype=float)
+    if time.size == 0:
+        raise ValueError("Diagnostics window produces an empty processed time grid")
+    return time
+
+
+def _validate_time_data_pair(ods: ODS, time_path: str, data_path: str) -> None:
+    """Check the basic invariant shared by all mapped waveform nodes."""
+    if not path_exists(ods, time_path) or not path_exists(ods, data_path):
+        return
+    time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
+    data = np.asarray(get_path(ods, data_path), dtype=float).reshape(-1)
+    if time.size != data.size:
+        raise ValueError(f"{data_path} has {data.size} samples but {time_path} has {time.size}")
+    if time.size > 1 and np.any(np.diff(time) <= 0.0):
+        raise ValueError(f"{time_path} must be strictly monotonic")
+
+
+def _validate_data_on_grid(ods: ODS, data_path: str, grid: np.ndarray) -> None:
+    if not path_exists(ods, data_path):
+        return
+    data = np.asarray(get_path(ods, data_path), dtype=float).reshape(-1)
+    if data.size == 0:
+        return
+    if data.size != grid.size:
+        raise ValueError(
+            f"{data_path} has {data.size} samples but the canonical grid has {grid.size}"
+        )
+
+
+def _time_equal(left: np.ndarray, right: np.ndarray) -> bool:
+    return left.shape == right.shape and np.allclose(left, right, rtol=0.0, atol=1e-12)
+
+
+def _validate_diagnostics_time_coordinates(
+    ods: ODS,
+    processed_time: np.ndarray,
+    *,
+    tstart: float,
+    tend: float,
+    dt: float,
+) -> dict[str, Any]:
+    """Validate realized diagnostic coordinates and return manifest metadata."""
+    processed_time = np.asarray(processed_time, dtype=float)
+    present_ids = set(ods.keys())
+    if processed_time.size > 1 and np.any(np.diff(processed_time) <= 0.0):
+        raise ValueError("Canonical diagnostics time must be strictly monotonic")
+
+    canonical_paths = (
+        "pf_active.time",
+        "spectrometer_uv.time",
+        "tf.time",
+        "magnetics.time",
+        "barometry.gauge.0.pressure.time",
+    )
+    for path in canonical_paths:
+        if path.split(".", 1)[0] not in present_ids:
+            continue
+        if path_exists(ods, path):
+            actual = np.asarray(get_path(ods, path), dtype=float).reshape(-1)
+            if not _time_equal(actual, processed_time):
+                raise ValueError(f"{path} does not use the canonical diagnostics grid")
+
+    for time_path, signal_data_path in (
+        ("pf_active.coil.0.current.time", "pf_active.coil.0.current.data"),
+        ("tf.b_field_tor_vacuum_r.time", "tf.b_field_tor_vacuum_r.data"),
+        ("tf.coil.0.current.time", "tf.coil.0.current.data"),
+        ("magnetics.ip.0.time", "magnetics.ip.0.data"),
+        ("magnetics.diamagnetic_flux.0.time", "magnetics.diamagnetic_flux.0.data"),
+        ("barometry.gauge.0.pressure.time", "barometry.gauge.0.pressure.data"),
+    ):
+        if time_path.split(".", 1)[0] not in present_ids:
+            continue
+        _validate_time_data_pair(ods, time_path, signal_data_path)
+
+    if "pf_active" in present_ids:
+        for index in range(len(ods["pf_active.coil"])):
+            _validate_time_data_pair(
+                ods,
+                f"pf_active.coil.{index}.current.time",
+                f"pf_active.coil.{index}.current.data",
+            )
+    if "magnetics" in present_ids:
+        for index in range(len(ods["magnetics.flux_loop"])):
+            base = f"magnetics.flux_loop.{index}.flux"
+            _validate_time_data_pair(ods, f"{base}.time", f"{base}.data")
+            _validate_data_on_grid(ods, f"{base}.data", processed_time)
+            if (
+                path_exists(ods, f"{base}.data")
+                and np.asarray(get_path(ods, f"{base}.data")).size > 0
+                and path_exists(ods, f"{base}.time")
+                and not _time_equal(
+                np.asarray(get_path(ods, f"{base}.time"), dtype=float).reshape(-1),
+                processed_time,
+                )
+            ):
+                raise ValueError(f"{base}.time does not use the canonical diagnostics grid")
+        for index in range(len(ods["magnetics.b_field_pol_probe"])):
+            base = f"magnetics.b_field_pol_probe.{index}.field"
+            _validate_time_data_pair(ods, f"{base}.time", f"{base}.data")
+            _validate_data_on_grid(ods, f"{base}.data", processed_time)
+            if (
+                path_exists(ods, f"{base}.data")
+                and np.asarray(get_path(ods, f"{base}.data")).size > 0
+                and path_exists(ods, f"{base}.time")
+                and not _time_equal(
+                np.asarray(get_path(ods, f"{base}.time"), dtype=float).reshape(-1),
+                processed_time,
+                )
+            ):
+                raise ValueError(f"{base}.time does not use the canonical diagnostics grid")
+
+    native_paths: list[str] = []
+    native_time_metadata: list[dict[str, Any]] = []
+    if "magnetics" in present_ids:
+        root_time = np.asarray(get_path(ods, "magnetics.time"), dtype=float).reshape(-1)
+        for index in range(len(ods["magnetics.b_field_pol_probe"])):
+            base = f"magnetics.b_field_pol_probe.{index}.voltage"
+            time_path, data_path = f"{base}.time", f"{base}.data"
+            _validate_time_data_pair(ods, time_path, data_path)
+            if not path_exists(ods, time_path):
+                continue
+            voltage_time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
+            if voltage_time.size == 0:
+                continue
+            if np.any(voltage_time < tstart) or np.any(voltage_time >= tend):
+                raise ValueError(f"{time_path} is outside the diagnostics analysis window")
+            if not _time_equal(voltage_time, root_time):
+                native_paths.append(time_path)
+                native_dt = (
+                    float(np.median(np.diff(voltage_time)))
+                    if voltage_time.size > 1
+                    else None
+                )
+                native_time_metadata.append(
+                    {
+                        "path": time_path,
+                        "sample_count": int(voltage_time.size),
+                        "dt": native_dt,
+                        "sampling_rate": 1.0 / native_dt if native_dt else None,
+                    }
+                )
+        for index in range(len(ods["magnetics.shunt"])):
+            base = f"magnetics.shunt.{index}.voltage"
+            time_path, data_path = f"{base}.time", f"{base}.data"
+            _validate_time_data_pair(ods, time_path, data_path)
+            if path_exists(ods, time_path):
+                shunt_time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
+                if shunt_time.size and not _time_equal(shunt_time, root_time):
+                    native_paths.append(time_path)
+        # IMAS defines homogeneous mode as one root-level coordinate for every
+        # dynamic quantity. Native Mirnov coordinates therefore require mode 0.
+        ods["magnetics.ids_properties.homogeneous_time"] = 0 if native_paths else 1
+
+    realized_dt = float(np.median(np.diff(processed_time))) if processed_time.size > 1 else None
+    if realized_dt is not None and not np.isclose(realized_dt, dt, rtol=0.0, atol=1e-12):
+        raise ValueError("Canonical diagnostics time does not realize the configured dt")
+    return {
+        "requested_start": float(tstart),
+        "requested_end": float(tend),
+        "requested_dt": float(dt),
+        "processed_start": float(processed_time[0]),
+        "processed_end_exclusive": float(processed_time[0] + processed_time.size * (realized_dt or 0.0)),
+        "processed_sample_count": int(processed_time.size),
+        "realized_dt": realized_dt,
+        "processed_time_clipped": False,
+        "source_clipping": False,
+        "magnetics_homogeneous_time": int(ods["magnetics.ids_properties.homogeneous_time"])
+        if "magnetics" in present_ids
+        else None,
+        "native_time_paths": native_paths,
+        "native_mirnov": native_time_metadata,
+    }
+
+
 def build_diagnostics_ods(
     *,
     shot: int,
@@ -247,6 +440,7 @@ def build_diagnostics_ods(
         raise FileNotFoundError(f"Static ODS not found: {static_path}")
 
     shot = int(shot)
+    processed_time = _canonical_diagnostics_time(tstart, tend, dt)
     era = machine_era_for_shot(shot)
     static, _ = load_ods(static_path)
     ods = ODS(consistency_check=False)
@@ -293,7 +487,8 @@ def build_diagnostics_ods(
         lambda component: (
             _copy_ids(component, static, ("pf_active",)),
             vfit_pf_active_dynamic(
-                component, shot, tstart, tend, dt, raw_source=raw_path
+                component, shot, tstart, tend, dt, raw_source=raw_path,
+                target_time=processed_time,
             ),
         ),
         disabled_channels=_disabled_pf_coils(),
@@ -302,14 +497,16 @@ def build_diagnostics_ods(
         "spectrometer_uv",
         ("spectrometer_uv",),
         lambda component: spectrometer_uv(
-            component, shot, tstart, tend, dt, raw_source=raw_path
+            component, shot, tstart, tend, dt, raw_source=raw_path,
+            target_time=processed_time,
         ),
     )
     run_component(
         "barometry",
         ("barometry",),
         lambda component: barometry(
-            component, shot, tstart, tend, dt, raw_source=raw_path
+            component, shot, tstart, tend, dt, raw_source=raw_path,
+            target_time=processed_time,
         ),
     )
     run_component(
@@ -318,7 +515,8 @@ def build_diagnostics_ods(
         lambda component: (
             _copy_ids(component, static, ("tf",)),
             vfit_tf_dynamic(
-                component, shot, tstart, tend, dt, raw_source=raw_path
+                component, shot, tstart, tend, dt, raw_source=raw_path,
+                target_time=processed_time,
             ),
         ),
     )
@@ -328,8 +526,14 @@ def build_diagnostics_ods(
         else None
     )
     magnetics_channels = [
-        int(channel["field_code"]) for channel in vest_md_channel_definitions()
-    ] + [int(channel["field_code"]) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS]
+        int(channel["field_code"]) for channel in vest_equilibrium_magnetics_channel_definitions()
+    ] + [int(channel["field_code"]) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS] + [
+        int(channel["field_code"]) for channel in LIMITER_SHUNT_CHANNELS
+    ]
+    if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        magnetics_channels += [
+            int(channel["field"]) for channel in fluctuation_mirnov_channel_definitions()
+        ]
     missing_magnetics_channels = sorted(
         field for field in magnetics_channels if field not in archived_fields
     )
@@ -346,6 +550,7 @@ def build_diagnostics_ods(
                 dt,
                 processing_config=processing,
                 raw_source=raw_path,
+                target_time=processed_time,
             ),
         ),
         processing="VestMagneticsProcessingConfig",
@@ -405,6 +610,9 @@ def build_diagnostics_ods(
             "missing_channels": missing_impa_channels,
         }
 
+    time_grid = _validate_diagnostics_time_coordinates(
+        ods, processed_time, tstart=tstart, tend=tend, dt=dt
+    )
     successes = sum(value["status"] == "success" for value in statuses.values())
     unavailable = sorted(
         name for name, value in statuses.items() if value["status"] == "unavailable"
@@ -431,6 +639,7 @@ def build_diagnostics_ods(
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
         },
+        "time_grid": time_grid,
         "channel_status": statuses,
         "quality_summary": {
             "missing": sorted(unavailable + missing_channels),
@@ -509,7 +718,8 @@ def build_mhd_linear_ods(
     *,
     shot: int,
     time_values: Sequence[int | str],
-    workdir: str | Path,
+    workdir: str | Path | None = None,
+    module_workdirs: Mapping[tuple[str, int], str | Path] | None = None,
     modules: Sequence[str] = ("dcon", "rdcon", "stride"),
     modes: Sequence[int] = (1, 2),
     run: int = 1,
@@ -554,12 +764,22 @@ def build_mhd_linear_ods(
 
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}
-    workdir_path = Path(workdir)
+    if workdir is None and not module_workdirs:
+        raise ValueError("workdir or module_workdirs is required")
+    workdir_path = Path(workdir) if workdir is not None else None
     for time_slice, time_ms in enumerate(time_values):
         for module in modules:
             for mode in modes:
                 key = f"t={time_ms}/{module}/n={mode}"
-                run_dir = gpec_runtime.module_dir(workdir_path, time_ms, module, mode)
+                cell_root = (
+                    Path(module_workdirs[(module, mode)])
+                    if module_workdirs and (module, mode) in module_workdirs
+                    else workdir_path
+                )
+                if cell_root is None:
+                    modules_modes[key] = {"status": "missing", "reason": "no work directory registered"}
+                    continue
+                run_dir = gpec_runtime.module_dir(cell_root, time_ms, module, mode)
                 if not run_dir.is_dir():
                     modules_modes[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
                     continue
@@ -612,7 +832,11 @@ def write_stage_product(
 
 
 def archive_raw_source(
-    *, shot: int, output: str | Path, source: str | Path | None = None
+    *,
+    shot: int,
+    output: str | Path,
+    source: str | Path | None = None,
+    max_retries: int = 3,
 ) -> dict[str, Any]:
     """Copy an explicit archive or export one shot from live SQL."""
     output_path = Path(output)
@@ -656,7 +880,12 @@ def archive_raw_source(
                 temporary_dump = Path(handle.name)
             dump_path = temporary_dump
         try:
-            if not raw_db.dump_all_raw_signals_for_shot(int(shot), str(dump_path)):
+            retry_options = (
+                {} if int(max_retries) == 3 else {"max_retries": int(max_retries)}
+            )
+            if not raw_db.dump_all_raw_signals_for_shot(
+                int(shot), str(dump_path), **retry_options
+            ):
                 raise RuntimeError(f"Failed to export VEST raw data for shot {shot}")
             with gzip.open(dump_path, "rt", encoding="utf-8") as handle:
                 source_payload = json.load(handle)

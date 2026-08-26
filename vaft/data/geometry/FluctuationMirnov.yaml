@@ -1,0 +1,289 @@
+description: >
+  VEST outboard Mirnov fluctuation-array metadata (issue #155). 30 raw-voltage
+  channels at three toroidal locations (45/135/225 deg), two vertical
+  sub-arrays each (L1, L2) of five probes. These probes became physically
+  operational starting shot 44156; entries are only mapped for shots at or
+  after that boundary (see FLUCTUATION_MIRNOV_FIRST_SHOT in magnetics.py).
+  Field 301 carries a DB label typo (OutMirno_225_L2-01, missing the "v");
+  raw_label preserves that typo for provenance while identifier is
+  normalized. Field 289's gain is estimated, not directly transcribed from a
+  calibration sheet (see calibration_provenance below). Order here is the
+  canonical physical order (toroidal group, then L1/L2, then z descending)
+  and intentionally does not follow raw DB field numbering.
+channels:
+  # 45 degrees
+  - field: 286
+    raw_label: "OutMirnov_45_L1-01"
+    identifier: "OutMirnov_45_L1-01"
+    toroidal_angle_deg: 45
+    z: 0.4
+    gain: -0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 304
+    raw_label: "OutMirnov_45_L1-02"
+    identifier: "OutMirnov_45_L1-02"
+    toroidal_angle_deg: 45
+    z: 0.2
+    gain: 0.000925
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 287
+    raw_label: "OutMirnov_45_L1-03"
+    identifier: "OutMirnov_45_L1-03"
+    toroidal_angle_deg: 45
+    z: 0.0
+    gain: 0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 305
+    raw_label: "OutMirnov_45_L1-04"
+    identifier: "OutMirnov_45_L1-04"
+    toroidal_angle_deg: 45
+    z: -0.2
+    gain: 0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 288
+    raw_label: "OutMirnov_45_L1-05"
+    identifier: "OutMirnov_45_L1-05"
+    toroidal_angle_deg: 45
+    z: -0.4
+    gain: 0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 289
+    raw_label: "OutMirnov_45_L2-01"
+    identifier: "OutMirnov_45_L2-01"
+    toroidal_angle_deg: 45
+    z: 0.4
+    gain: 0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+    calibration_provenance: estimated
+  - field: 306
+    raw_label: "OutMirnov_45_L2-02"
+    identifier: "OutMirnov_45_L2-02"
+    toroidal_angle_deg: 45
+    z: 0.2
+    gain: 0.00265
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 290
+    raw_label: "OutMirnov_45_L2-03"
+    identifier: "OutMirnov_45_L2-03"
+    toroidal_angle_deg: 45
+    z: 0.0
+    gain: 0.00275
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 307
+    raw_label: "OutMirnov_45_L2-04"
+    identifier: "OutMirnov_45_L2-04"
+    toroidal_angle_deg: 45
+    z: -0.2
+    gain: 0.0029
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 291
+    raw_label: "OutMirnov_45_L2-05"
+    identifier: "OutMirnov_45_L2-05"
+    toroidal_angle_deg: 45
+    z: -0.4
+    gain: 0.00275
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+
+  # 135 degrees
+  - field: 292
+    raw_label: "OutMirnov_135_L1-01"
+    identifier: "OutMirnov_135_L1-01"
+    toroidal_angle_deg: 135
+    z: 0.4
+    gain: 0.00096
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 308
+    raw_label: "OutMirnov_135_L1-02"
+    identifier: "OutMirnov_135_L1-02"
+    toroidal_angle_deg: 135
+    z: 0.2
+    gain: 0.00096
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 293
+    raw_label: "OutMirnov_135_L1-03"
+    identifier: "OutMirnov_135_L1-03"
+    toroidal_angle_deg: 135
+    z: 0.0
+    gain: 0.0012
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 309
+    raw_label: "OutMirnov_135_L1-04"
+    identifier: "OutMirnov_135_L1-04"
+    toroidal_angle_deg: 135
+    z: -0.2
+    gain: 0.001025
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 294
+    raw_label: "OutMirnov_135_L1-05"
+    identifier: "OutMirnov_135_L1-05"
+    toroidal_angle_deg: 135
+    z: -0.4
+    gain: 0.001
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 295
+    raw_label: "OutMirnov_135_L2-01"
+    identifier: "OutMirnov_135_L2-01"
+    toroidal_angle_deg: 135
+    z: 0.4
+    gain: 0.0024
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 310
+    raw_label: "OutMirnov_135_L2-02"
+    identifier: "OutMirnov_135_L2-02"
+    toroidal_angle_deg: 135
+    z: 0.2
+    gain: -0.0026
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 296
+    raw_label: "OutMirnov_135_L2-03"
+    identifier: "OutMirnov_135_L2-03"
+    toroidal_angle_deg: 135
+    z: 0.0
+    gain: -0.0025
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 311
+    raw_label: "OutMirnov_135_L2-04"
+    identifier: "OutMirnov_135_L2-04"
+    toroidal_angle_deg: 135
+    z: -0.2
+    gain: -0.0025
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 297
+    raw_label: "OutMirnov_135_L2-05"
+    identifier: "OutMirnov_135_L2-05"
+    toroidal_angle_deg: 135
+    z: -0.4
+    gain: -0.0023
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+
+  # 225 degrees
+  - field: 298
+    raw_label: "OutMirnov_225_L1-01"
+    identifier: "OutMirnov_225_L1-01"
+    toroidal_angle_deg: 225
+    z: 0.4
+    gain: 0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 312
+    raw_label: "OutMirnov_225_L1-02"
+    identifier: "OutMirnov_225_L1-02"
+    toroidal_angle_deg: 225
+    z: 0.2
+    gain: -0.00105
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 299
+    raw_label: "OutMirnov_225_L1-03"
+    identifier: "OutMirnov_225_L1-03"
+    toroidal_angle_deg: 225
+    z: 0.0
+    gain: -0.0008
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 313
+    raw_label: "OutMirnov_225_L1-04"
+    identifier: "OutMirnov_225_L1-04"
+    toroidal_angle_deg: 225
+    z: -0.2
+    gain: -0.0009
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 300
+    raw_label: "OutMirnov_225_L1-05"
+    identifier: "OutMirnov_225_L1-05"
+    toroidal_angle_deg: 225
+    z: -0.4
+    gain: 0.00095
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 301
+    raw_label: "OutMirno_225_L2-01"
+    identifier: "OutMirnov_225_L2-01"
+    toroidal_angle_deg: 225
+    z: 0.4
+    gain: 0.00275
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 314
+    raw_label: "OutMirnov_225_L2-02"
+    identifier: "OutMirnov_225_L2-02"
+    toroidal_angle_deg: 225
+    z: 0.2
+    gain: 0.0024
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 302
+    raw_label: "OutMirnov_225_L2-03"
+    identifier: "OutMirnov_225_L2-03"
+    toroidal_angle_deg: 225
+    z: 0.0
+    gain: -0.00225
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 315
+    raw_label: "OutMirnov_225_L2-04"
+    identifier: "OutMirnov_225_L2-04"
+    toroidal_angle_deg: 225
+    z: -0.2
+    gain: 0.0024
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true
+  - field: 303
+    raw_label: "OutMirnov_225_L2-05"
+    identifier: "OutMirnov_225_L2-05"
+    toroidal_angle_deg: 225
+    z: -0.4
+    gain: 0.00245
+    unit: V
+    role: fluctuation
+    preserve_native_voltage: true

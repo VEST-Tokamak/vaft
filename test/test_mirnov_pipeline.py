@@ -31,7 +31,10 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     voltage_time = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.0.voltage.time"))
     voltage_data = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.0.voltage.data"))
 
-    assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 68
+    # Shot 44740 is >= FLUCTUATION_MIRNOV_FIRST_SHOT, so the 30-channel
+    # outboard fluctuation array (issue #155) is appended after the existing
+    # 68 equilibrium/toroidal-reference probes.
+    assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 98
     assert field_data.size == mapped_time.size
     assert voltage_time.size == 25_000
     assert voltage_data.size == voltage_time.size
@@ -44,6 +47,43 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.64.voltage.data")).size == 0
     assert get_path(payload, "magnetics.b_field_pol_probe.64.voltage.validity") == -2
     assert not path_exists(payload, "magnetics.b_field_pol_probe.67.field.data")
+
+    # First fluctuation-Mirnov entry (45 deg, L1-01, field 286).
+    assert get_path(payload, "magnetics.b_field_pol_probe.68.identifier") == "OutMirnov_45_L1-01"
+    assert get_path(payload, "magnetics.b_field_pol_probe.68.position.z") == 0.4
+    assert np.isclose(get_path(payload, "magnetics.b_field_pol_probe.68.toroidal_angle"), np.radians(45))
+    assert not path_exists(payload, "magnetics.b_field_pol_probe.68.field.data")
+    # Last fluctuation-Mirnov entry (225 deg, L2-05, field 303).
+    assert get_path(payload, "magnetics.b_field_pol_probe.97.identifier") == "OutMirnov_225_L2-05"
+    assert get_path(payload, "magnetics.b_field_pol_probe.97.position.z") == -0.4
+
+
+def test_fluctuation_mirnov_omitted_before_first_operational_shot():
+    from unittest.mock import patch
+
+    from vaft.machine_mapping.magnetics import vfit_magnetics_static
+
+    def _fake_equilibrium_magnetics(*args, **kwargs):
+        del args, kwargs
+        time = np.array([0.26, 0.31, 0.36])
+        return time, [np.array([1.0, 2.0, 3.0])], [np.array([4.0, 5.0, 6.0])]
+
+    payload = {}
+    vfit_magnetics_static(payload)
+    with (
+        patch(
+            "vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics",
+            side_effect=_fake_equilibrium_magnetics,
+        ),
+        patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None),
+        patch("vaft.machine_mapping.magnetics.vfit_plasma_current", return_value=(np.array([0.26, 0.31, 0.36]), np.zeros(3))),
+        patch("vaft.machine_mapping.magnetics._map_diamagnetic_flux"),
+    ):
+        from vaft.machine_mapping.magnetics import vfit_magnetics_dynamic
+
+        vfit_magnetics_dynamic(payload, 44155, 0.26, 0.36, 0.01)
+
+    assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 68
 
 
 def test_mirnov_spectrogram_recovers_peak_frequency():

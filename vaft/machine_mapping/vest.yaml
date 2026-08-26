@@ -651,6 +651,153 @@
         max_normalized_rmse: 0.15
         pitch_tolerance: 0.015
 
+  # Canonical raw-field-first diagnostic definitions.  Existing keys above
+  # remain for compatibility with legacy mapping readers.
+  diagnostics:
+    plasma_current:
+      source:
+        field: 109
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: linear
+        operation: divide
+        factor: 2.0e-5
+        output_unit: A
+      processing:
+        reference:
+          field: 25
+          flux_gain: 11.0
+          mutual_inductance: 2.8e-4
+          revisions:
+            - from_shot: 17455
+              mutual_inductance: 5.0e-4
+        baseline:
+          analysis_start: 6000
+          analysis_end: 8500
+          lookback: 500
+          revisions:
+            - from_shot: 41446
+              to_shot: 41451
+              analysis_start: 7250
+              analysis_end: 8750
+            - from_shot: 41660
+              analysis_start: 7250
+              analysis_end: 8750
+        sign:
+          multiply: 1.0
+          revisions:
+            - from_shot: 20259
+              multiply: -1.0
+        reference_comparison:
+          sample_rate: 25000.0
+          cutoff_frequency: 2500.0
+          taps: 26
+          baseline_index: 7499
+      revisions:
+        - from_shot: 42851
+          calibration:
+            factor: 1.0e-5
+
+    barometry_main:
+      source:
+        field: 12
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: exponential_pressure
+        scale: 2.4
+        slope: 1.667
+        offset: -11.46
+        base: 10.0
+        output_unit: Torr
+      processing:
+        median_kernel: 101
+        unit_conversion:
+          factor: 133.3223684211
+          output_unit: Pa
+
+    tf:
+      source:
+        field: 1
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: linear
+        operation: multiply
+        factor: -3.0e4
+        output_unit: A
+      processing:
+        sample_rate: 25000.0
+        cutoff_frequency: 2500.0
+        taps: 26
+        baseline_samples: 1000
+        smoothing_window: 50
+      output:
+        turns: 24
+        reference_radius: 0.4
+
+    pf_active:
+      processing:
+        baseline_samples: 5000
+        filter:
+          sample_rate: 25000.0
+          cutoff_frequency: 2500.0
+          taps: 251
+          smoothing_window: 10
+        coil_gains:
+          0: 1.0e4
+          1: 1.0e3
+          4: 1.0e4
+          5: 1.0e3
+          8: -1.0e3
+          9: -1.0e3
+      revisions:
+        - from_shot: 19287
+          to_shot: 20258
+          processing:
+            coil_gains: {8: -5.0e2, 9: -5.0e2}
+        - from_shot: 20259
+          to_shot: 38109
+          processing:
+            coil_gains: {0: -5.0e4, 8: -5.0e2, 9: -5.0e2}
+        - from_shot: 38110
+          to_shot: 38360
+          processing:
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+        - from_shot: 38361
+          to_shot: 38400
+          processing:
+            coil_gains: {0: 5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+        - from_shot: 38401
+          to_shot: 45964
+          processing:
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+        - from_shot: 45965
+          processing:
+            coil_gains: {0: -1.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+
+  # Legacy vest_conversion.m inventory. These records are provenance only;
+  # they do not enable or fetch a diagnostic by themselves.
+  legacy_conversions:
+    plasma_current: {source_field: 109, legacy_field: 102, quantity: plasma_current, raw_unit: V, output_unit: A, calibration: {type: linear, operation: divide, factor: 2.0e-5}}
+    ech_6kw_forward: {source_field: 27, legacy_field: 103, quantity: 6kW_ECH_forward_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_6kw_reverse: {source_field: 28, legacy_field: 104, quantity: 6kW_ECH_reverse_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    barometry_main: {source_field: 12, legacy_field: 13, quantity: main_chamber_pressure, raw_unit: V, output_unit: Torr, calibration: {type: exponential_pressure, scale: 2.4, slope: 1.667, offset: -11.46, base: 10.0}}
+    barometry_mcp: {source_field: 219, legacy_field: 220, quantity: mcp_chamber_pressure, raw_unit: V, output_unit: Torr, calibration: {type: exponential_pressure, scale: 2.4, slope: 1.667, offset: -11.46, base: 10.0}}
+    ech_diag_1_forward: {source_field: 159, legacy_field: 164, quantity: ECH_power_diagnostic_1_forward, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_diag_1_reverse: {source_field: 160, legacy_field: 165, quantity: ECH_power_diagnostic_1_reverse, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_diag_2_forward: {source_field: 161, legacy_field: 166, quantity: ECH_power_diagnostic_2_forward, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_diag_2_reverse: {source_field: 162, legacy_field: 167, quantity: ECH_power_diagnostic_2_reverse, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    klystron_7875_oscillator: {source_field: 96, legacy_field: 249, quantity: 7.875GHz_klystron_oscillator_output_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.0, slope: -0.2342523835180023, exponent_offset: 5.0144, base: 10.0}}
+    klystron_7875_forward: {source_field: 97, legacy_field: 250, quantity: 7.875GHz_klystron_forward_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.0, slope: -0.2342523835180023, exponent_offset: 7.7180, base: 10.0}}
+    klystron_7875_reflected: {source_field: 98, legacy_field: 251, quantity: 7.875GHz_klystron_reflected_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.0, slope: -0.2342523835180023, exponent_offset: 7.7144, base: 10.0}}
+    ech_10kw_forward_1: {source_field: 228, legacy_field: 232, quantity: 10kW_ECH_forward_power_1, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+    ech_10kw_reverse_1: {source_field: 230, legacy_field: 234, quantity: 10kW_ECH_reverse_power_1, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+    ech_10kw_forward_2: {source_field: 229, legacy_field: 233, quantity: 10kW_ECH_forward_power_2, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+    ech_10kw_reverse_2: {source_field: 231, legacy_field: 235, quantity: 10kW_ECH_reverse_power_2, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+
+
   pf_active:
     ids_properties: 0
     comment: "VEST PF active coilset data"

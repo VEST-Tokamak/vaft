@@ -12,6 +12,8 @@ from omas import ODS
 
 from vaft.omas import save as save_ods
 from vaft.omas.vest_upstream import (
+    _canonical_diagnostics_time,
+    _validate_diagnostics_time_coordinates,
     archive_raw_source,
     build_diagnostics_ods,
     build_eddy_ods,
@@ -21,7 +23,7 @@ from vaft.omas.vest_upstream import (
     write_stage_product,
 )
 from vaft.machine_mapping.pf_active import vfit_pf
-from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_md_signals
+from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibrium_magnetics_signals
 
 
 @pytest.mark.parametrize(
@@ -37,6 +39,31 @@ from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_md_signal
 )
 def test_machine_era_boundaries_are_explicit(shot, expected):
     assert machine_era_for_shot(shot).name == expected
+
+
+def test_default_diagnostics_grid_is_half_open_and_25_khz():
+    time = _canonical_diagnostics_time(0.26, 0.36, 4e-5)
+
+    assert time.size == 2_500
+    assert time[0] == pytest.approx(0.26)
+    assert time[-1] < 0.36
+    np.testing.assert_allclose(np.diff(time), 4e-5)
+
+
+def test_native_mirnov_coordinate_marks_magnetics_heterogeneous():
+    processed_time = _canonical_diagnostics_time(0.26, 0.36, 4e-5)
+    native_time = np.arange(0.26, 0.36, 4e-6)
+    ods = ODS(consistency_check=False)
+    ods["magnetics.time"] = processed_time
+    ods["magnetics.b_field_pol_probe.0.voltage.time"] = native_time
+    ods["magnetics.b_field_pol_probe.0.voltage.data"] = np.ones(native_time.size)
+
+    metadata = _validate_diagnostics_time_coordinates(
+        ods, processed_time, tstart=0.26, tend=0.36, dt=4e-5
+    )
+
+    assert ods["magnetics.ids_properties.homogeneous_time"] == 0
+    assert metadata["native_mirnov"][0]["sampling_rate"] == pytest.approx(250_000.0)
 
 
 def test_static_product_is_not_a_reference_shot_container():
@@ -122,7 +149,7 @@ def _write_raw_dump(path, shot, fields, pulse_datetime=None):
 def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     shot = 43017
     raw = tmp_path / "raw.json.gz"
-    _write_raw_dump(raw, shot, {13: np.linspace(1.0, 2.0, 200).tolist()})
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
     static_path = tmp_path / "static.json.gz"
     static_manifest = tmp_path / "static-manifest.json"
     static, manifest = build_static_ods(machine_era_for_shot(shot).name)
@@ -152,6 +179,14 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert diagnostics_manifest["channel_status"]["impa"]["missing_channels"] == [
         114, 115, 116, 117, 118, 119, 120, 121
     ]
+    assert {216, 217, 218}.issubset(
+        diagnostics_manifest["channel_status"]["magnetics"]["missing_channels"]
+    )
+    assert {
+        "magnetics:field-216",
+        "magnetics:field-217",
+        "magnetics:field-218",
+    }.issubset(diagnostics_manifest["quality_summary"]["missing"])
     assert "barometry" in ods
     assert "tf" not in ods
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
@@ -225,7 +260,7 @@ def test_barometry_time_is_heterogeneous_not_homogeneous(tmp_path):
     """
     shot = 43017
     raw = tmp_path / "raw.json.gz"
-    _write_raw_dump(raw, shot, {13: np.linspace(1.0, 2.0, 200).tolist()})
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
     static_path = tmp_path / "static.json.gz"
     static, manifest = build_static_ods(machine_era_for_shot(shot).name)
     write_stage_product(
@@ -521,6 +556,25 @@ def test_build_mhd_linear_ods_covers_multiple_refined_time_slices(tmp_path):
     assert manifest["modules_modes"]["t=00320/dcon/n=1"]["status"] == "success"
 
 
+def test_build_mhd_linear_ods_reads_separate_canonical_module_work_trees(tmp_path):
+    dcon_workdir = tmp_path / "gpec" / "dcon" / "39915" / "n=1" / "work"
+    rdcon_workdir = tmp_path / "gpec" / "rdcon" / "39915" / "n=1" / "work"
+    _write_gpec_output(dcon_workdir, "dcon", 1, w_t=-0.42)
+    _write_gpec_output(rdcon_workdir, "rdcon", 1, delta_prime=1.23)
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00319"],
+        module_workdirs={("dcon", 1): dcon_workdir, ("rdcon", 1): rdcon_workdir},
+        modules=("dcon", "rdcon"),
+        modes=(1,),
+    )
+
+    assert len(ods["mhd_linear"]["time_slice"][0]["toroidal_mode"]) == 2
+    assert manifest["modules_modes"]["t=00319/dcon/n=1"]["status"] == "success"
+    assert manifest["modules_modes"]["t=00319/rdcon/n=1"]["status"] == "success"
+
+
 def test_build_mhd_linear_ods_does_not_construct_a_gpec_case_inputs(tmp_path, monkeypatch):
     """`build_mhd_linear_ods` used to fabricate a `GPECCaseInputs` with a fake
     `geqdsk=Path("unused")` just to call `module_dir`. It must resolve run
@@ -573,7 +627,7 @@ def test_missing_md_channel_keeps_later_channel_in_its_ordered_slot():
         {"field_code": 2, "kind": "b_field_pol_probe", "calibration": 1.0},
     ]
 
-    _target_time, _flux, probes = vest_md_signals(
+    _target_time, _flux, probes = vest_equilibrium_magnetics_signals(
         39915,
         channels,
         lambda _shot, field: None if field == 1 else (time, waveform),
