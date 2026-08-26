@@ -37,6 +37,7 @@ class FileDBDomain(str, Enum):
     EFIT = "efit"
     CHEASE = "chease"
     GPEC = "gpec"
+    PIPELINE = "pipeline"
 
 
 class OMASStage(str, Enum):
@@ -45,6 +46,7 @@ class OMASStage(str, Enum):
     EDDY = "eddy"
     EFIT = "efit"
     CHEASE = "chease"
+    MHD_LINEAR = "mhd_linear"
 
 
 class GPECCode(str, Enum):
@@ -280,6 +282,13 @@ class FileDB:
             _absent(mode, "mode", domain_value)
             path = self.root / domain_value / str(_positive_integer(shot, "shot"))
 
+        elif domain_value == FileDBDomain.PIPELINE.value:
+            _absent(shot, "shot", domain_value)
+            _absent(machine_version, "machine_version", domain_value)
+            _absent(code, "code", domain_value)
+            _absent(mode, "mode", domain_value)
+            path = self.root / domain_value / _component(subdomain, "pipeline product")
+
         else:
             _absent(subdomain, "subdomain", domain_value)
             _absent(machine_version, "machine_version", domain_value)
@@ -345,6 +354,9 @@ class FileDB:
         artifact: str | ArtifactClass | None = None,
     ) -> Path:
         return self.resolve("gpec", code=code, shot=shot, mode=mode, artifact=artifact)
+
+    def pipeline(self, product: str, *, artifact: str | ArtifactClass | None = None) -> Path:
+        return self.resolve("pipeline", subdomain=product, artifact=artifact)
 
     def resolve_legacy_readonly(
         self,

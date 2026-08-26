@@ -61,6 +61,9 @@ _LOG_OWNER = {
     "generate_efit_ods": ("omas", "efit"),
     "run_chease": ("chease", None),
     "generate_chease_ods": ("omas", "chease"),
+    "generate_efit_verification_plot": ("efit", None),
+    "run_gpec_suite": ("omas", "mhd_linear"),
+    "build_mhd_linear": ("omas", "mhd_linear"),
 }
 
 
@@ -201,7 +204,7 @@ class PipelinePaths:
             return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "run.json")
         return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="output") / "run.json")
 
-    def gpec_workdir(self, shot) -> str:
+    def gpec_workdir(self, shot, code: str | None = None, mode: int | None = None) -> str:
         """Root of the on-disk GPEC-suite run tree for one shot.
 
         `vaft.code.gpec` lays every module out under one shared root as
@@ -214,7 +217,11 @@ class PipelinePaths:
         status/manifest bookkeeping records (`gpec_module_status`/
         `gpec_module_manifest` above) use FileDB under `filedb`.
         """
-        return str(self._shot_dir(shot, "linear_stability"))
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability"))
+        if code is None or mode is None:
+            raise ValueError("FileDB GPEC workdir requires code and mode")
+        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="work"))
 
     def mhd_linear_ods(self, shot) -> str:
         # No FileDB `OMASStage` member exists yet for mhd_linear (only
@@ -222,10 +229,14 @@ class PipelinePaths:
         # schema change this phase does not attempt, so this per-shot product
         # (folding every configured (code, mode) cell together) stays
         # shot-first in both layouts, like `gpec_workdir` above.
-        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+        return str(self._omas("mhd_linear", shot, "output") / "mhd_linear.json")
 
     def mhd_linear_manifest(self, shot) -> str:
-        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json")
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json")
+        return str(self._omas("mhd_linear", shot, "metadata") / "manifest.json")
 
     # -- batch-level and per-shot ancillary ---------------------------------
     def log(self, shot, name: str) -> str:
@@ -238,7 +249,7 @@ class PipelinePaths:
             return str(self._shot_dir(shot, "logs") / f"{name}.log")
         owner = _LOG_OWNER.get(name)
         if owner is None:
-            return str(self._shot_dir(shot, "logs") / f"{name}.log")
+            raise ValueError(f"No FileDB log owner registered for {name!r}")
         domain, stage = owner
         if domain == "omas":
             directory = self._omas(stage, shot, "log")
@@ -257,10 +268,14 @@ class PipelinePaths:
         return str(directory / f"{name}.log")
 
     def preflight_eligible(self) -> str:
-        return str(Path(self.base_dir) / "preflight" / "eligible_shots.json")
+        if self.layout == SHOT_FIRST:
+            return str(Path(self.base_dir) / "preflight" / "eligible_shots.json")
+        return str(self._filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json")
 
     def preflight_excluded(self) -> str:
-        return str(Path(self.base_dir) / "preflight" / "excluded_shots.json")
+        if self.layout == SHOT_FIRST:
+            return str(Path(self.base_dir) / "preflight" / "excluded_shots.json")
+        return str(self._filedb.pipeline("preflight", artifact="metadata") / "excluded_shots.json")
 
     # -- Snakemake wildcard patterns ----------------------------------------
     def shot_pattern(self, product: str, *args) -> str:

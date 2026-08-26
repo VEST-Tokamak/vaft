@@ -117,18 +117,11 @@ def test_version_pattern_produces_a_snakemake_wildcard(layout):
     assert MODULE._VERSION_SENTINEL not in pattern
 
 
-def test_gpec_workdir_and_mhd_linear_products_stay_shot_first_in_both_layouts():
-    """The on-disk GPEC-suite run tree (`{workdir}/{time}/{module}/nn={mode}`,
-    module *after* the shared root) and the folded-together mhd_linear product
-    it feeds have no FileDB grammar that fits their own layout -- FileDB's
-    GPEC grammar puts code *first* (`gpec/{code}/{shot}/n={n}/`) with no
-    single shared root across codes, and no `OMASStage` member exists yet for
-    mhd_linear. Both stay shot-first in both layouts rather than inventing
-    paths the resolver would reject."""
-    for layout in (MODULE.SHOT_FIRST, MODULE.FILEDB):
-        paths = MODULE.PipelinePaths(BASE_DIR, layout)
-        assert paths.gpec_workdir(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability"
-        assert paths.mhd_linear_ods(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
+def test_filedb_gpec_workdirs_and_mhd_linear_products_are_canonical():
+    filedb = FileDB(BASE_DIR)
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
+    assert paths.gpec_workdir(SHOT, "dcon", 1) == str(filedb.gpec("dcon", SHOT, 1, artifact="work"))
+    assert paths.mhd_linear_ods(SHOT) == str(filedb.omas("mhd_linear", shot=SHOT, artifact="output") / "mhd_linear.json")
 
 
 def test_gpec_module_paths_are_shot_first_literals():

@@ -29,6 +29,7 @@ __all__ = [
     "electromagnetics_time_current",
     "equilibrium_overview",
     "equilibrium_time_virial",
+    "interferometer_overview",
     "magnetics_overview",
     "magnetics_overview_impa",
     "render_panels",
@@ -269,4 +270,17 @@ def soft_x_rays_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Soft X-ray overview panels."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="interferometer", view="overview", quantity="channels",
+    description="Interferometer overview: line density history and spectrogram.",
+    ids=("interferometer",),
+    required_paths=("interferometer.channel.{i}.n_e_line.data",),
+)
+def interferometer_overview(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Interferometer overview panels."""
     return render_panels(model, ax=ax, show=show, **style)

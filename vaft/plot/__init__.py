@@ -222,6 +222,7 @@ from .renderers.lines import (
     equilibrium_time_w_mag,
     equilibrium_time_w_mhd,
     equilibrium_time_w_tot,
+    interferometer_time_n_e_line,
     magnetics_time_b_field_pol_probe_field,
     magnetics_time_diamagnetic_flux,
     magnetics_time_flux_loop_flux,
@@ -245,6 +246,7 @@ from .renderers.panels import (
     electromagnetics_time_current,
     equilibrium_overview,
     equilibrium_time_virial,
+    interferometer_overview,
     magnetics_overview,
     magnetics_overview_impa,
     soft_x_rays_overview,
@@ -272,6 +274,7 @@ from .renderers.profiles import (
     thomson_scattering_profile_electron_temperature,
 )
 from .renderers.spectrograms import (
+    interferometer_spectrogram,
     magnetics_spectrogram_mirnov,
     soft_x_rays_spectrogram,
 )
