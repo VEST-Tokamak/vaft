@@ -79,9 +79,11 @@ class ConstraintUncertaintyTests(unittest.TestCase):
         apply_default_constraint_uncertainties(payload)
 
         for probe_index, probe in enumerate(get_path(payload, "magnetics.b_field_pol_probe")):
-            if "field" not in probe:
-                # Fluctuation (Mirnov) probes intentionally carry only the raw
-                # voltage signal and receive no constraint uncertainty.
+            if "field" not in probe or np.asarray(probe["field"].get("data", []), dtype=float).size == 0:
+                # Fluctuation (Mirnov) and phase-reference probes intentionally
+                # carry only the raw voltage signal and receive no constraint
+                # uncertainty. Their processed field is either absent or an
+                # explicitly empty array, so there is nothing to scale.
                 self.assertIn("voltage", probe)
                 continue
             radial = float(probe["position"]["r"])

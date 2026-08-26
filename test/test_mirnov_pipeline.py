@@ -15,13 +15,21 @@ from vaft.process.magnetics import mirnov_spectrogram as compute_mirnov_spectrog
 from vaft.process.magnetics import toroidal_mode_analysis, toroidal_phase_fit_at_time
 
 
+TSTART = 0.26
+TEND = 0.34
+NATIVE_MIRNOV_DT = 4e-6  # 250 kHz raw Mirnov digitiser
+# Raw voltages are cropped to the analysis window but never resampled, so they
+# keep the native spacing rather than the 40 us processed grid.
+NATIVE_SAMPLES = round((TEND - TSTART) / NATIVE_MIRNOV_DT)
+
+
 def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     payload = {}
     vfit_magnetics_for_shot(
         payload,
         shot=44740,
-        tstart=0.26,
-        tend=0.34,
+        tstart=TSTART,
+        tend=TEND,
         dt=4e-5,
         raw_source="vaft/data/legacy/shot_{shot}.json.gz",
     )
@@ -33,17 +41,22 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
 
     assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 68
     assert field_data.size == mapped_time.size
-    assert voltage_time.size == 25_000
+    assert voltage_time.size == NATIVE_SAMPLES
     assert voltage_data.size == voltage_time.size
     assert voltage_time.size != mapped_time.size
 
     assert get_path(payload, "magnetics.b_field_pol_probe.67.type.index") == 2
     assert np.isclose(get_path(payload, "magnetics.b_field_pol_probe.67.toroidal_angle"), 4 * np.pi / 3)
-    assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.voltage.data")).size == 25_000
+    assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.voltage.data")).size == NATIVE_SAMPLES
     assert get_path(payload, "magnetics.b_field_pol_probe.67.voltage.validity") == 0
     assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.64.voltage.data")).size == 0
     assert get_path(payload, "magnetics.b_field_pol_probe.64.voltage.validity") == -2
-    assert not path_exists(payload, "magnetics.b_field_pol_probe.67.field.data")
+    # Phase-reference channels are diagnostics only and never become EFIT
+    # constraints, so their processed field is present but explicitly empty
+    # rather than absent -- an empty array keeps strict IMAS validation valid.
+    assert path_exists(payload, "magnetics.b_field_pol_probe.67.field.data")
+    assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.field.data")).size == 0
+    assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.field.time")).size == 0
 
 
 def test_mirnov_spectrogram_recovers_peak_frequency():

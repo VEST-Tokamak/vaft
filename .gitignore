@@ -25,3 +25,7 @@ workflow/**/*.log
 # Local tool and editor artifacts
 .claude/settings.local.json
 .cursor/*.log
+
+# Local VFIT MATLAB exports and scratch summary workbooks (large, not packaged)
+/vaft/data/vfit/
+/sample_equilibrium_global_history.xlsx

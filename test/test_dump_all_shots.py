@@ -52,7 +52,7 @@ def test_discovers_and_dumps_every_shot_into_filedb_layout(monkeypatch, tmp_path
     assert rc == 0
     assert [shot for shot, _, _ in calls] == [45000, 45001]
     output_45000 = calls[0][1]
-    assert output_45000 == tmp_path / "raw" / "45000" / "output" / "vest_45000_daq_raw.json.gz"
+    assert output_45000 == tmp_path / "raw" / "45000" / "vest_45000_daq_raw.json.gz"
 
 
 def test_dry_run_does_not_call_dump_shot(monkeypatch, tmp_path):
@@ -66,7 +66,7 @@ def test_dry_run_does_not_call_dump_shot(monkeypatch, tmp_path):
 
 def test_skip_existing_skips_shots_whose_dump_is_already_on_disk(monkeypatch, tmp_path):
     shots = [(45000, datetime(2026, 5, 1, 8, 0, 0)), (45001, datetime(2026, 5, 2, 9, 0, 0))]
-    existing = tmp_path / "raw" / "45000" / "output" / "vest_45000_daq_raw.json.gz"
+    existing = tmp_path / "raw" / "45000" / "vest_45000_daq_raw.json.gz"
     existing.parent.mkdir(parents=True)
     existing.write_text("already here")
 
@@ -98,7 +98,7 @@ def test_summary_records_completed_skipped_and_failed(monkeypatch, tmp_path):
         (45000, datetime(2026, 5, 1, 8, 0, 0)),
         (45001, datetime(2026, 5, 2, 9, 0, 0)),
     ]
-    existing = tmp_path / "raw" / "45000" / "output" / "vest_45000_daq_raw.json.gz"
+    existing = tmp_path / "raw" / "45000" / "vest_45000_daq_raw.json.gz"
     existing.parent.mkdir(parents=True)
     existing.write_text("already here")
 
