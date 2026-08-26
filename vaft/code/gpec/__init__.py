@@ -90,6 +90,10 @@ def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
     )
 
 
+def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
+    return rt.module_dir(inputs.dcon_workdir or inputs.workdir, inputs.time_ms, "dcon", mode, geqdsk=geqdsk)
+
+
 def prepare_gpec_suite_case(
     inputs: GPECCaseInputs,
     config: GPECSuiteConfig | None = None,
@@ -132,7 +136,7 @@ def prepare_gpec_suite_case(
                 mode=mode,
                 inputs=inputs,
                 config=config,
-                dcon_dir=rt.module_dir(inputs.workdir, inputs.time_ms, "dcon", mode, geqdsk=geqdsk).resolve(),
+                dcon_dir=_dcon_run_dir(inputs, mode, geqdsk).resolve(),
             )
             SOLVERS[module].prepare(ctx)
             records.append(_prepared_record(module, mode, run_dir))
@@ -176,11 +180,15 @@ def _run_module(
         return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
 
     if module == "gpec":
-        dcon_dir = rt.module_dir(inputs.workdir, inputs.time_ms, "dcon", mode, geqdsk=inputs.geqdsk)
+        dcon_dir = _dcon_run_dir(inputs, mode, Path(inputs.geqdsk))
         required = ("euler.bin", "psi_in.bin")
         missing = [name for name in required if not (dcon_dir / name).exists()]
         if missing:
             return GPECModuleRun(module, mode, run_dir, status="skipped", reason=f"missing DCON outputs: {', '.join(missing)}")
+
+    existing_outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
+    if len(existing_outputs) == len(solver.output_patterns(mode)):
+        return GPECModuleRun(module, mode, run_dir, returncode=0, status="completed", reason="reused existing solver outputs", outputs=existing_outputs)
 
     commands: list[str] = [str(executable)]
     logs: list[Path] = []

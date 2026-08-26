@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 from omas import ODS
@@ -509,7 +509,8 @@ def build_mhd_linear_ods(
     *,
     shot: int,
     time_values: Sequence[int | str],
-    workdir: str | Path,
+    workdir: str | Path | None = None,
+    module_workdirs: Mapping[tuple[str, int], str | Path] | None = None,
     modules: Sequence[str] = ("dcon", "rdcon", "stride"),
     modes: Sequence[int] = (1, 2),
     run: int = 1,
@@ -554,12 +555,18 @@ def build_mhd_linear_ods(
 
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}
-    workdir_path = Path(workdir)
+    if workdir is None and not module_workdirs:
+        raise ValueError("workdir or module_workdirs is required")
+    workdir_path = Path(workdir) if workdir is not None else None
     for time_slice, time_ms in enumerate(time_values):
         for module in modules:
             for mode in modes:
                 key = f"t={time_ms}/{module}/n={mode}"
-                run_dir = gpec_runtime.module_dir(workdir_path, time_ms, module, mode)
+                cell_root = Path(module_workdirs[(module, mode)]) if module_workdirs and (module, mode) in module_workdirs else workdir_path
+                if cell_root is None:
+                    modules_modes[key] = {"status": "missing", "reason": "no work directory registered"}
+                    continue
+                run_dir = gpec_runtime.module_dir(cell_root, time_ms, module, mode)
                 if not run_dir.is_dir():
                     modules_modes[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
                     continue

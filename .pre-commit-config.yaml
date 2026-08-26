@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: clean-notebook-outputs
+        name: clean notebook outputs
+        entry: python notebooks/_clean_outputs.py
+        language: system
+        files: ^notebooks/.*\.ipynb$

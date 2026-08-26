@@ -85,6 +85,7 @@ class GPECCaseInputs:
     geqdsk: Path
     workdir: Path
     coil_in: Path | None = None
+    dcon_workdir: Path | None = None
 
 
 @dataclass
