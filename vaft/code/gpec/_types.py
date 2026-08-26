@@ -85,6 +85,9 @@ class GPECCaseInputs:
     geqdsk: Path
     workdir: Path
     coil_in: Path | None = None
+    # Ideal GPEC consumes the DCON files for the same time/mode.  In the
+    # canonical FileDB layout DCON may live in a separate code-specific tree.
+    dcon_workdir: Path | None = None
 
 
 @dataclass

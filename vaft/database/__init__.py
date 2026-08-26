@@ -13,7 +13,18 @@ from importlib import import_module
 from typing import Literal
 import warnings
 
-__all__ = ["raw", "ods", "ids", "utils", "filedb", "load", "open", "save"]
+__all__ = [
+    "raw",
+    "ods",
+    "ids",
+    "utils",
+    "filedb",
+    "load",
+    "open",
+    "save",
+    "summary",
+    "export_summary",
+]
 
 
 def _namespace(value: str, label: str) -> str:
@@ -283,6 +294,26 @@ def _is_imas_ids(obj) -> bool:
     except Exception:
         return False
     return isinstance(obj, IDSToplevel)
+
+
+def summary(shot_range=None, *, preset="equilibrium_global", source="public"):
+    """Return a canonical preset summary for a range or all available shots."""
+    from ._summary import summary as _summary
+
+    return _summary(shot_range, preset=preset, source=source)
+
+
+def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups=None):
+    """Serialize or upsert an already-generated summary DataFrame."""
+    from ._summary import export_summary as _export_summary
+
+    return _export_summary(
+        df,
+        path,
+        mode=mode,
+        key_columns=key_columns,
+        replace_groups=replace_groups,
+    )
 
 
 def __getattr__(name: str):

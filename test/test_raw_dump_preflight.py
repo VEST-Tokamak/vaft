@@ -30,17 +30,17 @@ def _dump(path: Path, shot: int, fields: dict[int, list[float]]) -> None:
 def test_preflight_excludes_only_readable_archives_missing_required_signals(tmp_path):
     valid = tmp_path / "valid.json.gz"
     incomplete = tmp_path / "incomplete.json.gz"
-    _dump(valid, 1, {1: [1.0, 2.0], 13: [1.0, 2.0]})
-    _dump(incomplete, 2, {1: [1.0, 2.0], 13: [1.0]})
+    _dump(valid, 1, {1: [1.0, 2.0], 12: [1.0, 2.0], 109: [1.0, 2.0]})
+    _dump(incomplete, 2, {1: [1.0, 2.0], 12: [1.0, 2.0], 109: [1.0]})
 
-    eligible, excluded = MODULE.validate_raw_dumps([incomplete, valid], [1, 13], min_samples=2)
+    eligible, excluded = MODULE.validate_raw_dumps([incomplete, valid], [1, 12, 109], min_samples=2)
 
     assert eligible == [1]
     assert excluded == [
         {
             "shot": 2,
             "reason": "missing_required_raw_signal",
-            "missing_field_codes": [13],
+            "missing_field_codes": [109],
             "raw_dump": str(incomplete),
         }
     ]

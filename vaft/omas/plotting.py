@@ -91,9 +91,7 @@ def render(
     entries = normalize_entries(source, label=label)
     model = build_model(name, entries, **options)
     style = {
-        key: value
-        for key, value in options.items()
-        if key not in _EXTRACTION_OPTIONS
+        key: value for key, value in options.items() if key not in _EXTRACTION_OPTIONS
     }
     return spec.renderer(model, ax=ax, show=show, **style)
 
@@ -130,9 +128,7 @@ def enable_plot_methods(*, overwrite: bool = False) -> tuple[str, ...]:
     targets = {f"plot_{spec.name}": spec.name for spec in specs()}
 
     collisions = sorted(
-        name
-        for name in targets
-        if hasattr(ODS, name) and name not in bound
+        name for name in targets if hasattr(ODS, name) and name not in bound
     )
     if collisions and not overwrite:
         raise RuntimeError(
@@ -186,7 +182,9 @@ def plot_barometry_time_pressure(
 
     Renders with :func:`vaft.plot.barometry_time_pressure`.
     """
-    return render("barometry_time_pressure", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "barometry_time_pressure", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_camera_visible_image_frame(
@@ -201,7 +199,9 @@ def plot_camera_visible_image_frame(
 
     Renders with :func:`vaft.plot.camera_visible_image_frame`.
     """
-    return render("camera_visible_image_frame", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "camera_visible_image_frame", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_camera_visible_image_efit_overlay(
@@ -217,7 +217,14 @@ def plot_camera_visible_image_efit_overlay(
     Requires ``shot=`` (one of the calibrated shots: 34764, 39915, 47518).
     Renders with :func:`vaft.plot.camera_visible_image_efit_overlay`.
     """
-    return render("camera_visible_image_efit_overlay", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "camera_visible_image_efit_overlay",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_camera_visible_image_field_line(
@@ -233,7 +240,14 @@ def plot_camera_visible_image_field_line(
     Requires ``shot=``, ``r0=``, ``z0=`` (the field-line start point, in
     meters). Renders with :func:`vaft.plot.camera_visible_image_field_line`.
     """
-    return render("camera_visible_image_field_line", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "camera_visible_image_field_line",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_camera_visible_animation_frames(
@@ -249,7 +263,14 @@ def plot_camera_visible_animation_frames(
     Returns ``(Figure, Axes, FuncAnimation)``. Renders with
     :func:`vaft.plot.camera_visible_animation_frames`.
     """
-    return render("camera_visible_animation_frames", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "camera_visible_animation_frames",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_charge_exchange_geometry_poloidal(
@@ -264,7 +285,14 @@ def plot_charge_exchange_geometry_poloidal(
 
     Renders with :func:`vaft.plot.charge_exchange_geometry_poloidal`.
     """
-    return render("charge_exchange_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "charge_exchange_geometry_poloidal",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_charge_exchange_profile_ion_temperature(
@@ -279,7 +307,14 @@ def plot_charge_exchange_profile_ion_temperature(
 
     Renders with :func:`vaft.plot.charge_exchange_profile_ion_temperature`.
     """
-    return render("charge_exchange_profile_ion_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "charge_exchange_profile_ion_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_charge_exchange_profile_velocity_tor(
@@ -294,7 +329,14 @@ def plot_charge_exchange_profile_velocity_tor(
 
     Renders with :func:`vaft.plot.charge_exchange_profile_velocity_tor`.
     """
-    return render("charge_exchange_profile_velocity_tor", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "charge_exchange_profile_velocity_tor",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_charge_exchange_time_ion_temperature(
@@ -309,7 +351,14 @@ def plot_charge_exchange_time_ion_temperature(
 
     Renders with :func:`vaft.plot.charge_exchange_time_ion_temperature`.
     """
-    return render("charge_exchange_time_ion_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "charge_exchange_time_ion_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_charge_exchange_time_velocity_tor(
@@ -324,7 +373,14 @@ def plot_charge_exchange_time_velocity_tor(
 
     Renders with :func:`vaft.plot.charge_exchange_time_velocity_tor`.
     """
-    return render("charge_exchange_time_velocity_tor", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "charge_exchange_time_velocity_tor",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_field_electron_density(
@@ -339,7 +395,14 @@ def plot_core_profiles_field_electron_density(
 
     Renders with :func:`vaft.plot.core_profiles_field_electron_density`.
     """
-    return render("core_profiles_field_electron_density", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_field_electron_density",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_field_electron_temperature(
@@ -354,7 +417,14 @@ def plot_core_profiles_field_electron_temperature(
 
     Renders with :func:`vaft.plot.core_profiles_field_electron_temperature`.
     """
-    return render("core_profiles_field_electron_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_field_electron_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_profile_electron_density(
@@ -369,7 +439,14 @@ def plot_core_profiles_profile_electron_density(
 
     Renders with :func:`vaft.plot.core_profiles_profile_electron_density`.
     """
-    return render("core_profiles_profile_electron_density", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_profile_electron_density",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_profile_electron_temperature(
@@ -384,7 +461,14 @@ def plot_core_profiles_profile_electron_temperature(
 
     Renders with :func:`vaft.plot.core_profiles_profile_electron_temperature`.
     """
-    return render("core_profiles_profile_electron_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_profile_electron_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_profile_ion_temperature(
@@ -399,7 +483,14 @@ def plot_core_profiles_profile_ion_temperature(
 
     Renders with :func:`vaft.plot.core_profiles_profile_ion_temperature`.
     """
-    return render("core_profiles_profile_ion_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_profile_ion_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_profile_pressure(
@@ -414,7 +505,14 @@ def plot_core_profiles_profile_pressure(
 
     Renders with :func:`vaft.plot.core_profiles_profile_pressure`.
     """
-    return render("core_profiles_profile_pressure", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_profile_pressure",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_time_electron_density(
@@ -429,7 +527,14 @@ def plot_core_profiles_time_electron_density(
 
     Renders with :func:`vaft.plot.core_profiles_time_electron_density`.
     """
-    return render("core_profiles_time_electron_density", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_time_electron_density",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_time_electron_temperature(
@@ -444,7 +549,14 @@ def plot_core_profiles_time_electron_temperature(
 
     Renders with :func:`vaft.plot.core_profiles_time_electron_temperature`.
     """
-    return render("core_profiles_time_electron_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_time_electron_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_core_profiles_time_volume_averaged(
@@ -459,7 +571,14 @@ def plot_core_profiles_time_volume_averaged(
 
     Renders with :func:`vaft.plot.core_profiles_time_volume_averaged`.
     """
-    return render("core_profiles_time_volume_averaged", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "core_profiles_time_volume_averaged",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_electromagnetics_time_current(
@@ -474,7 +593,14 @@ def plot_electromagnetics_time_current(
 
     Renders with :func:`vaft.plot.electromagnetics_time_current`.
     """
-    return render("electromagnetics_time_current", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "electromagnetics_time_current",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_equilibrium_field_psi(
@@ -489,7 +615,9 @@ def plot_equilibrium_field_psi(
 
     Renders with :func:`vaft.plot.equilibrium_field_psi`.
     """
-    return render("equilibrium_field_psi", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_field_psi", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_field_psi_vacuum(
@@ -504,7 +632,9 @@ def plot_equilibrium_field_psi_vacuum(
 
     Renders with :func:`vaft.plot.equilibrium_field_psi_vacuum`.
     """
-    return render("equilibrium_field_psi_vacuum", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_field_psi_vacuum", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_geometry_boundary(
@@ -519,7 +649,14 @@ def plot_equilibrium_geometry_boundary(
 
     Renders with :func:`vaft.plot.equilibrium_geometry_boundary`.
     """
-    return render("equilibrium_geometry_boundary", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_geometry_boundary",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_equilibrium_geometry_topview(
@@ -534,7 +671,9 @@ def plot_equilibrium_geometry_topview(
 
     Renders with :func:`vaft.plot.equilibrium_geometry_topview`.
     """
-    return render("equilibrium_geometry_topview", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_geometry_topview", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_overview(
@@ -549,7 +688,31 @@ def plot_equilibrium_overview(
 
     Renders with :func:`vaft.plot.equilibrium_overview`.
     """
-    return render("equilibrium_overview", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_overview", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_equilibrium_overview_verification(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Render ``equilibrium_overview_verification`` from finalized EFIT data.
+
+    Select the finalized equilibrium slice with ``time_slice=``.
+    """
+    return render(
+        "equilibrium_overview_verification",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_equilibrium_profile_f(
@@ -564,7 +727,9 @@ def plot_equilibrium_profile_f(
 
     Renders with :func:`vaft.plot.equilibrium_profile_f`.
     """
-    return render("equilibrium_profile_f", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_profile_f", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_profile_ffprime(
@@ -579,7 +744,9 @@ def plot_equilibrium_profile_ffprime(
 
     Renders with :func:`vaft.plot.equilibrium_profile_ffprime`.
     """
-    return render("equilibrium_profile_ffprime", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_profile_ffprime", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_profile_j_tor(
@@ -594,7 +761,9 @@ def plot_equilibrium_profile_j_tor(
 
     Renders with :func:`vaft.plot.equilibrium_profile_j_tor`.
     """
-    return render("equilibrium_profile_j_tor", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_profile_j_tor", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_profile_pprime(
@@ -609,7 +778,9 @@ def plot_equilibrium_profile_pprime(
 
     Renders with :func:`vaft.plot.equilibrium_profile_pprime`.
     """
-    return render("equilibrium_profile_pprime", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_profile_pprime", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_profile_pressure(
@@ -624,7 +795,9 @@ def plot_equilibrium_profile_pressure(
 
     Renders with :func:`vaft.plot.equilibrium_profile_pressure`.
     """
-    return render("equilibrium_profile_pressure", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_profile_pressure", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_profile_q(
@@ -639,7 +812,9 @@ def plot_equilibrium_profile_q(
 
     Renders with :func:`vaft.plot.equilibrium_profile_q`.
     """
-    return render("equilibrium_profile_q", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_profile_q", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_beta_n(
@@ -654,7 +829,9 @@ def plot_equilibrium_time_beta_n(
 
     Renders with :func:`vaft.plot.equilibrium_time_beta_n`.
     """
-    return render("equilibrium_time_beta_n", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_beta_n", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_beta_pol(
@@ -669,7 +846,9 @@ def plot_equilibrium_time_beta_pol(
 
     Renders with :func:`vaft.plot.equilibrium_time_beta_pol`.
     """
-    return render("equilibrium_time_beta_pol", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_beta_pol", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_beta_tor(
@@ -684,7 +863,9 @@ def plot_equilibrium_time_beta_tor(
 
     Renders with :func:`vaft.plot.equilibrium_time_beta_tor`.
     """
-    return render("equilibrium_time_beta_tor", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_beta_tor", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_diamagnetic_flux(
@@ -699,7 +880,14 @@ def plot_equilibrium_time_diamagnetic_flux(
 
     Renders with :func:`vaft.plot.equilibrium_time_diamagnetic_flux`.
     """
-    return render("equilibrium_time_diamagnetic_flux", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_diamagnetic_flux",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_equilibrium_time_li(
@@ -714,7 +902,9 @@ def plot_equilibrium_time_li(
 
     Renders with :func:`vaft.plot.equilibrium_time_li`.
     """
-    return render("equilibrium_time_li", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_li", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_major_radius(
@@ -729,7 +919,14 @@ def plot_equilibrium_time_major_radius(
 
     Renders with :func:`vaft.plot.equilibrium_time_major_radius`.
     """
-    return render("equilibrium_time_major_radius", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_major_radius",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_equilibrium_time_plasma_current(
@@ -744,7 +941,14 @@ def plot_equilibrium_time_plasma_current(
 
     Renders with :func:`vaft.plot.equilibrium_time_plasma_current`.
     """
-    return render("equilibrium_time_plasma_current", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_plasma_current",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_equilibrium_time_q0(
@@ -759,7 +963,9 @@ def plot_equilibrium_time_q0(
 
     Renders with :func:`vaft.plot.equilibrium_time_q0`.
     """
-    return render("equilibrium_time_q0", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_q0", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_q95(
@@ -774,7 +980,9 @@ def plot_equilibrium_time_q95(
 
     Renders with :func:`vaft.plot.equilibrium_time_q95`.
     """
-    return render("equilibrium_time_q95", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_q95", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_qa(
@@ -789,7 +997,9 @@ def plot_equilibrium_time_qa(
 
     Renders with :func:`vaft.plot.equilibrium_time_qa`.
     """
-    return render("equilibrium_time_qa", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_qa", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_virial(
@@ -804,7 +1014,9 @@ def plot_equilibrium_time_virial(
 
     Renders with :func:`vaft.plot.equilibrium_time_virial`.
     """
-    return render("equilibrium_time_virial", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_virial", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_w_mag(
@@ -819,7 +1031,9 @@ def plot_equilibrium_time_w_mag(
 
     Renders with :func:`vaft.plot.equilibrium_time_w_mag`.
     """
-    return render("equilibrium_time_w_mag", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_w_mag", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_w_mhd(
@@ -834,7 +1048,9 @@ def plot_equilibrium_time_w_mhd(
 
     Renders with :func:`vaft.plot.equilibrium_time_w_mhd`.
     """
-    return render("equilibrium_time_w_mhd", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_w_mhd", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_equilibrium_time_w_tot(
@@ -849,7 +1065,9 @@ def plot_equilibrium_time_w_tot(
 
     Renders with :func:`vaft.plot.equilibrium_time_w_tot`.
     """
-    return render("equilibrium_time_w_tot", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "equilibrium_time_w_tot", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_machine_geometry_poloidal(
@@ -864,7 +1082,9 @@ def plot_machine_geometry_poloidal(
 
     Renders with :func:`vaft.plot.machine_geometry_poloidal`.
     """
-    return render("machine_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "machine_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_machine_geometry_topview(
@@ -879,7 +1099,9 @@ def plot_machine_geometry_topview(
 
     Renders with :func:`vaft.plot.machine_geometry_topview`.
     """
-    return render("machine_geometry_topview", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "machine_geometry_topview", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_magnetics_geometry_poloidal(
@@ -894,7 +1116,9 @@ def plot_magnetics_geometry_poloidal(
 
     Renders with :func:`vaft.plot.magnetics_geometry_poloidal`.
     """
-    return render("magnetics_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_magnetics_overview(
@@ -909,7 +1133,9 @@ def plot_magnetics_overview(
 
     Renders with :func:`vaft.plot.magnetics_overview`.
     """
-    return render("magnetics_overview", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_overview", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_magnetics_overview_impa(
@@ -984,7 +1210,9 @@ def plot_magnetics_spectrogram_mirnov(
 
     Renders with :func:`vaft.plot.magnetics_spectrogram_mirnov`.
     """
-    return render("magnetics_spectrogram_mirnov", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_spectrogram_mirnov", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_magnetics_time_b_field_pol_probe_field(
@@ -999,7 +1227,14 @@ def plot_magnetics_time_b_field_pol_probe_field(
 
     Renders with :func:`vaft.plot.magnetics_time_b_field_pol_probe_field`.
     """
-    return render("magnetics_time_b_field_pol_probe_field", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_time_b_field_pol_probe_field",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_magnetics_time_diamagnetic_flux(
@@ -1014,7 +1249,14 @@ def plot_magnetics_time_diamagnetic_flux(
 
     Renders with :func:`vaft.plot.magnetics_time_diamagnetic_flux`.
     """
-    return render("magnetics_time_diamagnetic_flux", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_time_diamagnetic_flux",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_magnetics_time_flux_loop_flux(
@@ -1029,7 +1271,14 @@ def plot_magnetics_time_flux_loop_flux(
 
     Renders with :func:`vaft.plot.magnetics_time_flux_loop_flux`.
     """
-    return render("magnetics_time_flux_loop_flux", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_time_flux_loop_flux",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_magnetics_time_flux_loop_voltage(
@@ -1044,7 +1293,14 @@ def plot_magnetics_time_flux_loop_voltage(
 
     Renders with :func:`vaft.plot.magnetics_time_flux_loop_voltage`.
     """
-    return render("magnetics_time_flux_loop_voltage", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_time_flux_loop_voltage",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_magnetics_time_ip(
@@ -1062,6 +1318,30 @@ def plot_magnetics_time_ip(
     return render("magnetics_time_ip", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_magnetics_time_limiter_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Three stacked VEST limiter-current histories (LC, UC and midplane).
+
+    Current is derived from each IMAS-standard shunt voltage using its stored
+    effective Pearson Model 411 V/I coefficient. Renders with
+    :func:`vaft.plot.magnetics_time_limiter_current`.
+    """
+    return render(
+        "magnetics_time_limiter_current",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
 def plot_magnetics_time_mirnov_voltage(
     source: Any,
     *,
@@ -1074,7 +1354,14 @@ def plot_magnetics_time_mirnov_voltage(
 
     Renders with :func:`vaft.plot.magnetics_time_mirnov_voltage`.
     """
-    return render("magnetics_time_mirnov_voltage", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "magnetics_time_mirnov_voltage",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_pf_active_geometry_poloidal(
@@ -1089,7 +1376,9 @@ def plot_pf_active_geometry_poloidal(
 
     Renders with :func:`vaft.plot.pf_active_geometry_poloidal`.
     """
-    return render("pf_active_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "pf_active_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_pf_active_time_current(
@@ -1104,7 +1393,9 @@ def plot_pf_active_time_current(
 
     Renders with :func:`vaft.plot.pf_active_time_current`.
     """
-    return render("pf_active_time_current", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "pf_active_time_current", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_pf_active_time_current_turns(
@@ -1119,7 +1410,9 @@ def plot_pf_active_time_current_turns(
 
     Renders with :func:`vaft.plot.pf_active_time_current_turns`.
     """
-    return render("pf_active_time_current_turns", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "pf_active_time_current_turns", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_pf_passive_geometry_poloidal(
@@ -1134,7 +1427,9 @@ def plot_pf_passive_geometry_poloidal(
 
     Renders with :func:`vaft.plot.pf_passive_geometry_poloidal`.
     """
-    return render("pf_passive_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "pf_passive_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_soft_x_rays_geometry_lines_of_sight(
@@ -1149,7 +1444,14 @@ def plot_soft_x_rays_geometry_lines_of_sight(
 
     Renders with :func:`vaft.plot.soft_x_rays_geometry_lines_of_sight`.
     """
-    return render("soft_x_rays_geometry_lines_of_sight", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "soft_x_rays_geometry_lines_of_sight",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_soft_x_rays_overview(
@@ -1164,7 +1466,9 @@ def plot_soft_x_rays_overview(
 
     Renders with :func:`vaft.plot.soft_x_rays_overview`.
     """
-    return render("soft_x_rays_overview", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "soft_x_rays_overview", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_soft_x_rays_spectrogram(
@@ -1179,7 +1483,9 @@ def plot_soft_x_rays_spectrogram(
 
     Renders with :func:`vaft.plot.soft_x_rays_spectrogram`.
     """
-    return render("soft_x_rays_spectrogram", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "soft_x_rays_spectrogram", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_soft_x_rays_time_power(
@@ -1194,7 +1500,9 @@ def plot_soft_x_rays_time_power(
 
     Renders with :func:`vaft.plot.soft_x_rays_time_power`.
     """
-    return render("soft_x_rays_time_power", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "soft_x_rays_time_power", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_spectrometer_uv_time_impurity(
@@ -1209,7 +1517,14 @@ def plot_spectrometer_uv_time_impurity(
 
     Renders with :func:`vaft.plot.spectrometer_uv_time_impurity`.
     """
-    return render("spectrometer_uv_time_impurity", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "spectrometer_uv_time_impurity",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_spectrometer_uv_time_intensity(
@@ -1224,7 +1539,14 @@ def plot_spectrometer_uv_time_intensity(
 
     Renders with :func:`vaft.plot.spectrometer_uv_time_intensity`.
     """
-    return render("spectrometer_uv_time_intensity", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "spectrometer_uv_time_intensity",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_summary_time_beta(
@@ -1254,7 +1576,9 @@ def plot_summary_time_energy(
 
     Renders with :func:`vaft.plot.summary_time_energy`.
     """
-    return render("summary_time_energy", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "summary_time_energy", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_summary_time_power_balance(
@@ -1269,7 +1593,9 @@ def plot_summary_time_power_balance(
 
     Renders with :func:`vaft.plot.summary_time_power_balance`.
     """
-    return render("summary_time_power_balance", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "summary_time_power_balance", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_summary_time_voltage_consumption(
@@ -1284,7 +1610,14 @@ def plot_summary_time_voltage_consumption(
 
     Renders with :func:`vaft.plot.summary_time_voltage_consumption`.
     """
-    return render("summary_time_voltage_consumption", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "summary_time_voltage_consumption",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_tf_time_b_field_tor(
@@ -1299,7 +1632,9 @@ def plot_tf_time_b_field_tor(
 
     Renders with :func:`vaft.plot.tf_time_b_field_tor`.
     """
-    return render("tf_time_b_field_tor", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "tf_time_b_field_tor", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_tf_time_b_field_tor_vacuum_r(
@@ -1314,7 +1649,9 @@ def plot_tf_time_b_field_tor_vacuum_r(
 
     Renders with :func:`vaft.plot.tf_time_b_field_tor_vacuum_r`.
     """
-    return render("tf_time_b_field_tor_vacuum_r", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "tf_time_b_field_tor_vacuum_r", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_tf_time_coil_current(
@@ -1329,7 +1666,9 @@ def plot_tf_time_coil_current(
 
     Renders with :func:`vaft.plot.tf_time_coil_current`.
     """
-    return render("tf_time_coil_current", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "tf_time_coil_current", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_thomson_scattering_geometry_poloidal(
@@ -1344,7 +1683,14 @@ def plot_thomson_scattering_geometry_poloidal(
 
     Renders with :func:`vaft.plot.thomson_scattering_geometry_poloidal`.
     """
-    return render("thomson_scattering_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "thomson_scattering_geometry_poloidal",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_thomson_scattering_profile_electron_density(
@@ -1359,7 +1705,14 @@ def plot_thomson_scattering_profile_electron_density(
 
     Renders with :func:`vaft.plot.thomson_scattering_profile_electron_density`.
     """
-    return render("thomson_scattering_profile_electron_density", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "thomson_scattering_profile_electron_density",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_thomson_scattering_profile_electron_temperature(
@@ -1374,7 +1727,14 @@ def plot_thomson_scattering_profile_electron_temperature(
 
     Renders with :func:`vaft.plot.thomson_scattering_profile_electron_temperature`.
     """
-    return render("thomson_scattering_profile_electron_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "thomson_scattering_profile_electron_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_thomson_scattering_time_electron_density(
@@ -1389,7 +1749,14 @@ def plot_thomson_scattering_time_electron_density(
 
     Renders with :func:`vaft.plot.thomson_scattering_time_electron_density`.
     """
-    return render("thomson_scattering_time_electron_density", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "thomson_scattering_time_electron_density",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_thomson_scattering_time_electron_temperature(
@@ -1404,7 +1771,14 @@ def plot_thomson_scattering_time_electron_temperature(
 
     Renders with :func:`vaft.plot.thomson_scattering_time_electron_temperature`.
     """
-    return render("thomson_scattering_time_electron_temperature", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "thomson_scattering_time_electron_temperature",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_wall_geometry_poloidal(
@@ -1419,7 +1793,9 @@ def plot_wall_geometry_poloidal(
 
     Renders with :func:`vaft.plot.wall_geometry_poloidal`.
     """
-    return render("wall_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+    return render(
+        "wall_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+    )
 
 
 __all__ = [
@@ -1453,6 +1829,7 @@ __all__ = [
     "plot_equilibrium_geometry_boundary",
     "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",
+    "plot_equilibrium_overview_verification",
     "plot_equilibrium_profile_f",
     "plot_equilibrium_profile_ffprime",
     "plot_equilibrium_profile_j_tor",
@@ -1487,6 +1864,7 @@ __all__ = [
     "plot_magnetics_time_flux_loop_flux",
     "plot_magnetics_time_flux_loop_voltage",
     "plot_magnetics_time_ip",
+    "plot_magnetics_time_limiter_current",
     "plot_magnetics_time_mirnov_voltage",
     "plot_pf_active_geometry_poloidal",
     "plot_pf_active_time_current",

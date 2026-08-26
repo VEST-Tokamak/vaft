@@ -244,9 +244,11 @@ from .renderers.panels import (
     core_profiles_time_volume_averaged,
     electromagnetics_time_current,
     equilibrium_overview,
+    equilibrium_overview_verification,
     equilibrium_time_virial,
     magnetics_overview,
     magnetics_overview_impa,
+    magnetics_time_limiter_current,
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
     summary_time_beta,
@@ -275,6 +277,7 @@ from .renderers.spectrograms import (
     magnetics_spectrogram_mirnov,
     soft_x_rays_spectrogram,
 )
+from .parameter_history import plot_parameter_history
 
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
@@ -303,6 +306,7 @@ _SUPPORT_EXPORTS = (
     "render_profile_1d",
     "render_spectrogram",
     "save_figure",
+    "plot_parameter_history",
 )
 
 __all__ = sorted(_SUPPORT_EXPORTS + registry.canonical_names())

@@ -10,17 +10,9 @@ from scipy import signal
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import smooth
 
-from .utils import set_path
+from .utils import calibrate_vest_signal, resolve_vest_diagnostic, set_path
 
 Signal = tuple[np.ndarray, np.ndarray]
-
-TF_TURN_NUMBER = 24
-TF_REFERENCE_RADIUS = 0.4
-TF_FIELD_CODE = 1
-TF_SAMPLE_RATE = 25e3
-TF_CUTOFF_FREQUENCY = 2.5e3
-TF_HALL_GAIN = -3e4
-
 
 def _safe_vest_load(
     shot: int,
@@ -56,21 +48,27 @@ def vfit_tf_current(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> Signal:
+    config = resolve_vest_diagnostic(shot, "tf")
+    field = int(config["source"]["field"])
+    processing = config["processing"]
     time_tf, raw_tf = raw_db.require_signal(
-        _safe_vest_load(shot, TF_FIELD_CODE, raw_source),
+        _safe_vest_load(shot, field, raw_source),
         shot=shot,
-        field=TF_FIELD_CODE,
+        field=field,
         signal_name="TF coil current",
     )
 
-    taps = signal.firwin(26, TF_CUTOFF_FREQUENCY, pass_zero="lowpass", fs=TF_SAMPLE_RATE)
-    data_raw_tf = np.asarray(raw_tf, dtype=float) * TF_HALL_GAIN
+    taps = signal.firwin(
+        int(processing["taps"]), float(processing["cutoff_frequency"]),
+        pass_zero="lowpass", fs=float(processing["sample_rate"]),
+    )
+    data_raw_tf = calibrate_vest_signal(raw_tf, config["calibration"])
 
-    baseline_samples = min(1000, data_raw_tf.size)
+    baseline_samples = min(int(processing["baseline_samples"]), data_raw_tf.size)
     data_raw_tf = data_raw_tf - float(np.mean(data_raw_tf[:baseline_samples]))
 
     tf_current_waveform = signal.lfilter(taps, 1, data_raw_tf)
-    tf_current_waveform = smooth(tf_current_waveform, 50)
+    tf_current_waveform = smooth(tf_current_waveform, int(processing["smoothing_window"]))
     return np.asarray(time_tf, dtype=float), np.asarray(tf_current_waveform, dtype=float)
 
 
@@ -80,7 +78,8 @@ def vfit_tf_bt_r(
     raw_source: raw_db.RawSource | None = None,
 ) -> Signal:
     time, tf_current = vfit_tf_current(shot, raw_source=raw_source)
-    bt_r = 4 * math.pi * 1e-7 * TF_TURN_NUMBER * tf_current / (2.0 * math.pi)
+    turns = float(resolve_vest_diagnostic(shot, "tf")["output"]["turns"])
+    bt_r = 4 * math.pi * 1e-7 * turns * tf_current / (2.0 * math.pi)
     return time, bt_r
 
 
@@ -92,24 +91,33 @@ def vfit_tf_dynamic(
     dt: float,
     *,
     raw_source: raw_db.RawSource | None = None,
+    target_time: np.ndarray | None = None,
 ) -> None:
     source_time, tf_current = vfit_tf_current(shot, raw_source=raw_source)
-    target_time = _build_target_time_axis(source_time, tstart, tend, dt)
+    output = resolve_vest_diagnostic(shot, "tf")["output"]
+    turns = float(output["turns"])
+    reference_radius = float(output["reference_radius"])
+    target_time = (
+        np.asarray(target_time, dtype=float)
+        if target_time is not None
+        else _build_target_time_axis(source_time, tstart, tend, dt)
+    )
 
-    bt_r = 4 * math.pi * 1e-7 * TF_TURN_NUMBER * tf_current / (2.0 * math.pi)
-    btor = bt_r / TF_REFERENCE_RADIUS
+    bt_r = 4 * math.pi * 1e-7 * turns * tf_current / (2.0 * math.pi)
+    btor = bt_r / reference_radius
 
     set_path(ods, "tf.b_field_tor_vacuum_r.time", target_time)
-    set_path(ods, "tf.b_field_tor_vacuum_r.data", np.interp(target_time, source_time, btor) * TF_REFERENCE_RADIUS)
+    set_path(ods, "tf.b_field_tor_vacuum_r.data", np.interp(target_time, source_time, btor) * reference_radius)
     set_path(ods, "tf.coil.0.current.time", target_time)
     set_path(ods, "tf.coil.0.current.data", np.interp(target_time, source_time, tf_current))
     set_path(ods, "tf.time", target_time)
 
 
 def vfit_tf_static(ods: object) -> None:
+    reference_radius = float(resolve_vest_diagnostic(0, "tf")["output"]["reference_radius"])
     set_path(ods, "tf.ids_properties.comment", "tf from vfit_tf")
     set_path(ods, "tf.ids_properties.homogeneous_time", 1)
-    set_path(ods, "tf.r0", TF_REFERENCE_RADIUS)
+    set_path(ods, "tf.r0", reference_radius)
 
 
 def tf(

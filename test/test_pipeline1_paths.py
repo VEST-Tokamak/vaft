@@ -35,20 +35,49 @@ VERSION = "vest-43017-45957-pf1906"
 def test_shot_first_reproduces_the_legacy_literal_paths():
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.SHOT_FIRST)
 
-    assert paths.raw_dump(SHOT) == f"{BASE_DIR}/{SHOT}/diagnostics/vest_{SHOT}_daq_raw.json.gz"
-    assert paths.diagnostics_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_diagnostics.json"
+    assert (
+        paths.raw_dump(SHOT)
+        == f"{BASE_DIR}/{SHOT}/diagnostics/vest_{SHOT}_daq_raw.json.gz"
+    )
+    assert (
+        paths.diagnostics_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_diagnostics.json"
+    )
     assert paths.eddy_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_eddy.json"
-    assert paths.constraints_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_constraints.json"
-    assert paths.kfile_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/efit/kfile/kfiles_generated.txt"
-    assert paths.gfile_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/efit/gfile/gfiles_generated.txt"
+    assert (
+        paths.constraints_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_constraints.json"
+    )
+    assert (
+        paths.kfile_manifest(SHOT)
+        == f"{BASE_DIR}/{SHOT}/efit/kfile/kfiles_generated.txt"
+    )
+    assert (
+        paths.gfile_manifest(SHOT)
+        == f"{BASE_DIR}/{SHOT}/efit/gfile/gfiles_generated.txt"
+    )
     assert paths.efit_status(SHOT) == f"{BASE_DIR}/{SHOT}/efit/efit_status.txt"
+    assert (
+        paths.efit_artifact_manifest(SHOT)
+        == f"{BASE_DIR}/{SHOT}/efit/artifact_manifest.json"
+    )
     assert paths.efit_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_efit.json"
-    assert paths.chease_refined(SHOT) == f"{BASE_DIR}/{SHOT}/chease/refined_gfiles_generated.txt"
+    assert paths.efit_verification_plot(SHOT) == (
+        f"{BASE_DIR}/{SHOT}/efit/metadata/verification.png"
+    )
+    assert (
+        paths.chease_refined(SHOT)
+        == f"{BASE_DIR}/{SHOT}/chease/refined_gfiles_generated.txt"
+    )
     assert paths.chease_status(SHOT) == f"{BASE_DIR}/{SHOT}/chease/chease_status.txt"
     assert paths.chease_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_chease.json"
     assert paths.gpec_workdir(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability"
-    assert paths.mhd_linear_ods(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
-    assert paths.mhd_linear_manifest(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear_manifest.json"
+    assert (
+        paths.mhd_linear_ods(SHOT)
+        == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
+    )
+    assert (
+        paths.mhd_linear_manifest(SHOT)
+        == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear_manifest.json"
+    )
     assert paths.preflight_eligible() == f"{BASE_DIR}/preflight/eligible_shots.json"
     assert paths.preflight_excluded() == f"{BASE_DIR}/preflight/excluded_shots.json"
 
@@ -61,7 +90,10 @@ def test_filedb_layout_matches_the_canonical_resolver():
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
 
     assert paths.raw_dump(SHOT) == str(
-        filedb.raw(SHOT, artifact="output") / f"vest_{SHOT}_daq_raw.json.gz"
+        filedb.raw(SHOT) / f"vest_{SHOT}_daq_raw.json.gz"
+    )
+    assert paths.raw_manifest(SHOT) == str(
+        filedb.raw(SHOT) / f"vest_{SHOT}_daq_manifest.json"
     )
     assert paths.diagnostics_ods(SHOT) == str(
         filedb.omas("diagnostics", shot=SHOT, artifact="output") / "diagnostics.json"
@@ -76,6 +108,9 @@ def test_filedb_layout_matches_the_canonical_resolver():
     assert paths.efit_ods(SHOT) == str(
         filedb.omas("efit", shot=SHOT, artifact="output") / "efit.json"
     )
+    assert paths.efit_verification_plot(SHOT) == str(
+        filedb.efit(SHOT, artifact="metadata") / "verification.png"
+    )
     assert paths.chease_ods(SHOT) == str(
         filedb.omas("chease", shot=SHOT, artifact="output") / "chease.json"
     )
@@ -85,14 +120,31 @@ def test_filedb_layout_matches_the_canonical_resolver():
     assert paths.gfile_manifest(SHOT) == str(
         filedb.efit(SHOT, artifact="output") / "gfiles_generated.txt"
     )
+    assert paths.efit_artifact_manifest(SHOT) == str(
+        filedb.efit(SHOT, artifact="metadata") / "artifact_manifest.json"
+    )
     assert paths.chease_refined(SHOT) == str(
         filedb.chease(SHOT, artifact="output") / "refined_gfiles_generated.txt"
     )
     assert paths.static_ods(VERSION) == str(
-        filedb.omas("static", machine_version=VERSION, artifact="output") / "static.json"
+        filedb.omas("static", machine_version=VERSION, artifact="output")
+        / "static.json"
     )
     assert paths.static_manifest(VERSION) == str(
-        filedb.omas("static", machine_version=VERSION, artifact="metadata") / "manifest.json"
+        filedb.omas("static", machine_version=VERSION, artifact="metadata")
+        / "manifest.json"
+    )
+    assert paths.mhd_linear_ods(SHOT) == str(
+        filedb.omas("mhd_linear", shot=SHOT, artifact="output") / "mhd_linear.json"
+    )
+    assert paths.mhd_linear_manifest(SHOT) == str(
+        filedb.omas("mhd_linear", shot=SHOT, artifact="metadata") / "manifest.json"
+    )
+    assert paths.preflight_eligible() == str(
+        filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json"
+    )
+    assert paths.preflight_excluded() == str(
+        filedb.pipeline("preflight", artifact="metadata") / "excluded_shots.json"
     )
 
 
@@ -117,25 +169,49 @@ def test_version_pattern_produces_a_snakemake_wildcard(layout):
     assert MODULE._VERSION_SENTINEL not in pattern
 
 
-def test_gpec_workdir_and_mhd_linear_products_stay_shot_first_in_both_layouts():
-    """The on-disk GPEC-suite run tree (`{workdir}/{time}/{module}/nn={mode}`,
-    module *after* the shared root) and the folded-together mhd_linear product
-    it feeds have no FileDB grammar that fits their own layout -- FileDB's
-    GPEC grammar puts code *first* (`gpec/{code}/{shot}/n={n}/`) with no
-    single shared root across codes, and no `OMASStage` member exists yet for
-    mhd_linear. Both stay shot-first in both layouts rather than inventing
-    paths the resolver would reject."""
-    for layout in (MODULE.SHOT_FIRST, MODULE.FILEDB):
-        paths = MODULE.PipelinePaths(BASE_DIR, layout)
-        assert paths.gpec_workdir(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability"
-        assert paths.mhd_linear_ods(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
+def test_filedb_gpec_workdir_is_one_canonical_cell_per_code_and_mode():
+    filedb = FileDB(BASE_DIR)
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
+
+    assert paths.gpec_workdir(SHOT, "dcon", 1) == str(
+        filedb.gpec("dcon", SHOT, 1, artifact="work")
+    )
+    assert paths.gpec_workdir(SHOT, "gpec", 2) == str(
+        filedb.gpec(GPECCode.IDEAL_GPEC, SHOT, 2, artifact="work")
+    )
+
+
+def test_filedb_paths_never_leak_into_the_historical_shot_first_tree():
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
+    products = [
+        paths.raw_dump(SHOT),
+        paths.diagnostics_ods(SHOT),
+        paths.efit_ods(SHOT),
+        paths.chease_ods(SHOT),
+        paths.gpec_workdir(SHOT, "dcon", 1),
+        paths.mhd_linear_ods(SHOT),
+        paths.log(SHOT, "run_gpec_suite"),
+        paths.log(SHOT, "build_mhd_linear"),
+        paths.preflight_eligible(),
+    ]
+    banned = (
+        f"/{SHOT}/omas/", f"/{SHOT}/efit/", f"/{SHOT}/chease/",
+        f"/{SHOT}/linear_stability/", f"/{SHOT}/logs/",
+    )
+    assert all(not any(token in path for token in banned) for path in products)
 
 
 def test_gpec_module_paths_are_shot_first_literals():
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.SHOT_FIRST)
 
-    assert paths.gpec_module_status(SHOT, "dcon", 1) == f"{BASE_DIR}/{SHOT}/linear_stability/dcon/n=1/status.txt"
-    assert paths.gpec_module_manifest(SHOT, "rdcon", 2) == f"{BASE_DIR}/{SHOT}/linear_stability/rdcon/n=2/run.json"
+    assert (
+        paths.gpec_module_status(SHOT, "dcon", 1)
+        == f"{BASE_DIR}/{SHOT}/linear_stability/dcon/n=1/status.txt"
+    )
+    assert (
+        paths.gpec_module_manifest(SHOT, "rdcon", 2)
+        == f"{BASE_DIR}/{SHOT}/linear_stability/rdcon/n=2/run.json"
+    )
 
 
 def test_gpec_module_paths_match_filedb_for_every_code_and_several_modes():

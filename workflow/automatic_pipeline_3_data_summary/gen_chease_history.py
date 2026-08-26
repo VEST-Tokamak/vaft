@@ -41,6 +41,7 @@ import glob
 import pandas as pd
 import numpy as np
 import vaft
+from vaft import database
 from omfit_classes.omfit_eqdsk import OMFITeqdsk, OMFITgeqdsk # dependency issue with scipy.integrate.cumtrapz in omfit-classes.eqdsk 
 # from vaft.code.omfit_eqdsk import OMFITeqdsk # forked version of omfit-classes.eqdsk with scipy.integrate.cumulative_trapezoid
 # from vaft.code.omfit_eqdsk import OMFITgeqdsk # forked version of omfit-classes.geqdsk with scipy.integrate.cumulative_trapezoid
@@ -285,7 +286,9 @@ def process_batch(batch, base_path=None):
             logger.error(f"Error processing shot {chease_set['shot']} at time {chease_set['time']}: {str(e)}")
     return results
 
-def generate_chease_history_excel(base_path=None, max_files=None, num_processes=20):
+def generate_chease_history_excel(
+    base_path=None, max_files=None, num_processes=20, output_path=OUTPUT_FILENAME
+):
     """Main function to generate chease history Excel file.
     
     Args:
@@ -327,10 +330,10 @@ def generate_chease_history_excel(base_path=None, max_files=None, num_processes=
         df = pd.DataFrame(all_data)
         # Sort by shot number and time
         df = df.sort_values(['shot', 'time [ms]'])
-        # Save to Excel
-        df.to_excel(OUTPUT_FILENAME, index=False)
+        database.export_summary(df, output_path, mode="replace")
         logger.info(f"Processing complete! Successfully processed {len(all_data)} out of {len(chease_files)} files.")
-        logger.info(f"Saved to {OUTPUT_FILENAME}")
+        logger.info(f"Saved to {output_path}")
+        return df
     else:
         logger.warning("No data was successfully processed.")
 
@@ -349,7 +352,11 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', type=int,
                        default=BATCH_SIZE,
                        help=f'Number of files to process in each batch (default: {BATCH_SIZE})')
+    parser.add_argument('--output', default=OUTPUT_FILENAME,
+                       help='Output CSV/XLSX path')
     
     args = parser.parse_args()
     BATCH_SIZE = args.batch_size  # Update batch size if specified
-    generate_chease_history_excel(args.base_path, args.max_files, args.num_processes)
+    generate_chease_history_excel(
+        args.base_path, args.max_files, args.num_processes, args.output
+    )

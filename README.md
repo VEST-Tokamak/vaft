@@ -301,6 +301,14 @@ vaft/
 
 Contributions are welcome. Please open an [issue](https://github.com/VEST-Tokamak/vaft/issues) or submit a pull request.
 
+Notebook outputs are normalized by the repository's pre-commit hook. Install it
+with `pre-commit install`; the hook retains only static text and image results.
+To normalize notebooks manually, run:
+
+```bash
+python notebooks/_clean_outputs.py notebooks/*.ipynb
+```
+
 For database write access, contact [peppertonic18@snu.ac.kr, satelite2517@snu.ac.kr](mailto:peppertonic18@snu.ac.kr).
 
 ## Acknowledgements

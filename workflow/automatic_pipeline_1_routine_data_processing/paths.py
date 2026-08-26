@@ -36,6 +36,7 @@ _GPEC_CODE_ALIASES = {"gpec": GPECCode.IDEAL_GPEC}
 def _gpec_code(code: str):
     return _GPEC_CODE_ALIASES.get(code, code)
 
+
 # Substituted back into Snakemake wildcards after a concrete path is resolved.
 # FileDB validates shot numbers and version components, so a wildcard token can
 # not be passed through the resolver directly.
@@ -48,8 +49,7 @@ _MODE_SENTINEL = 123456789
 _CODE_SENTINEL = "dcon"
 
 
-# Which FileDB domain owns each stage's log. Stages absent from this map, such
-# as the linear-stability aggregate, fall back to the shot-first log directory.
+# Which FileDB domain owns each stage's log.
 _LOG_OWNER = {
     "generate_raw_db_dump": ("raw", None),
     "generate_static_ods": ("omas", "static"),
@@ -59,8 +59,11 @@ _LOG_OWNER = {
     "generate_kfile": ("efit", None),
     "run_efit": ("efit", None),
     "generate_efit_ods": ("omas", "efit"),
+    "generate_efit_verification_plot": ("efit", None),
     "run_chease": ("chease", None),
     "generate_chease_ods": ("omas", "chease"),
+    "run_gpec_suite": ("omas", "mhd_linear"),
+    "build_mhd_linear": ("omas", "mhd_linear"),
 }
 
 
@@ -97,18 +100,20 @@ class PipelinePaths:
         name = f"vest_{shot}_daq_raw.json.gz"
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "diagnostics") / name)
-        return str(self._filedb.raw(shot, artifact="output") / name)
+        return str(self._filedb.raw(shot) / name)
 
     def raw_manifest(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "metadata") / "raw_manifest.json")
-        return str(self._filedb.raw(shot, artifact="metadata") / "manifest.json")
+        return str(self._filedb.raw(shot) / f"vest_{shot}_daq_manifest.json")
 
     # -- static machine era ------------------------------------------------
     def static_ods(self, machine_version) -> str:
         if self.layout == SHOT_FIRST:
             # Mirrors the legacy `static_file_dir`, one directory per era.
-            return str(Path(self.base_dir) / "static" / str(machine_version) / "static.json")
+            return str(
+                Path(self.base_dir) / "static" / str(machine_version) / "static.json"
+            )
         directory = self._filedb.omas(
             "static", machine_version=str(machine_version), artifact="output"
         )
@@ -116,7 +121,9 @@ class PipelinePaths:
 
     def static_manifest(self, machine_version) -> str:
         if self.layout == SHOT_FIRST:
-            return str(Path(self.base_dir) / "static" / str(machine_version) / "manifest.json")
+            return str(
+                Path(self.base_dir) / "static" / str(machine_version) / "manifest.json"
+            )
         directory = self._filedb.omas(
             "static", machine_version=str(machine_version), artifact="metadata"
         )
@@ -154,6 +161,11 @@ class PipelinePaths:
             return str(self._shot_dir(shot, "omas") / f"{shot}_efit.json")
         return str(self._omas("efit", shot, "output") / "efit.json")
 
+    def efit_verification_plot(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "efit") / "metadata" / "verification.png")
+        return str(self._filedb.efit(shot, artifact="metadata") / "verification.png")
+
     def chease_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_chease.json")
@@ -175,11 +187,19 @@ class PipelinePaths:
             return str(self._shot_dir(shot, "efit") / "efit_status.txt")
         return str(self._filedb.efit(shot, artifact="metadata") / "efit_status.txt")
 
+    def efit_artifact_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "efit") / "artifact_manifest.json")
+        return str(
+            self._filedb.efit(shot, artifact="metadata") / "artifact_manifest.json"
+        )
+
     def chease_refined(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "chease") / "refined_gfiles_generated.txt")
         return str(
-            self._filedb.chease(shot, artifact="output") / "refined_gfiles_generated.txt"
+            self._filedb.chease(shot, artifact="output")
+            / "refined_gfiles_generated.txt"
         )
 
     def chease_status(self, shot) -> str:
@@ -193,39 +213,51 @@ class PipelinePaths:
     # FileDB's own GPEC grammar (`gpec/{code}/{shot}/n={n}/`) directly.
     def gpec_module_status(self, shot, code: str, mode: int) -> str:
         if self.layout == SHOT_FIRST:
-            return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "status.txt")
-        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="metadata") / "status.txt")
+            return str(
+                self._shot_dir(shot, "linear_stability")
+                / code
+                / f"n={mode}"
+                / "status.txt"
+            )
+        return str(
+            self._filedb.gpec(_gpec_code(code), shot, mode, artifact="metadata")
+            / "status.txt"
+        )
 
     def gpec_module_manifest(self, shot, code: str, mode: int) -> str:
         if self.layout == SHOT_FIRST:
-            return str(self._shot_dir(shot, "linear_stability") / code / f"n={mode}" / "run.json")
-        return str(self._filedb.gpec(_gpec_code(code), shot, mode, artifact="output") / "run.json")
+            return str(
+                self._shot_dir(shot, "linear_stability")
+                / code
+                / f"n={mode}"
+                / "run.json"
+            )
+        return str(
+            self._filedb.gpec(_gpec_code(code), shot, mode, artifact="output")
+            / "run.json"
+        )
 
-    def gpec_workdir(self, shot) -> str:
-        """Root of the on-disk GPEC-suite run tree for one shot.
-
-        `vaft.code.gpec` lays every module out under one shared root as
-        ``{workdir}/{time_label}/{module}/nn={mode}`` -- module comes *after*
-        the shared root. FileDB's canonical grammar is the opposite order,
-        ``gpec/{code}/{shot}/n={mode}`` -- code comes first, so there is no
-        single shared root under that layout for the adapter's own directory
-        convention to nest under. The run tree itself therefore stays
-        shot-first in both layouts; only the lightweight per-(code, mode)
-        status/manifest bookkeeping records (`gpec_module_status`/
-        `gpec_module_manifest` above) use FileDB under `filedb`.
-        """
-        return str(self._shot_dir(shot, "linear_stability"))
+    def gpec_workdir(self, shot, code: str | None = None, mode: int | None = None) -> str:
+        """Working directory for one independently rerunnable GPEC cell."""
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability"))
+        if code is None or mode is None:
+            raise ValueError("code and mode are required for a canonical GPEC work directory")
+        return str(
+            self._filedb.gpec(_gpec_code(code), shot, mode, artifact="work")
+        )
 
     def mhd_linear_ods(self, shot) -> str:
-        # No FileDB `OMASStage` member exists yet for mhd_linear (only
-        # static/diagnostics/eddy/efit/chease), and adding one is a FileDB
-        # schema change this phase does not attempt, so this per-shot product
-        # (folding every configured (code, mode) cell together) stays
-        # shot-first in both layouts, like `gpec_workdir` above.
-        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+        return str(self._omas("mhd_linear", shot, "output") / "mhd_linear.json")
 
     def mhd_linear_manifest(self, shot) -> str:
-        return str(self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json")
+        if self.layout == SHOT_FIRST:
+            return str(
+                self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json"
+            )
+        return str(self._omas("mhd_linear", shot, "metadata") / "manifest.json")
 
     # -- batch-level and per-shot ancillary ---------------------------------
     def log(self, shot, name: str) -> str:
@@ -238,9 +270,11 @@ class PipelinePaths:
             return str(self._shot_dir(shot, "logs") / f"{name}.log")
         owner = _LOG_OWNER.get(name)
         if owner is None:
-            return str(self._shot_dir(shot, "logs") / f"{name}.log")
+            raise ValueError(f"No canonical FileDB log owner registered for stage {name!r}")
         domain, stage = owner
-        if domain == "omas":
+        if domain == "raw":
+            directory = self._filedb.raw(shot)
+        elif domain == "omas":
             directory = self._omas(stage, shot, "log")
         else:
             directory = self._filedb.resolve(domain, shot=shot, artifact="log")
@@ -257,10 +291,14 @@ class PipelinePaths:
         return str(directory / f"{name}.log")
 
     def preflight_eligible(self) -> str:
-        return str(Path(self.base_dir) / "preflight" / "eligible_shots.json")
+        if self.layout == SHOT_FIRST:
+            return str(Path(self.base_dir) / "preflight" / "eligible_shots.json")
+        return str(self._filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json")
 
     def preflight_excluded(self) -> str:
-        return str(Path(self.base_dir) / "preflight" / "excluded_shots.json")
+        if self.layout == SHOT_FIRST:
+            return str(Path(self.base_dir) / "preflight" / "excluded_shots.json")
+        return str(self._filedb.pipeline("preflight", artifact="metadata") / "excluded_shots.json")
 
     # -- Snakemake wildcard patterns ----------------------------------------
     def shot_pattern(self, product: str, *args) -> str:
@@ -275,7 +313,9 @@ class PipelinePaths:
 
     def gpec_module_pattern(self, product: str) -> str:
         """Return a ``gpec_module_*`` product with ``{shot}``/``{code}``/``{mode}`` wildcards."""
-        resolved = getattr(self, product)(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL)
+        resolved = getattr(self, product)(
+            _SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL
+        )
         resolved = resolved.replace(str(_SHOT_SENTINEL), "{shot}")
         resolved = resolved.replace(str(_MODE_SENTINEL), "{mode}")
         # `_CODE_SENTINEL` ("dcon") is a real code name, so a blind substring

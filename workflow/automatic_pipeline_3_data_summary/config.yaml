@@ -1,0 +1,3 @@
+source: public
+# Set to an inclusive range such as "39915:39920". Null discovers all HSDS shots.
+shot_range: null

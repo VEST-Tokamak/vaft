@@ -7,7 +7,7 @@ class PlasmaModelTests(unittest.TestCase):
         from vaft.database.raw import RawSignalUnavailableError
         from vaft.machine_mapping import vfit_plasma_current
 
-        with self.assertRaisesRegex(RawSignalUnavailableError, "shot 41672, field 102"):
+        with self.assertRaisesRegex(RawSignalUnavailableError, "shot 41672, field 109"):
             vfit_plasma_current(41672)
 
     def test_vfit_plasma_mgods_startend_detects_signal_window(self):

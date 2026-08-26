@@ -11,7 +11,7 @@ from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
 
-from .utils import set_path
+from .utils import resolve_vest_diagnostic, set_path
 
 PF_COIL_COUNT = 10
 COPPER_RESISTIVITY = 1.68e-8
@@ -20,9 +20,6 @@ PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.9
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
 PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648, 0.0648, 0.0648]
 PF_GEOMETRY_2507_FIRST_SHOT = 45958
-PF_FILTER_SAMPLE_RATE = 25_000.0
-PF_FILTER_CUTOFF = 2_500.0
-PF_FILTER_TAPS = 251
 
 
 def _candidate_geometry_roots() -> list[Path]:
@@ -101,39 +98,17 @@ def _coerce_signal_to_reference(
 
 
 def _coil_gain_by_index(shot: int) -> dict[int, float]:
-    gains = {}
-    for coil_index in range(PF_COIL_COUNT):
-        if coil_index == 0:
-            if shot < 20259:
-                gain = 1e4
-            elif 20258 < shot < 38361:
-                gain = -5e4
-            elif 38360 < shot < 38401:
-                gain = 5e4
-            elif shot < 45965:
-                gain = -5e4
-            else:
-                gain = -1e4
-        elif coil_index == 1:
-            gain = 1e3
-        elif coil_index == 4:
-            gain = 1e4 if shot < 38110 else -1e4
-        elif coil_index == 5:
-            gain = 1e3 if shot < 38110 else -1e3
-        elif coil_index in (8, 9):
-            gain = -1e3 if shot < 19287 else -0.5e3
-        else:
-            continue
-        gains[coil_index] = gain
-    return gains
+    gains = resolve_vest_diagnostic(shot, "pf_active")["processing"]["coil_gains"]
+    return {int(coil_index): float(gain) for coil_index, gain in gains.items()}
 
 
-def _legacy_pf_filter(values: np.ndarray) -> np.ndarray:
+def _legacy_pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
+    filter_config = processing["filter"]
     taps = signal.firwin(
-        PF_FILTER_TAPS,
-        PF_FILTER_CUTOFF,
+        int(filter_config["taps"]),
+        float(filter_config["cutoff_frequency"]),
         pass_zero="lowpass",
-        fs=PF_FILTER_SAMPLE_RATE,
+        fs=float(filter_config["sample_rate"]),
     )
     # scipy.signal.filtfilt requires a long acquisition. Tiny synthetic test
     # dumps retain a deterministic forward-filter fallback.
@@ -141,7 +116,7 @@ def _legacy_pf_filter(values: np.ndarray) -> np.ndarray:
         filtered = signal.filtfilt(taps, 1, values)
     else:
         filtered = signal.lfilter(taps, 1, values)
-    return ndimage.uniform_filter1d(filtered, size=min(10, values.size))
+    return ndimage.uniform_filter1d(filtered, size=min(int(filter_config["smoothing_window"]), values.size))
 
 
 def vfit_pf(
@@ -150,6 +125,7 @@ def vfit_pf(
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray]]:
+    processing = resolve_vest_diagnostic(shot, "pf_active")["processing"]
     coil_info = scipy.io.loadmat(resolve_geometry_asset("Coil_info.mat", geometry_root=geometry_root))
     coil_numbers = np.asarray(coil_info["CoilNumber"][0], dtype=int) - 1
     coil_codes = np.asarray(coil_info["CoilCode"][0], dtype=int)
@@ -176,8 +152,8 @@ def vfit_pf(
         if coil_index in active_coils:
             field_code = int(coil_codes[code_index])
             waveform_time, raw_values = required_signals[field_code]
-            current = raw_values - _baseline_mean(raw_values, 5000)
-            current = _legacy_pf_filter(current) * coil_gains.get(coil_index, 0.0)
+            current = raw_values - _baseline_mean(raw_values, int(processing["baseline_samples"]))
+            current = _legacy_pf_filter(current, processing) * coil_gains.get(coil_index, 0.0)
             current = _coerce_signal_to_reference(reference_time, waveform_time, current)
             code_index += 1
         else:
@@ -233,9 +209,14 @@ def vfit_pf_active_dynamic(
     dt: float,
     *,
     raw_source: raw_db.RawSource | None = None,
+    target_time: np.ndarray | None = None,
 ) -> None:
     waveform_time, pf_data = vfit_pf(shot, raw_source=raw_source)
-    time_axis = _build_time_axis(waveform_time, tstart, tend, dt)
+    time_axis = (
+        np.asarray(target_time, dtype=float)
+        if target_time is not None
+        else _build_time_axis(waveform_time, tstart, tend, dt)
+    )
     set_path(ods, "pf_active.time", time_axis)
 
     for coil_index in range(PF_COIL_COUNT):

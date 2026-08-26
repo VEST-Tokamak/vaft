@@ -37,16 +37,32 @@ def _time_label(path: Path) -> str:
     return path.stem
 
 
+def _module_workdirs(values: list[str]) -> dict[tuple[str, int], Path]:
+    """Parse ``code:mode:path`` values emitted by the canonical resolver."""
+    result: dict[tuple[str, int], Path] = {}
+    for value in values:
+        for entry in value.split(","):
+            code, mode, path = entry.split(":", maxsplit=2)
+            result[(code, int(mode))] = Path(path)
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
     parser.add_argument("--refined-gfile-manifest", required=True, type=Path, help="CHEASE refined gfile manifest.")
-    parser.add_argument("--workdir", required=True, type=Path, help="GPEC-suite run tree for this shot.")
+    parser.add_argument("--workdir", type=Path, help="Legacy shared GPEC-suite run tree.")
+    parser.add_argument(
+        "--module-workdir", nargs="+", default=[],
+        help="Canonical code:mode:path GPEC work trees.",
+    )
     parser.add_argument("--modules", default="dcon,rdcon,stride", help="Comma-separated suite modules to fold in.")
     parser.add_argument("--modes", default="1,2", help="Comma-separated toroidal mode numbers to fold in.")
     parser.add_argument("--output", required=True, type=Path, help="Output mhd_linear ODS JSON.")
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
     args = parser.parse_args()
+    if args.workdir is None and not args.module_workdir:
+        parser.error("one of --workdir or --module-workdir is required")
 
     # force=True: vaft.database.raw installs a root handler at import time, which makes
     # basicConfig() a no-op without this, silently dropping our INFO logs.
@@ -62,6 +78,7 @@ def main() -> int:
         shot=args.shot,
         time_values=time_values,
         workdir=args.workdir,
+        module_workdirs=_module_workdirs(args.module_workdir),
         modules=_parse_csv(args.modules, str),
         modes=_parse_csv(args.modes, int),
     )

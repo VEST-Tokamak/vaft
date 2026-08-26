@@ -179,9 +179,13 @@ def _resolve_indices(
     return list(range(_count(ods, _container_of(template, marker))))
 
 
-def _first_time(ods: Any, candidates: Sequence[str], **substitutions: Any) -> np.ndarray | None:
+def _first_time(
+    ods: Any, candidates: Sequence[str], **substitutions: Any
+) -> np.ndarray | None:
     for candidate in candidates:
-        array = _array(ods, candidate.format(**substitutions) if substitutions else candidate)
+        array = _array(
+            ods, candidate.format(**substitutions) if substitutions else candidate
+        )
         if array is not None:
             return array
     return None
@@ -293,6 +297,7 @@ class FieldRecipe:
     value_label: str = ""
     boundary_paths: tuple[str, str] = ()
     title: str = ""
+    values_order: str = "zr"
 
 
 @dataclass(frozen=True)
@@ -338,122 +343,192 @@ _EQ_TIME = ("equilibrium.time",)
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
     "magnetics_time_ip": LineRecipe(
-        y_path="magnetics.ip.0.data", x_paths=("magnetics.ip.0.time",) + _MAGNETICS_TIME,
-        y_label="Plasma Current", y_unit="A", title="Plasma Current",
+        y_path="magnetics.ip.0.data",
+        x_paths=("magnetics.ip.0.time",) + _MAGNETICS_TIME,
+        y_label="Plasma Current",
+        y_unit="A",
+        title="Plasma Current",
     ),
     "magnetics_time_diamagnetic_flux": LineRecipe(
         y_path="magnetics.diamagnetic_flux.0.data",
         x_paths=("magnetics.diamagnetic_flux.0.time",) + _MAGNETICS_TIME,
-        y_label="Diamagnetic Flux", y_unit="Wb", title="Diamagnetic Flux",
+        y_label="Diamagnetic Flux",
+        y_unit="Wb",
+        title="Diamagnetic Flux",
     ),
     "magnetics_time_flux_loop_flux": LineRecipe(
-        y_path="magnetics.flux_loop.{i}.flux.data", index="channel",
-        x_paths=("magnetics.flux_loop.{i}.flux.time", "magnetics.flux_loop.time",
-                 "magnetics.time"),
-        y_label="Poloidal Flux", y_unit="Wb",
-        label_path="magnetics.flux_loop.{i}.name", title="Flux Loop Flux",
+        y_path="magnetics.flux_loop.{i}.flux.data",
+        index="channel",
+        x_paths=(
+            "magnetics.flux_loop.{i}.flux.time",
+            "magnetics.flux_loop.time",
+            "magnetics.time",
+        ),
+        y_label="Poloidal Flux",
+        y_unit="Wb",
+        label_path="magnetics.flux_loop.{i}.name",
+        title="Flux Loop Flux",
     ),
     "magnetics_time_flux_loop_voltage": LineRecipe(
-        y_path="magnetics.flux_loop.{i}.voltage.data", index="channel",
-        x_paths=("magnetics.flux_loop.{i}.voltage.time", "magnetics.flux_loop.time",
-                 "magnetics.time"),
-        y_label="Loop Voltage", y_unit="V",
-        label_path="magnetics.flux_loop.{i}.name", title="Flux Loop Voltage",
+        y_path="magnetics.flux_loop.{i}.voltage.data",
+        index="channel",
+        x_paths=(
+            "magnetics.flux_loop.{i}.voltage.time",
+            "magnetics.flux_loop.time",
+            "magnetics.time",
+        ),
+        y_label="Loop Voltage",
+        y_unit="V",
+        label_path="magnetics.flux_loop.{i}.name",
+        title="Flux Loop Voltage",
     ),
     "magnetics_time_b_field_pol_probe_field": LineRecipe(
-        y_path="magnetics.b_field_pol_probe.{i}.field.data", index="channel",
-        x_paths=("magnetics.b_field_pol_probe.{i}.field.time",
-                 "magnetics.b_field_pol_probe.time", "magnetics.time"),
-        y_label="Poloidal Field", y_unit="T",
-        label_path="magnetics.b_field_pol_probe.{i}.name", title="B-field Probes",
+        y_path="magnetics.b_field_pol_probe.{i}.field.data",
+        index="channel",
+        x_paths=(
+            "magnetics.b_field_pol_probe.{i}.field.time",
+            "magnetics.b_field_pol_probe.time",
+            "magnetics.time",
+        ),
+        y_label="Poloidal Field",
+        y_unit="T",
+        label_path="magnetics.b_field_pol_probe.{i}.name",
+        title="B-field Probes",
     ),
     "magnetics_time_mirnov_voltage": LineRecipe(
-        y_path="magnetics.b_field_pol_probe.{i}.voltage.data", index="channel",
+        y_path="magnetics.b_field_pol_probe.{i}.voltage.data",
+        index="channel",
         x_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
-        y_label="Mirnov Signal", y_unit="V",
-        label_path="magnetics.b_field_pol_probe.{i}.name", title="Mirnov Coils",
+        y_label="Mirnov Signal",
+        y_unit="V",
+        label_path="magnetics.b_field_pol_probe.{i}.name",
+        title="Mirnov Coils",
     ),
     # --- pf_active -----------------------------------------------------------
     "pf_active_time_current": LineRecipe(
-        y_path="pf_active.coil.{i}.current.data", index="channel",
+        y_path="pf_active.coil.{i}.current.data",
+        index="channel",
         x_paths=("pf_active.coil.{i}.current.time", "pf_active.time"),
-        y_label="Coil Current", y_unit="A",
-        label_path="pf_active.coil.{i}.name", title="PF Coil Currents",
+        y_label="Coil Current",
+        y_unit="A",
+        label_path="pf_active.coil.{i}.name",
+        title="PF Coil Currents",
     ),
     "pf_active_time_current_turns": LineRecipe(
-        y_path="pf_active.coil.{i}.current.data", index="channel",
+        y_path="pf_active.coil.{i}.current.data",
+        index="channel",
         x_paths=("pf_active.coil.{i}.current.time", "pf_active.time"),
-        y_label="Coil Ampere-turns", y_unit="A-turns",
+        y_label="Coil Ampere-turns",
+        y_unit="A-turns",
         label_path="pf_active.coil.{i}.name",
         weight_path="pf_active.coil.{i}.element.:.turns_with_sign",
         title="PF Coil Ampere-turns",
     ),
     # --- equilibrium global quantities ---------------------------------------
     "equilibrium_time_plasma_current": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.ip", index="time_slice",
-        x_paths=_EQ_TIME, y_label="Plasma Current", y_unit="A",
+        y_path="equilibrium.time_slice.{i}.global_quantities.ip",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Plasma Current",
+        y_unit="A",
         title="Equilibrium Plasma Current",
     ),
     "equilibrium_time_li": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.li_3", index="time_slice",
-        x_paths=_EQ_TIME, y_label="Internal Inductance li_3",
+        y_path="equilibrium.time_slice.{i}.global_quantities.li_3",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Internal Inductance li_3",
         title="Internal Inductance",
     ),
     "equilibrium_time_beta_pol": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.beta_pol", index="time_slice",
-        x_paths=_EQ_TIME, y_label="Poloidal Beta", title="Poloidal Beta",
+        y_path="equilibrium.time_slice.{i}.global_quantities.beta_pol",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Poloidal Beta",
+        title="Poloidal Beta",
     ),
     "equilibrium_time_beta_tor": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.beta_tor", index="time_slice",
-        x_paths=_EQ_TIME, y_label="Toroidal Beta", title="Toroidal Beta",
+        y_path="equilibrium.time_slice.{i}.global_quantities.beta_tor",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Toroidal Beta",
+        title="Toroidal Beta",
     ),
     "equilibrium_time_beta_n": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.beta_normal",
-        index="time_slice", x_paths=_EQ_TIME, y_label="Normalized Beta",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Normalized Beta",
         title="Normalized Beta",
     ),
     "equilibrium_time_w_mhd": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.energy_mhd",
-        index="time_slice", x_paths=_EQ_TIME, y_label="MHD Stored Energy", y_unit="J",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="MHD Stored Energy",
+        y_unit="J",
         title="MHD Stored Energy",
     ),
     "equilibrium_time_w_mag": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.energy_mag",
-        index="time_slice", x_paths=_EQ_TIME, y_label="Magnetic Stored Energy",
-        y_unit="J", title="Magnetic Stored Energy",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Magnetic Stored Energy",
+        y_unit="J",
+        title="Magnetic Stored Energy",
     ),
     "equilibrium_time_w_tot": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.energy_total",
-        index="time_slice", x_paths=_EQ_TIME, y_label="Total Stored Energy",
-        y_unit="J", title="Total Stored Energy",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Total Stored Energy",
+        y_unit="J",
+        title="Total Stored Energy",
     ),
     "equilibrium_time_q0": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.q_axis", index="time_slice",
-        x_paths=_EQ_TIME, y_label="q on axis", title="q0",
+        y_path="equilibrium.time_slice.{i}.global_quantities.q_axis",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="q on axis",
+        title="q0",
     ),
     "equilibrium_time_q95": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.q_95", index="time_slice",
-        x_paths=_EQ_TIME, y_label="q95", title="q95",
+        y_path="equilibrium.time_slice.{i}.global_quantities.q_95",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="q95",
+        title="q95",
     ),
     "equilibrium_time_qa": LineRecipe(
-        y_path="equilibrium.time_slice.{i}.global_quantities.qa", index="time_slice",
-        x_paths=_EQ_TIME, y_label="qa", title="qa",
+        y_path="equilibrium.time_slice.{i}.global_quantities.qa",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="qa",
+        title="qa",
     ),
     "equilibrium_time_major_radius": LineRecipe(
         y_path="equilibrium.time_slice.{i}.boundary.geometric_axis.r",
-        index="time_slice", x_paths=_EQ_TIME, y_label="Major Radius", y_unit="m",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Major Radius",
+        y_unit="m",
         title="Equilibrium Major Radius",
     ),
     "equilibrium_time_diamagnetic_flux": LineRecipe(
         y_path="equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
-        index="time_slice", x_paths=_EQ_TIME, y_label="Diamagnetic Flux", y_unit="Wb",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Diamagnetic Flux",
+        y_unit="Wb",
         title="Diamagnetic Flux Constraint",
     ),
     # --- tf ------------------------------------------------------------------
     "tf_time_b_field_tor": LineRecipe(
-        y_path="tf.b_field_tor_vacuum_r.data", x_paths=("tf.b_field_tor_vacuum_r.time",
-                                                        "tf.time"),
-        y_label="Toroidal Field", y_unit="T", title="Toroidal Field",
+        y_path="tf.b_field_tor_vacuum_r.data",
+        x_paths=("tf.b_field_tor_vacuum_r.time", "tf.time"),
+        y_label="Toroidal Field",
+        y_unit="T",
+        title="Toroidal Field",
         # tf.b_field_tor_vacuum_r.data is B_t * R [T*m]; divide by the reference
         # radius to recover the field itself, matching the legacy renderer.
         divide_by_path="tf.r0",
@@ -461,143 +536,207 @@ RECIPES: dict[str, Any] = {
     "tf_time_b_field_tor_vacuum_r": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
         x_paths=("tf.b_field_tor_vacuum_r.time", "tf.time"),
-        y_label="B_t * R", y_unit="T m", title="Vacuum B_t * R",
+        y_label="B_t * R",
+        y_unit="T m",
+        title="Vacuum B_t * R",
     ),
     "tf_time_coil_current": LineRecipe(
-        y_path="tf.coil.{i}.current.data", index="channel",
+        y_path="tf.coil.{i}.current.data",
+        index="channel",
         x_paths=("tf.coil.{i}.current.time", "tf.time"),
-        y_label="TF Coil Current", y_unit="A", label_path="tf.coil.{i}.name",
+        y_label="TF Coil Current",
+        y_unit="A",
+        label_path="tf.coil.{i}.name",
         title="TF Coil Current",
     ),
     # --- other diagnostics ---------------------------------------------------
     "spectrometer_uv_time_intensity": LineRecipe(
         y_path="spectrometer_uv.channel.{i}.processed_line.0.intensity.data",
-        index="channel", x_paths=("spectrometer_uv.time",),
-        y_label="Line Intensity", y_unit="a.u.",
-        label_path="spectrometer_uv.channel.{i}.name", title="UV Line Intensity",
+        index="channel",
+        x_paths=("spectrometer_uv.time",),
+        y_label="Line Intensity",
+        y_unit="a.u.",
+        label_path="spectrometer_uv.channel.{i}.name",
+        title="UV Line Intensity",
     ),
     "barometry_time_pressure": LineRecipe(
-        y_path="barometry.gauge.{i}.pressure.data", index="channel",
+        y_path="barometry.gauge.{i}.pressure.data",
+        index="channel",
         x_paths=("barometry.gauge.{i}.pressure.time",),
-        y_label="Neutral Pressure", y_unit="Pa",
-        label_path="barometry.gauge.{i}.name", title="Neutral Pressure",
+        y_label="Neutral Pressure",
+        y_unit="Pa",
+        label_path="barometry.gauge.{i}.name",
+        title="Neutral Pressure",
     ),
     "soft_x_rays_time_power": LineRecipe(
-        y_path="soft_x_rays.channel.{i}.power.data", index="channel",
+        y_path="soft_x_rays.channel.{i}.power.data",
+        index="channel",
         x_paths=("soft_x_rays.channel.{i}.power.time", "soft_x_rays.time"),
-        y_label="Soft X-ray Signal", y_unit="a.u.",
-        label_path="soft_x_rays.channel.{i}.name", title="Soft X-ray Signals",
+        y_label="Soft X-ray Signal",
+        y_unit="a.u.",
+        label_path="soft_x_rays.channel.{i}.name",
+        title="Soft X-ray Signals",
     ),
     "thomson_scattering_time_electron_temperature": LineRecipe(
-        y_path="thomson_scattering.channel.{i}.t_e.data", index="channel",
+        y_path="thomson_scattering.channel.{i}.t_e.data",
+        index="channel",
         x_paths=("thomson_scattering.channel.{i}.t_e.time", "thomson_scattering.time"),
-        y_label="Electron Temperature", y_unit="eV",
-        label_path="thomson_scattering.channel.{i}.name", title="Thomson T_e",
+        y_label="Electron Temperature",
+        y_unit="eV",
+        label_path="thomson_scattering.channel.{i}.name",
+        title="Thomson T_e",
     ),
     "thomson_scattering_time_electron_density": LineRecipe(
-        y_path="thomson_scattering.channel.{i}.n_e.data", index="channel",
+        y_path="thomson_scattering.channel.{i}.n_e.data",
+        index="channel",
         x_paths=("thomson_scattering.channel.{i}.n_e.time", "thomson_scattering.time"),
-        y_label="Electron Density", y_unit="m^-3",
-        label_path="thomson_scattering.channel.{i}.name", title="Thomson n_e",
+        y_label="Electron Density",
+        y_unit="m^-3",
+        label_path="thomson_scattering.channel.{i}.name",
+        title="Thomson n_e",
     ),
     "charge_exchange_time_ion_temperature": LineRecipe(
-        y_path="charge_exchange.channel.{i}.ion.0.t_i.data", index="channel",
+        y_path="charge_exchange.channel.{i}.ion.0.t_i.data",
+        index="channel",
         x_paths=("charge_exchange.channel.{i}.ion.0.t_i.time", "charge_exchange.time"),
-        y_label="Ion Temperature", y_unit="eV",
-        label_path="charge_exchange.channel.{i}.name", title="CES T_i",
+        y_label="Ion Temperature",
+        y_unit="eV",
+        label_path="charge_exchange.channel.{i}.name",
+        title="CES T_i",
     ),
     "charge_exchange_time_velocity_tor": LineRecipe(
-        y_path="charge_exchange.channel.{i}.ion.0.velocity_tor.data", index="channel",
-        x_paths=("charge_exchange.channel.{i}.ion.0.velocity_tor.time",
-                 "charge_exchange.time"),
-        y_label="Toroidal Rotation", y_unit="m/s",
-        label_path="charge_exchange.channel.{i}.name", title="CES v_tor",
+        y_path="charge_exchange.channel.{i}.ion.0.velocity_tor.data",
+        index="channel",
+        x_paths=(
+            "charge_exchange.channel.{i}.ion.0.velocity_tor.time",
+            "charge_exchange.time",
+        ),
+        y_label="Toroidal Rotation",
+        y_unit="m/s",
+        label_path="charge_exchange.channel.{i}.name",
+        title="CES v_tor",
     ),
     "core_profiles_time_electron_temperature": LineRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.temperature",
-        index="time_slice_mean", x_paths=("core_profiles.time",),
-        y_label="<T_e>", y_unit="eV", title="Volume-averaged T_e",
+        index="time_slice_mean",
+        x_paths=("core_profiles.time",),
+        y_label="<T_e>",
+        y_unit="eV",
+        title="Volume-averaged T_e",
     ),
     "core_profiles_time_electron_density": LineRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.density",
-        index="time_slice_mean", x_paths=("core_profiles.time",),
-        y_label="<n_e>", y_unit="m^-3", title="Volume-averaged n_e",
+        index="time_slice_mean",
+        x_paths=("core_profiles.time",),
+        y_label="<n_e>",
+        y_unit="m^-3",
+        title="Volume-averaged n_e",
     ),
     # --- 1D profiles ---------------------------------------------------------
     "equilibrium_profile_pressure": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.pressure",
-        y_label="Pressure", y_unit="Pa",
+        y_label="Pressure",
+        y_unit="Pa",
     ),
     "equilibrium_profile_q": ProfileRecipe(
-        y_path="equilibrium.time_slice.{i}.profiles_1d.q", y_label="Safety Factor q",
+        y_path="equilibrium.time_slice.{i}.profiles_1d.q",
+        y_label="Safety Factor q",
     ),
     "equilibrium_profile_j_tor": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.j_tor",
-        y_label="Toroidal Current Density", y_unit="A/m^2",
+        y_label="Toroidal Current Density",
+        y_unit="A/m^2",
     ),
     "equilibrium_profile_pprime": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi",
         fallback_y_paths=("equilibrium.time_slice.{i}.profiles_1d.pprime",),
-        y_label="dp/dpsi", y_unit="Pa/Wb",
+        y_label="dp/dpsi",
+        y_unit="Pa/Wb",
     ),
     "equilibrium_profile_f": ProfileRecipe(
-        y_path="equilibrium.time_slice.{i}.profiles_1d.f", y_label="F = R B_t",
+        y_path="equilibrium.time_slice.{i}.profiles_1d.f",
+        y_label="F = R B_t",
         y_unit="T m",
     ),
     "equilibrium_profile_ffprime": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
         fallback_y_paths=("equilibrium.time_slice.{i}.profiles_1d.ffprime",),
-        y_label="F dF/dpsi", y_unit="T^2 m^2/Wb",
+        y_label="F dF/dpsi",
+        y_unit="T^2 m^2/Wb",
     ),
     "core_profiles_profile_electron_temperature": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.temperature",
-        coordinate_paths={"rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
-                          "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm"},
+        coordinate_paths={
+            "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+            "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+        },
         slice_container="core_profiles.profiles_1d",
-        y_label="Electron Temperature", y_unit="eV",
+        y_label="Electron Temperature",
+        y_unit="eV",
     ),
     "core_profiles_profile_electron_density": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.density",
-        coordinate_paths={"rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
-                          "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm"},
+        coordinate_paths={
+            "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+            "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+        },
         slice_container="core_profiles.profiles_1d",
-        y_label="Electron Density", y_unit="m^-3",
+        y_label="Electron Density",
+        y_unit="m^-3",
     ),
     "core_profiles_profile_ion_temperature": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.ion.0.temperature",
-        coordinate_paths={"rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm"},
+        coordinate_paths={
+            "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm"
+        },
         slice_container="core_profiles.profiles_1d",
-        y_label="Ion Temperature", y_unit="eV",
+        y_label="Ion Temperature",
+        y_unit="eV",
     ),
     "core_profiles_profile_pressure": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.pressure_thermal",
-        coordinate_paths={"rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm"},
+        coordinate_paths={
+            "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm"
+        },
         slice_container="core_profiles.profiles_1d",
-        y_label="Thermal Pressure", y_unit="Pa",
+        y_label="Thermal Pressure",
+        y_unit="Pa",
     ),
     "thomson_scattering_profile_electron_temperature": ProfileRecipe(
-        y_path="thomson_scattering.channel.{i}.t_e.data", index="channel",
+        y_path="thomson_scattering.channel.{i}.t_e.data",
+        index="channel",
         coordinate_paths={"r_major": "thomson_scattering.channel.{i}.position.r"},
-        default_coordinate="r_major", slice_container="thomson_scattering.channel",
-        y_label="Electron Temperature", y_unit="eV",
+        default_coordinate="r_major",
+        slice_container="thomson_scattering.channel",
+        y_label="Electron Temperature",
+        y_unit="eV",
     ),
     "thomson_scattering_profile_electron_density": ProfileRecipe(
-        y_path="thomson_scattering.channel.{i}.n_e.data", index="channel",
+        y_path="thomson_scattering.channel.{i}.n_e.data",
+        index="channel",
         coordinate_paths={"r_major": "thomson_scattering.channel.{i}.position.r"},
-        default_coordinate="r_major", slice_container="thomson_scattering.channel",
-        y_label="Electron Density", y_unit="m^-3",
+        default_coordinate="r_major",
+        slice_container="thomson_scattering.channel",
+        y_label="Electron Density",
+        y_unit="m^-3",
     ),
     "charge_exchange_profile_ion_temperature": ProfileRecipe(
-        y_path="charge_exchange.channel.{i}.ion.0.t_i.data", index="channel",
+        y_path="charge_exchange.channel.{i}.ion.0.t_i.data",
+        index="channel",
         coordinate_paths={"r_major": "charge_exchange.channel.{i}.position.r.data"},
-        default_coordinate="r_major", slice_container="charge_exchange.channel",
-        y_label="Ion Temperature", y_unit="eV",
+        default_coordinate="r_major",
+        slice_container="charge_exchange.channel",
+        y_label="Ion Temperature",
+        y_unit="eV",
     ),
     "charge_exchange_profile_velocity_tor": ProfileRecipe(
-        y_path="charge_exchange.channel.{i}.ion.0.velocity_tor.data", index="channel",
+        y_path="charge_exchange.channel.{i}.ion.0.velocity_tor.data",
+        index="channel",
         coordinate_paths={"r_major": "charge_exchange.channel.{i}.position.r.data"},
-        default_coordinate="r_major", slice_container="charge_exchange.channel",
-        y_label="Toroidal Rotation", y_unit="m/s",
+        default_coordinate="r_major",
+        slice_container="charge_exchange.channel",
+        y_label="Toroidal Rotation",
+        y_unit="m/s",
     ),
     # --- 2D fields -----------------------------------------------------------
     "equilibrium_field_psi": FieldRecipe(
@@ -605,57 +744,114 @@ RECIPES: dict[str, Any] = {
         z_path="equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
         value_path="equilibrium.time_slice.{i}.profiles_2d.0.psi",
         value_label="Poloidal Flux [Wb]",
-        boundary_paths=("equilibrium.time_slice.{i}.boundary.outline.r",
-                        "equilibrium.time_slice.{i}.boundary.outline.z"),
+        boundary_paths=(
+            "equilibrium.time_slice.{i}.boundary.outline.r",
+            "equilibrium.time_slice.{i}.boundary.outline.z",
+        ),
         title="Poloidal Flux",
+        # OMAS equilibrium profiles_2d uses (dim1=R, dim2=Z).  Field2D and
+        # Matplotlib consume (Z, R); square EFIT grids previously concealed
+        # this transpose because their shapes are identical.
+        values_order="rz",
     ),
     # --- geometry ------------------------------------------------------------
     "pf_active_geometry_poloidal": GeometryRecipe(
-        layers=(("polygon", "pf_active.coil.{i}.element.0.geometry.outline.r",
-                 "pf_active.coil.{i}.element.0.geometry.outline.z",
-                 "pf_active.coil", "pf_active.coil.{i}.name", {}),),
+        layers=(
+            (
+                "polygon",
+                "pf_active.coil.{i}.element.0.geometry.outline.r",
+                "pf_active.coil.{i}.element.0.geometry.outline.z",
+                "pf_active.coil",
+                "pf_active.coil.{i}.name",
+                {},
+            ),
+        ),
         title="PF Coils",
     ),
     "pf_passive_geometry_poloidal": GeometryRecipe(
-        layers=(("polygon", "pf_passive.loop.{i}.element.0.geometry.outline.r",
-                 "pf_passive.loop.{i}.element.0.geometry.outline.z",
-                 "pf_passive.loop", "pf_passive.loop.{i}.name", {}),),
+        layers=(
+            (
+                "polygon",
+                "pf_passive.loop.{i}.element.0.geometry.outline.r",
+                "pf_passive.loop.{i}.element.0.geometry.outline.z",
+                "pf_passive.loop",
+                "pf_passive.loop.{i}.name",
+                {},
+            ),
+        ),
         title="Passive Structure",
     ),
     "wall_geometry_poloidal": GeometryRecipe(
-        layers=(("polygon", "wall.description_2d.0.limiter.unit.{i}.outline.r",
-                 "wall.description_2d.0.limiter.unit.{i}.outline.z",
-                 "wall.description_2d.0.limiter.unit", "", {"color": "0.4"}),),
+        layers=(
+            (
+                "polygon",
+                "wall.description_2d.0.limiter.unit.{i}.outline.r",
+                "wall.description_2d.0.limiter.unit.{i}.outline.z",
+                "wall.description_2d.0.limiter.unit",
+                "",
+                {"color": "0.4"},
+            ),
+        ),
         title="First Wall",
     ),
     "magnetics_geometry_poloidal": GeometryRecipe(
         layers=(
-            ("points", "magnetics.flux_loop.{i}.position.0.r",
-             "magnetics.flux_loop.{i}.position.0.z", "magnetics.flux_loop", "",
-             {"marker": "s", "markersize": 3, "color": "#377eb8"}),
-            ("points", "magnetics.b_field_pol_probe.{i}.position.r",
-             "magnetics.b_field_pol_probe.{i}.position.z",
-             "magnetics.b_field_pol_probe", "",
-             {"marker": "x", "markersize": 4, "color": "#ff7f00"}),
+            (
+                "points",
+                "magnetics.flux_loop.{i}.position.0.r",
+                "magnetics.flux_loop.{i}.position.0.z",
+                "magnetics.flux_loop",
+                "",
+                {"marker": "s", "markersize": 3, "color": "#377eb8"},
+            ),
+            (
+                "points",
+                "magnetics.b_field_pol_probe.{i}.position.r",
+                "magnetics.b_field_pol_probe.{i}.position.z",
+                "magnetics.b_field_pol_probe",
+                "",
+                {"marker": "x", "markersize": 4, "color": "#ff7f00"},
+            ),
         ),
         title="Magnetic Diagnostics",
     ),
     "equilibrium_geometry_boundary": GeometryRecipe(
-        layers=(("polygon", "equilibrium.time_slice.{i}.boundary.outline.r",
-                 "equilibrium.time_slice.{i}.boundary.outline.z",
-                 "equilibrium.time_slice", "", {"color": "#e41a1c"}),),
+        layers=(
+            (
+                "polygon",
+                "equilibrium.time_slice.{i}.boundary.outline.r",
+                "equilibrium.time_slice.{i}.boundary.outline.z",
+                "equilibrium.time_slice",
+                "",
+                {"color": "#e41a1c"},
+            ),
+        ),
         title="Plasma Boundary",
     ),
     "thomson_scattering_geometry_poloidal": GeometryRecipe(
-        layers=(("points", "thomson_scattering.channel.{i}.position.r",
-                 "thomson_scattering.channel.{i}.position.z",
-                 "thomson_scattering.channel", "", {"marker": "o", "markersize": 3}),),
+        layers=(
+            (
+                "points",
+                "thomson_scattering.channel.{i}.position.r",
+                "thomson_scattering.channel.{i}.position.z",
+                "thomson_scattering.channel",
+                "",
+                {"marker": "o", "markersize": 3},
+            ),
+        ),
         title="Thomson Scattering Positions",
     ),
     "charge_exchange_geometry_poloidal": GeometryRecipe(
-        layers=(("points", "charge_exchange.channel.{i}.position.r.data",
-                 "charge_exchange.channel.{i}.position.z.data",
-                 "charge_exchange.channel", "", {"marker": "d", "markersize": 3}),),
+        layers=(
+            (
+                "points",
+                "charge_exchange.channel.{i}.position.r.data",
+                "charge_exchange.channel.{i}.position.z.data",
+                "charge_exchange.channel",
+                "",
+                {"marker": "d", "markersize": 3},
+            ),
+        ),
         title="Charge-exchange Positions",
     ),
     # --- spectrograms --------------------------------------------------------
@@ -673,13 +869,19 @@ RECIPES: dict[str, Any] = {
     ),
     # --- composites ----------------------------------------------------------
     "summary_time_energy": PanelRecipe(
-        members=("equilibrium_time_w_mhd", "equilibrium_time_w_mag",
-                 "equilibrium_time_w_tot"),
+        members=(
+            "equilibrium_time_w_mhd",
+            "equilibrium_time_w_mag",
+            "equilibrium_time_w_tot",
+        ),
         suptitle="Stored Energy",
     ),
     "summary_time_beta": PanelRecipe(
-        members=("equilibrium_time_beta_pol", "equilibrium_time_beta_tor",
-                 "equilibrium_time_beta_n"),
+        members=(
+            "equilibrium_time_beta_pol",
+            "equilibrium_time_beta_tor",
+            "equilibrium_time_beta_n",
+        ),
         suptitle="Beta",
     ),
     "summary_time_voltage_consumption": PanelRecipe(
@@ -687,8 +889,11 @@ RECIPES: dict[str, Any] = {
         suptitle="Voltage Consumption",
     ),
     "equilibrium_time_virial": PanelRecipe(
-        members=("equilibrium_time_beta_pol", "equilibrium_time_li",
-                 "equilibrium_time_w_mhd"),
+        members=(
+            "equilibrium_time_beta_pol",
+            "equilibrium_time_li",
+            "equilibrium_time_w_mhd",
+        ),
         suptitle="Virial Equilibrium Quantities",
     ),
     "electromagnetics_time_current": PanelRecipe(
@@ -696,8 +901,10 @@ RECIPES: dict[str, Any] = {
         suptitle="Electromagnetic Currents",
     ),
     "core_profiles_time_volume_averaged": PanelRecipe(
-        members=("core_profiles_time_electron_temperature",
-                 "core_profiles_time_electron_density"),
+        members=(
+            "core_profiles_time_electron_temperature",
+            "core_profiles_time_electron_density",
+        ),
         suptitle="Volume-averaged Core Profiles",
     ),
     "spectrometer_uv_time_impurity": PanelRecipe(
@@ -705,15 +912,26 @@ RECIPES: dict[str, Any] = {
         suptitle="Impurity Line Intensity",
     ),
     "magnetics_overview": PanelRecipe(
-        members=("magnetics_time_ip", "pf_active_time_current",
-                 "magnetics_time_flux_loop_flux",
-                 "magnetics_time_b_field_pol_probe_field"),
-        ncols=2, share_x=False, suptitle="Shot Diagnostics Overview",
+        members=(
+            "magnetics_time_ip",
+            "pf_active_time_current",
+            "magnetics_time_flux_loop_flux",
+            "magnetics_time_b_field_pol_probe_field",
+        ),
+        ncols=2,
+        share_x=False,
+        suptitle="Shot Diagnostics Overview",
     ),
     "equilibrium_overview": PanelRecipe(
-        members=("equilibrium_time_plasma_current", "equilibrium_time_beta_pol",
-                 "equilibrium_time_li", "equilibrium_time_q95"),
-        ncols=2, share_x=False, suptitle="Equilibrium Analysis Overview",
+        members=(
+            "equilibrium_time_plasma_current",
+            "equilibrium_time_beta_pol",
+            "equilibrium_time_li",
+            "equilibrium_time_q95",
+        ),
+        ncols=2,
+        share_x=False,
+        suptitle="Equilibrium Analysis Overview",
     ),
     "magnetics_time_impa_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="field", **options),
@@ -734,7 +952,8 @@ RECIPES: dict[str, Any] = {
     ),
     "soft_x_rays_overview": PanelRecipe(
         members=("soft_x_rays_time_power", "soft_x_rays_geometry_lines_of_sight"),
-        share_x=False, suptitle="Soft X-ray Overview",
+        share_x=False,
+        suptitle="Soft X-ray Overview",
     ),
 }
 
@@ -909,8 +1128,9 @@ def _build_lines_of_sight(ods: Any, *, channels: Any = None, **_: Any) -> Geomet
                 r=[float(first_r), float(second_r)],
                 z=[float(first_z), float(second_z)],
                 kind="polyline",
-                label=_channel_label(ods, "soft_x_rays.channel.{i}.name", index,
-                                     f"ch{index}"),
+                label=_channel_label(
+                    ods, "soft_x_rays.channel.{i}.name", index, f"ch{index}"
+                ),
                 style={"lw": 0.8},
             )
         )
@@ -979,11 +1199,14 @@ def _build_equilibrium_topview(
     for radius, label in ((outer, "Plasma outboard"), (inner, "Plasma inboard")):
         x, y = _ring(radius)
         layers.append(
-            GeometryLayer(r=x, z=y, kind="polyline", label=label,
-                          style={"color": "#e41a1c"})
+            GeometryLayer(
+                r=x, z=y, kind="polyline", label=label, style={"color": "#e41a1c"}
+            )
         )
     return GeometryLayers(
-        layers=tuple(layers), x_label="x [m]", y_label="y [m]",
+        layers=tuple(layers),
+        x_label="x [m]",
+        y_label="y [m]",
         title="Plasma Top View",
     )
 
@@ -993,7 +1216,9 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
     positions = []
     pellet_count = _count(ods, f"pellets.time_slice.{time_slice}.pellet")
     for index in range(pellet_count):
-        base = f"pellets.time_slice.{time_slice}.pellet.{index}.path_geometry.first_point"
+        base = (
+            f"pellets.time_slice.{time_slice}.pellet.{index}.path_geometry.first_point"
+        )
         radius = _get(ods, f"{base}.r")
         if radius is None:
             continue
@@ -1002,7 +1227,9 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
     return positions
 
 
-def _build_machine_topview(ods: Any, *, time_slice: int = 0, **_: Any) -> GeometryLayers:
+def _build_machine_topview(
+    ods: Any, *, time_slice: int = 0, **_: Any
+) -> GeometryLayers:
     """Compose the plasma extent with launcher, antenna and pellet geometry."""
     layers: list[GeometryLayer] = []
     if "equilibrium" in ods:
@@ -1011,10 +1238,18 @@ def _build_machine_topview(ods: Any, *, time_slice: int = 0, **_: Any) -> Geomet
         except ValueError:
             pass
     for container, r_path, label, style in (
-        ("lh_antennas.antenna", "lh_antennas.antenna.{i}.position.r",
-         "LH antenna", {"marker": "s"}),
-        ("ec_launchers.beam", "ec_launchers.beam.{i}.launching_position.r",
-         "EC launcher", {"marker": "^"}),
+        (
+            "lh_antennas.antenna",
+            "lh_antennas.antenna.{i}.position.r",
+            "LH antenna",
+            {"marker": "s"},
+        ),
+        (
+            "ec_launchers.beam",
+            "ec_launchers.beam.{i}.launching_position.r",
+            "EC launcher",
+            {"marker": "^"},
+        ),
     ):
         for index in range(_count(ods, container)):
             radius = _get(ods, r_path.format(i=index))
@@ -1024,15 +1259,21 @@ def _build_machine_topview(ods: Any, *, time_slice: int = 0, **_: Any) -> Geomet
             radius, phi = float(radius), float(phi or 0.0)
             layers.append(
                 GeometryLayer(
-                    r=[radius * np.cos(phi)], z=[radius * np.sin(phi)], kind="points",
-                    label=f"{label} {index}", style=style,
+                    r=[radius * np.cos(phi)],
+                    z=[radius * np.sin(phi)],
+                    kind="points",
+                    label=f"{label} {index}",
+                    style=style,
                 )
             )
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
             GeometryLayer(
-                r=[radius * np.cos(phi)], z=[radius * np.sin(phi)], kind="points",
-                label=f"Pellet {index}", style={"marker": "*", "color": "#984ea3"},
+                r=[radius * np.cos(phi)],
+                z=[radius * np.sin(phi)],
+                kind="points",
+                label=f"Pellet {index}",
+                style={"marker": "*", "color": "#984ea3"},
             )
         )
     if not layers:
@@ -1041,7 +1282,9 @@ def _build_machine_topview(ods: Any, *, time_slice: int = 0, **_: Any) -> Geomet
             "pellets) are present"
         )
     return GeometryLayers(
-        layers=tuple(layers), x_label="x [m]", y_label="y [m]",
+        layers=tuple(layers),
+        x_label="x [m]",
+        y_label="y [m]",
         title="Machine Top View",
     )
 
@@ -1059,8 +1302,12 @@ def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field
     if values.shape != (z_axis.size, r_axis.size):
         values = values.T
     return Field2D(
-        r=r_axis, z=z_axis, values=values,
-        value_label="Vacuum Poloidal Flux [Wb]", filled=False, contour_levels=50,
+        r=r_axis,
+        z=z_axis,
+        values=values,
+        value_label="Vacuum Poloidal Flux [Wb]",
+        filled=False,
+        contour_levels=50,
         overlays=tuple(_wall_layers(ods)),
         title=f"Vacuum psi at t = {float(time) * 1e3:.1f} ms",
     )
@@ -1078,11 +1325,15 @@ def _build_core_profile_field(
             f"equilibrium.time_slice.{time_slice}.profiles_2d.0 is required to map a "
             "core profile onto the poloidal plane"
         )
-    psi_axis = _get(ods, f"equilibrium.time_slice.{time_slice}.global_quantities.psi_axis")
+    psi_axis = _get(
+        ods, f"equilibrium.time_slice.{time_slice}.global_quantities.psi_axis"
+    )
     psi_boundary = _get(
         ods, f"equilibrium.time_slice.{time_slice}.global_quantities.psi_boundary"
     )
-    profile = _array(ods, f"core_profiles.profiles_1d.{time_slice}.electrons.{quantity}")
+    profile = _array(
+        ods, f"core_profiles.profiles_1d.{time_slice}.electrons.{quantity}"
+    )
     rho = _array(ods, f"core_profiles.profiles_1d.{time_slice}.grid.rho_tor_norm")
     if profile is None or rho is None:
         raise ValueError(
@@ -1100,11 +1351,17 @@ def _build_core_profile_field(
     rho_2d = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
     values = np.interp(rho_2d.ravel(), rho, profile).reshape(rho_2d.shape)
     values = np.where(psi_norm <= 1.0, values, np.nan)
-    labels = {"temperature": "Electron Temperature [eV]",
-              "density": "Electron Density [m^-3]"}
+    labels = {
+        "temperature": "Electron Temperature [eV]",
+        "density": "Electron Density [m^-3]",
+    }
     return Field2D(
-        r=grid_r, z=grid_z, values=values, value_label=labels[quantity],
-        overlays=tuple(_wall_layers(ods)), title=labels[quantity],
+        r=grid_r,
+        z=grid_z,
+        values=values,
+        value_label=labels[quantity],
+        overlays=tuple(_wall_layers(ods)),
+        title=labels[quantity],
     )
 
 
@@ -1142,7 +1399,9 @@ RECIPES["core_profiles_field_electron_density"] = CallableRecipe(
 )
 
 
-def _nearest_time_index(reference: np.ndarray, target: float, tolerance: float) -> int | None:
+def _nearest_time_index(
+    reference: np.ndarray, target: float, tolerance: float
+) -> int | None:
     if reference.size == 0:
         return None
     index = int(np.argmin(np.abs(reference - target)))
@@ -1156,7 +1415,10 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
     input/ohmic power, loss decomposition, and radiation decomposition -- not
     just the inputs to that computation.
     """
-    from vaft.omas.formula_wrapper import compute_bremsstrahlung_power, compute_power_balance
+    from vaft.omas.formula_wrapper import (
+        compute_bremsstrahlung_power,
+        compute_power_balance,
+    )
 
     try:
         power_balance = compute_power_balance(ods)
@@ -1172,12 +1434,17 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
 
     eq_count = _count(ods, "equilibrium.time_slice")
     eq_times = np.asarray(
-        [float(_get(ods, f"equilibrium.time_slice.{i}.time", i)) for i in range(eq_count)],
+        [
+            float(_get(ods, f"equilibrium.time_slice.{i}.time", i))
+            for i in range(eq_count)
+        ],
         dtype=float,
     )
     eq_ip = np.asarray(
-        [float(_get(ods, f"equilibrium.time_slice.{i}.global_quantities.ip", np.nan))
-         for i in range(eq_count)],
+        [
+            float(_get(ods, f"equilibrium.time_slice.{i}.global_quantities.ip", np.nan))
+            for i in range(eq_count)
+        ],
         dtype=float,
     )
 
@@ -1198,7 +1465,9 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
 
     P_in = np.asarray(power_balance.get("P_heat", np.zeros_like(t)), dtype=float)
     P_ohm = np.asarray(
-        power_balance.get("P_ohm_diss", power_balance.get("P_ohm_flux", np.zeros_like(t))),
+        power_balance.get(
+            "P_ohm_diss", power_balance.get("P_ohm_flux", np.zeros_like(t))
+        ),
         dtype=float,
     )
 
@@ -1209,15 +1478,21 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
     )
     P_loss = np.asarray(power_balance.get("P_loss_total", P_rad + P_trans), dtype=float)
 
-    P_line = np.asarray(power_balance.get("P_rad_line", np.zeros_like(P_rad)), dtype=float)
-    P_Br = np.asarray(power_balance.get("P_Br", np.full_like(P_rad, np.nan)), dtype=float)
+    P_line = np.asarray(
+        power_balance.get("P_rad_line", np.zeros_like(P_rad)), dtype=float
+    )
+    P_Br = np.asarray(
+        power_balance.get("P_Br", np.full_like(P_rad, np.nan)), dtype=float
+    )
     if np.all(~np.isfinite(P_Br)):
         P_Br = np.full_like(P_rad, np.nan, dtype=float)
         cp_count = _count(ods, "core_profiles.profiles_1d")
         if cp_count:
             cp_times = np.asarray(
-                [float(_get(ods, f"core_profiles.profiles_1d.{i}.time", i))
-                 for i in range(cp_count)],
+                [
+                    float(_get(ods, f"core_profiles.profiles_1d.{i}.time", i))
+                    for i in range(cp_count)
+                ],
                 dtype=float,
             )
             for i, tt in enumerate(t):
@@ -1225,29 +1500,52 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
                 if index is None:
                     continue
                 try:
-                    _, p_br_electron = compute_bremsstrahlung_power(ods, time_slice=int(index))
+                    _, p_br_electron = compute_bremsstrahlung_power(
+                        ods, time_slice=int(index)
+                    )
                     P_Br[i] = float(p_br_electron)
                 except Exception:
                     # Keep the figure robust when a few slices fail.
                     P_Br[i] = np.nan
 
-    P_sync = np.asarray(power_balance.get("P_sync", np.full_like(P_rad, np.nan)), dtype=float)
+    P_sync = np.asarray(
+        power_balance.get("P_sync", np.full_like(P_rad, np.nan)), dtype=float
+    )
     if np.all(~np.isfinite(P_sync)):
         # No direct synchrotron model in this pipeline yet; use the residual.
         P_sync = P_rad - P_line - np.nan_to_num(P_Br, nan=0.0)
 
     def _panel(traces: list[Series], title: str = "") -> LineSeries:
-        return LineSeries(series=tuple(traces), x_label="Time", x_unit="s",
-                          y_label="", y_unit="W", title=title)
+        return LineSeries(
+            series=tuple(traces),
+            x_label="Time",
+            x_unit="s",
+            y_label="",
+            y_unit="W",
+            title=title,
+        )
 
     panels = (
         _panel([Series(x=t, y=dW_thdt, label="dW_th/dt")]),
         _panel([Series(x=t, y=dW_magdt, label="dW_mag,p/dt")]),
-        _panel([Series(x=t, y=P_in, label="P_in"), Series(x=t, y=P_ohm, label="P_ohm")]),
-        _panel([Series(x=t, y=P_loss, label="P_loss"), Series(x=t, y=P_trans, label="P_trans"),
-               Series(x=t, y=P_rad, label="P_rad")]),
-        _panel([Series(x=t, y=P_rad, label="P_rad"), Series(x=t, y=P_Br, label="P_Br"),
-               Series(x=t, y=P_sync, label="P_sync"), Series(x=t, y=P_line, label="P_line")]),
+        _panel(
+            [Series(x=t, y=P_in, label="P_in"), Series(x=t, y=P_ohm, label="P_ohm")]
+        ),
+        _panel(
+            [
+                Series(x=t, y=P_loss, label="P_loss"),
+                Series(x=t, y=P_trans, label="P_trans"),
+                Series(x=t, y=P_rad, label="P_rad"),
+            ]
+        ),
+        _panel(
+            [
+                Series(x=t, y=P_rad, label="P_rad"),
+                Series(x=t, y=P_Br, label="P_Br"),
+                Series(x=t, y=P_sync, label="P_sync"),
+                Series(x=t, y=P_line, label="P_line"),
+            ]
+        ),
     )
     return Panels(models=panels, ncols=1, share_x=True, suptitle="Power Balance")
 
@@ -1272,19 +1570,28 @@ def _camera_visible_frame_prefix(channel: int, detector: int) -> str:
 
 
 def _camera_visible_channel_name(ods: Any, channel: int) -> str:
-    return str(_get(ods, f"camera_visible.channel.{channel}.name", f"Camera Ch {channel}"))
-
-
-def _resolve_camera_visible_frame(ods: Any, *, channel: int, detector: int, options: Mapping[str, Any]):
-    from vaft.omas.process_wrapper import _resolve_camera_frame
-
-    return _resolve_camera_frame(
-        ods, channel=channel, detector=detector,
-        frame_index=options.get("frame_index"), frame_time=options.get("time"),
+    return str(
+        _get(ods, f"camera_visible.channel.{channel}.name", f"Camera Ch {channel}")
     )
 
 
-def _camera_visible_frame_image(ods: Any, *, channel: int, detector: int, frame_index: int) -> np.ndarray:
+def _resolve_camera_visible_frame(
+    ods: Any, *, channel: int, detector: int, options: Mapping[str, Any]
+):
+    from vaft.omas.process_wrapper import _resolve_camera_frame
+
+    return _resolve_camera_frame(
+        ods,
+        channel=channel,
+        detector=detector,
+        frame_index=options.get("frame_index"),
+        frame_time=options.get("time"),
+    )
+
+
+def _camera_visible_frame_image(
+    ods: Any, *, channel: int, detector: int, frame_index: int
+) -> np.ndarray:
     path = f"{_camera_visible_frame_prefix(channel, detector)}.{frame_index}.image_raw"
     image = _array(ods, path)
     if image is None:
@@ -1292,33 +1599,54 @@ def _camera_visible_frame_image(ods: Any, *, channel: int, detector: int, frame_
     return image
 
 
-def _efit_overlay_layers(overlay: Mapping[str, Any], *, options: Mapping[str, Any]) -> list[GeometryLayer]:
+def _efit_overlay_layers(
+    overlay: Mapping[str, Any], *, options: Mapping[str, Any]
+) -> list[GeometryLayer]:
     layers: list[GeometryLayer] = []
     if options.get("show_wall", True) and overlay["wall_uv"].size:
-        layers.append(GeometryLayer(
-            r=overlay["wall_uv"][:, 0], z=overlay["wall_uv"][:, 1], kind="points",
-            label="Wall", style={"marker": "o", "markersize": 1, "color": "yellow"},
-        ))
+        layers.append(
+            GeometryLayer(
+                r=overlay["wall_uv"][:, 0],
+                z=overlay["wall_uv"][:, 1],
+                kind="points",
+                label="Wall",
+                style={"marker": "o", "markersize": 1, "color": "yellow"},
+            )
+        )
     if options.get("show_lcfs", True) and overlay["lcfs_uv"].size:
-        layers.append(GeometryLayer(
-            r=overlay["lcfs_uv"][:, 0], z=overlay["lcfs_uv"][:, 1], kind="points",
-            label="LCFS", style={"marker": "o", "markersize": 1.5, "color": "magenta"},
-        ))
+        layers.append(
+            GeometryLayer(
+                r=overlay["lcfs_uv"][:, 0],
+                z=overlay["lcfs_uv"][:, 1],
+                kind="points",
+                label="LCFS",
+                style={"marker": "o", "markersize": 1.5, "color": "magenta"},
+            )
+        )
     if options.get("show_magnetic_axis", True) and overlay["magnetic_axis_uv"].size:
-        layers.append(GeometryLayer(
-            r=overlay["magnetic_axis_uv"][:, 0], z=overlay["magnetic_axis_uv"][:, 1], kind="points",
-            label="Magnetic axis", style={"marker": "+", "markersize": 8, "color": "cyan"},
-        ))
+        layers.append(
+            GeometryLayer(
+                r=overlay["magnetic_axis_uv"][:, 0],
+                z=overlay["magnetic_axis_uv"][:, 1],
+                kind="points",
+                label="Magnetic axis",
+                style={"marker": "+", "markersize": 8, "color": "cyan"},
+            )
+        )
     flux_surfaces_uv = overlay.get("flux_surfaces_uv") or {}
     for index, level in enumerate(sorted(flux_surfaces_uv)):
         points = flux_surfaces_uv[level]
         if points.size == 0:
             continue
-        layers.append(GeometryLayer(
-            r=points[:, 0], z=points[:, 1], kind="points",
-            label="psi surfaces" if index == 0 else "",
-            style={"marker": "o", "markersize": 1, "color": "tab:cyan"},
-        ))
+        layers.append(
+            GeometryLayer(
+                r=points[:, 0],
+                z=points[:, 1],
+                kind="points",
+                label="psi surfaces" if index == 0 else "",
+                style={"marker": "o", "markersize": 1, "color": "tab:cyan"},
+            )
+        )
     return layers
 
 
@@ -1328,7 +1656,9 @@ def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
     idx, resolved_time, _shape = _resolve_camera_visible_frame(
         ods, channel=channel, detector=detector, options=options
     )
-    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
+    image = _camera_visible_frame_image(
+        ods, channel=channel, detector=detector, frame_index=idx
+    )
     channel_name = _camera_visible_channel_name(ods, channel)
     title = options.get("title", f"{channel_name} frame {idx} @ t={resolved_time:.4f}s")
     return Image2D(values=image, value_label="Digital levels", title=title)
@@ -1343,19 +1673,30 @@ def _build_camera_visible_image_efit_overlay(ods: Any, **options: Any) -> Image2
     idx, resolved_time, _shape = _resolve_camera_visible_frame(
         ods, channel=channel, detector=detector, options=options
     )
-    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
+    image = _camera_visible_frame_image(
+        ods, channel=channel, detector=detector, frame_index=idx
+    )
 
     overlay = compute_camera_visible_efit_overlay(
-        ods, shot, channel=channel, detector=detector, frame_index=idx,
-        flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95))),
+        ods,
+        shot,
+        channel=channel,
+        detector=detector,
+        frame_index=idx,
+        flux_surface_levels=tuple(
+            options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95))
+        ),
     )
     layers = _efit_overlay_layers(overlay, options=options)
 
     channel_name = _camera_visible_channel_name(ods, channel)
     title = options.get(
-        "title", f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} EFIT overlay"
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} EFIT overlay",
     )
-    return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
+    return Image2D(
+        values=image, value_label="Digital levels", title=title, overlays=tuple(layers)
+    )
 
 
 def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
@@ -1372,11 +1713,19 @@ def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
     idx, resolved_time, _shape = _resolve_camera_visible_frame(
         ods, channel=channel, detector=detector, options=options
     )
-    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
+    image = _camera_visible_frame_image(
+        ods, channel=channel, detector=detector, frame_index=idx
+    )
 
     result = compute_camera_visible_field_line_overlay(
-        ods, shot, r0=r0, z0=z0, phi0=float(options.get("phi0", 0.0)),
-        channel=channel, detector=detector, frame_index=idx,
+        ods,
+        shot,
+        r0=r0,
+        z0=z0,
+        phi0=float(options.get("phi0", 0.0)),
+        channel=channel,
+        detector=detector,
+        frame_index=idx,
         dphi_deg=float(options.get("dphi_deg", 1.0)),
         max_length_m=float(options.get("max_length_m", 50.0)),
         direction=options.get("direction", "forward"),
@@ -1386,27 +1735,56 @@ def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
     layers: list[GeometryLayer] = []
     field_line_uv = result["field_line_uv"]
     if field_line_uv.shape[0] >= 2:
-        layers.append(GeometryLayer(
-            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline",
-            label="Field line", style={"color": "red", "linewidth": 1.5},
-        ))
-        layers.append(GeometryLayer(
-            r=field_line_uv[:1, 0], z=field_line_uv[:1, 1], kind="points",
-            label="Start", style={"marker": "o", "markersize": 8, "color": "lime"},
-        ))
-        layers.append(GeometryLayer(
-            r=field_line_uv[-1:, 0], z=field_line_uv[-1:, 1], kind="points",
-            label="End", style={"marker": "o", "markersize": 8, "color": "blue"},
-        ))
+        layers.append(
+            GeometryLayer(
+                r=field_line_uv[:, 0],
+                z=field_line_uv[:, 1],
+                kind="polyline",
+                label="Field line",
+                style={"color": "red", "linewidth": 1.5},
+            )
+        )
+        layers.append(
+            GeometryLayer(
+                r=field_line_uv[:1, 0],
+                z=field_line_uv[:1, 1],
+                kind="points",
+                label="Start",
+                style={"marker": "o", "markersize": 8, "color": "lime"},
+            )
+        )
+        layers.append(
+            GeometryLayer(
+                r=field_line_uv[-1:, 0],
+                z=field_line_uv[-1:, 1],
+                kind="points",
+                label="End",
+                style={"marker": "o", "markersize": 8, "color": "blue"},
+            )
+        )
     elif field_line_uv.shape[0] == 1:
-        layers.append(GeometryLayer(
-            r=field_line_uv[:1, 0], z=field_line_uv[:1, 1], kind="points",
-            label="Start", style={"marker": "o", "markersize": 8, "color": "lime"},
-        ))
+        layers.append(
+            GeometryLayer(
+                r=field_line_uv[:1, 0],
+                z=field_line_uv[:1, 1],
+                kind="points",
+                label="Start",
+                style={"marker": "o", "markersize": 8, "color": "lime"},
+            )
+        )
 
-    if options.get("show_wall") or options.get("show_lcfs") or options.get("show_magnetic_axis") or options.get("flux_surface_levels"):
+    if (
+        options.get("show_wall")
+        or options.get("show_lcfs")
+        or options.get("show_magnetic_axis")
+        or options.get("flux_surface_levels")
+    ):
         efit_overlay = compute_camera_visible_efit_overlay(
-            ods, shot, channel=channel, detector=detector, frame_index=idx,
+            ods,
+            shot,
+            channel=channel,
+            detector=detector,
+            frame_index=idx,
             flux_surface_levels=tuple(options.get("flux_surface_levels", ())),
         )
         layers.extend(_efit_overlay_layers(efit_overlay, options=options))
@@ -1418,7 +1796,9 @@ def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} field line\n"
         f"R0={r0:.3f}m, Z0={z0:.3f}m, stop: {reason}",
     )
-    return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
+    return Image2D(
+        values=image, value_label="Digital levels", title=title, overlays=tuple(layers)
+    )
 
 
 def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSequence:
@@ -1441,7 +1821,11 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
     if not frames:
         raise ValueError("No camera_visible frames available to animate.")
 
-    return ImageSequence(frames=tuple(frames), time=np.asarray(times, dtype=float), value_label="Digital levels")
+    return ImageSequence(
+        frames=tuple(frames),
+        time=np.asarray(times, dtype=float),
+        value_label="Digital levels",
+    )
 
 
 RECIPES["camera_visible_image_frame"] = CallableRecipe(
@@ -1529,8 +1913,13 @@ def _build_line_traces(
         y = np.asarray(values, dtype=float)
         if time is None or time.size != y.size:
             time = np.arange(y.size, dtype=float)
-        return [Series(x=_scaled(time, xunit, _TIME_SCALES), y=y * value_scale,
-                       label=entry_label)]
+        return [
+            Series(
+                x=_scaled(time, xunit, _TIME_SCALES),
+                y=y * value_scale,
+                label=entry_label,
+            )
+        ]
 
     if recipe.index == "channel":
         indices = _resolve_indices(ods, recipe.y_path, channels)
@@ -1573,14 +1962,20 @@ def _build_line_series(
     for entry_label, ods in entries:
         traces.extend(
             _build_line_traces(
-                ods, recipe, entry_label=entry_label,
-                channels=options.get("channels"), xunit=xunit, yunit=yunit,
+                ods,
+                recipe,
+                entry_label=entry_label,
+                channels=options.get("channels"),
+                xunit=xunit,
+                yunit=yunit,
             )
         )
     return LineSeries(
         series=tuple(traces),
-        x_label=recipe.x_label, x_unit=xunit,
-        y_label=recipe.y_label, y_unit=yunit,
+        x_label=recipe.x_label,
+        x_unit=xunit,
+        y_label=recipe.y_label,
+        y_unit=yunit,
         title=options.get("title", recipe.title),
         x_limits=options.get("x_limits"),
         log_y=bool(options.get("log_y", False)),
@@ -1646,7 +2041,11 @@ def _build_profile_1d(
         if y is None:
             continue
         coordinate_path = _profile_coordinate(recipe, coordinate)
-        x = _array(ods, coordinate_path.format(i=time_slice)) if coordinate_path else None
+        x = (
+            _array(ods, coordinate_path.format(i=time_slice))
+            if coordinate_path
+            else None
+        )
         if x is None or x.size != y.size:
             x = np.linspace(0.0, 1.0, y.size)
         traces.append(Series(x=x, y=y, label=entry_label))
@@ -1679,8 +2078,13 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                 z_values.append(float(np.asarray(z, dtype=float).ravel()[0]))
             if r_values:
                 layers.append(
-                    GeometryLayer(r=r_values, z=z_values, kind="points",
-                                  label=recipe.title, style=style)
+                    GeometryLayer(
+                        r=r_values,
+                        z=z_values,
+                        kind="points",
+                        label=recipe.title,
+                        style=style,
+                    )
                 )
             continue
         for index in indices:
@@ -1690,14 +2094,19 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                 continue
             layers.append(
                 GeometryLayer(
-                    r=r, z=z, kind=kind,
+                    r=r,
+                    z=z,
+                    kind=kind,
                     label=_channel_label(ods, label_template, index, "")
-                    if label_template else "",
+                    if label_template
+                    else "",
                     style=style,
                 )
             )
     return GeometryLayers(
-        layers=tuple(layers), x_label=recipe.x_label, y_label=recipe.y_label,
+        layers=tuple(layers),
+        x_label=recipe.x_label,
+        y_label=recipe.y_label,
         title=options.get("title", recipe.title),
     )
 
@@ -1711,7 +2120,9 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
         raise ValueError(
             f"{recipe.value_path.format(i=time_slice)} and its (R, Z) grid are required"
         )
-    if values.shape != (z.size, r.size):
+    if recipe.values_order == "rz":
+        values = values.T
+    elif values.shape != (z.size, r.size):
         values = values.T
     overlays = list(_wall_layers(ods))
     if recipe.boundary_paths:
@@ -1719,13 +2130,22 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
         boundary_z = _array(ods, recipe.boundary_paths[1].format(i=time_slice))
         if boundary_r is not None and boundary_z is not None:
             overlays.append(
-                GeometryLayer(r=boundary_r, z=boundary_z, kind="polygon",
-                              label="Boundary", style={"color": "#e41a1c"})
+                GeometryLayer(
+                    r=boundary_r,
+                    z=boundary_z,
+                    kind="polygon",
+                    label="Boundary",
+                    style={"color": "#e41a1c"},
+                )
             )
     return Field2D(
-        r=r, z=z, values=values, value_label=recipe.value_label,
+        r=r,
+        z=z,
+        values=values,
+        value_label=recipe.value_label,
         contour_levels=options.get("contour_levels"),
-        overlays=tuple(overlays), title=options.get("title", recipe.title),
+        overlays=tuple(overlays),
+        title=options.get("title", recipe.title),
     )
 
 
@@ -1747,7 +2167,9 @@ def _build_spectrogram(
         positive = steps[steps > 0]
         sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
     result = compute_spectrogram(
-        time, signal, sample_rate=float(sample_rate),
+        time,
+        signal,
+        sample_rate=float(sample_rate),
         window_size=int(options.get("window_size", 500)),
         time_resolution=int(options.get("time_resolution", 1)),
     )
@@ -1770,7 +2192,9 @@ def _build_panels(
         members.append(build_model(name, entries, **options))
     if not members:
         raise ValueError(
-            "none of the panels " + ", ".join(recipe.members) + " have data in this input"
+            "none of the panels "
+            + ", ".join(recipe.members)
+            + " have data in this input"
         )
     return Panels(
         models=tuple(members),
@@ -1778,6 +2202,267 @@ def _build_panels(
         share_x=recipe.share_x,
         suptitle=options.get("title", recipe.suptitle),
     )
+
+
+def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
+    """Build one current panel per VEST limiter monitor.
+
+    Limiter shunts intentionally store only voltage in the ODS.  The current is
+    therefore derived at plot time from the documented effective V/I
+    ``resistance`` coefficient, leaving the IMAS tree free of a non-standard
+    ``magnetics.shunt[].current`` path.
+    """
+    from vaft.machine_mapping.magnetics import LIMITER_SHUNT_CHANNELS
+
+    xunit = str(options.get("xunit", "s"))
+    panels: list[LineSeries] = []
+    have_signal = False
+    for index, channel in enumerate(LIMITER_SHUNT_CHANNELS):
+        base = f"magnetics.shunt.{index}"
+        name = _get(ods, f"{base}.name") or channel["name"]
+        voltage = _array(ods, f"{base}.voltage.data")
+        time = _first_time(ods, (f"{base}.voltage.time", "magnetics.time"))
+        resistance = _get(ods, f"{base}.resistance")
+        traces: tuple[Series, ...] = ()
+        try:
+            coefficient = float(np.asarray(resistance, dtype=float).ravel()[0])
+        except (IndexError, TypeError, ValueError):
+            coefficient = 0.0
+        if (
+            voltage is not None
+            and time is not None
+            and time.size == voltage.size
+            and np.isfinite(coefficient)
+            and coefficient != 0.0
+        ):
+            traces = (
+                Series(x=_scaled(time, xunit, _TIME_SCALES), y=voltage / coefficient),
+            )
+            have_signal = True
+        panels.append(
+            LineSeries(
+                series=traces,
+                x_label="Time",
+                x_unit=xunit,
+                y_label="Limiter Current",
+                y_unit="A",
+                title=str(name),
+                x_limits=options.get("x_limits"),
+            )
+        )
+    if not have_signal:
+        raise ValueError(
+            "no limiter-shunt voltage data with a valid resistance is available"
+        )
+    return Panels(
+        models=tuple(panels),
+        share_x=True,
+        suptitle=options.get("title", "Limiter Currents"),
+    )
+
+
+RECIPES["magnetics_time_limiter_current"] = CallableRecipe(
+    builder=_build_limiter_shunt_currents,
+    description="VEST limiter currents derived from shunt voltage / resistance.",
+)
+
+
+_VERIFICATION_FAMILIES = (
+    ("bpol_probe", "Poloidal probes", "mT", 1e3, True),
+    ("flux_loop", "Flux loops", "mWb", 1e3, True),
+    ("pf_current", "PF currents", "kA", 1e-3, True),
+)
+
+
+def _verification_constraint_panel(
+    ods: Any,
+    *,
+    time_slice: int,
+    family: str,
+    title: str,
+    unit: str,
+    scale: float,
+    is_array: bool,
+    show_uncertainty: bool = False,
+) -> LineSeries:
+    root = f"equilibrium.time_slice.{time_slice}.constraints.{family}"
+    count = _count(ods, root) if is_array else 1
+    indexes = range(count)
+    measured = []
+    reconstructed = []
+    uncertainty = []
+    x = []
+    weights = []
+    for index in indexes:
+        base = f"{root}.{index}" if is_array else root
+        measured_value = _get(ods, f"{base}.measured")
+        reconstructed_value = _get(ods, f"{base}.reconstructed")
+        try:
+            measured_value = float(np.asarray(measured_value)) * scale
+            reconstructed_value = float(np.asarray(reconstructed_value)) * scale
+        except (TypeError, ValueError):
+            continue
+        if not (np.isfinite(measured_value) and np.isfinite(reconstructed_value)):
+            continue
+        error = _get(ods, f"{base}.measured_error_upper")
+        weight = _get(ods, f"{base}.weight")
+        try:
+            error = float(np.asarray(error)) * abs(scale)
+        except (TypeError, ValueError):
+            error = np.nan
+        try:
+            weight = float(np.asarray(weight))
+        except (TypeError, ValueError):
+            weight = np.nan
+        x.append(index)
+        measured.append(measured_value)
+        reconstructed.append(reconstructed_value)
+        uncertainty.append(error)
+        weights.append(weight)
+
+    measured_array = np.asarray(measured, dtype=float)
+    reconstructed_array = np.asarray(reconstructed, dtype=float)
+    uncertainty_array = np.asarray(uncertainty, dtype=float)
+    denominator = np.sqrt(np.mean(measured_array**2)) if measured_array.size else np.nan
+    relative_error = (
+        100.0
+        * np.sqrt(np.mean((reconstructed_array - measured_array) ** 2))
+        / denominator
+        if np.isfinite(denominator) and denominator != 0.0
+        else np.nan
+    )
+    finite_weights = np.asarray(weights, dtype=float)
+    finite_weights = finite_weights[np.isfinite(finite_weights)]
+    weight_text = f", W={np.mean(finite_weights):.2e}" if finite_weights.size else ""
+    error_text = f"{relative_error:.2f}%" if np.isfinite(relative_error) else "n/a"
+    measured_yerr = (
+        uncertainty_array
+        if show_uncertainty
+        and uncertainty_array.size
+        and np.all(np.isfinite(uncertainty_array))
+        else None
+    )
+    return LineSeries(
+        series=(
+            Series(
+                x=np.asarray(x, dtype=float),
+                y=measured_array,
+                yerr=measured_yerr,
+                label="Measured",
+                style={"color": "black", "marker": "o", "linestyle": "none"},
+            ),
+            Series(
+                x=np.asarray(x, dtype=float),
+                y=reconstructed_array,
+                label="Reconstructed",
+                style={"color": "red", "marker": "o", "linestyle": "none"},
+            ),
+        ),
+        x_label="Constraint index",
+        y_label=title,
+        y_unit=unit,
+        title=f"{title}: relative RMS error {error_text}{weight_text}",
+    )
+
+
+def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
+    time_slice = int(options.get("time_slice", 0))
+    panels = [
+        _verification_constraint_panel(
+            ods,
+            time_slice=time_slice,
+            family=family,
+            title=title,
+            unit=unit,
+            scale=scale,
+            is_array=is_array,
+            show_uncertainty=bool(options.get("show_uncertainty", False)),
+        )
+        for family, title, unit, scale, is_array in _VERIFICATION_FAMILIES
+    ]
+    field_recipe = RECIPES["equilibrium_field_psi"]
+    raw_field = _build_field_2d(
+        ods,
+        field_recipe,
+        time_slice=time_slice,
+        contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 16)),
+    )
+    root = f"equilibrium.time_slice.{time_slice}"
+    psi_axis = float(_get(ods, f"{root}.global_quantities.psi_axis", np.nan))
+    psi_boundary = float(
+        _get(ods, f"{root}.global_quantities.psi_boundary", np.nan)
+    )
+    delta_psi = psi_boundary - psi_axis
+    if not np.isfinite(delta_psi) or delta_psi == 0.0:
+        raise ValueError("valid psi_axis and psi_boundary are required")
+    psi_norm = (raw_field.values - psi_axis) / delta_psi
+    # Filled psi_N is meaningful inside the last closed flux surface.  A value
+    # threshold alone also selects disconnected coil-local contours, so mask
+    # geometrically with EFIT's reconstructed LCFS.
+    boundary_r = _array(ods, f"{root}.boundary.outline.r")
+    boundary_z = _array(ods, f"{root}.boundary.outline.z")
+    if boundary_r is not None and boundary_z is not None:
+        from matplotlib.path import Path as MplPath
+
+        rr, zz = np.meshgrid(raw_field.r, raw_field.z)
+        inside = MplPath(np.column_stack((boundary_r, boundary_z))).contains_points(
+            np.column_stack((rr.ravel(), zz.ravel()))
+        ).reshape(rr.shape)
+    else:
+        inside = (psi_norm >= 0.0) & (psi_norm <= 1.0)
+    psi_norm = np.where(
+        inside & (psi_norm >= 0.0) & (psi_norm <= 1.0), psi_norm, np.nan
+    )
+    field = Field2D(
+        r=raw_field.r,
+        z=raw_field.z,
+        values=psi_norm,
+        value_label="Normalized Poloidal Flux",
+        contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 16)),
+        overlays=raw_field.overlays,
+        title="Normalized Poloidal Flux",
+    )
+    time_value = _get(ods, f"equilibrium.time_slice.{time_slice}.time")
+    if time_value is None:
+        times = _array(ods, "equilibrium.time")
+        time_value = (
+            times[time_slice]
+            if times is not None and time_slice < times.size
+            else np.nan
+        )
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    time_text = (
+        f", t={float(time_value) * 1e3:.2f} ms" if np.isfinite(time_value) else ""
+    )
+    def scalar_summary(family: str, label: str, scale: float, unit: str) -> str:
+        base = f"{root}.constraints.{family}"
+        measured = float(_get(ods, f"{base}.measured", np.nan)) * scale
+        reconstructed = float(_get(ods, f"{base}.reconstructed", np.nan)) * scale
+        if not (np.isfinite(measured) and np.isfinite(reconstructed)):
+            return f"{label}: unavailable"
+        error = 100.0 * abs(reconstructed - measured) / abs(measured) if measured else np.nan
+        return (
+            f"{label}: measured {measured:.4g} {unit}, reconstructed "
+            f"{reconstructed:.4g} {unit}, error {error:.2f}%"
+        )
+
+    scalar_text = "\n".join(
+        (
+            scalar_summary("ip", "Ip", 1e-3, "kA"),
+            scalar_summary("diamagnetic_flux", "Diamagnetic flux", 1e3, "mWb"),
+        )
+    )
+    title = options.get(
+        "title", f"EFIT verification — shot {pulse}{time_text}\n{scalar_text}"
+    )
+    panels.append(field)
+    return Panels(models=tuple(panels), ncols=2, share_x=False, suptitle=title)
+
+
+RECIPES["equilibrium_overview_verification"] = CallableRecipe(
+    builder=_build_equilibrium_verification,
+    description="EFIT measured/reconstructed constraints and poloidal-flux map.",
+)
 
 
 def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -> Any:

@@ -89,6 +89,167 @@ def _deep_merge(base: Any, override: Any) -> Any:
     return merged
 
 
+class VestConfigurationError(ValueError):
+    """Raised when VEST machine-mapping configuration is invalid."""
+
+
+def _revision_bound(value: Any, *, name: str, context: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise VestConfigurationError(f"{context}: {name} must be an integer shot number")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise VestConfigurationError(f"{context}: {name} must be an integer shot number") from exc
+
+
+def resolve_shot_revisions(
+    base: Mapping[str, Any],
+    revisions: Sequence[Mapping[str, Any]] | None,
+    shot: int,
+    *,
+    context: str,
+) -> dict[str, Any]:
+    """Merge the one unambiguous configuration revision applicable to ``shot``.
+
+    Bounds are inclusive. A revision needs at least one bound; unrestricted
+    defaults belong in ``base``. This helper is intentionally also usable for
+    nested processing eras such as plasma-current baseline windows.
+    """
+    resolved = _deep_merge({}, dict(base))
+    if revisions is None:
+        return resolved
+    if not isinstance(revisions, Sequence) or isinstance(revisions, (str, bytes)):
+        raise VestConfigurationError(f"{context}: revisions must be a list")
+
+    parsed_revisions: list[tuple[Mapping[str, Any], int | None, int | None]] = []
+    matching: list[Mapping[str, Any]] = []
+    numeric_shot = int(shot)
+    for index, revision in enumerate(revisions):
+        revision_context = f"{context} revision {index}"
+        if not isinstance(revision, Mapping):
+            raise VestConfigurationError(f"{revision_context}: entry must be a mapping")
+        first = _revision_bound(revision.get("from_shot"), name="from_shot", context=revision_context)
+        last = _revision_bound(revision.get("to_shot"), name="to_shot", context=revision_context)
+        if first is None and last is None:
+            raise VestConfigurationError(
+                f"{revision_context}: at least one of from_shot or to_shot is required"
+            )
+        if first is not None and last is not None and first > last:
+            raise VestConfigurationError(f"{revision_context}: from_shot must not exceed to_shot")
+        parsed_revisions.append((revision, first, last))
+        if (first is None or numeric_shot >= first) and (last is None or numeric_shot <= last):
+            matching.append(revision)
+
+    for index, (_, first, last) in enumerate(parsed_revisions):
+        for other_index, (_, other_first, other_last) in enumerate(parsed_revisions[index + 1 :], index + 1):
+            lower = max(
+                float("-inf") if first is None else first,
+                float("-inf") if other_first is None else other_first,
+            )
+            upper = min(
+                float("inf") if last is None else last,
+                float("inf") if other_last is None else other_last,
+            )
+            if lower <= upper:
+                raise VestConfigurationError(
+                    f"{context}: revisions {index} and {other_index} overlap"
+                )
+
+    if len(matching) > 1:
+        raise VestConfigurationError(f"{context}: overlapping revisions apply to shot {numeric_shot}")
+    if matching:
+        override = {
+            key: value
+            for key, value in matching[0].items()
+            if key not in {"from_shot", "to_shot"}
+        }
+        resolved = _deep_merge(resolved, override)
+    return resolved
+
+
+def _required_number(mapping: Mapping[str, Any], key: str, *, context: str) -> float:
+    if key not in mapping:
+        raise VestConfigurationError(f"{context}: missing required parameter {key!r}")
+    try:
+        return float(mapping[key])
+    except (TypeError, ValueError) as exc:
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be numeric") from exc
+
+
+def validate_calibration(calibration: Mapping[str, Any]) -> None:
+    """Validate a declarative, named VEST calibration definition."""
+    if not isinstance(calibration, Mapping):
+        raise VestConfigurationError("calibration must be a mapping")
+    calibration_type = calibration.get("type")
+    context = f"calibration {calibration_type!r}"
+    if calibration_type == "linear":
+        operation = calibration.get("operation")
+        if operation not in {"multiply", "divide"}:
+            raise VestConfigurationError(f"{context}: operation must be 'multiply' or 'divide'")
+        factor = _required_number(calibration, "factor", context=context)
+        if operation == "divide" and factor == 0:
+            raise VestConfigurationError(f"{context}: factor must be non-zero for division")
+        return
+    if calibration_type == "exponential_pressure":
+        for key in ("scale", "slope", "offset", "base"):
+            _required_number(calibration, key, context=context)
+        if float(calibration["base"]) <= 0:
+            raise VestConfigurationError(f"{context}: base must be positive")
+        return
+    if calibration_type == "logarithmic_power":
+        for key in ("scale", "input_offset", "slope", "exponent_offset", "base"):
+            _required_number(calibration, key, context=context)
+        if float(calibration["base"]) <= 0 or float(calibration["slope"]) == 0:
+            raise VestConfigurationError(f"{context}: base must be positive and slope non-zero")
+        return
+    raise VestConfigurationError(f"Unsupported VEST calibration type {calibration_type!r}")
+
+
+def calibrate_vest_signal(data: Any, calibration: Mapping[str, Any]) -> np.ndarray:
+    """Apply one named calibration to a raw VEST waveform."""
+    validate_calibration(calibration)
+    values = np.asarray(data, dtype=float)
+    calibration_type = calibration["type"]
+    if calibration_type == "linear":
+        factor = float(calibration["factor"])
+        return values * factor if calibration["operation"] == "multiply" else values / factor
+    if calibration_type == "exponential_pressure":
+        return float(calibration["scale"]) * float(calibration["base"]) ** (
+            float(calibration["slope"]) * values + float(calibration["offset"])
+        )
+    return float(calibration["scale"]) * float(calibration["base"]) ** (
+        (values - float(calibration["input_offset"])) / float(calibration["slope"])
+        + float(calibration["exponent_offset"])
+    )
+
+
+def resolve_vest_diagnostic(
+    shot: int,
+    diagnostic: str,
+    *,
+    info_file: str | None = None,
+) -> dict[str, Any]:
+    """Return the effective, validated canonical configuration for one diagnostic."""
+    content = load_yaml(_resolve_info_file_path(info_file))
+    defaults = content.get("0") or content.get(0) or {}
+    diagnostics = defaults.get("diagnostics", {}) if isinstance(defaults, Mapping) else {}
+    if not isinstance(diagnostics, Mapping) or diagnostic not in diagnostics:
+        raise VestConfigurationError(f"No canonical VEST diagnostic configuration for {diagnostic!r}")
+    config = diagnostics[diagnostic]
+    if not isinstance(config, Mapping):
+        raise VestConfigurationError(f"VEST diagnostic {diagnostic!r} must be a mapping")
+    base = {key: value for key, value in config.items() if key != "revisions"}
+    resolved = resolve_shot_revisions(
+        base, config.get("revisions"), int(shot), context=f"VEST diagnostic {diagnostic!r}"
+    )
+    calibration = resolved.get("calibration")
+    if calibration is not None:
+        validate_calibration(calibration)
+    return resolved
+
+
 def _set_nested_mapping_value(mapping: dict[str, Any], path: str, value: Any) -> None:
     parts = path.split(".")
     current: Any = mapping

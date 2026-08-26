@@ -64,13 +64,14 @@ CHEASE_CONFIG = config.get("chease", {})
 GPEC_CONFIG = config.get("gpec", {})
 GPEC_MODULES = GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])
 GPEC_MODES = GPEC_CONFIG.get("modes", [1, 2])
+GPEC_PATH_CODES = ["ideal-gpec" if module == "gpec" else module for module in GPEC_MODULES]
 # The `mhd_linear` builder currently only maps DCON/RDCON/STRIDE output --
 # ideal-GPEC's `.nc` output has no parser yet (see vaft/machine_mapping/mhd_linear.py).
 GPEC_STABILITY_MODULES = [module for module in GPEC_MODULES if module in ("dcon", "rdcon", "stride")]
 
 DEFAULT_UNCERTAINTY = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
 DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
-REQUIRED_RAW_FIELDS = RAW_PREFLIGHT_CONFIG.get("required_fields", [1, 13, 25, 59, 102])
+REQUIRED_RAW_FIELDS = RAW_PREFLIGHT_CONFIG.get("required_fields", [1, 12, 25, 59, 109])
 RAW_MIN_SAMPLES = RAW_PREFLIGHT_CONFIG.get("min_samples", 2)
 
 # The machine eras actually needed by the configured shots. The static ODS is a
@@ -116,7 +117,9 @@ def eligible_pipeline_outputs(wildcards):
         "kfile_manifest",
         "gfile_manifest",
         "efit_status",
+        "efit_artifact_manifest",
         "efit_ods",
+        "efit_verification_plot",
         "chease_refined",
         "chease_status",
         "chease_ods",
@@ -366,7 +369,8 @@ rule run_efit_reconstruction:
         kfiles=PATHS.shot_pattern("kfile_manifest")
     output:
         gfiles=PATHS.shot_pattern("gfile_manifest"),
-        status=PATHS.shot_pattern("efit_status")
+        status=PATHS.shot_pattern("efit_status"),
+        artifacts=PATHS.shot_pattern("efit_artifact_manifest")
     log:
         PATHS.shot_pattern("log", "run_efit")
     params:
@@ -384,6 +388,7 @@ rule run_efit_reconstruction:
             --kfile-manifest {input.kfiles} \
             --gfile-manifest {output.gfiles} \
             --status {output.status} \
+            --artifact-manifest {output.artifacts} \
             --run {params.run} \
             --executable "{params.executable}" \
             --args "{params.args}" \
@@ -394,7 +399,10 @@ rule run_efit_reconstruction:
 rule generate_efit_ods:
     input:
         gfiles=PATHS.shot_pattern("gfile_manifest"),
-        status=PATHS.shot_pattern("efit_status")
+        status=PATHS.shot_pattern("efit_status"),
+        constraints=PATHS.shot_pattern("constraints_ods"),
+        kfiles=PATHS.shot_pattern("kfile_manifest"),
+        artifacts=PATHS.shot_pattern("efit_artifact_manifest")
     output:
         ods=PATHS.shot_pattern("efit_ods")
     log:
@@ -410,8 +418,30 @@ rule generate_efit_ods:
             --shot {wildcards.shot} \
             --gfile-manifest {input.gfiles} \
             --status {input.status} \
+            --constraints-ods {input.constraints} \
+            --kfile-manifest {input.kfiles} \
+            --artifact-manifest {input.artifacts} \
             --output {output.ods} \
             --run {params.run} \
+            > {log} 2>&1
+        """
+
+
+rule generate_efit_verification_plot:
+    input:
+        ods=PATHS.shot_pattern("efit_ods")
+    output:
+        plot=PATHS.shot_pattern("efit_verification_plot")
+    log:
+        PATHS.shot_pattern("log", "generate_efit_verification_plot")
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log}) $(dirname {output.plot})
+        python {SCRIPT_DIR}/generate_efit_verification_plot.py \
+            --input {input.ods} \
+            --output {output.plot} \
             > {log} 2>&1
         """
 
@@ -517,7 +547,7 @@ rule generate_chease_ods:
 # GPEC Suite: DCON/RDCON/STRIDE/GPEC
 ############################################################
 wildcard_constraints:
-    code="|".join(re.escape(module) for module in GPEC_MODULES),
+    code="|".join(re.escape(module) for module in GPEC_PATH_CODES),
     mode=r"\d+"
 
 # One job per (shot, code, mode): a failed RDCON n=2 case can be retried on
@@ -527,7 +557,12 @@ wildcard_constraints:
 rule run_gpec_module:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
-        status=PATHS.shot_pattern("chease_status")
+        status=PATHS.shot_pattern("chease_status"),
+        dcon_status=lambda wildcards: (
+            PATHS.gpec_module_status(wildcards.shot, "dcon", int(wildcards.mode))
+            if wildcards.code == "ideal-gpec"
+            else []
+        )
     output:
         manifest=PATHS.gpec_module_pattern("gpec_module_manifest"),
         status=PATHS.gpec_module_pattern("gpec_module_status")
@@ -539,7 +574,14 @@ rule run_gpec_module:
         psilow=GPEC_CONFIG.get("psilow", 0.01),
         psihigh=GPEC_CONFIG.get("psihigh", 0.994),
         timeout=GPEC_CONFIG.get("timeout", 1200),
-        workdir=lambda wildcards: PATHS.gpec_workdir(wildcards.shot)
+        workdir=lambda wildcards: PATHS.gpec_workdir(
+            wildcards.shot, wildcards.code, int(wildcards.mode)
+        ),
+        dcon_option=lambda wildcards: (
+            f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, "dcon", int(wildcards.mode))}"'
+            if wildcards.code == "ideal-gpec"
+            else ""
+        )
     conda:
         CONDA if CONDA else None
     shell:
@@ -551,6 +593,7 @@ rule run_gpec_module:
             --output {output.manifest} \
             --status {output.status} \
             --workdir "{params.workdir}" \
+            {params.dcon_option} \
             --gpec-home "{params.gpec_home}" \
             --run-mode "{params.run_mode}" \
             --code {wildcards.code} \
@@ -583,7 +626,11 @@ rule build_mhd_linear:
     params:
         modules=csv(GPEC_STABILITY_MODULES),
         modes=csv(GPEC_MODES),
-        workdir=lambda wildcards: PATHS.gpec_workdir(wildcards.shot)
+        module_workdirs=lambda wildcards: ",".join(
+            f"{code}:{mode}:{PATHS.gpec_workdir(wildcards.shot, code, mode)}"
+            for code in GPEC_STABILITY_MODULES
+            for mode in GPEC_MODES
+        )
     conda:
         CONDA if CONDA else None
     shell:
@@ -592,7 +639,7 @@ rule build_mhd_linear:
         python {SCRIPT_DIR}/generate_mhd_linear_ods.py \
             --shot {wildcards.shot} \
             --refined-gfile-manifest {input.refined} \
-            --workdir "{params.workdir}" \
+            --module-workdir "{params.module_workdirs}" \
             --modules "{params.modules}" \
             --modes "{params.modes}" \
             --output {output.ods} \
