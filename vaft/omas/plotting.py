@@ -852,6 +852,51 @@ def plot_equilibrium_time_w_tot(
     return render("equilibrium_time_w_tot", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_interferometer_time_n_e_line(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Interferometer line-integrated electron density history.
+
+    Renders with :func:`vaft.plot.interferometer_time_n_e_line`.
+    """
+    return render("interferometer_time_n_e_line", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_interferometer_spectrogram(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Time-frequency map of one interferometer channel's line density.
+
+    Renders with :func:`vaft.plot.interferometer_spectrogram`.
+    """
+    return render("interferometer_spectrogram", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_interferometer_overview(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Interferometer overview: line density history and spectrogram.
+
+    Renders with :func:`vaft.plot.interferometer_overview`.
+    """
+    return render("interferometer_overview", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_machine_geometry_poloidal(
     source: Any,
     *,
@@ -1473,6 +1518,9 @@ __all__ = [
     "plot_equilibrium_time_w_mag",
     "plot_equilibrium_time_w_mhd",
     "plot_equilibrium_time_w_tot",
+    "plot_interferometer_overview",
+    "plot_interferometer_spectrogram",
+    "plot_interferometer_time_n_e_line",
     "plot_machine_geometry_poloidal",
     "plot_machine_geometry_topview",
     "plot_magnetics_geometry_poloidal",

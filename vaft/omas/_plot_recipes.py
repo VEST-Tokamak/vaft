@@ -488,6 +488,12 @@ RECIPES: dict[str, Any] = {
         y_label="Soft X-ray Signal", y_unit="a.u.",
         label_path="soft_x_rays.channel.{i}.name", title="Soft X-ray Signals",
     ),
+    "interferometer_time_n_e_line": LineRecipe(
+        y_path="interferometer.channel.{i}.n_e_line.data", index="channel",
+        x_paths=("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
+        y_label="Line-integrated Electron Density", y_unit="10^18 m^-2", scale=1e-18,
+        label_path="interferometer.channel.{i}.name", title="Interferometer Line Density",
+    ),
     "thomson_scattering_time_electron_temperature": LineRecipe(
         y_path="thomson_scattering.channel.{i}.t_e.data", index="channel",
         x_paths=("thomson_scattering.channel.{i}.t_e.time", "thomson_scattering.time"),
@@ -671,6 +677,12 @@ RECIPES: dict[str, Any] = {
         container="soft_x_rays.channel",
         label_path="soft_x_rays.channel.{i}.name",
     ),
+    "interferometer_spectrogram": SpectrogramRecipe(
+        signal_path="interferometer.channel.{i}.n_e_line.data",
+        time_paths=("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
+        container="interferometer.channel",
+        label_path="interferometer.channel.{i}.name",
+    ),
     # --- composites ----------------------------------------------------------
     "summary_time_energy": PanelRecipe(
         members=("equilibrium_time_w_mhd", "equilibrium_time_w_mag",
@@ -735,6 +747,10 @@ RECIPES: dict[str, Any] = {
     "soft_x_rays_overview": PanelRecipe(
         members=("soft_x_rays_time_power", "soft_x_rays_geometry_lines_of_sight"),
         share_x=False, suptitle="Soft X-ray Overview",
+    ),
+    "interferometer_overview": PanelRecipe(
+        members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
+        suptitle="Interferometer Overview",
     ),
 }
 
