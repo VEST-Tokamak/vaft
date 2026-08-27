@@ -41,6 +41,9 @@ if str(REPO_ROOT) not in sys.path:
 
 import vaft
 from vaft.code.efit import build_kinetic_core_profiles
+from vaft.machine_mapping.charge_exchange import charge_exchange
+from vaft.machine_mapping.dataset_description import dataset_description
+from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
 vaft.apply_omfit_compat_patches()
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
@@ -75,7 +78,7 @@ def build(shot: int, time_ms: int, outdir: Path, args) -> dict:
     eq["fluxSurfaces"].load()
     ods = eq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
-    vaft.machine_mapping.dataset_description(
+    dataset_description(
         ods,
         source=shot,
         options={"source_type": "shot",
@@ -83,10 +86,10 @@ def build(shot: int, time_ms: int, outdir: Path, args) -> dict:
     )
 
     # electrons: Thomson scattering (NeTe_<shot>.mat, native 7-channel schema)
-    vaft.machine_mapping.thomson_scattering(ods, shot)
+    thomson_scattering(ods, shot)
     # ions: IDS or CES into the charge_exchange IDS
     source, ce_mat = _resolve_source(shot, args.source)
-    vaft.machine_mapping.charge_exchange(ods, shotnumber=shot, options=source, mat_file=ce_mat)
+    charge_exchange(ods, shotnumber=shot, options=source, mat_file=ce_mat)
 
     # --- all profile-fit physics: psi_N mapping + ne/Te/Ti/Vtor + core_profiles ---
     ods = build_kinetic_core_profiles(

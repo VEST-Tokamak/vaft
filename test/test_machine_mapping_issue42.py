@@ -8,10 +8,10 @@ from omas import ODS
 from vaft.machine_mapping import (
     b_field_pol_probe_from_raw_database,
     diamagnetic_flux_rogowski_coil_from_raw_database,
-    equilibrium,
     flux_loop_from_raw_database,
     ip_rogowski_coil_from_raw_database,
 )
+from vaft.machine_mapping.equilibrium import equilibrium
 from vaft.machine_mapping.magnetics import vfit_magnetics_dynamic, vfit_mirnov_raw_dynamic
 from vaft.data.eqdsk import infer_source_shot_time
 

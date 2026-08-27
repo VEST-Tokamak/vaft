@@ -26,7 +26,8 @@ import time
 import numpy as np
 import vaft
 vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
-from vaft import database, machine_mapping, process
+from vaft import database, process
+from vaft.machine_mapping.thomson_scattering import thomson_scattering
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 import h5pyd
 from datetime import datetime
@@ -185,7 +186,7 @@ def update_thomson_auto(filepath):
         return None
 
     try:
-        machine_mapping.thomson_scattering(ods, shotnumber, filepath)
+        thomson_scattering(ods, shotnumber, filepath)
         print(f"[SUCCESS] Thomson data loaded for shot {shotnumber}")
     except Exception as e:
         print(f"[ERROR] Failed to update Thomson data for shot {shotnumber}: {e}")

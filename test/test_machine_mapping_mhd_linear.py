@@ -15,7 +15,7 @@ import pytest
 import xarray as xr
 from omas import ODS
 
-from vaft.machine_mapping import mhd_linear
+from vaft.machine_mapping.mhd_linear import mhd_linear
 
 
 def _write_dcon_output(path, *, n: int, w_t: float) -> None:
