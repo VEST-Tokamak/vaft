@@ -80,13 +80,19 @@ OUTLIER_LEVELS = (2.0, 3.0)
 #: one of these still gets it, so a metric that ignored them would compare
 #: against a threshold that was never in force.
 EFIT_DEFAULTS = {
-    "error": 1.0e-2,     # iteration exit tolerance
-    "errmin": 1.0e-2,    # acceptance threshold used by chkerr when iconvr == 2
+    "error": 1.0e-2,     # iteration exit tolerance, consumed only via `idone`
+    "errmin": 1.0e-2,    # iconvr == 2 stopping precondition, and chkerr's threshold
     "saimin": 80.0,      # chi-square acceptance threshold, iconvr != 2
-    "saicon": 80.0,      # chi-square acceptance threshold, iconvr == 2
+    "saicon": 80.0,      # chi-square stopping precondition, iconvr == 2
     "ierchk": 1,         # >0 means chkerr runs at all
     "mxiter": -25,
+    "nxiter": 1,         # inner equilibrium-loop length
+    "iconvr": 2,
 }
+
+#: Hard-coded in ``response_matrix.F90`` (``integer*4, parameter :: minite=8``),
+#: with a TODO in the source questioning it.  No namelist can change it.
+EFIT_MINITE = 8
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +594,25 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         "secondary_tolerance": _scalar(_get(ods, f"{parameters}.in1.serror")),
     }
 
+    # `error` reaches the solver only through `idone` in residu(), which breaks
+    # the inner `equilibrium: do ii=1,nxiter` loop. With nxiter == 1 that loop
+    # runs a single pass regardless, and for iconvr == 2 the outer loop is left
+    # through `ichisq`, which never consults `error`. The requested tolerance is
+    # then inert, and `exit_ratio` says nothing about the solve -- recorded so a
+    # large ratio is not mistaken for a convergence failure.
+    nxiter, nxiter_source = _setting("nxiter")
+    error_block["exit_tolerance_effective"] = not (
+        iconvr == 2 and np.isfinite(nxiter) and abs(nxiter) <= 1
+    )
+    error_block["nxiter"] = nxiter
+    error_block["nxiter_source"] = nxiter_source
+    if not error_block["exit_tolerance_effective"]:
+        error_block["exit_tolerance_inert_reason"] = (
+            "iconvr=2 with nxiter=1: `error` is consumed only by `idone`, which "
+            "breaks a single-pass inner loop, and the outer loop exits on "
+            "`ichisq`. The requested tolerance never gates this run."
+        )
+
     # chkerr's other acceptance test, on EFIT's own total chi-square.
     chisq_name = "saicon" if iconvr == 2 else "saimin"
     chisq_limit, chisq_source = _setting(chisq_name)
@@ -601,18 +626,55 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         if np.isfinite(chisq_value) and np.isfinite(chisq_limit) and chisq_limit
         else float("nan")
     )
+    # The a-file total is `saisq`, which at an iconvr==2 stop has been reset to
+    # `saiold` -- the previous iterate's value -- while the per-channel `chiout`
+    # arrays hold the current iterate's. It also includes `saisref` (reference
+    # flux loop) and `chiecc` (E-coils), neither of which has an OMAS constraint
+    # family here. The two totals are therefore close but not equal by design.
+    error_block["chi_squared_comparable_to_family_sum"] = False
 
-    # B3: a run that stopped at the cap stopped; it did not converge.
+    # B3: how the solve actually terminated.
+    #
+    # For iconvr == 2 -- EFIT's default and VEST's mode -- the outer loop is
+    # left through `ichisq` (response_matrix.F90), which fires only when all of
+    #     nniter >= minite (8, hard-coded)
+    #     errorm <= errmin
+    #     saisq  <= saicon
+    #     |saisq - saiold| <= 0.10  or  saisq >= saiold   (chi-square stalled)
+    # hold at once, and then restores the previous iterate (brsp = brsold,
+    # saisq = saiold).
+    #
+    # So `terror <= errmin` and `chisq <= saicon` are *preconditions of
+    # stopping*, not achievements: any run that stopped this way satisfies them
+    # by construction.  The discriminator that carries information is whether
+    # the run stopped that way at all, or instead exhausted its iterations.
     iterations = _scalar(_get(ods, f"{root}.convergence.iterations_n"))
-    cap = abs(_scalar(_get(ods, f"{parameters}.in1.mxiter")))
-    if not np.isfinite(cap):
-        cap = abs(_scalar(_get(ods, f"{parameters}.out1.mxiter")))
+    cap, cap_source = _setting("mxiter")
+    cap = abs(cap)
+    hit_cap = bool(
+        np.isfinite(iterations) and np.isfinite(cap) and cap and iterations >= cap
+    )
     iteration_block = {
         "iterations": iterations,
         "iteration_cap": cap,
-        "hit_cap": bool(
-            np.isfinite(iterations) and np.isfinite(cap) and cap and iterations >= cap
-        ),
+        "iteration_cap_source": cap_source,
+        "minimum_iterations": EFIT_MINITE,
+        "hit_cap": hit_cap,
+        # True when the solve left through the iconvr==2 criterion rather than
+        # running out of iterations. This is the convergence question that has
+        # content for this configuration.
+        "stopped_on_criterion": bool(
+            np.isfinite(iterations)
+            and iterations >= EFIT_MINITE
+            and not hit_cap
+            and error_block["within_acceptance_tolerance"]
+            and (
+                not np.isfinite(error_block["chi_squared_margin"])
+                or error_block["chi_squared_margin"] < 1.0
+            )
+        )
+        if iconvr == 2
+        else None,
     }
 
     # B4-B6: the approach, not just the endpoint.  Needs an m-file.
@@ -735,7 +797,10 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
             "error.within_acceptance_tolerance": "primary",
             "error.exit_ratio": "primary",
             "error.acceptance_ratio": "primary",
-            "error.chi_squared_margin": "primary",
+            "error.chi_squared_margin": "diagnostic",
+            "iterations.stopped_on_criterion": "primary",
+            "iterations.hit_cap": "primary",
+            "error.exit_tolerance_effective": "metadata",
             "iterations": "primary",
             "self_consistency.ip_relative_spread": "primary",
             "history": "diagnostic",
@@ -797,6 +862,11 @@ def efit_quality_metrics(ods: Any) -> dict[str, Any]:
             "slices_with_final_error": len(reached),
             "slices_hitting_iteration_cap": sum(
                 1 for entry in slices if entry["convergence"]["iterations"]["hit_cap"]
+            ),
+            "slices_stopped_on_criterion": sum(
+                1
+                for entry in slices
+                if entry["convergence"]["iterations"]["stopped_on_criterion"]
             ),
         },
     }

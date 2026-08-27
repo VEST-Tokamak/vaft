@@ -2968,10 +2968,23 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
         # decides whether to accept the slice.
         series = [Series(x=times, y=final, label="terror (final GS error)",
                          style={"marker": "."})]
+        inert = blocks[0]["error"].get("exit_tolerance_effective") is False
         if np.isfinite(exit_tolerance).any():
             series.append(
-                Series(x=times, y=exit_tolerance, label="iteration exit tolerance (error)",
-                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
+                Series(
+                    x=times,
+                    y=exit_tolerance,
+                    label=(
+                        "error (inert: nxiter=1, iconvr=2)"
+                        if inert
+                        else "iteration exit tolerance (error)"
+                    ),
+                    style={
+                        "linestyle": ":" if inert else "--",
+                        "color": "0.75" if inert else "0.5",
+                        "lw": 1.0,
+                    },
+                )
             )
         if np.isfinite(acceptance).any():
             name = blocks[0]["error"]["acceptance_tolerance_name"]
@@ -2981,8 +2994,23 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                        label=f"acceptance threshold ({name}, {source})",
                        style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
             )
-        exit_ratio = blocks[0]["error"]["exit_ratio"]
-        reached = sum(1 for block in blocks if block["error"]["reached_exit_tolerance"])
+        # For iconvr=2 the statistic with content is how the solve terminated,
+        # not the ratio against a tolerance the solver never consults.
+        stopped = sum(
+            1 for block in blocks
+            if block["iterations"]["stopped_on_criterion"]
+        )
+        capped = sum(1 for block in blocks if block["iterations"]["hit_cap"])
+        if inert:
+            headline = (
+                f"{stopped}/{len(blocks)} stopped on the iconvr=2 criterion"
+                + (f", {capped} exhausted iterations" if capped else "")
+            )
+        else:
+            reached = sum(
+                1 for block in blocks if block["error"]["reached_exit_tolerance"]
+            )
+            headline = f"{reached}/{len(blocks)} reached the exit tolerance"
         panels.append(
             LineSeries(
                 series=tuple(series),
@@ -2990,11 +3018,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                 x_unit="s",
                 y_label="normalized GS error",
                 log_y=True,
-                title=(
-                    f"{blocks[0]['error']['final_error_source']}: "
-                    f"{reached}/{len(blocks)} slice(s) reached the exit tolerance"
-                    + (f", worst {exit_ratio:.3g}×" if np.isfinite(exit_ratio) else "")
-                ),
+                title=f"{blocks[0]['error']['final_error_source']}: {headline}",
             )
         )
 
@@ -3120,7 +3144,8 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                 y_limits=(-0.2, 1.2),
                 title=(
                     f"EFIT acceptance — {sum(1 for v in known if v['accepted'])}/{len(known)}"
-                    " accepted (not the same as reaching the exit tolerance)"
+                    f" accepted; χ² ≤ {blocks[0]['error']['chi_squared_limit_name']}"
+                    " is a stopping precondition, not a margin"
                 ),
             )
         )

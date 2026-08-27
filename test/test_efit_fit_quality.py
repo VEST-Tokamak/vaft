@@ -219,13 +219,64 @@ def test_the_two_tolerances_are_reported_separately(efit_ods):
     assert block["acceptance_ratio"] == pytest.approx(block["final_error"] / 1e-2)
 
 
-def test_shot_39915_never_reaches_its_requested_exit_tolerance(efit_ods):
+def test_the_requested_exit_tolerance_is_inert_for_this_configuration(efit_ods):
+    """`error` never gates a VEST run, so its ratio must not read as a failure.
+
+    residu() consumes `error` only through `idone`, which breaks the inner
+    `equilibrium: do ii=1,nxiter` loop; with nxiter == 1 that loop is a single
+    pass regardless, and for iconvr == 2 the outer loop leaves through `ichisq`,
+    which never looks at `error`.
+    """
     block = convergence_metrics(efit_ods, time_slice=0)["error"]
+    assert block["nxiter"] == 1
+    assert block["exit_tolerance_effective"] is False
+    assert "never gates this run" in block["exit_tolerance_inert_reason"]
+    # The ratio is still reported, but it is not evidence of non-convergence.
     assert block["reached_exit_tolerance"] is False
     assert block["exit_ratio"] > 100
-    # ...yet is comfortably inside the threshold EFIT actually applies.
-    assert block["within_acceptance_tolerance"] is True
-    assert block["acceptance_ratio"] < 1.0
+
+
+def test_a_multi_pass_inner_loop_makes_the_exit_tolerance_effective():
+    ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
+    ods["equilibrium.code.parameters.time_slice.0.out1.nxiter"] = 5
+    block = convergence_metrics(ods, time_slice=0)["error"]
+    assert block["exit_tolerance_effective"] is True
+    assert "exit_tolerance_inert_reason" not in block
+
+
+def test_the_iconvr2_stopping_criterion_is_the_metric_with_content(efit_ods):
+    """`terror <= errmin` and `chisq <= saicon` are preconditions of stopping.
+
+    response_matrix.F90 sets ichisq only when nniter >= minite(8), errorm <=
+    errmin, saisq <= saicon and the chi-square has stalled, so a run that
+    stopped that way satisfies all of them by construction. What discriminates
+    is whether it stopped that way at all.
+    """
+    ods = _with_afile(efit_ods)
+    block = convergence_metrics(ods, time_slice=0)
+    assert block["iterations"]["minimum_iterations"] == 8
+    assert block["iterations"]["iterations"] >= 8
+    assert block["iterations"]["hit_cap"] is False
+    assert block["iterations"]["stopped_on_criterion"] is True
+    assert block["error"]["within_acceptance_tolerance"] is True
+
+
+def test_a_run_that_exhausts_its_iterations_did_not_stop_on_the_criterion(efit_ods):
+    ods = _with_afile(efit_ods)
+    ods["equilibrium.time_slice.0.convergence.iterations_n"] = 100
+    block = convergence_metrics(ods, time_slice=0)["iterations"]
+    assert block["hit_cap"] is True
+    assert block["stopped_on_criterion"] is False
+
+
+def test_too_few_iterations_cannot_be_a_criterion_stop(efit_ods):
+    # minite is hard-coded in response_matrix.F90; ichisq cannot fire below it.
+    ods = _with_afile(efit_ods)
+    ods["equilibrium.time_slice.0.convergence.iterations_n"] = 3
+    assert (
+        convergence_metrics(ods, time_slice=0)["iterations"]["stopped_on_criterion"]
+        is False
+    )
 
 
 def test_a_non_iconvr2_run_is_judged_against_error_not_errmin():
@@ -320,14 +371,17 @@ def test_acceptance_and_reaching_the_exit_tolerance_are_independent(efit_ods):
     assert block["error"]["within_acceptance_tolerance"] is True
 
 
-def test_the_chi_square_acceptance_margin_is_reported(efit_ods):
+def test_the_chi_square_precondition_is_reported_with_its_caveats(efit_ods):
     ods = _with_afile(efit_ods)
     block = convergence_metrics(ods, time_slice=0)["error"]
     assert block["chi_squared_limit_name"] == "saicon"
     assert block["chi_squared_limit"] == pytest.approx(80.0)
     assert block["chi_squared_limit_source"] == "efit_default"
-    # 77.6 of an allowed 80: this slice is close to EFIT's chi-square limit.
-    assert 0.9 < block["chi_squared_margin"] < 1.0
+    # Below 1 by construction for a criterion stop, so this is not a near-miss.
+    assert block["chi_squared_margin"] < 1.0
+    # saisq is reset to saiold at the stop, and includes saisref and chiecc,
+    # which have no OMAS constraint family -- so it is not the family sum.
+    assert block["chi_squared_comparable_to_family_sum"] is False
 
 
 def test_the_afile_terror_takes_precedence_over_a_cerror_history(efit_ods):
