@@ -984,3 +984,9 @@ __all__ = [
 VEST_DiamagneticFlux = vest_diamagnetic_flux
 vfit_PlasmaCurrent = vfit_plasma_current
 vfit_plasmaMGods_startend = vfit_plasma_mgods_startend
+# Pre-rename names: kept as plain aliases so a direct
+# `from vaft.machine_mapping.magnetics import ...` still works. The
+# deprecation warning for the package-level path lives in
+# vaft/machine_mapping/__init__.py's _LEGACY_REPLACEMENTS.
+vfit_md = vfit_equilibrium_magnetics
+vest_md_channel_definitions = vest_equilibrium_magnetics_channel_definitions

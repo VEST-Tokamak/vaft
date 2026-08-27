@@ -38,6 +38,7 @@ _LEGACY_REPLACEMENTS = {
     "vfit_tf_btR": None,
     "vfit_tf_bt_r": None,
     "vfit_tf_current": None,
+    "vest_md_channel_definitions": "vest_equilibrium_magnetics_channel_definitions",
 }
 
 __all__ = [
@@ -93,6 +94,7 @@ __all__ = [
     "vfit_filterscope",
     "vfit_ion_doppler_spectroscophy",
     "vfit_md",
+    "vest_md_channel_definitions",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
     "vfit_magnetics_static",
@@ -169,6 +171,7 @@ _EXPORT_MAP = {
     "vfit_filterscope": (".spectrometer_uv", "vfit_filterscope"),
     "vfit_ion_doppler_spectroscophy": (".charge_exchange", "vfit_ion_doppler_spectroscophy"),
     "vfit_md": (".magnetics", "vfit_equilibrium_magnetics"),
+    "vest_md_channel_definitions": (".magnetics", "vest_equilibrium_magnetics_channel_definitions"),
     "vfit_magnetics_dynamic": (".magnetics", "vfit_magnetics_dynamic"),
     "vfit_magnetics_for_shot": (".magnetics", "vfit_magnetics_for_shot"),
     "vfit_magnetics_static": (".magnetics", "vfit_magnetics_static"),

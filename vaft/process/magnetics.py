@@ -258,6 +258,12 @@ def vest_equilibrium_magnetics_signals(
     return magnetics_time, data_flux_loops, data_probes
 
 
+# Pre-rename name, kept as a plain alias: `vaft.process` re-exports this
+# module with `from .magnetics import *`, so `vaft.process.vest_md_signals`
+# must keep working for existing callers.
+vest_md_signals = vest_equilibrium_magnetics_signals
+
+
 def _firwin_order(sample_rate: float) -> int:
     order = int(float(sample_rate) * 1e-3)
     return order + 1 if order % 2 == 0 else order
