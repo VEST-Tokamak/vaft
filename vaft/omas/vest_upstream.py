@@ -23,6 +23,7 @@ from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
 from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
+from vaft.machine_mapping.langmuir_probes import langmuir_probes
 from vaft.machine_mapping.magnetics import (
     LIMITER_SHUNT_CHANNELS,
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
@@ -509,6 +510,13 @@ def build_diagnostics_ods(
         lambda component: barometry(
             component, shot, tstart, tend, dt, raw_source=raw_path,
             target_time=processed_time,
+        ),
+    )
+    run_component(
+        "langmuir_probes",
+        ("langmuir_probes",),
+        lambda component: langmuir_probes(
+            component, shot, tstart, tend, dt, raw_source=raw_path
         ),
     )
     run_component(
