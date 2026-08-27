@@ -153,6 +153,7 @@ _EXPORT_MAP = {
     "pf_geometry_version_for_shot": (".pf_active", "pf_geometry_version_for_shot"),
     "raw_database_info": (".utils", "raw_database_info"),
     "resolve_vest_diagnostic": (".utils", "resolve_vest_diagnostic"),
+    "pf_passive": (".pf_passive", "pf_passive"),
     "read_doppler_profile": (".charge_exchange", "read_doppler_profile"),
     "read_doppler_single": (".charge_exchange", "read_doppler_single"),
     "resolve_geometry_asset": (".pf_active", "resolve_geometry_asset"),

@@ -26,6 +26,10 @@ from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
 from vaft.machine_mapping.magnetics import (
     LIMITER_SHUNT_CHANNELS,
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
+    FLUCTUATION_MIRNOV_FIRST_SHOT,
+    LIMITER_SHUNT_CHANNELS,
+    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
+    fluctuation_mirnov_channel_definitions,
     vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
     vfit_magnetics_static,
@@ -528,6 +532,10 @@ def build_diagnostics_ods(
     ] + [int(channel["field_code"]) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS] + [
         int(channel["field_code"]) for channel in LIMITER_SHUNT_CHANNELS
     ]
+    if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        magnetics_channels += [
+            int(channel["field"]) for channel in fluctuation_mirnov_channel_definitions()
+        ]
     missing_magnetics_channels = sorted(
         field for field in magnetics_channels if field not in archived_fields
     )

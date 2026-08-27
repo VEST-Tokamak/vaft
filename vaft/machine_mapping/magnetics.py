@@ -561,6 +561,66 @@ def _populate_probe_static(ods: object) -> None:
         probe_index += 1
 
 
+def _populate_fluctuation_mirnov_static(ods: object) -> None:
+    """Append the 45/135/225 deg outboard fluctuation-Mirnov array (issue #155).
+
+    Continues the existing ``b_field_pol_probe`` index sequence so equilibrium
+    probe ordering/indices are never shifted. Only called for shots at or
+    after ``FLUCTUATION_MIRNOV_FIRST_SHOT``, since these probes are not
+    physically wired before that shot.
+    """
+    probe_index = (
+        len(get_path(ods, "magnetics.b_field_pol_probe"))
+        if path_exists(ods, "magnetics.b_field_pol_probe")
+        else 0
+    )
+    for channel in _load_fluctuation_mirnov_channels():
+        identifier = str(channel["identifier"])
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", identifier)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", OUTBOARD_MIRNOV_MAJOR_RADIUS)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
+        set_path(
+            ods,
+            f"magnetics.b_field_pol_probe.{probe_index}.position.phi",
+            math.radians(float(channel["toroidal_angle_deg"])),
+        )
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
+        set_path(
+            ods,
+            f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle",
+            math.radians(float(channel["toroidal_angle_deg"])),
+        )
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
+        probe_index += 1
+
+
+def _map_fluctuation_mirnov_voltage(
+    ods: object,
+    shot: int,
+    *,
+    start_index: int,
+    raw_source: raw_db.RawSource | None = None,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Populate native-rate raw voltage for the fluctuation-Mirnov array.
+
+    ``start_index`` must match the first index written by
+    :func:`_populate_fluctuation_mirnov_static`. Mirrors
+    :func:`vfit_mirnov_raw_dynamic`'s crop-without-resample policy. Only
+    called for shot >= ``FLUCTUATION_MIRNOV_FIRST_SHOT``.
+    """
+    probe_index = start_index
+    for channel in _load_fluctuation_mirnov_channels():
+        time, data, validity = _raw_time_data_with_validity(shot, int(channel["field"]), raw_source)
+        if validity == 0:
+            time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
+        _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
+        probe_index += 1
+
+
 def _populate_limiter_shunt_static(ods: object) -> None:
     """Populate electrical limiter monitors without inventing endpoint geometry."""
     for index, channel in enumerate(LIMITER_SHUNT_CHANNELS):
@@ -709,9 +769,24 @@ def _map_probes(
     vfit_mirnov_raw_dynamic(
         ods, shot, raw_source=raw_source, tstart=tstart, tend=tend
     )
+    # Captured before the fluctuation-Mirnov array (if any) is appended below,
+    # so the toroidal-reference "explicitly empty field" loop never reaches
+    # into the fluctuation probes -- those carry no `field` node at all.
+    toroidal_reference_end = len(get_path(ods, "magnetics.b_field_pol_probe"))
+    if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        fluctuation_start_index = toroidal_reference_end
+        _populate_fluctuation_mirnov_static(ods)
+        _map_fluctuation_mirnov_voltage(
+            ods,
+            shot,
+            start_index=fluctuation_start_index,
+            raw_source=raw_source,
+            tstart=tstart,
+            tend=tend,
+        )
     # Toroidal reference probes are raw-voltage-only channels; their processed
     # field signal is explicitly empty, not an IMAS scalar NaN placeholder.
-    for index in range(mapped_probe_count, len(get_path(ods, "magnetics.b_field_pol_probe"))):
+    for index in range(mapped_probe_count, toroidal_reference_end):
         set_path(
             ods,
             f"magnetics.b_field_pol_probe.{index}.field.time",
