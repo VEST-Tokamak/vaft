@@ -62,6 +62,7 @@ _LOG_OWNER = {
     "plot_raw": ("raw", None),
     "plot_diagnostics": ("omas", "diagnostics"),
     "plot_eddy": ("omas", "eddy"),
+    "plot_mhd_linear": ("omas", "mhd_linear"),
     "plot_efit": ("efit", None),
     "run_chease": ("chease", None),
     "generate_chease_ods": ("omas", "chease"),

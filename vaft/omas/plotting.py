@@ -695,6 +695,92 @@ def plot_equilibrium_overview(
     )
 
 
+def plot_equilibrium_overview_constraints(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: the magnetic constraints actually submitted to the solver.
+
+    Shows every channel of every family, with the enabled ones separated from the
+    disabled and the missing, so a dead channel or a wrong weighting is visible
+    before the reconstruction is interpreted. ``time_slice`` selects the slice.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_constraints`.
+    """
+    return render(
+        "equilibrium_overview_constraints", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_equilibrium_overview_constraint_coverage(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: how the fitted channel set changes across time slices.
+
+    Flat lines mean a consistent constraint set; a step is channel/time
+    misalignment.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_constraint_coverage`.
+    """
+    return render(
+        "equilibrium_overview_constraint_coverage",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
+def plot_equilibrium_overview_residuals(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: measured-minus-reconstructed residuals by diagnostic family.
+
+    Convergence status is drawn beside the residuals rather than standing in for
+    them: a converged solution with large residuals is still a bad one.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_residuals`.
+    """
+    return render(
+        "equilibrium_overview_residuals", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_time_energy_perturbed(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: DCON perturbed energy per toroidal mode against time.
+
+    Traces are grouped by ``n_tor``, which is the only place the physical mode
+    number lives -- ``toroidal_mode`` array position does not carry it.
+
+    Renders with :func:`vaft.plot.mhd_linear_time_energy_perturbed`.
+    """
+    return render(
+        "mhd_linear_time_energy_perturbed", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_overview_verification(
     source: Any,
     *,
@@ -1923,6 +2009,9 @@ __all__ = [
     "plot_equilibrium_geometry_boundary",
     "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",
+    "plot_equilibrium_overview_constraint_coverage",
+    "plot_equilibrium_overview_constraints",
+    "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",
     "plot_equilibrium_profile_f",
     "plot_equilibrium_profile_ffprime",
@@ -1954,6 +2043,7 @@ __all__ = [
     "plot_magnetics_overview_impa",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
+    "plot_mhd_linear_time_energy_perturbed",
     "plot_magnetics_profile_impa_tf",
     "plot_magnetics_time_impa_field",
     "plot_magnetics_time_impa_voltage",

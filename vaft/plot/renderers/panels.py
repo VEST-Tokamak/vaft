@@ -28,6 +28,9 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "electromagnetics_time_current",
     "equilibrium_overview",
+    "equilibrium_overview_constraint_coverage",
+    "equilibrium_overview_constraints",
+    "equilibrium_overview_residuals",
     "equilibrium_overview_verification",
     "equilibrium_time_virial",
     "interferometer_overview",
@@ -366,6 +369,78 @@ def equilibrium_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Equilibrium analysis overview panels."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+_CONSTRAINT_IDS = ("equilibrium",)
+_CONSTRAINT_SUBMITTED = (
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
+)
+_CONSTRAINT_OPTIONAL = (
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.ip.measured",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
+    "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="constraints",
+    description=(
+        "Magnetic constraints as submitted to EFIT, per family, with enabled, "
+        "disabled and missing channels distinguished."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=_CONSTRAINT_SUBMITTED,
+    optional_paths=_CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_constraints(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Magnetic constraints submitted to EFIT, by family and channel state."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="constraint_coverage",
+    description=(
+        "Enabled, disabled and missing constraint channels per family across "
+        "the reconstructed time slices."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=_CONSTRAINT_SUBMITTED,
+    optional_paths=_CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_constraint_coverage(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Constraint channel coverage across the reconstructed time slices."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="residuals",
+    description=(
+        "Measured-minus-reconstructed residuals by diagnostic family, with the "
+        "solver's convergence context beside them rather than in place of them."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.reconstructed",
+    ),
+    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_residuals(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT reconstruction residuals by diagnostic family."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

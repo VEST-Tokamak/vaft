@@ -121,7 +121,7 @@ def validation_plot_products(shots):
         for name in stage_plot_filenames("raw", required_only=True):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
-        for stage in ("diagnostics", "eddy", "efit"):
+        for stage in ("diagnostics", "eddy", "efit", "mhd_linear"):
             for name in stage_plot_filenames(stage, required_only=True):
                 outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
@@ -653,6 +653,36 @@ if PLOTS_ENABLED:
 # rule convert2old:
 
 # rule save_hsds_db:
+
+
+if PLOTS_ENABLED:
+    rule plot_mhd_linear:
+        input:
+            ods=PATHS.shot_pattern("mhd_linear_ods"),
+            manifest=PATHS.shot_pattern("mhd_linear_manifest")
+        output:
+            plots=stage_plot_outputs("mhd_linear"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "mhd_linear")
+        log:
+            PATHS.shot_pattern("log", "plot_mhd_linear")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "mhd_linear", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage mhd_linear \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --stage-manifest {input.manifest} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
 
 
 ############################################################

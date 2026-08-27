@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import hashlib
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -31,6 +32,7 @@ import numpy as np
 
 __all__ = [
     "STAGE_METRICS",
+    "STAGE_PRECONDITIONS",
     "STAGE_VALIDATION_PLOTS",
     "ValidationPlot",
     "raw_acquisition_qa_model",
@@ -117,14 +119,209 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             filename="residual_plasma_signal.png",
         ),
     ),
-    # Seeded with the figure the pipeline already produced; the constraint and
-    # residual validation issue #139 asks for lands as a follow-up.
+    # What was submitted to EFIT and what came back, in that order: a converged
+    # solution built on a dead channel set is still a bad one, so the submitted
+    # constraints are validated before the reconstruction is interpreted.
     "efit": (
+        ValidationPlot(
+            plot="equilibrium_overview_constraints",
+            filename="efit_constraints_submitted.png",
+        ),
+        ValidationPlot(
+            plot="equilibrium_overview_constraint_coverage",
+            filename="efit_constraint_coverage.png",
+        ),
+        ValidationPlot(
+            plot="equilibrium_overview_residuals",
+            filename="efit_reconstruction_residuals.png",
+        ),
         ValidationPlot("equilibrium_overview_verification"),
         ValidationPlot("equilibrium_overview", required=False),
         ValidationPlot("equilibrium_field_psi", required=False),
     ),
+    # Deliberately minimal: only `n_tor` and DCON's `energy_perturbed` reach the
+    # IDS today. RDCON/STRIDE's Delta-prime has no IDS slot and survives only in
+    # the stage manifest, so it is recorded as a metric rather than invented into
+    # a figure.
+    "mhd_linear": (
+        ValidationPlot(
+            plot="mhd_linear_time_energy_perturbed",
+            filename="stability_energy_perturbed.png",
+        ),
+    ),
 }
+
+
+def _ods_count(source: Any, path: str) -> int:
+    """Length of an ODS array of structures, 0 when the node is absent.
+
+    Iterating an OMAS AOS yields its integer keys rather than its entries, so
+    everything here indexes positionally instead.
+    """
+    try:
+        return len(source[path])
+    except (KeyError, ValueError, IndexError, TypeError):
+        return 0
+
+
+def _no_equilibrium_slices(source: Any) -> str | None:
+    """EFIT can legitimately produce nothing for a shot; that is not a plot bug."""
+    if _ods_count(source, "equilibrium.time_slice") == 0:
+        return (
+            "EFIT produced no accepted equilibrium time slice for this shot; "
+            "see the stage's efit_status"
+        )
+    return None
+
+
+def _no_toroidal_modes(source: Any) -> str | None:
+    count = _ods_count(source, "mhd_linear.time_slice")
+    if count == 0:
+        return "the GPEC suite mapped no mhd_linear time slice for this shot"
+    if not any(
+        _ods_count(source, f"mhd_linear.time_slice.{index}.toroidal_mode")
+        for index in range(count)
+    ):
+        return "the GPEC suite mapped no toroidal mode for this shot"
+    return None
+
+
+#: Stages whose data product can be legitimately empty.  The callable returns a
+#: reason when it is, and every declared plot -- required ones included -- is
+#: then recorded as skipped with that reason instead of failing the stage.  This
+#: is not a silent swallow: the empty product is a known, reported state that
+#: lands in the manifest, unlike a required plot whose data is unexpectedly
+#: absent, which still raises.
+STAGE_PRECONDITIONS: dict[str, Any] = {
+    "efit": _no_equilibrium_slices,
+    "mhd_linear": _no_toroidal_modes,
+}
+
+
+def _efit_metrics(source: Any, **_context: Any) -> dict[str, Any]:
+    """Per-family residuals, channel coverage and convergence, slice by slice."""
+    import numpy as np
+
+    from vaft.omas._plot_recipes import (
+        CONSTRAINT_STATES,
+        _VERIFICATION_FAMILIES,
+        _constraint_table,
+        _get,
+        _slice_times,
+    )
+
+    times = _slice_times(source)
+    slices = []
+    for index in range(times.size):
+        families: dict[str, Any] = {}
+        for family, _title, _unit, _scale, is_array in _VERIFICATION_FAMILIES:
+            table = _constraint_table(
+                source, time_slice=index, family=family, is_array=is_array
+            )
+            fitted = table.mask("enabled") & np.isfinite(table.residual)
+            chi = np.array(
+                [
+                    _get(
+                        source,
+                        f"equilibrium.time_slice.{index}.constraints.{family}."
+                        f"{position}.chi_squared",
+                        np.nan,
+                    )
+                    for position in range(len(table.state))
+                ],
+                dtype=float,
+            )
+            families[family] = {
+                **{state: table.count(state) for state in CONSTRAINT_STATES},
+                "residual_rms": (
+                    float(np.sqrt(np.mean(table.residual[fitted] ** 2)))
+                    if fitted.any()
+                    else float("nan")
+                ),
+                # The stored value, in SI units: EFIT's normalization for these
+                # is not recorded anywhere, so this is not a reduced chi-square.
+                "chi_squared_sum": float(np.nansum(chi)),
+            }
+        slices.append(
+            {
+                "time": float(times[index]),
+                "families": families,
+                "grad_shafranov_deviation": float(
+                    _get(
+                        source,
+                        f"equilibrium.time_slice.{index}."
+                        "convergence.grad_shafranov_deviation_value",
+                        np.nan,
+                    )
+                ),
+                "iterations": float(
+                    _get(
+                        source,
+                        f"equilibrium.time_slice.{index}.convergence.iterations_n",
+                        np.nan,
+                    )
+                ),
+            }
+        )
+    return {"schema_version": 1, "slice_count": len(slices), "slices": slices}
+
+
+def _mhd_linear_metrics(source: Any, **context: Any) -> dict[str, Any]:
+    """Solver run status and the Delta-prime values that have no IDS slot.
+
+    Both live only in the stage manifest, so this reads it when the workflow
+    passes one; without it only what the IDS carries is reported.
+    """
+    slice_count = _ods_count(source, "mhd_linear.time_slice")
+    modes: dict[str, Any] = {}
+    for index in range(slice_count):
+        root = f"mhd_linear.time_slice.{index}.toroidal_mode"
+        for position in range(_ods_count(source, root)):
+            entry = source[f"{root}.{position}"]
+            n_tor = entry.get("n_tor")
+            if n_tor is None:
+                continue
+            energy = entry.get("energy_perturbed")
+            modes.setdefault(str(int(n_tor)), []).append(
+                {
+                    "time_slice": index,
+                    "energy_perturbed": None if energy is None else float(energy),
+                }
+            )
+
+    metrics: dict[str, Any] = {
+        "schema_version": 1,
+        "time_slice_count": slice_count,
+        "modes": modes,
+    }
+    manifest_path = context.get("stage_manifest")
+    if manifest_path:
+        payload = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        cells = payload.get("modules_modes", {})
+        metrics["solver_runs"] = {
+            key: {
+                "status": cell.get("status"),
+                "reason": cell.get("reason"),
+                # RDCON/STRIDE Delta-prime: mapped into `extras`, never into the
+                # IDS, so the manifest is its only home.
+                "modes": {
+                    str(mode): {
+                        "module": detail.get("module"),
+                        "variable": detail.get("variable"),
+                        "value": detail.get("value"),
+                    }
+                    for mode, detail in (cell.get("modes") or {}).items()
+                },
+            }
+            for key, cell in sorted(cells.items())
+        }
+        metrics["solver_status_counts"] = {
+            status: sum(
+                1 for cell in cells.values() if cell.get("status") == status
+            )
+            for status in sorted({cell.get("status") for cell in cells.values()})
+        }
+    return metrics
 
 
 def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
@@ -150,7 +347,11 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
 #: Stages that record scalar validation results alongside their figures.  The
 #: callable takes the stage's data product and returns the block the plot
 #: manifest carries under ``"metrics"``.
-STAGE_METRICS: dict[str, Any] = {"eddy": _eddy_metrics}
+STAGE_METRICS: dict[str, Any] = {
+    "eddy": _eddy_metrics,
+    "efit": _efit_metrics,
+    "mhd_linear": _mhd_linear_metrics,
+}
 
 
 def stages() -> tuple[str, ...]:
@@ -411,9 +612,24 @@ def render_stage_plots(
 
         available = tuple(sorted(row["name"] for row in available_plots(source)))
 
+    empty_reason = None
+    precondition = STAGE_PRECONDITIONS.get(stage)
+    if precondition is not None:
+        empty_reason = precondition(source)
+
     records: list[dict[str, Any]] = []
     for entry in entries:
         target = directory / entry.filename
+        if empty_reason is not None:
+            records.append(
+                {
+                    "name": entry.plot,
+                    "file": entry.filename,
+                    "status": "skipped",
+                    "reason": empty_reason,
+                }
+            )
+            continue
         if entry.kind == "ods" and entry.plot not in available:
             reason = f"ODS does not carry the data {entry.plot!r} requires"
             if entry.required:
@@ -452,6 +668,10 @@ def render_stage_plots(
     }
     if available:
         manifest["available"] = list(available)
+    if empty_reason is not None:
+        manifest["status"] = "empty"
+        manifest["reason"] = empty_reason
+        return manifest
     compute_metrics = STAGE_METRICS.get(stage)
     if compute_metrics is not None:
         manifest["metrics"] = compute_metrics(source, **context)

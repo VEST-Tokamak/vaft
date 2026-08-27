@@ -47,6 +47,12 @@ def main() -> int:
     parser.add_argument("--metadata", required=True, type=Path, help="Output plot manifest JSON.")
     parser.add_argument("--shot", default=None, type=int)
     parser.add_argument(
+        "--stage-manifest",
+        default=None,
+        type=Path,
+        help="The stage's own manifest, for metrics that the ODS cannot carry.",
+    )
+    parser.add_argument(
         "--required-fields",
         default="",
         help="Comma-separated raw field codes highlighted in the raw QA overview.",
@@ -63,6 +69,7 @@ def main() -> int:
         args.output_dir,
         shot=args.shot,
         required_fields=_csv_ints(args.required_fields),
+        stage_manifest=args.stage_manifest,
     )
     if args.shot is not None:
         manifest["shot"] = int(args.shot)

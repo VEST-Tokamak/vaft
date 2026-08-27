@@ -976,6 +976,7 @@ __all__ = [
     "magnetics_time_impa_field",
     "magnetics_time_impa_voltage",
     "magnetics_time_ip",
+    "mhd_linear_time_energy_perturbed",
     "magnetics_time_mirnov_voltage",
     "pf_active_time_current",
     "pf_active_time_current_turns",
@@ -987,3 +988,25 @@ __all__ = [
     "thomson_scattering_time_electron_density",
     "thomson_scattering_time_electron_temperature",
 ]
+
+
+@renderer(
+    domain="mhd_linear",
+    view="time",
+    quantity="energy_perturbed",
+    model=LineSeries,
+    description=(
+        "DCON perturbed potential energy against time, one trace per toroidal "
+        "mode number; a negative value is an ideal-MHD unstable mode."
+    ),
+    ids=("mhd_linear",),
+    required_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+    ),
+)
+def mhd_linear_time_energy_perturbed(
+    model: LineSeries, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, Any]:
+    """Perturbed potential energy history per toroidal mode."""
+    return render_line_series(model, ax=ax, show=show, **style)
