@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import lru_cache
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from vaft.machine_mapping.utils import get_path
+from vaft.machine_mapping.magnetics import (
+    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
+    fluctuation_mirnov_channel_definitions,
+)
 from vaft.process.magnetics import (
     mirnov_preprocess_signal,
     mirnov_spectrogram as compute_mirnov_spectrogram,
@@ -16,13 +21,27 @@ from vaft.process.magnetics import (
     toroidal_mode_analysis,
 )
 
-_DEFAULT_TOROIDAL_REFERENCE_PAIR = (65, 67)
-_DEFAULT_TOROIDAL_REFERENCE_GAINS = {
-    64: 9.0e-4,
-    65: -9.0e-4,
-    66: 9.0e-4,
-    67: 0.004529,
-}
+_DEFAULT_TOROIDAL_REFERENCE_PAIR = (
+    "OutMirnov_530_Bz:phase_reference",
+    "MagneticFieldProbe_C2-05_Bz:phase_reference",
+)
+
+
+@lru_cache(maxsize=1)
+def _known_gain_by_identifier() -> dict[str, float]:
+    """Gains for probes registered in machine_mapping, keyed by ODS identifier.
+
+    IMAS ``b_field_pol_probe`` has no calibration-factor field, so this gain
+    metadata lives only in the Python channel registries, not in the ODS
+    itself; lookups here replace what used to be a hardcoded index->gain
+    table.
+    """
+    gains: dict[str, float] = {}
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+        gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
+    for channel in fluctuation_mirnov_channel_definitions():
+        gains[str(channel["identifier"])] = float(channel["gain"])
+    return gains
 
 
 def _as_array(value: Any) -> np.ndarray:
@@ -107,7 +126,9 @@ def _gain_for_channel(ods: Any, gains: Any, channel: int, probe_group: str) -> f
         except Exception:
             pass
         if probe_group == "b_field_pol_probe":
-            return float(_DEFAULT_TOROIDAL_REFERENCE_GAINS.get(channel, 1.0))
+            label = _channel_label(ods, probe_group, channel)
+            if label in _known_gain_by_identifier():
+                return _known_gain_by_identifier()[label]
         return 1.0
     if isinstance(gains, dict):
         return float(gains.get(channel, 1.0))
@@ -380,7 +401,12 @@ def toroidal_phase_mode_fit(
     ods: Any,
     center_time: float,
     *,
-    channels: Sequence[int | str] = (64, 65, 66, 67),
+    channels: Sequence[int | str] = (
+        "OutMirnov_130_Bz:phase_reference",
+        "OutMirnov_530_Bz:phase_reference",
+        "OutMirnov_730_Bz:phase_reference",
+        "MagneticFieldProbe_C2-05_Bz:phase_reference",
+    ),
     probe_group: str = "b_field_pol_probe",
     time_range: tuple[float, float] | None = None,
     frequencies: Sequence[float] | None = None,
