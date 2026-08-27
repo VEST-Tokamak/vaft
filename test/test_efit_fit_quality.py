@@ -204,14 +204,37 @@ def test_max_normalized_residual_names_its_channel():
 
 # --- Part B: convergence -----------------------------------------------------
 
-def test_final_error_is_reported_against_the_requested_tolerance(efit_ods):
-    block = convergence_metrics(efit_ods, time_slice=0)
-    assert block["error"]["tolerance"] == pytest.approx(1e-5)
-    assert block["error"]["error_ratio"] == pytest.approx(
-        block["error"]["final_error"] / 1e-5
-    )
-    # Shot 39915 terminates far above the tolerance it was given.
-    assert block["error"]["error_ratio"] > 100
+def test_the_two_tolerances_are_reported_separately(efit_ods):
+    # write_a/chkerr: the iteration exits on `error`, but EFIT *accepts* the
+    # slice against `errmin` when iconvr == 2. They are different tests.
+    block = convergence_metrics(efit_ods, time_slice=0)["error"]
+    assert block["exit_tolerance"] == pytest.approx(1e-5)
+    assert block["exit_tolerance_source"] == "in1"
+    assert block["iconvr"] == 2
+    assert block["acceptance_tolerance_name"] == "errmin"
+    # VEST never sets errmin, so acceptance rests on EFIT's own default.
+    assert block["acceptance_tolerance"] == pytest.approx(1e-2)
+    assert block["acceptance_tolerance_source"] == "efit_default"
+    assert block["exit_ratio"] == pytest.approx(block["final_error"] / 1e-5)
+    assert block["acceptance_ratio"] == pytest.approx(block["final_error"] / 1e-2)
+
+
+def test_shot_39915_never_reaches_its_requested_exit_tolerance(efit_ods):
+    block = convergence_metrics(efit_ods, time_slice=0)["error"]
+    assert block["reached_exit_tolerance"] is False
+    assert block["exit_ratio"] > 100
+    # ...yet is comfortably inside the threshold EFIT actually applies.
+    assert block["within_acceptance_tolerance"] is True
+    assert block["acceptance_ratio"] < 1.0
+
+
+def test_a_non_iconvr2_run_is_judged_against_error_not_errmin():
+    ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
+    ods["equilibrium.code.parameters.time_slice.0.out1.iconvr"] = 3
+    block = convergence_metrics(ods, time_slice=0)["error"]
+    assert block["acceptance_tolerance_name"] == "error"
+    assert block["acceptance_tolerance"] == pytest.approx(1e-5)
+    assert block["acceptance_tolerance_source"] == "in1"
 
 
 def test_iteration_cap_is_detected():
@@ -219,6 +242,15 @@ def test_iteration_cap_is_detected():
     assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is False
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = 100
     assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is True
+
+
+def _with_afile(ods):
+    from vaft.data import read_aeqdsk
+    from vaft.data.resources import data_path
+
+    copy = ods.copy()
+    read_aeqdsk(data_path("efit/a039915.00319")).to_omas(copy, time_index=0)
+    return copy
 
 
 def _with_history(history):
@@ -264,17 +296,50 @@ def test_history_is_reported_unavailable_rather_than_guessed(efit_ods):
 
 def test_the_efit_verdict_is_read_when_an_afile_was_parsed(efit_ods):
     without = convergence_metrics(efit_ods, time_slice=0)["verdict"]
-    assert without["converged"] is None and "no a-file" in without["reason"]
+    assert without["accepted"] is None and "no a-file" in without["reason"]
 
-    from vaft.data import read_aeqdsk
-    from vaft.data.resources import data_path
-
-    ods = efit_ods.copy()
-    read_aeqdsk(data_path("efit/a039915.00319")).to_omas(ods, time_index=0)
+    ods = _with_afile(efit_ods)
     verdict = convergence_metrics(ods, time_slice=0)["verdict"]
-    assert verdict["converged"] is True
+    assert verdict["accepted"] is True
     assert (verdict["jflag"], verdict["lflag"]) == (1, 0)
     assert verdict["limiter_location"] == "IN"
+    assert verdict["fit_type"] == "MAG"
+    # The claim must not overreach: jflag says chkerr was satisfied.
+    assert "chkerr" in verdict["meaning"]
+    assert "converged" not in verdict
+
+
+def test_acceptance_and_reaching_the_exit_tolerance_are_independent(efit_ods):
+    """The heart of it: EFIT accepts a slice that never met its own tolerance."""
+    ods = _with_afile(efit_ods)
+    block = convergence_metrics(ods, time_slice=0)
+    assert block["verdict"]["accepted"] is True
+    assert block["error"]["reached_exit_tolerance"] is False
+    assert block["error"]["final_error_source"] == "aeqdsk.terror"
+    assert block["error"]["exit_ratio"] > 10
+    assert block["error"]["within_acceptance_tolerance"] is True
+
+
+def test_the_chi_square_acceptance_margin_is_reported(efit_ods):
+    ods = _with_afile(efit_ods)
+    block = convergence_metrics(ods, time_slice=0)["error"]
+    assert block["chi_squared_limit_name"] == "saicon"
+    assert block["chi_squared_limit"] == pytest.approx(80.0)
+    assert block["chi_squared_limit_source"] == "efit_default"
+    # 77.6 of an allowed 80: this slice is close to EFIT's chi-square limit.
+    assert 0.9 < block["chi_squared_margin"] < 1.0
+
+
+def test_the_afile_terror_takes_precedence_over_a_cerror_history(efit_ods):
+    ods = _with_afile(efit_ods)
+    ods["equilibrium.code.parameters.time_slice.0.meqdsk.variables.cerror.data"] = (
+        np.array([1e-1, 1e-2, 5e-3], dtype=float)
+    )
+    block = convergence_metrics(ods, time_slice=0)
+    assert block["error"]["final_error_source"] == "aeqdsk.terror"
+    assert block["history"]["available"] is True
+    # The two are the same quantity, so a disagreement is worth surfacing.
+    assert block["history"]["agrees_with_aeqdsk_terror"] is False
 
 
 # --- B7-B9: EFIT's outputs against each other --------------------------------
@@ -319,6 +384,7 @@ def test_the_efit_stage_writes_both_new_figures_and_the_metrics(tmp_path, efit_o
     assert metrics["summary"]["chi_squared_reduced_median"] > 0
     # No a-file was mapped, so no verdict is claimed rather than one invented.
     assert metrics["summary"]["slices_with_verdict"] == 0
+    assert metrics["summary"]["slices_reaching_exit_tolerance"] == 0
     fit = metrics["slices"][0]["fit"]
     assert fit["tier"]["chi_squared_reduced"] == "primary"
     assert fit["tier"]["residual_structure"] == "diagnostic"

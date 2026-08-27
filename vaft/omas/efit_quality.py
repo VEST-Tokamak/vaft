@@ -76,6 +76,18 @@ FAMILIES = (
 #: Normalized-residual thresholds used for the outlier census.
 OUTLIER_LEVELS = (2.0, 3.0)
 
+#: EFIT's own defaults, from ``set_defaults.f90``.  A k-file that does not set
+#: one of these still gets it, so a metric that ignored them would compare
+#: against a threshold that was never in force.
+EFIT_DEFAULTS = {
+    "error": 1.0e-2,     # iteration exit tolerance
+    "errmin": 1.0e-2,    # acceptance threshold used by chkerr when iconvr == 2
+    "saimin": 80.0,      # chi-square acceptance threshold, iconvr != 2
+    "saicon": 80.0,      # chi-square acceptance threshold, iconvr == 2
+    "ierchk": 1,         # >0 means chkerr runs at all
+    "mxiter": -25,
+}
+
 
 # ---------------------------------------------------------------------------
 # ODS access primitives
@@ -494,29 +506,101 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         "source": "aeqdsk" if jflag is not None else "unavailable",
         "jflag": None if jflag is None else int(jflag),
         "lflag": None if lflag is None else int(lflag),
-        "converged": None if jflag is None else bool(int(jflag) == 1 and int(lflag) == 0),
+        # Deliberately "accepted", not "converged": jflag starts at 1 and only
+        # drops when chkerr objects, and chkerr judges terror against `errmin`
+        # (iconvr == 2) rather than against the iteration exit tolerance. See
+        # the error block's exit_ratio for the tolerance question.
+        "accepted": None if jflag is None else bool(int(jflag) == 1 and int(lflag) == 0),
+        "meaning": "chkerr raised nothing, or was disabled (ierchk <= 0)",
         "limiter_location": _get(ods, f"{aeqdsk}.limloc"),
         "q_method_flag": _get(ods, f"{aeqdsk}.qmflag"),
+        "fit_type": _get(ods, f"{aeqdsk}.fit_type"),
     }
     if jflag is None:
         verdict["reason"] = "no a-file was parsed for this slice"
 
-    # B2: did the solve reach what it was asked to reach.
-    final_error = _scalar(_get(ods, f"{root}.convergence.grad_shafranov_deviation_value"))
-    tolerance = _scalar(_get(ods, f"{parameters}.in1.error"))
-    if not np.isfinite(tolerance):
-        tolerance = _scalar(_get(ods, f"{parameters}.out1.error"))
-    error_block = {
-        "final_error": final_error,
-        "final_error_source": "convergence.grad_shafranov_deviation_value",
-        "tolerance": tolerance,
-        "error_ratio": (
+    # B2: two different tolerances, and they are not interchangeable.
+    #
+    # `terror` (a-file) is the final value of `errorm` from residu():
+    #     errorm = max|psi - psi_previous| over the grid / |sidif| / relax
+    # `cerror` records the same quantity per iteration, and the iteration exit
+    # test is `errorm <= error`. So terror, cerror and in1.error are the same
+    # normalized quantity and are directly comparable.
+    #
+    # EFIT's *acceptance* test is a different one: chkerr compares terror with
+    # `errmin` when iconvr == 2 and with `error` otherwise. Those two can differ
+    # by orders of magnitude, so both are reported along with which one was in
+    # force -- and where a value came from EFIT's default rather than from the
+    # k-file, that is said.
+    def _setting(name: str) -> tuple[float, str]:
+        for block in ("in1", "out1"):
+            value = _scalar(_get(ods, f"{parameters}.{block}.{name}"))
+            if np.isfinite(value):
+                return value, block
+        default = EFIT_DEFAULTS.get(name, float("nan"))
+        return float(default), "efit_default"
+
+    iconvr = _scalar(_get(ods, f"{parameters}.out1.iconvr"))
+    tolerance_name = "errmin" if iconvr == 2 else "error"
+    exit_tolerance, exit_source = _setting("error")
+    acceptance_tolerance, acceptance_source = _setting(tolerance_name)
+
+    terror = _scalar(_get(ods, f"{aeqdsk}.terror"))
+    final_error = terror
+    final_error_source = "aeqdsk.terror"
+    if not np.isfinite(final_error):
+        final_error = _scalar(
+            _get(ods, f"{root}.convergence.grad_shafranov_deviation_value")
+        )
+        final_error_source = "convergence.grad_shafranov_deviation_value"
+
+    def _ratio(tolerance: float) -> float:
+        return (
             float(final_error / tolerance)
             if np.isfinite(final_error) and np.isfinite(tolerance) and tolerance
             else float("nan")
+        )
+
+    error_block = {
+        "final_error": final_error,
+        "final_error_source": final_error_source,
+        "definition": "max|psi - psi_prev| over the grid / |sidif| / relax",
+        # Did the Grad-Shafranov iteration reach the tolerance it was asked for?
+        "exit_tolerance": exit_tolerance,
+        "exit_tolerance_source": exit_source,
+        "exit_ratio": _ratio(exit_tolerance),
+        "reached_exit_tolerance": bool(
+            np.isfinite(final_error)
+            and np.isfinite(exit_tolerance)
+            and final_error <= exit_tolerance
+        ),
+        # Which threshold EFIT's own acceptance check actually applied.
+        "iconvr": iconvr,
+        "acceptance_tolerance_name": tolerance_name,
+        "acceptance_tolerance": acceptance_tolerance,
+        "acceptance_tolerance_source": acceptance_source,
+        "acceptance_ratio": _ratio(acceptance_tolerance),
+        "within_acceptance_tolerance": bool(
+            np.isfinite(final_error)
+            and np.isfinite(acceptance_tolerance)
+            and final_error < acceptance_tolerance
         ),
         "secondary_tolerance": _scalar(_get(ods, f"{parameters}.in1.serror")),
     }
+
+    # chkerr's other acceptance test, on EFIT's own total chi-square.
+    chisq_name = "saicon" if iconvr == 2 else "saimin"
+    chisq_limit, chisq_source = _setting(chisq_name)
+    chisq_value = _scalar(_get(ods, f"{aeqdsk}.chisq"))
+    error_block["chi_squared_total"] = chisq_value
+    error_block["chi_squared_limit_name"] = chisq_name
+    error_block["chi_squared_limit"] = chisq_limit
+    error_block["chi_squared_limit_source"] = chisq_source
+    error_block["chi_squared_margin"] = (
+        float(chisq_value / chisq_limit)
+        if np.isfinite(chisq_value) and np.isfinite(chisq_limit) and chisq_limit
+        else float("nan")
+    )
 
     # B3: a run that stopped at the cap stopped; it did not converge.
     iterations = _scalar(_get(ods, f"{root}.convergence.iterations_n"))
@@ -557,8 +641,14 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
             "final_decade_rate": rate,
             "stagnated": bool(np.isfinite(rate) and abs(rate) < 0.05),
         }
-        error_block["final_error"] = float(history[-1])
-        error_block["final_error_source"] = "meqdsk.cerror"
+        if not np.isfinite(terror):
+            error_block["final_error"] = float(history[-1])
+            error_block["final_error_source"] = "meqdsk.cerror"
+        history_block["agrees_with_aeqdsk_terror"] = (
+            bool(np.isclose(history[-1], terror, rtol=1e-6))
+            if np.isfinite(terror)
+            else None
+        )
 
     # B7-B9: EFIT's own outputs must agree with each other.
     ip_values = [
@@ -641,7 +731,11 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         },
         "tier": {
             "verdict": "primary",
-            "error": "primary",
+            "error.reached_exit_tolerance": "primary",
+            "error.within_acceptance_tolerance": "primary",
+            "error.exit_ratio": "primary",
+            "error.acceptance_ratio": "primary",
+            "error.chi_squared_margin": "primary",
             "iterations": "primary",
             "self_consistency.ip_relative_spread": "primary",
             "history": "diagnostic",
@@ -675,10 +769,15 @@ def efit_quality_metrics(ods: Any) -> dict[str, Any]:
         [entry["fit"]["chi_squared_reduced"] for entry in slices], dtype=float
     )
     finite = reduced[np.isfinite(reduced)]
-    converged = [
-        entry["convergence"]["verdict"]["converged"]
+    accepted = [
+        entry["convergence"]["verdict"]["accepted"]
         for entry in slices
-        if entry["convergence"]["verdict"]["converged"] is not None
+        if entry["convergence"]["verdict"]["accepted"] is not None
+    ]
+    reached = [
+        entry["convergence"]["error"]["reached_exit_tolerance"]
+        for entry in slices
+        if np.isfinite(entry["convergence"]["error"]["final_error"])
     ]
     return {
         "schema_version": 1,
@@ -691,8 +790,11 @@ def efit_quality_metrics(ods: Any) -> dict[str, Any]:
             "chi_squared_reduced_max": (
                 float(np.max(finite)) if finite.size else float("nan")
             ),
-            "slices_converged": sum(1 for value in converged if value),
-            "slices_with_verdict": len(converged),
+            "slices_accepted_by_efit": sum(1 for value in accepted if value),
+            "slices_with_verdict": len(accepted),
+            # The separate question: did the iteration reach in1.error?
+            "slices_reaching_exit_tolerance": sum(1 for value in reached if value),
+            "slices_with_final_error": len(reached),
             "slices_hitting_iteration_cap": sum(
                 1 for entry in slices if entry["convergence"]["iterations"]["hit_cap"]
             ),

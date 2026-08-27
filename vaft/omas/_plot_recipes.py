@@ -2957,29 +2957,43 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
     panels: list[Any] = []
 
     final = np.array([block["error"]["final_error"] for block in blocks], dtype=float)
-    tolerance = np.array([block["error"]["tolerance"] for block in blocks], dtype=float)
+    exit_tolerance = np.array(
+        [block["error"]["exit_tolerance"] for block in blocks], dtype=float
+    )
+    acceptance = np.array(
+        [block["error"]["acceptance_tolerance"] for block in blocks], dtype=float
+    )
     if np.isfinite(final).any():
-        series = [Series(x=times, y=final, label="final GS error", style={"marker": "."})]
-        if np.isfinite(tolerance).any():
+        # Two different thresholds, and EFIT applies only the second one when it
+        # decides whether to accept the slice.
+        series = [Series(x=times, y=final, label="terror (final GS error)",
+                         style={"marker": "."})]
+        if np.isfinite(exit_tolerance).any():
             series.append(
-                Series(
-                    x=times,
-                    y=tolerance,
-                    label="requested tolerance",
-                    style={"linestyle": "--", "color": "0.5", "lw": 1.0},
-                )
+                Series(x=times, y=exit_tolerance, label="iteration exit tolerance (error)",
+                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
             )
-        ratio = blocks[0]["error"]["error_ratio"]
+        if np.isfinite(acceptance).any():
+            name = blocks[0]["error"]["acceptance_tolerance_name"]
+            source = blocks[0]["error"]["acceptance_tolerance_source"]
+            series.append(
+                Series(x=times, y=acceptance,
+                       label=f"acceptance threshold ({name}, {source})",
+                       style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
+            )
+        exit_ratio = blocks[0]["error"]["exit_ratio"]
+        reached = sum(1 for block in blocks if block["error"]["reached_exit_tolerance"])
         panels.append(
             LineSeries(
                 series=tuple(series),
                 x_label="time",
                 x_unit="s",
-                y_label="Grad-Shafranov error",
+                y_label="normalized GS error",
                 log_y=True,
                 title=(
-                    f"Final error vs tolerance ({blocks[0]['error']['final_error_source']}"
-                    f"), ratio {ratio:.3g}" if np.isfinite(ratio) else "Final error"
+                    f"{blocks[0]['error']['final_error_source']}: "
+                    f"{reached}/{len(blocks)} slice(s) reached the exit tolerance"
+                    + (f", worst {exit_ratio:.3g}×" if np.isfinite(exit_ratio) else "")
                 ),
             )
         )
@@ -3076,25 +3090,38 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
         )
 
     verdicts = [block["verdict"] for block in blocks]
-    known = [v for v in verdicts if v["converged"] is not None]
+    known = [v for v in verdicts if v["accepted"] is not None]
     if known:
+        margin = np.array(
+            [block["error"]["chi_squared_margin"] for block in blocks], dtype=float
+        )
+        series = [
+            Series(
+                x=times,
+                y=np.array(
+                    [1.0 if v["accepted"] else 0.0 if v["accepted"] is not None
+                     else np.nan for v in verdicts],
+                    dtype=float,
+                ),
+                label="accepted (a-file jflag/lflag)",
+                style={"marker": "o", "linestyle": "none"},
+            )
+        ]
+        if np.isfinite(margin).any():
+            series.append(
+                Series(x=times, y=margin,
+                       label=f"χ² / {blocks[0]['error']['chi_squared_limit_name']}",
+                       style={"marker": "."})
+            )
         panels.append(
             LineSeries(
-                series=(
-                    Series(
-                        x=times,
-                        y=np.array(
-                            [1.0 if v["converged"] else 0.0 if v["converged"] is not None
-                             else np.nan for v in verdicts],
-                            dtype=float,
-                        ),
-                        label="converged (a-file jflag/lflag)",
-                        style={"marker": "o", "linestyle": "none"},
-                    ),
-                ),
-                x_label="time", x_unit="s", y_label="converged",
+                series=tuple(series),
+                x_label="time", x_unit="s", y_label="accepted / χ² margin",
                 y_limits=(-0.2, 1.2),
-                title=f"EFIT verdict — {sum(1 for v in known if v['converged'])}/{len(known)} converged",
+                title=(
+                    f"EFIT acceptance — {sum(1 for v in known if v['accepted'])}/{len(known)}"
+                    " accepted (not the same as reaching the exit tolerance)"
+                ),
             )
         )
 
