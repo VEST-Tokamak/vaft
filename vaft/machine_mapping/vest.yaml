@@ -1083,6 +1083,137 @@
       phase_to_n_e_line: 3.3409e17
       identifier: "282GHz_V_ch01"
       filename_pattern: "{shot}_ALL_LID.mat"
+  # Triple Langmuir probes (issue #152). No unconditional default for
+  # vd3/tip_length_mm/tip_radius_mm outside shot_era_overrides -- a shot that
+  # matches no era has no valid bias voltage / tip geometry, and the mapper
+  # must fail clearly rather than reuse a neighboring era. The documented
+  # gaps (mid: 42138-42144, 42641) are intentionally left unlisted so they
+  # fall through to that failure.
+  langmuir_probes:
+    mid:
+      source:
+        voltage_field: 99
+        current_field: 100
+        raw_unit: V
+        daq_type: fast
+      calibration:
+        voltage_gain: 22.0
+        current_divisor: 100.0
+      processing:
+        baseline_samples: 500
+        # See the note on langmuir_probes.upper.processing.median_kernel.
+        median_kernel: null
+      ion:
+        gas_species: H
+      shot_era_overrides:
+        - max_shot: 42137
+          vd3: 38.0
+          tip_length_mm: 1.5
+          tip_radius_mm: 0.05
+        - min_shot: 42145
+          max_shot: 42640
+          vd3: 48.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 42642
+          max_shot: 43828
+          vd3: 48.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 43829
+          vd3: 57.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+
+    # Upper assembly (raw fields 259/260). Installed starting shot 42675
+    # (user-confirmed against the VEST shot log) -- machine_mapping treats it
+    # as structurally absent before that shot regardless of what this era
+    # table says; the table is still transcribed in full from the issue for
+    # provenance.
+    upper:
+      first_shot: 42675
+      source:
+        voltage_field: 259
+        current_field: 260
+        raw_unit: V
+        daq_type: fast
+      calibration:
+        voltage_gain: 22.0
+        current_divisor: 100.0
+      processing:
+        baseline_samples: 500
+        # The MATLAB reference applies "a one-dimensional median filter" but
+        # issue #152 does not record its kernel size, and no MATLAB source or
+        # reference .mat file was available in-repo to recover it (see issue
+        # discussion). Left unset (no filtering) rather than guessing a value
+        # that could distort the physics; set once the true kernel size is
+        # confirmed.
+        median_kernel: null
+      ion:
+        gas_species: H
+      shot_era_overrides:
+        - max_shot: 42137
+          vd3: 43.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.05
+        - min_shot: 42145
+          max_shot: 43665
+          vd3: 64.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        # issue #152 notes the underlying MATLAB conditions overlap at the
+        # 43666-44065 boundary; the value below is the issue's own cleaned,
+        # single-valued reading of that range, trusted in the absence of the
+        # original MATLAB source.
+        - min_shot: 43666
+          max_shot: 44065
+          vd3: 73.4
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        # issue #152 notes a comment claiming shots 44066/44067/44068 used
+        # 83.1/92.8/92.8 V, but the executable MATLAB branch assigned 102.5 V
+        # to all three; 102.5 V is used here as the value that actually
+        # produced the historical processed data.
+        - min_shot: 44066
+          max_shot: 44280
+          vd3: 102.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 44281
+          max_shot: 45063
+          vd3: 121.6
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 45064
+          max_shot: 45065
+          vd3: 130.4
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 45066
+          max_shot: 46305
+          vd3: 139.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 46306
+          max_shot: 46310
+          vd3: 146.8
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 46311
+          max_shot: 46311
+          vd3: 164.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 46312
+          max_shot: 47257
+          vd3: 188.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 47258
+          vd3: 89.8
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+
 # –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # Shot-specific overrides
 20259:
@@ -1315,11 +1446,15 @@ diagnostic_registry:
     ids: langmuir_probes
     ids_path: langmuir_probes.embedded
     responsible: [{name: 변준혁}]
-    source: {type: unknown}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
-    quantities: {static: [vertical_position], measured: [floating_voltage], derived: [electron_density, electron_temperature, radial_position]}
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.langmuir_probes, entrypoint: langmuir_probes}
+    # v_floating and ion_saturation_current are deliberately not mapped: issue
+    # #152 requires their physical semantics (polarity, whether the measured
+    # current is truly ion-saturation current) to be verified first.
+    quantities: {static: [vertical_position, surface_area], measured: [], derived: [electron_density, electron_temperature, radial_position]}
   interferometer:
     name: Interferometer
     family: edge_diagnostics
