@@ -35,7 +35,10 @@ class SyntheticContractTests(unittest.TestCase):
         vfit_tf_static(payload)
         vfit_thomson_scattering_static(payload)
 
-        self.assertEqual(get_path(payload, "barometry.ids_properties.homogeneous_time"), 1)
+        # barometry stores time per gauge (`gauge.0.pressure.time`) and never
+        # writes a root `barometry.time`, so the DD requires 0 here -- unlike
+        # tf and thomson_scattering below, which do write a root `.time`.
+        self.assertEqual(get_path(payload, "barometry.ids_properties.homogeneous_time"), 0)
         self.assertEqual(get_path(payload, "barometry.gauge.0.name"), "PKR-251 Main Gauge")
         self.assertEqual(get_path(payload, "tf.ids_properties.homogeneous_time"), 1)
         self.assertEqual(get_path(payload, "tf.r0"), 0.4)
