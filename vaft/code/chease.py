@@ -835,66 +835,116 @@ def _resample_closed_curve(rz: np.ndarray, count: int = 256) -> np.ndarray:
     return np.column_stack([np.interp(target, s, rz[:, 0]), np.interp(target, s, rz[:, 1])])
 
 
-def _create_comparison_plot(original: Any, refined: Any, target: Path) -> Path:
-    import matplotlib.pyplot as plt
+def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle: str):
+    """Boundary and limiter outlines for one equilibrium, as geometry layers."""
+    from vaft.plot import GeometryLayer
+
+    layers = []
+    rb = np.asarray(geqdsk.get("RBBBS", []), dtype=float)
+    zb = np.asarray(geqdsk.get("ZBBBS", []), dtype=float)
+    if rb.size and zb.size:
+        count = min(rb.size, zb.size)
+        layers.append(
+            GeometryLayer(
+                r=rb[:count],
+                z=zb[:count],
+                kind="polyline",
+                label=f"{label} boundary",
+                style={"color": color, "linestyle": linestyle, "lw": 1.8},
+            )
+        )
+    rl = np.asarray(geqdsk.get("RLIM", []), dtype=float)
+    zl = np.asarray(geqdsk.get("ZLIM", []), dtype=float)
+    if rl.size and zl.size:
+        count = min(rl.size, zl.size)
+        layers.append(
+            GeometryLayer(
+                r=rl[:count],
+                z=zl[:count],
+                kind="polyline",
+                label="",
+                style={"color": color, "linestyle": ":", "lw": 1.0, "alpha": 0.65},
+            )
+        )
+    return layers
+
+
+def _comparison_model(original: Any, refined: Any):
+    """Build the CHEASE input-vs-refined comparison view model.
+
+    Rendering stays in :mod:`vaft.plot` (issue #63): this only shapes the two
+    EQDSKs into the typed view models the canonical panel renderer consumes.
+
+    The four profile comparisons are drawn exactly as before.  The flux map is
+    the *refined* psi_N field with the input boundary overlaid, rather than two
+    overlaid contour sets: extracting contour polylines needs a live Axes, which
+    only a renderer may own.  The dedicated boundary/limiter panel still
+    compares both geometries directly, so nothing the comparison is for is lost.
+    """
+    from vaft.plot import Field2D, GeometryLayers, Panels, Profile1D, Series
 
     x0 = np.linspace(0.0, 1.0, int(original["NW"]))
     xr = np.linspace(0.0, 1.0, int(refined["NW"]))
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8.5))
-    for ax, key, title, ylabel in (
-        (axes[0, 0], "QPSI", "Safety factor", "q"),
-        (axes[0, 1], "PRES", "Pressure", "Pa"),
-        (axes[1, 0], "PPRIME", "Pressure derivative", "dP/dpsi"),
-        (axes[1, 1], "FFPRIM", "FF prime", "FF'"),
+    panels: list[Any] = []
+    for key, title, ylabel in (
+        ("QPSI", "Safety factor", "q"),
+        ("PRES", "Pressure", "Pa"),
+        ("PPRIME", "Pressure derivative", "dP/dpsi"),
+        ("FFPRIM", "FF prime", "FF'"),
     ):
-        ax.plot(x0, np.asarray(original[key], dtype=float), label="input", lw=2)
-        ax.plot(xr, np.asarray(refined[key], dtype=float), label="CHEASE", lw=1.6)
-        ax.set_title(title)
-        ax.set_xlabel("Normalized flux")
-        ax.set_ylabel(ylabel)
-        ax.grid(True, alpha=0.25)
-        ax.legend()
+        panels.append(
+            Profile1D(
+                series=(
+                    Series(
+                        x=x0,
+                        y=np.asarray(original[key], dtype=float),
+                        label="input",
+                        style={"lw": 2.0},
+                    ),
+                    Series(
+                        x=xr,
+                        y=np.asarray(refined[key], dtype=float),
+                        label="CHEASE",
+                        style={"lw": 1.6},
+                    ),
+                ),
+                coordinate_label="Normalized flux",
+                y_label=ylabel,
+                title=title,
+            )
+        )
 
-    r0, z0, psi0 = _psi_norm_for_plot(original)
     r1, z1, psi1 = _psi_norm_for_plot(refined)
-    levels = np.linspace(0.1, 1.0, 10)
-    ax_psi = axes[0, 2]
-    ax_psi.contour(r0, z0, psi0.T, levels=levels, colors="tab:blue", linewidths=1.0, linestyles="--")
-    ax_psi.contour(r1, z1, psi1.T, levels=levels, colors="tab:orange", linewidths=1.0)
-    ax_psi.plot([], [], "--", color="tab:blue", label="input")
-    ax_psi.plot([], [], "-", color="tab:orange", label="CHEASE")
-    ax_psi.set_title(r"$\psi_N(R,Z)$ contours")
-    ax_psi.set_xlabel("R [m]")
-    ax_psi.set_ylabel("Z [m]")
-    ax_psi.set_aspect("equal", adjustable="box")
-    ax_psi.grid(True, alpha=0.2)
-    ax_psi.legend()
+    input_layers = _boundary_and_limiter_layers(original, "input", "tab:blue", "--")
+    refined_layers = _boundary_and_limiter_layers(refined, "CHEASE", "tab:orange", "-")
+    panels.append(
+        Field2D(
+            r=r1,
+            z=z1,
+            values=psi1.T,
+            value_label=r"$\psi_N$",
+            title=r"$\psi_N(R,Z)$, CHEASE (input boundary overlaid)",
+            contour_levels=np.linspace(0.1, 1.0, 10),
+            filled=False,
+            overlays=tuple(layer for layer in input_layers if layer.label),
+        )
+    )
+    panels.append(
+        GeometryLayers(
+            layers=tuple(input_layers + refined_layers),
+            title="Boundary and limiter",
+        )
+    )
+    return Panels(models=tuple(panels), ncols=3, share_x=False)
 
-    ax_bnd = axes[1, 2]
-    for item, color, label, linestyle in (
-        (original, "tab:blue", "input boundary", "--"),
-        (refined, "tab:orange", "CHEASE boundary", "-"),
-    ):
-        rb = np.asarray(item.get("RBBBS", []), dtype=float)
-        zb = np.asarray(item.get("ZBBBS", []), dtype=float)
-        if rb.size and zb.size:
-            count = min(rb.size, zb.size)
-            ax_bnd.plot(rb[:count], zb[:count], color=color, linestyle=linestyle, lw=1.8, label=label)
-        rl = np.asarray(item.get("RLIM", []), dtype=float)
-        zl = np.asarray(item.get("ZLIM", []), dtype=float)
-        if rl.size and zl.size:
-            count = min(rl.size, zl.size)
-            ax_bnd.plot(rl[:count], zl[:count], color=color, linestyle=":", lw=1.0, alpha=0.65)
-    ax_bnd.set_title("Boundary and limiter")
-    ax_bnd.set_xlabel("R [m]")
-    ax_bnd.set_ylabel("Z [m]")
-    ax_bnd.set_aspect("equal", adjustable="box")
-    ax_bnd.grid(True, alpha=0.2)
-    ax_bnd.legend()
-    fig.tight_layout()
-    fig.savefig(target, dpi=150)
-    plt.close(fig)
-    return target
+
+def _create_comparison_plot(original: Any, refined: Any, target: Path) -> Path:
+    from vaft.plot import render_panels, save_figure
+
+    figure, _axes = render_panels(
+        _comparison_model(original, refined), show=False, figsize=(15.0, 8.5)
+    )
+    return save_figure(figure, target, dpi=150)
 
 
 def _read_optional(path: Path) -> str:

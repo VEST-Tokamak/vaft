@@ -42,9 +42,10 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import PipelinePaths
+from paths import FILEDB, PipelinePaths
 
 from vaft.omas.vest_upstream import machine_era_for_shot
+from vaft.validation import stage_plot_filenames
 
 # Every product path comes from one helper so the legacy shot-first layout and
 # the canonical FileDB layout stay in sync. Select with `layout` in config.yaml.
@@ -77,6 +78,66 @@ RAW_MIN_SAMPLES = RAW_PREFLIGHT_CONFIG.get("min_samples", 2)
 # The machine eras actually needed by the configured shots. The static ODS is a
 # per-era product, so it is built once and shared by every shot in that era.
 MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOTS})
+
+
+# --------------------------------------------------------------------------- #
+# Validation plots (issue #139)
+# --------------------------------------------------------------------------- #
+# `plot/` is a canonical FileDB artifact class with no legacy shot-first
+# equivalent, so validation plots exist only under the `filedb` layout. The
+# required figures of each stage are declared once in `vaft.validation` and
+# expanded here into real Snakemake outputs, so a declared validation artifact
+# can never degrade into an untracked side effect.
+PLOTS_ENABLED = PATHS.layout == FILEDB
+
+
+def stage_plot_outputs(stage):
+    return [
+        PATHS.shot_pattern("stage_plot", stage, name)
+        for name in stage_plot_filenames(stage, required_only=True)
+    ]
+
+
+def static_plot_outputs():
+    return [
+        PATHS.version_pattern("static_plot", name)
+        for name in stage_plot_filenames("static", required_only=True)
+    ]
+
+
+def raw_plot_outputs():
+    return [
+        PATHS.shot_pattern("raw_plot", name)
+        for name in stage_plot_filenames("raw", required_only=True)
+    ]
+
+
+def validation_plot_products(shots):
+    """Every per-shot validation-plot product for the eligible shots."""
+    if not PLOTS_ENABLED:
+        return []
+    outputs = []
+    for shot in shots:
+        for name in stage_plot_filenames("raw", required_only=True):
+            outputs.append(PATHS.raw_plot(shot, name))
+        outputs.append(PATHS.raw_plot_manifest(shot))
+        for stage in ("diagnostics", "efit"):
+            for name in stage_plot_filenames(stage, required_only=True):
+                outputs.append(PATHS.stage_plot(shot, stage, name))
+            outputs.append(PATHS.stage_plot_manifest(shot, stage))
+        outputs.append(PATHS.chease_plot_manifest(shot))
+    return outputs
+
+
+def static_validation_plot_products():
+    if not PLOTS_ENABLED:
+        return []
+    outputs = []
+    for version in MACHINE_VERSIONS:
+        for name in stage_plot_filenames("static", required_only=True):
+            outputs.append(PATHS.static_plot(version, name))
+        outputs.append(PATHS.static_plot_manifest(version))
+    return outputs
 
 
 def raw_archive_path(wildcards):
@@ -119,7 +180,6 @@ def eligible_pipeline_outputs(wildcards):
         "efit_status",
         "efit_artifact_manifest",
         "efit_ods",
-        "efit_verification_plot",
         "chease_refined",
         "chease_status",
         "chease_ods",
@@ -133,6 +193,7 @@ def eligible_pipeline_outputs(wildcards):
         for code in GPEC_MODULES
         for mode in GPEC_MODES
     ]
+    outputs += validation_plot_products(shots)
     return outputs
 
 
@@ -144,6 +205,7 @@ rule all:
         [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
         PATHS.preflight_eligible(),
         PATHS.preflight_excluded(),
+        static_validation_plot_products(),
         eligible_pipeline_outputs
 
 ############################################################
@@ -427,23 +489,117 @@ rule generate_efit_ods:
         """
 
 
-rule generate_efit_verification_plot:
-    input:
-        ods=PATHS.shot_pattern("efit_ods")
-    output:
-        plot=PATHS.shot_pattern("efit_verification_plot")
-    log:
-        PATHS.shot_pattern("log", "generate_efit_verification_plot")
-    conda:
-        CONDA if CONDA else None
-    shell:
-        """
-        mkdir -p $(dirname {log}) $(dirname {output.plot})
-        python {SCRIPT_DIR}/generate_efit_verification_plot.py \
-            --input {input.ods} \
-            --output {output.plot} \
-            > {log} 2>&1
-        """
+############################################################
+# Canonical post-generation validation plots
+############################################################
+if PLOTS_ENABLED:
+    rule plot_raw:
+        input:
+            dump=PATHS.shot_pattern("raw_dump"),
+            manifest=PATHS.shot_pattern("raw_manifest")
+        output:
+            plots=raw_plot_outputs(),
+            manifest=PATHS.shot_pattern("raw_plot_manifest")
+        log:
+            PATHS.shot_pattern("log", "plot_raw")
+        params:
+            required_fields=csv(REQUIRED_RAW_FIELDS),
+            directory=lambda wildcards: str(Path(PATHS.raw_plot(wildcards.shot, "x.png")).parent)
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage raw \
+                --shot {wildcards.shot} \
+                --input {input.dump} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                --required-fields "{params.required_fields}" \
+                > {log} 2>&1
+            """
+
+
+    rule plot_static:
+        input:
+            ods=PATHS.version_pattern("static_ods")
+        output:
+            plots=static_plot_outputs(),
+            manifest=PATHS.version_pattern("static_plot_manifest")
+        log:
+            PATHS.version_pattern("static_log", "plot_static")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.static_plot(wildcards.machine_version, "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage static \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+    rule plot_diagnostics:
+        input:
+            ods=PATHS.shot_pattern("diagnostics_ods")
+        output:
+            plots=stage_plot_outputs("diagnostics"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "diagnostics")
+        log:
+            PATHS.shot_pattern("log", "plot_diagnostics")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "diagnostics", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage diagnostics \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+    rule plot_efit:
+        input:
+            ods=PATHS.shot_pattern("efit_ods")
+        output:
+            plots=stage_plot_outputs("efit"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "efit")
+        log:
+            PATHS.shot_pattern("log", "plot_efit")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "efit", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage efit \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
 
 # ############################################################
 # # add information to the DB after EFIT run
@@ -480,7 +636,8 @@ rule run_chease:
         gfiles=PATHS.shot_pattern("gfile_manifest")
     output:
         refined=PATHS.shot_pattern("chease_refined"),
-        status=PATHS.shot_pattern("chease_status")
+        status=PATHS.shot_pattern("chease_status"),
+        **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if PLOTS_ENABLED else {})
     log:
         PATHS.shot_pattern("log", "run_chease")
     params:
@@ -494,7 +651,10 @@ rule run_chease:
         auto_cocos=bool_text(CHEASE_CONFIG.get("auto_cocos", True)),
         output_cocos=CHEASE_CONFIG.get("output_cocos", "input"),
         preserve_boundary_limiter=bool_text(CHEASE_CONFIG.get("preserve_boundary_limiter", True)),
-        create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True))
+        create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True)),
+        plot_dir=lambda wildcards: (
+            PATHS.code_plot_dir(wildcards.shot, "chease") if PLOTS_ENABLED else ""
+        )
     conda:
         CONDA if CONDA else None
     shell:
@@ -516,6 +676,7 @@ rule run_chease:
             --output-cocos "{params.output_cocos}" \
             --preserve-boundary-limiter {params.preserve_boundary_limiter} \
             --create-plot {params.create_plot} \
+            --plot-dir "{params.plot_dir}" \
             > {log} 2>&1
         """
 

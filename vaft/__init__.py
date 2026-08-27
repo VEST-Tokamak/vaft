@@ -25,6 +25,7 @@ __all__ = [
     "cli",
     "database",
     "imas",
+    "validation",
     "apply_runtime_compat_patches",
     "apply_omfit_compat_patches",
 ]

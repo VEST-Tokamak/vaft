@@ -14,9 +14,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "vaft"
 RENDERING_HOME = PACKAGE_ROOT / "plot"
 
 #: Modules still awaiting their adapter slice.  This list must only shrink.
-#: ``vaft.code`` and ``vaft.data`` adapters land with the rest of issue #63.
+#: ``vaft.code.chease`` was migrated to ``vaft.plot`` view models in issue #139.
 ALLOWLIST = {
-    "code/chease.py",
     "data/vfit.py",
 }
 

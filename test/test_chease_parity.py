@@ -13,6 +13,7 @@ These tests exercise:
 """
 
 import os
+from pathlib import Path
 import stat
 
 import numpy as np
@@ -208,3 +209,67 @@ def test_resolve_executable_config_env_precedence(tmp_path, monkeypatch):
     monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
     resolved = ch._resolve_executable(ch.CHEASEConfig(env={"CHEASE": str(exe)}))
     assert resolved == exe
+
+
+# ---------------------------------------------------------------------------
+# (i) Comparison figure: migrated out of the pyplot shim into vaft.plot (#139)
+# ---------------------------------------------------------------------------
+def _plottable_geqdsk(n: int = 33, *, scale: float = 1.0):
+    geq = _fake_geqdsk(n)
+    geq["PSIRZ"] = np.outer(np.linspace(0.0, 1.0, n), np.linspace(0.0, 1.0, n))
+    geq["SIMAG"] = 0.0
+    geq["SIBRY"] = 1.0
+    geq["RLEFT"] = 0.6
+    geq["RDIM"] = 0.8
+    geq["ZMID"] = 0.0
+    geq["ZDIM"] = 1.2
+    geq["RLIM"] = geq["RBBBS"] * 1.15
+    geq["ZLIM"] = geq["ZBBBS"] * 1.15
+    for key in ("QPSI", "PRES", "PPRIME", "FFPRIM"):
+        geq[key] = np.asarray(geq[key], dtype=float) * scale
+    return geq
+
+
+def test_comparison_model_keeps_the_four_profile_comparisons_and_the_geometry():
+    from vaft.plot.models import Field2D, GeometryLayers, Profile1D
+
+    original = _plottable_geqdsk()
+    refined = _plottable_geqdsk(scale=1.1)
+    model = ch._comparison_model(original, refined)
+
+    profiles = [panel for panel in model.models if isinstance(panel, Profile1D)]
+    assert [panel.title for panel in profiles] == [
+        "Safety factor",
+        "Pressure",
+        "Pressure derivative",
+        "FF prime",
+    ]
+    for panel in profiles:
+        # Both equilibria are compared in every profile panel.
+        assert [series.label for series in panel.series] == ["input", "CHEASE"]
+    assert np.allclose(profiles[0].series[1].y, np.asarray(refined["QPSI"], dtype=float))
+
+    fields = [panel for panel in model.models if isinstance(panel, Field2D)]
+    assert len(fields) == 1
+    # The refined flux map carries the input boundary as an overlay.
+    assert [layer.label for layer in fields[0].overlays] == ["input boundary"]
+
+    geometry = [panel for panel in model.models if isinstance(panel, GeometryLayers)]
+    assert len(geometry) == 1
+    labels = [layer.label for layer in geometry[0].layers if layer.label]
+    assert labels == ["input boundary", "CHEASE boundary"]
+    # Limiters are drawn for both, unlabeled.
+    assert len(geometry[0].layers) == 4
+
+
+def test_comparison_plot_is_rendered_by_vaft_plot_and_saved(tmp_path):
+    import matplotlib
+
+    matplotlib.use("Agg")
+
+    target = tmp_path / "chease_comparison.png"
+    result = ch._create_comparison_plot(
+        _plottable_geqdsk(), _plottable_geqdsk(scale=1.1), target
+    )
+    assert Path(result) == target
+    assert target.stat().st_size > 10_000
