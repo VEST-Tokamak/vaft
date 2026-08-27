@@ -105,7 +105,6 @@ vaft = [
   "data/gpec/*.dat",
   "data/legacy/*.txt",
   "data/legacy/*.yaml",
-  "data/legacy/langmuir_probe_positions.csv",
   "data/omas/39915.json",
 ]
 
