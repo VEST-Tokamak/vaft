@@ -30,6 +30,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 __all__ = [
+    "STAGE_METRICS",
     "STAGE_VALIDATION_PLOTS",
     "ValidationPlot",
     "raw_acquisition_qa_model",
@@ -103,6 +104,19 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ValidationPlot("tf_time_coil_current", required=False),
         ValidationPlot("interferometer_overview", required=False),
     ),
+    # Validated physically, by forward-modeling the magnetic response of the
+    # reconstructed vacuum current system, rather than by plotting the fitted
+    # eddy currents. See vaft.omas.vacuum_magnetics.
+    "eddy": (
+        ValidationPlot(
+            plot="magnetics_overview_vacuum",
+            filename="vacuum_magnetics_overview.png",
+        ),
+        ValidationPlot(
+            plot="magnetics_overview_plasma_residual",
+            filename="residual_plasma_signal.png",
+        ),
+    ),
     # Seeded with the figure the pipeline already produced; the constraint and
     # residual validation issue #139 asks for lands as a follow-up.
     "efit": (
@@ -111,6 +125,32 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ValidationPlot("equilibrium_field_psi", required=False),
     ),
 }
+
+
+def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
+    """Quantitative QA behind the eddy stage's two validation figures."""
+    from vaft.omas.vacuum_magnetics import (
+        plasma_onset_time,
+        synthetic_vacuum_magnetics,
+        vacuum_magnetics_metrics,
+    )
+
+    channels = synthetic_vacuum_magnetics(source)
+    ip_time = source.get("magnetics.ip.0.time", None)
+    ip_data = source.get("magnetics.ip.0.data", None)
+    return vacuum_magnetics_metrics(
+        channels,
+        plasma_onset=plasma_onset_time(source),
+        plasma_current=(
+            None if ip_time is None or ip_data is None else (ip_time, ip_data)
+        ),
+    )
+
+
+#: Stages that record scalar validation results alongside their figures.  The
+#: callable takes the stage's data product and returns the block the plot
+#: manifest carries under ``"metrics"``.
+STAGE_METRICS: dict[str, Any] = {"eddy": _eddy_metrics}
 
 
 def stages() -> tuple[str, ...]:
@@ -412,4 +452,7 @@ def render_stage_plots(
     }
     if available:
         manifest["available"] = list(available)
+    compute_metrics = STAGE_METRICS.get(stage)
+    if compute_metrics is not None:
+        manifest["metrics"] = compute_metrics(source, **context)
     return manifest

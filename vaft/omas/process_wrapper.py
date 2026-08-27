@@ -448,7 +448,10 @@ def compute_point_vacuum_fields_ods(
         nbt = len(time_arr)
 
         # Compute response matrix
-        psi_c, br_c, bz_c = compute_point_response_ods(ods, rz, plasma=None)
+        # compute_point_response_ods returns (Psi, Bz, Br) -- Bz before Br.
+        # Unpacking it as (psi, br, bz) swapped the two field components for
+        # every caller of this wrapper.
+        psi_c, bz_c, br_c = compute_point_response_ods(ods, rz, plasma=None)
         
         # Verify response matrix shapes
         expected_sources = nbcoil + nbloop

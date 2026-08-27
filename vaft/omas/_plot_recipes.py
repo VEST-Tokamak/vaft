@@ -2542,6 +2542,181 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
 )
 
 
+# ---------------------------------------------------------------------------
+# Eddy-stage vacuum magnetics (issue #139)
+# ---------------------------------------------------------------------------
+
+def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
+    from vaft.omas.vacuum_magnetics import (
+        plasma_onset_time,
+        synthetic_vacuum_magnetics,
+        vacuum_magnetics_metrics,
+    )
+
+    channels = synthetic_vacuum_magnetics(
+        ods,
+        per_family=int(options.get("per_family", 2)),
+        channels=options.get("channels"),
+    )
+    onset = plasma_onset_time(ods)
+    ip_time = _array(ods, "magnetics.ip.0.time")
+    ip_data = _array(ods, "magnetics.ip.0.data")
+    metrics = vacuum_magnetics_metrics(
+        channels,
+        plasma_onset=onset,
+        plasma_current=(
+            None if ip_time is None or ip_data is None else (ip_time, ip_data)
+        ),
+    )
+    return channels, metrics
+
+
+def _vacuum_suptitle(ods: Any, metrics: Mapping[str, Any], headline: str) -> str:
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    summary = metrics["summary"]
+    return (
+        f"{headline} — shot {pulse}\n"
+        f"{summary['channel_count']} channels, median eddy improvement "
+        f"{summary['median_improvement']:.2f} (worst {summary['min_improvement']:.2f})"
+    )
+
+
+def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
+    channels, metrics = _vacuum_channels(ods, options)
+    rows = {(row["kind"], row["index"]): row for row in metrics["channels"]}
+    panels = []
+    for channel in channels:
+        row = rows[(channel.kind, channel.index)]
+        panels.append(
+            LineSeries(
+                series=(
+                    Series(x=channel.time, y=channel.measured, label="measured",
+                           style={"lw": 1.8}),
+                    Series(x=channel.time, y=channel.coil, label="coil",
+                           style={"lw": 1.2, "linestyle": "--"}),
+                    Series(x=channel.time, y=channel.coil_eddy, label="coil+eddy",
+                           style={"lw": 1.2}),
+                ),
+                x_label="time",
+                x_unit="s",
+                y_label=channel.unit,
+                title=(
+                    f"{channel.name} [{channel.family}]\n"
+                    f"pre-plasma improvement {row['improvement']:.2f}"
+                ),
+            )
+        )
+    return Panels(
+        models=tuple(panels),
+        ncols=3,
+        share_x=True,
+        suptitle=_vacuum_suptitle(ods, metrics, "Synthetic vacuum magnetics"),
+    )
+
+
+def _onset_marker(time, values, onset: float, label: str, style: Mapping[str, Any]):
+    """A vertical marker at ``onset``, spanning the panel's own value range."""
+    if not np.isfinite(onset):
+        return None
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return None
+    low, high = float(np.min(finite)), float(np.max(finite))
+    if low == high:
+        low, high = low - 1.0, high + 1.0
+    return Series(
+        x=np.array([onset, onset]), y=np.array([low, high]), label=label,
+        style=dict(style),
+    )
+
+
+def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
+    channels, metrics = _vacuum_channels(ods, options)
+    rows = {(row["kind"], row["index"]): row for row in metrics["channels"]}
+    sigma = float(options.get("sigma", 5.0))
+    plasma_onset = float(metrics["plasma_onset"])
+    current_onset = float(metrics["plasma_current_onset"])
+
+    panels: list[Any] = []
+    ip_time = _array(ods, "magnetics.ip.0.time")
+    ip_data = _array(ods, "magnetics.ip.0.data")
+    if ip_time is not None and ip_data is not None:
+        ip_series = [Series(x=ip_time, y=ip_data * 1e-3, label="Ip", style={"lw": 1.8})]
+        marker = _onset_marker(
+            ip_time, ip_data * 1e-3, current_onset, "Ip onset",
+            {"linestyle": "--", "color": "0.35", "lw": 1.0},
+        )
+        if marker is not None:
+            ip_series.append(marker)
+        panels.append(
+            LineSeries(
+                series=tuple(ip_series),
+                x_label="time", x_unit="s", y_label="kA",
+                title=f"Plasma current — onset {current_onset * 1e3:.1f} ms",
+            )
+        )
+
+    for channel in channels:
+        row = rows[(channel.kind, channel.index)]
+        window = channel.time < plasma_onset
+        residual = channel.residual
+        reference = residual[window]
+        baseline = float(np.nanmean(reference)) if reference.size else 0.0
+        noise = float(np.nanstd(reference)) if reference.size else 0.0
+        band = sigma * noise
+        series = [
+            Series(x=channel.time, y=residual, label="residual", style={"lw": 1.4}),
+            Series(
+                x=channel.time,
+                y=np.full(channel.time.size, baseline + band),
+                label=f"±{sigma:g}σ pre-plasma",
+                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+            ),
+            Series(
+                x=channel.time,
+                y=np.full(channel.time.size, baseline - band),
+                label="",
+                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+            ),
+        ]
+        for onset, name, color in (
+            (current_onset, "Ip onset", "0.35"),
+            (row["residual_onset"], "residual onset", "tab:red"),
+        ):
+            marker = _onset_marker(
+                channel.time, residual, onset, name,
+                {"linestyle": "--", "color": color, "lw": 1.0},
+            )
+            if marker is not None:
+                series.append(marker)
+        delta = row["onset_delta"]
+        timing = "no onset" if not np.isfinite(delta) else f"Δt {delta * 1e3:+.1f} ms"
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="time", x_unit="s", y_label=channel.unit,
+                title=f"{channel.name} [{channel.family}]\n{timing}",
+            )
+        )
+
+    return Panels(
+        models=tuple(panels),
+        ncols=3,
+        share_x=True,
+        suptitle=_vacuum_suptitle(ods, metrics, "Plasma residual after coil+eddy"),
+    )
+
+
+RECIPES["magnetics_overview_vacuum"] = CallableRecipe(
+    builder=_build_magnetics_vacuum,
+    description="Measured, coil-only and coil+eddy synthetic magnetics per channel.",
+)
+RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
+    builder=_build_magnetics_plasma_residual,
+    description="Plasma residual left by the coil+eddy synthetic vacuum response.",
+)
+
+
 def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -> Any:
     """Build the view model for canonical plot ``name`` from ``entries``.
 

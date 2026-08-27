@@ -121,7 +121,7 @@ def validation_plot_products(shots):
         for name in stage_plot_filenames("raw", required_only=True):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
-        for stage in ("diagnostics", "efit"):
+        for stage in ("diagnostics", "eddy", "efit"):
             for name in stage_plot_filenames(stage, required_only=True):
                 outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
@@ -566,6 +566,33 @@ if PLOTS_ENABLED:
             mkdir -p $(dirname {log})
             python {SCRIPT_DIR}/generate_stage_plots.py \
                 --stage diagnostics \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+    rule plot_eddy:
+        input:
+            ods=PATHS.shot_pattern("eddy_ods")
+        output:
+            plots=stage_plot_outputs("eddy"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "eddy")
+        log:
+            PATHS.shot_pattern("log", "plot_eddy")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "eddy", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage eddy \
                 --shot {wildcards.shot} \
                 --input {input.ods} \
                 --output-dir "{params.directory}" \

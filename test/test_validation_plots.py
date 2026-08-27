@@ -85,7 +85,7 @@ def test_filenames_are_unique_and_deterministic_within_a_stage():
 
 
 def test_the_declared_stage_set():
-    assert set(stages()) == {"diagnostics", "efit", "raw", "static"}
+    assert set(stages()) == {"diagnostics", "eddy", "efit", "raw", "static"}
 
 
 def test_unknown_kind_and_empty_plot_name_are_refused():
@@ -259,6 +259,7 @@ def test_snakefile_declares_required_plots_as_real_outputs():
         ("rule plot_raw:", "plots=raw_plot_outputs()"),
         ("rule plot_static:", "plots=static_plot_outputs()"),
         ("rule plot_diagnostics:", 'plots=stage_plot_outputs("diagnostics")'),
+        ("rule plot_eddy:", 'plots=stage_plot_outputs("eddy")'),
         ("rule plot_efit:", 'plots=stage_plot_outputs("efit")'),
     ):
         start = source.index(rule)
@@ -269,7 +270,7 @@ def test_snakefile_declares_required_plots_as_real_outputs():
 
 def test_stage_plot_outputs_cover_every_required_plot():
     paths = PipelinePaths(BASE_DIR, FILEDB)
-    for stage in ("diagnostics", "efit"):
+    for stage in ("diagnostics", "eddy", "efit"):
         required = stage_plot_filenames(stage, required_only=True)
         patterns = [paths.shot_pattern("stage_plot", stage, name) for name in required]
         assert len(patterns) == len(required)

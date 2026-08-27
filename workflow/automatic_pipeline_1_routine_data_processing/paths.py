@@ -61,6 +61,7 @@ _LOG_OWNER = {
     "generate_efit_ods": ("omas", "efit"),
     "plot_raw": ("raw", None),
     "plot_diagnostics": ("omas", "diagnostics"),
+    "plot_eddy": ("omas", "eddy"),
     "plot_efit": ("efit", None),
     "run_chease": ("chease", None),
     "generate_chease_ods": ("omas", "chease"),

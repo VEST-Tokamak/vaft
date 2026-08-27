@@ -33,6 +33,8 @@ __all__ = [
     "interferometer_overview",
     "magnetics_overview",
     "magnetics_overview_impa",
+    "magnetics_overview_plasma_residual",
+    "magnetics_overview_vacuum",
     "magnetics_time_limiter_current",
     "render_panels",
     "soft_x_rays_overview",
@@ -299,6 +301,58 @@ def magnetics_time_limiter_current(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Lower-corner, upper-corner and midplane limiter-current histories."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+_VACUUM_IDS = ("magnetics", "pf_active", "pf_passive")
+#: The reconstructed vacuum current system is what these two validate, so the
+#: coil and passive-loop currents are the hard requirement; which magnetic
+#: observables are available varies by shot and is resolved by the adapter.
+_VACUUM_REQUIRED = (
+    "pf_active.coil.{i}.current.data",
+    "pf_passive.loop.{i}.current",
+)
+_VACUUM_OPTIONAL = (
+    "magnetics.b_field_pol_probe.{i}.field.data",
+    "magnetics.flux_loop.{i}.flux.data",
+)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    view="overview",
+    quantity="vacuum",
+    description=(
+        "Measured, coil-only and coil+eddy synthetic magnetics per channel: "
+        "the forward-modeled validation of an eddy-current reconstruction."
+    ),
+    ids=_VACUUM_IDS,
+    required_paths=_VACUUM_REQUIRED,
+    optional_paths=_VACUUM_OPTIONAL,
+)
+def magnetics_overview_vacuum(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Measured against coil-only and coil+eddy synthetic vacuum magnetics."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    view="overview",
+    quantity="plasma_residual",
+    description=(
+        "Residual of measured minus coil+eddy synthetic magnetics against the "
+        "pre-plasma noise band, with the plasma-current and residual onsets."
+    ),
+    ids=_VACUUM_IDS,
+    required_paths=_VACUUM_REQUIRED + ("magnetics.ip.{i}.data",),
+    optional_paths=_VACUUM_OPTIONAL,
+)
+def magnetics_overview_plasma_residual(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Plasma-signal residual left by the coil+eddy synthetic vacuum response."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

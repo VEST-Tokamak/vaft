@@ -51,10 +51,12 @@ _EXTRACTION_OPTIONS = frozenset(
         "log_y",
         "max_frequency",
         "max_length_m",
+        "per_family",
         "phi0",
         "quantity",
         "r0",
         "sample_rate",
+        "sigma",
         "shot",
         "show_lcfs",
         "show_magnetic_axis",
@@ -1198,6 +1200,53 @@ def plot_magnetics_overview_impa(
     return render("magnetics_overview_impa", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_magnetics_overview_vacuum(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy validation: measured against coil-only and coil+eddy synthetic magnetics.
+
+    Forward-models the reconstructed vacuum current system at a representative
+    set of B probes and flux loops. ``per_family`` sets how many channels of each
+    family are drawn; ``channels`` selects ``(kind, index)`` pairs explicitly.
+
+    Renders with :func:`vaft.plot.magnetics_overview_vacuum`.
+    """
+    return render(
+        "magnetics_overview_vacuum", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_magnetics_overview_plasma_residual(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy validation: the plasma signal left over after the vacuum response.
+
+    A residual within the pre-plasma noise band before breakdown and emerging
+    coherently at plasma-current onset is what a good eddy reconstruction looks
+    like; a post-breakdown residual is the plasma and is expected.
+
+    Renders with :func:`vaft.plot.magnetics_overview_plasma_residual`.
+    """
+    return render(
+        "magnetics_overview_plasma_residual",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
 def plot_magnetics_profile_impa_tf(
     source: Any,
     *,
@@ -1903,6 +1952,8 @@ __all__ = [
     "plot_magnetics_geometry_poloidal",
     "plot_magnetics_overview",
     "plot_magnetics_overview_impa",
+    "plot_magnetics_overview_plasma_residual",
+    "plot_magnetics_overview_vacuum",
     "plot_magnetics_profile_impa_tf",
     "plot_magnetics_time_impa_field",
     "plot_magnetics_time_impa_voltage",

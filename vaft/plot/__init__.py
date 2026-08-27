@@ -250,6 +250,8 @@ from .renderers.panels import (
     interferometer_overview,
     magnetics_overview,
     magnetics_overview_impa,
+    magnetics_overview_plasma_residual,
+    magnetics_overview_vacuum,
     magnetics_time_limiter_current,
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,

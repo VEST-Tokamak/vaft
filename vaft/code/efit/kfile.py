@@ -12,7 +12,14 @@ from pathlib import Path
 from scipy import optimize
 from omas import ODS, save_omas_json
 
-from vaft.machine_mapping.magnetics import vest_equilibrium_magnetics_channel_definitions
+from vaft.machine_mapping.magnetics import (
+    INBOARD_FLUX_LOOP_MAX_R,
+    INBOARD_PROBE_MAX_R,
+    OUTBOARD_FLUX_LOOP_MIN_R,
+    OUTBOARD_PROBE_MIN_R,
+    SIDE_PROBE_MIN_ABS_Z,
+    vest_equilibrium_magnetics_channel_definitions,
+)
 
 from .legacy import (
     gauss_fit4,
@@ -130,9 +137,9 @@ def generate_constraints_ods(
     )
 
     ## (5) Poloidal magnetic probe
-    Index_inBz = np.where(MG["b_field_pol_probe.:.position.r"] < 0.09)
-    Index_sideBz = np.where(np.abs(MG["b_field_pol_probe.:.position.z"]) > 0.8)
-    Index_outBz = np.where(MG["b_field_pol_probe.:.position.r"] > 0.795)
+    Index_inBz = np.where(MG["b_field_pol_probe.:.position.r"] < INBOARD_PROBE_MAX_R)
+    Index_sideBz = np.where(np.abs(MG["b_field_pol_probe.:.position.z"]) > SIDE_PROBE_MIN_ABS_Z)
+    Index_outBz = np.where(MG["b_field_pol_probe.:.position.r"] > OUTBOARD_PROBE_MIN_R)
     efit_bpol_probe_count = _efit_bpol_probe_count(MG)
     # convert tuple to array
     valid_bpol_indices = np.array(
@@ -241,8 +248,8 @@ def generate_constraints_ods(
         )
 
     ## (6) Flux loops
-    Index_inFlux = np.where(MG["flux_loop.:.position.0.r"] < 0.15)
-    Index_OutFlux = np.where(MG["flux_loop.:.position.0.r"] > 0.5)
+    Index_inFlux = np.where(MG["flux_loop.:.position.0.r"] < INBOARD_FLUX_LOOP_MAX_R)
+    Index_OutFlux = np.where(MG["flux_loop.:.position.0.r"] > OUTBOARD_FLUX_LOOP_MIN_R)
     # Same missing-data guard as valid_bpol_indices above: a flux loop
     # without raw data has no `flux.data` to read, so it must be excluded
     # here too, before vfit_equilibrium_form_constraints's placeholder logic
