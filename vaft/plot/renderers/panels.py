@@ -30,6 +30,8 @@ __all__ = [
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
+    "equilibrium_overview_convergence",
+    "equilibrium_overview_fit_quality",
     "equilibrium_overview_residuals",
     "equilibrium_overview_verification",
     "equilibrium_time_virial",
@@ -441,6 +443,50 @@ def equilibrium_overview_residuals(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """EFIT reconstruction residuals by diagnostic family."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="fit_quality",
+    description=(
+        "EFIT goodness of fit: reduced chi-square against the degrees of freedom "
+        "EFIT itself reports, which diagnostic family carries the chi-square, and "
+        "residuals normalized by the uncertainty EFIT was given."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+    ),
+    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_fit_quality(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT goodness of fit against the uncertainties it was given."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="convergence",
+    description=(
+        "EFIT numerical convergence: final Grad-Shafranov error against the "
+        "requested tolerance, iteration count against its cap, the error history "
+        "where one was written, and EFIT's outputs checked against each other."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+    ),
+    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_convergence(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT numerical-convergence and self-consistency overview."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

@@ -248,6 +248,8 @@ from .renderers.panels import (
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
+    equilibrium_overview_convergence,
+    equilibrium_overview_fit_quality,
     equilibrium_overview_residuals,
     equilibrium_overview_verification,
     equilibrium_time_virial,

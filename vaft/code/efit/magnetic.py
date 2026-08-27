@@ -733,6 +733,13 @@ def collect_efit_outputs(
 
     parsed_k_by_case = {}
     parsed_m_by_case = {}
+    parsed_a_by_case = {}
+    for case, afile in afile_by_case.items():
+        try:
+            from vaft.data.aeqdsk import read_aeqdsk
+            parsed_a_by_case[case] = read_aeqdsk(afile)
+        except Exception as exc:
+            artifact_parse_error_by_case.setdefault(case, []).append(f"{afile}: {exc}")
     for case, kfile in kfile_by_case.items():
         try:
             from vaft.data.keqdsk import read_keqdsk
@@ -769,6 +776,12 @@ def collect_efit_outputs(
                 ods = item.to_omas(ods=ods, time_index=idx)
                 time_value = _efit_case_time(case)
                 _merge_input_constraints(ods, constraints_ods, idx, time_value)
+                # EFIT's own convergence verdict and total chi-square. Written
+                # before the k-/m-file overlays so their precedence is unchanged;
+                # it lands under its own `aeqdsk` parameter block and collides
+                # with nothing either of them writes.
+                if case in parsed_a_by_case:
+                    parsed_a_by_case[case].to_omas(ods, time_index=idx)
                 before = _constraint_snapshot(ods, idx)
                 if case in parsed_k_by_case:
                     parsed_k_by_case[case].to_omas(ods, time_index=idx)

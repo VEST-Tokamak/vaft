@@ -135,6 +135,14 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             plot="equilibrium_overview_residuals",
             filename="efit_reconstruction_residuals.png",
         ),
+        ValidationPlot(
+            plot="equilibrium_overview_fit_quality",
+            filename="efit_fit_quality.png",
+        ),
+        ValidationPlot(
+            plot="equilibrium_overview_convergence",
+            filename="efit_convergence.png",
+        ),
         ValidationPlot("equilibrium_overview_verification"),
         ValidationPlot("equilibrium_overview", required=False),
         ValidationPlot("equilibrium_field_psi", required=False),
@@ -199,38 +207,31 @@ STAGE_PRECONDITIONS: dict[str, Any] = {
 
 
 def _efit_metrics(source: Any, **_context: Any) -> dict[str, Any]:
-    """Per-family residuals, channel coverage and convergence, slice by slice."""
+    """Coverage, residuals, goodness of fit and convergence, slice by slice.
+
+    Every quantity is either submitted to EFIT or produced by the EFIT run.
+    Each block carries a ``tier`` so a consumer can tell a primary validation
+    metric from a diagnostic or from solver metadata without reading the design.
+    """
     import numpy as np
 
-    from vaft.omas._plot_recipes import (
+    from vaft.omas.efit_quality import (
         CONSTRAINT_STATES,
-        _VERIFICATION_FAMILIES,
-        _constraint_table,
-        _get,
-        _slice_times,
+        FAMILIES,
+        constraint_table,
+        efit_quality_metrics,
+        slice_times,
     )
 
-    times = _slice_times(source)
-    slices = []
+    quality = efit_quality_metrics(source)
+    times = slice_times(source)
     for index in range(times.size):
         families: dict[str, Any] = {}
-        for family, _title, _unit, _scale, is_array in _VERIFICATION_FAMILIES:
-            table = _constraint_table(
+        for family, _title, _unit, _scale, is_array in FAMILIES:
+            table = constraint_table(
                 source, time_slice=index, family=family, is_array=is_array
             )
             fitted = table.mask("enabled") & np.isfinite(table.residual)
-            chi = np.array(
-                [
-                    _get(
-                        source,
-                        f"equilibrium.time_slice.{index}.constraints.{family}."
-                        f"{position}.chi_squared",
-                        np.nan,
-                    )
-                    for position in range(len(table.state))
-                ],
-                dtype=float,
-            )
             families[family] = {
                 **{state: table.count(state) for state in CONSTRAINT_STATES},
                 "residual_rms": (
@@ -238,32 +239,18 @@ def _efit_metrics(source: Any, **_context: Any) -> dict[str, Any]:
                     if fitted.any()
                     else float("nan")
                 ),
-                # The stored value, in SI units: EFIT's normalization for these
-                # is not recorded anywhere, so this is not a reduced chi-square.
-                "chi_squared_sum": float(np.nansum(chi)),
+                # The stored value in SI units: EFIT's normalization for these is
+                # not recorded anywhere, so this is not a reduced chi-square.
+                "chi_squared_sum": float(np.nansum(table.chi_squared)),
             }
-        slices.append(
-            {
-                "time": float(times[index]),
-                "families": families,
-                "grad_shafranov_deviation": float(
-                    _get(
-                        source,
-                        f"equilibrium.time_slice.{index}."
-                        "convergence.grad_shafranov_deviation_value",
-                        np.nan,
-                    )
-                ),
-                "iterations": float(
-                    _get(
-                        source,
-                        f"equilibrium.time_slice.{index}.convergence.iterations_n",
-                        np.nan,
-                    )
-                ),
-            }
+        quality["slices"][index]["families"] = families
+        quality["slices"][index]["grad_shafranov_deviation"] = (
+            quality["slices"][index]["convergence"]["error"]["final_error"]
         )
-    return {"schema_version": 1, "slice_count": len(slices), "slices": slices}
+        quality["slices"][index]["iterations"] = (
+            quality["slices"][index]["convergence"]["iterations"]["iterations"]
+        )
+    return quality
 
 
 def _mhd_linear_metrics(source: Any, **context: Any) -> dict[str, Any]:

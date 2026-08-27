@@ -741,6 +741,49 @@ def plot_equilibrium_overview_constraint_coverage(
     )
 
 
+def plot_equilibrium_overview_fit_quality(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: is the fit acceptable against the uncertainties EFIT was given?
+
+    Reduced chi-square against EFIT's own degrees of freedom, which diagnostic
+    family carries the chi-square, and per-channel residuals normalized by the
+    uncertainty implied by EFIT's stored chi-square.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_fit_quality`.
+    """
+    return render(
+        "equilibrium_overview_fit_quality", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_equilibrium_overview_convergence(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: is the solution converged and numerically self-consistent?
+
+    Terminating successfully is not the same as converging: this shows the final
+    Grad-Shafranov error against the tolerance that was requested, the iteration
+    count against its cap, the error history where EFIT wrote one, and EFIT's own
+    outputs checked against each other.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_convergence`.
+    """
+    return render(
+        "equilibrium_overview_convergence", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_overview_residuals(
     source: Any,
     *,
@@ -2011,6 +2054,8 @@ __all__ = [
     "plot_equilibrium_overview",
     "plot_equilibrium_overview_constraint_coverage",
     "plot_equilibrium_overview_constraints",
+    "plot_equilibrium_overview_convergence",
+    "plot_equilibrium_overview_fit_quality",
     "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",
     "plot_equilibrium_profile_f",
