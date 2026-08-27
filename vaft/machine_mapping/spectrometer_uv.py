@@ -62,6 +62,7 @@ def vfit_filterscope(
     dt: float,
     *,
     raw_source: raw_db.RawSource | None = None,
+    target_time: np.ndarray | None = None,
 ) -> None:
     set_path(ods, "spectrometer_uv.ids_properties.comment", "VEST filterscope data")
     set_path(ods, "spectrometer_uv.ids_properties.homogeneous_time", 1)
@@ -77,7 +78,11 @@ def vfit_filterscope(
             wavelength,
         )
 
-    time = _build_time_axis(t_start, t_end, dt)
+    time = (
+        np.asarray(target_time, dtype=float)
+        if target_time is not None
+        else _build_time_axis(t_start, t_end, dt)
+    )
     shift = 0.26 if _needs_legacy_time_shift(shot) else 0.24
 
     loaded_signals = {
@@ -109,9 +114,12 @@ def spectrometer_uv(
     dt: float,
     *,
     raw_source: raw_db.RawSource | None = None,
+    target_time: np.ndarray | None = None,
 ) -> None:
     """Canonical machine_mapping entry point for the spectrometer_uv IDS."""
-    vfit_filterscope(ods, shot, t_start, t_end, dt, raw_source=raw_source)
+    vfit_filterscope(
+        ods, shot, t_start, t_end, dt, raw_source=raw_source, target_time=target_time
+    )
 
 
 def filterscope_from_raw_database(

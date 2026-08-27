@@ -34,17 +34,20 @@ def kinetic_ods():
     vaft.apply_omfit_compat_patches()
     from omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+    from vaft.machine_mapping.dataset_description import dataset_description
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
     geq = OMFITgeqdsk(str(GFILE))
     geq["fluxSurfaces"].load()
     ods = geq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
-    vaft.machine_mapping.dataset_description(
+    dataset_description(
         ods, source=SHOT,
         options={"source_type": "shot", "description": "kinetic chain test"},
     )
-    vaft.machine_mapping.thomson_scattering(ods, SHOT, str(TS_MAT))
-    vaft.machine_mapping.charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
+    thomson_scattering(ods, SHOT, str(TS_MAT))
+    charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
     ods = build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0)
     return ods, geq
 
@@ -97,15 +100,17 @@ def _build(with_ts, with_cx, **kwargs):
     vaft.apply_omfit_compat_patches()
     from omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
     geq = OMFITgeqdsk(str(GFILE))
     geq["fluxSurfaces"].load()
     ods = geq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
     if with_ts:
-        vaft.machine_mapping.thomson_scattering(ods, SHOT, str(TS_MAT))
+        thomson_scattering(ods, SHOT, str(TS_MAT))
     if with_cx:
-        vaft.machine_mapping.charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
+        charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
     build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0, **kwargs)
     return ods
 

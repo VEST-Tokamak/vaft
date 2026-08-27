@@ -27,11 +27,11 @@ def _metadata(stage, shot):
 
 
 def raw_product(shot):
-    return str(FILEDB.raw(shot, artifact="output") / "vest_daq_raw.json.gz")
+    return str(FILEDB.raw(shot) / f"vest_{shot}_daq_raw.json.gz")
 
 
 def raw_metadata(shot):
-    return str(FILEDB.raw(shot, artifact="metadata") / "manifest.json")
+    return str(FILEDB.raw(shot) / f"vest_{shot}_daq_manifest.json")
 
 
 def static_product_for_version(version):

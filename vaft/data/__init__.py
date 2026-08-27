@@ -9,10 +9,14 @@ from importlib import import_module
 
 __all__ = [
     "GEQDSK",
+    "KEQDSK",
+    "MEQDSK",
     "data_path",
     "from_imas",
     "from_omas",
     "read_geqdsk",
+    "read_keqdsk",
+    "read_meqdsk",
     "resources",
     "sample_camera_visible_frame_paths",
     "sample_geqdsk",
@@ -26,9 +30,13 @@ __all__ = [
 
 _EXPORT_MAP = {
     "GEQDSK": (".eqdsk", "GEQDSK"),
+    "KEQDSK": (".keqdsk", "KEQDSK"),
+    "MEQDSK": (".meqdsk", "MEQDSK"),
     "from_imas": (".eqdsk", "from_imas"),
     "from_omas": (".eqdsk", "from_omas"),
     "read_geqdsk": (".eqdsk", "read_geqdsk"),
+    "read_keqdsk": (".keqdsk", "read_keqdsk"),
+    "read_meqdsk": (".meqdsk", "read_meqdsk"),
     "to_imas": (".eqdsk", "to_imas"),
     "to_omas": (".eqdsk", "to_omas"),
     "write_geqdsk": (".eqdsk", "write_geqdsk"),

@@ -91,7 +91,10 @@ def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
 
 
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
-    return rt.module_dir(inputs.dcon_workdir or inputs.workdir, inputs.time_ms, "dcon", mode, geqdsk=geqdsk)
+    """Locate same-cell DCON output, possibly in a separate code work tree."""
+
+    root = inputs.dcon_workdir or inputs.workdir
+    return rt.module_dir(root, inputs.time_ms, "dcon", mode, geqdsk=geqdsk)
 
 
 def prepare_gpec_suite_case(
@@ -186,9 +189,24 @@ def _run_module(
         if missing:
             return GPECModuleRun(module, mode, run_dir, status="skipped", reason=f"missing DCON outputs: {', '.join(missing)}")
 
+    # Resuming a pipeline should not re-run a completed numerical solve just
+    # because another time slice in the same code/mode cell failed.  A full
+    # solver output set is immutable input for the downstream IDS builder.
     existing_outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
     if len(existing_outputs) == len(solver.output_patterns(mode)):
-        return GPECModuleRun(module, mode, run_dir, returncode=0, status="completed", reason="reused existing solver outputs", outputs=existing_outputs)
+        if config.verify_outputs:
+            ok, reason = solver.check_success(run_dir, mode)
+            if not ok:
+                return GPECModuleRun(module, mode, run_dir, status="failed", reason=reason, outputs=existing_outputs)
+        return GPECModuleRun(
+            module,
+            mode,
+            run_dir,
+            returncode=0,
+            status="completed",
+            reason="reused existing solver outputs",
+            outputs=existing_outputs,
+        )
 
     commands: list[str] = [str(executable)]
     logs: list[Path] = []

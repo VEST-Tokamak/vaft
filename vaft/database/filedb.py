@@ -244,6 +244,7 @@ class FileDB:
             _absent(machine_version, "machine_version", domain_value)
             _absent(code, "code", domain_value)
             _absent(mode, "mode", domain_value)
+            _absent(artifact_value, "artifact", domain_value)
             path = self.root / domain_value / str(_positive_integer(shot, "shot"))
 
         elif domain_value == FileDBDomain.LEGACY.value:
@@ -282,14 +283,7 @@ class FileDB:
             _absent(mode, "mode", domain_value)
             path = self.root / domain_value / str(_positive_integer(shot, "shot"))
 
-        elif domain_value == FileDBDomain.PIPELINE.value:
-            _absent(shot, "shot", domain_value)
-            _absent(machine_version, "machine_version", domain_value)
-            _absent(code, "code", domain_value)
-            _absent(mode, "mode", domain_value)
-            path = self.root / domain_value / _component(subdomain, "pipeline product")
-
-        else:
+        elif domain_value == FileDBDomain.GPEC.value:
             _absent(subdomain, "subdomain", domain_value)
             _absent(machine_version, "machine_version", domain_value)
             code_value = _enum_value(code, GPECCode, "GPEC code")
@@ -301,12 +295,26 @@ class FileDB:
                 / f"n={_positive_integer(mode, 'toroidal mode')}"
             )
 
+        else:
+            _absent(shot, "shot", domain_value)
+            _absent(machine_version, "machine_version", domain_value)
+            _absent(code, "code", domain_value)
+            _absent(mode, "mode", domain_value)
+            product = _component(subdomain, "pipeline product")
+            path = self.root / domain_value / product
+
         return path if artifact_value is None else path / artifact_value
 
     def raw(
-        self, shot: int | str, *, artifact: str | ArtifactClass | None = None
+        self, shot: int | str
     ) -> Path:
-        return self.resolve("raw", shot=shot, artifact=artifact)
+        """Return the flat per-shot raw archive directory.
+
+        Raw DAQ products are intentionally colocated directly under
+        ``raw/{shot}``: waveform dump and its manifest are a single archival
+        unit, rather than separate output and metadata artifacts.
+        """
+        return self.resolve("raw", shot=shot)
 
     def legacy(
         self,
@@ -355,7 +363,10 @@ class FileDB:
     ) -> Path:
         return self.resolve("gpec", code=code, shot=shot, mode=mode, artifact=artifact)
 
-    def pipeline(self, product: str, *, artifact: str | ArtifactClass | None = None) -> Path:
+    def pipeline(
+        self, product: str, *, artifact: str | ArtifactClass | None = None
+    ) -> Path:
+        """Return a canonical, batch-scoped pipeline product directory."""
         return self.resolve("pipeline", subdomain=product, artifact=artifact)
 
     def resolve_legacy_readonly(
@@ -521,7 +532,7 @@ def _propose_mapping(relative: Path, target: FileDB) -> tuple[Path | None, str |
 
     if area == "diagnostics":
         if filename == f"vest_{shot}_daq_raw.json.gz":
-            return target.raw(shot, artifact="output") / filename, None
+            return target.raw(shot) / filename, None
         return target.legacy("diagnostics", shot, artifact="input").joinpath(
             *remainder
         ), None

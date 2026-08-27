@@ -38,7 +38,8 @@ def _time_label(path: Path) -> str:
 
 
 def _module_workdirs(values: list[str]) -> dict[tuple[str, int], Path]:
-    result = {}
+    """Parse ``code:mode:path`` values emitted by the canonical resolver."""
+    result: dict[tuple[str, int], Path] = {}
     for value in values:
         for entry in value.split(","):
             code, mode, path = entry.split(":", maxsplit=2)
@@ -51,7 +52,10 @@ def main() -> int:
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
     parser.add_argument("--refined-gfile-manifest", required=True, type=Path, help="CHEASE refined gfile manifest.")
     parser.add_argument("--workdir", type=Path, help="Legacy shared GPEC-suite run tree.")
-    parser.add_argument("--module-workdir", nargs="+", default=[], help="Canonical code:mode:path GPEC work trees.")
+    parser.add_argument(
+        "--module-workdir", nargs="+", default=[],
+        help="Canonical code:mode:path GPEC work trees.",
+    )
     parser.add_argument("--modules", default="dcon,rdcon,stride", help="Comma-separated suite modules to fold in.")
     parser.add_argument("--modes", default="1,2", help="Comma-separated toroidal mode numbers to fold in.")
     parser.add_argument("--output", required=True, type=Path, help="Output mhd_linear ODS JSON.")

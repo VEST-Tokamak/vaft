@@ -7,4 +7,6 @@ from .numerical import *
 from .magnetics import *
 from .statistical_analysis import *
 from .atomic import *
+from .langmuir import *
 from .impa import *
+from .langmuir import *

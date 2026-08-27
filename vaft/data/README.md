@@ -4,9 +4,9 @@
 are grouped one level deep only; Python package files stay at this directory
 root. The GitHub repository contains every file listed below; the PyPI
 distribution includes only the runtime geometry resources, GPEC templates,
-`legacy/sql_table.txt`, and `omas/39915.json`. Clone the repository to access
-the archived EFIT, IMAS, legacy diagnostic, digitizer, and additional OMAS
-samples.
+`legacy/sql_table.txt`, `legacy/langmuir_probe_positions.csv`, and
+`omas/39915.json`. Clone the repository to access the archived EFIT, IMAS,
+legacy diagnostic, digitizer, and additional OMAS samples.
 
 ## Layout
 
@@ -16,7 +16,7 @@ samples.
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `omas/` | `39915.json`, `41524.json`, `41672.json`, `thomson_scattering.json` | OMAS/ODS sample and contract-test payloads |
 | `imas/` | `vest_imas_3.40.1.nc` | IMAS-format sample container |
-| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
+| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
 
 ## Access
@@ -54,3 +54,12 @@ calibration values reflect the production 2409 magnetic geometry.
 downsampled (1/100) postprocessed line-integrated-density samples for shot
 47230, used by `vaft.machine_mapping.interferometer` (94 GHz horizontal and
 282 GHz vertical systems respectively).
+
+`legacy/langmuir_probe_positions.csv` is the VEST shot-log table of measured
+mid/upper triple-Langmuir-probe radial positions (`shot`, `mid TP
+position[m]`, `upper TP position[m]`); `vaft.machine_mapping.langmuir_probes`
+loads it by default to populate `langmuir_probes.embedded.{0,1}.position.r`
+for issue #152. `legacy/langmuir_probes_42699.json.gz` is a repository-only
+sample `langmuir_probes` IDS built from that pipeline against shot 42699's
+real SQL-backed raw signals (both mid and upper assemblies present, plasma
+pulse near t=0.35-0.46 s).

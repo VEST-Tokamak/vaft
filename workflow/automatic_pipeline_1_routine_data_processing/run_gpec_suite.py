@@ -24,6 +24,7 @@ def _parse_csv(text: str, cast=str) -> tuple:
 
 
 def _runner_module(code: str) -> str:
+    """Translate FileDB's unambiguous ideal-GPEC path code to the executable key."""
     return "gpec" if code == "ideal-gpec" else code
 
 
@@ -62,7 +63,12 @@ def main() -> int:
         default=None,
         help="GPEC-suite run tree root. Defaults to --output's directory (the whole-shot aggregate case).",
     )
-    parser.add_argument("--dcon-workdir", type=Path, default=None)
+    parser.add_argument(
+        "--dcon-workdir",
+        type=Path,
+        default=None,
+        help="Optional DCON work-tree root for ideal-GPEC when codes use separate work trees.",
+    )
     parser.add_argument("--gpec-home", default="", help=f"GPEC source/install root. Defaults to ${GPEC_HOME_ENV}.")
     parser.add_argument("--run-mode", default="auto", help="auto, prepare_only, or strict.")
     parser.add_argument("--modules", default="dcon,rdcon,stride,gpec", help="Comma-separated suite modules.")
@@ -116,6 +122,7 @@ def main() -> int:
         "shot": int(args.shot),
         "refined_gfiles": [str(path) for path in gfiles],
         "workdir": str(workdir),
+        "dcon_workdir": str(args.dcon_workdir) if args.dcon_workdir else "",
         "config": {
             "gpec_home": str(gpec_home) if gpec_home else os.environ.get(GPEC_HOME_ENV, ""),
             "modules": list(config.modules),
@@ -135,6 +142,9 @@ def main() -> int:
     failed = [record for record in records if record.status == "failed"]
     status = f"completed={len(completed)}; skipped={len(skipped)}; failed={len(failed)}; cases={len(results)}"
     if failed:
+        # A failed numerical time slice is data, not a workflow crash.  The
+        # aggregate manifest retains it and mhd_linear incorporates the
+        # successfully produced slices from this code/mode cell.
         status = "partial: " + status
     elif completed:
         status = "completed: " + status

@@ -5,6 +5,12 @@ import pytest
 
 from vaft.database.raw import RawSignalUnavailableError, require_signal
 from vaft.machine_mapping import utils as mapping_utils
+from vaft.machine_mapping.utils import (
+    VestConfigurationError,
+    calibrate_vest_signal,
+    resolve_shot_revisions,
+    resolve_vest_diagnostic,
+)
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
 
@@ -21,7 +27,7 @@ def test_required_signal_error_identifies_the_missing_waveform():
 @pytest.mark.parametrize(
     ("module_name", "function_name", "arguments", "expected_field"),
     [
-        ("vaft.machine_mapping.barometry", "vfit_barometry_dynamic", ({}, 39915, 0.2, 0.4, 4e-5), 13),
+        ("vaft.machine_mapping.barometry", "vfit_barometry_dynamic", ({}, 39915, 0.2, 0.4, 4e-5), 12),
         ("vaft.machine_mapping.tf", "vfit_tf_dynamic", ({}, 39915, 0.2, 0.4, 4e-5), 1),
         ("vaft.machine_mapping.spectrometer_uv", "vfit_filterscope", ({}, 39915, 0.2, 0.4, 4e-5), 101),
     ],
@@ -64,6 +70,33 @@ def test_generic_shot_loader_does_not_synthesize_a_zero_signal(monkeypatch):
 
     with pytest.raises(RawSignalUnavailableError, match="shot 39915, field 13"):
         mapping_utils.load_raw_data("39915", 13)
+
+
+def test_vest_calibration_registry_matches_raw_transfer_functions():
+    np.testing.assert_allclose(
+        calibrate_vest_signal([2.0], {"type": "linear", "operation": "divide", "factor": 2e-5}),
+        [100000.0],
+    )
+    np.testing.assert_allclose(
+        calibrate_vest_signal(
+            [1.01745],
+            {"type": "logarithmic_power", "scale": 1000, "input_offset": 1.01745,
+             "slope": -0.2763, "exponent_offset": 0, "base": 10},
+        ),
+        [1000.0],
+    )
+
+
+def test_vest_diagnostic_revisions_are_inclusive_and_unambiguous():
+    assert resolve_vest_diagnostic(42850, "plasma_current")["calibration"]["factor"] == 2e-5
+    assert resolve_vest_diagnostic(42851, "plasma_current")["calibration"]["factor"] == 1e-5
+    with pytest.raises(VestConfigurationError, match="overlap"):
+        resolve_shot_revisions(
+            {},
+            [{"from_shot": 1, "to_shot": 3}, {"from_shot": 3}],
+            1,
+            context="test",
+        )
 
 
 @pytest.mark.parametrize(

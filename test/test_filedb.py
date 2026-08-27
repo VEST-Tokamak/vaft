@@ -31,10 +31,19 @@ def test_complete_canonical_directory_grammar(tmp_path):
         assert db.omas(stage, shot=39915) == root / f"omas/{stage}/39915"
     assert db.efit(39915) == root / "efit/39915"
     assert db.chease(39915) == root / "chease/39915"
+    assert db.pipeline("preflight", artifact="metadata") == root / "pipeline/preflight/metadata"
     for code in ("dcon", "rdcon", "stride", "ideal-gpec"):
         assert db.gpec(code, 39915, 1) == root / f"gpec/{code}/39915/n=1"
 
     assert not root.exists(), "path resolution must not materialize directories"
+
+
+def test_raw_shot_directory_is_flat_and_rejects_artifact_subdirectories(tmp_path):
+    db = FileDB(tmp_path / "FileDB")
+
+    assert db.raw(39915) == tmp_path / "FileDB/raw/39915"
+    with pytest.raises(FileDBPathError, match="artifact is not valid"):
+        db.resolve("raw", shot=39915, artifact="output")
 
 
 @pytest.mark.parametrize(
@@ -117,6 +126,7 @@ def test_enum_arguments_and_same_shot_resolve_without_collisions(tmp_path):
         ),
         (("gpec",), {"code": "gpec", "shot": 39915, "mode": 1}, "GPEC code"),
         (("gpec",), {"code": "dcon", "shot": 39915, "mode": 0}, "toroidal mode"),
+        (("pipeline",), {"subdomain": "preflight", "shot": 39915}, "shot is not valid"),
         (("efit",), {"shot": 39915, "artifact": "result"}, "artifact class"),
     ],
 )

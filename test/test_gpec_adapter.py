@@ -134,6 +134,28 @@ def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
     assert record.commands == (str(dcon),)
 
 
+def test_run_reuses_a_completed_solver_cell_without_rerunning(monkeypatch, tmp_path, case):
+    dcon = tmp_path / "gpec/bin/dcon"
+    dcon.parent.mkdir(parents=True)
+    dcon.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+    dcon.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    run_dir = case.workdir / "00325" / "dcon" / "nn=1"
+    run_dir.mkdir(parents=True)
+    for filename in gpec._solvers.SOLVERS["dcon"].output_patterns(1):
+        (run_dir / filename).write_text("existing", encoding="utf-8")
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.reason == "reused existing solver outputs"
+
+
 def test_prepare_writes_rdcon_and_rmatch_without_a_gpec_installation(no_gpec_env, case):
     result = gpec.prepare_gpec_suite_case(
         case,
@@ -161,6 +183,24 @@ def test_prepare_writes_stride_without_a_gpec_installation(no_gpec_env, case):
     for name in ("equil.in", "vac.in", "stride.in", case.geqdsk.name):
         assert (run_dir / name).exists(), f"{name} was not materialized"
     assert "nn=2" in (run_dir / "stride.in").read_text()
+
+
+def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path, case):
+    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots."""
+    coil = tmp_path / "coil.in"
+    coil.write_text("&coil /\n", encoding="utf-8")
+    case.dcon_workdir = tmp_path / "dcon-work"
+    case.coil_in = coil
+
+    result = gpec.prepare_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,)),
+    )
+
+    assert result.ok
+    gpec_in = case.workdir / "00325" / "gpec" / "nn=1" / "gpec.in"
+    expected_dcon = case.dcon_workdir / "00325" / "dcon" / "nn=1"
+    assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
 
 
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):

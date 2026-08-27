@@ -37,6 +37,41 @@ def _table_dir(text: str) -> str:
     return text if text.endswith("/") else text + "/"
 
 
+def _detect_broken_bpol_probes(ods, *, threshold: float = 12.0) -> list[int]:
+    """Return one-based probe indexes with robustly anomalous amplitudes.
+
+    Compare probes only within the three VEST geometry banks.  A high MAD
+    threshold intentionally catches gross integrator drift/saturation without
+    classifying legitimate spatial variation as a broken channel.
+    """
+    groups = ((0, 27), (27, 48), (48, 64))
+    broken: list[int] = []
+    for start, stop in groups:
+        amplitudes = []
+        for index in range(start, stop):
+            try:
+                values = np.asarray(
+                    ods[f"magnetics.b_field_pol_probe.{index}.field.data"],
+                    dtype=float,
+                )
+            except Exception:
+                values = np.asarray([], dtype=float)
+            finite = np.abs(values[np.isfinite(values)])
+            amplitudes.append(
+                float(np.percentile(finite, 99)) if finite.size else np.nan
+            )
+        amplitudes = np.asarray(amplitudes, dtype=float)
+        median = float(np.nanmedian(amplitudes))
+        mad = float(np.nanmedian(np.abs(amplitudes - median)))
+        scale = 1.4826 * mad
+        if not np.isfinite(scale) or scale <= 0.0:
+            continue
+        for offset, amplitude in enumerate(amplitudes):
+            if np.isfinite(amplitude) and amplitude > median + threshold * scale:
+                broken.append(start + offset + 1)
+    return broken
+
+
 def _select_times(ods, timeset: str, tstep: float, tstart: float | None, tend: float | None) -> np.ndarray:
     ip_time = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
     ip_data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
@@ -91,9 +126,12 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
-    if _bool(args.detect_broken):
-        LOGGER.warning("Automatic broken-channel detection is not enabled in the offline VAFT workflow; using --broken only.")
     ods = load_omas_json(str(args.eddy_ods), consistency_check=False)
+    broken = _csv_ints(args.broken)
+    if _bool(args.detect_broken):
+        detected = _detect_broken_bpol_probes(ods)
+        broken = sorted(set(broken) | set(detected))
+        LOGGER.info("Automatically detected broken Bpol probes: %s", detected)
     times = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
@@ -110,7 +148,7 @@ def main() -> int:
         times,
         _csv_floats(args.uncertainty),
         _csv_floats(args.weighting),
-        broken=_csv_ints(args.broken),
+        broken=broken,
         fit=args.gaussian_fit_option,
         fl_correct_coeff=fl_correct_coeff,
         FFCUR=args.nffprime,

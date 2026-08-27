@@ -31,7 +31,8 @@ import vaft
 vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
 from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 
-from vaft import database, machine_mapping, process
+from vaft import database, process
+from vaft.machine_mapping.charge_exchange import charge_exchange
 
 # Reuse the shot-registry helpers from the Thomson updater (same directory).
 from update_thomson_scattering_and_core_profile import (
@@ -92,7 +93,7 @@ def update_charge_exchange_auto(ion_matfile):
         return None
 
     try:
-        machine_mapping.charge_exchange(
+        charge_exchange(
             ods, shotnumber=shotnumber, options=option, mat_file=ion_matfile
         )
         print(f"[SUCCESS] charge_exchange ({option}) loaded for shot {shotnumber}")

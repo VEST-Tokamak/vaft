@@ -14,7 +14,7 @@ raw:
   preflight:
     # A readable archive without these signals is an incomplete DAQ/SQL shot.
     # It is recorded and excluded from downstream processing.
-    required_fields: [1, 13, 25, 59, 102]
+    required_fields: [1, 12, 25, 59, 109]
     min_samples: 2
 diagnostics:
   tstart: 0.26
@@ -69,7 +69,7 @@ eddy:
 constraints:
   timeset: auto
   tstep: 0.001
-  detect_broken: false
+  detect_broken: true
   broken:
   - 65
   - 66

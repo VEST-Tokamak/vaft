@@ -5,6 +5,7 @@ Moved verbatim out of the former monolithic ``efit.py``.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -132,7 +133,11 @@ class EFITResult:
     stdout: str = ""
     stderr: str = ""
     geqdsk: tuple[Any, ...] = ()
+    keqdsk: tuple[Any, ...] = ()
+    meqdsk: tuple[Any, ...] = ()
     parse_errors: tuple[str, ...] = ()
+    mapping_diagnostics: tuple[Mapping[str, Any], ...] = ()
+    artifact_hashes: Mapping[str, str] = field(default_factory=dict)
     ods: Any = None
     status: str = "completed"
     reason: str = ""
@@ -272,13 +277,19 @@ def _infer_shot(ods: Any = None, config: EFITConfig | None = None) -> int:
 
 
 def _find_outputs(workdir: Path, prefix: str, shot: int | None = None) -> tuple[Path, ...]:
-    candidates = []
+    # Workflow reruns leave staged copies in ``<prefix>file/`` while EFIT writes
+    # a fresh artifact with the same basename in ``workdir``.  Treat those as
+    # one artifact (preferring the fresh root copy); genuinely different names
+    # for the same case are still rejected later by ``_case_file_map``.
+    candidates: dict[str, Path] = {}
     search_roots = [workdir / f"{prefix}file", workdir]
     pattern = f"{prefix}0{shot}.*" if shot is not None else f"{prefix}*"
     for root in search_roots:
         if root.exists():
-            candidates.extend(path for path in root.glob(pattern) if path.is_file())
-    return tuple(sorted(set(candidates)))
+            candidates.update(
+                (path.name, path) for path in root.glob(pattern) if path.is_file()
+            )
+    return tuple(sorted(candidates.values()))
 
 
 def _relative_input_names(workdir: Path, kfiles: Sequence[Path]) -> list[str]:
@@ -499,11 +510,117 @@ def _efit_case_key(path: Path) -> str:
         if path.name[:1].lower() in {"k", "g", "a", "m"}
         else path.name
     )
+    if name.lower().endswith(".nc"):
+        name = name[:-3]
     try:
         shot, suffix = name.rsplit(".", 1)
         return f"{shot}.{int(suffix)}"
     except (ValueError, TypeError):
         return name
+
+
+def _case_file_map(paths: Sequence[Path], kind: str) -> dict[str, Path]:
+    """Build a one-file-per-case map and reject ambiguous artifacts."""
+    result: dict[str, Path] = {}
+    for path in paths:
+        case = _efit_case_key(path)
+        if case in result and result[case].resolve() != path.resolve():
+            raise ValueError(
+                f"Duplicate {kind} artifacts for EFIT case {case}: "
+                f"{result[case]} and {path}"
+            )
+        result[case] = path
+    return result
+
+
+def _constraint_index_for_time(
+    ods: Any,
+    time_value: float,
+    tolerance: float = 5.0e-4,
+) -> int | None:
+    try:
+        times = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
+    except Exception:
+        return None
+    if not times.size:
+        return None
+    index = int(np.argmin(np.abs(times - time_value)))
+    return index if abs(float(times[index]) - time_value) <= tolerance else None
+
+
+def _merge_input_constraints(
+    target: Any,
+    source: Any,
+    target_index: int,
+    time_value: float,
+) -> None:
+    """Copy submitted constraints and their metadata into a g-file slice."""
+    if source is None:
+        return
+    source_index = _constraint_index_for_time(source, time_value)
+    if source_index is None:
+        return
+    source_path = f"equilibrium.time_slice.{source_index}.constraints"
+    try:
+        target[f"equilibrium.time_slice.{target_index}.constraints"] = copy.deepcopy(
+            source[source_path]
+        )
+    except Exception:
+        pass
+    try:
+        params = source[f"equilibrium.code.parameters.time_slice.{source_index}"]
+        path = (
+            f"equilibrium.code.parameters.time_slice.{target_index}.constraints_input"
+        )
+        target[path] = copy.deepcopy(params)
+    except Exception:
+        pass
+
+
+def _constraint_snapshot(ods: Any, index: int) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for family in (
+        "bpol_probe",
+        "flux_loop",
+        "pf_current",
+        "ip",
+        "diamagnetic_flux",
+    ):
+        root = f"equilibrium.time_slice.{index}.constraints.{family}"
+        try:
+            node = ods[root]
+        except Exception:
+            continue
+        for path in (
+            "measured",
+            "measured_error_upper",
+            "weight",
+            "reconstructed",
+            "chi_squared",
+        ):
+            try:
+                value = node[path]
+                result[f"{family}.{path}"] = np.asarray(value).tolist()
+            except Exception:
+                try:
+                    value = node[f":.{path}"]
+                    result[f"{family}.{path}"] = np.asarray(value).tolist()
+                except Exception:
+                    pass
+    return result
+
+
+def _mapping_differences(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    output = []
+    for path in sorted(set(before) & set(after)):
+        left = np.asarray(before[path])
+        right = np.asarray(after[path])
+        if left.shape != right.shape or not np.allclose(left, right, equal_nan=True):
+            output.append({"path": path, "input": before[path], "mfile": after[path]})
+    return output
 
 
 def _efit_case_time(case: str) -> float:
@@ -566,6 +683,7 @@ def collect_efit_outputs(
     executable: str | Path | None = None,
     expected_kfiles: Sequence[str | Path] = (),
     validation_config: EFITValidationConfig | None = None,
+    constraints_ods: Any = None,
 ) -> EFITResult:
     """Collect EFIT files and assign independent status to every attempted slice."""
     base = _efit_workdir(config, workdir)
@@ -595,8 +713,14 @@ def collect_efit_outputs(
         else ()
     )
 
+    kfile_by_case = _case_file_map(kfiles, "k-file")
+    gfile_by_case = _case_file_map(gfiles, "g-file")
+    afile_by_case = _case_file_map(afiles, "a-file")
+    mfile_by_case = _case_file_map(mfiles, "m-file")
+
     parsed_by_case = {}
     parse_error_by_case = {}
+    artifact_parse_error_by_case: dict[str, list[str]] = {}
     for gfile in gfiles:
         case = _efit_case_key(gfile)
         try:
@@ -607,15 +731,70 @@ def collect_efit_outputs(
             parse_error_by_case[case] = f"{gfile}: {exc}"
             continue
 
+    parsed_k_by_case = {}
+    parsed_m_by_case = {}
+    for case, kfile in kfile_by_case.items():
+        try:
+            from vaft.data.keqdsk import read_keqdsk
+            parsed_k_by_case[case] = read_keqdsk(kfile)
+        except Exception as exc:
+            artifact_parse_error_by_case.setdefault(case, []).append(f"{kfile}: {exc}")
+    for case, mfile in mfile_by_case.items():
+        try:
+            from vaft.data.meqdsk import read_meqdsk
+            parsed_m_by_case[case] = read_meqdsk(mfile)
+            embedded_time = parsed_m_by_case[case].time_seconds()
+            case_time = _efit_case_time(case)
+            if embedded_time is not None and abs(embedded_time - case_time) > 5.0e-4:
+                artifact_parse_error_by_case.setdefault(case, []).append(
+                    "m-file embedded time does not match filename: "
+                    f"{embedded_time:.9g} s versus {case_time:.9g} s"
+                )
+        except Exception as exc:
+            artifact_parse_error_by_case.setdefault(case, []).append(f"{mfile}: {exc}")
+
     parsed_cases = sorted(parsed_by_case, key=_efit_case_time)
     parsed = [parsed_by_case[case] for case in parsed_cases]
-    parse_errors = list(parse_error_by_case.values())
+    parse_errors = list(parse_error_by_case.values()) + [
+        message
+        for messages in artifact_parse_error_by_case.values()
+        for message in messages
+    ]
     ods = None
     conversion_error = None
+    mapping_diagnostics: list[dict[str, Any]] = []
     if parsed:
         try:
-            for idx, item in enumerate(parsed):
+            for idx, (case, item) in enumerate(zip(parsed_cases, parsed)):
                 ods = item.to_omas(ods=ods, time_index=idx)
+                time_value = _efit_case_time(case)
+                _merge_input_constraints(ods, constraints_ods, idx, time_value)
+                before = _constraint_snapshot(ods, idx)
+                if case in parsed_k_by_case:
+                    parsed_k_by_case[case].to_omas(ods, time_index=idx)
+                if case in parsed_m_by_case:
+                    parsed_m_by_case[case].to_omas(ods, time_index=idx)
+                after = _constraint_snapshot(ods, idx)
+                differences = _mapping_differences(before, after)
+                diagnostic = {"case": case, "differences": differences}
+                mapping_diagnostics.append(diagnostic)
+                diagnostic_path = (
+                    f"equilibrium.code.parameters.time_slice.{idx}.mapping_diagnostics"
+                )
+                ods[diagnostic_path] = diagnostic
+                for kind, path in (
+                    ("kfile", kfile_by_case.get(case)),
+                    ("gfile", gfile_by_case.get(case)),
+                    ("mfile", mfile_by_case.get(case)),
+                    ("afile", afile_by_case.get(case)),
+                ):
+                    if path is not None and path.is_file():
+                        artifact_root = (
+                            f"equilibrium.code.parameters.time_slice.{idx}.artifacts"
+                            f".{kind}"
+                        )
+                        ods[f"{artifact_root}.path"] = str(path)
+                        ods[f"{artifact_root}.sha256"] = _file_sha256(path)
             times = np.asarray([_efit_case_time(case) for case in parsed_cases])
             ods["equilibrium.time"] = times
             for idx, time_value in enumerate(times):
@@ -626,10 +805,10 @@ def collect_efit_outputs(
             ods = None
 
     file_maps = {
-        "kfile": {_efit_case_key(path): path for path in kfiles},
-        "gfile": {_efit_case_key(path): path for path in gfiles},
-        "afile": {_efit_case_key(path): path for path in afiles},
-        "mfile": {_efit_case_key(path): path for path in mfiles},
+        "kfile": kfile_by_case,
+        "gfile": gfile_by_case,
+        "afile": afile_by_case,
+        "mfile": mfile_by_case,
     }
     cases = sorted(
         set().union(*(mapping.keys() for mapping in file_maps.values())),
@@ -676,6 +855,7 @@ def collect_efit_outputs(
                         else None
                     ),
                     "kfile_sha256": kfile_sha256,
+                    "artifact_parse_errors": artifact_parse_error_by_case.get(case, []),
                     "configuration": (
                         resolved_efit_configuration(config)
                         if config is not None
@@ -687,6 +867,12 @@ def collect_efit_outputs(
         )
     statuses = list(apply_temporal_continuity(statuses, validation_config))
 
+    artifact_hashes = {
+        str(path): _file_sha256(path)
+        for paths in (kfiles, gfiles, afiles, mfiles, logs)
+        for path in paths
+        if path.is_file()
+    }
     return EFITResult(
         returncode=returncode,
         workdir=base,
@@ -696,7 +882,17 @@ def collect_efit_outputs(
         kfiles=kfiles,
         logs=logs,
         geqdsk=tuple(parsed),
+        keqdsk=tuple(
+            parsed_k_by_case[case]
+            for case in sorted(parsed_k_by_case, key=_efit_case_time)
+        ),
+        meqdsk=tuple(
+            parsed_m_by_case[case]
+            for case in sorted(parsed_m_by_case, key=_efit_case_time)
+        ),
         parse_errors=tuple(parse_errors),
+        mapping_diagnostics=tuple(mapping_diagnostics),
+        artifact_hashes=artifact_hashes,
         ods=ods,
         slice_statuses=tuple(statuses),
         configuration=(
@@ -727,4 +923,3 @@ def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_d
         profile_index=profile_index,
         allow_derived_data=allow_derived_data,
     )
-

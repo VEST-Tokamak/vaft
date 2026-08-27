@@ -28,10 +28,12 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "electromagnetics_time_current",
     "equilibrium_overview",
+    "equilibrium_overview_verification",
     "equilibrium_time_virial",
     "interferometer_overview",
     "magnetics_overview",
     "magnetics_overview_impa",
+    "magnetics_time_limiter_current",
     "render_panels",
     "soft_x_rays_overview",
     "spectrometer_uv_time_impurity",
@@ -99,7 +101,7 @@ def render_panels(
     for index, panel_model in enumerate(model.models):
         draw = _panel_drawer(panel_model)
         draw(panel_model, ax=flat[index], show=False, **style)
-    for unused in flat[len(model.models):]:
+    for unused in flat[len(model.models) :]:
         unused.set_visible(False)
 
     if model.suptitle:
@@ -107,18 +109,32 @@ def render_panels(
     return finalize(figure, grid, show=show)
 
 
-def _panel_renderer(*, domain: str, view: str, quantity: str, description: str,
-                    ids: tuple[str, ...], required_paths: tuple[str, ...] = (),
-                    optional_paths: tuple[str, ...] = ()):
+def _panel_renderer(
+    *,
+    domain: str,
+    view: str,
+    quantity: str,
+    description: str,
+    ids: tuple[str, ...],
+    required_paths: tuple[str, ...] = (),
+    optional_paths: tuple[str, ...] = (),
+):
     return renderer(
-        domain=domain, view=view, quantity=quantity, model=Panels,
-        description=description, ids=ids, required_paths=required_paths,
+        domain=domain,
+        view=view,
+        quantity=quantity,
+        model=Panels,
+        description=description,
+        ids=ids,
+        required_paths=required_paths,
         optional_paths=optional_paths,
     )
 
 
 @_panel_renderer(
-    domain="summary", view="time", quantity="energy",
+    domain="summary",
+    view="time",
+    quantity="energy",
     description="Stored-energy comparison panels across available estimates.",
     ids=("equilibrium", "core_profiles", "magnetics"),
     required_paths=("equilibrium.time",),
@@ -131,7 +147,9 @@ def summary_time_energy(
 
 
 @_panel_renderer(
-    domain="summary", view="time", quantity="beta",
+    domain="summary",
+    view="time",
+    quantity="beta",
     description="Poloidal, toroidal and normalized beta panels.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time",),
@@ -144,7 +162,9 @@ def summary_time_beta(
 
 
 @_panel_renderer(
-    domain="summary", view="time", quantity="power_balance",
+    domain="summary",
+    view="time",
+    quantity="power_balance",
     description="Ohmic input, radiated and conducted power balance panels.",
     ids=("equilibrium", "core_profiles", "summary"),
     required_paths=("equilibrium.time",),
@@ -157,7 +177,9 @@ def summary_time_power_balance(
 
 
 @_panel_renderer(
-    domain="summary", view="time", quantity="voltage_consumption",
+    domain="summary",
+    view="time",
+    quantity="voltage_consumption",
     description="Loop-voltage and flux-consumption panels.",
     ids=("magnetics", "pf_active"),
     required_paths=("magnetics.time",),
@@ -170,7 +192,9 @@ def summary_time_voltage_consumption(
 
 
 @_panel_renderer(
-    domain="equilibrium", view="time", quantity="virial",
+    domain="equilibrium",
+    view="time",
+    quantity="virial",
     description="Virial-estimate equilibrium quantities against the reconstruction.",
     ids=("equilibrium", "magnetics"),
     required_paths=("equilibrium.time",),
@@ -183,7 +207,9 @@ def equilibrium_time_virial(
 
 
 @_panel_renderer(
-    domain="electromagnetics", view="time", quantity="current",
+    domain="electromagnetics",
+    view="time",
+    quantity="current",
     description="Plasma, PF coil and eddy current panels on a shared time axis.",
     ids=("magnetics", "pf_active", "pf_passive"),
     required_paths=("magnetics.ip.0.data",),
@@ -196,7 +222,9 @@ def electromagnetics_time_current(
 
 
 @_panel_renderer(
-    domain="core_profiles", view="time", quantity="volume_averaged",
+    domain="core_profiles",
+    view="time",
+    quantity="volume_averaged",
     description="Volume-averaged core quantity panels on a shared time axis.",
     ids=("core_profiles",),
     required_paths=("core_profiles.time",),
@@ -209,7 +237,9 @@ def core_profiles_time_volume_averaged(
 
 
 @_panel_renderer(
-    domain="spectrometer_uv", view="time", quantity="impurity",
+    domain="spectrometer_uv",
+    view="time",
+    quantity="impurity",
     description="Impurity line-intensity panels against plasma current.",
     ids=("spectrometer_uv", "magnetics"),
     required_paths=("spectrometer_uv.time",),
@@ -222,7 +252,9 @@ def spectrometer_uv_time_impurity(
 
 
 @_panel_renderer(
-    domain="magnetics", view="overview", quantity="diagnostics",
+    domain="magnetics",
+    view="overview",
+    quantity="diagnostics",
     description="Shot diagnostic overview: current, field, flux and geometry panels.",
     ids=("magnetics", "pf_active", "tf", "equilibrium"),
     required_paths=("magnetics.ip.0.data",),
@@ -248,6 +280,29 @@ def magnetics_overview_impa(
 
 
 @_panel_renderer(
+    domain="magnetics",
+    view="time",
+    quantity="limiter_current",
+    description="Lower-corner, upper-corner and midplane limiter currents in three panels.",
+    ids=("magnetics",),
+    required_paths=(
+        "magnetics.shunt.{i}.voltage.data",
+        "magnetics.shunt.{i}.resistance",
+    ),
+    optional_paths=(
+        "magnetics.shunt.{i}.voltage.time",
+        "magnetics.shunt.{i}.name",
+        "magnetics.shunt.{i}.identifier",
+    ),
+)
+def magnetics_time_limiter_current(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Lower-corner, upper-corner and midplane limiter-current histories."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
     domain="equilibrium", view="overview", quantity="analysis",
     description="Equilibrium analysis overview: global quantities plus poloidal geometry.",
     ids=("equilibrium",),
@@ -261,7 +316,42 @@ def equilibrium_overview(
 
 
 @_panel_renderer(
-    domain="soft_x_rays", view="overview", quantity="channels",
+    domain="equilibrium",
+    view="overview",
+    quantity="verification",
+    description=(
+        "EFIT verification overview: measured and reconstructed constraints "
+        "beside the reconstructed poloidal-flux map."
+    ),
+    ids=("equilibrium",),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured",
+        "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured",
+        "equilibrium.time_slice.{i}.constraints.ip.measured",
+        "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
+    ),
+)
+def equilibrium_overview_verification(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Measured-versus-reconstructed EFIT constraints and poloidal flux."""
+    return render_panels(
+        model,
+        ax=ax,
+        show=show,
+        figsize=style.pop("figsize", (13.0, 10.0)),
+        **style,
+    )
+
+
+@_panel_renderer(
+    domain="soft_x_rays",
+    view="overview",
+    quantity="channels",
     description="Soft X-ray overview: lines of sight, signals and channel pattern.",
     ids=("soft_x_rays",),
     required_paths=("soft_x_rays.channel.{i}.power.data",),

@@ -2,6 +2,7 @@ import importlib.util
 import warnings
 
 import numpy as np
+import pytest
 
 
 def test_detect_active_window_selects_peak_containing_region():
@@ -34,7 +35,11 @@ def test_legacy_process_alias_warns_and_preserves_result():
 def test_machine_mapping_public_surface_is_canonical_but_legacy_imports_work():
     from vaft import machine_mapping
 
-    assert "magnetics" in machine_mapping.__all__
+    # Canonical IDS entry points are reached through their own submodule, not
+    # the package, because the two share a name -- see
+    # test_entrypoint_names_never_collide_with_submodules below.
+    assert "magnetics" not in machine_mapping.__all__
+    assert "magnetics_from_raw_database" in machine_mapping.__all__
     assert not any(name.startswith("vfit_") for name in machine_mapping.__all__)
     assert "VEST_DiamagneticFlux" not in machine_mapping.__all__
     assert "pf_plasma" not in machine_mapping.__all__
@@ -61,3 +66,42 @@ def test_top_level_namespace_has_no_duplicate_exports():
     import vaft
 
     assert len(vaft.__all__) == len(set(vaft.__all__))
+
+
+def test_entrypoint_names_never_collide_with_submodules():
+    """No lazily-exported name may share a name with a submodule.
+
+    A module's ``__getattr__`` only runs when normal attribute lookup fails, so
+    importing ``vaft.machine_mapping.tf`` binds the *module* onto the package
+    and permanently shadows any exported ``tf`` function -- silently, and
+    depending only on which import ran first. Exporting both is therefore never
+    safe, whichever one happens to win today.
+    """
+    from pathlib import Path
+
+    from vaft import machine_mapping
+
+    package_dir = Path(machine_mapping.__file__).parent
+    submodules = {path.stem for path in package_dir.glob("*.py")} - {"__init__"}
+    exported = (
+        set(machine_mapping.__all__)
+        | set(machine_mapping._EXPORT_MAP)
+        | set(machine_mapping._LEGACY_EXPORT_MAP)
+    )
+
+    collisions = sorted(exported & submodules)
+    assert not collisions, (
+        f"these exported names are shadowed by same-named submodules: {collisions}. "
+        f"Reach them through their module instead, e.g. "
+        f"`from vaft.machine_mapping.{collisions[0]} import {collisions[0]}`, and add "
+        f"the name to _ENTRYPOINT_MODULES."
+    )
+
+
+def test_shadowed_entrypoints_explain_themselves():
+    from vaft import machine_mapping
+
+    for name in ("magnetics", "tf", "dataset_description"):
+        machine_mapping.__dict__.pop(name, None)
+        with pytest.raises(AttributeError, match=rf"from vaft\.machine_mapping\.{name} import {name}"):
+            getattr(machine_mapping, name)

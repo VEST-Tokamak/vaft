@@ -15,7 +15,7 @@ from vaft.process import define_baseline, subtract_baseline
 
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
-    """Default VEST magnetics processing settings used by legacy `vfit_md`.
+    """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
 
     The values intentionally preserve the long-running VEST EFIT input workflow
     while making the knobs explicit for reproducibility and parameter scans.
@@ -192,7 +192,7 @@ def vest_flux_loop_legacy(
     return integrated - baseline
 
 
-def vest_md_signals(
+def vest_equilibrium_magnetics_signals(
     shot: int,
     channels: Sequence[dict],
     loader: Callable[[int, int], tuple[np.ndarray, np.ndarray] | None],
@@ -256,6 +256,12 @@ def vest_md_signals(
             data_flux_loops.append(processed)
 
     return magnetics_time, data_flux_loops, data_probes
+
+
+# Pre-rename name, kept as a plain alias: `vaft.process` re-exports this
+# module with `from .magnetics import *`, so `vaft.process.vest_md_signals`
+# must keep working for existing callers.
+vest_md_signals = vest_equilibrium_magnetics_signals
 
 
 def _firwin_order(sample_rate: float) -> int:

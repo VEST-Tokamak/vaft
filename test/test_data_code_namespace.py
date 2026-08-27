@@ -64,6 +64,23 @@ def test_collect_efit_outputs_discovers_and_parses(tmp_path):
     assert result.returncode is None
 
 
+def test_collect_efit_outputs_prefers_fresh_copy_on_workflow_rerun(tmp_path):
+    from vaft.code.efit import EFITConfig, collect_efit_outputs
+    from vaft.data.resources import data_path
+
+    staged = tmp_path / "gfile"
+    staged.mkdir()
+    name = "g039915.00319"
+    contents = data_path(f"efit/{name}").read_text()
+    (staged / name).write_text(contents)
+    (tmp_path / name).write_text(contents)
+
+    result = collect_efit_outputs(tmp_path, EFITConfig(shot=39915))
+
+    assert result.gfiles == (tmp_path / name,)
+    assert len(result.geqdsk) == 1
+
+
 def test_no_omfit_runtime_import_for_geqdsk():
     import sys
     from vaft.data import read_geqdsk
