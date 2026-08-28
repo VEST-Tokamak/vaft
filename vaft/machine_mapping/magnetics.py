@@ -32,8 +32,29 @@ DEFAULT_TEND = 0.36
 DEFAULT_DT = 4e-5
 PROBE_LENGTH = 0.01
 POLOIDAL_ANGLE = 3 * math.pi / 2
+#: What VEST's poloidal probes actually measure, as a signed (Br, Bz) direction.
+#:
+#: ``POLOIDAL_ANGLE`` above is a legacy placeholder written into every probe and
+#: read by nothing: under the IMAS convention -- the sensitive axis being
+#: ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)`` -- 3*pi/2 means
+#: -Bz, which anti-correlates with the mapped ``field.data`` at -0.96 against a
+#: coil+eddy forward model. The probes measure **+Bz**: correlation +0.96, and
+#: the EFIT k-file writer groups them by the same understanding (its
+#: ``Index_inBz``/``sideBz``/``outBz`` families). Forward models must project
+#: with this constant rather than with the stored angle. Fixing the stored value
+#: means regenerating the packaged reference ODSs, which is out of scope here.
+PROBE_FIELD_DIRECTION = (0.0, 1.0)
 MIRNOV_TYPE_INDEX = 2
 OUTBOARD_MIRNOV_MAJOR_RADIUS = 0.796
+# Poloidal-probe and flux-loop families, by position. These are the boundaries
+# the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
+# here with the rest of the probe geometry so a validation forward model and the
+# reconstruction cannot disagree about what "inboard" means.
+INBOARD_PROBE_MAX_R = 0.09
+OUTBOARD_PROBE_MIN_R = 0.795
+SIDE_PROBE_MIN_ABS_Z = 0.8
+INBOARD_FLUX_LOOP_MAX_R = 0.15
+OUTBOARD_FLUX_LOOP_MIN_R = 0.5
 # Fluctuation Mirnov probes became physically operational at this shot; the
 # 30-channel array (issue #155) is only mapped for shot >= this boundary.
 FLUCTUATION_MIRNOV_FIRST_SHOT = 44156

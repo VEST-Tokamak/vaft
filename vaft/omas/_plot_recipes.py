@@ -2351,6 +2351,26 @@ _VERIFICATION_FAMILIES = (
 )
 
 
+# Constraint extraction lives with the metrics that consume it
+# (:mod:`vaft.omas.efit_quality`), so the recipes and the goodness-of-fit
+# numbers can never disagree about what a channel's state or residual is.
+# Re-exported here under the names this module has always used.
+from .efit_quality import (  # noqa: E402
+    CONSTRAINT_STATES,
+    ConstraintTable,
+    constraint_state as _constraint_state,
+    constraint_table as _constraint_table,
+    slice_times as _slice_times,
+)
+
+
+def _scalar(value: Any, scale: float = 1.0) -> float:
+    try:
+        return float(np.asarray(value)) * scale
+    except (TypeError, ValueError):
+        return float("nan")
+
+
 def _verification_constraint_panel(
     ods: Any,
     *,
@@ -2362,44 +2382,17 @@ def _verification_constraint_panel(
     is_array: bool,
     show_uncertainty: bool = False,
 ) -> LineSeries:
-    root = f"equilibrium.time_slice.{time_slice}.constraints.{family}"
-    count = _count(ods, root) if is_array else 1
-    indexes = range(count)
-    measured = []
-    reconstructed = []
-    uncertainty = []
-    x = []
-    weights = []
-    for index in indexes:
-        base = f"{root}.{index}" if is_array else root
-        measured_value = _get(ods, f"{base}.measured")
-        reconstructed_value = _get(ods, f"{base}.reconstructed")
-        try:
-            measured_value = float(np.asarray(measured_value)) * scale
-            reconstructed_value = float(np.asarray(reconstructed_value)) * scale
-        except (TypeError, ValueError):
-            continue
-        if not (np.isfinite(measured_value) and np.isfinite(reconstructed_value)):
-            continue
-        error = _get(ods, f"{base}.measured_error_upper")
-        weight = _get(ods, f"{base}.weight")
-        try:
-            error = float(np.asarray(error)) * abs(scale)
-        except (TypeError, ValueError):
-            error = np.nan
-        try:
-            weight = float(np.asarray(weight))
-        except (TypeError, ValueError):
-            weight = np.nan
-        x.append(index)
-        measured.append(measured_value)
-        reconstructed.append(reconstructed_value)
-        uncertainty.append(error)
-        weights.append(weight)
+    table = _constraint_table(
+        ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale
+    )
+    # This panel compares the two sides of the fit, so a channel without both a
+    # finite measured and a finite reconstructed value has nothing to compare.
+    keep = np.isfinite(table.measured) & np.isfinite(table.reconstructed)
+    x = table.index[keep]
+    measured_array = table.measured[keep]
+    reconstructed_array = table.reconstructed[keep]
+    uncertainty_array = table.uncertainty[keep]
 
-    measured_array = np.asarray(measured, dtype=float)
-    reconstructed_array = np.asarray(reconstructed, dtype=float)
-    uncertainty_array = np.asarray(uncertainty, dtype=float)
     denominator = np.sqrt(np.mean(measured_array**2)) if measured_array.size else np.nan
     relative_error = (
         100.0
@@ -2408,7 +2401,7 @@ def _verification_constraint_panel(
         if np.isfinite(denominator) and denominator != 0.0
         else np.nan
     )
-    finite_weights = np.asarray(weights, dtype=float)
+    finite_weights = table.weight[keep]
     finite_weights = finite_weights[np.isfinite(finite_weights)]
     weight_text = f", W={np.mean(finite_weights):.2e}" if finite_weights.size else ""
     error_text = f"{relative_error:.2f}%" if np.isfinite(relative_error) else "n/a"
@@ -2422,14 +2415,14 @@ def _verification_constraint_panel(
     return LineSeries(
         series=(
             Series(
-                x=np.asarray(x, dtype=float),
+                x=x,
                 y=measured_array,
                 yerr=measured_yerr,
                 label="Measured",
                 style={"color": "black", "marker": "o", "linestyle": "none"},
             ),
             Series(
-                x=np.asarray(x, dtype=float),
+                x=x,
                 y=reconstructed_array,
                 label="Reconstructed",
                 style={"color": "red", "marker": "o", "linestyle": "none"},
@@ -2539,6 +2532,907 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
 RECIPES["equilibrium_overview_verification"] = CallableRecipe(
     builder=_build_equilibrium_verification,
     description="EFIT measured/reconstructed constraints and poloidal-flux map.",
+)
+
+
+# ---------------------------------------------------------------------------
+# EFIT submitted constraints and reconstruction residuals (issue #139)
+# ---------------------------------------------------------------------------
+
+#: Marker style per channel state, shared by the submitted and residual views so
+#: a dead channel looks the same in both.
+_STATE_STYLE = {
+    "enabled": {"color": "black", "marker": "o", "linestyle": "none"},
+    "disabled": {"color": "tab:orange", "marker": "x", "linestyle": "none"},
+    "missing": {"color": "tab:red", "marker": "s", "linestyle": "none",
+                "markerfacecolor": "none"},
+}
+
+
+def _require_slices(ods: Any) -> int:
+    count = _count(ods, "equilibrium.time_slice")
+    if count == 0:
+        raise ValueError(
+            "equilibrium ODS carries no time slices; EFIT produced no accepted "
+            "reconstruction for this shot"
+        )
+    return count
+
+
+def _state_series(
+    table: ConstraintTable,
+    values: np.ndarray,
+    errors: np.ndarray | None = None,
+) -> list[Series]:
+    """One trace per channel state, so the dead channels are visible, not absent.
+
+    ``errors`` is masked through exactly the same channel selection as ``values``
+    -- a channel dropped for a non-finite value must drop its error bar with it,
+    or every later bar lands on the wrong channel.
+    """
+    series = []
+    for state in CONSTRAINT_STATES:
+        mask = table.mask(state)
+        if not mask.any():
+            continue
+        y = values[mask]
+        finite = np.isfinite(y)
+        yerr = None
+        if errors is not None and state == "enabled":
+            selected = errors[mask][finite]
+            if selected.size and np.all(np.isfinite(selected)):
+                yerr = selected
+        series.append(
+            Series(
+                x=table.index[mask][finite],
+                y=y[finite],
+                yerr=yerr,
+                label=f"{state} ({int(mask.sum())})",
+                style=dict(_STATE_STYLE[state]),
+            )
+        )
+    return series
+
+
+def _build_equilibrium_constraints(ods: Any, **options: Any) -> Panels:
+    """What was submitted to EFIT, before anything is inferred from its answer."""
+    _require_slices(ods)
+    time_slice = int(options.get("time_slice", 0))
+    times = _slice_times(ods)
+    panels: list[Any] = []
+    for family, title, unit, scale, is_array in _VERIFICATION_FAMILIES:
+        table = _constraint_table(
+            ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale
+        )
+        series = _state_series(table, table.measured, errors=table.uncertainty)
+        if not series:
+            continue
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="Constraint index",
+                y_label=title,
+                y_unit=unit,
+                title=f"{title} submitted ({table.count('enabled')}/{len(table.state)} fitted)",
+            )
+        )
+
+    # The scalar constraints across every slice: also the "which time slices did
+    # EFIT actually run" view, since the x positions are equilibrium.time.
+    for family, title, unit, scale in (
+        ("ip", "Plasma current", "kA", 1e-3),
+        ("diamagnetic_flux", "Diamagnetic flux", "mWb", 1e3),
+    ):
+        values = np.array(
+            [
+                _scalar(
+                    _get(ods, f"equilibrium.time_slice.{index}.constraints.{family}.measured"),
+                    scale,
+                )
+                for index in range(times.size)
+            ],
+            dtype=float,
+        )
+        if not np.isfinite(values).any():
+            continue
+        panels.append(
+            LineSeries(
+                series=(
+                    Series(x=times, y=values, label="submitted",
+                           style={"marker": "o", "linestyle": "-"}),
+                ),
+                x_label="time",
+                x_unit="s",
+                y_label=title,
+                y_unit=unit,
+                title=f"{title} at the {times.size} selected slice(s)",
+            )
+        )
+    return Panels(
+        models=tuple(panels),
+        ncols=2,
+        share_x=False,
+        suptitle=_efit_suptitle(ods, "EFIT submitted constraints", times, time_slice),
+    )
+
+
+def _efit_suptitle(ods: Any, headline: str, times: np.ndarray, time_slice: int | None) -> str:
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    detail = ""
+    if time_slice is not None and 0 <= time_slice < times.size:
+        detail = f", slice {time_slice} at t={times[time_slice] * 1e3:.2f} ms"
+    return f"{headline} — shot {pulse}{detail}"
+
+
+def _build_equilibrium_constraint_coverage(ods: Any, **options: Any) -> Panels:
+    """How the fitted channel set changes across the reconstructed slices."""
+    count = _require_slices(ods)
+    times = _slice_times(ods)
+    panels: list[Any] = []
+    for family, title, _unit, _scale, is_array in _VERIFICATION_FAMILIES:
+        counts = {state: [] for state in CONSTRAINT_STATES}
+        for index in range(count):
+            table = _constraint_table(
+                ods, time_slice=index, family=family, is_array=is_array
+            )
+            for state in CONSTRAINT_STATES:
+                counts[state].append(table.count(state))
+        series = tuple(
+            Series(
+                x=times,
+                y=np.asarray(counts[state], dtype=float),
+                label=state,
+                style={"marker": ".", "color": _STATE_STYLE[state]["color"]},
+            )
+            for state in CONSTRAINT_STATES
+            if any(counts[state])
+        )
+        if not series:
+            continue
+        panels.append(
+            LineSeries(
+                series=series,
+                x_label="time",
+                x_unit="s",
+                y_label="channels",
+                title=f"{title}: channel coverage",
+            )
+        )
+    if not panels:
+        raise ValueError("no constraint family carries channels to report coverage for")
+    return Panels(
+        models=tuple(panels),
+        ncols=2,
+        share_x=True,
+        suptitle=_efit_suptitle(ods, "EFIT constraint coverage", times, None),
+    )
+
+
+def _build_equilibrium_residuals(ods: Any, **options: Any) -> Panels:
+    """Reconstruction residuals by diagnostic family, beside convergence."""
+    count = _require_slices(ods)
+    time_slice = int(options.get("time_slice", 0))
+    times = _slice_times(ods)
+    panels: list[Any] = []
+    rms_series: list[Series] = []
+    exact_families: list[str] = []
+
+    from .efit_quality import classify_fit_role
+
+    for family, title, unit, scale, is_array in _VERIFICATION_FAMILIES:
+        table = _constraint_table(
+            ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale
+        )
+        role = classify_fit_role(ods, table, time_slice=time_slice)
+        series = _state_series(table, table.residual)
+        if series:
+            suffix = (
+                " — prescribed, not fitted"
+                if role == "prescribed"
+                else ": measured − reconstructed"
+            )
+            panels.append(
+                LineSeries(
+                    series=tuple(series),
+                    x_label="Constraint index",
+                    y_label=f"{title} residual",
+                    y_unit=unit,
+                    title=f"{title}{suffix}",
+                )
+            )
+        if role == "prescribed":
+            exact_families.append(title)
+            continue
+        values = []
+        for index in range(count):
+            slice_table = _constraint_table(
+                ods, time_slice=index, family=family, is_array=is_array, scale=scale
+            )
+            fitted = slice_table.mask("enabled") & np.isfinite(slice_table.residual)
+            values.append(
+                float(np.sqrt(np.mean(slice_table.residual[fitted] ** 2)))
+                if fitted.any()
+                else np.nan
+            )
+        array = np.asarray(values, dtype=float)
+        finite = array[np.isfinite(array)]
+        if finite.size and np.all(finite == 0.0):
+            # Defensive: a fitted family whose residual happens to vanish. A log
+            # axis cannot show zero and a flat line says nothing, so name it.
+            if title not in exact_families:
+                exact_families.append(title)
+        elif finite.size:
+            rms_series.append(
+                Series(x=times, y=array, label=f"{title} [{unit}]", style={"marker": "."})
+            )
+
+    if rms_series:
+        exact_text = (
+            f"; {', '.join(exact_families)} fitted exactly" if exact_families else ""
+        )
+        panels.append(
+            LineSeries(
+                series=tuple(rms_series),
+                x_label="time",
+                x_unit="s",
+                y_label="fitted-channel residual RMS",
+                log_y=True,
+                title=f"Residual RMS by family, display units{exact_text}",
+            )
+        )
+
+    # Convergence is context for the residuals, never a substitute for them.
+    for path, title, unit in (
+        ("convergence.grad_shafranov_deviation_value", "Grad-Shafranov deviation", ""),
+        ("convergence.iterations_n", "Iterations", ""),
+    ):
+        values = np.array(
+            [
+                _scalar(_get(ods, f"equilibrium.time_slice.{index}.{path}"))
+                for index in range(count)
+            ],
+            dtype=float,
+        )
+        if not np.isfinite(values).any():
+            continue
+        panels.append(
+            LineSeries(
+                series=(Series(x=times, y=values, label=title, style={"marker": "."}),),
+                x_label="time",
+                x_unit="s",
+                y_label=title,
+                y_unit=unit,
+                title=title,
+            )
+        )
+    if not panels:
+        raise ValueError("equilibrium ODS carries no reconstructed constraints")
+    return Panels(
+        models=tuple(panels),
+        ncols=2,
+        share_x=False,
+        suptitle=_efit_suptitle(ods, "EFIT reconstruction residuals", times, time_slice),
+    )
+
+
+def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
+    """Is this fit statistically acceptable against EFIT's own uncertainties?"""
+    from .efit_quality import FAMILIES, efit_quality_metrics
+
+    count = _require_slices(ods)
+    time_slice = int(options.get("time_slice", 0))
+    times = _slice_times(ods)
+    metrics = efit_quality_metrics(ods)
+    fits = [entry["fit"] for entry in metrics["slices"]]
+    panels: list[Any] = []
+
+    # Reduced chi-square against the value a fit consistent with its assigned
+    # uncertainties would produce.
+    reduced = np.array([fit["chi_squared_reduced"] for fit in fits], dtype=float)
+    if np.isfinite(reduced).any():
+        panels.append(
+            LineSeries(
+                series=(
+                    Series(x=times, y=reduced, label="reduced χ²", style={"marker": "."}),
+                    Series(
+                        x=times,
+                        y=np.ones_like(times),
+                        label="χ²/ν = 1",
+                        style={"linestyle": "--", "color": "0.5", "lw": 1.0},
+                    ),
+                ),
+                x_label="time",
+                x_unit="s",
+                y_label="χ² / ν",
+                log_y=bool(np.nanmax(reduced) / max(np.nanmin(reduced[reduced > 0]), 1e-12) > 50)
+                if np.any(reduced > 0)
+                else False,
+                title=(
+                    f"Reduced χ² (ν={fits[time_slice]['degrees_of_freedom']:.0f}"
+                    f" = {fits[time_slice]['degrees_of_freedom_inputs']['num_input_data']:.0f}"
+                    f" − {fits[time_slice]['degrees_of_freedom_inputs']['num_fit_variables']:.0f}"
+                    f" − {fits[time_slice]['degrees_of_freedom_inputs']['num_hard_constraints']:.0f})"
+                ),
+            )
+        )
+
+    # Which diagnostic actually determines the solution.
+    share_names = sorted({name for fit in fits for name in fit["chi_squared_share"]})
+    share_series = []
+    for name in share_names:
+        values = np.array(
+            [fit["chi_squared_share"].get(name, np.nan) for fit in fits], dtype=float
+        )
+        if np.isfinite(values).any():
+            share_series.append(Series(x=times, y=values, label=name, style={"marker": "."}))
+    if share_series:
+        dominant = max(
+            fits[time_slice]["chi_squared_share"].items(),
+            key=lambda item: item[1] if np.isfinite(item[1]) else -1,
+            default=("", float("nan")),
+        )
+        panels.append(
+            LineSeries(
+                series=tuple(share_series),
+                x_label="time",
+                x_unit="s",
+                y_label="share of total χ²",
+                y_limits=(-0.05, 1.05),
+                title=f"χ² share by family — {dominant[0]} dominates ({dominant[1]:.3f})",
+            )
+        )
+
+    # Normalized residuals at the selected slice: the per-channel view, in units
+    # of the uncertainty EFIT itself assigned.
+    for family, title, _unit, _scale, is_array in FAMILIES:
+        entry = fits[time_slice]["families"].get(family)
+        if entry is None:
+            continue
+        table = _constraint_table(
+            ods, time_slice=time_slice, family=family, is_array=is_array
+        )
+        if entry["fit_role"] == "prescribed":
+            panels.append(
+                LineSeries(
+                    series=(
+                        Series(
+                            x=table.index,
+                            y=np.zeros_like(table.index),
+                            label="prescribed exactly",
+                            style=dict(_STATE_STYLE["enabled"]),
+                        ),
+                    ),
+                    x_label="Constraint index",
+                    y_label="z",
+                    title=f"{title}: prescribed, not fitted",
+                )
+            )
+            continue
+        from .efit_quality import normalized_residuals, sigma_unit_factor
+
+        k, _spread = sigma_unit_factor(table)
+        z = normalized_residuals(table, k)
+        series = _state_series(table, z)
+        # Two-point spans, so the bands read as lines rather than as a cloud of
+        # markers competing with the residuals themselves.
+        span = np.array([table.index.min(), table.index.max()], dtype=float)
+        for level, style in ((2.0, ":"), (3.0, "--")):
+            for sign in (1.0, -1.0):
+                series.append(
+                    Series(
+                        x=span,
+                        y=np.full(2, sign * level),
+                        label=f"±{level:g}σ" if sign > 0 else "",
+                        style={"linestyle": style, "color": "0.6", "lw": 0.9},
+                    )
+                )
+        bias = entry.get("z_bias", float("nan"))
+        se = entry.get("z_bias_standard_error", float("nan"))
+        flag = " (significant)" if entry.get("z_bias_significant") else ""
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="Constraint index",
+                y_label="z = (m − r)·w / k",
+                title=(
+                    f"{title}: z RMS {entry.get('z_rms', float('nan')):.3g}, "
+                    f"bias {bias:+.3g} ± {se:.3g}{flag}, "
+                    f"max |z| {entry.get('z_abs_max', float('nan')):.3g}"
+                ),
+            )
+        )
+
+    if not panels:
+        raise ValueError("equilibrium ODS carries no fitted constraints to assess")
+    return Panels(
+        models=tuple(panels),
+        ncols=2,
+        share_x=False,
+        suptitle=_efit_suptitle(ods, "EFIT fit quality", times, time_slice),
+    )
+
+
+def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
+    """Did the solve reach what it was asked to reach, and is it self-consistent?"""
+    from .efit_quality import efit_quality_metrics
+
+    _require_slices(ods)
+    times = _slice_times(ods)
+    metrics = efit_quality_metrics(ods)
+    blocks = [entry["convergence"] for entry in metrics["slices"]]
+    panels: list[Any] = []
+
+    final = np.array([block["error"]["final_error"] for block in blocks], dtype=float)
+    exit_tolerance = np.array(
+        [block["error"]["exit_tolerance"] for block in blocks], dtype=float
+    )
+    acceptance = np.array(
+        [block["error"]["acceptance_tolerance"] for block in blocks], dtype=float
+    )
+    if np.isfinite(final).any():
+        # Two different thresholds, and EFIT applies only the second one when it
+        # decides whether to accept the slice.
+        series = [Series(x=times, y=final, label="terror (final GS error)",
+                         style={"marker": "."})]
+        inert = blocks[0]["error"].get("exit_tolerance_effective") is False
+        if np.isfinite(exit_tolerance).any():
+            series.append(
+                Series(
+                    x=times,
+                    y=exit_tolerance,
+                    label=(
+                        "error (inert: nxiter=1, iconvr=2)"
+                        if inert
+                        else "iteration exit tolerance (error)"
+                    ),
+                    style={
+                        "linestyle": ":" if inert else "--",
+                        "color": "0.75" if inert else "0.5",
+                        "lw": 1.0,
+                    },
+                )
+            )
+        if np.isfinite(acceptance).any():
+            name = blocks[0]["error"]["acceptance_tolerance_name"]
+            source = blocks[0]["error"]["acceptance_tolerance_source"]
+            series.append(
+                Series(x=times, y=acceptance,
+                       label=f"acceptance threshold ({name}, {source})",
+                       style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
+            )
+        # For iconvr=2 the statistic with content is how the solve terminated,
+        # not the ratio against a tolerance the solver never consults.
+        stopped = sum(
+            1 for block in blocks
+            if block["iterations"]["stopped_on_criterion"]
+        )
+        capped = sum(1 for block in blocks if block["iterations"]["hit_cap"])
+        if inert:
+            headline = (
+                f"{stopped}/{len(blocks)} stopped on the iconvr=2 criterion"
+                + (f", {capped} exhausted iterations" if capped else "")
+            )
+        else:
+            reached = sum(
+                1 for block in blocks if block["error"]["reached_exit_tolerance"]
+            )
+            headline = f"{reached}/{len(blocks)} reached the exit tolerance"
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="time",
+                x_unit="s",
+                y_label="normalized GS error",
+                log_y=True,
+                title=f"{blocks[0]['error']['final_error_source']}: {headline}",
+            )
+        )
+
+    iterations = np.array([block["iterations"]["iterations"] for block in blocks], dtype=float)
+    caps = np.array([block["iterations"]["iteration_cap"] for block in blocks], dtype=float)
+    if np.isfinite(iterations).any():
+        series = [Series(x=times, y=iterations, label="iterations", style={"marker": "."})]
+        if np.isfinite(caps).any():
+            series.append(
+                Series(x=times, y=caps, label="cap",
+                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
+            )
+        hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="time", x_unit="s", y_label="iterations",
+                title=f"Iterations against cap — {hit} slice(s) hit it",
+            )
+        )
+
+    histories = [block["history"] for block in blocks if block["history"]["available"]]
+    if histories:
+        raw = [
+            _array(ods, f"equilibrium.code.parameters.time_slice.{index}"
+                        ".meqdsk.variables.cerror.data")
+            for index in range(times.size)
+        ]
+        series = tuple(
+            Series(
+                x=np.arange(values.size, dtype=float),
+                y=values,
+                label=f"t={times[index] * 1e3:.1f} ms",
+            )
+            for index, values in enumerate(raw)
+            if values is not None and values.size > 1
+        )
+        if series:
+            panels.append(
+                LineSeries(
+                    series=series,
+                    x_label="iteration",
+                    y_label="Grad-Shafranov error",
+                    log_y=True,
+                    title="Convergence history per slice",
+                )
+            )
+    elif panels:
+        # Only worth a panel alongside real content -- appending it
+        # unconditionally would mean this figure could never report that it has
+        # nothing to show, which is the failure the stage contract relies on.
+        panels.append(
+            LineSeries(
+                series=(
+                    Series(x=times, y=np.full(times.size, np.nan), label="unavailable"),
+                ),
+                x_label="time", x_unit="s", y_label="Grad-Shafranov error",
+                title="Convergence history: no m-file cerror was mapped",
+            )
+        )
+
+    spread = np.array(
+        [block["self_consistency"].get("ip_relative_spread", np.nan) for block in blocks],
+        dtype=float,
+    )
+    axis_offset = np.array(
+        [block["self_consistency"].get("psi_axis_grid_offset", np.nan)
+         for block in blocks],
+        dtype=float,
+    )
+    not_extremum = sum(
+        1 for block in blocks
+        if block["self_consistency"].get("magnetic_axis_is_local_extremum") is False
+    )
+    consistency = []
+    if np.isfinite(spread).any():
+        consistency.append(
+            Series(x=times, y=spread, label="Ip relative spread", style={"marker": "."})
+        )
+    if np.isfinite(axis_offset).any():
+        consistency.append(
+            Series(x=times, y=axis_offset, label="ψ axis vs flux map",
+                   style={"marker": "."})
+        )
+    if consistency:
+        panels.append(
+            LineSeries(
+                series=tuple(consistency),
+                x_label="time", x_unit="s", y_label="relative difference",
+                log_y=True,
+                title=(
+                    "EFIT outputs against each other"
+                    + (f" — {not_extremum} slice(s) axis not stationary" if not_extremum else "")
+                ),
+            )
+        )
+
+    verdicts = [block["verdict"] for block in blocks]
+    known = [v for v in verdicts if v["accepted"] is not None]
+    if known:
+        margin = np.array(
+            [block["error"]["chi_squared_margin"] for block in blocks], dtype=float
+        )
+        series = [
+            Series(
+                x=times,
+                y=np.array(
+                    [1.0 if v["accepted"] else 0.0 if v["accepted"] is not None
+                     else np.nan for v in verdicts],
+                    dtype=float,
+                ),
+                label="accepted (a-file jflag/lflag)",
+                style={"marker": "o", "linestyle": "none"},
+            )
+        ]
+        if np.isfinite(margin).any():
+            series.append(
+                Series(x=times, y=margin,
+                       label=f"χ² / {blocks[0]['error']['chi_squared_limit_name']}",
+                       style={"marker": "."})
+            )
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="time", x_unit="s", y_label="accepted / χ² margin",
+                y_limits=(-0.2, 1.2),
+                title=(
+                    f"EFIT acceptance — {sum(1 for v in known if v['accepted'])}/{len(known)}"
+                    f" accepted; χ² ≤ {blocks[0]['error']['chi_squared_limit_name']}"
+                    " is a stopping precondition, not a margin"
+                ),
+            )
+        )
+
+    if not panels:
+        raise ValueError("equilibrium ODS carries no convergence information")
+    return Panels(
+        models=tuple(panels),
+        ncols=2,
+        share_x=False,
+        suptitle=_efit_suptitle(ods, "EFIT numerical convergence", times, None),
+    )
+
+
+RECIPES["equilibrium_overview_fit_quality"] = CallableRecipe(
+    builder=_build_equilibrium_fit_quality,
+    description="Reduced chi-square, per-family chi-square share and normalized residuals.",
+)
+RECIPES["equilibrium_overview_convergence"] = CallableRecipe(
+    builder=_build_equilibrium_convergence,
+    description="Grad-Shafranov error against tolerance, iterations, and self-consistency.",
+)
+
+
+RECIPES["equilibrium_overview_constraints"] = CallableRecipe(
+    builder=_build_equilibrium_constraints,
+    description="Magnetic constraints submitted to EFIT, by family and channel state.",
+)
+RECIPES["equilibrium_overview_constraint_coverage"] = CallableRecipe(
+    builder=_build_equilibrium_constraint_coverage,
+    description="Enabled, disabled and missing constraint channels across slices.",
+)
+RECIPES["equilibrium_overview_residuals"] = CallableRecipe(
+    builder=_build_equilibrium_residuals,
+    description="Measured-minus-reconstructed residuals by family, beside convergence.",
+)
+
+
+# ---------------------------------------------------------------------------
+# Linear MHD stability (issue #139)
+# ---------------------------------------------------------------------------
+
+def _build_mhd_linear_energy_perturbed(ods: Any, **options: Any) -> LineSeries:
+    """Perturbed potential energy against time, one trace per toroidal mode.
+
+    ``toroidal_mode`` is an IMAS array of structures whose position is not the
+    mode number -- only ``n_tor`` is -- so the traces are pivoted by ``n_tor``
+    rather than by array index.
+    """
+    count = _count(ods, "mhd_linear.time_slice")
+    if count == 0:
+        raise ValueError("mhd_linear ODS carries no time slices")
+    times = _array(ods, "mhd_linear.time")
+    if times is None or times.size < count:
+        times = np.arange(count, dtype=float)
+    times = np.asarray(times[:count], dtype=float)
+
+    by_mode: dict[int, dict[int, float]] = {}
+    for index in range(count):
+        root = f"mhd_linear.time_slice.{index}.toroidal_mode"
+        for position in range(_count(ods, root)):
+            n_tor = _get(ods, f"{root}.{position}.n_tor")
+            energy = _get(ods, f"{root}.{position}.energy_perturbed")
+            if n_tor is None or energy is None:
+                continue
+            value = _scalar(energy)
+            if not np.isfinite(value):
+                continue
+            by_mode.setdefault(int(n_tor), {})[index] = value
+    if not by_mode:
+        raise ValueError(
+            "mhd_linear ODS carries no perturbed-energy values; only DCON writes "
+            "energy_perturbed, and none was mapped for this shot"
+        )
+
+    series = []
+    for n_tor in sorted(by_mode):
+        samples = by_mode[n_tor]
+        indexes = sorted(samples)
+        series.append(
+            Series(
+                x=times[indexes],
+                y=np.asarray([samples[index] for index in indexes], dtype=float),
+                label=f"n={n_tor}",
+                style={"marker": "."},
+            )
+        )
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    return LineSeries(
+        series=tuple(series),
+        x_label="time",
+        x_unit="s",
+        y_label="perturbed energy $\\delta W$",
+        title=f"Linear MHD stability — shot {pulse} (negative is unstable)",
+    )
+
+
+RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
+    builder=_build_mhd_linear_energy_perturbed,
+    description="DCON perturbed potential energy against time, per toroidal mode.",
+)
+
+
+# ---------------------------------------------------------------------------
+# Eddy-stage vacuum magnetics (issue #139)
+# ---------------------------------------------------------------------------
+
+def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
+    from vaft.omas.vacuum_magnetics import (
+        plasma_onset_time,
+        synthetic_vacuum_magnetics,
+        vacuum_magnetics_metrics,
+    )
+
+    channels = synthetic_vacuum_magnetics(
+        ods,
+        per_family=int(options.get("per_family", 2)),
+        channels=options.get("channels"),
+    )
+    onset = plasma_onset_time(ods)
+    ip_time = _array(ods, "magnetics.ip.0.time")
+    ip_data = _array(ods, "magnetics.ip.0.data")
+    metrics = vacuum_magnetics_metrics(
+        channels,
+        plasma_onset=onset,
+        plasma_current=(
+            None if ip_time is None or ip_data is None else (ip_time, ip_data)
+        ),
+        # The same threshold the residual figure draws its band at, so the
+        # markers and the Delta-t annotations describe the band the reader sees.
+        sigma=float(options.get("sigma", 5.0)),
+    )
+    return channels, metrics
+
+
+def _vacuum_suptitle(ods: Any, metrics: Mapping[str, Any], headline: str) -> str:
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    summary = metrics["summary"]
+    return (
+        f"{headline} — shot {pulse}\n"
+        f"{summary['channel_count']} channels, median eddy improvement "
+        f"{summary['median_improvement']:.2f} (worst {summary['min_improvement']:.2f})"
+    )
+
+
+def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
+    channels, metrics = _vacuum_channels(ods, options)
+    rows = {(row["kind"], row["index"]): row for row in metrics["channels"]}
+    panels = []
+    for channel in channels:
+        row = rows[(channel.kind, channel.index)]
+        panels.append(
+            LineSeries(
+                series=(
+                    Series(x=channel.time, y=channel.measured, label="measured",
+                           style={"lw": 1.8}),
+                    Series(x=channel.time, y=channel.coil, label="coil",
+                           style={"lw": 1.2, "linestyle": "--"}),
+                    Series(x=channel.time, y=channel.coil_eddy, label="coil+eddy",
+                           style={"lw": 1.2}),
+                ),
+                x_label="time",
+                x_unit="s",
+                y_label=channel.unit,
+                title=(
+                    f"{channel.name} [{channel.family}]\n"
+                    f"pre-plasma improvement {row['improvement']:.2f}"
+                ),
+            )
+        )
+    return Panels(
+        models=tuple(panels),
+        ncols=3,
+        share_x=True,
+        suptitle=_vacuum_suptitle(ods, metrics, "Synthetic vacuum magnetics"),
+    )
+
+
+def _onset_marker(time, values, onset: float, label: str, style: Mapping[str, Any]):
+    """A vertical marker at ``onset``, spanning the panel's own value range."""
+    if not np.isfinite(onset):
+        return None
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return None
+    low, high = float(np.min(finite)), float(np.max(finite))
+    if low == high:
+        low, high = low - 1.0, high + 1.0
+    return Series(
+        x=np.array([onset, onset]), y=np.array([low, high]), label=label,
+        style=dict(style),
+    )
+
+
+def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
+    channels, metrics = _vacuum_channels(ods, options)
+    rows = {(row["kind"], row["index"]): row for row in metrics["channels"]}
+    sigma = float(options.get("sigma", 5.0))
+    plasma_onset = float(metrics["plasma_onset"])
+    current_onset = float(metrics["plasma_current_onset"])
+
+    panels: list[Any] = []
+    ip_time = _array(ods, "magnetics.ip.0.time")
+    ip_data = _array(ods, "magnetics.ip.0.data")
+    if ip_time is not None and ip_data is not None:
+        ip_series = [Series(x=ip_time, y=ip_data * 1e-3, label="Ip", style={"lw": 1.8})]
+        marker = _onset_marker(
+            ip_time, ip_data * 1e-3, current_onset, "Ip onset",
+            {"linestyle": "--", "color": "0.35", "lw": 1.0},
+        )
+        if marker is not None:
+            ip_series.append(marker)
+        panels.append(
+            LineSeries(
+                series=tuple(ip_series),
+                x_label="time", x_unit="s", y_label="kA",
+                title=f"Plasma current — onset {current_onset * 1e3:.1f} ms",
+            )
+        )
+
+    for channel in channels:
+        row = rows[(channel.kind, channel.index)]
+        window = channel.time < plasma_onset
+        residual = channel.residual
+        reference = residual[window]
+        baseline = float(np.nanmean(reference)) if reference.size else 0.0
+        noise = float(np.nanstd(reference)) if reference.size else 0.0
+        band = sigma * noise
+        series = [
+            Series(x=channel.time, y=residual, label="residual", style={"lw": 1.4}),
+            Series(
+                x=channel.time,
+                y=np.full(channel.time.size, baseline + band),
+                label=f"±{sigma:g}σ pre-plasma",
+                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+            ),
+            Series(
+                x=channel.time,
+                y=np.full(channel.time.size, baseline - band),
+                label="",
+                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+            ),
+        ]
+        for onset, name, color in (
+            (current_onset, "Ip onset", "0.35"),
+            (row["residual_onset"], "residual onset", "tab:red"),
+        ):
+            marker = _onset_marker(
+                channel.time, residual, onset, name,
+                {"linestyle": "--", "color": color, "lw": 1.0},
+            )
+            if marker is not None:
+                series.append(marker)
+        delta = row["onset_delta"]
+        timing = "no onset" if not np.isfinite(delta) else f"Δt {delta * 1e3:+.1f} ms"
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="time", x_unit="s", y_label=channel.unit,
+                title=f"{channel.name} [{channel.family}]\n{timing}",
+            )
+        )
+
+    return Panels(
+        models=tuple(panels),
+        ncols=3,
+        share_x=True,
+        suptitle=_vacuum_suptitle(ods, metrics, "Plasma residual after coil+eddy"),
+    )
+
+
+RECIPES["magnetics_overview_vacuum"] = CallableRecipe(
+    builder=_build_magnetics_vacuum,
+    description="Measured, coil-only and coil+eddy synthetic magnetics per channel.",
+)
+RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
+    builder=_build_magnetics_plasma_residual,
+    description="Plasma residual left by the coil+eddy synthetic vacuum response.",
 )
 
 

@@ -51,10 +51,12 @@ _EXTRACTION_OPTIONS = frozenset(
         "log_y",
         "max_frequency",
         "max_length_m",
+        "per_family",
         "phi0",
         "quantity",
         "r0",
         "sample_rate",
+        "sigma",
         "shot",
         "show_lcfs",
         "show_magnetic_axis",
@@ -693,6 +695,135 @@ def plot_equilibrium_overview(
     )
 
 
+def plot_equilibrium_overview_constraints(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: the magnetic constraints actually submitted to the solver.
+
+    Shows every channel of every family, with the enabled ones separated from the
+    disabled and the missing, so a dead channel or a wrong weighting is visible
+    before the reconstruction is interpreted. ``time_slice`` selects the slice.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_constraints`.
+    """
+    return render(
+        "equilibrium_overview_constraints", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_equilibrium_overview_constraint_coverage(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: how the fitted channel set changes across time slices.
+
+    Flat lines mean a consistent constraint set; a step is channel/time
+    misalignment.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_constraint_coverage`.
+    """
+    return render(
+        "equilibrium_overview_constraint_coverage",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
+def plot_equilibrium_overview_fit_quality(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: is the fit acceptable against the uncertainties EFIT was given?
+
+    Reduced chi-square against EFIT's own degrees of freedom, which diagnostic
+    family carries the chi-square, and per-channel residuals normalized by the
+    uncertainty implied by EFIT's stored chi-square.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_fit_quality`.
+    """
+    return render(
+        "equilibrium_overview_fit_quality", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_equilibrium_overview_convergence(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: is the solution converged and numerically self-consistent?
+
+    Terminating successfully is not the same as converging: this shows the final
+    Grad-Shafranov error against the tolerance that was requested, the iteration
+    count against its cap, the error history where EFIT wrote one, and EFIT's own
+    outputs checked against each other.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_convergence`.
+    """
+    return render(
+        "equilibrium_overview_convergence", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_equilibrium_overview_residuals(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """EFIT validation: measured-minus-reconstructed residuals by diagnostic family.
+
+    Convergence status is drawn beside the residuals rather than standing in for
+    them: a converged solution with large residuals is still a bad one.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_residuals`.
+    """
+    return render(
+        "equilibrium_overview_residuals", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_time_energy_perturbed(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: DCON perturbed energy per toroidal mode against time.
+
+    Traces are grouped by ``n_tor``, which is the only place the physical mode
+    number lives -- ``toroidal_mode`` array position does not carry it.
+
+    Renders with :func:`vaft.plot.mhd_linear_time_energy_perturbed`.
+    """
+    return render(
+        "mhd_linear_time_energy_perturbed", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_overview_verification(
     source: Any,
     *,
@@ -1196,6 +1327,53 @@ def plot_magnetics_overview_impa(
     Renders with :func:`vaft.plot.magnetics_overview_impa`.
     """
     return render("magnetics_overview_impa", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_magnetics_overview_vacuum(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy validation: measured against coil-only and coil+eddy synthetic magnetics.
+
+    Forward-models the reconstructed vacuum current system at a representative
+    set of B probes and flux loops. ``per_family`` sets how many channels of each
+    family are drawn; ``channels`` selects ``(kind, index)`` pairs explicitly.
+
+    Renders with :func:`vaft.plot.magnetics_overview_vacuum`.
+    """
+    return render(
+        "magnetics_overview_vacuum", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_magnetics_overview_plasma_residual(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy validation: the plasma signal left over after the vacuum response.
+
+    A residual within the pre-plasma noise band before breakdown and emerging
+    coherently at plasma-current onset is what a good eddy reconstruction looks
+    like; a post-breakdown residual is the plasma and is expected.
+
+    Renders with :func:`vaft.plot.magnetics_overview_plasma_residual`.
+    """
+    return render(
+        "magnetics_overview_plasma_residual",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
 
 
 def plot_magnetics_profile_impa_tf(
@@ -1874,6 +2052,11 @@ __all__ = [
     "plot_equilibrium_geometry_boundary",
     "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",
+    "plot_equilibrium_overview_constraint_coverage",
+    "plot_equilibrium_overview_constraints",
+    "plot_equilibrium_overview_convergence",
+    "plot_equilibrium_overview_fit_quality",
+    "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",
     "plot_equilibrium_profile_f",
     "plot_equilibrium_profile_ffprime",
@@ -1903,6 +2086,9 @@ __all__ = [
     "plot_magnetics_geometry_poloidal",
     "plot_magnetics_overview",
     "plot_magnetics_overview_impa",
+    "plot_magnetics_overview_plasma_residual",
+    "plot_magnetics_overview_vacuum",
+    "plot_mhd_linear_time_energy_perturbed",
     "plot_magnetics_profile_impa_tf",
     "plot_magnetics_time_impa_field",
     "plot_magnetics_time_impa_voltage",

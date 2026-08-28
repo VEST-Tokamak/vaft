@@ -28,11 +28,18 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "electromagnetics_time_current",
     "equilibrium_overview",
+    "equilibrium_overview_constraint_coverage",
+    "equilibrium_overview_constraints",
+    "equilibrium_overview_convergence",
+    "equilibrium_overview_fit_quality",
+    "equilibrium_overview_residuals",
     "equilibrium_overview_verification",
     "equilibrium_time_virial",
     "interferometer_overview",
     "magnetics_overview",
     "magnetics_overview_impa",
+    "magnetics_overview_plasma_residual",
+    "magnetics_overview_vacuum",
     "magnetics_time_limiter_current",
     "render_panels",
     "soft_x_rays_overview",
@@ -302,6 +309,58 @@ def magnetics_time_limiter_current(
     return render_panels(model, ax=ax, show=show, **style)
 
 
+_VACUUM_IDS = ("magnetics", "pf_active", "pf_passive")
+#: The reconstructed vacuum current system is what these two validate, so the
+#: coil and passive-loop currents are the hard requirement; which magnetic
+#: observables are available varies by shot and is resolved by the adapter.
+_VACUUM_REQUIRED = (
+    "pf_active.coil.{i}.current.data",
+    "pf_passive.loop.{i}.current",
+)
+_VACUUM_OPTIONAL = (
+    "magnetics.b_field_pol_probe.{i}.field.data",
+    "magnetics.flux_loop.{i}.flux.data",
+)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    view="overview",
+    quantity="vacuum",
+    description=(
+        "Measured, coil-only and coil+eddy synthetic magnetics per channel: "
+        "the forward-modeled validation of an eddy-current reconstruction."
+    ),
+    ids=_VACUUM_IDS,
+    required_paths=_VACUUM_REQUIRED,
+    optional_paths=_VACUUM_OPTIONAL,
+)
+def magnetics_overview_vacuum(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Measured against coil-only and coil+eddy synthetic vacuum magnetics."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    view="overview",
+    quantity="plasma_residual",
+    description=(
+        "Residual of measured minus coil+eddy synthetic magnetics against the "
+        "pre-plasma noise band, with the plasma-current and residual onsets."
+    ),
+    ids=_VACUUM_IDS,
+    required_paths=_VACUUM_REQUIRED + ("magnetics.ip.{i}.data",),
+    optional_paths=_VACUUM_OPTIONAL,
+)
+def magnetics_overview_plasma_residual(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Plasma-signal residual left by the coil+eddy synthetic vacuum response."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
 @_panel_renderer(
     domain="equilibrium", view="overview", quantity="analysis",
     description="Equilibrium analysis overview: global quantities plus poloidal geometry.",
@@ -312,6 +371,130 @@ def equilibrium_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Equilibrium analysis overview panels."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+_CONSTRAINT_IDS = ("equilibrium",)
+_CONSTRAINT_SUBMITTED = (
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
+)
+_CONSTRAINT_OPTIONAL = (
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.ip.measured",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
+    "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="constraints",
+    description=(
+        "Magnetic constraints as submitted to EFIT, per family, with enabled, "
+        "disabled and missing channels distinguished."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=_CONSTRAINT_SUBMITTED,
+    optional_paths=_CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_constraints(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Magnetic constraints submitted to EFIT, by family and channel state."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="constraint_coverage",
+    description=(
+        "Enabled, disabled and missing constraint channels per family across "
+        "the reconstructed time slices."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=_CONSTRAINT_SUBMITTED,
+    optional_paths=_CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_constraint_coverage(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Constraint channel coverage across the reconstructed time slices."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="residuals",
+    description=(
+        "Measured-minus-reconstructed residuals by diagnostic family, with the "
+        "solver's convergence context beside them rather than in place of them."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.reconstructed",
+    ),
+    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_residuals(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT reconstruction residuals by diagnostic family."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="fit_quality",
+    description=(
+        "EFIT goodness of fit: reduced chi-square against the degrees of freedom "
+        "EFIT itself reports, which diagnostic family carries the chi-square, and "
+        "residuals normalized by the uncertainty EFIT was given."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+    ),
+    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_fit_quality(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT goodness of fit against the uncertainties it was given."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    view="overview",
+    quantity="convergence",
+    description=(
+        "EFIT numerical convergence: final Grad-Shafranov error against the "
+        "requested tolerance, iteration count against its cap, the error history "
+        "where one was written, and EFIT's outputs checked against each other."
+    ),
+    ids=_CONSTRAINT_IDS,
+    # Only a reconstructed slice is required. The convergence node is written by
+    # the m-file mapper and the verdict by the a-file, so requiring either would
+    # fail the whole EFIT stage over one absent optional artifact when the figure
+    # can still draw iterations, self-consistency and what it does have. The
+    # builder raises when *nothing* is available, which is the real failure.
+    required_paths=("equilibrium.time_slice.{i}.time",),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+        "equilibrium.time_slice.{i}.convergence.iterations_n",
+    )
+    + _CONSTRAINT_SUBMITTED
+    + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_convergence(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT numerical-convergence and self-consistency overview."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

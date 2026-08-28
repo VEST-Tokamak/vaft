@@ -59,7 +59,11 @@ _LOG_OWNER = {
     "generate_kfile": ("efit", None),
     "run_efit": ("efit", None),
     "generate_efit_ods": ("omas", "efit"),
-    "generate_efit_verification_plot": ("efit", None),
+    "plot_raw": ("raw", None),
+    "plot_diagnostics": ("omas", "diagnostics"),
+    "plot_eddy": ("omas", "eddy"),
+    "plot_mhd_linear": ("omas", "mhd_linear"),
+    "plot_efit": ("efit", None),
     "run_chease": ("chease", None),
     "generate_chease_ods": ("omas", "chease"),
     "run_gpec_suite": ("omas", "mhd_linear"),
@@ -161,11 +165,6 @@ class PipelinePaths:
             return str(self._shot_dir(shot, "omas") / f"{shot}_efit.json")
         return str(self._omas("efit", shot, "output") / "efit.json")
 
-    def efit_verification_plot(self, shot) -> str:
-        if self.layout == SHOT_FIRST:
-            return str(self._shot_dir(shot, "efit") / "metadata" / "verification.png")
-        return str(self._filedb.efit(shot, artifact="metadata") / "verification.png")
-
     def chease_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_chease.json")
@@ -258,6 +257,72 @@ class PipelinePaths:
                 self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json"
             )
         return str(self._omas("mhd_linear", shot, "metadata") / "manifest.json")
+
+    # -- validation plots ---------------------------------------------------
+    # Validation plots are a canonical FileDB artifact class (issue #139) and
+    # have no legacy shot-first equivalent, so they are only resolvable under
+    # the `filedb` layout -- as with `gpec_workdir`, asking for one in the
+    # legacy layout is a configuration error rather than a silent fallback.
+    def _require_filedb(self, product: str) -> None:
+        if self.layout != FILEDB:
+            raise ValueError(
+                f"{product} is a canonical FileDB artifact and has no "
+                f"{SHOT_FIRST!r} equivalent; set layout: {FILEDB} in config.yaml"
+            )
+
+    def stage_plot(self, shot, stage: str, filename: str) -> str:
+        """One validation plot under ``omas/{stage}/{shot}/plot/``."""
+        self._require_filedb("stage_plot")
+        return str(self._omas(stage, shot, "plot") / filename)
+
+    def stage_plot_manifest(self, shot, stage: str) -> str:
+        self._require_filedb("stage_plot_manifest")
+        return str(self._omas(stage, shot, "metadata") / "plot_manifest.json")
+
+    def static_plot(self, machine_version, filename: str) -> str:
+        """One validation plot for a machine era's static ODS."""
+        self._require_filedb("static_plot")
+        directory = self._filedb.omas(
+            "static", machine_version=str(machine_version), artifact="plot"
+        )
+        return str(directory / filename)
+
+    def static_plot_manifest(self, machine_version) -> str:
+        self._require_filedb("static_plot_manifest")
+        directory = self._filedb.omas(
+            "static", machine_version=str(machine_version), artifact="metadata"
+        )
+        return str(directory / "plot_manifest.json")
+
+    def raw_plot(self, shot, filename: str) -> str:
+        """One raw-acquisition QA plot.
+
+        Unlike the flat `raw/{shot}` archive itself, QA figures are a derived
+        artifact and use the canonical `plot` class.
+        """
+        self._require_filedb("raw_plot")
+        return str(self._filedb.resolve("raw", shot=shot) / "plot" / filename)
+
+    def raw_plot_manifest(self, shot) -> str:
+        self._require_filedb("raw_plot_manifest")
+        return str(self._filedb.resolve("raw", shot=shot) / "plot" / "plot_manifest.json")
+
+    def code_plot(self, shot, domain: str, filename: str) -> str:
+        """One validation plot under ``efit/{shot}/plot`` or ``chease/{shot}/plot``."""
+        self._require_filedb("code_plot")
+        return str(self._filedb.resolve(domain, shot=shot, artifact="plot") / filename)
+
+    def code_plot_dir(self, shot, domain: str) -> str:
+        self._require_filedb("code_plot_dir")
+        return str(self._filedb.resolve(domain, shot=shot, artifact="plot"))
+
+    def chease_plot_manifest(self, shot) -> str:
+        """Manifest of the per-time-slice CHEASE comparison figures."""
+        self._require_filedb("chease_plot_manifest")
+        return str(
+            self._filedb.chease(shot, artifact="plot")
+            / "plot_refined_gfiles_generated.txt"
+        )
 
     # -- batch-level and per-shot ancillary ---------------------------------
     def log(self, shot, name: str) -> str:

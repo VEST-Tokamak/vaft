@@ -60,9 +60,6 @@ def test_shot_first_reproduces_the_legacy_literal_paths():
         == f"{BASE_DIR}/{SHOT}/efit/artifact_manifest.json"
     )
     assert paths.efit_ods(SHOT) == f"{BASE_DIR}/{SHOT}/omas/{SHOT}_efit.json"
-    assert paths.efit_verification_plot(SHOT) == (
-        f"{BASE_DIR}/{SHOT}/efit/metadata/verification.png"
-    )
     assert (
         paths.chease_refined(SHOT)
         == f"{BASE_DIR}/{SHOT}/chease/refined_gfiles_generated.txt"
@@ -108,8 +105,11 @@ def test_filedb_layout_matches_the_canonical_resolver():
     assert paths.efit_ods(SHOT) == str(
         filedb.omas("efit", shot=SHOT, artifact="output") / "efit.json"
     )
-    assert paths.efit_verification_plot(SHOT) == str(
-        filedb.efit(SHOT, artifact="metadata") / "verification.png"
+    # Issue #139: validation plots are a canonical `plot/` artifact, resolved
+    # beside the stage output they validate.
+    assert paths.stage_plot(SHOT, "efit", "equilibrium_overview_verification.png") == str(
+        filedb.omas("efit", shot=SHOT, artifact="plot")
+        / "equilibrium_overview_verification.png"
     )
     assert paths.chease_ods(SHOT) == str(
         filedb.omas("chease", shot=SHOT, artifact="output") / "chease.json"

@@ -226,13 +226,25 @@ class MEQDSK:
                 ods[f"{root}.grad_shafranov_deviation_expression.index"] = 3
                 ods[f"{root}.grad_shafranov_deviation_expression.name"] = "max_absolute_psi_residual"
                 ods[f"{root}.grad_shafranov_deviation_value"] = float(errors[-1])
+        # EFIT's own degrees of freedom, when the k-file's `auxquantities` block
+        # has already been mapped for this slice: `num_input_data` less the free
+        # parameters and the hard constraints. `1` was a placeholder that made
+        # `chi_squared_reduced` equal to the raw total.
+        aux = f"equilibrium.code.parameters.time_slice.{time_index}.auxquantities"
+        degrees_of_freedom = 1
+        try:
+            degrees_of_freedom = max(1, int(ods[f"{aux}.degrees_of_freedom"]))
+        except Exception:
+            pass
         for name in ("chitot", "chifin", "cchisq"):
             value = self._at(name, time_index_efit)
             if value is not None:
                 array = np.asarray(value, dtype=float).reshape(-1)
                 if array.size:
-                    ods[f"{constraints}.chi_squared_reduced"] = float(array[-1])
-                    ods[f"{constraints}.freedom_degrees_n"] = 1
+                    ods[f"{constraints}.chi_squared_reduced"] = (
+                        float(array[-1]) / degrees_of_freedom
+                    )
+                    ods[f"{constraints}.freedom_degrees_n"] = degrees_of_freedom
                     break
 
         coil_variables = (
