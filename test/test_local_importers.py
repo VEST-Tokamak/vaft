@@ -9,7 +9,7 @@ import vaft.database._local as _local_io
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"
 GFILE = DATA / "efit" / "g039915.00317"
 GFILES = [DATA / "efit" / "g039915.00317", DATA / "efit" / "g039915.00319"]
-IMAS_NC = DATA / "imas" / "vest_imas_3.40.1.nc"
+IMAS_NC = DATA / "samples" / "39915" / "imas.nc"
 
 
 def test_omas_load_detects_single_and_multiple_geqdsk():

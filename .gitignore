@@ -26,6 +26,9 @@ workflow/**/*.log
 .claude/settings.local.json
 .cursor/*.log
 
+# AppleDouble sidecars created when this SSD worktree is on ExFAT.
+._*
+
 # Local VFIT MATLAB exports and scratch summary workbooks (large, not packaged)
 /vaft/data/vfit/
 /sample_equilibrium_global_history.xlsx

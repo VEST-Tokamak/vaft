@@ -1,0 +1,86 @@
+schema_version: 1
+reference_id: vest-41672-legacy-full-imas-v1
+shot: 41672
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: git-blob
+  git_commit: 15ca8403b8fef978e75cd82a2cbb566644ef4403
+  git_path: vaft/data/omas/41672.json
+  git_blob: 3996f30fcbdccfcbb3cca4fe82f3b555efdd1262
+  sha256: 563f5cf8046b6ff9eaeaa4fb1820df2cd65660d0e60635ea50778c857a6fa75d
+representations:
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: repository-only
+    compatible_adapters:
+    - imas
+    - omas
+    size: 19748609
+    sha256: f2be4c51e559ed4c2262cc8f58c036ba55ec7ff8fe109711187d0a05f2b283c9
+generation:
+  command: python workflow/reference_validation/generate_legacy_imas_sample.py --manifest
+    vaft/data/samples/41672/manifest.yaml
+  materialized_leaves: 82234
+  normalizations:
+  - add em_coupling.active_coils and em_coupling.passive_loops coordinate URIs
+  - remove non-IMAS equilibrium.code.parameters cache metadata
+  - materialize barometry.time from its homogeneous pressure coordinate
+  - relabel magnetics.b_field_pol_probe poloidal_angle from -Bz to +Bz
+  related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+semantic_comparison:
+  paths:
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  exclude_paths:
+  - '*.ids_properties.version_put*'
+  - '*.ids_properties.occurrence'
+  - '*.ids_properties.homogeneous_time'
+acceptance:
+  equilibrium_times:
+  - 0.315
+  - 0.316
+  - 0.317
+  - 0.318
+  - 0.319
+  - 0.32
+  - 0.321
+  - 0.322
+  - 0.323
+  - 0.324
+  - 0.325
+  - 0.326
+  - 0.327
+  - 0.328
+  - 0.329
+  - 0.33
+  - 0.331
+  - 0.332
+  - 0.333
+  - 0.334
+  - 0.335
+  - 0.336
+  - 0.337
+  - 0.338
+  - 0.339
+  - 0.34
+  - 0.341
+  - 0.342
+  - 0.343
+  - 0.344
+  - 0.345
+  - 0.346
+  - 0.347
+  - 0.348
+  - 0.349
+  - 0.35
+packaging_policy:
+  manifest: wheel-and-sdist
+  artifact: repository-only

@@ -1,0 +1,55 @@
+schema_version: 1
+reference_id: vest-41524-legacy-full-imas-v1
+shot: 41524
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: git-blob
+  git_commit: 15ca8403b8fef978e75cd82a2cbb566644ef4403
+  git_path: vaft/data/omas/41524.json
+  git_blob: 96008b633e7b69eb6bba5366c16bf478d77fdffd
+  sha256: cb709f674782e1aceb42be7bd69117f4ffd0267100a196c28ec33f827ab8f6af
+representations:
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: repository-only
+    compatible_adapters:
+    - imas
+    - omas
+    size: 21464343
+    sha256: b5d382ab2e2efcb3e739ab6212f8852c60c6c0ff6b5b24f195aba0db6a4db8b0
+generation:
+  command: python workflow/reference_validation/generate_legacy_imas_sample.py --manifest
+    vaft/data/samples/41524/manifest.yaml
+  materialized_leaves: 62097
+  normalizations:
+  - add em_coupling.active_coils and em_coupling.passive_loops coordinate URIs
+  - remove non-IMAS equilibrium.code.parameters cache metadata
+  - materialize coils_non_axisymmetric.time from its homogeneous current coordinate
+  - relabel magnetics.b_field_pol_probe poloidal_angle from -Bz to +Bz
+  related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+semantic_comparison:
+  paths:
+  - wall.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  - coils_non_axisymmetric.*
+  exclude_paths:
+  - '*.ids_properties.version_put*'
+  - '*.ids_properties.occurrence'
+  - '*.ids_properties.homogeneous_time'
+acceptance:
+  equilibrium_times:
+  - 0.328
+  - 0.329
+  - 0.332
+  - 0.333
+packaging_policy:
+  manifest: wheel-and-sdist
+  artifact: repository-only

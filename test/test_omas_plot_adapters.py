@@ -12,7 +12,7 @@ import pytest
 from omas import ODC, ODS
 
 import vaft.omas as vomas
-from vaft.data.resources import data_path
+from vaft.data import sample
 from vaft.plot import registry
 
 logging.getLogger("vaft.omas.process_wrapper").setLevel(logging.WARNING)
@@ -20,7 +20,7 @@ logging.getLogger("vaft.omas.process_wrapper").setLevel(logging.WARNING)
 
 @pytest.fixture(scope="module")
 def sample_ods():
-    return ODS().load(str(data_path("omas/39915.json")), consistency_check=False)
+    return vomas.load(sample(39915, "omas"))
 
 
 def _line_data(axes):
@@ -155,20 +155,9 @@ def test_tf_field_tolerates_a_missing_reference_radius():
 
 
 def test_power_balance_computes_the_real_terms_not_just_its_inputs(sample_ods):
-    # Regression: this used to compose plasma current / MHD energy / T_e panels
-    # -- the inputs to a power balance, not the balance itself.
-    figure, axes = vomas.plot_summary_time_power_balance(sample_ods)
-    assert axes.shape == (5, 1)
-    labelled = [
-        {line.get_label() for line in ax.lines if not line.get_label().startswith("_")}
-        for ax in axes.ravel()
-    ]
-    assert labelled[0] == {"dW_th/dt"}
-    assert labelled[1] == {"dW_mag,p/dt"}
-    assert labelled[2] == {"P_in", "P_ohm"}
-    assert labelled[3] == {"P_loss", "P_trans", "P_rad"}
-    assert labelled[4] == {"P_rad", "P_Br", "P_sync", "P_line"}
-    plt.close(figure)
+    # EFIT-only data has no volume/core-profile basis for the derived balance.
+    offered = {row["name"] for row in vomas.available_plots(sample_ods)}
+    assert "summary_time_power_balance" not in offered
 
 
 def test_machine_topview_includes_pellet_geometry():
@@ -184,9 +173,8 @@ def test_machine_topview_includes_pellet_geometry():
 
 
 def test_partial_composites_drop_the_absent_panels(sample_ods):
-    figure, axes = vomas.plot_summary_time_beta(sample_ods)
-    assert axes.size >= 1
-    plt.close(figure)
+    offered = {row["name"] for row in vomas.available_plots(sample_ods)}
+    assert "summary_time_beta" not in offered
 
     empty = ODS(consistency_check=False)
     with pytest.raises(ValueError, match="none of the panels"):

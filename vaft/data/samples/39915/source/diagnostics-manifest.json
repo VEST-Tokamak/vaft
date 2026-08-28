@@ -1,0 +1,141 @@
+{
+  "channel_status": {
+    "barometry": {
+      "status": "success"
+    },
+    "impa": {
+      "calibration_status": "invalid",
+      "calibration_window": {
+        "candidate_intervals": 3.0,
+        "duration": 0.14752,
+        "end_time": 0.28144,
+        "ip_peak": 1886.294943056549,
+        "n_samples": 3689,
+        "pf_current_peak": 498.6278041600938,
+        "start_time": 0.13392,
+        "tf_current_mean": 11587.530926622727,
+        "tf_current_peak": 12738.16670687527,
+        "tf_current_threshold": 6369.083353437635,
+        "tf_dynamic_range": 0.49989449505471467
+      },
+      "checks": {
+        "bz_sensors": "warning",
+        "calibration_window": "valid",
+        "channel_signals": "valid",
+        "channels_present": "valid",
+        "compensated_signal": "valid",
+        "geometry": "invalid",
+        "tf_coupling": "invalid",
+        "time_axis": "valid"
+      },
+      "geometry_method": "tf_profile_fit",
+      "geometry_nrmse": 342.2594161203272,
+      "missing_channels": [],
+      "r0": 0.8999999999999999,
+      "reasons": [
+        "fitted IMPA radii fall outside the physical bounds [0.1, 0.9] m",
+        "the geometry fit saturated at a parameter bound",
+        "geometry fit residual is 34225.9% of the signal spread, above the 15.0% tolerance",
+        "TF coupling departs from a toroidally aligned probe (|alpha| - 1 > 0.15) on channels [0, 1, 2, 3, 4, 5, 6, 7]",
+        "TF coupling residuals exceed the configured tolerance on at least one channel",
+        "the toroidal field does not explain the Bz sensor signal on channels [2, 3, 4, 5, 6, 7]; those sensors may be inactive",
+        "Required VEST raw signal is unavailable for shot 39915, field 122 (raw IMPA Bz voltage (IMPA Bz 01)): the data source returned no waveform. Verify that the raw archive contains this field or that the VEST SQL service returned data.",
+        "Required VEST raw signal is unavailable for shot 39915, field 123 (raw IMPA Bz voltage (IMPA Bz 02)): the data source returned no waveform. Verify that the raw archive contains this field or that the VEST SQL service returned data."
+      ],
+      "status": "partial"
+    },
+    "magnetics": {
+      "missing_channels": [
+        179,
+        207,
+        209,
+        241
+      ],
+      "processing": "VestMagneticsProcessingConfig",
+      "status": "partial"
+    },
+    "pf_active": {
+      "disabled_channels": [
+        "PF2",
+        "PF3",
+        "PF4",
+        "PF7",
+        "PF8"
+      ],
+      "status": "success"
+    },
+    "spectrometer_uv": {
+      "status": "success"
+    },
+    "tf": {
+      "status": "success"
+    }
+  },
+  "configuration": {
+    "dt": 4e-05,
+    "run": 1,
+    "tend": 0.36,
+    "tstart": 0.26,
+    "vest_magnetics_processing": {
+      "calibration_mode": "divide",
+      "default_index_end": 8500,
+      "default_index_start": 6000,
+      "default_probe_baseline_end": 8500,
+      "fast_sample_rate": 250000.0,
+      "flux_baseline_first_end": 5000,
+      "flux_baseline_first_start": 3499,
+      "flux_baseline_late_end": 7000,
+      "flux_baseline_late_loop_numbers": [
+        9,
+        10,
+        11
+      ],
+      "flux_baseline_late_start": 5999,
+      "flux_baseline_second_end": 15000,
+      "flux_baseline_second_start": 11999,
+      "flux_output_per_radian": true,
+      "late_index_end": 9000,
+      "late_index_start": 6500,
+      "late_probe_baseline_end": 5000,
+      "late_shot_min": 41660,
+      "lowpass_cutoff": 2500.0,
+      "lowpass_taps": 251,
+      "sample_count": 25000,
+      "time_end": 0.99996,
+      "time_start": 0.0,
+      "transient_shot_max": 41451,
+      "transient_shot_min": 41446
+    }
+  },
+  "input": {
+    "raw_sha256": "a4dbfab14d5b5906f1bdde01a73d61b4fd48ff2574c9724a51befc106738b62e",
+    "static_sha256": "f5f60dde67e4791e3b503e78fe7f4983cb39e2fbdeaef0b24d1c71e0d36f055c"
+  },
+  "machine_version": "vest-pre-43017-pf1906",
+  "output": {
+    "name": "diagnostics.json",
+    "sha256": "2593d348a124b880f21335e6ce84a99ebf44532dfbfd1ee5e148cc5bc03f5798"
+  },
+  "quality_summary": {
+    "disabled": [
+      "PF2",
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+    ],
+    "missing": [
+      "magnetics:field-179",
+      "magnetics:field-207",
+      "magnetics:field-209",
+      "magnetics:field-241"
+    ],
+    "rejected": [],
+    "repaired": [],
+    "unavailable": []
+  },
+  "schema_version": 1,
+  "shot": 39915,
+  "stage": "diagnostics",
+  "status": "partial"
+}

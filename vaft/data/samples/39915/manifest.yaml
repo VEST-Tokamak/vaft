@@ -1,0 +1,140 @@
+schema_version: 1
+reference_id: vest-39915-until-efit-v1
+shot: 39915
+machine: VEST
+imas_dd_version: 3.41.0
+pipeline:
+  scope:
+  - static
+  - diagnostics
+  - eddy
+  - constraints
+  - efit
+  excluded_stages:
+  - chease
+  - dcon
+  - rdcon
+  - stride
+  - gpec
+  vaft_commit: 15ca8403b8fef978e75cd82a2cbb566644ef4403
+  config: source/pipeline-config.yaml
+  config_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+  raw_source: source/vest_39915_daq_raw.json.gz
+  raw_sha256: 8fee4f1a2eb8a107b59c7d65701a0fe3590a4259f2c811d524a8eb2552b437b6
+  eddy_stage_sha256: 3ec2a6f1871d01d8de527f09b6f9fedb1cdc2c2f343c58ec94cf32f8818738bd
+  efit_stage_sha256: 8d9009a7b2bacce7ddbaab5d6dd24a3632e671d5c70d7eb63977548a627cb858
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: d2563bdf7c027e06c1769d543fe85d49d929eb6c994e1fef98c593e3ba18abf1
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: 1a7fa861aa7701ba7a4bf84b44e3ee81193d9007de886aa86b3f17adc0215984
+  efit:
+    executable_sha256: 843758640d89a857b9529d827903a09bb23a4d4ad1b9144b5ef0b392f0792ca7
+    table: '129'
+    status: completed
+  stage_status:
+    diagnostics: partial
+    eddy: success
+    efit: completed
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: wheel-and-sdist
+    compatible_adapters:
+    - omas
+    - imas
+    size: 854035
+    sha256: 45075b8ec6f1b68a432e371259b80f0a15e0ef0cffd211a33c161a71b59cf1f8
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: wheel-and-sdist
+    compatible_adapters:
+    - imas
+    - omas
+    size: 1263882
+    sha256: 9bef1c8ba542cd67681230a2830b1fd053a675b17e06336bf64967d628cb442e
+generation:
+  command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
+    vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: e9a878659200d9823fa7ea1983a0eee35d725b602992beca750713095ad01541
+  canonical_policy: repository-only
+  equilibrium_time_slices: 3
+  materialized_leaves: 2427
+  metadata_corrections:
+  - issue: https://github.com/VEST-Tokamak/vaft/issues/169
+    path: magnetics.b_field_pol_probe.*.poloidal_angle
+    from_direction: -Bz
+    to_direction: +Bz
+    value_radians: 1.5707963267948966
+  selectors:
+  - dataset_description.*
+  - wall.*
+  - barometry.*
+  - tf.*
+  - pf_active.ids_properties.*
+  - pf_active.time
+  - pf_active.coil.0.*
+  - pf_active.coil.1.*
+  - pf_active.coil.2.*
+  - pf_active.coil.3.*
+  - pf_active.coil.4.*
+  - magnetics.ids_properties.*
+  - magnetics.time
+  - magnetics.ip.0.*
+  - magnetics.flux_loop.0.*
+  - magnetics.diamagnetic_flux.0.*
+  - magnetics.b_field_pol_probe.1.*
+  - spectrometer_uv.ids_properties.*
+  - spectrometer_uv.time
+  - spectrometer_uv.channel.0.*
+  - pf_passive.ids_properties.*
+  - pf_passive.time
+  - pf_passive.loop.0.*
+  - em_coupling.ids_properties.*
+  - em_coupling.active_coils
+  - em_coupling.passive_loops
+  - em_coupling.mutual_active_active
+  - em_coupling.mutual_passive_active
+  - equilibrium.ids_properties.*
+  - equilibrium.time
+  - equilibrium.vacuum_toroidal_field.*
+  - equilibrium.time_slice.0.*
+  - equilibrium.time_slice.1.*
+  - equilibrium.time_slice.2.*
+semantic_comparison:
+  paths:
+  - wall.*
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  exclude_paths:
+  - '*.ids_properties.version_put*'
+  - '*.ids_properties.occurrence'
+  - '*.ids_properties.homogeneous_time'
+acceptance:
+  equilibrium_times:
+  - 0.316
+  - 0.317
+  - 0.318
+  required_ids:
+  - wall
+  - barometry
+  - tf
+  - pf_active
+  - magnetics
+  - spectrometer_uv
+  - pf_passive
+  - em_coupling
+  - equilibrium
+packaging_policy:
+  compact_pair: wheel-and-sdist
+  canonical_source: repository-only
+  raw_source: repository-only
+  future_large_goldens: repository-only

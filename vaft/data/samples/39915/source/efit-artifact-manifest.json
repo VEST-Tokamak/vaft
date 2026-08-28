@@ -1,0 +1,322 @@
+{
+  "cases": {
+    "039915.00308": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00308",
+        "sha256": "06df2a90ed03ada785f8881d19ef10bd94b67fc15539b4095d92492d6609a9c7",
+        "size": 24113
+      }
+    },
+    "039915.00309": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00309",
+        "sha256": "73bb47df5f1a1128afa86be8fe1f0dd809f3cccfa9bf77040c9efa32552fdecd",
+        "size": 24193
+      }
+    },
+    "039915.00310": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00310",
+        "sha256": "5268a1b355cfaa694e154257430d5b9ee248104d1e6543d7e46daf0fb8a38363",
+        "size": 24168
+      }
+    },
+    "039915.00311": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00311",
+        "sha256": "bf519389ff8b1bfb6a6d3277189648f38a9ee5f8c2faa9116f88c2d884617567",
+        "size": 24139
+      }
+    },
+    "039915.00312": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00312",
+        "sha256": "b897d45bfc1f035d1cc1579c4133f5404d446d16812abfdba725bacaedc21471",
+        "size": 24193
+      }
+    },
+    "039915.00313": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00313",
+        "sha256": "8d6e38fb6abc03b64df3c6ad2f46901f10b05b48a520d88410a57eb52d0aa21f",
+        "size": 24205
+      }
+    },
+    "039915.00314": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00314",
+        "sha256": "c673c063cff47d5457ec2f3a23cd99c356216daa6d61b4ffe46369e872b874c1",
+        "size": 24151
+      }
+    },
+    "039915.00315": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00315",
+        "sha256": "1751dd155cf582659836f65e1e024b82f6be3280a879552ccb585250179c7d3d",
+        "size": 24173
+      }
+    },
+    "039915.00316": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00316",
+        "sha256": "26d6563fc1b88406b89ad5f3e9c653341dd9d36132483bb81ea88b5d939064fc",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00316",
+        "sha256": "284f57cf661641ae5c037039b675d70da195b66d8c60eb59f6bd418add047092",
+        "size": 304831
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00316",
+        "sha256": "a65725475812f255852c6d1b43a7e7add2954cf6c54794063cd4652b4113acb7",
+        "size": 24165
+      }
+    },
+    "039915.00317": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00317",
+        "sha256": "6e334438642793001e0c4f79680a174f188763097f13ee0fc74b13d70c619e02",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00317",
+        "sha256": "12aca7b1dbf5c1b2b670914787ce1ebca8254e6f101a8a7237a3cf75ed9cd279",
+        "size": 304042
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00317",
+        "sha256": "10c592e6c2c11245dbdb908793eb8d5b341e860e898cd947430787a392420fdb",
+        "size": 24187
+      }
+    },
+    "039915.00318": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00318",
+        "sha256": "0a70c6e5bab74cec0a3e6cf7499fdf4515900c62eff553fdf059052df3716da2",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00318",
+        "sha256": "615e74ae19f52175ab89360e4488b2cfc3b3450cd0b7a8658d2cca5d6c3386bd",
+        "size": 303665
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00318",
+        "sha256": "e3c4612aa03590d98b81671c7d0e32d7dcb75a85efb6189b319cfdf48722dc00",
+        "size": 24048
+      }
+    },
+    "039915.00319": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00319",
+        "sha256": "051fb42547e7711a6e82e365b6c72fdf07893042b352555629a799905d1b26fc",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00319",
+        "sha256": "adb3b4f9ec76c5d78549faadfc0a27b30fd0026048208d2a866cc5a74388fd33",
+        "size": 303300
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00319",
+        "sha256": "90b8e44f520d75b8f24ddf471707d3dd8376a5ae2bf61a4a934c71c79fe1c46c",
+        "size": 24048
+      }
+    },
+    "039915.00320": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00320",
+        "sha256": "f618554e040316ad6d1c1b5cea8a37b7675bc1b3ba1a20249ae6ded1e3534430",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00320",
+        "sha256": "99190b46e6a09dcd0668d495ff07acc74bda38135d2bf82477174d82175ff7cd",
+        "size": 302963
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00320",
+        "sha256": "831fdd964763a6fb1e5ef76c228bc0cba8726a932544234fdc7fccaf17e9df9a",
+        "size": 24219
+      }
+    },
+    "039915.00321": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00321",
+        "sha256": "1eba4e0ad5444443a7283aeac67f524f0137543253170cef249e5f846d5987f2",
+        "size": 24146
+      }
+    },
+    "039915.00322": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00322",
+        "sha256": "38a49383bbda9c7947013c7d370fb39dee8fcba5ff04375597e0771ab97fff7e",
+        "size": 24154
+      }
+    },
+    "039915.00323": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00323",
+        "sha256": "9ca5d96aa2ea37dc94252302c9e8c168c6bb2e560144fedb28c19e60c39f9a3c",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00323",
+        "sha256": "9ea3bbd75c9dcf7652d1fbf198e0b4d673f7f0e4d8d0af1b2c1d82a8fdb9690f",
+        "size": 301454
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00323",
+        "sha256": "99a1c816ae6553aefb74cffa67674da350c9cb1d3e18945eae9a4804496d42ef",
+        "size": 24223
+      }
+    },
+    "039915.00324": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00324",
+        "sha256": "74ec360d316c4aade1b5dce9c8e77a043ce63e11b2d1dc14f45b592b30e09f2d",
+        "size": 24316
+      }
+    },
+    "039915.00325": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00325",
+        "sha256": "2cd83136af097f91c0a37c195f14d4070481c7c8b944a20738b70a66c16c6b47",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00325",
+        "sha256": "14e293218949b7bb3f389921af1e54b0453c19ed47dd8eaf972770acb4e4fa85",
+        "size": 300518
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00325",
+        "sha256": "75874a1010f917750cb3968ba78bef9fd6eb77d37f45bada48c8e4561cf2083a",
+        "size": 24985
+      }
+    },
+    "039915.00326": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00326",
+        "sha256": "21d3fbaa5752354b1dadec17c548b2bc1c0b549808ddd1b75cc5fa40f42fde99",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00326",
+        "sha256": "7589cca1fec5ff02704d227fb49d47d529b49ea0956ec499b82982ad14ee6e4f",
+        "size": 299985
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00326",
+        "sha256": "ff3e0fda5b6e16cc04d43fbe499eda198e789b66c4d858718949cd37dac346ef",
+        "size": 25068
+      }
+    },
+    "039915.00327": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00327",
+        "sha256": "d77ff7e5ec35674e2de1a3759f91d500e930abdf5bd3950d6633fa74b323b88a",
+        "size": 25180
+      }
+    },
+    "039915.00328": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00328",
+        "sha256": "a40237bfe7a7a784e8564f1b09570ac26139ca68a242e633c6c9b977259528e5",
+        "size": 25035
+      }
+    },
+    "039915.00329": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00329",
+        "sha256": "a520e268227d78e430711353495a63c431af8a36802e5d3f8b9b006aa40d73d9",
+        "size": 24957
+      }
+    },
+    "039915.00330": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00330",
+        "sha256": "6299a91fc1218ad9985f65a8e8b8ebffb2aadf19ee839bb8d0f70fb824187570",
+        "size": 24975
+      }
+    },
+    "039915.00331": {
+      "afile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/afile/a039915.00331",
+        "sha256": "482f4a0400e155f8083a570a4391e88af868b0dcf9d44c85769b5d6c2cf37b83",
+        "size": 3983
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/gfile/g039915.00331",
+        "sha256": "d8bb2920463cb7adaa5681d11e77e78c9ea7f32f9f03606529a56321ed944283",
+        "size": 294329
+      },
+      "kfile": {
+        "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/kfile/k039915.00331",
+        "sha256": "f7b86a7cb9035d2611936f095e91eb29dec5008fa2a3ff843f0c2dded8f79558",
+        "size": 24922
+      }
+    }
+  },
+  "logs": [
+    {
+      "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/log/._generate_kfile.log",
+      "sha256": "9f6a1f00246096110551085ae5df1961818ad7ad267cf201962c03d6f8e64e76",
+      "size": 4096
+    },
+    {
+      "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/log/._run_efit.log",
+      "sha256": "9f6a1f00246096110551085ae5df1961818ad7ad267cf201962c03d6f8e64e76",
+      "size": 4096
+    },
+    {
+      "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/log/generate_kfile.log",
+      "sha256": "2aa783f00cf93c03fa960e6147e03dee5278a58245490cb6cd1e1291b7368315",
+      "size": 855
+    },
+    {
+      "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/log/run_efit.log",
+      "sha256": "56eeee417841b4e5fbb82570a8829e213630542fe2685926a9ace52d4a0ab576",
+      "size": 532
+    },
+    {
+      "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/run_efit.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "/Volumes/hsyun_ssd/vaft-filedb/issue-137-validation/efit/39915/run_efit.out",
+      "sha256": "f0ea23545d3d3ac844e4f76067c160b31f732f29e59969122c727036ef9d5c12",
+      "size": 33046
+    }
+  ],
+  "parse_errors": [],
+  "schema_version": 1,
+  "shot": 39915,
+  "status": "completed: returncode=0; gfiles=9"
+}

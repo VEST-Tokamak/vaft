@@ -1,40 +1,19 @@
-from omas import *
-from vaft.data.resources import data_path, require_repository_sample
+from vaft.data import sample as _sample_path
+
+__all__ = ["sample_ods", "sample_gfile"]
+
 
 def sample_ods():
-    # load the sample ods file in the package data folder
-    sample_path = data_path("omas/39915.json")
+    """Load the compact shot-39915 OMAS reference sample.
 
-    # load the ods file
-    ods = ODS()
-    ods = ods.load(str(sample_path), consistency_check=False)
+    New code should use ``vaft.data.sample`` and an explicit adapter.  This
+    wrapper remains for compatibility with existing single-shot examples.
+    """
+    from ..database._local import load_ods
+
+    ods, _ = load_ods(_sample_path(39915, representation="omas"), imas_version="3.41.0")
     return ods
 
-def sample_odc():
-    # load the sample odc file in the package data folder
-    data_1 = "omas/39915.json"
-    data_2 = "omas/41524.json"
-    data_3 = "omas/41672.json"
-
-    root = data_path()
-
-    paths = [require_repository_sample(root / data) for data in (data_1, data_2, data_3)]
-
-    # load the ods files
-    ods1 = ODS()
-    ods1 = ods1.load(str(paths[0]), consistency_check=False)
-    ods2 = ODS()
-    ods2 = ods2.load(str(paths[1]), consistency_check=False)
-    ods3 = ODS()
-    ods3 = ods3.load(str(paths[2]), consistency_check=False)
-
-    # make the odc file
-    odc = ODC()
-    odc['0'] = ods1
-    odc['1'] = ods2
-    odc['2'] = ods3
-
-    return odc
 
 def sample_gfile():
     """Load the historical packaged sample g-file as a VAFT GEQDSK object."""

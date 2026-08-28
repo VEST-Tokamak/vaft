@@ -368,7 +368,21 @@ def _validate_diagnostics_time_coordinates(
             base = f"magnetics.b_field_pol_probe.{index}.voltage"
             time_path, data_path = f"{base}.time", f"{base}.data"
             _validate_time_data_pair(ods, time_path, data_path)
-            if not path_exists(ods, time_path):
+            if not path_exists(ods, time_path) or not path_exists(ods, data_path):
+                continue
+            # Optional late-shot fluctuation-Mirnov channels are represented
+            # by empty waveforms when their DAQ field is unavailable.  IMAS
+            # can expose the corresponding unset time leaf as its scalar
+            # default, so decide whether a native coordinate exists from the
+            # waveform first rather than validating that placeholder.
+            validity_path = f"{base}.validity"
+            validity = (
+                int(get_path(ods, validity_path))
+                if path_exists(ods, validity_path)
+                else 0
+            )
+            voltage_data = np.asarray(get_path(ods, data_path)).reshape(-1)
+            if validity < 0 or voltage_data.size == 0:
                 continue
             voltage_time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
             if voltage_time.size == 0:
