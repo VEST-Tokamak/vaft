@@ -25,6 +25,8 @@ from ..registry import renderer
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "chease_overview_profile_validity",
+    "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
     "electromagnetics_time_current",
     "equilibrium_overview",
@@ -136,6 +138,49 @@ def _panel_renderer(
         required_paths=required_paths,
         optional_paths=optional_paths,
     )
+
+
+@_panel_renderer(
+    domain="chease",
+    view="overview",
+    quantity="refinement_summary",
+    description=(
+        "How far CHEASE moved each profile and the boundary from the EFIT "
+        "equilibrium it refined, slice by slice: profile and boundary RMS "
+        "change, flux-normalization shift, and plasma-current self-consistency."
+    ),
+    ids=("equilibrium",),
+    # Every equilibrium ODS carries time slices and profiles, so those alone
+    # would also match an EFIT ODS; `equilibrium.code.name` (set to "chease"
+    # by `generate_chease_ods.py`) is what actually distinguishes a CHEASE
+    # product from any other equilibrium reconstruction.
+    required_paths=("equilibrium.code.name",),
+)
+def chease_overview_refinement_summary(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """CHEASE refinement-vs-input comparison, slice by slice."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="chease",
+    view="overview",
+    quantity="profile_validity",
+    description=(
+        "q0/q95, q-monotonicity and pressure positivity of the refined "
+        "equilibrium: a converged CHEASE solution that is not physically "
+        "sound flagged at a glance."
+    ),
+    ids=("equilibrium",),
+    # Same reasoning as the refinement summary.
+    required_paths=("equilibrium.code.name",),
+)
+def chease_overview_profile_validity(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Physical validity of the refined equilibrium's profiles."""
+    return render_panels(model, ax=ax, show=show, **style)
 
 
 @_panel_renderer(
