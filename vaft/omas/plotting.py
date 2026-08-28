@@ -16,6 +16,8 @@ repeated calls produce the same legend order.
 
 Use :func:`available_plots` to see which plots a particular object can produce,
 and :func:`enable_plot_methods` to opt in to ``ODS.plot_*`` methods.
+:func:`enable_overlay_methods` does the same for OMAS' own
+``ODS.plot_*_overlay`` methods, giving them the ``ax``/``show`` contract.
 """
 
 from __future__ import annotations
@@ -167,6 +169,91 @@ def disable_plot_methods() -> None:
         except AttributeError:
             pass
     ODS._vaft_plot_methods = frozenset()
+
+
+def enable_overlay_methods(*, overwrite: bool = False) -> tuple[str, ...]:
+    """Wrap OMAS' native ``ODS.plot_*_overlay`` so ``ax=None`` means a new figure.
+
+    OMAS draws its overlays onto whatever axes Pyplot happens to have current, so
+    two successive calls silently composite into a single figure.  The wrapper
+    routes ``ax`` through the same :func:`vaft.plot.style.resolve_axes` contract
+    every canonical renderer uses: ``ax=None`` creates a figure, and a
+    caller-supplied ``ax`` stays authoritative so the compositional form keeps
+    working.
+
+    Like :func:`enable_plot_methods` this is explicit and idempotent -- importing
+    ``vaft`` never mutates OMAS -- and ``show`` defaults to ``False``, because
+    displaying a figure is the caller's decision.  ``overwrite`` re-wraps methods
+    that some other layer has already replaced.  Returns the wrapped names.
+    """
+    from omas import ODS
+
+    wrapped = getattr(ODS, "_vaft_overlay_methods", frozenset())
+    targets = sorted(_discover_overlay_methods(ODS))
+    if not targets:
+        raise RuntimeError(
+            "this OMAS release exposes no ODS.plot_*_overlay methods to wrap"
+        )
+
+    foreign = sorted(
+        name
+        for name in targets
+        if name not in wrapped
+        and getattr(getattr(ODS, name), "_vaft_overlay_wrapper", False)
+    )
+    if foreign and not overwrite:
+        raise RuntimeError(
+            "refusing to re-wrap already wrapped ODS methods: "
+            + ", ".join(foreign)
+            + ". Call vaft.omas.disable_overlay_methods() first, or pass "
+            "overwrite=True."
+        )
+
+    for name in targets:
+        if name in wrapped:
+            continue
+        setattr(ODS, name, _make_overlay_wrapper(getattr(ODS, name)))
+    ODS._vaft_overlay_methods = frozenset(targets)
+    return tuple(targets)
+
+
+def disable_overlay_methods() -> None:
+    """Restore the OMAS methods wrapped by :func:`enable_overlay_methods`."""
+    from omas import ODS
+
+    for name in getattr(ODS, "_vaft_overlay_methods", frozenset()):
+        wrapper = getattr(ODS, name, None)
+        original = getattr(wrapper, "__wrapped__", None)
+        if original is not None:
+            setattr(ODS, name, original)
+    ODS._vaft_overlay_methods = frozenset()
+
+
+def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
+    """Return every ``plot_*_overlay`` attribute OMAS exposes on ``ODS``."""
+    return tuple(
+        name
+        for name in dir(ods_class)
+        if name.startswith("plot_")
+        and name.endswith("_overlay")
+        and callable(getattr(ods_class, name, None))
+    )
+
+
+def _make_overlay_wrapper(original):
+    import functools
+
+    @functools.wraps(original)
+    def wrapper(self, *args, ax=None, show=False, **options):
+        from vaft.plot.style import finalize, resolve_axes
+
+        figure, axes = resolve_axes(ax)
+        result = original(self, *args, ax=axes, **options)
+        finalize(figure, axes, show=show)
+        return result
+
+    wrapper._vaft_overlay_wrapper = True
+    return wrapper
 
 
 def _make_method(plot_name: str):
@@ -2209,7 +2296,9 @@ def plot_wall_geometry_poloidal(
 
 __all__ = [
     "available_plots",
+    "disable_overlay_methods",
     "disable_plot_methods",
+    "enable_overlay_methods",
     "enable_plot_methods",
     "extract_labels_from_odc",
     "normalize_entries",

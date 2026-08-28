@@ -113,3 +113,156 @@ def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
 
     assert namespace["source"] == sample
     assert len(namespace["ods"]) > 0
+
+
+def _code_cells(path):
+    book = nbformat.read(path, as_version=4)
+    for index, cell in enumerate(book.cells):
+        if cell.cell_type == "code":
+            yield index, cell.source
+
+
+def _is_backend_pin(node: ast.AST) -> bool:
+    """``os.environ.setdefault("MPLBACKEND", ...)`` or ``matplotlib.use(...)``."""
+    if not isinstance(node, ast.Call):
+        return False
+    name = _attribute_name(node.func)
+    if name == "matplotlib.use":
+        return True
+    if name and name.endswith("environ.setdefault"):
+        first = node.args[0] if node.args else None
+        return isinstance(first, ast.Constant) and first.value == "MPLBACKEND"
+    return False
+
+
+def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
+    """A pin outside an interactivity guard silences figures in Jupyter and VS Code.
+
+    Notebooks may still fall back to Agg when no kernel is present -- that is
+    what the ``"ipykernel" not in sys.modules`` guard expresses -- but a pin at
+    cell top level applies to interactive frontends too (issues #175/#179/#182).
+    """
+    failures = []
+    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+        for index, source in _code_cells(path):
+            tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
+            guarded = {
+                node
+                for statement in ast.walk(tree)
+                if isinstance(statement, ast.If)
+                for node in ast.walk(statement)
+            }
+            for node in ast.walk(tree):
+                if _is_backend_pin(node) and node not in guarded:
+                    failures.append(f"{path.name}:cell-{index}: unguarded backend pin")
+
+    assert failures == []
+
+
+#: Modules whose use is unambiguous: a bare ``itertools.x`` in a notebook means
+#: the stdlib module, so a missing import is a NameError waiting to happen.
+STDLIB_MODULES_USED_BY_NAME = frozenset(
+    {
+        "collections",
+        "functools",
+        "glob",
+        "itertools",
+        "json",
+        "logging",
+        "math",
+        "os",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "warnings",
+    }
+)
+
+
+def test_notebooks_import_every_stdlib_module_they_reference():
+    """Guards the ``itertools`` class of failure from issue #180."""
+    failures = []
+    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+        bound = set()
+        used = {}
+        for index, source in _code_cells(path):
+            tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        bound.add((alias.asname or alias.name).split(".")[0])
+                elif isinstance(node, ast.ImportFrom):
+                    for alias in node.names:
+                        bound.add(alias.asname or alias.name)
+                elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                    for target in ast.walk(node):
+                        if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store):
+                            bound.add(target.id)
+                elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                    module = node.value.id
+                    if module in STDLIB_MODULES_USED_BY_NAME:
+                        used.setdefault(module, f"{path.name}:cell-{index}")
+
+        for module, where in sorted(used.items()):
+            if module not in bound:
+                failures.append(f"{where}: uses {module}.* but never imports {module}")
+
+    assert failures == []
+
+
+def test_notebook_references_to_packaged_data_resolve():
+    """Guards the wrong-subdirectory class of failure from issue #177."""
+    import re
+
+    pattern = re.compile(r"vaft/data/([\w./-]+)")
+    failures = []
+    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+        for index, source in _code_cells(path):
+            tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                    continue
+                match = pattern.search(node.value)
+                if match and not (ROOT / "vaft" / "data" / match.group(1)).exists():
+                    failures.append(
+                        f"{path.name}:cell-{index}: missing packaged data "
+                        f"vaft/data/{match.group(1)}"
+                    )
+
+    assert failures == []
+
+
+def test_verification_notebook_loads_the_summary_sheets(monkeypatch):
+    """The cells that broke in issues #151/#181 must execute against the real sheets.
+
+    Compiling a cell cannot catch ``from … import EXPECTED_COLUMNS`` against a
+    module that no longer defines it, nor a ``KeyError`` from a renamed sheet
+    column, so run the offline cells: 1 (bootstrap), 3 (volume-averaged sheet),
+    4 (scatter plot over its columns), 6 (equilibrium history sheet).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    notebook_path = NOTEBOOKS / "verification_and_validation.ipynb"
+    book = nbformat.read(notebook_path, as_version=4)
+    monkeypatch.chdir(ROOT)
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+
+    # Cell 2 asks the remote database which shots have core profiles; the
+    # offline cells only need the resulting list, and an empty one keeps the
+    # regeneration branch from reaching the network.
+    namespace = {"core_profile_shots": []}
+    for index in (1, 3, 4, 6):
+        source = book.cells[index].source
+        exec(compile(source, f"{notebook_path.name}:cell-{index}", "exec"), namespace)
+
+    preset = namespace["volume_preset"]
+    assert set(preset.columns) <= set(namespace["volume_df"].columns)
+    assert len(namespace["plot_df"]) > 0
+    assert not namespace["eq_df"].empty
+    plt.close("all")
