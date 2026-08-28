@@ -1,9 +1,14 @@
 """Offline checks for the canonical kinetic-profile ODS sample (shot 48224 @ 300 ms).
 
-``vaft/data/kineticEfit/ods_48224_300ms.json`` is the stored result of the kinetic
-chain that ``test_kinetic_chain_data.py`` runs against the raw diagnostics. It exists
-so notebooks, examples, and tests can consume representative ``core_profiles`` content
-without ``omfit_classes`` or the paired ``.mat`` inputs.
+``vaft/data/kineticEfit/ods_48224_300ms.json`` was produced by running
+``build_kinetic_core_profiles`` once over the paired ``kineticEfit`` inputs with
+polynomial ``T_e``/``n_e``/``T_i``/``V_tor`` fits and the default
+``time_tolerance_ms`` -- see ``vaft/data/README.md`` for the exact recipe. It is not
+the output of ``test_kinetic_chain_data.py``, which drives the same raw inputs with
+``ne_mode="free_exponential"`` and ``time_tolerance_ms=3.0``; the two agree on
+structure and magnitude, not value for value. The sample exists so notebooks,
+examples, and tests can consume representative ``core_profiles`` content without
+``omfit_classes`` or the paired ``.mat`` inputs.
 """
 import numpy as np
 import pytest

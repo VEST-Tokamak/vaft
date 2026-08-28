@@ -4641,7 +4641,7 @@ NaN
 "pulse": 48224,
 "pulse_type": "shot",
 "run": 0,
-"user": "yun"
+"user": "vaft"
 },
 "ids_properties": {
 "comment": "VAFT canonical kinetic-profile sample (shot 48224 @ 300 ms)",

@@ -58,7 +58,10 @@ result of running the kinetic chain once on shot 48224 at 300 ms with polynomial
 `core_profiles.profiles_1d.0`, so notebooks, examples, and tests can use
 representative profiles offline without `omfit_classes` or the `.mat` inputs
 (`notebooks/kinetic_efit_end_to_end.ipynb` loads it and only rebuilds when it is
-absent). Regenerate it with:
+absent). The recipe below is deterministic -- rerunning it reproduces the
+committed file byte for byte, provided `user` stays pinned (`dataset_description`
+otherwise stamps `$USER`, which would turn a regeneration into a spurious 2 MB
+diff). Regenerate it with:
 
 ```python
 import vaft
@@ -81,6 +84,7 @@ ods["equilibrium.ids_properties.homogeneous_time"] = 1
 dataset_description(
     ods, source=48224,
     options={"source_type": "shot",
+             "user": "vaft",  # fixed, so regeneration does not stamp $USER
              "description": "VAFT canonical kinetic-profile sample (shot 48224 @ 300 ms)"},
 )
 thomson_scattering(ods, 48224, str(root / "NeTe_48224.mat"))
