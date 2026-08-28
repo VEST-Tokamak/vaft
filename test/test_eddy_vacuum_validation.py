@@ -8,7 +8,10 @@ the coil/eddy split were wrong, the constructed residual would not vanish.
 
 from __future__ import annotations
 
+import copy
+import json
 import math
+from importlib.resources import files
 
 import matplotlib
 
@@ -18,13 +21,13 @@ import numpy as np
 import pytest
 from omas import ODS
 
+from vaft.machine_mapping.impa import IMPA_POLOIDAL_ANGLE
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
     INBOARD_PROBE_MAX_R,
     OUTBOARD_FLUX_LOOP_MIN_R,
     OUTBOARD_PROBE_MIN_R,
     POLOIDAL_ANGLE,
-    PROBE_FIELD_DIRECTION,
     SIDE_PROBE_MIN_ABS_Z,
 )
 from vaft.omas.process_wrapper import (
@@ -93,7 +96,7 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
 
     positions = [(r, z) for _, r, z in PROBES] + [(r, z) for _, r, z in LOOPS]
     psi, b_z, b_r = compute_point_response_ods(ods, [[r, z] for r, z in positions])
-    direction_r, direction_z = PROBE_FIELD_DIRECTION
+    direction_r, direction_z = math.cos(POLOIDAL_ANGLE), math.sin(POLOIDAL_ANGLE)
 
     # A plasma-like contribution switched on at PLASMA_ONSET, so the residual has
     # something physical to find.
@@ -199,12 +202,44 @@ def test_each_forward_model_preserves_its_own_physical_quantity_and_unit(vacuum_
 
 # --- conventions -----------------------------------------------------------
 
-def test_vest_probes_measure_plus_bz_not_the_stored_poloidal_angle():
-    # The stored angle is a legacy placeholder: under the IMAS (cos, sin)
-    # convention it would mean -Bz, which anti-correlates with the mapped data.
-    assert POLOIDAL_ANGLE == pytest.approx(3 * math.pi / 2)
-    assert PROBE_FIELD_DIRECTION == (0.0, 1.0)
-    assert (math.cos(POLOIDAL_ANGLE), math.sin(POLOIDAL_ANGLE)) != PROBE_FIELD_DIRECTION
+def test_stored_poloidal_angle_declares_the_plus_bz_the_probes_measure():
+    # Issue #169: the stored angle now *is* the measured direction, so the
+    # IMAS (cos, sin) projection of it is +Bz and consumers may read it.
+    assert POLOIDAL_ANGLE == pytest.approx(math.pi / 2)
+    assert math.cos(POLOIDAL_ANGLE) == pytest.approx(0.0, abs=1e-12)
+    assert math.sin(POLOIDAL_ANGLE) == pytest.approx(1.0)
+
+
+def test_packaged_reference_odss_carry_the_corrected_angle():
+    # The packaged references were relabelled with the constant; had they not
+    # been, freshly generated ODSs would disagree with them.
+    path = files("vaft.data.omas") / "39915.json"
+    if not path.is_file():
+        pytest.skip("packaged reference ODS is not installed")
+    with path.open("r", encoding="utf-8") as handle:
+        probes = json.load(handle)["magnetics"]["b_field_pol_probe"]
+    assert probes
+    assert {probe["poloidal_angle"] for probe in probes} == {POLOIDAL_ANGLE}
+
+
+def test_impa_bz_sensors_share_the_plus_bz_orientation():
+    # The IMPA Bz sensors measure the same quantity, so their nominal angle --
+    # the base a measured crosstalk misalignment is offset from -- matches.
+    assert IMPA_POLOIDAL_ANGLE == pytest.approx(POLOIDAL_ANGLE)
+
+
+def test_probe_projection_follows_the_stored_angle_per_channel(vacuum_ods):
+    # A channel mounted differently from the rest must project differently:
+    # the forward model reads each probe's own angle, not one global constant.
+    ods, _time, _ = vacuum_ods
+    rotated = copy.deepcopy(ods)
+    rotated[f"magnetics.{B_FIELD_POL_PROBE}.0.poloidal_angle"] = 0.0
+
+    base = {c.index: c for c in synthetic_vacuum_magnetics(ods) if c.kind == B_FIELD_POL_PROBE}
+    turned = {c.index: c for c in synthetic_vacuum_magnetics(rotated) if c.kind == B_FIELD_POL_PROBE}
+
+    assert not np.allclose(base[0].coil_eddy, turned[0].coil_eddy)
+    assert np.allclose(base[1].coil_eddy, turned[1].coil_eddy)
 
 
 def test_vacuum_wrapper_returns_br_and_bz_the_way_it_names_them(vacuum_ods):
