@@ -9,6 +9,7 @@ invariant required by issue #166.
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 from fnmatch import fnmatchcase
 from pathlib import Path
 
@@ -56,12 +57,8 @@ def _write_manifest(path: Path, manifest: dict) -> None:
     )
 
 
-def generate(canonical_source: Path, manifest_path: Path) -> None:
-    manifest = _load_manifest(manifest_path)
-    root = manifest_path.parent
-    canonical = vaft.omas.load(
-        canonical_source, imas_version=str(manifest["imas_dd_version"])
-    )
+def _materialize_compact(canonical: ODS, manifest: dict) -> ODS:
+    """Select and normalize one manifest-defined representation of ``canonical``."""
     compact = _compact_ods(canonical, list(manifest["generation"]["selectors"]))
     equilibrium_slices = int(
         manifest.get("generation", {}).get("equilibrium_time_slices", 0)
@@ -69,6 +66,12 @@ def generate(canonical_source: Path, manifest_path: Path) -> None:
     if equilibrium_slices and "equilibrium.time" in compact:
         original_time = np.asarray(compact["equilibrium.time"])
         compact["equilibrium.time"] = original_time[:equilibrium_slices]
+        for index in range(
+            len(compact["equilibrium.time_slice"]) - 1,
+            equilibrium_slices - 1,
+            -1,
+        ):
+            del compact[f"equilibrium.time_slice.{index}"]
         for path, value in list(compact["equilibrium"].flat().items()):
             full_path = f"equilibrium.{path}"
             array = np.asarray(value)
@@ -100,19 +103,71 @@ def generate(canonical_source: Path, manifest_path: Path) -> None:
             compact["magnetics.flux_loop.0.flux.time"] = magnetics_time
         if "magnetics.b_field_pol_probe.0.field.data" in compact:
             compact["magnetics.b_field_pol_probe.0.field.time"] = magnetics_time
+    return compact
+
+
+def _write_artifacts(
+    compact: ODS, root: Path, manifest: dict, *, canonical_source: Path
+) -> None:
+    """Serialize one compact ODS and update its representation records."""
+    root.mkdir(parents=True, exist_ok=True)
 
     omas_path = root / manifest["representations"]["omas"]["path"]
     imas_path = root / manifest["representations"]["imas"]["path"]
     vaft.omas.save(compact, omas_path)
     vaft.imas.save(compact, imas_path, imas_version=str(manifest["imas_dd_version"]))
 
-    manifest["generation"]["canonical_source"] = str(canonical_source.relative_to(root))
+    try:
+        canonical_relative = canonical_source.relative_to(root)
+    except ValueError:
+        # Wheel staging contains only the compact representation; its canonical
+        # regeneration input remains repository-only beside the source manifest.
+        canonical_relative = Path(manifest["generation"]["canonical_source"])
+    manifest["generation"]["canonical_source"] = str(canonical_relative)
     manifest["generation"]["canonical_sha256"] = sha256_file(canonical_source)
     manifest["generation"]["materialized_leaves"] = len(compact.flat())
     for representation, path in (("omas", omas_path), ("imas", imas_path)):
         manifest["representations"][representation]["size"] = path.stat().st_size
         manifest["representations"][representation]["sha256"] = sha256_file(path)
+
+
+def generate(canonical_source: Path, manifest_path: Path) -> None:
+    manifest = _load_manifest(manifest_path)
+    root = manifest_path.parent
+    canonical = vaft.omas.load(
+        canonical_source, imas_version=str(manifest["imas_dd_version"])
+    )
+    compact = _materialize_compact(canonical, manifest)
+    _write_artifacts(compact, root, manifest, canonical_source=canonical_source)
+
     _write_manifest(manifest_path, manifest)
+
+
+def generate_wheel_artifacts(
+    canonical_source: Path, manifest_path: Path, output_root: Path
+) -> None:
+    """Create the three-slice wheel variant from the same canonical ODS.
+
+    Repository artifacts deliberately retain every available EFIT time slice.
+    The wheel ships a small self-contained variant, selected from the identical
+    canonical ODS rather than from independently supplied representation files.
+    """
+    manifest = deepcopy(_load_manifest(manifest_path))
+    slice_count = int(manifest["packaging_policy"]["wheel_equilibrium_time_slices"])
+    manifest["generation"]["equilibrium_time_slices"] = slice_count
+    manifest["generation"]["distribution_variant"] = "wheel"
+    manifest["generation"]["canonical_policy"] = "repository-only"
+    manifest["acceptance"]["equilibrium_times"] = manifest["acceptance"][
+        "equilibrium_times"
+    ][:slice_count]
+    canonical = vaft.omas.load(
+        canonical_source, imas_version=str(manifest["imas_dd_version"])
+    )
+    compact = _materialize_compact(canonical, manifest)
+    _write_artifacts(
+        compact, output_root, manifest, canonical_source=canonical_source
+    )
+    _write_manifest(output_root / "manifest.yaml", manifest)
 
 
 def verify(manifest_path: Path) -> None:
@@ -183,12 +238,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--canonical-source", type=Path)
+    parser.add_argument("--wheel-output", type=Path)
     parser.add_argument("--verify", action="store_true")
     args = parser.parse_args()
     if not args.verify and args.canonical_source is None:
         parser.error("--canonical-source is required unless --verify is used")
     if args.canonical_source is not None:
         generate(args.canonical_source.resolve(), args.manifest.resolve())
+        if args.wheel_output is not None:
+            generate_wheel_artifacts(
+                args.canonical_source.resolve(),
+                args.manifest.resolve(),
+                args.wheel_output.resolve(),
+            )
+    elif args.wheel_output is not None:
+        parser.error("--wheel-output requires --canonical-source")
     verify(args.manifest.resolve())
     return 0
 

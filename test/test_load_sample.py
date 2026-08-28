@@ -5,10 +5,12 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 
 import h5py
 import numpy as np
 import pytest
+import yaml
 
 import vaft
 from vaft.data.reference_samples import semantic_sample_view, verify_sample_artifacts
@@ -207,7 +209,14 @@ def test_paired_sample_exercises_complete_adapter_matrix():
         )
         assert result.passed
 
-    np.testing.assert_allclose(omas_native["equilibrium.time"], [0.316, 0.317, 0.318])
+    np.testing.assert_allclose(
+        omas_native["equilibrium.time"],
+        [0.316, 0.317, 0.318, 0.319, 0.320, 0.323, 0.325, 0.326, 0.331],
+    )
+    assert len(omas_native["equilibrium.time"]) == manifest["pipeline"]["efit"][
+        "successful_time_slices"
+    ]
+    assert manifest["packaging_policy"]["repository_equilibrium_time_slices"] == "all"
     assert omas_native["wall.description_2d.0.limiter.unit.0.outline.r"].size > 10
     assert (
         omas_native["magnetics.ip.0.data"].shape
@@ -218,3 +227,27 @@ def test_paired_sample_exercises_complete_adapter_matrix():
         == omas_native["pf_active.time"].shape
     )
     assert omas_native["equilibrium.time_slice.0.profiles_1d.psi"].size > 10
+
+
+def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    build_lib = tmp_path / "build"
+    subprocess.run(
+        [sys.executable, "setup.py", "build_py", "--build-lib", str(build_lib)],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    sample_root = build_lib / "vaft" / "data" / "samples" / "39915"
+    manifest = yaml.safe_load((sample_root / "manifest.yaml").read_text())
+    assert manifest["generation"]["distribution_variant"] == "wheel"
+    assert manifest["generation"]["equilibrium_time_slices"] == 3
+    verify_sample_artifacts(sample_root, manifest)
+    wheel_ods = vaft.omas.load(sample_root / "omas.json.gz")
+    np.testing.assert_allclose(wheel_ods["equilibrium.time"], [0.316, 0.317, 0.318])
+    with vaft.imas.load(sample_root / "imas.nc") as handle:
+        wheel_native = handle.to_omas()
+    np.testing.assert_allclose(
+        wheel_native["equilibrium.time"], [0.316, 0.317, 0.318]
+    )

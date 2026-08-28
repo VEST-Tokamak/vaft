@@ -48,9 +48,12 @@ Repository-only samples such as `efit/g039915.00319` and
 `legacy/46051_NeTe.mat` are available after cloning the repository, not after
 `pip install vaft`.
 
-The compact pair is generated from one in-memory canonical ODS using
-`workflow/reference_validation/generate_paired_sample.py`; neither
-representation is maintained independently. Shots 41524 and 41672 are
+The repository copy of the 39915 pair retains every successful EFIT time
+slice. Its wheel build replaces those checkout artifacts with a separately
+manifested three-slice variant generated from the same canonical ODS, keeping
+the installed package small without making a repository checkout less useful.
+`workflow/reference_validation/generate_paired_sample.py` generates both
+forms; neither representation is maintained independently. Shots 41524 and 41672 are
 regenerated from frozen current-pipeline products by
 `generate_pipeline_imas_sample.py`; each retains its successful EFIT slices
 and records unavailable optional channels and unsuccessful EFIT times in its

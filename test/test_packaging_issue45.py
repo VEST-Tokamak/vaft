@@ -72,6 +72,9 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/samples/41672/imas.nc" not in package_data
     assert "data/geometry/VEST_static_geometry.json.gz" in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
+    setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")
+    assert "wheel_samples" in setup_py
+    assert "build_py" in setup_py
 
     example = (ROOT / "vaft" / ".hscfg.example").read_text(encoding="utf-8")
     assert "your_username" in example
@@ -104,6 +107,9 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/samples/*/manifest.yaml" in manifest
     assert "include vaft/data/samples/39915/omas.json.gz" in manifest
     assert "include vaft/data/samples/39915/imas.nc" in manifest
+    assert "include packaging/wheel_samples/39915/manifest.yaml" in manifest
+    assert "include packaging/wheel_samples/39915/omas.json.gz" in manifest
+    assert "include packaging/wheel_samples/39915/imas.nc" in manifest
     assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 

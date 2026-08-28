@@ -23,3 +23,6 @@ include vaft/data/legacy/*.yaml
 include vaft/data/samples/*/manifest.yaml
 include vaft/data/samples/39915/omas.json.gz
 include vaft/data/samples/39915/imas.nc
+include packaging/wheel_samples/39915/manifest.yaml
+include packaging/wheel_samples/39915/omas.json.gz
+include packaging/wheel_samples/39915/imas.nc
