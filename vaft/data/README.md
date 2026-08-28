@@ -5,7 +5,7 @@ are grouped one level deep only; Python package files stay at this directory
 root. The GitHub repository contains every file listed below; the PyPI
 distribution includes only the runtime geometry resources, GPEC templates,
 `legacy/sql_table.txt`, `legacy/langmuir_probe_positions.csv`, and
-`omas/39915.json`. Clone the repository to access the archived EFIT, IMAS,
+`omas/39915.json`. Clone the repository to access the archived EFIT, kinetic-EFIT, IMAS,
 legacy diagnostic, digitizer, and additional OMAS samples.
 
 ## Layout
@@ -15,6 +15,7 @@ legacy diagnostic, digitizer, and additional OMAS samples.
 | `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_static_geometry.json.gz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata |
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `omas/` | `39915.json`, `41524.json`, `41672.json`, `thomson_scattering.json` | OMAS/ODS sample and contract-test payloads |
+| `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
 | `imas/` | `vest_imas_3.40.1.nc` | IMAS-format sample container |
 | `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
@@ -49,6 +50,48 @@ geometry; the differing suffixes are retained from the source asset names.
 `VEST_MagneticsGeometry_Full_ver_2302.yaml` retains its historical filename
 for API compatibility, while its source metadata, channel order, and
 calibration values reflect the production 2409 magnetic geometry.
+
+`kineticEfit/ods_48224_300ms.json` is the canonical kinetic-profile ODS sample: the
+result of running the kinetic chain once on shot 48224 at 300 ms with polynomial
+`T_e`/`n_e`/`T_i`/`V_tor` fits. It carries the g-file equilibrium, the mapped
+`thomson_scattering` and `charge_exchange` channels, and the generated
+`core_profiles.profiles_1d.0`, so notebooks, examples, and tests can use
+representative profiles offline without `omfit_classes` or the `.mat` inputs
+(`notebooks/kinetic_efit_end_to_end.ipynb` loads it and only rebuilds when it is
+absent). Regenerate it with:
+
+```python
+import vaft
+from vaft.data.resources import data_path
+
+vaft.apply_omfit_compat_patches()
+from omas import save_omas_json
+from omfit_classes.omfit_eqdsk import OMFITgeqdsk
+
+from vaft.code.efit import build_kinetic_core_profiles
+from vaft.machine_mapping.charge_exchange import charge_exchange
+from vaft.machine_mapping.dataset_description import dataset_description
+from vaft.machine_mapping.thomson_scattering import thomson_scattering
+
+root = data_path("kineticEfit")
+geq = OMFITgeqdsk(str(root / "g048224.00300"))
+geq["fluxSurfaces"].load()
+ods = geq.to_omas()
+ods["equilibrium.ids_properties.homogeneous_time"] = 1
+dataset_description(
+    ods, source=48224,
+    options={"source_type": "shot",
+             "description": "VAFT canonical kinetic-profile sample (shot 48224 @ 300 ms)"},
+)
+thomson_scattering(ods, 48224, str(root / "NeTe_48224.mat"))
+charge_exchange(ods, shotnumber=48224, options="ids", mat_file=str(root / "IDS_48224.mat"))
+ods = build_kinetic_core_profiles(
+    ods, geq, 300.0,
+    te_mode="polynomial", ne_mode="polynomial",
+    ti_mode="polynomial", vtor_mode="polynomial",
+)
+save_omas_json(ods, str(root / "ods_48224_300ms.json"))
+```
 
 `legacy/47230_056789_LID_1_100.mat` and `legacy/47230_ALL_LID_1_100.mat` are
 downsampled (1/100) postprocessed line-integrated-density samples for shot
