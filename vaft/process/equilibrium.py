@@ -1188,3 +1188,12 @@ def trace_field_line(
         "arc_length_m": _cumulative_arc_length(phi_all, R_all, Z_all),
         "termination_reason": reason,
     }
+
+
+# Parametric APIs are implemented separately while retaining this module as
+# their stable public import location.  The absolute fallback preserves a
+# historical test/tool pattern that loads this source file directly by path.
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_parametric import *  # noqa: E402,F401,F403
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
