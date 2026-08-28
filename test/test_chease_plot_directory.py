@@ -46,3 +46,18 @@ def test_an_explicit_plot_dir_is_honoured(tmp_path):
     cwd, output_dir = _run(tmp_path, ["--plot-dir", str(target)])
     assert (target / "plot_refined_gfiles_generated.txt").exists()
     assert not (output_dir / "plots").exists()
+
+
+def test_chease_runs_json_is_written_on_the_skip_path(tmp_path):
+    # Issue #172: Snakemake declares chease_runs.json as a real rule output,
+    # so it must exist on every exit path, including run=false, the same way
+    # plot_refined_gfiles_generated.txt already does.
+    import json
+
+    _, output_dir = _run(tmp_path, [])
+    runs_path = output_dir / "chease_runs.json"
+    assert runs_path.exists()
+    payload = json.loads(runs_path.read_text(encoding="utf-8"))
+    assert payload["shot"] == 39915
+    assert payload["records"] == []
+    assert payload["refined_gfiles"] == []

@@ -27,6 +27,7 @@ pytestmark = pytest.mark.skipif(
 def extract():
     pytest.importorskip("h5pyd")
     pytest.importorskip("omas")
+    pytest.importorskip("omfit_classes")
     spec = importlib.util.spec_from_file_location("_ts_updater", WORKFLOW)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

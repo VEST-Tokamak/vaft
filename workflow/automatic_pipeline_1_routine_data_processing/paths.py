@@ -66,6 +66,7 @@ _LOG_OWNER = {
     "plot_efit": ("efit", None),
     "run_chease": ("chease", None),
     "generate_chease_ods": ("omas", "chease"),
+    "plot_chease": ("omas", "chease"),
     "run_gpec_suite": ("omas", "mhd_linear"),
     "build_mhd_linear": ("omas", "mhd_linear"),
 }
@@ -205,6 +206,14 @@ class PipelinePaths:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "chease") / "chease_status.txt")
         return str(self._filedb.chease(shot, artifact="metadata") / "chease_status.txt")
+
+    def chease_runs(self, shot) -> str:
+        # Written by run_chease_refinement.py next to `chease_refined`, i.e.
+        # `output.parent / "chease_runs.json"` -- same directory both layouts
+        # resolve for chease_refined above.
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "chease") / "chease_runs.json")
+        return str(self._filedb.chease(shot, artifact="output") / "chease_runs.json")
 
     # -- linear stability ---------------------------------------------------
     # One status/manifest pair per (shot, code, mode): `run_gpec_module`

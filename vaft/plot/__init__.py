@@ -243,6 +243,8 @@ from .renderers.lines import (
     thomson_scattering_time_electron_temperature,
 )
 from .renderers.panels import (
+    chease_overview_profile_validity,
+    chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     electromagnetics_time_current,
     equilibrium_overview,
