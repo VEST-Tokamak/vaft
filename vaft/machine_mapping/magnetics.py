@@ -6,7 +6,7 @@ import math
 import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -16,7 +16,11 @@ import yaml
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibrium_magnetics_signals
+from vaft.process.magnetics import (
+    VestEquilibriumMagneticsResult,
+    VestMagneticsProcessingConfig,
+    vest_equilibrium_magnetics_detailed,
+)
 from vaft.process.signal_processing import detect_active_window, smooth
 
 from .utils import (
@@ -475,6 +479,10 @@ class _MagneticsContext:
     target_time: np.ndarray
     flux_loops: list[np.ndarray]
     probes: list[np.ndarray]
+    # Native-rate calibrated flux-loop terminal voltages, index-aligned with
+    # `flux_loops` (empty arrays for unavailable channels).
+    flux_loop_voltage_time: list[np.ndarray] = dataclass_field(default_factory=list)
+    flux_loop_voltage: list[np.ndarray] = dataclass_field(default_factory=list)
 
 
 def _prepare_magnetics_context(
@@ -486,18 +494,20 @@ def _prepare_magnetics_context(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> _MagneticsContext:
-    source_time, flux_loops, probes = vfit_equilibrium_magnetics(
+    result = vfit_equilibrium_magnetics_detailed(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
     )
-    source_time = np.asarray(source_time, dtype=float)
+    source_time = np.asarray(result.time, dtype=float)
     return _MagneticsContext(
         source_time=source_time,
         target_time=_build_target_time(source_time, tstart, tend, dt),
-        flux_loops=flux_loops,
-        probes=probes,
+        flux_loops=result.flux_loops,
+        probes=result.probes,
+        flux_loop_voltage_time=result.flux_loop_voltage_time,
+        flux_loop_voltage=result.flux_loop_voltage,
     )
 
 
@@ -890,6 +900,36 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
     )
 
 
+def vfit_equilibrium_magnetics_detailed(
+    shot: int,
+    indices: list[int] | np.ndarray | None = None,
+    processing_config: VestMagneticsProcessingConfig | None = None,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+    allow_missing_channels: bool = False,
+) -> VestEquilibriumMagneticsResult:
+    """Process magnetics channels, keeping native flux-loop terminal voltages.
+
+    Shot-era resolution is identical to `vfit_equilibrium_magnetics`: an
+    explicit ``processing_config`` wins, otherwise the era policy comes from
+    ``vest.yaml`` (issue #195).
+    """
+    require_supported_magnetics_geometry(int(shot))
+    config = (
+        processing_config
+        if processing_config is not None
+        else equilibrium_magnetics_processing_config(int(shot))
+    )
+    return vest_equilibrium_magnetics_detailed(
+        int(shot),
+        _load_equilibrium_magnetics_channels(),
+        lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
+        indices=indices,
+        config=config,
+        allow_missing=allow_missing_channels,
+    )
+
+
 def vfit_equilibrium_magnetics(
     shot: int,
     indices: list[int] | np.ndarray | None = None,
@@ -904,20 +944,14 @@ def vfit_equilibrium_magnetics(
     existing override path used for parameter scans; otherwise the shot-era
     policy is resolved from ``vest.yaml`` (issue #195).
     """
-    require_supported_magnetics_geometry(int(shot))
-    config = (
-        processing_config
-        if processing_config is not None
-        else equilibrium_magnetics_processing_config(int(shot))
+    result = vfit_equilibrium_magnetics_detailed(
+        shot,
+        indices,
+        processing_config,
+        raw_source=raw_source,
+        allow_missing_channels=allow_missing_channels,
     )
-    return vest_equilibrium_magnetics_signals(
-        int(shot),
-        _load_equilibrium_magnetics_channels(),
-        lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
-        indices=indices,
-        config=config,
-        allow_missing=allow_missing_channels,
-    )
+    return result.time, result.flux_loops, result.probes
 
 
 def _set_magnetics_properties(ods: object) -> None:
@@ -1137,14 +1171,68 @@ def vfit_limiter_shunts_dynamic(
         _set_voltage_signal(ods, f"magnetics.shunt.{index}", time, data, validity)
 
 
-def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
+def _map_flux_loops(
+    ods: object,
+    context: _MagneticsContext,
+    *,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Map flux-loop terminal voltage and integrated flux (issue #209).
+
+    The processing chain is kept explicit and quantity-specific::
+
+        raw DAQ waveform
+            -> channel calibration / sign convention
+            -> magnetics.flux_loop[i].voltage   (native acquisition timebase,
+                                                 cropped to [tstart, tend))
+            -> time integration + linear baseline removal
+            -> magnetics.flux_loop[i].flux      (canonical magnetics.time grid)
+
+    So ``flux.data = -integral(voltage dt) - 2*pi*baseline``: integrating the
+    stored voltage reproduces the stored flux up to the removed linear
+    baseline term. Voltage is never reconstructed by differentiating flux, and
+    voltage validity is independent of the presence of processed flux.
+    """
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.flux_loops):
+        _map_flux_loop_voltage(ods, context, index, tstart=tstart, tend=tend)
         if np.asarray(values).size < 2:
             continue
         data = _interpolate_signal(context.target_time, context.source_time, values) * 2 * math.pi
         set_path(ods, f"magnetics.flux_loop.{index}.flux.time", context.target_time)
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
+
+
+def _map_flux_loop_voltage(
+    ods: object,
+    context: _MagneticsContext,
+    index: int,
+    *,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Store one calibrated pre-integration flux-loop voltage at native rate."""
+    if index < len(context.flux_loop_voltage):
+        native_time = np.asarray(context.flux_loop_voltage_time[index], dtype=float)
+        native_data = np.asarray(context.flux_loop_voltage[index], dtype=float)
+    else:
+        native_time = np.array([], dtype=float)
+        native_data = np.array([], dtype=float)
+
+    if native_time.size < 2 or native_time.shape != native_data.shape:
+        _set_voltage_signal(
+            ods,
+            f"magnetics.flux_loop.{index}",
+            np.array([], dtype=float),
+            np.array([], dtype=float),
+            -2,
+        )
+        return
+
+    time, data = _crop_native_window(native_time, native_data, tstart=tstart, tend=tend)
+    validity = 0 if data.size else -2
+    _set_voltage_signal(ods, f"magnetics.flux_loop.{index}", time, data, validity)
 
 
 def _map_probes(
@@ -1308,8 +1396,10 @@ def vfit_magnetics_dynamic(
             target_time=np.asarray(target_time, dtype=float),
             flux_loops=context.flux_loops,
             probes=context.probes,
+            flux_loop_voltage_time=context.flux_loop_voltage_time,
+            flux_loop_voltage=context.flux_loop_voltage,
         )
-    _map_flux_loops(ods, context)
+    _map_flux_loops(ods, context, tstart=tstart, tend=tend)
     _map_probes(ods, shot, context, raw_source, tstart=tstart, tend=tend)
     vfit_limiter_shunts_dynamic(ods, shot, raw_source=raw_source)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
@@ -1378,7 +1468,7 @@ def flux_loop_from_raw_database(
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
-    _map_flux_loops(ods, context)
+    _map_flux_loops(ods, context, tstart=tstart, tend=tend)
 
 
 def b_field_pol_probe_from_raw_database(
@@ -1482,6 +1572,7 @@ __all__ = [
     "magnetics",
     "vfit_plasma_current",
     "vfit_equilibrium_magnetics",
+    "vfit_equilibrium_magnetics_detailed",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
     "vfit_magnetics_static",
