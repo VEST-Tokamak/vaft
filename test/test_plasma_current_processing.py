@@ -2,9 +2,7 @@
 
 These exercise the real function (not just config resolution, which is
 covered by `test_vest_yaml_boundaries.py`) against synthetic, offline raw
-dumps -- no live SQL/HSDS access. Additional eras (FL10 windowed
-compensation, disabled mode) land with their own PRs once the Python
-dispatch logic for `processing.reference.mode` exists.
+dumps -- no live SQL/HSDS access.
 """
 
 import gzip
@@ -13,7 +11,10 @@ import json
 import numpy as np
 import pytest
 
-from vaft.machine_mapping.magnetics import vfit_plasma_current
+from vaft.machine_mapping.magnetics import (
+    _apply_fl10_windowed_compensation,
+    vfit_plasma_current,
+)
 
 PLASMA_CURRENT_FIELD = 109
 FLUX_REFERENCE_FIELD = 25
@@ -100,3 +101,92 @@ def test_baseline_subtraction_matches_the_documented_algorithm(
     expected = (ip_shot - ip_ref) * -1.0  # sign convention flips at shot 20259
 
     np.testing.assert_allclose(ip, expected)
+
+
+def test_fl10_disabled_mode_ignores_the_flux_reference_entirely(tmp_path):
+    """Shot >= 47117 (#195): Ip == Ip_shot after sign only. The mapper must
+    not even require a flux-reference field to be present."""
+    shot = 47117
+    n = 9000
+    raw_ip = _quadratic_waveform(n)
+    source = tmp_path / "raw.json.gz"
+    _write_raw_dump(source, shot, {PLASMA_CURRENT_FIELD: raw_ip})
+
+    time, ip = vfit_plasma_current(shot, raw_source=source)
+
+    calibration_factor = 1.0e-5
+    calibrated_ip = raw_ip / calibration_factor
+    analysis_start, lookback = 6000, 500
+    x_time = np.arange(analysis_start, 7251)
+    x_base = np.arange(x_time[0] - lookback, x_time[0] + 1)
+    x_base = x_base[(x_base >= 0) & (x_base < n)]
+    ip_shot = calibrated_ip - np.polyval(
+        np.polyfit(time[x_base], calibrated_ip[x_base], 1), time
+    )
+    expected = ip_shot * -1.0  # sign convention (shot >= 20259)
+
+    np.testing.assert_allclose(ip, expected)
+
+
+def test_fl10_windowed_mode_subtracts_only_inside_the_compensation_window(tmp_path):
+    """Shots 46403-47116 (#195): compensation must not leak outside
+    0.26 <= t <= 0.36 s. Compare against a zero-FL10-reference control,
+    which is mathematically equivalent to no compensation at all (mode
+    'disabled') for the same underlying Ip_shot."""
+    shot = 46403
+    n = 12000  # 12000 * 4e-5 s = 0.48 s, covers the 0.26-0.36 s window
+    raw_ip = np.zeros(n, dtype=float)  # flat Ip_shot after baseline removal
+    zero_fl10 = np.zeros(n, dtype=float)
+    nonzero_fl10 = np.sin(np.linspace(0.0, 40.0, n)) + 5.0
+
+    source_zero = tmp_path / "raw_zero.json.gz"
+    _write_raw_dump(source_zero, shot, {PLASMA_CURRENT_FIELD: raw_ip, FLUX_REFERENCE_FIELD: zero_fl10})
+    source_nonzero = tmp_path / "raw_nonzero.json.gz"
+    _write_raw_dump(source_nonzero, shot, {PLASMA_CURRENT_FIELD: raw_ip, FLUX_REFERENCE_FIELD: nonzero_fl10})
+
+    time, ip_zero_ref = vfit_plasma_current(shot, raw_source=source_zero)
+    _, ip_nonzero_ref = vfit_plasma_current(shot, raw_source=source_nonzero)
+
+    mask = (time >= 0.26) & (time <= 0.36)
+    assert mask.any() and (~mask).any()
+
+    np.testing.assert_allclose(ip_nonzero_ref[~mask], ip_zero_ref[~mask])
+    assert not np.allclose(ip_nonzero_ref[mask], ip_zero_ref[mask])
+
+
+def test_fl10_degenerate_offset_uses_the_documented_vaft_convention(tmp_path):
+    """Pin the resolved interpretation of the legacy MATLAB
+    `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
+    expression: VAFT treats it as `ip_ref -= ip_ref[174]` (0-based), a
+    documented compatibility convention (#195), not a proof of exact MATLAB
+    numerical equivalence. Uses decimate_factor=1 and smooth_span=1 so the
+    result is exactly analytically predictable."""
+    shot = 46403
+    n = 300
+    dt = 4e-5
+    raw_fl10 = np.arange(n, dtype=float)  # distinctive, monotonic values
+    source = tmp_path / "raw.json.gz"
+    _write_raw_dump(source, shot, {FLUX_REFERENCE_FIELD: raw_fl10})
+
+    time = np.arange(n, dtype=float) * dt
+    ip_shot = np.zeros(n, dtype=float)
+    reference_config = {
+        "mutual_inductance": 1.0,
+        "fl10": {
+            "field": FLUX_REFERENCE_FIELD,
+            "time_offset_s": 0.0,
+            "decimate_factor": 1,
+            "gain_numerator": 1.0,
+            "smooth_span": 1,
+            "subtract_window": [0.0, 1.0],
+            "reference_offset_index": 175,
+        },
+    }
+
+    compensated = _apply_fl10_windowed_compensation(
+        shot, time, ip_shot, reference_config, source
+    )
+
+    expected_offset = raw_fl10[174]  # 1-based index 175 -> 0-based 174
+    expected = ip_shot - (raw_fl10 - expected_offset)
+    np.testing.assert_allclose(compensated, expected)

@@ -310,6 +310,76 @@ def _plasma_processing_for_shot(shot: int) -> tuple[dict[str, Any], dict[str, An
     return config, nested("reference"), nested("baseline"), nested("sign")
 
 
+def _plasma_current_baseline_indices(
+    time: np.ndarray, baseline_config: dict[str, Any]
+) -> np.ndarray:
+    x_time = np.arange(
+        int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
+    )
+    x_window = int(baseline_config["lookback"])
+    x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
+    x_base = x_base[(x_base >= 0) & (x_base < time.size)]
+    if x_base.size < 2:
+        x_base = np.arange(min(500, time.size), dtype=int)
+    return x_base
+
+
+def _linear_baseline_subtract(time: np.ndarray, values: np.ndarray, x_base: np.ndarray) -> np.ndarray:
+    return values - np.polyval(np.polyfit(time[x_base], values[x_base], 1), time)
+
+
+def _apply_fl10_windowed_compensation(
+    shot: int,
+    time: np.ndarray,
+    ip_shot: np.ndarray,
+    reference_config: dict[str, Any],
+    raw_source: raw_db.RawSource | None,
+) -> np.ndarray:
+    """Apply the later-era (46403-47116) FL10 compensation used in place of
+    the legacy full-trace subtraction: decimate/gain/offset/smooth the FL10
+    reference, interpolate onto the RC03 time grid, and subtract it from
+    `ip_shot` only inside the documented compensation window.
+    """
+    fl10_config = reference_config["fl10"]
+    fl10_field = int(fl10_config["field"])
+    ind_mutual = float(reference_config["mutual_inductance"])
+
+    fl10_time, raw_fl10 = raw_db.require_signal(
+        _safe_vest_load(shot, fl10_field, raw_source),
+        shot=shot,
+        field=fl10_field,
+        signal_name="plasma-current FL10 reference (windowed compensation)",
+    )
+
+    shifted_time = fl10_time + float(fl10_config["time_offset_s"])
+    decimate_factor = int(fl10_config["decimate_factor"])
+    decimated_flux = signal.decimate(raw_fl10, decimate_factor, ftype="fir") if decimate_factor > 1 else raw_fl10
+    decimated_time = shifted_time[::decimate_factor][: decimated_flux.size]
+
+    ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / ind_mutual
+
+    # The legacy MATLAB source subtracts `polyval(polyfit(time2(1),
+    # ipRef(175), 1), time2)` -- a degree-1 fit through a single (x, y)
+    # point. VAFT's chosen interpretation (a documented compatibility
+    # convention, not a proven MATLAB-numerical-equivalence -- see #195):
+    # treat this as a constant offset equal to `ipRef` at that one index.
+    offset_index = int(fl10_config["reference_offset_index"]) - 1  # 1-based -> 0-based
+    offset_index = min(max(offset_index, 0), ip_ref.size - 1)
+    ip_ref = ip_ref - ip_ref[offset_index]
+
+    smooth_span = int(fl10_config["smooth_span"])
+    ip_ref = smooth(ip_ref, smooth_span)
+
+    ip_ref_interp = np.interp(time, decimated_time, ip_ref)
+
+    window_start, window_end = (float(bound) for bound in fl10_config["subtract_window"])
+    mask = (time >= window_start) & (time <= window_end)
+
+    compensated = ip_shot.copy()
+    compensated[mask] = ip_shot[mask] - ip_ref_interp[mask]
+    return compensated
+
+
 def vfit_plasma_current(
     shot: int,
     ref: int = -1,
@@ -320,15 +390,35 @@ def vfit_plasma_current(
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
     if ref == -1:
-        x_flux_loop = int(reference_config["field"])
-        ind_mutual = float(reference_config["mutual_inductance"])
-
         time, raw_ip = raw_db.require_signal(
             _safe_vest_load(shot, plasma_field, raw_source),
             shot=shot,
             field=plasma_field,
             signal_name="plasma-current Rogowski coil",
         )
+        x_base = _plasma_current_baseline_indices(time, baseline_config)
+        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
+        ip_shot = _linear_baseline_subtract(time, calibrated_ip, x_base)
+
+        mode = reference_config.get("mode", "subtract")
+        if mode == "disabled":
+            # Shot >= 47117 (#195): the FL10 waveform must not affect the
+            # resulting plasma current at all.
+            ip = ip_shot * float(sign_config["multiply"])
+            return time, ip
+
+        if mode == "subtract_fl10_windowed":
+            # Shots 46403-47116 (#195): later-era FL10 acquisition path,
+            # subtracted only inside the documented compensation window.
+            ip_shot = _apply_fl10_windowed_compensation(
+                shot, time, ip_shot, reference_config, raw_source
+            )
+            ip = ip_shot * float(sign_config["multiply"])
+            return time, ip
+
+        # Legacy full-trace subtraction (default, unchanged since #135).
+        x_flux_loop = int(reference_config["field"])
+        ind_mutual = float(reference_config["mutual_inductance"])
         flux_time, raw_flux = raw_db.require_signal(
             _safe_vest_load(shot, x_flux_loop, raw_source),
             shot=shot,
@@ -338,19 +428,8 @@ def vfit_plasma_current(
         if flux_time.size != time.size or not np.allclose(flux_time, time):
             raw_flux = np.interp(time, flux_time, raw_flux)
 
-        x_time = np.arange(
-            int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
-        )
-        x_window = int(baseline_config["lookback"])
-        x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
-        x_base = x_base[(x_base >= 0) & (x_base < time.size)]
-        if x_base.size < 2:
-            x_base = np.arange(min(500, time.size), dtype=int)
-
-        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
-        ip_shot = calibrated_ip - np.polyval(np.polyfit(time[x_base], calibrated_ip[x_base], 1), time)
         ip_ref = raw_flux * float(reference_config["flux_gain"]) / ind_mutual
-        ip_ref = ip_ref - np.polyval(np.polyfit(time[x_base], ip_ref[x_base], 1), time)
+        ip_ref = _linear_baseline_subtract(time, ip_ref, x_base)
         ip = (ip_shot - ip_ref) * float(sign_config["multiply"])
         return time, ip
 
