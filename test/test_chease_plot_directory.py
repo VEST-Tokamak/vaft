@@ -46,3 +46,33 @@ def test_an_explicit_plot_dir_is_honoured(tmp_path):
     cwd, output_dir = _run(tmp_path, ["--plot-dir", str(target)])
     assert (target / "plot_refined_gfiles_generated.txt").exists()
     assert not (output_dir / "plots").exists()
+
+
+def test_empty_gfile_manifest_skips_even_when_chease_is_enabled(tmp_path):
+    output = tmp_path / "out" / "refined_gfiles_generated.txt"
+    gfiles = tmp_path / "gfiles.txt"
+    gfiles.write_text("", encoding="utf-8")
+    status = tmp_path / "out" / "status.txt"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--shot",
+            "39915",
+            "--gfile-manifest",
+            str(gfiles),
+            "--output",
+            str(output),
+            "--status",
+            str(status),
+            "--run",
+            "true",
+        ],
+        capture_output=True,
+        text=True,
+        env={**__import__("os").environ, "PYTHONPATH": str(REPO), "MPLBACKEND": "Agg"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert status.read_text(encoding="utf-8").strip() == "skipped: no EFIT gfiles; input_gfiles=0"

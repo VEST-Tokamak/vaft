@@ -279,11 +279,17 @@ def test_snakefile_declares_required_plots_as_real_outputs():
 
 def test_stage_plot_outputs_cover_every_required_plot():
     paths = PipelinePaths(BASE_DIR, FILEDB)
-    for stage in ("diagnostics", "eddy", "efit", "mhd_linear"):
+    # Stages which may validly produce no data are tracked through their plot
+    # manifest: a skipped plot intentionally has no PNG to use as a static
+    # Snakemake output. Diagnostics always has the required preflight inputs.
+    for stage in ("diagnostics",):
         required = stage_plot_filenames(stage, required_only=True)
         patterns = [paths.shot_pattern("stage_plot", stage, name) for name in required]
         assert len(patterns) == len(required)
         assert all("{shot}" in pattern and "/plot/" in pattern for pattern in patterns)
+
+    source = (WORKFLOW_DIR / "Snakefile").read_text(encoding="utf-8")
+    assert 'EMPTY_VALIDATION_STAGES = {"eddy", "efit", "mhd_linear"}' in source
 
 
 def test_generate_stage_plots_writes_the_manifest_the_metadata_references(

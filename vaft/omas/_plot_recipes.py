@@ -2003,10 +2003,15 @@ def _build_line_traces(
         traces = []
         for index in indices:
             y = _array(ods, recipe.y_path.format(i=index))
-            if y is None:
+            # IMAS arrays may include placeholder scalar values (commonly
+            # ``nan``) for unpopulated channels.  They are data values, but
+            # not time series, and ``Series`` correctly refuses to render
+            # them.  Ignore those placeholders while retaining the valid
+            # channels in the same IDS.
+            if y is None or y.ndim != 1:
                 continue
             time = _first_time(ods, recipe.x_paths, i=index)
-            if time is None or time.size != y.size:
+            if time is None or time.ndim != 1 or time.size != y.size:
                 time = np.arange(y.size, dtype=float)
             traces.append(
                 Series(
