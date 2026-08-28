@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 import warnings
 from xml.sax.saxutils import escape
 
@@ -121,6 +121,55 @@ def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *, code_name:
 _OUTPUT_FLAG_NOT_RUN = -1
 
 
+def ensure_toroidal_mode_grid(ods: ODS, time_slice: int, n_tor_grid: Sequence[int]) -> None:
+    """Lay out ``mhd_linear.time_slice[t].toroidal_mode`` as a dense ``n_tor`` grid.
+
+    The analysis model this IDS is written for is a regular ``(time, n_tor)``
+    grid: a consumer must be able to read every toroidal mode at a fixed time,
+    and a time trace at a fixed ``n_tor``, without reconstructing sparse
+    indices or joining on labels. So every *requested* mode gets an entry at
+    the same array position in every time slice, whether or not a solver
+    produced anything for it.
+
+    Position is layout, never physics: ``n_tor`` is written explicitly on
+    every entry (padded ones included) and remains the only thing a consumer
+    may read the mode number from. A padded entry carries ``n_tor`` and
+    nothing else -- no zeroed or otherwise fabricated payload that could be
+    mistaken for a solver result. Whether a cell holds a real result is read
+    from the payload's presence, from ``code.output_flag`` for the slice, or
+    -- authoritatively, and per ``(time, module, n)`` -- from the stage
+    manifest.
+    """
+    _ensure_time_slice(ods, "mhd_linear", time_slice)
+    for position, n_tor in enumerate(n_tor_grid):
+        ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]["n_tor"] = int(n_tor)
+
+
+def initialize_output_flags(ods: ODS, ids: str, count: int) -> None:
+    """Extend ``<ids>.code.output_flag`` to ``count`` slices, defaulting to "not run".
+
+    Gives the flag array the same dense length as the time base, so a slice no
+    solver reached reads as an explicit negative flag rather than as a missing
+    array element. Purely additive: flags a solver has already set are left
+    alone, so this is safe to call either side of the run loop.
+    """
+    if count <= 0:
+        return
+    path = f"{ids}.code.output_flag"
+    existing = _output_flags(ods, ids)
+    if len(existing) >= count:
+        return
+    ods[path] = np.asarray(existing + [_OUTPUT_FLAG_NOT_RUN] * (count - len(existing)), dtype=int)
+
+
+def _output_flags(ods: ODS, ids: str) -> list[int]:
+    path = f"{ids}.code.output_flag"
+    if path not in ods:
+        return []
+    values = np.atleast_1d(ods[path])
+    return [int(value) for value in values] if values.size else []
+
+
 def _set_output_flag(ods: ODS, ids: str, time_slice: int, flag: int) -> None:
     """Set ``<ids>.code.output_flag[time_slice]``, padding earlier slices.
 
@@ -129,17 +178,17 @@ def _set_output_flag(ods: ODS, ids: str, time_slice: int, flag: int) -> None:
     explicitly instead of letting a solver that succeeded only for a later
     time slice fail here.
     """
-    path = f"{ids}.code.output_flag"
-    existing = ods[path] if path in ods else []
-    values = [int(value) for value in np.atleast_1d(existing)] if len(np.atleast_1d(existing)) else []
+    values = _output_flags(ods, ids)
     while len(values) <= time_slice:
         values.append(_OUTPUT_FLAG_NOT_RUN)
     values[time_slice] = flag
-    ods[path] = np.asarray(values, dtype=int)
+    ods[f"{ids}.code.output_flag"] = np.asarray(values, dtype=int)
 
 
 def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput) -> None:
-    _ensure_time_slice(ods, "mhd_linear", time_slice)
+    # `position` is this mode's slot in the dense n_tor grid, not an append
+    # cursor; `n_tor` is (re)written here so the entry is self-describing even
+    # if the grid was laid out by a different caller.
     mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
     mode_entry["n_tor"] = result.n_tor
     if result.W_t_eigenvalue is not None and result.W_t_eigenvalue.size:
@@ -168,7 +217,9 @@ def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutp
 def _write_resistive_entry(
     ods: ODS, time_slice: int, position: int, result: Pest3MatchingOutput, diagonal: list[dict[str, Any]]
 ) -> None:
-    _ensure_time_slice(ods, "mhd_linear", time_slice)
+    # `position` is this mode's slot in the dense n_tor grid, not an append
+    # cursor; `n_tor` is (re)written here so the entry is self-describing even
+    # if the grid was laid out by a different caller.
     mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
     mode_entry["n_tor"] = result.n_tor
     mode_entry["ballooning_type"]["name"] = "Tearing"
@@ -206,7 +257,10 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
 
     ``options["module"]`` selects which solver's output to read (``"dcon"``
     by default, matching prior behavior); one of ``"dcon"``, ``"rdcon"``,
-    ``"stride"``. Returns a ``{n_tor: {...}}`` dict of values kept alongside
+    ``"stride"``. ``options["modes"]`` is the full requested ``n_tor`` grid:
+    supplying it makes the `toroidal_mode` AOS dense and its positions stable
+    across time slices and solvers (see :func:`ensure_toroidal_mode_grid`);
+    omitting it falls back to whatever ``source`` yielded. Returns a ``{n_tor: {...}}`` dict of values kept alongside
     the ODS in the caller's run manifest (RDCON/STRIDE's per-surface
     Delta-prime, which has no `mhd_linear` slot for the full detail even
     though its diagonal now also reaches `ntms`).
@@ -258,17 +312,33 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
             )
             continue
 
-    # `toroidal_mode` is an IMAS array of structures: entries must be
-    # appended sequentially (position != mode number), so the physical
-    # toroidal mode number is only ever recovered from `n_tor`, never from
-    # array position. `existing` accounts for entries a prior call already
-    # wrote for this time slice (e.g. a DCON pass before this RDCON pass on
-    # the same `ods`) so repeated calls extend rather than overwrite them.
-    existing = _existing_aos_count(ods, "mhd_linear", time_slice, "toroidal_mode") if parsed else 0
+    # The `toroidal_mode` AOS is a dense grid over the *requested* mode set, so
+    # every mode keeps the same array position in every time slice and a
+    # consumer can slice the ODS as a regular (time, n_tor) grid. Callers that
+    # know the grid pass it in; a standalone call without one falls back to
+    # whatever this directory actually yielded, which keeps the mapper usable
+    # on its own. Either way `n_tor` is written explicitly on every entry --
+    # position is layout, never the physical mode number.
+    grid: list[int] = [int(n) for n in options.get("modes", [])]
+    for _, result in parsed:
+        if result.n_tor not in grid:
+            if grid:
+                # A solver produced a mode the caller did not ask for; keep it
+                # (dropping real results is worse than a ragged tail) but say
+                # so, since it lands outside the stable part of the grid.
+                warnings.warn(
+                    f"{module}: n_tor={result.n_tor} is not in the requested mode "
+                    f"grid {grid}; appending it after the grid",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            grid.append(result.n_tor)
+    if grid:
+        ensure_toroidal_mode_grid(ods, time_slice, grid)
 
     extras: dict[int, dict[str, Any]] = {}
-    for offset, (mode, result) in enumerate(parsed):
-        position = existing + offset
+    for mode, result in parsed:
+        position = grid.index(result.n_tor)
         if module == "dcon":
             _write_dcon_entry(ods, time_slice, position, result)
             extras[result.n_tor] = {

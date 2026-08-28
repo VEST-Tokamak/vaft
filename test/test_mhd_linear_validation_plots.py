@@ -1,10 +1,16 @@
 """Linear MHD stability validation plots (issue #139).
 
-The set is deliberately minimal: only `n_tor` and DCON's `energy_perturbed`
-reach the `mhd_linear` IDS today. RDCON/STRIDE's Delta-prime has no IDS slot and
-survives only in the stage manifest, so it is reported as a metric rather than
-invented into a figure. There is no packaged mhd_linear product, so these build
-their own ODSs the way test_machine_mapping_mhd_linear.py does.
+The plot set is deliberately minimal: `n_tor` and DCON's `energy_perturbed`
+drive the energy figure, while the run-coverage figure is built from the stage
+manifest rather than the ODS. RDCON/STRIDE's full per-surface Delta-prime has
+no `mhd_linear` slot and survives in the manifest, so it is reported as a
+metric rather than invented into a figure.
+
+Note the `mhd_linear` IDS is laid out as a dense (time, n_tor) grid: every
+requested mode has an entry in every time slice, so "this shot produced
+nothing" is a statement about payloads, not about entry counts -- see the
+padding tests at the end. There is no packaged mhd_linear product, so these
+build their own ODSs the way test_machine_mapping_mhd_linear.py does.
 """
 
 from __future__ import annotations
@@ -248,3 +254,35 @@ def _manifest_payload(*, failed_cell: bool) -> str:
         },
     }
     return json.dumps(payload)
+
+
+def test_a_dense_grid_of_padding_only_is_reported_as_an_empty_product(tmp_path):
+    """Under the dense (time, n_tor) layout a shot no solver produced anything
+    for still has `toroidal_mode` entries, so emptiness is a question about
+    payloads rather than entry counts -- the stage must still skip cleanly
+    instead of trying to plot padding."""
+    ods = ODS(consistency_check=False)
+    ods["mhd_linear.ids_properties.homogeneous_time"] = 1
+    ods["mhd_linear.time"] = [0.316, 0.317]
+    for time_slice in range(2):
+        for position, n_tor in enumerate((1, 2)):
+            ods[f"mhd_linear.time_slice.{time_slice}.toroidal_mode.{position}.n_tor"] = n_tor
+
+    reason = STAGE_PRECONDITIONS["mhd_linear"](ods)
+    assert reason is not None and "padding only" in reason
+
+    manifest = render_stage_plots("mhd_linear", ods, tmp_path / "plot", shot=41234)
+    assert manifest["status"] == "empty"
+    assert {row["status"] for row in manifest["plots"]} == {"skipped"}
+    assert not list((tmp_path / "plot").iterdir())
+
+
+def test_one_solved_cell_in_a_dense_grid_is_not_an_empty_product(tmp_path):
+    ods = ODS(consistency_check=False)
+    ods["mhd_linear.ids_properties.homogeneous_time"] = 1
+    ods["mhd_linear.time"] = [0.316]
+    for position, n_tor in enumerate((1, 2)):
+        ods[f"mhd_linear.time_slice.0.toroidal_mode.{position}.n_tor"] = n_tor
+    ods["mhd_linear.time_slice.0.toroidal_mode.0.energy_perturbed"] = -0.4
+
+    assert STAGE_PRECONDITIONS["mhd_linear"](ods) is None

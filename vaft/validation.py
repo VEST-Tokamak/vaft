@@ -216,6 +216,13 @@ def _no_plasma_onset(source: Any) -> str | None:
     return None
 
 
+#: Fields a `toroidal_mode` entry only carries when a solver actually produced
+#: a result for that cell. `n_tor` is deliberately not among them: the IDS is
+#: laid out as a dense (time, n_tor) grid, so *every* requested mode has an
+#: entry stating its own `n_tor` whether or not it was solved for.
+_MHD_LINEAR_MODE_PAYLOAD = ("energy_perturbed", "ballooning_type.name")
+
+
 def _no_toroidal_modes(source: Any) -> str | None:
     count = _ods_count(source, "mhd_linear.time_slice")
     if count == 0:
@@ -225,7 +232,17 @@ def _no_toroidal_modes(source: Any) -> str | None:
         for index in range(count)
     ):
         return "the GPEC suite mapped no toroidal mode for this shot"
-    return None
+    # A dense grid is structurally present even for a shot no solver produced
+    # anything for, so emptiness is a question about payloads, not entries.
+    for index in range(count):
+        root = f"mhd_linear.time_slice.{index}.toroidal_mode"
+        for position in range(_ods_count(source, root)):
+            if any(f"{root}.{position}.{field}" in source for field in _MHD_LINEAR_MODE_PAYLOAD):
+                return None
+    return (
+        "the GPEC suite produced no usable result for any toroidal mode of this "
+        "shot; the mhd_linear grid is padding only"
+    )
 
 
 #: Stages whose data product can be legitimately empty.  The callable returns a

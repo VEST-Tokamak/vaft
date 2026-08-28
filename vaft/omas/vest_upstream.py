@@ -773,6 +773,22 @@ def build_mhd_linear_ods(
     ods["mhd_linear"]["ids_properties"]["homogeneous_time"] = 1
     ods["mhd_linear"]["time"] = times_seconds
 
+    # Lay the whole (time, n_tor) grid out before any solver runs, so the IDS
+    # is dense on both axes regardless of which cells succeed: every requested
+    # time slice exists, every requested mode holds the same array position in
+    # each of them, and each entry states its own `n_tor`. Cells no solver
+    # fills keep only that `n_tor` -- never a fabricated payload -- and the
+    # slice's negative `code.output_flag` says the result is not usable.
+    from vaft.machine_mapping.mhd_linear import (
+        ensure_toroidal_mode_grid,
+        initialize_output_flags,
+    )
+
+    mode_grid = [int(mode) for mode in modes]
+    for time_slice in range(len(time_values)):
+        ensure_toroidal_mode_grid(ods, time_slice, mode_grid)
+    initialize_output_flags(ods, "mhd_linear", len(time_values))
+
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}
     if workdir is None and not module_workdirs:
@@ -795,7 +811,11 @@ def build_mhd_linear_ods(
                     modules_modes[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
                     continue
                 try:
-                    extras = mhd_linear_mapper(ods, str(run_dir), {"time_slice": time_slice, "module": module})
+                    extras = mhd_linear_mapper(
+                        ods,
+                        str(run_dir),
+                        {"time_slice": time_slice, "module": module, "modes": mode_grid},
+                    )
                 except Exception as exc:
                     modules_modes[key] = {"status": "failed", "reason": str(exc)}
                     continue
@@ -813,11 +833,18 @@ def build_mhd_linear_ods(
     # which is a length mismatch under homogeneous_time=1. When it *is*
     # populated, the AOS is padded out to the full time base so every declared
     # time has a slice, empty or not.
+    # `ntms`'s time axis is made dense the same way `mhd_linear`'s is. Its mode
+    # axis deliberately is not: an `ntms.mode` entry is one *rational surface*
+    # (an (m, n) pair the solver locates in the equilibrium), not a requested
+    # toroidal mode, so there is no caller-supplied grid to pad it against --
+    # how many surfaces exist is itself a result. Slices with no surfaces stay
+    # empty and are marked unusable by the negative output flag.
     if "ntms.time_slice" in ods and len(ods["ntms.time_slice"]):
         for index in range(len(ods["ntms.time_slice"]), len(times_seconds)):
             ods["ntms"]["time_slice"][index]
         ods["ntms"]["ids_properties"]["homogeneous_time"] = 1
         ods["ntms"]["time"] = times_seconds
+        initialize_output_flags(ods, "ntms", len(times_seconds))
 
     status = "success" if any(cell["status"] == "success" for cell in modules_modes.values()) else "empty"
     manifest = {

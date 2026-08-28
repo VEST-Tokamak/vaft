@@ -537,9 +537,14 @@ def test_build_mhd_linear_ods_reuses_the_adapters_directory_layout_and_round_tri
 
     assert ods["mhd_linear.ids_properties.homogeneous_time"] == 1
     assert ods["mhd_linear.time"] == pytest.approx([0.319])
+    # The AOS is a dense grid over the *requested* modes, so one entry per
+    # n_tor -- not one per (module, n_tor). Both DCON and RDCON contribute to
+    # the n=1 cell; which module produced what stays in the manifest.
     modes = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"]
-    assert len(modes) == 2
-    assert {mode["n_tor"] for mode in modes.values()} == {1}
+    assert len(modes) == 1
+    assert modes[0]["n_tor"] == 1
+    assert modes[0]["energy_perturbed"] == pytest.approx(-0.42)  # from DCON
+    assert modes[0]["ballooning_type"]["name"] == "Tearing"  # from RDCON
 
     assert manifest["status"] == "success"
     assert manifest["modules_modes"]["t=00319/dcon/n=1"]["status"] == "success"
@@ -551,7 +556,7 @@ def test_build_mhd_linear_ods_reuses_the_adapters_directory_layout_and_round_tri
     metadata = tmp_path / "mhd_linear_manifest.json"
     write_stage_product(ods, manifest, output=output, metadata=metadata)
     reloaded, _ = load_ods(output)
-    assert len(reloaded["mhd_linear"]["time_slice"][0]["toroidal_mode"]) == 2
+    assert len(reloaded["mhd_linear"]["time_slice"][0]["toroidal_mode"]) == 1
 
 
 def test_build_mhd_linear_ods_covers_multiple_refined_time_slices(tmp_path):
@@ -589,7 +594,9 @@ def test_build_mhd_linear_ods_reads_separate_canonical_module_work_trees(tmp_pat
         modes=(1,),
     )
 
-    assert len(ods["mhd_linear"]["time_slice"][0]["toroidal_mode"]) == 2
+    # One dense grid cell for the single requested mode; both solvers write
+    # into it, and the manifest keeps their statuses apart per (time, module, n).
+    assert len(ods["mhd_linear"]["time_slice"][0]["toroidal_mode"]) == 1
     assert manifest["modules_modes"]["t=00319/dcon/n=1"]["status"] == "success"
     assert manifest["modules_modes"]["t=00319/rdcon/n=1"]["status"] == "success"
 
@@ -657,3 +664,77 @@ def test_missing_md_channel_keeps_later_channel_in_its_ordered_slot():
     assert len(probes) == 2
     assert probes[0].size == 0
     assert probes[1].size > 0
+
+
+def test_build_mhd_linear_ods_is_a_dense_time_by_n_tor_grid(tmp_path):
+    """The IDS is laid out for a regular (time, n_tor) analysis grid: every
+    requested time slice exists, every requested mode holds the same array
+    position in each of them, and cells no solver filled are padding that
+    states its own `n_tor` and nothing else."""
+    workdir = tmp_path / "gpec"
+    # DCON for n=1 only, and only at the first and last of three times.
+    _write_gpec_output(workdir, "dcon", 1, time_label="00300", w_t=-0.1)
+    _write_gpec_output(workdir, "dcon", 1, time_label="00320", w_t=-0.3)
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00300", "00310", "00320"],
+        workdir=workdir,
+        modules=("dcon",),
+        modes=(1, 2),
+    )
+
+    assert len(ods["mhd_linear"]["time_slice"]) == 3
+    for time_slice in range(3):
+        row = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"]
+        assert len(row) == 2
+        # Position is layout; `n_tor` is written explicitly everywhere, so a
+        # fixed-n_tor time trace is a fixed array position across slices.
+        assert [row[position]["n_tor"] for position in range(2)] == [1, 2]
+
+    # Solved cells carry the payload; padded ones carry no fabricated value.
+    solved = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]
+    assert solved["energy_perturbed"] == pytest.approx(-0.1)
+    for time_slice, position in ((1, 0), (0, 1), (1, 1), (2, 1)):
+        padded = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
+        assert "energy_perturbed" not in padded
+
+    # The time axis marks the unsolved slice unusable rather than dropping it.
+    assert list(ods["mhd_linear.code.output_flag"]) == [0, -1, 0]
+
+    # The manifest stays the authoritative per-(time, module, n) run record,
+    # distinguishing states the ODS deliberately does not encode.
+    assert manifest["modules_modes"]["t=00310/dcon/n=1"]["status"] == "missing"
+    assert manifest["modules_modes"]["t=00300/dcon/n=2"]["status"] == "missing"
+    assert manifest["modules_modes"]["t=00300/dcon/n=1"]["status"] == "success"
+
+
+def test_build_mhd_linear_ods_pads_a_shot_no_solver_produced_anything_for(tmp_path):
+    """A shot with no usable result is still structurally dense, but must not
+    look like a successful run: the manifest says `empty`, every flag is
+    negative, and the validation precondition reports it as an empty product."""
+    from vaft.validation import STAGE_PRECONDITIONS
+
+    workdir = tmp_path / "gpec"
+    workdir.mkdir(parents=True)
+
+    ods, manifest = build_mhd_linear_ods(
+        shot=39915,
+        time_values=["00300", "00310"],
+        workdir=workdir,
+        modules=("dcon", "rdcon"),
+        modes=(1, 2),
+    )
+
+    assert manifest["status"] == "empty"
+    assert len(ods["mhd_linear"]["time_slice"]) == 2
+    for time_slice in range(2):
+        row = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"]
+        assert [row[position]["n_tor"] for position in range(2)] == [1, 2]
+        for position in range(2):
+            assert "energy_perturbed" not in row[position]
+            assert "ballooning_type" not in row[position]
+    assert list(ods["mhd_linear.code.output_flag"]) == [-1, -1]
+    # `ntms` has no requested grid to pad against, so it stays absent entirely.
+    assert "ntms" not in ods
+    assert "padding only" in STAGE_PRECONDITIONS["mhd_linear"](ods)
