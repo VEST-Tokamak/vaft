@@ -91,7 +91,7 @@ MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOT
 # declare as a static Snakemake output.  Non-empty-only stages retain their
 # figure paths as direct outputs.
 PLOTS_ENABLED = PATHS.layout == FILEDB
-EMPTY_VALIDATION_STAGES = {"eddy", "efit", "mhd_linear"}
+EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}
 
 
 def stage_plot_outputs(stage):
