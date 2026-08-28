@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 pytest.importorskip("omas")
+pytest.importorskip("omfit_classes")
 
 from vaft.data.resources import data_path
 
