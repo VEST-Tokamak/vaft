@@ -262,6 +262,34 @@ def test_comparison_model_keeps_the_four_profile_comparisons_and_the_geometry():
     assert len(geometry[0].layers) == 4
 
 
+def test_comparison_metrics_is_public_and_reports_current_diff():
+    # Issue #172: promoted out of the private surface so the chease validation
+    # stage can reuse it, extended with an Ip/CURRENT comparison.
+    original = _plottable_geqdsk()
+    refined = _plottable_geqdsk(scale=1.1)
+    refined["CURRENT"] = original["CURRENT"] * 1.05
+
+    metrics = ch.comparison_metrics(original, refined)
+
+    assert metrics["current_abs_diff"] == pytest.approx(abs(original["CURRENT"] * 0.05))
+    assert metrics["current_rel_diff"] == pytest.approx(0.05)
+    # The four profile RMS-relative terms moved because `refined` is a scaled
+    # copy of `original`.
+    for key in ("q_rms_rel", "pressure_rms_rel", "pprime_rms_rel", "ffprim_rms_rel"):
+        assert metrics[key] > 0
+
+
+def test_comparison_metrics_current_rel_diff_is_nan_for_zero_input_current():
+    original = _plottable_geqdsk()
+    original["CURRENT"] = 0.0
+    refined = _plottable_geqdsk(scale=1.1)
+
+    metrics = ch.comparison_metrics(original, refined)
+
+    assert metrics["current_abs_diff"] == pytest.approx(abs(refined["CURRENT"]))
+    assert np.isnan(metrics["current_rel_diff"])
+
+
 def test_comparison_plot_is_rendered_by_vaft_plot_and_saved(tmp_path):
     import matplotlib
 

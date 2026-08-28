@@ -157,6 +157,25 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             filename="stability_energy_perturbed.png",
         ),
     ),
+    # CHEASE refines an EFIT equilibrium at fixed boundary: the per-slice
+    # comparison figure (`chease_comparison.png`, one per time label) stays a
+    # side effect of `run_chease`, tracked by its own manifest, because its
+    # count and filenames vary per shot and a required plot needs a
+    # deterministic name. Only the two per-shot summaries -- which the
+    # per-slice figures cannot give -- are declared here. Both are rendered
+    # purely from the refined ODS: `comparison_metrics` per time slice rides
+    # along on `equilibrium.code.parameters`, embedded by
+    # `generate_chease_ods.py`, so the ODS alone is what is validated.
+    "chease": (
+        ValidationPlot(
+            plot="chease_overview_refinement_summary",
+            filename="chease_refinement_summary.png",
+        ),
+        ValidationPlot(
+            plot="chease_overview_profile_validity",
+            filename="chease_profile_validity.png",
+        ),
+    ),
 }
 
 
@@ -215,6 +234,19 @@ def _no_toroidal_modes(source: Any) -> str | None:
     return None
 
 
+def _no_chease_slices(source: Any) -> str | None:
+    """CHEASE can legitimately produce nothing: disabled, no executable, or
+    every input g-file failed to refine. `run_chease_refinement.py` writes an
+    empty `equilibrium.time_slice` product on every such path.
+    """
+    if _ods_count(source, "equilibrium.time_slice") == 0:
+        return (
+            "CHEASE produced no refined equilibrium time slice for this shot; "
+            "see the stage's chease_status"
+        )
+    return None
+
+
 #: Stages whose data product can be legitimately empty.  The callable returns a
 #: reason when it is, and every declared plot -- required ones included -- is
 #: then recorded as skipped with that reason instead of failing the stage.  This
@@ -222,6 +254,7 @@ def _no_toroidal_modes(source: Any) -> str | None:
 #: lands in the manifest, unlike a required plot whose data is unexpectedly
 #: absent, which still raises.
 STAGE_PRECONDITIONS: dict[str, Any] = {
+    "chease": _no_chease_slices,
     "eddy": _no_plasma_onset,
     "efit": _no_equilibrium_slices,
     "mhd_linear": _no_toroidal_modes,
@@ -359,10 +392,57 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     )
 
 
+def _chease_metrics(source: Any, **_context: Any) -> dict[str, Any]:
+    """Refinement-comparison and physics-flag QA behind the chease figures.
+
+    Primary tier: per-slice profile/boundary RMS change, psi and Ip diffs --
+    `comparison_metrics`, computed once in `vaft.code.chease` and embedded onto
+    the refined ODS's `equilibrium.code.parameters` by `generate_chease_ods.py`
+    -- plus q0/q95, q-monotonicity and pressure positivity, read directly off
+    each refined time slice. Metadata tier: `records_summary`, which input
+    gfile refined into a time slice against which failed, coming from the same
+    embedded block. There is no CHEASE `chease.log`/`NOUT` parser anywhere in
+    this codebase; the diagnostic tier the issue calls for is therefore scoped
+    to the coarse per-record status already carried in `records_summary`
+    rather than full log parsing.
+    """
+    embedded: dict[str, Any] = {}
+    raw_parameters = source.get("equilibrium.code.parameters", None)
+    if raw_parameters:
+        try:
+            embedded = json.loads(raw_parameters)
+        except (TypeError, ValueError):
+            embedded = {}
+    comparison_by_slice = embedded.get("comparison_metrics", {}) or {}
+
+    slice_count = _ods_count(source, "equilibrium.time_slice")
+    slices: dict[str, Any] = {}
+    for index in range(slice_count):
+        root = f"equilibrium.time_slice.{index}"
+        q = np.asarray(source.get(f"{root}.profiles_1d.q", []), dtype=float)
+        pressure = np.asarray(source.get(f"{root}.profiles_1d.pressure", []), dtype=float)
+        diffs = np.diff(q)
+        slices[str(index)] = {
+            "q0": source.get(f"{root}.global_quantities.q_axis", None),
+            "q95": source.get(f"{root}.global_quantities.q_95", None),
+            "q_monotonic": bool(diffs.size == 0 or np.all(diffs >= 0) or np.all(diffs <= 0)),
+            "pressure_positive": bool(pressure.size == 0 or np.all(pressure >= 0)),
+            "comparison": comparison_by_slice.get(str(index), {}),
+        }
+
+    return {
+        "schema_version": 1,
+        "time_slice_count": slice_count,
+        "slices": slices,
+        "records_summary": embedded.get("records_summary", []),
+    }
+
+
 #: Stages that record scalar validation results alongside their figures.  The
 #: callable takes the stage's data product and returns the block the plot
 #: manifest carries under ``"metrics"``.
 STAGE_METRICS: dict[str, Any] = {
+    "chease": _chease_metrics,
     "eddy": _eddy_metrics,
     "efit": _efit_metrics,
     "mhd_linear": _mhd_linear_metrics,

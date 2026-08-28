@@ -779,7 +779,15 @@ def _preserve_source_wall(result: "CHEASEResult", source: Any) -> None:
     result.refined_ods["wall"] = copy.deepcopy(source["wall"])
 
 
-def _comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
+def comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
+    """Quantify how far CHEASE's refinement moved an EFIT equilibrium.
+
+    ``original``/``refined`` are :class:`~vaft.data.eqdsk.GEQDSK`-like mappings
+    (pre- and post-refinement g-files). Consumed both by the CHEASE run itself
+    (``CHEASEResult.comparison``) and, embedded into the refined ODS's
+    ``equilibrium.code.parameters``, by the ``chease`` validation stage
+    (:mod:`vaft.validation`).
+    """
     metrics = {}
     for name, key in (
         ("q_rms_rel", "QPSI"),
@@ -793,6 +801,12 @@ def _comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
         metrics[name] = float(np.sqrt(np.nanmean((a - b) ** 2)) / denom)
     metrics["psi_axis_abs_diff"] = float(abs(float(original["SIMAG"]) - float(refined["SIMAG"])))
     metrics["psi_boundary_abs_diff"] = float(abs(float(original["SIBRY"]) - float(refined["SIBRY"])))
+    current_original = float(original["CURRENT"])
+    current_refined = float(refined["CURRENT"])
+    metrics["current_abs_diff"] = float(abs(current_original - current_refined))
+    metrics["current_rel_diff"] = float(
+        abs(current_original - current_refined) / abs(current_original) if current_original else float("nan")
+    )
     r0 = np.asarray(original.get("RBBBS", []), dtype=float).reshape(-1)
     z0 = np.asarray(original.get("ZBBBS", []), dtype=float).reshape(-1)
     r1 = np.asarray(refined.get("RBBBS", []), dtype=float).reshape(-1)
@@ -1107,7 +1121,7 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
             refined_ods = refined_obj.to_omas()
             if input_geqdsk is not None:
                 original_obj = read_geqdsk(input_geqdsk)
-                comparison = _comparison_metrics(original_obj, refined_obj)
+                comparison = comparison_metrics(original_obj, refined_obj)
                 if config.create_plot:
                     figures.append(_create_comparison_plot(original_obj, refined_obj, base / "chease_comparison.png"))
         except Exception:
@@ -1152,6 +1166,7 @@ __all__ = [
     "CodeRunner",
     "GeqdskSignInfo",
     "collect_chease_outputs",
+    "comparison_metrics",
     "find_chease_executable",
     "prepare_chease_inputs",
     "refine_equilibrium",
