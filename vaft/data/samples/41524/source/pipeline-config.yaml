@@ -1,0 +1,136 @@
+base_dir: ${VAFT_FILEDB_DIR} # Base path for all output
+# Product layout: `shot_first` reproduces the legacy /srv/vest.filedb/public
+# hierarchy this pipeline is validated against; `filedb` resolves the canonical
+# OMAS-first grammar through vaft.database.filedb.FileDB.
+layout: filedb
+conda: vaft # Conda environment to activate
+shots: # List of shot numbers to process
+- 39915
+cores: 30 # Number of cores to use
+raw:
+  mode: sql # sql or archive
+  archive_template: ${VAFT_DATA_DIR}/legacy/shot_{shot}.json.gz
+  offline_only: true
+  preflight:
+    # A readable archive without these signals is an incomplete DAQ/SQL shot.
+    # It is recorded and excluded from downstream processing.
+    required_fields: [1, 12, 25, 59, 109]
+    min_samples: 2
+diagnostics:
+  tstart: 0.26
+  tend: 0.36
+  dt: 4.0e-5
+  run: 1
+vest:
+  magnetics:
+    processing:
+      time_start: 0.0
+      time_end: 0.99996
+      sample_count: 25000
+      fast_sample_rate: 250000.0
+      lowpass_cutoff: 2500.0
+      lowpass_taps: 251
+      default_index_start: 6000
+      default_index_end: 8500
+      default_probe_baseline_end: 8500
+      late_shot_min: 41660
+      transient_shot_min: 41446
+      transient_shot_max: 41451
+      late_index_start: 6500
+      late_index_end: 9000
+      late_probe_baseline_end: 5000
+      flux_baseline_first_start: 3499
+      flux_baseline_first_end: 5000
+      flux_baseline_second_start: 11999
+      flux_baseline_second_end: 15000
+      flux_baseline_late_start: 5999
+      flux_baseline_late_end: 7000
+      flux_baseline_late_loop_numbers:
+      - 9
+      - 10
+      - 11
+      calibration_mode: divide
+      flux_output_per_radian: true
+eddy:
+  filament:
+    r:
+    - 0.35
+    - 0.35
+    - 0.35
+    z:
+    - 0.25
+    - 0.0
+    - -0.25
+    fraction:
+    - 0.3333333
+    - 0.3333333
+    - 0.3333333
+  dt_sub: 5.0e-5
+constraints:
+  timeset: auto
+  tstep: 0.001
+  detect_broken: true
+  broken:
+  - 65
+  - 66
+  - 67
+  - 68
+  - 72
+  - 74
+  fl_correct_option: 0
+  gaussian_fit_option: 1
+  npprime: 2
+  nffprime: 2
+  uncertainty:
+  - 1.0e-4
+  - 1.0e-4
+  - 5.0e-2
+  - 3.0e-2
+  - 1.0e-2
+  - 1.0e-1
+  - 1.0e-2
+  - 1.0e-1
+  - 1.0e-2
+  weighting:
+  - 1
+  - 1
+  - 1
+  - 0.1
+  - 0.1
+  - 0.1
+  - 0.01
+  - 0.01
+efit:
+  run: true
+  executable: ${EFIT}
+  table_dir: ${VAFT_DATA_DIR}/efit/
+  args: "129"
+  timeout: 600
+chease:
+  run: true
+  executable: ${CHEASE}
+  timeout: 600
+  target_psin: 0.993
+  relax: 0.5
+  nideal: 6
+  nw: 513
+  auto_cocos: true
+  output_cocos: input
+  preserve_boundary_limiter: true
+  create_plot: true
+gpec:
+  home: ${GPECHOME}
+  run: auto
+  modules:
+  - dcon
+  - rdcon
+  - stride
+  - gpec
+  modes:
+  - 1
+  - 2
+  psilow: 0.01
+  psihigh: 0.994
+  timeout: 1200
+  coil:
+    source: vest_reference

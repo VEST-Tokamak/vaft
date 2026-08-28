@@ -79,9 +79,12 @@ def test_full_imas_samples_round_trip_through_both_adapters(shot):
         probe = via_omas[f"magnetics.b_field_pol_probe.{index}"]
         if "poloidal_angle" in probe:
             np.testing.assert_allclose(probe["poloidal_angle"], np.pi / 2)
-    if shot == 41672:
+    if shot in (41524, 41672):
         assert manifest["source"]["kind"] == "pipeline-until-efit"
-        assert manifest["pipeline"]["efit"]["successful_time_slices"] == 19
+        assert (
+            manifest["pipeline"]["efit"]["successful_time_slices"]
+            == len(manifest["acceptance"]["equilibrium_times"])
+        )
         ip = np.asarray(
             [
                 via_omas[f"equilibrium.time_slice.{index}.global_quantities.ip"]

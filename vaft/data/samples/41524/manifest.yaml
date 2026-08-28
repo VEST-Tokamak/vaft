@@ -1,14 +1,14 @@
 schema_version: 1
-reference_id: vest-41524-legacy-full-imas-v1
+reference_id: vest-41524-pipeline-full-imas-v2
 shot: 41524
 machine: VEST
 imas_dd_version: 3.41.0
 source:
-  kind: git-blob
-  git_commit: 15ca8403b8fef978e75cd82a2cbb566644ef4403
-  git_path: vaft/data/omas/41524.json
-  git_blob: 96008b633e7b69eb6bba5366c16bf478d77fdffd
-  sha256: cb709f674782e1aceb42be7bd69117f4ffd0267100a196c28ec33f827ab8f6af
+  kind: pipeline-until-efit
+  git_commit: 9c62a1f54ac547d5d8f26b12986c3e534e1b50cf
+  filedb_root: /Volumes/hsyun_ssd/vaft-filedb/issue-166-41524
+  raw_source: source/vest_41524_daq_raw.json.gz
+  raw_sha256: 8d3f9448b0ef351b70b469f303666467bac39c157afd00eddc6617dd8abfb91b
 representations:
   imas:
     path: imas.nc
@@ -17,21 +17,43 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 21464343
-    sha256: b5d382ab2e2efcb3e739ab6212f8852c60c6c0ff6b5b24f195aba0db6a4db8b0
+    size: 27918897
+    sha256: e28678c827f1ac66ca170e13d7f11bef0f0332b83de36fcd61676d88a74db034
 generation:
-  command: python workflow/reference_validation/generate_legacy_imas_sample.py --manifest
-    vaft/data/samples/41524/manifest.yaml
-  materialized_leaves: 62097
+  command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
+    vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: 5444c66783ff7eed75ac0972101b3a50e07c5c1482b7f8d76c23ed16163a5576
+  materialized_leaves: 18486
   normalizations:
-  - add em_coupling.active_coils and em_coupling.passive_loops coordinate URIs
-  - remove non-IMAS equilibrium.code.parameters cache metadata
-  - materialize coils_non_axisymmetric.time from its homogeneous current coordinate
-  - relabel magnetics.b_field_pol_probe poloidal_angle from -Bz to +Bz
+  - remove non-DD equilibrium.code.parameters parser cache
+  - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
+  - materialize homogeneous barometry and equilibrium time coordinates
+  - retain native-rate voltage and derived magnetic-field waveforms
+  - use +Bz poloidal probe metadata (poloidal_angle = pi/2)
   related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+pipeline:
+  configuration: source/pipeline-config.yaml
+  configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: d6ab59ea6b5708847c86f00ca6a424ce39332c5fab3f7b57631793306e9fba9a
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: c093482a7bb98b3e2bd46ae92fca4981bfd14315e4c59a08aa297b3572031dc9
+  stages:
+    raw: success
+    static: success
+    diagnostics: partial
+    eddy: success
+    constraints: success
+    efit: partial
+  efit:
+    executable: /Users/yun/git/efit/build-mac/efit/efit
+    status: 'completed: returncode=0; gfiles=6'
+    requested_time_slices: 22
+    successful_time_slices: 6
 semantic_comparison:
   paths:
-  - wall.*
+  - barometry.*
   - tf.*
   - pf_active.*
   - magnetics.*
@@ -39,17 +61,20 @@ semantic_comparison:
   - pf_passive.*
   - em_coupling.*
   - equilibrium.*
-  - coils_non_axisymmetric.*
+  - wall.*
   exclude_paths:
-  - '*.ids_properties.version_put*'
-  - '*.ids_properties.occurrence'
-  - '*.ids_properties.homogeneous_time'
+  - '*.ids_properties.*'
+  - dataset_description.imas_version
+  - equilibrium.code.parameters*
 acceptance:
   equilibrium_times:
   - 0.328
   - 0.329
   - 0.332
   - 0.333
+  - 0.334
+  - 0.336
+  equilibrium_ip_required: true
 packaging_policy:
   manifest: wheel-and-sdist
   artifact: repository-only
