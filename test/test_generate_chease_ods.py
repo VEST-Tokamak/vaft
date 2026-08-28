@@ -69,6 +69,7 @@ def test_runs_summary_is_embedded_onto_equilibrium_code_parameters(tmp_path):
 
     ods = load_omas_json(str(output), consistency_check=False)
     assert ods["equilibrium.code.name"] == "chease"
+    assert ods["equilibrium.code.library.0.name"] == "chease"
     parameters = json.loads(ods["equilibrium.code.parameters"])
     assert parameters["comparison_metrics"]["0"] == {
         "q_rms_rel": 0.01,
@@ -109,6 +110,7 @@ def test_records_summary_survives_the_all_failed_minimal_ods(tmp_path):
     assert result.returncode == 0, result.stderr
 
     ods = load_omas_json(str(output), consistency_check=False)
+    assert ods["equilibrium.code.library.0.name"] == "chease"
     parameters = json.loads(ods["equilibrium.code.parameters"])
     assert parameters["comparison_metrics"] == {}
     assert parameters["records_summary"] == [{"input": "g039915.00319", "status": "failed"}]

@@ -150,11 +150,12 @@ def _panel_renderer(
         "change, flux-normalization shift, and plasma-current self-consistency."
     ),
     ids=("equilibrium",),
-    # Every equilibrium ODS carries time slices and profiles, so those alone
-    # would also match an EFIT ODS; `equilibrium.code.name` (set to "chease"
-    # by `generate_chease_ods.py`) is what actually distinguishes a CHEASE
-    # product from any other equilibrium reconstruction.
-    required_paths=("equilibrium.code.name",),
+    # `equilibrium.code.name` is not exclusive to CHEASE -- vaft.data.vfit
+    # also sets it (to "VFIT") -- and the registry's availability check only
+    # tests path *presence*, not value, so a shared path would offer this
+    # plot for any equilibrium reconstruction that happens to set code.name.
+    # `code.library.0.name` is written only by `generate_chease_ods.py`.
+    required_paths=("equilibrium.code.library.0.name",),
 )
 def chease_overview_refinement_summary(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
@@ -174,7 +175,7 @@ def chease_overview_refinement_summary(
     ),
     ids=("equilibrium",),
     # Same reasoning as the refinement summary.
-    required_paths=("equilibrium.code.name",),
+    required_paths=("equilibrium.code.library.0.name",),
 )
 def chease_overview_profile_validity(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any

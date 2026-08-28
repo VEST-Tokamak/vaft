@@ -71,6 +71,7 @@ def _chease_ods(*, monotonic_slice1=True, positive_pressure_slice1=True):
     ods = ODS(consistency_check=False)
     ods["dataset_description.data_entry.pulse"] = 41234
     ods["equilibrium.code.name"] = "chease"
+    ods["equilibrium.code.library.0.name"] = "chease"
     ods["equilibrium.code.parameters"] = json.dumps(
         {"comparison_metrics": COMPARISON_METRICS, "records_summary": RECORDS_SUMMARY}
     )
@@ -101,6 +102,7 @@ def _empty_chease_ods():
     ods = ODS(consistency_check=False)
     ods["equilibrium.ids_properties.comment"] = "CHEASE output unavailable: skipped"
     ods["equilibrium.code.name"] = "chease"
+    ods["equilibrium.code.library.0.name"] = "chease"
     ods["equilibrium.code.parameters"] = json.dumps(
         {
             "comparison_metrics": {},
@@ -175,6 +177,26 @@ def test_adapters_render_from_the_refined_ods():
     assert figure is not None
     figure, _ = vomas.plot_chease_overview_profile_validity(ods)
     assert figure is not None
+
+
+def test_a_non_chease_equilibrium_ods_does_not_offer_the_chease_plots():
+    """`equilibrium.code.name` alone is not exclusive to CHEASE.
+
+    `vaft.data.vfit` also sets it (to "VFIT"), and the registry's
+    availability check only tests path presence, not value -- so gating on
+    `code.name` alone would falsely offer these plots for any equilibrium
+    ODS that happens to set it. `code.library.0.name` is written only by
+    `generate_chease_ods.py`.
+    """
+    vfit_ods = ODS(consistency_check=False)
+    vfit_ods["equilibrium.code.name"] = "VFIT"
+    vfit_ods["equilibrium.time"] = np.array([0.300])
+    vfit_ods["equilibrium.time_slice.0.time"] = 0.300
+    vfit_ods["equilibrium.time_slice.0.profiles_1d.q"] = np.linspace(1.0, 3.0, 33)
+
+    offered = {row["name"] for row in vomas.available_plots(vfit_ods)}
+    assert "chease_overview_refinement_summary" not in offered
+    assert "chease_overview_profile_validity" not in offered
 
 
 def test_refinement_summary_requires_embedded_comparison_metrics():

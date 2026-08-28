@@ -24,6 +24,11 @@ def _minimal_chease_ods(shot: int, run: int, status: str, records_summary: list[
     ods["dataset_description.data_entry.run"] = int(run)
     ods["equilibrium.ids_properties.comment"] = f"CHEASE output unavailable: {status}"
     ods["equilibrium.code.name"] = "chease"
+    # `code.name` alone is not exclusive to this stage -- vaft.data.vfit also
+    # sets it -- and the vaft.plot registry's availability check only tests
+    # path presence, not value; `code.library.0.name` is written only here,
+    # so it is what the chease_overview_* renderers gate their availability on.
+    ods["equilibrium.code.library.0.name"] = "chease"
     ods["equilibrium.code.parameters"] = json.dumps(
         {"comparison_metrics": {}, "records_summary": records_summary}
     )
@@ -126,6 +131,7 @@ def main() -> int:
         if parse_errors:
             ods["equilibrium.ids_properties.comment"] = "CHEASE parse warnings: " + "; ".join(parse_errors[:5])
         ods["equilibrium.code.name"] = "chease"
+        ods["equilibrium.code.library.0.name"] = "chease"
         ods["equilibrium.code.parameters"] = json.dumps(
             {
                 "comparison_metrics": _comparison_metrics_by_time_index(gfiles, runs_summary),
