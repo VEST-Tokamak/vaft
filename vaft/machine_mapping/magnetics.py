@@ -168,6 +168,40 @@ def fluctuation_mirnov_channel_definitions() -> tuple[dict[str, Any], ...]:
     return tuple(dict(channel) for channel in _load_fluctuation_mirnov_channels())
 
 
+class UnsupportedMagneticsGeometryError(NotImplementedError):
+    """Raised when a shot needs a magnetics geometry this repository lacks."""
+
+
+# Issue #195 section 5: the archived VFIT source loads
+# `VEST_MagneticsGeometry_Full_ver_2310` for shot 39204 specifically and
+# `ver_2409` for every other shot. This repository ships neither -- it
+# carries ver_2302, which it applies to all shots. For most shots that is a
+# documented, deliberate difference, but for 39204 the legacy source goes
+# out of its way to override the geometry, so quietly handing it ver_2302
+# would assign knowingly-wrong geometry. Fail clearly instead, until the
+# 2310 geometry is imported as a repository-native asset. Deliberately not
+# resolved by loading an external MATLAB file at runtime.
+UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS: dict[int, str] = {39204: "2310"}
+
+
+def require_supported_magnetics_geometry(shot: int | None) -> None:
+    """Raise if *shot* requires a magnetics geometry version VAFT lacks."""
+    if shot is None:
+        return
+    required = UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot))
+    if required is None:
+        return
+    raise UnsupportedMagneticsGeometryError(
+        f"Shot {int(shot)} requires VEST magnetics geometry version {required}, "
+        "which is not available in this repository (it ships ver_2302). The "
+        "legacy VFIT source overrides the geometry for this shot specifically, "
+        "so processing it with the shipped geometry would assign "
+        "knowingly-incorrect sensor positions. Import the "
+        f"ver_{required} geometry as a repository-native asset before "
+        "processing this shot (issue #195)."
+    )
+
+
 @lru_cache(maxsize=1)
 def _load_static_channels() -> list[dict[str, Any]]:
     with open(_geometry_root() / "VEST_MagneticsGeometry_Full_ver_2302.yaml", "r", encoding="utf-8") as handle:
@@ -616,6 +650,7 @@ def vfit_equilibrium_magnetics(
     existing override path used for parameter scans; otherwise the shot-era
     policy is resolved from ``vest.yaml`` (issue #195).
     """
+    require_supported_magnetics_geometry(int(shot))
     config = (
         processing_config
         if processing_config is not None
@@ -1175,6 +1210,10 @@ __all__ = [
     "LIMITER_SHUNT_CHANNELS",
     "LIMITER_SHUNT_BASELINE_WINDOW",
     "LIMITER_SHUNT_RESISTANCE",
+    "UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS",
+    "UnsupportedMagneticsGeometryError",
+    "equilibrium_magnetics_processing_config",
+    "require_supported_magnetics_geometry",
     "b_field_pol_probe_from_raw_database",
     "diamagnetic_flux_rogowski_coil_from_raw_database",
     "flux_loop_from_raw_database",

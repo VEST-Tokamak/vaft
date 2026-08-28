@@ -8,7 +8,12 @@ on `VestMagneticsProcessingConfig` on purpose: they prove the migration to
 import numpy as np
 import pytest
 
-from vaft.machine_mapping.magnetics import equilibrium_magnetics_processing_config
+from vaft.machine_mapping.magnetics import (
+    UnsupportedMagneticsGeometryError,
+    equilibrium_magnetics_processing_config,
+    require_supported_magnetics_geometry,
+    vfit_equilibrium_magnetics,
+)
 from vaft.process.magnetics import (
     UnsupportedMagneticsDaqModeError,
     VestMagneticsProcessingConfig,
@@ -135,3 +140,32 @@ def test_physical_time_flux_baseline_is_sample_rate_independent():
     slow_at_025 = np.interp(0.25, slow_time, slow_result)
     fast_at_025 = np.interp(0.25, fast_time, fast_result)
     assert slow_at_025 == pytest.approx(fast_at_025, abs=1e-6)
+
+
+# --------------------------------------------------------------------------
+# Shot 39204 geometry provenance (issue #195 section 5)
+# --------------------------------------------------------------------------
+
+
+def test_shot_39204_is_not_silently_given_the_shipped_geometry():
+    """The legacy VFIT source overrides the magnetics geometry for shot
+    39204 specifically (ver_2310). This repository ships ver_2302 only, so
+    the shot must fail clearly rather than be assigned wrong sensor
+    positions -- and must not reach for an external MATLAB file."""
+    with pytest.raises(UnsupportedMagneticsGeometryError, match="2310"):
+        require_supported_magnetics_geometry(39204)
+
+
+@pytest.mark.parametrize("shot", [39203, 39205, 43685, 46402, None])
+def test_other_shots_are_unaffected_by_the_geometry_guard(shot):
+    require_supported_magnetics_geometry(shot)
+
+
+def test_geometry_guard_fires_before_any_raw_data_is_touched():
+    """vfit_equilibrium_magnetics must refuse shot 39204 up front rather
+    than partway through processing."""
+    def _loader_that_must_not_run(_shot, _field):  # pragma: no cover
+        raise AssertionError("raw data must not be loaded for an unsupported shot")
+
+    with pytest.raises(UnsupportedMagneticsGeometryError):
+        vfit_equilibrium_magnetics(39204, raw_source=None)
