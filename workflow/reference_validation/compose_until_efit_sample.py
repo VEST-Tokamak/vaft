@@ -11,7 +11,7 @@ from omas import ODS
 import vaft
 
 
-def compose(eddy_stage: Path, efit_stage: Path) -> ODS:
+def compose(eddy_stage: Path, efit_stage: Path, *, shot: int) -> ODS:
     eddy = vaft.omas.load(eddy_stage)
     efit = vaft.omas.load(efit_stage)
     canonical = ODS(consistency_check=False)
@@ -22,8 +22,8 @@ def compose(eddy_stage: Path, efit_stage: Path) -> ODS:
     canonical["equilibrium"] = efit["equilibrium"]
     # The diagnostics-stage description contains the archived pulse time and
     # richer mapping provenance; do not overwrite it with EFIT's minimal one.
-    if canonical.get("dataset_description.data_entry.pulse") != 39915:
-        raise ValueError("Canonical reference source must describe shot 39915")
+    if canonical.get("dataset_description.data_entry.pulse") != int(shot):
+        raise ValueError(f"Canonical reference source must describe shot {shot}")
     return canonical
 
 
@@ -31,9 +31,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--eddy-stage", required=True, type=Path)
     parser.add_argument("--efit-stage", required=True, type=Path)
+    parser.add_argument("--shot", required=True, type=int)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    canonical = compose(args.eddy_stage.resolve(), args.efit_stage.resolve())
+    canonical = compose(
+        args.eddy_stage.resolve(), args.efit_stage.resolve(), shot=args.shot
+    )
     vaft.omas.save(canonical, args.output.resolve())
     return 0
 
