@@ -70,9 +70,7 @@ __all__ = [
     "ip_rogowski_coil_from_raw_database",
     "is_near_black",
     "apply_langmuir_probe_measured_positions",
-    "langmuir_probes",
     "langmuir_probes_from_raw_database",
-    "magnetics",
     "magnetics_from_raw_database",
     "normalize_constraint_uncertainties",
     "pf_active_from_raw_database",
@@ -154,16 +152,13 @@ _EXPORT_MAP = {
     "interferometer_282ghz": (".interferometer", "interferometer_282ghz"),
     "ip_rogowski_coil_from_raw_database": (".magnetics", "ip_rogowski_coil_from_raw_database"),
     "apply_langmuir_probe_measured_positions": (".langmuir_probes", "apply_langmuir_probe_measured_positions"),
-    "langmuir_probes": (".langmuir_probes", "langmuir_probes"),
     "langmuir_probes_from_raw_database": (".langmuir_probes", "langmuir_probes_from_raw_database"),
-    "magnetics": (".magnetics", "magnetics"),
     "magnetics_from_raw_database": (".magnetics", "magnetics_from_raw_database"),
     "normalize_constraint_uncertainties": (".utils", "normalize_constraint_uncertainties"),
     "pf_active_from_raw_database": (".pf_active", "pf_active_from_raw_database"),
     "pf_geometry_version_for_shot": (".pf_active", "pf_geometry_version_for_shot"),
     "raw_database_info": (".utils", "raw_database_info"),
     "resolve_vest_diagnostic": (".utils", "resolve_vest_diagnostic"),
-    "pf_passive": (".pf_passive", "pf_passive"),
     "read_doppler_profile": (".charge_exchange", "read_doppler_profile"),
     "read_doppler_single": (".charge_exchange", "read_doppler_single"),
     "resolve_geometry_asset": (".pf_active", "resolve_geometry_asset"),
@@ -226,6 +221,7 @@ _ENTRYPOINT_MODULES = frozenset(
         "filterscope",
         "impa",
         "interferometer",
+        "langmuir_probes",
         "magnetics",
         "mhd_linear",
         "pf_active",
@@ -237,6 +233,13 @@ _ENTRYPOINT_MODULES = frozenset(
         "thomson_scattering",
         "wall",
     }
+)
+
+_collisions = set(_EXPORT_MAP) & _ENTRYPOINT_MODULES
+assert not _collisions, (
+    f"machine_mapping: {sorted(_collisions)} are both lazily exported and "
+    "entry-point submodules; a submodule import would silently shadow the "
+    "export. Remove them from _EXPORT_MAP."
 )
 
 
