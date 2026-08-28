@@ -35,15 +35,32 @@ import json
 from pathlib import Path
 import struct
 from typing import Any, Optional
+import warnings
 
 import numpy as np
 
+from ._netcdf import complex_var
+
 
 def _read_fortran_record_length(stream) -> Optional[int]:
+    """Read one Fortran unformatted record-length marker, or ``None`` at EOF.
+
+    A well-formed marker is a non-negative count of bytes holding ``REAL*4``
+    values, so it must be a multiple of 4. Anything else means the stream is
+    not (or is no longer) a ``solutions.bin`` written by ``match``: reading on
+    from a bogus length would desynchronise the parser and yield silently
+    garbage harmonics, so this raises instead.
+    """
     raw = stream.read(4)
     if len(raw) < 4:
         return None
-    return struct.unpack("<i", raw)[0]
+    length = struct.unpack("<i", raw)[0]
+    if length < 0 or length % 4:
+        raise ValueError(
+            f"malformed Fortran record-length marker {length!r} at byte "
+            f"{stream.tell() - 4} (expected a non-negative multiple of 4)"
+        )
+    return length
 
 
 def _read_n_floats(stream, n: int) -> np.ndarray:
@@ -196,6 +213,10 @@ class DconOutput:
     mband: int
     psi_n: Optional[np.ndarray] = None
     m: Optional[np.ndarray] = None
+    #: The netCDF ``mode`` coordinate (``1..mpert``); eigenvalue entries are
+    #: addressed by this *label*, never by array position -- see
+    #: :meth:`_least_stable`.
+    mode: Optional[np.ndarray] = None
     W_p_eigenvalue: Optional[np.ndarray] = None  # complex, (mode,)
     W_v_eigenvalue: Optional[np.ndarray] = None
     W_t_eigenvalue: Optional[np.ndarray] = None
@@ -205,20 +226,45 @@ class DconOutput:
     eigenfunction: Optional[DconEigenfunction] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    #: DCON sorts its energy eigenvalues so the least-stable one is mode 1
+    #: (``dcon/free.f``'s ``plasma1``/``vacuum1``/``total1`` are the
+    #: ``ep(1)``/``ev(1)``/``et(1)`` entries).
+    _LEAST_STABLE_MODE_LABEL = 1
+
+    def _least_stable(self, eigenvalues: Optional[np.ndarray]) -> Optional[complex]:
+        """The least-stable entry of an eigenvalue array, selected by mode *label*.
+
+        The netCDF writes a ``mode`` coordinate of ``1..mpert``
+        (``dcon/dcon_netcdf.f``'s ``nf90_put_var(ncid,mo_id,(/(i,i=1,mpert)/))``),
+        and the value we want is the one labelled ``1``. Position 0 is the
+        same entry for every file the suite writes today, but selecting by
+        label keeps that an explicit, checkable assumption rather than a
+        silent one -- a differently-ordered ``mode`` coordinate would
+        otherwise change which eigenvalue is reported with no visible signal.
+        """
+        if eigenvalues is None or eigenvalues.size == 0:
+            return None
+        if self.mode is None:
+            return complex(eigenvalues[0])
+        matches = np.flatnonzero(np.asarray(self.mode) == self._LEAST_STABLE_MODE_LABEL)
+        if matches.size == 0:
+            return None
+        return complex(eigenvalues[int(matches[0])])
+
     @property
     def plasma1(self) -> Optional[complex]:
         """Least-stable plasma-response energy eigenvalue (``dcon/free.f``'s ``plasma1``)."""
-        return None if self.W_p_eigenvalue is None or self.W_p_eigenvalue.size == 0 else complex(self.W_p_eigenvalue[0])
+        return self._least_stable(self.W_p_eigenvalue)
 
     @property
     def vacuum1(self) -> Optional[complex]:
-        return None if self.W_v_eigenvalue is None or self.W_v_eigenvalue.size == 0 else complex(self.W_v_eigenvalue[0])
+        return self._least_stable(self.W_v_eigenvalue)
 
     @property
     def total1(self) -> Optional[complex]:
-        """Least-stable total-energy eigenvalue -- ``dcon/free.f``'s ``total1``, numerically
-        identical to ``W_t_eigenvalue`` at the least-stable mode index."""
-        return None if self.W_t_eigenvalue is None or self.W_t_eigenvalue.size == 0 else complex(self.W_t_eigenvalue[0])
+        """Least-stable total-energy eigenvalue -- ``dcon/free.f``'s ``total1``, the
+        ``W_t_eigenvalue`` entry labelled by mode 1."""
+        return self._least_stable(self.W_t_eigenvalue)
 
     @property
     def stable_free_boundary(self) -> Optional[bool]:
@@ -248,6 +294,7 @@ class DconOutput:
             "mband": self.mband,
             "psi_n": None if self.psi_n is None else np.asarray(self.psi_n).tolist(),
             "m": None if self.m is None else np.asarray(self.m).tolist(),
+            "mode": None if self.mode is None else np.asarray(self.mode).tolist(),
             "W_p_eigenvalue": _c(self.W_p_eigenvalue),
             "W_v_eigenvalue": _c(self.W_v_eigenvalue),
             "W_t_eigenvalue": _c(self.W_t_eigenvalue),
@@ -273,6 +320,7 @@ class DconOutput:
             mband=payload["mband"],
             psi_n=None if payload.get("psi_n") is None else np.asarray(payload["psi_n"], dtype=float),
             m=None if payload.get("m") is None else np.asarray(payload["m"], dtype=int),
+            mode=None if payload.get("mode") is None else np.asarray(payload["mode"], dtype=int),
             W_p_eigenvalue=_c(payload.get("W_p_eigenvalue")),
             W_v_eigenvalue=_c(payload.get("W_v_eigenvalue")),
             W_t_eigenvalue=_c(payload.get("W_t_eigenvalue")),
@@ -294,18 +342,6 @@ class DconOutput:
     @classmethod
     def read_json(cls, path: str | Path) -> "DconOutput":
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
-
-
-def _complex_var(ds, name: str) -> Optional[np.ndarray]:
-    """Read a GPEC-suite ``(..., i)`` netCDF variable as a complex array over its leading dim(s)."""
-    if name not in ds.variables:
-        return None
-    var = ds[name]
-    if "i" not in var.dims:
-        return None
-    real = var.isel(i=0).values
-    imag = var.isel(i=1).values
-    return np.asarray(real, dtype=float) + 1j * np.asarray(imag, dtype=float)
 
 
 def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
@@ -330,9 +366,10 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
 
         psi_n = np.asarray(ds["psi_n"].values, dtype=float) if "psi_n" in ds.variables else None
         m = np.asarray(ds["m"].values, dtype=int) if "m" in ds.variables else None
-        W_p_eigenvalue = _complex_var(ds, "W_p_eigenvalue")
-        W_v_eigenvalue = _complex_var(ds, "W_v_eigenvalue")
-        W_t_eigenvalue = _complex_var(ds, "W_t_eigenvalue")
+        mode_coord = np.asarray(ds["mode"].values, dtype=int) if "mode" in ds.variables else None
+        W_p_eigenvalue = complex_var(ds, "W_p_eigenvalue")
+        W_v_eigenvalue = complex_var(ds, "W_v_eigenvalue")
+        W_t_eigenvalue = complex_var(ds, "W_t_eigenvalue")
         di = np.asarray(ds["di"].values, dtype=float) if "di" in ds.variables else None
         dr = np.asarray(ds["dr"].values, dtype=float) if "dr" in ds.variables else None
         ca1 = np.asarray(ds["ca1"].values, dtype=float) if "ca1" in ds.variables else None
@@ -341,27 +378,26 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
     bin_path = run_dir / "solutions.bin"
     if bin_path.exists():
         eigenfunction = read_solutions_bin(bin_path, mlow=mlow)
-        if eigenfunction.m.size and eigenfunction.m.size != mpert:
-            # Not fatal -- match/ideal.f's ipert loop should span 1..mpert, but
-            # this has not been independently verified for every DCON/match
-            # version, so surface the mismatch rather than silently trust it.
-            eigenfunction = DconEigenfunction(
-                m=eigenfunction.m,
-                psi=eigenfunction.psi,
-                rho=eigenfunction.rho,
-                q=eigenfunction.q,
-                xi_psi_real=eigenfunction.xi_psi_real,
-                xi_psi_imag=eigenfunction.xi_psi_imag,
-                v4_real=eigenfunction.v4_real,
-                v4_imag=eigenfunction.v4_imag,
-            )
 
     metadata: dict[str, Any] = {"run_dir": str(run_dir), "nc_file": nc_path.name}
-    if eigenfunction is not None and eigenfunction.m.size != mpert:
+    if eigenfunction is not None and eigenfunction.m.size and eigenfunction.m.size != mpert:
+        # match/ideal.f's ipert loop should span 1..mpert, so a different block
+        # count means solutions.bin and this netCDF do not describe the same
+        # run (a stale file from an earlier mpert, most likely). The m labels
+        # are derived from mlow, so they are then not trustworthy -- record it
+        # in the metadata *and* warn, rather than let a silently mislabeled
+        # eigenfunction look like a clean parse.
         metadata["eigenfunction_mpert_mismatch"] = {
             "solutions_bin_n_ipert": int(eigenfunction.m.size),
             "netcdf_mpert": mpert,
         }
+        warnings.warn(
+            f"{bin_path} has {eigenfunction.m.size} harmonic block(s) but "
+            f"{nc_path.name} reports mpert={mpert}; the poloidal mode numbers "
+            "derived from mlow may be mislabeled for this run",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     return DconOutput(
         n_tor=n_tor,
@@ -371,6 +407,7 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
         mband=mband,
         psi_n=psi_n,
         m=m,
+        mode=mode_coord,
         W_p_eigenvalue=W_p_eigenvalue,
         W_v_eigenvalue=W_v_eigenvalue,
         W_t_eigenvalue=W_t_eigenvalue,

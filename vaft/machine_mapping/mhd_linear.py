@@ -35,8 +35,10 @@ from __future__ import annotations
 import os
 import re
 from typing import Any, Optional
+import warnings
 from xml.sax.saxutils import escape
 
+import numpy as np
 from omas import ODS
 
 from vaft.code.gpec import DconOutput, Pest3MatchingOutput, read_dcon_output, read_pest3_matching_output
@@ -46,6 +48,31 @@ _MODULE_PATTERNS = {
     "rdcon": re.compile(r"rdcon_output_n(\d+)\.nc"),
     "stride": re.compile(r"stride_output_n(\d+)\.nc"),
 }
+
+
+def _ensure_time_slice(ods: ODS, ids: str, time_slice: int) -> None:
+    """Grow ``<ids>.time_slice`` so index ``time_slice`` is addressable.
+
+    An OMAS array of structures only auto-vivifies at its current length --
+    indexing past the end raises ``IndexError`` -- so a solver that succeeds
+    for, say, time slice 2 while slices 0 and 1 produced nothing would
+    otherwise blow up here and be misreported by the caller as a *failed*
+    solver run rather than a successful one. Growing the AOS in order leaves
+    the intervening slices as legitimately empty entries.
+    """
+    for index in range(_time_slice_count(ods, ids), time_slice + 1):
+        ods[ids]["time_slice"][index]
+
+
+def _time_slice_count(ods: ODS, ids: str) -> int:
+    """Number of ``<ids>.time_slice`` entries, 0 when the node is absent.
+
+    Plain ``in`` checks are non-mutating on an ODS; indexing a path that does
+    not exist yet auto-vivifies it.
+    """
+    if f"{ids}.time_slice" not in ods:
+        return 0
+    return len(ods[f"{ids}.time_slice"])
 
 
 def _existing_aos_count(ods: ODS, ids: str, time_slice: int, aos_name: str) -> int:
@@ -87,14 +114,32 @@ def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *, code_name:
         ods[path] = existing + fragment_xml
 
 
+#: `code.output_flag` value for a time slice this solver did not successfully
+#: produce. IMAS documents a negative flag as "the result shall not be used",
+#: which is exactly right for a slice we are only padding past to reach a
+#: later one -- and it is overwritten with 0 if that slice later succeeds.
+_OUTPUT_FLAG_NOT_RUN = -1
+
+
 def _set_output_flag(ods: ODS, ids: str, time_slice: int, flag: int) -> None:
-    try:
-        ods.set_time_array(f"{ids}.code.output_flag", time_slice, flag)
-    except Exception:
-        ods[f"{ids}.code.output_flag.{time_slice}"] = flag
+    """Set ``<ids>.code.output_flag[time_slice]``, padding earlier slices.
+
+    ``output_flag`` is an ``INT_1D`` over ``<ids>.time``, so writing index 2
+    of an empty array is an error rather than an append. Pad the gap
+    explicitly instead of letting a solver that succeeded only for a later
+    time slice fail here.
+    """
+    path = f"{ids}.code.output_flag"
+    existing = ods[path] if path in ods else []
+    values = [int(value) for value in np.atleast_1d(existing)] if len(np.atleast_1d(existing)) else []
+    while len(values) <= time_slice:
+        values.append(_OUTPUT_FLAG_NOT_RUN)
+    values[time_slice] = flag
+    ods[path] = np.asarray(values, dtype=int)
 
 
 def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput) -> None:
+    _ensure_time_slice(ods, "mhd_linear", time_slice)
     mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
     mode_entry["n_tor"] = result.n_tor
     if result.W_t_eigenvalue is not None and result.W_t_eigenvalue.size:
@@ -104,11 +149,16 @@ def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutp
         # code.parameters below rather than left for a future reader to guess.
         mode_entry["energy_perturbed"] = float(result.W_t_eigenvalue[0].real)
 
+    # The units element is structured, not prose: a consumer checking whether
+    # `energy_perturbed` is really in the Joules its IMAS documentation
+    # promises can test `units != "J"` (or read `normalization`) instead of
+    # having to parse an English sentence.
     fragment = (
         f'<solver name="dcon" n_tor="{result.n_tor}">'
         f"<mlow>{result.mlow}</mlow><mhigh>{result.mhigh}</mhigh>"
         f"<mpert>{result.mpert}</mpert><mband>{result.mband}</mband>"
-        "<energy_perturbed_units>normalized (dimensionless), not Joules</energy_perturbed_units>"
+        '<energy_perturbed units="1" normalization="dcon_normalized"'
+        ' imas_documented_units="J" source_variable="W_t_eigenvalue"/>'
         "</solver>"
     )
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="DCON")
@@ -116,8 +166,9 @@ def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutp
 
 
 def _write_resistive_entry(
-    ods: ODS, time_slice: int, position: int, result: Pest3MatchingOutput
+    ods: ODS, time_slice: int, position: int, result: Pest3MatchingOutput, diagonal: list[dict[str, Any]]
 ) -> None:
+    _ensure_time_slice(ods, "mhd_linear", time_slice)
     mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
     mode_entry["n_tor"] = result.n_tor
     mode_entry["ballooning_type"]["name"] = "Tearing"
@@ -132,9 +183,9 @@ def _write_resistive_entry(
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="GPEC-suite")
     _set_output_flag(ods, "mhd_linear", time_slice, 0)
 
-    diagonal = result.delta_prime_diagonal()
     if not diagonal:
         return
+    _ensure_time_slice(ods, "ntms", time_slice)
     start = _existing_aos_count(ods, "ntms", time_slice, "mode")
     for offset, surface in enumerate(diagonal):
         entry = ods["ntms"]["time_slice"][time_slice]["mode"][start + offset]
@@ -194,7 +245,17 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
                 parsed.append((mode, read_dcon_output(source, mode=mode)))
             else:
                 parsed.append((mode, read_pest3_matching_output(source, solver=module, mode=mode)))
-        except Exception:
+        except Exception as exc:
+            # One unreadable output must not abort the other modes (or the
+            # other solvers sharing this ODS), but it must not vanish either:
+            # without this warning a file the reader rejects is
+            # indistinguishable downstream from "this cell was never run".
+            warnings.warn(
+                f"{module} n={mode}: skipping unreadable output in {source}: "
+                f"{type(exc).__name__}: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             continue
 
     # `toroidal_mode` is an IMAS array of structures: entries must be
@@ -220,11 +281,14 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
             except OSError:
                 pass
         else:
-            _write_resistive_entry(ods, time_slice, position, result)
+            # Computed once and shared with the IDS writer: it is O(msing) work
+            # per (time, mode) cell and both consumers want the same values.
+            diagonal = result.delta_prime_diagonal()
+            _write_resistive_entry(ods, time_slice, position, result, diagonal)
             extras[result.n_tor] = {
                 "module": module,
                 "variable": "Delta_prime",
-                "value": result.delta_prime_diagonal(),
+                "value": diagonal,
             }
             try:
                 result.write_json(os.path.join(source, f"{module}_matching_n{mode}.json"))

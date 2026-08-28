@@ -30,16 +30,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-
-def _complex_var(ds, name: str) -> Optional[np.ndarray]:
-    if name not in ds.variables:
-        return None
-    var = ds[name]
-    if "i" not in var.dims:
-        return None
-    real = var.isel(i=0).values
-    imag = var.isel(i=1).values
-    return np.asarray(real, dtype=float) + 1j * np.asarray(imag, dtype=float)
+from ._netcdf import complex_scalar_attr, complex_var
 
 
 @dataclass
@@ -223,17 +214,17 @@ def read_pest3_matching_output(run_dir: str | Path, *, solver: str, mode: int) -
         )
         q_rational = np.asarray(ds["q_rational"].values, dtype=float) if "q_rational" in ds.variables else None
 
-        A_prime = _complex_var(ds, "A_prime")
-        B_prime = _complex_var(ds, "B_prime")
-        Gamma_prime = _complex_var(ds, "Gamma_prime")
-        Delta_prime = _complex_var(ds, "Delta_prime")
-        Delta = _complex_var(ds, "Delta")
+        A_prime = complex_var(ds, "A_prime")
+        B_prime = complex_var(ds, "B_prime")
+        Gamma_prime = complex_var(ds, "Gamma_prime")
+        Delta_prime = complex_var(ds, "Delta_prime")
+        Delta = complex_var(ds, "Delta")
 
         nzero_attr = ds.attrs.get("nzero")
         nzero = None if nzero_attr is None else int(nzero_attr)
-        plasma1 = _complex_scalar_attr(ds, "plasma1")
-        vacuum1 = _complex_scalar_attr(ds, "vacuum1")
-        total1 = _complex_scalar_attr(ds, "total1")
+        plasma1 = complex_scalar_attr(ds, "plasma1")
+        vacuum1 = complex_scalar_attr(ds, "vacuum1")
+        total1 = complex_scalar_attr(ds, "total1")
 
     return Pest3MatchingOutput(
         solver=solver,
@@ -256,22 +247,3 @@ def read_pest3_matching_output(run_dir: str | Path, *, solver: str, mode: int) -
         total1=total1,
         metadata={"run_dir": str(run_dir), "nc_file": nc_path.name},
     )
-
-
-def _complex_scalar_attr(ds, name: str) -> Optional[complex]:
-    """RDCON/STRIDE write plasma1/vacuum1/total1 as complex netCDF global attributes.
-
-    xarray/netCDF4 surfaces a complex-valued attribute as a 2-element real
-    array (or, on some builds, as a Python complex directly) -- handle both.
-    """
-    if name not in ds.attrs:
-        return None
-    raw = ds.attrs[name]
-    if isinstance(raw, complex):
-        return raw
-    arr = np.asarray(raw, dtype=float).reshape(-1)
-    if arr.size >= 2:
-        return complex(arr[0], arr[1])
-    if arr.size == 1:
-        return complex(arr[0], 0.0)
-    return None

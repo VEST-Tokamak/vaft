@@ -20,6 +20,7 @@ from vaft.code.gpec import (
     Pest3MatchingOutput,
     read_dcon_output,
     read_pest3_matching_output,
+    read_solutions_bin,
 )
 
 
@@ -190,3 +191,72 @@ def test_pest3_matching_output_json_round_trip():
 def test_read_pest3_matching_output_rejects_unknown_solver(tmp_path):
     with pytest.raises(ValueError, match="dcon"):
         read_pest3_matching_output(tmp_path, solver="dcon", mode=1)
+
+
+# --- regressions found in review of the #170 implementation --------------------
+
+def test_eigenvalues_are_selected_by_mode_label_not_array_position():
+    """The netCDF's `mode` coordinate labels the eigenvalues; DCON's
+    least-stable one is label 1. Selecting positionally would silently report
+    a different eigenvalue for any file whose `mode` coordinate is not in
+    ascending order."""
+    result = DconOutput(
+        n_tor=1,
+        mlow=-1,
+        mhigh=1,
+        mpert=3,
+        mband=0,
+        mode=np.array([2, 1]),
+        W_t_eigenvalue=np.array([9.9 + 0j, -0.5 + 0j]),
+        W_p_eigenvalue=np.array([8.8 + 0j, -0.4 + 0j]),
+        W_v_eigenvalue=np.array([7.7 + 0j, -0.3 + 0j]),
+    )
+    assert result.total1 == pytest.approx(-0.5 + 0j)
+    assert result.plasma1 == pytest.approx(-0.4 + 0j)
+    assert result.vacuum1 == pytest.approx(-0.3 + 0j)
+    assert result.stable_free_boundary is False
+
+
+def test_eigenvalues_fall_back_to_first_entry_without_a_mode_coordinate():
+    result = DconOutput(
+        n_tor=1, mlow=-1, mhigh=1, mpert=3, mband=0, W_t_eigenvalue=np.array([-0.5 + 0j, 9.9 + 0j])
+    )
+    assert result.total1 == pytest.approx(-0.5 + 0j)
+
+
+def test_mode_coordinate_survives_the_json_round_trip():
+    result = DconOutput(
+        n_tor=1, mlow=-1, mhigh=1, mpert=3, mband=0,
+        mode=np.array([2, 1]), W_t_eigenvalue=np.array([9.9 + 0j, -0.5 + 0j]),
+    )
+    restored = DconOutput.from_dict(result.to_dict())
+    assert restored.mode.tolist() == [2, 1]
+    assert restored.total1 == pytest.approx(-0.5 + 0j)
+
+
+@pytest.mark.parametrize("bad_length", [-8, 7])
+def test_a_malformed_fortran_record_length_raises_instead_of_desyncing(tmp_path, bad_length):
+    """A negative or non-multiple-of-4 marker means this is not a solutions.bin
+    written by `match`; reading on from it would silently produce garbage
+    harmonics rather than an error."""
+    with open(tmp_path / "solutions.bin", "wb") as handle:
+        handle.write(struct.pack("<i", bad_length))
+
+    with pytest.raises(ValueError, match="malformed Fortran record-length marker"):
+        read_solutions_bin(tmp_path / "solutions.bin", mlow=0)
+
+
+def test_an_mpert_mismatch_warns_and_is_recorded_rather_than_passing_silently(tmp_path):
+    """solutions.bin's block count should equal the netCDF's mpert; when it
+    does not, the m labels derived from mlow are not trustworthy, so this must
+    be visible rather than persisted as if it were a clean parse."""
+    _write_dcon_netcdf(tmp_path, n=1, mlow=-2, mhigh=5, w_t=-0.3)  # mpert=8
+    _write_solutions_bin(tmp_path, blocks=[[[0.1, 0.3, 1.0, 10.0, -10.0, 0.0, 0.0]]])  # 1 block
+
+    with pytest.warns(RuntimeWarning, match="may be mislabeled"):
+        result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.metadata["eigenfunction_mpert_mismatch"] == {
+        "solutions_bin_n_ipert": 1,
+        "netcdf_mpert": 8,
+    }

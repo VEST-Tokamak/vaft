@@ -227,3 +227,52 @@ def test_defaults_to_dcon_module_when_unspecified(tmp_path):
     extras = mhd_linear(ods, str(tmp_path))
 
     assert extras[1]["module"] == "dcon"
+
+
+# --- regressions found in review of the #170 implementation --------------------
+
+def test_an_unreadable_output_warns_rather_than_silently_looking_unrun(tmp_path):
+    """The readers are stricter than the old best-effort scalar extraction, so a
+    file they reject must be visible: without a warning it is indistinguishable
+    downstream from a cell that was never run."""
+    xr.Dataset({"some_other_variable": (("i",), [1.0])}).to_netcdf(tmp_path / "dcon_output_n1.nc")
+    ods = ODS()
+
+    with pytest.warns(RuntimeWarning, match="skipping unreadable output"):
+        extras = mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
+
+    assert extras == {}
+
+
+def test_a_solver_succeeding_only_at_a_later_time_slice_is_not_an_error(tmp_path):
+    """An OMAS AOS only auto-vivifies at its current length, so writing time
+    slice 2 while 0 and 1 produced nothing used to raise IndexError -- which the
+    caller then misreported as a *failed* solver run."""
+    _write_dcon_output(tmp_path, n=1, w_t=-0.42)
+    ods = ODS()
+
+    extras = mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 2})
+
+    assert extras[1]["value"] == pytest.approx(-0.42)
+    assert len(ods["mhd_linear.time_slice"]) == 3
+    assert ods["mhd_linear"]["time_slice"][2]["toroidal_mode"][0]["n_tor"] == 1
+    # Slices this solver did not produce are flagged negative ("shall not be
+    # used"), not 0, which would falsely claim a successful run.
+    assert list(ods["mhd_linear.code.output_flag"]) == [-1, -1, 0]
+
+
+def test_the_energy_perturbed_units_caveat_is_machine_readable(tmp_path):
+    """A consumer must be able to detect programmatically that the stored value
+    is not in the Joules `energy_perturbed`'s IMAS documentation promises."""
+    import xml.etree.ElementTree as ET
+
+    _write_dcon_output(tmp_path, n=1, w_t=-0.42)
+    ods = ODS()
+    mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
+
+    root = ET.fromstring(ods["mhd_linear.code.parameters"])
+    element = root.find(".//energy_perturbed")
+    assert element is not None
+    assert element.get("units") == "1"
+    assert element.get("imas_documented_units") == "J"
+    assert element.get("units") != element.get("imas_documented_units")

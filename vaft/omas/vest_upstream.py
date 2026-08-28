@@ -769,13 +769,9 @@ def build_mhd_linear_ods(
         },
     )
 
+    times_seconds = [float(t) / 1000.0 for t in time_values]
     ods["mhd_linear"]["ids_properties"]["homogeneous_time"] = 1
-    ods["mhd_linear"]["time"] = [float(t) / 1000.0 for t in time_values]
-    # `ntms` carries RDCON/STRIDE's classical Delta-prime (mhd_linear has no
-    # field for it -- see vaft.machine_mapping.mhd_linear); it shares the same
-    # time base whenever any RDCON/STRIDE cell below actually populates it.
-    ods["ntms"]["ids_properties"]["homogeneous_time"] = 1
-    ods["ntms"]["time"] = [float(t) / 1000.0 for t in time_values]
+    ods["mhd_linear"]["time"] = times_seconds
 
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}
@@ -809,6 +805,19 @@ def build_mhd_linear_ods(
                 modules_modes[key] = {"status": "success", "modes": extras}
                 for nc_path in sorted(run_dir.glob("*.nc")):
                     inputs_hashes[f"{key}/{nc_path.name}"] = sha256_file(nc_path)
+
+    # `ntms` carries RDCON/STRIDE's classical Delta-prime (mhd_linear has no
+    # field for it -- see vaft.machine_mapping.mhd_linear). Only give it a time
+    # base if some cell actually populated it: a DCON-only run would otherwise
+    # be left with an `ntms.time` vector and no `time_slice` entries at all,
+    # which is a length mismatch under homogeneous_time=1. When it *is*
+    # populated, the AOS is padded out to the full time base so every declared
+    # time has a slice, empty or not.
+    if "ntms.time_slice" in ods and len(ods["ntms.time_slice"]):
+        for index in range(len(ods["ntms.time_slice"]), len(times_seconds)):
+            ods["ntms"]["time_slice"][index]
+        ods["ntms"]["ids_properties"]["homogeneous_time"] = 1
+        ods["ntms"]["time"] = times_seconds
 
     status = "success" if any(cell["status"] == "success" for cell in modules_modes.values()) else "empty"
     manifest = {
