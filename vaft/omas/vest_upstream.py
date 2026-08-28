@@ -769,8 +769,25 @@ def build_mhd_linear_ods(
         },
     )
 
+    times_seconds = [float(t) / 1000.0 for t in time_values]
     ods["mhd_linear"]["ids_properties"]["homogeneous_time"] = 1
-    ods["mhd_linear"]["time"] = [float(t) / 1000.0 for t in time_values]
+    ods["mhd_linear"]["time"] = times_seconds
+
+    # Lay the whole (time, n_tor) grid out before any solver runs, so the IDS
+    # is dense on both axes regardless of which cells succeed: every requested
+    # time slice exists, every requested mode holds the same array position in
+    # each of them, and each entry states its own `n_tor`. Cells no solver
+    # fills keep only that `n_tor` -- never a fabricated payload -- and the
+    # slice's negative `code.output_flag` says the result is not usable.
+    from vaft.machine_mapping.mhd_linear import (
+        ensure_toroidal_mode_grid,
+        initialize_output_flags,
+    )
+
+    mode_grid = [int(mode) for mode in modes]
+    for time_slice in range(len(time_values)):
+        ensure_toroidal_mode_grid(ods, time_slice, mode_grid)
+    initialize_output_flags(ods, "mhd_linear", len(time_values))
 
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}
@@ -794,7 +811,11 @@ def build_mhd_linear_ods(
                     modules_modes[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
                     continue
                 try:
-                    extras = mhd_linear_mapper(ods, str(run_dir), {"time_slice": time_slice, "module": module})
+                    extras = mhd_linear_mapper(
+                        ods,
+                        str(run_dir),
+                        {"time_slice": time_slice, "module": module, "modes": mode_grid},
+                    )
                 except Exception as exc:
                     modules_modes[key] = {"status": "failed", "reason": str(exc)}
                     continue
@@ -804,6 +825,26 @@ def build_mhd_linear_ods(
                 modules_modes[key] = {"status": "success", "modes": extras}
                 for nc_path in sorted(run_dir.glob("*.nc")):
                     inputs_hashes[f"{key}/{nc_path.name}"] = sha256_file(nc_path)
+
+    # `ntms` carries RDCON/STRIDE's classical Delta-prime (mhd_linear has no
+    # field for it -- see vaft.machine_mapping.mhd_linear). Only give it a time
+    # base if some cell actually populated it: a DCON-only run would otherwise
+    # be left with an `ntms.time` vector and no `time_slice` entries at all,
+    # which is a length mismatch under homogeneous_time=1. When it *is*
+    # populated, the AOS is padded out to the full time base so every declared
+    # time has a slice, empty or not.
+    # `ntms`'s time axis is made dense the same way `mhd_linear`'s is. Its mode
+    # axis deliberately is not: an `ntms.mode` entry is one *rational surface*
+    # (an (m, n) pair the solver locates in the equilibrium), not a requested
+    # toroidal mode, so there is no caller-supplied grid to pad it against --
+    # how many surfaces exist is itself a result. Slices with no surfaces stay
+    # empty and are marked unusable by the negative output flag.
+    if "ntms.time_slice" in ods and len(ods["ntms.time_slice"]):
+        for index in range(len(ods["ntms.time_slice"]), len(times_seconds)):
+            ods["ntms"]["time_slice"][index]
+        ods["ntms"]["ids_properties"]["homogeneous_time"] = 1
+        ods["ntms"]["time"] = times_seconds
+        initialize_output_flags(ods, "ntms", len(times_seconds))
 
     status = "success" if any(cell["status"] == "success" for cell in modules_modes.values()) else "empty"
     manifest = {

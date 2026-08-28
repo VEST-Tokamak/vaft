@@ -20,6 +20,8 @@ import subprocess
 from pathlib import Path
 
 from . import _runtime as rt
+from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
+from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
 from ._solvers import SOLVERS, SolverContext
 from ._types import (
     DEFAULT_MODES,
@@ -324,4 +326,10 @@ __all__ = [
     "format_gfile_header_for_gpec",
     "prepare_gpec_suite_case",
     "run_gpec_suite_case",
+    "DconEigenfunction",
+    "DconOutput",
+    "read_dcon_output",
+    "read_solutions_bin",
+    "Pest3MatchingOutput",
+    "read_pest3_matching_output",
 ]
