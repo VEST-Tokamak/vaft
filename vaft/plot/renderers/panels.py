@@ -478,10 +478,18 @@ def equilibrium_overview_fit_quality(
         "where one was written, and EFIT's outputs checked against each other."
     ),
     ids=_CONSTRAINT_IDS,
-    required_paths=(
+    # Only a reconstructed slice is required. The convergence node is written by
+    # the m-file mapper and the verdict by the a-file, so requiring either would
+    # fail the whole EFIT stage over one absent optional artifact when the figure
+    # can still draw iterations, self-consistency and what it does have. The
+    # builder raises when *nothing* is available, which is the real failure.
+    required_paths=("equilibrium.time_slice.{i}.time",),
+    optional_paths=(
         "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
-    ),
-    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+        "equilibrium.time_slice.{i}.convergence.iterations_n",
+    )
+    + _CONSTRAINT_SUBMITTED
+    + _CONSTRAINT_OPTIONAL,
 )
 def equilibrium_overview_convergence(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any

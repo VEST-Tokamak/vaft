@@ -182,6 +182,27 @@ def _no_equilibrium_slices(source: Any) -> str | None:
     return None
 
 
+def _no_plasma_onset(source: Any) -> str | None:
+    """A discharge that never formed a plasma has no residual onset to validate.
+
+    The eddy figures are about where the plasma signal emerges from the vacuum
+    response. Without a plasma current there is no such time, and that is a
+    property of the shot rather than a fault in the reconstruction.
+    """
+    from vaft.machine_mapping.magnetics import vfit_plasma_mgods_startend
+
+    try:
+        start, end = vfit_plasma_mgods_startend(source)
+    except Exception:
+        return "magnetics.ip is unreadable, so no plasma-current onset can be located"
+    if start < 0 or end <= start:
+        return (
+            "no plasma-current onset can be located in magnetics.ip; this shot "
+            "carries no plasma phase to separate from the vacuum response"
+        )
+    return None
+
+
 def _no_toroidal_modes(source: Any) -> str | None:
     count = _ods_count(source, "mhd_linear.time_slice")
     if count == 0:
@@ -201,6 +222,7 @@ def _no_toroidal_modes(source: Any) -> str | None:
 #: lands in the manifest, unlike a required plot whose data is unexpectedly
 #: absent, which still raises.
 STAGE_PRECONDITIONS: dict[str, Any] = {
+    "eddy": _no_plasma_onset,
     "efit": _no_equilibrium_slices,
     "mhd_linear": _no_toroidal_modes,
 }
@@ -318,6 +340,12 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
         synthetic_vacuum_magnetics,
         vacuum_magnetics_metrics,
     )
+
+    # Metrics run even for an empty product, so the no-plasma case is reported
+    # rather than raised -- the same condition the precondition reports.
+    reason = _no_plasma_onset(source)
+    if reason is not None:
+        return {"schema_version": 1, "status": "unavailable", "reason": reason}
 
     channels = synthetic_vacuum_magnetics(source)
     ip_time = source.get("magnetics.ip.0.time", None)
@@ -658,7 +686,10 @@ def render_stage_plots(
     if empty_reason is not None:
         manifest["status"] = "empty"
         manifest["reason"] = empty_reason
-        return manifest
+    # Metrics are computed even for an empty product: a stage is empty precisely
+    # when something upstream did not produce what it should have, which is when
+    # its diagnostics matter most. `mhd_linear`'s solver-run block, for one,
+    # explains *why* no toroidal mode was mapped.
     compute_metrics = STAGE_METRICS.get(stage)
     if compute_metrics is not None:
         manifest["metrics"] = compute_metrics(source, **context)

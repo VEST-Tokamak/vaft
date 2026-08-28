@@ -18,6 +18,7 @@ import pytest
 from vaft.database.filedb import FileDB
 from vaft.plot.registry import canonical_names
 from vaft.validation import (
+    STAGE_PRECONDITIONS,
     STAGE_VALIDATION_PLOTS,
     ValidationPlot,
     raw_acquisition_qa_model,
@@ -318,3 +319,67 @@ def test_generate_stage_plots_writes_the_manifest_the_metadata_references(
     # The manifest is tied to the exact product it validated.
     assert payload["input"]["name"] == source.name
     assert len(payload["input"]["sha256"]) == 64
+
+
+# --- review regressions -----------------------------------------------------
+
+def test_metrics_are_still_computed_for_a_legitimately_empty_product(tmp_path):
+    """An empty stage is when its diagnostics matter most.
+
+    `mhd_linear`'s solver-run block explains *why* nothing was mapped, so
+    returning early on the empty product dropped it for exactly the shots that
+    needed it.
+    """
+    import json
+
+    from omas import ODS
+
+    manifest_path = tmp_path / "stage_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "modules_modes": {
+                    "t=316/dcon/n=1": {"status": "failed", "reason": "solver timeout"},
+                    "t=316/rdcon/n=1": {"status": "no_output", "reason": "no .nc found"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    empty = ODS(consistency_check=False)
+    manifest = render_stage_plots(
+        "mhd_linear", empty, tmp_path / "plot", stage_manifest=manifest_path
+    )
+
+    assert manifest["status"] == "empty"
+    assert {row["status"] for row in manifest["plots"]} == {"skipped"}
+    # The point of the fix: the diagnosis survives.
+    assert "metrics" in manifest
+    runs = manifest["metrics"]["solver_runs"]
+    assert runs["t=316/dcon/n=1"]["reason"] == "solver timeout"
+    assert manifest["metrics"]["solver_status_counts"] == {"failed": 1, "no_output": 1}
+
+
+def test_a_shot_that_never_formed_a_plasma_is_an_empty_eddy_product(tmp_path):
+    """Eddy validation is about where the plasma emerges from the vacuum response.
+
+    Without a plasma current there is no such time; that is a property of the
+    shot, not a fault in the reconstruction, so it must not raise.
+    """
+    from omas import ODS
+
+    vacuum_shot = ODS(consistency_check=False)
+    vacuum_shot["dataset_description.data_entry.pulse"] = 41234
+    assert "no plasma-current onset" in STAGE_PRECONDITIONS["eddy"](vacuum_shot)
+
+    manifest = render_stage_plots("eddy", vacuum_shot, tmp_path / "plot")
+    assert manifest["status"] == "empty"
+    assert {row["status"] for row in manifest["plots"]} == {"skipped"}
+    assert not list((tmp_path / "plot").iterdir())
+    assert manifest["metrics"]["status"] == "unavailable"
+
+
+def test_a_real_shot_still_passes_the_eddy_precondition():
+    from vaft.omas.sample import sample_ods
+
+    assert STAGE_PRECONDITIONS["eddy"](sample_ods()) is None

@@ -2559,8 +2559,17 @@ def _require_slices(ods: Any) -> int:
     return count
 
 
-def _state_series(table: ConstraintTable, values: np.ndarray) -> list[Series]:
-    """One trace per channel state, so the dead channels are visible, not absent."""
+def _state_series(
+    table: ConstraintTable,
+    values: np.ndarray,
+    errors: np.ndarray | None = None,
+) -> list[Series]:
+    """One trace per channel state, so the dead channels are visible, not absent.
+
+    ``errors`` is masked through exactly the same channel selection as ``values``
+    -- a channel dropped for a non-finite value must drop its error bar with it,
+    or every later bar lands on the wrong channel.
+    """
     series = []
     for state in CONSTRAINT_STATES:
         mask = table.mask(state)
@@ -2568,10 +2577,16 @@ def _state_series(table: ConstraintTable, values: np.ndarray) -> list[Series]:
             continue
         y = values[mask]
         finite = np.isfinite(y)
+        yerr = None
+        if errors is not None and state == "enabled":
+            selected = errors[mask][finite]
+            if selected.size and np.all(np.isfinite(selected)):
+                yerr = selected
         series.append(
             Series(
                 x=table.index[mask][finite],
                 y=y[finite],
+                yerr=yerr,
                 label=f"{state} ({int(mask.sum())})",
                 style=dict(_STATE_STYLE[state]),
             )
@@ -2589,16 +2604,7 @@ def _build_equilibrium_constraints(ods: Any, **options: Any) -> Panels:
         table = _constraint_table(
             ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale
         )
-        series = _state_series(table, table.measured)
-        enabled = table.mask("enabled")
-        uncertainty = table.uncertainty[enabled]
-        if series and enabled.any() and np.all(np.isfinite(uncertainty)) and uncertainty.size:
-            first = series[0]
-            if first.label.startswith("enabled"):
-                series[0] = Series(
-                    x=first.x, y=first.y, yerr=uncertainty[: first.y.size],
-                    label=first.label, style=dict(first.style),
-                )
+        series = _state_series(table, table.measured, errors=table.uncertainty)
         if not series:
             continue
         panels.append(
@@ -3066,7 +3072,10 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                     title="Convergence history per slice",
                 )
             )
-    else:
+    elif panels:
+        # Only worth a panel alongside real content -- appending it
+        # unconditionally would mean this figure could never report that it has
+        # nothing to show, which is the failure the stage contract relies on.
         panels.append(
             LineSeries(
                 series=(
@@ -3274,6 +3283,9 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         plasma_current=(
             None if ip_time is None or ip_data is None else (ip_time, ip_data)
         ),
+        # The same threshold the residual figure draws its band at, so the
+        # markers and the Delta-t annotations describe the band the reader sees.
+        sigma=float(options.get("sigma", 5.0)),
     )
     return channels, metrics
 

@@ -460,7 +460,9 @@ def test_an_empty_efit_product_still_short_circuits(tmp_path):
     minimal["equilibrium.ids_properties.comment"] = "EFIT output unavailable"
     manifest = render_stage_plots("efit", minimal, tmp_path / "plot")
     assert manifest["status"] == "empty"
-    assert "metrics" not in manifest
+    assert not list((tmp_path / "plot").iterdir())
+    # Metrics still run on an empty product; there is simply nothing in them.
+    assert manifest["metrics"]["slice_count"] == 0
 
 
 def test_quality_metrics_cover_every_slice(efit_ods):

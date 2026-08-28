@@ -344,3 +344,36 @@ def test_packaged_shot_reproduces_its_measured_vacuum_magnetics():
     assert metrics["summary"]["median_improvement"] > 0.7
     assert abs(metrics["summary"]["median_onset_delta"]) < 3.0e-3
     assert metrics["summary"]["onset_coherence"] < 1.0e-2
+
+
+# --- review regression ------------------------------------------------------
+
+def test_the_residual_band_and_the_onset_markers_use_the_same_sigma(plasma_ods):
+    """`sigma` reaches the metrics, not only the drawn band.
+
+    The figure draws its noise band at `sigma`, and annotates each panel with a
+    Delta-t computed from the metrics. If `sigma` stopped at the band the two
+    would describe different thresholds on the same axes.
+    """
+    import vaft.omas as vomas
+    from vaft.omas._plot_recipes import _vacuum_channels
+
+    ods, _time, _ = plasma_ods
+    loose = _vacuum_channels(ods, {"sigma": 2.0})[1]
+    tight = _vacuum_channels(ods, {"sigma": 40.0})[1]
+
+    loose_onsets = [row["residual_onset"] for row in loose["channels"]]
+    tight_onsets = [row["residual_onset"] for row in tight["channels"]]
+    # A far stricter threshold must move, or lose, the detected onsets.
+    assert loose_onsets != tight_onsets
+
+    figure, axes = vomas.plot_magnetics_overview_plasma_residual(ods, sigma=2.0)
+    titles = [ax.get_title() for ax in axes.ravel() if ax.get_visible()]
+    assert any("Δt" in title for title in titles)
+    labels = {
+        text.get_text()
+        for ax in axes.ravel()
+        if ax.get_legend() is not None
+        for text in ax.get_legend().get_texts()
+    }
+    assert any("±2σ" in label for label in labels)

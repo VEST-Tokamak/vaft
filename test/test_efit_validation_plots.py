@@ -189,7 +189,9 @@ def test_an_efit_ods_without_slices_is_an_empty_product_not_a_failure(tmp_path):
     assert "no accepted equilibrium time slice" in manifest["reason"]
     assert {row["status"] for row in manifest["plots"]} == {"skipped"}
     assert not list((tmp_path / "plot").iterdir())
-    assert "metrics" not in manifest
+    # Metrics still run for an empty product: an empty stage is when its
+    # diagnostics matter most.
+    assert manifest["metrics"]["slice_count"] == 0
 
 
 def test_a_required_plot_with_unexpectedly_absent_data_still_raises(tmp_path):
@@ -234,3 +236,70 @@ def test_slice_times_fall_back_to_the_slice_index_when_time_is_absent():
     ods["equilibrium.time_slice.0.constraints.ip.measured"] = 1.0
     ods["equilibrium.time_slice.1.constraints.ip.measured"] = 2.0
     assert list(_slice_times(ods)) == [0.0, 1.0]
+
+
+# --- review regressions -----------------------------------------------------
+
+def test_error_bars_stay_on_their_own_channels_when_one_is_dropped():
+    """A channel dropped for a non-finite value must drop its error bar too.
+
+    `_state_series` filters non-finite values, so truncating the uncertainty
+    array from the end shifted every later bar onto the wrong channel.
+    """
+    ods = _constraint_ods(channels=5)
+    root = "equilibrium.time_slice.0.constraints.bpol_probe"
+    for index in range(5):
+        # Distinct, increasing uncertainties make a misalignment visible.
+        ods[f"{root}.{index}.measured_error_upper"] = 1.0e-3 * (index + 1)
+    # Channel 1 is enabled but carries no usable measurement.
+    ods[f"{root}.1.measured"] = float("nan")
+
+    figure, axes = vomas.plot_equilibrium_overview_constraints(ods)
+    panel = np.ravel(axes)[0]
+    container = next(
+        (child for child in panel.containers if hasattr(child, "has_yerr")), None
+    )
+    assert container is not None, "the enabled trace must carry error bars"
+
+    table = _constraint_table(ods, time_slice=0, family="bpol_probe", is_array=True)
+    kept = np.flatnonzero(table.mask("enabled") & np.isfinite(table.measured))
+    assert list(kept) == [0, 2, 3, 4], "channel 1 must be the dropped one"
+
+    _line, _caps, bars = container
+    segments = bars[0].get_segments()
+    assert len(segments) == len(kept)
+    # Each bar's half-height must be that channel's own uncertainty, scaled to
+    # the panel's display units -- not its neighbour's.
+    scale = 1e3
+    for segment, index in zip(segments, kept):
+        half = abs(segment[1][1] - segment[0][1]) / 2.0
+        assert half == pytest.approx(table.uncertainty[index] * scale, rel=1e-6), index
+
+
+def test_the_convergence_figure_survives_a_missing_m_file(efit_ods):
+    """One absent optional artifact must not fail the whole EFIT stage.
+
+    `convergence` is written by the m-file mapper and the verdict by the a-file.
+    Requiring either would take the stage down over an input the figure can do
+    without, when it can still draw iterations and self-consistency.
+    """
+    ods = efit_ods.copy()
+    for index in range(len(ods["equilibrium.time_slice"])):
+        del ods[f"equilibrium.time_slice.{index}.convergence"]
+
+    assert "equilibrium_overview_convergence" in {
+        row["name"] for row in vomas.available_plots(ods)
+    }
+    figure, axes = vomas.plot_equilibrium_overview_convergence(ods)
+    titles = [ax.get_title() for ax in np.ravel(axes) if ax.get_visible()]
+    assert any("EFIT outputs against each other" in title for title in titles)
+
+
+def test_the_convergence_figure_still_fails_when_nothing_is_available():
+    # The contract holds: a required plot that genuinely cannot be produced is
+    # an actionable failure, not a silent gap.
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = [0.30]
+    ods["equilibrium.time_slice.0.time"] = 0.30
+    with pytest.raises(ValueError, match="no convergence information"):
+        vomas.plot_equilibrium_overview_convergence(ods)

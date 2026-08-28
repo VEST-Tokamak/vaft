@@ -83,7 +83,10 @@ def main() -> int:
     parser.add_argument(
         "--plot-dir",
         default="",
-        type=Path,
+        # Deliberately a string: `type=Path` turns both the empty default and an
+        # explicit `--plot-dir ""` (what the shot_first layout passes) into
+        # Path('.'), which is truthy and silently redirected every figure and the
+        # manifest into the working directory.
         help="Canonical FileDB plot/ directory for the CHEASE comparison figures.",
     )
     args = parser.parse_args()
@@ -98,7 +101,7 @@ def main() -> int:
     work_root = output_dir / "work"
     # Issue #139: comparison figures belong in the canonical `chease/{shot}/plot/`
     # artifact, not in an ad hoc subdirectory of `output/`.
-    plots_dir = Path(args.plot_dir) if str(args.plot_dir) else output_dir / "plots"
+    plots_dir = Path(args.plot_dir) if args.plot_dir.strip() else output_dir / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
     work_root.mkdir(parents=True, exist_ok=True)
 
