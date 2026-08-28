@@ -104,27 +104,26 @@ def _revision_bound(value: Any, *, name: str, context: str) -> int | None:
         raise VestConfigurationError(f"{context}: {name} must be an integer shot number") from exc
 
 
-def resolve_shot_revisions(
-    base: Mapping[str, Any],
+def _match_revision(
     revisions: Sequence[Mapping[str, Any]] | None,
     shot: int,
     *,
     context: str,
-) -> dict[str, Any]:
-    """Merge the one unambiguous configuration revision applicable to ``shot``.
+) -> tuple[Mapping[str, Any] | None, int | None, dict[str, int | None] | None]:
+    """Validate a revision table and return the single entry matching ``shot``.
 
-    Bounds are inclusive. A revision needs at least one bound; unrestricted
-    defaults belong in ``base``. This helper is intentionally also usable for
-    nested processing eras such as plasma-current baseline windows.
+    Returns ``(revision, index, bounds)``, or ``(None, None, None)`` when the
+    shot falls outside every declared era. Shared by `resolve_shot_revisions`
+    and its provenance-reporting counterpart so overlap validation cannot
+    drift between them.
     """
-    resolved = _deep_merge({}, dict(base))
     if revisions is None:
-        return resolved
+        return None, None, None
     if not isinstance(revisions, Sequence) or isinstance(revisions, (str, bytes)):
         raise VestConfigurationError(f"{context}: revisions must be a list")
 
     parsed_revisions: list[tuple[Mapping[str, Any], int | None, int | None]] = []
-    matching: list[Mapping[str, Any]] = []
+    matching: list[tuple[Mapping[str, Any], int, int | None, int | None]] = []
     numeric_shot = int(shot)
     for index, revision in enumerate(revisions):
         revision_context = f"{context} revision {index}"
@@ -140,7 +139,7 @@ def resolve_shot_revisions(
             raise VestConfigurationError(f"{revision_context}: from_shot must not exceed to_shot")
         parsed_revisions.append((revision, first, last))
         if (first is None or numeric_shot >= first) and (last is None or numeric_shot <= last):
-            matching.append(revision)
+            matching.append((revision, index, first, last))
 
     for index, (_, first, last) in enumerate(parsed_revisions):
         for other_index, (_, other_first, other_last) in enumerate(parsed_revisions[index + 1 :], index + 1):
@@ -159,14 +158,60 @@ def resolve_shot_revisions(
 
     if len(matching) > 1:
         raise VestConfigurationError(f"{context}: overlapping revisions apply to shot {numeric_shot}")
-    if matching:
+    if not matching:
+        return None, None, None
+    revision, index, first, last = matching[0]
+    return revision, index, {"from_shot": first, "to_shot": last}
+
+
+def resolve_shot_revisions(
+    base: Mapping[str, Any],
+    revisions: Sequence[Mapping[str, Any]] | None,
+    shot: int,
+    *,
+    context: str,
+) -> dict[str, Any]:
+    """Merge the one unambiguous configuration revision applicable to ``shot``.
+
+    Bounds are inclusive. A revision needs at least one bound; unrestricted
+    defaults belong in ``base``. This helper is intentionally also usable for
+    nested processing eras such as plasma-current baseline windows.
+    """
+    resolved, _provenance = resolve_shot_revisions_with_provenance(
+        base, revisions, shot, context=context
+    )
+    return resolved
+
+
+def resolve_shot_revisions_with_provenance(
+    base: Mapping[str, Any],
+    revisions: Sequence[Mapping[str, Any]] | None,
+    shot: int,
+    *,
+    context: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Like `resolve_shot_revisions`, but also report which era was applied.
+
+    The second return value records the matched revision's index and its
+    inclusive shot bounds (or ``None`` for both when the shot falls back to
+    ``base``), so a shot's effective processing era is recoverable without
+    re-deriving it from scattered conditionals (issue #195).
+    """
+    resolved = _deep_merge({}, dict(base))
+    revision, index, bounds = _match_revision(revisions, shot, context=context)
+    provenance: dict[str, Any] = {
+        "context": context,
+        "revision_index": index,
+        "revision_bounds": bounds,
+    }
+    if revision is not None:
         override = {
             key: value
-            for key, value in matching[0].items()
+            for key, value in revision.items()
             if key not in {"from_shot", "to_shot"}
         }
         resolved = _deep_merge(resolved, override)
-    return resolved
+    return resolved, provenance
 
 
 def _required_number(mapping: Mapping[str, Any], key: str, *, context: str) -> float:
@@ -230,8 +275,15 @@ def resolve_vest_diagnostic(
     diagnostic: str,
     *,
     info_file: str | None = None,
-) -> dict[str, Any]:
-    """Return the effective, validated canonical configuration for one diagnostic."""
+    with_provenance: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], dict[str, Any]]:
+    """Return the effective, validated canonical configuration for one diagnostic.
+
+    With ``with_provenance=True`` the return value becomes
+    ``(config, provenance)``, where ``provenance`` records which top-level
+    revision was applied. The default single-value return is unchanged for
+    existing callers.
+    """
     content = load_yaml(_resolve_info_file_path(info_file))
     defaults = content.get("0") or content.get(0) or {}
     diagnostics = defaults.get("diagnostics", {}) if isinstance(defaults, Mapping) else {}
@@ -241,12 +293,14 @@ def resolve_vest_diagnostic(
     if not isinstance(config, Mapping):
         raise VestConfigurationError(f"VEST diagnostic {diagnostic!r} must be a mapping")
     base = {key: value for key, value in config.items() if key != "revisions"}
-    resolved = resolve_shot_revisions(
+    resolved, provenance = resolve_shot_revisions_with_provenance(
         base, config.get("revisions"), int(shot), context=f"VEST diagnostic {diagnostic!r}"
     )
     calibration = resolved.get("calibration")
     if calibration is not None:
         validate_calibration(calibration)
+    if with_provenance:
+        return resolved, provenance
     return resolved
 
 
