@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Any, Mapping, Sequence
 
@@ -35,6 +36,7 @@ __all__ = [
     "STAGE_PRECONDITIONS",
     "STAGE_VALIDATION_PLOTS",
     "ValidationPlot",
+    "mhd_linear_run_coverage_model",
     "raw_acquisition_qa_model",
     "render_stage_plots",
     "stage_plot_filenames",
@@ -155,6 +157,17 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ValidationPlot(
             plot="mhd_linear_time_energy_perturbed",
             filename="stability_energy_perturbed.png",
+        ),
+        # Issue #173 phase 1: which (module, mode, time) cells actually ran and
+        # succeeded, independent of the #170 IDS-contract work -- its data is
+        # the stage manifest's `modules_modes` table, not the ODS, so it is a
+        # "raw" plot (see `mhd_linear_run_coverage_model`) even though this
+        # stage's other plot is ODS-driven.
+        ValidationPlot(
+            plot="mhd_linear_run_coverage",
+            filename="stability_run_coverage.png",
+            kind="raw",
+            required=False,
         ),
     ),
 }
@@ -552,6 +565,81 @@ def raw_acquisition_qa_model(
     return Panels(models=tuple(panels), ncols=2, share_x=False, suptitle=suptitle)
 
 
+#: `build_mhd_linear_ods`'s manifest cell key format (`vaft/omas/vest_upstream.py`).
+_COVERAGE_KEY_RE = re.compile(r"^t=(?P<time>[^/]+)/(?P<module>[^/]+)/n=(?P<mode>\d+)$")
+
+#: One marker style per solver-run status, shared by every module's panel so
+#: the same status always reads the same way across panels.
+_COVERAGE_STATUS_STYLE: dict[str, dict[str, Any]] = {
+    "success": {"marker": "o", "color": "tab:green"},
+    "missing": {"marker": "x", "color": "tab:gray"},
+    "failed": {"marker": "X", "color": "tab:red"},
+    "no_output": {"marker": "s", "color": "tab:orange", "markerfacecolor": "none"},
+}
+
+
+def mhd_linear_run_coverage_model(manifest: Mapping[str, Any]):
+    """Build the DCON/RDCON/STRIDE run-coverage view model (issue #173 phase 1).
+
+    One panel per solver module; within a panel, one point per ``(time,
+    n_tor)`` cell the workflow attempted, colored by the manifest's own
+    ``status`` (``success``/``missing``/``failed``/``no_output``) -- this is
+    "did the run happen and produce usable output", not a physics
+    comparison, so it is independent of how the #170 data-model work settles
+    DCON's delta-W against RDCON/STRIDE's Delta-prime.
+    """
+    from vaft.plot import LineSeries, Panels, Series
+
+    cells = manifest.get("modules_modes") or {}
+    rows: list[tuple[str, int, float, str]] = []
+    for key, cell in cells.items():
+        match = _COVERAGE_KEY_RE.match(key)
+        if not match:
+            continue
+        try:
+            time_value = float(match.group("time"))
+        except ValueError:
+            continue
+        rows.append((match.group("module"), int(match.group("mode")), time_value, str(cell.get("status", "unknown"))))
+    if not rows:
+        raise ValueError("stage manifest carries no modules_modes coverage cells")
+
+    modules = sorted({module for module, _, _, _ in rows})
+    panels = []
+    for module in modules:
+        module_rows = [row for row in rows if row[0] == module]
+        series = []
+        for status in sorted({row[3] for row in module_rows}):
+            selected = [row for row in module_rows if row[3] == status]
+            style = dict(_COVERAGE_STATUS_STYLE.get(status, {"marker": "."}))
+            style["linestyle"] = "none"
+            series.append(
+                Series(
+                    x=np.asarray([row[2] for row in selected], dtype=float),
+                    y=np.asarray([row[1] for row in selected], dtype=float),
+                    label=status,
+                    style=style,
+                )
+            )
+        n_success = sum(1 for row in module_rows if row[3] == "success")
+        panels.append(
+            LineSeries(
+                series=tuple(series),
+                x_label="time",
+                y_label="toroidal mode n",
+                title=f"{module} — {n_success}/{len(module_rows)} cells succeeded",
+            )
+        )
+
+    shot = manifest.get("shot")
+    return Panels(
+        models=tuple(panels),
+        ncols=min(2, len(panels)) or 1,
+        share_x=False,
+        suptitle=f"Stability run coverage — shot {shot if shot is not None else 'unknown'}",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Execution
 # ---------------------------------------------------------------------------
@@ -579,16 +667,36 @@ def _render_ods_plot(entry: ValidationPlot, source: Any):
     return result[0]
 
 
+def _raw_plot_unavailable_reason(entry: ValidationPlot, context: Mapping[str, Any]) -> str | None:
+    """Whether a "raw" kind plot's data is missing, mirroring the "ods" availability check.
+
+    ``raw_acquisition_qa`` has always had no such pre-check (its payload *is*
+    the stage's `source`, never absent) and keeps raising from inside its own
+    model builder on genuinely bad data; only plots whose data lives
+    elsewhere (e.g. `mhd_linear_run_coverage`'s stage manifest) need one.
+    """
+    if entry.plot == "mhd_linear_run_coverage" and not context.get("stage_manifest"):
+        return "no stage_manifest supplied; run coverage cannot be computed"
+    return None
+
+
 def _render_raw_plot(entry: ValidationPlot, source: Any, context: Mapping[str, Any]):
     from vaft.plot import render_panels
 
-    if entry.plot != "raw_acquisition_qa":
+    if entry.plot == "raw_acquisition_qa":
+        model = raw_acquisition_qa_model(
+            source,
+            required_fields=context.get("required_fields", ()),
+            shot=context.get("shot"),
+        )
+    elif entry.plot == "mhd_linear_run_coverage":
+        manifest_path = context.get("stage_manifest")
+        if not manifest_path:
+            raise ValueError("mhd_linear_run_coverage requires context['stage_manifest']")
+        manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        model = mhd_linear_run_coverage_model(manifest)
+    else:
         raise KeyError(f"no raw validation renderer named {entry.plot!r}")
-    model = raw_acquisition_qa_model(
-        source,
-        required_fields=context.get("required_fields", ()),
-        shot=context.get("shot"),
-    )
     figure, _axes = render_panels(model, show=False, figsize=(13.0, 8.0))
     return figure
 
@@ -660,6 +768,22 @@ def render_stage_plots(
                 }
             )
             continue
+        if entry.kind == "raw":
+            reason = _raw_plot_unavailable_reason(entry, context)
+            if reason is not None:
+                if entry.required:
+                    raise ValueError(
+                        f"required validation plot {entry.plot!r} for stage {stage!r}: {reason}"
+                    )
+                records.append(
+                    {
+                        "name": entry.plot,
+                        "file": entry.filename,
+                        "status": "skipped",
+                        "reason": reason,
+                    }
+                )
+                continue
 
         if entry.kind == "ods":
             figure = _render_ods_plot(entry, source)

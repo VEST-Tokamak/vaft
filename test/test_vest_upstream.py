@@ -485,19 +485,38 @@ def test_stage_writer_is_byte_deterministic(tmp_path):
     assert outputs[0] == outputs[1]
 
 
-def _write_gpec_output(workdir, module, mode, *, time_label="00319", **variables):
+def _write_gpec_output(
+    workdir, module, mode, *, time_label="00319", mlow=-8, mhigh=16, **variables
+):
+    import numpy as np
     import xarray as xr
 
     run_dir = workdir / time_label / module / f"nn={mode}"
     run_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{module}_output_n{mode}.nc"
+    mpert = mhigh - mlow + 1
+    attrs = {"mlow": mlow, "mhigh": mhigh, "mpert": mpert, "mband": 0, "n": mode}
     if module == "dcon":
         ds = xr.Dataset(
-            {"W_t_eigenvalue": (("i", "mode"), [[variables["w_t"]]])},
-            coords={"i": [0], "mode": [1]},
+            {"W_t_eigenvalue": (("mode", "i"), [[variables["w_t"], 0.0]])},
+            coords={"i": [0, 1], "mode": [1]},
+            attrs=attrs,
         )
     else:
-        ds = xr.Dataset({"Delta_prime": (("a", "b", "c"), [[[variables["delta_prime"]]]])})
+        m_values = variables.get("m_values", [mlow + 4])
+        msing = len(m_values)
+        delta_prime = np.zeros((msing, msing, 2), dtype=float)
+        delta_prime[0, 0, 0] = variables["delta_prime"]
+        ds = xr.Dataset(
+            {
+                "Delta_prime": (("r", "r_prime", "i"), delta_prime),
+                "r": (("r",), m_values),
+                "psi_n_rational": (("r",), [0.1 * (i + 1) for i in range(msing)]),
+                "q_rational": (("r",), [float(m) / mode for m in m_values]),
+            },
+            coords={"i": [0, 1]},
+            attrs=attrs,
+        )
     ds.to_netcdf(run_dir / filename)
     return run_dir
 

@@ -167,6 +167,11 @@ def test_metrics_work_without_a_manifest(tmp_path):
     metrics = manifest["metrics"]
     assert "solver_runs" not in metrics
     assert metrics["modes"]["1"][0]["energy_perturbed"] == pytest.approx(-0.4)
+    # Issue #173 phase 1's coverage plot needs the stage manifest; without one
+    # it degrades to skipped rather than failing the whole stage.
+    coverage = next(row for row in manifest["plots"] if row["name"] == "mhd_linear_run_coverage")
+    assert coverage["status"] == "skipped"
+    assert "stage_manifest" in coverage["reason"]
 
 
 def test_the_figure_is_written_and_non_empty(tmp_path):
@@ -175,3 +180,71 @@ def test_the_figure_is_written_and_non_empty(tmp_path):
     )
     target = tmp_path / "plot" / "stability_energy_perturbed.png"
     assert target.stat().st_size > 10_000
+
+
+# --- issue #173 phase 1: run coverage -----------------------------------------
+
+def test_run_coverage_plot_is_written_from_the_manifest_independent_of_the_ods(tmp_path):
+    """The coverage plot is built entirely from `modules_modes`; an ODS with no
+    mapped mode still gets it, since coverage is about which runs were
+    *attempted*, not about what reached the IDS."""
+    manifest = render_stage_plots(
+        "mhd_linear",
+        ODS(consistency_check=False),  # deliberately empty -- precondition would
+        tmp_path / "plot",             # normally skip everything...
+        shot=41234,
+        stage_manifest=_manifest(tmp_path, failed_cell=True),
+    )
+    # ...and it does: the stage-level empty precondition applies uniformly to
+    # every declared plot, coverage included, so this is still "skipped".
+    assert manifest["status"] == "empty"
+    coverage = next(row for row in manifest["plots"] if row["name"] == "mhd_linear_run_coverage")
+    assert coverage["status"] == "skipped"
+
+
+def test_run_coverage_plot_renders_when_the_ods_is_non_empty(tmp_path):
+    manifest = render_stage_plots(
+        "mhd_linear",
+        _mhd_linear_ods(),
+        tmp_path / "plot",
+        shot=41234,
+        stage_manifest=_manifest(tmp_path, failed_cell=True),
+    )
+    coverage = next(row for row in manifest["plots"] if row["name"] == "mhd_linear_run_coverage")
+    assert coverage["status"] == "generated"
+    target = tmp_path / "plot" / "stability_run_coverage.png"
+    assert target.stat().st_size > 5_000
+
+
+def test_run_coverage_model_groups_by_module_and_status():
+    from vaft.validation import mhd_linear_run_coverage_model
+
+    manifest = json.loads(_manifest_payload(failed_cell=True))
+    model = mhd_linear_run_coverage_model(manifest)
+    titles = {panel.title.split(" — ")[0] for panel in model.models}
+    assert titles == {"dcon", "rdcon", "stride"}
+    stride_panel = next(panel for panel in model.models if panel.title.startswith("stride"))
+    assert stride_panel.series[0].label == "failed"
+
+
+def test_run_coverage_model_raises_on_an_empty_manifest():
+    from vaft.validation import mhd_linear_run_coverage_model
+
+    with pytest.raises(ValueError, match="modules_modes"):
+        mhd_linear_run_coverage_model({"modules_modes": {}})
+
+
+def _manifest_payload(*, failed_cell: bool) -> str:
+    payload = {
+        "schema_version": 1,
+        "stage": "mhd_linear",
+        "shot": 41234,
+        "modules_modes": {
+            "t=316/dcon/n=1": {"status": "success", "modes": {}},
+            "t=316/rdcon/n=1": {"status": "success", "modes": {}},
+            "t=316/stride/n=2": {"status": "failed", "reason": "solver timeout"}
+            if failed_cell
+            else {"status": "success", "modes": {}},
+        },
+    }
+    return json.dumps(payload)

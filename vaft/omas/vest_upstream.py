@@ -771,6 +771,11 @@ def build_mhd_linear_ods(
 
     ods["mhd_linear"]["ids_properties"]["homogeneous_time"] = 1
     ods["mhd_linear"]["time"] = [float(t) / 1000.0 for t in time_values]
+    # `ntms` carries RDCON/STRIDE's classical Delta-prime (mhd_linear has no
+    # field for it -- see vaft.machine_mapping.mhd_linear); it shares the same
+    # time base whenever any RDCON/STRIDE cell below actually populates it.
+    ods["ntms"]["ids_properties"]["homogeneous_time"] = 1
+    ods["ntms"]["time"] = [float(t) / 1000.0 for t in time_values]
 
     modules_modes: dict[str, Any] = {}
     inputs_hashes: dict[str, str] = {}

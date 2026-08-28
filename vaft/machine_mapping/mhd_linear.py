@@ -1,168 +1,201 @@
-"""
-`mhd_linear` IDS mapping helpers.
+"""`mhd_linear`/`ntms` IDS mapping helpers for the GPEC solver suite.
 
-Schema reference:
-https://gafusion.github.io/omas/schema.html
+Architecture (issue #170): this module is the *IDS-populating* layer only.
+It never re-parses DCON/RDCON/STRIDE output files itself -- it reads the
+solver-native output containers owned by :mod:`vaft.code.gpec`
+(`DconOutput` for DCON, `Pest3MatchingOutput` shared by RDCON/STRIDE), and
+copies only the values that have a scientifically correct home in IMAS into
+the ODS:
+
+- `n_tor`, `energy_perturbed` (with an explicit normalization caveat --
+  DCON's total energy eigenvalue is a dimensionless, normalized quantity
+  stored in a field the IMAS schema documents as Joules), and a run-success
+  `code.output_flag` land in `mhd_linear`.
+- Delta-prime has no field anywhere in `mhd_linear`, but the classical
+  (single-surface, diagonal) value *is* a legitimate `ntms.deltaw`
+  contribution to the Rutherford equation, so RDCON/STRIDE runs populate
+  `ntms` for that value; `ballooning_type="Tearing"` stays a separate,
+  correct mode-type tag in `mhd_linear` and is never treated as if it also
+  carried the Delta-prime value.
+- Everything else that has no IMAS home (mode-range provenance, the full
+  PEST3 matching matrices, the Fourier-space eigenfunction from
+  `solutions.bin`) goes into `mhd_linear.code.parameters` when it is
+  solver-configuration metadata, or stays exclusively in the `vaft.code.gpec`
+  output container (persisted as JSON next to the solver output) when it is
+  a physics result with no IMAS field at all. Nothing is force-fit into a
+  structurally-convenient-but-wrong field (e.g. `displacement_perpendicular`
+  is deliberately never populated here -- see the module docstrings in
+  `vaft.code.gpec._dcon_output` for why).
+
+Schema reference: https://gafusion.github.io/omas/schema.html
 """
 
 from __future__ import annotations
 
 import os
 import re
-import struct
 from typing import Any, Optional
+from xml.sax.saxutils import escape
 
-import numpy as np
-import xarray as xr
 from omas import ODS
 
-# (filename pattern, netCDF variable) per GPEC-suite solver. DCON's
-# `W_t_eigenvalue` maps directly onto `mhd_linear`'s `energy_perturbed`.
-# RDCON/STRIDE's `Delta_prime` has no dedicated slot in the `mhd_linear` IDS
-# schema (verified against omas's packaged 3.41.0 structures -- no tearing-
-# index/Delta-prime field exists under `toroidal_mode`), so it is recorded as
-# a `ballooning_type` classification in the ODS and returned as a raw extra
-# for the caller to keep alongside the ODS (e.g. in a run manifest) rather
-# than forced into a schema field it doesn't belong in.
-_MODULE_OUTPUT = {
-    "dcon": (re.compile(r"dcon_output_n(\d+)\.nc"), "W_t_eigenvalue"),
-    "rdcon": (re.compile(r"rdcon_output_n(\d+)\.nc"), "Delta_prime"),
-    "stride": (re.compile(r"stride_output_n(\d+)\.nc"), "Delta_prime"),
+from vaft.code.gpec import DconOutput, Pest3MatchingOutput, read_dcon_output, read_pest3_matching_output
+
+_MODULE_PATTERNS = {
+    "dcon": re.compile(r"dcon_output_n(\d+)\.nc"),
+    "rdcon": re.compile(r"rdcon_output_n(\d+)\.nc"),
+    "stride": re.compile(r"stride_output_n(\d+)\.nc"),
 }
 
 
-def _extract_scalar(var: xr.DataArray) -> float | None:
-    """Best-effort scalar extraction from a netCDF variable of unknown rank.
+def _existing_aos_count(ods: ODS, ids: str, time_slice: int, aos_name: str) -> int:
+    """Length of ``<ids>.time_slice.<time_slice>.<aos_name>``, 0 if not present.
 
-    GPEC-suite ``.nc`` outputs store what is conceptually a single number
-    under varying shapes (scalar, ``[1,1,1]``, ragged arrays) depending on
-    solver and version. Ported from
-    ``gen_stability_history.extract_delta_prime_from_nc``'s defensive
-    indexing so both consumers behave the same way for the same files.
+    Plain ``in`` checks are non-mutating on an ODS; indexing a path that does
+    not exist yet auto-vivifies it, which would corrupt an ``ods`` this
+    function was never asked to touch.
     """
-    if var.ndim == 0:
-        return var.item()
-    if var.ndim >= 3 and all(size > 0 for size in var.shape[:3]):
-        return var.data[0, 0, 0].item()
-    if var.ndim > 0 and var.size > 0:
-        current = var.data
-        try:
-            for _ in range(var.ndim):
-                if hasattr(current, "__getitem__") and len(current) > 0:
-                    current = current[0]
-                else:
-                    break
-            if np.isscalar(current):
-                return float(current)
-        except IndexError:
-            if np.isscalar(current):
-                return float(current)
-    return None
+    if f"{ids}.time_slice" not in ods:
+        return 0
+    if time_slice >= len(ods[f"{ids}.time_slice"]):
+        return 0
+    path = f"{ids}.time_slice.{time_slice}.{aos_name}"
+    if path not in ods:
+        return 0
+    return len(ods[path])
+
+
+def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *, code_name: str) -> None:
+    """Append one ``<solver>`` fragment to ``<ids>.code.parameters``.
+
+    ``code.parameters`` is a single IDS-global string, but `mhd_linear`/`ntms`
+    accumulate entries from multiple solver calls (DCON, then RDCON, then
+    STRIDE) on the same ``ods`` -- so this appends rather than overwrites,
+    keeping every call's provenance rather than only the last one's.
+    """
+    ods[f"{ids}.code.name"] = code_name
+    ods[f"{ids}.code.repository"] = "https://github.com/PrincetonUniversity/GPEC"
+    path = f"{ids}.code.parameters"
+    existing = ods.get(path, None)
+    if not existing:
+        ods[path] = f"<parameters>{fragment_xml}</parameters>"
+        return
+    existing = existing.rstrip()
+    if existing.endswith("</parameters>"):
+        ods[path] = existing[: -len("</parameters>")] + fragment_xml + "</parameters>"
+    else:
+        ods[path] = existing + fragment_xml
+
+
+def _set_output_flag(ods: ODS, ids: str, time_slice: int, flag: int) -> None:
+    try:
+        ods.set_time_array(f"{ids}.code.output_flag", time_slice, flag)
+    except Exception:
+        ods[f"{ids}.code.output_flag.{time_slice}"] = flag
+
+
+def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput) -> None:
+    mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
+    mode_entry["n_tor"] = result.n_tor
+    if result.W_t_eigenvalue is not None and result.W_t_eigenvalue.size:
+        # Least-stable total-energy eigenvalue -- normalized/dimensionless,
+        # stored despite the field's Joules documentation because it is the
+        # closest existing slot; the unit mismatch is recorded explicitly in
+        # code.parameters below rather than left for a future reader to guess.
+        mode_entry["energy_perturbed"] = float(result.W_t_eigenvalue[0].real)
+
+    fragment = (
+        f'<solver name="dcon" n_tor="{result.n_tor}">'
+        f"<mlow>{result.mlow}</mlow><mhigh>{result.mhigh}</mhigh>"
+        f"<mpert>{result.mpert}</mpert><mband>{result.mband}</mband>"
+        "<energy_perturbed_units>normalized (dimensionless), not Joules</energy_perturbed_units>"
+        "</solver>"
+    )
+    _append_code_parameters(ods, "mhd_linear", fragment, code_name="DCON")
+    _set_output_flag(ods, "mhd_linear", time_slice, 0)
+
+
+def _write_resistive_entry(
+    ods: ODS, time_slice: int, position: int, result: Pest3MatchingOutput
+) -> None:
+    mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
+    mode_entry["n_tor"] = result.n_tor
+    mode_entry["ballooning_type"]["name"] = "Tearing"
+
+    fragment = (
+        f'<solver name="{escape(result.solver)}" n_tor="{result.n_tor}">'
+        f"<mlow>{result.mlow}</mlow><mhigh>{result.mhigh}</mhigh>"
+        f"<mpert>{result.mpert}</mpert><mband>{result.mband}</mband>"
+        f"<msing>{result.msing}</msing>"
+        "</solver>"
+    )
+    _append_code_parameters(ods, "mhd_linear", fragment, code_name="GPEC-suite")
+    _set_output_flag(ods, "mhd_linear", time_slice, 0)
+
+    diagonal = result.delta_prime_diagonal()
+    if not diagonal:
+        return
+    start = _existing_aos_count(ods, "ntms", time_slice, "mode")
+    for offset, surface in enumerate(diagonal):
+        entry = ods["ntms"]["time_slice"][time_slice]["mode"][start + offset]
+        entry["n_tor"] = surface["n"]
+        entry["m_pol"] = surface["m"]
+        contribution = entry["deltaw"][0]
+        contribution["name"] = "classical"
+        # `deltaw[:].value` is FLT_0D (real-valued): the imaginary part has no
+        # slot here and stays only in the native Pest3MatchingOutput.
+        contribution["value"] = surface["delta_prime_real"]
+    ntms_fragment = f'<solver name="{escape(result.solver)}" n_tor="{result.n_tor}"><msing>{result.msing}</msing></solver>'
+    _append_code_parameters(ods, "ntms", ntms_fragment, code_name="GPEC-suite")
+    _set_output_flag(ods, "ntms", time_slice, 0)
 
 
 def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[int, dict[str, Any]]:
-    """Parse GPEC-suite output under ``source`` into the ``mhd_linear`` IDS.
+    """Parse GPEC-suite output under ``source`` into `mhd_linear`/`ntms`.
 
     ``options["module"]`` selects which solver's output to read (``"dcon"``
     by default, matching prior behavior); one of ``"dcon"``, ``"rdcon"``,
-    ``"stride"``. Returns a ``{mode: {...}}`` dict of raw extracted values
-    that either have no ``mhd_linear`` IDS slot (RDCON/STRIDE's
-    ``Delta_prime``) or are convenient to carry alongside the ODS in a run
-    manifest.
+    ``"stride"``. Returns a ``{n_tor: {...}}`` dict of values kept alongside
+    the ODS in the caller's run manifest (RDCON/STRIDE's per-surface
+    Delta-prime, which has no `mhd_linear` slot for the full detail even
+    though its diagonal now also reaches `ntms`).
+
+    As a side effect, writes the full lossless native output container
+    (:class:`~vaft.code.gpec.DconOutput` or
+    :class:`~vaft.code.gpec.Pest3MatchingOutput`) to
+    ``<source>/dcon_native_n<mode>.json`` or
+    ``<source>/<solver>_matching_n<mode>.json``.
     """
     if options is None:
         options = {}
 
     time_slice = options.get("time_slice", 0)
     module = str(options.get("module", "dcon")).lower()
-    if module not in _MODULE_OUTPUT:
+    if module not in _MODULE_PATTERNS:
         raise ValueError(f"Unsupported mhd_linear source module: {module!r}")
-    pattern, variable = _MODULE_OUTPUT[module]
+    pattern = _MODULE_PATTERNS[module]
 
-    def _read_fortran_record_length(f):
-        raw = f.read(4)
-        if len(raw) < 4:
-            return None
-        return struct.unpack("<i", raw)[0]
+    modes: list[int] = []
+    for filename in sorted(os.listdir(source)):
+        match = pattern.fullmatch(filename)
+        if match:
+            modes.append(int(match.group(1)))
+    modes = sorted(set(modes))
 
-    def _read_n_floats(f, n):
-        raw = f.read(n * 4)
-        if len(raw) < n * 4:
-            raise EOFError("Unexpected EOF while reading float data.")
-        return np.frombuffer(raw, dtype="<f4")
-
-    def _existing_toroidal_mode_count() -> int:
-        # Plain `in` checks are non-mutating on an ODS; indexing a path that
-        # does not exist yet auto-vivifies it, which would corrupt an empty
-        # `ods` the caller never asked this function to touch.
-        if "mhd_linear.time_slice" not in ods:
-            return 0
-        if time_slice >= len(ods["mhd_linear.time_slice"]):
-            return 0
-        path = f"mhd_linear.time_slice.{time_slice}.toroidal_mode"
-        if path not in ods:
-            return 0
-        return len(ods[path])
-
-    def _read_solutions_bin(filename):
-        data_blocks = []
-        with open(filename, "rb") as f:
-            while True:
-                length = _read_fortran_record_length(f)
-                if length is None:
-                    break
-                if length == 0:
-                    continue
-
-                num_floats = length // 4
-                arr_step0 = _read_n_floats(f, num_floats)
-                trailing_len = _read_fortran_record_length(f)
-
-                steps_for_ipert = [arr_step0]
-                while True:
-                    length2 = _read_fortran_record_length(f)
-                    if length2 is None:
-                        break
-                    if length2 == 0:
-                        break
-                    nfloat2 = length2 // 4
-                    arr2 = _read_n_floats(f, nfloat2)
-                    _ = _read_fortran_record_length(f)
-                    steps_for_ipert.append(arr2)
-
-                data_blocks.append(steps_for_ipert)
-
-        n_ipert = len(data_blocks)
-        if n_ipert == 0:
-            return np.zeros((0, 0, 7), dtype=np.float32)
-
-        max_steps = max(len(steps) for steps in data_blocks)
-        arr3d = np.full((n_ipert, max_steps, 7), np.nan, dtype=np.float32)
-        for i_ipert, step_list in enumerate(data_blocks):
-            for j_step, vec7 in enumerate(step_list):
-                arr3d[i_ipert, j_step, :] = vec7
-        return arr3d
-
-    found: dict[int, float] = {}
-    for file in sorted(os.listdir(source)):
-        match = pattern.fullmatch(file)
-        if not match:
-            continue
-        n = int(match.group(1))
-        filepath = os.path.join(source, file)
+    # Parse every matched mode first, dropping ones that fail to read, so the
+    # AOS-position loop below only ever enumerates over what will actually be
+    # written -- computing `position` from the raw (pre-parse) mode list would
+    # skip a position for each parse failure and index straight past the end
+    # of the AOS for the next successful entry.
+    parsed: list[tuple[int, Any]] = []
+    for mode in modes:
         try:
-            with xr.open_dataset(filepath) as ds:
-                if variable not in ds.variables:
-                    continue
-                if module == "dcon":
-                    value = ds[variable].isel(i=0).sel(mode=1).values.item()
-                else:
-                    value = _extract_scalar(ds[variable])
+            if module == "dcon":
+                parsed.append((mode, read_dcon_output(source, mode=mode)))
+            else:
+                parsed.append((mode, read_pest3_matching_output(source, solver=module, mode=mode)))
         except Exception:
             continue
-        if value is None:
-            continue
-        found[n] = value
 
     # `toroidal_mode` is an IMAS array of structures: entries must be
     # appended sequentially (position != mode number), so the physical
@@ -170,58 +203,32 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
     # array position. `existing` accounts for entries a prior call already
     # wrote for this time slice (e.g. a DCON pass before this RDCON pass on
     # the same `ods`) so repeated calls extend rather than overwrite them.
+    existing = _existing_aos_count(ods, "mhd_linear", time_slice, "toroidal_mode") if parsed else 0
+
     extras: dict[int, dict[str, Any]] = {}
-    if found:
-        existing = _existing_toroidal_mode_count()
-    else:
-        existing = 0
-    for offset, n in enumerate(sorted(found)):
+    for offset, (mode, result) in enumerate(parsed):
         position = existing + offset
-        value = found[n]
-        mode = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
-        mode["n_tor"] = n
         if module == "dcon":
-            mode["energy_perturbed"] = value
+            _write_dcon_entry(ods, time_slice, position, result)
+            extras[result.n_tor] = {
+                "module": "dcon",
+                "variable": "W_t_eigenvalue",
+                "value": None if result.total1 is None else result.total1.real,
+            }
+            try:
+                result.write_json(os.path.join(source, f"dcon_native_n{mode}.json"))
+            except OSError:
+                pass
         else:
-            mode["ballooning_type"]["name"] = "Tearing"
-        extras[n] = {"module": module, "variable": variable, "value": value}
-
-    if module != "dcon":
-        return extras
-
-    bin_file = os.path.join(source, "solutions.bin")
-    if not os.path.exists(bin_file):
-        return extras
-
-    arr3d = _read_solutions_bin(bin_file)
-    n_ipert, n_step, _ = arr3d.shape
-
-    # solutions.bin's per-block index has no independently verified
-    # correspondence to a physical toroidal mode number, so these are
-    # appended as additional AOS entries after whatever the .nc scan already
-    # wrote for this time slice, rather than overwriting those entries.
-    start = _existing_toroidal_mode_count()
-    for offset in range(n_ipert):
-        n = offset
-        position = start + offset
-        mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
-        # The IMAS schema declares `displacement_perpendicular.real/imaginary`
-        # as FLT_2D over (grid.dim1, grid.dim2), but solutions.bin's actual
-        # physical layout along those two axes has never been verified against
-        # DCON's Fortran source -- writing a 1D real/imaginary series (as this
-        # historically unreachable code did) fails that shape check. Rather
-        # than guess a reshape that could misrepresent the physics, this
-        # narrow subtree is written best-effort with validation off; fixing it
-        # properly needs the real solutions.bin field layout from DCON, out of
-        # scope for the DCON/RDCON/STRIDE Delta_prime/W_t work this is part of.
-        mode_entry.consistency_check = False
-        psi_grid = arr3d[offset, :, 0]
-        alpha_grid = np.arange(n_step)
-
-        mode_entry["plasma"]["grid"]["dim1"] = psi_grid.tolist()
-        mode_entry["plasma"]["grid"]["dim2"] = alpha_grid.tolist()
-        mode_entry["plasma"]["displacement_perpendicular"]["real"] = arr3d[offset, :, 3].tolist()
-        mode_entry["plasma"]["displacement_perpendicular"]["imaginary"] = arr3d[offset, :, 4].tolist()
-        mode_entry["n_tor"] = n
+            _write_resistive_entry(ods, time_slice, position, result)
+            extras[result.n_tor] = {
+                "module": module,
+                "variable": "Delta_prime",
+                "value": result.delta_prime_diagonal(),
+            }
+            try:
+                result.write_json(os.path.join(source, f"{module}_matching_n{mode}.json"))
+            except OSError:
+                pass
 
     return extras
