@@ -842,6 +842,15 @@
     # later native-DAQ acquisition path (`legacy` | `native_daq`) -- a
     # resolved config value, not a shot literal, consumed by
     # `vest_equilibrium_magnetics_signals`.
+    #
+    # The native-DAQ era starts at 46404, one shot later than the
+    # plasma-current FL10 era (46403, confirmed by `vest_ip.m` line 38).
+    # The donor is self-inconsistent for exactly shot 46403:
+    # Batch_FiniteElementFitting_v11_Header.m and
+    # VEST_PrepareFilamentaryFitInput.m both dispatch `shotNumber <= 46403`
+    # to the legacy function, while Batch_Vaccum_Calculation.m sends
+    # `>= 46403` to the new one. VAFT follows the two equilibrium
+    # reconstruction paths that this preprocessing actually feeds.
     equilibrium_magnetics:
       processing:
         # `index_start`/`index_end` select the canonical output window on the
@@ -850,9 +859,17 @@
         # documented 0.26--0.36 s output window. `probe_baseline_end` is the
         # number of leading samples of the *native* B-pol acquisition used for
         # the linear baseline fit (1750 fast samples ~ 0.260--0.267 s from
-        # shot 43685). `flux_baseline_window` gives the flux-loop baseline in
-        # physical seconds; when null, the legacy index-based flux baselines
-        # on `VestMagneticsProcessingConfig` apply.
+        # shot 43685). Flux-loop baselines follow one of two rules, matching
+        # the two donor functions (VFIT VEST_MagneticSignalProcessing[2].m):
+        #   flux_baseline_window  - slow-DAQ era, in physical seconds (MATLAB
+        #                           index_FL_start/index_FL_end; 6001:6500 =
+        #                           0.24--0.26 s from shot 43685).
+        #   flux_baseline_samples - native-DAQ era, leading samples of the
+        #                           250 kHz flux acquisition. The donor reuses
+        #                           index_Bz_start:index_Bz_end = 1:1750, i.e.
+        #                           the same window as the B-pol probes.
+        # When both are null the legacy index-based flux baselines on
+        # `VestMagneticsProcessingConfig` apply.
         #
         # NOTE: `resolve_shot_revisions` merges exactly one matching revision
         # onto the base and does NOT chain eras, so every revision below must
@@ -862,6 +879,7 @@
           index_end: 8500
           probe_baseline_end: 8500
           flux_baseline_window: null
+          flux_baseline_samples: null
           daq_mode: legacy
           revisions:
             - from_shot: 41446
@@ -875,17 +893,21 @@
               index_end: 9000
               probe_baseline_end: 5000
             - from_shot: 43685
-              to_shot: 46402
+              to_shot: 46403
               index_start: 6500
               index_end: 9000
               probe_baseline_end: 1750
               flux_baseline_window: [0.24, 0.26]
               daq_mode: legacy
-            - from_shot: 46403
+            - from_shot: 46404
               index_start: 6500
               index_end: 9000
               probe_baseline_end: 1750
-              flux_baseline_window: [0.24, 0.26]
+              # Native-DAQ era: flux loops moved onto the fast acquisition and
+              # take the probes' leading-sample baseline, NOT the 0.24--0.26 s
+              # slow-DAQ window used by the era before it.
+              flux_baseline_window: null
+              flux_baseline_samples: 1750
               daq_mode: native_daq
 
     # Triple Langmuir probes (issue #152). Deliberately no unconditional

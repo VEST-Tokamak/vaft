@@ -387,24 +387,42 @@ def _apply_fl10_windowed_compensation(
 
     shifted_time = fl10_time + float(fl10_config["time_offset_s"])
     decimate_factor = int(fl10_config["decimate_factor"])
-    decimated_flux = signal.decimate(raw_fl10, decimate_factor, ftype="fir") if decimate_factor > 1 else raw_fl10
+    # MATLAB `decimate(temp2, 10)` defaults to an order-8 Chebyshev type I
+    # filter, which is exactly what scipy's default `ftype="iir"` builds.
+    decimated_flux = (
+        signal.decimate(raw_fl10, decimate_factor) if decimate_factor > 1 else raw_fl10
+    )
     decimated_time = shifted_time[::decimate_factor][: decimated_flux.size]
 
     ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / ind_mutual
 
-    # The legacy MATLAB source subtracts `polyval(polyfit(time2(1),
-    # ipRef(175), 1), time2)` -- a degree-1 fit through a single (x, y)
-    # point. VAFT's chosen interpretation (a documented compatibility
-    # convention, not a proven MATLAB-numerical-equivalence -- see #195):
-    # treat this as a constant offset equal to `ipRef` at that one index.
+    # Donor: `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
+    # (`vest_ip.m`). That is a degree-1 fit through a single (x, y) point, so
+    # it is rank deficient. MATLAB solves it as V\y on the 1x2 Vandermonde
+    # [x 1] via QR with column pivoting, which selects the larger-magnitude
+    # column -- the constant column, since x = time2(1) ~ 0.26 < 1. The fit
+    # therefore has zero slope and evaluates to the constant ipRef(175), so
+    # this reduces to subtracting that single sample. Both the mechanism and
+    # the evident intent agree, but this was reasoned from the source rather
+    # than executed in MATLAB; the pinning test guards the convention.
+    # `reference_offset_index` indexes the *decimated* array, as in the donor.
     offset_index = int(fl10_config["reference_offset_index"]) - 1  # 1-based -> 0-based
     offset_index = min(max(offset_index, 0), ip_ref.size - 1)
     ip_ref = ip_ref - ip_ref[offset_index]
 
+    # Donor: `ipRef = smoothdata(ipRef, 10)`. Read strictly, smoothdata's
+    # two-argument form takes a *dimension*, not a window length, so passing
+    # 10 for a vector smooths along a singleton dimension and returns the
+    # input unchanged -- i.e. the donor line is a no-op, and VAFT's legacy
+    # `mode: subtract` path likewise applies no smoothing. The issue text
+    # reads it as an intended 10-sample moving average, so the span stays
+    # configurable: set `smooth_span: 1` to reproduce the donor literally.
     smooth_span = int(fl10_config["smooth_span"])
     ip_ref = smooth(ip_ref, smooth_span)
 
-    ip_ref_interp = np.interp(time, decimated_time, ip_ref)
+    # Donor uses `interp1(..., 'linear', 0)`: zero outside the FL10 record,
+    # not edge-clamped as numpy would default to.
+    ip_ref_interp = np.interp(time, decimated_time, ip_ref, left=0.0, right=0.0)
 
     window_start, window_end = (float(bound) for bound in fl10_config["subtract_window"])
     mask = (time >= window_start) & (time <= window_end)
@@ -623,6 +641,7 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
     """Build the processing config for *shot* from its resolved vest.yaml era."""
     window = _equilibrium_magnetics_window_for_shot(shot)
     flux_window = window.get("flux_baseline_window")
+    flux_samples = window.get("flux_baseline_samples")
     return VestMagneticsProcessingConfig(
         window_override=(
             int(window["index_start"]),
@@ -632,6 +651,7 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
         flux_baseline_window=(
             None if flux_window is None else (float(flux_window[0]), float(flux_window[1]))
         ),
+        flux_baseline_samples=None if flux_samples is None else int(flux_samples),
         daq_mode=str(window["daq_mode"]),
     )
 

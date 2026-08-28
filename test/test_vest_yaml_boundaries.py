@@ -1,10 +1,9 @@
 """Config-level shot-boundary coverage for issue #195's vest.yaml revisions.
 
 These tests only exercise YAML resolution (`resolve_vest_diagnostic` /
-`resolve_shot_revisions`) -- they do not require any of the new Python
-processing paths (FL10 windowed compensation, PF6 repair, native-DAQ
-magnetics) to exist yet. That behavioral coverage lands alongside each of
-those changes in their own PRs.
+`resolve_shot_revisions`). The behavioral coverage of the processing paths
+themselves lives in test_plasma_current_processing.py,
+test_pf_active_processing.py and test_equilibrium_magnetics_processing.py.
 """
 
 import pytest
@@ -127,21 +126,28 @@ def test_equilibrium_magnetics_baseline_boundary_43685(
     ("shot", "expected_daq_mode"),
     [
         (46402, "legacy"),
-        (46403, "native_daq"),
+        (46403, "legacy"),
+        (46404, "native_daq"),
     ],
 )
-def test_equilibrium_magnetics_daq_mode_boundary_46403(shot, expected_daq_mode):
+def test_equilibrium_magnetics_daq_mode_boundary_46404(shot, expected_daq_mode):
     window = _resolve_nested("equilibrium_magnetics", ("window",), shot)
     assert window["daq_mode"] == expected_daq_mode
 
 
-def test_equilibrium_magnetics_boundary_is_aligned_with_plasma_current_fl10_boundary():
-    """Both eras were deliberately pinned to the same shot (46403) absent
-    legacy-source evidence for the off-by-one the raw issue text implied."""
+def test_magnetics_and_plasma_current_boundaries_differ_by_one_shot():
+    """The off-by-one is real and deliberate, confirmed against the donor:
+    `vest_ip.m` switches the FL10 path at `shot >= 46403`, while the
+    equilibrium-magnetics dispatch in Batch_FiniteElementFitting_v11_Header.m
+    and VEST_PrepareFilamentaryFitInput.m sends `shot <= 46403` to the legacy
+    function. Shot 46403 therefore takes the NEW plasma-current path and the
+    OLD magnetics path."""
     reference = _resolve_nested("plasma_current", ("reference",), 46403)
     window = _resolve_nested("equilibrium_magnetics", ("window",), 46403)
     assert reference["mode"] == "subtract_fl10_windowed"
-    assert window["daq_mode"] == "native_daq"
+    assert window["daq_mode"] == "legacy"
+
+    assert _resolve_nested("equilibrium_magnetics", ("window",), 46404)["daq_mode"] == "native_daq"
 
 
 @pytest.mark.parametrize(
@@ -149,7 +155,7 @@ def test_equilibrium_magnetics_boundary_is_aligned_with_plasma_current_fl10_boun
     [
         0, 17454, 17455, 19286, 19287, 20258, 20259, 38109, 38110, 38360, 38361,
         38400, 38401, 41445, 41446, 41451, 41452, 41659, 41660, 42850, 42851,
-        43684, 43685, 43760, 43761, 45964, 45965, 46402, 46403, 47116, 47117,
+        43684, 43685, 43760, 43761, 45964, 45965, 46402, 46403, 46404, 47116, 47117,
         48371, 48372, 60000,
     ],
 )

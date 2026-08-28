@@ -14,12 +14,7 @@ from vaft.process import define_baseline, subtract_baseline
 
 
 class UnsupportedMagneticsDaqModeError(NotImplementedError):
-    """Raised when a shot's magnetics acquisition era has no ported processing path.
-
-    Failing loudly is deliberate: silently reusing the legacy path for a
-    later acquisition era would emit physically wrong equilibrium inputs
-    rather than an obvious error (issue #195).
-    """
+    """Raised for a magnetics acquisition era with no ported processing path."""
 
 
 @dataclass(frozen=True)
@@ -63,6 +58,7 @@ class VestMagneticsProcessingConfig:
     # apply, so directly-constructed configs keep their historical behavior.
     window_override: tuple[int, int, int] | None = None
     flux_baseline_window: tuple[float, float] | None = None
+    flux_baseline_samples: int | None = None
     daq_mode: str = "legacy"
 
     def timebase(self) -> np.ndarray:
@@ -199,10 +195,18 @@ def vest_flux_loop_legacy(
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
 
-    if cfg.flux_baseline_window is not None:
-        # Shot >= 43685 (#195): the flux-loop baseline is defined in physical
-        # seconds rather than by acquisition index, so it stays correct
-        # regardless of the loop's native sample rate.
+    if cfg.flux_baseline_samples is not None:
+        # Native-DAQ era (VEST_MagneticSignalProcessing2.m): flux loops moved
+        # onto the 250 kHz acquisition and take the same leading-sample
+        # baseline as the B-pol probes -- MATLAB
+        # `polyfit(timeFastFL(index_Bz_start:index_Bz_end), ...)` with
+        # index_Bz_start = 1, index_Bz_end = 1750.
+        baseline_indices = np.arange(min(int(cfg.flux_baseline_samples), integrated.size))
+    elif cfg.flux_baseline_window is not None:
+        # Shot >= 43685 on the slow-DAQ era: MATLAB
+        # `index_FL_start = 6001 (0.24 s), index_FL_end = 6500 (0.26 s)`.
+        # Expressed in physical seconds so it stays correct regardless of the
+        # loop's native sample rate.
         window_start, window_end = (float(bound) for bound in cfg.flux_baseline_window)
         baseline_indices = np.flatnonzero((time >= window_start) & (time <= window_end))
     elif int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
@@ -226,20 +230,7 @@ def vest_equilibrium_magnetics_signals(
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process VEST MD channels into flux-loop and B-probe waveforms."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
-    if cfg.daq_mode == "native_daq":
-        raise UnsupportedMagneticsDaqModeError(
-            "VEST equilibrium-magnetics acquisition changed at shot 46403 to the "
-            "native-DAQ path (`VEST_MagneticSignalProcessing2`). Its acquisition "
-            "semantics -- native timebases, the later low-pass configuration, and "
-            "the era baseline rules -- are not reproducible from this repository, "
-            "which contains no copy of that legacy MATLAB source. Processing these "
-            "shots through the legacy path would silently produce incorrect "
-            "equilibrium inputs, so the configuration is marked unsupported "
-            "instead (issue #195). Port the native-DAQ semantics, or pass an "
-            "explicit processing_config with daq_mode='legacy' to opt into the "
-            "old path knowingly."
-        )
-    if cfg.daq_mode != "legacy":
+    if cfg.daq_mode not in {"legacy", "native_daq"}:
         raise UnsupportedMagneticsDaqModeError(
             f"Unknown VEST magnetics daq_mode {cfg.daq_mode!r}; expected 'legacy' or 'native_daq'"
         )

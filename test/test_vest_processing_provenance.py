@@ -68,8 +68,8 @@ def test_pf6_saturation_repair_policy_is_discoverable():
     [
         (43684, "legacy", 5000),
         (43685, "legacy", 1750),
-        (46402, "legacy", 1750),
-        (46403, "native_daq", 1750),
+        (46403, "legacy", 1750),
+        (46404, "native_daq", 1750),
     ],
 )
 def test_equilibrium_magnetics_era_is_recoverable(shot, daq_mode, probe_baseline):
@@ -88,7 +88,7 @@ def test_shot_39204_geometry_gap_is_visible_in_provenance():
     assert supported["required_geometry_version"] is None
 
 
-@pytest.mark.parametrize("shot", [43760, 43761, 46403, 47117, 48372])
+@pytest.mark.parametrize("shot", [43760, 43761, 46403, 46404, 47117, 48372])
 def test_revision_bounds_actually_contain_the_shot(shot):
     """A reported era must be one the shot really falls inside."""
     record = vest_processing_provenance(shot)

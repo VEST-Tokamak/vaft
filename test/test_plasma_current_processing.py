@@ -155,12 +155,19 @@ def test_fl10_windowed_mode_subtracts_only_inside_the_compensation_window(tmp_pa
 
 
 def test_fl10_degenerate_offset_uses_the_documented_vaft_convention(tmp_path):
-    """Pin the resolved interpretation of the legacy MATLAB
-    `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
-    expression: VAFT treats it as `ip_ref -= ip_ref[174]` (0-based), a
-    documented compatibility convention (#195), not a proof of exact MATLAB
-    numerical equivalence. Uses decimate_factor=1 and smooth_span=1 so the
-    result is exactly analytically predictable."""
+    """Pin the resolved reading of the donor line in `vest_ip.m`:
+
+        ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2);
+
+    A degree-1 fit through one point is rank deficient; MATLAB's QR with
+    column pivoting selects the constant column (|1| > |time2(1)| ~ 0.26),
+    giving a zero-slope fit that evaluates to ipRef(175) everywhere. So this
+    reduces to subtracting that single sample -- `ip_ref -= ip_ref[174]`
+    0-based -- and never to a least-squares fit over a 175-sample window.
+    The index applies to the *decimated* array, as in the donor.
+
+    decimate_factor=1 and smooth_span=1 keep the result analytically exact.
+    """
     shot = 46403
     n = 300
     dt = 4e-5

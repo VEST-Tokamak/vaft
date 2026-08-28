@@ -96,6 +96,7 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
         config["processing"], "window", shot, context="equilibrium_magnetics window"
     )
     flux_window = window.get("flux_baseline_window")
+    flux_samples = window.get("flux_baseline_samples")
     return {
         "daq_mode": str(window["daq_mode"]),
         "output_index_window": (int(window["index_start"]), int(window["index_end"])),
@@ -103,6 +104,7 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
         "flux_baseline_window": (
             None if flux_window is None else (float(flux_window[0]), float(flux_window[1]))
         ),
+        "flux_baseline_samples": None if flux_samples is None else int(flux_samples),
         "revision": window_prov,
         "geometry_supported": int(shot) not in UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS,
         "required_geometry_version": UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot)),
