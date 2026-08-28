@@ -844,12 +844,23 @@
     # `vest_equilibrium_magnetics_signals`.
     equilibrium_magnetics:
       processing:
+        # `index_start`/`index_end` select the canonical output window on the
+        # 25 kHz (4e-5 s) equilibrium-magnetics grid: index 6500 = 0.26 s and
+        # index 9000 = 0.36 s, so the late eras below are exactly the
+        # documented 0.26--0.36 s output window. `probe_baseline_end` is the
+        # number of leading samples of the *native* B-pol acquisition used for
+        # the linear baseline fit (1750 fast samples ~ 0.260--0.267 s from
+        # shot 43685). `flux_baseline_window` gives the flux-loop baseline in
+        # physical seconds; when null, the legacy index-based flux baselines
+        # on `VestMagneticsProcessingConfig` apply.
+        #
+        # NOTE: `resolve_shot_revisions` merges exactly one matching revision
+        # onto the base and does NOT chain eras, so every revision below must
+        # restate each key it needs -- not just the delta from the era before.
         window:
           index_start: 6000
           index_end: 8500
           probe_baseline_end: 8500
-          output_window: null
-          bpol_baseline_samples: null
           flux_baseline_window: null
           daq_mode: legacy
           revisions:
@@ -865,12 +876,16 @@
               probe_baseline_end: 5000
             - from_shot: 43685
               to_shot: 46402
-              output_window: [0.26, 0.36]
-              bpol_baseline_samples: 1750
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 1750
               flux_baseline_window: [0.24, 0.26]
               daq_mode: legacy
             - from_shot: 46403
-              output_window: [0.26, 0.36]
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 1750
+              flux_baseline_window: [0.24, 0.26]
               daq_mode: native_daq
 
     # Triple Langmuir probes (issue #152). Deliberately no unconditional

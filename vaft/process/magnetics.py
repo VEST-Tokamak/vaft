@@ -13,6 +13,15 @@ from vaft.process import define_baseline, subtract_baseline
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
 
 
+class UnsupportedMagneticsDaqModeError(NotImplementedError):
+    """Raised when a shot's magnetics acquisition era has no ported processing path.
+
+    Failing loudly is deliberate: silently reusing the legacy path for a
+    later acquisition era would emit physically wrong equilibrium inputs
+    rather than an obvious error (issue #195).
+    """
+
+
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
     """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
@@ -49,11 +58,19 @@ class VestMagneticsProcessingConfig:
     flux_baseline_late_loop_numbers: tuple[int, ...] = (9, 10, 11)
     calibration_mode: str = "divide"
     flux_output_per_radian: bool = True
+    # Shot-era policy resolved from `vest.yaml` (issue #195). When
+    # `window_override` is None the legacy hardcoded thresholds below still
+    # apply, so directly-constructed configs keep their historical behavior.
+    window_override: tuple[int, int, int] | None = None
+    flux_baseline_window: tuple[float, float] | None = None
+    daq_mode: str = "legacy"
 
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
 
     def window_for_shot(self, shot: int) -> tuple[int, int, int]:
+        if self.window_override is not None:
+            return self.window_override
         if self.transient_shot_min <= shot <= self.transient_shot_max or shot >= self.late_shot_min:
             return self.late_index_start, self.late_index_end, self.late_probe_baseline_end
         return self.default_index_start, self.default_index_end, self.default_probe_baseline_end
@@ -182,7 +199,13 @@ def vest_flux_loop_legacy(
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
 
-    if int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
+    if cfg.flux_baseline_window is not None:
+        # Shot >= 43685 (#195): the flux-loop baseline is defined in physical
+        # seconds rather than by acquisition index, so it stays correct
+        # regardless of the loop's native sample rate.
+        window_start, window_end = (float(bound) for bound in cfg.flux_baseline_window)
+        baseline_indices = np.flatnonzero((time >= window_start) & (time <= window_end))
+    elif int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
         baseline_indices = np.arange(cfg.flux_baseline_late_start, min(cfg.flux_baseline_late_end, integrated.size))
     else:
         first = np.arange(cfg.flux_baseline_first_start, min(cfg.flux_baseline_first_end, integrated.size))
@@ -203,6 +226,23 @@ def vest_equilibrium_magnetics_signals(
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process VEST MD channels into flux-loop and B-probe waveforms."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    if cfg.daq_mode == "native_daq":
+        raise UnsupportedMagneticsDaqModeError(
+            "VEST equilibrium-magnetics acquisition changed at shot 46403 to the "
+            "native-DAQ path (`VEST_MagneticSignalProcessing2`). Its acquisition "
+            "semantics -- native timebases, the later low-pass configuration, and "
+            "the era baseline rules -- are not reproducible from this repository, "
+            "which contains no copy of that legacy MATLAB source. Processing these "
+            "shots through the legacy path would silently produce incorrect "
+            "equilibrium inputs, so the configuration is marked unsupported "
+            "instead (issue #195). Port the native-DAQ semantics, or pass an "
+            "explicit processing_config with daq_mode='legacy' to opt into the "
+            "old path knowingly."
+        )
+    if cfg.daq_mode != "legacy":
+        raise UnsupportedMagneticsDaqModeError(
+            f"Unknown VEST magnetics daq_mode {cfg.daq_mode!r}; expected 'legacy' or 'native_daq'"
+        )
     channel_rows = list(channels)
     if indices is not None:
         channel_rows = [channel_rows[int(index)] for index in indices]

@@ -105,15 +105,22 @@ def test_pf_active_saturation_repair_config_targets_pf6_by_zero_based_index():
 
 
 @pytest.mark.parametrize(
-    ("shot", "expected_output_window"),
+    ("shot", "expected_probe_baseline", "expected_flux_window"),
     [
-        (43684, None),
-        (43685, [0.26, 0.36]),
+        (43684, 5000, None),
+        (43685, 1750, [0.24, 0.26]),
     ],
 )
-def test_equilibrium_magnetics_output_window_boundary_43685(shot, expected_output_window):
+def test_equilibrium_magnetics_baseline_boundary_43685(
+    shot, expected_probe_baseline, expected_flux_window
+):
+    """The 0.26--0.36 s output window is encoded by index_start/index_end
+    (6500/9000 on the 4e-5 s grid); what changes at 43685 is baseline policy."""
     window = _resolve_nested("equilibrium_magnetics", ("window",), shot)
-    assert window["output_window"] == expected_output_window
+    assert window["index_start"] == 6500
+    assert window["index_end"] == 9000
+    assert window["probe_baseline_end"] == expected_probe_baseline
+    assert window["flux_baseline_window"] == expected_flux_window
 
 
 @pytest.mark.parametrize(

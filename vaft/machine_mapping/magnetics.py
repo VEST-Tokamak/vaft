@@ -573,6 +573,35 @@ def vest_diamagnetic_flux(
     return temp_time, dia_flux_final
 
 
+def _equilibrium_magnetics_window_for_shot(shot: int) -> dict[str, Any]:
+    """Resolve the shot-era equilibrium-magnetics acquisition policy from vest.yaml."""
+    config = resolve_vest_diagnostic(shot, "equilibrium_magnetics")
+    window = config["processing"]["window"]
+    return resolve_shot_revisions(
+        {key: value for key, value in window.items() if key != "revisions"},
+        window.get("revisions"),
+        shot,
+        context="VEST equilibrium_magnetics window",
+    )
+
+
+def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessingConfig:
+    """Build the processing config for *shot* from its resolved vest.yaml era."""
+    window = _equilibrium_magnetics_window_for_shot(shot)
+    flux_window = window.get("flux_baseline_window")
+    return VestMagneticsProcessingConfig(
+        window_override=(
+            int(window["index_start"]),
+            int(window["index_end"]),
+            int(window["probe_baseline_end"]),
+        ),
+        flux_baseline_window=(
+            None if flux_window is None else (float(flux_window[0]), float(flux_window[1]))
+        ),
+        daq_mode=str(window["daq_mode"]),
+    )
+
+
 def vfit_equilibrium_magnetics(
     shot: int,
     indices: list[int] | np.ndarray | None = None,
@@ -581,13 +610,23 @@ def vfit_equilibrium_magnetics(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Process magnetic probe and flux-loop data using VAFT process helpers."""
+    """Process magnetic probe and flux-loop data using VAFT process helpers.
+
+    An explicitly supplied ``processing_config`` still wins, preserving the
+    existing override path used for parameter scans; otherwise the shot-era
+    policy is resolved from ``vest.yaml`` (issue #195).
+    """
+    config = (
+        processing_config
+        if processing_config is not None
+        else equilibrium_magnetics_processing_config(int(shot))
+    )
     return vest_equilibrium_magnetics_signals(
         int(shot),
         _load_equilibrium_magnetics_channels(),
         lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
         indices=indices,
-        config=processing_config,
+        config=config,
         allow_missing=allow_missing_channels,
     )
 
