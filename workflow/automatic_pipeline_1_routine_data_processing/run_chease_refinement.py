@@ -37,6 +37,22 @@ def _time_label(path: Path) -> str:
     return parts[-1] if len(parts) > 1 else path.stem
 
 
+def _write_runs_summary(output_dir: Path, shot: int, executable: str, gfiles: tuple[Path, ...], refined: tuple[Path, ...], records: list[dict]) -> None:
+    """``chease_runs.json`` must exist on every exit path, including the skip
+    paths where CHEASE never runs, so the ``chease`` FileDB stage always has a
+    summary to read -- the same reasoning as ``_write_plot_manifest``.
+    """
+    summary = {
+        "shot": int(shot),
+        "executable": executable,
+        "input_gfiles": [str(path) for path in gfiles],
+        "refined_gfiles": [str(path) for path in refined],
+        "records": records,
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "chease_runs.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+
 def _write_plot_manifest(plots_dir: Path) -> Path:
     """List the staged comparison figures, even when there are none.
 
@@ -110,6 +126,7 @@ def main() -> int:
     # synthetic CHEASE failure caused by iterating an empty input set.
     if not gfiles:
         _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, args.executable, gfiles, (), [])
         _write_outputs(args.output, args.status, (), "skipped: no EFIT gfiles; input_gfiles=0")
         return 0
 
@@ -118,10 +135,12 @@ def main() -> int:
     resolved_executable = find_chease_executable(config_probe)
     if not _bool(args.run):
         _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, str(resolved_executable or args.executable), gfiles, (), [])
         _write_outputs(args.output, args.status, (), f"skipped: chease.run=false; input_gfiles={len(gfiles)}")
         return 0
     if resolved_executable is None:
         _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, args.executable, gfiles, (), [])
         _write_outputs(args.output, args.status, (), f"skipped: CHEASE executable unavailable: {args.executable}; input_gfiles={len(gfiles)}")
         return 0
 
@@ -173,14 +192,7 @@ def main() -> int:
             LOGGER.exception("CHEASE failed for %s", gfile)
             records.append({"input": str(gfile), "workdir": str(run_workdir), "status": "error", "error": str(exc)})
 
-    summary = {
-        "shot": int(args.shot),
-        "executable": str(resolved_executable),
-        "input_gfiles": [str(path) for path in gfiles],
-        "refined_gfiles": [str(path) for path in refined],
-        "records": records,
-    }
-    (output_dir / "chease_runs.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    _write_runs_summary(output_dir, args.shot, str(resolved_executable), gfiles, tuple(refined), records)
     _write_plot_manifest(plots_dir)
 
     failed = [record for record in records if record.get("status") not in {"completed"}]

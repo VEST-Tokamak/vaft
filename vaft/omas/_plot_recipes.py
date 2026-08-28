@@ -14,6 +14,7 @@ declared data requirements and the actual reads cannot drift apart.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
@@ -3438,6 +3439,205 @@ RECIPES["magnetics_overview_vacuum"] = CallableRecipe(
 RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
     builder=_build_magnetics_plasma_residual,
     description="Plasma residual left by the coil+eddy synthetic vacuum response.",
+)
+
+
+def _chease_comparison_metrics(ods: Any) -> dict[str, dict[str, float]]:
+    """The per-time-slice `comparison_metrics` embedded by `generate_chease_ods.py`.
+
+    Lives on `equilibrium.code.parameters` as a JSON blob, because CHEASE's
+    refinement-vs-input comparison needs the *input* g-file too, which the
+    refined ODS otherwise never carries.
+    """
+    raw = _get(ods, "equilibrium.code.parameters")
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return payload.get("comparison_metrics", {}) or {}
+
+
+def _build_chease_refinement_summary(ods: Any, **options: Any) -> Panels:
+    """How far CHEASE moved each profile and the boundary, slice by slice."""
+    count = _require_slices(ods)
+    times = _slice_times(ods)
+    comparison = _chease_comparison_metrics(ods)
+    if not comparison:
+        raise ValueError(
+            "no CHEASE comparison_metrics embedded in equilibrium.code.parameters; "
+            "the refined ODS carries no refinement-vs-input comparison to plot"
+        )
+
+    def series_for(key: str, label: str) -> Series | None:
+        values = np.array(
+            [comparison.get(str(index), {}).get(key, np.nan) for index in range(count)],
+            dtype=float,
+        )
+        if not np.isfinite(values).any():
+            return None
+        return Series(x=times, y=values, label=label, style={"marker": "."})
+
+    panels: list[Any] = []
+
+    profile_series = [
+        series
+        for series in (
+            series_for("q_rms_rel", "q"),
+            series_for("pressure_rms_rel", "pressure"),
+            series_for("pprime_rms_rel", "p′"),
+            series_for("ffprim_rms_rel", "FF′"),
+        )
+        if series is not None
+    ]
+    if profile_series:
+        panels.append(
+            LineSeries(
+                series=tuple(profile_series),
+                x_label="time",
+                x_unit="s",
+                y_label="RMS-relative change",
+                title="Profile change from refinement",
+            )
+        )
+
+    boundary_series = [
+        series
+        for series in (
+            series_for("boundary_r_rms", "R"),
+            series_for("boundary_z_rms", "Z"),
+            series_for("boundary_rz_rms", "R,Z"),
+        )
+        if series is not None
+    ]
+    if boundary_series:
+        panels.append(
+            LineSeries(
+                series=tuple(boundary_series),
+                x_label="time",
+                x_unit="s",
+                y_label="boundary RMS change [m]",
+                title="Boundary displacement from refinement",
+            )
+        )
+
+    psi_series = [
+        series
+        for series in (
+            series_for("psi_axis_abs_diff", "ψ axis"),
+            series_for("psi_boundary_abs_diff", "ψ boundary"),
+        )
+        if series is not None
+    ]
+    if psi_series:
+        panels.append(
+            LineSeries(
+                series=tuple(psi_series),
+                x_label="time",
+                x_unit="s",
+                y_label="|Δψ| [Wb]",
+                title="Flux normalization shift",
+            )
+        )
+
+    current_series = series_for("current_rel_diff", "Ip")
+    if current_series is not None:
+        panels.append(
+            LineSeries(
+                series=(current_series,),
+                x_label="time",
+                x_unit="s",
+                y_label="relative Ip change",
+                title="Plasma current self-consistency",
+            )
+        )
+
+    if not panels:
+        raise ValueError("CHEASE comparison_metrics carried no finite values to plot")
+
+    return Panels(
+        models=tuple(panels), ncols=2, share_x=True, suptitle="CHEASE refinement summary"
+    )
+
+
+def _build_chease_profile_validity(ods: Any, **options: Any) -> Panels:
+    """q0/q95, q-monotonicity and pressure positivity of the refined equilibrium.
+
+    Unlike the refinement summary, every value here is read straight off the
+    refined time slices themselves -- no input-side comparison is needed to
+    ask whether the *result* is physically sound.
+    """
+    count = _require_slices(ods)
+    times = _slice_times(ods)
+
+    q0 = np.array(
+        [_scalar(_get(ods, f"equilibrium.time_slice.{i}.global_quantities.q_axis", np.nan)) for i in range(count)]
+    )
+    q95 = np.array(
+        [_scalar(_get(ods, f"equilibrium.time_slice.{i}.global_quantities.q_95", np.nan)) for i in range(count)]
+    )
+
+    panels: list[Any] = []
+    q_series = [
+        Series(x=times, y=values, label=label, style={"marker": "."})
+        for values, label in ((q0, "q0"), (q95, "q95"))
+        if np.isfinite(values).any()
+    ]
+    if q_series:
+        panels.append(
+            LineSeries(
+                series=tuple(q_series),
+                x_label="time",
+                x_unit="s",
+                y_label="q",
+                title="Core and edge safety factor",
+            )
+        )
+
+    monotonic_flags = np.empty(count, dtype=float)
+    pressure_flags = np.empty(count, dtype=float)
+    for index in range(count):
+        q = np.asarray(_get(ods, f"equilibrium.time_slice.{index}.profiles_1d.q", []), dtype=float)
+        pressure = np.asarray(
+            _get(ods, f"equilibrium.time_slice.{index}.profiles_1d.pressure", []), dtype=float
+        )
+        diffs = np.diff(q)
+        monotonic_flags[index] = float(diffs.size == 0 or np.all(diffs >= 0) or np.all(diffs <= 0))
+        pressure_flags[index] = float(pressure.size == 0 or np.all(pressure >= 0))
+
+    panels.append(
+        LineSeries(
+            series=(
+                Series(
+                    x=times, y=monotonic_flags, label="q monotonic",
+                    style={"marker": "o", "linestyle": "none"},
+                ),
+                Series(
+                    x=times, y=pressure_flags, label="pressure ≥ 0",
+                    style={"marker": "x", "linestyle": "none"},
+                ),
+            ),
+            x_label="time",
+            x_unit="s",
+            y_label="1 = ok, 0 = flagged",
+            y_limits=(-0.05, 1.05),
+            title="Physical-validity flags",
+        )
+    )
+
+    return Panels(
+        models=tuple(panels), ncols=1, share_x=True, suptitle="CHEASE refined-profile validity"
+    )
+
+
+RECIPES["chease_overview_refinement_summary"] = CallableRecipe(
+    builder=_build_chease_refinement_summary,
+    description="Profile and boundary RMS change from refinement, slice by slice.",
+)
+RECIPES["chease_overview_profile_validity"] = CallableRecipe(
+    builder=_build_chease_profile_validity,
+    description="q0/q95, q-monotonicity and pressure positivity of the refined equilibrium.",
 )
 
 

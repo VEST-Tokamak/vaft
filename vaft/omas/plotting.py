@@ -741,6 +741,48 @@ def plot_equilibrium_overview_constraint_coverage(
     )
 
 
+def plot_chease_overview_refinement_summary(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """CHEASE validation: how far did refinement move the EFIT equilibrium?
+
+    Profile and boundary RMS change, flux-normalization shift and plasma-current
+    self-consistency, slice by slice -- read from `comparison_metrics`, embedded
+    on `equilibrium.code.parameters` by the chease FileDB stage.
+
+    Renders with :func:`vaft.plot.chease_overview_refinement_summary`.
+    """
+    return render(
+        "chease_overview_refinement_summary", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_chease_overview_profile_validity(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """CHEASE validation: is the refined equilibrium itself physically sound?
+
+    q0/q95, q-monotonicity and pressure positivity read straight off the
+    refined time slices -- a converged solution that is not physical, flagged
+    without needing the pre-refinement equilibrium at all.
+
+    Renders with :func:`vaft.plot.chease_overview_profile_validity`.
+    """
+    return render(
+        "chease_overview_profile_validity", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_overview_fit_quality(
     source: Any,
     *,
@@ -2037,6 +2079,8 @@ __all__ = [
     "plot_charge_exchange_profile_velocity_tor",
     "plot_charge_exchange_time_ion_temperature",
     "plot_charge_exchange_time_velocity_tor",
+    "plot_chease_overview_profile_validity",
+    "plot_chease_overview_refinement_summary",
     "plot_core_profiles_field_electron_density",
     "plot_core_profiles_field_electron_temperature",
     "plot_core_profiles_profile_electron_density",

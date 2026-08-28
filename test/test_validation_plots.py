@@ -87,6 +87,7 @@ def test_filenames_are_unique_and_deterministic_within_a_stage():
 
 def test_the_declared_stage_set():
     assert set(stages()) == {
+        "chease",
         "diagnostics",
         "eddy",
         "efit",
@@ -125,6 +126,15 @@ def test_plot_paths_resolve_to_the_canonical_plot_artifact():
     assert paths.code_plot_dir(SHOT, "chease") == str(filedb.chease(SHOT, artifact="plot"))
     assert paths.chease_plot_manifest(SHOT) == str(
         filedb.chease(SHOT, artifact="plot") / "plot_refined_gfiles_generated.txt"
+    )
+    assert paths.stage_plot(SHOT, "chease", "chease_refinement_summary.png") == str(
+        filedb.omas("chease", shot=SHOT, artifact="plot") / "chease_refinement_summary.png"
+    )
+    assert paths.stage_plot_manifest(SHOT, "chease") == str(
+        filedb.omas("chease", shot=SHOT, artifact="metadata") / "plot_manifest.json"
+    )
+    assert paths.chease_runs(SHOT) == str(
+        filedb.chease(SHOT, artifact="output") / "chease_runs.json"
     )
 
 
@@ -270,6 +280,7 @@ def test_snakefile_declares_required_plots_as_real_outputs():
         ("rule plot_eddy:", 'plots=stage_plot_outputs("eddy")'),
         ("rule plot_mhd_linear:", 'plots=stage_plot_outputs("mhd_linear")'),
         ("rule plot_efit:", 'plots=stage_plot_outputs("efit")'),
+        ("rule plot_chease:", 'plots=stage_plot_outputs("chease")'),
     ):
         start = source.index(rule)
         block = source[start : source.index("log:", start)]
@@ -279,10 +290,7 @@ def test_snakefile_declares_required_plots_as_real_outputs():
 
 def test_stage_plot_outputs_cover_every_required_plot():
     paths = PipelinePaths(BASE_DIR, FILEDB)
-    # Stages which may validly produce no data are tracked through their plot
-    # manifest: a skipped plot intentionally has no PNG to use as a static
-    # Snakemake output. Diagnostics always has the required preflight inputs.
-    for stage in ("diagnostics",):
+    for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
         required = stage_plot_filenames(stage, required_only=True)
         patterns = [paths.shot_pattern("stage_plot", stage, name) for name in required]
         assert len(patterns) == len(required)
@@ -389,3 +397,35 @@ def test_a_real_shot_still_passes_the_eddy_precondition():
     from vaft.omas.sample import sample_ods
 
     assert STAGE_PRECONDITIONS["eddy"](sample_ods()) is None
+
+
+def test_a_skipped_or_failed_chease_run_is_an_empty_product(tmp_path):
+    """CHEASE disabled, no executable, or every gfile failed to refine.
+
+    `generate_chease_ods.py` writes this minimal ODS on all three paths: no
+    `equilibrium.time_slice`, but `equilibrium.code.parameters` still carries
+    `records_summary` explaining what happened to each input gfile.
+    """
+    import json
+
+    from omas import ODS
+
+    empty = ODS(consistency_check=False)
+    empty["equilibrium.ids_properties.comment"] = "CHEASE output unavailable: skipped"
+    empty["equilibrium.code.name"] = "chease"
+    empty["equilibrium.code.parameters"] = json.dumps(
+        {
+            "comparison_metrics": {},
+            "records_summary": [{"input": "g041234.00300", "status": "missing_input"}],
+        }
+    )
+    assert "no refined equilibrium time slice" in STAGE_PRECONDITIONS["chease"](empty)
+
+    manifest = render_stage_plots("chease", empty, tmp_path / "plot")
+    assert manifest["status"] == "empty"
+    assert {row["status"] for row in manifest["plots"]} == {"skipped"}
+    assert not list((tmp_path / "plot").iterdir())
+    assert manifest["metrics"]["time_slice_count"] == 0
+    assert manifest["metrics"]["records_summary"] == [
+        {"input": "g041234.00300", "status": "missing_input"}
+    ]

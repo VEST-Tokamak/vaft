@@ -126,7 +126,7 @@ def validation_plot_products(shots):
         for name in stage_plot_filenames("raw", required_only=True):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
-        for stage in ("diagnostics", "eddy", "efit", "mhd_linear"):
+        for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
             if stage not in EMPTY_VALIDATION_STAGES:
                 for name in stage_plot_filenames(stage, required_only=True):
                     outputs.append(PATHS.stage_plot(shot, stage, name))
@@ -700,6 +700,7 @@ rule run_chease:
     output:
         refined=PATHS.shot_pattern("chease_refined"),
         status=PATHS.shot_pattern("chease_status"),
+        runs=PATHS.shot_pattern("chease_runs"),
         **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if PLOTS_ENABLED else {})
     log:
         PATHS.shot_pattern("log", "run_chease")
@@ -746,7 +747,8 @@ rule run_chease:
 rule generate_chease_ods:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
-        status=PATHS.shot_pattern("chease_status")
+        status=PATHS.shot_pattern("chease_status"),
+        runs=PATHS.shot_pattern("chease_runs")
     output:
         ods=PATHS.shot_pattern("chease_ods")
     log:
@@ -762,6 +764,7 @@ rule generate_chease_ods:
             --shot {wildcards.shot} \
             --refined-gfile-manifest {input.refined} \
             --status {input.status} \
+            --runs-summary {input.runs} \
             --output {output.ods} \
             --run {params.run} \
             > {log} 2>&1
@@ -871,7 +874,32 @@ rule build_mhd_linear:
             > {log} 2>&1
         """
 
-# rule plot_chease:
+if PLOTS_ENABLED:
+    rule plot_chease:
+        input:
+            ods=PATHS.shot_pattern("chease_ods")
+        output:
+            plots=stage_plot_outputs("chease"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "chease")
+        log:
+            PATHS.shot_pattern("log", "plot_chease")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "chease", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage chease \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
 
 # ############################################################
 # # Combine chease ODS
