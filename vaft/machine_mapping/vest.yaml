@@ -906,6 +906,57 @@
           tip_length_mm: 2.0
           tip_radius_mm: 0.15
 
+    # VEST outboard Mirnov fluctuation array (issue #155). 30 raw-voltage
+    # channels at three toroidal locations (45/135/225 deg), two vertical
+    # sub-arrays each (L1, L2) of five probes. These probes became physically
+    # operational at first_operational_shot; entries are only mapped for shots
+    # at or after that boundary. Field 301 carries a DB label typo
+    # (OutMirno_225_L2-01, missing the "v"); raw_label preserves that typo for
+    # provenance while identifier is normalized. Field 289's gain is estimated,
+    # not directly transcribed from a calibration sheet. Order below is the
+    # canonical physical order (toroidal group, then L1/L2, then z descending)
+    # and intentionally does not follow raw DB field numbering.
+    fluctuation_mirnov:
+      source: {raw_unit: V, daq_type: fast}
+      role: fluctuation
+      preserve_native_voltage: true
+      first_operational_shot: 44156
+      geometry: {major_radius: 0.796}
+      channels:
+        # 45 degrees
+        - {field: 286, raw_label: OutMirnov_45_L1-01, identifier: OutMirnov_45_L1-01, toroidal_angle_deg: 45, z: 0.4, gain: -0.00105}
+        - {field: 304, raw_label: OutMirnov_45_L1-02, identifier: OutMirnov_45_L1-02, toroidal_angle_deg: 45, z: 0.2, gain: 0.000925}
+        - {field: 287, raw_label: OutMirnov_45_L1-03, identifier: OutMirnov_45_L1-03, toroidal_angle_deg: 45, z: 0.0, gain: 0.00105}
+        - {field: 305, raw_label: OutMirnov_45_L1-04, identifier: OutMirnov_45_L1-04, toroidal_angle_deg: 45, z: -0.2, gain: 0.00105}
+        - {field: 288, raw_label: OutMirnov_45_L1-05, identifier: OutMirnov_45_L1-05, toroidal_angle_deg: 45, z: -0.4, gain: 0.00105}
+        - {field: 289, raw_label: OutMirnov_45_L2-01, identifier: OutMirnov_45_L2-01, toroidal_angle_deg: 45, z: 0.4, gain: 0.00105, calibration_provenance: estimated}
+        - {field: 306, raw_label: OutMirnov_45_L2-02, identifier: OutMirnov_45_L2-02, toroidal_angle_deg: 45, z: 0.2, gain: 0.00265}
+        - {field: 290, raw_label: OutMirnov_45_L2-03, identifier: OutMirnov_45_L2-03, toroidal_angle_deg: 45, z: 0.0, gain: 0.00275}
+        - {field: 307, raw_label: OutMirnov_45_L2-04, identifier: OutMirnov_45_L2-04, toroidal_angle_deg: 45, z: -0.2, gain: 0.0029}
+        - {field: 291, raw_label: OutMirnov_45_L2-05, identifier: OutMirnov_45_L2-05, toroidal_angle_deg: 45, z: -0.4, gain: 0.00275}
+        # 135 degrees
+        - {field: 292, raw_label: OutMirnov_135_L1-01, identifier: OutMirnov_135_L1-01, toroidal_angle_deg: 135, z: 0.4, gain: 0.00096}
+        - {field: 308, raw_label: OutMirnov_135_L1-02, identifier: OutMirnov_135_L1-02, toroidal_angle_deg: 135, z: 0.2, gain: 0.00096}
+        - {field: 293, raw_label: OutMirnov_135_L1-03, identifier: OutMirnov_135_L1-03, toroidal_angle_deg: 135, z: 0.0, gain: 0.0012}
+        - {field: 309, raw_label: OutMirnov_135_L1-04, identifier: OutMirnov_135_L1-04, toroidal_angle_deg: 135, z: -0.2, gain: 0.001025}
+        - {field: 294, raw_label: OutMirnov_135_L1-05, identifier: OutMirnov_135_L1-05, toroidal_angle_deg: 135, z: -0.4, gain: 0.001}
+        - {field: 295, raw_label: OutMirnov_135_L2-01, identifier: OutMirnov_135_L2-01, toroidal_angle_deg: 135, z: 0.4, gain: 0.0024}
+        - {field: 310, raw_label: OutMirnov_135_L2-02, identifier: OutMirnov_135_L2-02, toroidal_angle_deg: 135, z: 0.2, gain: -0.0026}
+        - {field: 296, raw_label: OutMirnov_135_L2-03, identifier: OutMirnov_135_L2-03, toroidal_angle_deg: 135, z: 0.0, gain: -0.0025}
+        - {field: 311, raw_label: OutMirnov_135_L2-04, identifier: OutMirnov_135_L2-04, toroidal_angle_deg: 135, z: -0.2, gain: -0.0025}
+        - {field: 297, raw_label: OutMirnov_135_L2-05, identifier: OutMirnov_135_L2-05, toroidal_angle_deg: 135, z: -0.4, gain: -0.0023}
+        # 225 degrees
+        - {field: 298, raw_label: OutMirnov_225_L1-01, identifier: OutMirnov_225_L1-01, toroidal_angle_deg: 225, z: 0.4, gain: 0.00105}
+        - {field: 312, raw_label: OutMirnov_225_L1-02, identifier: OutMirnov_225_L1-02, toroidal_angle_deg: 225, z: 0.2, gain: -0.00105}
+        - {field: 299, raw_label: OutMirnov_225_L1-03, identifier: OutMirnov_225_L1-03, toroidal_angle_deg: 225, z: 0.0, gain: -0.0008}
+        - {field: 313, raw_label: OutMirnov_225_L1-04, identifier: OutMirnov_225_L1-04, toroidal_angle_deg: 225, z: -0.2, gain: -0.0009}
+        - {field: 300, raw_label: OutMirnov_225_L1-05, identifier: OutMirnov_225_L1-05, toroidal_angle_deg: 225, z: -0.4, gain: 0.00095}
+        - {field: 301, raw_label: OutMirno_225_L2-01, identifier: OutMirnov_225_L2-01, toroidal_angle_deg: 225, z: 0.4, gain: 0.00275}
+        - {field: 314, raw_label: OutMirnov_225_L2-02, identifier: OutMirnov_225_L2-02, toroidal_angle_deg: 225, z: 0.2, gain: 0.0024}
+        - {field: 302, raw_label: OutMirnov_225_L2-03, identifier: OutMirnov_225_L2-03, toroidal_angle_deg: 225, z: 0.0, gain: -0.00225}
+        - {field: 315, raw_label: OutMirnov_225_L2-04, identifier: OutMirnov_225_L2-04, toroidal_angle_deg: 225, z: -0.2, gain: 0.0024}
+        - {field: 303, raw_label: OutMirnov_225_L2-05, identifier: OutMirnov_225_L2-05, toroidal_angle_deg: 225, z: -0.4, gain: 0.00245}
+
   # Legacy vest_conversion.m inventory. These records are provenance only;
   # they do not enable or fetch a diagnostic by themselves.
   legacy_conversions:
@@ -1374,6 +1425,11 @@ diagnostic_registry:
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
     quantities: {static: [position], measured: [voltage], derived: [poloidal_magnetic_flux]}
+  # Covers both the equilibrium probe set and the 45/135/225 deg outboard
+  # fluctuation array (issue #155). Both legitimately live in
+  # magnetics.b_field_pol_probe; they are told apart semantically -- by
+  # identifier and by the `role` in 0.diagnostics.fluctuation_mirnov -- not
+  # by inventing an IDS sub-path that IMAS does not define.
   magnetics.b_field_pol_probe:
     name: Magnetic probes (Mirnov coils)
     family: magnetic_diagnostics

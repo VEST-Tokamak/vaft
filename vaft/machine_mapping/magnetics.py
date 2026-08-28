@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import os
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +20,7 @@ from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibri
 from vaft.process.signal_processing import detect_active_window, smooth
 
 from .utils import (
+    VestConfigurationError,
     calibrate_vest_signal,
     get_path,
     path_exists,
@@ -45,7 +48,6 @@ POLOIDAL_ANGLE = 3 * math.pi / 2
 #: means regenerating the packaged reference ODSs, which is out of scope here.
 PROBE_FIELD_DIRECTION = (0.0, 1.0)
 MIRNOV_TYPE_INDEX = 2
-OUTBOARD_MIRNOV_MAJOR_RADIUS = 0.796
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
 # here with the rest of the probe geometry so a validation forward model and the
@@ -55,9 +57,6 @@ OUTBOARD_PROBE_MIN_R = 0.795
 SIDE_PROBE_MIN_ABS_Z = 0.8
 INBOARD_FLUX_LOOP_MAX_R = 0.15
 OUTBOARD_FLUX_LOOP_MIN_R = 0.5
-# Fluctuation Mirnov probes became physically operational at this shot; the
-# 30-channel array (issue #155) is only mapped for shot >= this boundary.
-FLUCTUATION_MIRNOV_FIRST_SHOT = 44156
 TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
     {
         "field_code": 207,
@@ -157,15 +156,212 @@ def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ..
     return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
 
 
+#: Every outboard fluctuation-Mirnov identifier, parsed strictly rather than by
+#: substring. ``sub_array`` and ``position`` are *derived* at load time from the
+#: identifier -- issue #155 forbids storing an ``L1``/``L2`` layer key in the
+#: configuration, since the identifier already carries it.
+_FLUCTUATION_IDENTIFIER = re.compile(
+    r"^OutMirnov_(?P<angle>45|135|225)_(?P<sub_array>L[12])-(?P<position>0[1-5])$"
+)
+_FLUCTUATION_ARRAY_DEFAULTS = ("role", "preserve_native_voltage")
+
+
+@lru_cache(maxsize=8)
+def _fluctuation_mirnov_config(shot: int = 0) -> dict[str, Any]:
+    """Return the resolved ``fluctuation_mirnov`` block from ``vest.yaml``.
+
+    ``shot=0`` means the base, un-revised configuration:
+    :func:`resolve_vest_diagnostic` reads ``0.diagnostics.fluctuation_mirnov``
+    and layers matching ``revisions`` on top, and shot 0 matches no
+    ``from_shot``/``to_shot`` window. The channel table -- identifiers,
+    geometry and gains alike -- is shot-independent today, so ``shot=0`` is the
+    right default for any caller that only wants the inventory. The one
+    genuinely shot-dependent value is ``first_operational_shot``, and that is a
+    gate the caller applies, not a per-channel field. The parameter exists so a
+    future calibration revision can be expressed in ``revisions`` without
+    another API change.
+    """
+    return resolve_vest_diagnostic(int(shot), "fluctuation_mirnov")
+
+
+@lru_cache(maxsize=8)
+def _load_fluctuation_mirnov_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """Validate and materialise the fluctuation-Mirnov channel table.
+
+    Array-level defaults are merged down into freshly built per-channel dicts
+    here -- the mapping :func:`resolve_vest_diagnostic` returned is never
+    mutated -- so every consumer sees one uniform shape. See
+    :func:`_fluctuation_mirnov_config` for what ``shot=0`` means.
+    """
+    config = _fluctuation_mirnov_config(int(shot))
+    defaults = {key: config[key] for key in _FLUCTUATION_ARRAY_DEFAULTS if key in config}
+    raw_unit = config.get("source", {}).get("raw_unit")
+
+    channels: list[dict[str, Any]] = []
+    seen_identifiers: dict[str, int] = {}
+    seen_fields: dict[int, str] = {}
+    for entry in config.get("channels", ()):
+        identifier = str(entry["identifier"])
+        context = f"VEST diagnostic 'fluctuation_mirnov' channel {identifier!r}"
+        match = _FLUCTUATION_IDENTIFIER.fullmatch(identifier)
+        if match is None:
+            raise VestConfigurationError(
+                f"{context}: identifier does not match the outboard Mirnov naming schema "
+                f"{_FLUCTUATION_IDENTIFIER.pattern}"
+            )
+        angle = float(entry["toroidal_angle_deg"])
+        if angle != float(match.group("angle")):
+            raise VestConfigurationError(
+                f"{context}: toroidal_angle_deg {angle} disagrees with the "
+                f"{match.group('angle')} deg encoded in the identifier"
+            )
+        if identifier in seen_identifiers:
+            raise VestConfigurationError(f"{context}: duplicate identifier")
+        field = int(entry["field"])
+        if field in seen_fields:
+            raise VestConfigurationError(
+                f"{context}: raw field {field} is already mapped by {seen_fields[field]!r}"
+            )
+        seen_identifiers[identifier] = field
+        seen_fields[field] = identifier
+
+        channel = dict(defaults)
+        channel.update(entry)
+        channel["identifier"] = identifier
+        channel["field"] = field
+        channel["toroidal_angle_deg"] = angle
+        channel["z"] = float(entry["z"])
+        channel["gain"] = float(entry["gain"])
+        channel["sub_array"] = match.group("sub_array")
+        channel["position"] = int(match.group("position"))
+        if raw_unit is not None:
+            channel.setdefault("unit", raw_unit)
+        channels.append(channel)
+    return tuple(channels)
+
+
+def fluctuation_mirnov_channel_definitions(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """Return ordered VEST outboard fluctuation-Mirnov channel metadata for provenance.
+
+    Copies are returned so a caller can never corrupt the cached table.
+    """
+    return tuple(dict(channel) for channel in _load_fluctuation_mirnov_channels(int(shot)))
+
+
+def select_fluctuation_mirnov_channels(
+    *,
+    role: str | None = "fluctuation",
+    toroidal_angle_deg: float | Sequence[float] | None = None,
+    sub_array: str | None = None,
+    z_range: tuple[float, float] | None = None,
+    shot: int = 0,
+) -> tuple[dict[str, Any], ...]:
+    """Select fluctuation-Mirnov channels by role and geometry, in canonical order.
+
+    This is the supported way for fluctuation and mode-analysis code to find
+    probes: by what they are, not by where they happen to land in
+    ``b_field_pol_probe``. Pair it with
+    :func:`fluctuation_mirnov_probe_indices` to go from the selected
+    identifiers to ODS indices.
+
+    Unknown ``sub_array`` or ``toroidal_angle_deg`` values raise rather than
+    quietly returning nothing -- a silent empty result reads like "no probes
+    are installed there", which is a different and much more misleading answer
+    than "you asked for something that does not exist".
+    """
+    channels = _load_fluctuation_mirnov_channels(int(shot))
+
+    if sub_array is not None:
+        known_sub_arrays = {channel["sub_array"] for channel in channels}
+        if sub_array not in known_sub_arrays:
+            raise ValueError(
+                f"Unknown fluctuation-Mirnov sub-array {sub_array!r}; "
+                f"expected one of {sorted(known_sub_arrays)}."
+            )
+
+    angles: set[float] | None = None
+    if toroidal_angle_deg is not None:
+        requested = (
+            [float(toroidal_angle_deg)]
+            if isinstance(toroidal_angle_deg, (int, float))
+            else [float(value) for value in toroidal_angle_deg]
+        )
+        known_angles = {channel["toroidal_angle_deg"] for channel in channels}
+        unknown = sorted(set(requested) - known_angles)
+        if unknown:
+            raise ValueError(
+                f"No fluctuation-Mirnov channels at toroidal angle(s) {unknown}; "
+                f"expected one of {sorted(known_angles)}."
+            )
+        angles = set(requested)
+
+    selected = []
+    for channel in channels:
+        if role is not None and channel.get("role") != role:
+            continue
+        if angles is not None and channel["toroidal_angle_deg"] not in angles:
+            continue
+        if sub_array is not None and channel["sub_array"] != sub_array:
+            continue
+        if z_range is not None and not (z_range[0] <= channel["z"] <= z_range[1]):
+            continue
+        selected.append(dict(channel))
+    return tuple(selected)
+
+
+def fluctuation_mirnov_probe_indices(ods: object, *, shot: int = 0) -> dict[str, int]:
+    """Map fluctuation-Mirnov identifiers to their ``b_field_pol_probe`` indices.
+
+    Resolves probes semantically, so nothing downstream has to hard-code a
+    position such as ``b_field_pol_probe.68``. Probes absent from the ODS are
+    simply absent from the result -- shots before
+    ``FLUCTUATION_MIRNOV_FIRST_SHOT`` map none of them, which is legitimate --
+    so callers that need a full array should check what they got back.
+    """
+    registered = {channel["identifier"] for channel in _load_fluctuation_mirnov_channels(int(shot))}
+    if not path_exists(ods, "magnetics.b_field_pol_probe"):
+        return {}
+
+    indices: dict[str, int] = {}
+    for index in range(len(get_path(ods, "magnetics.b_field_pol_probe"))):
+        path = f"magnetics.b_field_pol_probe.{index}.identifier"
+        if not path_exists(ods, path):
+            continue
+        identifier = str(get_path(ods, path))
+        if identifier not in registered:
+            continue
+        if identifier in indices:
+            raise VestConfigurationError(
+                f"Fluctuation-Mirnov identifier {identifier!r} appears at both "
+                f"b_field_pol_probe index {indices[identifier]} and {index}; "
+                "identifier-based probe discovery requires unique identifiers."
+            )
+        indices[identifier] = index
+    return indices
+
+
 @lru_cache(maxsize=1)
-def _load_fluctuation_mirnov_channels() -> list[dict[str, Any]]:
-    with open(_geometry_root() / "FluctuationMirnov.yaml", "r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)["channels"]
+def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
+    """Per-channel voltage gains for raw-Mirnov probes, keyed by ODS identifier.
+
+    IMAS ``b_field_pol_probe`` has no calibration-factor node, so this gain
+    metadata can only live in the channel registries, not in the ODS itself.
+    Covers the toroidal phase-reference probes as well as the 30-channel
+    outboard fluctuation array. Takes no ``shot``: these gains are not
+    shot-dependent.
+    """
+    gains: dict[str, float] = {}
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+        gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
+    for channel in _load_fluctuation_mirnov_channels():
+        gains[str(channel["identifier"])] = float(channel["gain"])
+    return gains
 
 
-def fluctuation_mirnov_channel_definitions() -> tuple[dict[str, Any], ...]:
-    """Return ordered VEST outboard fluctuation-Mirnov channel metadata for provenance."""
-    return tuple(dict(channel) for channel in _load_fluctuation_mirnov_channels())
+#: Derived from the ``fluctuation_mirnov`` block in ``vest.yaml`` rather than
+#: duplicated here, so the configuration stays the single source of truth.
+FLUCTUATION_MIRNOV_FIRST_SHOT = int(_fluctuation_mirnov_config()["first_operational_shot"])
+OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["major_radius"])
 
 
 @lru_cache(maxsize=1)
@@ -582,7 +778,7 @@ def _populate_probe_static(ods: object) -> None:
         probe_index += 1
 
 
-def _populate_fluctuation_mirnov_static(ods: object) -> None:
+def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
     """Append the 45/135/225 deg outboard fluctuation-Mirnov array (issue #155).
 
     Continues the existing ``b_field_pol_probe`` index sequence so equilibrium
@@ -595,7 +791,7 @@ def _populate_fluctuation_mirnov_static(ods: object) -> None:
         if path_exists(ods, "magnetics.b_field_pol_probe")
         else 0
     )
-    for channel in _load_fluctuation_mirnov_channels():
+    for channel in _load_fluctuation_mirnov_channels(int(shot)):
         identifier = str(channel["identifier"])
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", identifier)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
@@ -634,7 +830,7 @@ def _map_fluctuation_mirnov_voltage(
     called for shot >= ``FLUCTUATION_MIRNOV_FIRST_SHOT``.
     """
     probe_index = start_index
-    for channel in _load_fluctuation_mirnov_channels():
+    for channel in _load_fluctuation_mirnov_channels(int(shot)):
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field"]), raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
@@ -796,7 +992,7 @@ def _map_probes(
     toroidal_reference_end = len(get_path(ods, "magnetics.b_field_pol_probe"))
     if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
         fluctuation_start_index = toroidal_reference_end
-        _populate_fluctuation_mirnov_static(ods)
+        _populate_fluctuation_mirnov_static(ods, shot)
         _map_fluctuation_mirnov_voltage(
             ods,
             shot,
@@ -1065,6 +1261,9 @@ __all__ = [
     "vest_diamagnetic_flux",
     "vest_equilibrium_magnetics_channel_definitions",
     "fluctuation_mirnov_channel_definitions",
+    "fluctuation_mirnov_gain_by_identifier",
+    "fluctuation_mirnov_probe_indices",
+    "select_fluctuation_mirnov_channels",
     "magnetics",
     "vfit_plasma_current",
     "vfit_equilibrium_magnetics",
