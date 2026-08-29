@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 import nbformat
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -266,3 +267,26 @@ def test_verification_notebook_loads_the_summary_sheets(monkeypatch):
     assert len(namespace["plot_df"]) > 0
     assert not namespace["eq_df"].empty
     plt.close("all")
+
+
+def test_verification_notebook_refuses_to_regenerate_without_target_shots():
+    """An empty shot list must not become a full-namespace scan.
+
+    ``vaft.database.summary(None, ...)`` means *every* shot in the namespace, so
+    passing ``None`` when no core-profile shot was found would open the whole
+    remote database instead of doing nothing.
+    """
+    notebook_path = NOTEBOOKS / "verification_and_validation.ipynb"
+    book = nbformat.read(notebook_path, as_version=4)
+    source = book.cells[3].source
+
+    namespace = {
+        "SKIP_VOLUME_AVERAGED_REGEN": False,
+        "core_profile_shots": [],
+        "output_path": NOTEBOOKS / "does-not-exist.xlsx",
+        "generate_volume_averaged_parameter_sheet": lambda *a, **k: pytest.fail(
+            "regeneration was attempted with no target shots"
+        ),
+    }
+    with pytest.raises(RuntimeError, match="core_profile"):
+        exec(compile(source, f"{notebook_path.name}:cell-3", "exec"), namespace)

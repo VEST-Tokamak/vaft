@@ -330,6 +330,34 @@ class TestOverlayMethods:
         finally:
             plt.close(figure)
 
+    def test_vaft_canonical_adapters_are_never_wrapped(self):
+        """``plot_camera_visible_image_efit_overlay`` matches the name pattern.
+
+        It is one of ours and already honors the ax/show contract, so wrapping
+        it would resolve the axes twice, drop the renderer's figsize and call
+        finalize twice. Neither opt-in order may wrap it.
+        """
+        canonical = {f"plot_{name}" for name in registry.canonical_names()}
+        assert any(name.endswith("_overlay") for name in canonical), (
+            "this test is only meaningful while a canonical plot ends in _overlay"
+        )
+
+        for plot_methods_first in (True, False):
+            if plot_methods_first:
+                vomas.enable_plot_methods()
+                wrapped = set(vomas.enable_overlay_methods())
+            else:
+                vomas.enable_overlay_methods()
+                vomas.enable_plot_methods()
+                wrapped = set(getattr(ODS, "_vaft_overlay_methods", frozenset()))
+            try:
+                assert not wrapped & canonical, sorted(wrapped & canonical)
+                adapter = ODS.plot_camera_visible_image_efit_overlay
+                assert not getattr(adapter, "_vaft_overlay_wrapper", False)
+            finally:
+                vomas.disable_overlay_methods()
+                vomas.disable_plot_methods()
+
     def test_wrapping_covers_the_overlays_vaft_plot_twodim_relies_on(self):
         wrapped = set(vomas.enable_overlay_methods())
         # vaft/plot/twodim.py calls these OMAS overlays directly; an OMAS

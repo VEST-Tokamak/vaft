@@ -230,12 +230,23 @@ def disable_overlay_methods() -> None:
 
 
 def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
-    """Return every ``plot_*_overlay`` attribute OMAS exposes on ``ODS``."""
+    """Return every ``plot_*_overlay`` attribute OMAS exposes on ``ODS``.
+
+    VAFT's own canonical adapters are excluded even though one of them
+    (``plot_camera_visible_image_efit_overlay``) matches the name pattern: they
+    already implement the ax/show contract, so wrapping them would resolve the
+    axes twice, discard the renderer's ``figsize`` and run ``finalize`` twice.
+    The exclusion is by canonical name rather than by whether
+    :func:`enable_plot_methods` happens to have run, so the two opt-ins are
+    order-independent.
+    """
+    canonical = {f"plot_{spec.name}" for spec in specs()}
     return tuple(
         name
         for name in dir(ods_class)
         if name.startswith("plot_")
         and name.endswith("_overlay")
+        and name not in canonical
         and callable(getattr(ods_class, name, None))
     )
 
