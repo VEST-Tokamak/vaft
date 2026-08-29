@@ -28,7 +28,9 @@ def test_apache_license_exists_and_matches_project_metadata():
 
     project = _pyproject()["project"]
     assert project["license"]["file"] == "LICENSE"
-    assert "License :: OSI Approved :: Apache Software License" in project["classifiers"]
+    assert (
+        "License :: OSI Approved :: Apache Software License" in project["classifiers"]
+    )
 
 
 def test_uv_sources_do_not_reference_missing_local_vendor_paths():
@@ -48,8 +50,12 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "machine_mapping/vest.yaml" in package_data
     assert ".hscfg.example" in package_data
     assert "data/geometry/Coil_info.mat" in package_data
-    assert "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat" in package_data
-    assert "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in package_data
+    assert (
+        "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat" in package_data
+    )
+    assert (
+        "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in package_data
+    )
     assert "data/geometry/VEST_em_coupling_pf_versions.npz" in package_data
     assert "data/efit/*" not in package_data
     assert "data/imas/*.nc" not in package_data
@@ -58,9 +64,17 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/legacy/*.h5" not in package_data
     assert "data/legacy/*.mat" not in package_data
     assert "data/omas/*.json" not in package_data
-    assert "data/omas/39915.json" in package_data
+    assert "data/samples/*/manifest.yaml" in package_data
+    assert "data/samples/39915/omas.json.gz" in package_data
+    assert "data/samples/39915/imas.nc" in package_data
+    assert "data/samples/39915/source/*" not in package_data
+    assert "data/samples/41524/imas.nc" not in package_data
+    assert "data/samples/41672/imas.nc" not in package_data
     assert "data/geometry/VEST_static_geometry.json.gz" in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
+    setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")
+    assert "wheel_samples" in setup_py
+    assert "build_py" in setup_py
 
     example = (ROOT / "vaft" / ".hscfg.example").read_text(encoding="utf-8")
     assert "your_username" in example
@@ -73,9 +87,16 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "prune vaft/data" in manifest
     assert "prune test" in manifest
     assert "global-exclude *.py[cod]" in manifest
+    assert "global-exclude ._*" in manifest
     assert "include vaft/data/geometry/Coil_info.mat" in manifest
-    assert "include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat" in manifest
-    assert "include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in manifest
+    assert (
+        "include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat"
+        in manifest
+    )
+    assert (
+        "include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat"
+        in manifest
+    )
     assert "include vaft/data/geometry/VEST_em_coupling_pf_versions.npz" in manifest
     assert "include vaft/data/geometry/*.yaml" in manifest
     assert "include vaft/data/geometry/*.csv" in manifest
@@ -83,15 +104,29 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/gpec/*.dat" in manifest
     assert "include vaft/data/legacy/*.txt" in manifest
     assert "include vaft/data/legacy/*.yaml" in manifest
-    assert "include vaft/data/omas/39915.json" in manifest
+    assert "include vaft/data/samples/*/manifest.yaml" in manifest
+    assert "include vaft/data/samples/39915/omas.json.gz" in manifest
+    assert "include vaft/data/samples/39915/imas.nc" in manifest
+    assert "include packaging/wheel_samples/39915/manifest.yaml" in manifest
+    assert "include packaging/wheel_samples/39915/omas.json.gz" in manifest
+    assert "include packaging/wheel_samples/39915/imas.nc" in manifest
     assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 
 def test_vest_yaml_has_canonical_top_level_diagnostic_structure():
-    content = yaml.safe_load((ROOT / "vaft" / "machine_mapping" / "vest.yaml").read_text(encoding="utf-8"))
+    content = yaml.safe_load(
+        (ROOT / "vaft" / "machine_mapping" / "vest.yaml").read_text(encoding="utf-8")
+    )
     defaults = content[0]
 
-    assert {"magnetics", "pf_active", "tf", "barometry", "spectrometer_uv", "halo_current"} <= set(defaults)
+    assert {
+        "magnetics",
+        "pf_active",
+        "tf",
+        "barometry",
+        "spectrometer_uv",
+        "halo_current",
+    } <= set(defaults)
     assert "barometry" not in defaults["pf_active"]
     assert "spectrometer_uv" not in defaults["pf_active"]
     assert "limiter_monitor" not in defaults["pf_active"]
@@ -110,5 +145,10 @@ def test_legacy_seaborn_style_module_imports_with_supported_matplotlib():
 
 
 def test_empty_equilibrium_workflow_placeholder_was_removed():
-    path = ROOT / "workflow" / "automatic_pipeline_2_corrective_data_update" / "update_equilibrium.py"
+    path = (
+        ROOT
+        / "workflow"
+        / "automatic_pipeline_2_corrective_data_update"
+        / "update_equilibrium.py"
+    )
     assert not path.exists()

@@ -5,6 +5,8 @@ from __future__ import annotations
 from importlib import resources
 from pathlib import Path
 
+import yaml
+
 
 def data_path(name: str = "") -> Path:
     """Return an absolute path inside the packaged ``vaft/data`` directory."""
@@ -24,6 +26,122 @@ def require_repository_sample(path: Path) -> Path:
             "This sample dataset is not included in the PyPI distribution. "
             "Clone the VAFT GitHub repository to access the archived samples."
         )
+    return path
+
+
+_SAMPLE_REPRESENTATIONS = frozenset({"omas", "imas"})
+
+
+def sample_manifest(shot: int) -> dict:
+    """Return the validated manifest for one registered reference sample."""
+    try:
+        shot_number = int(shot)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Sample shot must be an integer, got {shot!r}") from exc
+
+    manifest_path = data_path(f"samples/{shot_number}/manifest.yaml")
+    if not manifest_path.is_file():
+        available = ", ".join(str(value) for value in available_samples()) or "none"
+        raise ValueError(
+            f"Unknown VAFT sample shot {shot_number}; available shots: {available}"
+        )
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle) or {}
+    if int(manifest.get("schema_version", 0)) != 1:
+        raise ValueError(f"Invalid sample manifest schema: {manifest_path}")
+    if int(manifest.get("shot", -1)) != shot_number:
+        raise ValueError(
+            f"Sample manifest shot does not match its directory: {manifest_path}"
+        )
+    representations = manifest.get("representations")
+    if not isinstance(representations, dict) or not representations:
+        raise ValueError(f"Sample manifest has no representations: {manifest_path}")
+    for name, record in representations.items():
+        if name not in _SAMPLE_REPRESENTATIONS or not isinstance(record, dict):
+            raise ValueError(f"Invalid sample representation {name!r}: {manifest_path}")
+        if not record.get("path") or not record.get("sha256"):
+            raise ValueError(
+                f"Sample representation {name!r} requires path and sha256: {manifest_path}"
+            )
+        adapters = record.get("compatible_adapters", [name])
+        if not isinstance(adapters, list) or not adapters:
+            raise ValueError(
+                f"Sample representation {name!r} requires compatible_adapters: "
+                f"{manifest_path}"
+            )
+        unsupported = sorted(set(adapters) - _SAMPLE_REPRESENTATIONS)
+        if unsupported:
+            raise ValueError(
+                f"Sample representation {name!r} declares unsupported adapters "
+                f"{unsupported}: {manifest_path}"
+            )
+    return manifest
+
+
+def available_samples() -> tuple[int, ...]:
+    """Return registered sample shot numbers in ascending order."""
+    root = data_path("samples")
+    if not root.is_dir():
+        return ()
+    shots = []
+    for manifest in root.glob("*/manifest.yaml"):
+        try:
+            shots.append(int(manifest.parent.name))
+        except ValueError:
+            continue
+    return tuple(sorted(shots))
+
+
+def sample(shot: int, representation: str = "omas") -> Path:
+    """Return an artifact path compatible with the requested data adapter.
+
+    The returned path can be passed to either :func:`vaft.omas.load` or
+    :func:`vaft.imas.load`. An exact stored representation is preferred; when
+    it is absent, a manifest-declared compatible representation is returned.
+    """
+    representation_name = str(representation).lower()
+    if representation_name not in _SAMPLE_REPRESENTATIONS:
+        choices = ", ".join(sorted(_SAMPLE_REPRESENTATIONS))
+        raise ValueError(
+            f"Unsupported sample representation {representation!r}; expected one of: {choices}"
+        )
+    manifest = sample_manifest(shot)
+    representations = manifest["representations"]
+    storage_name = (
+        representation_name if representation_name in representations else None
+    )
+    if storage_name is None:
+        storage_name = next(
+            (
+                name
+                for name, record in sorted(representations.items())
+                if representation_name in record.get("compatible_adapters", [name])
+            ),
+            None,
+        )
+    if storage_name is None:
+        choices = ", ".join(
+            sorted(
+                {
+                    adapter
+                    for name, record in representations.items()
+                    for adapter in record.get("compatible_adapters", [name])
+                }
+            )
+        )
+        raise ValueError(
+            f"Sample shot {int(shot)} is not compatible with the "
+            f"{representation_name!r} adapter; compatible adapters: {choices}"
+        )
+    record = representations[storage_name]
+    path = data_path(f"samples/{int(shot)}/{record['path']}")
+    if not path.is_file():
+        if record.get("package") == "repository-only":
+            raise FileNotFoundError(
+                f"VAFT sample shot {int(shot)} is a repository-only {storage_name} "
+                "artifact. Clone the VAFT GitHub repository to access it."
+            )
+        raise FileNotFoundError(f"Registered VAFT sample artifact is missing: {path}")
     return path
 
 

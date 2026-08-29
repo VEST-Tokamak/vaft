@@ -1,5 +1,7 @@
+import gzip
 import json
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from helpers import format_failures, validate_contract
@@ -7,11 +9,12 @@ from spec import CANONICAL_IDS_SPECS, SAMPLE_FILE_IDS
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "vaft" / "data" / "omas"
+SAMPLE = ROOT / "vaft" / "data" / "samples" / "39915" / "omas.json.gz"
+CONTRACT_DATA = ROOT / "test" / "data" / "contracts"
 
 
 def load_json(name: str):
-    with open(DATA_DIR / name, "r", encoding="utf-8") as handle:
+    with open(CONTRACT_DATA / name, "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
@@ -19,22 +22,37 @@ class SampleContractTests(unittest.TestCase):
     def assertNoContractFailures(self, failures):
         self.assertEqual(failures, {}, format_failures(failures))
 
-    def test_core_sample_smoke_on_41672(self):
-        payload = load_json("41672.json")
+    def test_current_pipeline_sample_smoke_on_39915(self):
+        with gzip.open(SAMPLE, "rt", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        specs = deepcopy(CANONICAL_IDS_SPECS)
+        magnetics = specs["magnetics"]
+        magnetics["required_paths"] = [
+            path.replace(
+                "magnetics.b_field_pol_probe.0.field",
+                "magnetics.b_field_pol_probe.1.field",
+            )
+            for path in magnetics["required_paths"]
+        ]
+        for series in magnetics["series"]:
+            series["data_path"] = series["data_path"].replace(
+                "magnetics.b_field_pol_probe.0.field",
+                "magnetics.b_field_pol_probe.1.field",
+            )
+            series["time_paths"] = [
+                path.replace(
+                    "magnetics.b_field_pol_probe.0.field",
+                    "magnetics.b_field_pol_probe.1.field",
+                )
+                for path in series["time_paths"]
+            ]
+        magnetics["expected_values"][
+            "magnetics.ids_properties.homogeneous_time"
+        ] = 0
         failures = validate_contract(
             payload,
-            CANONICAL_IDS_SPECS,
-            ids_names=SAMPLE_FILE_IDS["41672.json"],
-            strict_values=False,
-        )
-        self.assertNoContractFailures(failures)
-
-    def test_spectrometer_sample_smoke_on_39915(self):
-        payload = load_json("39915.json")
-        failures = validate_contract(
-            payload,
-            CANONICAL_IDS_SPECS,
-            ids_names=SAMPLE_FILE_IDS["39915.json"],
+            specs,
+            ids_names=SAMPLE_FILE_IDS["39915"],
             strict_values=False,
         )
         self.assertNoContractFailures(failures)

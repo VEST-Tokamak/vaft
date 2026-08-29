@@ -5,6 +5,7 @@ graft vaft
 prune vaft/data
 prune test
 global-exclude *.py[cod]
+global-exclude ._*
 
 include vaft/data/*.py
 include vaft/data/geometry/Coil_info.mat
@@ -19,4 +20,9 @@ include vaft/data/gpec/*.in
 include vaft/data/gpec/*.dat
 include vaft/data/legacy/*.txt
 include vaft/data/legacy/*.yaml
-include vaft/data/omas/39915.json
+include vaft/data/samples/*/manifest.yaml
+include vaft/data/samples/39915/omas.json.gz
+include vaft/data/samples/39915/imas.nc
+include packaging/wheel_samples/39915/manifest.yaml
+include packaging/wheel_samples/39915/omas.json.gz
+include packaging/wheel_samples/39915/imas.nc

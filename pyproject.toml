@@ -105,7 +105,9 @@ vaft = [
   "data/gpec/*.dat",
   "data/legacy/*.txt",
   "data/legacy/*.yaml",
-  "data/omas/39915.json",
+  "data/samples/*/manifest.yaml",
+  "data/samples/39915/omas.json.gz",
+  "data/samples/39915/imas.nc",
 ]
 
 [tool.uv.sources]

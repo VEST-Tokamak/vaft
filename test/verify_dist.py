@@ -22,7 +22,11 @@ _ALLOWED_DATA_FILES = {
     "geometry/camera_visible/pose_34764.json",
     "geometry/camera_visible/pose_39915.json",
     "geometry/camera_visible/pose_47518.json",
-    "omas/39915.json",
+    "samples/39915/manifest.yaml",
+    "samples/39915/omas.json.gz",
+    "samples/39915/imas.nc",
+    "samples/41524/manifest.yaml",
+    "samples/41672/manifest.yaml",
 }
 _ALLOWED_DATA_SUFFIXES = {
     "geometry/": (".yaml", ".csv"),
@@ -85,14 +89,18 @@ def _verify_distribution(path: Path) -> None:
         )
 
     if path.suffix != ".whl" and any(name.startswith("test/") for name in names):
-        raise ValueError(f"{path.name}: source distribution must not include repository tests")
+        raise ValueError(
+            f"{path.name}: source distribution must not include repository tests"
+        )
 
     print(f"verified {path.name} ({len(names)} files)")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dist_dir", type=Path, help="directory containing wheel and sdist artifacts")
+    parser.add_argument(
+        "dist_dir", type=Path, help="directory containing wheel and sdist artifacts"
+    )
     parser.add_argument("--max-wheel-mib", type=float, default=25.0)
     args = parser.parse_args()
 

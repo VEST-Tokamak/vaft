@@ -40,7 +40,8 @@ version rather than trying to overwrite `vX.Y.Z`.
 ## Distribution policy
 
 `test/verify_dist.py` is the release gate for package contents. It requires the
-runtime geometry resources, `omas/39915.json`, `legacy/sql_table.txt`, and
+runtime geometry resources, all sample manifests, the paired `samples/39915` artifacts,
+`legacy/sql_table.txt`, and
 `legacy/diagnostic-trigger-settings.yaml`; it rejects repository-only samples
 and source-distribution tests, and limits the wheel to 25 MiB.
 

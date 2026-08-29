@@ -9,9 +9,7 @@ the coil/eddy split were wrong, the constructed residual would not vanish.
 from __future__ import annotations
 
 import copy
-import json
 import math
-from importlib.resources import files
 
 import matplotlib
 
@@ -234,15 +232,20 @@ def test_stored_poloidal_angle_declares_the_plus_bz_the_probes_measure():
 
 
 def test_packaged_reference_odss_carry_the_corrected_angle():
-    # The packaged references were relabelled with the constant; had they not
-    # been, freshly generated ODSs would disagree with them.
-    path = files("vaft.data.omas") / "39915.json"
-    if not path.is_file():
-        pytest.skip("packaged reference ODS is not installed")
-    with path.open("r", encoding="utf-8") as handle:
-        probes = json.load(handle)["magnetics"]["b_field_pol_probe"]
-    assert probes
-    assert {probe["poloidal_angle"] for probe in probes} == {POLOIDAL_ANGLE}
+    # Issue #166 moved the references into the representation-neutral sample
+    # registry.  Read through the public loader so this also covers compressed
+    # OMAS and native IMAS storage.
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    probes = ods["magnetics.b_field_pol_probe"]
+    assert len(probes) == 76
+    assert {
+        float(ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"])
+        for index in range(len(probes))
+    } == {
+        POLOIDAL_ANGLE
+    }
 
 
 def test_impa_bz_sensors_share_the_plus_bz_orientation():
@@ -378,25 +381,39 @@ def test_eddy_stage_writes_both_figures_and_a_metrics_block(tmp_path, plasma_ods
 
 # --- the real shot -----------------------------------------------------------
 
-def test_packaged_shot_reproduces_its_measured_vacuum_magnetics():
+def test_canonical_pipeline_shot_reproduces_its_measured_vacuum_magnetics():
     """The headline physics, so a forward-model regression fails loudly.
 
     Shot 39915: adding the eddy response must remove most of the pre-plasma
     residual on every selected channel, and the residual must emerge close to
     the measured plasma-current onset.
     """
-    from vaft.omas.sample import sample_ods
+    import vaft
 
-    ods = sample_ods()
-    channels = synthetic_vacuum_magnetics(ods)
+    manifest = vaft.data.sample_manifest(39915)
+    sample_root = vaft.data.sample(39915, "omas").parent
+    ods = vaft.omas.load(sample_root / manifest["generation"]["canonical_source"])
+    # Validate all submitted geometric families without letting unrelated
+    # channels with different calibration/status contracts redefine this
+    # coil-plus-eddy benchmark.
+    channels = synthetic_vacuum_magnetics(
+        ods,
+        channels=[
+            (B_FIELD_POL_PROBE, 1),
+            (B_FIELD_POL_PROBE, 27),
+            (B_FIELD_POL_PROBE, 48),
+            (FLUX_LOOP, 5),
+            (FLUX_LOOP, 0),
+        ],
+    )
     metrics = vacuum_magnetics_metrics(
         channels,
         plasma_onset=plasma_onset_time(ods),
         plasma_current=(ods["magnetics.ip.0.time"], ods["magnetics.ip.0.data"]),
     )
     families = {channel.family for channel in channels}
-    assert {"inboard", "outboard"} <= families
-    assert any(family.endswith("flux_loop") for family in families)
+    assert {"inboard", "outboard", "side"} <= families
+    assert {"inboard_flux_loop", "outboard_flux_loop"} <= families
 
     assert metrics["summary"]["min_improvement"] > 0.4
     assert metrics["summary"]["median_improvement"] > 0.7

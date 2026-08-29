@@ -1936,7 +1936,8 @@ if __name__ == "__main__":
 
     # 1. Setup sample ODS and ODC
     ods = vaft.omas.sample_ods()
-    odc = vaft.omas.sample_odc()
+    odc = ODC()
+    odc["39915"] = ods
 
     # 2. List of all public plotting functions to test
     current_module = sys.modules[__name__]
@@ -2879,4 +2880,3 @@ def time_power_balance(ods, figsize=(6, 6.5)):
     plt.tight_layout()
     
     return fig
-

@@ -1,0 +1,150 @@
+schema_version: 1
+reference_id: vest-39915-until-efit-v1
+shot: 39915
+machine: VEST
+imas_dd_version: 3.41.0
+pipeline:
+  scope:
+  - static
+  - diagnostics
+  - eddy
+  - constraints
+  - efit
+  excluded_stages:
+  - chease
+  - dcon
+  - rdcon
+  - stride
+  - gpec
+  vaft_commit: 9c62a1f54ac547d5d8f26b12986c3e534e1b50cf
+  config: source/pipeline-config.yaml
+  config_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+  raw_source: source/vest_39915_daq_raw.json.gz
+  raw_sha256: ac94261a218fbd9f4a84f94fc6d0ccf5dcde99ef4df2b6a8b12f5def616bf07e
+  eddy_stage_sha256: 845a2a9e28d6b7c2d6a5e4d2eba885d80e029b7803bfd3a3172f432aa3f2c038
+  efit_stage_sha256: 6aa488fc1e42114e474c341c4992b81762997a6200e5b54afa202d49f064ba1b
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: 71edb3996e6184438eabaef2bc7057352e17e44426802629c52a73bd1cff3d7f
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: df15eb043638082081a49358ffaa26c8c5eeb6fa0e2b6e0ec0235772fb15ea55
+  efit:
+    executable_sha256: 843758640d89a857b9529d827903a09bb23a4d4ad1b9144b5ef0b392f0792ca7
+    table: '129'
+    status: 'completed: returncode=0; gfiles=9'
+    requested_time_slices: 22
+    successful_time_slices: 9
+    optional_outputs:
+      mfile:
+        status: unavailable
+        reason: EFIT executable was not linked with NetCDF support
+  stage_status:
+    diagnostics: partial
+    eddy: success
+    efit: completed
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: wheel-and-sdist
+    compatible_adapters:
+    - omas
+    - imas
+    size: 10333178
+    sha256: d60d8e9fa4a73998cbd6dfb8548b71908f9805f70b54c70d87e6f546399decc0
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: wheel-and-sdist
+    compatible_adapters:
+    - imas
+    - omas
+    size: 11785205
+    sha256: 0ef549bbb7d398891ec126b0adc0ee17e17c11b6429228d97107a8f308b96e19
+generation:
+  command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
+    vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: 426f8e7842e0fcc73dc5df910c797a5a40b5b460bb0165b7de292d9b48235ded
+  canonical_policy: repository-only
+  equilibrium_time_slices: 0
+  materialized_leaves: 9335
+  metadata_corrections:
+  - issue: https://github.com/VEST-Tokamak/vaft/issues/169
+    path: magnetics.b_field_pol_probe.*.poloidal_angle
+    from_direction: -Bz
+    to_direction: +Bz
+    value_radians: 1.5707963267948966
+  selectors:
+  - dataset_description.*
+  - wall.*
+  - barometry.*
+  - tf.*
+  - pf_active.ids_properties.*
+  - pf_active.time
+  - pf_active.coil.0.*
+  - pf_active.coil.1.*
+  - pf_active.coil.2.*
+  - pf_active.coil.3.*
+  - pf_active.coil.4.*
+  - magnetics.*
+  - spectrometer_uv.ids_properties.*
+  - spectrometer_uv.time
+  - spectrometer_uv.channel.0.*
+  - pf_passive.ids_properties.*
+  - pf_passive.time
+  - pf_passive.loop.0.*
+  - em_coupling.ids_properties.*
+  - em_coupling.active_coils
+  - em_coupling.passive_loops
+  - em_coupling.mutual_active_active
+  - em_coupling.mutual_passive_active
+  - equilibrium.ids_properties.*
+  - equilibrium.time
+  - equilibrium.vacuum_toroidal_field.*
+  - equilibrium.time_slice.*
+semantic_comparison:
+  paths:
+  - wall.*
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  exclude_paths:
+  - '*.ids_properties.version_put*'
+  - '*.ids_properties.occurrence'
+  - '*.ids_properties.homogeneous_time'
+acceptance:
+  magnetics:
+    b_field_pol_probe_count: 76
+    flux_loop_count: 11
+  equilibrium_times:
+  - 0.316
+  - 0.317
+  - 0.318
+  - 0.319
+  - 0.32
+  - 0.323
+  - 0.325
+  - 0.326
+  - 0.331
+  required_ids:
+  - wall
+  - barometry
+  - tf
+  - pf_active
+  - magnetics
+  - spectrometer_uv
+  - pf_passive
+  - em_coupling
+  - equilibrium
+packaging_policy:
+  compact_pair: wheel-and-sdist
+  repository_equilibrium_time_slices: all
+  wheel_equilibrium_time_slices: 3
+  canonical_source: repository-only
+  raw_source: repository-only
+  future_large_goldens: repository-only
