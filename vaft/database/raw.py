@@ -463,12 +463,21 @@ def _load_from_sample_file(
                 logger.warning(f"No data array for field {fld}. Skipping...")
                 continue
 
-            dt = SLOW_DT if entry.get("type") == "slow" else FAST_DT
+            # An explicit per-field "dt" overrides the two-rate class default:
+            # modern fast channels (e.g. 2 MHz outboard Mirnov coils) do not
+            # sample at FAST_DT, and reconstructing them at the class default
+            # would silently stretch their timebase.
+            entry_dt = entry.get("dt")
+            if isinstance(entry_dt, (int, float)) and entry_dt > 0:
+                dt = float(entry_dt)
+            else:
+                dt = SLOW_DT if entry.get("type") == "slow" else FAST_DT
             n = len(raw_data)
             tvals = np.arange(n, dtype=float) * dt
             dvals = np.array(raw_data, dtype=float)
 
-            if dt == FAST_DT:
+            if entry.get("type") != "slow":
+                # Fast-DAQ records start at the trigger, whatever their rate.
                 tvals = tvals + _daq_trigger_time_correction(shot)
 
             time_arrays.append(tvals)
@@ -1158,10 +1167,18 @@ def dump_all_raw_signals_for_shot(
             is_slow = (time[1] - time[0]) >= slow_dt_threshold
             daq_label = "slow" if is_slow else "fast"
 
-        shot_data["fields"][str(fcode)] = {
+        entry: dict = {
             "type": daq_label,
-            "data": data.tolist()
+            "data": data.tolist(),
         }
+        if len(time) >= 2:
+            measured_dt = float(time[1] - time[0])
+            class_dt = SLOW_DT if daq_label == "slow" else FAST_DT
+            if measured_dt > 0 and not np.isclose(measured_dt, class_dt, rtol=1e-3):
+                # Non-default cadence (e.g. 2 MHz Mirnov): record it so the
+                # archive round-trips instead of collapsing to the class rate.
+                entry["dt"] = measured_dt
+        shot_data["fields"][str(fcode)] = entry
         quality_flag = _flagged_field_quality(data)
         if quality_flag is not None:
             flagged_fields[str(fcode)] = quality_flag

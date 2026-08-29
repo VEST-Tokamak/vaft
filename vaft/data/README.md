@@ -17,7 +17,7 @@ legacy diagnostic, digitizer, and additional OMAS samples.
 | `omas/` | `39915.json`, `41524.json`, `41672.json`, `thomson_scattering.json` | OMAS/ODS sample and contract-test payloads |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
 | `imas/` | `vest_imas_3.40.1.nc` | IMAS-format sample container |
-| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
+| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `shot_45531.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
 
 ## Access
@@ -118,3 +118,13 @@ It originates from the validated VEST SXR Viewer analysis tool (`ratio.csv`,
 2024-11-22) documented in the 2026 VEST SXR thesis presentation; the ratio ->
 Te inversion assumes the Al channel gain correction and validity threshold
 applied by `sxr_electron_temperature`.
+
+`legacy/shot_45531.json.gz` is a trimmed raw-signal archive of VEST shot 45531
+(the discharge whose soft X-ray digitizer records are packaged alongside it),
+holding the 117 field codes used by `notebooks/fluctuation_diagnostics_analysis.ipynb`:
+the equilibrium magnetics channels, the 30 outboard fluctuation Mirnov coils
+(2 MHz / 500 kHz, recorded with per-field `dt` entries so the archive format
+reconstructs their native timebase), the plasma-current Rogowski and reference
+flux loop, the diamagnetic-flux and TF signals, and the filterscope set.
+Rebuilt from the live VEST SQL database; data verified bit-identical to the
+DB waveforms at dump time.

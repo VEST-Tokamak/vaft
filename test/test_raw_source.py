@@ -64,3 +64,35 @@ def test_pf_mapping_does_not_require_optional_reference_archive(tmp_path):
 
     assert time.size > 0
     assert len(currents) == PF_COIL_COUNT
+
+
+def test_archive_honours_a_per_field_dt(tmp_path):
+    """A fast field with an explicit ``dt`` reconstructs its native timebase.
+
+    The two-rate archive format collapsed every fast channel to FAST_DT, which
+    silently stretched a 2 MHz outboard-Mirnov record eightfold in time.  An
+    entry-level ``dt`` overrides the class default; fields without one keep the
+    historical behaviour bit for bit.
+    """
+    shot = 45531  # >= 41660 -> 0.26 s fast-DAQ trigger correction
+    native_dt = 5e-7
+    payload = {
+        "shot": shot,
+        "fields": {
+            "286": {"type": "fast", "dt": native_dt, "data": [1.0, 2.0, 3.0, 4.0]},
+            "172": {"type": "fast", "data": [5.0, 6.0, 7.0]},
+            "1": {"type": "slow", "data": [8.0, 9.0]},
+        },
+    }
+    path = tmp_path / f"shot_{shot}.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+
+    time_native, _ = raw.load_raw(shot, 286, sample_opt=path)
+    np.testing.assert_allclose(time_native, 0.26 + native_dt * np.arange(4))
+
+    time_default, _ = raw.load_raw(shot, 172, sample_opt=path)
+    np.testing.assert_allclose(time_default, 0.26 + raw.FAST_DT * np.arange(3))
+
+    time_slow, _ = raw.load_raw(shot, 1, sample_opt=path)
+    np.testing.assert_allclose(time_slow, raw.SLOW_DT * np.arange(2))
