@@ -123,8 +123,16 @@ applied by `sxr_electron_temperature`.
 (the discharge whose soft X-ray digitizer records are packaged alongside it),
 holding the 117 field codes used by `notebooks/fluctuation_diagnostics_analysis.ipynb`:
 the equilibrium magnetics channels, the 30 outboard fluctuation Mirnov coils
-(2 MHz / 500 kHz, recorded with per-field `dt` entries so the archive format
-reconstructs their native timebase), the plasma-current Rogowski and reference
-flux loop, the diamagnetic-flux and TF signals, and the filterscope set.
-Rebuilt from the live VEST SQL database; data verified bit-identical to the
-DB waveforms at dump time.
+(2 MHz / 500 kHz), the plasma-current Rogowski and reference flux loop, the
+diamagnetic-flux and TF signals, and the filterscope set.
+
+Both raw archives (`shot_44740.json.gz`, `shot_45531.json.gz`) use the
+self-describing timebase schema: every field records its corrected start time
+`t0` and measured cadence `dt`, so loading reproduces the live-DB time axis at
+any sampling rate. (The older two-rate schema labeled fields only "fast"/"slow"
+and reconstructed every fast channel at 250 kHz, which stretched the 2 MHz
+outboard-Mirnov timebase eightfold; `shot_44740.json.gz` was re-dumped from the
+VEST SQL database to repair its 52 affected channels.) Data are verified
+bit-identical to the DB waveforms at dump time; reconstructed times agree with
+the DB's stored time strings to within the DB's own ~0.5 microsecond string
+quantization.

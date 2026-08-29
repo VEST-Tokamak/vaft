@@ -96,3 +96,102 @@ def test_archive_honours_a_per_field_dt(tmp_path):
 
     time_slow, _ = raw.load_raw(shot, 1, sample_opt=path)
     np.testing.assert_allclose(time_slow, raw.SLOW_DT * np.arange(2))
+
+
+def test_self_describing_entries_reproduce_the_stored_timebase(tmp_path):
+    """``t0`` + ``dt`` entries are authoritative: no class default, no trigger table."""
+    shot = 45531
+    payload = {
+        "shot": shot,
+        "fields": {
+            # a 2 MHz fast channel with its corrected absolute start time
+            "286": {"type": "fast", "t0": 0.26, "dt": 5.000025e-7,
+                    "data": [1.0, 2.0, 3.0]},
+            # a slow channel starting at t=0 with the DB's measured cadence
+            "109": {"type": "slow", "t0": 0.0, "dt": 4.00016e-5,
+                    "data": [4.0, 5.0]},
+        },
+    }
+    path = tmp_path / f"shot_{shot}.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+
+    time_fast, _ = raw.load_raw(shot, 286, sample_opt=path)
+    np.testing.assert_allclose(time_fast, 0.26 + 5.000025e-7 * np.arange(3))
+
+    time_slow, _ = raw.load_raw(shot, 109, sample_opt=path)
+    np.testing.assert_allclose(time_slow, 4.00016e-5 * np.arange(2))
+
+
+def test_dump_writes_a_self_describing_timebase(tmp_path, monkeypatch):
+    """Every dumped field records t0 and the measured span/(n-1) cadence."""
+    native_dt = 5e-7
+    times = 0.26 + native_dt * np.arange(5)
+
+    monkeypatch.setattr(raw, "get_all_field_codes_for_shot", lambda shot, max_retries=3: [286])
+    monkeypatch.setattr(
+        raw, "load_raw",
+        lambda shot, fcode, max_retries=3, daq_type=0, sample_opt=False: (
+            times, np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        ),
+    )
+    monkeypatch.setattr(raw, "date_from_shot", lambda shot: ("2026-01-01", None))
+
+    output = tmp_path / "dump.json.gz"
+    assert raw.dump_all_raw_signals_for_shot(shot=45531, output_path=str(output))
+
+    with gzip.open(output, "rt", encoding="utf-8") as handle:
+        entry = json.load(handle)["fields"]["286"]
+    assert entry["t0"] == pytest.approx(0.26)
+    assert entry["dt"] == pytest.approx(native_dt)
+
+    # And the dump round-trips through the loader bit for bit.
+    reloaded_time, reloaded_data = raw.load_raw(45531, 286, sample_opt=output)
+    np.testing.assert_allclose(reloaded_time, times)
+    np.testing.assert_allclose(reloaded_data, [1.0, 2.0, 3.0, 4.0, 5.0])
+
+
+def test_dump_field_subset_restricts_the_archive(tmp_path, monkeypatch):
+    monkeypatch.setattr(raw, "get_all_field_codes_for_shot",
+                        lambda shot, max_retries=3: [1, 2, 3])
+    monkeypatch.setattr(
+        raw, "load_raw",
+        lambda shot, fcode, max_retries=3, daq_type=0, sample_opt=False: (
+            np.array([0.0, 4e-5]), np.array([float(fcode), float(fcode)])
+        ),
+    )
+    monkeypatch.setattr(raw, "date_from_shot", lambda shot: ("2026-01-01", None))
+
+    output = tmp_path / "subset.json.gz"
+    assert raw.dump_all_raw_signals_for_shot(shot=1234, output_path=str(output), fields=[1, 3])
+
+    with gzip.open(output, "rt", encoding="utf-8") as handle:
+        stored = json.load(handle)["fields"]
+    assert sorted(stored) == ["1", "3"]
+
+
+def test_multi_field_loads_refuse_mixed_cadences(tmp_path):
+    """Stacking a 2 MHz channel against a slow channel must fail loudly.
+
+    The multi-field path returns the first field's time axis for every column;
+    with mixed cadences that silently misaligns the data.
+    """
+    shot = 45531
+    payload = {
+        "shot": shot,
+        "fields": {
+            "286": {"type": "fast", "t0": 0.26, "dt": 5e-7, "data": [1.0] * 10},
+            "109": {"type": "slow", "t0": 0.0, "dt": 4e-5, "data": [2.0] * 10},
+            "287": {"type": "fast", "t0": 0.26, "dt": 5e-7, "data": [3.0] * 10},
+        },
+    }
+    path = tmp_path / f"shot_{shot}.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+
+    with pytest.raises(ValueError, match="mix sampling cadences"):
+        raw.load_raw(shot, [286, 109], sample_opt=path)
+
+    # Same-cadence batches still stack.
+    time_ok, data_ok = raw.load_raw(shot, [286, 287], sample_opt=path)
+    assert data_ok.shape == (10, 2)
