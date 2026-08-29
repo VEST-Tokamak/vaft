@@ -20,13 +20,16 @@ PLASMA_CURRENT_FIELD = 109
 FLUX_REFERENCE_FIELD = 25
 
 
-def _write_raw_dump(path, shot, fields):
+def _write_raw_dump(path, shot, fields, *, fast_fields=()):
+    """`fast_fields` marks fields acquired on the 250 kHz DAQ. This matters:
+    the loader applies the +0.26 s DAQ trigger correction to fast records
+    only, so mismarking FL10 as slow hides real time-axis bugs."""
     payload = {
         "shot": shot,
         "fields": {
             str(field): {
                 "data": values.tolist() if hasattr(values, "tolist") else values,
-                "type": "slow",
+                "type": "fast" if field in fast_fields else "slow",
             }
             for field, values in fields.items()
         },
@@ -135,14 +138,21 @@ def test_fl10_windowed_mode_subtracts_only_inside_the_compensation_window(tmp_pa
     'disabled') for the same underlying Ip_shot."""
     shot = 46403
     n = 12000  # 12000 * 4e-5 s = 0.48 s, covers the 0.26-0.36 s window
+    n_fast = 25000  # 25000 * 4e-6 s = 0.1 s, i.e. 0.26-0.36 s once corrected
     raw_ip = np.zeros(n, dtype=float)  # flat Ip_shot after baseline removal
-    zero_fl10 = np.zeros(n, dtype=float)
-    nonzero_fl10 = np.sin(np.linspace(0.0, 40.0, n)) + 5.0
+    zero_fl10 = np.zeros(n_fast, dtype=float)
+    nonzero_fl10 = np.sin(np.linspace(0.0, 40.0, n_fast)) + 5.0
 
     source_zero = tmp_path / "raw_zero.json.gz"
-    _write_raw_dump(source_zero, shot, {PLASMA_CURRENT_FIELD: raw_ip, FLUX_REFERENCE_FIELD: zero_fl10})
+    _write_raw_dump(
+        source_zero, shot, {PLASMA_CURRENT_FIELD: raw_ip, FLUX_REFERENCE_FIELD: zero_fl10},
+        fast_fields=(FLUX_REFERENCE_FIELD,),
+    )
     source_nonzero = tmp_path / "raw_nonzero.json.gz"
-    _write_raw_dump(source_nonzero, shot, {PLASMA_CURRENT_FIELD: raw_ip, FLUX_REFERENCE_FIELD: nonzero_fl10})
+    _write_raw_dump(
+        source_nonzero, shot, {PLASMA_CURRENT_FIELD: raw_ip, FLUX_REFERENCE_FIELD: nonzero_fl10},
+        fast_fields=(FLUX_REFERENCE_FIELD,),
+    )
 
     time, ip_zero_ref = vfit_plasma_current(shot, raw_source=source_zero)
     _, ip_nonzero_ref = vfit_plasma_current(shot, raw_source=source_nonzero)
@@ -197,3 +207,41 @@ def test_fl10_degenerate_offset_uses_the_documented_vaft_convention(tmp_path):
     expected_offset = raw_fl10[174]  # 1-based index 175 -> 0-based 174
     expected = ip_shot - (raw_fl10 - expected_offset)
     np.testing.assert_allclose(compensated, expected)
+
+
+def test_fl10_time_axis_is_not_double_shifted(tmp_path):
+    """Regression guard for a bug that silently disabled the compensation.
+
+    The donor applies `time2 = time2 + 0.26` because MATLAB's vest_load
+    returns fast-DAQ records on a raw 0-based axis. VAFT's loader already
+    applies that same DAQ trigger correction, so adding it again pushes
+    FL10 to 0.52-0.62 s -- outside the 0.26-0.36 s compensation window --
+    and `np.interp(..., left=0, right=0)` then subtracts exactly zero.
+
+    A shot whose FL10 is large and non-zero must therefore change Ip
+    inside the window. Marking FL10 as a *fast* record is essential: a
+    slow record skips the loader's correction and hides the bug.
+    """
+    shot = 46403
+    n_fast = 25000
+    source = tmp_path / "raw.json.gz"
+    _write_raw_dump(
+        source,
+        shot,
+        {
+            PLASMA_CURRENT_FIELD: np.zeros(12000, dtype=float),
+            FLUX_REFERENCE_FIELD: np.full(n_fast, 5.0) + np.linspace(0.0, 1.0, n_fast),
+        },
+        fast_fields=(FLUX_REFERENCE_FIELD,),
+    )
+
+    time, ip = vfit_plasma_current(shot, raw_source=source)
+    mask = (time >= 0.26) & (time <= 0.36)
+
+    assert mask.any()
+    assert not np.allclose(ip[mask], 0.0), (
+        "FL10 compensation had no effect inside its window -- the reference "
+        "time axis is probably shifted out of range."
+    )
+    # Outside the window the reference must still contribute nothing.
+    np.testing.assert_allclose(ip[~mask], 0.0, atol=1e-9)

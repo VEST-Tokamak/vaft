@@ -57,7 +57,10 @@ def test_plasma_current_fl10_mode_boundaries(shot, expected_mode):
 def test_plasma_current_fl10_windowed_config_is_complete():
     reference = _resolve_nested("plasma_current", ("reference",), 46403)
     fl10 = reference["fl10"]
-    assert fl10["time_offset_s"] == pytest.approx(0.26)
+    # 0.0, not the donor's 0.26: VAFT's loader already applies the DAQ
+    # trigger correction that `vest_ip.m` adds by hand. Re-applying it puts
+    # FL10 outside the compensation window and silently disables it.
+    assert fl10["time_offset_s"] == pytest.approx(0.0)
     assert fl10["decimate_factor"] == 10
     assert fl10["gain_numerator"] == pytest.approx(11.0)
     assert fl10["smooth_span"] == 10

@@ -139,6 +139,33 @@ def _linear_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndar
     return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
 
 
+def _validate_daq_mode(cfg: VestMagneticsProcessingConfig) -> None:
+    """Reject configs whose `daq_mode` disagrees with the rules it carries.
+
+    `daq_mode` must not be decorative: the acquisition era it names and the
+    flux-loop baseline rule that actually distinguishes the two donor
+    functions have to agree, or a config could claim `native_daq` while
+    silently processing flux loops the legacy way.
+    """
+    if cfg.daq_mode not in {"legacy", "native_daq"}:
+        raise UnsupportedMagneticsDaqModeError(
+            f"Unknown VEST magnetics daq_mode {cfg.daq_mode!r}; expected 'legacy' or 'native_daq'"
+        )
+    if cfg.daq_mode == "native_daq" and cfg.flux_baseline_samples is None:
+        raise UnsupportedMagneticsDaqModeError(
+            "daq_mode='native_daq' requires flux_baseline_samples: on the native "
+            "acquisition the flux loops take the probes' leading-sample baseline "
+            "(the donor reuses index_Bz_start:index_Bz_end). Without it the flux "
+            "loops would silently fall back to the legacy baseline rule."
+        )
+    if cfg.daq_mode == "legacy" and cfg.flux_baseline_samples is not None:
+        raise UnsupportedMagneticsDaqModeError(
+            "flux_baseline_samples is a native-DAQ rule but daq_mode='legacy'; "
+            "the legacy era selects its flux baseline by physical window "
+            "(flux_baseline_window) or by the historical index ranges."
+        )
+
+
 def vest_magnetics_time_window(shot: int, config: VestMagneticsProcessingConfig | None = None) -> np.ndarray:
     """Return the VEST MD output time window for a shot."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
@@ -230,10 +257,7 @@ def vest_equilibrium_magnetics_signals(
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process VEST MD channels into flux-loop and B-probe waveforms."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
-    if cfg.daq_mode not in {"legacy", "native_daq"}:
-        raise UnsupportedMagneticsDaqModeError(
-            f"Unknown VEST magnetics daq_mode {cfg.daq_mode!r}; expected 'legacy' or 'native_daq'"
-        )
+    _validate_daq_mode(cfg)
     channel_rows = list(channels)
     if indices is not None:
         channel_rows = [channel_rows[int(index)] for index in indices]

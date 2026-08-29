@@ -165,12 +165,11 @@ def test_other_shots_are_unaffected_by_the_geometry_guard(shot):
 
 def test_geometry_guard_fires_before_any_raw_data_is_touched():
     """vfit_equilibrium_magnetics must refuse shot 39204 up front rather
-    than partway through processing."""
-    def _loader_that_must_not_run(_shot, _field):  # pragma: no cover
-        raise AssertionError("raw data must not be loaded for an unsupported shot")
-
+    than partway through processing. `raw_source` points at a path that does
+    not exist, so reaching the loader at all would surface a different
+    error than the geometry guard."""
     with pytest.raises(UnsupportedMagneticsGeometryError):
-        vfit_equilibrium_magnetics(39204, raw_source=None)
+        vfit_equilibrium_magnetics(39204, raw_source="/nonexistent/raw.json.gz")
 
 
 def test_native_flux_baseline_matches_the_matlab_leading_sample_fit():
@@ -214,3 +213,29 @@ def test_native_and_slow_daq_flux_baselines_actually_differ():
         config=VestMagneticsProcessingConfig(flux_baseline_window=(0.24, 0.26)),
     )
     assert not np.allclose(native, slow)
+
+
+def test_daq_mode_must_agree_with_the_flux_baseline_rule():
+    """`daq_mode` must not be decorative. A config claiming the native era
+    while carrying no native flux rule would silently process flux loops the
+    legacy way, so the mismatch is rejected in both directions."""
+    with pytest.raises(UnsupportedMagneticsDaqModeError, match="flux_baseline_samples"):
+        vest_equilibrium_magnetics_signals(
+            46404, [], lambda _s, _f: None,
+            config=VestMagneticsProcessingConfig(daq_mode="native_daq"),
+        )
+
+    with pytest.raises(UnsupportedMagneticsDaqModeError, match="native-DAQ rule"):
+        vest_equilibrium_magnetics_signals(
+            46403, [], lambda _s, _f: None,
+            config=VestMagneticsProcessingConfig(
+                daq_mode="legacy", flux_baseline_samples=1750
+            ),
+        )
+
+
+@pytest.mark.parametrize("shot", [41445, 43685, 46403, 46404])
+def test_configs_built_from_vest_yaml_are_always_self_consistent(shot):
+    """Every era the YAML can produce must pass the consistency check."""
+    config = equilibrium_magnetics_processing_config(shot)
+    vest_equilibrium_magnetics_signals(shot, [], lambda _s, _f: None, config=config)

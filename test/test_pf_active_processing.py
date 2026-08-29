@@ -229,3 +229,54 @@ def test_clipped_pf6_waveform_is_repaired_end_to_end(tmp_path):
     interior = slice(450, 650)
     assert np.min(np.abs(pf6[interior] - (-5000.0))) > 10.0
     assert np.all(np.isfinite(pf6))
+
+
+@pytest.mark.parametrize(
+    ("shot", "repair_enabled"),
+    [
+        (19000, False),
+        (20259, False),
+        (38109, False),
+        (38110, True),
+        (38361, True),
+        (45965, True),
+        (48372, True),
+    ],
+)
+def test_pf6_saturation_repair_is_scoped_to_the_negative_gain_eras(shot, repair_enabled):
+    """The donor (`vest_pf.m`) repairs PF6 unconditionally, but PF6's gain
+    flips sign at shot 38110 (+1e3 -> -1e3). Before that the acquisition rail
+    appears at *+5000* A, so a -5000 A sample is ordinary measured data and
+    "repairing" it would corrupt real signal."""
+    from vaft.machine_mapping.utils import resolve_vest_diagnostic as _resolve
+
+    processing = _resolve(shot, "pf_active")["processing"]
+    repair = processing.get("saturation_repair")
+    gain = float(processing["coil_gains"][5])
+
+    assert bool(repair) is repair_enabled
+    # The policy is enabled exactly where the rail is reachable at -5000 A.
+    assert (gain < 0) is repair_enabled
+    if repair_enabled:
+        assert float(repair[5]["value"]) == pytest.approx(-5000.0)
+
+
+def test_old_shot_pf6_current_near_minus_5000_is_left_alone(tmp_path):
+    """A pre-38110 shot whose PF6 legitimately passes -5000 A must not be
+    silently rewritten by the repair."""
+    shot = 20259  # positive PF6 gain era
+    n = 1200
+    plateau = np.zeros(n, dtype=float)
+    plateau[400:700] = 1.0
+    amplitude = -5.0 / (1.0 - plateau.mean())
+    pf6_raw = amplitude * plateau
+    other = np.sin(np.linspace(0.0, 20.0, n)) + np.linspace(0.0, 0.2, n)
+
+    source = tmp_path / "raw.json.gz"
+    _write_raw_dump(source, shot, {5: other, 59: other, 62: pf6_raw, 65: other})
+
+    _time_axis, currents = vfit_pf(shot, raw_source=source)
+    pf6 = currents[PF6_INDEX]
+
+    # It really does reach the rail value, and it is preserved as measured.
+    assert np.min(np.abs(pf6 - (-5000.0))) < 10.0
