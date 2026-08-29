@@ -64,7 +64,7 @@ jobs:
         run: |
           python -m pip install nbformat
           sudo apt-get update
-          sudo apt-get install -y latexmk texlive-latex-recommended
+          sudo apt-get install -y latexmk texlive-latex-recommended texlive-pictures
 
       - name: Verify committed tutorial source and artifacts
         run: python test/verify_tutorial.py
