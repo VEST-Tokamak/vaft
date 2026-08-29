@@ -52,8 +52,17 @@ IMPA_IDENTIFIER_PREFIX = "impa:"
 #: sensors map to ``b_field_pol_probe``.  The Hall node is listed first because
 #: it carries the array's position calibration.
 IMPA_PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
-#: A midplane probe measuring the vertical field looks "up" in the poloidal plane.
-IMPA_POLOIDAL_ANGLE = 0.0
+#: The IMPA Bz sensors measure the vertical field, so under the IMAS convention
+#: -- the sensitive axis being ``(cos(poloidal_angle), sin(poloidal_angle))`` in
+#: ``(R, Z)`` -- their nominal poloidal angle is pi/2, matching the equilibrium
+#: probes (:data:`vaft.machine_mapping.magnetics.POLOIDAL_ANGLE`).  A measured
+#: crosstalk misalignment is applied as an offset from this nominal.
+IMPA_POLOIDAL_ANGLE = math.pi / 2
+#: A Hall channel wired for the toroidal field has no sensitive component in the
+#: poloidal plane at all; ``toroidal_angle = 0`` is what declares its
+#: orientation, and a poloidal angle of 0 is written only to keep the node
+#: complete.
+IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE = 0.0
 
 
 def _safe_vest_load(shot: int, field: int, raw_source: raw_db.RawSource | None = None):
@@ -561,7 +570,11 @@ def impa(
         set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
         set_path(ods, f"{prefix}.position.phi", 0.0)
         set_path(ods, f"{prefix}.length", PROBE_LENGTH)
-        set_path(ods, f"{prefix}.poloidal_angle", IMPA_POLOIDAL_ANGLE)
+        set_path(
+            ods,
+            f"{prefix}.poloidal_angle",
+            IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE if orientation == "toroidal" else IMPA_POLOIDAL_ANGLE,
+        )
         set_path(ods, f"{prefix}.toroidal_angle", 0.0)
         set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
         set_path(ods, f"{prefix}.type.name", "hall")

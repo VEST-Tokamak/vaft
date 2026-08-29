@@ -31,19 +31,19 @@ DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
 DEFAULT_DT = 4e-5
 PROBE_LENGTH = 0.01
-POLOIDAL_ANGLE = 3 * math.pi / 2
-#: What VEST's poloidal probes actually measure, as a signed (Br, Bz) direction.
+#: Orientation of VEST's poloidal probes, in the IMAS convention: the sensitive
+#: axis is ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)``, so
+#: pi/2 declares a probe measuring **+Bz**.
 #:
-#: ``POLOIDAL_ANGLE`` above is a legacy placeholder written into every probe and
-#: read by nothing: under the IMAS convention -- the sensitive axis being
-#: ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)`` -- 3*pi/2 means
-#: -Bz, which anti-correlates with the mapped ``field.data`` at -0.96 against a
-#: coil+eddy forward model. The probes measure **+Bz**: correlation +0.96, and
-#: the EFIT k-file writer groups them by the same understanding (its
-#: ``Index_inBz``/``sideBz``/``outBz`` families). Forward models must project
-#: with this constant rather than with the stored angle. Fixing the stored value
-#: means regenerating the packaged reference ODSs, which is out of scope here.
-PROBE_FIELD_DIRECTION = (0.0, 1.0)
+#: That is what these probes measure, settled numerically on shot 39915 against
+#: a coil+eddy Green's-function forward model: +Bz correlates with the mapped
+#: ``field.data`` at +0.96, -Bz at -0.96 and +Br at -0.72. The EFIT k-file
+#: writer groups the same channels by that understanding (its
+#: ``Index_inBz``/``sideBz``/``outBz`` families) and the mapped channel names
+#: end in ``_Bz``. Consumers should project with the stored angle (issue #169);
+#: it read 3*pi/2 -- -Bz -- until the packaged reference ODSs were relabelled
+#: along with this constant.
+POLOIDAL_ANGLE = math.pi / 2
 MIRNOV_TYPE_INDEX = 2
 OUTBOARD_MIRNOV_MAJOR_RADIUS = 0.796
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
