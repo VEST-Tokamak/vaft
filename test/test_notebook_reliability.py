@@ -155,6 +155,11 @@ def _is_backend_pin(node: ast.AST, use_aliases: frozenset[str]) -> bool:
     # matplotlib.use, mpl.use, plt.switch_backend, matplotlib.pyplot.use, ...
     if name.rsplit(".", 1)[-1] in _BACKEND_SETTER_ATTRS:
         return True
+    # get_ipython().run_line_magic("matplotlib", ...) -- the programmatic form
+    # of the %matplotlib magic.
+    if name.rsplit(".", 1)[-1] == "run_line_magic":
+        first = node.args[0] if node.args else None
+        return isinstance(first, ast.Constant) and first.value == "matplotlib"
     if name.endswith("environ.setdefault") or name.endswith("environ.update"):
         first = node.args[0] if node.args else None
         if isinstance(first, ast.Constant) and first.value == "MPLBACKEND":
@@ -335,3 +340,54 @@ def test_verification_notebook_refuses_to_regenerate_without_target_shots():
     }
     with pytest.raises(RuntimeError, match="core_profile"):
         exec(compile(source, f"{notebook_path.name}:cell-3", "exec"), namespace)
+
+
+def test_the_backend_guard_selects_inline_inside_an_agg_pinned_kernel():
+    """The guard must recover a kernel whose environment pins Agg.
+
+    This is the reported failure from issues #175/#179/#182: a kernel running
+    with `MPLBACKEND=Agg` renders nothing and warns "FigureCanvasAgg is
+    non-interactive". Relying on ipykernel to preset MPLBACKEND is not enough --
+    older releases do not, which is why the guard asks for inline explicitly.
+    """
+    nbclient = pytest.importorskip("nbclient")
+    import os
+
+    guard = next(
+        source
+        for _, source in _code_cells(NOTEBOOKS / "confinement_time_scaling.ipynb")
+        if "_ipython" in source
+    ).split("import json")[0]
+
+    book = nbformat.v4.new_notebook()
+    book.cells = [
+        nbformat.v4.new_code_cell(
+            guard
+            + "\nimport matplotlib\nprint(matplotlib.get_backend())\n"
+            "import matplotlib.pyplot as plt\n"
+            "fig, ax = plt.subplots()\nax.plot([0, 1], [0, 1])\nplt.show()\n"
+        )
+    ]
+
+    previous = os.environ.get("MPLBACKEND")
+    os.environ["MPLBACKEND"] = "Agg"
+    try:
+        nbclient.NotebookClient(
+            book, timeout=180, kernel_name="python3", allow_errors=True
+        ).execute()
+    finally:
+        if previous is None:
+            os.environ.pop("MPLBACKEND", None)
+        else:
+            os.environ["MPLBACKEND"] = previous
+
+    outputs = book.cells[0].outputs
+    rendered = [
+        output
+        for output in outputs
+        if output.output_type in ("display_data", "execute_result")
+        and "image/png" in output.get("data", {})
+    ]
+    streams = "".join(o.get("text", "") for o in outputs if o.output_type == "stream")
+    assert "inline" in streams, f"guard left the backend as: {streams.strip()}"
+    assert len(rendered) == 1, "the figure did not reach the frontend"
