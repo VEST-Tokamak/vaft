@@ -57,6 +57,46 @@ def _write_manifest(path: Path, manifest: dict) -> None:
     )
 
 
+def _drop_invalid_signal(compact: ODS, base: str) -> None:
+    """Remove an unavailable signal while retaining its channel metadata.
+
+    The pipeline ODS carries a few IMAS default placeholders as scalar times or
+    empty arrays.  Native IMAS requires each heterogeneous signal to have
+    matching one-dimensional data and time coordinates, so those placeholders
+    must not be serialized as real signals.
+    """
+    data = np.asarray(compact.get(f"{base}.data", []))
+    time = np.asarray(compact.get(f"{base}.time", []))
+    if not (
+        data.ndim == 1
+        and time.ndim == 1
+        and data.size > 0
+        and time.size == data.size
+    ) and base in compact:
+        del compact[base]
+
+
+def _normalize_magnetics(compact: ODS) -> None:
+    """Preserve every magnetic channel with portable signal coordinates."""
+    if "magnetics" not in compact:
+        return
+    compact["magnetics.ids_properties.homogeneous_time"] = 0
+    for index in range(len(compact.get("magnetics.b_field_pol_probe", []))):
+        base = f"magnetics.b_field_pol_probe.{index}"
+        # Issue #169: the stored sensitive axis must describe the +Bz signal.
+        compact[f"{base}.poloidal_angle"] = POLOIDAL_ANGLE
+        _drop_invalid_signal(compact, f"{base}.field")
+        _drop_invalid_signal(compact, f"{base}.voltage")
+    for index in range(len(compact.get("magnetics.b_field_tor_probe", []))):
+        base = f"magnetics.b_field_tor_probe.{index}"
+        _drop_invalid_signal(compact, f"{base}.field")
+        _drop_invalid_signal(compact, f"{base}.voltage")
+    for index in range(len(compact.get("magnetics.flux_loop", []))):
+        _drop_invalid_signal(compact, f"magnetics.flux_loop.{index}.flux")
+    for index in range(len(compact.get("magnetics.shunt", []))):
+        _drop_invalid_signal(compact, f"magnetics.shunt.{index}.voltage")
+
+
 def _materialize_compact(canonical: ODS, manifest: dict) -> ODS:
     """Select and normalize one manifest-defined representation of ``canonical``."""
     compact = _compact_ods(canonical, list(manifest["generation"]["selectors"]))
@@ -87,22 +127,7 @@ def _materialize_compact(canonical: ODS, manifest: dict) -> ODS:
         compact["barometry.ids_properties.homogeneous_time"] = 1
     if "equilibrium.time" in compact:
         compact["equilibrium.ids_properties.homogeneous_time"] = 1
-    if "magnetics.b_field_pol_probe.1.field.data" in compact:
-        compact["magnetics.b_field_pol_probe.0"] = compact[
-            "magnetics.b_field_pol_probe.1"
-        ]
-        del compact["magnetics.b_field_pol_probe.1"]
-    if "magnetics.b_field_pol_probe.0.field.data" in compact:
-        # The frozen source predates issue #169. Relabel its already-positive
-        # Bz signal with the corrected IMAS sensitive-axis metadata.
-        compact["magnetics.b_field_pol_probe.0.poloidal_angle"] = POLOIDAL_ANGLE
-    if "magnetics.time" in compact:
-        magnetics_time = compact["magnetics.time"]
-        compact["magnetics.ids_properties.homogeneous_time"] = 1
-        if "magnetics.flux_loop.0.flux.data" in compact:
-            compact["magnetics.flux_loop.0.flux.time"] = magnetics_time
-        if "magnetics.b_field_pol_probe.0.field.data" in compact:
-            compact["magnetics.b_field_pol_probe.0.field.time"] = magnetics_time
+    _normalize_magnetics(compact)
     return compact
 
 
@@ -232,6 +257,15 @@ def verify(manifest_path: Path) -> None:
         manifest["acceptance"]["equilibrium_times"], dtype=float
     )
     np.testing.assert_allclose(native_omas["equilibrium.time"], expected_times)
+    expected_magnetics = manifest["acceptance"]["magnetics"]
+    if len(native_omas["magnetics.b_field_pol_probe"]) != int(
+        expected_magnetics["b_field_pol_probe_count"]
+    ):
+        raise ValueError("Compact sample does not contain every B-pol probe")
+    if len(native_omas["magnetics.flux_loop"]) != int(
+        expected_magnetics["flux_loop_count"]
+    ):
+        raise ValueError("Compact sample does not contain every flux loop")
 
 
 def main() -> int:

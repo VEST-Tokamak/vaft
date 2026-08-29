@@ -1,6 +1,7 @@
 import gzip
 import json
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from helpers import format_failures, validate_contract
@@ -24,9 +25,33 @@ class SampleContractTests(unittest.TestCase):
     def test_current_pipeline_sample_smoke_on_39915(self):
         with gzip.open(SAMPLE, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
+        specs = deepcopy(CANONICAL_IDS_SPECS)
+        magnetics = specs["magnetics"]
+        magnetics["required_paths"] = [
+            path.replace(
+                "magnetics.b_field_pol_probe.0.field",
+                "magnetics.b_field_pol_probe.1.field",
+            )
+            for path in magnetics["required_paths"]
+        ]
+        for series in magnetics["series"]:
+            series["data_path"] = series["data_path"].replace(
+                "magnetics.b_field_pol_probe.0.field",
+                "magnetics.b_field_pol_probe.1.field",
+            )
+            series["time_paths"] = [
+                path.replace(
+                    "magnetics.b_field_pol_probe.0.field",
+                    "magnetics.b_field_pol_probe.1.field",
+                )
+                for path in series["time_paths"]
+            ]
+        magnetics["expected_values"][
+            "magnetics.ids_properties.homogeneous_time"
+        ] = 0
         failures = validate_contract(
             payload,
-            CANONICAL_IDS_SPECS,
+            specs,
             ids_names=SAMPLE_FILE_IDS["39915"],
             strict_values=False,
         )

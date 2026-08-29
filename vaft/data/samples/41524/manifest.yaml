@@ -51,6 +51,10 @@ pipeline:
     status: 'completed: returncode=0; gfiles=6'
     requested_time_slices: 22
     successful_time_slices: 6
+    optional_outputs:
+      mfile:
+        status: unavailable
+        reason: EFIT executable was not linked with NetCDF support
 semantic_comparison:
   paths:
   - barometry.*

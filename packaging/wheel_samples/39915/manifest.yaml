@@ -33,6 +33,10 @@ pipeline:
     status: 'completed: returncode=0; gfiles=9'
     requested_time_slices: 22
     successful_time_slices: 9
+    optional_outputs:
+      mfile:
+        status: unavailable
+        reason: EFIT executable was not linked with NetCDF support
   stage_status:
     diagnostics: partial
     eddy: success
@@ -45,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 857177
-    sha256: 76b06487879c5b1429898e7fbd4c7149056b9bec20aeb7fc29aff6a123b8d80e
+    size: 9762820
+    sha256: 10545d14accd9c2f2477ff93c367aee31b50d9cf7a7584bd44e8a07e8ddd3cb6
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -54,8 +58,8 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 1357005
-    sha256: ececd7dc93cc15e6d6b3b2f3c25290f7552db933b38e0afe26df0d1ac518cdc5
+    size: 11068498
+    sha256: 8c4ae4fb7fef6d820b6c9a4443c0599acc0fb675dc3470c14b21c34501a3b695
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -63,7 +67,7 @@ generation:
   canonical_sha256: 426f8e7842e0fcc73dc5df910c797a5a40b5b460bb0165b7de292d9b48235ded
   canonical_policy: repository-only
   equilibrium_time_slices: 3
-  materialized_leaves: 4278
+  materialized_leaves: 5490
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -82,12 +86,7 @@ generation:
   - pf_active.coil.2.*
   - pf_active.coil.3.*
   - pf_active.coil.4.*
-  - magnetics.ids_properties.*
-  - magnetics.time
-  - magnetics.ip.0.*
-  - magnetics.flux_loop.0.*
-  - magnetics.diamagnetic_flux.0.*
-  - magnetics.b_field_pol_probe.1.*
+  - magnetics.*
   - spectrometer_uv.ids_properties.*
   - spectrometer_uv.time
   - spectrometer_uv.channel.0.*
@@ -120,6 +119,9 @@ semantic_comparison:
   - '*.ids_properties.occurrence'
   - '*.ids_properties.homogeneous_time'
 acceptance:
+  magnetics:
+    b_field_pol_probe_count: 76
+    flux_loop_count: 11
   equilibrium_times:
   - 0.316
   - 0.317

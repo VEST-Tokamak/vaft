@@ -122,8 +122,13 @@ def test_legacy_sample_ods_wrapper_uses_registry_and_sample_odc_is_removed():
 
 def test_reference_probe_metadata_describes_positive_bz():
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
-    angle = ods["magnetics.b_field_pol_probe.0.poloidal_angle"]
-    np.testing.assert_allclose((np.cos(angle), np.sin(angle)), (0.0, 1.0), atol=1e-15)
+    assert len(ods["magnetics.b_field_pol_probe"]) == 76
+    assert len(ods["magnetics.flux_loop"]) == 11
+    for index in range(76):
+        angle = ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"]
+        np.testing.assert_allclose(
+            (np.cos(angle), np.sin(angle)), (0.0, 1.0), atol=1e-15
+        )
 
 
 @pytest.mark.parametrize("shot", [39915, 41524, 41672])
@@ -216,6 +221,21 @@ def test_paired_sample_exercises_complete_adapter_matrix():
     assert len(omas_native["equilibrium.time"]) == manifest["pipeline"]["efit"][
         "successful_time_slices"
     ]
+    assert len(omas_native["magnetics.b_field_pol_probe"]) == 76
+    assert len(omas_native["magnetics.flux_loop"]) == 11
+    assert omas_native["magnetics.ids_properties.homogeneous_time"] == 0
+    for family, signal in (
+        ("b_field_pol_probe", "field"),
+        ("b_field_pol_probe", "voltage"),
+        ("flux_loop", "flux"),
+    ):
+        for index in range(len(omas_native[f"magnetics.{family}"])):
+            base = f"magnetics.{family}.{index}.{signal}"
+            if f"{base}.data" not in omas_native:
+                continue
+            assert omas_native[f"{base}.data"].shape == omas_native[
+                f"{base}.time"
+            ].shape
     assert manifest["packaging_policy"]["repository_equilibrium_time_slices"] == "all"
     assert omas_native["wall.description_2d.0.limiter.unit.0.outline.r"].size > 10
     assert (
@@ -246,8 +266,12 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     verify_sample_artifacts(sample_root, manifest)
     wheel_ods = vaft.omas.load(sample_root / "omas.json.gz")
     np.testing.assert_allclose(wheel_ods["equilibrium.time"], [0.316, 0.317, 0.318])
+    assert len(wheel_ods["magnetics.b_field_pol_probe"]) == 76
+    assert len(wheel_ods["magnetics.flux_loop"]) == 11
     with vaft.imas.load(sample_root / "imas.nc") as handle:
         wheel_native = handle.to_omas()
     np.testing.assert_allclose(
         wheel_native["equilibrium.time"], [0.316, 0.317, 0.318]
     )
+    assert len(wheel_native["magnetics.b_field_pol_probe"]) == 76
+    assert len(wheel_native["magnetics.flux_loop"]) == 11
