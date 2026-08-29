@@ -54,6 +54,19 @@ N_TIME = 240
 # contract requires, at the smallest size that still exercises both families.
 PROBES = (("inboard_probe", 0.05, 0.1), ("outboard_probe", 0.85, 0.1))
 LOOPS = (("inboard_loop", 0.10, 0.3), ("outboard_loop", 0.70, 0.3))
+# Deterministic measurement noise on the plasma fixture, as a fraction of each
+# channel's own pre-plasma eddy signal.
+#
+# ``residual_onset`` takes its threshold from the pre-plasma residual's own
+# noise and reports nan when that noise is exactly zero.  A measured signal
+# synthesized to cancel the forward model to the last bit leaves it nothing to
+# measure: whether any rounding survives the interpolation onto the pf_active
+# grid is a platform detail, not physics, so the onset tests would rest on
+# float error.  This floor is small enough that the eddy term still explains
+# more than 99% of the pre-plasma residual, and large enough that a stricter
+# sigma has a band it can actually move the detected onset out of.
+MEASUREMENT_NOISE = 0.01
+NOISE_SEED = 20260829
 
 
 def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
@@ -94,6 +107,8 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
         ods[f"{base}.current"] = loop_currents[index]
     ods["pf_passive.time"] = time
 
+    rng = np.random.default_rng(NOISE_SEED)
+
     positions = [(r, z) for _, r, z in PROBES] + [(r, z) for _, r, z in LOOPS]
     psi, b_z, b_r = compute_point_response_ods(ods, [[r, z] for r, z in positions])
     direction_r, direction_z = math.cos(POLOIDAL_ANGLE), math.sin(POLOIDAL_ANGLE)
@@ -107,6 +122,14 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
     ods["magnetics.ip.0.data"] = ip + 1.0e2 * np.sin(np.linspace(0, 40, N_TIME))
     ods["magnetics.ip.0.time"] = time
     ods["magnetics.time"] = time
+    pre_plasma = time < PLASMA_ONSET
+
+    def noise(eddy):
+        # Scaled by the eddy term the channel carries, so every channel keeps
+        # the same signal-to-noise and the vacuum fixture stays exact.
+        if not plasma_amplitude:
+            return 0.0
+        return MEASUREMENT_NOISE * float(np.std(eddy[pre_plasma])) * rng.standard_normal(N_TIME)
 
     expected: dict[tuple[str, int], dict[str, np.ndarray]] = {}
     for index, (name, r, z) in enumerate(PROBES):
@@ -118,7 +141,7 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
         ods[f"{base}.position.r"] = r
         ods[f"{base}.position.z"] = z
         ods[f"{base}.poloidal_angle"] = POLOIDAL_ANGLE
-        ods[f"{base}.field.data"] = coil + eddy + 1.0e-3 * plasma_shape
+        ods[f"{base}.field.data"] = coil + eddy + 1.0e-3 * plasma_shape + noise(eddy)
         ods[f"{base}.field.time"] = time
         expected[(B_FIELD_POL_PROBE, index)] = {"coil": coil, "coil_eddy": coil + eddy}
     for offset, (name, r, z) in enumerate(LOOPS):
@@ -129,7 +152,7 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
         ods[f"{base}.name"] = name
         ods[f"{base}.position.0.r"] = r
         ods[f"{base}.position.0.z"] = z
-        ods[f"{base}.flux.data"] = coil + eddy + 5.0e-3 * plasma_shape
+        ods[f"{base}.flux.data"] = coil + eddy + 5.0e-3 * plasma_shape + noise(eddy)
         ods[f"{base}.flux.time"] = time
         expected[(FLUX_LOOP, offset)] = {"coil": coil, "coil_eddy": coil + eddy}
     return ods, time, expected
