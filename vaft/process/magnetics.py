@@ -13,6 +13,10 @@ from vaft.process import define_baseline, subtract_baseline
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
 
 
+class UnsupportedMagneticsDaqModeError(NotImplementedError):
+    """Raised for a magnetics acquisition era with no ported processing path."""
+
+
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
     """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
@@ -49,11 +53,20 @@ class VestMagneticsProcessingConfig:
     flux_baseline_late_loop_numbers: tuple[int, ...] = (9, 10, 11)
     calibration_mode: str = "divide"
     flux_output_per_radian: bool = True
+    # Shot-era policy resolved from `vest.yaml` (issue #195). When
+    # `window_override` is None the legacy hardcoded thresholds below still
+    # apply, so directly-constructed configs keep their historical behavior.
+    window_override: tuple[int, int, int] | None = None
+    flux_baseline_window: tuple[float, float] | None = None
+    flux_baseline_samples: int | None = None
+    daq_mode: str = "legacy"
 
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
 
     def window_for_shot(self, shot: int) -> tuple[int, int, int]:
+        if self.window_override is not None:
+            return self.window_override
         if self.transient_shot_min <= shot <= self.transient_shot_max or shot >= self.late_shot_min:
             return self.late_index_start, self.late_index_end, self.late_probe_baseline_end
         return self.default_index_start, self.default_index_end, self.default_probe_baseline_end
@@ -126,6 +139,33 @@ def _linear_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndar
     return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
 
 
+def _validate_daq_mode(cfg: VestMagneticsProcessingConfig) -> None:
+    """Reject configs whose `daq_mode` disagrees with the rules it carries.
+
+    `daq_mode` must not be decorative: the acquisition era it names and the
+    flux-loop baseline rule that actually distinguishes the two donor
+    functions have to agree, or a config could claim `native_daq` while
+    silently processing flux loops the legacy way.
+    """
+    if cfg.daq_mode not in {"legacy", "native_daq"}:
+        raise UnsupportedMagneticsDaqModeError(
+            f"Unknown VEST magnetics daq_mode {cfg.daq_mode!r}; expected 'legacy' or 'native_daq'"
+        )
+    if cfg.daq_mode == "native_daq" and cfg.flux_baseline_samples is None:
+        raise UnsupportedMagneticsDaqModeError(
+            "daq_mode='native_daq' requires flux_baseline_samples: on the native "
+            "acquisition the flux loops take the probes' leading-sample baseline "
+            "(the donor reuses index_Bz_start:index_Bz_end). Without it the flux "
+            "loops would silently fall back to the legacy baseline rule."
+        )
+    if cfg.daq_mode == "legacy" and cfg.flux_baseline_samples is not None:
+        raise UnsupportedMagneticsDaqModeError(
+            "flux_baseline_samples is a native-DAQ rule but daq_mode='legacy'; "
+            "the legacy era selects its flux baseline by physical window "
+            "(flux_baseline_window) or by the historical index ranges."
+        )
+
+
 def vest_magnetics_time_window(shot: int, config: VestMagneticsProcessingConfig | None = None) -> np.ndarray:
     """Return the VEST MD output time window for a shot."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
@@ -182,7 +222,21 @@ def vest_flux_loop_legacy(
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
 
-    if int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
+    if cfg.flux_baseline_samples is not None:
+        # Native-DAQ era (VEST_MagneticSignalProcessing2.m): flux loops moved
+        # onto the 250 kHz acquisition and take the same leading-sample
+        # baseline as the B-pol probes -- MATLAB
+        # `polyfit(timeFastFL(index_Bz_start:index_Bz_end), ...)` with
+        # index_Bz_start = 1, index_Bz_end = 1750.
+        baseline_indices = np.arange(min(int(cfg.flux_baseline_samples), integrated.size))
+    elif cfg.flux_baseline_window is not None:
+        # Shot >= 43685 on the slow-DAQ era: MATLAB
+        # `index_FL_start = 6001 (0.24 s), index_FL_end = 6500 (0.26 s)`.
+        # Expressed in physical seconds so it stays correct regardless of the
+        # loop's native sample rate.
+        window_start, window_end = (float(bound) for bound in cfg.flux_baseline_window)
+        baseline_indices = np.flatnonzero((time >= window_start) & (time <= window_end))
+    elif int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
         baseline_indices = np.arange(cfg.flux_baseline_late_start, min(cfg.flux_baseline_late_end, integrated.size))
     else:
         first = np.arange(cfg.flux_baseline_first_start, min(cfg.flux_baseline_first_end, integrated.size))
@@ -203,6 +257,7 @@ def vest_equilibrium_magnetics_signals(
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process VEST MD channels into flux-loop and B-probe waveforms."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    _validate_daq_mode(cfg)
     channel_rows = list(channels)
     if indices is not None:
         channel_rows = [channel_rows[int(index)] for index in indices]

@@ -10,6 +10,7 @@ import scipy.io
 from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
+from vaft.process.signal_processing import repair_clipped_interval
 
 from .utils import resolve_vest_diagnostic, set_path
 
@@ -146,6 +147,11 @@ def vfit_pf(
     }
     reference_time = required_signals[int(coil_codes[0])][0]
 
+    saturation_repair = {
+        int(coil_index): repair
+        for coil_index, repair in (processing.get("saturation_repair") or {}).items()
+    }
+
     pf_data: list[np.ndarray] = []
     code_index = 0
     for coil_index in range(PF_COIL_COUNT):
@@ -155,6 +161,17 @@ def vfit_pf(
             current = raw_values - _baseline_mean(raw_values, int(processing["baseline_samples"]))
             current = _legacy_pf_filter(current, processing) * coil_gains.get(coil_index, 0.0)
             current = _coerce_signal_to_reference(reference_time, waveform_time, current)
+            repair = saturation_repair.get(coil_index)
+            if repair is not None:
+                # Acquisition clipping (VEST PF6 near -5000 A). A
+                # SignalRepairError propagates deliberately: fabricating a
+                # waveform would be worse than reporting it is unrecoverable.
+                current = repair_clipped_interval(
+                    reference_time,
+                    current,
+                    clip_value=float(repair["value"]),
+                    tolerance=float(repair["tolerance"]),
+                )
             code_index += 1
         else:
             # Coil_info.mat intentionally marks this hardware channel disabled;
