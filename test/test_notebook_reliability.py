@@ -87,9 +87,18 @@ def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
     monkeypatch.setenv("VAFT_DIAGNOSTICS_ODS", str(sample))
     monkeypatch.setenv("VAFT_DOCS_OUTPUT_DIR", str(tmp_path))
 
+    # Located by content, not by index: the notebook is restructured from time to
+    # time and pinned indices make every edit look like a regression.
+    def cell_containing(marker):
+        for index, cell in enumerate(book.cells):
+            if cell.cell_type == "code" and marker in cell.source:
+                return index, cell.source
+        raise AssertionError(f"no code cell contains {marker!r}")
+
     namespace = {}
-    for index in (1, 3):
-        exec(compile(book.cells[index].source, f"{notebook_path.name}:cell-{index}", "exec"), namespace)
+    for marker in ("output_dir =", "VAFT_DIAGNOSTICS_ODS"):
+        index, source = cell_containing(marker)
+        exec(compile(source, f"{notebook_path.name}:cell-{index}", "exec"), namespace)
 
     assert namespace["source"] == sample
     assert len(namespace["ods"]) > 0
