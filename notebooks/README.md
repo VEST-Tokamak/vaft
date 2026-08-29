@@ -33,6 +33,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 
 - `magnetic_diagnostics_processing.ipynb`: Planned raw magnetic diagnostics processing, calibration, filtering, and processed signal format.
 - `fluctuation_diagnostics_analysis.ipynb`: Fluctuation spectral analysis — Welch PSD, power-law spectral index, spectral breaks, band powers and spectrograms — with the theory behind each routine, demonstrated on VEST magnetic probes and soft X-rays.
+- `soft_x_ray_signal_analysis.ipynb`: VEST SXR workflow — LOS geometry, traces, spectrogram, chord-time patterns, plus band-decomposed chord maps, optional vacuum-shot PF-noise subtraction, Be/Al two-filter electron temperature, and a two-point toroidal mode-number estimate ported from the validated VEST SXR Viewer.
 - `eddy_current_calculation_and_startup_analysis.ipynb`: Planned PF passive eddy-current calculation and startup analysis.
 - `fast_camera_video_analysis.ipynb`: Planned VEST camera image/video loading, synchronization, and visual plasma behavior analysis.
 
