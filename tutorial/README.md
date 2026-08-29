@@ -114,14 +114,32 @@ make -C tutorial slides
 LaTeX intermediates are written to `tutorial/.build/`; only the six requested
 PDFs are copied into the tutorial directory and committed.
 
+Whenever you change a deck source or a figure it pulls in, rebuild that deck and
+commit the regenerated PDF in the same change. CI enforces this: it checks that
+every changed deck input ships a rebuilt PDF, then compiles all six decks from
+scratch and confirms the rebuild reproduces the committed page structure.
+
+The build pins `SOURCE_DATE_EPOCH` and `FORCE_SOURCE_DATE`, so rebuilding on one
+machine reproduces byte-identical PDFs. That does not hold across TeX Live
+releases, because pdfTeX records its own version in every file it writes. CI
+therefore compares page structure rather than bytes, and the paired-rebuild
+check is what keeps a committed PDF from drifting away from its source.
+
 ## Validation and contribution sequence
 
 Run the repository contract before committing tutorial changes:
 
 ```bash
 python test/verify_tutorial.py
-make -C tutorial slides
+make -B -C tutorial slides
 python test/verify_tutorial.py
+```
+
+To reproduce the CI freshness checks locally, compare your branch against its
+base and against a scratch copy of the committed decks:
+
+```bash
+python test/verify_tutorial_freshness.py pairing --base origin/develop --head HEAD
 ```
 
 Develop sessions in numerical order. For each session:

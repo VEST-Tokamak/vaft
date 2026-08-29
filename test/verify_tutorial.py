@@ -7,6 +7,7 @@ import ast
 from pathlib import Path
 import re
 import sys
+import zlib
 
 import nbformat
 
@@ -71,6 +72,45 @@ FORBIDDEN_DATA_SUFFIXES = {
     ".tsv",
     ".xlsx",
 }
+
+MINIMUM_PDF_BYTES = 1_000
+_PDF_STREAM = re.compile(rb"(?<!end)stream\r?\n")
+_PDF_PAGE = re.compile(rb"/Type\s*/Page(?![s/A-Za-z])")
+
+
+def _inflate_pdf(payload: bytes) -> bytes:
+    """Return the payload joined with every FlateDecode stream that inflates.
+
+    pdfTeX packs the page dictionaries into compressed object streams, so they
+    are invisible until the streams are inflated.
+    """
+    blobs = [payload]
+    for match in _PDF_STREAM.finditer(payload):
+        end = payload.find(b"endstream", match.end())
+        if end < 0:
+            continue
+        try:
+            blobs.append(zlib.decompressobj().decompress(payload[match.end() : end]))
+        except zlib.error:
+            continue
+    return b"".join(blobs)
+
+
+def count_pdf_pages(payload: bytes) -> int:
+    """Count page objects in a PDF without depending on a third-party parser."""
+    return len(_PDF_PAGE.findall(_inflate_pdf(payload)))
+
+
+def pdf_problems(payload: bytes) -> list[str]:
+    """Report structural defects in a compiled deck PDF."""
+    if not payload.startswith(b"%PDF-") or len(payload) < MINIMUM_PDF_BYTES:
+        return ["not a plausible compiled PDF"]
+    problems: list[str] = []
+    if not payload.rstrip().endswith(b"%%EOF"):
+        problems.append("is truncated: the %%EOF trailer is missing")
+    if count_pdf_pages(payload) < 1:
+        problems.append("declares no pages")
+    return problems
 
 
 def _source_text(cell: nbformat.NotebookNode) -> str:
@@ -192,9 +232,8 @@ def _validate_deck(session: int, filename: str, failures: list[str]) -> None:
 
     pdf = path.with_suffix(".pdf")
     if pdf.exists():
-        payload = pdf.read_bytes()
-        if not payload.startswith(b"%PDF-") or len(payload) < 1_000:
-            failures.append(f"{pdf.name}: not a plausible compiled PDF")
+        for problem in pdf_problems(pdf.read_bytes()):
+            failures.append(f"{pdf.name}: {problem}")
 
 
 def validate() -> list[str]:
