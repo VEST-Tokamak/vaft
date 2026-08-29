@@ -1,4 +1,10 @@
-from vaft.formula.green import calculate_distance, green_br_bz, green_r
+from vaft.formula.green import (
+    calculate_distance,
+    green_br_bz,
+    green_br_bz_exact,
+    green_psi_exact,
+    green_r,
+)
 from typing import List, Dict, Any, Tuple
 import numpy as np
 from numpy import ndarray
@@ -242,6 +248,67 @@ def compute_response_vector(
         passive_loop_data=passive_loop_data,
         plasma_points=plasma_points
     )
+
+def compute_point_response_matrices(
+    obs_r: np.ndarray,
+    obs_z: np.ndarray,
+    src_r: np.ndarray,
+    src_z: np.ndarray,
+    turns: np.ndarray | None = None,
+    groups: np.ndarray | None = None,
+    n_groups: int | None = None,
+) -> Tuple[ndarray, ndarray, ndarray]:
+    """Vectorized exact (psi, Bz, Br) response matrices for point sources.
+
+    Fully NumPy-broadcast alternative to :func:`compute_response_matrix`
+    (which is kept unchanged): no per-point Python loops, exact scipy
+    elliptic integrals (see ``vaft.formula.green.greens_function_exact``).
+
+    :param obs_r, obs_z: observation coordinates, shape (n_obs,)
+    :param src_r, src_z: source filament coordinates, shape (n_src,)
+    :param turns: optional per-source turns weighting, shape (n_src,)
+    :param groups: optional integer group index per source, shape
+        (n_src,); columns of the result are summed per group (e.g. 530
+        discretized coil filaments -> 10 PF coil circuits)
+    :param n_groups: number of groups (defaults to ``groups.max() + 1``)
+    :return: (Psi, Bz, Br), each of shape (n_obs, n_src) or
+        (n_obs, n_groups) when *groups* is given. Units per unit source
+        current: psi [Wb], Bz [T], Br [T].
+    """
+    obs_r = np.asarray(obs_r, dtype=float).ravel()
+    obs_z = np.asarray(obs_z, dtype=float).ravel()
+    src_r = np.asarray(src_r, dtype=float).ravel()
+    src_z = np.asarray(src_z, dtype=float).ravel()
+    if obs_r.shape != obs_z.shape or src_r.shape != src_z.shape:
+        raise ValueError("observation/source r and z arrays must have equal shapes")
+
+    ro = obs_r[:, None]
+    zo = obs_z[:, None]
+    rs = src_r[None, :]
+    zs = src_z[None, :]
+
+    psi = green_psi_exact(ro, zo, rs, zs)
+    br, bz = green_br_bz_exact(ro, zo, rs, zs)
+
+    if turns is not None:
+        w = np.asarray(turns, dtype=float).ravel()[None, :]
+        psi = psi * w
+        bz = bz * w
+        br = br * w
+
+    if groups is not None:
+        groups = np.asarray(groups, dtype=int).ravel()
+        if groups.shape != src_r.shape:
+            raise ValueError("groups must have one entry per source")
+        ng = int(n_groups if n_groups is not None else groups.max() + 1)
+        onehot = np.zeros((src_r.size, ng))
+        onehot[np.arange(src_r.size), groups] = 1.0
+        psi = psi @ onehot
+        bz = bz @ onehot
+        br = br @ onehot
+
+    return psi, bz, br
+
 
 def compute_mutual_passive_active(
     passive_loop_geometry: List[Tuple[str, float, float, float]],
