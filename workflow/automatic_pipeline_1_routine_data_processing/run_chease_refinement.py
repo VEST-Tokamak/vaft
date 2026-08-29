@@ -121,6 +121,15 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     work_root.mkdir(parents=True, exist_ok=True)
 
+    # An EFIT run with no converged g-files is a valid upstream outcome.  CHEASE
+    # and the stability solvers must receive an explicit empty manifest, not a
+    # synthetic CHEASE failure caused by iterating an empty input set.
+    if not gfiles:
+        _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, args.executable, gfiles, (), [])
+        _write_outputs(args.output, args.status, (), "skipped: no EFIT gfiles; input_gfiles=0")
+        return 0
+
     executable = Path(args.executable).expanduser() if args.executable else None
     config_probe = CHEASEConfig(executable=str(executable) if executable else None)
     resolved_executable = find_chease_executable(config_probe)

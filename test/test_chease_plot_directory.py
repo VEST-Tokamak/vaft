@@ -48,6 +48,36 @@ def test_an_explicit_plot_dir_is_honoured(tmp_path):
     assert not (output_dir / "plots").exists()
 
 
+def test_empty_gfile_manifest_skips_even_when_chease_is_enabled(tmp_path):
+    output = tmp_path / "out" / "refined_gfiles_generated.txt"
+    gfiles = tmp_path / "gfiles.txt"
+    gfiles.write_text("", encoding="utf-8")
+    status = tmp_path / "out" / "status.txt"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--shot",
+            "39915",
+            "--gfile-manifest",
+            str(gfiles),
+            "--output",
+            str(output),
+            "--status",
+            str(status),
+            "--run",
+            "true",
+        ],
+        capture_output=True,
+        text=True,
+        env={**__import__("os").environ, "PYTHONPATH": str(REPO), "MPLBACKEND": "Agg"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert status.read_text(encoding="utf-8").strip() == "skipped: no EFIT gfiles; input_gfiles=0"
+
+
 def test_chease_runs_json_is_written_on_the_skip_path(tmp_path):
     # Issue #172: Snakemake declares chease_runs.json as a real rule output,
     # so it must exist on every exit path, including run=false, the same way

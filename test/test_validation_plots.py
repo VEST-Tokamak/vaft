@@ -288,13 +288,21 @@ def test_snakefile_declares_required_plots_as_real_outputs():
     assert "chease_plot_manifest" in source
 
 
-def test_stage_plot_outputs_cover_every_required_plot():
+def test_stage_plot_paths_cover_every_required_plot():
     paths = PipelinePaths(BASE_DIR, FILEDB)
     for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
         required = stage_plot_filenames(stage, required_only=True)
         patterns = [paths.shot_pattern("stage_plot", stage, name) for name in required]
         assert len(patterns) == len(required)
         assert all("{shot}" in pattern and "/plot/" in pattern for pattern in patterns)
+
+    source = (WORKFLOW_DIR / "Snakefile").read_text(encoding="utf-8")
+    assert 'EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}' in source
+    # An empty-stage manifest explicitly records every required figure as
+    # skipped.  Snakemake must not require those PNGs as static outputs.
+    for stage in ("chease", "eddy", "efit", "mhd_linear"):
+        assert f'if stage in EMPTY_VALIDATION_STAGES:' in source
+        assert f'stage_plot_outputs("{stage}")' in source
 
 
 def test_generate_stage_plots_writes_the_manifest_the_metadata_references(

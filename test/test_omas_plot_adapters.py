@@ -193,6 +193,26 @@ def test_partial_composites_drop_the_absent_panels(sample_ods):
         vomas.plot_summary_time_beta(empty)
 
 
+def test_channel_line_plots_ignore_scalar_placeholder_channels():
+    """A populated IDS may contain scalar NaN placeholders after valid rows."""
+    ods = ODS(consistency_check=False)
+    time = np.array([0.0, 0.1, 0.2])
+    ods["magnetics.ip.0.time"] = time
+    ods["magnetics.ip.0.data"] = np.array([1.0, 2.0, 3.0])
+    ods["magnetics.b_field_pol_probe.0.field.time"] = time
+    ods["magnetics.b_field_pol_probe.0.field.data"] = np.array([0.1, 0.2, 0.3])
+    ods["magnetics.b_field_pol_probe.1.field.time"] = np.nan
+    ods["magnetics.b_field_pol_probe.1.field.data"] = np.nan
+
+    figure, axes = vomas.plot_magnetics_time_b_field_pol_probe_field(ods)
+    assert len(axes.lines) == 1
+    plt.close(figure)
+
+    figure, axes = vomas.plot_magnetics_overview(ods)
+    assert axes.size == 2
+    plt.close(figure)
+
+
 class TestPlotMethods:
     def teardown_method(self):
         vomas.disable_plot_methods()

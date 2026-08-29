@@ -85,13 +85,18 @@ MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOT
 # --------------------------------------------------------------------------- #
 # `plot/` is a canonical FileDB artifact class with no legacy shot-first
 # equivalent, so validation plots exist only under the `filedb` layout. The
-# required figures of each stage are declared once in `vaft.validation` and
-# expanded here into real Snakemake outputs, so a declared validation artifact
-# can never degrade into an untracked side effect.
+# required figures of each stage are declared once in `vaft.validation`.  A
+# stage which can legitimately be empty is tracked by its plot manifest alone:
+# its manifest lists every declared figure as ``skipped`` and no PNG exists to
+# declare as a static Snakemake output.  Non-empty-only stages retain their
+# figure paths as direct outputs.
 PLOTS_ENABLED = PATHS.layout == FILEDB
+EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}
 
 
 def stage_plot_outputs(stage):
+    if stage in EMPTY_VALIDATION_STAGES:
+        return []
     return [
         PATHS.shot_pattern("stage_plot", stage, name)
         for name in stage_plot_filenames(stage, required_only=True)
@@ -122,8 +127,9 @@ def validation_plot_products(shots):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
         for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
-            for name in stage_plot_filenames(stage, required_only=True):
-                outputs.append(PATHS.stage_plot(shot, stage, name))
+            if stage not in EMPTY_VALIDATION_STAGES:
+                for name in stage_plot_filenames(stage, required_only=True):
+                    outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
         outputs.append(PATHS.chease_plot_manifest(shot))
     return outputs
