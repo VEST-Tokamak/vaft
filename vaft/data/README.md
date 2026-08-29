@@ -110,3 +110,11 @@ for issue #152. `legacy/langmuir_probes_42699.json.gz` is a repository-only
 sample `langmuir_probes` IDS built from that pipeline against shot 42699's
 real SQL-backed raw signals (both mid and upper assemblies present, plasma
 pulse near t=0.35-0.46 s).
+
+`legacy/sxr_te_ratio_be_al.csv` is the VEST soft X-ray two-filter
+electron-temperature calibration table (`te` [eV], `ratio` = Be/Al filtered
+signal ratio), used by `vaft.process.soft_x_rays.load_te_ratio_calibration`.
+It originates from the validated VEST SXR Viewer analysis tool (`ratio.csv`,
+2024-11-22) documented in the 2026 VEST SXR thesis presentation; the ratio ->
+Te inversion assumes the Al channel gain correction and validity threshold
+applied by `sxr_electron_temperature`.

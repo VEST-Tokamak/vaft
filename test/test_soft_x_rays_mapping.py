@@ -242,13 +242,15 @@ def test_mapper_uses_sample_v3_rate_and_trigger_settings_by_default(tmp_path):
 
 
 def test_mapper_uses_17592_sample_v3_rate_by_default(tmp_path):
+    # Both 455xx-campaign digitizers decimate by 128 (identical 48,828-sample
+    # records; validated VEST SXR Viewer convention).
     data_root = tmp_path / "data"
     data_root.mkdir()
     np.savetxt(data_root / "digitizer_17592_45539.csv", np.array([[1.0, 2.0, 3.0]]), delimiter=",")
     ods = soft_x_rays_from_digitizer_csv(45539, 17592, data_root=data_root)
     np.testing.assert_allclose(
         ods["soft_x_rays.time"],
-        0.285 + np.arange(3) / (125e6 / 32.0),
+        0.285 + np.arange(3) / (125e6 / 128.0),
     )
 
 
@@ -304,7 +306,7 @@ def test_shot_level_mapper_merges_available_daqs_without_duplicate_channels(tmp_
     ]
     np.testing.assert_allclose(
         ods["soft_x_rays.channel.0.brightness.time"],
-        np.arange(3) / (125e6 / 32.0),
+        np.arange(3) / (125e6 / 128.0),
     )
     np.testing.assert_allclose(
         ods["soft_x_rays.channel.2.brightness.time"],
@@ -349,7 +351,7 @@ def test_explicit_daq_calls_clear_global_time_and_preserve_provenance(tmp_path):
     ods = ODS()
 
     soft_x_rays(ods, 12345, 17592, data_root=data_root, time_offset=0.0)
-    np.testing.assert_allclose(ods["soft_x_rays.time"], np.arange(3) / (125e6 / 32.0))
+    np.testing.assert_allclose(ods["soft_x_rays.time"], np.arange(3) / (125e6 / 128.0))
 
     soft_x_rays(ods, 12345, 22577, data_root=data_root, time_offset=0.0)
 
