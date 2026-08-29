@@ -6,3 +6,9 @@ repos:
         entry: python notebooks/_clean_outputs.py
         language: system
         files: ^notebooks/.*\.ipynb$
+      - id: verify-tutorial
+        name: verify tutorial source and artifacts
+        entry: python test/verify_tutorial.py
+        language: system
+        files: ^(tutorial/|test/verify_tutorial\.py)
+        pass_filenames: false
