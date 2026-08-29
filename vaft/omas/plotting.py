@@ -212,7 +212,13 @@ def enable_overlay_methods(*, overwrite: bool = False) -> tuple[str, ...]:
     for name in targets:
         if name in wrapped:
             continue
-        setattr(ODS, name, _make_overlay_wrapper(getattr(ODS, name)))
+        current = getattr(ODS, name)
+        # Never wrap a wrapper: on the overwrite path `current` is already one
+        # of ours, and nesting would leave disable_overlay_methods() restoring
+        # the inner wrapper instead of OMAS' own method.
+        if getattr(current, "_vaft_overlay_wrapper", False):
+            current = getattr(current, "__wrapped__", current)
+        setattr(ODS, name, _make_overlay_wrapper(current))
     ODS._vaft_overlay_methods = frozenset(targets)
     return tuple(targets)
 
@@ -239,6 +245,11 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
     The exclusion is by canonical name rather than by whether
     :func:`enable_plot_methods` happens to have run, so the two opt-ins are
     order-independent.
+
+    OMAS' aggregate ``plot_overlay`` dispatcher matches the pattern too but is
+    excluded: it forwards to the individual overlays (which are wrapped), and
+    its ``return_overlay_list=True`` query path draws nothing, so wrapping it
+    would leak a blank figure per query.
     """
     canonical = {f"plot_{spec.name}" for spec in specs()}
     return tuple(
@@ -246,6 +257,7 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
         for name in dir(ods_class)
         if name.startswith("plot_")
         and name.endswith("_overlay")
+        and name != "plot_overlay"
         and name not in canonical
         and callable(getattr(ods_class, name, None))
     )
@@ -253,13 +265,35 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
 
 def _make_overlay_wrapper(original):
     import functools
+    import inspect
+
+    try:
+        signature = inspect.signature(original)
+    except (TypeError, ValueError):  # pragma: no cover - builtins have none
+        signature = None
 
     @functools.wraps(original)
-    def wrapper(self, *args, ax=None, show=False, **options):
+    def wrapper(self, *args, **options):
         from vaft.plot.style import finalize, resolve_axes
 
+        show = options.pop("show", False)
+        # OMAS declares `ax` as an ordinary positional-or-keyword parameter, so
+        # `ods.plot_wall_overlay(my_ax)` is a legal call. Bind through the
+        # wrapped signature instead of assuming `ax` arrives as a keyword.
+        bound = None
+        if signature is not None:
+            try:
+                bound = signature.bind(self, *args, **options)
+            except TypeError:
+                bound = None
+        ax = bound.arguments.get("ax") if bound is not None else options.get("ax")
+
         figure, axes = resolve_axes(ax)
-        result = original(self, *args, ax=axes, **options)
+        if bound is not None:
+            bound.arguments["ax"] = axes
+            result = original(*bound.args, **bound.kwargs)
+        else:
+            result = original(self, *args, ax=axes, **options)
         finalize(figure, axes, show=show)
         return result
 

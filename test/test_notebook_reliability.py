@@ -123,17 +123,61 @@ def _code_cells(path):
             yield index, cell.source
 
 
-def _is_backend_pin(node: ast.AST) -> bool:
-    """``os.environ.setdefault("MPLBACKEND", ...)`` or ``matplotlib.use(...)``."""
+#: Every spelling that selects a Matplotlib backend. A detector that matched
+#: only the two spellings the notebooks happened to use would let an aliased
+#: ``mpl.use`` or a bare ``os.environ[...] = ...`` reintroduce the bug.
+_BACKEND_SETTER_ATTRS = ("use", "switch_backend")
+
+
+def _is_backend_pin(node: ast.AST, use_aliases: frozenset[str]) -> bool:
+    """True for any call or assignment that selects a Matplotlib backend."""
+    if isinstance(node, ast.Assign):
+        # os.environ["MPLBACKEND"] = ... / os.environ.update({"MPLBACKEND": ...})
+        for target in node.targets:
+            if (
+                isinstance(target, ast.Subscript)
+                and isinstance(target.slice, ast.Constant)
+                and target.slice.value == "MPLBACKEND"
+            ):
+                return True
+        return False
+
     if not isinstance(node, ast.Call):
         return False
-    name = _attribute_name(node.func)
-    if name == "matplotlib.use":
+
+    # `use(...)` / `switch_backend(...)` imported by name.
+    if isinstance(node.func, ast.Name) and node.func.id in use_aliases:
         return True
-    if name and name.endswith("environ.setdefault"):
+
+    name = _attribute_name(node.func)
+    if not name:
+        return False
+    # matplotlib.use, mpl.use, plt.switch_backend, matplotlib.pyplot.use, ...
+    if name.rsplit(".", 1)[-1] in _BACKEND_SETTER_ATTRS:
+        return True
+    if name.endswith("environ.setdefault") or name.endswith("environ.update"):
         first = node.args[0] if node.args else None
-        return isinstance(first, ast.Constant) and first.value == "MPLBACKEND"
+        if isinstance(first, ast.Constant) and first.value == "MPLBACKEND":
+            return True
+        if isinstance(first, ast.Dict):
+            return any(
+                isinstance(key, ast.Constant) and key.value == "MPLBACKEND"
+                for key in first.keys
+            )
     return False
+
+
+def _backend_use_aliases(tree: ast.AST) -> frozenset[str]:
+    """Names bound by ``from matplotlib import use`` and friends."""
+    aliases = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+            "matplotlib"
+        ):
+            for alias in node.names:
+                if alias.name in _BACKEND_SETTER_ATTRS:
+                    aliases.add(alias.asname or alias.name)
+    return frozenset(aliases)
 
 
 def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
@@ -147,6 +191,7 @@ def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
     for path in sorted(NOTEBOOKS.glob("*.ipynb")):
         for index, source in _code_cells(path):
             tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
+            aliases = _backend_use_aliases(tree)
             guarded = {
                 node
                 for statement in ast.walk(tree)
@@ -154,7 +199,7 @@ def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
                 for node in ast.walk(statement)
             }
             for node in ast.walk(tree):
-                if _is_backend_pin(node) and node not in guarded:
+                if _is_backend_pin(node, aliases) and node not in guarded:
                     failures.append(f"{path.name}:cell-{index}: unguarded backend pin")
 
     assert failures == []
