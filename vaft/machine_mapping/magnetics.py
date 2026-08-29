@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -21,8 +21,10 @@ from vaft.process.signal_processing import detect_active_window, smooth
 
 from .utils import (
     VestConfigurationError,
+    _resolve_info_file_path,
     calibrate_vest_signal,
     get_path,
+    load_yaml,
     path_exists,
     resolve_data_root,
     resolve_shot_revisions,
@@ -170,17 +172,34 @@ _FLUCTUATION_ARRAY_DEFAULTS = ("role", "preserve_native_voltage")
 def _fluctuation_mirnov_config(shot: int = 0) -> dict[str, Any]:
     """Return the resolved ``fluctuation_mirnov`` block from ``vest.yaml``.
 
-    ``shot=0`` means the base, un-revised configuration:
-    :func:`resolve_vest_diagnostic` reads ``0.diagnostics.fluctuation_mirnov``
-    and layers matching ``revisions`` on top, and shot 0 matches no
-    ``from_shot``/``to_shot`` window. The channel table -- identifiers,
-    geometry and gains alike -- is shot-independent today, so ``shot=0`` is the
-    right default for any caller that only wants the inventory. The one
-    genuinely shot-dependent value is ``first_operational_shot``, and that is a
-    gate the caller applies, not a per-channel field. The parameter exists so a
-    future calibration revision can be expressed in ``revisions`` without
-    another API change.
+    ``shot=0`` means the base, un-revised configuration, and this function
+    enforces that rather than assuming it. :func:`resolve_vest_diagnostic`
+    layers any matching ``revisions`` on top of the base entry, and
+    :func:`resolve_shot_revisions` treats a missing ``from_shot`` as
+    unbounded below -- so a ``to_shot``-only revision *would* match shot 0 and
+    quietly change what "the inventory" means. Several things depend on it not
+    doing that: the module-level constants derived at import, and
+    :func:`fluctuation_mirnov_gain_by_identifier`, which takes no shot at all.
+    So a revision without an explicit ``from_shot`` is rejected here.
+
+    The channel table -- identifiers, geometry and gains alike -- is
+    shot-independent today, which is why ``shot=0`` is the right default for
+    any caller that only wants the inventory. The one genuinely shot-dependent
+    value is ``first_operational_shot``, and that is a gate the caller applies,
+    not a per-channel field. The ``shot`` parameter exists so a future
+    calibration era can be expressed in ``revisions`` without another API
+    change.
     """
+    base = load_yaml(_resolve_info_file_path(None)).get(0, {})
+    entry = base.get("diagnostics", {}).get("fluctuation_mirnov", {})
+    for index, revision in enumerate(entry.get("revisions") or ()):
+        if not isinstance(revision, Mapping) or revision.get("from_shot") is None:
+            raise VestConfigurationError(
+                f"VEST diagnostic 'fluctuation_mirnov' revision {index}: from_shot is "
+                "required. Without it the revision also matches shot 0, which is "
+                "reserved for the base inventory that the shot-independent channel "
+                "and gain lookups read."
+            )
     return resolve_vest_diagnostic(int(shot), "fluctuation_mirnov")
 
 
@@ -279,12 +298,22 @@ def select_fluctuation_mirnov_channels(
                 f"expected one of {sorted(known_sub_arrays)}."
             )
 
+    if z_range is not None and z_range[0] > z_range[1]:
+        raise ValueError(
+            f"z_range {z_range} is reversed; expected (low, high). The canonical "
+            "channel order is z descending, so writing the bounds that way is an "
+            "easy slip -- and it would otherwise select nothing at all."
+        )
+
     angles: set[float] | None = None
     if toroidal_angle_deg is not None:
+        # np.ndim, not isinstance: NumPy scalars (np.int64, np.float32, an
+        # element of an angle array) are not int/float, and mode-analysis code
+        # hands us exactly those.
         requested = (
             [float(toroidal_angle_deg)]
-            if isinstance(toroidal_angle_deg, (int, float))
-            else [float(value) for value in toroidal_angle_deg]
+            if np.ndim(toroidal_angle_deg) == 0
+            else [float(value) for value in np.atleast_1d(toroidal_angle_deg)]
         )
         known_angles = {channel["toroidal_angle_deg"] for channel in channels}
         unknown = sorted(set(requested) - known_angles)
@@ -341,6 +370,15 @@ def fluctuation_mirnov_probe_indices(ods: object, *, shot: int = 0) -> dict[str,
 
 
 @lru_cache(maxsize=1)
+def _fluctuation_mirnov_gains() -> dict[str, float]:
+    gains: dict[str, float] = {}
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+        gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
+    for channel in _load_fluctuation_mirnov_channels():
+        gains[str(channel["identifier"])] = float(channel["gain"])
+    return gains
+
+
 def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
     """Per-channel voltage gains for raw-Mirnov probes, keyed by ODS identifier.
 
@@ -349,13 +387,13 @@ def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
     Covers the toroidal phase-reference probes as well as the 30-channel
     outboard fluctuation array. Takes no ``shot``: these gains are not
     shot-dependent.
+
+    A fresh dict is returned each call, for the same reason
+    :func:`fluctuation_mirnov_channel_definitions` returns copies -- a caller
+    that mutates the result must not be able to corrupt the table every later
+    lookup reads, plot-layer gain resolution included.
     """
-    gains: dict[str, float] = {}
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
-        gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
-    for channel in _load_fluctuation_mirnov_channels():
-        gains[str(channel["identifier"])] = float(channel["gain"])
-    return gains
+    return dict(_fluctuation_mirnov_gains())
 
 
 #: Derived from the ``fluctuation_mirnov`` block in ``vest.yaml`` rather than

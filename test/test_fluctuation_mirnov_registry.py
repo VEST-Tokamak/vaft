@@ -414,3 +414,46 @@ def test_probe_indices_reject_a_duplicated_identifier():
 
 def test_probe_indices_on_an_ods_without_probes_is_empty_not_an_error():
     assert fluctuation_mirnov_probe_indices({}) == {}
+
+
+# --- Review follow-ups on the public API surface ---
+
+
+def test_mutating_the_gain_table_cannot_corrupt_the_cache():
+    """Same hazard the channel definitions already guard, on the gain lookup."""
+    gains = fluctuation_mirnov_gain_by_identifier()
+    expected = len(gains)
+    gains.pop("OutMirnov_45_L1-01")
+    gains["OutMirnov_135_L2-03"] = 999.0
+    refetched = fluctuation_mirnov_gain_by_identifier()
+    assert len(refetched) == expected
+    assert refetched["OutMirnov_45_L1-01"] == -0.00105
+    assert refetched["OutMirnov_135_L2-03"] == -0.0025
+
+
+def test_numpy_scalars_are_accepted_as_a_single_toroidal_angle():
+    """Mode-analysis code hands over NumPy scalars, not just Python ints."""
+    for angle in (45, 45.0, np.int64(45), np.float32(45), np.array([45, 135])[0]):
+        assert len(select_fluctuation_mirnov_channels(toroidal_angle_deg=angle)) == 10
+    assert len(select_fluctuation_mirnov_channels(toroidal_angle_deg=np.array([45, 135]))) == 20
+
+
+def test_reversed_z_range_raises_rather_than_selecting_nothing():
+    """Canonical order is z descending, so writing the bounds that way is an easy slip."""
+    with pytest.raises(ValueError, match="reversed"):
+        select_fluctuation_mirnov_channels(z_range=(0.4, -0.4))
+
+
+def test_a_revision_without_from_shot_is_rejected():
+    """shot=0 must stay the base inventory: the import-time constants and the
+    shot-less gain lookup both depend on nothing shadowing it."""
+    config = {0: {"diagnostics": {"fluctuation_mirnov": {
+        "channels": [], "revisions": [{"to_shot": 50000, "gain": 1.0}],
+    }}}}
+    with patch.object(mapping_magnetics, "load_yaml", return_value=config):
+        mapping_magnetics._fluctuation_mirnov_config.cache_clear()
+        try:
+            with pytest.raises(VestConfigurationError, match="from_shot is required"):
+                mapping_magnetics._fluctuation_mirnov_config()
+        finally:
+            mapping_magnetics._fluctuation_mirnov_config.cache_clear()
