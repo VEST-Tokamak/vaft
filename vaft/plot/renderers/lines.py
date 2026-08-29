@@ -759,8 +759,10 @@ def barometry_time_pressure(
     model=LineSeries,
     description="Soft X-ray channel signal history.",
     ids=("soft_x_rays",),
-    required_paths=("soft_x_rays.channel.{i}.power.data",),
+    required_paths=("soft_x_rays.channel.{i}.brightness.data",),
     optional_paths=(
+        "soft_x_rays.channel.{i}.brightness.time",
+        "soft_x_rays.channel.{i}.power.data",
         "soft_x_rays.channel.{i}.power.time",
         "soft_x_rays.time",
         "soft_x_rays.channel.{i}.name",
