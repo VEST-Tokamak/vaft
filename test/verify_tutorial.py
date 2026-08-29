@@ -32,6 +32,8 @@ SESSIONS = {
         "tex": "04_fluctuations_and_transient_events.tex",
     },
     5: {
+        # Issue #185 intentionally gives the notebook and presentation
+        # different stems for this session.
         "notebook": "05_mhd_stability_and_3d_perturbations.ipynb",
         "tex": "05_mhd_linear_stability_and_3d_perturbed_equilibrium.tex",
     },
@@ -52,7 +54,10 @@ REQUIRED_HEADINGS = [
     "Takeaways and Next Steps",
 ]
 
-MACHINE_PATH = re.compile(r"(?:/(?:Users|home|srv|Volumes)/|[A-Za-z]:[\\/])")
+MACHINE_PATH = re.compile(
+    r"(?:/(?:Users|home|srv|Volumes)/|(?<![A-Za-z0-9+.-])[A-Za-z]:[\\/])"
+)
+RUNTIME_DIRECTORIES = {".build", "outputs"}
 FORBIDDEN_DATA_SUFFIXES = {
     ".csv",
     ".h5",
@@ -105,6 +110,9 @@ def _validate_inventory(failures: list[str]) -> None:
         )
 
     for path in TUTORIAL.rglob("*"):
+        relative = path.relative_to(TUTORIAL)
+        if any(part in RUNTIME_DIRECTORIES for part in relative.parts):
+            continue
         if path.is_file() and path.suffix.lower() in FORBIDDEN_DATA_SUFFIXES:
             failures.append(f"tutorial-only data artifact is not allowed: {path.relative_to(ROOT)}")
 

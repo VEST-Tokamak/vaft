@@ -66,8 +66,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y latexmk texlive-latex-recommended
 
-      - name: Compile tutorial slide decks
-        run: make -C tutorial slides
-
-      - name: Verify tutorial source and artifacts
+      - name: Verify committed tutorial source and artifacts
         run: python test/verify_tutorial.py
+
+      - name: Rebuild tutorial slide decks independently
+        run: make -B -C tutorial slides
+
+      - name: Verify rebuilt decks match the committed PDFs
+        run: |
+          python test/verify_tutorial.py
+          git diff --exit-code -- tutorial/*.pdf

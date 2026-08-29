@@ -2,6 +2,10 @@ TEX_FILES := $(sort $(wildcard [0-9][0-9]_*.tex))
 PDF_FILES := $(TEX_FILES:.tex=.pdf)
 BUILD_DIR := .build
 LATEXMK ?= latexmk
+SOURCE_DATE_EPOCH ?= 946684800
+FORCE_SOURCE_DATE ?= 1
+export SOURCE_DATE_EPOCH
+export FORCE_SOURCE_DATE
 
 .PHONY: slides check clean
 
