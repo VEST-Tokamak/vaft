@@ -202,22 +202,41 @@ def vest_b_field_pol_probe_legacy(
     return integrated - baseline
 
 
-def vest_flux_loop_legacy(
-    time: np.ndarray,
+def vest_flux_loop_voltage(
     raw: np.ndarray,
     calibration: float,
+    *,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> np.ndarray:
+    """Return the calibrated flux-loop terminal voltage in volts.
+
+    This is the pre-integration physical signal: the channel calibration and
+    sign convention have been applied, but no time integration or baseline
+    removal. It is the single definition of the flux-loop calibration used by
+    both `vest_flux_loop_legacy` and the `magnetics.flux_loop[*].voltage`
+    mapping (issue #209).
+    """
+    cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    return _calibrated_signal(raw, float(calibration), cfg.calibration_mode)
+
+
+def vest_flux_loop_flux_from_voltage(
+    time: np.ndarray,
+    voltage: np.ndarray,
     *,
     flux_loop_number: int,
     config: VestMagneticsProcessingConfig | None = None,
 ) -> np.ndarray:
-    """Process one VEST flux loop using the legacy EFIT workflow."""
+    """Integrate a calibrated flux-loop voltage into baseline-removed flux.
+
+    ``flux = -integral(voltage dt) / (2*pi) - linear_baseline``, i.e. the
+    per-radian flux consumed by the ODS mapper (which multiplies by ``2*pi``).
+    """
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     time = np.asarray(time, dtype=float)
-    raw = np.asarray(raw, dtype=float)
-    if time.size <= 1 or raw.size <= 1:
+    calibrated = np.asarray(voltage, dtype=float)
+    if time.size <= 1 or calibrated.size <= 1:
         raise ValueError("VEST flux-loop processing requires at least two samples")
-
-    calibrated = _calibrated_signal(raw, float(calibration), cfg.calibration_mode)
     integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
@@ -246,7 +265,52 @@ def vest_flux_loop_legacy(
     return integrated - baseline
 
 
-def vest_equilibrium_magnetics_signals(
+def vest_flux_loop_legacy(
+    time: np.ndarray,
+    raw: np.ndarray,
+    calibration: float,
+    *,
+    flux_loop_number: int,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> np.ndarray:
+    """Process one VEST flux loop using the legacy EFIT workflow.
+
+    Composition of `vest_flux_loop_voltage` (calibration / sign convention)
+    and `vest_flux_loop_flux_from_voltage` (integration + baseline removal).
+    """
+    time = np.asarray(time, dtype=float)
+    raw = np.asarray(raw, dtype=float)
+    if time.size <= 1 or raw.size <= 1:
+        raise ValueError("VEST flux-loop processing requires at least two samples")
+
+    voltage = vest_flux_loop_voltage(raw, calibration, config=config)
+    return vest_flux_loop_flux_from_voltage(
+        time,
+        voltage,
+        flux_loop_number=flux_loop_number,
+        config=config,
+    )
+
+
+@dataclass(frozen=True)
+class VestEquilibriumMagneticsResult:
+    """Processed VEST equilibrium magnetics waveforms with native voltages.
+
+    `flux_loops`/`probes` are resampled onto `time` (the MD output window),
+    while `flux_loop_voltage`/`flux_loop_voltage_time` keep the native
+    acquisition timebase of each flux-loop channel. All flux-loop lists are
+    index-aligned: an unavailable channel contributes an empty array to each
+    of them rather than shifting later channels.
+    """
+
+    time: np.ndarray
+    flux_loops: list[np.ndarray]
+    probes: list[np.ndarray]
+    flux_loop_voltage_time: list[np.ndarray]
+    flux_loop_voltage: list[np.ndarray]
+
+
+def vest_equilibrium_magnetics_detailed(
     shot: int,
     channels: Sequence[dict],
     loader: Callable[[int, int], tuple[np.ndarray, np.ndarray] | None],
@@ -254,8 +318,8 @@ def vest_equilibrium_magnetics_signals(
     indices: Sequence[int] | None = None,
     config: VestMagneticsProcessingConfig | None = None,
     allow_missing: bool = False,
-) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Process VEST MD channels into flux-loop and B-probe waveforms."""
+) -> VestEquilibriumMagneticsResult:
+    """Process VEST MD channels, retaining the pre-integration flux-loop voltage."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     _validate_daq_mode(cfg)
     channel_rows = list(channels)
@@ -265,6 +329,8 @@ def vest_equilibrium_magnetics_signals(
     magnetics_time = vest_magnetics_time_window(shot, cfg)
     data_flux_loops: list[np.ndarray] = []
     data_probes: list[np.ndarray] = []
+    flux_loop_voltage_time: list[np.ndarray] = []
+    flux_loop_voltage: list[np.ndarray] = []
     flux_loop_counter = 0
 
     for channel in channel_rows:
@@ -291,26 +357,60 @@ def vest_equilibrium_magnetics_signals(
                 data_probes.append(missing)
             else:
                 data_flux_loops.append(missing)
+                flux_loop_voltage_time.append(missing)
+                flux_loop_voltage.append(missing)
             continue
+
         if kind == "b_field_pol_probe":
             processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
-            processed = np.interp(magnetics_time, source_time, processed_full)
-        else:
-            processed_full = vest_flux_loop_legacy(
-                source_time,
-                source_data,
-                calibration,
-                flux_loop_number=flux_loop_counter,
-                config=cfg,
-            )
-            processed = np.interp(magnetics_time, source_time, processed_full)
+            data_probes.append(np.interp(magnetics_time, source_time, processed_full))
+            continue
 
-        if kind == "b_field_pol_probe":
-            data_probes.append(processed)
-        else:
-            data_flux_loops.append(processed)
+        source_time = np.asarray(source_time, dtype=float)
+        source_data = np.asarray(source_data, dtype=float)
+        voltage = vest_flux_loop_voltage(source_data, calibration, config=cfg)
+        processed_full = vest_flux_loop_flux_from_voltage(
+            source_time,
+            voltage,
+            flux_loop_number=flux_loop_counter,
+            config=cfg,
+        )
+        data_flux_loops.append(np.interp(magnetics_time, source_time, processed_full))
+        flux_loop_voltage_time.append(source_time)
+        flux_loop_voltage.append(voltage)
 
-    return magnetics_time, data_flux_loops, data_probes
+    return VestEquilibriumMagneticsResult(
+        time=magnetics_time,
+        flux_loops=data_flux_loops,
+        probes=data_probes,
+        flux_loop_voltage_time=flux_loop_voltage_time,
+        flux_loop_voltage=flux_loop_voltage,
+    )
+
+
+def vest_equilibrium_magnetics_signals(
+    shot: int,
+    channels: Sequence[dict],
+    loader: Callable[[int, int], tuple[np.ndarray, np.ndarray] | None],
+    *,
+    indices: Sequence[int] | None = None,
+    config: VestMagneticsProcessingConfig | None = None,
+    allow_missing: bool = False,
+) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
+    """Process VEST MD channels into flux-loop and B-probe waveforms.
+
+    Backward-compatible view of `vest_equilibrium_magnetics_detailed`, which
+    also exposes the native-rate flux-loop terminal voltage.
+    """
+    result = vest_equilibrium_magnetics_detailed(
+        shot,
+        channels,
+        loader,
+        indices=indices,
+        config=config,
+        allow_missing=allow_missing,
+    )
+    return result.time, result.flux_loops, result.probes
 
 
 # Pre-rename name, kept as a plain alias: `vaft.process` re-exports this

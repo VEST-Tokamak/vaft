@@ -14,6 +14,7 @@ from vaft.machine_mapping import (
 from vaft.machine_mapping.equilibrium import equilibrium
 from vaft.machine_mapping.magnetics import vfit_magnetics_dynamic, vfit_mirnov_raw_dynamic
 from vaft.data.eqdsk import infer_source_shot_time
+from vaft.process.magnetics import VestEquilibriumMagneticsResult
 
 
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data" / "efit"
@@ -66,10 +67,16 @@ def test_equilibrium_validates_inputs_and_supports_replace(tmp_path):
 def _fake_md(*args, **kwargs):
     del args, kwargs
     time = np.array([0.26, 0.31, 0.36])
-    return time, [np.array([1.0, 2.0, 3.0])], [np.array([4.0, 5.0, 6.0])]
+    return VestEquilibriumMagneticsResult(
+        time=time,
+        flux_loops=[np.array([1.0, 2.0, 3.0])],
+        probes=[np.array([4.0, 5.0, 6.0])],
+        flux_loop_voltage_time=[time],
+        flux_loop_voltage=[np.array([0.1, 0.2, 0.3])],
+    )
 
 
-@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics", side_effect=_fake_md)
+@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed", side_effect=_fake_md)
 def test_flux_loop_mapper_only_adds_flux_loop_channels(_mock_md):
     payload = {}
     flux_loop_from_raw_database(payload, 41672, dt=0.01)
@@ -79,7 +86,7 @@ def test_flux_loop_mapper_only_adds_flux_loop_channels(_mock_md):
 
 
 @patch("vaft.machine_mapping.magnetics.vfit_mirnov_raw_dynamic")
-@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics", side_effect=_fake_md)
+@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed", side_effect=_fake_md)
 def test_probe_mapper_only_adds_probe_channels(_mock_md, _mock_raw):
     payload = {}
     b_field_pol_probe_from_raw_database(payload, 41672, dt=0.01)
@@ -98,7 +105,7 @@ def test_ip_rogowski_mapper_only_adds_ip(mock_ip):
 
 
 @patch("vaft.machine_mapping.magnetics.vfit_plasma_current")
-@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics", side_effect=_fake_md)
+@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed", side_effect=_fake_md)
 def test_split_magnetics_mappers_reject_incompatible_shared_time(mock_md, mock_ip):
     del mock_md
     mock_ip.return_value = (
@@ -128,7 +135,7 @@ def test_diamagnetic_mapper_does_not_add_ip(mock_ip, mock_dia, _mock_load):
 @patch("vaft.machine_mapping.magnetics.vfit_mirnov_raw_dynamic")
 @patch("vaft.machine_mapping.magnetics._map_diamagnetic_flux")
 @patch("vaft.machine_mapping.magnetics.vfit_plasma_current")
-@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics", side_effect=_fake_md)
+@patch("vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed", side_effect=_fake_md)
 def test_integrated_magnetics_prepares_md_context_once(mock_md, mock_ip, _mock_dia, _mock_raw):
     mock_ip.return_value = (np.array([0.26, 0.31, 0.36]), np.zeros(3))
     vfit_magnetics_dynamic({}, 41672, 0.26, 0.36, 0.01)

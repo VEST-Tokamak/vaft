@@ -362,6 +362,7 @@ def _validate_diagnostics_time_coordinates(
 
     native_paths: list[str] = []
     native_time_metadata: list[dict[str, Any]] = []
+    native_flux_loop_metadata: list[dict[str, Any]] = []
     if "magnetics" in present_ids:
         root_time = np.asarray(get_path(ods, "magnetics.time"), dtype=float).reshape(-1)
         for index in range(len(ods["magnetics.b_field_pol_probe"])):
@@ -383,6 +384,36 @@ def _validate_diagnostics_time_coordinates(
                     else None
                 )
                 native_time_metadata.append(
+                    {
+                        "path": time_path,
+                        "sample_count": int(voltage_time.size),
+                        "dt": native_dt,
+                        "sampling_rate": 1.0 / native_dt if native_dt else None,
+                    }
+                )
+        # Flux-loop terminal voltage (issue #209) is stored at the native
+        # acquisition rate, cropped to the analysis window, and is therefore
+        # validated as a native coordinate rather than against the canonical
+        # processed grid used by flux_loop[*].flux above.
+        for index in range(len(ods["magnetics.flux_loop"])):
+            base = f"magnetics.flux_loop.{index}.voltage"
+            time_path, data_path = f"{base}.time", f"{base}.data"
+            _validate_time_data_pair(ods, time_path, data_path)
+            if not path_exists(ods, time_path):
+                continue
+            voltage_time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
+            if voltage_time.size == 0:
+                continue
+            if np.any(voltage_time < tstart) or np.any(voltage_time >= tend):
+                raise ValueError(f"{time_path} is outside the diagnostics analysis window")
+            if not _time_equal(voltage_time, root_time):
+                native_paths.append(time_path)
+                native_dt = (
+                    float(np.median(np.diff(voltage_time)))
+                    if voltage_time.size > 1
+                    else None
+                )
+                native_flux_loop_metadata.append(
                     {
                         "path": time_path,
                         "sample_count": int(voltage_time.size),
@@ -419,7 +450,11 @@ def _validate_diagnostics_time_coordinates(
         if "magnetics" in present_ids
         else None,
         "native_time_paths": native_paths,
+        # Quantity-specific: `native_mirnov` stays probe-only so consumers that
+        # index it keep reading Mirnov sampling, while flux-loop terminal
+        # voltage (issue #209) reports under its own key.
         "native_mirnov": native_time_metadata,
+        "native_flux_loop_voltage": native_flux_loop_metadata,
     }
 
 
