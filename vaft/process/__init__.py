@@ -3,6 +3,7 @@ from .equilibrium import *
 from .camera_geometry import *
 from .signal_processing import *
 from .fluctuation import *
+from .soft_x_rays import *
 from .electromagnetics import *
 from .numerical import *
 from .magnetics import *
