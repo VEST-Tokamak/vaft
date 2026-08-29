@@ -2232,12 +2232,32 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
     )
 
 
+def _first_channel_with_signal(ods: Any, recipe: SpectrogramRecipe) -> int:
+    """The lowest channel index whose signal is actually present.
+
+    Falls back to ``0`` so the caller raises the usual "not available" error
+    when no channel carries the signal at all.
+    """
+    total = _count(ods, recipe.container) if recipe.container else 0
+    for index in range(total):
+        if _array(ods, recipe.signal_path.format(i=index)) is not None:
+            return index
+    return 0
+
+
 def _build_spectrogram(
     ods: Any, recipe: SpectrogramRecipe, **options: Any
 ) -> Spectrogram:
     from vaft.process import mirnov_spectrogram as compute_spectrogram
 
-    index = int(options.get("channel", 0))
+    requested = options.get("channel")
+    if requested is None:
+        # Availability accepts any channel that carries the signal, so the
+        # default must be the first one that does.  Real arrays routinely
+        # declare geometry for channels whose waveform was never acquired.
+        index = _first_channel_with_signal(ods, recipe)
+    else:
+        index = int(requested)
     signal = _array(ods, recipe.signal_path.format(i=index))
     if signal is None:
         raise ValueError(f"{recipe.signal_path.format(i=index)} is not available")

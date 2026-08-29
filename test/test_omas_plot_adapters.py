@@ -55,6 +55,24 @@ def test_every_offered_plot_actually_renders(sample_ods):
     assert not failures, failures
 
 
+def test_a_spectrogram_skips_channels_that_carry_no_waveform(sample_ods):
+    """A declared-but-unacquired channel must not decide the default.
+
+    The 39915 array declares 76 B-pol probes, and probe 0 has geometry only.
+    Availability accepts the array because other probes hold a waveform, so
+    the default channel has to be one of those rather than a hardcoded 0.
+    """
+    assert "magnetics.b_field_pol_probe.0.voltage.data" not in sample_ods
+
+    figure, _ = vomas.plot_magnetics_spectrogram_mirnov(sample_ods)
+    plt.close(figure)
+
+    # An explicitly requested empty channel is still an error, not a silent
+    # substitution of a different probe's signal.
+    with pytest.raises(ValueError, match="voltage.data is not available"):
+        vomas.plot_magnetics_spectrogram_mirnov(sample_ods, channel=0)
+
+
 def test_adapters_default_to_no_display(sample_ods, monkeypatch):
     monkeypatch.setattr(
         plt, "show", lambda *a, **k: pytest.fail("adapter displayed implicitly")
