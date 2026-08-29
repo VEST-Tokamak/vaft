@@ -362,6 +362,7 @@ def _validate_diagnostics_time_coordinates(
 
     native_paths: list[str] = []
     native_time_metadata: list[dict[str, Any]] = []
+    native_flux_loop_metadata: list[dict[str, Any]] = []
     if "magnetics" in present_ids:
         root_time = np.asarray(get_path(ods, "magnetics.time"), dtype=float).reshape(-1)
         for index in range(len(ods["magnetics.b_field_pol_probe"])):
@@ -412,7 +413,7 @@ def _validate_diagnostics_time_coordinates(
                     if voltage_time.size > 1
                     else None
                 )
-                native_time_metadata.append(
+                native_flux_loop_metadata.append(
                     {
                         "path": time_path,
                         "sample_count": int(voltage_time.size),
@@ -449,7 +450,11 @@ def _validate_diagnostics_time_coordinates(
         if "magnetics" in present_ids
         else None,
         "native_time_paths": native_paths,
+        # Quantity-specific: `native_mirnov` stays probe-only so consumers that
+        # index it keep reading Mirnov sampling, while flux-loop terminal
+        # voltage (issue #209) reports under its own key.
         "native_mirnov": native_time_metadata,
+        "native_flux_loop_voltage": native_flux_loop_metadata,
     }
 
 

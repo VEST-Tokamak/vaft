@@ -244,3 +244,92 @@ def test_flux_loop_voltage_round_trips_through_omas(mapped):
         np.asarray(ods["magnetics.flux_loop.0.voltage.data"]),
     )
     assert reloaded["magnetics.flux_loop.0.voltage.validity"] == 0
+
+
+def test_flux_loop_voltage_reports_under_its_own_manifest_key():
+    """Native flux-loop timing is not filed under the Mirnov key (#209 review)."""
+    from vaft.omas.vest_upstream import _validate_diagnostics_time_coordinates
+
+    processed_time = np.arange(TSTART, TEND, DT)
+    # np.arange can overshoot the exclusive end by a float ulp; keep the
+    # half-open window the mapper's own cropping guarantees.
+    probe_time = np.arange(TSTART, TEND, 4e-6)  # 250 kHz Mirnov
+    probe_time = probe_time[probe_time < TEND]
+    loop_time = np.arange(TSTART, TEND, 1e-5)  # 100 kHz flux loop
+    loop_time = loop_time[loop_time < TEND]
+
+    ods = ODS(consistency_check=False)
+    ods["magnetics.time"] = processed_time
+    ods["magnetics.b_field_pol_probe.0.voltage.time"] = probe_time
+    ods["magnetics.b_field_pol_probe.0.voltage.data"] = np.ones(probe_time.size)
+    ods["magnetics.flux_loop.0.voltage.time"] = loop_time
+    ods["magnetics.flux_loop.0.voltage.data"] = np.ones(loop_time.size)
+
+    metadata = _validate_diagnostics_time_coordinates(
+        ods, processed_time, tstart=TSTART, tend=TEND, dt=DT
+    )
+
+    assert ods["magnetics.ids_properties.homogeneous_time"] == 0
+    assert [entry["sampling_rate"] for entry in metadata["native_mirnov"]] == [
+        pytest.approx(250_000.0)
+    ]
+    assert [entry["sampling_rate"] for entry in metadata["native_flux_loop_voltage"]] == [
+        pytest.approx(100_000.0)
+    ]
+    assert "magnetics.flux_loop.0.voltage.time" in metadata["native_time_paths"]
+
+
+def test_flux_from_voltage_rejects_degenerate_input():
+    """The two-sample guard lives with the integration it protects."""
+    with pytest.raises(ValueError, match="at least two samples"):
+        vest_flux_loop_flux_from_voltage(
+            np.array([0.0]), np.array([1.0]), flux_loop_number=1
+        )
+
+
+def test_deprecated_voltage_plot_reads_the_stored_voltage(mapped):
+    """The legacy plot no longer contradicts `voltage.data` in the same ODS."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from vaft.plot.time import time_magnetics_flux_loop_voltage
+
+    ods, _ = mapped
+    voltage = np.asarray(ods["magnetics.flux_loop.0.voltage.data"])
+    voltage_time = np.asarray(ods["magnetics.flux_loop.0.voltage.time"])
+    try:
+        time_magnetics_flux_loop_voltage(ods, indices="all")
+        lines = [line for ax in plt.gcf().get_axes() for line in ax.get_lines()]
+        np.testing.assert_allclose(lines[0].get_ydata(), voltage)
+        np.testing.assert_allclose(lines[0].get_xdata(), voltage_time)
+    finally:
+        plt.close("all")
+
+
+def test_deprecated_voltage_plot_falls_back_for_older_ods(mapped):
+    """ODSs mapped before #209 keep the historical -d(flux)/dt rendering."""
+    import copy
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from vaft.plot.time import time_magnetics_flux_loop_voltage
+
+    ods, _ = mapped
+    legacy = copy.deepcopy(ods)
+    for index in range(len(legacy["magnetics.flux_loop"])):
+        if "voltage" in legacy[f"magnetics.flux_loop.{index}"]:
+            del legacy[f"magnetics.flux_loop.{index}.voltage"]
+
+    flux = np.asarray(legacy["magnetics.flux_loop.0.flux.data"])
+    flux_time = np.asarray(legacy["magnetics.flux_loop.0.flux.time"])
+    try:
+        time_magnetics_flux_loop_voltage(legacy, indices="all")
+        lines = [line for ax in plt.gcf().get_axes() for line in ax.get_lines()]
+        np.testing.assert_allclose(lines[0].get_ydata(), -np.gradient(flux, flux_time))
+    finally:
+        plt.close("all")

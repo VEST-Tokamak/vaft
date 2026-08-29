@@ -235,6 +235,8 @@ def vest_flux_loop_flux_from_voltage(
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     time = np.asarray(time, dtype=float)
     calibrated = np.asarray(voltage, dtype=float)
+    if time.size <= 1 or calibrated.size <= 1:
+        raise ValueError("VEST flux-loop processing requires at least two samples")
     integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
@@ -366,8 +368,6 @@ def vest_equilibrium_magnetics_detailed(
 
         source_time = np.asarray(source_time, dtype=float)
         source_data = np.asarray(source_data, dtype=float)
-        if source_time.size <= 1 or source_data.size <= 1:
-            raise ValueError("VEST flux-loop processing requires at least two samples")
         voltage = vest_flux_loop_voltage(source_data, calibration, config=cfg)
         processed_full = vest_flux_loop_flux_from_voltage(
             source_time,
