@@ -15,9 +15,9 @@ for example :func:`magnetics_time_ip`, :func:`equilibrium_profile_pressure`, and
 ``barometry``, ``spectrometer_uv``, ``camera_visible`` -- plus two composed
 domains, ``machine`` for cross-IDS machine views and ``summary`` for cross-IDS
 summary panels.  ``<view>`` is one of ``time``, ``profile``, ``field``,
-``geometry``, ``spectrogram``, ``overview``, ``image``, ``animation``.
-``<quantity>`` may be dropped when the domain and view are already
-unambiguous, as in ``soft_x_rays_spectrogram``.
+``geometry``, ``spectrum``, ``spectrogram``, ``overview``, ``image``,
+``animation``.  ``<quantity>`` may be dropped when the domain and view are
+already unambiguous, as in ``soft_x_rays_spectrogram``.
 
 There is no redundant ``plot_`` prefix here; adapter layers and object methods
 use ``plot_<canonical-stem>``, so ``vaft.plot.magnetics_time_ip`` is rendered
@@ -73,6 +73,8 @@ construction, so renderers never need defensive checks.
   rather than a contour -- used by ``<domain>_image_<quantity>``.
 * :class:`~vaft.plot.models.ImageSequence` -- a sequence of raster frames on a
   shared color scale, used by ``<domain>_animation_<quantity>``.
+* :class:`~vaft.plot.models.PowerSpectrum` -- a power spectral density on log-log
+  axes, with optional fitted segments and caller-supplied reference-slope guides.
 * :class:`~vaft.plot.models.Spectrogram` -- a ``(frequency, time)`` magnitude map.
 * :class:`~vaft.plot.models.Panels` -- a grid of the above rendered into one
   figure, used by ``<domain>_overview`` and the composite renderers.
@@ -84,7 +86,8 @@ The shared bodies that do the drawing are public for ad-hoc plots with no
 canonical name: :func:`render_line_series`, :func:`render_profile_1d`,
 :func:`render_field_2d`, :func:`render_geometry_layers`,
 :func:`render_image_2d`, :func:`render_image_sequence`,
-:func:`render_spectrogram` and :func:`render_panels`.
+:func:`render_power_spectrum`, :func:`render_spectrogram` and
+:func:`render_panels`.
 
 Discovery
 ---------
@@ -160,7 +163,9 @@ from .models import (
     ImageSequence,
     LineSeries,
     Panels,
+    PowerSpectrum,
     Profile1D,
+    ReferenceSlope,
     Series,
     Spectrogram,
     ViewModel,
@@ -172,6 +177,7 @@ from .renderers.images import render_image_2d, render_image_sequence
 from .renderers.lines import render_line_series
 from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
+from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
 from .style import save_figure
 
@@ -285,6 +291,11 @@ from .renderers.profiles import (
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
 )
+from .renderers.spectra import (
+    interferometer_spectrum,
+    magnetics_spectrum_mirnov,
+    soft_x_rays_spectrum,
+)
 from .renderers.spectrograms import (
     interferometer_spectrogram,
     magnetics_spectrogram_mirnov,
@@ -302,7 +313,9 @@ _SUPPORT_EXPORTS = (
     "LineSeries",
     "Panels",
     "PlotSpec",
+    "PowerSpectrum",
     "Profile1D",
+    "ReferenceSlope",
     "Series",
     "Spectrogram",
     "ViewModel",
@@ -316,6 +329,7 @@ _SUPPORT_EXPORTS = (
     "render_image_sequence",
     "render_line_series",
     "render_panels",
+    "render_power_spectrum",
     "render_profile_1d",
     "render_spectrogram",
     "save_figure",

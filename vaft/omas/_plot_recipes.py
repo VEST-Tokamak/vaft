@@ -27,7 +27,9 @@ from vaft.plot.models import (
     ImageSequence,
     LineSeries,
     Panels,
+    PowerSpectrum,
     Profile1D,
+    ReferenceSlope,
     Series,
     Spectrogram,
 )
@@ -180,15 +182,49 @@ def _resolve_indices(
     return list(range(_count(ods, _container_of(template, marker))))
 
 
+def _squeeze_energy_band(values: np.ndarray | None, *, where: str) -> np.ndarray | None:
+    """Reduce a ``(energy_band, time)`` trace to the 1D series renderers expect.
+
+    IMAS stores soft X-ray ``brightness.data`` as ``(energy_band, time)``, and
+    older VEST ODS files used ``(time, 1)``.  Both carry a single band, so both
+    reduce to one trace; several real bands need the caller to pick one.
+    """
+    if values is None or values.ndim <= 1:
+        return values
+    if values.shape[0] == 1:
+        return values[0]
+    if values.shape[-1] == 1:
+        return values[..., 0]
+    raise ValueError(
+        f"{where} holds {values.shape[0]} energy bands; select one before plotting."
+    )
+
+
+def _first_array(
+    ods: Any, candidates: Sequence[str], **substitutions: Any
+) -> np.ndarray | None:
+    """The first candidate path that holds data, reduced to 1D where needed.
+
+    Diagnostics that store the same physical signal under different IDS leaves --
+    soft X-rays under ``brightness`` here and ``power`` elsewhere -- give the
+    recipe a candidate list rather than forcing one spelling.
+    """
+    for candidate in candidates:
+        path = candidate.format(**substitutions) if substitutions else candidate
+        array = _array(ods, path)
+        if array is not None:
+            return _squeeze_energy_band(array, where=path)
+    return None
+
+
 def _first_time(
     ods: Any, candidates: Sequence[str], **substitutions: Any
 ) -> np.ndarray | None:
     for candidate in candidates:
-        array = _array(
-            ods, candidate.format(**substitutions) if substitutions else candidate
-        )
+        path = candidate.format(**substitutions) if substitutions else candidate
+        array = _array(ods, path)
         if array is not None:
-            return array
+            return _squeeze_energy_band(array, where=path)
     return None
 
 
@@ -256,6 +292,10 @@ class LineRecipe:
     scale: float = 1.0
     label_path: str = ""
     weight_path: str = ""
+    #: Alternative spellings of ``y_path``, tried in order when it holds no data.
+    #: Diagnostics whose signal lives under different IDS leaves across sources
+    #: (soft X-rays under ``brightness`` here, ``power`` elsewhere) list them here.
+    fallback_y_paths: tuple[str, ...] = ()
     #: Optional scalar ODS path (e.g. ``"tf.r0"``) whose value divides ``y_path``.
     #: Missing or zero divides by 1.0 rather than raising or producing inf/nan.
     divide_by_path: str = ""
@@ -306,10 +346,23 @@ class SpectrogramRecipe:
     """How to read a ``Spectrogram`` from an ODS."""
 
     signal_path: str
+    fallback_signal_paths: tuple[str, ...] = ()
     time_paths: tuple[str, ...] = ()
     container: str = ""
     label_path: str = ""
     value_label: str = "Magnitude"
+
+
+@dataclass(frozen=True)
+class PowerSpectrumRecipe:
+    """How to read a ``PowerSpectrum`` from an ODS."""
+
+    signal_path: str
+    fallback_signal_paths: tuple[str, ...] = ()
+    time_paths: tuple[str, ...] = ()
+    container: str = ""
+    label_path: str = ""
+    value_label: str = "PSD"
 
 
 @dataclass(frozen=True)
@@ -570,9 +623,16 @@ RECIPES: dict[str, Any] = {
         title="Neutral Pressure",
     ),
     "soft_x_rays_time_power": LineRecipe(
-        y_path="soft_x_rays.channel.{i}.power.data",
+        # VEST maps SXR digitizer traces to ``brightness`` (what IMAS defines for
+        # a detector signal); ``power`` is kept for externally sourced ODS.
+        y_path="soft_x_rays.channel.{i}.brightness.data",
+        fallback_y_paths=("soft_x_rays.channel.{i}.power.data",),
         index="channel",
-        x_paths=("soft_x_rays.channel.{i}.power.time", "soft_x_rays.time"),
+        x_paths=(
+            "soft_x_rays.channel.{i}.brightness.time",
+            "soft_x_rays.channel.{i}.power.time",
+            "soft_x_rays.time",
+        ),
         y_label="Soft X-ray Signal",
         y_unit="a.u.",
         label_path="soft_x_rays.channel.{i}.name",
@@ -869,14 +929,44 @@ RECIPES: dict[str, Any] = {
         label_path="magnetics.b_field_pol_probe.{i}.name",
     ),
     "soft_x_rays_spectrogram": SpectrogramRecipe(
-        signal_path="soft_x_rays.channel.{i}.power.data",
-        time_paths=("soft_x_rays.channel.{i}.power.time", "soft_x_rays.time"),
+        signal_path="soft_x_rays.channel.{i}.brightness.data",
+        fallback_signal_paths=("soft_x_rays.channel.{i}.power.data",),
+        time_paths=(
+            "soft_x_rays.channel.{i}.brightness.time",
+            "soft_x_rays.channel.{i}.power.time",
+            "soft_x_rays.time",
+        ),
         container="soft_x_rays.channel",
         label_path="soft_x_rays.channel.{i}.name",
     ),
     "interferometer_spectrogram": CallableRecipe(
         builder=lambda ods, **options: _build_interferometer_spectrogram(ods, **options),
         description="Time-frequency map of one interferometer channel's density fluctuation.",
+    ),
+    # --- power spectra -------------------------------------------------------
+    "magnetics_spectrum_mirnov": PowerSpectrumRecipe(
+        signal_path="magnetics.b_field_pol_probe.{i}.voltage.data",
+        time_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+        container="magnetics.b_field_pol_probe",
+        label_path="magnetics.b_field_pol_probe.{i}.name",
+        value_label="PSD [V^2/Hz]",
+    ),
+    "soft_x_rays_spectrum": PowerSpectrumRecipe(
+        signal_path="soft_x_rays.channel.{i}.brightness.data",
+        fallback_signal_paths=("soft_x_rays.channel.{i}.power.data",),
+        time_paths=(
+            "soft_x_rays.channel.{i}.brightness.time",
+            "soft_x_rays.channel.{i}.power.time",
+            "soft_x_rays.time",
+        ),
+        container="soft_x_rays.channel",
+        label_path="soft_x_rays.channel.{i}.name",
+    ),
+    "interferometer_spectrum": PowerSpectrumRecipe(
+        signal_path="interferometer.channel.{i}.n_e_line.data",
+        time_paths=("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
+        container="interferometer.channel",
+        label_path="interferometer.channel.{i}.name",
     ),
     # --- composites ----------------------------------------------------------
     "summary_time_energy": PanelRecipe(
@@ -2003,7 +2093,9 @@ def _build_line_traces(
         indices = _resolve_indices(ods, recipe.y_path, channels)
         traces = []
         for index in indices:
-            y = _array(ods, recipe.y_path.format(i=index))
+            y = _first_array(
+                ods, (recipe.y_path, *recipe.fallback_y_paths), i=index
+            )
             if y is None:
                 continue
             time = _first_time(ods, recipe.x_paths, i=index)
@@ -2233,12 +2325,19 @@ def _build_spectrogram(
     from vaft.process import mirnov_spectrogram as compute_spectrogram
 
     index = int(options.get("channel", 0))
-    signal = _array(ods, recipe.signal_path.format(i=index))
+    candidates = (recipe.signal_path, *recipe.fallback_signal_paths)
+    signal = _first_array(ods, candidates, i=index)
     if signal is None:
         raise ValueError(f"{recipe.signal_path.format(i=index)} is not available")
     time = _first_time(ods, recipe.time_paths, i=index)
     if time is None or time.size != signal.size:
         time = np.arange(signal.size, dtype=float)
+
+    time_range = options.get("time_range")
+    if time_range is not None:
+        window = (time >= float(time_range[0])) & (time <= float(time_range[1]))
+        time, signal = time[window], signal[window]
+
     sample_rate = options.get("sample_rate")
     if sample_rate is None:
         steps = np.diff(time)
@@ -2257,6 +2356,79 @@ def _build_spectrogram(
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,
+    )
+
+
+def _build_power_spectrum(
+    ods: Any, recipe: PowerSpectrumRecipe, **options: Any
+) -> PowerSpectrum:
+    """Build a PSD view model from one channel of an ODS.
+
+    Reference slopes and frequency markers are passed through from the caller
+    untouched; this adapter never supplies one of its own.  The signal is
+    analysed as stored: for a Mirnov voltage that means the PSD of ``dB/dt``, not
+    of ``B`` -- integrate first if you want a field spectrum.
+    """
+    from vaft.process.fluctuation import compute_psd, fit_power_law_spectrum
+
+    index = int(options.get("channel", 0))
+    candidates = (recipe.signal_path, *recipe.fallback_signal_paths)
+    signal = _first_array(ods, candidates, i=index)
+    if signal is None:
+        raise ValueError(f"{recipe.signal_path.format(i=index)} is not available")
+    time = _first_time(ods, recipe.time_paths, i=index)
+    if time is None or time.size != signal.size:
+        raise ValueError(
+            f"a matching time axis for {recipe.signal_path.format(i=index)} is not "
+            "available; a PSD needs a real timebase to set its frequency axis"
+        )
+
+    time_range = options.get("time_range")
+    if time_range is not None:
+        window = (time >= float(time_range[0])) & (time <= float(time_range[1]))
+        time, signal = time[window], signal[window]
+
+    spectrum = compute_psd(
+        time,
+        signal,
+        sample_rate=options.get("sample_rate"),
+        window=options.get("window", "hann"),
+        nperseg=options.get("nperseg"),
+        noverlap=options.get("noverlap"),
+        detrend=options.get("detrend", "constant"),
+    )
+
+    fits = []
+    for f_range in options.get("fit_ranges", ()):
+        fit = fit_power_law_spectrum(spectrum.frequency, spectrum.psd, f_range=f_range)
+        edges = np.array(fit.frequency_range, dtype=float)
+        fits.append(
+            Series(
+                x=edges,
+                y=10.0**fit.intercept * edges**fit.alpha,
+                label=f"fit {fit.alpha:.2f} (R^2={fit.r_squared:.3f})",
+                style={"linestyle": "-", "linewidth": 1.5},
+            )
+        )
+
+    slopes = tuple(
+        item if isinstance(item, ReferenceSlope) else ReferenceSlope(slope=float(item))
+        for item in options.get("reference_slopes", ())
+    )
+
+    return PowerSpectrum(
+        frequency=spectrum.frequency,
+        psd=spectrum.psd,
+        fits=tuple(fits),
+        reference_slopes=slopes,
+        marker_frequencies=tuple(options.get("marker_frequencies", ())),
+        # ``label`` is taken by render() for entry naming, so the trace label
+        # has its own option; it matters when several channels share one axes.
+        label=str(options.get("series_label", "")),
+        y_label=recipe.value_label,
+        title=options.get(
+            "title", _channel_label(ods, recipe.label_path, index, f"channel {index}")
+        ),
     )
 
 
@@ -3665,6 +3837,8 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
         return _build_field_2d(entries[0][1], recipe, **options)
     if isinstance(recipe, SpectrogramRecipe):
         return _build_spectrogram(entries[0][1], recipe, **options)
+    if isinstance(recipe, PowerSpectrumRecipe):
+        return _build_power_spectrum(entries[0][1], recipe, **options)
     if isinstance(recipe, CallableRecipe):
         return recipe.builder(entries[0][1], **options)
     raise TypeError(f"unsupported recipe type {type(recipe).__name__} for {name!r}")

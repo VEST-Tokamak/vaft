@@ -19,6 +19,7 @@ from vaft.plot.models import (
     ImageSequence,
     LineSeries,
     Panels,
+    PowerSpectrum,
     Profile1D,
     Series,
     Spectrogram,
@@ -46,6 +47,9 @@ def _minimal_model(model_type):
     if model_type is ImageSequence:
         frames = tuple(np.full((4, 4), i) for i in range(3))
         return ImageSequence(frames=frames, time=np.array([0.0, 0.1, 0.2]))
+    if model_type is PowerSpectrum:
+        frequency = np.linspace(1.0, 100.0, 16)
+        return PowerSpectrum(frequency=frequency, psd=frequency**-2.0, label="a")
     if model_type is Spectrogram:
         time, frequency = np.linspace(0.0, 1.0, 6), np.linspace(0.0, 5.0, 4)
         return Spectrogram(
