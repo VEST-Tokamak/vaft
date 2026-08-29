@@ -17,6 +17,15 @@ DEPRECATED_CALLS = {
 }
 
 
+def _notebook_paths():
+    """Return real notebooks, excluding macOS AppleDouble sidecars on SSDs."""
+    return (
+        path
+        for path in sorted(NOTEBOOKS.glob("*.ipynb"))
+        if not path.name.startswith("._")
+    )
+
+
 def _attribute_name(node: ast.AST) -> str | None:
     parts = []
     while isinstance(node, ast.Attribute):
@@ -30,7 +39,7 @@ def _attribute_name(node: ast.AST) -> str | None:
 
 def test_all_notebooks_are_valid_and_python_cells_compile():
     failures = []
-    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+    for path in _notebook_paths():
         try:
             book = nbformat.read(path, as_version=4)
             nbformat.validate(book)
@@ -51,7 +60,7 @@ def test_all_notebooks_are_valid_and_python_cells_compile():
 
 def test_notebooks_avoid_deprecated_database_calls_and_machine_paths():
     failures = []
-    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+    for path in _notebook_paths():
         book = nbformat.read(path, as_version=4)
         for index, cell in enumerate(book.cells):
             if cell.cell_type != "code":

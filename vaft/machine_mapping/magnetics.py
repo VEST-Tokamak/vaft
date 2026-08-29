@@ -6,7 +6,7 @@ import math
 import os
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -16,7 +16,11 @@ import yaml
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibrium_magnetics_signals
+from vaft.process.magnetics import (
+    VestEquilibriumMagneticsResult,
+    VestMagneticsProcessingConfig,
+    vest_equilibrium_magnetics_detailed,
+)
 from vaft.process.signal_processing import detect_active_window, smooth
 
 from .utils import (
@@ -402,6 +406,40 @@ FLUCTUATION_MIRNOV_FIRST_SHOT = int(_fluctuation_mirnov_config()["first_operatio
 OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["major_radius"])
 
 
+class UnsupportedMagneticsGeometryError(NotImplementedError):
+    """Raised when a shot needs a magnetics geometry this repository lacks."""
+
+
+# Issue #195 section 5: the archived VFIT source loads
+# `VEST_MagneticsGeometry_Full_ver_2310` for shot 39204 specifically and
+# `ver_2409` for every other shot. This repository ships neither -- it
+# carries ver_2302, which it applies to all shots. For most shots that is a
+# documented, deliberate difference, but for 39204 the legacy source goes
+# out of its way to override the geometry, so quietly handing it ver_2302
+# would assign knowingly-wrong geometry. Fail clearly instead, until the
+# 2310 geometry is imported as a repository-native asset. Deliberately not
+# resolved by loading an external MATLAB file at runtime.
+UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS: dict[int, str] = {39204: "2310"}
+
+
+def require_supported_magnetics_geometry(shot: int | None) -> None:
+    """Raise if *shot* requires a magnetics geometry version VAFT lacks."""
+    if shot is None:
+        return
+    required = UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot))
+    if required is None:
+        return
+    raise UnsupportedMagneticsGeometryError(
+        f"Shot {int(shot)} requires VEST magnetics geometry version {required}, "
+        "which is not available in this repository (it ships ver_2302). The "
+        "legacy VFIT source overrides the geometry for this shot specifically, "
+        "so processing it with the shipped geometry would assign "
+        "knowingly-incorrect sensor positions. Import the "
+        f"ver_{required} geometry as a repository-native asset before "
+        "processing this shot (issue #195)."
+    )
+
+
 @lru_cache(maxsize=1)
 def _load_static_channels() -> list[dict[str, Any]]:
     with open(_geometry_root() / "VEST_MagneticsGeometry_Full_ver_2302.yaml", "r", encoding="utf-8") as handle:
@@ -441,6 +479,10 @@ class _MagneticsContext:
     target_time: np.ndarray
     flux_loops: list[np.ndarray]
     probes: list[np.ndarray]
+    # Native-rate calibrated flux-loop terminal voltages, index-aligned with
+    # `flux_loops` (empty arrays for unavailable channels).
+    flux_loop_voltage_time: list[np.ndarray] = dataclass_field(default_factory=list)
+    flux_loop_voltage: list[np.ndarray] = dataclass_field(default_factory=list)
 
 
 def _prepare_magnetics_context(
@@ -452,18 +494,20 @@ def _prepare_magnetics_context(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> _MagneticsContext:
-    source_time, flux_loops, probes = vfit_equilibrium_magnetics(
+    result = vfit_equilibrium_magnetics_detailed(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
     )
-    source_time = np.asarray(source_time, dtype=float)
+    source_time = np.asarray(result.time, dtype=float)
     return _MagneticsContext(
         source_time=source_time,
         target_time=_build_target_time(source_time, tstart, tend, dt),
-        flux_loops=flux_loops,
-        probes=probes,
+        flux_loops=result.flux_loops,
+        probes=result.probes,
+        flux_loop_voltage_time=result.flux_loop_voltage_time,
+        flux_loop_voltage=result.flux_loop_voltage,
     )
 
 
@@ -544,6 +588,94 @@ def _plasma_processing_for_shot(shot: int) -> tuple[dict[str, Any], dict[str, An
     return config, nested("reference"), nested("baseline"), nested("sign")
 
 
+def _plasma_current_baseline_indices(
+    time: np.ndarray, baseline_config: dict[str, Any]
+) -> np.ndarray:
+    x_time = np.arange(
+        int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
+    )
+    x_window = int(baseline_config["lookback"])
+    x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
+    x_base = x_base[(x_base >= 0) & (x_base < time.size)]
+    if x_base.size < 2:
+        x_base = np.arange(min(500, time.size), dtype=int)
+    return x_base
+
+
+def _linear_baseline_subtract(time: np.ndarray, values: np.ndarray, x_base: np.ndarray) -> np.ndarray:
+    return values - np.polyval(np.polyfit(time[x_base], values[x_base], 1), time)
+
+
+def _apply_fl10_windowed_compensation(
+    shot: int,
+    time: np.ndarray,
+    ip_shot: np.ndarray,
+    reference_config: dict[str, Any],
+    raw_source: raw_db.RawSource | None,
+) -> np.ndarray:
+    """Apply the later-era (46403-47116) FL10 compensation used in place of
+    the legacy full-trace subtraction: decimate/gain/offset/smooth the FL10
+    reference, interpolate onto the RC03 time grid, and subtract it from
+    `ip_shot` only inside the documented compensation window.
+    """
+    fl10_config = reference_config["fl10"]
+    fl10_field = int(fl10_config["field"])
+    ind_mutual = float(reference_config["mutual_inductance"])
+
+    fl10_time, raw_fl10 = raw_db.require_signal(
+        _safe_vest_load(shot, fl10_field, raw_source),
+        shot=shot,
+        field=fl10_field,
+        signal_name="plasma-current FL10 reference (windowed compensation)",
+    )
+
+    shifted_time = fl10_time + float(fl10_config["time_offset_s"])
+    decimate_factor = int(fl10_config["decimate_factor"])
+    # MATLAB `decimate(temp2, 10)` defaults to an order-8 Chebyshev type I
+    # filter, which is exactly what scipy's default `ftype="iir"` builds.
+    decimated_flux = (
+        signal.decimate(raw_fl10, decimate_factor) if decimate_factor > 1 else raw_fl10
+    )
+    decimated_time = shifted_time[::decimate_factor][: decimated_flux.size]
+
+    ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / ind_mutual
+
+    # Donor: `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
+    # (`vest_ip.m`). That is a degree-1 fit through a single (x, y) point, so
+    # it is rank deficient. MATLAB solves it as V\y on the 1x2 Vandermonde
+    # [x 1] via QR with column pivoting, which selects the larger-magnitude
+    # column -- the constant column, since x = time2(1) ~ 0.26 < 1. The fit
+    # therefore has zero slope and evaluates to the constant ipRef(175), so
+    # this reduces to subtracting that single sample. Both the mechanism and
+    # the evident intent agree, but this was reasoned from the source rather
+    # than executed in MATLAB; the pinning test guards the convention.
+    # `reference_offset_index` indexes the *decimated* array, as in the donor.
+    offset_index = int(fl10_config["reference_offset_index"]) - 1  # 1-based -> 0-based
+    offset_index = min(max(offset_index, 0), ip_ref.size - 1)
+    ip_ref = ip_ref - ip_ref[offset_index]
+
+    # Donor: `ipRef = smoothdata(ipRef, 10)`. Read strictly, smoothdata's
+    # two-argument form takes a *dimension*, not a window length, so passing
+    # 10 for a vector smooths along a singleton dimension and returns the
+    # input unchanged -- i.e. the donor line is a no-op, and VAFT's legacy
+    # `mode: subtract` path likewise applies no smoothing. The issue text
+    # reads it as an intended 10-sample moving average, so the span stays
+    # configurable: set `smooth_span: 1` to reproduce the donor literally.
+    smooth_span = int(fl10_config["smooth_span"])
+    ip_ref = smooth(ip_ref, smooth_span)
+
+    # Donor uses `interp1(..., 'linear', 0)`: zero outside the FL10 record,
+    # not edge-clamped as numpy would default to.
+    ip_ref_interp = np.interp(time, decimated_time, ip_ref, left=0.0, right=0.0)
+
+    window_start, window_end = (float(bound) for bound in fl10_config["subtract_window"])
+    mask = (time >= window_start) & (time <= window_end)
+
+    compensated = ip_shot.copy()
+    compensated[mask] = ip_shot[mask] - ip_ref_interp[mask]
+    return compensated
+
+
 def vfit_plasma_current(
     shot: int,
     ref: int = -1,
@@ -554,15 +686,35 @@ def vfit_plasma_current(
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
     if ref == -1:
-        x_flux_loop = int(reference_config["field"])
-        ind_mutual = float(reference_config["mutual_inductance"])
-
         time, raw_ip = raw_db.require_signal(
             _safe_vest_load(shot, plasma_field, raw_source),
             shot=shot,
             field=plasma_field,
             signal_name="plasma-current Rogowski coil",
         )
+        x_base = _plasma_current_baseline_indices(time, baseline_config)
+        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
+        ip_shot = _linear_baseline_subtract(time, calibrated_ip, x_base)
+
+        mode = reference_config.get("mode", "subtract")
+        if mode == "disabled":
+            # Shot >= 47117 (#195): the FL10 waveform must not affect the
+            # resulting plasma current at all.
+            ip = ip_shot * float(sign_config["multiply"])
+            return time, ip
+
+        if mode == "subtract_fl10_windowed":
+            # Shots 46403-47116 (#195): later-era FL10 acquisition path,
+            # subtracted only inside the documented compensation window.
+            ip_shot = _apply_fl10_windowed_compensation(
+                shot, time, ip_shot, reference_config, raw_source
+            )
+            ip = ip_shot * float(sign_config["multiply"])
+            return time, ip
+
+        # Legacy full-trace subtraction (default, unchanged since #135).
+        x_flux_loop = int(reference_config["field"])
+        ind_mutual = float(reference_config["mutual_inductance"])
         flux_time, raw_flux = raw_db.require_signal(
             _safe_vest_load(shot, x_flux_loop, raw_source),
             shot=shot,
@@ -572,19 +724,8 @@ def vfit_plasma_current(
         if flux_time.size != time.size or not np.allclose(flux_time, time):
             raw_flux = np.interp(time, flux_time, raw_flux)
 
-        x_time = np.arange(
-            int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
-        )
-        x_window = int(baseline_config["lookback"])
-        x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
-        x_base = x_base[(x_base >= 0) & (x_base < time.size)]
-        if x_base.size < 2:
-            x_base = np.arange(min(500, time.size), dtype=int)
-
-        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
-        ip_shot = calibrated_ip - np.polyval(np.polyfit(time[x_base], calibrated_ip[x_base], 1), time)
         ip_ref = raw_flux * float(reference_config["flux_gain"]) / ind_mutual
-        ip_ref = ip_ref - np.polyval(np.polyfit(time[x_base], ip_ref[x_base], 1), time)
+        ip_ref = _linear_baseline_subtract(time, ip_ref, x_base)
         ip = (ip_shot - ip_ref) * float(sign_config["multiply"])
         return time, ip
 
@@ -728,6 +869,67 @@ def vest_diamagnetic_flux(
     return temp_time, dia_flux_final
 
 
+def _equilibrium_magnetics_window_for_shot(shot: int) -> dict[str, Any]:
+    """Resolve the shot-era equilibrium-magnetics acquisition policy from vest.yaml."""
+    config = resolve_vest_diagnostic(shot, "equilibrium_magnetics")
+    window = config["processing"]["window"]
+    return resolve_shot_revisions(
+        {key: value for key, value in window.items() if key != "revisions"},
+        window.get("revisions"),
+        shot,
+        context="VEST equilibrium_magnetics window",
+    )
+
+
+def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessingConfig:
+    """Build the processing config for *shot* from its resolved vest.yaml era."""
+    window = _equilibrium_magnetics_window_for_shot(shot)
+    flux_window = window.get("flux_baseline_window")
+    flux_samples = window.get("flux_baseline_samples")
+    return VestMagneticsProcessingConfig(
+        window_override=(
+            int(window["index_start"]),
+            int(window["index_end"]),
+            int(window["probe_baseline_end"]),
+        ),
+        flux_baseline_window=(
+            None if flux_window is None else (float(flux_window[0]), float(flux_window[1]))
+        ),
+        flux_baseline_samples=None if flux_samples is None else int(flux_samples),
+        daq_mode=str(window["daq_mode"]),
+    )
+
+
+def vfit_equilibrium_magnetics_detailed(
+    shot: int,
+    indices: list[int] | np.ndarray | None = None,
+    processing_config: VestMagneticsProcessingConfig | None = None,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+    allow_missing_channels: bool = False,
+) -> VestEquilibriumMagneticsResult:
+    """Process magnetics channels, keeping native flux-loop terminal voltages.
+
+    Shot-era resolution is identical to `vfit_equilibrium_magnetics`: an
+    explicit ``processing_config`` wins, otherwise the era policy comes from
+    ``vest.yaml`` (issue #195).
+    """
+    require_supported_magnetics_geometry(int(shot))
+    config = (
+        processing_config
+        if processing_config is not None
+        else equilibrium_magnetics_processing_config(int(shot))
+    )
+    return vest_equilibrium_magnetics_detailed(
+        int(shot),
+        _load_equilibrium_magnetics_channels(),
+        lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
+        indices=indices,
+        config=config,
+        allow_missing=allow_missing_channels,
+    )
+
+
 def vfit_equilibrium_magnetics(
     shot: int,
     indices: list[int] | np.ndarray | None = None,
@@ -736,15 +938,20 @@ def vfit_equilibrium_magnetics(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Process magnetic probe and flux-loop data using VAFT process helpers."""
-    return vest_equilibrium_magnetics_signals(
-        int(shot),
-        _load_equilibrium_magnetics_channels(),
-        lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
-        indices=indices,
-        config=processing_config,
-        allow_missing=allow_missing_channels,
+    """Process magnetic probe and flux-loop data using VAFT process helpers.
+
+    An explicitly supplied ``processing_config`` still wins, preserving the
+    existing override path used for parameter scans; otherwise the shot-era
+    policy is resolved from ``vest.yaml`` (issue #195).
+    """
+    result = vfit_equilibrium_magnetics_detailed(
+        shot,
+        indices,
+        processing_config,
+        raw_source=raw_source,
+        allow_missing_channels=allow_missing_channels,
     )
+    return result.time, result.flux_loops, result.probes
 
 
 def _set_magnetics_properties(ods: object) -> None:
@@ -964,14 +1171,68 @@ def vfit_limiter_shunts_dynamic(
         _set_voltage_signal(ods, f"magnetics.shunt.{index}", time, data, validity)
 
 
-def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
+def _map_flux_loops(
+    ods: object,
+    context: _MagneticsContext,
+    *,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Map flux-loop terminal voltage and integrated flux (issue #209).
+
+    The processing chain is kept explicit and quantity-specific::
+
+        raw DAQ waveform
+            -> channel calibration / sign convention
+            -> magnetics.flux_loop[i].voltage   (native acquisition timebase,
+                                                 cropped to [tstart, tend))
+            -> time integration + linear baseline removal
+            -> magnetics.flux_loop[i].flux      (canonical magnetics.time grid)
+
+    So ``flux.data = -integral(voltage dt) - 2*pi*baseline``: integrating the
+    stored voltage reproduces the stored flux up to the removed linear
+    baseline term. Voltage is never reconstructed by differentiating flux, and
+    voltage validity is independent of the presence of processed flux.
+    """
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.flux_loops):
+        _map_flux_loop_voltage(ods, context, index, tstart=tstart, tend=tend)
         if np.asarray(values).size < 2:
             continue
         data = _interpolate_signal(context.target_time, context.source_time, values) * 2 * math.pi
         set_path(ods, f"magnetics.flux_loop.{index}.flux.time", context.target_time)
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
+
+
+def _map_flux_loop_voltage(
+    ods: object,
+    context: _MagneticsContext,
+    index: int,
+    *,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Store one calibrated pre-integration flux-loop voltage at native rate."""
+    if index < len(context.flux_loop_voltage):
+        native_time = np.asarray(context.flux_loop_voltage_time[index], dtype=float)
+        native_data = np.asarray(context.flux_loop_voltage[index], dtype=float)
+    else:
+        native_time = np.array([], dtype=float)
+        native_data = np.array([], dtype=float)
+
+    if native_time.size < 2 or native_time.shape != native_data.shape:
+        _set_voltage_signal(
+            ods,
+            f"magnetics.flux_loop.{index}",
+            np.array([], dtype=float),
+            np.array([], dtype=float),
+            -2,
+        )
+        return
+
+    time, data = _crop_native_window(native_time, native_data, tstart=tstart, tend=tend)
+    validity = 0 if data.size else -2
+    _set_voltage_signal(ods, f"magnetics.flux_loop.{index}", time, data, validity)
 
 
 def _map_probes(
@@ -1135,8 +1396,10 @@ def vfit_magnetics_dynamic(
             target_time=np.asarray(target_time, dtype=float),
             flux_loops=context.flux_loops,
             probes=context.probes,
+            flux_loop_voltage_time=context.flux_loop_voltage_time,
+            flux_loop_voltage=context.flux_loop_voltage,
         )
-    _map_flux_loops(ods, context)
+    _map_flux_loops(ods, context, tstart=tstart, tend=tend)
     _map_probes(ods, shot, context, raw_source, tstart=tstart, tend=tend)
     vfit_limiter_shunts_dynamic(ods, shot, raw_source=raw_source)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
@@ -1205,7 +1468,7 @@ def flux_loop_from_raw_database(
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
-    _map_flux_loops(ods, context)
+    _map_flux_loops(ods, context, tstart=tstart, tend=tend)
 
 
 def b_field_pol_probe_from_raw_database(
@@ -1291,6 +1554,10 @@ __all__ = [
     "LIMITER_SHUNT_CHANNELS",
     "LIMITER_SHUNT_BASELINE_WINDOW",
     "LIMITER_SHUNT_RESISTANCE",
+    "UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS",
+    "UnsupportedMagneticsGeometryError",
+    "equilibrium_magnetics_processing_config",
+    "require_supported_magnetics_geometry",
     "b_field_pol_probe_from_raw_database",
     "diamagnetic_flux_rogowski_coil_from_raw_database",
     "flux_loop_from_raw_database",
@@ -1305,6 +1572,7 @@ __all__ = [
     "magnetics",
     "vfit_plasma_current",
     "vfit_equilibrium_magnetics",
+    "vfit_equilibrium_magnetics_detailed",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
     "vfit_magnetics_static",

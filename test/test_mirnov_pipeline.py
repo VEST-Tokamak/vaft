@@ -12,7 +12,7 @@ from vaft.machine_mapping.magnetics import vfit_magnetics_for_shot
 from vaft.machine_mapping.utils import get_path, path_exists, set_path
 from vaft.plot.mirnov import mirnov_signal, mirnov_spectrogram, toroidal_mode_spectrum, toroidal_phase_mode_fit
 from vaft.process.magnetics import mirnov_spectrogram as compute_mirnov_spectrogram
-from vaft.process.magnetics import toroidal_mode_analysis, toroidal_phase_fit_at_time
+from vaft.process.magnetics import VestEquilibriumMagneticsResult, toroidal_mode_analysis, toroidal_phase_fit_at_time
 
 
 TSTART = 0.26
@@ -79,13 +79,19 @@ def test_fluctuation_mirnov_omitted_before_first_operational_shot():
     def _fake_equilibrium_magnetics(*args, **kwargs):
         del args, kwargs
         time = np.array([0.26, 0.31, 0.36])
-        return time, [np.array([1.0, 2.0, 3.0])], [np.array([4.0, 5.0, 6.0])]
+        return VestEquilibriumMagneticsResult(
+            time=time,
+            flux_loops=[np.array([1.0, 2.0, 3.0])],
+            probes=[np.array([4.0, 5.0, 6.0])],
+            flux_loop_voltage_time=[time],
+            flux_loop_voltage=[np.array([0.1, 0.2, 0.3])],
+        )
 
     payload = {}
     vfit_magnetics_static(payload)
     with (
         patch(
-            "vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics",
+            "vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed",
             side_effect=_fake_equilibrium_magnetics,
         ),
         patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None),

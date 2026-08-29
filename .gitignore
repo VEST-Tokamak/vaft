@@ -26,8 +26,12 @@ workflow/**/*.log
 .claude/settings.local.json
 .cursor/*.log
 
-# AppleDouble sidecars created when this SSD worktree is on ExFAT.
+# macOS metadata sidecars (notably created on external SSD volumes)
 ._*
+
+# Tutorial execution and LaTeX build products
+/tutorial/.build/
+/tutorial/outputs/
 
 # Local VFIT MATLAB exports and scratch summary workbooks (large, not packaged)
 /vaft/data/vfit/
