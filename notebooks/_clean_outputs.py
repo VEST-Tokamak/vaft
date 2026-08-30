@@ -9,6 +9,7 @@ notebook/kernel metadata alone.
 from __future__ import annotations
 
 import argparse
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -25,16 +26,43 @@ ALLOWED_MIME_TYPES = frozenset(
         "image/svg+xml",
     }
 )
+#: MIME types whose payload is human-readable text rather than base64 data.
+_TEXT_MIME_TYPES = frozenset({"text/plain", "text/markdown", "image/svg+xml"})
 _WIDGET_METADATA_KEYS = frozenset({"widgets", "widget_state"})
 _RENDERING_CELL_METADATA_KEYS = frozenset({"slideshow", "tags"})
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+#: Absolute paths leak the machine that ran the notebook -- a home directory, a
+#: checkout location, a per-run temporary directory -- and would differ for
+#: every reader. `test_notebook_reliability` already bans such literals in cell
+#: sources; outputs are held to the same standard. Order matters: the checkout
+#: lives under a home directory, and temp directories are matched before the
+#: generic home rule so their tails are dropped rather than kept.
+_PATH_REDACTIONS = (
+    (re.compile(re.escape(str(_REPO_ROOT))), "<repo>"),
+    (re.compile(r"/var/folders/[^\s\"\'\],)]+"), "<tmp>"),
+    (re.compile(r"/private/tmp/[^\s\"\'\],)]+"), "<tmp>"),
+    (re.compile(r"(?:/Users|/home)/[^/\s\"\']+"), "~"),
+)
+
+
+def redact_paths(text: str) -> str:
+    """Replace machine-specific absolute paths with stable placeholders."""
+    for pattern, replacement in _PATH_REDACTIONS:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 def _clean_output(output: NotebookNode) -> NotebookNode | None:
     """Return a normalized output, or ``None`` when it is not reviewable."""
     if output.output_type == "stream":
         if output.get("name") in {"stdout", "stderr"}:
+            text = output.get("text", "")
+            if isinstance(text, list):
+                text = "".join(text)
             return nbformat.v4.new_output(
-                output_type="stream", name=output.name, text=output.get("text", "")
+                output_type="stream", name=output.name, text=redact_paths(text)
             )
         return None
 
@@ -42,11 +70,16 @@ def _clean_output(output: NotebookNode) -> NotebookNode | None:
         return None
 
     data = output.get("data", {})
-    allowed_data = {
-        mime_type: data[mime_type]
-        for mime_type in data
-        if mime_type in ALLOWED_MIME_TYPES
-    }
+    allowed_data = {}
+    for mime_type in data:
+        if mime_type not in ALLOWED_MIME_TYPES:
+            continue
+        value = data[mime_type]
+        if mime_type in _TEXT_MIME_TYPES:
+            if isinstance(value, list):
+                value = "".join(value)
+            value = redact_paths(value)
+        allowed_data[mime_type] = value
     if not allowed_data:
         return None
 
