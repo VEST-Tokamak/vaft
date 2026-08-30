@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 from vaft.machine_mapping.soft_x_rays import soft_x_rays_from_digitizer_csv
 from vaft.plot.soft_x_rays import (
@@ -93,3 +94,49 @@ def test_power_data_still_works_when_a_source_provides_it(tmp_path):
     fig, ax = plotting.plot_soft_x_rays_time_power(ods, channels=[0], show=False)
     assert len(ax.get_lines()) == 1
     plt.close(fig)
+
+
+def test_multi_band_brightness_still_reaches_the_power_fallback(tmp_path):
+    """A brightness trace with several real energy bands must not mask power.data.
+
+    _first_array used to raise on the first candidate's band ambiguity, so the
+    declared power.data fallback was unreachable.
+    """
+    from vaft.omas import plotting
+
+    ods = _tiny_sxr_ods(tmp_path)
+    time = np.asarray(ods["soft_x_rays.channel.0.brightness.time"]).ravel()
+    values = np.asarray(ods["soft_x_rays.channel.0.brightness.data"]).ravel()
+    # Three real energy bands: not reducible to one trace.
+    ods["soft_x_rays.channel.0.brightness.data"] = np.tile(values, (3, 1))
+    ods["soft_x_rays.channel.0.power.data"] = values.reshape(1, -1)
+    ods["soft_x_rays.channel.0.power.time"] = time
+
+    fig, ax = plotting.plot_soft_x_rays_spectrum(ods, channel=0, nperseg=128, show=False)
+    assert len(ax.get_lines()) >= 1
+    plt.close(fig)
+
+
+def test_one_multi_band_channel_does_not_abort_a_multi_channel_figure(tmp_path):
+    from vaft.omas import plotting
+
+    ods = _tiny_sxr_ods(tmp_path)
+    values = np.asarray(ods["soft_x_rays.channel.0.brightness.data"]).ravel()
+    ods["soft_x_rays.channel.0.brightness.data"] = np.tile(values, (3, 1))
+
+    fig, ax = plotting.plot_soft_x_rays_time_power(ods, channels=[0, 1], show=False)
+
+    # Channel 0 is skipped, channel 1 still draws.
+    assert len(ax.get_lines()) == 1
+    plt.close(fig)
+
+
+def test_multi_band_with_no_fallback_raises_the_informative_error(tmp_path):
+    from vaft.omas import plotting
+
+    ods = _tiny_sxr_ods(tmp_path)
+    values = np.asarray(ods["soft_x_rays.channel.0.brightness.data"]).ravel()
+    ods["soft_x_rays.channel.0.brightness.data"] = np.tile(values, (3, 1))
+
+    with pytest.raises(ValueError, match="energy bands"):
+        plotting.plot_soft_x_rays_spectrum(ods, channel=0, nperseg=128, show=False)

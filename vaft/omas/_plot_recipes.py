@@ -203,17 +203,27 @@ def _squeeze_energy_band(values: np.ndarray | None, *, where: str) -> np.ndarray
 def _first_array(
     ods: Any, candidates: Sequence[str], **substitutions: Any
 ) -> np.ndarray | None:
-    """The first candidate path that holds data, reduced to 1D where needed.
+    """The first candidate path that holds a usable 1D trace.
 
     Diagnostics that store the same physical signal under different IDS leaves --
     soft X-rays under ``brightness`` here and ``power`` elsewhere -- give the
-    recipe a candidate list rather than forcing one spelling.
+    recipe a candidate list rather than forcing one spelling.  A candidate whose
+    trace holds several real energy bands is not usable as-is; the remaining
+    candidates are still tried, and its error is raised only when nothing else
+    provides the signal (so the caller learns *why* rather than "not available").
     """
+    multi_band_error: ValueError | None = None
     for candidate in candidates:
         path = candidate.format(**substitutions) if substitutions else candidate
         array = _array(ods, path)
-        if array is not None:
+        if array is None:
+            continue
+        try:
             return _squeeze_energy_band(array, where=path)
+        except ValueError as error:
+            multi_band_error = error
+    if multi_band_error is not None:
+        raise multi_band_error
     return None
 
 
@@ -2093,9 +2103,14 @@ def _build_line_traces(
         indices = _resolve_indices(ods, recipe.y_path, channels)
         traces = []
         for index in indices:
-            y = _first_array(
-                ods, (recipe.y_path, *recipe.fallback_y_paths), i=index
-            )
+            try:
+                y = _first_array(
+                    ods, (recipe.y_path, *recipe.fallback_y_paths), i=index
+                )
+            except ValueError:
+                # e.g. a channel with several real energy bands: skip it so one
+                # odd channel does not abort a whole multi-channel figure.
+                continue
             if y is None:
                 continue
             time = _first_time(ods, recipe.x_paths, i=index)

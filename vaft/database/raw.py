@@ -478,6 +478,10 @@ def _require_consistent_cadence(
     requested field shares one cadence; stacking a 2 MHz Mirnov next to a
     25 kHz slow channel would silently misalign the data.  Single-field loads
     are unaffected.
+
+    ``fields`` must be the codes of exactly the arrays in ``time_arrays`` (in
+    order); callers that skip unavailable fields pass the loaded subset, so
+    the error names the right channels.
     """
     if len(fields) <= 1:
         return
@@ -543,6 +547,7 @@ def _load_from_sample_file(
 
         time_arrays = []
         data_arrays = []
+        loaded_fields: List[int] = []
 
         for fld in fields:
             fld_str = str(fld)
@@ -596,12 +601,13 @@ def _load_from_sample_file(
 
             time_arrays.append(tvals)
             data_arrays.append(dvals)
+            loaded_fields.append(int(fld))
 
         if not time_arrays:
             logger.error(f"No valid fields loaded from JSON for shot={shot}.")
             return None
 
-        _require_consistent_cadence(fields, time_arrays, shot=shot)
+        _require_consistent_cadence(loaded_fields, time_arrays, shot=shot)
         min_len = min(len(arr) for arr in data_arrays)
         time_ref = time_arrays[0][:min_len]
         data_stack = np.column_stack([

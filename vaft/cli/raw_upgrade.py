@@ -29,7 +29,7 @@ import numpy as np
 
 from vaft.database import raw as raw_db
 from vaft.cli.raw_redump import _exclusive_lock, _manifest_for_existing_dump
-from vaft.omas.vest_upstream import write_manifest
+from vaft.omas.vest_upstream import _write_raw_payload, sha256_file, write_manifest
 
 
 def _iter_dumps(root: Path) -> Iterable[tuple[int, Path]]:
@@ -124,26 +124,45 @@ def main(argv: Iterable[str] | None = None) -> int:
                 if args.dry_run:
                     touched += 1
                     continue
-                # Atomic rewrite next to the target, then refresh the sidecar
-                # manifest so its sha256 matches the upgraded dump.
-                with tempfile.NamedTemporaryFile(
-                    "wb", dir=dump.parent, prefix=dump.name, suffix=".tmp", delete=False
-                ) as handle:
-                    with gzip.open(handle, "wt", encoding="utf-8") as gz:
-                        json.dump(payload, gz)
-                    temporary = Path(handle.name)
-                os.replace(temporary, dump)
+                # Atomic rewrite through the canonical serializer (sorted keys,
+                # compact separators, mtime=0), so an upgraded archive is
+                # byte-identical to a fresh export of the same content.
+                # Write under the same basename in a scratch directory: the
+                # canonical writer keys gzip compression on the .gz suffix and
+                # embeds the basename in the gzip header, so only a same-named
+                # temporary yields byte-identical output to a fresh export.
+                with tempfile.TemporaryDirectory(dir=dump.parent) as scratch:
+                    temporary = Path(scratch) / dump.name
+                    _write_raw_payload(temporary, payload)
+                    os.replace(temporary, dump)
+
+                # Refresh the sidecar manifest's checksum.  An existing manifest
+                # keeps everything else it recorded (source.kind, provenance);
+                # the reduced existing-filedb form is written only when the
+                # sidecar is missing entirely, matching raw-redump's behaviour.
                 manifest_path = dump.parent / f"vest_{shot}_daq_manifest.json"
-                write_manifest(_manifest_for_existing_dump(shot, dump, payload), manifest_path)
+                if manifest_path.is_file():
+                    try:
+                        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError):
+                        manifest = _manifest_for_existing_dump(shot, dump, payload)
+                    else:
+                        manifest.setdefault("output", {})["sha256"] = sha256_file(dump)
+                else:
+                    manifest = _manifest_for_existing_dump(shot, dump, payload)
+                write_manifest(manifest, manifest_path)
+
                 touched += 1
                 upgraded_seen += 1
                 if args.verify_every > 0 and upgraded_seen % args.verify_every == 0:
                     _verify_against_db(shot, dump)
                     verified += 1
             except Exception as error:
+                # One unreadable or unverifiable dump must not abort the batch:
+                # count it, name it, and keep going so the summary and exit
+                # code reflect the whole run.
                 failed += 1
                 print(f"shot {shot}: FAILED ({type(error).__name__}: {error})")
-                raise
 
     if args.dry_run:
         process()

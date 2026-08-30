@@ -264,3 +264,28 @@ class TestArchiveTimebaseUpgrade:
         time, _ = raw.load_raw(shot, 275, sample_opt=path)
 
         np.testing.assert_allclose(time, 0.26 + (0.1 / (n - 1)) * np.arange(n))
+
+
+def test_cadence_error_names_the_loaded_fields_not_the_requested_ones(tmp_path):
+    """A skipped (missing) field must not shift the labels in the error message."""
+    shot = 45531
+    payload = {
+        "shot": shot,
+        "fields": {
+            # field 100 is requested but absent; 286 (fast) and 109 (slow) load.
+            "286": {"type": "fast", "t0": 0.26, "dt": 5e-7, "data": [1.0] * 10},
+            "109": {"type": "slow", "t0": 0.0, "dt": 4e-5, "data": [2.0] * 10},
+        },
+    }
+    path = tmp_path / f"shot_{shot}.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+
+    with pytest.raises(ValueError) as caught:
+        raw.load_raw(shot, [100, 286, 109], sample_opt=path)
+
+    message = str(caught.value)
+    assert "field 286: dt=5e-07" in message
+    assert "field 109: dt=4e-05" in message
+    # The missing field must not be attributed a cadence it never had.
+    assert "field 100: dt" not in message
