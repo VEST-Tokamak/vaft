@@ -291,6 +291,81 @@ def compute_grid_response_ods(
         logger.error(f"Error during computation: {e}")
         raise
 
+def compute_point_response_matrices_ods(
+    ods: ODS,
+    rz,
+    plasma_points=None,
+    ) -> Tuple[ndarray, ndarray, ndarray]:
+    """Vectorized, exact-elliptic (Psi, Bz, Br) response matrices from an ODS.
+
+    Fast alternative to :func:`compute_point_response_ods` (issue #239):
+    delegates to ``vaft.process.electromagnetics.compute_point_response_matrices``
+    (scipy-exact Green's functions, full NumPy broadcasting) instead of the
+    per-point Python loops over ``compute_br_bz_phi``. Column ordering matches
+    :func:`compute_point_response_ods`: ``[coils..., loops..., plasma...]``,
+    with coil columns summed over discretized elements weighted by
+    ``turns_with_sign`` and passive loops reduced to their outline centroid
+    (or rectangle centre).
+
+    Two deliberate differences from the legacy path: exact elliptic integrals
+    instead of the polynomial approximation (~1e-6 relative), and no 1 cm
+    shift-averaging near sources — observation points coincident with a
+    source diverge instead of being smoothed; keep observation points off the
+    source locations.
+
+    :param ods: OMAS data structure with ``pf_active`` and ``pf_passive``
+    :param rz: observation points, sequence of [r, z] or arrays shape (n, 2)
+    :param plasma_points: optional plasma filament points, same shape rules
+    :return: (Psi, Bz, Br), each (n_points, nbcoil + nbloop + nbplas)
+    """
+    from vaft.process.electromagnetics import compute_point_response_matrices
+
+    rz = np.atleast_2d(np.asarray(rz, dtype=float))
+    obs_r, obs_z = rz[:, 0], rz[:, 1]
+
+    pf = ods["pf_active"]
+    pfp = ods["pf_passive"]
+    nbcoil = len(pf["coil"])
+    nbloop = len(pfp["loop"])
+
+    src_r, src_z, turns, groups = [], [], [], []
+    for ii in range(nbcoil):
+        for jj in range(len(pf[f"coil.{ii}.element"])):
+            src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
+            src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
+            turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
+            groups.append(ii)
+    for ii in range(nbloop):
+        geometry = pfp[f"loop.{ii}.element[0].geometry"]
+        if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
+            src_r.append(float(np.mean(geometry["outline.r"])))
+            src_z.append(float(np.mean(geometry["outline.z"])))
+        else:
+            src_r.append(float(geometry["rectangle.r"]))
+            src_z.append(float(geometry["rectangle.z"]))
+        turns.append(1.0)
+        groups.append(nbcoil + ii)
+    n_groups = nbcoil + nbloop
+    if plasma_points is not None and len(plasma_points) > 0:
+        plasma = np.atleast_2d(np.asarray(plasma_points, dtype=float))
+        for r_p, z_p in plasma:
+            src_r.append(float(r_p))
+            src_z.append(float(z_p))
+            turns.append(1.0)
+            groups.append(n_groups)
+            n_groups += 1
+
+    return compute_point_response_matrices(
+        obs_r,
+        obs_z,
+        np.asarray(src_r),
+        np.asarray(src_z),
+        turns=np.asarray(turns),
+        groups=np.asarray(groups, dtype=int),
+        n_groups=n_groups,
+    )
+
+
 def compute_impedance_matrices_ods(
     ods: ODS,
     plasma: List[Tuple[float, float]]
