@@ -342,10 +342,25 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     return result
 
 
+def _psi_per_radian_factor(eq: EquilibriumData) -> float:
+    """Multiplicative factor turning the stored psi into Wb/rad.
+
+    COCOS 1-8 store psi per radian (B_pol = grad(psi)/R directly); COCOS 11-18
+    and IMAS store the full poloidal flux in weber, so field construction needs
+    the extra 1/(2*pi). An ambiguous convention keeps the historical per-radian
+    assumption (factor 1) rather than guessing.
+    """
+    per_radian = eq.convention.psi_per_radian
+    if per_radian is None and eq.convention.cocos is not None:
+        per_radian = eq.convention.cocos < 10
+    return 1.0 if per_radian in (None, True) else 1.0 / (2.0 * np.pi)
+
+
 def _grid_fields(eq: EquilibriumData) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if eq.r is None or eq.z is None or eq.psi is None or eq.psi.shape != (eq.r.size, eq.z.size):
         raise ValueError("a correctly shaped R/Z/psi grid is required")
-    dpsi_dr, dpsi_dz = np.gradient(eq.psi, eq.r, eq.z, edge_order=2)
+    factor = _psi_per_radian_factor(eq)
+    dpsi_dr, dpsi_dz = np.gradient(eq.psi * factor, eq.r, eq.z, edge_order=2)
     rm, zm = np.meshgrid(eq.r, eq.z, indexing="ij")
     br = -dpsi_dz / rm
     bz = dpsi_dr / rm
@@ -428,7 +443,9 @@ def derive_global_descriptors(
             values["thermal_energy"] = _derived(eq, 1.5 * pressure_integral, "J", "(3/2)*integral_plasma p dV", "grid quadrature", ("pressure", "psi", "lcfs"))
             from vaft.process.equilibrium import calculate_average_boundary_poloidal_field, efit_virial_volume_integrals, poloidal_field_at_boundary, shafranov_integrals
             rb, zb = _closed_points(eq.lcfs)
-            bp_boundary, _, _ = poloidal_field_at_boundary(eq.r, eq.z, eq.psi, rb, zb)
+            bp_boundary, _, _ = poloidal_field_at_boundary(
+                eq.r, eq.z, eq.psi * _psi_per_radian_factor(eq), rb, zb
+            )
             bpa = float(calculate_average_boundary_poloidal_field(rb, zb, bp_boundary))
             s1, s2, s3, alpha = shafranov_integrals(rb, zb, bp_boundary, rm, zm, br, bz, R_0=geometry["r"], Z_0=geometry["z"], B_ref=bpa, volume=geometry["volume"])
             virial.update(s1=float(s1), s2=float(s2), s3=float(s3), alpha=float(alpha))
@@ -636,7 +653,9 @@ def fit_miller_sequence(
             q_values = None; shear = None; alpha_values = None
             if eq.q is not None and eq.psi_1d is not None and eq.psi_axis is not None and eq.psi_boundary is not None:
                 psi_prof = (eq.psi_1d-eq.psi_axis)/(eq.psi_boundary-eq.psi_axis)
-                valid_levels = np.array([item.surface.radial_value for item in valid])
+                # Apply `order` so q/p (and hence shear/alpha) stay aligned with
+                # the radius-sorted arrays fed to the splines below.
+                valid_levels = np.array([item.surface.radial_value for item in valid])[order]
                 psi_valid = valid_levels if radial_coordinate == "psi_n" else np.interp(valid_levels, np.asarray(derive_radial_coordinates(eq)[radial_coordinate].value), psi_prof)
                 q_values = np.interp(psi_valid, psi_prof, eq.q)
                 dqdr = UnivariateSpline(radii, q_values, k=min(3, len(radii)-1), s=0).derivative()(radii)
@@ -722,6 +741,61 @@ def solve_solovev_constraints(
     return SolovevEquilibrium(coefficients, pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign, int(rank), residual_norm, {"constraint_count": len(constraints)})
 
 
+def _locate_solovev_axis(
+    model: SolovevEquilibrium, r: np.ndarray, z: np.ndarray, psi: np.ndarray
+) -> tuple[float, float]:
+    """Find the O-point of an analytic Solovev field on the given grid.
+
+    The constant-source particular solution grows with R, so the raw grid
+    argmax of ``|psi - psi_boundary|`` can land on a domain corner instead of
+    the magnetic axis. Locate true stationary points (grad psi = 0 with a
+    definite Hessian, i.e. extrema rather than saddles) by multi-start root
+    finding on the analytic field, then keep the one around which the
+    psi_boundary contour actually closes.
+    """
+    spline = RectBivariateSpline(r, z, psi, kx=min(3, r.size - 1), ky=min(3, z.size - 1))
+
+    def gradient(point: np.ndarray) -> np.ndarray:
+        return np.array(
+            [spline.ev(point[0], point[1], dx=1, dy=0), spline.ev(point[0], point[1], dx=0, dy=1)],
+            dtype=float,
+        )
+
+    scale = max(float(np.max(np.abs(psi - model.psi_boundary))), 1e-30)
+    candidates: list[tuple[float, float, float]] = []
+    for rr in np.linspace(r[1], r[-2], min(9, r.size - 2)):
+        for zz in np.linspace(z[1], z[-2], min(9, z.size - 2)):
+            solved = root(gradient, (rr, zz))
+            if not solved.success:
+                continue
+            pr, pz = map(float, solved.x)
+            if not (r[0] < pr < r[-1] and z[0] < pz < z[-1]):
+                continue
+            if np.linalg.norm(gradient(solved.x)) > 1e-8 * scale:
+                continue
+            drr = float(spline.ev(pr, pz, dx=2, dy=0))
+            dzz = float(spline.ev(pr, pz, dx=0, dy=2))
+            drz = float(spline.ev(pr, pz, dx=1, dy=1))
+            if drr * dzz - drz**2 <= 0:
+                continue  # saddle (X-point), not an O-point
+            if any(np.hypot(pr - a, pz - b) < 1e-6 * (r[-1] - r[0]) for a, b, _ in candidates):
+                continue
+            candidates.append((pr, pz, abs(float(spline.ev(pr, pz)) - model.psi_boundary)))
+    for pr, pz, _depth in sorted(candidates, key=lambda item: -item[2]):
+        temp = EquilibriumData(
+            r=r, z=z, psi=psi, psi_axis=float(spline.ev(pr, pz)),
+            psi_boundary=model.psi_boundary, magnetic_axis=(pr, pz),
+        )
+        if _contour_at_level(temp, 1.0) is not None:
+            return (pr, pz)
+    # Fallback: interior grid extremum (still excludes the domain edge).
+    interior = np.abs(psi - model.psi_boundary).copy()
+    interior[0, :] = interior[-1, :] = -np.inf
+    interior[:, 0] = interior[:, -1] = -np.inf
+    index = np.unravel_index(np.argmax(interior), psi.shape)
+    return (float(r[index[0]]), float(z[index[1]]))
+
+
 def solovev_to_equilibrium(
     model: SolovevEquilibrium, r: Any, z: Any, *, magnetic_axis: tuple[float, float] | None = None,
     limiter: Contour | None = None, convention: int = 11,
@@ -730,8 +804,7 @@ def solovev_to_equilibrium(
     rm, zm = np.meshgrid(r, z, indexing="ij")
     values = evaluate_solovev(model, rm, zm); psi = values["psi"]
     if magnetic_axis is None:
-        index = np.unravel_index(np.argmax(np.abs(psi-model.psi_boundary)), psi.shape)
-        magnetic_axis = (float(r[index[0]]), float(z[index[1]]))
+        magnetic_axis = _locate_solovev_axis(model, r, z, psi)
     psi_axis = float(evaluate_solovev(model, *magnetic_axis)["psi"])
     temp = EquilibriumData(r=r, z=z, psi=psi, psi_axis=psi_axis, psi_boundary=model.psi_boundary, magnetic_axis=magnetic_axis)
     lcfs = _contour_at_level(temp, 1.0)
@@ -784,6 +857,27 @@ def _find_xpoints(eq: EquilibriumData, flux_tolerance: float) -> tuple[XPoint, .
             drr = float(spline.ev(pr, pz, dx=2, dy=0)); dzz = float(spline.ev(pr, pz, dx=0, dy=2)); drz = float(spline.ev(pr, pz, dx=1, dy=1))
             out.append(XPoint(pr, pz, psi, float(psi_n), abs(psi_n-1) <= flux_tolerance, drr*dzz-drz**2))
     return tuple(sorted(out, key=lambda point: (abs(point.psi_n-1), point.z)))
+
+
+def _outboard_radius_at_z(contour: Contour, z0: float) -> float | None:
+    """Outboard-midplane radius: the largest R where the contour crosses z=z0.
+
+    Distinct from ``max(contour.r)`` for up-down asymmetric or shifted
+    surfaces, whose maximum-R point does not sit on the midplane.
+    """
+    points = contour.points
+    if points.shape[0] < 2:
+        return None
+    if contour.closed and np.any(points[0] != points[-1]):
+        points = np.vstack([points, points[0]])
+    crossings: list[float] = []
+    for (r1, z1), (r2, z2) in zip(points[:-1], points[1:]):
+        if (z1 - z0) * (z2 - z0) > 0 or z1 == z2:
+            continue
+        fraction = (z0 - z1) / (z2 - z1)
+        if 0.0 <= fraction <= 1.0:
+            crossings.append(float(r1 + fraction * (r2 - r1)))
+    return max(crossings) if crossings else None
 
 
 def _ray_intersections(contour: Contour, origin: tuple[float, float], angle: float) -> list[tuple[float, tuple[float, float]]]:
@@ -865,8 +959,11 @@ def derive_boundary_representation(
     if all_upper and all_lower and eq.psi_axis is not None and eq.psi_boundary is not None:
         cu = _contour_at_level(eq, all_upper[0].psi_n); cl = _contour_at_level(eq, all_lower[0].psi_n)
         if cu is not None and cl is not None:
-            value = float(np.max(cu.r)-np.max(cl.r))
-            d_r_sep = _derived(eq, value, "m", "R_out(psi_X,upper)-R_out(psi_X,lower)", "separatrix contour intersection", ("psi",))
+            z_mid = float(eq.magnetic_axis[1]) if eq.magnetic_axis else 0.0
+            r_out_upper = _outboard_radius_at_z(cu, z_mid)
+            r_out_lower = _outboard_radius_at_z(cl, z_mid)
+            if r_out_upper is not None and r_out_lower is not None:
+                d_r_sep = _derived(eq, float(r_out_upper - r_out_lower), "m", "R_out(psi_X,upper)-R_out(psi_X,lower)", "separatrix outboard-midplane intersection", ("psi",))
     gaps: list[Gap] = []
     angles = dict(gap_angles or {"outboard": 0.0, "top": np.pi/2, "inboard": np.pi, "bottom": 3*np.pi/2})
     center_geo = _polygon_geometry(eq.lcfs); center=(center_geo["r"],center_geo["z"])

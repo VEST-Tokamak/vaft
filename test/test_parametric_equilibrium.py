@@ -191,3 +191,81 @@ def test_boundary_limiter_and_double_null_classification_and_gaps():
     assert len([point for point in double.x_points if point.active]) >= 2
     assert double.d_r_sep.available
     assert abs(double.d_r_sep.value) < 5e-3
+
+
+def test_descriptors_are_invariant_under_cocos_family_conversion():
+    """Bugbot #204-1: psi-derived fields must honor the 2*pi weber convention.
+
+    Converting COCOS 2 (psi per radian) to COCOS 12 (full weber) scales psi by
+    2*pi; beta_p, the Shafranov integrals, and li are physical quantities and
+    must not change with the bookkeeping convention.
+    """
+    base = as_equilibrium(sample_geqdsk(), convention=2)
+    converted = convert_cocos(base, 12)
+    d_base = derive_global_descriptors(base)
+    d_conv = derive_global_descriptors(converted)
+    for name in ("beta_p_boundary_average", "s1", "li_virial"):
+        assert d_base[name].available and d_conv[name].available
+        assert d_conv[name].value == pytest.approx(d_base[name].value, rel=1e-6), name
+
+
+def test_miller_sequence_is_invariant_to_level_ordering():
+    """Bugbot #204-2: q/shear/alpha must follow the radius sorting."""
+    eq = _analytic_equilibrium()
+    levels = [0.16, 0.25, 0.36, 0.49, 0.64]
+    forward = fit_miller_sequence(eq, levels)
+    reverse = fit_miller_sequence(eq, levels[::-1])
+    assert forward.derivative_reason is None and reverse.derivative_reason is None
+
+    def by_level(sequence):
+        return {
+            round(item.surface.radial_value, 6): (item.surface.q, item.surface.magnetic_shear)
+            for item in sequence.fits
+            if item.accepted
+        }
+
+    fwd, rev = by_level(forward), by_level(reverse)
+    assert set(fwd) == set(rev)
+    for level in fwd:
+        assert fwd[level][0] == pytest.approx(rev[level][0], rel=1e-9), level
+        assert fwd[level][1] == pytest.approx(rev[level][1], rel=1e-6), level
+    # The fixture q profile rises with psi_n, so q must rise with radius too.
+    ordered_q = [fwd[level][0] for level in sorted(fwd)]
+    assert ordered_q == sorted(ordered_q)
+
+
+def test_outboard_radius_uses_the_midplane_not_the_contour_maximum():
+    """Bugbot #204-3: dRsep must sample R_out at z0, not max(R) of the contour."""
+    from vaft.process._equilibrium_parametric import _outboard_radius_at_z
+
+    contour = Contour(
+        np.array([1.8, 2.2, 1.0, 0.4, 1.0, 1.8]),
+        np.array([0.4, 0.6, 1.0, 0.0, -1.0, -0.6]),
+    )
+    assert float(np.max(contour.r)) == pytest.approx(2.2)  # off-midplane bulge
+    assert _outboard_radius_at_z(contour, 0.0) == pytest.approx(1.8)
+    assert _outboard_radius_at_z(Contour(np.array([1.0, 2.0]), np.array([1.0, 2.0])), 0.0) is None
+
+
+def test_solovev_axis_is_the_o_point_not_a_grid_corner():
+    """Bugbot #204-4: with the axis omitted, the O-point must be found even on
+    a generous grid window where |psi - psi_boundary| peaks at a domain corner."""
+    from vaft.process.equilibrium import solovev_to_equilibrium
+
+    R0, a, b = 1.05, 0.35, 0.5
+    constraints = [
+        SolovevConstraint(R0 + a, 0.0, "psi", 0.0),
+        SolovevConstraint(R0 - a, 0.0, "psi", 0.0),
+        SolovevConstraint(R0, b, "psi", 0.0),
+        SolovevConstraint(R0 + 0.6 * a, 0.75 * b, "psi", 0.0),
+        SolovevConstraint(R0, 0.0, "dpsi_dr", 0.0),
+    ]
+    model = solve_solovev_constraints(constraints, pprime=-1200.0, ffprime=0.08, rref=1.0)
+    r = np.linspace(0.3, 3.2, 161)
+    z = np.linspace(-2.0, 2.0, 161)
+    psi = evaluate_solovev(model, *np.meshgrid(r, z, indexing="ij"))["psi"]
+    raw = np.unravel_index(np.argmax(np.abs(psi - model.psi_boundary)), psi.shape)
+    assert raw[0] in (0, r.size - 1) or raw[1] in (0, z.size - 1)  # the old pick: a corner
+    eq = solovev_to_equilibrium(model, r, z)
+    assert eq.magnetic_axis[0] == pytest.approx(R0, abs=5e-3)
+    assert eq.magnetic_axis[1] == pytest.approx(0.0, abs=5e-3)
