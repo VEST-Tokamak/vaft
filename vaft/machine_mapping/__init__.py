@@ -217,6 +217,7 @@ _ENTRYPOINT_MODULES = frozenset(
         "barometry",
         "camera_visible",
         "charge_exchange",
+        "coils_non_axisymmetric",
         "dataset_description",
         "em_coupling",
         "equilibrium",

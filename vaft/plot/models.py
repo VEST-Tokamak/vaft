@@ -20,6 +20,8 @@ import numpy as np
 
 __all__ = [
     "Field2D",
+    "Geometry3DLayer",
+    "Geometry3DLayers",
     "GeometryLayer",
     "GeometryLayers",
     "Image2D",
@@ -274,6 +276,64 @@ class GeometryLayers(ViewModel):
             if not isinstance(layer, GeometryLayer):
                 raise TypeError(
                     f"GeometryLayers.layers entries must be GeometryLayer; "
+                    f"got {type(layer).__name__}"
+                )
+        object.__setattr__(self, "layers", layers)
+
+
+@dataclass(frozen=True)
+class Geometry3DLayer(ViewModel):
+    """One polyline or point cloud drawn in machine Cartesian coordinates."""
+
+    x: np.ndarray
+    y: np.ndarray
+    z: np.ndarray
+    kind: str = "polyline"
+    label: str = ""
+    style: Mapping[str, Any] = field(default_factory=dict)
+
+    KINDS = ("polyline", "points")
+
+    def __post_init__(self) -> None:
+        if self.kind not in self.KINDS:
+            raise ValueError(
+                f"Geometry3DLayer.kind must be one of {self.KINDS}; got {self.kind!r}"
+            )
+        x = as_model_array(self.x, where="Geometry3DLayer.x")
+        y = as_model_array(self.y, where="Geometry3DLayer.y")
+        z = as_model_array(self.z, where="Geometry3DLayer.z")
+        if not (x.ndim == y.ndim == z.ndim == 1 and x.size == y.size == z.size):
+            raise ValueError(
+                "Geometry3DLayer.x/y/z must be 1D and equal length; got shapes "
+                f"{x.shape}, {y.shape} and {z.shape}"
+            )
+        object.__setattr__(self, "x", x)
+        object.__setattr__(self, "y", y)
+        object.__setattr__(self, "z", z)
+        object.__setattr__(self, "style", _frozen_style(self.style))
+        object.__setattr__(self, "label", str(self.label))
+
+
+@dataclass(frozen=True)
+class Geometry3DLayers(ViewModel):
+    """A stack of 3D geometry layers drawn into one machine-coordinate view."""
+
+    layers: tuple[Geometry3DLayer, ...]
+    x_label: str = "x [m]"
+    y_label: str = "y [m]"
+    z_label: str = "z [m]"
+    title: str = ""
+
+    def __post_init__(self) -> None:
+        if isinstance(self.layers, Geometry3DLayer):
+            object.__setattr__(self, "layers", (self.layers,))
+            return
+        _reject_data_objects(self.layers, where="Geometry3DLayers.layers")
+        layers = tuple(self.layers)
+        for layer in layers:
+            if not isinstance(layer, Geometry3DLayer):
+                raise TypeError(
+                    f"Geometry3DLayers.layers entries must be Geometry3DLayer; "
                     f"got {type(layer).__name__}"
                 )
         object.__setattr__(self, "layers", layers)

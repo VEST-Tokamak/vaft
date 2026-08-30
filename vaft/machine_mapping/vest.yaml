@@ -1480,6 +1480,19 @@ diagnostic_registry:
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.pf_active, entrypoint: pf_active}
     quantities: {static: [geometry, circuit], measured: [current, charging_voltage], derived: []}
+  coils_non_axisymmetric:
+    name: Non-axisymmetric 3D coils
+    family: machine_systems
+    category: Information and control
+    ids: coils_non_axisymmetric
+    ids_path: coils_non_axisymmetric
+    responsible: [{name: 서광근}]
+    source: {type: reference_ods, formats: [dat], patterns: ["gpec/vest_UP.dat", "gpec/vest_MID.dat", "gpec/vest_LOW.dat"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.coils_non_axisymmetric, entrypoint: coils_non_axisymmetric}
+    quantities: {static: [geometry, turns], measured: [], derived: [current]}
   tf:
     name: TF coils
     family: machine_systems

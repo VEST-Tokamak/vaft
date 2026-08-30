@@ -21,6 +21,8 @@ import numpy as np
 
 from vaft.plot.models import (
     Field2D,
+    Geometry3DLayer,
+    Geometry3DLayers,
     GeometryLayer,
     GeometryLayers,
     Image2D,
@@ -1543,9 +1545,83 @@ def _build_core_profile_field(
     )
 
 
+def _coil_filament_paths(ods: Any) -> list[tuple[str, np.ndarray, np.ndarray, np.ndarray]]:
+    """``(label, r, phi, z)`` per non-axisymmetric coil, loop closed."""
+    paths = []
+    for index in range(_count(ods, "coils_non_axisymmetric.coil")):
+        base = f"coils_non_axisymmetric.coil.{index}.conductor.0.elements"
+        radius = _get(ods, f"{base}.start_points.r")
+        phi = _get(ods, f"{base}.start_points.phi")
+        height = _get(ods, f"{base}.start_points.z")
+        if radius is None or phi is None or height is None:
+            continue
+        radius = np.append(radius, _get(ods, f"{base}.end_points.r")[-1])
+        phi = np.append(phi, _get(ods, f"{base}.end_points.phi")[-1])
+        height = np.append(height, _get(ods, f"{base}.end_points.z")[-1])
+        label = _get(ods, f"coils_non_axisymmetric.coil.{index}.name") or f"coil {index}"
+        paths.append((str(label), radius, phi, height))
+    if not paths:
+        raise ValueError(
+            "coils_non_axisymmetric carries no conductor element geometry; "
+            "run vaft.machine_mapping.coils_non_axisymmetric first"
+        )
+    return paths
+
+
+def _build_coils_non_axisymmetric_3d(ods: Any, **_: Any) -> Geometry3DLayers:
+    """Every non-axisymmetric coil filament as a 3D polyline."""
+    layers = []
+    seen_sets: set[str] = set()
+    for label, radius, phi, height in _coil_filament_paths(ods):
+        # One legend entry per coil set, not per sector.
+        set_label = label.rsplit(" sector", 1)[0]
+        layers.append(
+            Geometry3DLayer(
+                x=radius * np.cos(phi),
+                y=radius * np.sin(phi),
+                z=height,
+                label=set_label if set_label not in seen_sets else "",
+            )
+        )
+        seen_sets.add(set_label)
+    return Geometry3DLayers(
+        layers=tuple(layers), title="Non-axisymmetric 3D Coils"
+    )
+
+
+def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
+    """Every non-axisymmetric coil filament projected into the top view."""
+    layers = []
+    seen_sets: set[str] = set()
+    for label, radius, phi, _height in _coil_filament_paths(ods):
+        set_label = label.rsplit(" sector", 1)[0]
+        layers.append(
+            GeometryLayer(
+                r=radius * np.cos(phi),
+                z=radius * np.sin(phi),
+                label=set_label if set_label not in seen_sets else "",
+            )
+        )
+        seen_sets.add(set_label)
+    return GeometryLayers(
+        layers=tuple(layers),
+        x_label="x [m]",
+        y_label="y [m]",
+        title="Non-axisymmetric 3D Coils (top view)",
+    )
+
+
 RECIPES["soft_x_rays_geometry_lines_of_sight"] = CallableRecipe(
     builder=_build_lines_of_sight,
     description="One polyline per detector line of sight, over the wall outline.",
+)
+RECIPES["coils_non_axisymmetric_geometry3d"] = CallableRecipe(
+    builder=_build_coils_non_axisymmetric_3d,
+    description="Every non-axisymmetric coil filament as a 3D machine-coordinate polyline.",
+)
+RECIPES["coils_non_axisymmetric_geometry_topview"] = CallableRecipe(
+    builder=_build_coils_non_axisymmetric_topview,
+    description="Non-axisymmetric coil filaments projected into the machine top view.",
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
