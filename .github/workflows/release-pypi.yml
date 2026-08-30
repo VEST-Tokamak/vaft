@@ -4,7 +4,7 @@ on:
   push:
     tags: ["v*"]
   # Lets the build job be exercised on a branch without cutting a release.
-  # The publish job stays tag-only, so a dispatch run can never reach PyPI.
+  # The publish job stays tag-only, so a branch dispatch cannot reach PyPI.
   workflow_dispatch:
 
 permissions:
