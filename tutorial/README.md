@@ -14,11 +14,18 @@ VAFT, OMAS/IMAS, VEST-database, and tokamak-physics concepts needed by each
 exercise; it does not assume prior experience with VAFT or external fusion
 codes.
 
-Use a source checkout with the development dependencies installed:
+Use a source checkout with the development dependencies installed. If you are
+setting up a machine for the first time, follow [`install/README.md`](../install/README.md)
+and verify the result before the session starts:
 
 ```bash
+bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
+python install/check_vaft_environment.py
 python -m pip install -e ".[dev]"
 ```
+
+Environment setup is not a learning objective of this course. Budget 15-20
+minutes for it beforehand.
 
 The optional lab path also requires configured VEST HSDS credentials and the
 relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
@@ -93,6 +100,43 @@ their public VAFT workflows where mature, but keep detailed theory and narrow
 research procedures there rather than copying them into this introductory
 course.
 
+## Worksheet and solution convention
+
+Sessions are **guided worksheets, not demonstrations**. A fresh student copy
+must not complete itself when someone presses *Run All*; each session leaves
+several answers for the student to supply.
+
+The scaffolding lives in [`exercise_support.py`](exercise_support.py) and is
+shared by every session:
+
+- `BLANK` is the placeholder a student replaces. Nearly any use of it raises
+  `ExerciseIncomplete` with a readable instruction, which is what stops
+  *Run All* at the exercise rather than in some unrelated cell further down.
+- `require(n, **answers)` catches answers a blank alone cannot -- a variable
+  simply assigned `BLANK`, or a list that still holds one.
+- `check_values(n, **pairs)` validates the answer itself and prints one
+  confirmation line.
+
+Each exercise follows the same shape: a Markdown cell stating the task, then a
+code cell that is roughly 70-80% written, with the scientifically meaningful
+pieces left blank. Number exercises contiguously from 1 within a session, and
+have each cell confirm its own exercise number; `test/test_tutorial_session_01.py`
+enforces both.
+
+Target a handful of exercises per session, not one per cell. Sections that
+teach a technique rather than test it -- an API tour, a geometry overview --
+should simply run.
+
+### The solution notebook
+
+Every session has a fully answered counterpart in the **private**
+`vaft-tutorial-solution` repository. It is a review and teaching oracle, never
+a runtime dependency: the public test suite must pass without any access to it.
+
+The two versions share cell ids, headings, exercise numbering, and cell order
+exactly; only the exercise cells' source differs. Completed answers are never
+merged into this repository.
+
 ## Slide and figure contract
 
 Each session has one standalone 16:9 Beamer source and one PDF with the same
@@ -152,9 +196,15 @@ Develop sessions in numerical order. For each session:
 6. clear the committed notebook, rebuild its PDF, run validation, and update
    the status table above.
 
-Session 01 is the first completed content milestone. It uses packaged shot 39915
-to inspect IDS roots and make magnetic, PF-coil, and UV-spectrometer plots
-through VAFT public APIs. Its lab branch demonstrates a read-only HSDS magnetic
+Session 01 is the first completed content milestone, and the reference for the
+worksheet convention above. It uses packaged shot 39915 to compare VEST's
+diagnostic registry against one shot's contents, inspect engineering and
+diagnostic geometry, and plot magnetic, PF-coil, TF, spectrometer, and
+barometry signals through VAFT public APIs. Two further sections use
+repository-only reference datasets -- shot 48224 for Thomson scattering and
+charge exchange, and a raw interferometer export mapped through
+`vaft.machine_mapping` -- and skip cleanly when VAFT was installed from a wheel
+rather than a checkout. Its lab branch demonstrates a read-only HSDS magnetic
 data selection when credentials are available. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
