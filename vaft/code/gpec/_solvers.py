@@ -195,9 +195,6 @@ class IdealGPECSolver:
         return ()
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
-        # No result-parsing layer consumes GPEC-proper output yet (deliberately
-        # out of scope -- see Phase 2 plan, Stage 2). File presence is as far
-        # as "success" is defined for this module today.
         core = (
             f"gpec_control_output_n{mode}.nc",
             f"gpec_profile_output_n{mode}.nc",
@@ -206,7 +203,7 @@ class IdealGPECSolver:
         missing = [name for name in core if not (run_dir / name).exists()]
         if missing:
             return False, f"missing outputs: {', '.join(missing)}"
-        return True, ""
+        return _check_nc_variable(run_dir, f"gpec_control_output_n{mode}.nc", "b_n")
 
 
 SOLVERS: dict[str, Solver] = {
