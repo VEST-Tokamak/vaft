@@ -1,0 +1,97 @@
+schema_version: 1
+reference_id: vest-41672-pipeline-full-imas-v2
+shot: 41672
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: pipeline-until-efit
+  git_commit: a225b371e70fbe26f04205eda3917553f1ed0476
+  filedb_root: /Volumes/hsyun_ssd/vaft-filedb/issue-166-41672
+  raw_source: source/vest_41672_daq_raw.json.gz
+  raw_sha256: 23183daf68a5fad3af5790cf25c2d93155dda8a6df43b4f14c34a20d80fdd7f4
+representations:
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: repository-only
+    compatible_adapters:
+    - imas
+    - omas
+    size: 31498902
+    sha256: 52965f9615a1c966f890f003ce171d169bddcf34b104b0cdc0ab00b59aafed1b
+generation:
+  command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
+    vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: 8535f6fd311200ec8e80c8d4b3f0215b2eabf3e4f4e8ae41d6e374f0c725ffb2
+  materialized_leaves: 26839
+  normalizations:
+  - remove non-DD equilibrium.code.parameters parser cache
+  - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
+  - materialize homogeneous barometry and equilibrium time coordinates
+  - retain native-rate voltage and derived magnetic-field waveforms
+  - use +Bz poloidal probe metadata (poloidal_angle = pi/2)
+  related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+pipeline:
+  configuration: source/pipeline-config.yaml
+  configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: 777b4a81c4c48f9087fd2f4db089c249412ad7d0a77d792a7a60dc0c9c937fa6
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: 7728b5e8e48bb6f156aa28a899fee7b0fd8a2d5fae775adbd085a4af608ad57f
+  stages:
+    raw: success
+    static: success
+    diagnostics: partial
+    eddy: success
+    constraints: success
+    efit: partial
+  efit:
+    executable: /Users/yun/git/efit/build-mac/efit/efit
+    status: 'completed: returncode=0; gfiles=19'
+    requested_time_slices: 36
+    successful_time_slices: 19
+    optional_outputs:
+      mfile:
+        status: unavailable
+        reason: EFIT executable was not linked with NetCDF support
+semantic_comparison:
+  paths:
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  - wall.*
+  exclude_paths:
+  - '*.ids_properties.*'
+  - dataset_description.imas_version
+  - equilibrium.code.parameters*
+acceptance:
+  equilibrium_times:
+  - 0.322
+  - 0.323
+  - 0.324
+  - 0.325
+  - 0.326
+  - 0.328
+  - 0.333
+  - 0.334
+  - 0.335
+  - 0.336
+  - 0.337
+  - 0.338
+  - 0.339
+  - 0.34
+  - 0.341
+  - 0.345
+  - 0.346
+  - 0.347
+  - 0.348
+  equilibrium_ip_required: true
+packaging_policy:
+  manifest: wheel-and-sdist
+  artifact: repository-only

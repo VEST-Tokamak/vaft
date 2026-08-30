@@ -35,7 +35,31 @@ FAMILIES = ("bpol_probe", "flux_loop", "pf_current")
 def efit_ods():
     from vaft.omas.sample import sample_ods
 
-    return sample_ods()
+    ods = sample_ods()
+    for slice_index in range(len(ods["equilibrium.time_slice"])):
+        root = f"equilibrium.time_slice.{slice_index}"
+        for family in FAMILIES:
+            family_root = f"{root}.constraints.{family}"
+            for index in range(len(ods.get(family_root, []))):
+                base = f"{family_root}.{index}"
+                measured = float(ods.get(f"{base}.measured", float("nan")))
+                if not np.isfinite(measured):
+                    measured = 1.0e-3 * (index + 1)
+                ods[f"{base}.measured"] = measured
+                ods[f"{base}.reconstructed"] = (
+                    measured if family == "pf_current" else measured * 1.05
+                )
+                ods[f"{base}.weight"] = (
+                    0.0 if family == "flux_loop" and index == 0 else 1.0
+                )
+                ods[f"{base}.exact"] = int(family == "pf_current")
+        ip = float(ods[f"{root}.global_quantities.ip"])
+        ods[f"{root}.constraints.ip.measured"] = ip
+        ods[f"{root}.constraints.ip.reconstructed"] = ip
+        ods[f"{root}.constraints.ip.weight"] = 1.0
+        ods[f"{root}.convergence.grad_shafranov_deviation_value"] = 1.0e-3
+        ods[f"{root}.convergence.iterations_n"] = 11
+    return ods
 
 
 def _constraint_ods(*, slices=2, channels=4, drop_from_slice=None):
@@ -152,7 +176,7 @@ def test_residual_figure_shows_convergence_beside_the_residuals(efit_ods):
     assert any("fitted exactly" in title for title in titles)
 
 
-def test_every_efit_figure_renders_for_the_packaged_shot(efit_ods, tmp_path):
+def test_every_efit_figure_renders_for_the_complete_fixture(efit_ods, tmp_path):
     from vaft.plot import save_figure
 
     for name in (

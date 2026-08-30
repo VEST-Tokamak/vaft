@@ -8,15 +8,12 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import pytest
-from omas import ODS
-
 import vaft
-from vaft.data.resources import data_path
 
 
 @pytest.fixture(scope="module")
 def sample_ods():
-    return ODS().load(str(data_path("omas/39915.json")), consistency_check=False)
+    return vaft.omas.load(vaft.data.sample(39915, "omas"))
 
 
 def test_pf_active_time_current_renders_from_an_ods(sample_ods):

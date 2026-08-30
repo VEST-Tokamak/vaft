@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import math
 import os
-from dataclasses import dataclass
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -14,12 +16,19 @@ import yaml
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibrium_magnetics_signals
+from vaft.process.magnetics import (
+    VestEquilibriumMagneticsResult,
+    VestMagneticsProcessingConfig,
+    vest_equilibrium_magnetics_detailed,
+)
 from vaft.process.signal_processing import detect_active_window, smooth
 
 from .utils import (
+    VestConfigurationError,
+    _resolve_info_file_path,
     calibrate_vest_signal,
     get_path,
+    load_yaml,
     path_exists,
     resolve_data_root,
     resolve_shot_revisions,
@@ -31,21 +40,20 @@ DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
 DEFAULT_DT = 4e-5
 PROBE_LENGTH = 0.01
-POLOIDAL_ANGLE = 3 * math.pi / 2
-#: What VEST's poloidal probes actually measure, as a signed (Br, Bz) direction.
+#: Orientation of VEST's poloidal probes, in the IMAS convention: the sensitive
+#: axis is ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)``, so
+#: pi/2 declares a probe measuring **+Bz**.
 #:
-#: ``POLOIDAL_ANGLE`` above is a legacy placeholder written into every probe and
-#: read by nothing: under the IMAS convention -- the sensitive axis being
-#: ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)`` -- 3*pi/2 means
-#: -Bz, which anti-correlates with the mapped ``field.data`` at -0.96 against a
-#: coil+eddy forward model. The probes measure **+Bz**: correlation +0.96, and
-#: the EFIT k-file writer groups them by the same understanding (its
-#: ``Index_inBz``/``sideBz``/``outBz`` families). Forward models must project
-#: with this constant rather than with the stored angle. Fixing the stored value
-#: means regenerating the packaged reference ODSs, which is out of scope here.
-PROBE_FIELD_DIRECTION = (0.0, 1.0)
+#: That is what these probes measure, settled numerically on shot 39915 against
+#: a coil+eddy Green's-function forward model: +Bz correlates with the mapped
+#: ``field.data`` at +0.96, -Bz at -0.96 and +Br at -0.72. The EFIT k-file
+#: writer groups the same channels by that understanding (its
+#: ``Index_inBz``/``sideBz``/``outBz`` families) and the mapped channel names
+#: end in ``_Bz``. Consumers should project with the stored angle (issue #169);
+#: it read 3*pi/2 -- -Bz -- until the packaged reference ODSs were relabelled
+#: along with this constant.
+POLOIDAL_ANGLE = math.pi / 2
 MIRNOV_TYPE_INDEX = 2
-OUTBOARD_MIRNOV_MAJOR_RADIUS = 0.796
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
 # here with the rest of the probe geometry so a validation forward model and the
@@ -55,9 +63,6 @@ OUTBOARD_PROBE_MIN_R = 0.795
 SIDE_PROBE_MIN_ABS_Z = 0.8
 INBOARD_FLUX_LOOP_MAX_R = 0.15
 OUTBOARD_FLUX_LOOP_MIN_R = 0.5
-# Fluctuation Mirnov probes became physically operational at this shot; the
-# 30-channel array (issue #155) is only mapped for shot >= this boundary.
-FLUCTUATION_MIRNOV_FIRST_SHOT = 44156
 TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
     {
         "field_code": 207,
@@ -157,15 +162,282 @@ def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ..
     return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
 
 
+#: Every outboard fluctuation-Mirnov identifier, parsed strictly rather than by
+#: substring. ``sub_array`` and ``position`` are *derived* at load time from the
+#: identifier -- issue #155 forbids storing an ``L1``/``L2`` layer key in the
+#: configuration, since the identifier already carries it.
+_FLUCTUATION_IDENTIFIER = re.compile(
+    r"^OutMirnov_(?P<angle>45|135|225)_(?P<sub_array>L[12])-(?P<position>0[1-5])$"
+)
+_FLUCTUATION_ARRAY_DEFAULTS = ("role", "preserve_native_voltage")
+
+
+@lru_cache(maxsize=8)
+def _fluctuation_mirnov_config(shot: int = 0) -> dict[str, Any]:
+    """Return the resolved ``fluctuation_mirnov`` block from ``vest.yaml``.
+
+    ``shot=0`` means the base, un-revised configuration, and this function
+    enforces that rather than assuming it. :func:`resolve_vest_diagnostic`
+    layers any matching ``revisions`` on top of the base entry, and
+    :func:`resolve_shot_revisions` treats a missing ``from_shot`` as
+    unbounded below -- so a ``to_shot``-only revision *would* match shot 0 and
+    quietly change what "the inventory" means. Several things depend on it not
+    doing that: the module-level constants derived at import, and
+    :func:`fluctuation_mirnov_gain_by_identifier`, which takes no shot at all.
+    So a revision without an explicit ``from_shot`` is rejected here.
+
+    The channel table -- identifiers, geometry and gains alike -- is
+    shot-independent today, which is why ``shot=0`` is the right default for
+    any caller that only wants the inventory. The one genuinely shot-dependent
+    value is ``first_operational_shot``, and that is a gate the caller applies,
+    not a per-channel field. The ``shot`` parameter exists so a future
+    calibration era can be expressed in ``revisions`` without another API
+    change.
+    """
+    base = load_yaml(_resolve_info_file_path(None)).get(0, {})
+    entry = base.get("diagnostics", {}).get("fluctuation_mirnov", {})
+    for index, revision in enumerate(entry.get("revisions") or ()):
+        if not isinstance(revision, Mapping) or revision.get("from_shot") is None:
+            raise VestConfigurationError(
+                f"VEST diagnostic 'fluctuation_mirnov' revision {index}: from_shot is "
+                "required. Without it the revision also matches shot 0, which is "
+                "reserved for the base inventory that the shot-independent channel "
+                "and gain lookups read."
+            )
+    return resolve_vest_diagnostic(int(shot), "fluctuation_mirnov")
+
+
+@lru_cache(maxsize=8)
+def _load_fluctuation_mirnov_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """Validate and materialise the fluctuation-Mirnov channel table.
+
+    Array-level defaults are merged down into freshly built per-channel dicts
+    here -- the mapping :func:`resolve_vest_diagnostic` returned is never
+    mutated -- so every consumer sees one uniform shape. See
+    :func:`_fluctuation_mirnov_config` for what ``shot=0`` means.
+    """
+    config = _fluctuation_mirnov_config(int(shot))
+    defaults = {key: config[key] for key in _FLUCTUATION_ARRAY_DEFAULTS if key in config}
+    raw_unit = config.get("source", {}).get("raw_unit")
+
+    channels: list[dict[str, Any]] = []
+    seen_identifiers: dict[str, int] = {}
+    seen_fields: dict[int, str] = {}
+    for entry in config.get("channels", ()):
+        identifier = str(entry["identifier"])
+        context = f"VEST diagnostic 'fluctuation_mirnov' channel {identifier!r}"
+        match = _FLUCTUATION_IDENTIFIER.fullmatch(identifier)
+        if match is None:
+            raise VestConfigurationError(
+                f"{context}: identifier does not match the outboard Mirnov naming schema "
+                f"{_FLUCTUATION_IDENTIFIER.pattern}"
+            )
+        angle = float(entry["toroidal_angle_deg"])
+        if angle != float(match.group("angle")):
+            raise VestConfigurationError(
+                f"{context}: toroidal_angle_deg {angle} disagrees with the "
+                f"{match.group('angle')} deg encoded in the identifier"
+            )
+        if identifier in seen_identifiers:
+            raise VestConfigurationError(f"{context}: duplicate identifier")
+        field = int(entry["field"])
+        if field in seen_fields:
+            raise VestConfigurationError(
+                f"{context}: raw field {field} is already mapped by {seen_fields[field]!r}"
+            )
+        seen_identifiers[identifier] = field
+        seen_fields[field] = identifier
+
+        channel = dict(defaults)
+        channel.update(entry)
+        channel["identifier"] = identifier
+        channel["field"] = field
+        channel["toroidal_angle_deg"] = angle
+        channel["z"] = float(entry["z"])
+        channel["gain"] = float(entry["gain"])
+        channel["sub_array"] = match.group("sub_array")
+        channel["position"] = int(match.group("position"))
+        if raw_unit is not None:
+            channel.setdefault("unit", raw_unit)
+        channels.append(channel)
+    return tuple(channels)
+
+
+def fluctuation_mirnov_channel_definitions(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """Return ordered VEST outboard fluctuation-Mirnov channel metadata for provenance.
+
+    Copies are returned so a caller can never corrupt the cached table.
+    """
+    return tuple(dict(channel) for channel in _load_fluctuation_mirnov_channels(int(shot)))
+
+
+def select_fluctuation_mirnov_channels(
+    *,
+    role: str | None = "fluctuation",
+    toroidal_angle_deg: float | Sequence[float] | None = None,
+    sub_array: str | None = None,
+    z_range: tuple[float, float] | None = None,
+    shot: int = 0,
+) -> tuple[dict[str, Any], ...]:
+    """Select fluctuation-Mirnov channels by role and geometry, in canonical order.
+
+    This is the supported way for fluctuation and mode-analysis code to find
+    probes: by what they are, not by where they happen to land in
+    ``b_field_pol_probe``. Pair it with
+    :func:`fluctuation_mirnov_probe_indices` to go from the selected
+    identifiers to ODS indices.
+
+    Unknown ``sub_array`` or ``toroidal_angle_deg`` values raise rather than
+    quietly returning nothing -- a silent empty result reads like "no probes
+    are installed there", which is a different and much more misleading answer
+    than "you asked for something that does not exist".
+    """
+    channels = _load_fluctuation_mirnov_channels(int(shot))
+
+    if sub_array is not None:
+        known_sub_arrays = {channel["sub_array"] for channel in channels}
+        if sub_array not in known_sub_arrays:
+            raise ValueError(
+                f"Unknown fluctuation-Mirnov sub-array {sub_array!r}; "
+                f"expected one of {sorted(known_sub_arrays)}."
+            )
+
+    if z_range is not None and z_range[0] > z_range[1]:
+        raise ValueError(
+            f"z_range {z_range} is reversed; expected (low, high). The canonical "
+            "channel order is z descending, so writing the bounds that way is an "
+            "easy slip -- and it would otherwise select nothing at all."
+        )
+
+    angles: set[float] | None = None
+    if toroidal_angle_deg is not None:
+        # np.ndim, not isinstance: NumPy scalars (np.int64, np.float32, an
+        # element of an angle array) are not int/float, and mode-analysis code
+        # hands us exactly those.
+        requested = (
+            [float(toroidal_angle_deg)]
+            if np.ndim(toroidal_angle_deg) == 0
+            else [float(value) for value in np.atleast_1d(toroidal_angle_deg)]
+        )
+        known_angles = {channel["toroidal_angle_deg"] for channel in channels}
+        unknown = sorted(set(requested) - known_angles)
+        if unknown:
+            raise ValueError(
+                f"No fluctuation-Mirnov channels at toroidal angle(s) {unknown}; "
+                f"expected one of {sorted(known_angles)}."
+            )
+        angles = set(requested)
+
+    selected = []
+    for channel in channels:
+        if role is not None and channel.get("role") != role:
+            continue
+        if angles is not None and channel["toroidal_angle_deg"] not in angles:
+            continue
+        if sub_array is not None and channel["sub_array"] != sub_array:
+            continue
+        if z_range is not None and not (z_range[0] <= channel["z"] <= z_range[1]):
+            continue
+        selected.append(dict(channel))
+    return tuple(selected)
+
+
+def fluctuation_mirnov_probe_indices(ods: object, *, shot: int = 0) -> dict[str, int]:
+    """Map fluctuation-Mirnov identifiers to their ``b_field_pol_probe`` indices.
+
+    Resolves probes semantically, so nothing downstream has to hard-code a
+    position such as ``b_field_pol_probe.68``. Probes absent from the ODS are
+    simply absent from the result -- shots before
+    ``FLUCTUATION_MIRNOV_FIRST_SHOT`` map none of them, which is legitimate --
+    so callers that need a full array should check what they got back.
+    """
+    registered = {channel["identifier"] for channel in _load_fluctuation_mirnov_channels(int(shot))}
+    if not path_exists(ods, "magnetics.b_field_pol_probe"):
+        return {}
+
+    indices: dict[str, int] = {}
+    for index in range(len(get_path(ods, "magnetics.b_field_pol_probe"))):
+        path = f"magnetics.b_field_pol_probe.{index}.identifier"
+        if not path_exists(ods, path):
+            continue
+        identifier = str(get_path(ods, path))
+        if identifier not in registered:
+            continue
+        if identifier in indices:
+            raise VestConfigurationError(
+                f"Fluctuation-Mirnov identifier {identifier!r} appears at both "
+                f"b_field_pol_probe index {indices[identifier]} and {index}; "
+                "identifier-based probe discovery requires unique identifiers."
+            )
+        indices[identifier] = index
+    return indices
+
+
 @lru_cache(maxsize=1)
-def _load_fluctuation_mirnov_channels() -> list[dict[str, Any]]:
-    with open(_geometry_root() / "FluctuationMirnov.yaml", "r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)["channels"]
+def _fluctuation_mirnov_gains() -> dict[str, float]:
+    gains: dict[str, float] = {}
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+        gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
+    for channel in _load_fluctuation_mirnov_channels():
+        gains[str(channel["identifier"])] = float(channel["gain"])
+    return gains
 
 
-def fluctuation_mirnov_channel_definitions() -> tuple[dict[str, Any], ...]:
-    """Return ordered VEST outboard fluctuation-Mirnov channel metadata for provenance."""
-    return tuple(dict(channel) for channel in _load_fluctuation_mirnov_channels())
+def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
+    """Per-channel voltage gains for raw-Mirnov probes, keyed by ODS identifier.
+
+    IMAS ``b_field_pol_probe`` has no calibration-factor node, so this gain
+    metadata can only live in the channel registries, not in the ODS itself.
+    Covers the toroidal phase-reference probes as well as the 30-channel
+    outboard fluctuation array. Takes no ``shot``: these gains are not
+    shot-dependent.
+
+    A fresh dict is returned each call, for the same reason
+    :func:`fluctuation_mirnov_channel_definitions` returns copies -- a caller
+    that mutates the result must not be able to corrupt the table every later
+    lookup reads, plot-layer gain resolution included.
+    """
+    return dict(_fluctuation_mirnov_gains())
+
+
+#: Derived from the ``fluctuation_mirnov`` block in ``vest.yaml`` rather than
+#: duplicated here, so the configuration stays the single source of truth.
+FLUCTUATION_MIRNOV_FIRST_SHOT = int(_fluctuation_mirnov_config()["first_operational_shot"])
+OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["major_radius"])
+
+
+class UnsupportedMagneticsGeometryError(NotImplementedError):
+    """Raised when a shot needs a magnetics geometry this repository lacks."""
+
+
+# Issue #195 section 5: the archived VFIT source loads
+# `VEST_MagneticsGeometry_Full_ver_2310` for shot 39204 specifically and
+# `ver_2409` for every other shot. This repository ships neither -- it
+# carries ver_2302, which it applies to all shots. For most shots that is a
+# documented, deliberate difference, but for 39204 the legacy source goes
+# out of its way to override the geometry, so quietly handing it ver_2302
+# would assign knowingly-wrong geometry. Fail clearly instead, until the
+# 2310 geometry is imported as a repository-native asset. Deliberately not
+# resolved by loading an external MATLAB file at runtime.
+UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS: dict[int, str] = {39204: "2310"}
+
+
+def require_supported_magnetics_geometry(shot: int | None) -> None:
+    """Raise if *shot* requires a magnetics geometry version VAFT lacks."""
+    if shot is None:
+        return
+    required = UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot))
+    if required is None:
+        return
+    raise UnsupportedMagneticsGeometryError(
+        f"Shot {int(shot)} requires VEST magnetics geometry version {required}, "
+        "which is not available in this repository (it ships ver_2302). The "
+        "legacy VFIT source overrides the geometry for this shot specifically, "
+        "so processing it with the shipped geometry would assign "
+        "knowingly-incorrect sensor positions. Import the "
+        f"ver_{required} geometry as a repository-native asset before "
+        "processing this shot (issue #195)."
+    )
 
 
 @lru_cache(maxsize=1)
@@ -207,6 +479,10 @@ class _MagneticsContext:
     target_time: np.ndarray
     flux_loops: list[np.ndarray]
     probes: list[np.ndarray]
+    # Native-rate calibrated flux-loop terminal voltages, index-aligned with
+    # `flux_loops` (empty arrays for unavailable channels).
+    flux_loop_voltage_time: list[np.ndarray] = dataclass_field(default_factory=list)
+    flux_loop_voltage: list[np.ndarray] = dataclass_field(default_factory=list)
 
 
 def _prepare_magnetics_context(
@@ -218,18 +494,20 @@ def _prepare_magnetics_context(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> _MagneticsContext:
-    source_time, flux_loops, probes = vfit_equilibrium_magnetics(
+    result = vfit_equilibrium_magnetics_detailed(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
     )
-    source_time = np.asarray(source_time, dtype=float)
+    source_time = np.asarray(result.time, dtype=float)
     return _MagneticsContext(
         source_time=source_time,
         target_time=_build_target_time(source_time, tstart, tend, dt),
-        flux_loops=flux_loops,
-        probes=probes,
+        flux_loops=result.flux_loops,
+        probes=result.probes,
+        flux_loop_voltage_time=result.flux_loop_voltage_time,
+        flux_loop_voltage=result.flux_loop_voltage,
     )
 
 
@@ -310,6 +588,94 @@ def _plasma_processing_for_shot(shot: int) -> tuple[dict[str, Any], dict[str, An
     return config, nested("reference"), nested("baseline"), nested("sign")
 
 
+def _plasma_current_baseline_indices(
+    time: np.ndarray, baseline_config: dict[str, Any]
+) -> np.ndarray:
+    x_time = np.arange(
+        int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
+    )
+    x_window = int(baseline_config["lookback"])
+    x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
+    x_base = x_base[(x_base >= 0) & (x_base < time.size)]
+    if x_base.size < 2:
+        x_base = np.arange(min(500, time.size), dtype=int)
+    return x_base
+
+
+def _linear_baseline_subtract(time: np.ndarray, values: np.ndarray, x_base: np.ndarray) -> np.ndarray:
+    return values - np.polyval(np.polyfit(time[x_base], values[x_base], 1), time)
+
+
+def _apply_fl10_windowed_compensation(
+    shot: int,
+    time: np.ndarray,
+    ip_shot: np.ndarray,
+    reference_config: dict[str, Any],
+    raw_source: raw_db.RawSource | None,
+) -> np.ndarray:
+    """Apply the later-era (46403-47116) FL10 compensation used in place of
+    the legacy full-trace subtraction: decimate/gain/offset/smooth the FL10
+    reference, interpolate onto the RC03 time grid, and subtract it from
+    `ip_shot` only inside the documented compensation window.
+    """
+    fl10_config = reference_config["fl10"]
+    fl10_field = int(fl10_config["field"])
+    ind_mutual = float(reference_config["mutual_inductance"])
+
+    fl10_time, raw_fl10 = raw_db.require_signal(
+        _safe_vest_load(shot, fl10_field, raw_source),
+        shot=shot,
+        field=fl10_field,
+        signal_name="plasma-current FL10 reference (windowed compensation)",
+    )
+
+    shifted_time = fl10_time + float(fl10_config["time_offset_s"])
+    decimate_factor = int(fl10_config["decimate_factor"])
+    # MATLAB `decimate(temp2, 10)` defaults to an order-8 Chebyshev type I
+    # filter, which is exactly what scipy's default `ftype="iir"` builds.
+    decimated_flux = (
+        signal.decimate(raw_fl10, decimate_factor) if decimate_factor > 1 else raw_fl10
+    )
+    decimated_time = shifted_time[::decimate_factor][: decimated_flux.size]
+
+    ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / ind_mutual
+
+    # Donor: `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
+    # (`vest_ip.m`). That is a degree-1 fit through a single (x, y) point, so
+    # it is rank deficient. MATLAB solves it as V\y on the 1x2 Vandermonde
+    # [x 1] via QR with column pivoting, which selects the larger-magnitude
+    # column -- the constant column, since x = time2(1) ~ 0.26 < 1. The fit
+    # therefore has zero slope and evaluates to the constant ipRef(175), so
+    # this reduces to subtracting that single sample. Both the mechanism and
+    # the evident intent agree, but this was reasoned from the source rather
+    # than executed in MATLAB; the pinning test guards the convention.
+    # `reference_offset_index` indexes the *decimated* array, as in the donor.
+    offset_index = int(fl10_config["reference_offset_index"]) - 1  # 1-based -> 0-based
+    offset_index = min(max(offset_index, 0), ip_ref.size - 1)
+    ip_ref = ip_ref - ip_ref[offset_index]
+
+    # Donor: `ipRef = smoothdata(ipRef, 10)`. Read strictly, smoothdata's
+    # two-argument form takes a *dimension*, not a window length, so passing
+    # 10 for a vector smooths along a singleton dimension and returns the
+    # input unchanged -- i.e. the donor line is a no-op, and VAFT's legacy
+    # `mode: subtract` path likewise applies no smoothing. The issue text
+    # reads it as an intended 10-sample moving average, so the span stays
+    # configurable: set `smooth_span: 1` to reproduce the donor literally.
+    smooth_span = int(fl10_config["smooth_span"])
+    ip_ref = smooth(ip_ref, smooth_span)
+
+    # Donor uses `interp1(..., 'linear', 0)`: zero outside the FL10 record,
+    # not edge-clamped as numpy would default to.
+    ip_ref_interp = np.interp(time, decimated_time, ip_ref, left=0.0, right=0.0)
+
+    window_start, window_end = (float(bound) for bound in fl10_config["subtract_window"])
+    mask = (time >= window_start) & (time <= window_end)
+
+    compensated = ip_shot.copy()
+    compensated[mask] = ip_shot[mask] - ip_ref_interp[mask]
+    return compensated
+
+
 def vfit_plasma_current(
     shot: int,
     ref: int = -1,
@@ -320,15 +686,35 @@ def vfit_plasma_current(
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
     if ref == -1:
-        x_flux_loop = int(reference_config["field"])
-        ind_mutual = float(reference_config["mutual_inductance"])
-
         time, raw_ip = raw_db.require_signal(
             _safe_vest_load(shot, plasma_field, raw_source),
             shot=shot,
             field=plasma_field,
             signal_name="plasma-current Rogowski coil",
         )
+        x_base = _plasma_current_baseline_indices(time, baseline_config)
+        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
+        ip_shot = _linear_baseline_subtract(time, calibrated_ip, x_base)
+
+        mode = reference_config.get("mode", "subtract")
+        if mode == "disabled":
+            # Shot >= 47117 (#195): the FL10 waveform must not affect the
+            # resulting plasma current at all.
+            ip = ip_shot * float(sign_config["multiply"])
+            return time, ip
+
+        if mode == "subtract_fl10_windowed":
+            # Shots 46403-47116 (#195): later-era FL10 acquisition path,
+            # subtracted only inside the documented compensation window.
+            ip_shot = _apply_fl10_windowed_compensation(
+                shot, time, ip_shot, reference_config, raw_source
+            )
+            ip = ip_shot * float(sign_config["multiply"])
+            return time, ip
+
+        # Legacy full-trace subtraction (default, unchanged since #135).
+        x_flux_loop = int(reference_config["field"])
+        ind_mutual = float(reference_config["mutual_inductance"])
         flux_time, raw_flux = raw_db.require_signal(
             _safe_vest_load(shot, x_flux_loop, raw_source),
             shot=shot,
@@ -338,19 +724,8 @@ def vfit_plasma_current(
         if flux_time.size != time.size or not np.allclose(flux_time, time):
             raw_flux = np.interp(time, flux_time, raw_flux)
 
-        x_time = np.arange(
-            int(baseline_config["analysis_start"]), int(baseline_config["analysis_end"])
-        )
-        x_window = int(baseline_config["lookback"])
-        x_base = np.arange(x_time[0] - x_window, x_time[0] + 1, dtype=int)
-        x_base = x_base[(x_base >= 0) & (x_base < time.size)]
-        if x_base.size < 2:
-            x_base = np.arange(min(500, time.size), dtype=int)
-
-        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
-        ip_shot = calibrated_ip - np.polyval(np.polyfit(time[x_base], calibrated_ip[x_base], 1), time)
         ip_ref = raw_flux * float(reference_config["flux_gain"]) / ind_mutual
-        ip_ref = ip_ref - np.polyval(np.polyfit(time[x_base], ip_ref[x_base], 1), time)
+        ip_ref = _linear_baseline_subtract(time, ip_ref, x_base)
         ip = (ip_shot - ip_ref) * float(sign_config["multiply"])
         return time, ip
 
@@ -494,6 +869,67 @@ def vest_diamagnetic_flux(
     return temp_time, dia_flux_final
 
 
+def _equilibrium_magnetics_window_for_shot(shot: int) -> dict[str, Any]:
+    """Resolve the shot-era equilibrium-magnetics acquisition policy from vest.yaml."""
+    config = resolve_vest_diagnostic(shot, "equilibrium_magnetics")
+    window = config["processing"]["window"]
+    return resolve_shot_revisions(
+        {key: value for key, value in window.items() if key != "revisions"},
+        window.get("revisions"),
+        shot,
+        context="VEST equilibrium_magnetics window",
+    )
+
+
+def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessingConfig:
+    """Build the processing config for *shot* from its resolved vest.yaml era."""
+    window = _equilibrium_magnetics_window_for_shot(shot)
+    flux_window = window.get("flux_baseline_window")
+    flux_samples = window.get("flux_baseline_samples")
+    return VestMagneticsProcessingConfig(
+        window_override=(
+            int(window["index_start"]),
+            int(window["index_end"]),
+            int(window["probe_baseline_end"]),
+        ),
+        flux_baseline_window=(
+            None if flux_window is None else (float(flux_window[0]), float(flux_window[1]))
+        ),
+        flux_baseline_samples=None if flux_samples is None else int(flux_samples),
+        daq_mode=str(window["daq_mode"]),
+    )
+
+
+def vfit_equilibrium_magnetics_detailed(
+    shot: int,
+    indices: list[int] | np.ndarray | None = None,
+    processing_config: VestMagneticsProcessingConfig | None = None,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+    allow_missing_channels: bool = False,
+) -> VestEquilibriumMagneticsResult:
+    """Process magnetics channels, keeping native flux-loop terminal voltages.
+
+    Shot-era resolution is identical to `vfit_equilibrium_magnetics`: an
+    explicit ``processing_config`` wins, otherwise the era policy comes from
+    ``vest.yaml`` (issue #195).
+    """
+    require_supported_magnetics_geometry(int(shot))
+    config = (
+        processing_config
+        if processing_config is not None
+        else equilibrium_magnetics_processing_config(int(shot))
+    )
+    return vest_equilibrium_magnetics_detailed(
+        int(shot),
+        _load_equilibrium_magnetics_channels(),
+        lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
+        indices=indices,
+        config=config,
+        allow_missing=allow_missing_channels,
+    )
+
+
 def vfit_equilibrium_magnetics(
     shot: int,
     indices: list[int] | np.ndarray | None = None,
@@ -502,15 +938,20 @@ def vfit_equilibrium_magnetics(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Process magnetic probe and flux-loop data using VAFT process helpers."""
-    return vest_equilibrium_magnetics_signals(
-        int(shot),
-        _load_equilibrium_magnetics_channels(),
-        lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
-        indices=indices,
-        config=processing_config,
-        allow_missing=allow_missing_channels,
+    """Process magnetic probe and flux-loop data using VAFT process helpers.
+
+    An explicitly supplied ``processing_config`` still wins, preserving the
+    existing override path used for parameter scans; otherwise the shot-era
+    policy is resolved from ``vest.yaml`` (issue #195).
+    """
+    result = vfit_equilibrium_magnetics_detailed(
+        shot,
+        indices,
+        processing_config,
+        raw_source=raw_source,
+        allow_missing_channels=allow_missing_channels,
     )
+    return result.time, result.flux_loops, result.probes
 
 
 def _set_magnetics_properties(ods: object) -> None:
@@ -582,7 +1023,7 @@ def _populate_probe_static(ods: object) -> None:
         probe_index += 1
 
 
-def _populate_fluctuation_mirnov_static(ods: object) -> None:
+def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
     """Append the 45/135/225 deg outboard fluctuation-Mirnov array (issue #155).
 
     Continues the existing ``b_field_pol_probe`` index sequence so equilibrium
@@ -595,7 +1036,7 @@ def _populate_fluctuation_mirnov_static(ods: object) -> None:
         if path_exists(ods, "magnetics.b_field_pol_probe")
         else 0
     )
-    for channel in _load_fluctuation_mirnov_channels():
+    for channel in _load_fluctuation_mirnov_channels(int(shot)):
         identifier = str(channel["identifier"])
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", identifier)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
@@ -634,7 +1075,7 @@ def _map_fluctuation_mirnov_voltage(
     called for shot >= ``FLUCTUATION_MIRNOV_FIRST_SHOT``.
     """
     probe_index = start_index
-    for channel in _load_fluctuation_mirnov_channels():
+    for channel in _load_fluctuation_mirnov_channels(int(shot)):
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field"]), raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
@@ -730,14 +1171,68 @@ def vfit_limiter_shunts_dynamic(
         _set_voltage_signal(ods, f"magnetics.shunt.{index}", time, data, validity)
 
 
-def _map_flux_loops(ods: object, context: _MagneticsContext) -> None:
+def _map_flux_loops(
+    ods: object,
+    context: _MagneticsContext,
+    *,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Map flux-loop terminal voltage and integrated flux (issue #209).
+
+    The processing chain is kept explicit and quantity-specific::
+
+        raw DAQ waveform
+            -> channel calibration / sign convention
+            -> magnetics.flux_loop[i].voltage   (native acquisition timebase,
+                                                 cropped to [tstart, tend))
+            -> time integration + linear baseline removal
+            -> magnetics.flux_loop[i].flux      (canonical magnetics.time grid)
+
+    So ``flux.data = -integral(voltage dt) - 2*pi*baseline``: integrating the
+    stored voltage reproduces the stored flux up to the removed linear
+    baseline term. Voltage is never reconstructed by differentiating flux, and
+    voltage validity is independent of the presence of processed flux.
+    """
     _set_magnetics_time(ods, context.target_time)
     for index, values in enumerate(context.flux_loops):
+        _map_flux_loop_voltage(ods, context, index, tstart=tstart, tend=tend)
         if np.asarray(values).size < 2:
             continue
         data = _interpolate_signal(context.target_time, context.source_time, values) * 2 * math.pi
         set_path(ods, f"magnetics.flux_loop.{index}.flux.time", context.target_time)
         set_path(ods, f"magnetics.flux_loop.{index}.flux.data", data)
+
+
+def _map_flux_loop_voltage(
+    ods: object,
+    context: _MagneticsContext,
+    index: int,
+    *,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Store one calibrated pre-integration flux-loop voltage at native rate."""
+    if index < len(context.flux_loop_voltage):
+        native_time = np.asarray(context.flux_loop_voltage_time[index], dtype=float)
+        native_data = np.asarray(context.flux_loop_voltage[index], dtype=float)
+    else:
+        native_time = np.array([], dtype=float)
+        native_data = np.array([], dtype=float)
+
+    if native_time.size < 2 or native_time.shape != native_data.shape:
+        _set_voltage_signal(
+            ods,
+            f"magnetics.flux_loop.{index}",
+            np.array([], dtype=float),
+            np.array([], dtype=float),
+            -2,
+        )
+        return
+
+    time, data = _crop_native_window(native_time, native_data, tstart=tstart, tend=tend)
+    validity = 0 if data.size else -2
+    _set_voltage_signal(ods, f"magnetics.flux_loop.{index}", time, data, validity)
 
 
 def _map_probes(
@@ -796,7 +1291,7 @@ def _map_probes(
     toroidal_reference_end = len(get_path(ods, "magnetics.b_field_pol_probe"))
     if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
         fluctuation_start_index = toroidal_reference_end
-        _populate_fluctuation_mirnov_static(ods)
+        _populate_fluctuation_mirnov_static(ods, shot)
         _map_fluctuation_mirnov_voltage(
             ods,
             shot,
@@ -901,8 +1396,10 @@ def vfit_magnetics_dynamic(
             target_time=np.asarray(target_time, dtype=float),
             flux_loops=context.flux_loops,
             probes=context.probes,
+            flux_loop_voltage_time=context.flux_loop_voltage_time,
+            flux_loop_voltage=context.flux_loop_voltage,
         )
-    _map_flux_loops(ods, context)
+    _map_flux_loops(ods, context, tstart=tstart, tend=tend)
     _map_probes(ods, shot, context, raw_source, tstart=tstart, tend=tend)
     vfit_limiter_shunts_dynamic(ods, shot, raw_source=raw_source)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
@@ -971,7 +1468,7 @@ def flux_loop_from_raw_database(
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
-    _map_flux_loops(ods, context)
+    _map_flux_loops(ods, context, tstart=tstart, tend=tend)
 
 
 def b_field_pol_probe_from_raw_database(
@@ -1057,6 +1554,10 @@ __all__ = [
     "LIMITER_SHUNT_CHANNELS",
     "LIMITER_SHUNT_BASELINE_WINDOW",
     "LIMITER_SHUNT_RESISTANCE",
+    "UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS",
+    "UnsupportedMagneticsGeometryError",
+    "equilibrium_magnetics_processing_config",
+    "require_supported_magnetics_geometry",
     "b_field_pol_probe_from_raw_database",
     "diamagnetic_flux_rogowski_coil_from_raw_database",
     "flux_loop_from_raw_database",
@@ -1065,9 +1566,13 @@ __all__ = [
     "vest_diamagnetic_flux",
     "vest_equilibrium_magnetics_channel_definitions",
     "fluctuation_mirnov_channel_definitions",
+    "fluctuation_mirnov_gain_by_identifier",
+    "fluctuation_mirnov_probe_indices",
+    "select_fluctuation_mirnov_channels",
     "magnetics",
     "vfit_plasma_current",
     "vfit_equilibrium_magnetics",
+    "vfit_equilibrium_magnetics_detailed",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
     "vfit_magnetics_static",

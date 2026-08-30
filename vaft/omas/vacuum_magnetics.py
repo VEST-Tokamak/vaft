@@ -22,10 +22,12 @@ Both sides of every comparison carry the same physical quantity and unit:
   Green's-function flux response, which :func:`vaft.formula.green.green_r`
   already returns as full poloidal flux in Wb -- no ``2*pi`` enters here;
 * B probes compare ``magnetics.b_field_pol_probe.*.field.data`` [T] against the
-  field response projected onto
-  :data:`~vaft.machine_mapping.magnetics.PROBE_FIELD_DIRECTION`, which records
-  what VEST's probes actually measure.  The stored ``poloidal_angle`` is a
-  legacy placeholder and is deliberately not used; see that constant.
+  field response projected onto the probe's own sensitive axis,
+  ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)`` -- the IMAS
+  convention, read per channel from the ODS so a probe mounted differently from
+  the rest projects differently (issue #169).  An ODS that stores no angle for a
+  channel falls back to
+  :data:`~vaft.machine_mapping.magnetics.POLOIDAL_ANGLE`, VEST's +Bz default.
 """
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ from vaft.machine_mapping.magnetics import (
     INBOARD_PROBE_MAX_R,
     OUTBOARD_FLUX_LOOP_MIN_R,
     OUTBOARD_PROBE_MIN_R,
-    PROBE_FIELD_DIRECTION,
+    POLOIDAL_ANGLE,
     SIDE_PROBE_MIN_ABS_Z,
     vfit_plasma_mgods_startend,
 )
@@ -220,6 +222,20 @@ def _count(ods: Any, path: str) -> int:
         return 0
 
 
+def _poloidal_angle(ods: Any, base: str) -> float:
+    """The probe's sensitive-axis angle, defaulting to VEST's +Bz orientation.
+
+    Read per channel rather than taken from the constant so an ODS carrying a
+    measured misalignment -- the IMPA Bz sensors write one -- projects onto the
+    axis it declares.
+    """
+    try:
+        angle = float(ods[f"{base}.poloidal_angle"])
+    except (LookupError, TypeError, ValueError):
+        return POLOIDAL_ANGLE
+    return angle if np.isfinite(angle) else POLOIDAL_ANGLE
+
+
 def _candidates(ods: Any) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     shared_time = _signal(ods, "magnetics.time")
@@ -241,6 +257,7 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
                 "index": index,
                 "r": r,
                 "z": z,
+                "poloidal_angle": _poloidal_angle(ods, base),
                 "unit": "T",
                 "family": probe_family(B_FIELD_POL_PROBE, r, z),
                 "name": str(ods.get(f"{base}.name", f"Bp {index}") or f"Bp {index}"),
@@ -371,14 +388,14 @@ def synthetic_vacuum_magnetics(
     psi, b_z, b_r = compute_point_response_ods(
         ods, [[row["r"], row["z"]] for row in rows]
     )
-    direction_r, direction_z = PROBE_FIELD_DIRECTION
 
     built: list[VacuumChannel] = []
     for position, row in enumerate(rows):
         if row["kind"] == FLUX_LOOP:
             response = psi[position]
         else:
-            response = b_r[position] * direction_r + b_z[position] * direction_z
+            angle = row["poloidal_angle"]
+            response = b_r[position] * np.cos(angle) + b_z[position] * np.sin(angle)
         coil = response[:n_coil] @ coil_currents
         eddy = response[n_coil : n_coil + n_loop] @ loop_currents
         built.append(

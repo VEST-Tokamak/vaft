@@ -205,7 +205,7 @@ def summary_time_energy(
     quantity="beta",
     description="Poloidal, toroidal and normalized beta panels.",
     ids=("equilibrium",),
-    required_paths=("equilibrium.time",),
+    required_paths=("equilibrium.time_slice.{i}.global_quantities.beta_pol",),
 )
 def summary_time_beta(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
@@ -220,7 +220,10 @@ def summary_time_beta(
     quantity="power_balance",
     description="Ohmic input, radiated and conducted power balance panels.",
     ids=("equilibrium", "core_profiles", "summary"),
-    required_paths=("equilibrium.time",),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.global_quantities.volume",
+    ),
 )
 def summary_time_power_balance(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any

@@ -17,6 +17,15 @@ DEPRECATED_CALLS = {
 }
 
 
+def _notebook_paths():
+    """Return real notebooks, excluding macOS AppleDouble sidecars on SSDs."""
+    return (
+        path
+        for path in sorted(NOTEBOOKS.glob("*.ipynb"))
+        if not path.name.startswith("._")
+    )
+
+
 def _attribute_name(node: ast.AST) -> str | None:
     parts = []
     while isinstance(node, ast.Attribute):
@@ -30,7 +39,7 @@ def _attribute_name(node: ast.AST) -> str | None:
 
 def test_all_notebooks_are_valid_and_python_cells_compile():
     failures = []
-    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+    for path in _notebook_paths():
         try:
             book = nbformat.read(path, as_version=4)
             nbformat.validate(book)
@@ -51,7 +60,7 @@ def test_all_notebooks_are_valid_and_python_cells_compile():
 
 def test_notebooks_avoid_deprecated_database_calls_and_machine_paths():
     failures = []
-    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+    for path in _notebook_paths():
         book = nbformat.read(path, as_version=4)
         for index, cell in enumerate(book.cells):
             if cell.cell_type != "code":
@@ -74,8 +83,8 @@ def test_notebooks_avoid_deprecated_database_calls_and_machine_paths():
 def test_load_omas_json_accepts_pathlike_input():
     import vaft
 
-    sample = ROOT / "vaft" / "data" / "omas" / "39915.json"
-    ods = vaft.omas.load_omas_json(sample, consistency_check=False)
+    fixture = ROOT / "test" / "data" / "contracts" / "thomson_scattering.json"
+    ods = vaft.omas.load_omas_json(fixture, consistency_check=False)
 
     assert len(ods) > 0
 
@@ -83,7 +92,9 @@ def test_load_omas_json_accepts_pathlike_input():
 def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
     notebook_path = NOTEBOOKS / "fluctuation_diagnostics_analysis.ipynb"
     book = nbformat.read(notebook_path, as_version=4)
-    sample = ROOT / "vaft" / "data" / "omas" / "39915.json"
+    import vaft
+
+    sample = vaft.data.sample(39915, representation="omas")
     monkeypatch.setenv("VAFT_DIAGNOSTICS_ODS", str(sample))
     monkeypatch.setenv("VAFT_DOCS_OUTPUT_DIR", str(tmp_path))
 

@@ -665,13 +665,59 @@
         factor: 2.0e-5
         output_unit: A
       processing:
+        # `reference.mode` selects how the FL10-derived reference waveform is
+        # applied to the raw-calibrated plasma current (`ip_shot`):
+        #   subtract                 - legacy full-trace baseline-matched
+        #                               subtraction (default; unchanged since #135).
+        #   subtract_fl10_windowed   - later-era FL10 acquisition/decimation
+        #                               path (issue #195), subtracted only
+        #                               inside `fl10.subtract_window`.
+        #   disabled                 - no FL10 compensation at all; `ip` is
+        #                               `ip_shot` unmodified (from #195).
         reference:
+          mode: subtract
           field: 25
           flux_gain: 11.0
           mutual_inductance: 2.8e-4
           revisions:
             - from_shot: 17455
+              to_shot: 46402
               mutual_inductance: 5.0e-4
+            - from_shot: 46403
+              to_shot: 47116
+              mode: subtract_fl10_windowed
+              mutual_inductance: 5.0e-4
+              fl10:
+                # `field` intentionally left equal to the pre-existing
+                # `reference.field` (25) pending confirmation against the
+                # donor field-mapping table; revisit if evidence indicates
+                # a distinct FL10 channel for this era.
+                field: 25
+                # The donor (`vest_ip.m`) does `time2 = time2 + 0.26` because
+                # MATLAB's vest_load returns the fast-DAQ record on a raw
+                # 0-based axis. VAFT's loader already applies that same DAQ
+                # trigger correction (`_daq_trigger_time_correction`, +0.26 s
+                # for shots >= 41660) to every fast record, so re-applying it
+                # here would put FL10 at 0.52--0.62 s -- entirely outside the
+                # compensation window, silently disabling the correction.
+                time_offset_s: 0.0
+                decimate_factor: 10
+                gain_numerator: 11.0
+                smooth_span: 10
+                subtract_window: [0.26, 0.36]
+                # 1-based MATLAB index from the legacy `ipRef(175)` term;
+                # converted to 0-based (174) in Python. See magnetics.py for
+                # the documented VAFT interpretation of the degenerate
+                # single-point polyfit this offset replaces.
+                reference_offset_index: 175
+            - from_shot: 47117
+              mode: disabled
+              mutual_inductance: 5.0e-4
+        # `baseline.analysis_start/analysis_end` is the shot-era *analysis
+        # window* (`xTime` in the legacy `vest_ip.m`). It is NOT the fitted
+        # baseline interval. The actual linear-baseline-fit window (`xBase`)
+        # is derived in code as the `lookback` samples immediately preceding
+        # `analysis_start`, plus `analysis_start` itself.
         baseline:
           analysis_start: 6000
           analysis_end: 8500
@@ -682,8 +728,12 @@
               analysis_start: 7250
               analysis_end: 8750
             - from_shot: 41660
+              to_shot: 43760
               analysis_start: 7250
               analysis_end: 8750
+            - from_shot: 43761
+              analysis_start: 6000
+              analysis_end: 7251
         sign:
           multiply: 1.0
           revisions:
@@ -752,6 +802,20 @@
           5: 1.0e3
           8: -1.0e3
           9: -1.0e3
+        # Coil indices below are 0-based hardware coil numbers (0 = PF1 ...
+        # 9 = PF10), matching `coil_gains`. PF6 = index 5. Saturation repair
+        # reconstructs samples clipped at the acquisition limit via a
+        # generic cubic-spline primitive (`vaft.process.signal_processing.
+        # repair_clipped_interval`); it fails explicitly rather than
+        # fabricating data when insufficient support exists (issue #195).
+        #
+        # Disabled by default and enabled per era below. The donor
+        # (`vest_pf.m`) applies the -5000 A repair unconditionally, but PF6's
+        # gain flips sign at shot 38110 (+1e3 -> -1e3), so before that shot
+        # the acquisition rail appears at *+5000* A and a -5000 A sample is
+        # ordinary measured data. Repairing it there would corrupt real
+        # signal, so the policy is scoped to the negative-gain eras.
+        saturation_repair: null
       revisions:
         - from_shot: 19287
           to_shot: 20258
@@ -765,17 +829,107 @@
           to_shot: 38360
           processing:
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 38361
           to_shot: 38400
           processing:
             coil_gains: {0: 5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 38401
           to_shot: 45964
           processing:
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 45965
+          to_shot: 48371
           processing:
             coil_gains: {0: -1.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        - from_shot: 48372
+          processing:
+            coil_gains: {0: -1.0e4, 4: -5.0e3, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+
+    # Equilibrium-magnetics (flux loop / B-pol probe) DAQ-era processing
+    # (issue #195). `window` mirrors the legacy shot-era acquisition/
+    # baseline policy historically encoded in the Python
+    # `VestMagneticsProcessingConfig` dataclass (`vaft/process/magnetics.py`);
+    # `daq_mode` selects between the legacy slow-DAQ acquisition path and the
+    # later native-DAQ acquisition path (`legacy` | `native_daq`) -- a
+    # resolved config value, not a shot literal, consumed by
+    # `vest_equilibrium_magnetics_signals`.
+    #
+    # The native-DAQ era starts at 46404, one shot later than the
+    # plasma-current FL10 era (46403, confirmed by `vest_ip.m` line 38).
+    # The donor is self-inconsistent for exactly shot 46403:
+    # Batch_FiniteElementFitting_v11_Header.m and
+    # VEST_PrepareFilamentaryFitInput.m both dispatch `shotNumber <= 46403`
+    # to the legacy function, while Batch_Vaccum_Calculation.m sends
+    # `>= 46403` to the new one. VAFT follows the two equilibrium
+    # reconstruction paths that this preprocessing actually feeds.
+    equilibrium_magnetics:
+      processing:
+        # `index_start`/`index_end` select the canonical output window on the
+        # 25 kHz (4e-5 s) equilibrium-magnetics grid: index 6500 = 0.26 s and
+        # index 9000 = 0.36 s, so the late eras below are exactly the
+        # documented 0.26--0.36 s output window. `probe_baseline_end` is the
+        # number of leading samples of the *native* B-pol acquisition used for
+        # the linear baseline fit (1750 fast samples ~ 0.260--0.267 s from
+        # shot 43685). Flux-loop baselines follow one of two rules, matching
+        # the two donor functions (VFIT VEST_MagneticSignalProcessing[2].m):
+        #   flux_baseline_window  - slow-DAQ era, in physical seconds (MATLAB
+        #                           index_FL_start/index_FL_end; 6001:6500 =
+        #                           0.24--0.26 s from shot 43685).
+        #   flux_baseline_samples - native-DAQ era, leading samples of the
+        #                           250 kHz flux acquisition. The donor reuses
+        #                           index_Bz_start:index_Bz_end = 1:1750, i.e.
+        #                           the same window as the B-pol probes.
+        # When both are null the legacy index-based flux baselines on
+        # `VestMagneticsProcessingConfig` apply.
+        #
+        # NOTE: `resolve_shot_revisions` merges exactly one matching revision
+        # onto the base and does NOT chain eras, so every revision below must
+        # restate each key it needs -- not just the delta from the era before.
+        window:
+          index_start: 6000
+          index_end: 8500
+          probe_baseline_end: 8500
+          flux_baseline_window: null
+          flux_baseline_samples: null
+          daq_mode: legacy
+          revisions:
+            - from_shot: 41446
+              to_shot: 41451
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 5000
+            - from_shot: 41660
+              to_shot: 43684
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 5000
+            - from_shot: 43685
+              to_shot: 46403
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 1750
+              flux_baseline_window: [0.24, 0.26]
+              daq_mode: legacy
+            - from_shot: 46404
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 1750
+              # Native-DAQ era: flux loops moved onto the fast acquisition and
+              # take the probes' leading-sample baseline, NOT the 0.24--0.26 s
+              # slow-DAQ window used by the era before it.
+              flux_baseline_window: null
+              flux_baseline_samples: 1750
+              daq_mode: native_daq
 
     # Triple Langmuir probes (issue #152). Deliberately no unconditional
     # default block below `revisions:` -- a shot that matches no era has no
@@ -905,6 +1059,57 @@
           vd3: 89.8
           tip_length_mm: 2.0
           tip_radius_mm: 0.15
+
+    # VEST outboard Mirnov fluctuation array (issue #155). 30 raw-voltage
+    # channels at three toroidal locations (45/135/225 deg), two vertical
+    # sub-arrays each (L1, L2) of five probes. These probes became physically
+    # operational at first_operational_shot; entries are only mapped for shots
+    # at or after that boundary. Field 301 carries a DB label typo
+    # (OutMirno_225_L2-01, missing the "v"); raw_label preserves that typo for
+    # provenance while identifier is normalized. Field 289's gain is estimated,
+    # not directly transcribed from a calibration sheet. Order below is the
+    # canonical physical order (toroidal group, then L1/L2, then z descending)
+    # and intentionally does not follow raw DB field numbering.
+    fluctuation_mirnov:
+      source: {raw_unit: V, daq_type: fast}
+      role: fluctuation
+      preserve_native_voltage: true
+      first_operational_shot: 44156
+      geometry: {major_radius: 0.796}
+      channels:
+        # 45 degrees
+        - {field: 286, raw_label: OutMirnov_45_L1-01, identifier: OutMirnov_45_L1-01, toroidal_angle_deg: 45, z: 0.4, gain: -0.00105}
+        - {field: 304, raw_label: OutMirnov_45_L1-02, identifier: OutMirnov_45_L1-02, toroidal_angle_deg: 45, z: 0.2, gain: 0.000925}
+        - {field: 287, raw_label: OutMirnov_45_L1-03, identifier: OutMirnov_45_L1-03, toroidal_angle_deg: 45, z: 0.0, gain: 0.00105}
+        - {field: 305, raw_label: OutMirnov_45_L1-04, identifier: OutMirnov_45_L1-04, toroidal_angle_deg: 45, z: -0.2, gain: 0.00105}
+        - {field: 288, raw_label: OutMirnov_45_L1-05, identifier: OutMirnov_45_L1-05, toroidal_angle_deg: 45, z: -0.4, gain: 0.00105}
+        - {field: 289, raw_label: OutMirnov_45_L2-01, identifier: OutMirnov_45_L2-01, toroidal_angle_deg: 45, z: 0.4, gain: 0.00105, calibration_provenance: estimated}
+        - {field: 306, raw_label: OutMirnov_45_L2-02, identifier: OutMirnov_45_L2-02, toroidal_angle_deg: 45, z: 0.2, gain: 0.00265}
+        - {field: 290, raw_label: OutMirnov_45_L2-03, identifier: OutMirnov_45_L2-03, toroidal_angle_deg: 45, z: 0.0, gain: 0.00275}
+        - {field: 307, raw_label: OutMirnov_45_L2-04, identifier: OutMirnov_45_L2-04, toroidal_angle_deg: 45, z: -0.2, gain: 0.0029}
+        - {field: 291, raw_label: OutMirnov_45_L2-05, identifier: OutMirnov_45_L2-05, toroidal_angle_deg: 45, z: -0.4, gain: 0.00275}
+        # 135 degrees
+        - {field: 292, raw_label: OutMirnov_135_L1-01, identifier: OutMirnov_135_L1-01, toroidal_angle_deg: 135, z: 0.4, gain: 0.00096}
+        - {field: 308, raw_label: OutMirnov_135_L1-02, identifier: OutMirnov_135_L1-02, toroidal_angle_deg: 135, z: 0.2, gain: 0.00096}
+        - {field: 293, raw_label: OutMirnov_135_L1-03, identifier: OutMirnov_135_L1-03, toroidal_angle_deg: 135, z: 0.0, gain: 0.0012}
+        - {field: 309, raw_label: OutMirnov_135_L1-04, identifier: OutMirnov_135_L1-04, toroidal_angle_deg: 135, z: -0.2, gain: 0.001025}
+        - {field: 294, raw_label: OutMirnov_135_L1-05, identifier: OutMirnov_135_L1-05, toroidal_angle_deg: 135, z: -0.4, gain: 0.001}
+        - {field: 295, raw_label: OutMirnov_135_L2-01, identifier: OutMirnov_135_L2-01, toroidal_angle_deg: 135, z: 0.4, gain: 0.0024}
+        - {field: 310, raw_label: OutMirnov_135_L2-02, identifier: OutMirnov_135_L2-02, toroidal_angle_deg: 135, z: 0.2, gain: -0.0026}
+        - {field: 296, raw_label: OutMirnov_135_L2-03, identifier: OutMirnov_135_L2-03, toroidal_angle_deg: 135, z: 0.0, gain: -0.0025}
+        - {field: 311, raw_label: OutMirnov_135_L2-04, identifier: OutMirnov_135_L2-04, toroidal_angle_deg: 135, z: -0.2, gain: -0.0025}
+        - {field: 297, raw_label: OutMirnov_135_L2-05, identifier: OutMirnov_135_L2-05, toroidal_angle_deg: 135, z: -0.4, gain: -0.0023}
+        # 225 degrees
+        - {field: 298, raw_label: OutMirnov_225_L1-01, identifier: OutMirnov_225_L1-01, toroidal_angle_deg: 225, z: 0.4, gain: 0.00105}
+        - {field: 312, raw_label: OutMirnov_225_L1-02, identifier: OutMirnov_225_L1-02, toroidal_angle_deg: 225, z: 0.2, gain: -0.00105}
+        - {field: 299, raw_label: OutMirnov_225_L1-03, identifier: OutMirnov_225_L1-03, toroidal_angle_deg: 225, z: 0.0, gain: -0.0008}
+        - {field: 313, raw_label: OutMirnov_225_L1-04, identifier: OutMirnov_225_L1-04, toroidal_angle_deg: 225, z: -0.2, gain: -0.0009}
+        - {field: 300, raw_label: OutMirnov_225_L1-05, identifier: OutMirnov_225_L1-05, toroidal_angle_deg: 225, z: -0.4, gain: 0.00095}
+        - {field: 301, raw_label: OutMirno_225_L2-01, identifier: OutMirnov_225_L2-01, toroidal_angle_deg: 225, z: 0.4, gain: 0.00275}
+        - {field: 314, raw_label: OutMirnov_225_L2-02, identifier: OutMirnov_225_L2-02, toroidal_angle_deg: 225, z: 0.2, gain: 0.0024}
+        - {field: 302, raw_label: OutMirnov_225_L2-03, identifier: OutMirnov_225_L2-03, toroidal_angle_deg: 225, z: 0.0, gain: -0.00225}
+        - {field: 315, raw_label: OutMirnov_225_L2-04, identifier: OutMirnov_225_L2-04, toroidal_angle_deg: 225, z: -0.2, gain: 0.0024}
+        - {field: 303, raw_label: OutMirnov_225_L2-05, identifier: OutMirnov_225_L2-05, toroidal_angle_deg: 225, z: -0.4, gain: 0.00245}
 
   # Legacy vest_conversion.m inventory. These records are provenance only;
   # they do not enable or fetch a diagnostic by themselves.
@@ -1374,6 +1579,11 @@ diagnostic_registry:
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
     quantities: {static: [position], measured: [voltage], derived: [poloidal_magnetic_flux]}
+  # Covers both the equilibrium probe set and the 45/135/225 deg outboard
+  # fluctuation array (issue #155). Both legitimately live in
+  # magnetics.b_field_pol_probe; they are told apart semantically -- by
+  # identifier and by the `role` in 0.diagnostics.fluctuation_mirnov -- not
+  # by inventing an IDS sub-path that IMAS does not define.
   magnetics.b_field_pol_probe:
     name: Magnetic probes (Mirnov coils)
     family: magnetic_diagnostics

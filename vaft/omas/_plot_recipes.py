@@ -2111,10 +2111,15 @@ def _build_line_traces(
                 # e.g. a channel with several real energy bands: skip it so one
                 # odd channel does not abort a whole multi-channel figure.
                 continue
-            if y is None:
+            # IMAS arrays may include placeholder scalar values (commonly
+            # ``nan``) for unpopulated channels.  They are data values, but
+            # not time series, and ``Series`` correctly refuses to render
+            # them.  Ignore those placeholders while retaining the valid
+            # channels in the same IDS.
+            if y is None or y.ndim != 1:
                 continue
             time = _first_time(ods, recipe.x_paths, i=index)
-            if time is None or time.size != y.size:
+            if time is None or time.ndim != 1 or time.size != y.size:
                 time = np.arange(y.size, dtype=float)
             traces.append(
                 Series(
@@ -2334,12 +2339,37 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
     )
 
 
+def _first_channel_with_signal(
+    ods: Any, recipe: "SpectrogramRecipe | PowerSpectrumRecipe"
+) -> int:
+    """The lowest channel index whose signal is actually present.
+
+    Consults the recipe's fallback signal spellings too, so a source that
+    stores e.g. ``power`` instead of ``brightness`` still auto-picks a channel.
+    Falls back to ``0`` so the caller raises the usual "not available" error
+    when no channel carries the signal at all.
+    """
+    total = _count(ods, recipe.container) if recipe.container else 0
+    templates = (recipe.signal_path, *recipe.fallback_signal_paths)
+    for index in range(total):
+        if any(_array(ods, template.format(i=index)) is not None for template in templates):
+            return index
+    return 0
+
+
 def _build_spectrogram(
     ods: Any, recipe: SpectrogramRecipe, **options: Any
 ) -> Spectrogram:
     from vaft.process import mirnov_spectrogram as compute_spectrogram
 
-    index = int(options.get("channel", 0))
+    requested = options.get("channel")
+    if requested is None:
+        # Availability accepts any channel that carries the signal, so the
+        # default must be the first one that does.  Real arrays routinely
+        # declare geometry for channels whose waveform was never acquired.
+        index = _first_channel_with_signal(ods, recipe)
+    else:
+        index = int(requested)
     candidates = (recipe.signal_path, *recipe.fallback_signal_paths)
     signal = _first_array(ods, candidates, i=index)
     if signal is None:
@@ -2386,7 +2416,11 @@ def _build_power_spectrum(
     """
     from vaft.process.fluctuation import compute_psd, fit_power_law_spectrum
 
-    index = int(options.get("channel", 0))
+    requested = options.get("channel")
+    if requested is None:
+        index = _first_channel_with_signal(ods, recipe)
+    else:
+        index = int(requested)
     candidates = (recipe.signal_path, *recipe.fallback_signal_paths)
     signal = _first_array(ods, candidates, i=index)
     if signal is None:

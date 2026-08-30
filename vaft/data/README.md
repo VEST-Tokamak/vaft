@@ -1,12 +1,11 @@
 # vaft/data data catalog
 
-`vaft/data` contains runtime resources and repository-only samples. Data assets
-are grouped one level deep only; Python package files stay at this directory
-root. The GitHub repository contains every file listed below; the PyPI
-distribution includes only the runtime geometry resources, GPEC templates,
-`legacy/sql_table.txt`, `legacy/langmuir_probe_positions.csv`, and
-`omas/39915.json`. Clone the repository to access the archived EFIT, kinetic-EFIT, IMAS,
-legacy diagnostic, digitizer, and additional OMAS samples.
+`vaft/data` contains runtime resources, a compact paired reference sample, and
+repository-only full-shot examples and regeneration inputs. The PyPI
+distribution includes runtime resources, all sample manifests, and both
+compact representations of shot 39915. Clone the repository to access the
+full native IMAS examples for shots 41524 and 41672, archived EFIT and
+kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 
 ## Layout
 
@@ -14,28 +13,53 @@ legacy diagnostic, digitizer, and additional OMAS samples.
 | --- | --- | --- |
 | `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_static_geometry.json.gz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata |
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
-| `omas/` | `39915.json`, `41524.json`, `41672.json`, `thomson_scattering.json` | OMAS/ODS sample and contract-test payloads |
+| `samples/39915/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | One compact logical reference dataset in paired OMAS and native IMAS representations |
+| `samples/39915/source/` | frozen raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs through the EFIT stage |
+| `samples/41524/` | `manifest.yaml`, `imas.nc` | Complete repository-only native IMAS example composed from the current pipeline through EFIT |
+| `samples/41524/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41524 pipeline run through EFIT |
+| `samples/41672/` | `manifest.yaml`, `imas.nc` | Complete repository-only native IMAS example composed from the current pipeline through EFIT |
+| `samples/41672/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41672 pipeline run through EFIT |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
-| `imas/` | `vest_imas_3.40.1.nc` | IMAS-format sample container |
 | `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `shot_45531.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
 
 ## Access
 
-Use `vaft.data.resources.data_path()` with explicit category paths:
+Discover samples through the representation-neutral registry and pass the
+returned path to the adapter being tested:
 
 ```python
-from vaft.data.resources import data_path
+import vaft
 
-ods_path = data_path("omas/39915.json")
+omas_artifact = vaft.data.sample(39915, representation="omas")
+imas_artifact = vaft.data.sample(39915, representation="imas")
+ods = vaft.omas.load(omas_artifact)
+with vaft.imas.load(imas_artifact) as handle:
+    equilibrium = handle.get("equilibrium")
+
+# Storage is independent from the consuming adapter. Both calls resolve the
+# same repository-only IMAS artifact and either loader can consume it.
+legacy_as_omas = vaft.omas.load(vaft.data.sample(41524, "omas"))
+with vaft.imas.load(vaft.data.sample(41524, "imas")) as handle:
+    legacy_equilibrium = handle.get("equilibrium")
 ```
 
 Repository-only samples such as `efit/g039915.00319` and
 `legacy/46051_NeTe.mat` are available after cloning the repository, not after
 `pip install vaft`.
 
-Flat calls such as `data_path("39915.json")` are intentionally unsupported.
-Deleted duplicate assets from older checkouts are not recreated here.
+The repository copy of the 39915 pair retains every successful EFIT time
+slice. Its wheel build replaces those checkout artifacts with a separately
+manifested three-slice variant generated from the same canonical ODS, keeping
+the installed package small without making a repository checkout less useful.
+`workflow/reference_validation/generate_paired_sample.py` generates both
+forms; neither representation is maintained independently. Shots 41524 and 41672 are
+regenerated from frozen current-pipeline products by
+`generate_pipeline_imas_sample.py`; each retains its successful EFIT slices
+and records unavailable optional channels and unsuccessful EFIT times in its
+manifest. Both native samples normalize DD-only metadata and use +Bz probe
+direction metadata. The old format-grouped JSON files and unrelated IMAS
+NetCDF sample are intentionally not recreated.
 
 `geometry/VEST_em_coupling_pf_versions.npz` is a compact extraction of the
 active-active, passive-active, and passive-passive matrices from the legacy

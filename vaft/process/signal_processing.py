@@ -2,11 +2,12 @@ import warnings
 
 import numpy as np
 import scipy.signal as scipy_signal
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import CubicSpline, UnivariateSpline
 from scipy.optimize import curve_fit
 
 
 __all__ = [
+    "SignalRepairError",
     "butterworth_bandpass",
     "butterworth_lowpass",
     "detect_active_window",
@@ -18,6 +19,7 @@ __all__ = [
     "linear_baseline",
     "process_signal",
     "quadratic_baseline",
+    "repair_clipped_interval",
     "signal_on_offset",
     "smooth",
     "subtract_baseline",
@@ -28,6 +30,82 @@ __all__ = [
     "vfit_signal_start_end",
     "vfit_signal_startend",
 ]
+
+
+class SignalRepairError(ValueError):
+    """Raised when a clipped waveform cannot be defensibly reconstructed.
+
+    Reconstructing a saturated interval is an interpolation, so it is only
+    valid where surrounding unsaturated samples actually constrain it.
+    Raising beats returning a fabricated waveform that looks like data.
+    """
+
+
+def repair_clipped_interval(
+    time,
+    data,
+    *,
+    clip_value: float,
+    tolerance: float,
+    min_support: int = 4,
+):
+    """Reconstruct samples saturated at an acquisition limit by interpolation.
+
+    Samples within ``tolerance`` of ``clip_value`` are treated as saturated
+    and replaced by a cubic spline fitted to the remaining samples on the
+    physical ``time`` axis. Every unsaturated sample is preserved exactly.
+
+    This is deliberately machine-independent: callers supply the limit and
+    tolerance (VEST's PF6 acquisition clips near -5000 A, see `vest.yaml`).
+
+    Raises:
+        SignalRepairError: if the inputs contain non-finite values, the whole
+            waveform is saturated, fewer than ``min_support`` unsaturated
+            samples remain, or the saturated interval reaches either end of
+            the record (which would require extrapolation, not interpolation).
+    """
+    time = np.asarray(time, dtype=float)
+    values = np.asarray(data, dtype=float)
+    if time.shape != values.shape:
+        raise SignalRepairError(
+            f"time and data must have the same shape, got {time.shape} and {values.shape}"
+        )
+    if values.ndim != 1:
+        raise SignalRepairError("`data` must be one-dimensional.")
+    if not np.all(np.isfinite(time)) or not np.all(np.isfinite(values)):
+        raise SignalRepairError(
+            "Cannot repair a waveform containing non-finite samples; "
+            "clean or mask the signal before requesting saturation repair."
+        )
+
+    saturated = np.abs(values - float(clip_value)) < float(tolerance)
+    if not saturated.any():
+        return values.copy()
+    if saturated.all():
+        raise SignalRepairError(
+            f"Every sample is saturated at {clip_value}; there is no unsaturated "
+            "support to interpolate from, so no waveform can be reconstructed."
+        )
+
+    support = np.flatnonzero(~saturated)
+    if support.size < int(min_support):
+        raise SignalRepairError(
+            f"Cubic reconstruction needs at least {int(min_support)} unsaturated "
+            f"samples, found {support.size}."
+        )
+
+    clipped = np.flatnonzero(saturated)
+    if clipped[0] < support[0] or clipped[-1] > support[-1]:
+        raise SignalRepairError(
+            "The saturated interval reaches the start or end of the record, so "
+            "reconstructing it would extrapolate beyond the measured support "
+            "rather than interpolate between it."
+        )
+
+    spline = CubicSpline(time[support], values[support])
+    repaired = values.copy()
+    repaired[clipped] = spline(time[clipped])
+    return repaired
 
 
 def line_average_density(n_e_line, path_length_m: float) -> np.ndarray:

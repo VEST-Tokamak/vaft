@@ -34,6 +34,11 @@ from vaft.validation import render_stage_plots, stage_plot_filenames
 
 @pytest.fixture(scope="module")
 def efit_ods():
+    return _complete_efit_quality_ods()
+
+
+@pytest.fixture(scope="module")
+def portable_sample_ods():
     from vaft.omas.sample import sample_ods
 
     return sample_ods()
@@ -62,6 +67,67 @@ def _fit_ods(*, residuals, weight=0.01, unit_factor=1.0, dof=10, family="bpol_pr
     ods[f"{aux}.num_hard_constraints"] = 1
     ods["equilibrium.code.parameters.time_slice.0.in1.error"] = 1e-5
     ods["equilibrium.code.parameters.time_slice.0.in1.mxiter"] = -100
+    return ods
+
+
+def _complete_efit_quality_ods():
+    """A deterministic complete EFIT-quality contract fixture.
+
+    The public issue #166 sample is deliberately portable between OMAS and
+    native IMAS, so it excludes the non-DD parser cache and cannot contain the
+    M-file quantities that this EFIT-quality module is designed to interpret.
+    Keep its real equilibrium as the self-consistency backbone, then add
+    coherent synthetic solver/fit fields solely for these algorithm tests.
+    """
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    for slice_index in range(len(ods["equilibrium.time_slice"])):
+        root = f"equilibrium.time_slice.{slice_index}"
+        for family, unit_factor in (("bpol_probe", 1.0), ("flux_loop", 2 * math.pi)):
+            family_root = f"{root}.constraints.{family}"
+            for index in range(len(ods.get(family_root, []))):
+                base = f"{family_root}.{index}"
+                measured = float(ods.get(f"{base}.measured", float("nan")))
+                if not np.isfinite(measured):
+                    measured = 1.0e-3 * (index + 1)
+                residual = (1.0 if index % 2 == 0 else -1.0) * (index + 1) * 1.0e-6
+                weight = 1.0e-3
+                ods[f"{base}.measured"] = measured
+                ods[f"{base}.reconstructed"] = measured - residual
+                ods[f"{base}.weight"] = weight
+                ods[f"{base}.chi_squared"] = (residual * weight / unit_factor) ** 2
+                ods[f"{base}.exact"] = 0
+                if not ods.get(f"{base}.source", ""):
+                    ods[f"{base}.source"] = f"{family}_ch{index}"
+
+        pf_root = f"{root}.constraints.pf_current"
+        for index in range(len(ods.get(pf_root, []))):
+            base = f"{pf_root}.{index}"
+            measured = float(ods.get(f"{base}.measured", 0.0))
+            ods[f"{base}.reconstructed"] = measured
+            ods[f"{base}.chi_squared"] = 0.0
+            ods[f"{base}.exact"] = 1
+
+        ip = float(ods[f"{root}.global_quantities.ip"])
+        ods[f"{root}.constraints.ip.measured"] = ip + 100.0
+        ods[f"{root}.constraints.ip.reconstructed"] = ip
+        ods[f"{root}.constraints.ip.weight"] = 0.1
+        ods[f"{root}.constraints.ip.chi_squared"] = 100.0
+        ods[f"{root}.constraints.ip.exact"] = 0
+        ods[f"{root}.convergence.grad_shafranov_deviation_value"] = 8.0e-3
+        ods[f"{root}.convergence.iterations_n"] = 11
+
+        parameters = f"equilibrium.code.parameters.time_slice.{slice_index}"
+        aux = f"{parameters}.auxquantities"
+        ods[f"{aux}.degrees_of_freedom"] = 60
+        ods[f"{aux}.num_input_data"] = 64
+        ods[f"{aux}.num_fit_variables"] = 3
+        ods[f"{aux}.num_hard_constraints"] = 1
+        ods[f"{parameters}.in1.error"] = 1.0e-5
+        ods[f"{parameters}.in1.mxiter"] = -100
+        ods[f"{parameters}.out1.iconvr"] = 2
+        ods[f"{parameters}.out1.nxiter"] = 1
     return ods
 
 
@@ -398,13 +464,18 @@ def test_the_afile_terror_takes_precedence_over_a_cerror_history(efit_ods):
 
 # --- B7-B9: EFIT's outputs against each other --------------------------------
 
-def test_efit_outputs_are_self_consistent_on_the_packaged_shot(efit_ods):
+def test_available_efit_outputs_are_self_consistent(efit_ods):
+    checked_flux_maps = 0
     for index in range(len(efit_ods["equilibrium.time_slice"])):
         block = convergence_metrics(efit_ods, time_slice=index)["self_consistency"]
         assert block["ip_relative_spread"] < 1e-6
+        if "psi_axis_grid_offset" not in block:
+            continue
         assert block["psi_axis_grid_offset"] < 1e-5
         # The magnetic axis is a local flux extremum, not the grid's global one.
         assert block["magnetic_axis_is_local_extremum"] is True
+        checked_flux_maps += 1
+    assert checked_flux_maps > 0
 
 
 def test_a_perturbed_global_ip_is_caught(efit_ods):
@@ -469,3 +540,15 @@ def test_quality_metrics_cover_every_slice(efit_ods):
     metrics = efit_quality_metrics(efit_ods)
     assert metrics["slice_count"] == len(efit_ods["equilibrium.time_slice"])
     assert all("fit" in entry and "convergence" in entry for entry in metrics["slices"])
+
+
+def test_portable_sample_reports_unavailable_optional_efit_metadata(
+    portable_sample_ods,
+):
+    """The paired sample must not fabricate cache or missing M-file output."""
+    assert "equilibrium.code.parameters" not in portable_sample_ods
+    metrics = convergence_metrics(portable_sample_ods, time_slice=0)
+    assert metrics["verdict"]["accepted"] is None
+    assert metrics["history"]["available"] is False
+    assert "m-file" in metrics["history"]["reason"]
+    assert not np.isfinite(metrics["iterations"]["iterations"])

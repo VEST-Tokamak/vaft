@@ -26,6 +26,13 @@ workflow/**/*.log
 .claude/settings.local.json
 .cursor/*.log
 
+# macOS metadata sidecars (notably created on external SSD volumes)
+._*
+
+# Tutorial execution and LaTeX build products
+/tutorial/.build/
+/tutorial/outputs/
+
 # Local VFIT MATLAB exports and scratch summary workbooks (large, not packaged)
 /vaft/data/vfit/
 /sample_equilibrium_global_history.xlsx

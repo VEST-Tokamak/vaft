@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from functools import lru_cache
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -11,8 +10,8 @@ import numpy as np
 
 from vaft.machine_mapping.utils import get_path
 from vaft.machine_mapping.magnetics import (
-    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     fluctuation_mirnov_channel_definitions,
+    fluctuation_mirnov_gain_by_identifier,
 )
 from vaft.process.magnetics import (
     mirnov_preprocess_signal,
@@ -27,21 +26,13 @@ _DEFAULT_TOROIDAL_REFERENCE_PAIR = (
 )
 
 
-@lru_cache(maxsize=1)
 def _known_gain_by_identifier() -> dict[str, float]:
-    """Gains for probes registered in machine_mapping, keyed by ODS identifier.
+    """Delegate to the machine_mapping gain registry.
 
-    IMAS ``b_field_pol_probe`` has no calibration-factor field, so this gain
-    metadata lives only in the Python channel registries, not in the ODS
-    itself; lookups here replace what used to be a hardcoded index->gain
-    table.
+    The lookup itself lives in ``vaft.machine_mapping.magnetics`` so
+    ``vaft.process`` can reach it without importing the plot layer.
     """
-    gains: dict[str, float] = {}
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
-        gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
-    for channel in fluctuation_mirnov_channel_definitions():
-        gains[str(channel["identifier"])] = float(channel["gain"])
-    return gains
+    return fluctuation_mirnov_gain_by_identifier()
 
 
 def _as_array(value: Any) -> np.ndarray:

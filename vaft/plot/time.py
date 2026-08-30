@@ -649,9 +649,16 @@ def _get_magnetics_position_r_z(ods, ods_path_prefix, item_idx):
 def _plot_magnetics_time_subplot_generic(odc_or_ods, indices_param, label_param, xunit, yunit,
                                     ods_path_prefix, time_path_suffix, data_path_suffix,
                                     title_base, ylabel_base, find_funcs, xlim_param,
-                                    data_transform=None):
+                                    data_transform=None,
+                                    channel_time_path_suffix=None,
+                                    fallback_data_path_suffix=None,
+                                    fallback_data_transform=None):
     """Generic plotting function for magnetics data (flux_loop, b_pol_probe) with m x n subplots.
     data_transform: optional callable(time_1d, data_1d) -> transformed_data_1d (e.g. flux -> voltage).
+    channel_time_path_suffix: optional per-channel time path, preferred over the
+        shared timebase for quantities stored at their native acquisition rate.
+    fallback_data_path_suffix / fallback_data_transform: used when the primary
+        data path is absent, e.g. an ODS mapped before the quantity existed.
     """
     odc = odc_or_ods_check(odc_or_ods)
     xlim_processed = handle_xlim(odc_or_ods, xlim_param)
@@ -685,19 +692,33 @@ def _plot_magnetics_time_subplot_generic(odc_or_ods, indices_param, label_param,
             try:
                 full_time_path = f'{ods_path_prefix}.{time_path_suffix}'
                 full_data_path = f'{ods_path_prefix}.{item_idx_val}.{data_path_suffix}'
+                transform = data_transform
+                channel_time_path = (
+                    f'{ods_path_prefix}.{item_idx_val}.{channel_time_path_suffix}'
+                    if channel_time_path_suffix else None
+                )
 
-                if full_data_path not in ods:
-                    continue
-                if full_time_path in ods:
+                if full_data_path not in ods or np.asarray(ods[full_data_path]).size == 0:
+                    if fallback_data_path_suffix is None:
+                        continue
+                    full_data_path = f'{ods_path_prefix}.{item_idx_val}.{fallback_data_path_suffix}'
+                    transform = fallback_data_transform
+                    channel_time_path = None
+                    if full_data_path not in ods:
+                        continue
+                if channel_time_path and channel_time_path in ods \
+                        and np.asarray(ods[channel_time_path]).size:
+                    time_data = np.asarray(ods[channel_time_path]).copy()
+                elif full_time_path in ods:
                     time_data = ods[full_time_path].copy()
                 elif ods_path_prefix.startswith('magnetics.') and 'magnetics.time' in ods:
                     time_data = ods['magnetics.time'].copy()
                 else:
                     continue
                 data_val = np.asarray(ods[full_data_path]).copy()
-                if data_transform is not None:
+                if transform is not None:
                     time_for_transform = np.asarray(time_data)
-                    data_val = data_transform(time_for_transform, data_val)
+                    data_val = transform(time_for_transform, data_val)
 
                 if r_display is None and z_display is None:
                     r_display, z_display = _get_magnetics_position_r_z(ods, ods_path_prefix, item_idx_val)
@@ -797,7 +818,13 @@ magnetics_time_flux_loop_flux = time_magnetics_flux_loop_flux
 
 def time_magnetics_flux_loop_voltage(ods_or_odc, indices='all', label='shot', xunit='s', yunit='V', xlim='plasma'):
     """
-    Plot flux loop voltage time series. Uses loop_voltage = -d(flux)/dt from flux loop flux data.
+    Plot flux loop voltage time series.
+
+    Prefers the measured terminal voltage stored in
+    `magnetics.flux_loop[i].voltage` at its native acquisition rate (issue
+    #209). For ODSs mapped before that node existed, falls back to
+    `-d(flux)/dt`, which differs from the measured voltage by the linear
+    baseline the flux processing removed.
     """
     def _flux_to_voltage(time_s, flux):
         return -np.gradient(flux, time_s)
@@ -811,12 +838,14 @@ def time_magnetics_flux_loop_voltage(ods_or_odc, indices='all', label='shot', xu
     _plot_magnetics_time_subplot_generic(ods_or_odc, indices, label, xunit, yunit,
                                     ods_path_prefix='magnetics.flux_loop',
                                     time_path_suffix='time',
-                                    data_path_suffix='flux.data',
+                                    data_path_suffix='voltage.data',
                                     title_base='Flux Loop Voltage',
                                     ylabel_base='Voltage',
                                     find_funcs=find_funcs,
                                     xlim_param=xlim,
-                                    data_transform=_flux_to_voltage)
+                                    channel_time_path_suffix='voltage.time',
+                                    fallback_data_path_suffix='flux.data',
+                                    fallback_data_transform=_flux_to_voltage)
 magnetics_time_flux_loop_voltage = time_magnetics_flux_loop_voltage
 
 
@@ -1907,7 +1936,8 @@ if __name__ == "__main__":
 
     # 1. Setup sample ODS and ODC
     ods = vaft.omas.sample_ods()
-    odc = vaft.omas.sample_odc()
+    odc = ODC()
+    odc["39915"] = ods
 
     # 2. List of all public plotting functions to test
     current_module = sys.modules[__name__]
@@ -2850,4 +2880,3 @@ def time_power_balance(ods, figsize=(6, 6.5)):
     plt.tight_layout()
     
     return fig
-

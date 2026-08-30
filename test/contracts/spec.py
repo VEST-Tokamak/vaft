@@ -229,17 +229,12 @@ CANONICAL_IDS_SPECS = {
 
 
 SAMPLE_FILE_IDS = {
-    "41672.json": (
+    "39915": (
         "dataset_description",
         "pf_active",
         "magnetics",
         "tf",
         "barometry",
-    ),
-    "39915.json": (
-        "pf_active",
-        "magnetics",
-        "tf",
         "spectrometer_uv",
     ),
     "thomson_scattering.json": ("thomson_scattering",),

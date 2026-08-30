@@ -12,7 +12,7 @@ import pytest
 from omas import ODC, ODS
 
 import vaft.omas as vomas
-from vaft.data.resources import data_path
+from vaft.data import sample
 from vaft.plot import registry
 
 logging.getLogger("vaft.omas.process_wrapper").setLevel(logging.WARNING)
@@ -20,7 +20,7 @@ logging.getLogger("vaft.omas.process_wrapper").setLevel(logging.WARNING)
 
 @pytest.fixture(scope="module")
 def sample_ods():
-    return ODS().load(str(data_path("omas/39915.json")), consistency_check=False)
+    return vomas.load(sample(39915, "omas"))
 
 
 def _line_data(axes):
@@ -53,6 +53,24 @@ def test_every_offered_plot_actually_renders(sample_ods):
         except Exception as exc:  # pragma: no cover - reported below
             failures.append(f"{row['name']}: {type(exc).__name__}: {exc}")
     assert not failures, failures
+
+
+def test_a_spectrogram_skips_channels_that_carry_no_waveform(sample_ods):
+    """A declared-but-unacquired channel must not decide the default.
+
+    The 39915 array declares 76 B-pol probes, and probe 0 has geometry only.
+    Availability accepts the array because other probes hold a waveform, so
+    the default channel has to be one of those rather than a hardcoded 0.
+    """
+    assert "magnetics.b_field_pol_probe.0.voltage.data" not in sample_ods
+
+    figure, _ = vomas.plot_magnetics_spectrogram_mirnov(sample_ods)
+    plt.close(figure)
+
+    # An explicitly requested empty channel is still an error, not a silent
+    # substitution of a different probe's signal.
+    with pytest.raises(ValueError, match="voltage.data is not available"):
+        vomas.plot_magnetics_spectrogram_mirnov(sample_ods, channel=0)
 
 
 def test_adapters_default_to_no_display(sample_ods, monkeypatch):
@@ -155,20 +173,9 @@ def test_tf_field_tolerates_a_missing_reference_radius():
 
 
 def test_power_balance_computes_the_real_terms_not_just_its_inputs(sample_ods):
-    # Regression: this used to compose plasma current / MHD energy / T_e panels
-    # -- the inputs to a power balance, not the balance itself.
-    figure, axes = vomas.plot_summary_time_power_balance(sample_ods)
-    assert axes.shape == (5, 1)
-    labelled = [
-        {line.get_label() for line in ax.lines if not line.get_label().startswith("_")}
-        for ax in axes.ravel()
-    ]
-    assert labelled[0] == {"dW_th/dt"}
-    assert labelled[1] == {"dW_mag,p/dt"}
-    assert labelled[2] == {"P_in", "P_ohm"}
-    assert labelled[3] == {"P_loss", "P_trans", "P_rad"}
-    assert labelled[4] == {"P_rad", "P_Br", "P_sync", "P_line"}
-    plt.close(figure)
+    # EFIT-only data has no volume/core-profile basis for the derived balance.
+    offered = {row["name"] for row in vomas.available_plots(sample_ods)}
+    assert "summary_time_power_balance" not in offered
 
 
 def test_machine_topview_includes_pellet_geometry():
@@ -184,13 +191,32 @@ def test_machine_topview_includes_pellet_geometry():
 
 
 def test_partial_composites_drop_the_absent_panels(sample_ods):
-    figure, axes = vomas.plot_summary_time_beta(sample_ods)
-    assert axes.size >= 1
-    plt.close(figure)
+    offered = {row["name"] for row in vomas.available_plots(sample_ods)}
+    assert "summary_time_beta" not in offered
 
     empty = ODS(consistency_check=False)
     with pytest.raises(ValueError, match="none of the panels"):
         vomas.plot_summary_time_beta(empty)
+
+
+def test_channel_line_plots_ignore_scalar_placeholder_channels():
+    """A populated IDS may contain scalar NaN placeholders after valid rows."""
+    ods = ODS(consistency_check=False)
+    time = np.array([0.0, 0.1, 0.2])
+    ods["magnetics.ip.0.time"] = time
+    ods["magnetics.ip.0.data"] = np.array([1.0, 2.0, 3.0])
+    ods["magnetics.b_field_pol_probe.0.field.time"] = time
+    ods["magnetics.b_field_pol_probe.0.field.data"] = np.array([0.1, 0.2, 0.3])
+    ods["magnetics.b_field_pol_probe.1.field.time"] = np.nan
+    ods["magnetics.b_field_pol_probe.1.field.data"] = np.nan
+
+    figure, axes = vomas.plot_magnetics_time_b_field_pol_probe_field(ods)
+    assert len(axes.lines) == 1
+    plt.close(figure)
+
+    figure, axes = vomas.plot_magnetics_overview(ods)
+    assert axes.size == 2
+    plt.close(figure)
 
 
 class TestPlotMethods:

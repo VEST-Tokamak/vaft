@@ -1,7 +1,8 @@
 import numpy as np
 import importlib.util
 from pathlib import Path
-from omas import load_omas_json
+
+import vaft
 
 from vaft.formula.equilibrium import (
     virial_bongard_from_S_alpha_mu,
@@ -308,9 +309,8 @@ def test_virial_closure_relations_match_manual_forms():
 
 
 def test_compute_virial_refreshes_and_fallbacks_boundary_axis():
-    data_path = Path(__file__).resolve().parents[1] / "vaft" / "data" / "omas" / "39915.json"
-    ods = load_omas_json(str(data_path))
-    eq_idx = 3
+    ods = vaft.omas.sample_ods()
+    eq_idx = 1
     ts = ods["equilibrium.time_slice"][eq_idx]
 
     # Intentionally poison geometric-axis values. The wrapper should refresh/fallback.
@@ -331,9 +331,8 @@ def test_compute_virial_refreshes_and_fallbacks_boundary_axis():
 
 
 def test_compute_virial_recovers_when_geometric_axis_fields_deleted():
-    data_path = Path(__file__).resolve().parents[1] / "vaft" / "data" / "omas" / "39915.json"
-    ods = load_omas_json(str(data_path))
-    eq_idx = 3
+    ods = vaft.omas.sample_ods()
+    eq_idx = 1
     ts = ods["equilibrium.time_slice"][eq_idx]
 
     if "boundary.geometric_axis.r" in ts:
