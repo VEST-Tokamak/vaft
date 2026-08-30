@@ -322,9 +322,13 @@ ambiguous inputs produce an unavailable result with a reason. In particular,
 VAFT does not infer one COCOS index when the observable signs admit several;
 an explicit convention is required before conversion.
 
-The descriptor definitions distinguish the LCFS area-centroid major radius,
-midplane minor radius, boundary-length-averaged poloidal field, and Lao virial
-internal inductance. Normalized coordinates are
+Shape descriptors follow the conventional definitions, so `major_radius` is
+`(R_out+R_in)/2` and triangularity is measured from it, matching IMAS
+`boundary.geometric_axis` and `boundary.triangularity`. The LCFS area centroid
+is reported separately as `area_centroid_r`/`area_centroid_z` because that, not
+the geometric centre, is the radius Pappus's theorem needs for `volume`. The
+descriptors also cover the boundary-length-averaged poloidal field and the Lao
+virial internal inductance. Normalized coordinates are
 `psi_n=(psi-psi_axis)/(psi_boundary-psi_axis)`,
 `rho_pol_n=sqrt(psi_n)`, and
 `rho_tor_n=sqrt(integral(q dpsi)/integral_boundary(q dpsi))`. A non-monotonic

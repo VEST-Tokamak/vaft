@@ -384,14 +384,21 @@ def derive_global_descriptors(
         try:
             geometry = _polygon_geometry(eq.lcfs)
             rin, rout = float(np.min(eq.lcfs.r)), float(np.max(eq.lcfs.r))
+            zbot, ztop = float(np.min(eq.lcfs.z)), float(np.max(eq.lcfs.z))
             minor = 0.5 * (rout - rin)
-            rgeo = geometry["r"]
+            # Shape descriptors use the conventional geometric centre
+            # (R_out+R_in)/2, which is what IMAS boundary.geometric_axis and
+            # boundary.triangularity report.  The area centroid is a different
+            # quantity: it is what Pappus's theorem needs for the volume, and it
+            # can sit centimetres away at low aspect ratio.
+            rgeo = 0.5 * (rout + rin)
+            zgeo = 0.5 * (ztop + zbot)
             zmin_i, zmax_i = int(np.argmin(eq.lcfs.z)), int(np.argmax(eq.lcfs.z))
-            kappa = (float(np.max(eq.lcfs.z)) - float(np.min(eq.lcfs.z))) / (2 * minor)
+            kappa = (ztop - zbot) / (2 * minor)
             tri_upper = (rgeo - float(eq.lcfs.r[zmax_i])) / minor
             tri_lower = (rgeo - float(eq.lcfs.r[zmin_i])) / minor
             geo_values = {
-                "major_radius": (rgeo, "m", "LCFS area-centroid radius"),
+                "major_radius": (rgeo, "m", "(R_out+R_in)/2 at the LCFS"),
                 "minor_radius": (minor, "m", "(R_out-R_in)/2 at the LCFS"),
                 "inverse_aspect_ratio": (minor / rgeo, "1", "minor_radius/major_radius"),
                 "elongation": (kappa, "1", "(Z_max-Z_min)/(2a)"),
@@ -399,26 +406,31 @@ def derive_global_descriptors(
                 "triangularity_lower": (tri_lower, "1", "(R_geo-R_at_Zmin)/a"),
                 "volume": (geometry["volume"], "m^3", "2*pi*LCFS_area*area_centroid_R"),
                 "surface_area": (geometry["surface"], "m^2", "integral_LCFS 2*pi*R dl"),
-                "geometric_center_r": (rgeo, "m", "LCFS area centroid R"),
-                "geometric_center_z": (geometry["z"], "m", "LCFS area centroid Z"),
+                "geometric_center_r": (rgeo, "m", "(R_out+R_in)/2 at the LCFS"),
+                "geometric_center_z": (zgeo, "m", "(Z_max+Z_min)/2 at the LCFS"),
+                "area_centroid_r": (geometry["r"], "m", "LCFS area centroid R (the volume's Pappus radius)"),
+                "area_centroid_z": (geometry["z"], "m", "LCFS area centroid Z"),
+                "cross_section_area": (geometry["area"], "m^2", "LCFS poloidal cross-section area"),
             }
             for name, (value, unit, definition) in geo_values.items():
                 values[name] = _derived(eq, value, unit, definition, "closed-polygon geometry", ("lcfs",))
             if eq.magnetic_axis is not None:
                 values["magnetic_axis_r"] = _derived(eq, eq.magnetic_axis[0], "m", "source magnetic-axis R", "source", ("magnetic_axis",))
                 values["magnetic_axis_z"] = _derived(eq, eq.magnetic_axis[1], "m", "source magnetic-axis Z", "source", ("magnetic_axis",))
-                values["shafranov_shift"] = _derived(eq, eq.magnetic_axis[0] - rgeo, "m", "R_axis-R_LCFS_area_centroid", "difference", ("magnetic_axis", "lcfs"))
+                values["shafranov_shift"] = _derived(eq, eq.magnetic_axis[0] - rgeo, "m", "R_axis-R_geo", "difference", ("magnetic_axis", "lcfs"))
         except ValueError as exc:
             geometry = None
             validation = ValidationReport(validation.issues + (ValidationIssue("error", "invalid_lcfs", "lcfs", str(exc)),))
     for name, unit, definition in (
-        ("major_radius", "m", "LCFS area-centroid radius"), ("minor_radius", "m", "(R_out-R_in)/2"),
+        ("major_radius", "m", "(R_out+R_in)/2"), ("minor_radius", "m", "(R_out-R_in)/2"),
         ("inverse_aspect_ratio", "1", "a/R"), ("elongation", "1", "LCFS elongation"),
         ("triangularity_upper", "1", "upper LCFS triangularity"), ("triangularity_lower", "1", "lower LCFS triangularity"),
         ("volume", "m^3", "axisymmetric LCFS volume"), ("surface_area", "m^2", "axisymmetric LCFS surface area"),
-        ("geometric_center_r", "m", "LCFS area centroid R"), ("geometric_center_z", "m", "LCFS area centroid Z"),
+        ("geometric_center_r", "m", "(R_out+R_in)/2"), ("geometric_center_z", "m", "(Z_max+Z_min)/2"),
+        ("area_centroid_r", "m", "LCFS area centroid R"), ("area_centroid_z", "m", "LCFS area centroid Z"),
+        ("cross_section_area", "m^2", "LCFS poloidal cross-section area"),
         ("magnetic_axis_r", "m", "magnetic-axis R"), ("magnetic_axis_z", "m", "magnetic-axis Z"),
-        ("shafranov_shift", "m", "R_axis-R_geometric"),
+        ("shafranov_shift", "m", "R_axis-R_geo"),
     ):
         values.setdefault(name, _unavailable(eq, unit, definition, "a valid LCFS and magnetic axis are required", ("lcfs", "magnetic_axis")))
 

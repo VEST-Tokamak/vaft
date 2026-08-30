@@ -330,3 +330,21 @@ def test_solovev_export_honors_the_declared_psi_convention():
     for name in ("beta_p_boundary_average", "s1"):
         assert d_rad[name].available and d_wb[name].available
         assert d_wb[name].value == pytest.approx(d_rad[name].value, rel=1e-6), name
+
+
+def test_shape_descriptors_use_the_conventional_geometric_centre():
+    eq = as_equilibrium(sample_geqdsk(), convention=1)
+    descriptors = derive_global_descriptors(eq)
+    r_out, r_in = float(np.max(eq.lcfs.r)), float(np.min(eq.lcfs.r))
+    minor = 0.5 * (r_out - r_in)
+    assert descriptors["major_radius"].value == pytest.approx(0.5 * (r_out + r_in))
+    assert descriptors["minor_radius"].value == pytest.approx(minor)
+    for name, index in (("triangularity_upper", int(np.argmax(eq.lcfs.z))), ("triangularity_lower", int(np.argmin(eq.lcfs.z)))):
+        expected = (0.5 * (r_out + r_in) - float(eq.lcfs.r[index])) / minor
+        assert descriptors[name].value == pytest.approx(expected)
+    # The area centroid is a different quantity and is still what the volume
+    # uses, since Pappus's theorem needs the centroid rather than the midpoint.
+    assert descriptors["area_centroid_r"].value != pytest.approx(descriptors["major_radius"].value, rel=1e-3)
+    assert descriptors["volume"].value == pytest.approx(
+        2 * np.pi * descriptors["cross_section_area"].value * descriptors["area_centroid_r"].value
+    )
