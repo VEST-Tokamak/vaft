@@ -129,3 +129,31 @@ def test_exact_volume_closes_an_open_contour_and_ignores_orientation():
 
     assert closed == pytest.approx(open_contour, rel=1e-12)
     assert closed == pytest.approx(reversed_contour, rel=1e-12)
+
+
+def test_trailing_efit_namelists_reach_code_parameters():
+    """EFIT appends &OUT1/&BASIS/&CHIOUT after the g-file body.
+
+    Those are the reconstruction's own inputs and fit diagnostics, recorded
+    nowhere else in the equilibrium, and the reader used to walk straight past
+    them. Values were checked against OMFIT's parse of the same file.
+    """
+    geqdsk = read_geqdsk(data_path("kineticEfit/g048224.00300"))
+
+    assert set(geqdsk.namelists) == {"out1", "basis", "chiout"}
+    assert geqdsk.namelists["out1"]["betap0"] == pytest.approx(0.5)
+    assert geqdsk.namelists["basis"]["kppfnc"] == 0
+
+    eqt = geqdsk.to_omas()["equilibrium.code.parameters.time_slice.0"]
+    assert eqt["out1.betap0"] == pytest.approx(0.5)
+    assert eqt["chiout.chipasma"] is not None
+
+
+def test_a_gfile_without_trailing_namelists_still_reads():
+    """CHEASE-written g-files carry no namelist block."""
+    geqdsk = read_geqdsk(data_path("efit/g040330.00320"))
+
+    assert geqdsk.namelists == {}
+    assert "equilibrium.code.parameters" not in geqdsk.to_omas(
+        allow_derived_data=False
+    )

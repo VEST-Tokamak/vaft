@@ -345,12 +345,12 @@ the following license.
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-### OMFIT classes compatibility port
+### Attribution: OMFIT classes
 
-VAFT's native EQDSK compatibility and interoperability paths include behavior
-ported or adapted from `omfit_classes`. VAFT also provides compatibility shims
-for the corresponding legacy NumPy, SciPy, and xarray interfaces. The original
-OMFIT classes software is distributed under the following license.
+VAFT does not depend on, import, or require `omfit_classes`. Parts of VAFT's
+native EQDSK path in `vaft/data/eqdsk.py` were originally ported or adapted
+from it, so its copyright notice is reproduced here as its license requires.
+The original OMFIT classes software is distributed under the following license.
 
 > Copyright 2013-2021 the OMFIT contributors
 >

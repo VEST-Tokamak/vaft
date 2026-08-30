@@ -49,6 +49,10 @@ class GEQDSK:
     mapping: MutableMapping[str, Any]
     source: Optional[Path] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    #: EFIT's trailing ``&OUT1``/``&BASIS``/``&CHIOUT`` namelists, when the file
+    #: carries them.  Group and variable names are lowercased, as f90nml reads
+    #: them.
+    namelists: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
         return self.mapping[key]
@@ -132,6 +136,34 @@ def _coerce_geqdsk(geqdsk: GEQDSK | Mapping[str, Any]) -> GEQDSK:
     raise TypeError("Expected a GEQDSK or mapping-like object")
 
 
+_NAMELIST_START = re.compile(r"^\s*&(\w+)\s*$")
+
+
+def _trailing_namelists(lines: list[str]) -> dict[str, dict[str, Any]]:
+    """Read the Fortran namelists EFIT appends after the g-file body.
+
+    EFIT writes ``&OUT1``/``&BASIS``/``&CHIOUT`` -- the reconstruction's own
+    inputs and fit diagnostics -- after the last limiter point. They are the
+    only record of those settings that travels with the g-file, so dropping
+    them loses data that exists nowhere else in the equilibrium.
+    """
+    for index, line in enumerate(lines):
+        if _NAMELIST_START.match(line):
+            break
+    else:
+        return {}
+
+    import f90nml
+
+    from vaft.data.keqdsk import _plain
+
+    try:
+        return _plain(f90nml.reads("\n".join(lines[index:])))
+    except Exception:
+        # A malformed trailing block must not cost us the equilibrium itself.
+        return {}
+
+
 def read_geqdsk(path: str | Path) -> GEQDSK:
     """Read an EFIT GEQDSK/g-file using VAFT's standalone parser."""
     source = Path(path).expanduser()
@@ -188,7 +220,12 @@ def read_geqdsk(path: str | Path) -> GEQDSK:
         "RLIM": limiter[0::2],
         "ZLIM": limiter[1::2],
     }
-    return GEQDSK(mapping=mapping, source=source, metadata=_metadata(mapping, "vaft", source))
+    return GEQDSK(
+        mapping=mapping,
+        source=source,
+        metadata=_metadata(mapping, "vaft", source),
+        namelists=_trailing_namelists(lines),
+    )
 
 
 def _format_floats(values: Iterable[Any]) -> list[str]:
@@ -620,6 +657,11 @@ def to_omas(
     except Exception:
         ods[f"wall.time.{time_index}"] = eqt["time"]
     eqt["constraints.ip.reconstructed"] = float(data["CURRENT"])
+
+    root = f"equilibrium.code.parameters.time_slice.{time_index}"
+    for namelist, values in getattr(item, "namelists", {}).items():
+        for name, value in values.items():
+            ods[f"{root}.{namelist}.{name}"] = value
     return ods
 
 
