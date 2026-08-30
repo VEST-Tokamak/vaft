@@ -586,7 +586,8 @@ def equilibrium_overview_verification(
     quantity="channels",
     description="Soft X-ray overview: lines of sight, signals and channel pattern.",
     ids=("soft_x_rays",),
-    required_paths=("soft_x_rays.channel.{i}.power.data",),
+    required_paths=("soft_x_rays.channel.{i}.brightness.data",),
+    optional_paths=("soft_x_rays.channel.{i}.power.data",),
 )
 def soft_x_rays_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any

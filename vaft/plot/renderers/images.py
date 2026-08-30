@@ -63,6 +63,11 @@ def render_image_2d(
         axes.set_title(model.title)
     if model.aspect_equal:
         axes.set_aspect("equal", adjustable="box")
+    else:
+        # imshow defaults to equal aspect; an aspect_equal=False model (e.g. a
+        # chord-versus-time map with wildly unequal extents) must actually fill
+        # the axes rather than collapse to the pixel aspect ratio.
+        axes.set_aspect("auto")
     if labelled:
         axes.legend(loc="best", fontsize="small")
     return finalize(figure, axes, show=show)
@@ -111,6 +116,11 @@ def render_image_sequence(
     title_text = axes.set_title(model.title)
     if model.aspect_equal:
         axes.set_aspect("equal", adjustable="box")
+    else:
+        # imshow defaults to equal aspect; an aspect_equal=False model (e.g. a
+        # chord-versus-time map with wildly unequal extents) must actually fill
+        # the axes rather than collapse to the pixel aspect ratio.
+        axes.set_aspect("auto")
 
     def _update(step: int):
         image.set_data(model.frames[step])

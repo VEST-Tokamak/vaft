@@ -32,7 +32,8 @@ The newly added pipeline notebooks are documentation shells only. They should be
 ### Core Diagnostic and Startup Pipeline
 
 - `magnetic_diagnostics_processing.ipynb`: Planned raw magnetic diagnostics processing, calibration, filtering, and processed signal format.
-- `fluctuation_diagnostics_analysis.ipynb`: Planned fluctuation diagnostics analysis using magnetic probes, soft X-ray, and interferometry.
+- `fluctuation_diagnostics_analysis.ipynb`: Fluctuation spectral analysis — Welch PSD, power-law spectral index, spectral breaks, band powers and spectrograms — with the theory behind each routine, demonstrated on VEST magnetic probes and soft X-rays.
+- `soft_x_ray_signal_analysis.ipynb`: VEST SXR workflow — LOS geometry, traces, spectrogram, chord-time patterns, plus band-decomposed chord maps, optional vacuum-shot PF-noise subtraction, Be/Al two-filter electron temperature, and a two-point toroidal mode-number estimate ported from the validated VEST SXR Viewer.
 - `eddy_current_calculation_and_startup_analysis.ipynb`: Planned PF passive eddy-current calculation and startup analysis.
 - `fast_camera_video_analysis.ipynb`: Planned VEST camera image/video loading, synchronization, and visual plasma behavior analysis.
 
@@ -87,17 +88,16 @@ For a shorter review focused only on the planned Snakemake pipeline shells, read
 
 1. `vest_raw_signal_sql_database.ipynb`
 2. `magnetic_diagnostics_processing.ipynb`
-3. `fluctuation_diagnostics_analysis.ipynb`
-4. `eddy_current_calculation_and_startup_analysis.ipynb`
-5. `electromagnetic_response_modeling_with_efund.ipynb`
-6. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
-7. `mhd_equilibrium_analysis.ipynb`
-8. `linear_ideal_stability_analysis_with_dcon.ipynb`
-9. `linear_resistive_stability_analysis_with_rdcon.ipynb`
-10. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
-11. `shot_characteristics_classification.ipynb`
-12. `fast_camera_video_analysis.ipynb`
-13. `multiple_tokamak_comparison.ipynb`
+3. `eddy_current_calculation_and_startup_analysis.ipynb`
+4. `electromagnetic_response_modeling_with_efund.ipynb`
+5. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
+6. `mhd_equilibrium_analysis.ipynb`
+7. `linear_ideal_stability_analysis_with_dcon.ipynb`
+8. `linear_resistive_stability_analysis_with_rdcon.ipynb`
+9. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
+10. `shot_characteristics_classification.ipynb`
+11. `fast_camera_video_analysis.ipynb`
+12. `multiple_tokamak_comparison.ipynb`
 
 ## Current Development Status
 

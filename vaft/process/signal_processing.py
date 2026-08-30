@@ -8,7 +8,10 @@ from scipy.optimize import curve_fit
 
 __all__ = [
     "SignalRepairError",
+    "butterworth_bandpass",
+    "butterworth_lowpass",
     "detect_active_window",
+    "detrend_moving_average",
     "define_baseline",
     "exp_baseline",
     "is_signal_active",
@@ -153,6 +156,70 @@ def smooth(array, span: int) -> np.ndarray:
         out[right_idx] = (cumsum[count] - cumsum[count - widths]) / widths
 
     return out
+
+
+def butterworth_lowpass(data, cutoff: float, fs: float, order: int = 2,
+                        *, zero_phase: bool = False) -> np.ndarray:
+    """Butterworth low-pass filter along the last axis.
+
+    ``zero_phase=False`` applies a causal ``lfilter`` -- the convention of the
+    validated VEST SXR viewer, whose low-passed signals feed ratio and reference
+    arithmetic where matched group delay between channels matters more than zero
+    phase.  Pass ``zero_phase=True`` for a forward-backward ``filtfilt``.
+    """
+    values = np.asarray(data, dtype=float)
+    nyquist = 0.5 * float(fs)
+    if not 0.0 < float(cutoff) < nyquist:
+        raise ValueError(
+            f"cutoff must lie in (0, {nyquist:g}) Hz for fs={fs:g}; got {cutoff!r}"
+        )
+    b, a = scipy_signal.butter(int(order), float(cutoff) / nyquist, btype="low")
+    if zero_phase:
+        return scipy_signal.filtfilt(b, a, values, axis=-1)
+    return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
+def butterworth_bandpass(data, low: float, high: float, fs: float, order: int = 2,
+                         *, zero_phase: bool = True) -> np.ndarray:
+    """Butterworth band-pass filter along the last axis (zero-phase by default)."""
+    values = np.asarray(data, dtype=float)
+    nyquist = 0.5 * float(fs)
+    if not 0.0 < float(low) < float(high) < nyquist:
+        raise ValueError(
+            f"band edges must satisfy 0 < low < high < {nyquist:g} Hz for fs={fs:g}; "
+            f"got ({low!r}, {high!r})"
+        )
+    b, a = scipy_signal.butter(
+        int(order), [float(low) / nyquist, float(high) / nyquist], btype="band"
+    )
+    if zero_phase:
+        return scipy_signal.filtfilt(b, a, values, axis=-1)
+    return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
+def detrend_moving_average(data, window_samples: int) -> np.ndarray:
+    """Subtract a centered moving-average trend along the last axis.
+
+    The trend is a centered rolling mean with ``min_periods=1`` semantics: edge
+    windows shrink rather than producing NaNs, so the output has the input's
+    length.  Matches ``pandas.Series.rolling(window, center=True,
+    min_periods=1).mean()``, the convention of the validated VEST SXR viewer.
+    """
+    values = np.asarray(data, dtype=float)
+    window = int(window_samples)
+    if window <= 1 or values.shape[-1] == 0:
+        return values - values  # zero trend removal, preserving shape/dtype
+
+    length = values.shape[-1]
+    cumsum = np.zeros(values.shape[:-1] + (length + 1,), dtype=float)
+    np.cumsum(values, axis=-1, out=cumsum[..., 1:])
+    # A centered pandas window of size w at index i spans
+    # [i - w//2, i + (w-1)//2], clipped to the record.
+    index = np.arange(length)
+    start = np.clip(index - window // 2, 0, length)
+    stop = np.clip(index + (window - 1) // 2 + 1, 0, length)
+    trend = (cumsum[..., stop] - cumsum[..., start]) / (stop - start)
+    return values - trend
 
 
 def vest_coil_current_noise_reduction(data) -> np.ndarray:

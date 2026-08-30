@@ -43,29 +43,38 @@ _EXTRACTION_OPTIONS = frozenset(
         "contour_levels",
         "coordinate",
         "detector",
+        "detrend",
         "dphi_deg",
         "direction",
+        "fit_ranges",
         "flux_surface_levels",
         "frame_index",
         "frame_indices",
         "log_y",
+        "marker_frequencies",
         "max_frequency",
         "max_length_m",
+        "noverlap",
+        "nperseg",
         "per_family",
         "phi0",
         "quantity",
         "r0",
+        "reference_slopes",
         "sample_rate",
+        "series_label",
         "sigma",
         "shot",
         "show_lcfs",
         "show_magnetic_axis",
         "show_wall",
         "time",
+        "time_range",
         "time_resolution",
         "time_slice",
         "title",
         "use_wall_boundary",
+        "window",
         "window_size",
         "x_limits",
         "xunit",
@@ -1258,6 +1267,27 @@ def plot_interferometer_time_n_e_line(
     return render("interferometer_time_n_e_line", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_interferometer_spectrum(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Power spectral density of one interferometer channel's line density.
+
+    Renders with :func:`vaft.plot.interferometer_spectrum`.
+
+    Reference slopes are entirely yours: pass ``reference_slopes=[-1.5, -2.0]``
+    or :class:`~vaft.plot.models.ReferenceSlope` instances with your own labels.
+    VAFT supplies none and reads no meaning into any value.
+    """
+    return render(
+        "interferometer_spectrum", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_interferometer_spectrogram(
     source: Any,
     *,
@@ -1461,6 +1491,33 @@ def plot_magnetics_time_impa_voltage(
     Renders with :func:`vaft.plot.magnetics_time_impa_voltage`.
     """
     return render("magnetics_time_impa_voltage", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_magnetics_spectrum_mirnov(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Power spectral density of one Mirnov coil signal.
+
+    Renders with :func:`vaft.plot.magnetics_spectrum_mirnov`.
+
+    The spectrum is of the signal as stored.  A Mirnov coil measures ``dB/dt``,
+    so this is the PSD of the derivative and its spectral index is that of ``B``
+    plus two; integrate with
+    :func:`vaft.process.magnetics.b_field_pol_probe_field` first if you want a
+    magnetic-field spectrum.
+
+    Reference slopes are entirely yours: pass ``reference_slopes=[-1.5, -2.0]``
+    or :class:`~vaft.plot.models.ReferenceSlope` instances with your own labels.
+    VAFT supplies none and reads no meaning into any value.
+    """
+    return render(
+        "magnetics_spectrum_mirnov", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_magnetics_spectrogram_mirnov(
@@ -1733,6 +1790,27 @@ def plot_soft_x_rays_overview(
     """
     return render(
         "soft_x_rays_overview", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_soft_x_rays_spectrum(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Power spectral density of one soft X-ray channel.
+
+    Renders with :func:`vaft.plot.soft_x_rays_spectrum`.
+
+    Reference slopes are entirely yours: pass ``reference_slopes=[-1.5, -2.0]``
+    or :class:`~vaft.plot.models.ReferenceSlope` instances with your own labels.
+    VAFT supplies none and reads no meaning into any value.
+    """
+    return render(
+        "soft_x_rays_spectrum", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -2124,6 +2202,7 @@ __all__ = [
     "plot_equilibrium_time_w_tot",
     "plot_interferometer_overview",
     "plot_interferometer_spectrogram",
+    "plot_interferometer_spectrum",
     "plot_interferometer_time_n_e_line",
     "plot_machine_geometry_poloidal",
     "plot_machine_geometry_topview",
@@ -2137,6 +2216,7 @@ __all__ = [
     "plot_magnetics_time_impa_field",
     "plot_magnetics_time_impa_voltage",
     "plot_magnetics_spectrogram_mirnov",
+    "plot_magnetics_spectrum_mirnov",
     "plot_magnetics_time_b_field_pol_probe_field",
     "plot_magnetics_time_diamagnetic_flux",
     "plot_magnetics_time_flux_loop_flux",
@@ -2151,6 +2231,7 @@ __all__ = [
     "plot_soft_x_rays_geometry_lines_of_sight",
     "plot_soft_x_rays_overview",
     "plot_soft_x_rays_spectrogram",
+    "plot_soft_x_rays_spectrum",
     "plot_soft_x_rays_time_power",
     "plot_spectrometer_uv_time_impurity",
     "plot_spectrometer_uv_time_intensity",

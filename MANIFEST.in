@@ -20,6 +20,7 @@ include vaft/data/gpec/*.in
 include vaft/data/gpec/*.dat
 include vaft/data/legacy/*.txt
 include vaft/data/legacy/*.yaml
+include vaft/data/legacy/sxr_te_ratio_be_al.csv
 include vaft/data/samples/*/manifest.yaml
 include vaft/data/samples/39915/omas.json.gz
 include vaft/data/samples/39915/imas.nc

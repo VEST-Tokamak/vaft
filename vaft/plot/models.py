@@ -26,7 +26,9 @@ __all__ = [
     "ImageSequence",
     "LineSeries",
     "Panels",
+    "PowerSpectrum",
     "Profile1D",
+    "ReferenceSlope",
     "Series",
     "Spectrogram",
     "ViewModel",
@@ -424,6 +426,121 @@ class Spectrogram(ViewModel):
             magnitude=result.magnitude,
             **overrides,
         )
+
+
+@dataclass(frozen=True)
+class ReferenceSlope:
+    """One caller-supplied power-law guide line for a log-log spectrum plot.
+
+    ``slope`` is any number the caller wants drawn.  VAFT ships no slope
+    constants and attaches no meaning to any value: whether a guide represents a
+    turbulence cascade, an instrument roll-off, or nothing at all is the
+    caller's assertion, made in ``label``.
+
+    When ``anchor`` is ``None`` the guide is positioned to pass through the
+    measured PSD at the geometric-mean frequency of the drawn range -- a
+    deterministic, purely numerical choice.  Pass ``anchor=(frequency, psd)`` to
+    place it explicitly, for instance to offset a guide off the data for
+    legibility.
+    """
+
+    slope: float
+    label: str = ""
+    anchor: tuple[float, float] | None = None
+    style: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "slope", float(self.slope))
+        object.__setattr__(self, "label", str(self.label))
+        if self.anchor is not None:
+            frequency, psd = (float(self.anchor[0]), float(self.anchor[1]))
+            if frequency <= 0 or psd <= 0:
+                raise ValueError(
+                    "ReferenceSlope.anchor must be positive in both coordinates to "
+                    f"place a line on log-log axes; got ({frequency}, {psd})"
+                )
+            object.__setattr__(self, "anchor", (frequency, psd))
+        object.__setattr__(self, "style", _frozen_style(self.style))
+
+
+@dataclass(frozen=True)
+class PowerSpectrum(ViewModel):
+    """A power spectral density, with optional fitted segments and guide lines.
+
+    ``fits`` are drawn segments the caller has already computed (typically from
+    :func:`vaft.process.fluctuation.fit_power_law_spectrum`); ``reference_slopes``
+    are comparison guides; ``marker_frequencies`` are labeled vertical lines, for
+    a characteristic frequency the caller wants to mark.  All three default to
+    empty -- nothing is drawn that the caller did not ask for, and no value is
+    given a physical name here.
+    """
+
+    frequency: np.ndarray
+    psd: np.ndarray
+    fits: tuple[Series, ...] = ()
+    reference_slopes: tuple[ReferenceSlope, ...] = ()
+    marker_frequencies: tuple[tuple[float, str], ...] = ()
+    label: str = ""
+    x_label: str = "Frequency [Hz]"
+    y_label: str = "PSD"
+    title: str = ""
+    log_x: bool = True
+    log_y: bool = True
+    x_limits: tuple[float, float] | None = None
+    y_limits: tuple[float, float] | None = None
+
+    def __post_init__(self) -> None:
+        frequency = as_model_array(self.frequency, where="PowerSpectrum.frequency")
+        psd = as_model_array(self.psd, where="PowerSpectrum.psd")
+        if frequency.ndim != 1 or psd.ndim != 1:
+            raise ValueError(
+                "PowerSpectrum.frequency and PowerSpectrum.psd must be 1D; "
+                f"got shapes {frequency.shape} and {psd.shape}"
+            )
+        if frequency.size != psd.size:
+            raise ValueError(
+                "PowerSpectrum.frequency and PowerSpectrum.psd must have equal "
+                f"length; got {frequency.size} and {psd.size}"
+            )
+        object.__setattr__(self, "frequency", frequency)
+        object.__setattr__(self, "psd", psd)
+        object.__setattr__(self, "fits", _as_series_tuple(self.fits, where="PowerSpectrum.fits"))
+
+        if isinstance(self.reference_slopes, ReferenceSlope):
+            slopes: tuple[ReferenceSlope, ...] = (self.reference_slopes,)
+        else:
+            _reject_data_objects(self.reference_slopes, where="PowerSpectrum.reference_slopes")
+            slopes = tuple(
+                item if isinstance(item, ReferenceSlope) else ReferenceSlope(slope=item)
+                for item in self.reference_slopes
+            )
+        object.__setattr__(self, "reference_slopes", slopes)
+
+        markers = []
+        for entry in self.marker_frequencies:
+            if isinstance(entry, (int, float)):
+                markers.append((float(entry), ""))
+            else:
+                markers.append((float(entry[0]), str(entry[1])))
+        object.__setattr__(self, "marker_frequencies", tuple(markers))
+
+        for name in ("x_limits", "y_limits"):
+            limits = getattr(self, name)
+            if limits is not None:
+                object.__setattr__(self, name, (float(limits[0]), float(limits[1])))
+        object.__setattr__(self, "label", str(self.label))
+
+    @classmethod
+    def from_result(cls, result: Any, **overrides: Any) -> "PowerSpectrum":
+        """Build from any object exposing ``frequency``/``psd``.
+
+        This accepts a :class:`vaft.process.fluctuation.FluctuationSpectrum`
+        directly.  Fitted segments are *not* generated here: pass them through
+        ``fits=`` if you want them drawn, so the model never invents a curve the
+        caller did not compute.
+        """
+        overrides.setdefault("y_label", f"PSD [{result.units}]" if getattr(result, "units", "") else "PSD")
+        return cls(frequency=result.frequency, psd=result.psd, **overrides)
 
 
 @dataclass(frozen=True)

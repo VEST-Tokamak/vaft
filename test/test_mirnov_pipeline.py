@@ -17,10 +17,13 @@ from vaft.process.magnetics import VestEquilibriumMagneticsResult, toroidal_mode
 
 TSTART = 0.26
 TEND = 0.34
-NATIVE_MIRNOV_DT = 4e-6  # 250 kHz raw Mirnov digitiser
+NATIVE_MIRNOV_DT = 4e-6  # 250 kHz equilibrium/toroidal-reference probe digitiser
 # Raw voltages are cropped to the analysis window but never resampled, so they
-# keep the native spacing rather than the 40 us processed grid.
+# keep the native spacing rather than the 40 us processed grid.  The outboard
+# fluctuation array samples faster (2 MHz / 500 kHz per channel) and is checked
+# against its own recorded cadence below.
 NATIVE_SAMPLES = round((TEND - TSTART) / NATIVE_MIRNOV_DT)
+FLUCTUATION_MIRNOV_DT = 5.000025e-7  # 2 MHz outboard array, DB linspace cadence
 
 
 def test_magnetics_mapping_preserves_raw_mirnov_voltage():
@@ -62,6 +65,15 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.field.time")).size == 0
 
     # First fluctuation-Mirnov entry (45 deg, L1-01, field 286).
+    # Regression for the raw-archive timebase: the 2 MHz outboard array must
+    # come back at its native cadence.  The old two-rate archive schema
+    # reconstructed these channels at 250 kHz, stretching their timebase
+    # eightfold; the self-describing t0/dt entries preserve it.
+    fluct_time = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.68.voltage.time"))
+    assert fluct_time.size > 2
+    np.testing.assert_allclose(np.diff(fluct_time), FLUCTUATION_MIRNOV_DT, rtol=1e-4)
+    assert fluct_time[0] >= TSTART and fluct_time[-1] < TEND
+
     assert get_path(payload, "magnetics.b_field_pol_probe.68.identifier") == "OutMirnov_45_L1-01"
     assert get_path(payload, "magnetics.b_field_pol_probe.68.position.z") == 0.4
     assert np.isclose(get_path(payload, "magnetics.b_field_pol_probe.68.toroidal_angle"), np.radians(45))

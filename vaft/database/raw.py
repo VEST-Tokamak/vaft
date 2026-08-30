@@ -403,6 +403,109 @@ def _load_from_shot_waveform_3(
         logger.error(f"Error loading from shotDataWaveform_3: {e}")
         raise
 
+# The eras' time-encoding conventions, measured directly from the VEST tables:
+#
+# * shotDataWaveform_2 (29350 <= shot <= 42190) stores per-sample times on the
+#   ``arange`` convention -- t = arange(n) * dt with dt exactly the nominal
+#   FAST_DT / SLOW_DT, ending one sample short of the acquisition span.
+# * shotDataWaveform_3 (shot > 42190) stores one linspace(0, span, n) string
+#   per field -- both endpoints inclusive, so dt = span / (n - 1) -- with the
+#   span fixed by DAQ class: 0.1 s for fast records, 1.0 s for slow ones.
+#
+# Because the span is fixed by class and n is stored in every archive entry,
+# the true cadence of a legacy two-rate archive entry is fully recoverable
+# offline; :func:`upgrade_archive_timebase` uses exactly this inference.
+V2_LAST_SHOT = 42190
+FAST_SPAN_S = 0.1
+SLOW_SPAN_S = 1.0
+
+
+def upgrade_archive_timebase(payload: dict) -> dict:
+    """Add self-describing ``t0``/``dt`` entries to a legacy raw archive.
+
+    Operates in place on a loaded archive payload and returns a report::
+
+        {"upgraded": int, "already": int, "skipped": int, "non_nominal": [codes]}
+
+    Data arrays are never touched.  For every field with at least two samples
+    and a ``fast``/``slow`` label, the timebase is inferred from the era
+    conventions above and written as ``t0`` (trigger-corrected start) and
+    ``dt``, making the result byte-equivalent in meaning to a fresh dump from
+    the live database.  Entries already carrying ``t0``/``dt``, or too short
+    or unlabeled to infer, are left untouched, so the upgrade is idempotent.
+    """
+    shot = int(payload["shot"])
+    report = {"upgraded": 0, "already": 0, "skipped": 0, "non_nominal": []}
+    for code, entry in payload.get("fields", {}).items():
+        if not isinstance(entry, dict):
+            report["skipped"] += 1
+            continue
+        if "t0" in entry and "dt" in entry:
+            report["already"] += 1
+            continue
+        label = entry.get("type")
+        n = len(entry.get("data", []))
+        if n < 2 or label not in ("fast", "slow"):
+            report["skipped"] += 1
+            continue
+        if shot > V2_LAST_SHOT:
+            span = FAST_SPAN_S if label == "fast" else SLOW_SPAN_S
+            dt = span / (n - 1)
+        else:
+            dt = FAST_DT if label == "fast" else SLOW_DT
+        t0 = _daq_trigger_time_correction(shot) if label == "fast" else 0.0
+        entry["t0"] = float(t0)
+        entry["dt"] = float(dt)
+        report["upgraded"] += 1
+        class_dt = FAST_DT if label == "fast" else SLOW_DT
+        if not np.isclose(dt, class_dt, rtol=1e-3):
+            report["non_nominal"].append(int(code))
+    report["non_nominal"].sort()
+    return report
+
+
+class MixedCadenceError(ValueError):
+    """Fields with different sampling cadences were batch-loaded together."""
+
+
+def _require_consistent_cadence(
+    fields: List[int], time_arrays: List[np.ndarray], *, shot: int
+) -> None:
+    """Refuse to stack fields sampled on different timebases.
+
+    A multi-field load returns the first field's time axis for every column,
+    truncated to the shortest record.  That is only meaningful when every
+    requested field shares one cadence; stacking a 2 MHz Mirnov next to a
+    25 kHz slow channel would silently misalign the data.  Single-field loads
+    are unaffected.
+
+    ``fields`` must be the codes of exactly the arrays in ``time_arrays`` (in
+    order); callers that skip unavailable fields pass the loaded subset, so
+    the error names the right channels.
+    """
+    if len(fields) <= 1:
+        return
+    cadences = []
+    for field, tvals in zip(fields, time_arrays):
+        if len(tvals) < 2:
+            continue
+        cadences.append((field, float(tvals[1] - tvals[0])))
+    if not cadences:
+        return
+    _, reference_dt = cadences[0]
+    mismatched = [
+        (field, dt)
+        for field, dt in cadences
+        if not np.isclose(dt, reference_dt, rtol=1e-3)
+    ]
+    if mismatched:
+        detail = ", ".join(f"field {field}: dt={dt:.3g}s" for field, dt in cadences)
+        raise MixedCadenceError(
+            f"shot {shot}: fields {list(fields)} mix sampling cadences and cannot "
+            f"share one time axis ({detail}). Load them individually."
+        )
+
+
 def _load_from_sample_file(
     shot: int,
     fields: List[int],
@@ -444,6 +547,7 @@ def _load_from_sample_file(
 
         time_arrays = []
         data_arrays = []
+        loaded_fields: List[int] = []
 
         for fld in fields:
             fld_str = str(fld)
@@ -463,21 +567,47 @@ def _load_from_sample_file(
                 logger.warning(f"No data array for field {fld}. Skipping...")
                 continue
 
-            dt = SLOW_DT if entry.get("type") == "slow" else FAST_DT
+            # Time reconstruction, most explicit form first:
+            #
+            # 1. ``t0`` + ``dt``  -- a self-describing entry: the dump recorded
+            #    the corrected start time and the measured cadence, so the
+            #    archive reproduces the live-loaded timebase exactly and needs
+            #    no shot-era trigger table.
+            # 2. ``dt`` only      -- transitional form: native cadence with the
+            #    historical type-based trigger correction.
+            # 3. neither          -- legacy two-rate reconstruction.  This is
+            #    only correct for the nominal 250 kHz / 25 kHz channels; a
+            #    2 MHz outboard Mirnov record stored this way is stretched
+            #    eightfold in time, which is why new dumps always write t0/dt.
+            entry_dt = entry.get("dt")
+            entry_t0 = entry.get("t0")
             n = len(raw_data)
-            tvals = np.arange(n, dtype=float) * dt
             dvals = np.array(raw_data, dtype=float)
-
-            if dt == FAST_DT:
-                tvals = tvals + _daq_trigger_time_correction(shot)
+            if (
+                isinstance(entry_t0, (int, float))
+                and isinstance(entry_dt, (int, float))
+                and entry_dt > 0
+            ):
+                tvals = float(entry_t0) + np.arange(n, dtype=float) * float(entry_dt)
+            else:
+                if isinstance(entry_dt, (int, float)) and entry_dt > 0:
+                    dt = float(entry_dt)
+                else:
+                    dt = SLOW_DT if entry.get("type") == "slow" else FAST_DT
+                tvals = np.arange(n, dtype=float) * dt
+                if entry.get("type") != "slow":
+                    # Fast-DAQ records start at the trigger, whatever their rate.
+                    tvals = tvals + _daq_trigger_time_correction(shot)
 
             time_arrays.append(tvals)
             data_arrays.append(dvals)
+            loaded_fields.append(int(fld))
 
         if not time_arrays:
             logger.error(f"No valid fields loaded from JSON for shot={shot}.")
             return None
-        
+
+        _require_consistent_cadence(loaded_fields, time_arrays, shot=shot)
         min_len = min(len(arr) for arr in data_arrays)
         time_ref = time_arrays[0][:min_len]
         data_stack = np.column_stack([
@@ -486,6 +616,8 @@ def _load_from_sample_file(
 
         return (time_ref, data_stack.ravel()) if len(fields) == 1 else (time_ref, data_stack)
 
+    except MixedCadenceError:
+        raise
     except Exception as e:
         logger.error(f"Error loading from sample file: {e}")
         return None
@@ -581,6 +713,7 @@ def load_raw(
                     return None
 
                 # Stack multiple fields
+                _require_consistent_cadence(fields, time_arrays, shot=shot)
                 time_ref = time_arrays[0]
                 min_len = min(len(arr) for arr in data_arrays)
                 data_stack = np.column_stack([
@@ -605,7 +738,7 @@ def load_raw(
             logger.error("Could not retrieve data after max_retries.")
         return None
 
-    except FileNotFoundError:
+    except (FileNotFoundError, MixedCadenceError):
         raise
     except Exception as e:
         logger.error(f"Error in load_raw: {e}")
@@ -1059,7 +1192,8 @@ def dump_all_raw_signals_for_shot(
     daq_type: int = 0,
     slow_dt_threshold: float = 5e-6,  # Time interval threshold for slow DAQ [4e-5 sec/sample] vs Fast DAQ [4e-6 sec/sample] classification
     plot_opt: bool = False,
-    sample_opt: bool | RawSource = False
+    sample_opt: bool | RawSource = False,
+    fields: Optional[List[int]] = None,
     ) -> bool:
     """
     Store shot data as JSON GZIP file (.json.gz) with the following steps:
@@ -1074,6 +1208,13 @@ def dump_all_raw_signals_for_shot(
     convention as :func:`load_raw`: the field codes come from the archive and no
     step falls back to SQL. The archive is re-derived rather than copied, so the
     output is a canonical dump regardless of how the source was written.
+
+    ``fields`` restricts the dump to a subset of field codes (a trimmed archive
+    for notebooks or tests); omitted codes are simply not stored.
+
+    Every stored field carries its own ``t0``/``dt`` timebase, so archives are
+    self-describing and reproduce the live-loaded time axis exactly at any
+    sampling rate.
     """
     if plot_opt == 1:
         _require_matplotlib()
@@ -1111,6 +1252,10 @@ def dump_all_raw_signals_for_shot(
         else:
             if pulse_datetime_obj is not None:
                 pulse_datetime = pulse_datetime_obj.isoformat()
+    if fields is not None:
+        # A trimmed archive: keep only the requested codes, in stable order.
+        wanted = {int(code) for code in fields}
+        field_codes = [code for code in field_codes if int(code) in wanted]
     if not field_codes:
         print(f"[store_shot_as_json] No valid field codes for shot {shot}")
         return False
@@ -1158,10 +1303,19 @@ def dump_all_raw_signals_for_shot(
             is_slow = (time[1] - time[0]) >= slow_dt_threshold
             daq_label = "slow" if is_slow else "fast"
 
-        shot_data["fields"][str(fcode)] = {
+        entry: dict = {
             "type": daq_label,
-            "data": data.tolist()
+            "data": data.tolist(),
         }
+        if len(time) >= 2:
+            # Self-describing timebase: the corrected start time plus the
+            # measured cadence (span/(n-1), the DB's own linspace convention).
+            # Loading uses these verbatim, so the archive reproduces the live
+            # timebase exactly -- including 2 MHz / 500 kHz channels the old
+            # two-rate labels could not represent.
+            entry["t0"] = float(time[0])
+            entry["dt"] = float((time[-1] - time[0]) / (len(time) - 1))
+        shot_data["fields"][str(fcode)] = entry
         quality_flag = _flagged_field_quality(data)
         if quality_flag is not None:
             flagged_fields[str(fcode)] = quality_flag
