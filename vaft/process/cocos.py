@@ -35,7 +35,7 @@ import numpy as np
 from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 
-__all__ = ["cocos_consistency_signs", "validate_cocos"]
+__all__ = ["cocos_consistency_signs", "identify_convention", "identify_flux_exponent", "validate_cocos"]
 
 #: Relations Eq. 23 defines, in report order, with the field each one inspects.
 _RELATIONS = (
@@ -176,3 +176,106 @@ def validate_cocos(
             f"unavailable: {', '.join(unverifiable)}",
         ))
     return ValidationReport(tuple(issues))
+
+
+def identify_flux_exponent(equilibrium: Any) -> tuple[int | None, float | None]:
+    """Decide whether psi is stored in weber or weber/radian, from Ampere's law.
+
+    Returns ``(e_Bp, ratio)``.  ``e_Bp`` is 0 for a weber-per-radian psi
+    (COCOS 1-8) and 1 for a weber psi (COCOS 11-18); ``None`` when the inputs
+    needed are unavailable.
+
+    The loop integral of the poloidal field around the LCFS equals ``mu0*|Ip|``.
+    Computing that field from psi as if it were weber-per-radian therefore gives
+    a ratio of 1 when the assumption holds and 2*pi when psi is really in weber.
+    The two outcomes differ by a factor of 2*pi, so the test is decisive.
+
+    This replaces the ``a`` argument of :func:`omas.identify_cocos`, which is not
+    usable here.  That routine evaluates a cylindrical estimate
+    ``pi*B0*(a[i]-a[0])**2/(psi[i]-psi[0])`` at ``i = argmin|q|`` -- the node
+    adjacent to the axis for a monotonic q.  Near the axis ``a`` goes as
+    ``sqrt(psi)``, so any linear reconstruction of the minor-radius profile
+    underestimates ``a[1]`` badly, and the estimate depends on its square.  On
+    the packaged VEST sample it selects the wrong family on a margin of 0.22
+    against 1.67, where the loop integral separates 1.004 from 6.31.
+    """
+    eq = equilibrium
+    ip = getattr(eq, "ip", None)
+    lcfs = getattr(eq, "lcfs", None)
+    if ip is None or not ip or lcfs is None or getattr(lcfs, "r", None) is None:
+        return None, None
+    if eq.r is None or eq.z is None or eq.psi is None:
+        return None, None
+    if lcfs.r.size < 3 or eq.psi.shape != (eq.r.size, eq.z.size):
+        return None, None
+
+    from scipy.constants import mu_0 as MU0
+
+    from vaft.process.equilibrium import poloidal_field_at_boundary
+
+    r_b = np.r_[lcfs.r, lcfs.r[0]]
+    z_b = np.r_[lcfs.z, lcfs.z[0]]
+    try:
+        # cocos=None is the k = -1, weber-per-radian form; only |B_p| matters here.
+        b_p, _, _ = poloidal_field_at_boundary(eq.r, eq.z, eq.psi, r_b, z_b, cocos=None)
+    except Exception:
+        return None, None
+    length = np.hypot(np.diff(r_b), np.diff(z_b))
+    loop = float(np.sum(0.5 * (np.asarray(b_p)[:-1] + np.asarray(b_p)[1:]) * length))
+    expected = MU0 * abs(float(ip))
+    if not expected or not np.isfinite(loop):
+        return None, None
+    ratio = loop / expected
+    if not np.isfinite(ratio) or ratio <= 0:
+        return None, None
+    return (0 if abs(ratio - 1.0) < abs(ratio - 2.0 * np.pi) else 1), float(ratio)
+
+
+def identify_convention(
+    equilibrium: Any, *, clockwise_phi: bool | None = None,
+) -> tuple[int, ...]:
+    """Candidate COCOS indices for ``equilibrium``, from its observable signs.
+
+    The sign family (which of the eight orientations) comes from
+    :func:`omas.identify_cocos`, which reads it off sign(Ip), sign(B0),
+    sign(q) and sign(dpsi).  The remaining freedom -- whether psi carries the
+    2*pi -- is settled by :func:`identify_flux_exponent` rather than by the
+    ``a`` argument of ``identify_cocos``; see that function for why.
+
+    ``clockwise_phi`` distinguishes odd from even indices and is a fact about
+    the machine, not about the data.  Without it, both are returned.
+    """
+    eq = equilibrium
+    if eq.bt0 is None or eq.ip is None or eq.q is None or eq.psi_1d is None:
+        return ()
+    psi_1d = np.asarray(eq.psi_1d, dtype=float).reshape(-1)
+    q = np.asarray(eq.q, dtype=float).reshape(-1)
+    if psi_1d.size < 2 or q.size != psi_1d.size:
+        return ()
+
+    # identify_cocos reads sign(gradient(psi))[0], so the profile has to run
+    # axis to edge.  A boundary-first profile would invert sigma_Bp silently.
+    if eq.psi_axis is not None and abs(psi_1d[0] - float(eq.psi_axis)) > abs(
+        psi_1d[-1] - float(eq.psi_axis)
+    ):
+        psi_1d, q = psi_1d[::-1], q[::-1]
+
+    from omas import identify_cocos
+
+    try:
+        candidates = {
+            int(value)
+            for value in identify_cocos(eq.bt0, eq.ip, q, psi_1d, clockwise_phi=clockwise_phi)
+        }
+    except Exception:
+        return ()
+    if not candidates:
+        return ()
+
+    exponent, _ = identify_flux_exponent(eq)
+    if exponent is not None:
+        wanted = range(1, 9) if exponent == 0 else range(11, 19)
+        narrowed = {value for value in candidates if value in wanted}
+        if narrowed:
+            candidates = narrowed
+    return tuple(sorted(candidates))

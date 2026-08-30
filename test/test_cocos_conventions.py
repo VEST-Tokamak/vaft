@@ -478,3 +478,102 @@ def test_recording_an_undefined_convention_is_refused():
 
     with pytest.raises(ValueError, match="not defined"):
         set_ods_cocos(ODS(), 9)
+
+
+# --- Identification -------------------------------------------------------
+
+
+def test_the_flux_exponent_is_decided_by_amperes_law():
+    """loop(B_p dl) = mu0*|Ip| separates a weber psi from a weber/radian one.
+
+    Computing B_p as if psi were weber/radian gives a ratio of 1 when that
+    holds and 2*pi when it does not, so the two outcomes are a factor 2*pi
+    apart rather than a marginal comparison.
+    """
+    import numpy as np
+
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import identify_flux_exponent
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    per_radian = as_equilibrium(sample_geqdsk(), convention=1)
+    exponent, ratio = identify_flux_exponent(per_radian)
+    assert exponent == 0
+    assert ratio == pytest.approx(1.0, abs=0.05)
+
+    weber = convert_cocos(per_radian, 11)
+    exponent, ratio = identify_flux_exponent(weber)
+    assert exponent == 1
+    assert ratio == pytest.approx(2 * np.pi, rel=0.05)
+
+
+def test_the_flux_exponent_is_unavailable_rather_than_guessed():
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process.cocos import identify_flux_exponent
+
+    assert identify_flux_exponent(EquilibriumData()) == (None, None)
+
+
+def test_identification_reaches_a_single_index_once_the_machine_phi_is_known():
+    """The sign family comes from the data; clockwise_phi is a machine fact."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import identify_convention
+    from vaft.process.equilibrium import as_equilibrium
+
+    equilibrium = as_equilibrium(sample_geqdsk())
+    assert identify_convention(equilibrium) == (1, 2)
+    assert identify_convention(equilibrium, clockwise_phi=True) == (2,)
+    assert identify_convention(equilibrium, clockwise_phi=False) == (1,)
+
+
+def test_identification_recognises_a_weber_psi_after_conversion():
+    """The same equilibrium in COCOS 11 must identify in the 11-18 family."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import identify_convention
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    weber = convert_cocos(as_equilibrium(sample_geqdsk(), convention=1), 11)
+    assert identify_convention(weber) == (11, 12)
+
+
+def test_identification_is_independent_of_psi_profile_storage_order():
+    """omas.identify_cocos reads sign(gradient(psi))[0], so order matters to it.
+
+    A boundary-to-axis profile -- which ODS data can legitimately be -- would
+    otherwise invert sigma_Bp and select the wrong family.
+    """
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import identify_convention
+    from vaft.process.equilibrium import as_equilibrium
+
+    equilibrium = as_equilibrium(sample_geqdsk())
+    reversed_storage = EquilibriumData(**{
+        **equilibrium.__dict__,
+        "psi_1d": equilibrium.psi_1d[::-1],
+        "q": equilibrium.q[::-1],
+    })
+    assert identify_convention(reversed_storage) == identify_convention(equilibrium) == (1, 2)
+
+
+def test_the_stale_case_files_identify_as_the_family_equation_23_accepts():
+    """The CASE header says COCOS 2; the signs and Eq. 23 both say 7."""
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path, require_repository_sample
+    from vaft.process.cocos import identify_convention, validate_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    for name in ("efit/g040330.00320", "kineticEfit/g048224.00300.chease"):
+        equilibrium = as_equilibrium(read_geqdsk(require_repository_sample(data_path(name))))
+        candidates = identify_convention(equilibrium)
+        assert candidates == (7, 8), name
+        assert 2 not in candidates, f"{name}: the declared index is not supported by the data"
+        for candidate in candidates:
+            assert validate_cocos(equilibrium, candidate).valid, (name, candidate)
+
+
+def test_identification_returns_nothing_when_the_inputs_are_missing():
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process.cocos import identify_convention
+
+    assert identify_convention(EquilibriumData()) == ()
