@@ -229,6 +229,38 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
     return GEQDSK(mapping, metadata=_metadata(mapping, "equilibrium_data"))
 
 
+def _label_cocos(geqdsk: GEQDSK, ods: Any) -> int | None:
+    """Record the g-file's convention on the ODS it is being copied into.
+
+    The values written here are the g-file's own -- psi is copied verbatim, so
+    the ODS is in whatever convention the file was.  Labelling it says so; the
+    alternative is an unlabelled ODS whose psi a consumer must guess at, which
+    is how a weber-per-radian psi came to sit in IMAS weber slots unremarked.
+
+    Nothing is written when the convention cannot be pinned to a single index:
+    an honest silence, which readers already handle, beats a guess.
+    """
+    try:
+        from vaft.omas.general import set_ods_cocos
+        from vaft.process.equilibrium import as_equilibrium
+
+        convention = as_equilibrium(geqdsk).convention
+        if convention.contradicted:
+            # The file declares an index its own signs do not support. Copying
+            # that into a new artifact would launder the contradiction; leaving
+            # it unlabelled makes the next reader identify it afresh.
+            return None
+        index = convention.cocos
+        if index is None and len(convention.identified) == 1:
+            index = convention.identified[0]
+        if index is None:
+            return None
+        return set_ods_cocos(ods, index, source=convention.source)
+    except Exception:
+        # Labelling is provenance, never a reason to fail a conversion.
+        return None
+
+
 def read_geqdsk(path: str | Path) -> GEQDSK:
     """Read an EFIT GEQDSK/g-file using VAFT's standalone parser."""
     source = Path(path).expanduser()
@@ -730,6 +762,7 @@ def to_omas(
 
     ods["dataset_description.data_entry.pulse"] = _infer_source_shot(item.source)
     ods["equilibrium.ids_properties.comment"] = str(data.get("CASE", "VAFT GEQDSK"))
+    _label_cocos(item, ods)
     eqt["time"] = _infer_source_time(item.source)
     eqt["global_quantities.magnetic_axis.r"] = float(data["RMAXIS"])
     eqt["global_quantities.magnetic_axis.z"] = float(data["ZMAXIS"])

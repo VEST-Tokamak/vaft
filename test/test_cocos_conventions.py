@@ -778,3 +778,61 @@ def test_the_vfit_psi_factor_is_the_declared_conversion_not_a_bare_two_pi():
     # Unchanged numerically, so VFIT output does not move.
     assert _TWO_PI == pytest.approx(2.0 * np.pi)
     assert cocos_transform(2, VAFT_INTERNAL_COCOS)["PSI"] == pytest.approx(-2.0 * np.pi)
+
+
+def test_a_geqdsk_conversion_labels_the_ods_when_the_convention_is_certain():
+    """An unlabelled ODS is how weber-per-radian psi came to sit in weber slots."""
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.omas.general import ods_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    certain = from_equilibrium(as_equilibrium(sample_geqdsk(), convention=2))
+    assert ods_cocos(certain.to_omas()) == 2
+
+
+def test_an_ambiguous_convention_is_left_unlabelled_rather_than_guessed():
+    """Without clockwise_phi the VEST sample is COCOS 1 or 2; silence is honest."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.omas.general import ods_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    assert as_equilibrium(sample_geqdsk()).convention.cocos is None
+    assert ods_cocos(sample_geqdsk().to_omas()) is None
+
+
+def test_a_contradicted_declaration_is_not_copied_into_a_new_artifact():
+    """g040330 declares COCOS 2 in CASE and its signs support 7.
+
+    Writing the declaration into the ODS would launder the contradiction into an
+    artifact that no longer carries the evidence against it.
+    """
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path, require_repository_sample
+    from vaft.omas.general import ods_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    geqdsk = read_geqdsk(require_repository_sample(data_path("efit/g040330.00320")))
+    assert as_equilibrium(geqdsk).convention.contradicted
+    assert ods_cocos(geqdsk.to_omas()) is None
+
+
+def test_labelling_never_breaks_a_conversion():
+    """Provenance is not a reason to fail; a degenerate g-file still converts."""
+    import numpy as np
+
+    from vaft.data.eqdsk import GEQDSK, to_omas
+
+    minimal = GEQDSK({
+        "CASE": "degenerate", "NW": 2, "NH": 2,
+        "RDIM": 1.0, "ZDIM": 1.0, "RCENTR": 1.0, "RLEFT": 0.5, "ZMID": 0.0,
+        "RMAXIS": 1.0, "ZMAXIS": 0.0, "SIMAG": 0.0, "SIBRY": 1.0,
+        "BCENTR": 1.0, "CURRENT": 0.0,
+        "FPOL": np.ones(2), "PRES": np.zeros(2), "FFPRIM": np.zeros(2),
+        "PPRIME": np.zeros(2), "PSIRZ": np.zeros((2, 2)), "QPSI": np.ones(2),
+        "NBBBS": 0, "LIMITR": 0,
+        "RBBBS": np.array([]), "ZBBBS": np.array([]),
+        "RLIM": np.array([]), "ZLIM": np.array([]),
+    })
+    ods = to_omas(minimal)
+    assert "equilibrium.time_slice.0.profiles_1d.psi" in ods
