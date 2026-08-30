@@ -222,6 +222,7 @@ _ENTRYPOINT_MODULES = frozenset(
         "em_coupling",
         "equilibrium",
         "filterscope",
+        "gpec_ideal",
         "impa",
         "interferometer",
         "langmuir_probes",

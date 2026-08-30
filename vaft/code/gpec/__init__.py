@@ -20,7 +20,13 @@ import subprocess
 from pathlib import Path
 
 from . import _runtime as rt
-from ._coil_input import CoilInputSpec, emit_coil_dat, stage_coil_data, write_coil_in
+from ._coil_input import (
+    CoilInputSpec,
+    emit_coil_dat,
+    read_coil_in,
+    stage_coil_data,
+    write_coil_in,
+)
 from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
 from ._gpec_output import (
     GpecControlOutput,
@@ -371,6 +377,7 @@ __all__ = [
     "stage_coil_data",
     "write_coil_in",
     "prepare_gpec_suite_case",
+    "read_coil_in",
     "run_gpec_suite_case",
     "validate_dcon_result",
     "DconEigenfunction",

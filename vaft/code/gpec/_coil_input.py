@@ -27,7 +27,13 @@ from vaft.machine_mapping.coil_geometry_3d import (
 
 from . import _runtime as rt
 
-__all__ = ["CoilInputSpec", "stage_coil_data", "emit_coil_dat", "write_coil_in"]
+__all__ = [
+    "CoilInputSpec",
+    "stage_coil_data",
+    "emit_coil_dat",
+    "read_coil_in",
+    "write_coil_in",
+]
 
 _GPEC_MACHINE = "vest"
 
@@ -77,6 +83,44 @@ def emit_coil_dat(coil_set: CoilSet3D, path: Path) -> Path:
     path = Path(path)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def read_coil_in(path: str | Path) -> tuple[CoilInputSpec, ...]:
+    """Read the activated coil sets and sector currents from a GPEC ``coil.in``.
+
+    Tolerant of both the generated layout and hand-written references:
+    ``coil_name(i)`` / ``coil_cur(i,j)`` entries are collected per set index
+    (multi-value ``coil_cur(i,1..k)=a,b,c`` rows included), honoring
+    ``coil_num`` when present.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    body = text.split("&COIL_CONTROL", 1)[-1]
+    names: dict[int, str] = {}
+    currents: dict[int, list[float]] = {}
+    coil_num: int | None = None
+    for line in body.splitlines():
+        line = line.split("!", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        name_match = re.fullmatch(r"coil_name\((\d+)\)", key)
+        cur_match = re.fullmatch(r"coil_cur\((\d+)(?:,\d+(?:\.\.\d+)?)?\)", key)
+        if name_match:
+            names[int(name_match.group(1))] = value.strip("\"'")
+        elif cur_match:
+            set_index = int(cur_match.group(1))
+            currents.setdefault(set_index, []).extend(
+                float(token) for token in value.replace(",", " ").split()
+            )
+        elif key == "coil_num":
+            coil_num = int(float(value))
+    active = sorted(names)
+    if coil_num is not None:
+        active = active[:coil_num]
+    return tuple(
+        CoilInputSpec(name=names[index], currents_a=tuple(currents.get(index, ())))
+        for index in active
+    )
 
 
 def _render_coil_block(specs: Sequence[CoilInputSpec]) -> str:

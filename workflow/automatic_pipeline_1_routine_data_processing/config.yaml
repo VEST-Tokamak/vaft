@@ -132,5 +132,13 @@ gpec:
   psilow: 0.01
   psihigh: 0.994
   timeout: 1200
+  # Ideal-GPEC coil configuration. `source: vest_reference` selects the
+  # packaged canonical VEST 3D coil geometry (vaft/data/gpec/vest_{UP,MID,LOW}.dat
+  # via vaft.machine_mapping.coil_geometry_3d). Optional `sets` entries select
+  # and excite coil sets per run (per-sector currents in amperes); when
+  # present, coil.in and the staged .dat files are generated from the
+  # canonical configuration instead of the packaged coil.in template, e.g.:
+  #   sets:
+  #   - {name: MID, currents_a: [200, 200, 0, -200, -200, 0]}
   coil:
     source: vest_reference
