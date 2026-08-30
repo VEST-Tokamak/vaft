@@ -1,128 +1,28 @@
 """Unit tests for the in-process TokaMaker runner using a fake OpenFUSIONToolkit.
 
-The real toolkit is a ctypes shim over a compiled library, so these tests
-substitute a recording fake into ``sys.modules`` (``import_oft`` resolves
-modules through ``importlib``, which honours the patched entries). This pins
-the adapter's lifecycle contract: call order, ``reset()`` in all paths, the
-``OFT_env`` singleton handling, error mapping, and the g-file/sidecar outputs.
+The fake harness lives in ``test/tokamaker_fakes.py`` (shared with the
+evolution/stability tests). These tests pin the adapter's lifecycle contract:
+call order, ``reset()`` in all paths, the ``OFT_env`` singleton handling,
+error mapping, and the g-file/sidecar outputs.
 """
 
 import json
 import sys
-import types
 from pathlib import Path
 
-import numpy as np
 import pytest
+
+from tokamaker_fakes import make_fake_oft, make_inputs
 
 from vaft.code.tokamaker import TokaMakerConfig, run_tokamaker
 from vaft.code.tokamaker._oft import get_oft_env, import_oft
-from vaft.code.tokamaker.config import TokaMakerInputs
-
-
-class FakeSettings:
-    def __init__(self):
-        self.pm = True
-        self.maxits = 40
-
-
-def _make_fake_oft(monkeypatch, solve_error=None):
-    """Install a recording fake OpenFUSIONToolkit into sys.modules."""
-    calls = []
-
-    class FakeOFTEnv:
-        def __new__(cls, *args, **kwargs):
-            if hasattr(cls, "instance"):
-                raise RuntimeError("Only one instance of `OFT_env` can be created per python kernel")
-            cls.instance = super().__new__(cls)
-            return cls.instance
-
-        def __init__(self, nthreads=2):
-            self.nthreads = nthreads
-
-    class FakeTokaMaker:
-        def __init__(self, env):
-            calls.append(("init", env))
-            self.settings = FakeSettings()
-            self.o_point = np.array([0.4, 0.0])
-            self.diverted = False
-
-        def setup_mesh(self, pts, lc, reg):
-            calls.append(("setup_mesh",))
-
-        def setup_regions(self, cond_dict=None, coil_dict=None):
-            calls.append(("setup_regions", coil_dict))
-
-        def setup(self, order=2, F0=0.0):
-            calls.append(("setup", order, F0))
-
-        def set_coil_currents(self, currents):
-            calls.append(("set_coil_currents", dict(currents)))
-
-        def set_targets(self, **targets):
-            calls.append(("set_targets", targets))
-
-        def set_profiles(self, ffp_prof=None, pp_prof=None):
-            calls.append(("set_profiles",))
-
-        def init_psi(self, r0, z0, a, kappa, delta):
-            calls.append(("init_psi", r0, z0, a, kappa, delta))
-
-        def solve(self):
-            calls.append(("solve",))
-            if solve_error is not None:
-                raise ValueError(solve_error)
-
-        def get_stats(self):
-            return {"Ip": 51.0e3, "q_95": 5.0, "kappa": 1.6}
-
-        def get_coil_currents(self):
-            return {"PF1": -640.0, "PF2": 320.0}, np.zeros(4)
-
-        def save_eqdsk(self, filename, **kwargs):
-            calls.append(("save_eqdsk", filename, kwargs))
-            Path(filename).write_text("fake gEQDSK\n")
-
-        def reset(self):
-            calls.append(("reset",))
-
-    root = types.ModuleType("OpenFUSIONToolkit")
-    root.OFT_env = FakeOFTEnv
-    tokamaker_mod = types.ModuleType("OpenFUSIONToolkit.TokaMaker")
-    tokamaker_mod.TokaMaker = FakeTokaMaker
-    meshing = types.ModuleType("OpenFUSIONToolkit.TokaMaker.meshing")
-    meshing.load_gs_mesh = lambda path: ("pts", "lc", "reg", {"PF1": {}}, {"AIR": {}})
-    util = types.ModuleType("OpenFUSIONToolkit.TokaMaker.util")
-    util.create_power_flux_fun = lambda npts, alpha, gamma: {"type": "linterp", "alpha": alpha}
-
-    monkeypatch.setitem(sys.modules, "OpenFUSIONToolkit", root)
-    monkeypatch.setitem(sys.modules, "OpenFUSIONToolkit.TokaMaker", tokamaker_mod)
-    monkeypatch.setitem(sys.modules, "OpenFUSIONToolkit.TokaMaker.meshing", meshing)
-    monkeypatch.setitem(sys.modules, "OpenFUSIONToolkit.TokaMaker.util", util)
-    return calls, FakeOFTEnv
-
-
-def _make_inputs(tmp_path):
-    mesh_file = tmp_path / "vest_gs_mesh_test.h5"
-    mesh_file.write_bytes(b"")
-    return TokaMakerInputs(
-        workdir=tmp_path,
-        geometry={"limiter": [[0.2, -0.4], [0.6, 0.0], [0.2, 0.4]], "coils": {}},
-        mesh_file=mesh_file,
-        mesh_exists=True,
-        coil_currents={"PF1": -640.0, "PF2": 320.0},
-        targets={"Ip": 51.0e3},
-        f0=0.06,
-        shot=39915,
-        time=0.325,
-    )
 
 
 def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
-    calls, _ = _make_fake_oft(monkeypatch)
+    calls, _ = make_fake_oft(monkeypatch)
     config = TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path, maxits=60)
 
-    result = run_tokamaker(_make_inputs(tmp_path), config)
+    result = run_tokamaker(make_inputs(tmp_path), config)
 
     names = [entry[0] for entry in calls]
     assert names == [
@@ -148,11 +48,38 @@ def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
     assert "_geqdsk_error" in result.scalars
 
 
+def test_vsc_coil_wires_the_stability_pair(tmp_path, monkeypatch):
+    calls, _ = make_fake_oft(monkeypatch)
+    config = TokaMakerConfig(
+        shot=39915, time=0.325, workdir=tmp_path, vsc_coil="PF9", vsc_weight=0.5
+    )
+
+    result = run_tokamaker(make_inputs(tmp_path), config)
+
+    names = [entry[0] for entry in calls]
+    assert result.ok
+    assert calls[names.index("set_coil_vsc")][1] == {"PF9_U": 1.0, "PF9_L": -1.0}
+    reg_call = calls[names.index("coil_reg_term")]
+    assert reg_call[1] == {"#VSC": 1.0}
+    assert reg_call[3] == pytest.approx(0.5)
+    # VSC is wired before the coil currents/targets, mirroring the OFT examples
+    assert names.index("set_coil_vsc") < names.index("set_coil_currents")
+    assert "set_coil_reg" in names
+
+
+def test_no_vsc_calls_without_vsc_coil(tmp_path, monkeypatch):
+    calls, _ = make_fake_oft(monkeypatch)
+    run_tokamaker(make_inputs(tmp_path), TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path))
+    names = [entry[0] for entry in calls]
+    assert "set_coil_vsc" not in names
+    assert "set_coil_reg" not in names
+
+
 def test_failed_solve_reports_error_and_still_resets(tmp_path, monkeypatch):
-    calls, _ = _make_fake_oft(monkeypatch, solve_error="boom: no convergence")
+    calls, _ = make_fake_oft(monkeypatch, solve_error="boom: no convergence")
     config = TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path)
 
-    result = run_tokamaker(_make_inputs(tmp_path), config)
+    result = run_tokamaker(make_inputs(tmp_path), config)
 
     names = [entry[0] for entry in calls]
     assert "reset" in names and names[-1] == "reset"
@@ -166,11 +93,11 @@ def test_failed_solve_reports_error_and_still_resets(tmp_path, monkeypatch):
 
 
 def test_two_consecutive_runs_share_the_singleton_env(tmp_path, monkeypatch):
-    calls, fake_env_cls = _make_fake_oft(monkeypatch)
+    calls, fake_env_cls = make_fake_oft(monkeypatch)
     config = TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path)
 
-    first = run_tokamaker(_make_inputs(tmp_path), config)
-    second = run_tokamaker(_make_inputs(tmp_path), config)
+    first = run_tokamaker(make_inputs(tmp_path), config)
+    second = run_tokamaker(make_inputs(tmp_path), config)
 
     assert first.ok and second.ok
     inits = [entry for entry in calls if entry[0] == "init"]
@@ -179,7 +106,7 @@ def test_two_consecutive_runs_share_the_singleton_env(tmp_path, monkeypatch):
 
 
 def test_get_oft_env_reuses_existing_instance(monkeypatch):
-    _, fake_env_cls = _make_fake_oft(monkeypatch)
+    _, fake_env_cls = make_fake_oft(monkeypatch)
     env = get_oft_env(nthreads=2)
     assert env is fake_env_cls.instance
     assert get_oft_env(nthreads=8) is env  # second call reuses, never reconstructs

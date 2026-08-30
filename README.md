@@ -286,6 +286,7 @@ vaft/
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb)                                             | Equilibrium refinement with CHEASE          |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb)                                                         | Forward equilibrium reconstruction with TES |
 | [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb)                                             | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) |
+| [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb)                             | Vessel eddy currents, wall modes, and quasi-static evolution with TokaMaker |
 | [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb)                                                                     | End-to-end kinetic-EFIT workflow            |
 
 

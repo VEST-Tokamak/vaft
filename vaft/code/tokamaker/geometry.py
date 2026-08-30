@@ -105,6 +105,15 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
         r, z, w, h, turns = _element_arrays(ods, i)
         halves = {"U": z >= 0.0, "L": z < 0.0}
         present = {suffix: mask for suffix, mask in halves.items() if np.any(mask)}
+        vsc_split = (
+            config.vsc_coil is not None and set_name == str(config.vsc_coil).upper()
+        )
+        if vsc_split and set(present) != {"U", "L"}:
+            raise ValueError(
+                f"vsc_coil={config.vsc_coil!r} must be an up/down-mirrored coil "
+                f"(found halves: {sorted(present)}). Pick a coil with elements "
+                "on both sides of Z = 0."
+            )
         for suffix, mask in present.items():
             name = set_name if len(present) == 1 else f"{set_name}_{suffix}"
             rect = _bounding_rectangle(r[mask], z[mask], w[mask], h[mask], turns[mask])
@@ -113,7 +122,9 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
                     f"Coil {name} has zero net turns_with_sign; cannot build a "
                     "TokaMaker coil region (check pf_active or exclude the coil)."
                 )
-            rect["coil_set"] = set_name
+            # A VSC coil's halves get their OWN coil sets so they can be wired
+            # as a Vertical Stability Coil pair with opposite gains.
+            rect["coil_set"] = name if vsc_split else set_name
             coils[name] = rect
     if not coils:
         raise ValueError("No usable pf_active coils found for the TokaMaker mesh")
@@ -121,12 +132,22 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
 
 
 def tokamaker_geometry_from_ods(ods: Any, config: TokaMakerConfig) -> dict:
-    """Build the TokaMaker geometry dict (limiter + coil rectangles) from an ODS."""
+    """Build the TokaMaker geometry dict from an ODS.
+
+    Keys: ``limiter`` + ``coils`` always; ``vessel`` (conductor regions from
+    ``pf_passive``, see :mod:`.vessel`) only when ``config.include_vessel`` —
+    so v1-style configs produce byte-identical geometry and mesh-cache hashes.
+    """
     limr, limz = _limiter_from_ods(ods, config)
-    return {
+    geometry = {
         "limiter": [[float(r), float(z)] for r, z in zip(limr, limz)],
         "coils": _coil_rectangles_from_ods(ods, config),
     }
+    if config.include_vessel:
+        from .vessel import vessel_segments_from_ods
+
+        geometry["vessel"] = vessel_segments_from_ods(ods, config)
+    return geometry
 
 
 def geometry_signature(geometry: dict, config: TokaMakerConfig) -> str:

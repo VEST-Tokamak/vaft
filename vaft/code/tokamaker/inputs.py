@@ -16,7 +16,9 @@ from typing import Any
 
 import numpy as np
 
-from .config import TokaMakerConfig, TokaMakerInputs
+from dataclasses import replace
+
+from .config import TokaMakerConfig, TokaMakerEvolutionInputs, TokaMakerInputs
 from .geometry import _coil_name, geometry_signature, tokamaker_geometry_from_ods
 
 
@@ -153,15 +155,29 @@ def _coil_currents_from_ods(
 
     pf = ods["pf_active"]
     pf_time = np.asarray(pf["time"], dtype=float)
-    currents: dict[str, float] = {}
+    by_coil: dict[str, float] = {}
     ncoil = len(pf["coil"])
     for i in range(ncoil):
         name = _coil_name(ods, i)
-        if name not in coil_sets:
-            continue
         data = np.asarray(pf[f"coil.{i}.current.data"], dtype=float)
-        currents[name] = float(np.interp(time, pf_time, data))
-    missing = coil_sets - currents.keys()
+        by_coil[name] = float(np.interp(time, pf_time, data))
+
+    vsc_parent = str(config.vsc_coil).upper() if config.vsc_coil is not None else None
+    currents: dict[str, float] = {}
+    missing = []
+    for coil_set in coil_sets:
+        if coil_set in by_coil:
+            currents[coil_set] = by_coil[coil_set]
+        elif (
+            vsc_parent is not None
+            and coil_set in (f"{vsc_parent}_U", f"{vsc_parent}_L")
+            and vsc_parent in by_coil
+        ):
+            # VSC-split halves carry the parent coil's measured current; the
+            # differential stabilizing component rides on the virtual '#VSC'.
+            currents[coil_set] = by_coil[vsc_parent]
+        else:
+            missing.append(coil_set)
     if missing:
         raise ValueError(
             "No pf_active current found for coil set(s): "
@@ -218,4 +234,85 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
         time=time,
         ods=ods,
         files=(geometry_file,),
+    )
+
+
+# ----------------------------------------------------------------------------- #
+#  Quasi-static evolution preparation
+# ----------------------------------------------------------------------------- #
+def _resolve_evolution_times(config: TokaMakerConfig) -> tuple[float, ...]:
+    if config.evolve_times is not None:
+        times = tuple(float(t) for t in config.evolve_times)
+    else:
+        if config.evolve_start is None or config.evolve_end is None or config.evolve_dt is None:
+            raise ValueError(
+                "Evolution needs TokaMakerConfig.evolve_times, or all of "
+                "evolve_start/evolve_end/evolve_dt."
+            )
+        times = tuple(
+            float(t) for t in np.arange(config.evolve_start, config.evolve_end, config.evolve_dt)
+        )
+    if len(times) < 2:
+        raise ValueError(f"Evolution needs at least 2 time slices, got {len(times)}")
+    if any(t2 <= t1 for t1, t2 in zip(times, times[1:])):
+        raise ValueError("Evolution times must be strictly increasing")
+    if not config.evolve_vacuum:
+        # per-slice g-files are named g<shot>.<integer ms>; enforce uniqueness
+        ms = [int(round(t * 1000)) for t in times]
+        if len(set(ms)) != len(ms):
+            raise ValueError(
+                "Evolution times must round to distinct integer milliseconds "
+                "(g-file naming and the multi-slice equilibrium merge key on "
+                "them); use a grid with >= 1 ms spacing or explicit evolve_times."
+            )
+    return times
+
+
+def _coil_waveforms_from_ods(
+    ods: Any, config: TokaMakerConfig, geometry: dict, times: tuple[float, ...]
+) -> dict[str, np.ndarray]:
+    """Per-coil-set current waveforms sampled on the evolution grid."""
+    waveforms: dict[str, list[float]] = {}
+    for t in times:
+        currents = _coil_currents_from_ods(ods, config, geometry, t)
+        for name, value in currents.items():
+            waveforms.setdefault(name, []).append(value)
+    return {name: np.asarray(values, dtype=float) for name, values in waveforms.items()}
+
+
+def prepare_tokamaker_evolution_inputs(
+    ods: Any, config: TokaMakerConfig
+) -> TokaMakerEvolutionInputs:
+    """Resolve everything a quasi-static evolution needs from an ODS.
+
+    Calls :func:`prepare_tokamaker_inputs` once at the first slice time, then
+    samples the per-coil-set current waveforms and the per-slice Ip targets on
+    the evolution grid. ``evolve_vacuum=True`` skips plasma targets entirely
+    (``vac_solve`` mode for plasma-free windows).
+    """
+    if not config.include_vessel:
+        raise ValueError(
+            "Quasi-static evolution models wall eddy currents and requires "
+            "TokaMakerConfig.include_vessel=True."
+        )
+    times = _resolve_evolution_times(config)
+
+    if config.evolve_vacuum:
+        # No plasma: bypass the Ip-target resolution (which requires Ip > 0).
+        base = prepare_tokamaker_inputs(ods, replace(config, time=times[0], ip=1.0))
+        base.targets = {}
+        ip_targets = np.zeros(len(times))
+    else:
+        base = prepare_tokamaker_inputs(ods, replace(config, time=times[0]))
+        ip_targets = np.asarray(
+            [_resolve_targets(ods, config, t)["Ip"] for t in times], dtype=float
+        )
+
+    coil_waveforms = _coil_waveforms_from_ods(ods, config, base.geometry, times)
+    return TokaMakerEvolutionInputs(
+        base=base,
+        times=times,
+        coil_waveforms=coil_waveforms,
+        ip_targets=ip_targets,
+        vacuum=bool(config.evolve_vacuum),
     )

@@ -40,6 +40,8 @@ The newly added pipeline notebooks are documentation shells only. They should be
 
 - `electromagnetic_response_modeling_with_efund.ipynb`: Planned EFUND-aligned electromagnetic response modeling and coupling matrix construction.
 - `magnetic_equilibrium_reconstruction_with_efit.ipynb`: Planned EFIT-based magnetic equilibrium reconstruction.
+- `forward_equilibrium_using_TokaMaker.ipynb`: Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) driven by measured PF currents.
+- `time_dependent_equilibrium_using_TokaMaker.ipynb`: VEST vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker.
 - `mhd_equilibrium_analysis.ipynb`: Planned equilibrium loading, coordinate transformation, flux-surface analysis, and MHD interpretation.
 - `linear_ideal_stability_analysis_with_dcon.ipynb`: Planned linear ideal MHD stability analysis using DCON from the GPEC package.
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Planned linear resistive MHD stability analysis using RDCON from the GPEC package.
