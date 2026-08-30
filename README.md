@@ -260,7 +260,7 @@ vaft/
 ├── plot/              # Visualization (time, 1D, 2D, top-view, analysis)
 ├── omas/              # ODS utilities (shot metadata, sample data)
 ├── imas/              # IMAS-Python (AL5) interoperability
-├── code/              # Code interfaces (EFIT, CHEASE, GPEC, Snakemake)
+├── code/              # Code interfaces (EFIT, CHEASE, GPEC, TES, TokaMaker, Snakemake)
 └── data/              # Sample data, geometry assets, calibration tables
 ```
 
@@ -285,6 +285,7 @@ vaft/
 | [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb)                                                               | Soft X-ray signal analysis                  |
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb)                                             | Equilibrium refinement with CHEASE          |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb)                                                         | Forward equilibrium reconstruction with TES |
+| [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb)                                             | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) |
 | [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb)                                                                     | End-to-end kinetic-EFIT workflow            |
 
 
