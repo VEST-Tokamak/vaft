@@ -1568,22 +1568,30 @@ def _coil_filament_paths(ods: Any) -> list[tuple[str, np.ndarray, np.ndarray, np
     return paths
 
 
+def _coil_set_color(set_label: str, seen_sets: dict[str, str]) -> str:
+    """One stable matplotlib cycle color per coil *set*, not per sector."""
+    if set_label not in seen_sets:
+        seen_sets[set_label] = f"C{len(seen_sets)}"
+    return seen_sets[set_label]
+
+
 def _build_coils_non_axisymmetric_3d(ods: Any, **_: Any) -> Geometry3DLayers:
     """Every non-axisymmetric coil filament as a 3D polyline."""
     layers = []
-    seen_sets: set[str] = set()
+    seen_sets: dict[str, str] = {}
     for label, radius, phi, height in _coil_filament_paths(ods):
-        # One legend entry per coil set, not per sector.
+        # One legend entry (and one color) per coil set, not per sector.
         set_label = label.rsplit(" sector", 1)[0]
+        first_of_set = set_label not in seen_sets
         layers.append(
             Geometry3DLayer(
                 x=radius * np.cos(phi),
                 y=radius * np.sin(phi),
                 z=height,
-                label=set_label if set_label not in seen_sets else "",
+                label=set_label if first_of_set else "",
+                style={"color": _coil_set_color(set_label, seen_sets)},
             )
         )
-        seen_sets.add(set_label)
     return Geometry3DLayers(
         layers=tuple(layers), title="Non-axisymmetric 3D Coils"
     )
@@ -1592,17 +1600,18 @@ def _build_coils_non_axisymmetric_3d(ods: Any, **_: Any) -> Geometry3DLayers:
 def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
     """Every non-axisymmetric coil filament projected into the top view."""
     layers = []
-    seen_sets: set[str] = set()
+    seen_sets: dict[str, str] = {}
     for label, radius, phi, _height in _coil_filament_paths(ods):
         set_label = label.rsplit(" sector", 1)[0]
+        first_of_set = set_label not in seen_sets
         layers.append(
             GeometryLayer(
                 r=radius * np.cos(phi),
                 z=radius * np.sin(phi),
-                label=set_label if set_label not in seen_sets else "",
+                label=set_label if first_of_set else "",
+                style={"color": _coil_set_color(set_label, seen_sets)},
             )
         )
-        seen_sets.add(set_label)
     return GeometryLayers(
         layers=tuple(layers),
         x_label="x [m]",
