@@ -52,9 +52,11 @@ git clone https://github.com/VEST-Tokamak/vaft.git
 cd vaft
 bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
 hsconfigure                    # only if you need the remote VEST database
-conda run -n vaft python install/check_vaft_environment.py
 conda activate vaft && jupyter lab
 ```
+
+The bootstrap runs the environment check for you at the end. Run it again at any
+time with the command in [Environment check](#environment-check).
 
 ```text
 install Git + Miniconda
@@ -85,6 +87,11 @@ The scripts are deliberately transparent. They change exactly three things:
    **Python (vaft)**. It is registered with a fixed `--name vaft`, which
    overwrites any previous spec of the same name, so rerunning the script can
    never accumulate duplicate kernels.
+
+Each script then finishes by running the environment checker below and adopting
+its exit status, so a bootstrap that reports success has actually been verified.
+Verification lives in that one script rather than being reimplemented per
+platform.
 
 They do **not** modify your repository checkout, your shell profile, your Conda
 configuration, or any system package manager.

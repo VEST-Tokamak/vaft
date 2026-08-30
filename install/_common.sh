@@ -91,81 +91,32 @@ vaft_install_editable() {
     vaft_record PASS "editable VAFT installation" "${VAFT_REPOSITORY_ROOT}"
 }
 
-vaft_verify_import_location() {
-    if vaft_run python -c '
-import sys
-from pathlib import Path
-import vaft
-root = Path(sys.argv[1]).resolve()
-located = Path(vaft.__file__).resolve()
-if root not in located.parents:
-    sys.stderr.write(f"vaft resolves to {located}, outside {root}\n")
-    raise SystemExit(1)
-print(located)
-' "${VAFT_REPOSITORY_ROOT}"; then
-        vaft_record PASS "VAFT resolves to this checkout"
-    else
-        vaft_record FAIL "VAFT resolves to this checkout" \
-            "an unrelated installed copy is shadowing ${VAFT_REPOSITORY_ROOT}"
-    fi
-}
-
 vaft_register_kernel() {
     # `--name vaft` overwrites any existing spec of the same name, so repeated
     # runs replace the kernel in place instead of accumulating duplicates.
+    # Whether exactly one survives is then confirmed by the checker.
     vaft_run python -m ipykernel install --user \
         --name "${VAFT_KERNEL_NAME}" \
         --display-name "${VAFT_KERNEL_DISPLAY_NAME}" >/dev/null
-    # Counted inside the environment so the check never depends on an outer
-    # interpreter, and so a duplicate registration is caught rather than assumed away.
-    if vaft_run python -c 'import json, subprocess, sys
-payload = subprocess.run(
-    [sys.executable, "-m", "jupyter", "kernelspec", "list", "--json"],
-    capture_output=True, text=True, check=True,
-).stdout
-names = list(json.loads(payload).get("kernelspecs", {}))
-sys.exit(0 if names.count(sys.argv[1]) == 1 else 1)
-' "${VAFT_KERNEL_NAME}"; then
-        vaft_record PASS "${VAFT_KERNEL_DISPLAY_NAME} kernel"
-    else
-        vaft_record FAIL "${VAFT_KERNEL_DISPLAY_NAME} kernel" \
-            "expected exactly one kernelspec named ${VAFT_KERNEL_NAME}"
-    fi
-}
-
-vaft_report_hsds_client() {
-    if vaft_run python -c 'import h5pyd' >/dev/null 2>&1; then
-        vaft_record PASS "HSDS client"
-    else
-        vaft_record FAIL "HSDS client" "h5pyd did not import"
-    fi
-}
-
-vaft_report_jupyterlab() {
-    if vaft_run python -c 'import jupyterlab' >/dev/null 2>&1; then
-        vaft_record PASS "JupyterLab"
-    else
-        vaft_record FAIL "JupyterLab" "jupyterlab did not import"
-    fi
+    vaft_record PASS "${VAFT_KERNEL_DISPLAY_NAME} kernel" "registered"
 }
 
 vaft_print_summary() {
-    printf '\nVAFT bootstrap (%s)\n' "${VAFT_PLATFORM_LABEL}"
+    printf '\nVAFT bootstrap (%s): what changed\n' "${VAFT_PLATFORM_LABEL}"
     printf -- '--------------\n'
     if [ "${#vaft_summary_lines[@]}" -gt 0 ]; then
         printf '%s\n' "${vaft_summary_lines[@]}"
     fi
     cat <<'NEXT'
 
-Next:
-  1. Run `hsconfigure` if your HSDS credentials are not configured yet.
-     This script never asks for, stores, or transmits your credentials.
-  2. Run `conda run -n vaft python install/check_vaft_environment.py`.
-  3. Run `conda activate vaft && jupyter lab`, and choose the "Python (vaft)" kernel.
-
 This script changed only: the `vaft` Conda environment, an editable VAFT
 installation inside it, and the user-level "Python (vaft)" Jupyter kernelspec.
 It did not modify your repository checkout or any other Conda environment.
+
+Next:
+  1. Run `hsconfigure` if your HSDS credentials are not configured yet.
+     This script never asks for, stores, or transmits your credentials.
+  2. Run `conda activate vaft && jupyter lab`, and choose the "Python (vaft)" kernel.
 NEXT
     return "${vaft_failed}"
 }
@@ -205,9 +156,12 @@ USAGE
     vaft_create_or_update_environment
     vaft_report_python
     vaft_install_editable
-    vaft_verify_import_location
-    vaft_report_hsds_client
-    vaft_report_jupyterlab
     vaft_register_kernel
     vaft_print_summary
+
+    # Verification lives in one place. The checker reports every environment
+    # property with its own remediation, so the bootstrap does not reimplement
+    # those probes -- and its exit status becomes the bootstrap's.
+    printf '\nVerifying the environment ...\n\n'
+    vaft_run_checker
 }

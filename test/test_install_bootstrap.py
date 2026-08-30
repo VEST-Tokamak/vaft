@@ -496,7 +496,13 @@ if arguments[:1] == ["run"]:
     # happens to be installed in the ambient interpreter. What remains under
     # test here is the shell control flow, not the probes themselves -- those
     # are unit-tested directly against check_vaft_environment.py.
-    if "pip" in command or "ipykernel" in joined or "kernelspec" in joined or "import " in joined:
+    if (
+        "pip" in command
+        or "ipykernel" in joined
+        or "kernelspec" in joined
+        or "import " in joined
+        or "check_vaft_environment" in joined
+    ):
         print(f"[stub] {joined}")
         raise SystemExit(0)
     raise SystemExit(subprocess.run([sys.executable, *command]).returncode)
@@ -575,9 +581,6 @@ def test_bootstrap_performs_the_documented_steps_in_order(fake_conda, monkeypatc
         "[PASS] vaft environment",
         "[PASS] Python",
         "[PASS] editable VAFT installation",
-        "[PASS] VAFT resolves to this checkout",
-        "[PASS] HSDS client",
-        "[PASS] JupyterLab",
         "[PASS] Python (vaft) kernel",
     ):
         assert fragment in stdout, f"missing step: {fragment}"
@@ -585,11 +588,52 @@ def test_bootstrap_performs_the_documented_steps_in_order(fake_conda, monkeypatc
         stdout.index("[PASS] vaft environment"),
         stdout.index("[PASS] editable VAFT installation"),
         stdout.index("[PASS] Python (vaft) kernel"),
+        stdout.index("Verifying the environment"),
     ]
     assert positions == sorted(positions), "bootstrap steps ran out of order"
     assert "pip install -e ." in stdout  # via the stub echo
+    assert "check_vaft_environment" in stdout, "the bootstrap must end by verifying"
     assert "hsconfigure" in stdout
     assert "never asks for, stores, or transmits your credentials" in stdout
+
+
+def test_bootstrap_delegates_verification_to_the_checker():
+    """One implementation of each probe, not one per platform script."""
+    # The POSIX wrappers delegate to _common.sh, which is where their shared
+    # flow -- including the closing verification -- lives.
+    for name in ("_common.sh", "windows_native.ps1"):
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "check_vaft_environment.py" in text, (
+            f"install/{name} must finish by running the checker"
+        )
+    for name in PLATFORM_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "vaft.__file__" not in text, (
+            f"install/{name} reimplements the checker's import-location probe"
+        )
+        assert "kernelspec list" not in text, (
+            f"install/{name} reimplements the checker's kernel probe"
+        )
+
+
+def test_no_multiline_python_payload_crosses_conda_run():
+    """`conda run` on Windows rejects any argument containing a newline.
+
+    It fails with `NotImplementedError: Support for scripts where arguments
+    contain newlines not implemented`, so a multi-line `python -c` payload
+    silently turns into a false FAIL. Pass a file path instead.
+    """
+    for name in PLATFORM_SCRIPTS:
+        text = _executable_source(INSTALL / name)
+        for match in re.finditer(r"-c'?,?\s*(['\"])", text):
+            quote = match.group(1)
+            end = text.find(quote, match.end())
+            assert end != -1, f"install/{name}: unterminated -c payload"
+            payload = text[match.end():end]
+            assert "\n" not in payload, (
+                f"install/{name}: a multi-line `python -c` payload cannot cross "
+                f"`conda run` on Windows:\n{payload[:200]}"
+            )
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
@@ -614,7 +658,7 @@ def test_check_only_mode_changes_nothing(fake_conda, monkeypatch):
     assert "env create" not in invocations
     assert "env update" not in invocations
     assert "pip install" not in invocations
-    assert "VAFT environment check" in completed.stdout
+    assert "check_vaft_environment.py" in completed.stdout
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")

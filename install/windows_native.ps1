@@ -128,45 +128,10 @@ function Install-VaftEditable {
     Write-Result -Status PASS -Name 'editable VAFT installation' -Detail $RepositoryRoot
 }
 
-function Test-VaftImportLocation {
-    $probe = @'
-import sys
-from pathlib import Path
-import vaft
-root = Path(sys.argv[1]).resolve()
-located = Path(vaft.__file__).resolve()
-if root not in located.parents:
-    sys.stderr.write(f"vaft resolves to {located}, outside {root}\n")
-    raise SystemExit(1)
-print(located)
-'@
-    Invoke-InVaft @('python', '-c', $probe, $RepositoryRoot) | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Result -Status PASS -Name 'VAFT resolves to this checkout'
-    }
-    else {
-        Write-Result -Status FAIL -Name 'VAFT resolves to this checkout' `
-            -Detail "an unrelated installed copy is shadowing $RepositoryRoot"
-    }
-}
-
-function Test-Importable {
-    param(
-        [Parameter(Mandatory)] [string] $Module,
-        [Parameter(Mandatory)] [string] $Label
-    )
-    Invoke-InVaft @('python', '-c', "import $Module") | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Result -Status PASS -Name $Label
-    }
-    else {
-        Write-Result -Status FAIL -Name $Label -Detail "$Module did not import"
-    }
-}
-
 function Register-VaftKernel {
     # `--name vaft` overwrites any existing spec of the same name, so repeated
     # runs replace the kernel in place instead of accumulating duplicates.
+    # Whether exactly one survives is then confirmed by the checker.
     Invoke-InVaft @(
         'python', '-m', 'ipykernel', 'install', '--user',
         '--name', $KernelName, '--display-name', $KernelDisplayName
@@ -175,41 +140,24 @@ function Register-VaftKernel {
         Write-Result -Status FAIL -Name "$KernelDisplayName kernel" -Detail 'ipykernel install failed'
         return
     }
-    $probe = @'
-import json, subprocess, sys
-payload = subprocess.run(
-    [sys.executable, "-m", "jupyter", "kernelspec", "list", "--json"],
-    capture_output=True, text=True, check=True,
-).stdout
-names = list(json.loads(payload).get("kernelspecs", {}))
-sys.exit(0 if names.count(sys.argv[1]) == 1 else 1)
-'@
-    Invoke-InVaft @('python', '-c', $probe, $KernelName) | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Result -Status PASS -Name "$KernelDisplayName kernel"
-    }
-    else {
-        Write-Result -Status FAIL -Name "$KernelDisplayName kernel" `
-            -Detail "expected exactly one kernelspec named $KernelName"
-    }
+    Write-Result -Status PASS -Name "$KernelDisplayName kernel" -Detail 'registered'
 }
 
 function Write-Summary {
     Write-Host ''
-    Write-Host "VAFT bootstrap ($PlatformLabel)"
+    Write-Host "VAFT bootstrap ($PlatformLabel): what changed"
     Write-Host '--------------'
     $script:SummaryLines | ForEach-Object { Write-Host $_ }
     Write-Host @'
 
-Next:
-  1. Run `hsconfigure` if your HSDS credentials are not configured yet.
-     This script never asks for, stores, or transmits your credentials.
-  2. Run `conda run -n vaft python install\check_vaft_environment.py`.
-  3. Run `conda activate vaft; jupyter lab`, and choose the "Python (vaft)" kernel.
-
 This script changed only: the `vaft` Conda environment, an editable VAFT
 installation inside it, and the user-level "Python (vaft)" Jupyter kernelspec.
 It did not modify your repository checkout or any other Conda environment.
+
+Next:
+  1. Run `hsconfigure` if your HSDS credentials are not configured yet.
+     This script never asks for, stores, or transmits your credentials.
+  2. Run `conda activate vaft; jupyter lab`, and choose the "Python (vaft)" kernel.
 '@
 }
 
@@ -227,11 +175,16 @@ if ($CheckOnly) {
 Initialize-VaftEnvironment
 Write-PythonReport
 Install-VaftEditable
-Test-VaftImportLocation
-Test-Importable -Module 'h5pyd' -Label 'HSDS client'
-Test-Importable -Module 'jupyterlab' -Label 'JupyterLab'
 Register-VaftKernel
 Write-Summary
 
 if ($script:Failed) { exit 1 }
-exit 0
+
+# Verification lives in one place. The checker reports every environment
+# property with its own remediation, so the bootstrap does not reimplement those
+# probes -- and its exit status becomes the bootstrap's.
+Write-Host ''
+Write-Host 'Verifying the environment ...'
+Write-Host ''
+Invoke-InVaft @('python', (Join-Path $RepositoryRoot 'install\check_vaft_environment.py'))
+exit $LASTEXITCODE
