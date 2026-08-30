@@ -158,7 +158,7 @@ VAFT environment check
 [PASS] ipykernel
 [PASS] Python (vaft) kernel
 [PASS] Git
-[PASS] HSDS configuration
+[WARN] HSDS configuration
 [SKIP] HSDS connection
 ```
 
@@ -168,18 +168,23 @@ probe the HSDS endpoint using the credentials already in `~/.hscfg`. Add
 `--json` for machine-readable output. The exit status is `0` only when nothing
 failed.
 
+`[WARN]` marks an optional capability. Missing HSDS credentials are a warning
+rather than a failure, because the whole offline course -- Tutorial 01
+included -- runs from data packaged in the repository. They become a failure
+only under `--include-network`, where they are genuinely required.
+
 Every failure names the corrective action:
 
 ```text
-[FAIL] HSDS configuration
-       /Users/student/.hscfg does not exist
+[WARN] HSDS configuration
+       /home/student/.hscfg does not exist; needed only for remote database access
        -> Run `hsconfigure`, then rerun this check.
 ```
 
 ```text
 [FAIL] expected Conda environment
        expected the `vaft` environment, but the active interpreter is
-       /opt/miniconda3/bin/python3 (CONDA_DEFAULT_ENV=base)
+       /opt/miniconda3 (CONDA_DEFAULT_ENV=base)
        -> Run `conda activate vaft`, then rerun this check.
 ```
 

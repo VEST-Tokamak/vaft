@@ -101,12 +101,17 @@ function Initialize-VaftEnvironment {
 
 function Invoke-InVaft {
     # Run a command inside the `vaft` environment without mutating this shell.
-    param([Parameter(Mandatory, ValueFromRemainingArguments)] [string[]] $Arguments)
+    #
+    # Always call this with a single array literal, never as
+    # `Invoke-InVaft python -m pip install -e .`: PowerShell would try to bind
+    # the bare `-e` to a parameter of this function and fail before conda ever
+    # sees it.
+    param([Parameter(Mandatory)] [string[]] $Arguments)
     & conda run --name $EnvironmentName --no-capture-output @Arguments
 }
 
 function Write-PythonReport {
-    $description = Invoke-InVaft python -c 'import platform, sys; print(platform.python_version(), sys.executable)'
+    $description = Invoke-InVaft @('python', '-c', 'import platform, sys; print(platform.python_version(), sys.executable)')
     Write-Result -Status PASS -Name 'Python' -Detail $description
 }
 
@@ -114,7 +119,7 @@ function Install-VaftEditable {
     Write-Host "Installing VAFT in editable mode from $RepositoryRoot ..."
     Push-Location $RepositoryRoot
     try {
-        Invoke-InVaft python -m pip install -e .
+        Invoke-InVaft @('python', '-m', 'pip', 'install', '-e', '.')
         if ($LASTEXITCODE -ne 0) { Stop-WithGuidance 'Editable installation failed.' }
     }
     finally {
@@ -135,7 +140,7 @@ if root not in located.parents:
     raise SystemExit(1)
 print(located)
 '@
-    Invoke-InVaft python -c $probe $RepositoryRoot | Out-Null
+    Invoke-InVaft @('python', '-c', $probe, $RepositoryRoot) | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Result -Status PASS -Name 'VAFT resolves to this checkout'
     }
@@ -150,7 +155,7 @@ function Test-Importable {
         [Parameter(Mandatory)] [string] $Module,
         [Parameter(Mandatory)] [string] $Label
     )
-    Invoke-InVaft python -c "import $Module" | Out-Null
+    Invoke-InVaft @('python', '-c', "import $Module") | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Result -Status PASS -Name $Label
     }
@@ -162,7 +167,10 @@ function Test-Importable {
 function Register-VaftKernel {
     # `--name vaft` overwrites any existing spec of the same name, so repeated
     # runs replace the kernel in place instead of accumulating duplicates.
-    Invoke-InVaft python -m ipykernel install --user --name $KernelName --display-name $KernelDisplayName | Out-Null
+    Invoke-InVaft @(
+        'python', '-m', 'ipykernel', 'install', '--user',
+        '--name', $KernelName, '--display-name', $KernelDisplayName
+    ) | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Result -Status FAIL -Name "$KernelDisplayName kernel" -Detail 'ipykernel install failed'
         return
@@ -176,7 +184,7 @@ payload = subprocess.run(
 names = list(json.loads(payload).get("kernelspecs", {}))
 sys.exit(0 if names.count(sys.argv[1]) == 1 else 1)
 '@
-    Invoke-InVaft python -c $probe $KernelName | Out-Null
+    Invoke-InVaft @('python', '-c', $probe, $KernelName) | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Result -Status PASS -Name "$KernelDisplayName kernel"
     }
@@ -212,7 +220,7 @@ Write-Host ''
 Assert-Conda
 
 if ($CheckOnly) {
-    Invoke-InVaft python (Join-Path $RepositoryRoot 'install\check_vaft_environment.py')
+    Invoke-InVaft @('python', (Join-Path $RepositoryRoot 'install\check_vaft_environment.py'))
     exit $LASTEXITCODE
 }
 

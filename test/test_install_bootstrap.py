@@ -166,10 +166,26 @@ def test_missing_kernel_reports_the_install_command():
 # ---------------------------------------------------------------------------
 
 
-def test_missing_hsds_configuration_points_at_hsconfigure(tmp_path):
+def test_missing_hsds_configuration_warns_but_does_not_fail_offline(tmp_path):
+    """The offline course works without credentials, so this must not block it."""
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg")
+    assert result.status == checker.WARN
+    assert not result.failed
+    assert "hsconfigure" in result.remediation
+
+
+def test_missing_hsds_configuration_fails_when_a_network_probe_was_requested(tmp_path):
+    result = checker.check_hsds_configuration(path=tmp_path / ".hscfg", required=True)
     assert result.failed
     assert "hsconfigure" in result.remediation
+
+
+def test_offline_run_passes_without_any_credentials(monkeypatch, tmp_path):
+    """CI has no ~/.hscfg and must still get a clean offline result."""
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    results = checker.run_checks(include_network=False)
+    configuration = next(item for item in results if item.name == "HSDS configuration")
+    assert configuration.status == checker.WARN
 
 
 def test_hsds_configuration_never_reports_credential_values(tmp_path):
@@ -279,6 +295,24 @@ def test_kernel_registration_is_pinned_to_one_name():
 # ---------------------------------------------------------------------------
 # Documentation contract
 # ---------------------------------------------------------------------------
+
+
+def test_powershell_helper_is_always_called_with_an_argument_array():
+    """A bare `-e` at the call site binds to the *function*, not to conda.
+
+    PowerShell resolves parameter names before the arguments reach the command
+    being run, so `Invoke-InVaft python -m pip install -e .` fails with an
+    ambiguous-parameter error. Every call must pass one array literal.
+    """
+    text = (INSTALL / "windows_native.ps1").read_text(encoding="utf-8")
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("Invoke-InVaft") and "= Invoke-InVaft" not in stripped:
+            continue
+        call = stripped.split("Invoke-InVaft", 1)[1].strip()
+        assert call.startswith("@("), (
+            f"pass an argument array, not bare flags: {stripped}"
+        )
 
 
 def test_readme_documents_the_update_path():
@@ -586,21 +620,36 @@ def test_check_only_mode_changes_nothing(fake_conda, monkeypatch):
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
 def test_bootstrap_reports_missing_conda_with_guidance(tmp_path, monkeypatch):
     """Without Conda the script must explain the fix, not traceback."""
-    empty = tmp_path / "empty"
-    empty.mkdir()
     bash = shutil.which("bash")
     assert bash
-    # Keep the standard system directories so `bash` and its builtins resolve;
-    # Conda never lives there, so it is genuinely absent.
-    stripped = os.pathsep.join([str(empty), "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
+
+    # Do not simply prepend an empty directory to PATH: hosted CI runners expose
+    # `conda` from the standard system directories, so the script would find one,
+    # really build an environment, and hang on an interactive prompt. Instead give
+    # it a sandbox containing only the handful of external tools it needs before
+    # the Conda check -- and, deliberately, no conda.
+    sandbox = tmp_path / "bin"
+    sandbox.mkdir()
+    for tool in ("dirname", "basename", "uname", "awk", "grep", "cat", "sed", "env"):
+        located = shutil.which(tool)
+        if located:
+            (sandbox / tool).symlink_to(located)
+
+    environment = {"PATH": str(sandbox), "HOME": os.environ.get("HOME", str(tmp_path))}
+    reachable = subprocess.run(
+        [bash, "-c", "command -v conda"], env=environment, capture_output=True, timeout=60
+    )
+    assert reachable.returncode != 0, "the sandbox must not expose conda"
+
     completed = subprocess.run(
         [bash, str(INSTALL / "linux.sh")],
         capture_output=True,
         text=True,
         cwd=str(ROOT),
-        env={**os.environ, "PATH": stripped},
+        env=environment,
         timeout=120,
     )
     assert completed.returncode == 1
     assert "Install Miniconda first" in completed.stderr
     assert "does not install Conda for you" in completed.stderr
+    assert "env create" not in completed.stdout, "nothing may be built without Conda"

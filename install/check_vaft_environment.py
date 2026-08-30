@@ -31,6 +31,9 @@ from typing import Callable, Iterable, NamedTuple, Optional, Sequence
 PASS = "PASS"
 FAIL = "FAIL"
 SKIP = "SKIP"
+#: Reported and visible, but does not fail the run. Used for capabilities that
+#: are optional for the offline course material, such as HSDS credentials.
+WARN = "WARN"
 
 EXPECTED_ENVIRONMENT = "vaft"
 KERNEL_NAME = "vaft"
@@ -257,16 +260,28 @@ def check_vaft_kernel(
     )
 
 
-def check_hsds_configuration(path: Optional[Path] = None) -> CheckResult:
+def check_hsds_configuration(
+    path: Optional[Path] = None, *, required: bool = False
+) -> CheckResult:
     """``~/.hscfg`` exists and names the keys h5pyd needs.
+
+    Missing credentials are a warning, not a failure: the whole offline course
+    -- including Tutorial 01 -- runs from data packaged in the repository. They
+    become a failure only when a network probe was explicitly requested.
 
     Only key names are reported. Credential values are never read into the
     report, printed, or returned.
     """
     config = Path(path) if path is not None else Path.home() / ".hscfg"
     remediation = "Run `hsconfigure`, then rerun this check."
+    missing_status = FAIL if required else WARN
     if not config.is_file():
-        return CheckResult("HSDS configuration", FAIL, f"{config} does not exist", remediation)
+        return CheckResult(
+            "HSDS configuration",
+            missing_status,
+            f"{config} does not exist; needed only for remote database access",
+            remediation,
+        )
     present = []
     for line in config.read_text(encoding="utf-8", errors="replace").splitlines():
         stripped = line.strip()
@@ -278,7 +293,7 @@ def check_hsds_configuration(path: Optional[Path] = None) -> CheckResult:
     if "hs_endpoint" not in present:
         return CheckResult(
             "HSDS configuration",
-            FAIL,
+            missing_status,
             f"{config} does not set hs_endpoint",
             remediation,
         )
@@ -358,7 +373,7 @@ def run_checks(*, include_network: bool = False) -> list[CheckResult]:
             "Install Git, then reopen your shell. See install/README.md for the "
             "per-platform instructions.",
         ),
-        check_hsds_configuration(),
+        check_hsds_configuration(required=include_network),
     ]
     if include_network:
         results.append(check_hsds_connection())
@@ -380,10 +395,16 @@ def format_report(results: Sequence[CheckResult]) -> str:
         lines.append(f"[{result.status}] {result.name}")
         if result.detail:
             lines.append(f"       {result.detail}")
-        if result.failed and result.remediation:
+        if result.status in (FAIL, WARN) and result.remediation:
             lines.append(f"       -> {result.remediation}")
+    warnings = [result for result in results if result.status == WARN]
     failures = [result for result in results if result.failed]
     lines.append("")
+    if warnings and not failures:
+        lines.append(
+            f"{len(warnings)} optional capability is unconfigured; "
+            "the offline course material works without it."
+        )
     if failures:
         lines.append(f"{len(failures)} check(s) failed. Fix the actions above and rerun:")
         lines.append("  python install/check_vaft_environment.py")
