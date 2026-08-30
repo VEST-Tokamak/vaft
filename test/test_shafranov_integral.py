@@ -1,8 +1,8 @@
 """
 Test Shafranov integrals (S_1, S_2, S_3, alpha) across three sources.
 
-1. aeq file (a039915.00319): reference S_1, S_2, S_3, alpha from OMFITaeqdsk.
-2. g-file (g039915.00319): load via omfit_classes -> ODS -> vaft Shafranov.
+1. aeq file (a039915.00319): reference S_1, S_2, S_3, alpha read by vaft.data.read_aeqdsk.
+2. g-file (g039915.00319): vaft.data.read_geqdsk -> ODS -> vaft Shafranov.
 3. ODS from database: vaft.database.load(39915), equilibrium time index for the
    same time (0.319 s) -> compute_virial_equilibrium_quantities_ods -> S_1, S_2, S_3, alpha.
 
@@ -15,7 +15,8 @@ Compare CHEASE g-file, EFIT afile (aeq), and EFIT g-file by shot and time (no pa
     {base}/{shot}/efit/gfile/g0{shot}.00{time_ms}
   If base_dir is omitted, PUBLIC_BASE is used so beta_p, li, W_mag, W_kin use that shot's ODS.
 
-Requires: omfit_classes (OMFITgeqdsk/OMFITeqdsk, OMFITaeqdsk); vaft.database for ODS case.
+The reference values are EFIT's own, written into the a-file, so nothing here
+needs an external EQDSK reader. Requires vaft.database for the ODS case.
 """
 from __future__ import annotations
 
@@ -174,18 +175,15 @@ def _aeq_safe_get(aeq, key: str, scale: float = 1.0, default=np.nan):
         return float(default) if np.isscalar(default) else default
 
 
-def _get_shafranov_from_aeq(aeq_path: str, skip_if_no_omfit: bool = False) -> dict:
+def _get_shafranov_from_aeq(aeq_path: str) -> dict:
     """
-    Read aEQDSK file (OMFITaeqdsk) and return dict aligned with comparison table.
+    Read aEQDSK file (vaft.data.read_aeqdsk) and return dict aligned with comparison table.
     Uses Table 20 / Fortran read order: S_1,S_2,S_3,alpha; R_0,Z_0 (from RM,ZM); B_pa (BPOLAV);
     V_p (VOLUME); beta_p (BETAP); li (LI); W_mag (WMHD); diamagnetic flux (CDFLUX, FLUXX/diamag); etc.
     """
-    if skip_if_no_omfit:
-        import pytest as _pytest
-        _pytest.importorskip("omfit_classes")
-    from omfit_classes.omfit_eqdsk import OMFITaeqdsk
+    from vaft.data import read_aeqdsk
 
-    aeq = OMFITaeqdsk(aeq_path)
+    aeq = read_aeqdsk(aeq_path)
     # Magnetic axis in cm -> m
     R_0 = _aeq_safe_get(aeq, "rm", scale=1.0 / 100.0)
     Z_0 = _aeq_safe_get(aeq, "zm", scale=1.0 / 100.0)
@@ -205,9 +203,9 @@ def _get_shafranov_from_aeq(aeq_path: str, skip_if_no_omfit: bool = False) -> di
     W_kin = _aeq_safe_get(aeq, "wdia")
     # Diamagnetic flux: CDFLUX = computed (Volt-sec = Wb), FLUXX/diamag = measured (Volt-sec)
     diamag_recon = _aeq_safe_get(aeq, "cdflux")
-    diamag_meas = _aeq_safe_get(aeq, "fluxx")
-    if not np.isfinite(diamag_meas):
-        diamag_meas = _aeq_safe_get(aeq, "diamag")
+    # write_a.f90 names the measured diamagnetic-flux record
+    # diamagnetic_flux_vs; OMFIT surfaced the same value as "fluxx"/"diamag".
+    diamag_meas = _aeq_safe_get(aeq, "diamagnetic_flux_vs")
 
     return {
         "S_1": _aeq_safe_get(aeq, "s1", scale=1.0),
@@ -231,7 +229,6 @@ def _get_shafranov_from_aeq(aeq_path: str, skip_if_no_omfit: bool = False) -> di
 
 def _get_shafranov_from_gfile_ods(
     g_path: str,
-    skip_if_no_omfit: bool = False,
     load_magnetics_from_shot: int | None = None,
     diagnostics_base: str | None = None,
     debug: bool = False,
@@ -247,12 +244,8 @@ def _get_shafranov_from_gfile_ods(
     If t_eq_override is set (e.g. user-specified time_s), it is used for Δφ meas interpolation
     from diagnostics JSON instead of equilibrium time from the g-file (which may be 0 or wrong).
     """
-    if skip_if_no_omfit:
-        import pytest as _pytest
-        _pytest.importorskip("omfit_classes")
-    from omfit_classes.omfit_eqdsk import OMFITeqdsk
-
     from vaft.code.efit import gfile_to_omas
+    from vaft.data import read_geqdsk
     from vaft.omas.update import update_equilibrium_boundary
     from vaft.process.equilibrium import (
         poloidal_field_at_boundary,
@@ -260,7 +253,7 @@ def _get_shafranov_from_gfile_ods(
         calculate_average_boundary_poloidal_field,
     )
 
-    eq = OMFITeqdsk(g_path)
+    eq = read_geqdsk(g_path)
     ods = gfile_to_omas(eq)
     update_equilibrium_boundary(ods)
 
@@ -712,16 +705,14 @@ def report_diamagnetic_signal(shot: int, time_s: float, base: str | None = None)
     aeq_cdflux, aeq_fluxx = np.nan, np.nan
     if os.path.isfile(paths["efit_afile"]):
         try:
-            from omfit_classes.omfit_eqdsk import OMFITaeqdsk
-            aeq = OMFITaeqdsk(paths["efit_afile"])
+            from vaft.data import read_aeqdsk
+            aeq = read_aeqdsk(paths["efit_afile"])
             aeq_cdflux = _aeq_safe_get(aeq, "cdflux")
-            aeq_fluxx = _aeq_safe_get(aeq, "fluxx")
-            if not np.isfinite(aeq_fluxx):
-                aeq_fluxx = _aeq_safe_get(aeq, "diamag")
+            aeq_fluxx = _aeq_safe_get(aeq, "diamagnetic_flux_vs")
         except Exception:
             pass
     rows.append(("aeqdsk", "CDFLUX", "V·s (Wb)", _fmt(aeq_cdflux)))
-    # FLUXX: read as-is from OMFITaeqdsk (no unit conversion). If 1000× smaller than kfile DFLUX→Wb, aeq may use µV·s or EFIT output may differ.
+    # FLUXX: read as-is from the a-file (no unit conversion). If 1000× smaller than kfile DFLUX→Wb, aeq may use µV·s or EFIT output may differ.
     rows.append(("aeqdsk", "FLUXX", "V·s (Wb)", _fmt(aeq_fluxx)))
 
     # ---- keqdsk: DFLUX in file is mV·s; we show raw and Wb (1 mV·s = 1e-3 Wb) ----
@@ -787,9 +778,9 @@ def test_shafranov_integral_vs_aeq():
     if not os.path.isfile(aeq_path):
         pytest.skip("aeq file sample not found")
 
-    aeq_vals = _get_shafranov_from_aeq(aeq_path, skip_if_no_omfit=True)
+    aeq_vals = _get_shafranov_from_aeq(aeq_path)
     gfile_vals = _get_shafranov_from_gfile_ods(
-        g_path, skip_if_no_omfit=True, load_magnetics_from_shot=SHOT_FOR_GFILE
+        g_path, load_magnetics_from_shot=SHOT_FOR_GFILE
     )
     ods_vals = None
     try:
@@ -863,4 +854,4 @@ if __name__ == "__main__":
             _print_comparison(aeq_vals, gfile_vals, ods_vals)
         except ImportError as e:
             print("Missing dependency:", e)
-            print("Install omfit_classes and vaft dependencies (e.g. scikit-learn) and run from repo root with PYTHONPATH=.")
+            print("Install vaft dependencies (e.g. scikit-learn) and run from repo root with PYTHONPATH=.")
