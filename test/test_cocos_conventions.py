@@ -187,3 +187,154 @@ def test_cocos_types_are_exported_from_the_data_package():
     assert vaft.data.convention_for("chease").cocos == 2
     for name in ("CocosSpec", "CodeConvention", "cocos_spec", "convention_for", "VAFT_INTERNAL_COCOS"):
         assert name in vaft.data.__all__, name
+
+
+# --- Sauter Eq. 23 consistency checking -----------------------------------
+
+
+def _consistent_equilibrium(cocos: int = 11, *, ip: float = 1.0e6, bt0: float = 2.0):
+    """An equilibrium built to satisfy Eq. 23 for ``cocos`` by construction."""
+    import numpy as np
+
+    from vaft.data.cocos import cocos_spec
+    from vaft.data.equilibrium import EquilibriumConvention, EquilibriumData
+
+    spec = cocos_spec(cocos)
+    sigma_ip, sigma_b0 = (1 if ip > 0 else -1), (1 if bt0 > 0 else -1)
+    psi_n = np.linspace(0.0, 1.0, 65)
+    # sign(psi_edge - psi_axis) = sigma_Ip * sigma_Bp
+    delta = spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=sigma_b0)
+    psi_1d = delta * psi_n
+    return EquilibriumData(
+        psi_axis=0.0, psi_boundary=float(delta),
+        psi_1d=psi_1d,
+        # p falls from axis to edge, so sign(dp/dpsi) follows -sigma_Ip*sigma_Bp
+        pressure=1.0e4 * (1.0 - psi_n**2),
+        f=np.full(psi_n.size, spec.expected_sign("f", sigma_ip=sigma_ip, sigma_b0=sigma_b0) * 1.0),
+        q=np.linspace(1.0, 3.0, psi_n.size) * spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+        ip=ip, bt0=bt0, r0=1.0,
+        convention=EquilibriumConvention(cocos, (cocos,), spec.psi_per_radian, None,
+                                         sigma_ip, sigma_b0, None, "test"),
+    )
+
+
+@pytest.mark.parametrize("cocos", [1, 2, 3, 5, 7, 11, 13, 17])
+@pytest.mark.parametrize("ip,bt0", [(1e6, 2.0), (-1e6, 2.0), (1e6, -2.0), (-1e6, -2.0)])
+def test_an_equilibrium_built_to_equation_23_validates_in_its_own_convention(cocos, ip, bt0):
+    """Eq. 23 must hold for every index and every combination of Ip and B0 signs."""
+    from vaft.process.cocos import validate_cocos
+
+    report = validate_cocos(_consistent_equilibrium(cocos, ip=ip, bt0=bt0), cocos)
+    assert report.valid, [item.message for item in report.issues]
+
+
+def test_the_wrong_index_is_rejected_with_the_relation_that_failed():
+    """COCOS 1 and 3 differ in sigma_Bp, so psi and dp/dpsi must both disagree."""
+    from vaft.process.cocos import validate_cocos
+
+    report = validate_cocos(_consistent_equilibrium(1), 3)
+    assert not report.valid
+    codes = {item.code for item in report.issues}
+    assert {"cocos_sign_dpsi", "cocos_sign_pprime"} <= codes
+    message = next(item.message for item in report.issues if item.code == "cocos_sign_dpsi")
+    assert "COCOS 3 requires" in message and "but it is" in message
+
+
+def test_a_q_sign_mismatch_is_a_warning_because_codes_commonly_emit_abs_q():
+    """Sauter Sect. IV: warn on a q mismatch, do not reject the equilibrium."""
+    import numpy as np
+
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process.cocos import validate_cocos
+
+    eq = _consistent_equilibrium(3)
+    flipped = EquilibriumData(**{**eq.__dict__, "q": np.abs(eq.q)})
+    report = validate_cocos(flipped, 3)
+    issues = {item.code: item.severity for item in report.issues}
+    assert issues["cocos_sign_q"] == "warning"
+    assert report.valid, "a q mismatch alone must not invalidate the equilibrium"
+
+
+def test_an_undeclared_convention_is_an_error_rather_than_a_silent_pass():
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process.cocos import validate_cocos
+
+    report = validate_cocos(EquilibriumData())
+    assert not report.valid
+    assert {item.code for item in report.issues} == {"cocos_undeclared"}
+
+
+def test_unavailable_inputs_produce_one_summary_warning_not_one_per_relation():
+    """j_phi and the toroidal flux are not carried on the model, so they are skipped."""
+    from vaft.process.cocos import validate_cocos
+
+    report = validate_cocos(_consistent_equilibrium(11), 11)
+    unverifiable = [item for item in report.issues if item.code == "cocos_unverifiable"]
+    assert len(unverifiable) == 1
+    assert "toroidal current density" in unverifiable[0].message
+    assert "toroidal flux" in unverifiable[0].message
+
+
+def test_missing_current_or_field_sign_stops_the_check_without_claiming_success():
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process.cocos import validate_cocos
+
+    eq = _consistent_equilibrium(11)
+    report = validate_cocos(EquilibriumData(**{**eq.__dict__, "bt0": None}), 11)
+    assert [item.code for item in report.issues] == ["cocos_unverifiable"]
+    assert "bt0" in report.issues[0].message
+
+
+def test_bulk_pressure_slope_is_used_rather_than_a_pointwise_derivative():
+    """Sauter: dp/dpsi's 'main' sign, so a non-monotonic edge must not flip it."""
+    import numpy as np
+
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process.cocos import cocos_consistency_signs
+
+    eq = _consistent_equilibrium(11)
+    pressure = np.asarray(eq.pressure).copy()
+    pressure[-3:] = pressure[-3:] + 5.0  # a small non-monotonic edge feature
+    bumped = EquilibriumData(**{**eq.__dict__, "pressure": pressure})
+    assert cocos_consistency_signs(bumped)["pprime"] == cocos_consistency_signs(eq)["pprime"]
+
+
+def test_a_stale_case_header_declares_a_convention_the_signs_contradict():
+    """Regression: two packaged g-files carry `COCOS=02` in CASE but are not COCOS 2.
+
+    They are VAFT's own CHEASE outputs, re-signed back to the input pattern by
+    `output_cocos="input"` without the header being rewritten. `as_equilibrium`
+    promotes the CASE token straight to an explicit index, so the contradiction
+    is currently accepted in silence; Eq. 23 catches it.
+    """
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path, require_repository_sample
+    from vaft.process.equilibrium import as_equilibrium
+    from vaft.process.cocos import validate_cocos
+
+    for name in ("efit/g040330.00320", "kineticEfit/g048224.00300.chease"):
+        geqdsk = read_geqdsk(require_repository_sample(data_path(name)))
+        assert "COCOS=02" in str(geqdsk.mapping["CASE"]), name
+        equilibrium = as_equilibrium(geqdsk)
+        assert equilibrium.convention.cocos == 2, name
+        assert equilibrium.convention.source == "GEQDSK header", name
+
+        declared = validate_cocos(equilibrium, 2)
+        assert not declared.valid, f"{name}: the declared index should not validate"
+        assert {"cocos_sign_dpsi", "cocos_sign_pprime"} <= {i.code for i in declared.issues}
+        # The index its observable signs actually support.
+        assert validate_cocos(equilibrium, 7).valid, name
+
+
+def test_the_packaged_efit_sample_validates_in_the_family_its_signs_identify():
+    """g039915 identifies as {1,2,11,12}; Eq. 23 must accept those and reject others."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+    from vaft.process.cocos import validate_cocos
+
+    equilibrium = as_equilibrium(sample_geqdsk())
+    assert equilibrium.convention.candidates == (1, 2, 11, 12)
+    for cocos in (1, 2, 11, 12):
+        assert validate_cocos(equilibrium, cocos).valid, cocos
+    for cocos in (3, 4, 7, 8):
+        assert not validate_cocos(equilibrium, cocos).valid, cocos
