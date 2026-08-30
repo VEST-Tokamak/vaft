@@ -48,7 +48,19 @@ VEST Data Analysis Platform
 
 ### Installation
 
-Install from source (recommended):
+New to VAFT, or setting up a teaching/course machine? Follow
+[`install/README.md`](install/README.md): it has a one-command bootstrap for
+Linux, macOS, native Windows, and WSL2, an environment checker, and the
+procedure for updating an existing checkout.
+
+```bash
+git clone https://github.com/VEST-Tokamak/vaft.git
+cd vaft
+bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+Install from source manually:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
