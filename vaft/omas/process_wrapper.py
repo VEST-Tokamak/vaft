@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 GEOMETRY_TYPE_POLYGON = 1
 GEOMETRY_TYPE_RECTANGLE = 2
 DT_SUB = 5e-5
+#: Observation-source separation [m] below which the exact response path
+#: warns: the clamped elliptic integrals return finite artifacts there.
+COINCIDENT_SOURCE_TOL = 1e-6
 
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
     """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
@@ -290,6 +293,116 @@ def compute_grid_response_ods(
     except Exception as e: 
         logger.error(f"Error during computation: {e}")
         raise
+
+def compute_point_response_matrices_ods(
+    ods: ODS,
+    rz: List[List[float]],
+    plasma_points: Optional[List[List[float]]] = None,
+    components: Tuple[str, ...] = ("psi", "bz", "br"),
+    ) -> Tuple[ndarray, ...]:
+    """Vectorized, exact-elliptic (Psi, Bz, Br) response matrices from an ODS.
+
+    Fast alternative to :func:`compute_point_response_ods` (issue #239):
+    delegates to ``vaft.process.electromagnetics.compute_point_response_matrices``
+    (scipy-exact Green's functions, full NumPy broadcasting) instead of the
+    per-point Python loops over ``compute_br_bz_phi``. Column ordering matches
+    :func:`compute_point_response_ods`: ``[coils..., loops..., plasma...]``,
+    with coil columns summed over discretized elements weighted by
+    ``turns_with_sign`` and passive loops reduced to their outline centroid
+    (or rectangle centre).
+
+    Two deliberate differences from the legacy path: exact elliptic integrals
+    instead of the polynomial approximation (~1e-6 relative), and no 1 cm
+    shift-averaging near sources. An observation point coincident with a
+    source does NOT diverge or raise — the exact Green's functions clamp the
+    elliptic parameter, so it returns finite but PHYSICALLY MEANINGLESS
+    values; a UserWarning is emitted when any observation point sits within
+    ``COINCIDENT_SOURCE_TOL`` of a source. Keep observation points off the
+    source locations.
+
+    :param ods: OMAS data structure with ``pf_active`` and ``pf_passive``
+    :param rz: observation points, sequence of [r, z] pairs (shape (n, 2))
+    :param plasma_points: optional plasma filament points, same shape rules
+    :param components: which matrices to compute, a subset of
+        ("psi", "bz", "br") in the desired order; "psi" alone skips the
+        field-component elliptic passes (~3x cheaper)
+    :return: matrices matching *components* (default (Psi, Bz, Br)),
+        each (n_points, nbcoil + nbloop + nbplas)
+    """
+    import warnings
+
+    from vaft.process.electromagnetics import compute_point_response_matrices
+
+    rz = np.atleast_2d(np.asarray(rz, dtype=float))
+    if rz.ndim != 2 or rz.shape[1] != 2:
+        raise ValueError(f"rz must have shape (n, 2) of [r, z] pairs; got {rz.shape}")
+    obs_r, obs_z = rz[:, 0], rz[:, 1]
+
+    try:
+        pf = ods["pf_active"]
+        pfp = ods["pf_passive"]
+        nbcoil = len(pf["coil"])
+        nbloop = len(pfp["loop"])
+
+        src_r, src_z, turns, groups = [], [], [], []
+        for ii in range(nbcoil):
+            for jj in range(len(pf[f"coil.{ii}.element"])):
+                src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
+                src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
+                turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
+                groups.append(ii)
+        for ii in range(nbloop):
+            geometry = pfp[f"loop.{ii}.element[0].geometry"]
+            if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
+                src_r.append(float(np.mean(geometry["outline.r"])))
+                src_z.append(float(np.mean(geometry["outline.z"])))
+            else:
+                src_r.append(float(geometry["rectangle.r"]))
+                src_z.append(float(geometry["rectangle.z"]))
+            turns.append(1.0)
+            groups.append(nbcoil + ii)
+    except KeyError as e:
+        logger.error(f"Missing required data in ODS: {e}")
+        raise
+
+    n_groups = nbcoil + nbloop
+    if plasma_points is not None and len(plasma_points) > 0:
+        plasma = np.atleast_2d(np.asarray(plasma_points, dtype=float))
+        if plasma.ndim != 2 or plasma.shape[1] != 2:
+            raise ValueError(
+                f"plasma_points must have shape (n, 2) of [r, z] pairs; "
+                f"got {plasma.shape}"
+            )
+        for r_p, z_p in plasma:
+            src_r.append(float(r_p))
+            src_z.append(float(z_p))
+            turns.append(1.0)
+            groups.append(n_groups)
+            n_groups += 1
+
+    src_r = np.asarray(src_r)
+    src_z = np.asarray(src_z)
+    sep2 = (obs_r[:, None] - src_r[None, :]) ** 2 + (obs_z[:, None] - src_z[None, :]) ** 2
+    n_coincident = int(np.count_nonzero(np.min(sep2, axis=1) < COINCIDENT_SOURCE_TOL**2))
+    if n_coincident:
+        warnings.warn(
+            f"{n_coincident} observation point(s) coincide with a source "
+            f"(within {COINCIDENT_SOURCE_TOL:g} m); the exact Green's "
+            "functions return finite but physically meaningless values there",
+            stacklevel=2,
+        )
+
+    return compute_point_response_matrices(
+        obs_r,
+        obs_z,
+        src_r,
+        src_z,
+        turns=np.asarray(turns),
+        groups=np.asarray(groups, dtype=int),
+        n_groups=n_groups,
+        components=components,
+    )
+
 
 def compute_impedance_matrices_ods(
     ods: ODS,
