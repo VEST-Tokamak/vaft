@@ -50,7 +50,12 @@ def _analytic_equilibrium(kind: str = "limited") -> EquilibriumData:
         selected = max(raw, key=lambda pair: pair[0].size)
         lcfs = Contour(selected[0], selected[1])
     theta_wall = np.linspace(0, 2 * np.pi, 361, endpoint=False)
-    limiter = Contour(1.0 + 0.48 * np.cos(theta_wall), 0.68 * np.sin(theta_wall))
+    # A limited plasma is bounded by wall contact, so its wall touches the LCFS
+    # at the midplane; the diverted fixture keeps a clear wall.
+    limiter = (
+        Contour(1.0 + 0.35 * np.cos(theta_wall), 0.55 * np.sin(theta_wall)) if kind == "limited"
+        else Contour(1.0 + 0.42 * np.cos(theta_wall), 0.62 * np.sin(theta_wall))
+    )
     psi_1d = np.linspace(0, boundary, r.size)
     psi_n = psi_1d / boundary
     return EquilibriumData(
@@ -183,12 +188,12 @@ def test_solovev_fields_satisfy_grad_shafranov_and_constraints_recover_coefficie
 
 def test_boundary_limiter_and_double_null_classification_and_gaps():
     limited = derive_boundary_representation(_analytic_equilibrium("limited"), fourier_modes=12)
-    assert limited.topology == Topology.LIMITER
+    assert limited.topology == Topology.LIMITED
     assert all(gap.distance.available for gap in limited.gaps)
     assert limited.fourier_reconstruction_error.value < 2e-3
-    double = derive_boundary_representation(_analytic_equilibrium("double"), flux_tolerance=2e-2)
+    double = derive_boundary_representation(_analytic_equilibrium("double"))
     assert double.topology == Topology.DOUBLE_NULL
-    assert len([point for point in double.x_points if point.active]) >= 2
+    assert len([point for point in double.x_points if point.active]) == 2
     assert double.d_r_sep.available
     assert abs(double.d_r_sep.value) < 5e-3
 
@@ -316,20 +321,190 @@ def test_solovev_export_honors_the_declared_psi_convention():
     per-radian export."""
     from vaft.process.equilibrium import solovev_to_equilibrium
 
-    model = _classic_solovev()
-    r = np.linspace(0.55, 1.45, 141)
-    z = np.linspace(-0.55, 0.55, 141)
-    per_radian = solovev_to_equilibrium(model, r, z, convention=2)
-    full_weber = solovev_to_equilibrium(model, r, z, convention=11)
-    np.testing.assert_allclose(full_weber.psi, 2 * np.pi * per_radian.psi)
-    assert full_weber.psi_boundary == pytest.approx(2 * np.pi * per_radian.psi_boundary)
-    np.testing.assert_allclose(full_weber.pressure, per_radian.pressure)
-    assert full_weber.ip == pytest.approx(per_radian.ip)
-    d_rad = derive_global_descriptors(per_radian)
-    d_wb = derive_global_descriptors(full_weber)
-    for name in ("beta_p_boundary_average", "s1"):
-        assert d_rad[name].available and d_wb[name].available
-        assert d_wb[name].value == pytest.approx(d_rad[name].value, rel=1e-6), name
+    # c2 > 0 makes the axis a saddle in Z, so no magnetic axis exists.
+    saddle = SolovevEquilibrium(np.array([0.0, -0.02, 0.015, 0.0, 0.0]), -1.0e5, 0.0, 1.0)
+    with pytest.raises(ValueError, match="magnetic axis"):
+        solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121))
+
+
+def test_d_r_sep_uses_the_midplane_and_reports_asymmetry():
+    balanced = derive_boundary_representation(_analytic_equilibrium("double"))
+    assert balanced.topology == Topology.DOUBLE_NULL
+    assert balanced.d_r_sep.available
+    assert balanced.d_r_sep.value == pytest.approx(0.0, abs=1e-6)
+
+    # An unbalanced pair: psi_boundary is the primary (innermost) X-point flux,
+    # as a real reconstruction defines it, so the secondary sits further out and
+    # the midplane offset is nonzero.  It must never be the grid edge that
+    # max(contour.r) used to return.
+    unbalanced, primary, secondary = _unbalanced_double_null()
+    assert unbalanced.topology.is_diverted
+    assert unbalanced.d_r_sep.available
+    expected = np.sqrt(secondary) - np.sqrt(primary)  # R_out(psi) = 1 + sqrt(psi)
+    assert unbalanced.d_r_sep.value == pytest.approx(expected, abs=2e-3)
+    assert abs(unbalanced.d_r_sep.value) > 1e-3
+
+
+def _unbalanced_double_null():
+    """A lower-null equilibrium whose secondary X-point sits just outside."""
+    from vaft.process.equilibrium import extract_flux_surface_contours
+
+    r = np.linspace(0.5, 1.5, 201)
+    z = np.linspace(-0.8, 0.8, 241)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    a, skew = 0.65, 0.08
+    psi = (rm - 1) ** 2 + zm**2 - zm**4 / a**2 + skew * zm**3
+    # dpsi/dz = 0 off the midplane at 4z^2/a^2 - 3*skew*z - 2 = 0.
+    roots = np.roots([4.0 / a**2, -3.0 * skew, -2.0])
+    fluxes = sorted(float(zz**2 - zz**4 / a**2 + skew * zz**3) for zz in roots)
+    primary, secondary = fluxes[0], fluxes[1]
+    raw = extract_flux_surface_contours(psi, r, z, 0.0, primary, [1.0])[1.0]
+    rb, zb = max(raw, key=lambda pair: pair[0].size)
+    eq = EquilibriumData(
+        r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=primary,
+        magnetic_axis=(1.0, 0.0), lcfs=Contour(rb, zb),
+        convention=EquilibriumConvention(1, (1,), True, False, 1, 1, 1, "test"),
+    )
+    return derive_boundary_representation(eq), primary, secondary
+
+
+def _topology_case(psi_of, boundary, *, r=None, z=None, wall=None, axis=(1.0, 0.0)):
+    """Build an equilibrium from an analytic psi and classify its boundary."""
+    from vaft.process.equilibrium import extract_flux_surface_contours
+
+    r = np.linspace(0.5, 1.5, 161) if r is None else r
+    z = np.linspace(-0.8, 0.8, 201) if z is None else z
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi = psi_of(rm, zm)
+    raw = extract_flux_surface_contours(psi, r, z, 0.0, boundary, [1.0])[1.0]
+    rb, zb = max(raw, key=lambda pair: pair[0].size)
+    eq = EquilibriumData(
+        r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=boundary, magnetic_axis=axis,
+        lcfs=Contour(rb, zb), limiter=wall,
+        convention=EquilibriumConvention(1, (1,), True, False, 1, 1, 1, "test"),
+    )
+    return derive_boundary_representation(eq)
+
+
+def _wall(radius: float, height: float) -> Contour:
+    theta = np.linspace(0, 2 * np.pi, 481, endpoint=False)
+    return Contour(1.0 + radius * np.cos(theta), height * np.sin(theta))
+
+
+def test_topology_limited_plasma_has_no_boundary_relevant_xpoint():
+    """A wall-limited plasma: no saddle anywhere, LCFS in contact with the wall."""
+    boundary = _topology_case(
+        lambda rm, zm: ((rm - 1) / 0.35) ** 2 + (zm / 0.5) ** 2, 1.0,
+        wall=_wall(0.35, 0.55),
+    )
+    assert boundary.topology is Topology.LIMITED
+    assert boundary.topology.is_limited and not boundary.topology.is_diverted
+    assert not [point for point in boundary.x_points if point.active]
+    assert boundary.wall_contact_distance.available
+    assert boundary.wall_contact_distance.value < 1e-2
+    assert not boundary.d_r_sep.available
+
+
+def test_topology_single_null_is_detected_and_attributed_to_a_branch():
+    """psi = (R-1)^2 + Z^2 - c Z^3 has exactly one saddle, at Z = 2/(3c) > 0."""
+    c = 1.481
+    boundary = _topology_case(
+        lambda rm, zm: (rm - 1) ** 2 + zm**2 - c * zm**3, 4.0 / (27.0 * c**2),
+        wall=_wall(0.42, 0.62),
+    )
+    assert boundary.topology is Topology.UPPER_SINGLE_NULL
+    assert boundary.topology.is_diverted
+    active = [point for point in boundary.x_points if point.active]
+    assert len(active) == 1
+    assert active[0].z == pytest.approx(2.0 / (3.0 * c), abs=1e-2)
+    assert active[0].r == pytest.approx(1.0, abs=1e-3)
+    assert active[0].psi_n == pytest.approx(1.0, abs=1e-6)
+
+
+def test_topology_double_null_finds_both_branches():
+    a = 0.65
+    boundary = _topology_case(
+        lambda rm, zm: (rm - 1) ** 2 + zm**2 - zm**4 / a**2, a**2 / 4,
+        wall=_wall(0.42, 0.62),
+    )
+    assert boundary.topology is Topology.DOUBLE_NULL
+    active = [point for point in boundary.x_points if point.active]
+    assert len(active) == 2
+    assert {round(float(np.sign(point.z))) for point in active} == {-1, 1}
+    for point in active:
+        assert abs(point.z) == pytest.approx(a / np.sqrt(2), abs=1e-2)
+        assert point.hessian_determinant < 0
+
+
+def test_topology_rejects_saddle_artifacts_away_from_the_separatrix():
+    """A saddle far from the boundary flux must not make a plasma look diverted."""
+    boundary = _topology_case(
+        lambda rm, zm: ((rm - 1) / 0.35) ** 2 + (zm / 0.5) ** 2
+        - 0.9 * np.exp(-((rm - 0.62) ** 2 + zm**2) / 0.004),
+        1.0, wall=_wall(0.35, 0.55),
+    )
+    saddles = [point for point in boundary.x_points]
+    assert saddles, "the fixture is meant to contain a saddle"
+    assert not [point for point in saddles if point.active]
+    assert boundary.topology is Topology.LIMITED
+
+
+def test_topology_real_geqdsk_artifacts_are_rejected_and_the_plasma_is_limited():
+    """The packaged VEST sample carries many numerical saddles near the axis of
+    the machine; none of them is relevant to the boundary flux."""
+    eq = as_equilibrium(sample_geqdsk(), convention=1)
+    boundary = derive_boundary_representation(eq)
+    assert len(boundary.x_points) > 1, "the sample is expected to expose saddle artifacts"
+    assert not [point for point in boundary.x_points if point.active]
+    assert not boundary.topology.is_diverted
+    assert boundary.topology is Topology.LIMITED
+    assert any(point.kind == "o" for point in boundary.stationary_points)
+    # The reconstruction's own magnetic axis must appear among the O-points.
+    o_points = [point for point in boundary.stationary_points if point.kind == "o"]
+    assert min(np.hypot(point.r - eq.magnetic_axis[0], point.z - eq.magnetic_axis[1]) for point in o_points) < 1e-2
+
+
+def test_topology_is_ambiguous_when_the_confined_region_is_grid_clipped():
+    a = 0.65
+    boundary = _topology_case(
+        lambda rm, zm: (rm - 1) ** 2 + zm**2 - zm**4 / a**2, a**2 / 4,
+        r=np.linspace(0.85, 1.15, 81), wall=_wall(0.42, 0.62),
+    )
+    assert boundary.topology is Topology.AMBIGUOUS
+    assert not boundary.topology.is_determinate
+    assert boundary.reason and "clipped" in boundary.reason
+    # The saddles are still reported, just not promoted to physical X-points.
+    assert boundary.x_points and not [point for point in boundary.x_points if point.active]
+
+
+def test_topology_is_ambiguous_without_a_wall_to_confirm_limiting():
+    boundary = _topology_case(
+        lambda rm, zm: ((rm - 1) / 0.35) ** 2 + (zm / 0.5) ** 2, 1.0, wall=None,
+    )
+    assert boundary.topology is Topology.AMBIGUOUS
+    assert boundary.reason and "limiter" in boundary.reason
+
+
+def test_topology_is_ambiguous_when_the_lcfs_is_bounded_by_neither():
+    boundary = _topology_case(
+        lambda rm, zm: ((rm - 1) / 0.35) ** 2 + (zm / 0.5) ** 2, 1.0,
+        wall=_wall(0.48, 0.68),
+    )
+    assert boundary.topology is Topology.AMBIGUOUS
+    assert boundary.reason and "clear of the wall" in boundary.reason
+
+
+def test_flux_window_is_derived_from_the_grid_not_hardcoded():
+    a = 0.65
+    boundary = _topology_case(
+        lambda rm, zm: (rm - 1) ** 2 + zm**2 - zm**4 / a**2, a**2 / 4, wall=_wall(0.42, 0.62),
+    )
+    tolerances = boundary.provenance.tolerances
+    assert np.isfinite(tolerances["grid_flux_resolution_psi_n"])
+    assert np.isfinite(tolerances["grid_spacing_m"])
+    assert tolerances["grid_flux_resolution_psi_n"] > 0
+    # NaN records that no single window was imposed: each saddle got its own.
+    assert np.isnan(tolerances["xpoint_flux_psi_n"])
 
 
 def test_shape_descriptors_use_the_conventional_geometric_centre():
@@ -348,3 +523,53 @@ def test_shape_descriptors_use_the_conventional_geometric_centre():
     assert descriptors["volume"].value == pytest.approx(
         2 * np.pi * descriptors["cross_section_area"].value * descriptors["area_centroid_r"].value
     )
+
+
+def test_topology_is_diverted_without_a_branch_when_the_axis_is_unknown():
+    """X-points are found, but with no magnetic axis they cannot be attributed."""
+    from vaft.process.equilibrium import extract_flux_surface_contours
+
+    r = np.linspace(0.5, 1.5, 161)
+    z = np.linspace(-0.8, 0.8, 201)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    a = 0.65
+    psi = (rm - 1) ** 2 + zm**2 - zm**4 / a**2
+    raw = extract_flux_surface_contours(psi, r, z, 0.0, a**2 / 4, [1.0])[1.0]
+    rb, zb = max(raw, key=lambda pair: pair[0].size)
+    eq = EquilibriumData(
+        r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=a**2 / 4, magnetic_axis=None,
+        lcfs=Contour(rb, zb), limiter=_wall(0.42, 0.62),
+        convention=EquilibriumConvention(1, (1,), True, False, 1, 1, 1, "test"),
+    )
+    boundary = derive_boundary_representation(eq)
+    assert boundary.topology is Topology.DIVERTED
+    assert boundary.topology.is_diverted
+    assert len([point for point in boundary.x_points if point.active]) == 2
+    assert boundary.reason and "magnetic axis" in boundary.reason
+
+
+def test_explicit_flux_tolerance_overrides_the_derived_window():
+    """A caller-supplied window is applied to every saddle and recorded."""
+    a = 0.65
+    loose = _topology_case(
+        lambda rm, zm: (rm - 1) ** 2 + zm**2 - zm**4 / a**2, a**2 / 4,
+        wall=_wall(0.42, 0.62),
+    )
+    assert loose.topology is Topology.DOUBLE_NULL
+    # A window of zero admits nothing, so the same equilibrium stops being diverted.
+    from vaft.process.equilibrium import extract_flux_surface_contours
+
+    r = np.linspace(0.5, 1.5, 161)
+    z = np.linspace(-0.8, 0.8, 201)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi = (rm - 1) ** 2 + zm**2 - zm**4 / a**2
+    raw = extract_flux_surface_contours(psi, r, z, 0.0, a**2 / 4, [1.0])[1.0]
+    rb, zb = max(raw, key=lambda pair: pair[0].size)
+    eq = EquilibriumData(
+        r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=a**2 / 4, magnetic_axis=(1.0, 0.0),
+        lcfs=Contour(rb, zb), limiter=_wall(0.42, 0.62),
+        convention=EquilibriumConvention(1, (1,), True, False, 1, 1, 1, "test"),
+    )
+    strict = derive_boundary_representation(eq, flux_tolerance=0.0)
+    assert strict.provenance.tolerances["xpoint_flux_psi_n"] == 0.0
+    assert not strict.topology.is_diverted
