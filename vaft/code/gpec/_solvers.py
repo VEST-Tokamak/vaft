@@ -155,8 +155,26 @@ class IdealGPECSolver:
             {"dcon_dir": str(ctx.dcon_dir), "coil_flag": ctx.config.gpec.coil_flag},
         )
         shutil.copy2(ctx.template_dir / "vac.in", ctx.run_dir / "vac.in")
+        # Precedence: an explicit coil.in wins over canonical coil_specs,
+        # which wins over the packaged template copied verbatim.
         if ctx.inputs.coil_in:
             shutil.copy2(Path(ctx.inputs.coil_in).expanduser(), ctx.run_dir / "coil.in")
+        elif ctx.config.gpec.coil_specs:
+            from ._coil_input import stage_coil_data, write_coil_in
+            from vaft.machine_mapping.coil_geometry_3d import load_vest_3d_coil_config
+
+            specs = tuple(ctx.config.gpec.coil_specs)
+            config = load_vest_3d_coil_config(coil_sets=[spec.name for spec in specs])
+            coil_dir = ctx.run_dir / "coil"
+            stage_coil_data(
+                [config[spec.name] for spec in specs], coil_dir
+            )
+            write_coil_in(
+                ctx.template_dir / "coil.in",
+                ctx.run_dir / "coil.in",
+                data_dir=coil_dir.resolve(),
+                specs=specs,
+            )
         else:
             rt.write_template(
                 ctx.template_dir / "coil.in",

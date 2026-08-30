@@ -20,6 +20,7 @@ import subprocess
 from pathlib import Path
 
 from . import _runtime as rt
+from ._coil_input import CoilInputSpec, emit_coil_dat, stage_coil_data, write_coil_in
 from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
 from ._solvers import SOLVERS, SolverContext
@@ -322,8 +323,12 @@ __all__ = [
     "GPECModuleRun",
     "GPECSuiteConfig",
     "GPECSuiteResult",
+    "CoilInputSpec",
     "collect_gpec_suite_outputs",
+    "emit_coil_dat",
     "format_gfile_header_for_gpec",
+    "stage_coil_data",
+    "write_coil_in",
     "prepare_gpec_suite_case",
     "run_gpec_suite_case",
     "DconEigenfunction",
