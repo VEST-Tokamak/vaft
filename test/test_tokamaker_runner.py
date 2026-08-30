@@ -128,3 +128,26 @@ def test_import_oft_error_message_is_actionable(monkeypatch):
     assert "pip install -e" in message
     assert "OFT_LIBRARY_DIR" in message
     assert "OFT_ROOTPATH" in message
+
+
+def test_reused_workdir_never_yields_a_stale_gfile(tmp_path, monkeypatch):
+    # first run at t=0.200 leaves g039915.00200 behind
+    calls, _ = make_fake_oft(monkeypatch)
+    config_a = TokaMakerConfig(shot=39915, time=0.200, workdir=tmp_path)
+    first = run_tokamaker(make_inputs(tmp_path, time=0.200), config_a)
+    assert first.gfile.name == "g039915.00200"
+
+    # second run in the SAME workdir must carry ITS OWN g-file, not the older
+    # (alphabetically first) one
+    config_b = TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path)
+    second = run_tokamaker(make_inputs(tmp_path, time=0.325), config_b)
+    assert second.ok
+    assert second.gfile.name == "g039915.00325"
+
+    # and a FAILED run must not surface any earlier run's equilibrium
+    make_fake_oft(monkeypatch, solve_error="boom")
+    failed = run_tokamaker(make_inputs(tmp_path, time=0.400), config_b)
+    assert not failed.ok
+    assert failed.gfile is None
+    assert failed.geqdsk == ()
+    assert failed.ods is None

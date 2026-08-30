@@ -58,7 +58,6 @@ def _loop_rectangles(ods: Any) -> dict[str, list[dict[str, float]]]:
             "r_lo": float(r.min()), "r_hi": float(r.max()),
             "z_lo": float(z.min()), "z_hi": float(z.max()),
         }
-        rect["area"] = (rect["r_hi"] - rect["r_lo"]) * (rect["z_hi"] - rect["z_lo"])
         try:
             rect["resistivity"] = float(ods[f"pf_passive.loop.{i}.resistivity"])
         except Exception:
@@ -113,18 +112,27 @@ def _bounding_box_contour(rects: list[dict[str, float]]) -> np.ndarray:
     return np.array([[r_lo, z_lo], [r_hi, z_lo], [r_hi, z_hi], [r_lo, z_hi]])
 
 
-def _trace_strip(rects: list[dict[str, float]], region: str) -> np.ndarray:
+def _rect_area(rect: dict[str, float]) -> float:
+    return (rect["r_hi"] - rect["r_lo"]) * (rect["z_hi"] - rect["z_lo"])
+
+
+def _trace_strip(rects: list[dict[str, float]], region: str) -> tuple[np.ndarray, bool]:
     """Monotone staircase outline of a strip of rectangles.
 
     The strip is traversed along its dominant axis (larger center spread):
     one chain follows the high transverse edges, the return chain the low
     edges. For straight runs the result collapses to the bounding rectangle;
     for stepped strips (cones, shoulders) it reproduces the staircase. When
-    the traced area disagrees with the summed loop area by more than
-    ``_AREA_RTOL`` (non-monotone geometry), the bounding box is used instead.
+    the traced area disagrees with the summed rectangle area (both computed
+    from the rectangles *as passed*, i.e. after any shrink/clamp) by more than
+    ``_AREA_RTOL`` — non-monotone geometry — the bounding box is used instead.
+
+    Returns ``(contour, used_bounding_box)``: a bounding-box result can cover
+    area beyond the rectangles and must be re-checked against neighbouring
+    regions by the caller.
     """
     if len(rects) == 1:
-        return _bounding_box_contour(rects)
+        return _bounding_box_contour(rects), False
 
     r_centers = np.array([(rect["r_lo"] + rect["r_hi"]) / 2.0 for rect in rects])
     z_centers = np.array([(rect["z_lo"] + rect["z_hi"]) / 2.0 for rect in rects])
@@ -147,7 +155,7 @@ def _trace_strip(rects: list[dict[str, float]], region: str) -> np.ndarray:
         backward.append(_point(rect[axis_lo], rect[trans_lo]))
 
     contour = np.array(_dedupe_chain(forward + backward))
-    loop_area = sum(rect["area"] for rect in rects)
+    loop_area = sum(_rect_area(rect) for rect in rects)
     if loop_area > 0.0:
         traced = _shoelace_area(contour)
         if abs(traced - loop_area) > _AREA_RTOL * loop_area:
@@ -156,8 +164,8 @@ def _trace_strip(rects: list[dict[str, float]], region: str) -> np.ndarray:
                 "area %.3e by more than %.0f%%; using the bounding box.",
                 region, traced, loop_area, 100 * _AREA_RTOL,
             )
-            return _bounding_box_contour(rects)
-    return contour
+            return _bounding_box_contour(rects), True
+    return contour, False
 
 
 def _shrink_rects(rects: list[dict[str, float]], margin: float) -> list[dict[str, float]]:
@@ -314,8 +322,10 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
             if len(clusters) == 1:
                 region = segment
             elif len(clusters) == 2:
-                mean_z = float(np.mean([(r["z_lo"] + r["z_hi"]) / 2.0 for r in cluster]))
-                region = f"{segment}_{'U' if mean_z >= 0.0 else 'L'}"
+                # clusters come out of the Z-split in ascending order, so
+                # relative position gives unique names even when both halves
+                # sit on the same side of Z = 0
+                region = f"{segment}_{'L' if cluster_index == 0 else 'U'}"
             else:
                 region = f"{segment}_{cluster_index + 1}"
             named_clusters[region] = cluster
@@ -325,9 +335,12 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
     _assert_disjoint(named_clusters)
 
     regions: dict[str, dict] = {}
+    bbox_fallbacks: list[str] = []
     for region, cluster in named_clusters.items():
         segment = segment_of[region]
-        contour = _trace_strip(cluster, region)
+        contour, used_bbox = _trace_strip(cluster, region)
+        if used_bbox:
+            bbox_fallbacks.append(region)
         if np.any(contour[:, 0] <= 0.0):
             raise ValueError(f"Vessel region {region} has R <= 0 points")
 
@@ -352,4 +365,25 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
             "All pf_passive segments were excluded; nothing to mesh as the vessel "
             f"(exclude_vessel_segments={config.exclude_vessel_segments!r})"
         )
+
+    # The rectangle-level disjointness assert above does not cover bounding-box
+    # fallbacks, whose contour can span area beyond the rectangles it replaced.
+    for region in bbox_fallbacks:
+        contour = np.asarray(regions[region]["contour"])
+        box = {
+            "r_lo": float(contour[:, 0].min()), "r_hi": float(contour[:, 0].max()),
+            "z_lo": float(contour[:, 1].min()), "z_hi": float(contour[:, 1].max()),
+        }
+        for other, cluster in named_clusters.items():
+            if other == region:
+                continue
+            for rect in cluster:
+                if (box["r_lo"] < rect["r_hi"] and rect["r_lo"] < box["r_hi"]
+                        and box["z_lo"] < rect["z_hi"] and rect["z_lo"] < box["z_hi"]):
+                    raise ValueError(
+                        f"Vessel region {region} fell back to its bounding box, "
+                        f"which overlaps region {other}; this geometry cannot be "
+                        "represented as monotone strips — split or exclude the "
+                        f"segment (exclude_vessel_segments) or adjust vessel_gap."
+                    )
     return regions

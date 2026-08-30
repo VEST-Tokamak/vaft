@@ -106,7 +106,8 @@ def test_staircase_trace_for_stepped_strip():
         {"r_lo": 0.11, "r_hi": 0.13, "z_lo": 0.05, "z_hi": 0.10, "area": 0.001},
         {"r_lo": 0.12, "r_hi": 0.14, "z_lo": 0.10, "z_hi": 0.15, "area": 0.001},
     ]
-    contour = _trace_strip(rects, "CONE")
+    contour, used_bbox = _trace_strip(rects, "CONE")
+    assert not used_bbox
     assert len(contour) > 4                      # true staircase, not a bbox
     x, y = contour[:, 0], contour[:, 1]
     area = 0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
@@ -122,7 +123,8 @@ def test_non_monotone_cluster_falls_back_to_bounding_box(caplog):
             rects.append({"r_lo": r_lo, "r_hi": r_lo + 0.02,
                           "z_lo": z_lo, "z_hi": z_lo + 0.05, "area": 0.001})
     with caplog.at_level("WARNING"):
-        contour = _trace_strip(rects, "BAD")
+        contour, used_bbox = _trace_strip(rects, "BAD")
+    assert used_bbox
     assert len(contour) == 4
     assert "bounding box" in caplog.text
 
@@ -159,3 +161,45 @@ def test_signature_stable_without_vessel_and_sensitive_with():
 def test_missing_pf_passive_is_actionable():
     with pytest.raises(ValueError, match="pf_passive"):
         vessel_segments_from_ods(ODS(consistency_check=False), TokaMakerConfig(include_vessel=True))
+
+
+def test_area_check_uses_post_shrink_rectangles():
+    # thin stepped strip shrunk by a large gap: the trace must be compared
+    # against the *shrunk* areas, not the original loop areas (which would
+    # bias the check low and force a bounding-box fallback)
+    margin = 0.0005
+    rects = []
+    for k in range(3):
+        rects.append({
+            "r_lo": 0.10 + 0.01 * k + margin, "r_hi": 0.106 + 0.01 * k - margin,
+            "z_lo": 0.05 * k + margin, "z_hi": 0.05 * (k + 1) - margin,
+        })
+    contour, used_bbox = _trace_strip(rects, "THIN")
+    assert not used_bbox
+    assert len(contour) > 4
+
+
+def test_two_clusters_on_the_same_side_get_unique_names():
+    ods = ODS(consistency_check=False)
+    # both clusters above Z = 0: mean-z naming would collide on _U
+    for i, zc in enumerate((0.30, 0.35, 0.60, 0.65)):
+        _add_loop(ods, i, "WS", rc=0.5, zc=zc, w=0.02, h=0.05)
+    regions = vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))
+    assert set(regions) == {"WS_L", "WS_U"}
+    lower = np.asarray(regions["WS_L"]["contour"])
+    upper = np.asarray(regions["WS_U"]["contour"])
+    assert lower[:, 1].max() < upper[:, 1].min()
+
+
+def test_bbox_fallback_overlapping_a_neighbour_is_rejected():
+    ods = ODS(consistency_check=False)
+    # segment WX: two tall side-by-side columns (span taller than wide, so the
+    # de-conflict pass treats the cluster as vertical and never clamps other
+    # verticals against it) -> one cluster whose trace fails the area check ->
+    # bounding-box fallback spanning the gap between the columns
+    _add_loop(ods, 0, "WX", rc=0.11, zc=0.25, w=0.02, h=0.50)
+    _add_loop(ods, 1, "WX", rc=0.21, zc=0.25, w=0.02, h=0.50)
+    # segment WY: a vertical column inside that gap
+    _add_loop(ods, 2, "WY", rc=0.16, zc=0.25, w=0.02, h=0.50)
+    with pytest.raises(ValueError, match="bounding box"):
+        vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))

@@ -36,12 +36,24 @@ _STATS_KEYS = (
 )
 
 
-def _find_one(workdir: Path, patterns: list[str]) -> Optional[Path]:
+def _find_one(workdir: Path, patterns: list[str], last: bool = False) -> Optional[Path]:
     for pat in patterns:
         hits = sorted(workdir.glob(pat))
         if hits:
-            return hits[0]
+            return hits[-1] if last else hits[0]
     return None
+
+
+def _parse_gfile(gfile: Path):
+    """Parse one g-file into ``(geqdsk_tuple, ods, error_message)`` best-effort."""
+    try:
+        from vaft.data.eqdsk import read_geqdsk
+
+        parsed = read_geqdsk(gfile)
+        return (parsed,), parsed.to_omas(ods=None, time_index=0), None
+    except Exception as exc:
+        _log.warning("Could not parse TokaMaker g-file %s: %s", gfile, exc)
+        return (), None, f"{gfile.name}: {exc}"
 
 
 def parse_stats_sidecar(path: Path) -> dict[str, Any]:
@@ -80,8 +92,10 @@ def collect_tokamaker_outputs(
 
     # Requiring a digit after the leading "g" keeps unrelated files (e.g.
     # ``gpec_*`` outputs or ``geometry.json`` in a reused workdir) from being
-    # mistaken for a g-file.
-    gfile = _find_one(base, ["g[0-9]*.[0-9]*", "g[0-9]*"])
+    # mistaken for a g-file. In a workdir holding several runs the NEWEST
+    # (latest-time) g-file is picked; the runner overrides this with the exact
+    # file it wrote, so the heuristic only governs post-hoc collection.
+    gfile = _find_one(base, ["g[0-9]*.[0-9]*", "g[0-9]*"], last=True)
     stats_file = _find_one(base, [SIDECAR_NAME])
     mesh_file = _find_one(base, ["vest_gs_mesh_*.h5"])
     logs = tuple(sorted(p for p in base.glob("*.log") if p.is_file()))
@@ -90,16 +104,7 @@ def collect_tokamaker_outputs(
     ods = None
     geqdsk_error: Optional[str] = None
     if gfile is not None:
-        try:
-            from vaft.data.eqdsk import read_geqdsk
-            parsed = read_geqdsk(gfile)
-            geqdsk = (parsed,)
-            ods = parsed.to_omas(ods=None, time_index=0)
-        except Exception as exc:
-            geqdsk = ()
-            ods = None
-            geqdsk_error = f"{gfile.name}: {exc}"
-            _log.warning("Could not parse TokaMaker g-file %s: %s", gfile, exc)
+        geqdsk, ods, geqdsk_error = _parse_gfile(gfile)
 
     scalars: dict[str, Any] = {}
     if stats_file is not None:

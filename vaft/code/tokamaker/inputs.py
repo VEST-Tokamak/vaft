@@ -90,12 +90,15 @@ def _resolve_targets(ods: Any, config: TokaMakerConfig, time: float) -> dict[str
     elif source == "magnetics":
         ip = _ip_from_magnetics(ods, time)
     else:
-        eq = ods["equilibrium"]
-        idx = config.time_index
-        if idx is None:
-            eqtime = np.asarray(eq["time"], dtype=float)
-            idx = int(np.argmin(np.abs(eqtime - time)))
+        # The whole equilibrium read is fallback-guarded: a raw shot with
+        # magnetics but no reconstruction has an empty/absent equilibrium IDS,
+        # and the time-array lookup must fall back just like a missing slice.
         try:
+            eq = ods["equilibrium"]
+            idx = config.time_index
+            if idx is None:
+                eqtime = np.asarray(eq["time"], dtype=float)
+                idx = int(np.argmin(np.abs(eqtime - time)))
             ip = float(eq[f"time_slice.{int(idx)}.global_quantities.ip"])
         except Exception:
             ip = _ip_from_magnetics(ods, time)
@@ -151,7 +154,16 @@ def _coil_currents_from_ods(
     """
     coil_sets = {entry["coil_set"] for entry in geometry["coils"].values()}
     if config.coil_currents is not None:
-        return {str(name).upper(): float(value) for name, value in config.coil_currents.items()}
+        explicit = {str(name).upper(): float(value) for name, value in config.coil_currents.items()}
+        unknown = sorted(set(explicit) - coil_sets)
+        if unknown:
+            raise ValueError(
+                "coil_currents names not present in the coil sets: "
+                + ", ".join(unknown)
+                + f". Valid sets: {', '.join(sorted(coil_sets))}."
+            )
+        # coils omitted from the mapping default to 0 A inside TokaMaker
+        return explicit
 
     pf = ods["pf_active"]
     pf_time = np.asarray(pf["time"], dtype=float)
@@ -297,18 +309,22 @@ def prepare_tokamaker_evolution_inputs(
         )
     times = _resolve_evolution_times(config)
 
+    # time_index must be cleared throughout: _resolve_time prefers it over
+    # ``time``, and both the base inputs (F0, currents) and the per-step Ip
+    # targets belong to the evolution grid, not a fixed slice index.
+    step_config = replace(config, time_index=None)
     if config.evolve_vacuum:
         # No plasma: bypass the Ip-target resolution (which requires Ip > 0).
-        base = prepare_tokamaker_inputs(ods, replace(config, time=times[0], ip=1.0))
+        base = prepare_tokamaker_inputs(ods, replace(step_config, time=times[0], ip=1.0))
         base.targets = {}
         ip_targets = np.zeros(len(times))
     else:
-        base = prepare_tokamaker_inputs(ods, replace(config, time=times[0]))
+        base = prepare_tokamaker_inputs(ods, replace(step_config, time=times[0]))
         ip_targets = np.asarray(
-            [_resolve_targets(ods, config, t)["Ip"] for t in times], dtype=float
+            [_resolve_targets(ods, step_config, t)["Ip"] for t in times], dtype=float
         )
 
-    coil_waveforms = _coil_waveforms_from_ods(ods, config, base.geometry, times)
+    coil_waveforms = _coil_waveforms_from_ods(ods, step_config, base.geometry, times)
     return TokaMakerEvolutionInputs(
         base=base,
         times=times,

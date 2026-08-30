@@ -25,7 +25,9 @@ from .runner import run_tokamaker
 
 def _default_subdir(param: str, value: Any) -> str:
     if param == "ip":
-        return f"ip_{int(round(float(value) / 1000.0)):03d}kA"
+        # %g keeps sub-kA precision so nearby scan points (e.g. 40.0 and
+        # 40.4 kA) never share a directory and overwrite each other's outputs
+        return f"ip_{float(value) / 1000.0:g}kA"
     sval = f"{value:g}" if isinstance(value, float) else str(value)
     return f"{param}_{sval}"
 

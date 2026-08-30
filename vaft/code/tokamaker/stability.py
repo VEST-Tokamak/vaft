@@ -54,9 +54,23 @@ def _require_vessel(config: TokaMakerConfig, what: str) -> None:
         )
 
 
-def _check_arpack(eig_vals: np.ndarray) -> None:
-    if not np.any(eig_vals):
+def _converged_eigenvalues(eig_vals, context: str) -> np.ndarray:
+    """Drop unconverged (all-zero) eigenvalue rows, preserving order.
+
+    ARPACK leaves exact-zero rows for modes it failed to converge; all rows
+    zero means the OFT build has no ARPACK at all. Row order (ascending real
+    part) is preserved so the leading entry keeps its meaning.
+    """
+    vals = np.asarray(eig_vals, dtype=float)
+    converged = np.any(vals != 0.0, axis=1)
+    if not converged.any():
         raise RuntimeError(_NO_ARPACK_MESSAGE)
+    if not converged.all():
+        _log.warning(
+            "%s: only %d of %d eigenvalues converged; ignoring the rest",
+            context, int(converged.sum()), len(vals),
+        )
+    return vals[converged]
 
 
 def _update_sidecar(workdir: Path, key: str, payload: dict[str, Any]) -> Path:
@@ -103,8 +117,11 @@ def run_tokamaker_wall_eigenmodes(
     try:
         _configure_tokamaker(oft, mygs, inputs, config)
         eig_vals, eig_vecs = mygs.eig_wall(config.wall_neigs)
-        _check_arpack(eig_vals)
-        tau_wall = tuple(float(t) for t in 1.0 / np.asarray(eig_vals)[:, 0])
+        good = _converged_eigenvalues(eig_vals, "eig_wall")
+        good = good[good[:, 0] > 0.0]          # wall eigenvalues are 1/tau > 0
+        if not len(good):
+            raise RuntimeError(_NO_ARPACK_MESSAGE)
+        tau_wall = tuple(float(t) for t in 1.0 / good[:, 0])
         eig_file = inputs.workdir / EIG_WALL_FILE
         _save_modes(eig_file, eig_vals, eig_vecs, mygs)
         returncode = 0
@@ -196,8 +213,8 @@ def run_tokamaker_vertical_stability(
             include_bounds=config.td_include_bounds,
             damping_scale=config.td_damping_scale,
         )
-        _check_arpack(eig_vals)
-        gamma = float(-np.asarray(eig_vals)[0, 0])
+        good = _converged_eigenvalues(eig_vals, "eig_td")
+        gamma = float(-good[0, 0])
         eig_file = inputs.workdir / EIG_TD_FILE
         _save_modes(eig_file, eig_vals, eig_vecs, mygs)
         returncode = 0

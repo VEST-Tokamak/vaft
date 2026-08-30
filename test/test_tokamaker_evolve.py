@@ -230,3 +230,27 @@ def test_evolution_relaxes_nl_tol_unless_explicit(tmp_path, monkeypatch):
     calls2, _ = make_fake_oft(monkeypatch)
     run_tokamaker_evolution(_evolution_inputs(tmp_path), _config(tmp_path, nl_tol=1e-7))
     assert all(entry[0] != "update_settings" for entry in calls2)
+
+
+def test_failed_slice_restores_the_last_converged_flux(tmp_path, monkeypatch):
+    calls, _ = make_fake_oft(monkeypatch, solve_error="diverged", solve_error_at=2)
+    run_tokamaker_evolution(_evolution_inputs(tmp_path), _config(tmp_path))
+
+    names = [entry[0] for entry in calls]
+    # the diverged iterate from the failed solve must be replaced by the last
+    # converged flux before the next slice steps from it
+    restores = [entry for entry in calls if entry[0] == "set_psi"]
+    assert restores and np.all(restores[0][1] == 1.0)      # psi of slice 0
+    fail_index = names.index("solve", names.index("solve") + 1)
+    assert names.index("set_psi") > fail_index
+
+
+def test_prepare_clears_time_index_for_the_evolution_grid(tmp_path):
+    # time_index would otherwise win over `time` in _resolve_time and index
+    # past the short synthetic time arrays
+    config = TokaMakerConfig(
+        workdir=tmp_path, include_vessel=True, constraint_source="magnetics",
+        time_index=5, evolve_times=(0.30, 0.31),
+    )
+    inputs = prepare_tokamaker_evolution_inputs(_prepare_ods(), config)
+    assert inputs.base.time == pytest.approx(0.30)

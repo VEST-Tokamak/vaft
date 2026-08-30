@@ -114,3 +114,23 @@ def test_stability_sidecar_sections_merge(tmp_path, monkeypatch):
 
     payload = json.loads(result.stats_file.read_text())
     assert "wall" in payload and "vertical" in payload   # sections coexist
+
+
+def test_wall_eigenmodes_ignore_unconverged_trailing_zeros(tmp_path, monkeypatch):
+    vals = np.array([[100.0, 0.0], [200.0, 0.0], [0.0, 0.0], [0.0, 0.0]])
+    make_fake_oft(monkeypatch, eig_wall_vals=vals)
+    result = run_tokamaker_wall_eigenmodes(make_inputs(tmp_path), _config(tmp_path))
+
+    assert result.ok
+    assert result.tau_wall_s == pytest.approx((0.01, 0.005))   # no inf entries
+    assert all(np.isfinite(result.tau_wall_s))
+
+
+def test_vertical_stability_ignores_unconverged_leading_zeros(tmp_path, monkeypatch):
+    # unconverged zeros sort ahead of the negative (unstable) eigenvalue
+    vals = np.array([[0.0, 0.0], [0.0, 0.0], [-50.0, 0.0], [10.0, 0.0]])
+    make_fake_oft(monkeypatch, eig_td_vals=vals)
+    result = run_tokamaker_vertical_stability(make_inputs(tmp_path), _config(tmp_path))
+
+    assert result.ok
+    assert result.gamma_s == pytest.approx(50.0)

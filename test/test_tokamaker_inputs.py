@@ -157,3 +157,20 @@ def test_vsc_split_sets_inherit_the_parent_coil_current(tmp_path):
     assert inputs.coil_currents["PF1_U"] == pytest.approx(-640.0)
     assert inputs.coil_currents["PF1_L"] == pytest.approx(-640.0)
     assert "PF1" not in inputs.coil_currents
+
+
+def test_equilibrium_source_falls_back_to_magnetics_without_reconstruction(tmp_path):
+    ods = _build_ods()
+    del ods["equilibrium"]
+    # default constraint_source="equilibrium" on a raw shot: the documented
+    # magnetics fallback must cover the missing/empty equilibrium IDS too
+    inputs = prepare_tokamaker_inputs(ods, TokaMakerConfig(time=0.5, workdir=tmp_path))
+    assert inputs.targets["Ip"] == pytest.approx(50.0e3)
+
+
+def test_explicit_coil_currents_with_unknown_names_are_rejected(tmp_path):
+    config = TokaMakerConfig(
+        time=0.32, workdir=tmp_path, coil_currents={"PF1": 100.0, "PF11": 5.0}
+    )
+    with pytest.raises(ValueError, match="PF11"):
+        prepare_tokamaker_inputs(_build_ods(), config)

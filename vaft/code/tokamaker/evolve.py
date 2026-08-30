@@ -155,6 +155,15 @@ def run_tokamaker_evolution(
                 _log.warning(
                     "TokaMaker evolution slice %d (t=%.4f s) failed: %s", index, time, exc
                 )
+                if psi0 is not None:
+                    # a failed solve() leaves its diverged iterate in the solver;
+                    # restore the last converged flux so "continue" mode really
+                    # steps from the last good state instead of cascading
+                    try:
+                        mygs.set_psi(psi0)
+                    except Exception:  # pragma: no cover - defensive
+                        _log.warning("Could not restore the last converged flux state",
+                                     exc_info=True)
 
             vessel_currents: dict[str, float] = {}
             probe_fields: dict[str, list[float]] = {}

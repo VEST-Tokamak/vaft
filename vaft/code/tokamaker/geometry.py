@@ -128,6 +128,14 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
             coils[name] = rect
     if not coils:
         raise ValueError("No usable pf_active coils found for the TokaMaker mesh")
+    if config.vsc_coil is not None:
+        wanted = str(config.vsc_coil).upper()
+        sets = {entry["coil_set"] for entry in coils.values()}
+        if not {f"{wanted}_U", f"{wanted}_L"} <= sets:
+            raise ValueError(
+                f"vsc_coil={config.vsc_coil!r} matches no pf_active coil. "
+                f"Available coils: {', '.join(sorted({s.rsplit('_', 1)[0] for s in sets}))}"
+            )
     return coils
 
 

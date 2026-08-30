@@ -116,3 +116,8 @@ def test_vsc_coil_splits_into_independent_coil_sets():
 def test_vsc_coil_must_be_mirrored():
     with pytest.raises(ValueError, match="up/down-mirrored"):
         tokamaker_geometry_from_ods(_build_ods(), TokaMakerConfig(vsc_coil="PF2"))
+
+
+def test_vsc_coil_matching_no_coil_is_rejected_early():
+    with pytest.raises(ValueError, match="matches no pf_active coil"):
+        tokamaker_geometry_from_ods(_build_ods(), TokaMakerConfig(vsc_coil="PF99"))
