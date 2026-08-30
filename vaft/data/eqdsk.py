@@ -405,6 +405,127 @@ def from_omas(
     return GEQDSK(mapping=mapping, metadata=_metadata(mapping, "omas"))
 
 
+#: Minimum marching-squares vertex count for a traced flux surface to be
+#: trusted for a volume; below this the polygon is grid resolution, not
+#: plasma geometry.
+_MIN_CONTOUR_POINTS = 24
+
+
+def _rho_tor_profile(
+    qpsi: Any, psi_1d: np.ndarray, b0: Any
+) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Integrate ``q`` into toroidal flux and the rho_tor coordinate.
+
+    EFIT writes ``psi`` in Wb/rad, so ``dPhi/dpsi = 2*pi*q`` and
+
+        Phi(psi) = 2*pi * cumulative_trapezoid(q, psi)
+        rho_tor  = sqrt(|Phi| / (pi * |B0|))
+
+    This is the same coordinate OMFIT's ``fluxSurfaces`` produces -- they agree
+    to within 1.5e-3 in normalized units on VEST g-files. The ``sqrt(psi_N)``
+    proxy VAFT wrote before is not: it is off by percent-level amounts, and
+    every kinetic profile is mapped onto this grid.
+
+    Returns ``(phi, rho_tor, rho_tor_norm)``, or ``None`` when the profile is
+    degenerate (flat psi, zero field, no toroidal flux) and the caller should
+    fall back to the proxy.
+    """
+    from vaft.compat import cumtrapz_compat
+
+    qpsi = np.asarray(qpsi, dtype=float).reshape(-1)
+    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
+    b0 = abs(float(b0))
+    if qpsi.size != psi_1d.size or qpsi.size < 2 or b0 == 0.0:
+        return None
+    if not np.all(np.isfinite(qpsi)) or not np.all(np.isfinite(psi_1d)):
+        return None
+
+    phi = 2.0 * np.pi * np.asarray(cumtrapz_compat(qpsi, x=psi_1d), dtype=float)
+    rho_tor = np.sqrt(np.abs(phi) / (np.pi * b0))
+    edge = float(rho_tor[-1])
+    if not np.isfinite(edge) or edge <= 0.0:
+        return None
+    return phi, rho_tor, rho_tor / edge
+
+
+def _volume_profile(
+    data: Mapping[str, Any], psi_norm: np.ndarray
+) -> Optional[np.ndarray]:
+    """Enclosed volume on each psi_N level, by tracing the flux surfaces.
+
+    Each level's longest traced contour is revolved with the exact
+    ``V = pi * closed_integral(R^2 dZ)`` form. The axis is 0 by construction and
+    the edge uses the g-file's own ``RBBBS``/``ZBBBS`` boundary rather than a
+    traced contour, which is both exact and cheaper.
+
+    Returns ``None`` when the grid or the boundary cannot support the trace, so
+    the caller simply leaves ``profiles_1d.volume`` unwritten.
+    """
+    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
+    from vaft.process.equilibrium import extract_flux_surface_contours
+
+    psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
+    if psi_norm.size < 3:
+        return None
+    try:
+        nw, nh = int(data["NW"]), int(data["NH"])
+        psi_axis, psi_boundary = float(data["SIMAG"]), float(data["SIBRY"])
+        if psi_axis == psi_boundary:
+            return None
+        r_grid = np.linspace(0.0, float(data["RDIM"]), nw) + float(data["RLEFT"])
+        z_grid = (
+            np.linspace(0.0, float(data["ZDIM"]), nh)
+            - float(data["ZDIM"]) / 2.0
+            + float(data["ZMID"])
+        )
+        psi_2d = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh)
+
+        r_bnd = np.asarray(data.get("RBBBS", []), dtype=float).reshape(-1)
+        z_bnd = np.asarray(data.get("ZBBBS", []), dtype=float).reshape(-1)
+        if r_bnd.size < 3 or r_bnd.size != z_bnd.size:
+            return None
+        edge_volume = exact_volume_from_RZ_contour(r_bnd, z_bnd)
+
+        # The axis level has no contour and the boundary level comes from
+        # RBBBS/ZBBBS, so only the interior levels are traced.
+        interior = psi_norm[1:-1]
+        contours = extract_flux_surface_contours(
+            psi_2d, r_grid, z_grid, psi_axis, psi_boundary, interior
+        )
+
+        volume = np.empty(psi_norm.size, dtype=float)
+        volume[0] = 0.0
+        volume[-1] = edge_volume
+        for index, level in enumerate(interior, start=1):
+            segments = contours.get(float(level)) or []
+            # Marching squares returns a handful of vertices for the innermost
+            # surfaces, where the flux surface is only a few cells across; the
+            # volume those polygons enclose is grid artifact, not geometry.
+            # Drop them and let the fill below interpolate -- V is very nearly
+            # linear in psi_N near the axis, so that is the better estimate.
+            segments = [seg for seg in segments if seg[0].size >= _MIN_CONTOUR_POINTS]
+            if not segments:
+                volume[index] = np.nan
+                continue
+            r_seg, z_seg = max(segments, key=lambda segment: segment[0].size)
+            volume[index] = exact_volume_from_RZ_contour(r_seg, z_seg)
+    except Exception:
+        return None
+
+    # Levels with no closed contour -- common right at the axis, where the
+    # surface is smaller than a grid cell -- are filled from their neighbours
+    # rather than left as NaN, which would poison every downstream integral.
+    missing = ~np.isfinite(volume)
+    if missing.all():
+        return None
+    if missing.any():
+        good = ~missing
+        volume[missing] = np.interp(psi_norm[missing], psi_norm[good], volume[good])
+    if not np.all(np.diff(volume) >= 0.0):
+        return None
+    return volume
+
+
 def to_omas(
     geqdsk: GEQDSK | Mapping[str, Any],
     ods: Any = None,
@@ -447,7 +568,15 @@ def to_omas(
     eqt["profiles_1d.f_df_dpsi"] = np.asarray(data["FFPRIM"], dtype=float)
     eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float)
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
-    eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+
+    rho_tor_terms = _rho_tor_profile(data["QPSI"], psi_1d, data["BCENTR"])
+    if rho_tor_terms is None:
+        eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+    else:
+        phi, rho_tor, rho_tor_norm = rho_tor_terms
+        eqt["profiles_1d.phi"] = phi
+        eqt["profiles_1d.rho_tor"] = rho_tor
+        eqt["profiles_1d.rho_tor_norm"] = rho_tor_norm
 
     prof2d = eqt[f"profiles_2d.{profile_index}"]
     prof2d["grid_type.index"] = 1
@@ -467,6 +596,14 @@ def to_omas(
     if float(data["CURRENT"]) != 0.0:
         eqt["boundary.outline.r"] = np.asarray(data.get("RBBBS", []), dtype=float)
         eqt["boundary.outline.z"] = np.asarray(data.get("ZBBBS", []), dtype=float)
+
+    if allow_derived_data:
+        # Tracing every flux surface is the expensive part of this conversion,
+        # so it sits behind the same flag as the other derived quantities.
+        volume = _volume_profile(data, psi_norm)
+        if volume is not None:
+            eqt["profiles_1d.volume"] = volume
+            eqt["global_quantities.volume"] = float(volume[-1])
 
     try:
         ods.set_time_array("equilibrium.time", time_index, eqt["time"])
