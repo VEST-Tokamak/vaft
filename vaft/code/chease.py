@@ -13,6 +13,8 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
+from vaft.formula.statistics import rms
+
 from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
@@ -797,8 +799,11 @@ def comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
     ):
         a = np.asarray(original[key], dtype=float).reshape(-1)
         b = _profile(refined[key], a.size)
-        denom = float(np.sqrt(np.nanmean(a * a))) or 1.0
-        metrics[name] = float(np.sqrt(np.nanmean((a - b) ** 2)) / denom)
+        # Normalized by the RMS of the original profile, not by a residual
+        # baseline: this is a relative profile change, so a flat-zero
+        # original falls back to an absolute RMS rather than to nan.
+        denom = rms(a) or 1.0
+        metrics[name] = float(rms(a - b) / denom)
     metrics["psi_axis_abs_diff"] = float(abs(float(original["SIMAG"]) - float(refined["SIMAG"])))
     metrics["psi_boundary_abs_diff"] = float(abs(float(original["SIBRY"]) - float(refined["SIBRY"])))
     current_original = float(original["CURRENT"])
@@ -815,9 +820,9 @@ def comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
         b0 = _resample_closed_curve(np.column_stack([r0[: min(r0.size, z0.size)], z0[: min(r0.size, z0.size)]]), 256)
         b1 = _resample_closed_curve(np.column_stack([r1[: min(r1.size, z1.size)], z1[: min(r1.size, z1.size)]]), 256)
         delta = b0 - b1
-        metrics["boundary_r_rms"] = float(np.sqrt(np.nanmean(delta[:, 0] ** 2)))
-        metrics["boundary_z_rms"] = float(np.sqrt(np.nanmean(delta[:, 1] ** 2)))
-        metrics["boundary_rz_rms"] = float(np.sqrt(np.nanmean(np.sum(delta * delta, axis=1))))
+        metrics["boundary_r_rms"] = rms(delta[:, 0])
+        metrics["boundary_z_rms"] = rms(delta[:, 1])
+        metrics["boundary_rz_rms"] = rms(np.hypot(delta[:, 0], delta[:, 1]))
     metrics["boundary_points"] = float(len(np.asarray(refined.get("RBBBS", []))))
     return metrics
 

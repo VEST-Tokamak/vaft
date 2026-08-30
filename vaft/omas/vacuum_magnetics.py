@@ -37,6 +37,11 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from vaft.formula.statistics import (
+    fractional_rms_improvement,
+    rms,
+    sigma_threshold_crossing,
+)
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
     INBOARD_PROBE_MAX_R,
@@ -112,10 +117,7 @@ class VacuumChannel:
 
 def residual_rms(residual: np.ndarray, window: np.ndarray) -> float:
     """RMS of ``residual`` over the boolean ``window``."""
-    selected = np.asarray(residual, dtype=float)[window]
-    if selected.size == 0:
-        return float("nan")
-    return float(np.sqrt(np.nanmean(selected**2)))
+    return rms(np.asarray(residual, dtype=float)[window])
 
 
 def eddy_improvement(
@@ -126,10 +128,10 @@ def eddy_improvement(
     1.0 is a perfect vacuum reconstruction, 0.0 means the eddy term added
     nothing, and a negative value means it made the agreement worse.
     """
-    baseline = residual_rms(coil_residual, window)
-    if not np.isfinite(baseline) or baseline == 0.0:
-        return float("nan")
-    return float(1.0 - residual_rms(residual, window) / baseline)
+    return fractional_rms_improvement(
+        np.asarray(coil_residual, dtype=float)[window],
+        np.asarray(residual, dtype=float)[window],
+    )
 
 
 def residual_onset(
@@ -146,20 +148,7 @@ def residual_onset(
     measured noise rather than a global constant.  ``nan`` when the residual
     never emerges.
     """
-    time = np.asarray(time, dtype=float)
-    residual = np.asarray(residual, dtype=float)
-    reference = residual[window]
-    if reference.size < 2:
-        return float("nan")
-    baseline = float(np.nanmean(reference))
-    noise = float(np.nanstd(reference))
-    if not np.isfinite(noise) or noise == 0.0:
-        return float("nan")
-    after = ~window
-    emerged = np.flatnonzero(after & (np.abs(residual - baseline) > sigma * noise))
-    if emerged.size == 0:
-        return float("nan")
-    return float(time[emerged[0]])
+    return sigma_threshold_crossing(time, residual, window, sigma=sigma)
 
 
 def plasma_onset_time(ods: Any) -> float:
