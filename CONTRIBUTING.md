@@ -18,6 +18,7 @@ What it enforces:
 | `required_status_checks` | The `Package CI` workflow's `test` and `package` jobs must both pass before anything merges into `develop`. |
 | `deletion` | `develop` cannot be deleted. |
 | `non_fast_forward` | `develop` cannot be force-pushed. |
+| `bypass_actors` | The Admin repository role may bypass the above, for repository recovery only — see below. |
 
 Three decisions worth knowing about, recorded here rather than buried in the API
 payload:
@@ -26,12 +27,16 @@ payload:
   checks the data policy and wheel size, and smoke-imports the installed wheel.
   It is cheap and already green, and it catches packaging breakage that the
   test suite does not.
-- **No bypass actors.** `bypass_actors` is empty, so the required checks bind
-  administrators too, and there is no direct-push hotfix path — including when
-  CI itself is what is broken. Getting a fix in then means either fixing CI
-  first or temporarily relaxing the ruleset in Settings → Rules. If that trade
-  is wrong for this team, add a repository-admin bypass actor to
-  `.github/rulesets/develop.json` and re-apply it.
+- **Repository admins can bypass, for repository recovery only.**
+  `bypass_actors` carries the Admin repository role (`RepositoryRole` id 5) in
+  `always` mode, so a `develop` that CI itself cannot unblock — a broken
+  workflow file, a wedged runner, a bad merge that makes the suite unrunnable —
+  can still be repaired directly. **That is the entire intended use.** Normal
+  work goes through a pull request with the required checks green, the same as
+  for anyone else; the bypass existing does not make it an ordinary route
+  around a red build. GitHub cannot enforce "emergencies only" — it is a
+  capability, and this paragraph is the policy. Bypass use is visible in the
+  repository's rule-insights log, so it is auditable after the fact.
 - **"Require branches to be up to date before merging" is off**
   (`strict_required_status_checks_policy: false`). Turning it on forces a
   rebase and a full re-run on nearly every merge; at this repository's merge
