@@ -28,8 +28,7 @@ from datetime import datetime
 import numpy as np
 
 import vaft
-vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
-from omfit_classes.omfit_eqdsk import OMFITgeqdsk
+from vaft.data import read_geqdsk
 
 from vaft import database, process
 from vaft.machine_mapping.charge_exchange import charge_exchange
@@ -70,9 +69,7 @@ def geqdsk_for_time(shotnumber, time_ms):
     if not os.path.exists(path):
         return None
     try:
-        geq = OMFITgeqdsk(filename=path)
-        geq["fluxSurfaces"].load()
-        return geq
+        return read_geqdsk(path)
     except Exception as exc:  # noqa: BLE001
         print(f"[WARNING] Could not load geqdsk {path}: {exc}")
         return None

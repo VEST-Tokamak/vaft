@@ -42,9 +42,7 @@ import pandas as pd
 import numpy as np
 import vaft
 from vaft import database
-from omfit_classes.omfit_eqdsk import OMFITeqdsk, OMFITgeqdsk # dependency issue with scipy.integrate.cumtrapz in omfit-classes.eqdsk 
-# from vaft.code.omfit_eqdsk import OMFITeqdsk # forked version of omfit-classes.eqdsk with scipy.integrate.cumulative_trapezoid
-# from vaft.code.omfit_eqdsk import OMFITgeqdsk # forked version of omfit-classes.geqdsk with scipy.integrate.cumulative_trapezoid
+from vaft.data import read_geqdsk
 import multiprocessing as mp
 from functools import partial
 import logging
@@ -147,9 +145,12 @@ def extract_chease_data(chease_set):
     """
     try:
         # Load chease files and convert to OMAS data structure
-        gfile = OMFITgeqdsk(chease_set['gfile'])
+        gfile = read_geqdsk(chease_set['gfile'])
         ods = gfile.to_omas()
         vaft.omas.update.update_equilibrium_boundary(ods)
+        # profiles_1d.r_outboard/r_inboard are not part of a g-file; the
+        # native conversion leaves them to this helper.
+        vaft.omas.update.update_equilibrium_profiles_1d_radial_coordinates(ods)
         equilibrium = ods['equilibrium']['time_slice'][0]
         r_major = equilibrium['boundary.geometric_axis.r']
         a = equilibrium['boundary.minor_radius']

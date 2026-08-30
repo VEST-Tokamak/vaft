@@ -3,7 +3,7 @@ import glob
 import pandas as pd
 import numpy as np
 import vaft
-from omfit_classes.omfit_eqdsk import OMFITeqdsk, OMFITgeqdsk
+from vaft.data import read_geqdsk
 
 def find_chease_files(base_path=None):
     """Find all CHEASE files in the specified directory structure.
@@ -83,8 +83,12 @@ def extract_chease_data(chease_set):
     """
     try:
         # Load CHEASE files and convert to OMAS data structure
-        gfile = OMFITgeqdsk(chease_set['gfile'])
+        gfile = read_geqdsk(chease_set['gfile'])
         ods = gfile.to_omas()
+        # r_outboard/r_inboard are derived from the 2D psi map, not stored in
+        # the g-file, and the boundary helper is what this needs to run first.
+        vaft.omas.update.update_equilibrium_boundary(ods)
+        vaft.omas.update.update_equilibrium_profiles_1d_radial_coordinates(ods)
         
         equilibrium = ods['equilibrium']['time_slice'][0]
         a = (equilibrium['profiles_1d']['r_outboard'][-1] - equilibrium['profiles_1d']['r_inboard'][-1]) / 2
