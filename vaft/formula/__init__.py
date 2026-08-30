@@ -1,4 +1,16 @@
-"""Formula namespace for physics helpers."""
+"""Formula namespace for physics helpers.
+
+Submodules are imported on demand.  ``import vaft.formula.statistics`` (or any
+other single submodule) costs only that submodule, so a caller that needs one
+pure kernel does not pay for scipy by way of ``.green`` and ``.equilibrium``,
+nor inherit those modules' import-time failure surface.
+
+``from vaft.formula import *`` still exposes exactly the same names it always
+has.  Reading ``__all__`` is what pulls the whole subtree in: the module-level
+``__getattr__`` below is consulted for ``__all__`` itself (PEP 562), so the star
+import triggers the full load at the moment it actually needs it, and nothing
+before then does.
+"""
 
 from __future__ import annotations
 
@@ -14,51 +26,73 @@ _SUBMODULES = {
     "statistics": ".statistics",
 }
 
-_SEARCH_ORDER = (
-    "green",
-    "equilibrium",
-    "atomic",
+#: The order these submodules were star-imported in when this package loaded
+#: them eagerly.  Eighteen names are defined by more than one submodule -- MU0,
+#: gradient, trapz_integral and friends -- and under a star import the *last*
+#: binding won.  Attribute resolution therefore walks this tuple in reverse, so
+#: ``vaft.formula.gradient`` still resolves to ``stability``'s and not to
+#: ``equilibrium``'s.  Order is load-bearing: see
+#: test_formula_lazy_namespace.py, which pins every one of those names.
+_IMPORT_ORDER = (
     "constants",
     "utils",
+    "equilibrium",
     "stability",
+    "green",
+    "atomic",
     "statistics",
 )
 
-# Snapshot names before star-imports so __all__ captures only the symbols they add.
-_before = set(dir())
+_MODULES: dict[str, object] = {}
 
-# Eagerly import all submodule symbols to preserve `from vaft.formula import *` behaviour.
-from .constants import *  # noqa: F401, F403
-from .utils import *  # noqa: F401, F403
-from .equilibrium import *  # noqa: F401, F403
-from .stability import *  # noqa: F401, F403
-from .green import *  # noqa: F401, F403
-from .atomic import *  # noqa: F401, F403
-from .statistics import *  # noqa: F401, F403
 
-# Include both submodule accessor names and symbols added by the star imports above.
-# Private names (e.g. the _before snapshot itself) must stay out of __all__,
-# otherwise `from vaft.formula import *` fails after `del _before`.
-__all__ = sorted(
-    name
-    for name in set(_SUBMODULES) | (set(dir()) - _before)
-    if not name.startswith("_")
-)
-del _before
+def _submodule(key: str):
+    """Import one submodule, caching it."""
+    module = _MODULES.get(key)
+    if module is None:
+        module = _MODULES[key] = import_module(_SUBMODULES[key], __name__)
+    return module
+
+
+def _exported(module) -> frozenset[str]:
+    """The names ``from <module> import *`` would bind.
+
+    Honouring ``__all__`` matters here: a submodule that declares one does not
+    re-export its own imports, so ``np`` and ``Union`` must not be reachable
+    through it even though ``hasattr`` would say otherwise.
+    """
+    declared = getattr(module, "__all__", None)
+    if declared is None:
+        declared = [name for name in vars(module) if not name.startswith("_")]
+    return frozenset(declared)
+
+
+def _public_names() -> list[str]:
+    """Every name the eager star-imports used to leave in this namespace."""
+    collected = set(_SUBMODULES)
+    for key in _IMPORT_ORDER:
+        collected.update(_exported(_submodule(key)))
+    return sorted(name for name in collected if not name.startswith("_"))
 
 
 def __getattr__(name: str):
     if name in _SUBMODULES:
-        module = import_module(_SUBMODULES[name], __name__)
-        globals()[name] = module
-        return module
+        return _submodule(name)
 
-    for module_key in _SEARCH_ORDER:
+    if name == "__all__":
+        # Not swallowed: a submodule that cannot import used to break the star
+        # import outright, and it still should.  What changed is that plain
+        # `import vaft.formula` no longer does.
+        value = _public_names()
+        globals()["__all__"] = value
+        return value
+
+    for key in reversed(_IMPORT_ORDER):
         try:
-            module = import_module(_SUBMODULES[module_key], __name__)
+            module = _submodule(key)
         except Exception:
             continue
-        if hasattr(module, name):
+        if name in _exported(module):
             value = getattr(module, name)
             globals()[name] = value
             return value
@@ -67,4 +101,5 @@ def __getattr__(name: str):
 
 
 def __dir__():
-    return sorted(list(globals().keys()) + __all__)
+    names = globals().get("__all__") or _public_names()
+    return sorted(set(globals()) | set(names))
