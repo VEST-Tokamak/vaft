@@ -36,3 +36,11 @@ def test_scan_validates_before_touching_the_ods():
     # happens before any prepare/solve is attempted.
     with pytest.raises(ValueError):
         scan_tokamaker(ods=None, base_config=TokaMakerConfig(), values=[], param="bogus")
+
+
+def test_ip_subdirs_keep_sub_kA_precision():
+    from vaft.code.tokamaker.scan import _default_subdir
+
+    assert _default_subdir("ip", 40.0e3) != _default_subdir("ip", 40.4e3)
+    assert _default_subdir("ip", 40.0e3) == "ip_40kA"
+    assert _default_subdir("ip", 40.4e3) == "ip_40.4kA"

@@ -88,12 +88,15 @@ def _resolve_targets(ods: Any, config: TokaMakerConfig, time: float) -> dict[str
     elif source == "magnetics":
         ip = _ip_from_magnetics(ods, time)
     else:
-        eq = ods["equilibrium"]
-        idx = config.time_index
-        if idx is None:
-            eqtime = np.asarray(eq["time"], dtype=float)
-            idx = int(np.argmin(np.abs(eqtime - time)))
+        # The whole equilibrium read is fallback-guarded: a raw shot with
+        # magnetics but no reconstruction has an empty/absent equilibrium IDS,
+        # and the time-array lookup must fall back just like a missing slice.
         try:
+            eq = ods["equilibrium"]
+            idx = config.time_index
+            if idx is None:
+                eqtime = np.asarray(eq["time"], dtype=float)
+                idx = int(np.argmin(np.abs(eqtime - time)))
             ip = float(eq[f"time_slice.{int(idx)}.global_quantities.ip"])
         except Exception:
             ip = _ip_from_magnetics(ods, time)
@@ -149,7 +152,16 @@ def _coil_currents_from_ods(
     """
     coil_sets = {entry["coil_set"] for entry in geometry["coils"].values()}
     if config.coil_currents is not None:
-        return {str(name).upper(): float(value) for name, value in config.coil_currents.items()}
+        explicit = {str(name).upper(): float(value) for name, value in config.coil_currents.items()}
+        unknown = sorted(set(explicit) - coil_sets)
+        if unknown:
+            raise ValueError(
+                "coil_currents names not present in the coil sets: "
+                + ", ".join(unknown)
+                + f". Valid sets: {', '.join(sorted(coil_sets))}."
+            )
+        # coils omitted from the mapping default to 0 A inside TokaMaker
+        return explicit
 
     pf = ods["pf_active"]
     pf_time = np.asarray(pf["time"], dtype=float)

@@ -25,7 +25,7 @@ import numpy as np
 from ._oft import get_oft_env, import_oft
 from .config import TokaMakerConfig, TokaMakerInputs, TokaMakerResult
 from .mesh import build_tokamaker_mesh
-from .outputs import collect_tokamaker_outputs
+from .outputs import _parse_gfile, collect_tokamaker_outputs
 
 _log = logging.getLogger(__name__)
 
@@ -140,4 +140,21 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
     result.returncode = returncode
     result.error = error
     result.mesh_file = inputs.mesh_file if inputs.mesh_file.is_file() else None
+    # The collector globs the workdir, which in a reused directory can surface
+    # a g-file from an EARLIER run. This run's result must carry exactly the
+    # equilibrium it produced — the file written above on success, none at all
+    # on failure.
+    if returncode == 0:
+        if result.gfile != gpath:
+            result.gfile = gpath
+            result.geqdsk, result.ods, geqdsk_error = _parse_gfile(gpath)
+            if geqdsk_error:
+                result.scalars["_geqdsk_error"] = geqdsk_error
+            else:
+                result.scalars.pop("_geqdsk_error", None)
+    elif result.gfile is not None:
+        result.gfile = None
+        result.geqdsk = ()
+        result.ods = None
+        result.scalars.pop("_geqdsk_error", None)
     return result
