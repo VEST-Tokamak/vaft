@@ -38,6 +38,27 @@ jobs:
           name: python-dist
           path: dist/
 
+  # download-artifact otherwise appears only in the tag-gated publish job, so a
+  # branch dispatch would exercise the upload half of the artifact round trip
+  # and nothing else. This job closes that gap: it is the same download the
+  # release performs, with no PyPI environment and no id-token permission, so
+  # it rehearses the handoff without being able to publish anything.
+  verify-artifact:
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Check the artifact carries the built distributions
+        run: |
+          ls -l dist/
+          test -n "$(find dist -name '*.whl' -print -quit)"
+          test -n "$(find dist -name '*.tar.gz' -print -quit)"
+
   publish:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
