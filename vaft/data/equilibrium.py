@@ -168,6 +168,12 @@ class EquilibriumData:
     pressure: np.ndarray | None = None
     f: np.ndarray | None = None
     q: np.ndarray | None = None
+    pprime: np.ndarray | None = None
+    """dp/dpsi as the source carried it.  Kept rather than re-derived because it
+    transforms by the ``PPRIME`` COCOS factor, which is the inverse of ``PSI``,
+    and because differentiating pressure against psi cannot round-trip a file."""
+    ffprime: np.ndarray | None = None
+    """F dF/dpsi, transforming by ``F_FPRIME``; see :attr:`pprime`."""
     ip: float | None = None
     bt0: float | None = None
     r0: float | None = None
@@ -176,7 +182,7 @@ class EquilibriumData:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for name in ("r", "z", "psi_1d", "pressure", "f", "q"):
+        for name in ("r", "z", "psi_1d", "pressure", "f", "q", "pprime", "ffprime"):
             value = getattr(self, name)
             if value is not None:
                 object.__setattr__(self, name, np.asarray(value, dtype=float).reshape(-1))

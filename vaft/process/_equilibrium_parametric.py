@@ -177,7 +177,8 @@ def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
         lcfs=Contour(rb, zb, True) if rb is not None and zb is not None else None,
         limiter=Contour(rl, zl, True) if rl is not None and zl is not None else None,
         psi_1d=psi_1d, pressure=_array(data.get("PRES")), f=_array(data.get("FPOL")),
-        q=q, ip=ip, bt0=bt0, r0=_scalar(data.get("RCENTR")), convention=conv,
+        q=q, pprime=_array(data.get("PPRIME")), ffprime=_array(data.get("FFPRIM")),
+        ip=ip, bt0=bt0, r0=_scalar(data.get("RCENTR")), convention=conv,
         metadata=metadata,
     )
     # The CASE token is advisory: identification still runs, so a stale
@@ -220,7 +221,10 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
         lcfs=Contour(rb, zb, True) if rb is not None and zb is not None else None,
         limiter=Contour(rl, zl, True) if rl is not None and zl is not None else None,
         psi_1d=psi_1d, pressure=_array(_path_get(ts, "profiles_1d.pressure")),
-        f=_array(_path_get(ts, "profiles_1d.f")), q=q, ip=ip, bt0=bt0,
+        f=_array(_path_get(ts, "profiles_1d.f")), q=q,
+        pprime=_array(_path_get(ts, "profiles_1d.dpressure_dpsi")),
+        ffprime=_array(_path_get(ts, "profiles_1d.f_df_dpsi")),
+        ip=ip, bt0=bt0,
         r0=_scalar(_path_get(source, "equilibrium.vacuum_toroidal_field.r0")),
         time=_scalar(_path_get(ts, "time")), convention=conv,
         metadata={"source_type": "omas", "time_index": time_index, "profile_index": profile_index},
@@ -316,6 +320,9 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
         psi_boundary=None if equilibrium.psi_boundary is None else float(equilibrium.psi_boundary * factors["PSI"]),
         psi_1d=scale(equilibrium.psi_1d, "PSI"), f=scale(equilibrium.f, "F"),
         q=scale(equilibrium.q, "Q"),
+        # d/dpsi quantities scale by the inverse of PSI, not by PSI.
+        pprime=scale(equilibrium.pprime, "PPRIME"),
+        ffprime=scale(equilibrium.ffprime, "F_FPRIME"),
         ip=None if equilibrium.ip is None else float(equilibrium.ip * factors["IP"]),
         bt0=None if equilibrium.bt0 is None else float(equilibrium.bt0 * factors["BT"]),
         magnetic_axis=axis, convention=convention,
@@ -918,11 +925,20 @@ def solovev_to_equilibrium(
         raise ValueError("convention must be a COCOS index in the range 1..18")
     psi_factor = 2.0*np.pi if convention >= 11 else 1.0
     conv = _detect_convention(explicit=convention, bt0=float(model.f_boundary/model.rref), ip=ip, q=None, psi_1d=psi_1d*psi_factor, source="analytic Solovev")
+    # Keyword arguments throughout: the field order is not part of the contract.
     return EquilibriumData(
-        r, z, psi*psi_factor, psi_axis*psi_factor, model.psi_boundary*psi_factor, magnetic_axis, lcfs, limiter,
-        psi_1d*psi_factor, pressure, f, None, ip, float(model.f_boundary/model.rref), model.rref,
-        None, conv, {"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
-                     "topology_assumptions": "axisymmetric limited or upper/lower-null"},
+        r=r, z=z, psi=psi*psi_factor, psi_axis=psi_axis*psi_factor,
+        psi_boundary=model.psi_boundary*psi_factor,
+        magnetic_axis=magnetic_axis, lcfs=lcfs, limiter=limiter,
+        psi_1d=psi_1d*psi_factor, pressure=pressure, f=f, q=None,
+        # A Solov'ev model has constant sources by construction.  They are
+        # d/dpsi quantities, so rescaling psi rescales them inversely.
+        pprime=np.full(psi_1d.size, model.pprime/psi_factor),
+        ffprime=np.full(psi_1d.size, model.ffprime/psi_factor),
+        ip=ip, bt0=float(model.f_boundary/model.rref), r0=model.rref,
+        time=None, convention=conv,
+        metadata={"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
+                  "topology_assumptions": "axisymmetric limited or upper/lower-null"},
     )
 
 

@@ -627,3 +627,102 @@ def test_a_consistent_declaration_is_not_flagged():
         assert not equilibrium.convention.contradicted, cocos
         codes = {item.code for item in validate_equilibrium(equilibrium).issues}
         assert "cocos_declared_conflicts_with_signs" not in codes, cocos
+
+
+# --- The d/dpsi profiles --------------------------------------------------
+
+
+def test_pprime_and_ffprime_are_carried_rather_than_re_derived():
+    """They were dropped on import and recomputed by np.gradient on export."""
+    import numpy as np
+
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    geqdsk = sample_geqdsk()
+    equilibrium = as_equilibrium(geqdsk, convention=1)
+    assert equilibrium.pprime is not None and equilibrium.ffprime is not None
+
+    exported = from_equilibrium(equilibrium)
+    for key in ("PPRIME", "FFPRIM", "PRES", "FPOL", "QPSI"):
+        np.testing.assert_array_equal(
+            np.asarray(exported[key], dtype=float), np.asarray(geqdsk[key], dtype=float), err_msg=key
+        )
+
+
+def test_the_dpsi_profiles_transform_by_the_inverse_of_psi():
+    """convert_cocos applied PSI, F, Q, IP and BT but never PPRIME or F_FPRIME.
+
+    dp/dpsi and F dF/dpsi are derivatives with respect to psi, so they scale by
+    1/PSI.  Leaving them untransformed silently mixed conventions inside one
+    equilibrium.
+    """
+    import numpy as np
+
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    equilibrium = as_equilibrium(sample_geqdsk(), convention=1)
+    weber = convert_cocos(equilibrium, 11)
+    # PSI picks up 2*pi going 1 -> 11, so the derivatives must lose it.
+    ratio = weber.psi_1d[1] / equilibrium.psi_1d[1]
+    assert ratio == pytest.approx(2 * np.pi, rel=1e-9)
+    np.testing.assert_allclose(weber.pprime * ratio, equilibrium.pprime, rtol=1e-9)
+    np.testing.assert_allclose(weber.ffprime * ratio, equilibrium.ffprime, rtol=1e-9)
+
+
+@pytest.mark.parametrize("target", [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18])
+def test_a_conversion_round_trip_restores_every_profile(target):
+    """11 -> k -> 11 must return the original, derivatives included."""
+    import numpy as np
+
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    start = convert_cocos(as_equilibrium(sample_geqdsk(), convention=1), 11)
+    restored = convert_cocos(convert_cocos(start, target), 11)
+    for name in ("psi", "psi_1d", "pressure", "f", "q", "pprime", "ffprime"):
+        np.testing.assert_allclose(
+            getattr(restored, name), getattr(start, name), rtol=1e-12, err_msg=name
+        )
+    assert restored.ip == pytest.approx(start.ip)
+    assert restored.bt0 == pytest.approx(start.bt0)
+
+
+def test_equation_23_uses_the_carried_pprime_when_it_is_available():
+    """With a real dp/dpsi profile the check no longer needs the bulk slope."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import cocos_consistency_signs
+    from vaft.process.equilibrium import as_equilibrium
+
+    equilibrium = as_equilibrium(sample_geqdsk(), convention=1)
+    assert equilibrium.pprime is not None
+    assert cocos_consistency_signs(equilibrium)["pprime"] == -1
+
+
+def test_the_solovev_model_carries_its_convention_and_its_constant_sources():
+    """Regression: EquilibriumData was built positionally there.
+
+    Adding pprime/ffprime to the model silently shifted every argument after q,
+    so the convention landed in r0 and the equilibrium came back unlabelled.
+    """
+    import numpy as np
+
+    from scipy.constants import mu_0 as MU0
+
+    from vaft.data.equilibrium import SolovevEquilibrium
+    from vaft.process.equilibrium import solovev_to_equilibrium
+
+    pprime = -1.0e5
+    c1 = -0.02
+    c2 = -4.0 * (-MU0 * pprime / 8.0) - 2.0 * c1
+    model = SolovevEquilibrium(np.array([0.0, c1, c2, 0.0, 0.0]), pprime, 0.0, 1.0, psi_boundary=-0.002)
+    equilibrium = solovev_to_equilibrium(model, np.linspace(0.5, 1.5, 151), np.linspace(-0.7, 0.7, 151))
+
+    assert equilibrium.convention.cocos == 1
+    assert equilibrium.r0 == pytest.approx(1.0)
+    assert equilibrium.bt0 == pytest.approx(model.f_boundary / model.rref)
+    # A Solov'ev equilibrium has constant sources by construction.
+    np.testing.assert_allclose(equilibrium.pprime, pprime)
+    np.testing.assert_allclose(equilibrium.ffprime, 0.0)

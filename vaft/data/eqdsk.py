@@ -211,8 +211,16 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
         "SIMAG": float(eq.psi_axis), "SIBRY": float(eq.psi_boundary),
         "BCENTR": float(eq.bt0), "CURRENT": float(eq.ip),
         "FPOL": np.asarray(eq.f), "PRES": np.asarray(eq.pressure),
-        "FFPRIM": np.gradient(0.5 * np.asarray(eq.f) ** 2, np.asarray(eq.psi_1d)),
-        "PPRIME": np.gradient(np.asarray(eq.pressure), np.asarray(eq.psi_1d)),
+        # Use the source profiles when the model carries them: differentiating
+        # pressure and F against psi is lossy and cannot round-trip a file.
+        "FFPRIM": (
+            np.asarray(eq.ffprime) if eq.ffprime is not None
+            else np.gradient(0.5 * np.asarray(eq.f) ** 2, np.asarray(eq.psi_1d))
+        ),
+        "PPRIME": (
+            np.asarray(eq.pprime) if eq.pprime is not None
+            else np.gradient(np.asarray(eq.pressure), np.asarray(eq.psi_1d))
+        ),
         "PSIRZ": np.asarray(eq.psi), "QPSI": np.asarray(eq.q),
         "NBBBS": int(lcfs_r.size), "LIMITR": int(limiter_r.size),
         "RBBBS": lcfs_r, "ZBBBS": lcfs_z,
