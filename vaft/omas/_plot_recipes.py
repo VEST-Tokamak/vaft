@@ -35,6 +35,8 @@ from vaft.plot.models import (
 )
 from vaft.plot.registry import get_spec
 
+from vaft.formula.statistics import noise_band, rms
+
 __all__ = [
     "CallableRecipe",
     "FieldRecipe",
@@ -2582,6 +2584,7 @@ from .efit_quality import (  # noqa: E402
     ConstraintTable,
     constraint_state as _constraint_state,
     constraint_table as _constraint_table,
+    fitted_mask as _fitted_mask,
     slice_times as _slice_times,
 )
 
@@ -2615,11 +2618,11 @@ def _verification_constraint_panel(
     reconstructed_array = table.reconstructed[keep]
     uncertainty_array = table.uncertainty[keep]
 
-    denominator = np.sqrt(np.mean(measured_array**2)) if measured_array.size else np.nan
+    # Normalized by the RMS of the measurement, not by a residual baseline, so
+    # this is a percentage of signal amplitude rather than a skill score.
+    denominator = rms(measured_array)
     relative_error = (
-        100.0
-        * np.sqrt(np.mean((reconstructed_array - measured_array) ** 2))
-        / denominator
+        100.0 * rms(reconstructed_array - measured_array) / denominator
         if np.isfinite(denominator) and denominator != 0.0
         else np.nan
     )
@@ -2970,12 +2973,8 @@ def _build_equilibrium_residuals(ods: Any, **options: Any) -> Panels:
             slice_table = _constraint_table(
                 ods, time_slice=index, family=family, is_array=is_array, scale=scale
             )
-            fitted = slice_table.mask("enabled") & np.isfinite(slice_table.residual)
-            values.append(
-                float(np.sqrt(np.mean(slice_table.residual[fitted] ** 2)))
-                if fitted.any()
-                else np.nan
-            )
+            fitted = _fitted_mask(slice_table)
+            values.append(rms(slice_table.residual[fitted]))
         array = np.asarray(values, dtype=float)
         finite = array[np.isfinite(array)]
         if finite.size and np.all(finite == 0.0):
@@ -3602,8 +3601,9 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         window = channel.time < plasma_onset
         residual = channel.residual
         reference = residual[window]
-        baseline = float(np.nanmean(reference)) if reference.size else 0.0
-        noise = float(np.nanstd(reference)) if reference.size else 0.0
+        baseline, noise = noise_band(reference)
+        if not reference.size:
+            baseline, noise = 0.0, 0.0
         band = sigma * noise
         series = [
             Series(x=channel.time, y=residual, label="residual", style={"lw": 1.4}),

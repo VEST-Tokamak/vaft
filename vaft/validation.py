@@ -300,11 +300,14 @@ def _efit_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     """
     import numpy as np
 
+    from vaft.formula.statistics import rms
     from vaft.omas.efit_quality import (
         CONSTRAINT_STATES,
         FAMILIES,
         constraint_table,
         efit_quality_metrics,
+        family_chi_squared_sum,
+        fitted_mask,
         slice_times,
     )
 
@@ -316,17 +319,17 @@ def _efit_metrics(source: Any, **_context: Any) -> dict[str, Any]:
             table = constraint_table(
                 source, time_slice=index, family=family, is_array=is_array
             )
-            fitted = table.mask("enabled") & np.isfinite(table.residual)
+            # One convention, defined once in vaft.omas.efit_quality: the
+            # residual RMS runs over the fitted channels and the chi-square
+            # aggregate over the enabled ones, exactly as fit_quality_metrics
+            # reports them.
+            fitted = fitted_mask(table)
             families[family] = {
                 **{state: table.count(state) for state in CONSTRAINT_STATES},
-                "residual_rms": (
-                    float(np.sqrt(np.mean(table.residual[fitted] ** 2)))
-                    if fitted.any()
-                    else float("nan")
-                ),
+                "residual_rms": rms(table.residual[fitted]),
                 # The stored value in SI units: EFIT's normalization for these is
                 # not recorded anywhere, so this is not a reduced chi-square.
-                "chi_squared_sum": float(np.nansum(table.chi_squared)),
+                "chi_squared_sum": family_chi_squared_sum(table),
             }
         quality["slices"][index]["families"] = families
         quality["slices"][index]["grad_shafranov_deviation"] = (

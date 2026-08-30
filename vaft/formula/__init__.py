@@ -11,9 +11,18 @@ _SUBMODULES = {
     "stability": ".stability",
     "green": ".green",
     "atomic": ".atomic",
+    "statistics": ".statistics",
 }
 
-_SEARCH_ORDER = ("green", "equilibrium", "atomic", "constants", "utils", "stability")
+_SEARCH_ORDER = (
+    "green",
+    "equilibrium",
+    "atomic",
+    "constants",
+    "utils",
+    "stability",
+    "statistics",
+)
 
 # Snapshot names before star-imports so __all__ captures only the symbols they add.
 _before = set(dir())
@@ -25,6 +34,7 @@ from .equilibrium import *  # noqa: F401, F403
 from .stability import *  # noqa: F401, F403
 from .green import *  # noqa: F401, F403
 from .atomic import *  # noqa: F401, F403
+from .statistics import *  # noqa: F401, F403
 
 # Include both submodule accessor names and symbols added by the star imports above.
 # Private names (e.g. the _before snapshot itself) must stay out of __all__,
