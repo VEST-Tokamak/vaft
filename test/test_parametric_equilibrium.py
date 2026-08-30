@@ -84,10 +84,10 @@ def test_geqdsk_and_ods_adapters_are_numerically_equivalent():
 
 
 def test_native_ids_adapter_reads_the_repository_equilibrium_fixture():
+    import vaft.data
     from vaft import imas
-    from vaft.data.resources import data_path, require_repository_sample
 
-    source = require_repository_sample(data_path("imas/vest_imas_3.40.1.nc"))
+    source = vaft.data.sample(39915, representation="imas")
     with imas.load(source) as handle:
         native = handle.get("equilibrium")
         equilibrium = as_equilibrium(native, convention=11)
