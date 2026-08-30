@@ -879,6 +879,28 @@ def plot_equilibrium_overview_convergence(
     )
 
 
+def plot_equilibrium_overview_profiles(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The principal 1-D equilibrium profiles side by side.
+
+    Pressure, toroidal current density and safety factor are the three profiles
+    that describe what the plasma is doing, in the order they are usually read.
+    Drawing them together avoids the impression that any one of them
+    characterises the equilibrium on its own.
+
+    Renders with :func:`vaft.plot.equilibrium_overview_profiles`.
+    """
+    return render(
+        "equilibrium_overview_profiles", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_overview_residuals(
     source: Any,
     *,
@@ -2224,6 +2246,7 @@ __all__ = [
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
+    "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",
     "plot_equilibrium_profile_f",

@@ -15,10 +15,26 @@ import nbformat
 ROOT = Path(__file__).resolve().parents[1]
 TUTORIAL = ROOT / "tutorial"
 
+# Session 01 is a beginner's walkthrough of the everyday VAFT workflow, so it
+# follows the workflow itself rather than the analysis-session structure the
+# later sessions share (issue #185). Its headings are pinned per-session here.
+SESSION_01_HEADINGS = [
+    "What is VAFT",
+    "Imports",
+    "Loading Data",
+    "ODS Structure",
+    "Geometry Overview",
+    "Diagnostics",
+    "Equilibrium",
+    "Exercise",
+    "Summary",
+]
+
 SESSIONS = {
     1: {
         "notebook": "01_getting_started_with_vaft.ipynb",
         "tex": "01_getting_started_with_vaft.tex",
+        "headings": SESSION_01_HEADINGS,
     },
     2: {
         "notebook": "02_operation_scenario_and_vacuum_fields.ipynb",
@@ -44,7 +60,8 @@ SESSIONS = {
     },
 }
 
-REQUIRED_HEADINGS = [
+# The analysis-session structure shared by sessions 02-06.
+DEFAULT_HEADINGS = [
     "Session Overview",
     "Physical Context",
     "Load / Prepare Data",
@@ -157,7 +174,13 @@ def _validate_inventory(failures: list[str]) -> None:
             failures.append(f"tutorial-only data artifact is not allowed: {path.relative_to(ROOT)}")
 
 
-def _validate_notebook(session: int, filename: str, failures: list[str]) -> None:
+def _validate_notebook(
+    session: int,
+    filename: str,
+    failures: list[str],
+    expected_headings: list[str] | None = None,
+) -> None:
+    required = expected_headings or DEFAULT_HEADINGS
     path = TUTORIAL / filename
     if not path.exists():
         return
@@ -207,9 +230,9 @@ def _validate_notebook(session: int, filename: str, failures: list[str]) -> None
                     f"{filename}: cell {index} contains machine-specific path {node.value!r}"
                 )
 
-    if headings != REQUIRED_HEADINGS:
+    if headings != required:
         failures.append(
-            f"{filename}: expected section order {REQUIRED_HEADINGS}, found {headings}"
+            f"{filename}: expected section order {required}, found {headings}"
         )
 
 
@@ -243,7 +266,9 @@ def validate() -> list[str]:
 
     _validate_inventory(failures)
     for session, entry in SESSIONS.items():
-        _validate_notebook(session, entry["notebook"], failures)
+        _validate_notebook(
+            session, entry["notebook"], failures, entry.get("headings")
+        )
         _validate_deck(session, entry["tex"], failures)
     return failures
 
