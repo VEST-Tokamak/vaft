@@ -277,13 +277,15 @@ register_convention(CodeConvention(
 
 register_convention(CodeConvention(
     name="vfit",
-    cocos=11,
+    cocos=1,
     psi_unit="Wb/rad",
-    reference="vaft/data/vfit.py module docstring",
+    reference="implied by vaft/data/vfit.py, which multiplies psi by +2*pi",
     confirmed=False,
     notes=(
-        "VFIT stores psi in Wb/rad and the importer multiplies by 2*pi, which "
-        "asserts an e_Bp change only. The sign parameters have never been "
-        "verified against Sauter Eq. 23, so the index is an assumption."
+        "The importer converts psi to COCOS 11 by multiplying by 2*pi with no "
+        "sign change.  That factor is cocos_transform(1, 11)['PSI'] specifically "
+        "-- the 2 -> 11 factor is -2*pi -- so the code asserts VFIT is COCOS 1, "
+        "not merely that psi is in Wb/rad.  The sign parameters have never been "
+        "checked against Sauter Eq. 23, so the index remains an assumption."
     ),
 ))

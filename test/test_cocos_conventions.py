@@ -726,3 +726,55 @@ def test_the_solovev_model_carries_its_convention_and_its_constant_sources():
     # A Solov'ev equilibrium has constant sources by construction.
     np.testing.assert_allclose(equilibrium.pprime, pprime)
     np.testing.assert_allclose(equilibrium.ffprime, 0.0)
+
+
+# --- Adapters declaring their conventions ---------------------------------
+
+
+def test_the_chease_target_is_derived_from_the_registry_not_hand_maintained():
+    """The five signs were a literal dict; they follow from COCOS 2 and Eq. 23."""
+    from vaft.code.chease import (
+        CHEASE_COCOS02_SIGNS,
+        CHEASE_ORIENTATION,
+        _desired_signs_for_cocos,
+    )
+    from vaft.data.cocos import convention_for
+
+    assert convention_for("chease").cocos == 2
+    assert CHEASE_ORIENTATION == {"sigma_ip": -1, "sigma_b0": +1}
+    assert CHEASE_COCOS02_SIGNS == _desired_signs_for_cocos(2, **CHEASE_ORIENTATION)
+    # The values themselves must not have moved: CHEASE's input is byte-checked.
+    assert CHEASE_COCOS02_SIGNS == {
+        "dpsi": -1, "bcentr": 1, "current": -1, "fpol": 1, "q": -1,
+    }
+
+
+def test_a_different_convention_gives_a_different_sign_pattern():
+    """Guards against the derivation collapsing to a constant."""
+    from vaft.code.chease import _desired_signs_for_cocos
+
+    assert _desired_signs_for_cocos(2, sigma_ip=-1, sigma_b0=1) != _desired_signs_for_cocos(
+        3, sigma_ip=-1, sigma_b0=1
+    )
+    assert _desired_signs_for_cocos(2, sigma_ip=-1, sigma_b0=1) != _desired_signs_for_cocos(
+        2, sigma_ip=+1, sigma_b0=1
+    )
+
+
+def test_the_vfit_psi_factor_is_the_declared_conversion_not_a_bare_two_pi():
+    """A bare 2*pi asserts VFIT is COCOS 1: the 2 -> 11 factor is -2*pi."""
+    import numpy as np
+    from omas import cocos_transform
+
+    from vaft.data.cocos import VAFT_INTERNAL_COCOS, convention_for
+    from vaft.data.vfit import _TWO_PI
+
+    convention = convention_for("vfit")
+    assert convention.cocos == 1
+    assert convention.confirmed is False, "the index has never been checked against Eq. 23"
+    assert _TWO_PI == pytest.approx(
+        cocos_transform(convention.cocos, VAFT_INTERNAL_COCOS)["PSI"]
+    )
+    # Unchanged numerically, so VFIT output does not move.
+    assert _TWO_PI == pytest.approx(2.0 * np.pi)
+    assert cocos_transform(2, VAFT_INTERNAL_COCOS)["PSI"] == pytest.approx(-2.0 * np.pi)
