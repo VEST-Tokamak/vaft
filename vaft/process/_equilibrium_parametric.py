@@ -116,6 +116,36 @@ def _detect_convention(
     )
 
 
+def _resolve_convention(
+    equilibrium: EquilibriumData, *, declared: int | None, source: str,
+    clockwise_phi: bool | None = None,
+) -> EquilibriumData:
+    """Attach the identified candidates to an equilibrium's convention record.
+
+    Identification always runs, even when an index was declared, so that a
+    declaration the data does not support -- a stale ``COCOS=`` token in a GEQDSK
+    CASE header, say -- is recorded rather than trusted in silence.  The
+    declaration still wins: a caller asserting a convention is taken at their
+    word, and the disagreement surfaces through
+    :func:`~vaft.process.cocos.validate_cocos` and ``convention.contradicted``.
+    """
+    from vaft.process.cocos import identify_convention
+
+    identified = identify_convention(equilibrium, clockwise_phi=clockwise_phi)
+    convention = equilibrium.convention
+    resolved = declared
+    if resolved is None and len(identified) == 1:
+        resolved = identified[0]
+    candidates = (resolved,) if resolved is not None else identified
+    return replace(equilibrium, convention=EquilibriumConvention(
+        cocos=resolved, candidates=candidates,
+        psi_per_radian=(resolved < 10) if resolved is not None else None,
+        clockwise_phi=clockwise_phi, ip_sign=convention.ip_sign,
+        bt_sign=convention.bt_sign, q_sign=convention.q_sign,
+        source=source, identified=identified,
+    ))
+
+
 def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
     data = source.mapping if hasattr(source, "mapping") else source
     nw, nh = int(data["NW"]), int(data["NH"])
@@ -141,7 +171,7 @@ def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
     rl, zl = _array(data.get("RLIM")), _array(data.get("ZLIM"))
     metadata = dict(getattr(source, "metadata", {}))
     metadata.update({"source_type": "geqdsk", "case": case})
-    return EquilibriumData(
+    equilibrium = EquilibriumData(
         r=r, z=z, psi=psi, psi_axis=psi_axis, psi_boundary=psi_boundary,
         magnetic_axis=(float(data["RMAXIS"]), float(data["ZMAXIS"])),
         lcfs=Contour(rb, zb, True) if rb is not None and zb is not None else None,
@@ -150,6 +180,9 @@ def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
         q=q, ip=ip, bt0=bt0, r0=_scalar(data.get("RCENTR")), convention=conv,
         metadata=metadata,
     )
+    # The CASE token is advisory: identification still runs, so a stale
+    # `COCOS=` header is recorded as contradicted rather than trusted.
+    return _resolve_convention(equilibrium, declared=explicit, source=conv.source)
 
 
 def _from_ods(source: Any, time_index: int, profile_index: int, convention: int | None) -> EquilibriumData:
@@ -179,7 +212,7 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
     zl = _array(_path_get(source, "wall.description_2d.0.limiter.unit.0.outline.z"))
     axis_r = _scalar(_path_get(ts, "global_quantities.magnetic_axis.r"))
     axis_z = _scalar(_path_get(ts, "global_quantities.magnetic_axis.z"))
-    return EquilibriumData(
+    equilibrium = EquilibriumData(
         r=r, z=z, psi=psi,
         psi_axis=_scalar(_path_get(ts, "global_quantities.psi_axis")),
         psi_boundary=_scalar(_path_get(ts, "global_quantities.psi_boundary")),
@@ -192,6 +225,7 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
         time=_scalar(_path_get(ts, "time")), convention=conv,
         metadata={"source_type": "omas", "time_index": time_index, "profile_index": profile_index},
     )
+    return _resolve_convention(equilibrium, declared=explicit, source=conv.source)
 
 
 def as_equilibrium(
@@ -240,6 +274,15 @@ def validate_equilibrium(equilibrium: EquilibriumData, *, required_for: str = "g
     if equilibrium.convention.ambiguous:
         candidates = equilibrium.convention.candidates or ("none",)
         issues.append(ValidationIssue("warning", "ambiguous_cocos", "convention", f"COCOS is ambiguous ({candidates}); pass convention= explicitly before conversion"))
+    if equilibrium.convention.contradicted:
+        # A declaration the data does not support: a stale GEQDSK CASE token, a
+        # mislabelled ODS, or an explicit argument that does not match the file.
+        issues.append(ValidationIssue(
+            "warning", "cocos_declared_conflicts_with_signs", "convention",
+            f"COCOS {equilibrium.convention.cocos} is declared ({equilibrium.convention.source}) "
+            f"but the observable signs and flux scale support "
+            f"{equilibrium.convention.identified}; the declaration is being used as given",
+        ))
     return ValidationReport(tuple(issues))
 
 

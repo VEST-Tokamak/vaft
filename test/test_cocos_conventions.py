@@ -327,13 +327,18 @@ def test_a_stale_case_header_declares_a_convention_the_signs_contradict():
 
 
 def test_the_packaged_efit_sample_validates_in_the_family_its_signs_identify():
-    """g039915 identifies as {1,2,11,12}; Eq. 23 must accept those and reject others."""
+    """g039915's signs support the 1/2/11/12 family; Eq. 23 must reject the rest.
+
+    Identification narrows further, to (1, 2), because Ampere's law settles the
+    flux exponent -- but Eq. 23 tests only the sign relations, which cannot
+    distinguish an index from its +10 counterpart.
+    """
     from vaft.data.resources import sample_geqdsk
     from vaft.process.equilibrium import as_equilibrium
     from vaft.process.cocos import validate_cocos
 
     equilibrium = as_equilibrium(sample_geqdsk())
-    assert equilibrium.convention.candidates == (1, 2, 11, 12)
+    assert equilibrium.convention.candidates == (1, 2)
     for cocos in (1, 2, 11, 12):
         assert validate_cocos(equilibrium, cocos).valid, cocos
     for cocos in (3, 4, 7, 8):
@@ -577,3 +582,48 @@ def test_identification_returns_nothing_when_the_inputs_are_missing():
     from vaft.process.cocos import identify_convention
 
     assert identify_convention(EquilibriumData()) == ()
+
+
+def test_a_declared_convention_the_data_contradicts_is_reported_not_trusted_silently():
+    """Regression for the stale `COCOS=02` CASE token.
+
+    `_from_geqdsk` promoted the header straight to an explicit index and
+    stopped there.  Identification now always runs, so the declaration still
+    wins -- a caller asserting a convention is taken at their word -- but the
+    disagreement is recorded and surfaces as a validation warning.
+    """
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path, require_repository_sample
+    from vaft.process.equilibrium import as_equilibrium, validate_equilibrium
+
+    equilibrium = as_equilibrium(read_geqdsk(require_repository_sample(data_path("efit/g040330.00320"))))
+    assert equilibrium.convention.cocos == 2
+    assert equilibrium.convention.identified == (7, 8)
+    assert equilibrium.convention.contradicted
+
+    issues = {item.code: item for item in validate_equilibrium(equilibrium).issues}
+    assert "cocos_declared_conflicts_with_signs" in issues
+    message = issues["cocos_declared_conflicts_with_signs"].message
+    assert "COCOS 2 is declared" in message and "(7, 8)" in message
+
+
+def test_an_explicit_convention_that_contradicts_the_file_is_also_reported():
+    """Asserting COCOS 11 on a weber-per-radian g-file is a real inconsistency."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    equilibrium = as_equilibrium(sample_geqdsk(), convention=11)
+    assert equilibrium.convention.cocos == 11
+    assert equilibrium.convention.identified == (1, 2)
+    assert equilibrium.convention.contradicted
+
+
+def test_a_consistent_declaration_is_not_flagged():
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, validate_equilibrium
+
+    for cocos in (1, 2):
+        equilibrium = as_equilibrium(sample_geqdsk(), convention=cocos)
+        assert not equilibrium.convention.contradicted, cocos
+        codes = {item.code for item in validate_equilibrium(equilibrium).issues}
+        assert "cocos_declared_conflicts_with_signs" not in codes, cocos

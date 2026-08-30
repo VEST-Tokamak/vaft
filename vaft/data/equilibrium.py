@@ -69,10 +69,19 @@ class EquilibriumConvention:
     bt_sign: int | None = None
     q_sign: int | None = None
     source: str = "unknown"
+    identified: tuple[int, ...] = ()
+    """Indices the observable signs and flux scale support, independently of
+    whatever was declared.  Kept even when a declaration wins, so a declaration
+    the data contradicts can be reported rather than silently trusted."""
 
     @property
     def ambiguous(self) -> bool:
         return self.cocos is None and len(self.candidates) != 1
+
+    @property
+    def contradicted(self) -> bool:
+        """True when a declared index is not among the ones the data supports."""
+        return bool(self.identified) and self.cocos is not None and self.cocos not in self.identified
 
 
 @dataclass(frozen=True)
