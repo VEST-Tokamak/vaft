@@ -266,6 +266,24 @@ def verify(manifest_path: Path) -> None:
         expected_magnetics["flux_loop_count"]
     ):
         raise ValueError("Compact sample does not contain every flux loop")
+    # The active coils and filterscope channels are referenced by
+    # em_coupling.active_coils and by the single-shot examples, so a selector
+    # that silently truncates either array must fail generation.
+    for ids, node, key, label in (
+        ("pf_active", "pf_active.coil", "coil_count", "active coil"),
+        (
+            "spectrometer_uv",
+            "spectrometer_uv.channel",
+            "channel_count",
+            "filterscope channel",
+        ),
+    ):
+        expected_count = manifest["acceptance"].get(ids, {}).get(key)
+        if expected_count is not None and len(native_omas[node]) != int(expected_count):
+            raise ValueError(
+                f"Compact sample does not contain every {label}: "
+                f"{len(native_omas[node])} of {expected_count}"
+            )
 
 
 def main() -> int:
