@@ -298,7 +298,8 @@ def compute_point_response_matrices_ods(
     ods: ODS,
     rz: List[List[float]],
     plasma_points: Optional[List[List[float]]] = None,
-    ) -> Tuple[ndarray, ndarray, ndarray]:
+    components: Tuple[str, ...] = ("psi", "bz", "br"),
+    ) -> Tuple[ndarray, ...]:
     """Vectorized, exact-elliptic (Psi, Bz, Br) response matrices from an ODS.
 
     Fast alternative to :func:`compute_point_response_ods` (issue #239):
@@ -322,7 +323,11 @@ def compute_point_response_matrices_ods(
     :param ods: OMAS data structure with ``pf_active`` and ``pf_passive``
     :param rz: observation points, sequence of [r, z] pairs (shape (n, 2))
     :param plasma_points: optional plasma filament points, same shape rules
-    :return: (Psi, Bz, Br), each (n_points, nbcoil + nbloop + nbplas)
+    :param components: which matrices to compute, a subset of
+        ("psi", "bz", "br") in the desired order; "psi" alone skips the
+        field-component elliptic passes (~3x cheaper)
+    :return: matrices matching *components* (default (Psi, Bz, Br)),
+        each (n_points, nbcoil + nbloop + nbplas)
     """
     import warnings
 
@@ -395,6 +400,7 @@ def compute_point_response_matrices_ods(
         turns=np.asarray(turns),
         groups=np.asarray(groups, dtype=int),
         n_groups=n_groups,
+        components=components,
     )
 
 

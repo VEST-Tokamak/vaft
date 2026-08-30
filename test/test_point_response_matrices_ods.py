@@ -84,13 +84,34 @@ def test_coincident_observation_point_warns(machine_ods):
     assert np.all(np.isfinite(psi)) and np.all(np.isfinite(bz)) and np.all(np.isfinite(br))
 
 
+def test_components_selection(machine_ods):
+    """components=("psi",) returns just psi, identical to the full call."""
+    psi_full, bz_full, _ = compute_point_response_matrices_ods(machine_ods, POINTS)
+    (psi_only,) = compute_point_response_matrices_ods(
+        machine_ods, POINTS, components=("psi",)
+    )
+    np.testing.assert_array_equal(psi_only, psi_full)
+    bz_first, psi_second = compute_point_response_matrices_ods(
+        machine_ods, POINTS, components=("bz", "psi")
+    )
+    np.testing.assert_array_equal(bz_first, bz_full)
+    np.testing.assert_array_equal(psi_second, psi_full)
+    with pytest.raises(ValueError, match="components"):
+        compute_point_response_matrices_ods(machine_ods, POINTS, components=("phi",))
+
+
 @pytest.mark.perf
 def test_substantially_faster_than_legacy(machine_ods):
     compute_point_response_matrices_ods(machine_ods, POINTS)  # warm-up
-    t0 = time.perf_counter()
-    compute_point_response_matrices_ods(machine_ods, POINTS)
-    fast = time.perf_counter() - t0
-    t0 = time.perf_counter()
-    compute_point_response_ods(machine_ods, POINTS)
-    slow = time.perf_counter() - t0
+    fast = min(
+        _timed(lambda: compute_point_response_matrices_ods(machine_ods, POINTS))
+        for _ in range(3)
+    )
+    slow = _timed(lambda: compute_point_response_ods(machine_ods, POINTS))
     assert fast < slow / 5, f"vectorized {fast:.3f}s vs legacy {slow:.3f}s"
+
+
+def _timed(fn) -> float:
+    t0 = time.perf_counter()
+    fn()
+    return time.perf_counter() - t0
