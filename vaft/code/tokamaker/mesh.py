@@ -25,11 +25,12 @@ def build_tokamaker_mesh(
     """Mesh the geometry with gs_Domain and save it as an HDF5 cache file.
 
     Regions: an auto-generated rectangular ``boundary`` region ("AIR"), the
-    ``plasma`` region bounded by the limiter polygon, and one ``coil`` region
-    per rectangle (grouped into coil sets via ``coil_set``). A static forward
-    solve assigns no current to passive conductors, so the vessel is *not*
-    meshed in v1 (``include_vessel`` is a reserved seam for time-dependent
-    work and raises ``NotImplementedError``).
+    ``plasma`` region bounded by the limiter polygon, one ``coil`` region per
+    rectangle (grouped into coil sets via ``coil_set``), and — when the
+    geometry carries a ``vessel`` key (``config.include_vessel``) — one
+    ``conductor`` region per vessel polygon with its resistivity [Ohm·m].
+    Conductors are inert in static solves (TokaMaker gates every eddy term on
+    ``dt > 0``), so one mesh serves both static and time-dependent runs.
 
     Idempotent: an existing ``mesh_file`` is returned unchanged; delete or
     rename it to force a rebuild.
@@ -38,13 +39,11 @@ def build_tokamaker_mesh(
     if mesh_file.is_file():
         _log.info("Reusing cached TokaMaker mesh %s", mesh_file)
         return mesh_file
-    if config.include_vessel:
-        raise NotImplementedError(
-            "include_vessel is a seam reserved for time-dependent/eddy work: "
-            "a static solve assigns no current to conductor regions, and the "
-            "VEST pf_passive filaments are far too fine to mesh individually. "
-            "A future version should mesh a continuous vessel annulus "
-            "(gs_Domain.add_annulus) with eta_vessel."
+    vessel = geometry.get("vessel", {})
+    if config.include_vessel and not vessel:
+        raise ValueError(
+            "include_vessel=True but the geometry has no 'vessel' regions; "
+            "rebuild it with tokamaker_geometry_from_ods and the same config."
         )
 
     oft = import_oft()
@@ -61,11 +60,23 @@ def build_tokamaker_mesh(
             nTurns=coil["nturns"],
             coil_set=coil["coil_set"],
         )
+    for name, cond in vessel.items():
+        gs_mesh.define_region(
+            name,
+            cond["dx"],
+            "conductor",
+            eta=cond["eta"],
+            noncontinuous=cond["noncontinuous"] or None,
+        )
 
     gs_mesh.add_polygon(limiter, "plasma", parent_name="air")
     for name, coil in geometry["coils"].items():
         gs_mesh.add_rectangle(
             coil["rc"], coil["zc"], coil["w"], coil["h"], name, parent_name="air"
+        )
+    for name, cond in vessel.items():
+        gs_mesh.add_polygon(
+            np.asarray(cond["contour"], dtype=float), name, parent_name="air"
         )
 
     mesh_pts, mesh_lc, mesh_reg = gs_mesh.build_mesh()

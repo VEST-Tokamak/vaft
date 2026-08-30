@@ -101,3 +101,23 @@ def test_geometry_signature_is_stable_and_sensitive():
     assert geometry_signature(geometry, TokaMakerConfig(dx_plasma=0.02)) != signature
     moved = tokamaker_geometry_from_ods(ods, TokaMakerConfig(exclude_coils=("PF2",)))
     assert geometry_signature(moved, config) != signature
+
+
+def test_vsc_coil_splits_into_independent_coil_sets():
+    config = TokaMakerConfig(vsc_coil="PF1")
+    geometry = tokamaker_geometry_from_ods(_build_ods(), config)
+
+    assert geometry["coils"]["PF1_U"]["coil_set"] == "PF1_U"
+    assert geometry["coils"]["PF1_L"]["coil_set"] == "PF1_L"
+    # other coils keep their shared set
+    assert geometry["coils"]["PF2"]["coil_set"] == "PF2"
+
+
+def test_vsc_coil_must_be_mirrored():
+    with pytest.raises(ValueError, match="up/down-mirrored"):
+        tokamaker_geometry_from_ods(_build_ods(), TokaMakerConfig(vsc_coil="PF2"))
+
+
+def test_vsc_coil_matching_no_coil_is_rejected_early():
+    with pytest.raises(ValueError, match="matches no pf_active coil"):
+        tokamaker_geometry_from_ods(_build_ods(), TokaMakerConfig(vsc_coil="PF99"))

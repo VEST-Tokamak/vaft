@@ -150,6 +150,15 @@ def test_resolve_mesh_file_explicit_vs_hashed(tmp_path):
     assert exists
 
 
+def test_vsc_split_sets_inherit_the_parent_coil_current(tmp_path):
+    config = TokaMakerConfig(time=0.32, workdir=tmp_path, vsc_coil="PF1")
+    inputs = prepare_tokamaker_inputs(_build_ods(), config)
+    # both halves carry PF1's measured per-turn current
+    assert inputs.coil_currents["PF1_U"] == pytest.approx(-640.0)
+    assert inputs.coil_currents["PF1_L"] == pytest.approx(-640.0)
+    assert "PF1" not in inputs.coil_currents
+
+
 def test_equilibrium_source_falls_back_to_magnetics_without_reconstruction(tmp_path):
     ods = _build_ods()
     del ods["equilibrium"]

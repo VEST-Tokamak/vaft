@@ -168,6 +168,7 @@ vaft/
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb) | CHEASE를 이용한 평형 정교화 |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb) | TES를 이용한 순방향 평형 재구성 |
 | [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb) | TokaMaker(Open FUSION Toolkit)를 이용한 순방향 자유경계 평형 계산 |
+| [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb) | TokaMaker를 이용한 진공용기 와전류·벽 고유모드·준정적 시간 전개 |
 | [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb) | 엔드투엔드 kinetic-EFIT 워크플로 |
 
 ## 관련 자료

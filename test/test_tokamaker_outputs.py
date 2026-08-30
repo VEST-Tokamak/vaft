@@ -95,3 +95,65 @@ def test_parse_stats_sidecar_promotes_stats_keys(tmp_path):
     assert "beta_tor" not in scalars          # absent stats keys stay absent
     assert scalars["o_point"] == [0.4, 0.0]
     assert scalars["shot"] == 39915
+
+
+def test_collect_evolution_outputs_round_trip(tmp_path):
+    from vaft.code.tokamaker import collect_tokamaker_evolution_outputs
+
+    sample = data_path("efit/g039915.00319")
+    shutil.copy(sample, tmp_path / "g039915.00319")
+    payload = {
+        "shot": 39915,
+        "vacuum": False,
+        "times": [0.319, 0.321],
+        "probes": [],
+        "steps": [
+            {"index": 0, "time": 0.319, "converged": True, "error": "",
+             "gfile": "g039915.00319", "stats": {"Ip": 51.0e3},
+             "coil_currents_A": {"PF1": -600.0},
+             "vessel_currents_A": {"W1": 120.0}, "probe_fields": {}},
+            {"index": 1, "time": 0.321, "converged": False, "error": "diverged",
+             "gfile": None, "stats": {}, "coil_currents_A": {"PF1": -580.0},
+             "vessel_currents_A": {}, "probe_fields": {}},
+        ],
+    }
+    (tmp_path / "tokamaker_evolution.json").write_text(json.dumps(payload))
+
+    result = collect_tokamaker_evolution_outputs(tmp_path)
+
+    assert result.returncode is None                 # collect-only
+    assert result.times == (0.319, 0.321)
+    assert [rec.converged for rec in result.steps] == [True, False]
+    assert result.steps[0].vessel_currents_A == {"W1": 120.0}
+    assert [path.name for path in result.gfiles] == ["g039915.00319"]
+    assert result.scalars["n_failed"] == 1
+    # the real g-file merges into a one-slice equilibrium IDS
+    assert result.ods is not None
+    assert float(result.ods["equilibrium.time_slice.0.time"]) == pytest.approx(0.319)
+
+
+def test_collect_evolution_outputs_empty_dir(tmp_path):
+    from vaft.code.tokamaker import collect_tokamaker_evolution_outputs
+
+    result = collect_tokamaker_evolution_outputs(tmp_path)
+    assert result.sidecar_file is None
+    assert result.steps == ()
+    assert result.ods is None
+    assert not result.ok
+
+
+def test_collect_stability_outputs_round_trip(tmp_path):
+    from vaft.code.tokamaker import collect_tokamaker_stability_outputs
+
+    payload = {
+        "wall": {"tau_wall_s": [0.007, 0.004], "tau_wall_max_s": 0.007, "converged": True},
+        "vertical": {"gamma_s": 812.0, "stable": False, "converged": True},
+    }
+    (tmp_path / "tokamaker_stability.json").write_text(json.dumps(payload))
+
+    result = collect_tokamaker_stability_outputs(tmp_path)
+
+    assert result.tau_wall_s == pytest.approx((0.007, 0.004))
+    assert result.gamma_s == pytest.approx(812.0)
+    assert result.scalars["stable"] is False
+    assert result.scalars["tau_wall_max_s"] == pytest.approx(0.007)

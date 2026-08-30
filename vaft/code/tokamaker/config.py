@@ -97,12 +97,54 @@ class TokaMakerConfig:
     coil_currents: Optional[Mapping[str, float]] = None
     exclude_coils: tuple[str, ...] = ()       # coil (set) names to drop from mesh and currents
 
-    # --- vessel seam (reserved for time-dependent/eddy work; unused in v1) ---
-    # A static solve assigns no current to conductor regions, so including the
-    # vessel cannot change the answer here — it only inflates the mesh.
+    # --- vessel conductors (time-dependent / eddy work) ---
+    # A static solve assigns no current to conductor regions (all eddy terms in
+    # TokaMaker are gated on dt > 0), so including the vessel leaves static
+    # results physically unchanged — it only refines the mesh. The evolution
+    # and stability entry points REQUIRE include_vessel=True.
     include_vessel: bool = False
-    dx_conductor: float = 0.02
-    eta_vessel: float = 7.4e-7                # [Ohm·m]
+    dx_conductor: float = 0.02                # per-region cap [m]; actual dx = clamp(thickness)
+    dx_conductor_min: float = 0.004           # per-region floor [m] (thin-strip mesh cost guard)
+    # SUS316LN; exactly reproduces the packaged pf_passive W2-W10 loop resistances
+    # via R = 2*pi*R*eta/A. W1 carries a black-box per-loop calibration (issue #191)
+    # and gets this uniform default unless overridden.
+    eta_vessel: float = 7.8e-7                # [Ohm·m]
+    vessel_eta: Optional[Mapping[str, float]] = None   # per segment/region override [Ohm·m]
+    vessel_noncontinuous: tuple[str, ...] = ()         # regions with zero net toroidal current
+    exclude_vessel_segments: tuple[str, ...] = ("W11",)  # 0.1 mm tungsten tiles: not structure
+    # Minimum clearance enforced between conductor regions [m]. The filament
+    # segments physically abut (and slightly overlap at corner joints); meshing
+    # needs disjoint region polygons with no T-junctions, so every region is
+    # shrunk by vessel_gap/2 per side and vertical runs are clamped out of
+    # horizontal bands. Must stay well above gs_Domain's 1e-4 merge threshold.
+    vessel_gap: float = 3.0e-4
+
+    # --- vertical stability control (optional) ---
+    # Name of one pf_active coil (e.g. "PF9") whose upper/lower rectangles become
+    # their OWN coil sets (<name>_U/<name>_L) wired as a Vertical Stability Coil
+    # pair with gains +1/-1; the virtual '#VSC' amplitude is regularized to 0.
+    vsc_coil: Optional[str] = None
+    vsc_weight: float = 1.0e-2                # coil_reg_term weight on '#VSC'
+
+    # --- quasi-static evolution ---
+    evolve_times: Optional[Sequence[float]] = None   # explicit slice times [s]; wins over start/end/dt
+    evolve_start: Optional[float] = None             # else np.arange(start, end, dt)
+    evolve_end: Optional[float] = None
+    evolve_dt: Optional[float] = None                # [s]; times must round to distinct integer ms
+    evolve_on_failure: str = "continue"              # "continue" (keep last converged psi0) | "stop"
+    evolve_vacuum: bool = False                      # vac_solve: no plasma, no targets, no g-files
+    # False disables the set_psi_dt wall term: every slice becomes an
+    # independent static solve (the "coil-only" control of the vacuum benchmark).
+    evolve_eddy: bool = True
+    # (r, z) points where B/psi are evaluated after each step (vacuum benchmark).
+    evolve_field_probes: Optional[Sequence[tuple[float, float]]] = None
+
+    # --- stability eigenvalue solves ---
+    wall_neigs: int = 8                       # eig_wall mode count
+    td_neigs: int = 8                         # eig_td mode count
+    td_omega: float = -1.0e4                  # eig_td ARPACK shift [1/s]
+    td_include_bounds: bool = False
+    td_damping_scale: float = -1.0            # <0 disables artificial plasma damping
 
     # --- gEQDSK output ---
     eqdsk_nr: int = 129
@@ -143,6 +185,71 @@ class TokaMakerResult:
     logs: tuple[Path, ...] = ()
     geqdsk: tuple[Any, ...] = ()
     ods: Any = None
+    scalars: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+
+@dataclass
+class TokaMakerEvolutionInputs:
+    """Prepared inputs for a quasi-static evolution across a shot."""
+
+    base: TokaMakerInputs                     # from prepare_tokamaker_inputs at times[0]
+    times: tuple[float, ...]                  # strictly increasing slice times [s]
+    coil_waveforms: Mapping[str, Any]         # {coil_set: I(times) [A]} aligned arrays
+    ip_targets: Any                           # Ip(times) [A]; zeros in vacuum mode
+    vacuum: bool = False                      # vac_solve mode (no plasma/targets/g-files)
+
+
+@dataclass
+class TokaMakerStepRecord:
+    """One quasi-static evolution step."""
+
+    index: int
+    time: float                               # [s]
+    converged: bool
+    error: str = ""
+    gfile: Optional[Path] = None
+    stats: Mapping[str, Any] = field(default_factory=dict)
+    coil_currents_A: Mapping[str, float] = field(default_factory=dict)
+    vessel_currents_A: Mapping[str, float] = field(default_factory=dict)  # net I per conductor region
+    probe_fields: Mapping[str, Any] = field(default_factory=dict)         # {"br":[], "bz":[], "psi":[]}
+
+
+@dataclass
+class TokaMakerEvolutionResult:
+    """Collected quasi-static evolution: per-step records plus the merged IDS."""
+
+    returncode: Optional[int]                 # 0 = every step converged, 1 = any failure
+    workdir: Path
+    times: tuple[float, ...] = ()
+    steps: tuple[TokaMakerStepRecord, ...] = ()
+    gfiles: tuple[Path, ...] = ()             # converged plasma slices, time order
+    sidecar_file: Optional[Path] = None       # tokamaker_evolution.json
+    mesh_file: Optional[Path] = None
+    error: str = ""
+    ods: Any = None                           # merged multi-slice equilibrium IDS
+    scalars: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+
+@dataclass
+class TokaMakerStabilityResult:
+    """Wall eigenmodes and/or vertical-stability growth rate."""
+
+    returncode: Optional[int]                 # 0 = solve/eig succeeded, 1 = failed
+    workdir: Path
+    tau_wall_s: tuple[float, ...] = ()        # wall L/R times [s], descending
+    gamma_s: Optional[float] = None           # vertical growth rate [1/s]; > 0 unstable
+    eig_file: Optional[Path] = None           # .npz with eig_vals/eig_vecs/mesh arrays
+    stats_file: Optional[Path] = None         # tokamaker_stability.json sidecar
+    gfile: Optional[Path] = None              # underlying equilibrium (eig_td path)
+    error: str = ""
     scalars: Mapping[str, Any] = field(default_factory=dict)
 
     @property

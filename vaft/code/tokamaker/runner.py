@@ -50,6 +50,61 @@ def _write_sidecar(workdir: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
+# --------------------------------------------------------------------------- #
+#  Shared lifecycle helpers (also used by evolve.py / stability.py)
+# --------------------------------------------------------------------------- #
+def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str, dict]:
+    """Load the mesh into ``mygs`` and run the common setup sequence.
+
+    Returns a snapshot of the conductor-region entries ``{name: {reg_id, eta,
+    ...}}`` taken BEFORE ``setup_regions`` — which mutates the passed
+    ``cond_dict`` (vacuum entries are moved out) — so callers can integrate
+    per-region eddy currents later.
+    """
+    pts, lc, reg, coil_dict, cond_dict = oft.meshing.load_gs_mesh(str(inputs.mesh_file))
+    cond_regions = {
+        str(name): dict(entry)
+        for name, entry in cond_dict.items()
+        if isinstance(entry, dict) and "eta" in entry
+    }
+    mygs.setup_mesh(pts, lc, reg)
+    mygs.setup_regions(cond_dict=cond_dict, coil_dict=coil_dict)
+    if config.quiet:
+        mygs.settings.pm = False
+    if config.maxits is not None:
+        mygs.settings.maxits = int(config.maxits)
+    if config.urf is not None:
+        mygs.settings.urf = float(config.urf)
+    if config.nl_tol is not None:
+        mygs.settings.nl_tol = float(config.nl_tol)
+    mygs.setup(order=config.order, F0=inputs.f0)
+    return cond_regions
+
+
+def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
+    """Wire the Vertical Stability Coil pair when ``config.vsc_coil`` is set.
+
+    The named coil's halves are separate coil sets (see the geometry builder);
+    they get gains +1/-1 and the virtual ``'#VSC'`` amplitude is regularized
+    toward zero. NOTE: the ``V0`` target this enables is silently ignored by
+    TokaMaker whenever isoflux/flux constraints are active — the forward
+    adapter never sets those.
+    """
+    if config.vsc_coil is None:
+        return
+    parent = str(config.vsc_coil).upper()
+    mygs.set_coil_vsc({f"{parent}_U": 1.0, f"{parent}_L": -1.0})
+    term = mygs.coil_reg_term({"#VSC": 1.0}, target=0.0, weight=config.vsc_weight)
+    mygs.set_coil_reg(reg_terms=[term])
+
+
+def _apply_profiles(oft, mygs, config: TokaMakerConfig) -> None:
+    mygs.set_profiles(
+        ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
+        pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
+    )
+
+
 def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMakerResult:
     """Execute a forward solve and collect the produced outputs.
 
@@ -81,28 +136,17 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         "f0": inputs.f0,
         "cocos": config.eqdsk_cocos,
     }
+    if config.include_vessel:
+        sidecar["vessel_regions"] = sorted((inputs.geometry.get("vessel") or {}).keys())
 
     mygs = oft.TokaMaker(env)
     try:
-        pts, lc, reg, coil_dict, cond_dict = oft.meshing.load_gs_mesh(str(inputs.mesh_file))
-        mygs.setup_mesh(pts, lc, reg)
-        mygs.setup_regions(cond_dict=cond_dict, coil_dict=coil_dict)
-        if config.quiet:
-            mygs.settings.pm = False
-        if config.maxits is not None:
-            mygs.settings.maxits = int(config.maxits)
-        if config.urf is not None:
-            mygs.settings.urf = float(config.urf)
-        if config.nl_tol is not None:
-            mygs.settings.nl_tol = float(config.nl_tol)
-        mygs.setup(order=config.order, F0=inputs.f0)
+        _configure_tokamaker(oft, mygs, inputs, config)
+        _apply_vsc(mygs, config)
 
         mygs.set_coil_currents(dict(inputs.coil_currents))
         mygs.set_targets(**inputs.targets)
-        mygs.set_profiles(
-            ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
-            pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
-        )
+        _apply_profiles(oft, mygs, config)
 
         mygs.init_psi(
             config.init_r0, config.init_z0, config.init_a0,
