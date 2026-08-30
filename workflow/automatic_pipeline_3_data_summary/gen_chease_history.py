@@ -189,6 +189,10 @@ def extract_chease_data(chease_set):
             magnetic_axis_z = equilibrium['global_quantities.magnetic_axis.z']
         except Exception:
             magnetic_axis_z = np.nan
+        # beta_pol/beta_tor/beta_normal/li_3 came from OMFIT's flux-surface
+        # solve; the native EQDSK conversion does not reconstruct them yet
+        # (issue #238), so these four are NaN for every shot.  The warning at
+        # the end of generate_chease_history_excel says so.
         try:
             beta_poloidal = equilibrium['global_quantities']['beta_pol']
         except Exception:
@@ -334,6 +338,17 @@ def generate_chease_history_excel(
         database.export_summary(df, output_path, mode="replace")
         logger.info(f"Processing complete! Successfully processed {len(all_data)} out of {len(chease_files)} files.")
         logger.info(f"Saved to {output_path}")
+        unavailable = [
+            column
+            for column in ("beta_poloidal", "beta_toroidal", "beta_normal", "li_3")
+            if column in df.columns and df[column].isna().all()
+        ]
+        if unavailable:
+            logger.warning(
+                "not reconstructed by the native EQDSK conversion (issue #238), "
+                "NaN for every shot: %s",
+                ", ".join(unavailable),
+            )
         return df
     else:
         logger.warning("No data was successfully processed.")

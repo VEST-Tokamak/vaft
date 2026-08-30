@@ -53,10 +53,30 @@ def write_namelists_to_ods(
     root = f"equilibrium.code.parameters.time_slice.{time_index}"
     for namelist, values in namelists.items():
         for name, value in values.items():
-            if isinstance(value, (list, tuple)):
-                value = np.asarray(value)
-            ods[f"{root}.{namelist}.{name}"] = value
+            ods[f"{root}.{namelist}.{name}"] = _as_stored(value)
     return ods
+
+
+def _as_stored(value: Any) -> Any:
+    """Shape one namelist value for omas.
+
+    Array entries arrive as Python lists, which omas' code-parameters encoder
+    cannot serialize -- it recurses into a list and then reindexes it by string
+    key. NumPy arrays it handles. Two shapes f90nml can produce resist the
+    conversion: a sparse assignment (``A(3) = 1.0``) pads with ``None``, and a
+    sparse multi-dimensional one is ragged, which ``np.asarray`` rejects
+    outright. Neither is worth losing the rest of the namelist over, so an
+    unconvertible value is left exactly as it came.
+    """
+    if not isinstance(value, (list, tuple)):
+        return value
+    try:
+        array = np.asarray(value)
+    except ValueError:
+        return value  # ragged; nothing sensible to convert it to
+    if array.dtype == object:
+        return value
+    return array
 
 
 def read_keqdsk(path: str | Path) -> KEQDSK:

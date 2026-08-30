@@ -485,25 +485,94 @@ def _rho_tor_profile(
     return phi, rho_tor, rho_tor / edge
 
 
-def _volume_profile(
-    data: Mapping[str, Any], psi_norm: np.ndarray
-) -> Optional[np.ndarray]:
-    """Enclosed volume on each psi_N level, by tracing the flux surfaces.
+def _contour_geometry(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
+    """Shape parameters of one closed flux-surface contour."""
+    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
 
-    Each level's longest traced contour is revolved with the exact
-    ``V = pi * closed_integral(R^2 dZ)`` form. The axis is 0 by construction and
-    the edge uses the g-file's own ``RBBBS``/``ZBBBS`` boundary rather than a
-    traced contour, which is both exact and cheaper.
+    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
+    z_min, z_max = float(np.min(z_seg)), float(np.max(z_seg))
+    minor = 0.5 * (r_max - r_min)
+    r_geo = 0.5 * (r_max + r_min)
+    if minor <= 0.0:
+        raise ValueError("degenerate contour")
+    return {
+        "volume": exact_volume_from_RZ_contour(r_seg, z_seg),
+        # Poloidal cross-section area, by the shoelace formula.
+        "area": 0.5
+        * abs(
+            float(np.dot(r_seg, np.roll(z_seg, 1)) - np.dot(z_seg, np.roll(r_seg, 1)))
+        ),
+        "elongation": (z_max - z_min) / (2.0 * minor),
+        "triangularity_upper": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=True)) / minor,
+        "triangularity_lower": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=False)) / minor,
+    }
+
+
+def _r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
+    """R where the contour reaches its highest (or lowest) point.
+
+    Taking R at the sampled vertex of extreme Z is off by several percent in
+    triangularity, because the true extremum falls between vertices. Fitting a
+    parabola to Z over the three points around it locates the extremum to
+    sub-vertex resolution, and R is interpolated there.
+    """
+    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
+    size = z_seg.size
+    if size < 3:
+        return float(r_seg[index])
+    prev, nxt = (index - 1) % size, (index + 1) % size
+    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
+    denominator = z_prev - 2.0 * z_here + z_next
+    if denominator == 0.0:
+        return float(r_seg[index])
+    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
+    shift = 0.5 * (z_prev - z_next) / denominator
+    if not np.isfinite(shift) or abs(shift) > 1.0:
+        return float(r_seg[index])
+    r_here = float(r_seg[index])
+    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
+    return r_here + abs(shift) * (neighbour - r_here)
+
+
+#: Flux-surface quantities ``_surface_geometry`` returns, in the order they are
+#: written to ``profiles_1d``.
+_SURFACE_QUANTITIES = (
+    "volume",
+    "area",
+    "elongation",
+    "triangularity_upper",
+    "triangularity_lower",
+)
+
+
+def _surface_geometry(
+    data: Mapping[str, Any], psi_norm: np.ndarray
+) -> Optional[dict[str, np.ndarray]]:
+    """Flux-surface geometry on each psi_N level, by tracing the surfaces.
+
+    Returns ``volume``, ``area``, ``elongation``, ``triangularity_upper`` and
+    ``triangularity_lower``. Volume revolves each level's longest closed contour
+    with the exact ``V = pi * closed_integral(R^2 dZ)``; the rest are read off
+    the same contour, so the whole set costs one trace.
+
+    A g-file stores none of these -- OMFIT supplied them from its own
+    flux-surface solve, and ``update_equilibrium_boundary`` derives
+    ``boundary.elongation``/``triangularity`` from the ``profiles_1d`` shape
+    profiles, so without them that helper silently produces nothing.
+
+    The axis level is degenerate (zero volume and area, shape undefined) and the
+    edge uses the g-file's own ``RBBBS``/``ZBBBS`` boundary rather than a traced
+    contour, which is both exact and cheaper.
 
     Returns ``None`` when the grid or the boundary cannot support the trace, so
-    the caller simply leaves ``profiles_1d.volume`` unwritten.
+    the caller simply leaves the profiles unwritten.
     """
-    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
     from vaft.process.equilibrium import extract_flux_surface_contours
 
     psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
     if psi_norm.size < 3:
         return None
+    profiles = {name: np.full(psi_norm.size, np.nan) for name in _SURFACE_QUANTITIES}
     try:
         nw, nh = int(data["NW"]), int(data["NH"])
         psi_axis, psi_boundary = float(data["SIMAG"]), float(data["SIBRY"])
@@ -521,7 +590,7 @@ def _volume_profile(
         z_bnd = np.asarray(data.get("ZBBBS", []), dtype=float).reshape(-1)
         if r_bnd.size < 3 or r_bnd.size != z_bnd.size:
             return None
-        edge_volume = exact_volume_from_RZ_contour(r_bnd, z_bnd)
+        edge = _contour_geometry(r_bnd, z_bnd)
 
         # The axis level has no contour and the boundary level comes from
         # RBBBS/ZBBBS, so only the interior levels are traced.
@@ -530,37 +599,46 @@ def _volume_profile(
             psi_2d, r_grid, z_grid, psi_axis, psi_boundary, interior
         )
 
-        volume = np.empty(psi_norm.size, dtype=float)
-        volume[0] = 0.0
-        volume[-1] = edge_volume
+        for name in _SURFACE_QUANTITIES:
+            profiles[name][-1] = edge[name]
+        # Volume and area vanish on the axis; shape does not, so it is left to
+        # the fill below to extrapolate from the innermost trusted surface.
+        profiles["volume"][0] = 0.0
+        profiles["area"][0] = 0.0
+
         for index, level in enumerate(interior, start=1):
             segments = contours.get(float(level)) or []
             # Marching squares returns a handful of vertices for the innermost
-            # surfaces, where the flux surface is only a few cells across; the
-            # volume those polygons enclose is grid artifact, not geometry.
-            # Drop them and let the fill below interpolate -- V is very nearly
-            # linear in psi_N near the axis, so that is the better estimate.
+            # surfaces, where the flux surface is only a few cells across; what
+            # those polygons describe is grid artifact, not geometry. Drop them
+            # and let the fill below interpolate.
             segments = [seg for seg in segments if seg[0].size >= _MIN_CONTOUR_POINTS]
             if not segments:
-                volume[index] = np.nan
                 continue
             r_seg, z_seg = max(segments, key=lambda segment: segment[0].size)
-            volume[index] = exact_volume_from_RZ_contour(r_seg, z_seg)
+            try:
+                geometry = _contour_geometry(r_seg, z_seg)
+            except ValueError:
+                continue
+            for name in _SURFACE_QUANTITIES:
+                profiles[name][index] = geometry[name]
     except Exception:
         return None
 
-    # Levels with no closed contour -- common right at the axis, where the
-    # surface is smaller than a grid cell -- are filled from their neighbours
-    # rather than left as NaN, which would poison every downstream integral.
-    missing = ~np.isfinite(volume)
-    if missing.all():
+    for name, values in profiles.items():
+        missing = ~np.isfinite(values)
+        if missing.all():
+            return None
+        if missing.any():
+            good = ~missing
+            values[missing] = np.interp(psi_norm[missing], psi_norm[good], values[good])
+
+    volume = profiles["volume"]
+    # Tolerate rounding-scale non-monotonicity: contour tracing is not exact, and
+    # dropping a whole shot's profile over a 1e-12 inversion is the wrong trade.
+    if np.min(np.diff(volume)) < -1e-9 * max(float(volume[-1]), 1.0):
         return None
-    if missing.any():
-        good = ~missing
-        volume[missing] = np.interp(psi_norm[missing], psi_norm[good], volume[good])
-    if not np.all(np.diff(volume) >= 0.0):
-        return None
-    return volume
+    return profiles
 
 
 def to_omas(
@@ -637,10 +715,12 @@ def to_omas(
     if allow_derived_data:
         # Tracing every flux surface is the expensive part of this conversion,
         # so it sits behind the same flag as the other derived quantities.
-        volume = _volume_profile(data, psi_norm)
-        if volume is not None:
-            eqt["profiles_1d.volume"] = volume
-            eqt["global_quantities.volume"] = float(volume[-1])
+        surfaces = _surface_geometry(data, psi_norm)
+        if surfaces is not None:
+            for name in _SURFACE_QUANTITIES:
+                eqt[f"profiles_1d.{name}"] = surfaces[name]
+            eqt["global_quantities.volume"] = float(surfaces["volume"][-1])
+            eqt["global_quantities.area"] = float(surfaces["area"][-1])
 
     try:
         ods.set_time_array("equilibrium.time", time_index, eqt["time"])
@@ -662,7 +742,12 @@ def to_omas(
     if namelists:
         from vaft.data.keqdsk import write_namelists_to_ods
 
-        write_namelists_to_ods(ods, namelists, time_index=time_index)
+        try:
+            write_namelists_to_ods(ods, namelists, time_index=time_index)
+        except Exception:
+            # Same bargain as _trailing_namelists: an unusual trailing block
+            # must not cost the caller the equilibrium itself.
+            pass
     return ods
 
 

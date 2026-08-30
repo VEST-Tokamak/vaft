@@ -782,7 +782,10 @@ def _grid_from_geq(geq):
     if geq is None:
         return None
     try:
-        go = geq.to_omas()
+        # Only the 1D psi/rho grid is wanted here, and the derived-data pass
+        # traces every flux surface -- seconds per slice, for arrays this
+        # function discards.
+        go = geq.to_omas(allow_derived_data=False)
         base = "equilibrium.time_slice.0.profiles_1d"
         rho = np.asarray(go[f"{base}.rho_tor_norm"], dtype=float)
         psi = np.asarray(go[f"{base}.psi"], dtype=float)

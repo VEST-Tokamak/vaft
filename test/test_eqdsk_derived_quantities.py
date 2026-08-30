@@ -26,6 +26,24 @@ EDGE_VOLUME_REFERENCE = (
     ("kineticEfit/g048224.00300", 1.01871),
 )
 
+#: ``g-file -> {leaf: OMFIT edge value}`` for the shape profiles a g-file does
+#: not store. Triangularity is the loosest: it depends on where the boundary
+#: happens to be sampled near its Z extremum.
+SHAPE_REFERENCE = {
+    "efit/g039915.00319": {
+        "area": (0.43738, 0.01),
+        "elongation": (1.35297, 0.01),
+        "triangularity_upper": (0.36753, 0.05),
+        "triangularity_lower": (0.36753, 0.05),
+    },
+    "efit/g040330.00320": {
+        "area": (0.32030, 0.01),
+        "elongation": (1.49283, 0.01),
+        "triangularity_upper": (0.28357, 0.05),
+        "triangularity_lower": (0.27497, 0.05),
+    },
+}
+
 
 @pytest.fixture(scope="module")
 def slices():
@@ -161,3 +179,87 @@ def test_a_gfile_without_trailing_namelists_still_reads():
     assert "equilibrium.code.parameters" not in geqdsk.to_omas(
         allow_derived_data=False
     )
+
+
+@pytest.mark.parametrize("name", sorted(SHAPE_REFERENCE))
+def test_flux_surface_shape_profiles_match_the_omfit_reference(slices, name):
+    """A g-file stores no shape profiles; OMFIT solved for them.
+
+    Without these, `update_equilibrium_boundary` has nothing to derive
+    `boundary.elongation`/`triangularity` from and silently writes neither --
+    which is what broke the chease-history summaries.
+    """
+    eqt = slices.get(name) or pytest.skip(f"{name} not present")
+
+    for leaf, (reference, tolerance) in SHAPE_REFERENCE[name].items():
+        edge = float(np.asarray(eqt[f"profiles_1d.{leaf}"], dtype=float)[-1])
+        assert edge == pytest.approx(reference, rel=tolerance), leaf
+
+    assert float(eqt["global_quantities.area"]) == pytest.approx(
+        float(np.asarray(eqt["profiles_1d.area"], dtype=float)[-1])
+    )
+    assert np.all(np.diff(np.asarray(eqt["profiles_1d.area"], dtype=float)) >= 0.0)
+    assert np.all(np.isfinite(np.asarray(eqt["profiles_1d.elongation"], dtype=float)))
+
+
+def test_boundary_helper_picks_up_the_native_shape_profiles():
+    """The chain the chease-history scripts actually depend on."""
+    from vaft.omas.update import update_equilibrium_boundary
+
+    ods = read_geqdsk(data_path("efit/g039915.00319")).to_omas()
+    update_equilibrium_boundary(ods)
+    eqt = ods["equilibrium.time_slice.0"]
+
+    assert float(eqt["boundary.elongation"]) == pytest.approx(1.35297, rel=0.01)
+    assert float(eqt["boundary.triangularity"]) == pytest.approx(0.36753, rel=0.05)
+
+
+def test_r_at_z_extremum_beats_the_nearest_vertex():
+    """Triangularity is read at the true Z extremum, not the sampled one."""
+    from vaft.data.eqdsk import _r_at_z_extremum
+
+    # A parabola peaking between two samples: Z is symmetric about the gap, so
+    # the extremum sits half a vertex away from either neighbour.
+    r = np.array([0.0, 1.0, 2.0, 3.0])
+    z = np.array([0.0, 1.0, 1.0, 0.0])
+
+    assert _r_at_z_extremum(r, z, upper=True) == pytest.approx(1.5)
+    # Degenerate input falls back to the sampled vertex rather than raising.
+    flat = np.zeros(4)
+    assert _r_at_z_extremum(r, flat, upper=True) == pytest.approx(r[int(np.argmax(flat))])
+
+
+@pytest.mark.parametrize(
+    "namelist,label",
+    [
+        ("&IN1\n A(3) = 1.0\n A(5) = 2.0\n/\n", "sparse assignment pads with None"),
+        ("&IN1\n B(1,1)=1.0\n B(2,1)=2.0\n B(1,2)=3.0\n/\n", "sparse 2-D is ragged"),
+    ],
+)
+def test_awkward_namelist_shapes_still_serialize(namelist, label, tmp_path):
+    """f90nml shapes that neither np.asarray nor omas takes as they come."""
+    import f90nml
+    from omas import ODS, save_omas_h5
+
+    from vaft.data.keqdsk import _plain, write_namelists_to_ods
+
+    ods = ODS()
+    write_namelists_to_ods(ods, _plain(f90nml.reads(namelist)))
+    save_omas_h5(ods, str(tmp_path / "x.h5"))  # must not raise -- see label
+
+
+def test_kinetic_grid_lookup_skips_the_flux_surface_trace(monkeypatch):
+    """core_profiles only wants the 1D grid, not seconds of contour tracing."""
+    from vaft.data import eqdsk as eqdsk_module
+    from vaft.process.profile import _grid_from_geq
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("_grid_from_geq must not trace flux surfaces")
+
+    monkeypatch.setattr(eqdsk_module, "_surface_geometry", _fail)
+
+    grid = _grid_from_geq(read_geqdsk(data_path("efit/g039915.00319")))
+
+    assert grid is not None
+    rho, psi, psi_n = grid
+    assert rho.size == psi.size and psi_n[0] == 0.0 and psi_n[-1] == pytest.approx(1.0)
