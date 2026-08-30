@@ -118,4 +118,5 @@ imas_core = [
 [tool.pytest.ini_options]
 markers = [
   "integration: explicit read-only HSDS or IMAS integration test",
+  "perf: performance budget benchmarks",
 ]
