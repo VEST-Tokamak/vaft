@@ -3,6 +3,9 @@ name: Publish to PyPI
 on:
   push:
     tags: ["v*"]
+  # Lets the build job be exercised on a branch without cutting a release.
+  # The publish job stays tag-only, so a dispatch run can never reach PyPI.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,13 +14,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Check that the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           package_version=$(python -c "from vaft.version import __version__; print(__version__)")
           test "v${package_version}" = "${GITHUB_REF_NAME}"
@@ -29,13 +33,14 @@ jobs:
           twine check dist/*
           python test/verify_dist.py dist --max-wheel-mib 25
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-dist
           path: dist/
 
   publish:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -43,7 +48,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-dist
           path: dist/
