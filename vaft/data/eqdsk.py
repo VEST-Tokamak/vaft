@@ -658,10 +658,11 @@ def to_omas(
         ods[f"wall.time.{time_index}"] = eqt["time"]
     eqt["constraints.ip.reconstructed"] = float(data["CURRENT"])
 
-    root = f"equilibrium.code.parameters.time_slice.{time_index}"
-    for namelist, values in getattr(item, "namelists", {}).items():
-        for name, value in values.items():
-            ods[f"{root}.{namelist}.{name}"] = value
+    namelists = getattr(item, "namelists", {})
+    if namelists:
+        from vaft.data.keqdsk import write_namelists_to_ods
+
+        write_namelists_to_ods(ods, namelists, time_index=time_index)
     return ods
 
 

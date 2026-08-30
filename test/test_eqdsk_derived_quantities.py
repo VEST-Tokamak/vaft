@@ -144,9 +144,13 @@ def test_trailing_efit_namelists_reach_code_parameters():
     assert geqdsk.namelists["out1"]["betap0"] == pytest.approx(0.5)
     assert geqdsk.namelists["basis"]["kppfnc"] == 0
 
-    eqt = geqdsk.to_omas()["equilibrium.code.parameters.time_slice.0"]
-    assert eqt["out1.betap0"] == pytest.approx(0.5)
-    assert eqt["chiout.chipasma"] is not None
+    ods = geqdsk.to_omas()
+    params = ods["equilibrium.code.parameters.time_slice.0"]
+    assert params["out1.betap0"] == pytest.approx(0.5)
+    assert params["chiout.chipasma"] is not None
+    # Array entries must be ndarrays: omas' code-parameters encoder recurses
+    # into a list and then reindexes it by string key, which raises on save.
+    assert isinstance(params["out1.brsp"], np.ndarray)
 
 
 def test_a_gfile_without_trailing_namelists_still_reads():

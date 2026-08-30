@@ -36,11 +36,27 @@ class KEQDSK:
 
         if ods is None:
             ods = ODS()
-        root = f"equilibrium.code.parameters.time_slice.{time_index}"
-        for namelist, values in self.namelists.items():
-            for name, value in values.items():
-                ods[f"{root}.{namelist}.{name}"] = value
+        write_namelists_to_ods(ods, self.namelists, time_index=time_index)
         return ods
+
+
+def write_namelists_to_ods(
+    ods: Any, namelists: Mapping[str, Mapping[str, Any]], *, time_index: int = 0
+) -> Any:
+    """Write parsed Fortran namelists to ``equilibrium.code.parameters``.
+
+    Array-valued entries are stored as NumPy arrays rather than lists: omas'
+    code-parameters encoder recurses into a list and then tries to reindex it
+    by string key, which raises on save to HDF5 and netCDF. It handles ndarrays
+    (see ``omas_utils.recursive_encoder``).
+    """
+    root = f"equilibrium.code.parameters.time_slice.{time_index}"
+    for namelist, values in namelists.items():
+        for name, value in values.items():
+            if isinstance(value, (list, tuple)):
+                value = np.asarray(value)
+            ods[f"{root}.{namelist}.{name}"] = value
+    return ods
 
 
 def read_keqdsk(path: str | Path) -> KEQDSK:
@@ -50,4 +66,4 @@ def read_keqdsk(path: str | Path) -> KEQDSK:
     return KEQDSK(_plain(parsed), source=source)
 
 
-__all__ = ["KEQDSK", "read_keqdsk"]
+__all__ = ["KEQDSK", "read_keqdsk", "write_namelists_to_ods"]
