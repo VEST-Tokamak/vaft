@@ -195,3 +195,72 @@ def test_multi_field_loads_refuse_mixed_cadences(tmp_path):
     # Same-cadence batches still stack.
     time_ok, data_ok = raw.load_raw(shot, [286, 287], sample_opt=path)
     assert data_ok.shape == (10, 2)
+
+
+class TestArchiveTimebaseUpgrade:
+    """upgrade_archive_timebase infers the era-correct cadence offline."""
+
+    def test_v3_era_infers_the_linspace_cadence(self):
+        payload = {
+            "shot": 43100,
+            "fields": {
+                "275": {"type": "fast", "data": [0.0] * 200000},   # 2 MHz
+                "66": {"type": "fast", "data": [0.0] * 25000},     # 250 kHz
+                "1": {"type": "slow", "data": [0.0] * 25000},      # 25 kHz
+            },
+        }
+        report = raw.upgrade_archive_timebase(payload)
+
+        assert report["upgraded"] == 3
+        assert report["non_nominal"] == [275]
+        assert payload["fields"]["275"]["dt"] == pytest.approx(0.1 / 199999)
+        assert payload["fields"]["275"]["t0"] == pytest.approx(0.26)
+        assert payload["fields"]["66"]["dt"] == pytest.approx(0.1 / 24999)
+        assert payload["fields"]["1"]["dt"] == pytest.approx(1.0 / 24999)
+        assert payload["fields"]["1"]["t0"] == 0.0
+
+    def test_v2_era_keeps_the_exact_nominal_cadence(self):
+        # shotDataWaveform_2 stores arange-convention times at exactly the
+        # nominal rates, so the inference must NOT apply the linspace formula.
+        payload = {
+            "shot": 39915,
+            "fields": {
+                "66": {"type": "fast", "data": [0.0] * 25000},
+                "1": {"type": "slow", "data": [0.0] * 25000},
+            },
+        }
+        raw.upgrade_archive_timebase(payload)
+
+        assert payload["fields"]["66"]["dt"] == raw.FAST_DT
+        assert payload["fields"]["66"]["t0"] == pytest.approx(0.24)  # pre-41446 trigger
+        assert payload["fields"]["1"]["dt"] == raw.SLOW_DT
+
+    def test_upgrade_is_idempotent_and_leaves_uninferable_entries_alone(self):
+        payload = {
+            "shot": 43100,
+            "fields": {
+                "275": {"type": "fast", "t0": 0.26, "dt": 5e-7, "data": [0.0] * 4},
+                "9": {"type": "unknown", "data": [0.0] * 10},
+                "10": {"type": "fast", "data": [1.0]},
+            },
+        }
+        report = raw.upgrade_archive_timebase(payload)
+
+        assert report == {"upgraded": 0, "already": 1, "skipped": 2, "non_nominal": []}
+        assert payload["fields"]["275"]["dt"] == 5e-7          # untouched
+        assert "dt" not in payload["fields"]["9"]
+
+    def test_upgraded_entry_loads_like_a_fresh_dump(self, tmp_path):
+        # End to end: legacy archive -> upgrade -> loader reproduces the
+        # timebase a new-schema dump of the same data would produce.
+        shot, n = 43100, 200000
+        legacy = {"shot": shot,
+                  "fields": {"275": {"type": "fast", "data": [0.0] * n}}}
+        raw.upgrade_archive_timebase(legacy)
+        path = tmp_path / f"shot_{shot}.json.gz"
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            json.dump(legacy, handle)
+
+        time, _ = raw.load_raw(shot, 275, sample_opt=path)
+
+        np.testing.assert_allclose(time, 0.26 + (0.1 / (n - 1)) * np.arange(n))

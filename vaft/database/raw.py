@@ -403,6 +403,67 @@ def _load_from_shot_waveform_3(
         logger.error(f"Error loading from shotDataWaveform_3: {e}")
         raise
 
+# The eras' time-encoding conventions, measured directly from the VEST tables:
+#
+# * shotDataWaveform_2 (29350 <= shot <= 42190) stores per-sample times on the
+#   ``arange`` convention -- t = arange(n) * dt with dt exactly the nominal
+#   FAST_DT / SLOW_DT, ending one sample short of the acquisition span.
+# * shotDataWaveform_3 (shot > 42190) stores one linspace(0, span, n) string
+#   per field -- both endpoints inclusive, so dt = span / (n - 1) -- with the
+#   span fixed by DAQ class: 0.1 s for fast records, 1.0 s for slow ones.
+#
+# Because the span is fixed by class and n is stored in every archive entry,
+# the true cadence of a legacy two-rate archive entry is fully recoverable
+# offline; :func:`upgrade_archive_timebase` uses exactly this inference.
+V2_LAST_SHOT = 42190
+FAST_SPAN_S = 0.1
+SLOW_SPAN_S = 1.0
+
+
+def upgrade_archive_timebase(payload: dict) -> dict:
+    """Add self-describing ``t0``/``dt`` entries to a legacy raw archive.
+
+    Operates in place on a loaded archive payload and returns a report::
+
+        {"upgraded": int, "already": int, "skipped": int, "non_nominal": [codes]}
+
+    Data arrays are never touched.  For every field with at least two samples
+    and a ``fast``/``slow`` label, the timebase is inferred from the era
+    conventions above and written as ``t0`` (trigger-corrected start) and
+    ``dt``, making the result byte-equivalent in meaning to a fresh dump from
+    the live database.  Entries already carrying ``t0``/``dt``, or too short
+    or unlabeled to infer, are left untouched, so the upgrade is idempotent.
+    """
+    shot = int(payload["shot"])
+    report = {"upgraded": 0, "already": 0, "skipped": 0, "non_nominal": []}
+    for code, entry in payload.get("fields", {}).items():
+        if not isinstance(entry, dict):
+            report["skipped"] += 1
+            continue
+        if "t0" in entry and "dt" in entry:
+            report["already"] += 1
+            continue
+        label = entry.get("type")
+        n = len(entry.get("data", []))
+        if n < 2 or label not in ("fast", "slow"):
+            report["skipped"] += 1
+            continue
+        if shot > V2_LAST_SHOT:
+            span = FAST_SPAN_S if label == "fast" else SLOW_SPAN_S
+            dt = span / (n - 1)
+        else:
+            dt = FAST_DT if label == "fast" else SLOW_DT
+        t0 = _daq_trigger_time_correction(shot) if label == "fast" else 0.0
+        entry["t0"] = float(t0)
+        entry["dt"] = float(dt)
+        report["upgraded"] += 1
+        class_dt = FAST_DT if label == "fast" else SLOW_DT
+        if not np.isclose(dt, class_dt, rtol=1e-3):
+            report["non_nominal"].append(int(code))
+    report["non_nominal"].sort()
+    return report
+
+
 class MixedCadenceError(ValueError):
     """Fields with different sampling cadences were batch-loaded together."""
 
