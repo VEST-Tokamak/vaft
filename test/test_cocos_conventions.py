@@ -338,3 +338,143 @@ def test_the_packaged_efit_sample_validates_in_the_family_its_signs_identify():
         assert validate_cocos(equilibrium, cocos).valid, cocos
     for cocos in (3, 4, 7, 8):
         assert not validate_cocos(equilibrium, cocos).valid, cocos
+
+
+# --- Sauter Eq. 20: the poloidal field ------------------------------------
+
+
+def test_poloidal_field_factor_falls_back_to_the_historical_form():
+    """cocos=None must keep B_R = -(1/R) dpsi/dZ so untouched callers are unchanged."""
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    assert poloidal_field_factor(None) == -1.0
+    # which is the COCOS 2/3/6/7 form, the one the codebase always assumed
+    for index in (2, 3, 6, 7):
+        assert poloidal_field_factor(index) == -1.0
+
+
+def test_poloidal_field_has_opposite_sign_in_cocos_1_and_cocos_2():
+    """The sign the old code could not distinguish.
+
+    COCOS 1 and 2 store psi with opposite sign, so a formula that hardcodes
+    B_R = -(1/R) dpsi/dZ returns opposite fields for the same physical
+    equilibrium.  The packaged VEST g-file is COCOS 1 or 2 depending only on
+    `clockwise_phi`, so this was a coin flip on real data.
+    """
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    assert poloidal_field_factor(1) == -poloidal_field_factor(2)
+    assert poloidal_field_factor(11) == -poloidal_field_factor(12)
+
+
+def test_grid_fields_agree_across_conventions_including_sign():
+    """The same physical equilibrium must give the same B in every convention.
+
+    Before Eq. 20 was applied, only |B| agreed: the components flipped between
+    the COCOS 1 and COCOS 2 representations because psi flipped but the field
+    formula did not.
+    """
+    import numpy as np
+
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+    from vaft.process._equilibrium_parametric import _grid_fields
+
+    base = as_equilibrium(sample_geqdsk(), convention=1)
+    _, _, br_ref, bz_ref, bp_ref = _grid_fields(base)
+    assert np.any(np.abs(br_ref) > 1e-6), "the fixture must carry a real field"
+    for target in (2, 3, 5, 8, 11, 12, 13, 18):
+        _, _, br, bz, bp = _grid_fields(convert_cocos(base, target))
+        scale = float(np.nanmax(np.abs(br_ref)))
+        assert np.nanmax(np.abs(br - br_ref)) < 1e-9 * scale, target
+        assert np.nanmax(np.abs(bz - bz_ref)) < 1e-9 * float(np.nanmax(np.abs(bz_ref))), target
+        assert np.nanmax(np.abs(bp - bp_ref)) < 1e-9 * float(np.nanmax(np.abs(bp_ref))), target
+
+
+def test_dimensionless_descriptors_stay_invariant_across_conventions():
+    """beta_p and li are dimensionless, so no convention may move them."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos, derive_global_descriptors
+
+    base = as_equilibrium(sample_geqdsk(), convention=1)
+    reference = derive_global_descriptors(base)
+    for target in (2, 3, 5, 8, 11, 12, 13, 18):
+        other = derive_global_descriptors(convert_cocos(base, target))
+        for name in ("beta_p_boundary_average", "li_virial", "alpha", "beta_t", "s1", "s2", "s3"):
+            assert other[name].value == pytest.approx(reference[name].value, rel=1e-9), (name, target)
+
+
+def test_field_magnitude_is_invariant_while_components_carry_the_orientation():
+    """|B_pol| never depends on the convention; the components do."""
+    import numpy as np
+
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    dpsi_dr, dpsi_dz, r = 0.37, -0.11, 0.62
+    magnitudes = set()
+    for index in (1, 2, 3, 11, 12, 13):
+        k = poloidal_field_factor(index)
+        b_r, b_z = k * dpsi_dz / r, -k * dpsi_dr / r
+        magnitudes.add(round(float(np.hypot(b_r, b_z)) * abs(1.0 / k), 9))
+    # After removing each convention's own scale, one physical magnitude remains.
+    assert len(magnitudes) == 1
+
+
+# --- Recording the convention on an ODS -----------------------------------
+
+
+def test_an_unlabelled_ods_reports_no_convention_rather_than_guessing():
+    from omas import ODS
+
+    from vaft.omas.general import ods_cocos
+
+    assert ods_cocos(ODS()) is None
+    assert ods_cocos(ODS(), default=11) == 11
+
+
+def test_the_convention_is_recorded_where_data_dictionary_3_can_hold_it():
+    """DD 3.x has no ids_properties.cocos, which is why nothing ever wrote it.
+
+    The field arrives in DD 4; until then the convention lives on
+    equilibrium.code.parameters, alongside CHEASE's metrics and EFIT's
+    auxiliary quantities.
+    """
+    import pytest as _pytest
+    from omas import ODS
+
+    from vaft.omas.general import COCOS_PARAMETER_PATH, ods_cocos, set_ods_cocos
+
+    ods = ODS()
+    with _pytest.raises(Exception):
+        ods["equilibrium.ids_properties.cocos"] = 11
+
+    set_ods_cocos(ods, 11, source="test")
+    assert ods[COCOS_PARAMETER_PATH] == 11
+    assert ods_cocos(ods) == 11
+
+
+def test_a_recorded_convention_survives_a_save_and_load():
+    import pathlib
+    import tempfile
+
+    from omas import ODS
+
+    from vaft.omas.general import ods_cocos, set_ods_cocos
+
+    ods = ODS()
+    set_ods_cocos(ods, 2)
+    with tempfile.TemporaryDirectory() as directory:
+        path = pathlib.Path(directory) / "labelled.json"
+        ods.save(str(path))
+        reloaded = ODS()
+        reloaded.load(str(path))
+    assert ods_cocos(reloaded) == 2
+
+
+def test_recording_an_undefined_convention_is_refused():
+    from omas import ODS
+
+    from vaft.omas.general import set_ods_cocos
+
+    with pytest.raises(ValueError, match="not defined"):
+        set_ods_cocos(ODS(), 9)

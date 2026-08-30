@@ -343,28 +343,28 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     return result
 
 
-def _psi_per_radian_factor(eq: EquilibriumData) -> float:
-    """Multiplicative factor turning the stored psi into Wb/rad.
+def _bp_factor(eq: EquilibriumData) -> float:
+    """The Sauter Eq. 20 coefficient for this equilibrium's convention.
 
-    COCOS 1-8 store psi per radian (B_pol = grad(psi)/R directly); COCOS 11-18
-    and IMAS store the full poloidal flux in weber, so field construction needs
-    the extra 1/(2*pi). An ambiguous convention keeps the historical per-radian
-    assumption (factor 1) rather than guessing.
+    ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp`` carries both the 2*pi
+    normalization -- a psi in weber (COCOS 11-18, what IMAS and ODS use) needs
+    the division that a weber-per-radian psi does not -- and the orientation
+    sign.  An unidentified convention keeps the historical ``k = -1``, which is
+    the COCOS 2/3/6/7 form the rest of :mod:`vaft.process.equilibrium` assumed.
     """
-    per_radian = eq.convention.psi_per_radian
-    if per_radian is None and eq.convention.cocos is not None:
-        per_radian = eq.convention.cocos < 10
-    return 1.0 if per_radian in (None, True) else 1.0 / (2.0 * np.pi)
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    return poloidal_field_factor(eq.convention.cocos)
 
 
 def _grid_fields(eq: EquilibriumData) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if eq.r is None or eq.z is None or eq.psi is None or eq.psi.shape != (eq.r.size, eq.z.size):
         raise ValueError("a correctly shaped R/Z/psi grid is required")
-    factor = _psi_per_radian_factor(eq)
-    dpsi_dr, dpsi_dz = np.gradient(eq.psi * factor, eq.r, eq.z, edge_order=2)
+    dpsi_dr, dpsi_dz = np.gradient(eq.psi, eq.r, eq.z, edge_order=2)
     rm, zm = np.meshgrid(eq.r, eq.z, indexing="ij")
-    br = -dpsi_dz / rm
-    bz = dpsi_dr / rm
+    k = _bp_factor(eq)
+    br = k * dpsi_dz / rm
+    bz = -k * dpsi_dr / rm
     return rm, zm, br, bz, np.hypot(br, bz)
 
 
@@ -456,9 +456,7 @@ def derive_global_descriptors(
             values["thermal_energy"] = _derived(eq, 1.5 * pressure_integral, "J", "(3/2)*integral_plasma p dV", "grid quadrature", ("pressure", "psi", "lcfs"))
             from vaft.process.equilibrium import calculate_average_boundary_poloidal_field, efit_virial_volume_integrals, poloidal_field_at_boundary, shafranov_integrals
             rb, zb = _closed_points(eq.lcfs)
-            bp_boundary, _, _ = poloidal_field_at_boundary(
-                eq.r, eq.z, eq.psi * _psi_per_radian_factor(eq), rb, zb
-            )
+            bp_boundary, _, _ = poloidal_field_at_boundary(eq.r, eq.z, eq.psi, rb, zb, cocos=eq.convention.cocos)
             bpa = float(calculate_average_boundary_poloidal_field(rb, zb, bp_boundary))
             s1, s2, s3, alpha = shafranov_integrals(rb, zb, bp_boundary, rm, zm, br, bz, R_0=geometry["r"], Z_0=geometry["z"], B_ref=bpa, volume=geometry["volume"])
             virial.update(s1=float(s1), s2=float(s2), s3=float(s3), alpha=float(alpha))
