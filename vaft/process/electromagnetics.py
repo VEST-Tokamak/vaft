@@ -273,7 +273,9 @@ def compute_point_response_matrices(
     :param n_groups: number of groups (defaults to ``groups.max() + 1``)
     :return: (Psi, Bz, Br), each of shape (n_obs, n_src) or
         (n_obs, n_groups) when *groups* is given. Units per unit source
-        current: psi [Wb], Bz [T], Br [T].
+        current: psi [Wb], Bz [T], Br [T]. Observation points on the
+        geometric axis (r == 0) get their analytic limits (psi = 0,
+        Br = 0, Bz = on-axis loop field).
     """
     obs_r = np.asarray(obs_r, dtype=float).ravel()
     obs_z = np.asarray(obs_z, dtype=float).ravel()
@@ -301,6 +303,11 @@ def compute_point_response_matrices(
         if groups.shape != src_r.shape:
             raise ValueError("groups must have one entry per source")
         ng = int(n_groups if n_groups is not None else groups.max() + 1)
+        if groups.min() < 0 or groups.max() >= ng:
+            raise ValueError(
+                f"group indices must lie in [0, {ng}); "
+                f"got range [{groups.min()}, {groups.max()}]"
+            )
         onehot = np.zeros((src_r.size, ng))
         onehot[np.arange(src_r.size), groups] = 1.0
         psi = psi @ onehot

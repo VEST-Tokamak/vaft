@@ -378,7 +378,7 @@ def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float
 #   Br  [T]   = -mu0/(2 pi r) dG/dz
 # ------------------------------------------------------------------
 
-MU0 = 4.0e-7 * np.pi
+from vaft.formula.constants import MU0
 
 GREEN_EXACT_MODES = ("psi", "dpsi_dr", "dpsi_dz", "d2psi_drdz", "d2psi_dr2", "K", "E")
 
@@ -396,11 +396,16 @@ def greens_function_exact(r, z, r0, z0, mode: str = "psi"):
     so observation and source arrays can be combined as e.g.
     ``r[:, None]`` vs ``r0[None, :]``.
 
-    Points with ``r * r0 == 0`` (on-axis source or observer) return 0
-    for G and its derivatives. The elliptic parameter is clamped just
-    below 1 so a coincident observer/source point yields a large finite
-    value (the ideal-filament self term is logarithmically divergent)
-    rather than inf/NaN. Reference algorithm: legacy VFIT
+    Points with ``r * r0 == 0`` (on-axis source or observer) return
+    their analytic limits: 0 for every mode except ``d2psi_dr2``, whose
+    on-axis limit is ``pi * r0**2 / (r0**2 + (z - z0)**2)**1.5``. The
+    elliptic parameter is clamped just below 1 so a coincident
+    observer/source point returns finite numbers instead of inf/NaN —
+    but those values are artifacts of the clamp, NOT physical limits
+    (the ideal-filament self term diverges): callers must handle
+    genuinely coincident pairs themselves, e.g. via
+    :func:`self_inductance` or a shifted-evaluation scheme such as
+    ``compute_br_bz_phi``. Reference algorithm: legacy VFIT
     ``getGreenFunction.m`` (modes 1-7).
 
     :param r:  observation major radius [m]
@@ -490,7 +495,14 @@ def greens_function_exact(r, z, r0, z0, mode: str = "psi"):
     Gr = (0.5 * r0) / (k * sqrt_rr0) * ((2.0 - m_safe) * KK - 2.0 * EE)
     Grr = -Gr / (2.0 * r_safe)
     out = Grr + 2.0 * Gkr * kr + Gkk * kr**2 + krr * Gk
-    return np.where(on_axis, 0.0, out)
+    # On-axis limit is nonzero for this mode: near the axis
+    # G ~ r^2 * pi r0^2 / (2 (r0^2 + dz^2)^{3/2}), so d2G/dr2 -> the
+    # curvature of that parabola (0 when the *source* is on axis).
+    with np.errstate(divide="ignore", invalid="ignore"):
+        axis_limit = np.where(
+            r0 == 0.0, 0.0, np.pi * r0**2 / (r0**2 + dz2) ** 1.5
+        )
+    return np.where(on_axis, axis_limit, out)
 
 
 def green_psi_exact(r_obs, z_obs, r_src, z_src) -> np.ndarray:
@@ -506,13 +518,26 @@ def green_psi_exact(r_obs, z_obs, r_src, z_src) -> np.ndarray:
 def green_br_bz_exact(r_obs, z_obs, r_src, z_src) -> Tuple[np.ndarray, np.ndarray]:
     """(Br, Bz) [T] per unit source current, exact elliptic.
 
-    Br = -mu0/(2 pi r) dG/dz,  Bz = +mu0/(2 pi r) dG/dr. Requires
-    r_obs > 0 (fields on the geometric axis are not evaluated here).
+    Br = -mu0/(2 pi r) dG/dz,  Bz = +mu0/(2 pi r) dG/dr. Observation
+    points on the geometric axis (r_obs == 0) return the analytic
+    limits Br = 0 and Bz = mu0 r0^2 / (2 (r0^2 + (z - z0)^2)^{3/2}).
     """
-    r_obs = np.asarray(r_obs, dtype=float)
-    coeff = MU0 / (2.0 * np.pi * r_obs)
+    r_obs, z_obs, r_src, z_src = np.broadcast_arrays(
+        np.asarray(r_obs, dtype=float),
+        np.asarray(z_obs, dtype=float),
+        np.asarray(r_src, dtype=float),
+        np.asarray(z_src, dtype=float),
+    )
+    on_axis = r_obs == 0.0
+    r_safe = np.where(on_axis, 1.0, r_obs)
+    coeff = MU0 / (2.0 * np.pi * r_safe)
     br = -coeff * greens_function_exact(r_obs, z_obs, r_src, z_src, "dpsi_dz")
     bz = coeff * greens_function_exact(r_obs, z_obs, r_src, z_src, "dpsi_dr")
+    if np.any(on_axis):
+        dz2 = (z_obs - z_src) ** 2
+        bz_axis = MU0 * r_src**2 / (2.0 * (r_src**2 + dz2) ** 1.5)
+        bz = np.where(on_axis, bz_axis, bz)
+        br = np.where(on_axis, 0.0, br)
     return br, bz
 
 
@@ -575,7 +600,11 @@ def mutual_inductance(
 
     M = turns1 * turns2 * mu_r * mu0 * <G> averaged over filament pairs.
     """
-    dl = 0.5 * np.hypot(r1 + r2, z1 + z2) / n_div
+    # Subdivision cell size from the pair's characteristic scale. NOTE:
+    # legacy getMutualInductanceCoil.m used hypot(r1+r2, z1+z2), which is
+    # not invariant under a rigid z-translation of the coil pair; the
+    # z-separation form below is.
+    dl = 0.5 * np.hypot(r1 + r2, z1 - z2) / n_div
 
     if dr1 != 0.0 and dz1 != 0.0:
         p1r, p1z = _rect_coil_midpoints(r1, z1, dr1, dz1, tilt1, dl)

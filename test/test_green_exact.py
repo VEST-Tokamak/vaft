@@ -72,9 +72,37 @@ def test_on_axis_flux_is_zero():
 
 
 def test_coincident_point_is_finite():
+    """Clamped, finite artifacts — NOT physical limits (see docstring)."""
     for mode in GREEN_EXACT_MODES:
         val = greens_function_exact(0.4, 0.1, 0.4, 0.1, mode)
         assert np.all(np.isfinite(val)), mode
+
+
+def test_d2psi_dr2_on_axis_limit():
+    """d2G/dr2 at r=0 is pi r0^2 / (r0^2 + dz^2)^{3/2}, not 0."""
+    a, zz = 0.4, 0.1
+    limit = np.pi * a**2 / (a**2 + zz**2) ** 1.5
+    on_axis = float(greens_function_exact(0.0, zz, a, 0.0, "d2psi_dr2"))
+    # r = 1e-4: small enough for the O(r^2) term to be negligible, large
+    # enough to avoid the (2-m)K - 2E cancellation floor of the exact form.
+    near_axis = float(greens_function_exact(1e-4, zz, a, 0.0, "d2psi_dr2"))
+    np.testing.assert_allclose(on_axis, limit, rtol=1e-12)
+    np.testing.assert_allclose(near_axis, on_axis, rtol=1e-6)
+    # Source on axis still gives zero for every mode.
+    assert float(greens_function_exact(0.5, zz, 0.0, 0.0, "d2psi_dr2")) == 0.0
+
+
+def test_br_bz_exact_on_axis_limits():
+    """r_obs = 0 returns Br = 0 and the analytic on-axis loop Bz."""
+    a, zz = 0.4, 0.25
+    br, bz = green_br_bz_exact(0.0, zz, a, 0.0)
+    assert float(br) == 0.0
+    analytic = MU0 * a**2 / (2.0 * (a**2 + zz**2) ** 1.5)
+    np.testing.assert_allclose(float(bz), analytic, rtol=1e-12)
+    # Continuous with the near-axis evaluation (r = 1e-4 avoids the
+    # cancellation floor of (2-m)K - 2E at tiny m).
+    _, bz_near = green_br_bz_exact(1e-4, zz, a, 0.0)
+    np.testing.assert_allclose(float(bz_near), analytic, rtol=1e-6)
 
 
 def test_psi_cross_check_vs_approximate_green_r():
@@ -202,6 +230,23 @@ def test_mutual_inductance_far_coaxial_loops_dipole():
     np.testing.assert_allclose(m, analytic, rtol=1e-2)
 
 
+def test_mutual_inductance_z_translation_invariance():
+    """A rigid z-shift of the coil pair must not change M.
+
+    Guards the dl fix: the legacy expression used hypot(r1+r2, z1+z2),
+    whose subdivision counts change under translation.
+    """
+    args = (0.3, 0.02, 0.06, 0.5, 0.04, 0.05)
+    r1, dr1, dz1, r2, dr2, dz2 = args
+    for shift in (0.0, 1.0, 5.0, -3.0):
+        m = mutual_inductance(
+            r1, 0.0 + shift, dr1, dz1, r2, 0.2 + shift, dr2, dz2
+        )
+        if shift == 0.0:
+            m_ref = m
+        np.testing.assert_allclose(m, m_ref, rtol=1e-14)
+
+
 def test_mutual_inductance_mu_r_and_turns_scaling():
     base = mutual_inductance(0.3, 0.0, 0.02, 0.03, 0.5, 0.2, 0.04, 0.01)
     scaled = mutual_inductance(
@@ -276,6 +321,31 @@ def test_point_response_matrices_turns_and_groups():
 def test_point_response_matrices_mismatched_shapes_raise():
     with pytest.raises(ValueError):
         compute_point_response_matrices([0.3, 0.4], [0.0], [0.5], [0.0])
+
+
+def test_point_response_matrices_axis_observation_finite():
+    """r_obs = 0 rows are finite analytic limits, not NaN."""
+    psi, bz, br = compute_point_response_matrices(
+        [0.0, 0.3], [0.1, 0.1], [0.4], [0.0]
+    )
+    assert np.all(np.isfinite(psi)) and np.all(np.isfinite(bz)) and np.all(np.isfinite(br))
+    assert psi[0, 0] == 0.0 and br[0, 0] == 0.0
+    analytic = MU0 * 0.4**2 / (2.0 * (0.4**2 + 0.1**2) ** 1.5)
+    np.testing.assert_allclose(bz[0, 0], analytic, rtol=1e-12)
+
+
+def test_point_response_matrices_invalid_groups_raise():
+    """Out-of-range group indices must raise, not wrap silently."""
+    with pytest.raises(ValueError, match="group indices"):
+        compute_point_response_matrices(
+            [0.3], [0.1], [0.4, 0.5], [0.0, 0.0],
+            groups=np.array([-1, 1]), n_groups=2,
+        )
+    with pytest.raises(ValueError, match="group indices"):
+        compute_point_response_matrices(
+            [0.3], [0.1], [0.4, 0.5], [0.0, 0.0],
+            groups=np.array([0, 2]), n_groups=2,
+        )
 
 
 @pytest.mark.perf
