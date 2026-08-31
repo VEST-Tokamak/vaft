@@ -33,13 +33,14 @@ def _legacy_style(ods):
     import copy
 
     legacy = copy.deepcopy(ods)
-    ts = legacy["equilibrium.time_slice.0"]
-    for leaf in ("global_quantities.psi_axis", "global_quantities.psi_boundary"):
-        ts[leaf] = float(ts[leaf]) / TWO_PI
-    ts["profiles_1d.psi"] = np.asarray(ts["profiles_1d.psi"], float) / TWO_PI
-    ts["profiles_2d.0.psi"] = np.asarray(ts["profiles_2d.0.psi"], float) / TWO_PI
-    ts["profiles_1d.f_df_dpsi"] = np.asarray(ts["profiles_1d.f_df_dpsi"], float) * TWO_PI
-    ts["profiles_1d.dpressure_dpsi"] = np.asarray(ts["profiles_1d.dpressure_dpsi"], float) * TWO_PI
+    for index in range(len(legacy["equilibrium.time_slice"])):
+        ts = legacy[f"equilibrium.time_slice.{index}"]
+        for leaf in ("global_quantities.psi_axis", "global_quantities.psi_boundary"):
+            ts[leaf] = float(ts[leaf]) / TWO_PI
+        ts["profiles_1d.psi"] = np.asarray(ts["profiles_1d.psi"], float) / TWO_PI
+        ts["profiles_2d.0.psi"] = np.asarray(ts["profiles_2d.0.psi"], float) / TWO_PI
+        ts["profiles_1d.f_df_dpsi"] = np.asarray(ts["profiles_1d.f_df_dpsi"], float) * TWO_PI
+        ts["profiles_1d.dpressure_dpsi"] = np.asarray(ts["profiles_1d.dpressure_dpsi"], float) * TWO_PI
     return legacy
 
 
@@ -123,3 +124,30 @@ def test_descriptor_path_agrees_between_gfile_and_ods(gfile):
     d_g = derive_global_descriptors(as_equilibrium(gfile))
     for name in ("beta_p_boundary_average", "li_virial", "s1", "q95"):
         assert d_ods[name].value == pytest.approx(d_g[name].value, rel=1e-9), name
+
+
+def test_loop_voltage_is_correct_and_storage_invariant(gfile):
+    """Post-merge review finding B1: loop_voltage_from_total_flux multiplies by
+    2*pi (a Wb/rad contract), so compute_voltage_consumption must convert the
+    stored psi first. Two slices with d(psi_boundary-psi_axis) = 0.01 Wb over
+    1 ms must give V_loop = 10 V, not 2*pi times that."""
+    import copy
+
+    from vaft.omas.formula_wrapper import compute_voltage_consumption
+
+    ods = gfile.to_omas()
+    second = copy.deepcopy(ods["equilibrium.time_slice.0"])
+    ods["equilibrium.time_slice.1"] = second
+    ods["equilibrium.time_slice.0.time"] = 0.0
+    ods["equilibrium.time_slice.1.time"] = 1.0e-3
+    base = float(ods["equilibrium.time_slice.0.global_quantities.psi_boundary"])
+    ods["equilibrium.time_slice.1.global_quantities.psi_boundary"] = base + 0.01  # +0.01 Wb
+
+    _t, v_loop, _v_ind, _v_res = compute_voltage_consumption(ods)
+    v_loop = np.asarray(v_loop, float)
+    assert float(np.nanmax(np.abs(v_loop))) == pytest.approx(10.0, rel=1e-6)
+
+    legacy = _legacy_style(ods)
+    _t2, v_legacy, _vi2, _vr2 = compute_voltage_consumption(legacy)
+    v_legacy = np.asarray(v_legacy, float)
+    np.testing.assert_allclose(v_legacy, v_loop, rtol=1e-9)
