@@ -46,7 +46,19 @@ VEST 데이터 분석 플랫폼
 
 ### 설치
 
-소스에서 설치(권장):
+VAFT를 처음 설치하거나 수업용 PC를 준비한다면
+[`install/README.md`](install/README.md)를 따르세요. Linux, macOS, 네이티브
+Windows, WSL2용 원커맨드 부트스트랩과 환경 점검 도구, 기존 체크아웃 갱신 절차가
+정리되어 있습니다.
+
+```bash
+git clone https://github.com/VEST-Tokamak/vaft.git
+cd vaft
+bash install/linux.sh          # 또는 macos.sh / windows_wsl.sh / windows_native.ps1
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+소스에서 직접 설치:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git

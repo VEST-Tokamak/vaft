@@ -1,0 +1,20 @@
+# Conda environment for the VAFT course/tutorial bootstrap.
+#
+# This file deliberately declares only conda-level concerns: the interpreter,
+# pip, Git, and JupyterLab. Every Python library VAFT itself needs is declared
+# once in pyproject.toml and installed by the bootstrap step
+#
+#     python -m pip install -e .
+#
+# Do not add a package here that also appears in `project.dependencies` of
+# pyproject.toml. test/test_install_bootstrap.py enforces that rule so the two
+# files cannot drift apart.
+name: vaft
+channels:
+  - conda-forge
+dependencies:
+  # Course reference interpreter. Must satisfy `requires-python` in pyproject.toml.
+  - python=3.12
+  - pip
+  - git
+  - jupyterlab
