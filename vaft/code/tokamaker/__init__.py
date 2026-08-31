@@ -57,6 +57,14 @@ from .outputs import (
     parse_stats_sidecar,
 )
 from .scan import scan_tokamaker
+from .topology import ScanTopology, TopologyReport, classify_boundary
+from .free_boundary import (
+    CaseStatus,
+    FreeBoundaryCaseResult,
+    FreeBoundaryScan,
+    FreeBoundaryScanResult,
+    free_boundary_scan,
+)
 
 __all__ = [
     "TokaMakerConfig",
@@ -82,4 +90,12 @@ __all__ = [
     "collect_tokamaker_stability_outputs",
     "parse_stats_sidecar",
     "scan_tokamaker",
+    "ScanTopology",
+    "TopologyReport",
+    "classify_boundary",
+    "CaseStatus",
+    "FreeBoundaryScan",
+    "FreeBoundaryScanResult",
+    "FreeBoundaryCaseResult",
+    "free_boundary_scan",
 ]

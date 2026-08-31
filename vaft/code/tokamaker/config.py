@@ -126,6 +126,14 @@ class TokaMakerConfig:
     vsc_coil: Optional[str] = None
     vsc_weight: float = 1.0e-2                # coil_reg_term weight on '#VSC'
 
+    # --- independent coil halves ---
+    # Names of pf_active coils whose upper/lower rectangles become their OWN
+    # coil sets (<name>_U/<name>_L) so their currents can be set independently
+    # (up/down-asymmetric states: single-null formation, dRsep scans). Each
+    # half inherits the parent coil's measured current unless overridden.
+    # ``vsc_coil`` implies this split for its coil.
+    split_coils: tuple[str, ...] = ()
+
     # --- quasi-static evolution ---
     evolve_times: Optional[Sequence[float]] = None   # explicit slice times [s]; wins over start/end/dt
     evolve_start: Optional[float] = None             # else np.arange(start, end, dt)

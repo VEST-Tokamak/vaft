@@ -174,3 +174,21 @@ def test_explicit_coil_currents_with_unknown_names_are_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match="PF11"):
         prepare_tokamaker_inputs(_build_ods(), config)
+
+
+def test_split_coil_halves_inherit_the_parent_current(tmp_path):
+    config = TokaMakerConfig(time=0.32, workdir=tmp_path, split_coils=("PF1",))
+    inputs = prepare_tokamaker_inputs(_build_ods(), config)
+    assert inputs.coil_currents["PF1_U"] == pytest.approx(-640.0)
+    assert inputs.coil_currents["PF1_L"] == pytest.approx(-640.0)
+    assert "PF1" not in inputs.coil_currents
+
+
+def test_split_coil_halves_accept_asymmetric_overrides(tmp_path):
+    config = TokaMakerConfig(
+        time=0.32, workdir=tmp_path, split_coils=("PF1",),
+        coil_currents={"PF1_U": -700.0, "PF1_L": -600.0, "PF2": 320.0},
+    )
+    inputs = prepare_tokamaker_inputs(_build_ods(), config)
+    assert inputs.coil_currents["PF1_U"] == pytest.approx(-700.0)
+    assert inputs.coil_currents["PF1_L"] == pytest.approx(-600.0)
