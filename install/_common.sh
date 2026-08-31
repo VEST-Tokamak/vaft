@@ -67,7 +67,10 @@ vaft_create_or_update_environment() {
 
     if vaft_environment_exists; then
         printf 'Updating the existing `%s` environment ...\n' "${VAFT_ENV_NAME}"
-        conda env update --name "${VAFT_ENV_NAME}" --file "${specification}" --prune
+        # Deliberately not --prune: that removes anything in the environment
+        # that environment.yml does not mention, which would silently delete
+        # packages a student installed themselves.
+        conda env update --name "${VAFT_ENV_NAME}" --file "${specification}"
         vaft_record PASS "vaft environment" "updated in place"
     else
         printf 'Creating the `%s` environment ...\n' "${VAFT_ENV_NAME}"
@@ -87,7 +90,19 @@ vaft_report_python() {
 
 vaft_install_editable() {
     printf 'Installing VAFT in editable mode from %s ...\n' "${VAFT_REPOSITORY_ROOT}"
-    ( cd "${VAFT_REPOSITORY_ROOT}" && vaft_run python -m pip install -e . )
+    if ! ( cd "${VAFT_REPOSITORY_ROOT}" && vaft_run python -m pip install -e . ); then
+        printf '\n' >&2
+        if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
+            vaft_die "The editable installation failed on an Intel Mac.
+VAFT depends on imas_core, which publishes wheels only for Apple silicon,
+Linux x86_64 and Windows -- there is no Intel macOS wheel and no source
+distribution, so pip cannot resolve it on this machine.
+Use an Apple silicon Mac, a Linux machine, or WSL2. See install/README.md."
+        fi
+        vaft_die "The editable installation failed. Read the pip output above:
+it names the dependency that could not be installed. Rerunning this script is
+safe once the cause is fixed."
+    fi
     vaft_record PASS "editable VAFT installation" "${VAFT_REPOSITORY_ROOT}"
 }
 
@@ -149,6 +164,10 @@ USAGE
 
     vaft_detect_conda
     if [ "${check_only}" -eq 1 ]; then
+        if ! vaft_environment_exists; then
+            vaft_die "The \`${VAFT_ENV_NAME}\` environment does not exist yet.
+Run this script without --check-only to create it."
+        fi
         vaft_run_checker
         return $?
     fi

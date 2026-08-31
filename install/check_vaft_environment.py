@@ -215,7 +215,11 @@ def check_command(
 
 
 def _kernelspec_names(runner: Optional[Callable[[Sequence[str]], str]] = None) -> list[str]:
-    """Return the registered Jupyter kernel names."""
+    """Return the registered Jupyter kernel names.
+
+    ``kernelspecs`` is a mapping keyed by kernel name, so the result never
+    contains a repeat.
+    """
     def _default(arguments: Sequence[str]) -> str:
         completed = subprocess.run(
             list(arguments), capture_output=True, text=True, check=True, timeout=60
@@ -232,7 +236,13 @@ def check_vaft_kernel(
     *,
     runner: Optional[Callable[[Sequence[str]], str]] = None,
 ) -> CheckResult:
-    """Exactly one ``Python (vaft)`` kernel is registered."""
+    """The ``Python (vaft)`` kernel is registered.
+
+    Duplication is not checked because it cannot occur: Jupyter keys
+    kernelspecs by name, and the bootstrap always registers with a fixed
+    ``--name vaft``, so a repeated run replaces the spec rather than adding
+    one. Presence is therefore the whole question.
+    """
     remediation = (
         f'Run `python -m ipykernel install --user --name {KERNEL_NAME} '
         f'--display-name "{KERNEL_DISPLAY_NAME}"`, then rerun this check.'
@@ -244,19 +254,10 @@ def check_vaft_kernel(
             return CheckResult(
                 "Python (vaft) kernel", FAIL, f"{type(error).__name__}: {error}", remediation
             )
-    registered = [name for name in names if name == KERNEL_NAME]
-    if len(registered) == 1:
+    if KERNEL_NAME in set(names):
         return CheckResult("Python (vaft) kernel", PASS, f"kernel `{KERNEL_NAME}` is registered")
-    if not registered:
-        return CheckResult(
-            "Python (vaft) kernel", FAIL, f"no `{KERNEL_NAME}` kernel is registered", remediation
-        )
     return CheckResult(
-        "Python (vaft) kernel",
-        FAIL,
-        f"{len(registered)} `{KERNEL_NAME}` kernels are registered",
-        "Remove the duplicates with `jupyter kernelspec uninstall vaft`, then rerun "
-        "the platform bootstrap script.",
+        "Python (vaft) kernel", FAIL, f"no `{KERNEL_NAME}` kernel is registered", remediation
     )
 
 
@@ -401,9 +402,10 @@ def format_report(results: Sequence[CheckResult]) -> str:
     failures = [result for result in results if result.failed]
     lines.append("")
     if warnings and not failures:
+        plural = "capability is" if len(warnings) == 1 else "capabilities are"
         lines.append(
-            f"{len(warnings)} optional capability is unconfigured; "
-            "the offline course material works without it."
+            f"{len(warnings)} optional {plural} unconfigured; "
+            "the offline course material works without that."
         )
     if failures:
         lines.append(f"{len(failures)} check(s) failed. Fix the actions above and rerun:")

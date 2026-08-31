@@ -15,7 +15,7 @@ Budget about 15–20 minutes from a nearly clean machine.
 | Platform | Command (from the repository root) |
 | --- | --- |
 | Linux (Ubuntu is the validated reference) | `bash install/linux.sh` |
-| macOS (Apple silicon or Intel) | `bash install/macos.sh` |
+| macOS (Apple silicon) | `bash install/macos.sh` |
 | Windows, native | `powershell -ExecutionPolicy Bypass -File install\windows_native.ps1` |
 | Windows, inside WSL2 | `bash install/windows_wsl.sh` |
 
@@ -25,6 +25,14 @@ Fortran codes later.
 
 Every script accepts `--check-only` (`-CheckOnly` in PowerShell), which runs the
 environment checker and changes nothing.
+
+### Apple silicon only on macOS
+
+VAFT depends on `imas_core`, which publishes wheels for Apple silicon macOS,
+Linux x86_64 and Windows — there is no Intel macOS wheel and no source
+distribution. The installation cannot succeed on an Intel Mac. Use Apple
+silicon, a Linux machine, or WSL2. The bootstrap detects this case and says so
+rather than leaving you with a pip resolver error.
 
 ## Prerequisites
 
@@ -50,7 +58,8 @@ you. Installing system-wide tooling is your decision, not the repository's.
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
 cd vaft
-bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
+bash install/linux.sh          # or install/macos.sh, install/windows_wsl.sh
+                               # on native Windows, see the table above
 hsconfigure                    # only if you need the remote VEST database
 conda activate vaft && jupyter lab
 ```
@@ -77,16 +86,18 @@ launch JupyterLab
 The scripts are deliberately transparent. They change exactly three things:
 
 1. **The `vaft` Conda environment** — created from [`environment.yml`](../environment.yml)
-   if absent, otherwise updated in place with `conda env update --prune`.
-   No other Conda environment is touched.
+   if absent, otherwise updated in place. The update deliberately does not
+   pass `--prune`, so anything you installed into the environment yourself is
+   left alone. No other Conda environment is touched.
 2. **An editable VAFT installation inside that environment** —
    `python -m pip install -e .` from your checkout, so `import vaft` uses the
-   source tree you cloned. The script then verifies that `vaft.__file__` really
-   does resolve inside your checkout, rather than to an unrelated installed copy.
+   source tree you cloned. The environment check then confirms that `vaft`
+   really does resolve inside your checkout rather than to an unrelated
+   installed copy.
 3. **A user-level Jupyter kernelspec** named `vaft`, displayed as
-   **Python (vaft)**. It is registered with a fixed `--name vaft`, which
-   overwrites any previous spec of the same name, so rerunning the script can
-   never accumulate duplicate kernels.
+   **Python (vaft)**. It is registered with a fixed `--name vaft`. Jupyter
+   keys kernelspecs by name, so a rerun replaces the spec rather than adding a
+   second one.
 
 Each script then finishes by running the environment checker below and adopting
 its exit status, so a bootstrap that reports success has actually been verified.
@@ -134,9 +145,9 @@ hsconfigure
 `hsconfigure` writes `~/.hscfg` in your home directory. That file holds your
 credentials and belongs **only** there.
 
-The VAFT bootstrap scripts never ask for, read, store, print, or transmit your
-credentials. They only report whether `~/.hscfg` exists and which keys it sets —
-never a value. There is intentionally no
+The VAFT bootstrap scripts never ask for, store, print, or transmit your
+credentials. The checker reads `~/.hscfg` only to report whether it exists and
+which keys it sets — a value never enters the report. There is intentionally no
 `setup_vaft --username ... --password ...`: credentials passed as command-line
 flags are retained in shell history and visible in process listings.
 
@@ -271,11 +282,10 @@ conda run -n vaft python -m pip uninstall -y vaft
 conda run -n vaft python -m pip install -e .
 ```
 
-**`[FAIL] Python (vaft) kernel`, "expected exactly one kernelspec"** — remove
-the duplicates and let the bootstrap re-register a single kernel:
+**`[FAIL] Python (vaft) kernel`, "no `vaft` kernel is registered"** — register
+it by rerunning the bootstrap, which is safe to repeat:
 
 ```bash
-jupyter kernelspec uninstall vaft
 bash install/linux.sh
 ```
 

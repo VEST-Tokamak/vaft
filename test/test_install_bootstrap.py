@@ -145,10 +145,16 @@ def test_missing_command_reports_remediation():
     assert result.failed
 
 
-def test_duplicate_kernels_are_reported():
-    result = checker.check_vaft_kernel(names=["python3", "vaft", "vaft"])
-    assert result.failed
-    assert "uninstall" in result.remediation
+def test_kernel_names_cannot_repeat():
+    """Jupyter keys kernelspecs by name, so duplication is not a reachable state.
+
+    The bootstrap's fixed `--name vaft` is what makes a repeated run replace the
+    spec rather than add one; this pins the assumption the checker relies on.
+    """
+    payload = '{"kernelspecs": {"python3": {}, "vaft": {}}}'
+    names = checker._kernelspec_names(lambda _arguments: payload)
+    assert names == ["python3", "vaft"]
+    assert len(names) == len(set(names))
 
 
 def test_single_kernel_passes():

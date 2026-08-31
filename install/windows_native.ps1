@@ -36,7 +36,7 @@ $EnvironmentName = 'vaft'
 $KernelName = 'vaft'
 $KernelDisplayName = 'Python (vaft)'
 $PlatformLabel = 'Windows (native)'
-$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$RepositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 
 $script:SummaryLines = New-Object System.Collections.Generic.List[string]
 $script:Failed = $false
@@ -76,7 +76,7 @@ install Conda for you.
 
 function Test-VaftEnvironment {
     # Parsed from the plain listing so the check never needs a second interpreter.
-    $names = conda env list | ForEach-Object { ($_ -split '\s+')[0] }
+    $names = @(conda env list | ForEach-Object { ($_ -split '\s+')[0] })
     return $names -contains $EnvironmentName
 }
 
@@ -87,7 +87,9 @@ function Initialize-VaftEnvironment {
     }
     if (Test-VaftEnvironment) {
         Write-Host "Updating the existing '$EnvironmentName' environment ..."
-        conda env update --name $EnvironmentName --file $specification --prune
+        # Deliberately not --prune: it would remove packages a student
+        # installed into this environment themselves.
+        conda env update --name $EnvironmentName --file $specification
         if ($LASTEXITCODE -ne 0) { Stop-WithGuidance 'conda env update failed.' }
         Write-Result -Status PASS -Name 'vaft environment' -Detail 'updated in place'
     }
@@ -168,6 +170,12 @@ Write-Host ''
 Assert-Conda
 
 if ($CheckOnly) {
+    if (-not (Test-VaftEnvironment)) {
+        Stop-WithGuidance @"
+The '$EnvironmentName' environment does not exist yet.
+Run this script without -CheckOnly to create it.
+"@
+    }
     Invoke-InVaft @('python', (Join-Path $RepositoryRoot 'install\check_vaft_environment.py'))
     exit $LASTEXITCODE
 }

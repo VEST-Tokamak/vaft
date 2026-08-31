@@ -95,8 +95,11 @@ jobs:
       - name: Environment check (offline)
         run: conda run -n vaft python install/check_vaft_environment.py
 
-      - name: Exactly one Python (vaft) kernel is registered
-        run: conda run -n vaft python -c "import json, subprocess, sys; payload = subprocess.run([sys.executable, '-m', 'jupyter', 'kernelspec', 'list', '--json'], capture_output=True, text=True, check=True).stdout; names = list(json.loads(payload)['kernelspecs']); print(names); sys.exit(0 if names.count('vaft') == 1 else 1)"
+      # Jupyter keys kernelspecs by name and the bootstrap always registers with
+      # a fixed `--name vaft`, so two runs cannot leave two kernels behind. What
+      # is worth asserting after the second run is that the kernel is still there.
+      - name: The Python (vaft) kernel survives a repeated bootstrap
+        run: conda run -n vaft python -c "import json, subprocess, sys; payload = subprocess.run([sys.executable, '-m', 'jupyter', 'kernelspec', 'list', '--json'], capture_output=True, text=True, check=True).stdout; specs = json.loads(payload)['kernelspecs']; print(sorted(specs)); sys.exit(0 if specs.get('vaft', {}).get('spec', {}).get('display_name') == 'Python (vaft)' else 1)"
 
       # The bootstrap must never dirty the student's checkout.
       - name: The checkout is left clean

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# VAFT bootstrap for macOS (Apple silicon and Intel).
+# VAFT bootstrap for macOS (Apple silicon).
+#
+# Intel Macs are not supported: imas_core publishes no Intel macOS wheel and
+# no source distribution, so the dependency cannot be resolved there.
 #
 #   bash install/macos.sh              # create/update the environment
 #   bash install/macos.sh --check-only # verify only, change nothing
