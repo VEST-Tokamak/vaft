@@ -84,3 +84,15 @@ def test_unreadable_source_reports_unknown_instead_of_raising():
     assert report.topology is ScanTopology.UNKNOWN
     assert report.reason
     assert report.to_dict()["topology"] == "unknown"
+
+
+def test_far_side_vacuum_saddles_do_not_register_as_near_null():
+    # a saddle with psi_n well below 1 sits on the far side of the LCFS flux;
+    # it must not produce an approach margin (would misreport NEAR_NULL)
+    base = _analytic_equilibrium("double")
+    # push the LCFS OUTSIDE the separatrix: X-points at psi_n < 1
+    eq = replace(base, psi_boundary=base.psi_boundary * 1.10)
+    report = classify_boundary(eq, active_tolerance=2.0e-3, near_null_band=5.0e-2)
+
+    assert report.topology is ScanTopology.LIMITED
+    assert report.null_margin is None

@@ -156,9 +156,16 @@ def classify_boundary(
         }
         for xp in representation.x_points
     )
-    null_margin = (
-        min(abs(xp["psi_n"] - 1.0) for xp in x_points) if x_points else None
-    )
+    # The approach distance counts only nulls on the vacuum side of the LCFS
+    # (psi_n coming DOWN toward 1). A far-side vacuum saddle can carry
+    # psi_n < 1 without being anywhere near the plasma boundary, and must not
+    # register as an approaching null.
+    approaching = [
+        xp["psi_n"] - 1.0
+        for xp in x_points
+        if xp["psi_n"] >= 1.0 - active_tolerance
+    ]
+    null_margin = min(abs(m) for m in approaching) if approaching else None
     d_r_sep = (
         float(representation.d_r_sep.value)
         if representation.d_r_sep is not None and representation.d_r_sep.available
