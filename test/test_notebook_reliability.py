@@ -6,6 +6,8 @@ import ast
 from pathlib import Path
 
 import nbformat
+import pytest
+from nbclient import NotebookClient
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +17,12 @@ DEPRECATED_CALLS = {
     "vaft.database.exist_ts_file",
     "vaft.database.ods.load",
 }
+EQUILIBRIUM_NOTEBOOKS = (
+    "parametric_equilibrium_descriptors.ipynb",
+    "local_miller_equilibrium_fitting.ipynb",
+    "analytic_solovev_equilibrium.ipynb",
+    "edge_and_boundary_representation.ipynb",
+)
 
 
 def _notebook_paths():
@@ -87,6 +95,22 @@ def test_load_omas_json_accepts_pathlike_input():
     ods = vaft.omas.load_omas_json(fixture, consistency_check=False)
 
     assert len(ods) > 0
+
+
+@pytest.mark.parametrize("name", EQUILIBRIUM_NOTEBOOKS)
+def test_parametric_equilibrium_notebooks_execute_offline(name, monkeypatch):
+    """Execute issue-65 examples without services, user paths, or saved output."""
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    monkeypatch.setenv("NO_PROXY", "*")
+    monkeypatch.setenv("no_proxy", "*")
+    notebook = nbformat.read(NOTEBOOKS / name, as_version=4)
+    NotebookClient(
+        notebook,
+        timeout=180,
+        kernel_name="python3",
+        resources={"metadata": {"path": str(ROOT)}},
+        allow_errors=False,
+    ).execute()
 
 
 def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
