@@ -100,29 +100,35 @@ result of running the kinetic chain once on shot 48224 at 300 ms with polynomial
 `T_e`/`n_e`/`T_i`/`V_tor` fits. It carries the g-file equilibrium, the mapped
 `thomson_scattering` and `charge_exchange` channels, and the generated
 `core_profiles.profiles_1d.0`, so notebooks, examples, and tests can use
-representative profiles offline without `omfit_classes` or the `.mat` inputs
+representative profiles offline without the `.mat` inputs
 (`notebooks/kinetic_efit_end_to_end.ipynb` loads it and only rebuilds when it is
-absent). The recipe below is deterministic -- rerunning it reproduces the
-committed file byte for byte, provided `user` stays pinned (`dataset_description`
-otherwise stamps `$USER`, which would turn a regeneration into a spurious 2 MB
-diff). Regenerate it with:
+absent).
+
+The committed file was produced by an earlier version of the recipe that read
+the g-file through `omfit_classes`, which VAFT no longer depends on (issue
+#192). The native recipe below is deterministic and produces the same
+`core_profiles` content, but **not** the same file: OMFIT supplied its
+flux-surface solve's derived equilibrium quantities
+(`profiles_1d.gm1`..`gm9`, `dvolume_dpsi`, `b_field_average`, `area`,
+`elongation`, `global_quantities.beta_pol`/`li_3`, the X-point locations, and
+~550 other leaves), and it wrote `psi` in Wb where the native path keeps the
+g-file's own Wb/rad. The committed sample is therefore kept as a frozen
+artifact rather than regenerated -- do not overwrite it casually. Keep `user`
+pinned if you do regenerate (`dataset_description` otherwise stamps `$USER`,
+turning a regeneration into a spurious 2 MB diff). The recipe:
 
 ```python
-import vaft
-from vaft.data.resources import data_path
-
-vaft.apply_omfit_compat_patches()
 from omas import save_omas_json
-from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 
 from vaft.code.efit import build_kinetic_core_profiles
+from vaft.data import read_geqdsk
+from vaft.data.resources import data_path
 from vaft.machine_mapping.charge_exchange import charge_exchange
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
 root = data_path("kineticEfit")
-geq = OMFITgeqdsk(str(root / "g048224.00300"))
-geq["fluxSurfaces"].load()
+geq = read_geqdsk(root / "g048224.00300")
 ods = geq.to_omas()
 ods["equilibrium.ids_properties.homogeneous_time"] = 1
 dataset_description(

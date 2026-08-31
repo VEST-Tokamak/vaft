@@ -786,7 +786,7 @@ def _locate_solovev_axis(
             r=r, z=z, psi=psi, psi_axis=float(spline.ev(pr, pz)),
             psi_boundary=model.psi_boundary, magnetic_axis=(pr, pz),
         )
-        if _contour_at_level(temp, 1.0) is not None:
+        if _closed_boundary_contour(temp, (pr, pz))[0] is not None:
             return (pr, pz)
     # Fallback: interior grid extremum (still excludes the domain edge).
     interior = np.abs(psi - model.psi_boundary).copy()
@@ -796,10 +796,47 @@ def _locate_solovev_axis(
     return (float(r[index[0]]), float(z[index[1]]))
 
 
+def _closed_boundary_contour(
+    temp: EquilibriumData,
+    axis: tuple[float, float],
+    levels: tuple[float, ...] = (1.0, 0.9995, 0.999, 0.995, 0.99),
+) -> tuple[Contour | None, float | None]:
+    """Return a CLOSED psi_boundary contour enclosing ``axis``, or (None, None).
+
+    ``_contour_at_level`` deliberately falls back to the longest open segment
+    (useful for separatrix legs); the Solovev export must not accept that -- an
+    open "LCFS" silently corrupts Ip, pressure integrals, and every shape
+    descriptor. Step slightly inward from psi_n=1 to tolerate a boundary
+    surface that grazes the grid edge.
+    """
+    for level in levels:
+        contour = _contour_at_level(temp, level)
+        if (
+            contour is not None
+            and contour.closed
+            and MplPath(contour.points).contains_point(axis)
+        ):
+            return contour, level
+    return None, None
+
+
 def solovev_to_equilibrium(
     model: SolovevEquilibrium, r: Any, z: Any, *, magnetic_axis: tuple[float, float] | None = None,
     limiter: Contour | None = None, convention: int = 11,
 ) -> EquilibriumData:
+    """Export an analytic Solovev model as a gridded :class:`EquilibriumData`.
+
+    ``evaluate_solovev`` works with psi in Wb/rad (B_pol = grad(psi)/R). The
+    exported flux quantities are scaled to honor the declared ``convention``:
+    a full-weber COCOS (11-18) multiplies psi by 2*pi so descriptor
+    derivation, which divides full-weber psi gradients by 2*pi, recovers the
+    analytic fields exactly.
+
+    Raises ``ValueError`` when ``psi_boundary`` does not form a CLOSED contour
+    enclosing the magnetic axis on this grid (checked explicitly, stepping to
+    psi_n=0.99 before giving up): an open boundary would silently corrupt Ip,
+    the pressure integrals, and every shape descriptor.
+    """
     r = np.asarray(r, dtype=float).reshape(-1); z = np.asarray(z, dtype=float).reshape(-1)
     rm, zm = np.meshgrid(r, z, indexing="ij")
     values = evaluate_solovev(model, rm, zm); psi = values["psi"]
@@ -807,19 +844,26 @@ def solovev_to_equilibrium(
         magnetic_axis = _locate_solovev_axis(model, r, z, psi)
     psi_axis = float(evaluate_solovev(model, *magnetic_axis)["psi"])
     temp = EquilibriumData(r=r, z=z, psi=psi, psi_axis=psi_axis, psi_boundary=model.psi_boundary, magnetic_axis=magnetic_axis)
-    lcfs = _contour_at_level(temp, 1.0)
+    lcfs, lcfs_level = _closed_boundary_contour(temp, magnetic_axis)
     if lcfs is None:
-        raise ValueError("psi_boundary does not form a closed contour containing the magnetic axis on this grid")
+        raise ValueError(
+            "psi_boundary does not form a closed contour containing the magnetic axis on "
+            "this grid; enlarge the grid, adjust the model, or check the surface topology"
+        )
     psi_1d = np.linspace(psi_axis, model.psi_boundary, max(65, min(r.size, z.size)))
     pressure = model.pressure_boundary + model.pprime*(psi_1d-model.psi_boundary)
     f = model.f_sign*np.sqrt(np.clip(model.f_boundary**2+2*model.ffprime*(psi_1d-model.psi_boundary), 0, None))
     mask = MplPath(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
     ip = float(np.sum(values["j_phi"]*np.gradient(r)[:, None]*np.gradient(z)[None, :]*mask))
-    conv = _detect_convention(explicit=convention, bt0=float(model.f_boundary/model.rref), ip=ip, q=None, psi_1d=psi_1d, source="analytic Solovev")
+    if convention not in range(1, 19):
+        raise ValueError("convention must be a COCOS index in the range 1..18")
+    psi_factor = 2.0*np.pi if convention >= 11 else 1.0
+    conv = _detect_convention(explicit=convention, bt0=float(model.f_boundary/model.rref), ip=ip, q=None, psi_1d=psi_1d*psi_factor, source="analytic Solovev")
     return EquilibriumData(
-        r, z, psi, psi_axis, model.psi_boundary, magnetic_axis, lcfs, limiter,
-        psi_1d, pressure, f, None, ip, float(model.f_boundary/model.rref), model.rref,
-        None, conv, {"source_type": "solovev", "model": model, "topology_assumptions": "axisymmetric limited or upper/lower-null"},
+        r, z, psi*psi_factor, psi_axis*psi_factor, model.psi_boundary*psi_factor, magnetic_axis, lcfs, limiter,
+        psi_1d*psi_factor, pressure, f, None, ip, float(model.f_boundary/model.rref), model.rref,
+        None, conv, {"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
+                     "topology_assumptions": "axisymmetric limited or upper/lower-null"},
     )
 
 

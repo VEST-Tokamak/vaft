@@ -48,7 +48,19 @@ VEST Data Analysis Platform
 
 ### Installation
 
-Install from source (recommended):
+New to VAFT, or setting up a teaching/course machine? Follow
+[`install/README.md`](install/README.md): it has a one-command bootstrap for
+Linux, macOS, native Windows, and WSL2, an environment checker, and the
+procedure for updating an existing checkout.
+
+```bash
+git clone https://github.com/VEST-Tokamak/vaft.git
+cd vaft
+bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+Install from source manually:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -386,12 +398,12 @@ the following license.
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-### OMFIT classes compatibility port
+### Attribution: OMFIT classes
 
-VAFT's native EQDSK compatibility and interoperability paths include behavior
-ported or adapted from `omfit_classes`. VAFT also provides compatibility shims
-for the corresponding legacy NumPy, SciPy, and xarray interfaces. The original
-OMFIT classes software is distributed under the following license.
+VAFT does not depend on, import, or require `omfit_classes`. Parts of VAFT's
+native EQDSK path in `vaft/data/eqdsk.py` were originally ported or adapted
+from it, so its copyright notice is reproduced here as its license requires.
+The original OMFIT classes software is distributed under the following license.
 
 > Copyright 2013-2021 the OMFIT contributors
 >

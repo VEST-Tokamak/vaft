@@ -14,11 +14,18 @@ VAFT, OMAS/IMAS, VEST-database, and tokamak-physics concepts needed by each
 exercise; it does not assume prior experience with VAFT or external fusion
 codes.
 
-Use a source checkout with the development dependencies installed:
+Use a source checkout with the development dependencies installed. If you are
+setting up a machine for the first time, follow [`install/README.md`](../install/README.md)
+and verify the result before the session starts:
 
 ```bash
+bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
+python install/check_vaft_environment.py
 python -m pip install -e ".[dev]"
 ```
+
+Environment setup is not a learning objective of this course. Budget 15-20
+minutes for it beforehand.
 
 The optional lab path also requires configured VEST HSDS credentials and the
 relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
@@ -93,6 +100,44 @@ their public VAFT workflows where mature, but keep detailed theory and narrow
 research procedures there rather than copying them into this introductory
 course.
 
+## Session 01 is different on purpose
+
+Session 01 is a beginner's walkthrough of the everyday VAFT workflow:
+
+```text
+load an ODS -> inspect its IDS roots -> look at the geometry
+            -> plot diagnostics -> look at the equilibrium
+```
+
+It therefore does **not** use the eight-heading analysis structure below, which
+is designed for the analysis sessions. Its headings are pinned separately in
+`test/verify_tutorial.py`, and its own contract is different in three ways:
+
+- **Two imports only**, `vaft` and `matplotlib.pyplot`, explained in prose
+  rather than presented as boilerplate.
+- **One pattern, repeated.** Every plot is
+  `vaft.omas.plot_<something>(ods)` followed by `plt.show()`. No `savefig`, no
+  dynamic `getattr` dispatch, no plot-recipe introspection, and no
+  notebook-local helper functions -- tutorial code demonstrates VAFT rather than
+  reimplementing it.
+- **No tutorial machinery.** No exercise framework, no mode switching, no output
+  directories, no repository discovery. Exercises are ordinary comment blocks a
+  student edits, and nothing the notebook does depends on hidden validation.
+
+`test/test_tutorial_session_01.py` enforces all of this, including that no cell
+echoes a data object: one `repr(ods)` is about half a megabyte of array text.
+
+If Session 01 needs a view that VAFT does not provide, add the view to VAFT as a
+public `vaft.omas.plot_*` API and call it from the notebook. Do not compensate
+with plotting code in the notebook.
+
+## The solution repository
+
+Completed and executed copies of the notebooks live in the private
+`vaft-tutorial-solution` repository. They are a review and teaching oracle, never
+a runtime dependency: the public test suite passes without any access to them,
+and nothing in public CI may reference them.
+
 ## Slide and figure contract
 
 Each session has one standalone 16:9 Beamer source and one PDF with the same
@@ -152,10 +197,11 @@ Develop sessions in numerical order. For each session:
 6. clear the committed notebook, rebuild its PDF, run validation, and update
    the status table above.
 
-Session 01 is the first completed content milestone. It uses packaged shot 39915
-to inspect IDS roots and make magnetic, PF-coil, and UV-spectrometer plots
-through VAFT public APIs. Its lab branch demonstrates a read-only HSDS magnetic
-data selection when credentials are available. The existing
+Session 01 is the first completed content milestone. It stays on the packaged
+shot 39915 throughout: IDS roots, the composed machine geometry, the magnetic,
+PF-coil, TF, spectrometer and barometry diagnostics, and the equilibrium flux
+map and profiles -- all through public `vaft.omas.plot_*` APIs. It needs no
+credentials and no repository-only data. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
 

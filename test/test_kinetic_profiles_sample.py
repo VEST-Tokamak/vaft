@@ -8,7 +8,7 @@ the output of ``test_kinetic_chain_data.py``, which drives the same raw inputs w
 ``ne_mode="free_exponential"`` and ``time_tolerance_ms=3.0``; the two agree on
 structure and magnitude, not value for value. The sample exists so notebooks,
 examples, and tests can consume representative ``core_profiles`` content without
-``omfit_classes`` or the paired ``.mat`` inputs.
+the paired ``.mat`` inputs.
 """
 import numpy as np
 import pytest

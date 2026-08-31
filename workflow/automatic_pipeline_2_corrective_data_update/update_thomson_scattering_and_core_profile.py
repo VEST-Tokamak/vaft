@@ -25,10 +25,9 @@ import os, shutil, re
 import time
 import numpy as np
 import vaft
-vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
 from vaft import database, process
+from vaft.data import read_geqdsk
 from vaft.machine_mapping.thomson_scattering import thomson_scattering
-from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 import h5pyd
 from datetime import datetime
 import omas
@@ -213,8 +212,7 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 continue
 
             try:
-                geq = OMFITgeqdsk(filename=geq_filename)
-                geq['fluxSurfaces'].load()
+                geq = read_geqdsk(geq_filename)
             except Exception as e:
                 print(f"[WARNING] Skipped time {time_ms:.1f} ms during rho mapping: {e}")
                 continue
