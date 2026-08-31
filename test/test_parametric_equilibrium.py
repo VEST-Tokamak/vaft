@@ -247,25 +247,86 @@ def test_outboard_radius_uses_the_midplane_not_the_contour_maximum():
     assert _outboard_radius_at_z(Contour(np.array([1.0, 2.0]), np.array([1.0, 2.0])), 0.0) is None
 
 
+def _classic_solovev(psi_boundary: float = 0.08, kappa: float = 1.4):
+    """Classic nested Solovev psi = R^2 Z^2/kappa^2 + (R^2-R0^2)^2/4 (R0=1),
+    reproduced through the constraint solver so the export path is exercised
+    with a model whose closed nested surfaces are guaranteed analytically."""
+    from vaft.formula.constants import MU0
+
+    R0 = 1.0
+    pprime = -8.0 * ((1.0 + 1.0 / kappa**2) / 4.0) / MU0
+    r_out = np.sqrt(R0**2 + 2 * np.sqrt(psi_boundary))
+    r_in = np.sqrt(R0**2 - 2 * np.sqrt(psi_boundary))
+    z_top = kappa * np.sqrt(psi_boundary) / R0
+    constraints = [
+        SolovevConstraint(r_out, 0.0, "psi", psi_boundary),
+        SolovevConstraint(r_in, 0.0, "psi", psi_boundary),
+        SolovevConstraint(R0, z_top, "psi", psi_boundary),
+        SolovevConstraint(R0, 0.0, "psi", 0.0),
+        SolovevConstraint(R0, 0.0, "dpsi_dr", 0.0),
+    ]
+    return solve_solovev_constraints(
+        constraints, pprime=pprime, ffprime=0.0, rref=1.0,
+        psi_boundary=psi_boundary, f_boundary=1.4,
+    )
+
+
 def test_solovev_axis_is_the_o_point_not_a_grid_corner():
     """Bugbot #204-4: with the axis omitted, the O-point must be found even on
     a generous grid window where |psi - psi_boundary| peaks at a domain corner."""
     from vaft.process.equilibrium import solovev_to_equilibrium
 
-    R0, a, b = 1.05, 0.35, 0.5
-    constraints = [
-        SolovevConstraint(R0 + a, 0.0, "psi", 0.0),
-        SolovevConstraint(R0 - a, 0.0, "psi", 0.0),
-        SolovevConstraint(R0, b, "psi", 0.0),
-        SolovevConstraint(R0 + 0.6 * a, 0.75 * b, "psi", 0.0),
-        SolovevConstraint(R0, 0.0, "dpsi_dr", 0.0),
-    ]
-    model = solve_solovev_constraints(constraints, pprime=-1200.0, ffprime=0.08, rref=1.0)
+    model = _classic_solovev()
     r = np.linspace(0.3, 3.2, 161)
     z = np.linspace(-2.0, 2.0, 161)
     psi = evaluate_solovev(model, *np.meshgrid(r, z, indexing="ij"))["psi"]
     raw = np.unravel_index(np.argmax(np.abs(psi - model.psi_boundary)), psi.shape)
     assert raw[0] in (0, r.size - 1) or raw[1] in (0, z.size - 1)  # the old pick: a corner
     eq = solovev_to_equilibrium(model, r, z)
-    assert eq.magnetic_axis[0] == pytest.approx(R0, abs=5e-3)
+    assert eq.magnetic_axis[0] == pytest.approx(1.0, abs=5e-3)
     assert eq.magnetic_axis[1] == pytest.approx(0.0, abs=5e-3)
+
+
+def test_solovev_export_rejects_an_open_boundary_contour():
+    """An open psi_boundary level set must raise, never silently return a
+    chord-closed LCFS with corrupted Ip and shape descriptors."""
+    from vaft.process.equilibrium import solovev_to_equilibrium
+
+    # The original notebook configuration: the least-squares solution has
+    # off-midplane wells deeper than the declared axis, so no closed
+    # psi_boundary surface encloses (1.0, 0.0).
+    constraints = [
+        SolovevConstraint(1.0, 0.0, "psi", -1.0),
+        SolovevConstraint(0.7, 0.0, "psi", 0.0),
+        SolovevConstraint(1.3, 0.0, "psi", 0.0),
+        SolovevConstraint(1.0, 0.4, "psi", 0.0),
+        SolovevConstraint(1.0, -0.4, "psi", 0.0),
+        SolovevConstraint(1.0, 0.0, "dpsi_dr", 0.0),
+    ]
+    model = solve_solovev_constraints(constraints, pprime=-1e5, ffprime=0.0, rref=1.0)
+    r = np.linspace(0.5, 1.5, 151)
+    z = np.linspace(-0.7, 0.7, 151)
+    with pytest.raises(ValueError, match="closed contour"):
+        solovev_to_equilibrium(model, r, z, magnetic_axis=(1.0, 0.0))
+
+
+def test_solovev_export_honors_the_declared_psi_convention():
+    """The export must be self-consistent with its COCOS tag: full-weber
+    conventions carry 2*pi*psi, and derived fields/descriptors agree with the
+    per-radian export."""
+    from vaft.process.equilibrium import solovev_to_equilibrium
+
+    model = _classic_solovev()
+    r = np.linspace(0.55, 1.45, 141)
+    z = np.linspace(-0.55, 0.55, 141)
+    per_radian = solovev_to_equilibrium(model, r, z, convention=2)
+    full_weber = solovev_to_equilibrium(model, r, z, convention=11)
+    np.testing.assert_allclose(full_weber.psi, 2 * np.pi * per_radian.psi)
+    assert full_weber.psi_boundary == pytest.approx(2 * np.pi * per_radian.psi_boundary)
+    np.testing.assert_allclose(full_weber.pressure, per_radian.pressure)
+    assert full_weber.ip == pytest.approx(per_radian.ip)
+    d_rad = derive_global_descriptors(per_radian)
+    d_wb = derive_global_descriptors(full_weber)
+    for name in ("beta_p_boundary_average", "s1"):
+        assert d_rad[name].available and d_wb[name].available
+        assert d_wb[name].value == pytest.approx(d_rad[name].value, rel=1e-6), name
