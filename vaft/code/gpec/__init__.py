@@ -20,9 +20,22 @@ import subprocess
 from pathlib import Path
 
 from . import _runtime as rt
+from ._coil_input import (
+    CoilInputSpec,
+    emit_coil_dat,
+    read_coil_in,
+    stage_coil_data,
+    write_coil_in,
+)
 from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
+from ._gpec_output import (
+    GpecControlOutput,
+    GpecCylindricalOutput,
+    GpecIdealResult,
+    read_gpec_netcdf,
+)
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
-from ._solvers import SOLVERS, SolverContext
+from ._solvers import SOLVERS, SolverContext, _check_nc_variable
 from ._types import (
     DEFAULT_MODES,
     DEFAULT_MODULES,
@@ -90,6 +103,35 @@ def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
         status="prepared",
         outputs=tuple(path for pattern in solver.output_patterns(mode) if (path := workdir / pattern).exists()),
     )
+
+
+def validate_dcon_result(
+    dcon_dir: Path | str,
+    mode: int,
+    *,
+    verify_outputs: bool = False,
+) -> list[str]:
+    """Describe what makes ``dcon_dir`` unusable as an ideal-GPEC prerequisite.
+
+    A valid ideal-GPEC run consumes the same-mode DCON products ``euler.bin``
+    and ``psi_in.bin``.  ``verify_outputs`` additionally checks that
+    ``dcon_output_n{mode}.nc`` exists and carries the eigenvalue variable, so
+    a truncated or failed DCON solve is caught before GPEC is launched.
+    Returns an empty list when the DCON result is usable.
+    """
+    dcon_dir = Path(dcon_dir)
+    problems = [
+        f"missing DCON output: {name}"
+        for name in ("euler.bin", "psi_in.bin")
+        if not (dcon_dir / name).exists()
+    ]
+    if verify_outputs and not problems:
+        ok, reason = _check_nc_variable(
+            dcon_dir, f"dcon_output_n{mode}.nc", "W_t_eigenvalue"
+        )
+        if not ok:
+            problems.append(reason)
+    return problems
 
 
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
@@ -186,10 +228,16 @@ def _run_module(
 
     if module == "gpec":
         dcon_dir = _dcon_run_dir(inputs, mode, Path(inputs.geqdsk))
-        required = ("euler.bin", "psi_in.bin")
-        missing = [name for name in required if not (dcon_dir / name).exists()]
-        if missing:
-            return GPECModuleRun(module, mode, run_dir, status="skipped", reason=f"missing DCON outputs: {', '.join(missing)}")
+        problems = validate_dcon_result(dcon_dir, mode, verify_outputs=config.verify_outputs)
+        if problems:
+            reason = (
+                f"invalid DCON result in {dcon_dir}: {'; '.join(problems)} "
+                "-- run the dcon module for the same mode first, or pass "
+                "dcon_workdir pointing at a completed DCON work tree"
+            )
+            if policy == "strict":
+                raise RuntimeError(reason)
+            return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
 
     # Resuming a pipeline should not re-run a completed numerical solve just
     # because another time slice in the same code/mode cell failed.  A full
@@ -322,13 +370,23 @@ __all__ = [
     "GPECModuleRun",
     "GPECSuiteConfig",
     "GPECSuiteResult",
+    "CoilInputSpec",
     "collect_gpec_suite_outputs",
+    "emit_coil_dat",
     "format_gfile_header_for_gpec",
+    "stage_coil_data",
+    "write_coil_in",
     "prepare_gpec_suite_case",
+    "read_coil_in",
     "run_gpec_suite_case",
+    "validate_dcon_result",
     "DconEigenfunction",
     "DconOutput",
+    "GpecControlOutput",
+    "GpecCylindricalOutput",
+    "GpecIdealResult",
     "read_dcon_output",
+    "read_gpec_netcdf",
     "read_solutions_bin",
     "Pest3MatchingOutput",
     "read_pest3_matching_output",

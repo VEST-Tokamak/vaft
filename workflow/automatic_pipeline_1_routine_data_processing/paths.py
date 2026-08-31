@@ -69,6 +69,7 @@ _LOG_OWNER = {
     "plot_chease": ("omas", "chease"),
     "run_gpec_suite": ("omas", "mhd_linear"),
     "build_mhd_linear": ("omas", "mhd_linear"),
+    "build_gpec_ideal": ("omas", "gpec_ideal"),
 }
 
 
@@ -266,6 +267,18 @@ class PipelinePaths:
                 self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json"
             )
         return str(self._omas("mhd_linear", shot, "metadata") / "manifest.json")
+
+    def gpec_ideal_ods(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "linear_stability") / "gpec_ideal.json")
+        return str(self._omas("gpec_ideal", shot, "output") / "gpec_ideal.json")
+
+    def gpec_ideal_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(
+                self._shot_dir(shot, "linear_stability") / "gpec_ideal_manifest.json"
+            )
+        return str(self._omas("gpec_ideal", shot, "metadata") / "manifest.json")
 
     # -- validation plots ---------------------------------------------------
     # Validation plots are a canonical FileDB artifact class (issue #139) and

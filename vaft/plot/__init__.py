@@ -157,6 +157,8 @@ from ._migration import (
 from ._migration import render_markdown_table as migration_table
 from .models import (
     Field2D,
+    Geometry3DLayer,
+    Geometry3DLayers,
     GeometryLayer,
     GeometryLayers,
     Image2D,
@@ -172,7 +174,7 @@ from .models import (
 )
 from .registry import PlotSpec, available_plots, canonical_names, get_spec
 from .renderers.fields import render_field_2d
-from .renderers.geometry import render_geometry_layers
+from .renderers.geometry import render_geometry_3d_layers, render_geometry_layers
 from .renderers.images import render_image_2d, render_image_sequence
 from .renderers.lines import render_line_series
 from .renderers.panels import render_panels
@@ -192,6 +194,8 @@ from .renderers.fields import (
 )
 from .renderers.geometry import (
     charge_exchange_geometry_poloidal,
+    coils_non_axisymmetric_geometry3d,
+    coils_non_axisymmetric_geometry_topview,
     equilibrium_geometry_boundary,
     equilibrium_geometry_topview,
     machine_geometry_poloidal,
@@ -306,6 +310,8 @@ from .parameter_history import plot_parameter_history
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
     "Field2D",
+    "Geometry3DLayer",
+    "Geometry3DLayers",
     "GeometryLayer",
     "GeometryLayers",
     "Image2D",
@@ -324,6 +330,7 @@ _SUPPORT_EXPORTS = (
     "get_spec",
     "migration_table",
     "render_field_2d",
+    "render_geometry_3d_layers",
     "render_geometry_layers",
     "render_image_2d",
     "render_image_sequence",

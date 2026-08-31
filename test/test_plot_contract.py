@@ -13,6 +13,8 @@ from matplotlib.figure import Figure
 from vaft.plot import registry
 from vaft.plot.models import (
     Field2D,
+    Geometry3DLayer,
+    Geometry3DLayers,
     GeometryLayer,
     GeometryLayers,
     Image2D,
@@ -41,6 +43,10 @@ def _minimal_model(model_type):
     if model_type is GeometryLayers:
         return GeometryLayers(
             layers=(GeometryLayer(r=x, z=x, kind="polygon", label="wall"),)
+        )
+    if model_type is Geometry3DLayers:
+        return Geometry3DLayers(
+            layers=(Geometry3DLayer(x=x, y=x, z=x, label="coil"),)
         )
     if model_type is Image2D:
         return Image2D(values=np.outer(x, x), value_label="counts")

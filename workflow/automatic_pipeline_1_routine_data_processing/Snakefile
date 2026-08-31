@@ -66,9 +66,21 @@ GPEC_CONFIG = config.get("gpec", {})
 GPEC_MODULES = GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])
 GPEC_MODES = GPEC_CONFIG.get("modes", [1, 2])
 GPEC_PATH_CODES = ["ideal-gpec" if module == "gpec" else module for module in GPEC_MODULES]
-# The `mhd_linear` builder currently only maps DCON/RDCON/STRIDE output --
-# ideal-GPEC's `.nc` output has no parser yet (see vaft/machine_mapping/mhd_linear.py).
+# The `mhd_linear` builder maps DCON/RDCON/STRIDE output; ideal-GPEC's `.nc`
+# output is folded into its own `gpec_ideal` stage by `rule build_gpec_ideal`
+# (see vaft/machine_mapping/gpec_ideal.py).
 GPEC_STABILITY_MODULES = [module for module in GPEC_MODULES if module in ("dcon", "rdcon", "stride")]
+GPEC_COIL_CONFIG = GPEC_CONFIG.get("coil", {}) or {}
+# Run-specific coil excitation: `gpec.coil.sets` entries become --coil-set
+# flags so ideal-GPEC's coil.in is generated from the canonical VEST 3D coil
+# configuration (`gpec.coil.source: vest_reference`, the packaged default).
+GPEC_COIL_SET_FLAGS = " ".join(
+    "--coil-set \"{name}={currents}\"".format(
+        name=entry["name"],
+        currents=",".join(str(value) for value in entry["currents_a"]),
+    )
+    for entry in GPEC_COIL_CONFIG.get("sets", [])
+)
 
 DEFAULT_UNCERTAINTY = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
 DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
@@ -192,6 +204,8 @@ def eligible_pipeline_outputs(wildcards):
         "mhd_linear_ods",
         "mhd_linear_manifest",
     ]
+    if "gpec" in GPEC_MODULES:
+        products += ["gpec_ideal_ods", "gpec_ideal_manifest"]
     outputs = [getattr(PATHS, product)(shot) for product in products for shot in shots]
     outputs += [
         PATHS.gpec_module_status(shot, code, mode)
@@ -808,6 +822,9 @@ rule run_gpec_module:
             f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, "dcon", int(wildcards.mode))}"'
             if wildcards.code == "ideal-gpec"
             else ""
+        ),
+        coil_option=lambda wildcards: (
+            GPEC_COIL_SET_FLAGS if wildcards.code == "ideal-gpec" else ""
         )
     conda:
         CONDA if CONDA else None
@@ -821,6 +838,7 @@ rule run_gpec_module:
             --status {output.status} \
             --workdir "{params.workdir}" \
             {params.dcon_option} \
+            {params.coil_option} \
             --gpec-home "{params.gpec_home}" \
             --run-mode "{params.run_mode}" \
             --code {wildcards.code} \
@@ -873,6 +891,40 @@ rule build_mhd_linear:
             --metadata {output.manifest} \
             > {log} 2>&1
         """
+
+rule build_gpec_ideal:
+    input:
+        refined=PATHS.shot_pattern("chease_refined"),
+        gpec_status=lambda wildcards: [
+            PATHS.gpec_module_status(wildcards.shot, "ideal-gpec", mode)
+            for mode in GPEC_MODES
+        ]
+    output:
+        ods=PATHS.shot_pattern("gpec_ideal_ods"),
+        manifest=PATHS.shot_pattern("gpec_ideal_manifest")
+    log:
+        PATHS.shot_pattern("log", "build_gpec_ideal")
+    params:
+        modes=csv(GPEC_MODES),
+        mode_workdirs=lambda wildcards: ",".join(
+            f"{mode}:{PATHS.gpec_workdir(wildcards.shot, 'ideal-gpec', mode)}"
+            for mode in GPEC_MODES
+        )
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_gpec_ideal_ods.py \
+            --shot {wildcards.shot} \
+            --refined-gfile-manifest {input.refined} \
+            --mode-workdir "{params.mode_workdirs}" \
+            --modes "{params.modes}" \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
 
 if PLOTS_ENABLED:
     rule plot_chease:

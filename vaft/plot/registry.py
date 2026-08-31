@@ -39,6 +39,7 @@ VIEWS = (
     "profile",
     "field",
     "geometry",
+    "geometry3d",
     "spectrum",
     "spectrogram",
     "overview",

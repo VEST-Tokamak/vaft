@@ -306,6 +306,50 @@ def plot_charge_exchange_geometry_poloidal(
     )
 
 
+def plot_coils_non_axisymmetric_geometry3d(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Non-axisymmetric 3D coil filaments in machine Cartesian coordinates.
+
+    Renders with :func:`vaft.plot.coils_non_axisymmetric_geometry3d`.
+    """
+    return render(
+        "coils_non_axisymmetric_geometry3d",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
+def plot_coils_non_axisymmetric_geometry_topview(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Non-axisymmetric 3D coil filaments projected into the machine top view.
+
+    Renders with :func:`vaft.plot.coils_non_axisymmetric_geometry_topview`.
+    """
+    return render(
+        "coils_non_axisymmetric_geometry_topview",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
 def plot_charge_exchange_profile_ion_temperature(
     source: Any,
     *,
@@ -2154,6 +2198,8 @@ __all__ = [
     "plot_camera_visible_image_frame",
     "plot_charge_exchange_geometry_poloidal",
     "plot_charge_exchange_profile_ion_temperature",
+    "plot_coils_non_axisymmetric_geometry3d",
+    "plot_coils_non_axisymmetric_geometry_topview",
     "plot_charge_exchange_profile_velocity_tor",
     "plot_charge_exchange_time_ion_temperature",
     "plot_charge_exchange_time_velocity_tor",
