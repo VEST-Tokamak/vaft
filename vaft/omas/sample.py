@@ -6,8 +6,12 @@ __all__ = ["sample_ods", "sample_gfile"]
 def sample_ods():
     """Load the compact shot-39915 OMAS reference sample.
 
-    New code should use ``vaft.data.sample`` and an explicit adapter.  This
-    wrapper remains for compatibility with existing single-shot examples.
+    This is the one-line entry point for examples, teaching material and quick
+    checks: no arguments, no configuration, no network access. Tutorial 01 uses
+    it throughout.
+
+    Use ``vaft.data.sample`` with an explicit adapter when you need to choose
+    the shot or the representation.
     """
     from ..database._local import load_ods
 

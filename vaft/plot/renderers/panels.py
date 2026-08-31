@@ -441,6 +441,20 @@ def equilibrium_overview(
     return render_panels(model, ax=ax, show=show, **style)
 
 
+@_panel_renderer(
+    domain="equilibrium", subject="equilibrium", view="overview", quantity="profiles",
+    description="Principal 1-D equilibrium profiles: pressure, toroidal current "
+                "density and safety factor.",
+    ids=("equilibrium",),
+    required_paths=("equilibrium.time_slice.{i}.profiles_1d.psi",),
+)
+def equilibrium_overview_profiles(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Pressure, current density and safety factor in one figure."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
 _CONSTRAINT_IDS = ("equilibrium",)
 _CONSTRAINT_SUBMITTED = (
     "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
