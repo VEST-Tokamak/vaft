@@ -61,9 +61,18 @@ def test_families_are_groups_not_aliases():
     alias_terms = {
         alias for subject in taxonomy.SUBJECTS.values() for alias in subject.aliases
     }
+    family_terms = {
+        term
+        for family in taxonomy.FAMILIES.values()
+        for term in (family.name, *family.aliases)
+    }
+    # Family names and family aliases must not collide with subject names,
+    # subject aliases, or quantity aliases: a term resolves in one map only.
+    assert not family_terms & set(taxonomy.SUBJECTS), family_terms
+    assert not family_terms & alias_terms, family_terms
+    assert not family_terms & set(taxonomy.QUANTITY_ALIASES), family_terms
     for family in taxonomy.FAMILIES.values():
         assert len(family.members) > 1, family.name
-        assert family.name not in alias_terms, family.name
         for member in family.members:
             assert member != family.name
     beta = taxonomy.resolve_family("beta")
@@ -71,6 +80,17 @@ def test_families_are_groups_not_aliases():
     assert taxonomy.resolve_family("w").name == "energy"
     with pytest.raises(KeyError, match="unknown quantity family"):
         taxonomy.resolve_family("beta_n")
+
+
+def test_quantity_aliases_resolve_deterministically():
+    assert taxonomy.resolve_quantity("safety_factor") == "q"
+    assert taxonomy.resolve_quantity("beta_pol") == "beta_p"
+    # A canonical quantity resolves to itself.
+    assert taxonomy.resolve_quantity("beta_p") == "beta_p"
+    with pytest.raises(KeyError, match="unknown quantity"):
+        taxonomy.resolve_quantity("pressure_gradient")
+    # No alias may itself be a canonical quantity.
+    assert not set(taxonomy.QUANTITY_ALIASES) & set(taxonomy.QUANTITY_ALIASES.values())
 
 
 def test_evolution_is_a_view_and_capabilities_are_not():

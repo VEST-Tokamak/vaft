@@ -28,6 +28,7 @@ __all__ = [
     "QuantityFamily",
     "Subject",
     "resolve_family",
+    "resolve_quantity",
     "resolve_subject",
     "subject_names",
 ]
@@ -77,7 +78,6 @@ _SUBJECTS = (
     Subject("ion_temperature", "quantity", ("ti", "T_i")),
     Subject("thermal_pressure", "quantity", ("kinetic_pressure",)),
     Subject("limiter_current", "quantity", ("limiter_shunt",)),
-    Subject("current", "composite"),
     # Diagnostics
     Subject("flux_loop", "diagnostic"),
     Subject("b_field_probe", "diagnostic", ("b_pol_probe", "bpol_probe")),
@@ -104,32 +104,67 @@ _SUBJECTS = (
     Subject("mhd_linear", "model"),
     Subject("chease", "code"),
     # Purpose-driven composites
+    Subject("current", "composite"),
     Subject("summary", "composite"),
 )
 
 #: Canonical subject name -> :class:`Subject`.
 SUBJECTS: dict[str, Subject] = {subject.name: subject for subject in _SUBJECTS}
 
+_QUANTITY_ALIAS_PAIRS = (
+    ("safety_factor", "q"),
+    ("q_axis", "q0"),
+    ("axis_safety_factor", "q0"),
+    ("safety_factor_95", "q95"),
+    ("beta_normal", "beta_n"),
+    ("beta_norm", "beta_n"),
+    ("beta_tor", "beta_t"),
+    ("beta_toroidal", "beta_t"),
+    ("toroidal_beta", "beta_t"),
+    ("beta_pol", "beta_p"),
+    ("beta_poloidal", "beta_p"),
+    ("poloidal_beta", "beta_p"),
+    ("internal_inductance", "li"),
+    ("mhd_energy", "w_mhd"),
+    ("energy_mhd", "w_mhd"),
+    ("magnetic_energy", "w_mag"),
+    ("total_energy", "w_tot"),
+)
+
+
+def _build_quantity_aliases() -> dict[str, str]:
+    """Map quantity aliases to canonical quantities, refusing collisions."""
+    aliases: dict[str, str] = {}
+    canonical = {target for _, target in _QUANTITY_ALIAS_PAIRS}
+    for alias, target in _QUANTITY_ALIAS_PAIRS:
+        if alias in canonical:
+            raise ValueError(
+                f"quantity alias {alias!r} is itself a canonical quantity"
+            )
+        owner = aliases.setdefault(alias, target)
+        if owner != target:
+            raise ValueError(
+                f"quantity alias {alias!r} maps to both {owner!r} and {target!r}"
+            )
+    return aliases
+
+
 #: Concise canonical quantity names with strict aliases (issue #251 section 11).
-QUANTITY_ALIASES: dict[str, str] = {
-    "safety_factor": "q",
-    "q_axis": "q0",
-    "axis_safety_factor": "q0",
-    "safety_factor_95": "q95",
-    "beta_normal": "beta_n",
-    "beta_norm": "beta_n",
-    "beta_tor": "beta_t",
-    "beta_toroidal": "beta_t",
-    "toroidal_beta": "beta_t",
-    "beta_pol": "beta_p",
-    "beta_poloidal": "beta_p",
-    "poloidal_beta": "beta_p",
-    "internal_inductance": "li",
-    "mhd_energy": "w_mhd",
-    "energy_mhd": "w_mhd",
-    "magnetic_energy": "w_mag",
-    "total_energy": "w_tot",
-}
+QUANTITY_ALIASES: dict[str, str] = _build_quantity_aliases()
+
+
+def resolve_quantity(term: str) -> str:
+    """Return the canonical quantity name for ``term`` (name or strict alias).
+
+    A canonical quantity resolves to itself; unknown terms raise
+    :class:`KeyError`.
+    """
+    if term in set(QUANTITY_ALIASES.values()):
+        return term
+    canonical = QUANTITY_ALIASES.get(term)
+    if canonical is not None:
+        return canonical
+    raise KeyError(f"unknown quantity {term!r}")
 
 _FAMILIES = (
     QuantityFamily("beta", ("beta_n", "beta_p", "beta_t")),
@@ -160,12 +195,19 @@ def _build_alias_map() -> dict[str, str]:
 
 _ALIAS_TO_SUBJECT = _build_alias_map()
 
-_FAMILY_ALIASES: dict[str, str] = {}
-for _family in FAMILIES.values():
-    for _alias in _family.aliases:
-        if _alias in FAMILIES or _alias in _FAMILY_ALIASES:
-            raise ValueError(f"family alias {_alias!r} is already registered")
-        _FAMILY_ALIASES[_alias] = _family.name
+
+def _build_family_aliases() -> dict[str, str]:
+    """Map every family alias to its family, refusing collisions."""
+    aliases: dict[str, str] = {}
+    for family in FAMILIES.values():
+        for alias in family.aliases:
+            if alias in FAMILIES or alias in aliases:
+                raise ValueError(f"family alias {alias!r} is already registered")
+            aliases[alias] = family.name
+    return aliases
+
+
+_FAMILY_ALIASES = _build_family_aliases()
 
 
 def subject_names() -> tuple[str, ...]:

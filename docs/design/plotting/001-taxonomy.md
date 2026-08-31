@@ -15,12 +15,15 @@ See `000-architecture.md` for layering.
 
 Frozen dataclasses, mirroring the registry style:
 
-- `Subject(name, aliases, description)` — canonical subject + strict aliases.
+- `Subject(name, kind, aliases)` — canonical subject + strict aliases, with an
+  informational `kind` (quantity / diagnostic / machine / reconstruction /
+  model / code / composite).
 - `QuantityFamily(name, members, aliases)` — named group of distinct quantities
   (not synonyms; never stored in the alias map).
-- Module-level registries `SUBJECTS`, `FAMILIES` and resolvers
-  `resolve_subject(term)` / `resolve_family(term)`; alias collisions raise at
-  import time; unknown terms raise `KeyError` with suggestions.
+- Module-level registries `SUBJECTS`, `FAMILIES`, `QUANTITY_ALIASES` and
+  resolvers `resolve_subject(term)` / `resolve_family(term)` /
+  `resolve_quantity(term)`; alias collisions in every map raise at import
+  time; unknown terms raise `KeyError` naming the vocabulary.
 
 `PlotSpec` gains a `subject: str` field validated against `SUBJECTS`.
 Registration with an unknown subject fails loudly.
@@ -37,13 +40,16 @@ concept (`Rogowski coil` ≠ `plasma_current`).
 
 All 34 stem renames (table below) land in one mechanical PR together with the
 migration rows, so the grammar test enforces exactly one naming scheme at every
-commit. The other 69 stems already fit the subject grammar and do not move.
+commit. The other 70 stems (69 at decision time, plus
+`equilibrium_overview_profiles` merged from PR #204) already fit the subject
+grammar and do not move.
 
 ### B4 — Compatibility via migration-table wrappers
 
 Old names become DEPRECATED rows in `vaft/plot/_migration.py` with thin
-wrappers that warn and delegate; window: two minor releases (A4). Registry
-stays at 103 canonical specs.
+wrappers that warn and delegate; window: two minor releases (A4). The registry
+keeps exactly one canonical spec per plot (104 as of the PR #204 merge); no
+duplicate legacy specs.
 
 ### B5 — `evolution` view
 
@@ -185,12 +191,14 @@ energy = { w_mhd, w_mag, w_tot }        aliases: w   (family plot: phase G)
 | coils_non_axisymmetric_geometry3d | coil_3d_geometry3d |
 | coils_non_axisymmetric_geometry_topview | coil_3d_geometry_topview |
 
-The remaining 69 stems keep their names; their leading token becomes their
+The remaining 70 stems keep their names; their leading token becomes their
 registered subject (`equilibrium_*`, `thomson_scattering_*`, `soft_x_rays_*`,
 `interferometer_*`, `charge_exchange_*`, `camera_visible_*`, `machine_*`,
 `wall_*`, `barometry_*`, `spectrometer_uv_*`, `mhd_linear_*`, `chease_*`,
-`magnetics_geometry_poloidal` + `magnetics_overview*`, `summary_time_energy` /
-`_power_balance` / `_voltage_consumption`,
+`magnetics_geometry_poloidal`, `magnetics_overview` /
+`magnetics_overview_vacuum` / `magnetics_overview_plasma_residual` (but not
+`magnetics_overview_impa`, which is in the rename table), `summary_time_energy`
+/ `_power_balance` / `_voltage_consumption`,
 `core_profiles_time_volume_averaged`).
 
 Phase-G forward notes: `camera_visible_image_efit_overlay` /
