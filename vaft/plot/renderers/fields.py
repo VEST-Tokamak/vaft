@@ -62,18 +62,19 @@ def render_field_2d(
     return finalize(figure, axes, show=show)
 
 
-def _field_renderer(*, domain: str, quantity: str, description: str,
+def _field_renderer(*, domain: str, subject: str, quantity: str, description: str,
                     ids: tuple[str, ...], required_paths: tuple[str, ...],
                     optional_paths: tuple[str, ...] = ()):
     return renderer(
-        domain=domain, view="field", quantity=quantity, model=Field2D,
-        description=description, ids=ids, required_paths=required_paths,
-        optional_paths=optional_paths,
+        domain=domain, subject=subject, view="field", quantity=quantity,
+        model=Field2D, description=description, ids=ids,
+        required_paths=required_paths, optional_paths=optional_paths,
     )
 
 
 @_field_renderer(
     domain="equilibrium", quantity="psi",
+    subject="equilibrium",
     description="Reconstructed poloidal flux map on the equilibrium (R, Z) grid.",
     ids=("equilibrium", "wall"),
     required_paths=(
@@ -96,6 +97,7 @@ def equilibrium_field_psi(
 
 @_field_renderer(
     domain="equilibrium", quantity="psi_vacuum",
+    subject="equilibrium",
     description="Vacuum poloidal flux from the PF coils alone, without plasma.",
     ids=("pf_active", "wall"),
     required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
@@ -110,6 +112,7 @@ def equilibrium_field_psi_vacuum(
 
 @_field_renderer(
     domain="core_profiles", quantity="electron_temperature",
+    subject="electron_temperature",
     description="Electron temperature mapped onto the poloidal plane.",
     ids=("core_profiles", "equilibrium"),
     required_paths=(
@@ -127,6 +130,7 @@ def core_profiles_field_electron_temperature(
 
 @_field_renderer(
     domain="core_profiles", quantity="electron_density",
+    subject="electron_density",
     description="Electron density mapped onto the poloidal plane.",
     ids=("core_profiles", "equilibrium"),
     required_paths=(

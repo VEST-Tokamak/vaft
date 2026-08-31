@@ -121,6 +121,7 @@ def render_panels(
 def _panel_renderer(
     *,
     domain: str,
+    subject: str,
     view: str,
     quantity: str,
     description: str,
@@ -130,6 +131,7 @@ def _panel_renderer(
 ):
     return renderer(
         domain=domain,
+        subject=subject,
         view=view,
         quantity=quantity,
         model=Panels,
@@ -142,6 +144,7 @@ def _panel_renderer(
 
 @_panel_renderer(
     domain="chease",
+    subject="chease",
     view="overview",
     quantity="refinement_summary",
     description=(
@@ -166,6 +169,7 @@ def chease_overview_refinement_summary(
 
 @_panel_renderer(
     domain="chease",
+    subject="chease",
     view="overview",
     quantity="profile_validity",
     description=(
@@ -186,6 +190,7 @@ def chease_overview_profile_validity(
 
 @_panel_renderer(
     domain="summary",
+    subject="summary",
     view="time",
     quantity="energy",
     description="Stored-energy comparison panels across available estimates.",
@@ -201,6 +206,7 @@ def summary_time_energy(
 
 @_panel_renderer(
     domain="summary",
+    subject="equilibrium",
     view="time",
     quantity="beta",
     description="Poloidal, toroidal and normalized beta panels.",
@@ -216,6 +222,7 @@ def summary_time_beta(
 
 @_panel_renderer(
     domain="summary",
+    subject="summary",
     view="time",
     quantity="power_balance",
     description="Ohmic input, radiated and conducted power balance panels.",
@@ -234,6 +241,7 @@ def summary_time_power_balance(
 
 @_panel_renderer(
     domain="summary",
+    subject="summary",
     view="time",
     quantity="voltage_consumption",
     description="Loop-voltage and flux-consumption panels.",
@@ -249,6 +257,7 @@ def summary_time_voltage_consumption(
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="virial",
     description="Virial-estimate equilibrium quantities against the reconstruction.",
@@ -264,6 +273,7 @@ def equilibrium_time_virial(
 
 @_panel_renderer(
     domain="electromagnetics",
+    subject="current",
     view="time",
     quantity="current",
     description="Plasma, PF coil and eddy current panels on a shared time axis.",
@@ -279,6 +289,7 @@ def electromagnetics_time_current(
 
 @_panel_renderer(
     domain="core_profiles",
+    subject="core_profiles",
     view="time",
     quantity="volume_averaged",
     description="Volume-averaged core quantity panels on a shared time axis.",
@@ -294,6 +305,7 @@ def core_profiles_time_volume_averaged(
 
 @_panel_renderer(
     domain="spectrometer_uv",
+    subject="spectrometer_uv",
     view="time",
     quantity="impurity",
     description="Impurity line-intensity panels against plasma current.",
@@ -309,6 +321,7 @@ def spectrometer_uv_time_impurity(
 
 @_panel_renderer(
     domain="magnetics",
+    subject="magnetics",
     view="overview",
     quantity="diagnostics",
     description="Shot diagnostic overview: current, field, flux and geometry panels.",
@@ -324,6 +337,7 @@ def magnetics_overview(
 
 @_panel_renderer(
     domain="magnetics", view="overview", quantity="impa",
+    subject="impa",
     description="IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.",
     ids=("magnetics", "tf"),
     required_paths=("magnetics.b_field_tor_probe.{i}.voltage.data",),
@@ -337,6 +351,7 @@ def magnetics_overview_impa(
 
 @_panel_renderer(
     domain="magnetics",
+    subject="limiter_current",
     view="time",
     quantity="limiter_current",
     description="Lower-corner, upper-corner and midplane limiter currents in three panels.",
@@ -374,6 +389,7 @@ _VACUUM_OPTIONAL = (
 
 @_panel_renderer(
     domain="magnetics",
+    subject="magnetics",
     view="overview",
     quantity="vacuum",
     description=(
@@ -393,6 +409,7 @@ def magnetics_overview_vacuum(
 
 @_panel_renderer(
     domain="magnetics",
+    subject="magnetics",
     view="overview",
     quantity="plasma_residual",
     description=(
@@ -412,6 +429,7 @@ def magnetics_overview_plasma_residual(
 
 @_panel_renderer(
     domain="equilibrium", view="overview", quantity="analysis",
+    subject="equilibrium",
     description="Equilibrium analysis overview: global quantities plus poloidal geometry.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time",),
@@ -438,6 +456,7 @@ _CONSTRAINT_OPTIONAL = (
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="overview",
     quantity="constraints",
     description=(
@@ -457,6 +476,7 @@ def equilibrium_overview_constraints(
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="overview",
     quantity="constraint_coverage",
     description=(
@@ -476,6 +496,7 @@ def equilibrium_overview_constraint_coverage(
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="overview",
     quantity="residuals",
     description=(
@@ -497,6 +518,7 @@ def equilibrium_overview_residuals(
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="overview",
     quantity="fit_quality",
     description=(
@@ -519,6 +541,7 @@ def equilibrium_overview_fit_quality(
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="overview",
     quantity="convergence",
     description=(
@@ -549,6 +572,7 @@ def equilibrium_overview_convergence(
 
 @_panel_renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="overview",
     quantity="verification",
     description=(
@@ -582,6 +606,7 @@ def equilibrium_overview_verification(
 
 @_panel_renderer(
     domain="soft_x_rays",
+    subject="soft_x_rays",
     view="overview",
     quantity="channels",
     description="Soft X-ray overview: lines of sight, signals and channel pattern.",
@@ -598,6 +623,7 @@ def soft_x_rays_overview(
 
 @_panel_renderer(
     domain="interferometer", view="overview", quantity="channels",
+    subject="interferometer",
     description="Interferometer overview: line density history and spectrogram.",
     ids=("interferometer",),
     required_paths=("interferometer.channel.{i}.n_e_line.data",),
