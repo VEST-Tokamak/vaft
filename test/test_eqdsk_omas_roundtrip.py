@@ -45,7 +45,9 @@ def test_geqdsk_to_omas_round_trip_does_not_transpose_psirz_on_a_square_grid():
 
     original_psi = np.asarray(direct["PSIRZ"])
     restored_psi = np.asarray(roundtrip["PSIRZ"])
-    np.testing.assert_array_equal(original_psi, restored_psi)
+    # psi gains 2*pi on the way in and loses it on the way out (issue #236),
+    # which re-rounds the last ulp; tight allclose keeps the transpose check.
+    np.testing.assert_allclose(original_psi, restored_psi, rtol=1e-12)
     # A transposed square array is not generally equal to itself unless it
     # happens to be symmetric -- confirm the fixture's psi genuinely isn't,
     # so this test could actually have caught the bug.

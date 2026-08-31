@@ -4,6 +4,7 @@ import numpy as np
 from omas import *
 from pathlib import Path
 
+from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 from vaft.process import (
     compute_br_bz_phi,
     compute_response_matrix,
@@ -971,9 +972,12 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     try:
         R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
         Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
-        psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float)
-        psi_axis = float(eq_ts['global_quantities.psi_axis'])
-        psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
+        # B_pol comes from grad(psi)/R, so psi must be in Wb/rad regardless of
+        # the ODS storage convention (Wb per the IMAS DD since issue #236).
+        _psi_factor = ods_psi_to_wb_per_radian_factor(ods, eq_idx)
+        psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float) * _psi_factor
+        psi_axis = float(eq_ts['global_quantities.psi_axis']) * _psi_factor
+        psi_lcfs = float(eq_ts['global_quantities.psi_boundary']) * _psi_factor
     except KeyError as e:
         raise KeyError(f"Missing equilibrium keys for magnetic energy: {e}")
 
@@ -1111,7 +1115,10 @@ def compute_virial_equilibrium_quantities_ods(
         try:
             R_grid_1d = np.asarray(eq_ts["profiles_2d.0.grid.dim1"], float)
             Z_grid_1d = np.asarray(eq_ts["profiles_2d.0.grid.dim2"], float)
-            psi_RZ = np.asarray(eq_ts["profiles_2d.0.psi"], float)
+            # Convert to Wb/rad: the Shafranov/virial integrals build B_pol
+            # from grad(psi)/R (issue #236).
+            _psi_factor = ods_psi_to_wb_per_radian_factor(ods, eq_idx)
+            psi_RZ = np.asarray(eq_ts["profiles_2d.0.psi"], float) * _psi_factor
         except KeyError as e:
             raise KeyError(f"Missing equilibrium 2D grid/psi for time_slice {eq_idx}: {e}") from e
 
@@ -1214,9 +1221,9 @@ def compute_virial_equilibrium_quantities_ods(
             samples_per_axis=5,
         )
 
-        # Psi normalization for profile mapping
-        psi_axis = float(eq_ts["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_ts else np.nan
-        psi_lcfs = float(eq_ts["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_ts else np.nan
+        # Psi normalization for profile mapping (same Wb/rad frame as psi_RZ)
+        psi_axis = float(eq_ts["global_quantities.psi_axis"]) * _psi_factor if "global_quantities.psi_axis" in eq_ts else np.nan
+        psi_lcfs = float(eq_ts["global_quantities.psi_boundary"]) * _psi_factor if "global_quantities.psi_boundary" in eq_ts else np.nan
         if (not np.isfinite(psi_axis)) or (not np.isfinite(psi_lcfs)) or psi_lcfs == psi_axis:
             psi_axis = float(np.nanmin(psi_RZ))
             psi_lcfs = float(np.nanmax(psi_RZ))
@@ -1227,7 +1234,7 @@ def compute_virial_equilibrium_quantities_ods(
         psiN_1d = None
         if f_1d.size:
             if "profiles_1d.psi" in eq_ts:
-                psi_1d = np.asarray(eq_ts["profiles_1d.psi"], float)
+                psi_1d = np.asarray(eq_ts["profiles_1d.psi"], float) * _psi_factor
                 if psi_1d.size == f_1d.size and psi_lcfs != psi_axis:
                     psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
             elif "profiles_1d.psi_norm" in eq_ts:
@@ -1551,19 +1558,21 @@ def compute_diamagnetism(ods, time_index=0):
 
     R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
     Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
+    # poloidal_field_at_boundary below needs psi in Wb/rad (issue #236).
+    _psi_factor = ods_psi_to_wb_per_radian_factor(eq_slice)
     psi_RZ = _ensure_rz_shape(
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
-    )
+    ) * _psi_factor
 
-    psi_axis = float(eq_slice["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_slice else np.nan
-    psi_lcfs = float(eq_slice["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_slice else np.nan
+    psi_axis = float(eq_slice["global_quantities.psi_axis"]) * _psi_factor if "global_quantities.psi_axis" in eq_slice else np.nan
+    psi_lcfs = float(eq_slice["global_quantities.psi_boundary"]) * _psi_factor if "global_quantities.psi_boundary" in eq_slice else np.nan
     if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
         psi_axis = float(np.nanmin(psi_RZ))
         psi_lcfs = float(np.nanmax(psi_RZ))
 
     f_1d = np.asarray(eq_slice["profiles_1d.f"], float)
     if "profiles_1d.psi" in eq_slice:
-        psi_1d = np.asarray(eq_slice["profiles_1d.psi"], float)
+        psi_1d = np.asarray(eq_slice["profiles_1d.psi"], float) * _psi_factor
         psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
         idx = np.argsort(psi_1d)
         psi_1d_s = psi_1d[idx]
@@ -2238,11 +2247,14 @@ def _equilibrium_field_slice_data(time_slice: Any) -> dict[str, np.ndarray]:
     R_grid = np.asarray(time_slice["profiles_2d.0.grid.dim1"], dtype=float)
     Z_grid = np.asarray(time_slice["profiles_2d.0.grid.dim2"], dtype=float)
     psi_grid = _read_psi_grid(time_slice, R_grid, Z_grid)
+    # The field interpolator forms B_R/B_Z from grad(psi)/R and expects
+    # Wb/rad (issue #236); psi_1d must stay in the same frame for F(psi).
+    _psi_factor = ods_psi_to_wb_per_radian_factor(time_slice)
     return {
-        "psi_grid": psi_grid,
+        "psi_grid": psi_grid * _psi_factor,
         "R_grid": R_grid,
         "Z_grid": Z_grid,
-        "psi_1d": np.asarray(time_slice["profiles_1d.psi"], dtype=float),
+        "psi_1d": np.asarray(time_slice["profiles_1d.psi"], dtype=float) * _psi_factor,
         "f_1d": np.asarray(time_slice["profiles_1d.f"], dtype=float),
     }
 

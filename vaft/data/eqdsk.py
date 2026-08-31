@@ -443,14 +443,60 @@ def _infer_source_shot(source: Optional[Path]) -> int:
     return infer_source_shot_time(source)[0]
 
 
+TWO_PI = 2.0 * np.pi
+
+
+def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
+    """Factor converting an ODS equilibrium's stored ``psi`` to Wb/rad.
+
+    The IMAS Data Dictionary defines ``equilibrium.*.psi`` as the full
+    poloidal flux in Wb (issue #236); ``to_omas`` writes that since the fix,
+    and OMFIT-produced ODSs always did. Legacy VAFT-native artifacts instead
+    hold the g-file's Wb/rad verbatim. The two families are told apart
+    deterministically from data the file itself carries:
+
+        dphi/dpsi_stored = q      (psi stored in Wb)
+        dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad)
+
+    because ``profiles_1d.phi`` is written in Wb by both producers. When the
+    slope test is unavailable (no phi/q/psi profiles) the DD convention (Wb)
+    is assumed. Returns ``1/(2*pi)`` for Wb storage, ``1.0`` for Wb/rad.
+    """
+    ts = _path_get(ods, f"equilibrium.time_slice.{time_index}")
+    if ts is None:
+        ts = ods  # accept a bare equilibrium time slice as well
+    phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
+    q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
+    psi = np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
+    if phi.size >= 3 and phi.size == q.size == psi.size and np.all(np.isfinite(phi)):
+        dpsi = np.diff(psi)
+        good = np.abs(dpsi) > 0
+        if np.count_nonzero(good) >= 2:
+            slope = np.diff(phi)[good] / dpsi[good]
+            q_mid = 0.5 * (q[1:] + q[:-1])[good]
+            finite = np.isfinite(slope) & np.isfinite(q_mid) & (np.abs(q_mid) > 1e-12)
+            if np.count_nonzero(finite) >= 2:
+                ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
+                if np.isfinite(ratio) and ratio > 0:
+                    # ratio ~ 1 -> psi in Wb; ratio ~ 2*pi -> psi in Wb/rad.
+                    return 1.0 / TWO_PI if ratio < np.sqrt(TWO_PI) else 1.0
+    return 1.0 / TWO_PI
+
+
 def from_omas(
     ods: Any,
     time_index: int = 0,
     profile_index: int = 0,
     allow_derived_data: bool = True,
 ) -> GEQDSK:
-    """Build a GEQDSK wrapper from an OMAS ODS equilibrium time slice."""
+    """Build a GEQDSK wrapper from an OMAS ODS equilibrium time slice.
+
+    ``psi`` (and the psi-derivative profiles) are converted from the ODS's
+    storage convention back to the g-file's Wb/rad using
+    :func:`ods_psi_to_wb_per_radian_factor`.
+    """
     _ = allow_derived_data
+    psi_factor = ods_psi_to_wb_per_radian_factor(ods, time_index)
     ts = ods[f"equilibrium.time_slice.{time_index}"]
     prof2d = ts[f"profiles_2d.{profile_index}"]
     r = np.asarray(prof2d["grid.dim1"], dtype=float)
@@ -463,11 +509,13 @@ def from_omas(
     # transposing psi that to_omas() had already written correctly -- this
     # was the sole source of a "xin not in ascending order" CHEASE failure
     # on every ODS-sourced refinement. Trust the DD convention unconditionally.
-    psi = np.asarray(prof2d["psi"], dtype=float)
+    psi = np.asarray(prof2d["psi"], dtype=float) * psi_factor
     nw, nh = int(r.size), int(z.size)
 
-    psi_axis = float(_path_get(ts, "global_quantities.psi_axis", np.nanmin(psi)))
-    psi_boundary = float(_path_get(ts, "global_quantities.psi_boundary", np.nanmax(psi)))
+    psi_axis_raw = _path_get(ts, "global_quantities.psi_axis", None)
+    psi_boundary_raw = _path_get(ts, "global_quantities.psi_boundary", None)
+    psi_axis = float(psi_axis_raw) * psi_factor if psi_axis_raw is not None else float(np.nanmin(psi))
+    psi_boundary = float(psi_boundary_raw) * psi_factor if psi_boundary_raw is not None else float(np.nanmax(psi))
     mapping: dict[str, Any] = {
         "CASE": str(_path_get(ods, "equilibrium.ids_properties.comment", "VAFT GEQDSK")),
         "NW": nw,
@@ -485,8 +533,9 @@ def from_omas(
         "CURRENT": float(_path_get(ts, "global_quantities.ip", 0.0)),
         "FPOL": _profile(_path_get(ts, "profiles_1d.f"), nw),
         "PRES": _profile(_path_get(ts, "profiles_1d.pressure"), nw),
-        "FFPRIM": _profile(_path_get(ts, "profiles_1d.f_df_dpsi"), nw),
-        "PPRIME": _profile(_path_get(ts, "profiles_1d.dpressure_dpsi"), nw),
+        # psi-derivatives transform inversely to psi: d/dpsi_rad = d/dpsi_stored / factor.
+        "FFPRIM": _profile(_path_get(ts, "profiles_1d.f_df_dpsi"), nw) / psi_factor,
+        "PPRIME": _profile(_path_get(ts, "profiles_1d.dpressure_dpsi"), nw) / psi_factor,
         "PSIRZ": psi.reshape(nw, nh),
         "QPSI": _profile(_path_get(ts, "profiles_1d.q"), nw),
         "RBBBS": np.asarray(_path_get(ts, "boundary.outline.r", []), dtype=float),
@@ -717,6 +766,10 @@ def to_omas(
 
     eqt = ods[f"equilibrium.time_slice.{time_index}"]
     nw, nh = int(data["NW"]), int(data["NH"])
+    # g-files store psi in Wb/rad; the IMAS DD defines equilibrium.*.psi as the
+    # full poloidal flux in Wb (issue #236). Convert on the way in -- psi-like
+    # leaves gain 2*pi, psi-derivative profiles lose it. The Wb/rad psi_1d is
+    # kept for the internal integrations below (phi already comes out in Wb).
     psi_1d = np.linspace(float(data["SIMAG"]), float(data["SIBRY"]), nw)
     psi_norm = (psi_1d - psi_1d[0]) / (psi_1d[-1] - psi_1d[0]) if nw > 1 and psi_1d[-1] != psi_1d[0] else np.zeros(nw)
 
@@ -725,8 +778,8 @@ def to_omas(
     eqt["time"] = _infer_source_time(item.source)
     eqt["global_quantities.magnetic_axis.r"] = float(data["RMAXIS"])
     eqt["global_quantities.magnetic_axis.z"] = float(data["ZMAXIS"])
-    eqt["global_quantities.psi_axis"] = float(data["SIMAG"])
-    eqt["global_quantities.psi_boundary"] = float(data["SIBRY"])
+    eqt["global_quantities.psi_axis"] = float(data["SIMAG"]) * TWO_PI
+    eqt["global_quantities.psi_boundary"] = float(data["SIBRY"]) * TWO_PI
     eqt["global_quantities.ip"] = float(data["CURRENT"])
     ods["equilibrium.vacuum_toroidal_field.r0"] = float(data["RCENTR"])
     try:
@@ -734,11 +787,11 @@ def to_omas(
     except Exception:
         ods[f"equilibrium.vacuum_toroidal_field.b0.{time_index}"] = float(data["BCENTR"])
 
-    eqt["profiles_1d.psi"] = psi_1d
+    eqt["profiles_1d.psi"] = psi_1d * TWO_PI
     eqt["profiles_1d.f"] = np.asarray(data["FPOL"], dtype=float)
     eqt["profiles_1d.pressure"] = np.asarray(data["PRES"], dtype=float)
-    eqt["profiles_1d.f_df_dpsi"] = np.asarray(data["FFPRIM"], dtype=float)
-    eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float)
+    eqt["profiles_1d.f_df_dpsi"] = np.asarray(data["FFPRIM"], dtype=float) / TWO_PI
+    eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float) / TWO_PI
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
 
     rho_tor_terms = _rho_tor_profile(data["QPSI"], psi_1d, data["BCENTR"])
@@ -754,7 +807,7 @@ def to_omas(
     prof2d["grid_type.index"] = 1
     prof2d["grid.dim1"] = np.linspace(0.0, float(data["RDIM"]), nw) + float(data["RLEFT"])
     prof2d["grid.dim2"] = np.linspace(0.0, float(data["ZDIM"]), nh) - float(data["ZDIM"]) / 2.0 + float(data["ZMID"])
-    prof2d["psi"] = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh)
+    prof2d["psi"] = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh) * TWO_PI
 
     if allow_derived_data and float(data["CURRENT"]) != 0.0:
         eqt["global_quantities.magnetic_axis.b_field_tor"] = float(data["BCENTR"]) * float(data["RCENTR"]) / float(data["RMAXIS"])
