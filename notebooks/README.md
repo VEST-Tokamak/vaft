@@ -44,6 +44,10 @@ The newly added pipeline notebooks are documentation shells only. They should be
 - `forward_equilibrium_using_TokaMaker.ipynb`: Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) driven by measured PF currents.
 - `time_dependent_equilibrium_using_TokaMaker.ipynb`: VEST vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker.
 - `mhd_equilibrium_analysis.ipynb`: Planned equilibrium loading, coordinate transformation, flux-surface analysis, and MHD interpretation.
+- `parametric_equilibrium_descriptors.ipynb`: Convention-aware global descriptors and GEQDSK/ODS parity.
+- `local_miller_equilibrium_fitting.ipynb`: Local Miller fitting, reconstruction errors, and separatrix limits.
+- `analytic_solovev_equilibrium.ipynb`: Constant-source analytic Solov'ev construction and gridded-field verification.
+- `edge_and_boundary_representation.ipynb`: Limiter/diverted topology, X-points, gaps, and separatrix balance.
 - `linear_ideal_stability_analysis_with_dcon.ipynb`: Planned linear ideal MHD stability analysis using DCON from the GPEC package.
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Planned linear resistive MHD stability analysis using RDCON from the GPEC package.
 - `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Planned perturbed equilibrium and 3D response analysis using GPEC.

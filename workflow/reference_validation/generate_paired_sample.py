@@ -268,7 +268,9 @@ def verify(manifest_path: Path) -> None:
         raise ValueError("Compact sample does not contain every flux loop")
     # These arrays are referenced by the machine description and by the
     # single-shot examples, so a selector that silently truncates one must fail
-    # generation.
+    # generation. pf_active in particular gates free-boundary work: a subset of
+    # the PF coils cannot even hold the measured equilibrium, which is how the
+    # sample once came to ship only PF1-PF5 (#272).
     for ids, node, key, label in (
         ("pf_active", "pf_active.coil", "coil_count", "active coil"),
         (

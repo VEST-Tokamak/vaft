@@ -93,6 +93,17 @@ class GEQDSK:
         """Write this GEQDSK to disk."""
         return write_geqdsk(self, path)
 
+    def to_equilibrium(self, *, convention: int | None = None):
+        """Adapt this file object to VAFT's lightweight scientific model."""
+        from vaft.process.equilibrium import as_equilibrium
+
+        return as_equilibrium(self, convention=convention)
+
+    @classmethod
+    def from_equilibrium(cls, equilibrium: Any) -> "GEQDSK":
+        """Create a GEQDSK object from a complete lightweight model."""
+        return from_equilibrium(equilibrium)
+
 
 def _parse_header(line: str) -> tuple[str, int, int]:
     ints = [int(match) for match in re.findall(r"[-+]?\d+", line)]
@@ -162,6 +173,52 @@ def _trailing_namelists(lines: list[str]) -> dict[str, dict[str, Any]]:
     except Exception:
         # A malformed trailing block must not cost us the equilibrium itself.
         return {}
+
+
+def from_equilibrium(equilibrium: Any) -> GEQDSK:
+    """Create a GEQDSK from a complete lightweight equilibrium model.
+
+    GEQDSK requires profiles that ``EquilibriumData`` may legitimately lack;
+    this exporter fails explicitly instead of manufacturing defaults.
+    """
+    from vaft.process.equilibrium import as_equilibrium
+
+    eq = as_equilibrium(equilibrium)
+    required = {
+        "r": eq.r, "z": eq.z, "psi": eq.psi, "psi_axis": eq.psi_axis,
+        "psi_boundary": eq.psi_boundary, "magnetic_axis": eq.magnetic_axis,
+        "psi_1d": eq.psi_1d, "pressure": eq.pressure, "f": eq.f, "q": eq.q,
+        "ip": eq.ip, "bt0": eq.bt0, "r0": eq.r0,
+    }
+    missing = [name for name, value in required.items() if value is None]
+    if missing:
+        raise ValueError("cannot export GEQDSK; missing " + ", ".join(missing))
+    if eq.psi.shape != (eq.r.size, eq.z.size):
+        raise ValueError("cannot export GEQDSK; psi shape does not match the R/Z grid")
+    if not (eq.psi_1d.size == eq.pressure.size == eq.f.size == eq.q.size == eq.r.size):
+        raise ValueError("cannot export GEQDSK; psi_1d, pressure, f, and q must have len(r) samples")
+    lcfs_r = np.asarray(eq.lcfs.r) if eq.lcfs is not None else np.array([])
+    lcfs_z = np.asarray(eq.lcfs.z) if eq.lcfs is not None else np.array([])
+    limiter_r = np.asarray(eq.limiter.r) if eq.limiter is not None else np.array([])
+    limiter_z = np.asarray(eq.limiter.z) if eq.limiter is not None else np.array([])
+    mapping = {
+        "CASE": f"VAFT EquilibriumData COCOS={eq.convention.cocos or 'UNKNOWN'}",
+        "NW": int(eq.r.size), "NH": int(eq.z.size),
+        "RDIM": float(np.ptp(eq.r)), "ZDIM": float(np.ptp(eq.z)),
+        "RCENTR": float(eq.r0), "RLEFT": float(eq.r[0]),
+        "ZMID": float(0.5 * (eq.z[0] + eq.z[-1])),
+        "RMAXIS": float(eq.magnetic_axis[0]), "ZMAXIS": float(eq.magnetic_axis[1]),
+        "SIMAG": float(eq.psi_axis), "SIBRY": float(eq.psi_boundary),
+        "BCENTR": float(eq.bt0), "CURRENT": float(eq.ip),
+        "FPOL": np.asarray(eq.f), "PRES": np.asarray(eq.pressure),
+        "FFPRIM": np.gradient(0.5 * np.asarray(eq.f) ** 2, np.asarray(eq.psi_1d)),
+        "PPRIME": np.gradient(np.asarray(eq.pressure), np.asarray(eq.psi_1d)),
+        "PSIRZ": np.asarray(eq.psi), "QPSI": np.asarray(eq.q),
+        "NBBBS": int(lcfs_r.size), "LIMITR": int(limiter_r.size),
+        "RBBBS": lcfs_r, "ZBBBS": lcfs_z,
+        "RLIM": limiter_r, "ZLIM": limiter_z,
+    }
+    return GEQDSK(mapping, metadata=_metadata(mapping, "equilibrium_data"))
 
 
 def read_geqdsk(path: str | Path) -> GEQDSK:

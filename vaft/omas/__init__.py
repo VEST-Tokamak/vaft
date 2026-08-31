@@ -144,3 +144,12 @@ def save(ods, target):
     else:
         ods.save(str(target_path))
     return target_path
+
+
+def to_equilibrium(ods, *, time_index=0, profile_index=0, convention=None):
+    """Adapt one ODS equilibrium slice to the lightweight scientific model."""
+    from vaft.process.equilibrium import as_equilibrium
+
+    return as_equilibrium(
+        ods, time_index=time_index, profile_index=profile_index, convention=convention
+    )

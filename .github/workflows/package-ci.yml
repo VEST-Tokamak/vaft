@@ -10,6 +10,26 @@ permissions:
   contents: read
 
 jobs:
+  equilibrium:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install VAFT and notebook test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Test parametric equilibrium APIs and offline notebooks
+        env:
+          MPLBACKEND: Agg
+          NO_PROXY: "*"
+        run: |
+          python -m pytest -q test/test_parametric_equilibrium.py
+          python -m pytest -q test/test_notebook_reliability.py -k "parametric_equilibrium_notebooks or all_notebooks"
+
   package:
     runs-on: ubuntu-latest
     steps:
