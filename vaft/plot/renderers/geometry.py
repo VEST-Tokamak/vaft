@@ -269,8 +269,8 @@ def equilibrium_geometry_topview(
 
 @_geometry_renderer(
     domain="machine", quantity="topview",
-    description="Composed machine top view: vessel and plasma extent plus "
-                "launcher, antenna and pellet-injector geometry.",
+    description="Composed machine top view: machine-boundary and plasma extent "
+                "plus launcher, antenna and pellet-injector geometry.",
     ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",

@@ -882,7 +882,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.flux_loop.{i}.position.0.r",
                 "magnetics.flux_loop.{i}.position.0.z",
                 "magnetics.flux_loop",
-                "",
+                "Flux Loops",
                 {"marker": "s", "markersize": 3, "color": "#377eb8"},
             ),
             (
@@ -890,7 +890,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.b_field_pol_probe.{i}.position.r",
                 "magnetics.b_field_pol_probe.{i}.position.z",
                 "magnetics.b_field_pol_probe",
-                "",
+                "B-field Probes",
                 {"marker": "x", "markersize": 4, "color": "#ff7f00"},
             ),
         ),
@@ -1362,6 +1362,32 @@ def _wall_layers(ods: Any) -> list[GeometryLayer]:
     return layers
 
 
+def _wall_radii(ods: Any) -> tuple[list[float], str]:
+    """Every wall radius available, with the description it came from.
+
+    ``_wall_layers`` reads only the limiter description. The top view also has
+    to work for an ODS that describes a vessel instead, otherwise plot discovery
+    advertises a view that then raises. The label is returned alongside because
+    "limiter" and "vessel" are different surfaces and must not be conflated.
+    """
+    radii: list[float] = []
+    for layer in _wall_layers(ods):
+        radii.extend(float(value) for value in np.asarray(layer.r).ravel())
+    if radii:
+        return radii, "Limiter"
+    for template in (
+        "wall.description_2d.0.vessel.unit.{i}.annular.outline_inner.r",
+        "wall.description_2d.0.vessel.unit.{i}.annular.outline_outer.r",
+        "wall.description_2d.0.vessel.unit.{i}.annular.centreline.r",
+        "wall.description_2d.0.vessel.unit.{i}.element.{j}.outline.r",
+    ):
+        for index in _resolve_indices(ods, template, None):
+            values = _array(ods, template.format(i=index, j=0))
+            if values is not None:
+                radii.extend(float(value) for value in np.asarray(values).ravel())
+    return radii, "Vessel"
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
@@ -1378,7 +1404,7 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     if entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
         layers.extend(
             _build_lines_of_sight(
-                ods, label_channels=False, include_wall=False
+                ods, label_channels=False, include_wall=False, **options
             ).layers
         )
     if not layers:
@@ -1449,14 +1475,14 @@ def _build_machine_topview(
 ) -> GeometryLayers:
     """Compose the machine and plasma extent with launcher and pellet geometry."""
     layers: list[GeometryLayer] = []
-    # The vessel first: without it the top view has nothing to orient against.
-    wall_r: list[float] = []
-    for layer in _wall_layers(ods):
-        wall_r.extend(float(value) for value in np.asarray(layer.r).ravel())
+    # The machine boundary first: without it the top view has nothing to orient
+    # against. These are limiter/first-wall radii, not the vacuum vessel: VEST's
+    # wall description carries no vessel outline (type "multiple_units_no_vessel").
+    wall_r, wall_label = _wall_radii(ods)
     if wall_r:
         for radius, label in (
-            (max(wall_r), "Vessel outboard"),
-            (min(wall_r), "Vessel inboard"),
+            (max(wall_r), f"{wall_label} outboard"),
+            (min(wall_r), f"{wall_label} inboard"),
         ):
             x, y = _ring(radius)
             layers.append(
@@ -2410,7 +2436,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                         r=r_values,
                         z=z_values,
                         kind="points",
-                        label=recipe.title,
+                        label=label_template or recipe.title,
                         style=style,
                     )
                 )

@@ -73,20 +73,39 @@ def test_soft_x_ray_sight_lines_collapse_to_one_legend_entry(sample_with_soft_x_
 
 
 def test_composed_view_does_not_draw_the_wall_twice(sample_with_soft_x_rays):
-    from vaft.omas._plot_recipes import _build_lines_of_sight, _wall_layers
+    """Assert on the composite itself, not just on the flag it passes down."""
+    from vaft.omas._plot_recipes import _wall_layers
 
-    wall = len(_wall_layers(sample_with_soft_x_rays))
+    wall = _wall_layers(sample_with_soft_x_rays)
     assert wall  # the sample has a limiter outline
-    composed = _build_lines_of_sight(
-        sample_with_soft_x_rays, label_channels=False, include_wall=False
+    # Passive-structure loops are polygons too, so identify the wall by its
+    # actual outline rather than by shape kind.
+    outlines = [np.asarray(layer.r).tolist() for layer in wall]
+    model = _build_machine_poloidal(sample_with_soft_x_rays)
+    drawn = [
+        layer
+        for layer in model.layers
+        if np.asarray(layer.r).tolist() in outlines
+    ]
+    assert len(drawn) == len(wall), (
+        "the composite drew the wall once per contributing member"
     )
-    standalone = _build_lines_of_sight(sample_with_soft_x_rays)
-    assert len(standalone.layers) - len(composed.layers) == wall
 
 
 def test_machine_poloidal_renders(sample):
     figure, axes = vaft.omas.plot_machine_geometry_poloidal(sample, show=False)
-    assert figure is not None and axes is not None
+    assert figure is not None
+    assert axes.get_lines() or axes.patches, "the axes came back empty"
+    labels = axes.get_legend_handles_labels()[1]
+    assert "Flux Loops" in labels and "B-field Probes" in labels
+
+
+def test_magnetic_diagnostic_layers_are_named_separately(sample):
+    """Flux loops and probes previously shared the recipe title in the legend."""
+    figure, axes = vaft.omas.plot_magnetics_geometry_poloidal(sample, show=False)
+    labels = axes.get_legend_handles_labels()[1]
+    assert labels == ["Flux Loops", "B-field Probes"]
+    assert len(labels) == len(set(labels))
 
 
 # ---------------------------------------------------------------------------
@@ -94,27 +113,56 @@ def test_machine_poloidal_renders(sample):
 # ---------------------------------------------------------------------------
 
 
-def test_top_view_draws_the_vessel(sample):
-    """Without the vessel the top view has nothing to orient against."""
+def test_top_view_draws_the_machine_boundary(sample):
+    """Without it the top view has nothing to orient against."""
     model = _build_machine_topview(sample)
     labels = [layer.label for layer in model.layers if layer.label]
-    assert "Vessel outboard" in labels
-    assert "Vessel inboard" in labels
+    assert "Limiter outboard" in labels
+    assert "Limiter inboard" in labels
 
 
-def test_top_view_vessel_encloses_the_plasma(sample):
+def test_top_view_boundary_encloses_the_plasma(sample):
     model = _build_machine_topview(sample)
     radii = {
         layer.label: float(np.nanmax(np.hypot(np.asarray(layer.r), np.asarray(layer.z))))
         for layer in model.layers
         if layer.label
     }
-    assert radii["Vessel outboard"] >= radii["Plasma outboard"]
+    assert radii["Limiter outboard"] >= radii["Plasma outboard"]
+    # The inboard side is the physical point: this plasma is limited on the
+    # centre stack, so the two radii touch rather than leaving a gap.
+    assert radii["Plasma inboard"] - radii["Limiter inboard"] < 1e-3
 
 
 def test_top_view_renders(sample):
     figure, axes = vaft.omas.plot_machine_geometry_topview(sample, show=False)
-    assert figure is not None and axes is not None
+    assert figure is not None
+    assert axes.get_lines(), "the axes came back empty"
+
+
+def test_top_view_labels_the_boundary_it_actually_drew(sample):
+    """VEST's wall carries no vessel outline, so calling these rings the vessel
+    would be wrong -- and it would hide that the plasma is limited on the
+    centre stack."""
+    assert sample["wall.description_2d.0.type.name"] == "multiple_units_no_vessel"
+    model = _build_machine_topview(sample)
+    labels = [layer.label for layer in model.layers if layer.label]
+    assert "Limiter outboard" in labels and "Limiter inboard" in labels
+    assert not any("Vessel" in label for label in labels)
+
+
+def test_top_view_falls_back_to_the_vessel_description():
+    """Discovery advertises this plot for any ODS with a wall, so a wall that
+    describes a vessel rather than a limiter must render, not raise."""
+    import omas
+    from vaft.omas._plot_recipes import entry_supports
+
+    ods = omas.ODS()
+    ods["wall.description_2d.0.vessel.unit.0.annular.centreline.r"] = [0.1, 0.7]
+    ods["wall.description_2d.0.vessel.unit.0.annular.centreline.z"] = [0.0, 0.0]
+    assert entry_supports(ods, "machine_geometry_topview")
+    figure, axes = vaft.omas.plot_machine_geometry_topview(ods, show=False)
+    assert axes.get_legend_handles_labels()[1] == ["Vessel outboard", "Vessel inboard"]
 
 
 # ---------------------------------------------------------------------------
@@ -130,14 +178,25 @@ def test_equilibrium_profile_overview_is_public_api():
     }
 
 
-def test_equilibrium_profile_overview_composes_p_j_and_q():
-    from vaft.omas._plot_recipes import RECIPES
+def test_equilibrium_profile_overview_draws_the_same_curves_as_its_members():
+    """Behavioural rather than a restatement of the recipe's member tuple."""
+    kinetic = vaft.data.data_path("kineticEfit/ods_48224_300ms.json")
+    if not kinetic.is_file():
+        pytest.skip("the kinetic reference ODS needs a repository checkout")
+    ods = vaft.omas.load(kinetic)
 
-    assert RECIPES["equilibrium_overview_profiles"].members == (
-        "equilibrium_profile_pressure",
-        "equilibrium_profile_j_tor",
-        "equilibrium_profile_q",
-    )
+    figure, axes = vaft.omas.plot_equilibrium_overview_profiles(ods, show=False)
+    panels = {
+        panel.get_title(): panel.get_lines()[0].get_ydata()
+        for panel in np.asarray(axes).ravel()
+        if panel.get_visible() and panel.get_lines()
+    }
+    for name in ("equilibrium_profile_pressure", "equilibrium_profile_j_tor",
+                 "equilibrium_profile_q"):
+        _, single = getattr(vaft.omas, f"plot_{name}")(ods, show=False)
+        title = single.get_title()
+        assert title in panels, f"{name} is missing from the overview"
+        np.testing.assert_allclose(panels[title], single.get_lines()[0].get_ydata())
 
 
 def test_equilibrium_profile_overview_hides_panels_with_no_data(sample):

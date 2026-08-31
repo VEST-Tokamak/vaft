@@ -35,6 +35,8 @@ SESSIONS = {
         "notebook": "01_getting_started_with_vaft.ipynb",
         "tex": "01_getting_started_with_vaft.tex",
         "headings": SESSION_01_HEADINGS,
+        # Session 01 runs entirely from packaged data; it has no lab branch.
+        "modes": ["offline"],
     },
     2: {
         "notebook": "02_operation_scenario_and_vacuum_fields.ipynb",
@@ -179,8 +181,10 @@ def _validate_notebook(
     filename: str,
     failures: list[str],
     expected_headings: list[str] | None = None,
+    expected_modes: list[str] | None = None,
 ) -> None:
     required = expected_headings or DEFAULT_HEADINGS
+    expected_modes = expected_modes or ["offline", "lab"]
     path = TUTORIAL / filename
     if not path.exists():
         return
@@ -196,8 +200,8 @@ def _validate_notebook(
         failures.append(f"{filename}: metadata.vaft_tutorial.session must be {session}")
     if metadata.get("status") not in {"scaffold", "complete"}:
         failures.append(f"{filename}: tutorial status must be scaffold or complete")
-    if list(metadata.get("modes", [])) != ["offline", "lab"]:
-        failures.append(f"{filename}: tutorial modes must be ['offline', 'lab']")
+    if list(metadata.get("modes", [])) != expected_modes:
+        failures.append(f"{filename}: tutorial modes must be {expected_modes}")
 
     headings: list[str] = []
     for index, cell in enumerate(book.cells):
@@ -267,7 +271,11 @@ def validate() -> list[str]:
     _validate_inventory(failures)
     for session, entry in SESSIONS.items():
         _validate_notebook(
-            session, entry["notebook"], failures, entry.get("headings")
+            session,
+            entry["notebook"],
+            failures,
+            entry.get("headings"),
+            entry.get("modes"),
         )
         _validate_deck(session, entry["tex"], failures)
     return failures
