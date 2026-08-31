@@ -28,12 +28,16 @@ NOTEBOOK = TUTORIAL / "01_getting_started_with_vaft.ipynb"
 # size means a cell is echoing a data object instead of a summary of one.
 MAX_OUTPUT_BYTES = 200_000
 
-# Rendered figures are measured separately. A machine cross-section legitimately
-# carries every one of the sample's 950 passive loops, and the inline backend
-# encodes that at ~345 kB of PNG -- dense pixels, not an echoed data object, so
-# the text budget above does not describe it. The cap here only has to stay
-# below the ~0.5 MB an ODS repr would cost.
-MAX_IMAGE_BYTES = 600_000
+# Rendered figures are measured separately, and only loosely. A machine
+# cross-section legitimately carries every one of the sample's 950 passive
+# loops -- dense pixels, not an echoed data object, so the text budget above
+# does not describe it. Encoded size then varies with the platform's backend
+# DPI, fonts and Matplotlib version: the same figure is ~345 kB locally on
+# macOS and ~764 kB on Linux CI. A tight bound here would be a portability trap
+# rather than a guard, so this is a sanity ceiling that catches a figure which
+# has genuinely run away (megabytes), not a budget calibrated to any one
+# machine.
+MAX_IMAGE_BYTES = 2_000_000
 
 #: Payloads that are rendered pixels rather than text a reader would scroll.
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
