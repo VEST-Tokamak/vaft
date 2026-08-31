@@ -218,6 +218,87 @@ def test_refinement_bisects_and_recovers_the_target(tmp_path, monkeypatch):
     assert mid == pytest.approx(0.5 * (220.0 + 320.0))
 
 
+def test_refinement_halves_toward_origin_while_midpoints_fail(tmp_path, monkeypatch):
+    # every solve at PF2 >= 270 A fails: the target case (320 A) fails, the
+    # first midpoint (270 A) fails, and the bisection must then probe the
+    # quarter point (245 A) instead of retrying the same midpoint
+    make_fake_oft(monkeypatch)
+    original = fb.FreeBoundaryScan._solve_currents
+
+    def gated(self, mygs, currents, *, cold):
+        if currents["PF2"] >= 270.0:
+            raise ValueError('Exceeded "maxits"')
+        return original(self, mygs, currents, cold=cold)
+
+    monkeypatch.setattr(fb.FreeBoundaryScan, "_solve_currents", gated)
+    result = _scan(tmp_path, refine_on_failure=2).run()
+
+    case = result.cases[1]                       # commanded PF2 = 320 A
+    assert case.status is fb.CaseStatus.NOT_CONVERGED
+    midpoints = [
+        entry["commanded"]["PF2"] for entry in case.refinement_history
+        if not entry.get("target_retry")
+    ]
+    assert midpoints == [pytest.approx(270.0), pytest.approx(245.0)]
+    assert case.refinement_history[0]["converged"] is False
+    # the quarter point converged; only the target retry after it failed
+    converged_flags = {
+        round(entry["commanded"]["PF2"]): entry["converged"]
+        for entry in case.refinement_history
+    }
+    assert converged_flags[245] is True
+    assert converged_flags[320] is False
+    # the case below the failing region (220 A) solved normally, and the one
+    # even deeper inside it (420 A) is honestly not_converged
+    assert result.cases[0].status is fb.CaseStatus.SUCCEEDED
+    assert result.cases[2].status is fb.CaseStatus.NOT_CONVERGED
+
+
+def test_dry_run_preserves_completed_state(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    _scan(tmp_path).run()
+
+    result = _scan(tmp_path).dry_run()
+    assert [case.status.value for case in result.cases] == ["succeeded"] * 3
+    scan_payload = json.loads(result.manifest.read_text())
+    assert [c["status"] for c in scan_payload["cases"]] == ["succeeded"] * 3
+    case_payload = json.loads(result.cases[0].manifest.read_text())
+    assert case_payload["status"] == "succeeded"
+    assert case_payload["achieved"]["Ip"] == pytest.approx(51.0e3)
+
+    # resume after the dry run still reloads everything without solving
+    calls, _ = make_fake_oft(monkeypatch)
+    second = _scan(tmp_path).run(resume=True)
+    assert "solve" not in [entry[0] for entry in calls]
+    assert all(case.ok for case in second.cases)
+
+
+def test_resume_reclassifies_when_thresholds_change(tmp_path, monkeypatch):
+    from vaft.code.tokamaker.topology import ScanTopology, TopologyReport
+
+    make_fake_oft(monkeypatch)
+    _scan(tmp_path).run()          # topology stored with the default tolerances
+
+    calls, _ = make_fake_oft(monkeypatch)
+    monkeypatch.setattr(
+        fb, "classify_boundary",
+        lambda *a, **k: TopologyReport(
+            topology=ScanTopology.LIMITED,
+            active_tolerance=k["active_tolerance"],
+            near_null_band=k["near_null_band"],
+        ),
+    )
+    result = _scan(tmp_path, active_tolerance=1.0e-2).run(resume=True)
+
+    assert "solve" not in [entry[0] for entry in calls]   # still no re-solve
+    for case in result.cases:
+        assert case.topology["topology"] == "limited"
+        assert case.topology["active_tolerance"] == pytest.approx(1.0e-2)
+        payload = json.loads(case.manifest.read_text())
+        assert payload["topology"]["topology"] == "limited"
+        assert payload["topology"]["active_tolerance"] == pytest.approx(1.0e-2)
+
+
 def test_resume_reloads_succeeded_cases_without_solving(tmp_path, monkeypatch):
     make_fake_oft(monkeypatch)
     scan = _scan(tmp_path)

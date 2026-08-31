@@ -163,6 +163,10 @@ def _write_json_atomic(path: Path, payload: Mapping[str, Any]) -> Path:
 
 
 def _config_sha(config: TokaMakerConfig) -> str:
+    # NOTE: the sha covers the resolved per-case config INCLUDING its
+    # workdir/mesh_file paths, so moving or renaming a scan directory (or
+    # switching between relative and absolute workdir spellings) invalidates
+    # resume and re-solves the affected cases.
     payload = json.dumps(
         _json_safe(asdict(config)), sort_keys=True, separators=(",", ":"), default=str
     )
@@ -206,13 +210,15 @@ def _parse_controls(controls: Mapping[str, Mapping[str, Sequence[float]]]) -> tu
 
 
 def _status_for_error(exc: Exception) -> CaseStatus:
+    # matched on the message alone: TokaMaker raises ValueError for solver
+    # non-convergence today, but the distinction must survive a type change
     message = str(exc).lower()
-    if isinstance(exc, ValueError) and any(m in message for m in _NOT_CONVERGED_MARKERS):
+    if any(m in message for m in _NOT_CONVERGED_MARKERS):
         return CaseStatus.NOT_CONVERGED
     return CaseStatus.FAILED
 
 
-def _axis_of(report: Optional[TopologyReport], stats: Mapping[str, Any]) -> Optional[tuple[float, float]]:
+def _axis_of(stats: Mapping[str, Any]) -> Optional[tuple[float, float]]:
     centroid = stats.get("Ip_centroid")
     if centroid is not None:
         try:
@@ -268,6 +274,15 @@ class FreeBoundaryScan:
         self.cases: tuple[ScanCase, ...] = self._materialize_cases()
 
     def _resolve_hold(self, config: TokaMakerConfig) -> dict[str, Any]:
+        """Record what the scan holds fixed across cases.
+
+        ``hold`` is declarative bookkeeping, not a control switch: the solver
+        always applies every target configured on the ``TokaMakerConfig``
+        (``Ip`` always; ``pax``/``r0_target``/``v0_target`` when set) and the
+        profile shape is fixed per scan. ``hold`` validates that the config
+        actually pins what the caller claims is held, and records the held
+        values into the manifests.
+        """
         unknown = sorted(set(self.hold) - set(HOLDABLE))
         if unknown:
             raise ValueError(
@@ -370,21 +385,34 @@ class FreeBoundaryScan:
         }
 
     def dry_run(self) -> FreeBoundaryScanResult:
-        """Materialize case directories and PENDING manifests without solving."""
+        """Materialize case directories and manifests without solving.
+
+        Cases that already have a case manifest on disk (from a previous run)
+        are left untouched and reported with their recorded status, so a
+        dry run never invalidates completed work or resume state.
+        """
         results = []
+        statuses: dict[str, str] = {}
         for case in self.cases:
-            manifest = _write_json_atomic(
-                case.workdir / CASE_MANIFEST_NAME,
-                self._case_payload_base(case, CaseStatus.PENDING),
-            )
+            manifest = case.workdir / CASE_MANIFEST_NAME
+            status = CaseStatus.PENDING
+            if manifest.is_file():
+                try:
+                    status = CaseStatus(json.loads(manifest.read_text())["status"])
+                except Exception:
+                    status = CaseStatus.PENDING
+            else:
+                manifest = _write_json_atomic(
+                    manifest, self._case_payload_base(case, CaseStatus.PENDING)
+                )
+            statuses[case.case_id] = status.value
             results.append(FreeBoundaryCaseResult(
-                case_id=case.case_id, index=case.index, status=CaseStatus.PENDING,
+                case_id=case.case_id, index=case.index, status=status,
                 requested=case.requested, commanded_currents=case.commanded,
                 held=self.held, manifest=manifest,
             ))
         manifest = _write_json_atomic(
-            self.workdir / SCAN_MANIFEST_NAME,
-            self._scan_manifest_payload({c.case_id: CaseStatus.PENDING.value for c in self.cases}),
+            self.workdir / SCAN_MANIFEST_NAME, self._scan_manifest_payload(statuses)
         )
         return FreeBoundaryScanResult(self.workdir, tuple(results), manifest)
 
@@ -471,6 +499,7 @@ class FreeBoundaryScan:
                     reloaded = self._resumable(case)
                     if reloaded is not None:
                         # resumed cases do not warm the live solver chain
+                        self._refresh_resumed(reloaded, last_good)
                         results.append(reloaded)
                         statuses[case.case_id] = reloaded.status.value
                         last_good = reloaded
@@ -514,6 +543,49 @@ class FreeBoundaryScan:
             self.workdir / SCAN_MANIFEST_NAME, self._scan_manifest_payload(statuses)
         )
         return FreeBoundaryScanResult(self.workdir, tuple(results), manifest)
+
+    # ----------------------------------------------------------------- #
+    def _refresh_resumed(
+        self,
+        reloaded: FreeBoundaryCaseResult,
+        previous: Optional[FreeBoundaryCaseResult],
+    ) -> None:
+        """Reconcile a disk-reloaded case with the CURRENT scan thresholds.
+
+        The config sha covers the solver configuration, not the scan-level
+        classification/discontinuity knobs, so a resumed manifest may carry a
+        topology report and jump flags computed under different tolerances
+        than this scan records. Re-classify from the retained g-file when the
+        stored tolerances differ, recompute the discontinuity flags against
+        the reloaded chain, and rewrite the case manifest if anything moved.
+        """
+        changed = False
+        stored = dict(reloaded.topology or {})
+        if (
+            stored.get("active_tolerance"),
+            stored.get("near_null_band"),
+        ) != (
+            self.classify_kwargs.get("active_tolerance"),
+            self.classify_kwargs.get("near_null_band"),
+        ):
+            report = classify_boundary(reloaded.gfile, **self.classify_kwargs)
+            reloaded.topology = report.to_dict()
+            reloaded.report = report
+            changed = True
+
+        discontinuity = self._discontinuity(previous, reloaded)
+        if discontinuity != dict(reloaded.discontinuity):
+            reloaded.discontinuity = discontinuity
+            changed = True
+
+        if changed and reloaded.manifest is not None:
+            try:
+                payload = json.loads(reloaded.manifest.read_text())
+            except Exception:  # pragma: no cover - manifest was readable just now
+                return
+            payload["topology"] = reloaded.topology
+            payload["discontinuity"] = reloaded.discontinuity
+            _write_json_atomic(reloaded.manifest, payload)
 
     # ----------------------------------------------------------------- #
     def _solve_currents(
@@ -575,33 +647,41 @@ class FreeBoundaryScan:
         )
 
         if status is CaseStatus.SUCCEEDED:
-            stats = dict(mygs.get_stats())
-            materialized = dict(mygs.get_coil_currents()[0])
+            # post-solve bookkeeping must not abort the scan: a case whose
+            # results cannot be extracted/exported is recorded FAILED and the
+            # chain continues (its manifest below stays visible either way)
             try:
-                xp_array, diverted = mygs.get_xpoints()
-                solver_xp = tuple(
-                    (float(p[0]), float(p[1])) for p in np.atleast_2d(xp_array)
-                ) if xp_array is not None and len(xp_array) else ()
-            except Exception:
-                solver_xp, diverted = (), None
-            gfile = case.workdir / f"g{shot:06d}.{ctime:05d}"
-            mygs.save_eqdsk(
-                str(gfile),
-                nr=self.config.eqdsk_nr,
-                nz=self.config.eqdsk_nz,
-                lcfs_pad=self.config.eqdsk_lcfs_pad,
-                run_info=f"# {shot} {ctime}ms",
-                cocos=self.config.eqdsk_cocos,
-            )
-            report = classify_boundary(gfile, **self.classify_kwargs)
-            result.achieved = stats
-            result.materialized_currents = materialized
-            result.solver_x_points = solver_xp
-            result.solver_diverted = None if diverted is None else bool(diverted)
-            result.gfile = gfile
-            result.topology = report.to_dict()
-            result.report = report
-            result.discontinuity = self._discontinuity(last_good, result)
+                stats = dict(mygs.get_stats())
+                materialized = dict(mygs.get_coil_currents()[0])
+                try:
+                    xp_array, diverted = mygs.get_xpoints()
+                    solver_xp = tuple(
+                        (float(p[0]), float(p[1])) for p in np.atleast_2d(xp_array)
+                    ) if xp_array is not None and len(xp_array) else ()
+                except Exception:
+                    solver_xp, diverted = (), None
+                gfile = case.workdir / f"g{shot:06d}.{ctime:05d}"
+                mygs.save_eqdsk(
+                    str(gfile),
+                    nr=self.config.eqdsk_nr,
+                    nz=self.config.eqdsk_nz,
+                    lcfs_pad=self.config.eqdsk_lcfs_pad,
+                    run_info=f"# {shot} {ctime}ms",
+                    cocos=self.config.eqdsk_cocos,
+                )
+                report = classify_boundary(gfile, **self.classify_kwargs)
+                result.achieved = stats
+                result.materialized_currents = materialized
+                result.solver_x_points = solver_xp
+                result.solver_diverted = None if diverted is None else bool(diverted)
+                result.gfile = gfile
+                result.topology = report.to_dict()
+                result.report = report
+                result.discontinuity = self._discontinuity(last_good, result)
+            except Exception as exc:
+                status = result.status = CaseStatus.FAILED
+                error = result.error = f"post-solve bookkeeping failed: {exc}"
+                _log.warning("Scan case %s: %s", case.case_id, result.error)
 
         payload = self._case_payload_base(case, status)
         payload.update({
@@ -628,6 +708,7 @@ class FreeBoundaryScan:
         """Bisect between the last converged and the failed commanded currents."""
         origin = dict(last_good.commanded_currents)
         target = dict(case.commanded)
+        probe = dict(target)          # shrinks toward origin while midpoints fail
         for step in range(1, self.refine_on_failure + 1):
             try:
                 mygs.set_psi(psi_good)
@@ -636,18 +717,20 @@ class FreeBoundaryScan:
             # march half the remaining distance, then retry the target
             midpoint = {
                 name: 0.5 * (origin.get(name, value) + value)
-                for name, value in target.items()
+                for name, value in probe.items()
             }
             entry: dict[str, Any] = {"step": step, "commanded": midpoint}
             try:
                 self._solve_currents(mygs, midpoint, cold=False)
                 entry["converged"] = True
                 origin = midpoint
+                probe = dict(target)
                 psi_good = mygs.get_psi(False)
             except Exception as exc:
                 entry["converged"] = False
                 entry["error"] = str(exc)
                 refinements.append(entry)
+                probe = midpoint
                 continue
             refinements.append(entry)
             try:
@@ -670,8 +753,8 @@ class FreeBoundaryScan:
             return {"reference": None, "flagged": False}
         info: dict[str, Any] = {"reference": previous.case_id, "flagged": False}
 
-        prev_axis = _axis_of(previous.report, previous.achieved)
-        curr_axis = _axis_of(current.report, current.achieved)
+        prev_axis = _axis_of(previous.achieved)
+        curr_axis = _axis_of(current.achieved)
         if prev_axis and curr_axis:
             jump = float(np.hypot(curr_axis[0] - prev_axis[0], curr_axis[1] - prev_axis[1]))
             info["axis_jump_m"] = jump

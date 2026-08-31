@@ -61,7 +61,7 @@ class TopologyReport:
     topology: ScanTopology
     x_points: tuple[Mapping[str, float], ...] = ()   # {r, z, psi_n, active}
     d_r_sep: Optional[float] = None                  # [m]; sign: + = upper outboard of lower
-    null_margin: Optional[float] = None              # min |psi_n - 1| over X-points
+    null_margin: Optional[float] = None              # min |psi_n - 1| over vacuum-side X-points (psi_n >= 1 - tol)
     limiter_contact: Optional[LimiterContact] = None
     active_tolerance: float = 0.0
     near_null_band: float = 0.0
