@@ -248,8 +248,13 @@ def test_flux_loop_voltage_round_trips_through_omas(mapped):
 
 def test_flux_loop_voltage_reports_under_its_own_manifest_key():
     """Native flux-loop timing is not filed under the Mirnov key (#209 review)."""
+    from vaft.machine_mapping.utils import (
+        DiagnosticsTimePolicy,
+        DiagnosticsTimePolicyTable,
+    )
     from vaft.omas.vest_upstream import _validate_diagnostics_time_coordinates
 
+    analysis = DiagnosticsTimePolicy("analysis", TSTART, TEND, DT)
     processed_time = np.arange(TSTART, TEND, DT)
     # np.arange can overshoot the exclusive end by a float ulp; keep the
     # half-open window the mapper's own cropping guarantees.
@@ -266,7 +271,11 @@ def test_flux_loop_voltage_reports_under_its_own_manifest_key():
     ods["magnetics.flux_loop.0.voltage.data"] = np.ones(loop_time.size)
 
     metadata = _validate_diagnostics_time_coordinates(
-        ods, processed_time, tstart=TSTART, tend=TEND, dt=DT
+        ods,
+        {"magnetics": processed_time},
+        policies=DiagnosticsTimePolicyTable(
+            {"magnetics": analysis}, windows={"analysis": analysis}, default=analysis
+        ),
     )
 
     assert ods["magnetics.ids_properties.homogeneous_time"] == 0

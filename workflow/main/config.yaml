@@ -7,11 +7,19 @@ shots: []
 raw_source: null
 
 diagnostics:
+  # tstart/tend/dt configure the plasma-analysis window only. TF, barometry,
+  # and EC power follow the full-discharge window configured in vest.yaml
+  # (`diagnostics_time_policies`); override it here to re-point a component or
+  # retune a window, for example:
+  #   time_policies:
+  #     windows: {full_discharge: {tstart: 0.0, tend: 1.0, dt: 0.00004}}
+  #     components: {spectrometer_uv: full_discharge}
   tstart: 0.26
   tend: 0.36
   dt: 0.00004
   run: 1
   vest_magnetics_processing: {}
+  time_policies: {}
 
 eddy:
   filament_r: [0.35, 0.35, 0.35]
