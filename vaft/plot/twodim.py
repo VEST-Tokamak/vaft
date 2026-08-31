@@ -6,20 +6,27 @@ from matplotlib.path import Path
 import logging
 logger = logging.getLogger(__name__)
 
-def twodim_geometry_all(ods):
-    ods.plot_wall_overlay(color='lightgray')
-    ods.plot_bolometer_overlay()
-    ods.plot_charge_exchange_overlay()
-    ods.plot_thomson_scattering_overlay()
-    ods.plot_interferometer_overlay()
-    ods.plot_magnetics_overlay( flux_loop_style={'marker': 's'},
+def twodim_geometry_all(ods, ax=None):
+    # Compose every overlay onto one axes explicitly. Relying on pyplot's
+    # current axes would put each overlay on its own figure once
+    # vaft.omas.enable_overlay_methods() is active, since that wrapper treats
+    # an omitted ax as a request for a standalone figure.
+    if ax is None:
+        _, ax = plt.subplots()
+    ods.plot_wall_overlay(ax=ax, color='lightgray')
+    ods.plot_bolometer_overlay(ax=ax)
+    ods.plot_charge_exchange_overlay(ax=ax)
+    ods.plot_thomson_scattering_overlay(ax=ax)
+    ods.plot_interferometer_overlay(ax=ax)
+    ods.plot_magnetics_overlay(ax=ax, flux_loop_style={'marker': 's'},
     pol_probe_style={'marker': 'x'},
     tor_probe_style={'marker': 'o'}
     )
-    ods.plot_pf_active_overlay(edgecolor='red')
-    ods.plot_gas_injection_overlay()
-    ods.plot_position_control_overlay()
-    ods.plot_langmuir_probes_overlay()
+    ods.plot_pf_active_overlay(ax=ax, edgecolor='red')
+    ods.plot_gas_injection_overlay(ax=ax)
+    ods.plot_position_control_overlay(ax=ax)
+    ods.plot_langmuir_probes_overlay(ax=ax)
+    return ax
 
 
 

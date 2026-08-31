@@ -49,41 +49,81 @@ def find_chamber_boundary(ods):
     """Find the chamber boundary from the ODS."""
     return ods['wall.description_2d.0.limiter.unit.0.outline.r'], ods['wall.description_2d.0.limiter.unit.0.outline.z']
 
-def _find_signal_onset(ods, time_key, data_key):
+def signal_time(ods, data_path):
+    """Return the time axis that actually belongs to ``data_path``.
+
+    IMAS lets an IDS store time either way, flagged by
+    ``ids_properties.homogeneous_time``: homogeneous (1) means every dynamic
+    node shares the IDS-level ``<ids>.time``, heterogeneous (0) means each node
+    carries its own ``time`` sibling. ``ODS.time(ids)`` only resolves the
+    homogeneous case and returns ``None`` for a heterogeneous IDS, which then
+    fails as an unhelpful ``TypeError`` at the point of use.
+
+    Resolve the node's own axis first and fall back to the IDS-level one, so
+    the returned axis matches the samples in ``data_path`` under either
+    convention.
+    """
+    node_time = f"{data_path[:-5]}.time" if data_path.endswith(".data") else f"{data_path}.time"
+    ids_time = f"{data_path.split('.', 1)[0]}.time"
+
+    for candidate in (node_time, ids_time):
+        try:
+            time = ods[candidate]
+        except (KeyError, ValueError):
+            continue
+        if time is not None and len(time):
+            return time
+
+    raise KeyError(
+        f"no time axis for {data_path!r}: tried {node_time!r} and {ids_time!r}. "
+        "A heterogeneous IDS must give the node its own time sibling; a "
+        "homogeneous one must populate the IDS-level time."
+    )
+
+
+def _find_signal_onset(ods, data_key):
     """Helper to find signal onset using vaft.process.signal_on_offset."""
-    time = ods.time(time_key)
+    time = signal_time(ods, data_key)
     data = ods[data_key]
     onset, _ = vaft.process.signal_on_offset(time, data, threshold = 0.05)
     return onset
 
 def find_breakdown_onset(ods):
     """Find the onset of the breakdown using spectrometer_uv signal."""
-    return _find_signal_onset(ods, 'spectrometer_uv', 'spectrometer_uv.channel.0.processed_line.0.intensity.data')
+    return _find_signal_onset(ods, 'spectrometer_uv.channel.0.processed_line.0.intensity.data')
 
 def find_vloop_onset(ods):
     """Find the onset of the loop voltage signal (maximum of flux loop signal)."""
-    time = ods.time('magnetics')
-    flux = ods['magnetics.flux_loop.0.flux.data']
+    flux_path = 'magnetics.flux_loop.0.flux.data'
+    time = signal_time(ods, flux_path)
+    flux = ods[flux_path]
     return time[np.argmax(flux)]
 
 def find_ip_onset(ods):
     """Find the onset of the plasma current signal."""
-    return _find_signal_onset(ods, 'magnetics', 'magnetics.ip.0.data')
+    return _find_signal_onset(ods, 'magnetics.ip.0.data')
 
 def find_pf_active_onset(ods):
-    """Find the onset for each pf_active channel current signal."""
-    time = ods.time('pf_active')
+    """Find the onset for each pf_active coil current signal.
+
+    The IMAS DD names these ``pf_active.coil``; ``pf_active.channel`` does not
+    exist, and OMAS yields an empty list for a missing node rather than
+    raising, so iterating it silently returned no onsets at all.
+    """
     onsets = []
-    for i in range(len(ods['pf_active.channel'])):
-        current = ods[f'pf_active.channel.{i}.current.data']
+    for i in range(len(ods['pf_active.coil'])):
+        current_path = f'pf_active.coil.{i}.current.data'
+        time = signal_time(ods, current_path)
+        current = ods[current_path]
         onset, _ = vaft.process.signal_on_offset(time, current)
         onsets.append(onset)
     return onsets
 
 def find_pulse_duration(ods):
     """Find the duration of the pulse using spectrometer_uv signal."""
-    time = ods.time('spectrometer_uv')
-    data = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
+    data_path = 'spectrometer_uv.channel.0.processed_line.0.intensity.data'
+    time = signal_time(ods, data_path)
+    data = ods[data_path]
     onset, offset = vaft.process.signal_on_offset(time, data, threshold=0.05)
     return offset - onset
 
@@ -106,7 +146,7 @@ def find_max_ip(ods):
 
 def find_bt(ods):
     """Find the mean toroidal field at R=0.4m during plasma."""
-    time = ods.time('tf.time')
+    time = signal_time(ods, 'tf.b_field_tor_vacuum_r.data')
     bt = ods['tf.b_field_tor_vacuum_r.data'] / ods['tf.r0']
     plasma_onset = find_breakdown_onset(ods)
     pulse_duration = find_pulse_duration(ods)

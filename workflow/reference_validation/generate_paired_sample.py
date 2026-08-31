@@ -266,14 +266,51 @@ def verify(manifest_path: Path) -> None:
         expected_magnetics["flux_loop_count"]
     ):
         raise ValueError("Compact sample does not contain every flux loop")
-    expected_pf_active = manifest["acceptance"].get("pf_active")
-    if expected_pf_active is not None and len(native_omas["pf_active.coil"]) != int(
-        expected_pf_active["coil_count"]
+    # These arrays are referenced by the machine description and by the
+    # single-shot examples, so a selector that silently truncates one must fail
+    # generation. pf_active in particular gates free-boundary work: a subset of
+    # the PF coils cannot even hold the measured equilibrium, which is how the
+    # sample once came to ship only PF1-PF5 (#272).
+    for ids, node, key, label in (
+        ("pf_active", "pf_active.coil", "coil_count", "active coil"),
+        (
+            "spectrometer_uv",
+            "spectrometer_uv.channel",
+            "channel_count",
+            "filterscope channel",
+        ),
+        ("pf_passive", "pf_passive.loop", "loop_count", "passive loop"),
     ):
-        # Free-boundary work needs the complete machine state: a subset of the
-        # PF coils cannot even hold the measured equilibrium (issue context:
-        # the 39915 sample once shipped only PF1-PF5).
-        raise ValueError("Compact sample does not contain every pf_active coil")
+        expected_count = manifest["acceptance"].get(ids, {}).get(key)
+        if expected_count is not None and len(native_omas[node]) != int(expected_count):
+            raise ValueError(
+                f"Compact sample does not contain every {label}: "
+                f"{len(native_omas[node])} of {expected_count}"
+            )
+
+    # pf_passive carries geometry only: the loop currents are ~48 MB of the
+    # canonical source and em_coupling's matrices are reproducible from the
+    # packaged versioned asset (vaft.machine_mapping.em_coupling), so neither
+    # belongs in a compact sample. Assert the omission rather than trusting the
+    # selectors to keep expressing it.
+    if manifest["acceptance"].get("pf_passive", {}).get("static_only"):
+        dynamic = sorted(
+            path
+            for path in native_omas.flat()
+            if str(path).startswith("pf_passive.")
+            and (str(path).endswith(".current") or str(path) == "pf_passive.time")
+        )
+        if dynamic:
+            raise ValueError(
+                "Compact sample must carry pf_passive geometry only; found "
+                + ", ".join(dynamic[:5])
+            )
+        if "em_coupling" in native_omas:
+            raise ValueError(
+                "Compact sample must not carry em_coupling: reconstruct it with "
+                "vaft.machine_mapping.em_coupling instead of materializing the "
+                "coupling matrices"
+            )
 
 
 def main() -> int:

@@ -259,3 +259,187 @@ class TestPlotMethods:
                 delattr(ODS, name)
             except AttributeError:
                 pass
+
+
+class TestOverlayMethods:
+    """``enable_overlay_methods`` gives OMAS' own overlays the ax/show contract."""
+
+    def teardown_method(self):
+        vomas.disable_overlay_methods()
+
+    def test_importing_vaft_does_not_wrap_omas_overlays(self):
+        import importlib
+
+        importlib.import_module("vaft")
+        assert not getattr(ODS.plot_wall_overlay, "_vaft_overlay_wrapper", False)
+
+    def test_registration_is_idempotent(self):
+        first = vomas.enable_overlay_methods()
+        assert "plot_wall_overlay" in first
+        assert "plot_pf_active_overlay" in first
+        wrapper = ODS.plot_wall_overlay
+        assert vomas.enable_overlay_methods() == first
+        # A second call must not wrap the wrapper.
+        assert ODS.plot_wall_overlay is wrapper
+
+    def test_disable_restores_the_original_omas_callables(self):
+        originals = {
+            name: getattr(ODS, name)
+            for name in (
+                "plot_wall_overlay",
+                "plot_pf_active_overlay",
+                "plot_magnetics_overlay",
+            )
+        }
+        vomas.enable_overlay_methods()
+        assert getattr(ODS, "plot_wall_overlay") is not originals["plot_wall_overlay"]
+        vomas.disable_overlay_methods()
+        for name, original in originals.items():
+            assert getattr(ODS, name) is original, name
+
+    def test_omitted_ax_gives_each_overlay_its_own_figure(self, sample_ods):
+        vomas.enable_overlay_methods()
+        before = set(plt.get_fignums())
+        sample_ods.plot_wall_overlay(color="lightgray")
+        sample_ods.plot_pf_active_overlay(edgecolor="red")
+        created = set(plt.get_fignums()) - before
+        try:
+            assert len(created) == 2
+        finally:
+            for number in created:
+                plt.close(number)
+
+    def test_caller_supplied_ax_creates_nothing_and_is_never_closed(self, sample_ods):
+        vomas.enable_overlay_methods()
+        figure, axes = plt.subplots()
+        try:
+            existing = set(plt.get_fignums())
+            sample_ods.plot_wall_overlay(ax=axes, color="lightgray")
+            sample_ods.plot_pf_active_overlay(ax=axes, edgecolor="red")
+            assert set(plt.get_fignums()) == existing
+            assert figure.number in plt.get_fignums()
+        finally:
+            plt.close(figure)
+
+    def test_overlays_default_to_no_display(self, monkeypatch, sample_ods):
+        vomas.enable_overlay_methods()
+        monkeypatch.setattr(plt, "show", lambda *a, **k: pytest.fail("show() called"))
+        figure, _ = plt.subplots()
+        try:
+            sample_ods.plot_wall_overlay(ax=figure.axes[0])
+        finally:
+            plt.close(figure)
+
+    def test_vaft_canonical_adapters_are_never_wrapped(self):
+        """``plot_camera_visible_image_efit_overlay`` matches the name pattern.
+
+        It is one of ours and already honors the ax/show contract, so wrapping
+        it would resolve the axes twice, drop the renderer's figsize and call
+        finalize twice. Neither opt-in order may wrap it.
+        """
+        canonical = {f"plot_{name}" for name in registry.canonical_names()}
+        assert any(name.endswith("_overlay") for name in canonical), (
+            "this test is only meaningful while a canonical plot ends in _overlay"
+        )
+
+        for plot_methods_first in (True, False):
+            if plot_methods_first:
+                vomas.enable_plot_methods()
+                wrapped = set(vomas.enable_overlay_methods())
+            else:
+                vomas.enable_overlay_methods()
+                vomas.enable_plot_methods()
+                wrapped = set(getattr(ODS, "_vaft_overlay_methods", frozenset()))
+            try:
+                assert not wrapped & canonical, sorted(wrapped & canonical)
+                adapter = ODS.plot_camera_visible_image_efit_overlay
+                assert not getattr(adapter, "_vaft_overlay_wrapper", False)
+            finally:
+                vomas.disable_overlay_methods()
+                vomas.disable_plot_methods()
+
+    def test_twodim_geometry_all_still_composes_onto_one_figure(self, sample_ods):
+        """The wrapper must not scatter an existing composition across figures.
+
+        `vaft.plot.twodim.twodim_geometry_all` draws ten overlays that belong on
+        one axes; before this it leaned on pyplot's current axes, which the
+        wrapper's "omitted ax means a new figure" rule would have turned into
+        ten separate figures.
+        """
+        from vaft.plot.twodim import twodim_geometry_all
+
+        plt.close("all")
+        twodim_geometry_all(sample_ods)
+        unwrapped = len(plt.get_fignums())
+        plt.close("all")
+
+        vomas.enable_overlay_methods()
+        twodim_geometry_all(sample_ods)
+        wrapped = len(plt.get_fignums())
+        plt.close("all")
+
+        assert unwrapped == 1
+        assert wrapped == 1
+
+    def test_the_aggregate_plot_overlay_dispatcher_is_not_wrapped(self, sample_ods):
+        """`plot_overlay` matches the name pattern but is a dispatcher.
+
+        Its `return_overlay_list=True` path draws nothing, so wrapping it would
+        leak one blank figure per query.
+        """
+        wrapped = vomas.enable_overlay_methods()
+        assert "plot_overlay" not in wrapped
+
+        plt.close("all")
+        sample_ods.plot_overlay(return_overlay_list=True)
+        try:
+            assert plt.get_fignums() == []
+        finally:
+            plt.close("all")
+
+    def test_ax_may_be_passed_positionally(self, sample_ods):
+        """OMAS declares `ax` positional-or-keyword, so `plot_x_overlay(ax)` is legal."""
+        vomas.enable_overlay_methods()
+        figure, axes = plt.subplots()
+        try:
+            before = set(plt.get_fignums())
+            sample_ods.plot_wall_overlay(axes, color="lightgray")
+            assert set(plt.get_fignums()) == before
+            assert axes.get_children()
+        finally:
+            plt.close(figure)
+
+    def test_overwrite_unwraps_instead_of_nesting(self):
+        """A nested wrapper would leave ODS permanently patched after disable."""
+        pristine = ODS.plot_wall_overlay
+        vomas.enable_overlay_methods()
+        # Clearing the bookkeeping while the wrappers stay installed is what
+        # reaches the overwrite path.
+        ODS._vaft_overlay_methods = frozenset()
+        with pytest.raises(RuntimeError, match="refusing to re-wrap"):
+            vomas.enable_overlay_methods()
+        vomas.enable_overlay_methods(overwrite=True)
+
+        inner = getattr(ODS.plot_wall_overlay, "__wrapped__", None)
+        assert not getattr(inner, "_vaft_overlay_wrapper", False), "wrapper was nested"
+
+        vomas.disable_overlay_methods()
+        assert ODS.plot_wall_overlay is pristine
+
+    def test_wrapping_covers_the_overlays_vaft_plot_twodim_relies_on(self):
+        wrapped = set(vomas.enable_overlay_methods())
+        # vaft/plot/twodim.py calls these OMAS overlays directly; an OMAS
+        # release that renames them must fail here rather than silently.
+        required = {
+            "plot_bolometer_overlay",
+            "plot_charge_exchange_overlay",
+            "plot_gas_injection_overlay",
+            "plot_interferometer_overlay",
+            "plot_langmuir_probes_overlay",
+            "plot_magnetics_overlay",
+            "plot_pf_active_overlay",
+            "plot_position_control_overlay",
+            "plot_thomson_scattering_overlay",
+            "plot_wall_overlay",
+        }
+        assert required <= wrapped, sorted(required - wrapped)

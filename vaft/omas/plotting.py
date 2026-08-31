@@ -16,6 +16,8 @@ repeated calls produce the same legend order.
 
 Use :func:`available_plots` to see which plots a particular object can produce,
 and :func:`enable_plot_methods` to opt in to ``ODS.plot_*`` methods.
+:func:`enable_overlay_methods` does the same for OMAS' own
+``ODS.plot_*_overlay`` methods, giving them the ``ax``/``show`` contract.
 """
 
 from __future__ import annotations
@@ -171,6 +173,136 @@ def disable_plot_methods() -> None:
         except AttributeError:
             pass
     ODS._vaft_plot_methods = frozenset()
+
+
+def enable_overlay_methods(*, overwrite: bool = False) -> tuple[str, ...]:
+    """Wrap OMAS' native ``ODS.plot_*_overlay`` so ``ax=None`` means a new figure.
+
+    OMAS draws its overlays onto whatever axes Pyplot happens to have current, so
+    two successive calls silently composite into a single figure.  The wrapper
+    routes ``ax`` through the same :func:`vaft.plot.style.resolve_axes` contract
+    every canonical renderer uses: ``ax=None`` creates a figure, and a
+    caller-supplied ``ax`` stays authoritative so the compositional form keeps
+    working.
+
+    Like :func:`enable_plot_methods` this is explicit and idempotent -- importing
+    ``vaft`` never mutates OMAS -- and ``show`` defaults to ``False``, because
+    displaying a figure is the caller's decision.  ``overwrite`` re-wraps methods
+    that some other layer has already replaced.  Returns the wrapped names.
+    """
+    from omas import ODS
+
+    wrapped = getattr(ODS, "_vaft_overlay_methods", frozenset())
+    targets = sorted(_discover_overlay_methods(ODS))
+    if not targets:
+        raise RuntimeError(
+            "this OMAS release exposes no ODS.plot_*_overlay methods to wrap"
+        )
+
+    foreign = sorted(
+        name
+        for name in targets
+        if name not in wrapped
+        and getattr(getattr(ODS, name), "_vaft_overlay_wrapper", False)
+    )
+    if foreign and not overwrite:
+        raise RuntimeError(
+            "refusing to re-wrap already wrapped ODS methods: "
+            + ", ".join(foreign)
+            + ". Call vaft.omas.disable_overlay_methods() first, or pass "
+            "overwrite=True."
+        )
+
+    for name in targets:
+        if name in wrapped:
+            continue
+        current = getattr(ODS, name)
+        # Never wrap a wrapper: on the overwrite path `current` is already one
+        # of ours, and nesting would leave disable_overlay_methods() restoring
+        # the inner wrapper instead of OMAS' own method.
+        if getattr(current, "_vaft_overlay_wrapper", False):
+            current = getattr(current, "__wrapped__", current)
+        setattr(ODS, name, _make_overlay_wrapper(current))
+    ODS._vaft_overlay_methods = frozenset(targets)
+    return tuple(targets)
+
+
+def disable_overlay_methods() -> None:
+    """Restore the OMAS methods wrapped by :func:`enable_overlay_methods`."""
+    from omas import ODS
+
+    for name in getattr(ODS, "_vaft_overlay_methods", frozenset()):
+        wrapper = getattr(ODS, name, None)
+        original = getattr(wrapper, "__wrapped__", None)
+        if original is not None:
+            setattr(ODS, name, original)
+    ODS._vaft_overlay_methods = frozenset()
+
+
+def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
+    """Return every ``plot_*_overlay`` attribute OMAS exposes on ``ODS``.
+
+    VAFT's own canonical adapters are excluded even though one of them
+    (``plot_camera_visible_image_efit_overlay``) matches the name pattern: they
+    already implement the ax/show contract, so wrapping them would resolve the
+    axes twice, discard the renderer's ``figsize`` and run ``finalize`` twice.
+    The exclusion is by canonical name rather than by whether
+    :func:`enable_plot_methods` happens to have run, so the two opt-ins are
+    order-independent.
+
+    OMAS' aggregate ``plot_overlay`` dispatcher matches the pattern too but is
+    excluded: it forwards to the individual overlays (which are wrapped), and
+    its ``return_overlay_list=True`` query path draws nothing, so wrapping it
+    would leak a blank figure per query.
+    """
+    canonical = {f"plot_{spec.name}" for spec in specs()}
+    return tuple(
+        name
+        for name in dir(ods_class)
+        if name.startswith("plot_")
+        and name.endswith("_overlay")
+        and name != "plot_overlay"
+        and name not in canonical
+        and callable(getattr(ods_class, name, None))
+    )
+
+
+def _make_overlay_wrapper(original):
+    import functools
+    import inspect
+
+    try:
+        signature = inspect.signature(original)
+    except (TypeError, ValueError):  # pragma: no cover - builtins have none
+        signature = None
+
+    @functools.wraps(original)
+    def wrapper(self, *args, **options):
+        from vaft.plot.style import finalize, resolve_axes
+
+        show = options.pop("show", False)
+        # OMAS declares `ax` as an ordinary positional-or-keyword parameter, so
+        # `ods.plot_wall_overlay(my_ax)` is a legal call. Bind through the
+        # wrapped signature instead of assuming `ax` arrives as a keyword.
+        bound = None
+        if signature is not None:
+            try:
+                bound = signature.bind(self, *args, **options)
+            except TypeError:
+                bound = None
+        ax = bound.arguments.get("ax") if bound is not None else options.get("ax")
+
+        figure, axes = resolve_axes(ax)
+        if bound is not None:
+            bound.arguments["ax"] = axes
+            result = original(*bound.args, **bound.kwargs)
+        else:
+            result = original(self, *args, ax=axes, **options)
+        finalize(figure, axes, show=show)
+        return result
+
+    wrapper._vaft_overlay_wrapper = True
+    return wrapper
 
 
 def _make_method(plot_name: str):
@@ -2283,7 +2415,9 @@ plot_tf_time_coil_current = _renamed_adapter("tf_time_coil_current", "tf_coil_ti
 
 __all__ = [
     "available_plots",
+    "disable_overlay_methods",
     "disable_plot_methods",
+    "enable_overlay_methods",
     "enable_plot_methods",
     "extract_labels_from_odc",
     "normalize_entries",

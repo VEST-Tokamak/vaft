@@ -17,6 +17,13 @@ notebooks/_tokamaker_run/
 notebooks/temps/
 notebooks/outputs/
 *_executed.ipynb
+# The same artifacts land at the repository root when a notebook is executed
+# with the repo as the working directory rather than notebooks/, because the
+# notebooks write to cwd-relative paths.
+/_tes_run/
+/_tokamaker_run/
+/temps/
+/fig4.png
 # Matplotlib font caches (created when MPLCONFIGDIR points into the repo)
 /.matplotlib/
 /.mplconfig/

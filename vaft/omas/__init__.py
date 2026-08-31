@@ -46,7 +46,9 @@ def _is_plotting_export(name: str) -> bool:
         name.startswith("plot_")
         or name in {
             "available_plots",
+            "disable_overlay_methods",
             "disable_plot_methods",
+            "enable_overlay_methods",
             "enable_plot_methods",
             "extract_labels_from_odc",
             "normalize_entries",

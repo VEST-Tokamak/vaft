@@ -137,3 +137,424 @@ def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
 
     assert namespace["source"] == sample
     assert len(namespace["ods"]) > 0
+
+
+def _code_cells(path):
+    book = nbformat.read(path, as_version=4)
+    for index, cell in enumerate(book.cells):
+        if cell.cell_type == "code":
+            yield index, cell.source
+
+
+#: Every spelling that selects a Matplotlib backend. A detector that matched
+#: only the two spellings the notebooks happened to use would let an aliased
+#: ``mpl.use`` or a bare ``os.environ[...] = ...`` reintroduce the bug.
+_BACKEND_SETTER_ATTRS = ("use", "switch_backend")
+
+
+def _is_backend_pin(node: ast.AST, use_aliases: frozenset[str]) -> bool:
+    """True for any call or assignment that selects a Matplotlib backend."""
+    if isinstance(node, ast.Assign):
+        # os.environ["MPLBACKEND"] = ... / os.environ.update({"MPLBACKEND": ...})
+        for target in node.targets:
+            if (
+                isinstance(target, ast.Subscript)
+                and isinstance(target.slice, ast.Constant)
+                and target.slice.value == "MPLBACKEND"
+            ):
+                return True
+        return False
+
+    if not isinstance(node, ast.Call):
+        return False
+
+    # `use(...)` / `switch_backend(...)` imported by name.
+    if isinstance(node.func, ast.Name) and node.func.id in use_aliases:
+        return True
+
+    name = _attribute_name(node.func)
+    if not name:
+        return False
+    # matplotlib.use, mpl.use, plt.switch_backend, matplotlib.pyplot.use, ...
+    if name.rsplit(".", 1)[-1] in _BACKEND_SETTER_ATTRS:
+        return True
+    # get_ipython().run_line_magic("matplotlib", ...) -- the programmatic form
+    # of the %matplotlib magic.
+    if name.rsplit(".", 1)[-1] == "run_line_magic":
+        first = node.args[0] if node.args else None
+        return isinstance(first, ast.Constant) and first.value == "matplotlib"
+    if name.endswith("environ.setdefault") or name.endswith("environ.update"):
+        first = node.args[0] if node.args else None
+        if isinstance(first, ast.Constant) and first.value == "MPLBACKEND":
+            return True
+        if isinstance(first, ast.Dict):
+            return any(
+                isinstance(key, ast.Constant) and key.value == "MPLBACKEND"
+                for key in first.keys
+            )
+    return False
+
+
+def _backend_use_aliases(tree: ast.AST) -> frozenset[str]:
+    """Names bound by ``from matplotlib import use`` and friends."""
+    aliases = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+            "matplotlib"
+        ):
+            for alias in node.names:
+                if alias.name in _BACKEND_SETTER_ATTRS:
+                    aliases.add(alias.asname or alias.name)
+    return frozenset(aliases)
+
+
+#: Names that only appear in a test that is deciding whether a frontend is
+#: present: the ``sys.modules`` membership check, ``get_ipython`` itself, and
+#: the kernel-app marker the notebooks read off its config.
+_INTERACTIVITY_HINTS = frozenset(
+    {"get_ipython", "modules", "ipykernel", "IPKernelApp", "IPython"}
+)
+
+
+def _interactivity_names(tree: ast.AST) -> frozenset[str]:
+    """Names bound from a ``get_ipython()`` call.
+
+    The notebooks spell the guard as ``_ipython = get_ipython()`` followed by
+    ``if _ipython is None:``, so the interactivity test is one indirection away
+    from any literal hint and has to be resolved through the binding.
+    """
+    names = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        call = node.value
+        if not isinstance(call, ast.Call):
+            continue
+        if _attribute_name(call.func) not in {"get_ipython", "IPython.get_ipython"}:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            for name in ast.walk(target):
+                if isinstance(name, ast.Name):
+                    names.add(name.id)
+    return frozenset(names)
+
+
+def _is_interactivity_guard(statement: ast.If, ipython_names: frozenset[str]) -> bool:
+    """True when this ``if`` actually tests for an interactive frontend.
+
+    Treating every ``if`` as a guard would accept a pin under ``if True:`` or
+    under an unrelated ``if output_dir:`` -- the pin would still run in Jupyter,
+    which is the whole failure mode (#175/#179/#182).
+    """
+    for node in ast.walk(statement.test):
+        if isinstance(node, ast.Name) and (
+            node.id in ipython_names or node.id in _INTERACTIVITY_HINTS
+        ):
+            return True
+        if isinstance(node, ast.Attribute) and node.attr in _INTERACTIVITY_HINTS:
+            return True
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node.value in _INTERACTIVITY_HINTS:
+                return True
+    return False
+
+
+def _unguarded_backend_pins(source: str, filename: str = "<cell>") -> list[str]:
+    """Backend pins in ``source`` that no interactivity guard protects."""
+    tree = ast.parse(source, filename=filename)
+    aliases = _backend_use_aliases(tree)
+    ipython_names = _interactivity_names(tree)
+    guarded = {
+        node
+        for statement in ast.walk(tree)
+        if isinstance(statement, ast.If) and _is_interactivity_guard(statement, ipython_names)
+        for node in ast.walk(statement)
+    }
+    return [
+        f"{filename}: unguarded backend pin"
+        for node in ast.walk(tree)
+        if _is_backend_pin(node, aliases) and node not in guarded
+    ]
+
+
+def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
+    """A pin outside an interactivity guard silences figures in Jupyter and VS Code.
+
+    Notebooks may still fall back to Agg when no kernel is present -- that is
+    what the ``get_ipython() is None`` guard expresses -- but a pin at cell top
+    level applies to interactive frontends too (issues #175/#179/#182).
+    """
+    failures = []
+    for path in _notebook_paths():
+        for index, source in _code_cells(path):
+            failures.extend(
+                _unguarded_backend_pins(source, f"{path.name}:cell-{index}")
+            )
+
+    assert failures == []
+
+
+def test_backend_pin_detector_rejects_a_guard_that_is_not_about_interactivity():
+    """The detector must not accept any ``if`` as proof of a guard.
+
+    A pin under an unrelated condition still runs under Jupyter, so accepting
+    it would let the very regression this test exists for back in.
+    """
+    real_guard = (
+        "import os\n"
+        "try:\n"
+        "    _ipython = get_ipython()\n"
+        "except NameError:\n"
+        "    _ipython = None\n"
+        "if _ipython is None:\n"
+        "    os.environ.setdefault('MPLBACKEND', 'Agg')\n"
+    )
+    assert _unguarded_backend_pins(real_guard) == []
+
+    sys_modules_guard = (
+        "import os, sys\n"
+        "if 'ipykernel' not in sys.modules:\n"
+        "    os.environ.setdefault('MPLBACKEND', 'Agg')\n"
+    )
+    assert _unguarded_backend_pins(sys_modules_guard) == []
+
+    for weak in (
+        "import os\nif True:\n    os.environ['MPLBACKEND'] = 'Agg'\n",
+        "import os\noutput_dir = 'x'\nif output_dir:\n"
+        "    os.environ['MPLBACKEND'] = 'Agg'\n",
+        "import matplotlib\nif 1 + 1 == 2:\n    matplotlib.use('Agg')\n",
+    ):
+        assert _unguarded_backend_pins(weak), weak
+
+    assert _unguarded_backend_pins("import matplotlib\nmatplotlib.use('Agg')\n")
+
+
+#: Modules whose use is unambiguous: a bare ``itertools.x`` in a notebook means
+#: the stdlib module, so a missing import is a NameError waiting to happen.
+STDLIB_MODULES_USED_BY_NAME = frozenset(
+    {
+        "collections",
+        "functools",
+        "glob",
+        "itertools",
+        "json",
+        "logging",
+        "math",
+        "os",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "warnings",
+    }
+)
+
+
+def _stdlib_import_failures(cells, label: str = "<notebook>") -> list[str]:
+    """Report stdlib modules a notebook uses before -- or without -- binding.
+
+    ``cells`` is an iterable of ``(index, source)`` in execution order. The
+    binding has to be compared against the *order* cells run in: pooling every
+    import in the notebook first would accept ``itertools.chain`` in cell 2
+    with ``import itertools`` in cell 9, which raises ``NameError`` on a real
+    top-to-bottom run and is exactly the issue-#180 failure.
+    """
+    first_bound: dict[str, int] = {}
+    first_used: dict[str, tuple[int, str]] = {}
+
+    for index, source in cells:
+        tree = ast.parse(source, filename=f"{label}:cell-{index}")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    first_bound.setdefault(
+                        (alias.asname or alias.name).split(".")[0], index
+                    )
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    first_bound.setdefault(alias.asname or alias.name, index)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                for target in ast.walk(node):
+                    if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store):
+                        first_bound.setdefault(target.id, index)
+            elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                module = node.value.id
+                if module in STDLIB_MODULES_USED_BY_NAME:
+                    first_used.setdefault(module, (index, f"{label}:cell-{index}"))
+
+    failures = []
+    for module, (used_at, where) in sorted(first_used.items()):
+        if module not in first_bound:
+            failures.append(f"{where}: uses {module}.* but never imports {module}")
+        elif first_bound[module] > used_at:
+            failures.append(
+                f"{where}: uses {module}.* before importing it in "
+                f"cell-{first_bound[module]}"
+            )
+    return failures
+
+
+def test_notebooks_import_every_stdlib_module_they_reference():
+    """Guards the ``itertools`` class of failure from issue #180."""
+    failures = []
+    for path in _notebook_paths():
+        failures.extend(_stdlib_import_failures(_code_cells(path), path.name))
+
+    assert failures == []
+
+
+def test_stdlib_import_check_is_sensitive_to_cell_order():
+    """Pooling imports notebook-wide would miss the #180 failure entirely.
+
+    A use in an early cell with the import in a later one runs clean only if
+    the reader executes out of order; top-to-bottom it is a ``NameError``.
+    """
+    use_before_import = [
+        (2, "rows = list(itertools.chain([1], [2]))"),
+        (9, "import itertools"),
+    ]
+    assert _stdlib_import_failures(use_before_import)
+
+    import_then_use = [
+        (2, "import itertools"),
+        (9, "rows = list(itertools.chain([1], [2]))"),
+    ]
+    assert _stdlib_import_failures(import_then_use) == []
+
+    same_cell = [(2, "import itertools\nrows = list(itertools.chain([1], [2]))")]
+    assert _stdlib_import_failures(same_cell) == []
+
+    never_imported = [(2, "rows = list(itertools.chain([1], [2]))")]
+    assert _stdlib_import_failures(never_imported)
+
+
+def test_notebook_references_to_packaged_data_resolve():
+    """Guards the wrong-subdirectory class of failure from issue #177."""
+    import re
+
+    pattern = re.compile(r"vaft/data/([\w./-]+)")
+    failures = []
+    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+        for index, source in _code_cells(path):
+            tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                    continue
+                match = pattern.search(node.value)
+                if match and not (ROOT / "vaft" / "data" / match.group(1)).exists():
+                    failures.append(
+                        f"{path.name}:cell-{index}: missing packaged data "
+                        f"vaft/data/{match.group(1)}"
+                    )
+
+    assert failures == []
+
+
+def test_verification_notebook_loads_the_summary_sheets(monkeypatch):
+    """The cells that broke in issues #151/#181 must execute against the real sheets.
+
+    Compiling a cell cannot catch ``from … import EXPECTED_COLUMNS`` against a
+    module that no longer defines it, nor a ``KeyError`` from a renamed sheet
+    column, so run the offline cells: 1 (bootstrap), 3 (volume-averaged sheet),
+    4 (scatter plot over its columns), 6 (equilibrium history sheet).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    notebook_path = NOTEBOOKS / "verification_and_validation.ipynb"
+    book = nbformat.read(notebook_path, as_version=4)
+    monkeypatch.chdir(ROOT)
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+
+    # Cell 2 asks the remote database which shots have core profiles; the
+    # offline cells only need the resulting list, and an empty one keeps the
+    # regeneration branch from reaching the network.
+    namespace = {"core_profile_shots": []}
+    for index in (1, 3, 4, 6):
+        source = book.cells[index].source
+        exec(compile(source, f"{notebook_path.name}:cell-{index}", "exec"), namespace)
+
+    preset = namespace["volume_preset"]
+    assert set(preset.columns) <= set(namespace["volume_df"].columns)
+    assert len(namespace["plot_df"]) > 0
+    assert not namespace["eq_df"].empty
+    plt.close("all")
+
+
+def test_verification_notebook_refuses_to_regenerate_without_target_shots():
+    """An empty shot list must not become a full-namespace scan.
+
+    ``vaft.database.summary(None, ...)`` means *every* shot in the namespace, so
+    passing ``None`` when no core-profile shot was found would open the whole
+    remote database instead of doing nothing.
+    """
+    notebook_path = NOTEBOOKS / "verification_and_validation.ipynb"
+    book = nbformat.read(notebook_path, as_version=4)
+    source = book.cells[3].source
+
+    namespace = {
+        "SKIP_VOLUME_AVERAGED_REGEN": False,
+        "core_profile_shots": [],
+        "output_path": NOTEBOOKS / "does-not-exist.xlsx",
+        "generate_volume_averaged_parameter_sheet": lambda *a, **k: pytest.fail(
+            "regeneration was attempted with no target shots"
+        ),
+    }
+    with pytest.raises(RuntimeError, match="core_profile"):
+        exec(compile(source, f"{notebook_path.name}:cell-3", "exec"), namespace)
+
+
+def test_the_backend_guard_selects_inline_inside_an_agg_pinned_kernel():
+    """The guard must recover a kernel whose environment pins Agg.
+
+    This is the reported failure from issues #175/#179/#182: a kernel running
+    with `MPLBACKEND=Agg` renders nothing and warns "FigureCanvasAgg is
+    non-interactive". Relying on ipykernel to preset MPLBACKEND is not enough --
+    older releases do not, which is why the guard asks for inline explicitly.
+    """
+    nbclient = pytest.importorskip("nbclient")
+    import os
+
+    guard = next(
+        source
+        for _, source in _code_cells(NOTEBOOKS / "confinement_time_scaling.ipynb")
+        if "_ipython" in source
+    ).split("import json")[0]
+
+    book = nbformat.v4.new_notebook()
+    book.cells = [
+        nbformat.v4.new_code_cell(
+            guard
+            + "\nimport matplotlib\nprint(matplotlib.get_backend())\n"
+            "import matplotlib.pyplot as plt\n"
+            "fig, ax = plt.subplots()\nax.plot([0, 1], [0, 1])\nplt.show()\n"
+        )
+    ]
+
+    previous = os.environ.get("MPLBACKEND")
+    os.environ["MPLBACKEND"] = "Agg"
+    try:
+        nbclient.NotebookClient(
+            book, timeout=180, kernel_name="python3", allow_errors=True
+        ).execute()
+    finally:
+        if previous is None:
+            os.environ.pop("MPLBACKEND", None)
+        else:
+            os.environ["MPLBACKEND"] = previous
+
+    outputs = book.cells[0].outputs
+    rendered = [
+        output
+        for output in outputs
+        if output.output_type in ("display_data", "execute_result")
+        and "image/png" in output.get("data", {})
+    ]
+    streams = "".join(o.get("text", "") for o in outputs if o.output_type == "stream")
+    assert "inline" in streams, f"guard left the backend as: {streams.strip()}"
+    assert len(rendered) == 1, "the figure did not reach the frontend"

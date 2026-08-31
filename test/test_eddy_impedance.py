@@ -94,3 +94,44 @@ def test_impedance_wrapper_does_not_write_non_imas_cache_locations():
     consistency_checked = ODS()
     consistency_checked.update(ods)
     assert "em_coupling.mutual_passive_active" in consistency_checked
+
+
+def test_ensure_em_coupling_reconstructs_when_only_passive_active_is_present():
+    """The pre-geometry-only sample carried exactly this partial shape.
+
+    Gating the early return on ``mutual_passive_active`` alone let such an ODS
+    skip reconstruction and then fail with a bare
+    ``KeyError: mutual_passive_passive`` inside
+    :func:`compute_impedance_matrices_ods`.
+    """
+    import vaft
+    from vaft.omas.process_wrapper import ensure_em_coupling
+
+    ods = vaft.omas.sample_ods()
+    ods["em_coupling.mutual_passive_active"] = np.zeros((950, 10))
+    assert "em_coupling.mutual_passive_passive" not in ods
+
+    ensure_em_coupling(ods)
+
+    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
+
+
+def test_ensure_em_coupling_leaves_a_complete_caller_supplied_pair_alone():
+    """Reconstruction must not overwrite matrices a caller already provided."""
+    import vaft
+    from vaft.omas.process_wrapper import ensure_em_coupling
+
+    ods = vaft.omas.sample_ods()
+    passive_passive = np.full((950, 950), 7.0)
+    passive_active = np.full((950, 10), 3.0)
+    ods["em_coupling.mutual_passive_passive"] = passive_passive
+    ods["em_coupling.mutual_passive_active"] = passive_active
+
+    ensure_em_coupling(ods)
+
+    np.testing.assert_array_equal(
+        ods["em_coupling.mutual_passive_passive"], passive_passive
+    )
+    np.testing.assert_array_equal(
+        ods["em_coupling.mutual_passive_active"], passive_active
+    )

@@ -298,3 +298,47 @@ def test_39915_sample_carries_the_complete_pf_active_machine_state():
     assert currents["PF10"] == pytest.approx(-522.1, abs=1.0)
     # every coil still carries its element geometry for adapter meshing
     assert all(len(ods[f"pf_active.coil.{i}.element"]) > 0 for i in range(10))
+
+
+def test_packaged_sample_carries_passive_geometry_without_derivable_data():
+    """The 39915 sample stores measurements, not reconstructions.
+
+    ``pf_passive`` loop currents are ~48 MB of the canonical source and
+    ``em_coupling``'s matrices are a function of the PF geometry version, so the
+    sample keeps the geometry and leaves both to
+    :func:`vaft.machine_mapping.em_coupling.em_coupling`.
+    """
+    ods = vaft.omas.sample_ods()
+
+    assert "em_coupling" not in ods
+    assert len(ods["pf_passive.loop"]) == 950
+    assert "time" not in ods["pf_passive"]
+    currents = [
+        path for path in ods.flat()
+        if str(path).startswith("pf_passive.") and str(path).endswith(".current")
+    ]
+    assert currents == []
+
+    # The geometry that makes the omission safe is all present.
+    for index in (0, 949):
+        loop = ods[f"pf_passive.loop.{index}"]
+        assert len(loop["element.0.geometry.outline.r"]) > 0
+        assert float(loop["resistance"]) > 0.0
+
+
+def test_em_coupling_is_reconstructible_from_the_packaged_geometry():
+    """The omission is only defensible while the reconstruction works."""
+    from vaft.machine_mapping.em_coupling import em_coupling
+
+    ods = vaft.omas.sample_ods()
+    assert "em_coupling" not in ods
+
+    em_coupling(ods, shot=39915)
+
+    assert np.shape(ods["em_coupling.mutual_active_active"]) == (10, 10)
+    assert np.shape(ods["em_coupling.mutual_passive_active"]) == (950, 10)
+    # Richer than the sample ever stored: the passive-passive matrix was never
+    # in the compact selectors at all.
+    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
+    assert len(ods["em_coupling.active_coils"]) == len(ods["pf_active.coil"])
+    assert len(ods["em_coupling.passive_loops"]) == len(ods["pf_passive.loop"])

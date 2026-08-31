@@ -28,6 +28,20 @@ NOTEBOOK = TUTORIAL / "01_getting_started_with_vaft.ipynb"
 # size means a cell is echoing a data object instead of a summary of one.
 MAX_OUTPUT_BYTES = 200_000
 
+# Rendered figures are measured separately, and only loosely. A machine
+# cross-section legitimately carries every one of the sample's 950 passive
+# loops -- dense pixels, not an echoed data object, so the text budget above
+# does not describe it. Encoded size then varies with the platform's backend
+# DPI, fonts and Matplotlib version: the same figure is ~345 kB locally on
+# macOS and ~764 kB on Linux CI. A tight bound here would be a portability trap
+# rather than a guard, so this is a sanity ceiling that catches a figure which
+# has genuinely run away (megabytes), not a budget calibrated to any one
+# machine.
+MAX_IMAGE_BYTES = 2_000_000
+
+#: Payloads that are rendered pixels rather than text a reader would scroll.
+IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
+
 
 def _source(cell) -> str:
     source = cell.get("source", "")
@@ -88,14 +102,31 @@ def test_every_plotting_cell_produces_a_figure(executed):
 
 
 def test_no_cell_dumps_a_data_object(executed):
-    """Echoing an ODS writes ~0.5 MB of array text into the notebook."""
+    """Echoing an ODS writes ~0.5 MB of array text into the notebook.
+
+    The budget applies to *text*, which is what echoing a data object produces.
+    Measuring the whole output would instead police figure resolution: the
+    poloidal geometry plot draws all 950 passive loops and encodes to ~345 kB
+    of PNG, which is a detailed picture rather than a dumped object.
+    """
     for cell in _code_cells(executed):
         for output in cell.get("outputs", []):
-            size = len(str(output))
-            assert size < MAX_OUTPUT_BYTES, (
-                f"{cell.id}: {output.output_type} output is {size} bytes; "
-                "summarise the object instead of echoing it"
+            data = output.get("data") or {}
+            text = str(output.get("text", "")) + "".join(
+                str(value)
+                for mime, value in data.items()
+                if mime not in IMAGE_MIME_TYPES
             )
+            assert len(text) < MAX_OUTPUT_BYTES, (
+                f"{cell.id}: {output.output_type} text output is {len(text)} "
+                "bytes; summarise the object instead of echoing it"
+            )
+            for mime in IMAGE_MIME_TYPES:
+                if mime in data:
+                    assert len(str(data[mime])) < MAX_IMAGE_BYTES, (
+                        f"{cell.id}: {mime} payload is {len(str(data[mime]))} "
+                        "bytes; shrink the figure rather than the data it shows"
+                    )
 
 
 def test_the_notebook_needs_no_credentials(book):

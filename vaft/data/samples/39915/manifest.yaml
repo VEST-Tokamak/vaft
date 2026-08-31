@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 10458725
-    sha256: e4a7a46699ca0f9b90e1b3cb46a0ccb064ff62be98667ecbdabe9bb882e3798f
+    size: 10469184
+    sha256: 4e6f688f74165bfa8b8e834a81fa9dcfc46efc2223dae29df633c5618b3b96e8
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,8 +58,8 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11822518
-    sha256: 83ada36ee937897aedcf6692885f1be03559dc3ddc131d94d0c23b5657f2631e
+    size: 11899536
+    sha256: d56d89ca858f15280beba682beac992b603a9e47de22ec88b9008e7ac3d589ba
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -67,7 +67,7 @@ generation:
   canonical_sha256: 426f8e7842e0fcc73dc5df910c797a5a40b5b460bb0165b7de292d9b48235ded
   canonical_policy: repository-only
   equilibrium_time_slices: 0
-  materialized_leaves: 10872
+  materialized_leaves: 19428
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -79,19 +79,18 @@ generation:
   - wall.*
   - barometry.*
   - tf.*
-  - pf_active.*
+  - pf_active.ids_properties.*
+  - pf_active.time
+  - pf_active.coil.*
   - magnetics.*
   - spectrometer_uv.ids_properties.*
   - spectrometer_uv.time
-  - spectrometer_uv.channel.0.*
+  - spectrometer_uv.channel.*
   - pf_passive.ids_properties.*
-  - pf_passive.time
-  - pf_passive.loop.0.*
-  - em_coupling.ids_properties.*
-  - em_coupling.active_coils
-  - em_coupling.passive_loops
-  - em_coupling.mutual_active_active
-  - em_coupling.mutual_passive_active
+  - pf_passive.loop.*.name
+  - pf_passive.loop.*.resistance
+  - pf_passive.loop.*.resistivity
+  - pf_passive.loop.*.element.*
   - equilibrium.ids_properties.*
   - equilibrium.time
   - equilibrium.vacuum_toroidal_field.*
@@ -105,7 +104,6 @@ semantic_comparison:
   - magnetics.*
   - spectrometer_uv.*
   - pf_passive.*
-  - em_coupling.*
   - equilibrium.*
   exclude_paths:
   - '*.ids_properties.version_put*'
@@ -117,6 +115,11 @@ acceptance:
     flux_loop_count: 11
   pf_active:
     coil_count: 10
+  spectrometer_uv:
+    channel_count: 3
+  pf_passive:
+    loop_count: 950
+    static_only: true
   equilibrium_times:
   - 0.316
   - 0.317
@@ -135,7 +138,6 @@ acceptance:
   - magnetics
   - spectrometer_uv
   - pf_passive
-  - em_coupling
   - equilibrium
 packaging_policy:
   compact_pair: wheel-and-sdist
