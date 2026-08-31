@@ -173,6 +173,21 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
         explicit=explicit, bt0=bt0, ip=ip, q=q, psi_1d=psi_1d,
         source="argument" if convention is not None else ("ODS metadata" if explicit else "ODS signs"),
     )
+    if conv.psi_per_radian is None:
+        # Sign-based identification cannot separate the per-radian (1-8) from
+        # the full-weber (11-18) family; the dphi/dpsi-vs-q slope can
+        # (issue #236). Narrow the candidate set to the detected family.
+        from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+
+        per_radian = ods_psi_to_wb_per_radian_factor(source, time_index) == 1.0
+        family = tuple(c for c in conv.candidates if (c < 10) == per_radian)
+        conv = replace(
+            conv,
+            candidates=family if family else conv.candidates,
+            cocos=family[0] if len(family) == 1 else conv.cocos,
+            psi_per_radian=per_radian,
+            source=conv.source + " + phi/q slope family detection",
+        )
     rb, zb = _array(_path_get(ts, "boundary.outline.r")), _array(_path_get(ts, "boundary.outline.z"))
     rl = _array(_path_get(source, "wall.description_2d.0.limiter.unit.0.outline.r"))
     zl = _array(_path_get(source, "wall.description_2d.0.limiter.unit.0.outline.z"))

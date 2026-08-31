@@ -13,8 +13,8 @@ from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
 __all__ = [
-    "core_profiles_field_electron_density",
-    "core_profiles_field_electron_temperature",
+    "electron_density_field",
+    "electron_temperature_field",
     "equilibrium_field_psi",
     "equilibrium_field_psi_vacuum",
     "render_field_2d",
@@ -111,7 +111,7 @@ def equilibrium_field_psi_vacuum(
 
 
 @_field_renderer(
-    domain="core_profiles", quantity="electron_temperature",
+    domain="core_profiles", quantity="",
     subject="electron_temperature",
     description="Electron temperature mapped onto the poloidal plane.",
     ids=("core_profiles", "equilibrium"),
@@ -121,7 +121,7 @@ def equilibrium_field_psi_vacuum(
     ),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
 )
-def core_profiles_field_electron_temperature(
+def electron_temperature_field(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Electron temperature mapped onto the poloidal plane."""
@@ -129,7 +129,7 @@ def core_profiles_field_electron_temperature(
 
 
 @_field_renderer(
-    domain="core_profiles", quantity="electron_density",
+    domain="core_profiles", quantity="",
     subject="electron_density",
     description="Electron density mapped onto the poloidal plane.",
     ids=("core_profiles", "equilibrium"),
@@ -139,7 +139,7 @@ def core_profiles_field_electron_temperature(
     ),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
 )
-def core_profiles_field_electron_density(
+def electron_density_field(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Electron density mapped onto the poloidal plane."""

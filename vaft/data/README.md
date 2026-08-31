@@ -118,9 +118,13 @@ the g-file through `omfit_classes`, which VAFT no longer depends on (issue
 flux-surface solve's derived equilibrium quantities
 (`profiles_1d.gm1`..`gm9`, `dvolume_dpsi`, `b_field_average`, `area`,
 `elongation`, `global_quantities.beta_pol`/`li_3`, the X-point locations, and
-~550 other leaves), and it wrote `psi` in Wb where the native path keeps the
-g-file's own Wb/rad. The committed sample is therefore kept as a frozen
-artifact rather than regenerated -- do not overwrite it casually. Keep `user`
+~550 other leaves). Since issue #236 the native `to_omas` also writes `psi`
+in Wb as the IMAS DD requires (the earlier Wb/rad discrepancy this paragraph
+used to document is fixed); `from_omas` tells legacy Wb/rad artifacts apart
+from DD-conformant ones via the `dphi/dpsi` vs `q` slope, so both this OMFIT
+sample and older native ODS files read back correctly. The committed sample is
+kept as a frozen artifact rather than regenerated -- do not overwrite it
+casually. Keep `user`
 pinned if you do regenerate (`dataset_description` otherwise stamps `$USER`,
 turning a regeneration into a spurious 2 MB diff). The recipe:
 

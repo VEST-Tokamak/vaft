@@ -110,9 +110,9 @@ def test_specs_and_available_plots_filter_by_subject_and_alias():
 
 def test_subject_separates_physical_concept_from_ids_domain():
     # ``domain`` records where the data lives; ``subject`` what it represents.
-    flux_loop = registry.get_spec("magnetics_time_flux_loop_flux")
+    flux_loop = registry.get_spec("flux_loop_time_flux")
     assert flux_loop.domain == "magnetics"
     assert flux_loop.subject == "flux_loop"
-    density = registry.get_spec("core_profiles_profile_electron_density")
+    density = registry.get_spec("electron_density_profile")
     assert density.domain == "core_profiles"
     assert density.subject == "electron_density"

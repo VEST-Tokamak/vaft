@@ -21,6 +21,12 @@ Classifications
     so a legacy call routed through ``vaft.omas.plot_<stem>`` is the direct
     equivalent; the mapping records the canonical stem.
 
+``RENAMED``
+    A canonical renderer whose stem changed in the issue #251 subject-taxonomy
+    redesign (``magnetics_time_ip`` -> ``plasma_current_time``).  The old stem
+    keeps working from ``vaft.plot`` and ``vaft.omas.plot_<stem>`` and warns
+    until ``RENAMED_REMOVAL_RELEASE``.
+
 ``RELOCATED``
     Still supported, but it belongs to another namespace.  It keeps working from
     ``vaft.plot`` and warns, pointing at its real home.
@@ -47,6 +53,9 @@ __all__ = [
     "render_markdown_table",
     "INTRODUCED_IN",
     "LEGACY",
+    "RENAMED",
+    "RENAMED_IN",
+    "RENAMED_REMOVAL_RELEASE",
     "RELOCATED",
     "REMOVAL_RELEASE",
     "REMOVED",
@@ -60,17 +69,17 @@ REMOVAL_RELEASE = "0.7.0"
 #: Legacy renderer name -> canonical ``vaft.plot`` stem.
 DEPRECATED: dict[str, str] = {
     # --- vaft.plot.time: view-first names replaced by domain-first ones -------
-    "time_magnetics_ip": "magnetics_time_ip",
-    "time_magnetics_diamagnetic_flux": "magnetics_time_diamagnetic_flux",
-    "time_magnetics_flux_loop_flux": "magnetics_time_flux_loop_flux",
-    "time_magnetics_flux_loop_voltage": "magnetics_time_flux_loop_voltage",
-    "time_magnetics_b_field_pol_probe_field": "magnetics_time_b_field_pol_probe_field",
-    "time_pf_active_current": "pf_active_time_current",
-    "time_pf_active_current_turns": "pf_active_time_current_turns",
+    "time_magnetics_ip": "plasma_current_time",
+    "time_magnetics_diamagnetic_flux": "diamagnetic_flux_time",
+    "time_magnetics_flux_loop_flux": "flux_loop_time_flux",
+    "time_magnetics_flux_loop_voltage": "flux_loop_time_voltage",
+    "time_magnetics_b_field_pol_probe_field": "b_field_probe_time_field",
+    "time_pf_active_current": "pf_coil_time_current",
+    "time_pf_active_current_turns": "pf_coil_time_current_turns",
     "time_equilibrium_plasma_current": "equilibrium_time_plasma_current",
     "time_equilibrium_li": "equilibrium_time_li",
-    "time_equilibrium_beta_pol": "equilibrium_time_beta_pol",
-    "time_equilibrium_beta_tor": "equilibrium_time_beta_tor",
+    "time_equilibrium_beta_pol": "equilibrium_time_beta_p",
+    "time_equilibrium_beta_tor": "equilibrium_time_beta_t",
     "time_equilibrium_beta_n": "equilibrium_time_beta_n",
     "time_equilibrium_w_mhd": "equilibrium_time_w_mhd",
     "time_equilibrium_w_mag": "equilibrium_time_w_mag",
@@ -79,19 +88,19 @@ DEPRECATED: dict[str, str] = {
     "time_equilibrium_q95": "equilibrium_time_q95",
     "time_equilibrium_qa": "equilibrium_time_qa",
     "time_equilibrium_major_radius": "equilibrium_time_major_radius",
-    "time_tf_b_field_tor": "tf_time_b_field_tor",
-    "time_tf_b_field_tor_vacuum_r": "tf_time_b_field_tor_vacuum_r",
-    "time_tf_coil_current": "tf_time_coil_current",
+    "time_tf_b_field_tor": "tf_coil_time_b_t",
+    "time_tf_b_field_tor_vacuum_r": "tf_coil_time_b_t_vacuum_r",
+    "time_tf_coil_current": "tf_coil_time_current",
     "time_spectrometer_uv_intensity": "spectrometer_uv_time_intensity",
     "time_barometry_pressure": "barometry_time_pressure",
     "time_diamagnetic_flux": "equilibrium_time_diamagnetic_flux",
     # --- vaft.plot.time: composites ------------------------------------------
     "time_energy": "summary_time_energy",
-    "time_beta": "summary_time_beta",
+    "time_beta": "equilibrium_time_beta",
     "time_power_balance": "summary_time_power_balance",
     "time_voltage_consumption": "summary_time_voltage_consumption",
     "time_virial_equilibrium_quantities": "equilibrium_time_virial",
-    "time_electromagnetics_current": "electromagnetics_time_current",
+    "time_electromagnetics_current": "current_overview",
     "time_impurity_effect": "spectrometer_uv_time_impurity",
     "plot_core_profiles_time_volume_averaged": "core_profiles_time_volume_averaged",
     # --- vaft.plot.analysis ---------------------------------------------------
@@ -106,14 +115,14 @@ DEPRECATED: dict[str, str] = {
     "equilibrium_1d_radial": "equilibrium_profile_pressure",
     "plot_equilibrium_pressure": "equilibrium_profile_pressure",
     "plot_equilibrium_q": "equilibrium_profile_q",
-    "plot_core_profiles_ne": "core_profiles_profile_electron_density",
-    "plot_core_profiles_te": "core_profiles_profile_electron_temperature",
+    "plot_core_profiles_ne": "electron_density_profile",
+    "plot_core_profiles_te": "electron_temperature_profile",
     # --- vaft.plot.profile ----------------------------------------------------
     "plot_thomson_radial_position": "thomson_scattering_geometry_poloidal",
     "thomson_scattering_radial": "thomson_scattering_profile_electron_temperature",
     "thomson_scattering_radial_profiles": "thomson_scattering_profile_electron_temperature",
     "plot_thomson_profiles": "thomson_scattering_profile_electron_temperature",
-    "plot_electron_profile_with_thomson": "core_profiles_profile_electron_temperature",
+    "plot_electron_profile_with_thomson": "electron_temperature_profile",
     "plot_thomson_time_series": "thomson_scattering_time_electron_temperature",
     "thomson_scattering_time": "thomson_scattering_time_electron_temperature",
     "charge_exchange_radial": "charge_exchange_profile_ion_temperature",
@@ -121,9 +130,9 @@ DEPRECATED: dict[str, str] = {
     "charge_exchange_rho_profiles": "charge_exchange_profile_ion_temperature",
     "plot_ces_profile": "charge_exchange_profile_ion_temperature",
     "charge_exchange_time": "charge_exchange_time_ion_temperature",
-    "plot_electron_psi_profile": "core_profiles_profile_electron_temperature",
-    "plot_electron_2d_profile": "core_profiles_field_electron_temperature",
-    "plot_TeNe_from_eq": "core_profiles_profile_electron_temperature",
+    "plot_electron_psi_profile": "electron_temperature_profile",
+    "plot_electron_2d_profile": "electron_temperature_field",
+    "plot_TeNe_from_eq": "electron_temperature_profile",
     "plot_electron_time_volume_averaged": "core_profiles_time_volume_averaged",
     "plot_equilibrium_and_core_profiles_pressure": "equilibrium_profile_pressure",
     "plot_pressure_profile_with_geqdsk": "equilibrium_profile_pressure",
@@ -131,7 +140,7 @@ DEPRECATED: dict[str, str] = {
     "equilibrium_2d_profiles": "equilibrium_field_psi",
     "vacuum_psi_contour": "equilibrium_field_psi_vacuum",
     "overlay_all_with_vacuum_psi_contour": "equilibrium_field_psi_vacuum",
-    "pf_passive_overlay": "pf_passive_geometry_poloidal",
+    "pf_passive_overlay": "passive_structure_geometry_poloidal",
     "overlay_all": "machine_geometry_poloidal",
     "twodim_geometry_all": "machine_geometry_poloidal",
     # --- vaft.plot.topview ----------------------------------------------------
@@ -155,10 +164,12 @@ DEPRECATED: dict[str, str] = {
     "soft_x_rays_pattern": "soft_x_rays_overview",
     "plot_soft_x_ray_overview": "soft_x_rays_overview",
     # --- vaft.plot.mirnov -----------------------------------------------------
-    "mirnov_signal": "magnetics_time_mirnov_voltage",
-    "mirnov_spectrogram": "magnetics_spectrogram_mirnov",
-    "toroidal_mode_spectrum": "magnetics_spectrogram_mirnov",
-    "toroidal_phase_mode_fit": "magnetics_time_mirnov_voltage",
+    "mirnov_signal": "mirnov_time_voltage",
+    # NOTE: the legacy ``mirnov_spectrogram`` entry was retired in 0.6.0 when
+    # the canonical spectrogram renderer took that exact name (issue #251);
+    # the canonical attribute now shadows the legacy one.
+    "toroidal_mode_spectrum": "mirnov_spectrogram",
+    "toroidal_phase_mode_fit": "mirnov_time_voltage",
 }
 
 # The 24 coordinate-specific equilibrium profile globals that ``onedim`` used to
@@ -181,6 +192,52 @@ GENERATED_EQUILIBRIUM_PROFILES: tuple[tuple[str, str, str], ...] = tuple(
 for _name, _coordinate, _canonical in GENERATED_EQUILIBRIUM_PROFILES:
     DEPRECATED[_name] = _canonical
 del _name, _coordinate, _canonical
+
+#: Old canonical stem -> new subject-centered canonical stem (issue #251).
+#: Unlike ``DEPRECATED`` (pre-redesign legacy names), these were canonical
+#: names between the issue #62 redesign and the issue #251 subject taxonomy.
+#: ``vaft.plot.<old>`` and ``vaft.omas.plot_<old>`` keep working with a
+#: ``DeprecationWarning`` until ``RENAMED_REMOVAL_RELEASE``.
+RENAMED_IN = "0.6.0"
+RENAMED_REMOVAL_RELEASE = "0.8.0"
+
+RENAMED: dict[str, str] = {
+    "magnetics_time_ip": "plasma_current_time",
+    "magnetics_time_diamagnetic_flux": "diamagnetic_flux_time",
+    "magnetics_time_flux_loop_flux": "flux_loop_time_flux",
+    "magnetics_time_flux_loop_voltage": "flux_loop_time_voltage",
+    "magnetics_time_b_field_pol_probe_field": "b_field_probe_time_field",
+    "magnetics_time_mirnov_voltage": "mirnov_time_voltage",
+    "magnetics_spectrum_mirnov": "mirnov_spectrum",
+    "magnetics_spectrogram_mirnov": "mirnov_spectrogram",
+    "magnetics_time_limiter_current": "limiter_current_time",
+    "magnetics_time_impa_field": "impa_time_field",
+    "magnetics_time_impa_voltage": "impa_time_voltage",
+    "magnetics_overview_impa": "impa_overview",
+    "magnetics_profile_impa_tf": "impa_profile_field",
+    "pf_active_time_current": "pf_coil_time_current",
+    "pf_active_time_current_turns": "pf_coil_time_current_turns",
+    "pf_active_geometry_poloidal": "pf_coil_geometry_poloidal",
+    "pf_passive_geometry_poloidal": "passive_structure_geometry_poloidal",
+    "tf_time_coil_current": "tf_coil_time_current",
+    "tf_time_b_field_tor": "tf_coil_time_b_t",
+    "tf_time_b_field_tor_vacuum_r": "tf_coil_time_b_t_vacuum_r",
+    "electromagnetics_time_current": "current_overview",
+    "equilibrium_time_beta_pol": "equilibrium_time_beta_p",
+    "equilibrium_time_beta_tor": "equilibrium_time_beta_t",
+    "summary_time_beta": "equilibrium_time_beta",
+    "core_profiles_time_electron_density": "electron_density_time",
+    "core_profiles_time_electron_temperature": "electron_temperature_time",
+    "core_profiles_profile_electron_density": "electron_density_profile",
+    "core_profiles_profile_electron_temperature": "electron_temperature_profile",
+    "core_profiles_profile_ion_temperature": "ion_temperature_profile",
+    "core_profiles_profile_pressure": "thermal_pressure_profile",
+    "core_profiles_field_electron_density": "electron_density_field",
+    "core_profiles_field_electron_temperature": "electron_temperature_field",
+    "coils_non_axisymmetric_geometry3d": "coil_3d_geometry3d",
+    "coils_non_axisymmetric_geometry_topview": "coil_3d_geometry_topview",
+}
+
 
 #: Legacy name -> the namespace that actually owns it.
 RELOCATED: dict[str, str] = {
@@ -237,10 +294,7 @@ REMOVED: dict[str, str] = {
 #: an ODS should move to ``vaft.omas.plot_<name>``.
 PRESERVED: tuple[str, ...] = (
     "barometry_time_pressure",
-    "electromagnetics_time_current",
     "equilibrium_time_beta_n",
-    "equilibrium_time_beta_pol",
-    "equilibrium_time_beta_tor",
     "equilibrium_time_li",
     "equilibrium_time_major_radius",
     "equilibrium_time_plasma_current",
@@ -250,19 +304,9 @@ PRESERVED: tuple[str, ...] = (
     "equilibrium_time_w_mag",
     "equilibrium_time_w_mhd",
     "equilibrium_time_w_tot",
-    "magnetics_time_b_field_pol_probe_field",
-    "magnetics_time_diamagnetic_flux",
-    "magnetics_time_flux_loop_flux",
-    "magnetics_time_flux_loop_voltage",
-    "magnetics_time_ip",
-    "pf_active_time_current",
-    "pf_active_time_current_turns",
     "soft_x_rays_overview",
     "soft_x_rays_spectrogram",
     "spectrometer_uv_time_intensity",
-    "tf_time_b_field_tor",
-    "tf_time_b_field_tor_vacuum_r",
-    "tf_time_coil_current",
 )
 
 
@@ -287,7 +331,6 @@ for _module, _names in {
     "history": LEGACY,
     "mirnov": (
         "mirnov_signal",
-        "mirnov_spectrogram",
         "toroidal_mode_spectrum",
         "toroidal_phase_mode_fit",
     ),
@@ -406,7 +449,7 @@ def render_markdown_table() -> str:
         "",
         "```python",
         "vaft.plot.time_magnetics_ip(ods)              # before",
-        "vaft.omas.plot_magnetics_time_ip(ods)         # after",
+        "vaft.omas.plot_plasma_current_time(ods)         # after",
         "```",
         "",
         "Use `vaft.plot.<canonical>` directly when you already hold a view model.",
@@ -424,6 +467,21 @@ def render_markdown_table() -> str:
     for name in sorted(DEPRECATED):
         canonical = DEPRECATED[name]
         lines.append(f"| `{name}` | `{canonical}` | `vaft.omas.plot_{canonical}` |")
+
+    lines += [
+        "",
+        "## Renamed canonical stems (issue #251)",
+        "",
+        "The issue #251 subject taxonomy renamed these canonical stems from",
+        "IDS-oriented to physical-subject-oriented names. The old stems keep",
+        f"working and warn from **{RENAMED_IN}** until **{RENAMED_REMOVAL_RELEASE}**,",
+        "from both `vaft.plot.<stem>` and `vaft.omas.plot_<stem>`.",
+        "",
+        "| Old canonical stem | New canonical stem |",
+        "| --- | --- |",
+    ]
+    for name in sorted(RENAMED):
+        lines.append(f"| `{name}` | `{RENAMED[name]}` |")
 
     lines += [
         "",

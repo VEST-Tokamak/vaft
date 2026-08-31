@@ -28,7 +28,7 @@ __all__ = [
     "chease_overview_profile_validity",
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
-    "electromagnetics_time_current",
+    "current_overview",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -39,14 +39,14 @@ __all__ = [
     "equilibrium_time_virial",
     "interferometer_overview",
     "magnetics_overview",
-    "magnetics_overview_impa",
+    "impa_overview",
     "magnetics_overview_plasma_residual",
     "magnetics_overview_vacuum",
-    "magnetics_time_limiter_current",
+    "limiter_current_time",
     "render_panels",
     "soft_x_rays_overview",
     "spectrometer_uv_time_impurity",
-    "summary_time_beta",
+    "equilibrium_time_beta",
     "summary_time_energy",
     "summary_time_power_balance",
     "summary_time_voltage_consumption",
@@ -205,7 +205,7 @@ def summary_time_energy(
 
 
 @_panel_renderer(
-    domain="summary",
+    domain="equilibrium",
     subject="equilibrium",
     view="time",
     quantity="beta",
@@ -213,7 +213,7 @@ def summary_time_energy(
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.global_quantities.beta_pol",),
 )
-def summary_time_beta(
+def equilibrium_time_beta(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Poloidal, toroidal and normalized beta panels."""
@@ -274,13 +274,13 @@ def equilibrium_time_virial(
 @_panel_renderer(
     domain="electromagnetics",
     subject="current",
-    view="time",
-    quantity="current",
+    view="overview",
+    quantity="",
     description="Plasma, PF coil and eddy current panels on a shared time axis.",
     ids=("magnetics", "pf_active", "pf_passive"),
     required_paths=("magnetics.ip.0.data",),
 )
-def electromagnetics_time_current(
+def current_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Plasma, PF coil and eddy current panels on a shared time axis."""
@@ -336,13 +336,13 @@ def magnetics_overview(
 
 
 @_panel_renderer(
-    domain="magnetics", view="overview", quantity="impa",
+    domain="magnetics", view="overview", quantity="",
     subject="impa",
     description="IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.",
     ids=("magnetics", "tf"),
     required_paths=("magnetics.b_field_tor_probe.{i}.voltage.data",),
 )
-def magnetics_overview_impa(
+def impa_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """IMPA validation overview panels."""
@@ -353,7 +353,7 @@ def magnetics_overview_impa(
     domain="magnetics",
     subject="limiter_current",
     view="time",
-    quantity="limiter_current",
+    quantity="",
     description="Lower-corner, upper-corner and midplane limiter currents in three panels.",
     ids=("magnetics",),
     required_paths=(
@@ -366,7 +366,7 @@ def magnetics_overview_impa(
         "magnetics.shunt.{i}.identifier",
     ),
 )
-def magnetics_time_limiter_current(
+def limiter_current_time(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Lower-corner, upper-corner and midplane limiter-current histories."""

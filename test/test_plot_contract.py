@@ -157,10 +157,10 @@ def test_renderers_reject_ods_with_an_actionable_message():
     ods["magnetics.ip.0.time"] = np.array([0.0, 1.0])
     ods["magnetics.ip.0.data"] = np.array([0.0, 1000.0])
 
-    from vaft.plot import magnetics_time_ip
+    from vaft.plot import plasma_current_time
 
     with pytest.raises(TypeError, match="vaft.plot.models.LineSeries"):
-        magnetics_time_ip(ods)
+        plasma_current_time(ods)
 
 
 def test_models_reject_ods_inside_a_series():

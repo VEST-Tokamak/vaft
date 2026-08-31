@@ -39,7 +39,7 @@ def test_available_plots_filters_by_what_the_object_actually_holds(sample_ods):
     for_shot = {row["name"] for row in vomas.available_plots(sample_ods)}
 
     assert for_shot < everything
-    assert "magnetics_time_ip" in for_shot
+    assert "plasma_current_time" in for_shot
     # 39915 carries no Thomson scattering, so its plots must not be offered.
     assert "thomson_scattering_time_electron_temperature" not in for_shot
 
@@ -64,20 +64,20 @@ def test_a_spectrogram_skips_channels_that_carry_no_waveform(sample_ods):
     """
     assert "magnetics.b_field_pol_probe.0.voltage.data" not in sample_ods
 
-    figure, _ = vomas.plot_magnetics_spectrogram_mirnov(sample_ods)
+    figure, _ = vomas.plot_mirnov_spectrogram(sample_ods)
     plt.close(figure)
 
     # An explicitly requested empty channel is still an error, not a silent
     # substitution of a different probe's signal.
     with pytest.raises(ValueError, match="voltage.data is not available"):
-        vomas.plot_magnetics_spectrogram_mirnov(sample_ods, channel=0)
+        vomas.plot_mirnov_spectrogram(sample_ods, channel=0)
 
 
 def test_adapters_default_to_no_display(sample_ods, monkeypatch):
     monkeypatch.setattr(
         plt, "show", lambda *a, **k: pytest.fail("adapter displayed implicitly")
     )
-    figure, _ = vomas.plot_magnetics_time_ip(sample_ods)
+    figure, _ = vomas.plot_plasma_current_time(sample_ods)
     plt.close(figure)
 
 
@@ -88,7 +88,7 @@ def test_ods_odc_and_list_inputs_produce_the_same_artists(sample_ods):
     figures = []
     results = []
     for source in (sample_ods, odc, [sample_ods]):
-        figure, axes = vomas.plot_magnetics_time_ip(source)
+        figure, axes = vomas.plot_plasma_current_time(source)
         figures.append(figure)
         results.append(_line_data(axes))
 
@@ -102,11 +102,11 @@ def test_ods_odc_and_list_inputs_produce_the_same_artists(sample_ods):
 
 
 def test_list_inputs_get_deterministic_labels_and_ordering(sample_ods):
-    figure, axes = vomas.plot_magnetics_time_ip([sample_ods, sample_ods], label="key")
+    figure, axes = vomas.plot_plasma_current_time([sample_ods, sample_ods], label="key")
     assert [line.get_label() for line in axes.lines] == ["0", "1"]
     plt.close(figure)
 
-    figure, axes = vomas.plot_magnetics_time_ip(
+    figure, axes = vomas.plot_plasma_current_time(
         [sample_ods, sample_ods], label=["first", "second"]
     )
     assert [line.get_label() for line in axes.lines] == ["first", "second"]
@@ -114,20 +114,20 @@ def test_list_inputs_get_deterministic_labels_and_ordering(sample_ods):
 
 
 def test_pulse_labels_are_used_by_default(sample_ods):
-    figure, axes = vomas.plot_magnetics_time_ip(sample_ods)
+    figure, axes = vomas.plot_plasma_current_time(sample_ods)
     assert axes.lines[0].get_label() == "39915"
     plt.close(figure)
 
 
 def test_mismatched_explicit_labels_are_reported(sample_ods):
     with pytest.raises(ValueError, match="labels for"):
-        vomas.plot_magnetics_time_ip([sample_ods, sample_ods], label=["only-one"])
+        vomas.plot_plasma_current_time([sample_ods, sample_ods], label=["only-one"])
 
 
 def test_adapters_render_into_caller_supplied_axes(sample_ods):
     figure, target = plt.subplots()
     before = set(plt.get_fignums())
-    returned_figure, returned_axes = vomas.plot_magnetics_time_ip(sample_ods, ax=target)
+    returned_figure, returned_axes = vomas.plot_plasma_current_time(sample_ods, ax=target)
     assert returned_figure is figure
     assert returned_axes is target
     assert set(plt.get_fignums()) == before
@@ -136,7 +136,7 @@ def test_adapters_render_into_caller_supplied_axes(sample_ods):
 
 def test_unsupported_input_types_are_reported():
     with pytest.raises(TypeError, match="omas ODS"):
-        vomas.plot_magnetics_time_ip(42)
+        vomas.plot_plasma_current_time(42)
 
 
 def test_missing_data_produces_an_actionable_error(sample_ods):
@@ -153,11 +153,11 @@ def test_tf_field_divides_by_reference_radius(sample_ods):
     ods["tf.b_field_tor_vacuum_r.data"] = np.array([0.4, 0.4, 0.4])
     ods["tf.r0"] = 0.4
 
-    figure, axes = vomas.plot_tf_time_b_field_tor(ods)
+    figure, axes = vomas.plot_tf_coil_time_b_t(ods)
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [1.0, 1.0, 1.0])
     plt.close(figure)
 
-    figure, axes = vomas.plot_tf_time_b_field_tor_vacuum_r(ods)
+    figure, axes = vomas.plot_tf_coil_time_b_t_vacuum_r(ods)
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.4, 0.4, 0.4])
     plt.close(figure)
 
@@ -167,7 +167,7 @@ def test_tf_field_tolerates_a_missing_reference_radius():
     ods["tf.time"] = np.array([0.0, 0.1])
     ods["tf.b_field_tor_vacuum_r.data"] = np.array([0.4, 0.4])
 
-    figure, axes = vomas.plot_tf_time_b_field_tor(ods)
+    figure, axes = vomas.plot_tf_coil_time_b_t(ods)
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.4, 0.4])
     plt.close(figure)
 
@@ -192,11 +192,11 @@ def test_machine_topview_includes_pellet_geometry():
 
 def test_partial_composites_drop_the_absent_panels(sample_ods):
     offered = {row["name"] for row in vomas.available_plots(sample_ods)}
-    assert "summary_time_beta" not in offered
+    assert "equilibrium_time_beta" not in offered
 
     empty = ODS(consistency_check=False)
     with pytest.raises(ValueError, match="none of the panels"):
-        vomas.plot_summary_time_beta(empty)
+        vomas.plot_equilibrium_time_beta(empty)
 
 
 def test_channel_line_plots_ignore_scalar_placeholder_channels():
@@ -210,7 +210,7 @@ def test_channel_line_plots_ignore_scalar_placeholder_channels():
     ods["magnetics.b_field_pol_probe.1.field.time"] = np.nan
     ods["magnetics.b_field_pol_probe.1.field.data"] = np.nan
 
-    figure, axes = vomas.plot_magnetics_time_b_field_pol_probe_field(ods)
+    figure, axes = vomas.plot_b_field_probe_time_field(ods)
     assert len(axes.lines) == 1
     plt.close(figure)
 
@@ -227,14 +227,14 @@ class TestPlotMethods:
         import importlib
 
         importlib.import_module("vaft")
-        assert not hasattr(ODS, "plot_magnetics_time_ip")
+        assert not hasattr(ODS, "plot_plasma_current_time")
 
     def test_registration_is_explicit_and_idempotent(self, sample_ods):
         first = vomas.enable_plot_methods()
-        assert "plot_magnetics_time_ip" in first
+        assert "plot_plasma_current_time" in first
         assert vomas.enable_plot_methods() == first
 
-        figure, axes = sample_ods.plot_magnetics_time_ip()
+        figure, axes = sample_ods.plot_plasma_current_time()
         assert len(axes.lines) == 1
         plt.close(figure)
 

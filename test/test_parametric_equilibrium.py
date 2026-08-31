@@ -74,13 +74,16 @@ def test_models_validate_shapes_and_missing_fields_are_actionable():
 
 def test_geqdsk_and_ods_adapters_are_numerically_equivalent():
     source = sample_geqdsk()
-    direct = as_equilibrium(source, convention=11)
-    through_ods = as_equilibrium(source.to_omas(), convention=11)
+    # The g-file stores psi in Wb/rad (COCOS 1 family); the ODS written by
+    # to_omas stores DD-conformant Wb (COCOS 11 family, issue #236). The two
+    # adapters are equivalent through the explicit convention conversion.
+    direct = as_equilibrium(source, convention=1)
+    through_ods = convert_cocos(as_equilibrium(source.to_omas(), convention=11), 1)
     np.testing.assert_allclose(direct.r, through_ods.r)
     np.testing.assert_allclose(direct.z, through_ods.z)
     np.testing.assert_allclose(direct.psi, through_ods.psi)
     np.testing.assert_allclose(direct.q, through_ods.q)
-    assert direct.ip == through_ods.ip
+    assert direct.ip == pytest.approx(through_ods.ip)
 
 
 def test_native_ids_adapter_reads_the_repository_equilibrium_fixture():
