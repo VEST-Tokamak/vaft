@@ -149,18 +149,19 @@ def render_image_sequence(
     return figure, axes, anim
 
 
-def _image_renderer(*, domain: str, quantity: str, description: str,
+def _image_renderer(*, domain: str, subject: str, quantity: str, description: str,
                     ids: tuple[str, ...], required_paths: tuple[str, ...],
                     optional_paths: tuple[str, ...] = ()):
     return renderer(
-        domain=domain, view="image", quantity=quantity, model=Image2D,
-        description=description, ids=ids, required_paths=required_paths,
-        optional_paths=optional_paths,
+        domain=domain, subject=subject, view="image", quantity=quantity,
+        model=Image2D, description=description, ids=ids,
+        required_paths=required_paths, optional_paths=optional_paths,
     )
 
 
 @_image_renderer(
     domain="camera_visible", quantity="frame",
+    subject="camera_visible",
     description="One FAST-camera frame (raw digital levels, uncalibrated).",
     ids=("camera_visible",),
     required_paths=(
@@ -177,6 +178,7 @@ def camera_visible_image_frame(
 
 @_image_renderer(
     domain="camera_visible", quantity="efit_overlay",
+    subject="camera_visible",
     description=(
         "FAST-camera frame with the calibrated pinhole projection of the "
         "wall, LCFS, magnetic axis, and flux surfaces overlaid."
@@ -197,6 +199,7 @@ def camera_visible_image_efit_overlay(
 
 @_image_renderer(
     domain="camera_visible", quantity="field_line",
+    subject="camera_visible",
     description=(
         "FAST-camera frame with a traced magnetic field line projected onto it."
     ),
@@ -215,6 +218,7 @@ def camera_visible_image_field_line(
 
 @renderer(
     domain="camera_visible", view="animation", quantity="frames", model=ImageSequence,
+    subject="camera_visible",
     description="Animate a sequence of FAST-camera frames on a shared color scale.",
     ids=("camera_visible",),
     required_paths=(

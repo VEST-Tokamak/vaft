@@ -76,6 +76,7 @@ def render_line_series(
 
 @renderer(
     domain="magnetics",
+    subject="plasma_current",
     view="time",
     quantity="ip",
     model=LineSeries,
@@ -100,6 +101,7 @@ def magnetics_time_ip(
 
 @renderer(
     domain="magnetics",
+    subject="diamagnetic_flux",
     view="time",
     quantity="diamagnetic_flux",
     model=LineSeries,
@@ -124,6 +126,7 @@ def magnetics_time_diamagnetic_flux(
 
 @renderer(
     domain="magnetics",
+    subject="flux_loop",
     view="time",
     quantity="flux_loop_flux",
     model=LineSeries,
@@ -150,6 +153,7 @@ def magnetics_time_flux_loop_flux(
 
 @renderer(
     domain="magnetics",
+    subject="flux_loop",
     view="time",
     quantity="flux_loop_voltage",
     model=LineSeries,
@@ -174,6 +178,7 @@ def magnetics_time_flux_loop_voltage(
 
 @renderer(
     domain="magnetics",
+    subject="b_field_probe",
     view="time",
     quantity="b_field_pol_probe_field",
     model=LineSeries,
@@ -200,6 +205,7 @@ def magnetics_time_b_field_pol_probe_field(
 
 @renderer(
     domain="magnetics",
+    subject="impa",
     view="time",
     quantity="impa_field",
     model=LineSeries,
@@ -225,6 +231,7 @@ def magnetics_time_impa_field(
 
 @renderer(
     domain="magnetics",
+    subject="impa",
     view="time",
     quantity="impa_voltage",
     model=LineSeries,
@@ -249,6 +256,7 @@ def magnetics_time_impa_voltage(
 
 @renderer(
     domain="magnetics",
+    subject="mirnov",
     view="time",
     quantity="mirnov_voltage",
     model=LineSeries,
@@ -273,6 +281,7 @@ def magnetics_time_mirnov_voltage(
 
 @renderer(
     domain="pf_active",
+    subject="pf_coil",
     view="time",
     quantity="current",
     model=LineSeries,
@@ -297,6 +306,7 @@ def pf_active_time_current(
 
 @renderer(
     domain="pf_active",
+    subject="pf_coil",
     view="time",
     quantity="current_turns",
     model=LineSeries,
@@ -322,6 +332,7 @@ def pf_active_time_current_turns(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="plasma_current",
     model=LineSeries,
@@ -346,6 +357,7 @@ def equilibrium_time_plasma_current(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="li",
     model=LineSeries,
@@ -370,6 +382,7 @@ def equilibrium_time_li(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="beta_pol",
     model=LineSeries,
@@ -394,6 +407,7 @@ def equilibrium_time_beta_pol(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="beta_tor",
     model=LineSeries,
@@ -418,6 +432,7 @@ def equilibrium_time_beta_tor(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="beta_n",
     model=LineSeries,
@@ -442,6 +457,7 @@ def equilibrium_time_beta_n(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="w_mhd",
     model=LineSeries,
@@ -466,6 +482,7 @@ def equilibrium_time_w_mhd(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="w_mag",
     model=LineSeries,
@@ -490,6 +507,7 @@ def equilibrium_time_w_mag(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="w_tot",
     model=LineSeries,
@@ -514,6 +532,7 @@ def equilibrium_time_w_tot(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="q0",
     model=LineSeries,
@@ -538,6 +557,7 @@ def equilibrium_time_q0(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="q95",
     model=LineSeries,
@@ -562,6 +582,7 @@ def equilibrium_time_q95(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="qa",
     model=LineSeries,
@@ -586,6 +607,7 @@ def equilibrium_time_qa(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="major_radius",
     model=LineSeries,
@@ -610,6 +632,7 @@ def equilibrium_time_major_radius(
 
 @renderer(
     domain="equilibrium",
+    subject="equilibrium",
     view="time",
     quantity="diamagnetic_flux",
     model=LineSeries,
@@ -634,6 +657,7 @@ def equilibrium_time_diamagnetic_flux(
 
 @renderer(
     domain="tf",
+    subject="tf_coil",
     view="time",
     quantity="b_field_tor",
     model=LineSeries,
@@ -658,6 +682,7 @@ def tf_time_b_field_tor(
 
 @renderer(
     domain="tf",
+    subject="tf_coil",
     view="time",
     quantity="b_field_tor_vacuum_r",
     model=LineSeries,
@@ -682,6 +707,7 @@ def tf_time_b_field_tor_vacuum_r(
 
 @renderer(
     domain="tf",
+    subject="tf_coil",
     view="time",
     quantity="coil_current",
     model=LineSeries,
@@ -706,6 +732,7 @@ def tf_time_coil_current(
 
 @renderer(
     domain="spectrometer_uv",
+    subject="spectrometer_uv",
     view="time",
     quantity="intensity",
     model=LineSeries,
@@ -730,6 +757,7 @@ def spectrometer_uv_time_intensity(
 
 @renderer(
     domain="barometry",
+    subject="barometry",
     view="time",
     quantity="pressure",
     model=LineSeries,
@@ -754,6 +782,7 @@ def barometry_time_pressure(
 
 @renderer(
     domain="soft_x_rays",
+    subject="soft_x_rays",
     view="time",
     quantity="power",
     model=LineSeries,
@@ -781,6 +810,7 @@ def soft_x_rays_time_power(
 
 @renderer(
     domain="interferometer",
+    subject="interferometer",
     view="time",
     quantity="n_e_line",
     model=LineSeries,
@@ -806,6 +836,7 @@ def interferometer_time_n_e_line(
 
 @renderer(
     domain="thomson_scattering",
+    subject="thomson_scattering",
     view="time",
     quantity="electron_temperature",
     model=LineSeries,
@@ -830,6 +861,7 @@ def thomson_scattering_time_electron_temperature(
 
 @renderer(
     domain="thomson_scattering",
+    subject="thomson_scattering",
     view="time",
     quantity="electron_density",
     model=LineSeries,
@@ -854,6 +886,7 @@ def thomson_scattering_time_electron_density(
 
 @renderer(
     domain="charge_exchange",
+    subject="charge_exchange",
     view="time",
     quantity="ion_temperature",
     model=LineSeries,
@@ -879,6 +912,7 @@ def charge_exchange_time_ion_temperature(
 
 @renderer(
     domain="charge_exchange",
+    subject="charge_exchange",
     view="time",
     quantity="velocity_tor",
     model=LineSeries,
@@ -904,6 +938,7 @@ def charge_exchange_time_velocity_tor(
 
 @renderer(
     domain="core_profiles",
+    subject="electron_temperature",
     view="time",
     quantity="electron_temperature",
     model=LineSeries,
@@ -928,6 +963,7 @@ def core_profiles_time_electron_temperature(
 
 @renderer(
     domain="core_profiles",
+    subject="electron_density",
     view="time",
     quantity="electron_density",
     model=LineSeries,
@@ -994,6 +1030,7 @@ __all__ = [
 
 @renderer(
     domain="mhd_linear",
+    subject="mhd_linear",
     view="time",
     quantity="energy_perturbed",
     model=LineSeries,

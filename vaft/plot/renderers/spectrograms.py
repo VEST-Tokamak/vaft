@@ -55,6 +55,7 @@ def render_spectrogram(
 
 @renderer(
     domain="magnetics",
+    subject="mirnov",
     view="spectrogram",
     quantity="mirnov",
     model=Spectrogram,
@@ -72,6 +73,7 @@ def magnetics_spectrogram_mirnov(
 
 @renderer(
     domain="soft_x_rays",
+    subject="soft_x_rays",
     view="spectrogram",
     model=Spectrogram,
     description="Time-frequency map of one soft X-ray channel.",
@@ -93,6 +95,7 @@ def soft_x_rays_spectrogram(
 
 @renderer(
     domain="interferometer",
+    subject="interferometer",
     view="spectrogram",
     model=Spectrogram,
     description="Time-frequency map of one interferometer channel's line density.",

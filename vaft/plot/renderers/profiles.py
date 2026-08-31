@@ -84,11 +84,13 @@ def render_profile_1d(
 
 
 def _profile_renderer(
-    *, domain: str, quantity: str, description: str, ids: tuple[str, ...],
-    required_paths: tuple[str, ...], optional_paths: tuple[str, ...] = (),
+    *, domain: str, subject: str, quantity: str, description: str,
+    ids: tuple[str, ...], required_paths: tuple[str, ...],
+    optional_paths: tuple[str, ...] = (),
 ):
     return renderer(
         domain=domain,
+        subject=subject,
         view="profile",
         quantity=quantity,
         model=Profile1D,
@@ -109,6 +111,7 @@ _EQ_COORDS = (
 
 @_profile_renderer(
     domain="equilibrium", quantity="pressure",
+    subject="equilibrium",
     description="Equilibrium 1D pressure profile.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.profiles_1d.pressure",),
@@ -123,6 +126,7 @@ def equilibrium_profile_pressure(
 
 @_profile_renderer(
     domain="equilibrium", quantity="q",
+    subject="equilibrium",
     description="Equilibrium safety-factor profile.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.profiles_1d.q",),
@@ -137,6 +141,7 @@ def equilibrium_profile_q(
 
 @_profile_renderer(
     domain="equilibrium", quantity="j_tor",
+    subject="equilibrium",
     description="Equilibrium toroidal current-density profile.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.profiles_1d.j_tor",),
@@ -151,6 +156,7 @@ def equilibrium_profile_j_tor(
 
 @_profile_renderer(
     domain="equilibrium", quantity="pprime",
+    subject="equilibrium",
     description="Equilibrium dp/dpsi profile.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi",),
@@ -165,6 +171,7 @@ def equilibrium_profile_pprime(
 
 @_profile_renderer(
     domain="equilibrium", quantity="f",
+    subject="equilibrium",
     description="Equilibrium poloidal current function F = R*B_t.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.profiles_1d.f",),
@@ -179,6 +186,7 @@ def equilibrium_profile_f(
 
 @_profile_renderer(
     domain="equilibrium", quantity="ffprime",
+    subject="equilibrium",
     description="Equilibrium F dF/dpsi profile.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",),
@@ -193,6 +201,7 @@ def equilibrium_profile_ffprime(
 
 @_profile_renderer(
     domain="core_profiles", quantity="electron_temperature",
+    subject="electron_temperature",
     description="Core electron temperature profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.temperature",),
@@ -207,6 +216,7 @@ def core_profiles_profile_electron_temperature(
 
 @_profile_renderer(
     domain="core_profiles", quantity="electron_density",
+    subject="electron_density",
     description="Core electron density profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.density",),
@@ -221,6 +231,7 @@ def core_profiles_profile_electron_density(
 
 @_profile_renderer(
     domain="core_profiles", quantity="ion_temperature",
+    subject="ion_temperature",
     description="Core ion temperature profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.ion.{j}.temperature",),
@@ -235,6 +246,7 @@ def core_profiles_profile_ion_temperature(
 
 @_profile_renderer(
     domain="core_profiles", quantity="pressure",
+    subject="thermal_pressure",
     description="Core total pressure profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.pressure_thermal",),
@@ -249,6 +261,7 @@ def core_profiles_profile_pressure(
 
 @_profile_renderer(
     domain="thomson_scattering", quantity="electron_temperature",
+    subject="thomson_scattering",
     description="Thomson-scattering electron temperature versus position.",
     ids=("thomson_scattering",),
     required_paths=(
@@ -266,6 +279,7 @@ def thomson_scattering_profile_electron_temperature(
 
 @_profile_renderer(
     domain="thomson_scattering", quantity="electron_density",
+    subject="thomson_scattering",
     description="Thomson-scattering electron density versus position.",
     ids=("thomson_scattering",),
     required_paths=(
@@ -283,6 +297,7 @@ def thomson_scattering_profile_electron_density(
 
 @_profile_renderer(
     domain="charge_exchange", quantity="ion_temperature",
+    subject="charge_exchange",
     description="Charge-exchange ion temperature versus position.",
     ids=("charge_exchange",),
     required_paths=(
@@ -300,6 +315,7 @@ def charge_exchange_profile_ion_temperature(
 
 @_profile_renderer(
     domain="charge_exchange", quantity="velocity_tor",
+    subject="charge_exchange",
     description="Charge-exchange toroidal rotation versus position.",
     ids=("charge_exchange",),
     required_paths=(
@@ -317,6 +333,7 @@ def charge_exchange_profile_velocity_tor(
 
 @renderer(
     domain="magnetics",
+    subject="impa",
     view="profile",
     quantity="impa_tf",
     model=Profile1D,

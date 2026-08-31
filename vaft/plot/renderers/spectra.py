@@ -132,6 +132,7 @@ def render_power_spectrum(
 
 @renderer(
     domain="magnetics",
+    subject="mirnov",
     view="spectrum",
     quantity="mirnov",
     model=PowerSpectrum,
@@ -149,6 +150,7 @@ def magnetics_spectrum_mirnov(
 
 @renderer(
     domain="soft_x_rays",
+    subject="soft_x_rays",
     view="spectrum",
     model=PowerSpectrum,
     description="Power spectral density of one soft X-ray channel.",
@@ -170,6 +172,7 @@ def soft_x_rays_spectrum(
 
 @renderer(
     domain="interferometer",
+    subject="interferometer",
     view="spectrum",
     model=PowerSpectrum,
     description="Power spectral density of one interferometer channel's line density.",
