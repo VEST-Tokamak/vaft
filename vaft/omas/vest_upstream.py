@@ -909,6 +909,141 @@ def build_mhd_linear_ods(
     return ods, manifest
 
 
+def build_gpec_ideal_ods(
+    *,
+    shot: int,
+    time_values: Sequence[int | str],
+    workdir: str | Path | None = None,
+    mode_workdirs: Mapping[int, str | Path] | None = None,
+    modes: Sequence[int] = (1,),
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build ``mhd_linear`` + ``coils_non_axisymmetric`` from ideal-GPEC runs.
+
+    Mirrors :func:`build_mhd_linear_ods` for the ``gpec`` module: one
+    ``mhd_linear.time_slice`` per entry of ``time_values`` (milliseconds), a
+    dense ``toroidal_mode`` grid over ``modes``, run directories resolved via
+    the adapter's own directory grammar
+    (``{workdir}/{time_label}/gpec/nn={mode}/``).  The shot/time identity is
+    written from these arguments -- GPEC's own netCDF ``shot``/``time``
+    attributes are 0 for VEST runs and are never trusted.
+
+    The canonical static 3D coil geometry is always written; each cell's
+    ``coil.in`` is read back so the run's excitation travels with the field
+    it produced (currents matched by stable identifier, zero-current sets
+    untouched).
+    """
+    from vaft.code.gpec import _runtime as gpec_runtime
+    from vaft.code.gpec import read_coil_in
+    from vaft.machine_mapping.coil_geometry_3d import (
+        VEST_3D_COIL_SETS,
+        CoilExcitation,
+    )
+    from vaft.machine_mapping.coils_non_axisymmetric import (
+        apply_coil_excitation,
+        coils_non_axisymmetric,
+    )
+    from vaft.machine_mapping.gpec_ideal import gpec_ideal as gpec_ideal_mapper
+    from vaft.machine_mapping.mhd_linear import (
+        ensure_toroidal_mode_grid,
+        initialize_output_flags,
+    )
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST ideal-GPEC 3D response; machine era {era.name}",
+        },
+    )
+
+    times_seconds = [float(t) / 1000.0 for t in time_values]
+    ods["mhd_linear"]["ids_properties"]["homogeneous_time"] = 1
+    ods["mhd_linear"]["time"] = times_seconds
+
+    mode_grid = [int(mode) for mode in modes]
+    for time_slice in range(len(time_values)):
+        ensure_toroidal_mode_grid(ods, time_slice, mode_grid)
+    initialize_output_flags(ods, "mhd_linear", len(time_values))
+
+    coils_non_axisymmetric(ods)
+
+    if workdir is None and not mode_workdirs:
+        raise ValueError("workdir or mode_workdirs is required")
+    workdir_path = Path(workdir) if workdir is not None else None
+    cells: dict[str, Any] = {}
+    inputs_hashes: dict[str, str] = {}
+    excitations: dict[str, CoilExcitation] = {}
+    for time_slice, time_ms in enumerate(time_values):
+        for mode in mode_grid:
+            key = f"t={time_ms}/gpec/n={mode}"
+            cell_root = (
+                Path(mode_workdirs[mode])
+                if mode_workdirs and mode in mode_workdirs
+                else workdir_path
+            )
+            if cell_root is None:
+                cells[key] = {"status": "missing", "reason": "no work directory registered"}
+                continue
+            run_dir = gpec_runtime.module_dir(cell_root, time_ms, "gpec", mode)
+            if not run_dir.is_dir():
+                cells[key] = {"status": "missing", "reason": f"run directory not found: {run_dir}"}
+                continue
+            try:
+                extras = gpec_ideal_mapper(
+                    ods,
+                    str(run_dir),
+                    {
+                        "time_slice": time_slice,
+                        "mode": mode,
+                        "modes": mode_grid,
+                        "time_s": times_seconds[time_slice],
+                    },
+                )
+            except Exception as exc:
+                cells[key] = {"status": "failed", "reason": f"{type(exc).__name__}: {exc}"}
+                continue
+            cells[key] = {"status": "success", "modes": extras}
+            for nc_path in sorted(run_dir.glob("*.nc")):
+                inputs_hashes[f"{key}/{nc_path.name}"] = sha256_file(nc_path)
+            coil_in = run_dir / "coil.in"
+            if coil_in.is_file():
+                inputs_hashes[f"{key}/coil.in"] = sha256_file(coil_in)
+                for spec in read_coil_in(coil_in):
+                    if spec.name in VEST_3D_COIL_SETS and spec.currents_a:
+                        excitations[spec.name] = CoilExcitation(
+                            coil_set=spec.name, currents_a=spec.currents_a
+                        )
+
+    if excitations:
+        apply_coil_excitation(
+            ods,
+            list(excitations.values()),
+            time_s=times_seconds[0] if times_seconds else 0.0,
+        )
+
+    status = "success" if any(cell["status"] == "success" for cell in cells.values()) else "empty"
+    manifest = {
+        "schema_version": 1,
+        "stage": "gpec_ideal",
+        "shot": shot,
+        "time_values": list(time_values),
+        "machine_version": era.name,
+        "status": status,
+        "input": inputs_hashes,
+        "modules_modes": cells,
+    }
+    return ods, manifest
+
+
 def write_stage_product(
     ods: ODS,
     manifest: dict[str, Any],
@@ -1020,6 +1155,7 @@ __all__ = [
     "archive_raw_source",
     "build_diagnostics_ods",
     "build_eddy_ods",
+    "build_gpec_ideal_ods",
     "build_static_ods",
     "machine_era",
     "machine_era_for_shot",

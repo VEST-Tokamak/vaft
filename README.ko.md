@@ -46,7 +46,19 @@ VEST 데이터 분석 플랫폼
 
 ### 설치
 
-소스에서 설치(권장):
+VAFT를 처음 설치하거나 수업용 PC를 준비한다면
+[`install/README.md`](install/README.md)를 따르세요. Linux, macOS, 네이티브
+Windows, WSL2용 원커맨드 부트스트랩과 환경 점검 도구, 기존 체크아웃 갱신 절차가
+정리되어 있습니다.
+
+```bash
+git clone https://github.com/VEST-Tokamak/vaft.git
+cd vaft
+bash install/linux.sh          # 또는 macos.sh / windows_wsl.sh / windows_native.ps1
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+소스에서 직접 설치:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -218,9 +230,9 @@ VAFT의 OPEN-ADAS ADF11 파싱, 보간, 기본 파일 선택 및 이온화 평�
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-### OMFIT classes 호환성 포트
+### 저작권 고지: OMFIT classes
 
-VAFT의 네이티브 EQDSK 호환성 및 상호운용 경로에는 `omfit_classes`에서 이식하거나 수정한 동작이 포함되어 있습니다. VAFT는 해당 레거시 NumPy, SciPy 및 xarray 인터페이스를 위한 호환성 shim도 제공합니다. 원본 OMFIT classes 소프트웨어는 아래 라이선스로 배포됩니다.
+VAFT는 `omfit_classes`에 의존하지 않으며, import하거나 요구하지도 않습니다. 다만 `vaft/data/eqdsk.py`의 네이티브 EQDSK 경로 중 일부는 원래 `omfit_classes`에서 이식하거나 수정한 것이므로, 해당 라이선스가 요구하는 대로 저작권 고지를 아래에 그대로 싣습니다. 원본 OMFIT classes 소프트웨어는 아래 라이선스로 배포됩니다.
 
 > Copyright 2013-2021 the OMFIT contributors
 >

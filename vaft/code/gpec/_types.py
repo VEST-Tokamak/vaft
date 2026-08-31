@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
+
+if TYPE_CHECKING:
+    from ._coil_input import CoilInputSpec
 
 GPEC_HOME_ENV = "GPECHOME"
 DEFAULT_MODULES = ("dcon", "rdcon", "stride", "gpec")
@@ -34,9 +37,18 @@ class STRIDEOptions:
 
 @dataclass(frozen=True)
 class IdealGPECOptions:
-    """Ideal-GPEC-specific namelist overrides."""
+    """Ideal-GPEC-specific namelist overrides.
+
+    ``coil_specs`` selects and excites canonical VEST 3D coil sets (see
+    :class:`vaft.code.gpec.CoilInputSpec`): when set, ``coil.in`` and the
+    referenced ``.dat`` files are generated from the canonical configuration
+    instead of copying the packaged template verbatim.  ``None`` preserves
+    the legacy template behavior; an explicit ``GPECCaseInputs.coil_in``
+    always wins over both.
+    """
 
     coil_flag: bool = True
+    coil_specs: Optional[Sequence["CoilInputSpec"]] = None
 
 
 @dataclass(frozen=True)

@@ -38,3 +38,7 @@ workflow/**/*.log
 # Local VFIT MATLAB exports and scratch summary workbooks (large, not packaged)
 /vaft/data/vfit/
 /sample_equilibrium_global_history.xlsx
+
+# HSDS credentials (written by `hsconfigure`; never commit a real one)
+.hscfg
+**/.hscfg

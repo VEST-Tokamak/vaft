@@ -11,16 +11,19 @@ from __future__ import annotations
 
 from typing import Any
 
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from ..models import GeometryLayer, GeometryLayers
+from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
 from ..style import finalize, resolve_axes
 
 __all__ = [
     "charge_exchange_geometry_poloidal",
+    "coils_non_axisymmetric_geometry3d",
+    "coils_non_axisymmetric_geometry_topview",
     "draw_geometry_layer",
     "equilibrium_geometry_boundary",
     "equilibrium_geometry_topview",
@@ -29,6 +32,7 @@ __all__ = [
     "magnetics_geometry_poloidal",
     "pf_active_geometry_poloidal",
     "pf_passive_geometry_poloidal",
+    "render_geometry_3d_layers",
     "render_geometry_layers",
     "soft_x_rays_geometry_lines_of_sight",
     "thomson_scattering_geometry_poloidal",
@@ -235,9 +239,9 @@ def charge_exchange_geometry_poloidal(
 @_geometry_renderer(
     domain="machine", quantity="poloidal",
     description="Composed poloidal machine view: wall, coils, passive structure "
-                "and diagnostic positions in one axes.",
+                "and diagnostic positions and sight lines in one axes.",
     ids=("wall", "pf_active", "pf_passive", "magnetics", "thomson_scattering",
-         "charge_exchange"),
+         "charge_exchange", "soft_x_rays"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
                     "pf_active.coil.{i}.element.{j}.geometry.outline.r",
@@ -265,11 +269,12 @@ def equilibrium_geometry_topview(
 
 @_geometry_renderer(
     domain="machine", quantity="topview",
-    description="Composed machine top view: plasma extent plus launcher, antenna "
-                "and pellet-injector geometry.",
-    ids=("equilibrium", "lh_antennas", "ec_launchers", "pellets"),
+    description="Composed machine top view: machine-boundary and plasma extent "
+                "plus launcher, antenna and pellet-injector geometry.",
+    ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets"),
     required_paths=(),
-    optional_paths=("equilibrium.time_slice.{i}.boundary.outline.r",
+    optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+                    "equilibrium.time_slice.{i}.boundary.outline.r",
                     "lh_antennas.antenna.{i}.position.r",
                     "ec_launchers.beam.{i}.launching_position.r",
                     "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r"),
@@ -278,4 +283,106 @@ def machine_geometry_topview(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Composed machine top view."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
+    if ax is None:
+        figure = plt.figure(figsize=_DEFAULT_FIGSIZE)
+        return figure, figure.add_subplot(projection="3d")
+    if getattr(ax, "name", "") == "3d":
+        return ax.figure, ax
+    # A 2D axes was supplied (e.g. from plt.subplots()): replace it with a 3D
+    # axes at the same position in the same figure, honoring the contract of
+    # never creating a new figure when `ax` is given.
+    figure = ax.figure
+    subplotspec = ax.get_subplotspec() if hasattr(ax, "get_subplotspec") else None
+    ax.remove()
+    if subplotspec is not None:
+        return figure, figure.add_subplot(subplotspec, projection="3d")
+    return figure, figure.add_subplot(projection="3d")
+
+
+def render_geometry_3d_layers(
+    model: Geometry3DLayers,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    legend: bool = True,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Draw a :class:`Geometry3DLayers` stack into one 3D machine view.
+
+    Keyword styling is applied as a default for every layer; a layer's own
+    ``style`` mapping takes precedence.  Axis limits are set to a common scale
+    so toroidal placement and coil size read true.
+    """
+    if not isinstance(model, Geometry3DLayers):
+        raise TypeError(
+            f"expected a vaft.plot.models.Geometry3DLayers; got {type(model).__name__}. "
+            "Adapters such as vaft.omas.plot_* build the model from data objects."
+        )
+    figure, axes = _resolve_3d_axes(ax)
+
+    labelled = False
+    for layer in model.layers:
+        options = {**style, **layer.style}
+        if layer.label:
+            options.setdefault("label", layer.label)
+            labelled = True
+        if layer.kind == "points":
+            options.setdefault("linestyle", "none")
+            options.setdefault("marker", "o")
+        axes.plot(layer.x, layer.y, layer.z, **options)
+
+    if model.layers:
+        stacked = np.concatenate(
+            [np.column_stack([layer.x, layer.y, layer.z]) for layer in model.layers]
+        )
+        centre = (stacked.max(axis=0) + stacked.min(axis=0)) / 2.0
+        half_span = float((stacked.max(axis=0) - stacked.min(axis=0)).max()) / 2.0 or 1.0
+        axes.set_xlim(centre[0] - half_span, centre[0] + half_span)
+        axes.set_ylim(centre[1] - half_span, centre[1] + half_span)
+        axes.set_zlim(centre[2] - half_span, centre[2] + half_span)
+
+    axes.set_xlabel(model.x_label)
+    axes.set_ylabel(model.y_label)
+    axes.set_zlabel(model.z_label)
+    if model.title:
+        axes.set_title(model.title)
+    if legend and labelled:
+        axes.legend(loc="best", fontsize="small")
+    return finalize(figure, axes, show=show)
+
+
+@renderer(
+    domain="coils_non_axisymmetric", view="geometry3d", model=Geometry3DLayers,
+    description="Non-axisymmetric 3D coil filaments in machine Cartesian coordinates.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=(
+        "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.r",
+        "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.phi",
+        "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.z",
+    ),
+)
+def coils_non_axisymmetric_geometry3d(
+    model: Geometry3DLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """3D validation view of the non-axisymmetric coil filaments."""
+    return render_geometry_3d_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="coils_non_axisymmetric", quantity="topview",
+    description="Non-axisymmetric 3D coil filaments projected into the machine top view.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=(
+        "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.r",
+        "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.phi",
+    ),
+)
+def coils_non_axisymmetric_geometry_topview(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Top view (x-y) of the non-axisymmetric coil filaments."""
     return render_geometry_layers(model, ax=ax, show=show, **style)

@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 pytest.importorskip("omas")
-pytest.importorskip("omfit_classes")
 
 from vaft.data.resources import data_path
 
@@ -30,17 +29,13 @@ TIME_MS = 300.0
 
 @pytest.fixture(scope="module")
 def kinetic_ods():
-    import vaft
-
-    vaft.apply_omfit_compat_patches()
-    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
     from vaft.machine_mapping.charge_exchange import charge_exchange
     from vaft.machine_mapping.dataset_description import dataset_description
     from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
-    geq = OMFITgeqdsk(str(GFILE))
-    geq["fluxSurfaces"].load()
+    geq = read_geqdsk(GFILE)
     ods = geq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
     dataset_description(
@@ -98,14 +93,12 @@ def test_spline_encoding_has_129_points(kinetic_ods):
 def _build(with_ts, with_cx, **kwargs):
     import vaft
 
-    vaft.apply_omfit_compat_patches()
-    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
     from vaft.machine_mapping.charge_exchange import charge_exchange
     from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
-    geq = OMFITgeqdsk(str(GFILE))
-    geq["fluxSurfaces"].load()
+    geq = read_geqdsk(GFILE)
     ods = geq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
     if with_ts:
@@ -164,14 +157,10 @@ def test_ion_only_writes_ion_profiles_without_electrons():
 
 
 def test_no_diagnostics_raises():
-    import vaft
-
-    vaft.apply_omfit_compat_patches()
-    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
 
-    geq = OMFITgeqdsk(str(GFILE))
-    geq["fluxSurfaces"].load()
+    geq = read_geqdsk(GFILE)
     ods = geq.to_omas()
     with pytest.raises(Exception):
         build_kinetic_core_profiles(ods, geq, TIME_MS, time_tolerance_ms=3.0)

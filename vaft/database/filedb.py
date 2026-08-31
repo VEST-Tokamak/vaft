@@ -47,6 +47,7 @@ class OMASStage(str, Enum):
     EFIT = "efit"
     CHEASE = "chease"
     MHD_LINEAR = "mhd_linear"
+    GPEC_IDEAL = "gpec_ideal"
 
 
 class GPECCode(str, Enum):

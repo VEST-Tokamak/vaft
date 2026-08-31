@@ -257,7 +257,8 @@ def compute_point_response_matrices(
     turns: np.ndarray | None = None,
     groups: np.ndarray | None = None,
     n_groups: int | None = None,
-) -> Tuple[ndarray, ndarray, ndarray]:
+    components: Tuple[str, ...] = ("psi", "bz", "br"),
+) -> Tuple[ndarray, ...]:
     """Vectorized exact (psi, Bz, Br) response matrices for point sources.
 
     Fully NumPy-broadcast alternative to :func:`compute_response_matrix`
@@ -271,7 +272,12 @@ def compute_point_response_matrices(
         (n_src,); columns of the result are summed per group (e.g. 530
         discretized coil filaments -> 10 PF coil circuits)
     :param n_groups: number of groups (defaults to ``groups.max() + 1``)
-    :return: (Psi, Bz, Br), each of shape (n_obs, n_src) or
+    :param components: which matrices to compute and return, a subset of
+        ("psi", "bz", "br") in the desired order — requesting only "psi"
+        (or only the fields) skips the unneeded elliptic-integral passes
+        (each field pass costs roughly twice the psi pass)
+    :return: matrices matching *components* (default (Psi, Bz, Br)),
+        each of shape (n_obs, n_src) or
         (n_obs, n_groups) when *groups* is given. Units per unit source
         current: psi [Wb], Bz [T], Br [T]. Observation points on the
         geometric axis (r == 0) get their analytic limits (psi = 0,
@@ -289,14 +295,20 @@ def compute_point_response_matrices(
     rs = src_r[None, :]
     zs = src_z[None, :]
 
-    psi = green_psi_exact(ro, zo, rs, zs)
-    br, bz = green_br_bz_exact(ro, zo, rs, zs)
+    if not components or any(c not in ("psi", "bz", "br") for c in components):
+        raise ValueError(
+            f'components must be a non-empty subset of ("psi", "bz", "br"); '
+            f"got {components!r}"
+        )
+    matrices = {}
+    if "psi" in components:
+        matrices["psi"] = green_psi_exact(ro, zo, rs, zs)
+    if "bz" in components or "br" in components:
+        matrices["br"], matrices["bz"] = green_br_bz_exact(ro, zo, rs, zs)
 
     if turns is not None:
         w = np.asarray(turns, dtype=float).ravel()[None, :]
-        psi = psi * w
-        bz = bz * w
-        br = br * w
+        matrices = {k: v * w for k, v in matrices.items()}
 
     if groups is not None:
         groups = np.asarray(groups, dtype=int).ravel()
@@ -310,11 +322,9 @@ def compute_point_response_matrices(
             )
         onehot = np.zeros((src_r.size, ng))
         onehot[np.arange(src_r.size), groups] = 1.0
-        psi = psi @ onehot
-        bz = bz @ onehot
-        br = br @ onehot
+        matrices = {k: v @ onehot for k, v in matrices.items()}
 
-    return psi, bz, br
+    return tuple(matrices[name] for name in components)
 
 
 def compute_mutual_passive_active(

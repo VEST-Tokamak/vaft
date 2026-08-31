@@ -10,7 +10,15 @@ import os
 from pathlib import Path
 from typing import Any
 
-from vaft.code.gpec import GPEC_HOME_ENV, GPECCaseInputs, GPECSuiteConfig, GPECSuiteResult, run_gpec_suite_case
+from vaft.code.gpec import (
+    GPEC_HOME_ENV,
+    CoilInputSpec,
+    GPECCaseInputs,
+    GPECSuiteConfig,
+    GPECSuiteResult,
+    IdealGPECOptions,
+    run_gpec_suite_case,
+)
 
 
 def _read_manifest(path: Path) -> tuple[Path, ...]:
@@ -84,7 +92,28 @@ def main() -> int:
     parser.add_argument("--timeout", default=1200.0, type=float, help="Per executable timeout in seconds.")
     parser.add_argument("--templates-dir", default="", help="Optional GPEC namelist template directory.")
     parser.add_argument("--coil-data-dir", default="", help="Optional VEST GPEC coil data directory.")
+    parser.add_argument(
+        "--coil-set",
+        action="append",
+        default=[],
+        metavar="NAME=I1,I2,...",
+        help=(
+            "Activate one canonical VEST 3D coil set with per-sector currents "
+            "in amperes (repeatable), e.g. MID=200,200,0,-200,-200,0. The "
+            "ideal-GPEC coil.in and staged .dat files are then generated from "
+            "the canonical configuration instead of the packaged template."
+        ),
+    )
     args = parser.parse_args()
+
+    coil_specs = []
+    for entry in args.coil_set:
+        if "=" not in entry:
+            parser.error(f"--coil-set expects NAME=I1,I2,...; got {entry!r}")
+        name, currents = entry.split("=", 1)
+        coil_specs.append(
+            CoilInputSpec(name=name.strip(), currents_a=_parse_csv(currents, float))
+        )
 
     gfiles = _read_manifest(args.refined_gfile_manifest)
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -104,6 +133,7 @@ def main() -> int:
         psilow=args.psilow,
         psihigh=args.psihigh,
         timeout=args.timeout,
+        gpec=IdealGPECOptions(coil_specs=tuple(coil_specs) or None),
     )
 
     results = []
@@ -131,6 +161,10 @@ def main() -> int:
             "psilow": args.psilow,
             "psihigh": args.psihigh,
             "timeout": args.timeout,
+            "coil_sets": [
+                {"name": spec.name, "currents_a": list(spec.currents_a)}
+                for spec in coil_specs
+            ],
         },
         "results": [_result_to_dict(result) for result in results],
     }

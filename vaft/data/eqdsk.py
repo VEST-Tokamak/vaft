@@ -49,6 +49,10 @@ class GEQDSK:
     mapping: MutableMapping[str, Any]
     source: Optional[Path] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    #: EFIT's trailing ``&OUT1``/``&BASIS``/``&CHIOUT`` namelists, when the file
+    #: carries them.  Group and variable names are lowercased, as f90nml reads
+    #: them.
+    namelists: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
         return self.mapping[key]
@@ -141,6 +145,34 @@ def _coerce_geqdsk(geqdsk: GEQDSK | Mapping[str, Any]) -> GEQDSK:
         mapping = {key: geqdsk[key] for key in geqdsk.keys()}
         return GEQDSK(mapping, source=Path(getattr(geqdsk, "filename", "")) if getattr(geqdsk, "filename", None) else None)
     raise TypeError("Expected a GEQDSK or mapping-like object")
+
+
+_NAMELIST_START = re.compile(r"^\s*&(\w+)\s*$")
+
+
+def _trailing_namelists(lines: list[str]) -> dict[str, dict[str, Any]]:
+    """Read the Fortran namelists EFIT appends after the g-file body.
+
+    EFIT writes ``&OUT1``/``&BASIS``/``&CHIOUT`` -- the reconstruction's own
+    inputs and fit diagnostics -- after the last limiter point. They are the
+    only record of those settings that travels with the g-file, so dropping
+    them loses data that exists nowhere else in the equilibrium.
+    """
+    for index, line in enumerate(lines):
+        if _NAMELIST_START.match(line):
+            break
+    else:
+        return {}
+
+    import f90nml
+
+    from vaft.data.keqdsk import _plain
+
+    try:
+        return _plain(f90nml.reads("\n".join(lines[index:])))
+    except Exception:
+        # A malformed trailing block must not cost us the equilibrium itself.
+        return {}
 
 
 def from_equilibrium(equilibrium: Any) -> GEQDSK:
@@ -245,7 +277,12 @@ def read_geqdsk(path: str | Path) -> GEQDSK:
         "RLIM": limiter[0::2],
         "ZLIM": limiter[1::2],
     }
-    return GEQDSK(mapping=mapping, source=source, metadata=_metadata(mapping, "vaft", source))
+    return GEQDSK(
+        mapping=mapping,
+        source=source,
+        metadata=_metadata(mapping, "vaft", source),
+        namelists=_trailing_namelists(lines),
+    )
 
 
 def _format_floats(values: Iterable[Any]) -> list[str]:
@@ -462,6 +499,205 @@ def from_omas(
     return GEQDSK(mapping=mapping, metadata=_metadata(mapping, "omas"))
 
 
+#: Minimum marching-squares vertex count for a traced flux surface to be
+#: trusted for a volume; below this the polygon is grid resolution, not
+#: plasma geometry.
+_MIN_CONTOUR_POINTS = 24
+
+
+def _rho_tor_profile(
+    qpsi: Any, psi_1d: np.ndarray, b0: Any
+) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Integrate ``q`` into toroidal flux and the rho_tor coordinate.
+
+    EFIT writes ``psi`` in Wb/rad, so ``dPhi/dpsi = 2*pi*q`` and
+
+        Phi(psi) = 2*pi * cumulative_trapezoid(q, psi)
+        rho_tor  = sqrt(|Phi| / (pi * |B0|))
+
+    This is the same coordinate OMFIT's ``fluxSurfaces`` produces -- they agree
+    to within 1.5e-3 in normalized units on VEST g-files. The ``sqrt(psi_N)``
+    proxy VAFT wrote before is not: it is off by percent-level amounts, and
+    every kinetic profile is mapped onto this grid.
+
+    Returns ``(phi, rho_tor, rho_tor_norm)``, or ``None`` when the profile is
+    degenerate (flat psi, zero field, no toroidal flux) and the caller should
+    fall back to the proxy.
+    """
+    from vaft.compat import cumtrapz_compat
+
+    qpsi = np.asarray(qpsi, dtype=float).reshape(-1)
+    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
+    b0 = abs(float(b0))
+    if qpsi.size != psi_1d.size or qpsi.size < 2 or b0 == 0.0:
+        return None
+    if not np.all(np.isfinite(qpsi)) or not np.all(np.isfinite(psi_1d)):
+        return None
+
+    phi = 2.0 * np.pi * np.asarray(cumtrapz_compat(qpsi, x=psi_1d), dtype=float)
+    rho_tor = np.sqrt(np.abs(phi) / (np.pi * b0))
+    edge = float(rho_tor[-1])
+    if not np.isfinite(edge) or edge <= 0.0:
+        return None
+    return phi, rho_tor, rho_tor / edge
+
+
+def _contour_geometry(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
+    """Shape parameters of one closed flux-surface contour."""
+    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
+
+    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
+    z_min, z_max = float(np.min(z_seg)), float(np.max(z_seg))
+    minor = 0.5 * (r_max - r_min)
+    r_geo = 0.5 * (r_max + r_min)
+    if minor <= 0.0:
+        raise ValueError("degenerate contour")
+    return {
+        "volume": exact_volume_from_RZ_contour(r_seg, z_seg),
+        # Poloidal cross-section area, by the shoelace formula.
+        "area": 0.5
+        * abs(
+            float(np.dot(r_seg, np.roll(z_seg, 1)) - np.dot(z_seg, np.roll(r_seg, 1)))
+        ),
+        "elongation": (z_max - z_min) / (2.0 * minor),
+        "triangularity_upper": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=True)) / minor,
+        "triangularity_lower": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=False)) / minor,
+    }
+
+
+def _r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
+    """R where the contour reaches its highest (or lowest) point.
+
+    Taking R at the sampled vertex of extreme Z is off by several percent in
+    triangularity, because the true extremum falls between vertices. Fitting a
+    parabola to Z over the three points around it locates the extremum to
+    sub-vertex resolution, and R is interpolated there.
+    """
+    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
+    size = z_seg.size
+    if size < 3:
+        return float(r_seg[index])
+    prev, nxt = (index - 1) % size, (index + 1) % size
+    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
+    denominator = z_prev - 2.0 * z_here + z_next
+    if denominator == 0.0:
+        return float(r_seg[index])
+    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
+    shift = 0.5 * (z_prev - z_next) / denominator
+    if not np.isfinite(shift) or abs(shift) > 1.0:
+        return float(r_seg[index])
+    r_here = float(r_seg[index])
+    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
+    return r_here + abs(shift) * (neighbour - r_here)
+
+
+#: Flux-surface quantities ``_surface_geometry`` returns, in the order they are
+#: written to ``profiles_1d``.
+_SURFACE_QUANTITIES = (
+    "volume",
+    "area",
+    "elongation",
+    "triangularity_upper",
+    "triangularity_lower",
+)
+
+
+def _surface_geometry(
+    data: Mapping[str, Any], psi_norm: np.ndarray
+) -> Optional[dict[str, np.ndarray]]:
+    """Flux-surface geometry on each psi_N level, by tracing the surfaces.
+
+    Returns ``volume``, ``area``, ``elongation``, ``triangularity_upper`` and
+    ``triangularity_lower``. Volume revolves each level's longest closed contour
+    with the exact ``V = pi * closed_integral(R^2 dZ)``; the rest are read off
+    the same contour, so the whole set costs one trace.
+
+    A g-file stores none of these -- OMFIT supplied them from its own
+    flux-surface solve, and ``update_equilibrium_boundary`` derives
+    ``boundary.elongation``/``triangularity`` from the ``profiles_1d`` shape
+    profiles, so without them that helper silently produces nothing.
+
+    The axis level is degenerate (zero volume and area, shape undefined) and the
+    edge uses the g-file's own ``RBBBS``/``ZBBBS`` boundary rather than a traced
+    contour, which is both exact and cheaper.
+
+    Returns ``None`` when the grid or the boundary cannot support the trace, so
+    the caller simply leaves the profiles unwritten.
+    """
+    from vaft.process.equilibrium import extract_flux_surface_contours
+
+    psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
+    if psi_norm.size < 3:
+        return None
+    profiles = {name: np.full(psi_norm.size, np.nan) for name in _SURFACE_QUANTITIES}
+    try:
+        nw, nh = int(data["NW"]), int(data["NH"])
+        psi_axis, psi_boundary = float(data["SIMAG"]), float(data["SIBRY"])
+        if psi_axis == psi_boundary:
+            return None
+        r_grid = np.linspace(0.0, float(data["RDIM"]), nw) + float(data["RLEFT"])
+        z_grid = (
+            np.linspace(0.0, float(data["ZDIM"]), nh)
+            - float(data["ZDIM"]) / 2.0
+            + float(data["ZMID"])
+        )
+        psi_2d = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh)
+
+        r_bnd = np.asarray(data.get("RBBBS", []), dtype=float).reshape(-1)
+        z_bnd = np.asarray(data.get("ZBBBS", []), dtype=float).reshape(-1)
+        if r_bnd.size < 3 or r_bnd.size != z_bnd.size:
+            return None
+        edge = _contour_geometry(r_bnd, z_bnd)
+
+        # The axis level has no contour and the boundary level comes from
+        # RBBBS/ZBBBS, so only the interior levels are traced.
+        interior = psi_norm[1:-1]
+        contours = extract_flux_surface_contours(
+            psi_2d, r_grid, z_grid, psi_axis, psi_boundary, interior
+        )
+
+        for name in _SURFACE_QUANTITIES:
+            profiles[name][-1] = edge[name]
+        # Volume and area vanish on the axis; shape does not, so it is left to
+        # the fill below to extrapolate from the innermost trusted surface.
+        profiles["volume"][0] = 0.0
+        profiles["area"][0] = 0.0
+
+        for index, level in enumerate(interior, start=1):
+            segments = contours.get(float(level)) or []
+            # Marching squares returns a handful of vertices for the innermost
+            # surfaces, where the flux surface is only a few cells across; what
+            # those polygons describe is grid artifact, not geometry. Drop them
+            # and let the fill below interpolate.
+            segments = [seg for seg in segments if seg[0].size >= _MIN_CONTOUR_POINTS]
+            if not segments:
+                continue
+            r_seg, z_seg = max(segments, key=lambda segment: segment[0].size)
+            try:
+                geometry = _contour_geometry(r_seg, z_seg)
+            except ValueError:
+                continue
+            for name in _SURFACE_QUANTITIES:
+                profiles[name][index] = geometry[name]
+    except Exception:
+        return None
+
+    for name, values in profiles.items():
+        missing = ~np.isfinite(values)
+        if missing.all():
+            return None
+        if missing.any():
+            good = ~missing
+            values[missing] = np.interp(psi_norm[missing], psi_norm[good], values[good])
+
+    volume = profiles["volume"]
+    # Tolerate rounding-scale non-monotonicity: contour tracing is not exact, and
+    # dropping a whole shot's profile over a 1e-12 inversion is the wrong trade.
+    if np.min(np.diff(volume)) < -1e-9 * max(float(volume[-1]), 1.0):
+        return None
+    return profiles
+
+
 def to_omas(
     geqdsk: GEQDSK | Mapping[str, Any],
     ods: Any = None,
@@ -504,7 +740,15 @@ def to_omas(
     eqt["profiles_1d.f_df_dpsi"] = np.asarray(data["FFPRIM"], dtype=float)
     eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float)
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
-    eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+
+    rho_tor_terms = _rho_tor_profile(data["QPSI"], psi_1d, data["BCENTR"])
+    if rho_tor_terms is None:
+        eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+    else:
+        phi, rho_tor, rho_tor_norm = rho_tor_terms
+        eqt["profiles_1d.phi"] = phi
+        eqt["profiles_1d.rho_tor"] = rho_tor
+        eqt["profiles_1d.rho_tor_norm"] = rho_tor_norm
 
     prof2d = eqt[f"profiles_2d.{profile_index}"]
     prof2d["grid_type.index"] = 1
@@ -525,6 +769,16 @@ def to_omas(
         eqt["boundary.outline.r"] = np.asarray(data.get("RBBBS", []), dtype=float)
         eqt["boundary.outline.z"] = np.asarray(data.get("ZBBBS", []), dtype=float)
 
+    if allow_derived_data:
+        # Tracing every flux surface is the expensive part of this conversion,
+        # so it sits behind the same flag as the other derived quantities.
+        surfaces = _surface_geometry(data, psi_norm)
+        if surfaces is not None:
+            for name in _SURFACE_QUANTITIES:
+                eqt[f"profiles_1d.{name}"] = surfaces[name]
+            eqt["global_quantities.volume"] = float(surfaces["volume"][-1])
+            eqt["global_quantities.area"] = float(surfaces["area"][-1])
+
     try:
         ods.set_time_array("equilibrium.time", time_index, eqt["time"])
     except Exception:
@@ -540,6 +794,17 @@ def to_omas(
     except Exception:
         ods[f"wall.time.{time_index}"] = eqt["time"]
     eqt["constraints.ip.reconstructed"] = float(data["CURRENT"])
+
+    namelists = getattr(item, "namelists", {})
+    if namelists:
+        from vaft.data.keqdsk import write_namelists_to_ods
+
+        try:
+            write_namelists_to_ods(ods, namelists, time_index=time_index)
+        except Exception:
+            # Same bargain as _trailing_namelists: an unusual trailing block
+            # must not cost the caller the equilibrium itself.
+            pass
     return ods
 
 

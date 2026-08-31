@@ -21,7 +21,7 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 | `samples/41672/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41672 pipeline run through EFIT |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
 | `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `shot_45531.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
-| `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
+| `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and canonical 3D coil geometry |
 
 ## Access
 
@@ -75,34 +75,60 @@ geometry; the differing suffixes are retained from the source asset names.
 for API compatibility, while its source metadata, channel order, and
 calibration values reflect the production 2409 magnetic geometry.
 
+`gpec/vest_UP.dat`, `gpec/vest_MID.dat`, and `gpec/vest_LOW.dat` are the
+canonical VEST non-axisymmetric 3D coil geometries in GPEC coil format. Each
+file's header is four fields `ncoil nsec npts nw` (coils per set, sections,
+points per coil, winding-turn multiplier), followed by `ncoil * npts` rows of
+Cartesian `x y z` coordinates in metres. Each coil is a *single* closed
+geometric filament; the physical winding count is carried by `nw = 20`, so
+the magnetic effect is 20 x the per-turn current. All three sets have 6
+sectors at 60-degree toroidal spacing: `UP` and `LOW` are the upper
+(z = +0.62 to +1.12 m) and lower (z = -1.12 to -0.62 m) saddle arrays
+(420 points per filament), and `MID` is the mid-plane 12-inch circular coil
+array (loop radius = 0.15 m at machine R = 0.80 m, 100 points per filament),
+taken from the shot-48226 @ 300 ms ideal-GPEC reference run
+(`VEST_3Dcoil_12inch20turn_200A_48226_300ms` bundle, where it was named
+`vest_12inch_20turn.dat`). The `UP`/`LOW` headers previously carried an
+erroneous `nw = 100.00` (their bodies were already identical to the corrected
+files); the geometry and the 20-turn interpretation were reviewed with 3D
+coil developer Gwang-geun Seo. `vaft.machine_mapping.coil_geometry_3d` is the
+canonical loader; the metadata (identifiers, sector angles, provenance) lives
+in its `VEST_3D_COIL_SETS` constant.
+
 `kineticEfit/ods_48224_300ms.json` is the canonical kinetic-profile ODS sample: the
 result of running the kinetic chain once on shot 48224 at 300 ms with polynomial
 `T_e`/`n_e`/`T_i`/`V_tor` fits. It carries the g-file equilibrium, the mapped
 `thomson_scattering` and `charge_exchange` channels, and the generated
 `core_profiles.profiles_1d.0`, so notebooks, examples, and tests can use
-representative profiles offline without `omfit_classes` or the `.mat` inputs
+representative profiles offline without the `.mat` inputs
 (`notebooks/kinetic_efit_end_to_end.ipynb` loads it and only rebuilds when it is
-absent). The recipe below is deterministic -- rerunning it reproduces the
-committed file byte for byte, provided `user` stays pinned (`dataset_description`
-otherwise stamps `$USER`, which would turn a regeneration into a spurious 2 MB
-diff). Regenerate it with:
+absent).
+
+The committed file was produced by an earlier version of the recipe that read
+the g-file through `omfit_classes`, which VAFT no longer depends on (issue
+#192). The native recipe below is deterministic and produces the same
+`core_profiles` content, but **not** the same file: OMFIT supplied its
+flux-surface solve's derived equilibrium quantities
+(`profiles_1d.gm1`..`gm9`, `dvolume_dpsi`, `b_field_average`, `area`,
+`elongation`, `global_quantities.beta_pol`/`li_3`, the X-point locations, and
+~550 other leaves), and it wrote `psi` in Wb where the native path keeps the
+g-file's own Wb/rad. The committed sample is therefore kept as a frozen
+artifact rather than regenerated -- do not overwrite it casually. Keep `user`
+pinned if you do regenerate (`dataset_description` otherwise stamps `$USER`,
+turning a regeneration into a spurious 2 MB diff). The recipe:
 
 ```python
-import vaft
-from vaft.data.resources import data_path
-
-vaft.apply_omfit_compat_patches()
 from omas import save_omas_json
-from omfit_classes.omfit_eqdsk import OMFITgeqdsk
 
 from vaft.code.efit import build_kinetic_core_profiles
+from vaft.data import read_geqdsk
+from vaft.data.resources import data_path
 from vaft.machine_mapping.charge_exchange import charge_exchange
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
 root = data_path("kineticEfit")
-geq = OMFITgeqdsk(str(root / "g048224.00300"))
-geq["fluxSurfaces"].load()
+geq = read_geqdsk(root / "g048224.00300")
 ods = geq.to_omas()
 ods["equilibrium.ids_properties.homogeneous_time"] = 1
 dataset_description(
