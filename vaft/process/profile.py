@@ -104,6 +104,17 @@ def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
     }
 
 
+def _has_flux_surfaces(geq) -> bool:
+    """True for a legacy mapping that carries precomputed ``fluxSurfaces``.
+
+    VAFT's own ``GEQDSK`` does not; it is read through the psi-grid branch.
+    """
+    try:
+        return "fluxSurfaces" in geq and "levels" in geq["fluxSurfaces"]
+    except Exception:
+        return False
+
+
 def _outermost_surface_path(geq):
     """Return a matplotlib Path around the outermost traced flux surface.
 
@@ -125,8 +136,11 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
     Points outside the last closed flux surface are returned as NaN rather than
     pinned to the edge psi_N level.
     """
-    # Compatibility with legacy precomputed flux-surface dictionaries.
-    try:
+    # Compatibility with legacy precomputed flux-surface dictionaries. This is
+    # keyed on the mapping actually carrying 'fluxSurfaces' rather than on a
+    # bare except, so a genuine failure inside the nearest-surface search
+    # surfaces instead of silently falling through to the psi-grid branch.
+    if _has_flux_surfaces(geq):
         flux_levels = geq['fluxSurfaces']['levels']
         boundary = _outermost_surface_path(geq)
         mapped = []
@@ -146,8 +160,6 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
                     closest_rho = flux_levels[i]
             mapped.append(closest_rho)
         return np.clip(np.asarray(mapped, dtype=float), 0.0, 1.0)
-    except Exception:
-        pass
 
     try:
         nw = int(geq['NW'])
@@ -770,7 +782,10 @@ def _grid_from_geq(geq):
     if geq is None:
         return None
     try:
-        go = geq.to_omas()
+        # Only the 1D psi/rho grid is wanted here, and the derived-data pass
+        # traces every flux surface -- seconds per slice, for arrays this
+        # function discards.
+        go = geq.to_omas(allow_derived_data=False)
         base = "equilibrium.time_slice.0.profiles_1d"
         rho = np.asarray(go[f"{base}.rho_tor_norm"], dtype=float)
         psi = np.asarray(go[f"{base}.psi"], dtype=float)

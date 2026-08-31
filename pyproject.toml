@@ -59,6 +59,9 @@ dependencies = [
   "urllib3==1.26.13",
   "wexpect; sys_platform == 'win32'",
   "xarray>=2024.4.0",
+  # omas needs it to serialize equilibrium.code.parameters (the EFIT
+  # namelists a g-file/k-file carries) and only declares it behind an extra.
+  "xmltodict>=0.13.0",
   "imas_core>=5.6.0,<6",
   "imas_python>=2.1.0,<3",
 ]

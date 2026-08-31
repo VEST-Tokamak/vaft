@@ -3,7 +3,7 @@ import glob
 import pandas as pd
 import numpy as np
 import vaft
-from omfit_classes.omfit_eqdsk import OMFITeqdsk, OMFITgeqdsk
+from vaft.data import read_geqdsk
 
 def find_chease_files(base_path=None):
     """Find all CHEASE files in the specified directory structure.
@@ -72,6 +72,33 @@ def find_chease_files(base_path=None):
     print(f"\nTotal CHEASE file sets found: {len(chease_files)}")
     return chease_files
 
+# Quantities OMFIT's flux-surface solve used to supply and the native EQDSK
+# conversion does not reconstruct yet (issue #238).  Reporting them as NaN with
+# one warning keeps the rest of the row -- reading an unset ODS leaf raises, and
+# the broad except below would otherwise drop every g-file and leave an empty
+# spreadsheet.
+_UNAVAILABLE = set()
+
+
+def _optional(ods, path, ndigits=3):
+    """Read an ODS leaf that may not be present, as NaN when it is not."""
+    try:
+        value = float(ods[path])
+    except Exception:
+        _UNAVAILABLE.add(path)
+        return np.nan
+    return round(value, ndigits)
+
+
+def warn_unavailable():
+    """Print, once, which quantities were unavailable for every processed file."""
+    if _UNAVAILABLE:
+        print(
+            "\n[WARNING] not reconstructed by the native EQDSK conversion "
+            "(issue #238), reported as NaN: " + ", ".join(sorted(_UNAVAILABLE))
+        )
+
+
 def extract_chease_data(chease_set):
     """Extract key parameters from CHEASE files for a single time point.
     
@@ -83,8 +110,12 @@ def extract_chease_data(chease_set):
     """
     try:
         # Load CHEASE files and convert to OMAS data structure
-        gfile = OMFITgeqdsk(chease_set['gfile'])
+        gfile = read_geqdsk(chease_set['gfile'])
         ods = gfile.to_omas()
+        # r_outboard/r_inboard are derived from the 2D psi map, not stored in
+        # the g-file, and the boundary helper is what this needs to run first.
+        vaft.omas.update.update_equilibrium_boundary(ods)
+        vaft.omas.update.update_equilibrium_profiles_1d_radial_coordinates(ods)
         
         equilibrium = ods['equilibrium']['time_slice'][0]
         a = (equilibrium['profiles_1d']['r_outboard'][-1] - equilibrium['profiles_1d']['r_inboard'][-1]) / 2
@@ -110,21 +141,25 @@ def extract_chease_data(chease_set):
             'aspect_ratio': aspect,
             'magnetic_axis_r': round(ods['equilibrium.time_slice.0.global_quantities.magnetic_axis.r'], 3),  # m
             'magnetic_axis_z': round(ods['equilibrium.time_slice.0.global_quantities.magnetic_axis.z'], 3),  # m
-            'beta_poloidal': round(ods['equilibrium.time_slice.0.global_quantities.beta_pol'], 3),
-            'beta_toroidal': round(ods['equilibrium.time_slice.0.global_quantities.beta_tor'], 3),
-            'beta_normal': round(ods['equilibrium.time_slice.0.global_quantities.beta_normal'], 3),
-            'li_3': round(ods['equilibrium.time_slice.0.global_quantities.li_3'], 3),
+            'beta_poloidal': _optional(ods, 'equilibrium.time_slice.0.global_quantities.beta_pol'),
+            'beta_toroidal': _optional(ods, 'equilibrium.time_slice.0.global_quantities.beta_tor'),
+            'beta_normal': _optional(ods, 'equilibrium.time_slice.0.global_quantities.beta_normal'),
+            'li_3': _optional(ods, 'equilibrium.time_slice.0.global_quantities.li_3'),
             'b_field_tor_axis': round(ods['equilibrium.time_slice.0.global_quantities.magnetic_axis.b_field_tor'], 3),  # T
             'plasma_volume': round(volume, 3),  # m^3
             'plasma_surface_area': round(area, 3),  # m^2
-            'triangularity': round(ods['equilibrium.time_slice.0.profiles_1d.triangularity_upper'][-1], 3),
+            'triangularity': _optional(ods, 'equilibrium.time_slice.0.boundary.triangularity'),
             'psi_axis': round(ods['equilibrium.time_slice.0.global_quantities.psi_axis'], 3),
             'psi_boundary': round(ods['equilibrium.time_slice.0.global_quantities.psi_boundary'], 3),
-            'area': round(ods['equilibrium.time_slice.0.global_quantities.area'], 3)
+            'area': _optional(ods, 'equilibrium.time_slice.0.global_quantities.area')
         }
         
         # Get strike points
-        x_points = ods['equilibrium.time_slice.0.boundary.x_point']
+        try:
+            x_points = ods['equilibrium.time_slice.0.boundary.x_point']
+        except Exception:
+            _UNAVAILABLE.add('equilibrium.time_slice.0.boundary.x_point')
+            x_points = []
         if len(x_points) >= 2:
             data.update({
                 'strike_r_inner': round(x_points[0]['r'], 3),
@@ -206,6 +241,7 @@ def generate_chease_history_excel(base_path=None):
         df.to_excel("chease_history.xlsx", index=False)
         print(f"\nProcessing complete! Successfully processed {len(all_data)} out of {len(chease_files)} files.")
         print("Saved to chease_history.xlsx")
+        warn_unavailable()
     else:
         print("\nNo data was successfully processed.")
 
