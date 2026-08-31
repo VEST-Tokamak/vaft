@@ -324,6 +324,42 @@ def _realized_window(grid: np.ndarray) -> dict[str, Any]:
     }
 
 
+def _validate_realized_axis(
+    component: str, grid: np.ndarray, policy: DiagnosticsTimePolicy
+) -> None:
+    """Check a realized coordinate against the policy that asked for it.
+
+    Components given an explicit target axis satisfy this trivially.  It earns
+    its keep for the full-window components, whose axis is built inside the
+    mapper and read back out of the product: without this the only comparison
+    left would be that axis against itself, and a mapper emitting the wrong
+    cadence -- or running past the window -- would validate cleanly.
+    """
+    grid = np.asarray(grid, dtype=float).reshape(-1)
+    if grid.size == 0:
+        return
+    if grid.size > 1:
+        spacing = np.diff(grid)
+        if not np.allclose(spacing, policy.dt, rtol=1e-6, atol=0.0):
+            raise ValueError(
+                f"{component} time is not uniform at the {policy.name} cadence "
+                f"{policy.dt}: realized spacing spans "
+                f"[{float(spacing.min())}, {float(spacing.max())}]"
+            )
+    # Clipping may narrow the span but must never widen it: the axis has to
+    # stay inside the half-open window the policy asked for.
+    if grid[0] < policy.tstart - 0.5 * policy.dt:
+        raise ValueError(
+            f"{component} time starts at {float(grid[0])}, before the "
+            f"{policy.name} window start {policy.tstart}"
+        )
+    if grid[-1] >= policy.tend:
+        raise ValueError(
+            f"{component} time reaches {float(grid[-1])}, at or past the "
+            f"{policy.name} window's exclusive end {policy.tend}"
+        )
+
+
 def _validate_diagnostics_time_coordinates(
     ods: ODS,
     grids: Mapping[str, np.ndarray],
@@ -345,6 +381,7 @@ def _validate_diagnostics_time_coordinates(
         grid = np.asarray(grid, dtype=float).reshape(-1)
         if grid.size > 1 and np.any(np.diff(grid) <= 0.0):
             raise ValueError(f"{component} diagnostics time must be strictly monotonic")
+        _validate_realized_axis(component, grid, policies[component])
 
     # Each canonical coordinate belongs to the component that produced it, so
     # it is compared against that component's grid rather than a shared one.
@@ -742,6 +779,7 @@ def build_diagnostics_ods(
             raw_source=raw_path,
         ),
     )
+    grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]
     run_component(
         "tf",

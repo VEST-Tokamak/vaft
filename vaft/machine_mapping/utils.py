@@ -422,6 +422,15 @@ def resolve_diagnostics_time_policies(
     raw_windows = document.get("windows")
     if not isinstance(raw_windows, Mapping) or not raw_windows:
         raise VestConfigurationError(f"{context}: 'windows' must be a non-empty mapping")
+    # Checked before the override is applied: otherwise a `default` naming a
+    # window that does not exist would be materialized out of the override's
+    # own tstart/tend/dt, and the "not configured" guard below could never
+    # fire for the callers that always pass them (the Snakemake rule does).
+    if default_name not in raw_windows:
+        raise VestConfigurationError(
+            f"{context}: default window {default_name!r} is not configured; "
+            f"configured windows: {', '.join(sorted(str(n) for n in raw_windows))}"
+        )
     if analysis_override:
         merged = dict(raw_windows.get(default_name) or {})
         merged.update(

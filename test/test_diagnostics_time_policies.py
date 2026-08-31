@@ -25,6 +25,7 @@ from vaft.machine_mapping.magnetics import (
 from vaft.machine_mapping.tf import vfit_tf_dynamic
 from vaft.machine_mapping.utils import (
     DiagnosticsTimePolicy,
+    DiagnosticsTimePolicyTable,
     VestConfigurationError,
     build_window_time_axis,
     resolve_diagnostics_time_policies,
@@ -267,3 +268,79 @@ def test_widening_the_window_does_not_change_the_analysis_interval():
         np.testing.assert_allclose(
             full_data[overlap], short_data, rtol=1e-9, atol=0.0
         )
+
+
+def test_realized_axis_is_checked_against_its_policy_not_itself():
+    """Review finding: full-window axes were validated against themselves.
+
+    TF and barometry build their axis inside the mapper, and the stage reads it
+    back out of the product. Comparing that axis to the node it came from is a
+    tautology, so the realized coordinate is checked against the policy that
+    asked for it instead -- otherwise a mapper emitting the wrong cadence, or
+    running past the window, would validate cleanly and ship.
+    """
+    from omas import ODS
+
+    from vaft.omas.vest_upstream import _validate_diagnostics_time_coordinates
+
+    full = DiagnosticsTimePolicy("full_discharge", 0.0, 1.0, SLOW_DT)
+    policies = DiagnosticsTimePolicyTable(
+        {"tf": full}, windows={"full_discharge": full}, default=full
+    )
+
+    def validate(axis):
+        ods = ODS(consistency_check=False)
+        ods["tf.time"] = axis
+        return _validate_diagnostics_time_coordinates(
+            ods, {"tf": axis}, policies=policies
+        )
+
+    # linspace over the wrong span: dt=6e-5 against a 4e-5 policy, running
+    # 50% past the window's exclusive end.
+    with pytest.raises(ValueError, match="not uniform at the full_discharge cadence"):
+        validate(np.linspace(0.0, 1.5, 25_000))
+
+    with pytest.raises(ValueError, match="at or past the .* exclusive end"):
+        validate(np.arange(0.0, 1.2, SLOW_DT))
+
+    # The correct grid, and a legitimately clipped one, must still pass.
+    validate(np.arange(0.0, 1.0, SLOW_DT))
+    validate(np.arange(0.0, 0.2, SLOW_DT))
+
+
+def test_a_default_naming_an_unconfigured_window_is_rejected():
+    """Review finding: the override used to invent the missing window.
+
+    `analysis_override` carries the stage's explicit tstart/tend/dt -- which
+    the Snakemake rule always passes -- so applying it before validating
+    `default` let a typo materialize a window out of those values instead of
+    failing.
+    """
+    for override in (
+        {"tstart": 0.26, "tend": 0.36, "dt": SLOW_DT},
+        {"tstart": None, "tend": None, "dt": None},
+    ):
+        with pytest.raises(VestConfigurationError, match="is not configured"):
+            resolve_diagnostics_time_policies(
+                analysis_override=override, overrides={"default": "analisys"}
+            )
+
+
+def test_every_mapped_component_reports_its_coverage(tmp_path):
+    """Review finding: langmuir_probes was mapped but left out of the record."""
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, 25_000)
+
+    _, manifest = build_diagnostics_ods(
+        shot=SHOT, raw_source=raw, static_ods=_static_ods(tmp_path)
+    )
+
+    mapped = {
+        name
+        for name, status in manifest["channel_status"].items()
+        if status["status"] != "unavailable"
+    }
+    recorded = set(manifest["time_grid"]["components"])
+    # impa writes into the magnetics IDS rather than one of its own, so it has
+    # no coordinate to report; every other mapped component must have one.
+    assert mapped - {"impa"} <= recorded
