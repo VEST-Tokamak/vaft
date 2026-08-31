@@ -213,10 +213,24 @@ Neither changes names in phase B.
   `VIEWS += ("evolution",)` + taxonomy tests. Names unchanged; grammar test
   still domain-based.
 - **PR-B2**: the rename table above applied to registry names, recipe keys,
-  `vaft.omas` adapters, `vaft/validation.py` references; DEPRECATED wrappers +
-  migration rows for the 34 old names; grammar test switches to
-  `name == f"{subject}_{view}"` or `f"{subject}_{view}_{quantity}"`;
-  tutorials/notebooks updated.
+  `vaft.omas` adapters, `vaft/validation.py` references; grammar test switches
+  to `name == f"{subject}_{view}"` or `f"{subject}_{view}_{quantity}"`;
+  tutorials/notebooks updated. Compat: `vaft.plot._migration.RENAMED`
+  (old stem → new stem, window `RENAMED_IN` 0.6.0 → `RENAMED_REMOVAL_RELEASE`
+  0.8.0), a `vaft.plot.__getattr__` branch, and `vaft.omas.plot_<old>` warning
+  wrappers. `quantity`/`view`/`domain` metadata realigned with the new grammar
+  (`current_overview` view time→overview; `equilibrium_time_beta` domain
+  summary→equilibrium). Existing DEPRECATED targets re-pointed at the new
+  stems; the 13 renamed entries left `PRESERVED` (their story is now
+  `RENAMED`'s).
+
+### Migration notes
+
+- The pre-#62 legacy name `mirnov_spectrogram` (a `DEPRECATED` alias of the
+  Mirnov spectrogram renderer) is retired: the canonical renderer now takes
+  that exact name, and the canonical attribute shadows the legacy resolution
+  path. Legacy callers holding an ODS get a `TypeError` pointing at the
+  adapter instead of a silent behavior change.
 
 ## Test plan
 

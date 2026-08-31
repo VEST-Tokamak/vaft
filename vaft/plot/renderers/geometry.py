@@ -22,16 +22,16 @@ from ..style import finalize, resolve_axes
 
 __all__ = [
     "charge_exchange_geometry_poloidal",
-    "coils_non_axisymmetric_geometry3d",
-    "coils_non_axisymmetric_geometry_topview",
+    "coil_3d_geometry3d",
+    "coil_3d_geometry_topview",
     "draw_geometry_layer",
     "equilibrium_geometry_boundary",
     "equilibrium_geometry_topview",
     "machine_geometry_poloidal",
     "machine_geometry_topview",
     "magnetics_geometry_poloidal",
-    "pf_active_geometry_poloidal",
-    "pf_passive_geometry_poloidal",
+    "pf_coil_geometry_poloidal",
+    "passive_structure_geometry_poloidal",
     "render_geometry_3d_layers",
     "render_geometry_layers",
     "soft_x_rays_geometry_lines_of_sight",
@@ -123,7 +123,7 @@ def _geometry_renderer(*, domain: str, subject: str, quantity: str, description:
                     "pf_active.coil.{i}.element.{j}.geometry.outline.z"),
     optional_paths=("pf_active.coil.{i}.name",),
 )
-def pf_active_geometry_poloidal(
+def pf_coil_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """PF coil outlines in the poloidal plane."""
@@ -139,7 +139,7 @@ def pf_active_geometry_poloidal(
                     "pf_passive.loop.{i}.element.{j}.geometry.outline.z"),
     optional_paths=("pf_passive.loop.{i}.name",),
 )
-def pf_passive_geometry_poloidal(
+def passive_structure_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Passive conducting-structure loop outlines in the poloidal plane."""
@@ -377,7 +377,7 @@ def render_geometry_3d_layers(
         "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.z",
     ),
 )
-def coils_non_axisymmetric_geometry3d(
+def coil_3d_geometry3d(
     model: Geometry3DLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """3D validation view of the non-axisymmetric coil filaments."""
@@ -394,7 +394,7 @@ def coils_non_axisymmetric_geometry3d(
         "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.phi",
     ),
 )
-def coils_non_axisymmetric_geometry_topview(
+def coil_3d_geometry_topview(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Top view (x-y) of the non-axisymmetric coil filaments."""

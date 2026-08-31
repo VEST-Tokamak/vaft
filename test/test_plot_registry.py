@@ -83,21 +83,22 @@ def test_specs_declare_their_model_and_data_requirements():
         assert issubclass(spec.model, ViewModel), spec.name
         assert spec.description.strip(), spec.name
         assert spec.view in registry.VIEWS, spec.name
-        assert spec.name.startswith(spec.domain + "_"), spec.name
         assert not spec.name.startswith("plot_"), spec.name
         assert spec.ids, spec.name
         for path in spec.required_paths + spec.optional_paths:
             assert path.split(".")[0] in spec.ids, (spec.name, path)
 
 
-def test_canonical_names_follow_the_domain_view_quantity_grammar():
+def test_canonical_names_follow_the_subject_view_quantity_grammar():
+    # Issue #251: canonical identity is ``subject / view / [quantity]``;
+    # ``domain`` records IDS ownership and is no longer part of the name.
     for spec in registry.specs():
         expected = "_".join(
-            part for part in (spec.domain, spec.view, spec.quantity) if part
+            part for part in (spec.subject, spec.view, spec.quantity) if part
         )
-        # ``quantity`` may be dropped when domain/view is already unambiguous.
-        short = f"{spec.domain}_{spec.view}"
-        assert spec.name in {expected, short}, spec.name
+        # ``quantity`` is optional when subject/view is already unambiguous.
+        short = f"{spec.subject}_{spec.view}"
+        assert spec.name in {expected, short}, (spec.name, spec.subject)
 
 
 def test_registry_refuses_to_replace_an_entry():

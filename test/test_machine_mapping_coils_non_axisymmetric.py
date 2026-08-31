@@ -159,11 +159,11 @@ def test_geometry3d_plot_renders(geometry_ods):
 
     import vaft.omas as vomas
 
-    figure, axes = vomas.plot_coils_non_axisymmetric_geometry3d(geometry_ods)
+    figure, axes = vomas.plot_coil_3d_geometry3d(geometry_ods)
     assert type(axes).__name__ == "Axes3D"
     assert len(axes.lines) == 18
     plt.close(figure)
 
-    figure, axes = vomas.plot_coils_non_axisymmetric_geometry_topview(geometry_ods)
+    figure, axes = vomas.plot_coil_3d_geometry_topview(geometry_ods)
     assert len(axes.lines) == 18
     plt.close(figure)

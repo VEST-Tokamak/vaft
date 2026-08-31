@@ -13,7 +13,7 @@ from ..style import finalize, resolve_axes
 
 __all__ = [
     "interferometer_spectrogram",
-    "magnetics_spectrogram_mirnov",
+    "mirnov_spectrogram",
     "render_spectrogram",
     "soft_x_rays_spectrogram",
 ]
@@ -57,14 +57,14 @@ def render_spectrogram(
     domain="magnetics",
     subject="mirnov",
     view="spectrogram",
-    quantity="mirnov",
+    quantity="",
     model=Spectrogram,
     description="Time-frequency map of one Mirnov coil signal.",
     ids=("magnetics",),
     required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
     optional_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
 )
-def magnetics_spectrogram_mirnov(
+def mirnov_spectrogram(
     model: Spectrogram, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Time-frequency map of one Mirnov coil signal."""

@@ -30,7 +30,7 @@ def _limiter_ods() -> ODS:
 def test_omas_limiter_current_adapter_creates_lc_uc_mm_three_by_one_panels():
     ods = _limiter_ods()
 
-    figure, axes = vomas.plot_magnetics_time_limiter_current(ods)
+    figure, axes = vomas.plot_limiter_current_time(ods)
 
     assert axes.shape == (3, 1)
     assert [axis.get_title() for axis in axes.ravel()] == [
@@ -41,7 +41,7 @@ def test_omas_limiter_current_adapter_creates_lc_uc_mm_three_by_one_panels():
         np.testing.assert_allclose(axis.lines[0].get_ydata(), (index + 1) * np.array([0.0, 0.1, 0.2]))
         assert axis.get_ylabel() == "Limiter Current [A]"
     assert "magnetics.shunt.0.current" not in ods
-    assert "magnetics_time_limiter_current" in {
+    assert "limiter_current_time" in {
         row["name"] for row in vomas.available_plots(ods)
     }
     plt.close(figure)
@@ -62,7 +62,7 @@ def test_limiter_current_renderer_accepts_a_three_panel_view_model():
         share_x=True,
     )
 
-    figure, axes = vplot.magnetics_time_limiter_current(panels)
+    figure, axes = vplot.limiter_current_time(panels)
 
     assert axes.shape == (3, 1)
     assert all(len(axis.lines) == 1 for axis in axes.ravel())
