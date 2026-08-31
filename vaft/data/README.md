@@ -53,7 +53,14 @@ slice. Its wheel build replaces those checkout artifacts with a separately
 manifested three-slice variant generated from the same canonical ODS, keeping
 the installed package small without making a repository checkout less useful.
 `workflow/reference_validation/generate_paired_sample.py` generates both
-forms; neither representation is maintained independently. Shots 41524 and 41672 are
+forms; neither representation is maintained independently. The 39915 sample
+carries `pf_passive` geometry only -- all 950 loop outlines, resistances and
+resistivities, but no loop currents -- and omits `em_coupling` entirely. Both
+are derivable: the coupling matrices come from
+`geometry/VEST_em_coupling_pf_versions.npz` through
+`vaft.machine_mapping.em_coupling`, keyed by the shot's PF geometry version.
+Materializing them into the sample would store a reconstruction rather than a
+measurement, so an example that needs them should call that API instead. Shots 41524 and 41672 are
 regenerated from frozen current-pipeline products by
 `generate_pipeline_imas_sample.py`; each retains its successful EFIT slices
 and records unavailable optional channels and unsuccessful EFIT times in its

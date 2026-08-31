@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 10014697
-    sha256: 8d08a949f68df0dc45088885a6e59b87e4995db06f4c9aa32bfb071aa0bbb44b
+    size: 9910535
+    sha256: 8b4bed47c0b5e433c299e26554eaf10441251498f2eabc483d2f72644ace0fd2
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,8 +58,8 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11222468
-    sha256: 995b3eb62a9e10e69778ad0e68b3075fa382b7c78ca84c568da93e1cbdcf0258
+    size: 11182674
+    sha256: cb35b6204998420549310cb9913cf7647e607d4c2b223688df325b6ca9c4c1d6
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -67,7 +67,7 @@ generation:
   canonical_sha256: 426f8e7842e0fcc73dc5df910c797a5a40b5b460bb0165b7de292d9b48235ded
   canonical_policy: repository-only
   equilibrium_time_slices: 3
-  materialized_leaves: 7053
+  materialized_leaves: 15583
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -87,13 +87,10 @@ generation:
   - spectrometer_uv.time
   - spectrometer_uv.channel.*
   - pf_passive.ids_properties.*
-  - pf_passive.time
-  - pf_passive.loop.0.*
-  - em_coupling.ids_properties.*
-  - em_coupling.active_coils
-  - em_coupling.passive_loops
-  - em_coupling.mutual_active_active
-  - em_coupling.mutual_passive_active
+  - pf_passive.loop.*.name
+  - pf_passive.loop.*.resistance
+  - pf_passive.loop.*.resistivity
+  - pf_passive.loop.*.element.*
   - equilibrium.ids_properties.*
   - equilibrium.time
   - equilibrium.vacuum_toroidal_field.*
@@ -108,7 +105,6 @@ semantic_comparison:
   - magnetics.*
   - spectrometer_uv.*
   - pf_passive.*
-  - em_coupling.*
   - equilibrium.*
   exclude_paths:
   - '*.ids_properties.version_put*'
@@ -122,6 +118,9 @@ acceptance:
     coil_count: 10
   spectrometer_uv:
     channel_count: 3
+  pf_passive:
+    loop_count: 950
+    static_only: true
   equilibrium_times:
   - 0.316
   - 0.317
@@ -134,7 +133,6 @@ acceptance:
   - magnetics
   - spectrometer_uv
   - pf_passive
-  - em_coupling
   - equilibrium
 packaging_policy:
   compact_pair: wheel-and-sdist
