@@ -266,6 +266,14 @@ def verify(manifest_path: Path) -> None:
         expected_magnetics["flux_loop_count"]
     ):
         raise ValueError("Compact sample does not contain every flux loop")
+    expected_pf_active = manifest["acceptance"].get("pf_active")
+    if expected_pf_active is not None and len(native_omas["pf_active.coil"]) != int(
+        expected_pf_active["coil_count"]
+    ):
+        # Free-boundary work needs the complete machine state: a subset of the
+        # PF coils cannot even hold the measured equilibrium (issue context:
+        # the 39915 sample once shipped only PF1-PF5).
+        raise ValueError("Compact sample does not contain every pf_active coil")
 
 
 def main() -> int:
