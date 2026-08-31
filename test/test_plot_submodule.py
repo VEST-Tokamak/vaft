@@ -16,8 +16,8 @@ def sample_ods():
     return vaft.omas.load(vaft.data.sample(39915, "omas"))
 
 
-def test_pf_active_time_current_renders_from_an_ods(sample_ods):
-    figure, axes = vaft.omas.plot_pf_active_time_current(sample_ods)
+def test_pf_coil_time_current_renders_from_an_ods(sample_ods):
+    figure, axes = vaft.omas.plot_pf_coil_time_current(sample_ods)
     assert axes.lines
     assert axes.get_ylabel().startswith("Coil Current")
     plt.close(figure)
@@ -30,6 +30,6 @@ def test_legacy_entry_point_still_works_and_warns(sample_ods):
         legacy = vaft.plot.time_pf_active_current
 
     assert any(item.category is DeprecationWarning for item in caught)
-    assert "pf_active_time_current" in str(caught[0].message)
+    assert "pf_coil_time_current" in str(caught[0].message)
     legacy(sample_ods)
     plt.close("all")

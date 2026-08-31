@@ -99,7 +99,7 @@ def test_the_declared_stage_set():
 
 def test_unknown_kind_and_empty_plot_name_are_refused():
     with pytest.raises(ValueError, match="unknown validation-plot kind"):
-        ValidationPlot("magnetics_time_ip", kind="hdf5")
+        ValidationPlot("plasma_current_time", kind="hdf5")
     with pytest.raises(ValueError, match="must name a renderer"):
         ValidationPlot("")
 
@@ -190,7 +190,7 @@ def test_manifest_records_the_persisted_files_and_what_else_is_available(
         target = tmp_path / "plot" / row["file"]
         assert row["bytes"] == target.stat().st_size
         assert len(row["sha256"]) == 64
-    assert "magnetics_time_ip" in manifest["available"]
+    assert "plasma_current_time" in manifest["available"]
     assert len(manifest["available"]) > len(manifest["plots"])
 
 

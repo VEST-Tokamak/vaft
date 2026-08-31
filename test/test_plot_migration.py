@@ -17,6 +17,8 @@ from vaft.plot._migration import (
     RELOCATED,
     REMOVAL_RELEASE,
     REMOVED,
+    RENAMED,
+    RENAMED_REMOVAL_RELEASE,
     legacy_surface,
 )
 
@@ -202,13 +204,14 @@ HISTORICAL_SURFACE = (
 
 
 def test_every_historical_name_is_accounted_for():
-    covered = legacy_surface() | set(registry.canonical_names())
+    covered = legacy_surface() | set(registry.canonical_names()) | set(RENAMED)
     missing = sorted(set(HISTORICAL_SURFACE) - covered)
     assert not missing, missing
 
 
 def test_classifications_do_not_overlap():
-    groups = (set(DEPRECATED), set(RELOCATED), set(LEGACY), set(REMOVED))
+    groups = (set(DEPRECATED), set(RELOCATED), set(LEGACY), set(REMOVED),
+              set(RENAMED))
     for index, first in enumerate(groups):
         for second in groups[index + 1:]:
             assert not first & second, sorted(first & second)
@@ -271,11 +274,12 @@ def test_unknown_names_still_raise_attribute_error():
 
 def test_rendered_table_covers_the_whole_surface():
     text = vaft.plot.migration_table()
-    for name in sorted(legacy_surface() | set(PRESERVED)):
+    for name in sorted(legacy_surface() | set(PRESERVED) | set(RENAMED)):
         assert f"`{name}`" in text, name
     assert REMOVAL_RELEASE in text
-    for heading in ("Deprecated renderers", "Relocated", "Removed internal helpers",
-                    "Already canonical"):
+    assert RENAMED_REMOVAL_RELEASE in text
+    for heading in ("Deprecated renderers", "Renamed canonical stems", "Relocated",
+                    "Removed internal helpers", "Already canonical"):
         assert heading in text, heading
 
 
@@ -284,3 +288,38 @@ def test_preserved_names_are_canonical_and_carry_no_deprecation():
     for name in PRESERVED:
         assert name in canonical, name
         assert name not in DEPRECATED, name
+        assert name not in RENAMED, name
+
+
+@pytest.mark.parametrize("name", sorted(RENAMED))
+def test_renamed_stems_warn_and_delegate_from_vaft_plot(name):
+    vaft.plot.__dict__.pop(name, None)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        value = getattr(vaft.plot, name)
+
+    assert value is getattr(vaft.plot, RENAMED[name]), name
+    assert any(item.category is DeprecationWarning for item in caught)
+    message = str(caught[0].message)
+    assert RENAMED[name] in message
+    assert RENAMED_REMOVAL_RELEASE in message
+
+
+def test_every_renamed_stem_points_at_a_registered_plot():
+    canonical = set(registry.canonical_names())
+    for old, new in RENAMED.items():
+        assert new in canonical, (old, new)
+        assert old not in canonical, old
+
+
+@pytest.mark.parametrize("name", sorted(RENAMED))
+def test_renamed_omas_adapters_warn_and_delegate(name):
+    import vaft.omas.plotting as omas_plotting
+
+    adapter = getattr(omas_plotting, f"plot_{name}")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(TypeError):
+            adapter(object())
+    assert any(item.category is DeprecationWarning for item in caught)
+    assert f"plot_{RENAMED[name]}" in str(caught[0].message)

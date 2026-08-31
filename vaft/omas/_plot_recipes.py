@@ -410,21 +410,21 @@ _EQ_TIME = ("equilibrium.time",)
 
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
-    "magnetics_time_ip": LineRecipe(
+    "plasma_current_time": LineRecipe(
         y_path="magnetics.ip.0.data",
         x_paths=("magnetics.ip.0.time",) + _MAGNETICS_TIME,
         y_label="Plasma Current",
         y_unit="A",
         title="Plasma Current",
     ),
-    "magnetics_time_diamagnetic_flux": LineRecipe(
+    "diamagnetic_flux_time": LineRecipe(
         y_path="magnetics.diamagnetic_flux.0.data",
         x_paths=("magnetics.diamagnetic_flux.0.time",) + _MAGNETICS_TIME,
         y_label="Diamagnetic Flux",
         y_unit="Wb",
         title="Diamagnetic Flux",
     ),
-    "magnetics_time_flux_loop_flux": LineRecipe(
+    "flux_loop_time_flux": LineRecipe(
         y_path="magnetics.flux_loop.{i}.flux.data",
         index="channel",
         x_paths=(
@@ -437,7 +437,7 @@ RECIPES: dict[str, Any] = {
         label_path="magnetics.flux_loop.{i}.name",
         title="Flux Loop Flux",
     ),
-    "magnetics_time_flux_loop_voltage": LineRecipe(
+    "flux_loop_time_voltage": LineRecipe(
         y_path="magnetics.flux_loop.{i}.voltage.data",
         index="channel",
         x_paths=(
@@ -450,7 +450,7 @@ RECIPES: dict[str, Any] = {
         label_path="magnetics.flux_loop.{i}.name",
         title="Flux Loop Voltage",
     ),
-    "magnetics_time_b_field_pol_probe_field": LineRecipe(
+    "b_field_probe_time_field": LineRecipe(
         y_path="magnetics.b_field_pol_probe.{i}.field.data",
         index="channel",
         x_paths=(
@@ -463,7 +463,7 @@ RECIPES: dict[str, Any] = {
         label_path="magnetics.b_field_pol_probe.{i}.name",
         title="B-field Probes",
     ),
-    "magnetics_time_mirnov_voltage": LineRecipe(
+    "mirnov_time_voltage": LineRecipe(
         y_path="magnetics.b_field_pol_probe.{i}.voltage.data",
         index="channel",
         x_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
@@ -473,7 +473,7 @@ RECIPES: dict[str, Any] = {
         title="Mirnov Coils",
     ),
     # --- pf_active -----------------------------------------------------------
-    "pf_active_time_current": LineRecipe(
+    "pf_coil_time_current": LineRecipe(
         y_path="pf_active.coil.{i}.current.data",
         index="channel",
         x_paths=("pf_active.coil.{i}.current.time", "pf_active.time"),
@@ -482,7 +482,7 @@ RECIPES: dict[str, Any] = {
         label_path="pf_active.coil.{i}.name",
         title="PF Coil Currents",
     ),
-    "pf_active_time_current_turns": LineRecipe(
+    "pf_coil_time_current_turns": LineRecipe(
         y_path="pf_active.coil.{i}.current.data",
         index="channel",
         x_paths=("pf_active.coil.{i}.current.time", "pf_active.time"),
@@ -508,14 +508,14 @@ RECIPES: dict[str, Any] = {
         y_label="Internal Inductance li_3",
         title="Internal Inductance",
     ),
-    "equilibrium_time_beta_pol": LineRecipe(
+    "equilibrium_time_beta_p": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.beta_pol",
         index="time_slice",
         x_paths=_EQ_TIME,
         y_label="Poloidal Beta",
         title="Poloidal Beta",
     ),
-    "equilibrium_time_beta_tor": LineRecipe(
+    "equilibrium_time_beta_t": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.beta_tor",
         index="time_slice",
         x_paths=_EQ_TIME,
@@ -591,7 +591,7 @@ RECIPES: dict[str, Any] = {
         title="Diamagnetic Flux Constraint",
     ),
     # --- tf ------------------------------------------------------------------
-    "tf_time_b_field_tor": LineRecipe(
+    "tf_coil_time_b_t": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
         x_paths=("tf.b_field_tor_vacuum_r.time", "tf.time"),
         y_label="Toroidal Field",
@@ -601,14 +601,14 @@ RECIPES: dict[str, Any] = {
         # radius to recover the field itself, matching the legacy renderer.
         divide_by_path="tf.r0",
     ),
-    "tf_time_b_field_tor_vacuum_r": LineRecipe(
+    "tf_coil_time_b_t_vacuum_r": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
         x_paths=("tf.b_field_tor_vacuum_r.time", "tf.time"),
         y_label="B_t * R",
         y_unit="T m",
         title="Vacuum B_t * R",
     ),
-    "tf_time_coil_current": LineRecipe(
+    "tf_coil_time_current": LineRecipe(
         y_path="tf.coil.{i}.current.data",
         index="channel",
         x_paths=("tf.coil.{i}.current.time", "tf.time"),
@@ -697,7 +697,7 @@ RECIPES: dict[str, Any] = {
         label_path="charge_exchange.channel.{i}.name",
         title="CES v_tor",
     ),
-    "core_profiles_time_electron_temperature": LineRecipe(
+    "electron_temperature_time": LineRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.temperature",
         index="time_slice_mean",
         x_paths=("core_profiles.time",),
@@ -705,7 +705,7 @@ RECIPES: dict[str, Any] = {
         y_unit="eV",
         title="Volume-averaged T_e",
     ),
-    "core_profiles_time_electron_density": LineRecipe(
+    "electron_density_time": LineRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.density",
         index="time_slice_mean",
         x_paths=("core_profiles.time",),
@@ -745,7 +745,7 @@ RECIPES: dict[str, Any] = {
         y_label="F dF/dpsi",
         y_unit="T^2 m^2/Wb",
     ),
-    "core_profiles_profile_electron_temperature": ProfileRecipe(
+    "electron_temperature_profile": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.temperature",
         coordinate_paths={
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
@@ -755,7 +755,7 @@ RECIPES: dict[str, Any] = {
         y_label="Electron Temperature",
         y_unit="eV",
     ),
-    "core_profiles_profile_electron_density": ProfileRecipe(
+    "electron_density_profile": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.electrons.density",
         coordinate_paths={
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
@@ -765,7 +765,7 @@ RECIPES: dict[str, Any] = {
         y_label="Electron Density",
         y_unit="m^-3",
     ),
-    "core_profiles_profile_ion_temperature": ProfileRecipe(
+    "ion_temperature_profile": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.ion.0.temperature",
         coordinate_paths={
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm"
@@ -774,7 +774,7 @@ RECIPES: dict[str, Any] = {
         y_label="Ion Temperature",
         y_unit="eV",
     ),
-    "core_profiles_profile_pressure": ProfileRecipe(
+    "thermal_pressure_profile": ProfileRecipe(
         y_path="core_profiles.profiles_1d.{i}.pressure_thermal",
         coordinate_paths={
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm"
@@ -836,7 +836,7 @@ RECIPES: dict[str, Any] = {
         values_order="rz",
     ),
     # --- geometry ------------------------------------------------------------
-    "pf_active_geometry_poloidal": GeometryRecipe(
+    "pf_coil_geometry_poloidal": GeometryRecipe(
         layers=(
             (
                 "polygon",
@@ -849,7 +849,7 @@ RECIPES: dict[str, Any] = {
         ),
         title="PF Coils",
     ),
-    "pf_passive_geometry_poloidal": GeometryRecipe(
+    "passive_structure_geometry_poloidal": GeometryRecipe(
         layers=(
             (
                 "polygon",
@@ -936,7 +936,7 @@ RECIPES: dict[str, Any] = {
         title="Charge-exchange Positions",
     ),
     # --- spectrograms --------------------------------------------------------
-    "magnetics_spectrogram_mirnov": SpectrogramRecipe(
+    "mirnov_spectrogram": SpectrogramRecipe(
         signal_path="magnetics.b_field_pol_probe.{i}.voltage.data",
         time_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
         container="magnetics.b_field_pol_probe",
@@ -958,7 +958,7 @@ RECIPES: dict[str, Any] = {
         description="Time-frequency map of one interferometer channel's density fluctuation.",
     ),
     # --- power spectra -------------------------------------------------------
-    "magnetics_spectrum_mirnov": PowerSpectrumRecipe(
+    "mirnov_spectrum": PowerSpectrumRecipe(
         signal_path="magnetics.b_field_pol_probe.{i}.voltage.data",
         time_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
         container="magnetics.b_field_pol_probe",
@@ -991,47 +991,47 @@ RECIPES: dict[str, Any] = {
         ),
         suptitle="Stored Energy",
     ),
-    "summary_time_beta": PanelRecipe(
+    "equilibrium_time_beta": PanelRecipe(
         members=(
-            "equilibrium_time_beta_pol",
-            "equilibrium_time_beta_tor",
+            "equilibrium_time_beta_p",
+            "equilibrium_time_beta_t",
             "equilibrium_time_beta_n",
         ),
         suptitle="Beta",
     ),
     "summary_time_voltage_consumption": PanelRecipe(
-        members=("magnetics_time_ip", "magnetics_time_flux_loop_voltage"),
+        members=("plasma_current_time", "flux_loop_time_voltage"),
         suptitle="Voltage Consumption",
     ),
     "equilibrium_time_virial": PanelRecipe(
         members=(
-            "equilibrium_time_beta_pol",
+            "equilibrium_time_beta_p",
             "equilibrium_time_li",
             "equilibrium_time_w_mhd",
         ),
         suptitle="Virial Equilibrium Quantities",
     ),
-    "electromagnetics_time_current": PanelRecipe(
-        members=("magnetics_time_ip", "pf_active_time_current"),
+    "current_overview": PanelRecipe(
+        members=("plasma_current_time", "pf_coil_time_current"),
         suptitle="Electromagnetic Currents",
     ),
     "core_profiles_time_volume_averaged": PanelRecipe(
         members=(
-            "core_profiles_time_electron_temperature",
-            "core_profiles_time_electron_density",
+            "electron_temperature_time",
+            "electron_density_time",
         ),
         suptitle="Volume-averaged Core Profiles",
     ),
     "spectrometer_uv_time_impurity": PanelRecipe(
-        members=("magnetics_time_ip", "spectrometer_uv_time_intensity"),
+        members=("plasma_current_time", "spectrometer_uv_time_intensity"),
         suptitle="Impurity Line Intensity",
     ),
     "magnetics_overview": PanelRecipe(
         members=(
-            "magnetics_time_ip",
-            "pf_active_time_current",
-            "magnetics_time_flux_loop_flux",
-            "magnetics_time_b_field_pol_probe_field",
+            "plasma_current_time",
+            "pf_coil_time_current",
+            "flux_loop_time_flux",
+            "b_field_probe_time_field",
         ),
         ncols=2,
         share_x=False,
@@ -1040,7 +1040,7 @@ RECIPES: dict[str, Any] = {
     "equilibrium_overview": PanelRecipe(
         members=(
             "equilibrium_time_plasma_current",
-            "equilibrium_time_beta_pol",
+            "equilibrium_time_beta_p",
             "equilibrium_time_li",
             "equilibrium_time_q95",
         ),
@@ -1058,21 +1058,21 @@ RECIPES: dict[str, Any] = {
         share_x=True,
         suptitle="Equilibrium Profiles",
     ),
-    "magnetics_time_impa_field": CallableRecipe(
+    "impa_time_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="field", **options),
         description="Compensated internal Bz from the IMPA Hall-probe array.",
     ),
-    "magnetics_time_impa_voltage": CallableRecipe(
+    "impa_time_voltage": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="voltage", **options),
         description="Raw IMPA Hall-probe voltages.",
     ),
-    "magnetics_profile_impa_tf": CallableRecipe(
+    "impa_profile_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_tf_profile(ods, **options),
         description="IMPA measured field against probe radius with the 1/R model.",
     ),
-    "magnetics_overview_impa": PanelRecipe(
-        members=("magnetics_time_impa_voltage", "magnetics_time_impa_field",
-                 "magnetics_profile_impa_tf", "tf_time_coil_current"),
+    "impa_overview": PanelRecipe(
+        members=("impa_time_voltage", "impa_time_field",
+                 "impa_profile_field", "tf_coil_time_current"),
         ncols=2, share_x=False, suptitle="IMPA Validation Overview",
     ),
     "soft_x_rays_overview": PanelRecipe(
@@ -1392,8 +1392,8 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
     for member in (
-        "pf_active_geometry_poloidal",
-        "pf_passive_geometry_poloidal",
+        "pf_coil_geometry_poloidal",
+        "passive_structure_geometry_poloidal",
         "magnetics_geometry_poloidal",
         "thomson_scattering_geometry_poloidal",
         "charge_exchange_geometry_poloidal",
@@ -1703,11 +1703,11 @@ RECIPES["soft_x_rays_geometry_lines_of_sight"] = CallableRecipe(
     builder=_build_lines_of_sight,
     description="One polyline per detector line of sight, over the wall outline.",
 )
-RECIPES["coils_non_axisymmetric_geometry3d"] = CallableRecipe(
+RECIPES["coil_3d_geometry3d"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_3d,
     description="Every non-axisymmetric coil filament as a 3D machine-coordinate polyline.",
 )
-RECIPES["coils_non_axisymmetric_geometry_topview"] = CallableRecipe(
+RECIPES["coil_3d_geometry_topview"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_topview,
     description="Non-axisymmetric coil filaments projected into the machine top view.",
 )
@@ -1727,13 +1727,13 @@ RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
     builder=_build_vacuum_psi,
     description="Vacuum flux map from the PF currents via vaft.omas.compute_null_ods.",
 )
-RECIPES["core_profiles_field_electron_temperature"] = CallableRecipe(
+RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "temperature"}
     ),
     description="Electron temperature mapped onto the poloidal plane.",
 )
-RECIPES["core_profiles_field_electron_density"] = CallableRecipe(
+RECIPES["electron_density_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "density"}
     ),
@@ -2724,7 +2724,7 @@ def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
     )
 
 
-RECIPES["magnetics_time_limiter_current"] = CallableRecipe(
+RECIPES["limiter_current_time"] = CallableRecipe(
     builder=_build_limiter_shunt_currents,
     description="VEST limiter currents derived from shunt voltage / resistance.",
 )

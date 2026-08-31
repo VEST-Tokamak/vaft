@@ -167,13 +167,13 @@ class TestRegistration:
             spec.name for spec in registry.specs() if spec.view == "spectrum"
         }
         assert names == {
-            "magnetics_spectrum_mirnov",
+            "mirnov_spectrum",
             "soft_x_rays_spectrum",
             "interferometer_spectrum",
         }
 
     def test_every_spectrum_renderer_is_exported(self):
-        for name in ("magnetics_spectrum_mirnov", "soft_x_rays_spectrum",
+        for name in ("mirnov_spectrum", "soft_x_rays_spectrum",
                      "interferometer_spectrum"):
             assert hasattr(vaft.plot, name)
             assert name in vaft.plot.__all__
@@ -182,7 +182,7 @@ class TestRegistration:
         # Diagnostic independence: the same model renders identically whichever
         # domain wrapper draws it.
         results = []
-        for name in ("magnetics_spectrum_mirnov", "soft_x_rays_spectrum",
+        for name in ("mirnov_spectrum", "soft_x_rays_spectrum",
                      "interferometer_spectrum"):
             figure, axes = getattr(vaft.plot, name)(spectrum)
             results.append(axes.get_lines()[0].get_ydata())

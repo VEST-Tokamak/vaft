@@ -20,10 +20,14 @@ and :func:`enable_plot_methods` to opt in to ``ODS.plot_*`` methods.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Sequence
 
 from vaft.plot.registry import available_plots as _registry_available_plots
 from vaft.plot.registry import get_spec, specs
+from vaft.plot._migration import (
+    RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
+)
 
 from ._plot_recipes import (
     build_model,
@@ -306,7 +310,7 @@ def plot_charge_exchange_geometry_poloidal(
     )
 
 
-def plot_coils_non_axisymmetric_geometry3d(
+def plot_coil_3d_geometry3d(
     source: Any,
     *,
     ax: Any = None,
@@ -316,10 +320,10 @@ def plot_coils_non_axisymmetric_geometry3d(
 ) -> tuple[Any, Any]:
     """Non-axisymmetric 3D coil filaments in machine Cartesian coordinates.
 
-    Renders with :func:`vaft.plot.coils_non_axisymmetric_geometry3d`.
+    Renders with :func:`vaft.plot.coil_3d_geometry3d`.
     """
     return render(
-        "coils_non_axisymmetric_geometry3d",
+        "coil_3d_geometry3d",
         source,
         ax=ax,
         show=show,
@@ -328,7 +332,7 @@ def plot_coils_non_axisymmetric_geometry3d(
     )
 
 
-def plot_coils_non_axisymmetric_geometry_topview(
+def plot_coil_3d_geometry_topview(
     source: Any,
     *,
     ax: Any = None,
@@ -338,10 +342,10 @@ def plot_coils_non_axisymmetric_geometry_topview(
 ) -> tuple[Any, Any]:
     """Non-axisymmetric 3D coil filaments projected into the machine top view.
 
-    Renders with :func:`vaft.plot.coils_non_axisymmetric_geometry_topview`.
+    Renders with :func:`vaft.plot.coil_3d_geometry_topview`.
     """
     return render(
-        "coils_non_axisymmetric_geometry_topview",
+        "coil_3d_geometry_topview",
         source,
         ax=ax,
         show=show,
@@ -438,7 +442,7 @@ def plot_charge_exchange_time_velocity_tor(
     )
 
 
-def plot_core_profiles_field_electron_density(
+def plot_electron_density_field(
     source: Any,
     *,
     ax: Any = None,
@@ -448,10 +452,10 @@ def plot_core_profiles_field_electron_density(
 ) -> tuple[Any, Any]:
     """Electron density mapped onto the poloidal plane.
 
-    Renders with :func:`vaft.plot.core_profiles_field_electron_density`.
+    Renders with :func:`vaft.plot.electron_density_field`.
     """
     return render(
-        "core_profiles_field_electron_density",
+        "electron_density_field",
         source,
         ax=ax,
         show=show,
@@ -460,7 +464,7 @@ def plot_core_profiles_field_electron_density(
     )
 
 
-def plot_core_profiles_field_electron_temperature(
+def plot_electron_temperature_field(
     source: Any,
     *,
     ax: Any = None,
@@ -470,10 +474,10 @@ def plot_core_profiles_field_electron_temperature(
 ) -> tuple[Any, Any]:
     """Electron temperature mapped onto the poloidal plane.
 
-    Renders with :func:`vaft.plot.core_profiles_field_electron_temperature`.
+    Renders with :func:`vaft.plot.electron_temperature_field`.
     """
     return render(
-        "core_profiles_field_electron_temperature",
+        "electron_temperature_field",
         source,
         ax=ax,
         show=show,
@@ -482,7 +486,7 @@ def plot_core_profiles_field_electron_temperature(
     )
 
 
-def plot_core_profiles_profile_electron_density(
+def plot_electron_density_profile(
     source: Any,
     *,
     ax: Any = None,
@@ -492,10 +496,10 @@ def plot_core_profiles_profile_electron_density(
 ) -> tuple[Any, Any]:
     """Core electron density profile.
 
-    Renders with :func:`vaft.plot.core_profiles_profile_electron_density`.
+    Renders with :func:`vaft.plot.electron_density_profile`.
     """
     return render(
-        "core_profiles_profile_electron_density",
+        "electron_density_profile",
         source,
         ax=ax,
         show=show,
@@ -504,7 +508,7 @@ def plot_core_profiles_profile_electron_density(
     )
 
 
-def plot_core_profiles_profile_electron_temperature(
+def plot_electron_temperature_profile(
     source: Any,
     *,
     ax: Any = None,
@@ -514,10 +518,10 @@ def plot_core_profiles_profile_electron_temperature(
 ) -> tuple[Any, Any]:
     """Core electron temperature profile.
 
-    Renders with :func:`vaft.plot.core_profiles_profile_electron_temperature`.
+    Renders with :func:`vaft.plot.electron_temperature_profile`.
     """
     return render(
-        "core_profiles_profile_electron_temperature",
+        "electron_temperature_profile",
         source,
         ax=ax,
         show=show,
@@ -526,7 +530,7 @@ def plot_core_profiles_profile_electron_temperature(
     )
 
 
-def plot_core_profiles_profile_ion_temperature(
+def plot_ion_temperature_profile(
     source: Any,
     *,
     ax: Any = None,
@@ -536,10 +540,10 @@ def plot_core_profiles_profile_ion_temperature(
 ) -> tuple[Any, Any]:
     """Core ion temperature profile.
 
-    Renders with :func:`vaft.plot.core_profiles_profile_ion_temperature`.
+    Renders with :func:`vaft.plot.ion_temperature_profile`.
     """
     return render(
-        "core_profiles_profile_ion_temperature",
+        "ion_temperature_profile",
         source,
         ax=ax,
         show=show,
@@ -548,7 +552,7 @@ def plot_core_profiles_profile_ion_temperature(
     )
 
 
-def plot_core_profiles_profile_pressure(
+def plot_thermal_pressure_profile(
     source: Any,
     *,
     ax: Any = None,
@@ -558,10 +562,10 @@ def plot_core_profiles_profile_pressure(
 ) -> tuple[Any, Any]:
     """Core total pressure profile.
 
-    Renders with :func:`vaft.plot.core_profiles_profile_pressure`.
+    Renders with :func:`vaft.plot.thermal_pressure_profile`.
     """
     return render(
-        "core_profiles_profile_pressure",
+        "thermal_pressure_profile",
         source,
         ax=ax,
         show=show,
@@ -570,7 +574,7 @@ def plot_core_profiles_profile_pressure(
     )
 
 
-def plot_core_profiles_time_electron_density(
+def plot_electron_density_time(
     source: Any,
     *,
     ax: Any = None,
@@ -580,10 +584,10 @@ def plot_core_profiles_time_electron_density(
 ) -> tuple[Any, Any]:
     """Volume-averaged electron density history.
 
-    Renders with :func:`vaft.plot.core_profiles_time_electron_density`.
+    Renders with :func:`vaft.plot.electron_density_time`.
     """
     return render(
-        "core_profiles_time_electron_density",
+        "electron_density_time",
         source,
         ax=ax,
         show=show,
@@ -592,7 +596,7 @@ def plot_core_profiles_time_electron_density(
     )
 
 
-def plot_core_profiles_time_electron_temperature(
+def plot_electron_temperature_time(
     source: Any,
     *,
     ax: Any = None,
@@ -602,10 +606,10 @@ def plot_core_profiles_time_electron_temperature(
 ) -> tuple[Any, Any]:
     """Volume-averaged electron temperature history.
 
-    Renders with :func:`vaft.plot.core_profiles_time_electron_temperature`.
+    Renders with :func:`vaft.plot.electron_temperature_time`.
     """
     return render(
-        "core_profiles_time_electron_temperature",
+        "electron_temperature_time",
         source,
         ax=ax,
         show=show,
@@ -636,7 +640,7 @@ def plot_core_profiles_time_volume_averaged(
     )
 
 
-def plot_electromagnetics_time_current(
+def plot_current_overview(
     source: Any,
     *,
     ax: Any = None,
@@ -646,10 +650,10 @@ def plot_electromagnetics_time_current(
 ) -> tuple[Any, Any]:
     """Plasma, PF coil and eddy current panels on a shared time axis.
 
-    Renders with :func:`vaft.plot.electromagnetics_time_current`.
+    Renders with :func:`vaft.plot.current_overview`.
     """
     return render(
-        "electromagnetics_time_current",
+        "current_overview",
         source,
         ax=ax,
         show=show,
@@ -1082,7 +1086,7 @@ def plot_equilibrium_time_beta_n(
     )
 
 
-def plot_equilibrium_time_beta_pol(
+def plot_equilibrium_time_beta_p(
     source: Any,
     *,
     ax: Any = None,
@@ -1092,14 +1096,14 @@ def plot_equilibrium_time_beta_pol(
 ) -> tuple[Any, Any]:
     """Poloidal beta history.
 
-    Renders with :func:`vaft.plot.equilibrium_time_beta_pol`.
+    Renders with :func:`vaft.plot.equilibrium_time_beta_p`.
     """
     return render(
-        "equilibrium_time_beta_pol", source, ax=ax, show=show, label=label, **options
+        "equilibrium_time_beta_p", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_equilibrium_time_beta_tor(
+def plot_equilibrium_time_beta_t(
     source: Any,
     *,
     ax: Any = None,
@@ -1109,10 +1113,10 @@ def plot_equilibrium_time_beta_tor(
 ) -> tuple[Any, Any]:
     """Toroidal beta history.
 
-    Renders with :func:`vaft.plot.equilibrium_time_beta_tor`.
+    Renders with :func:`vaft.plot.equilibrium_time_beta_t`.
     """
     return render(
-        "equilibrium_time_beta_tor", source, ax=ax, show=show, label=label, **options
+        "equilibrium_time_beta_t", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -1452,7 +1456,7 @@ def plot_magnetics_overview(
     )
 
 
-def plot_magnetics_overview_impa(
+def plot_impa_overview(
     source: Any,
     *,
     ax: Any = None,
@@ -1462,9 +1466,9 @@ def plot_magnetics_overview_impa(
 ) -> tuple[Any, Any]:
     """IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.
 
-    Renders with :func:`vaft.plot.magnetics_overview_impa`.
+    Renders with :func:`vaft.plot.impa_overview`.
     """
-    return render("magnetics_overview_impa", source, ax=ax, show=show, label=label, **options)
+    return render("impa_overview", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_magnetics_overview_vacuum(
@@ -1514,7 +1518,7 @@ def plot_magnetics_overview_plasma_residual(
     )
 
 
-def plot_magnetics_profile_impa_tf(
+def plot_impa_profile_field(
     source: Any,
     *,
     ax: Any = None,
@@ -1524,12 +1528,12 @@ def plot_magnetics_profile_impa_tf(
 ) -> tuple[Any, Any]:
     """IMPA measured field against probe radius with the 1/R toroidal-field model.
 
-    Renders with :func:`vaft.plot.magnetics_profile_impa_tf`.
+    Renders with :func:`vaft.plot.impa_profile_field`.
     """
-    return render("magnetics_profile_impa_tf", source, ax=ax, show=show, label=label, **options)
+    return render("impa_profile_field", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_magnetics_time_impa_field(
+def plot_impa_time_field(
     source: Any,
     *,
     ax: Any = None,
@@ -1539,12 +1543,12 @@ def plot_magnetics_time_impa_field(
 ) -> tuple[Any, Any]:
     """Compensated internal Bz from the IMPA Hall-probe array.
 
-    Renders with :func:`vaft.plot.magnetics_time_impa_field`.
+    Renders with :func:`vaft.plot.impa_time_field`.
     """
-    return render("magnetics_time_impa_field", source, ax=ax, show=show, label=label, **options)
+    return render("impa_time_field", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_magnetics_time_impa_voltage(
+def plot_impa_time_voltage(
     source: Any,
     *,
     ax: Any = None,
@@ -1554,12 +1558,12 @@ def plot_magnetics_time_impa_voltage(
 ) -> tuple[Any, Any]:
     """Raw IMPA Hall-probe voltages, one trace per channel.
 
-    Renders with :func:`vaft.plot.magnetics_time_impa_voltage`.
+    Renders with :func:`vaft.plot.impa_time_voltage`.
     """
-    return render("magnetics_time_impa_voltage", source, ax=ax, show=show, label=label, **options)
+    return render("impa_time_voltage", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_magnetics_spectrum_mirnov(
+def plot_mirnov_spectrum(
     source: Any,
     *,
     ax: Any = None,
@@ -1569,7 +1573,7 @@ def plot_magnetics_spectrum_mirnov(
 ) -> tuple[Any, Any]:
     """Power spectral density of one Mirnov coil signal.
 
-    Renders with :func:`vaft.plot.magnetics_spectrum_mirnov`.
+    Renders with :func:`vaft.plot.mirnov_spectrum`.
 
     The spectrum is of the signal as stored.  A Mirnov coil measures ``dB/dt``,
     so this is the PSD of the derivative and its spectral index is that of ``B``
@@ -1582,11 +1586,11 @@ def plot_magnetics_spectrum_mirnov(
     VAFT supplies none and reads no meaning into any value.
     """
     return render(
-        "magnetics_spectrum_mirnov", source, ax=ax, show=show, label=label, **options
+        "mirnov_spectrum", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_magnetics_spectrogram_mirnov(
+def plot_mirnov_spectrogram(
     source: Any,
     *,
     ax: Any = None,
@@ -1596,14 +1600,14 @@ def plot_magnetics_spectrogram_mirnov(
 ) -> tuple[Any, Any]:
     """Time-frequency map of one Mirnov coil signal.
 
-    Renders with :func:`vaft.plot.magnetics_spectrogram_mirnov`.
+    Renders with :func:`vaft.plot.mirnov_spectrogram`.
     """
     return render(
-        "magnetics_spectrogram_mirnov", source, ax=ax, show=show, label=label, **options
+        "mirnov_spectrogram", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_magnetics_time_b_field_pol_probe_field(
+def plot_b_field_probe_time_field(
     source: Any,
     *,
     ax: Any = None,
@@ -1613,10 +1617,10 @@ def plot_magnetics_time_b_field_pol_probe_field(
 ) -> tuple[Any, Any]:
     """Poloidal field measured by each selected B-field probe.
 
-    Renders with :func:`vaft.plot.magnetics_time_b_field_pol_probe_field`.
+    Renders with :func:`vaft.plot.b_field_probe_time_field`.
     """
     return render(
-        "magnetics_time_b_field_pol_probe_field",
+        "b_field_probe_time_field",
         source,
         ax=ax,
         show=show,
@@ -1625,7 +1629,7 @@ def plot_magnetics_time_b_field_pol_probe_field(
     )
 
 
-def plot_magnetics_time_diamagnetic_flux(
+def plot_diamagnetic_flux_time(
     source: Any,
     *,
     ax: Any = None,
@@ -1635,10 +1639,10 @@ def plot_magnetics_time_diamagnetic_flux(
 ) -> tuple[Any, Any]:
     """Measured diamagnetic flux history.
 
-    Renders with :func:`vaft.plot.magnetics_time_diamagnetic_flux`.
+    Renders with :func:`vaft.plot.diamagnetic_flux_time`.
     """
     return render(
-        "magnetics_time_diamagnetic_flux",
+        "diamagnetic_flux_time",
         source,
         ax=ax,
         show=show,
@@ -1647,7 +1651,7 @@ def plot_magnetics_time_diamagnetic_flux(
     )
 
 
-def plot_magnetics_time_flux_loop_flux(
+def plot_flux_loop_time_flux(
     source: Any,
     *,
     ax: Any = None,
@@ -1657,10 +1661,10 @@ def plot_magnetics_time_flux_loop_flux(
 ) -> tuple[Any, Any]:
     """Poloidal flux measured by each selected flux loop.
 
-    Renders with :func:`vaft.plot.magnetics_time_flux_loop_flux`.
+    Renders with :func:`vaft.plot.flux_loop_time_flux`.
     """
     return render(
-        "magnetics_time_flux_loop_flux",
+        "flux_loop_time_flux",
         source,
         ax=ax,
         show=show,
@@ -1669,7 +1673,7 @@ def plot_magnetics_time_flux_loop_flux(
     )
 
 
-def plot_magnetics_time_flux_loop_voltage(
+def plot_flux_loop_time_voltage(
     source: Any,
     *,
     ax: Any = None,
@@ -1679,10 +1683,10 @@ def plot_magnetics_time_flux_loop_voltage(
 ) -> tuple[Any, Any]:
     """Loop voltage measured by each selected flux loop.
 
-    Renders with :func:`vaft.plot.magnetics_time_flux_loop_voltage`.
+    Renders with :func:`vaft.plot.flux_loop_time_voltage`.
     """
     return render(
-        "magnetics_time_flux_loop_voltage",
+        "flux_loop_time_voltage",
         source,
         ax=ax,
         show=show,
@@ -1691,7 +1695,7 @@ def plot_magnetics_time_flux_loop_voltage(
     )
 
 
-def plot_magnetics_time_ip(
+def plot_plasma_current_time(
     source: Any,
     *,
     ax: Any = None,
@@ -1701,12 +1705,12 @@ def plot_magnetics_time_ip(
 ) -> tuple[Any, Any]:
     """Measured plasma current history from the Rogowski coil.
 
-    Renders with :func:`vaft.plot.magnetics_time_ip`.
+    Renders with :func:`vaft.plot.plasma_current_time`.
     """
-    return render("magnetics_time_ip", source, ax=ax, show=show, label=label, **options)
+    return render("plasma_current_time", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_magnetics_time_limiter_current(
+def plot_limiter_current_time(
     source: Any,
     *,
     ax: Any = None,
@@ -1718,10 +1722,10 @@ def plot_magnetics_time_limiter_current(
 
     Current is derived from each IMAS-standard shunt voltage using its stored
     effective Pearson Model 411 V/I coefficient. Renders with
-    :func:`vaft.plot.magnetics_time_limiter_current`.
+    :func:`vaft.plot.limiter_current_time`.
     """
     return render(
-        "magnetics_time_limiter_current",
+        "limiter_current_time",
         source,
         ax=ax,
         show=show,
@@ -1730,7 +1734,7 @@ def plot_magnetics_time_limiter_current(
     )
 
 
-def plot_magnetics_time_mirnov_voltage(
+def plot_mirnov_time_voltage(
     source: Any,
     *,
     ax: Any = None,
@@ -1740,10 +1744,10 @@ def plot_magnetics_time_mirnov_voltage(
 ) -> tuple[Any, Any]:
     """Raw or preprocessed Mirnov coil voltage traces.
 
-    Renders with :func:`vaft.plot.magnetics_time_mirnov_voltage`.
+    Renders with :func:`vaft.plot.mirnov_time_voltage`.
     """
     return render(
-        "magnetics_time_mirnov_voltage",
+        "mirnov_time_voltage",
         source,
         ax=ax,
         show=show,
@@ -1752,7 +1756,7 @@ def plot_magnetics_time_mirnov_voltage(
     )
 
 
-def plot_pf_active_geometry_poloidal(
+def plot_pf_coil_geometry_poloidal(
     source: Any,
     *,
     ax: Any = None,
@@ -1762,14 +1766,14 @@ def plot_pf_active_geometry_poloidal(
 ) -> tuple[Any, Any]:
     """PF coil outlines in the poloidal plane.
 
-    Renders with :func:`vaft.plot.pf_active_geometry_poloidal`.
+    Renders with :func:`vaft.plot.pf_coil_geometry_poloidal`.
     """
     return render(
-        "pf_active_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+        "pf_coil_geometry_poloidal", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_pf_active_time_current(
+def plot_pf_coil_time_current(
     source: Any,
     *,
     ax: Any = None,
@@ -1779,14 +1783,14 @@ def plot_pf_active_time_current(
 ) -> tuple[Any, Any]:
     """Per-coil PF current history.
 
-    Renders with :func:`vaft.plot.pf_active_time_current`.
+    Renders with :func:`vaft.plot.pf_coil_time_current`.
     """
     return render(
-        "pf_active_time_current", source, ax=ax, show=show, label=label, **options
+        "pf_coil_time_current", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_pf_active_time_current_turns(
+def plot_pf_coil_time_current_turns(
     source: Any,
     *,
     ax: Any = None,
@@ -1796,14 +1800,14 @@ def plot_pf_active_time_current_turns(
 ) -> tuple[Any, Any]:
     """Per-coil PF current multiplied by the signed turn count (ampere-turns).
 
-    Renders with :func:`vaft.plot.pf_active_time_current_turns`.
+    Renders with :func:`vaft.plot.pf_coil_time_current_turns`.
     """
     return render(
-        "pf_active_time_current_turns", source, ax=ax, show=show, label=label, **options
+        "pf_coil_time_current_turns", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_pf_passive_geometry_poloidal(
+def plot_passive_structure_geometry_poloidal(
     source: Any,
     *,
     ax: Any = None,
@@ -1813,10 +1817,10 @@ def plot_pf_passive_geometry_poloidal(
 ) -> tuple[Any, Any]:
     """Passive conducting-structure loop outlines in the poloidal plane.
 
-    Renders with :func:`vaft.plot.pf_passive_geometry_poloidal`.
+    Renders with :func:`vaft.plot.passive_structure_geometry_poloidal`.
     """
     return render(
-        "pf_passive_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+        "passive_structure_geometry_poloidal", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -1958,7 +1962,7 @@ def plot_spectrometer_uv_time_intensity(
     )
 
 
-def plot_summary_time_beta(
+def plot_equilibrium_time_beta(
     source: Any,
     *,
     ax: Any = None,
@@ -1968,9 +1972,9 @@ def plot_summary_time_beta(
 ) -> tuple[Any, Any]:
     """Poloidal, toroidal and normalized beta panels.
 
-    Renders with :func:`vaft.plot.summary_time_beta`.
+    Renders with :func:`vaft.plot.equilibrium_time_beta`.
     """
-    return render("summary_time_beta", source, ax=ax, show=show, label=label, **options)
+    return render("equilibrium_time_beta", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_summary_time_energy(
@@ -2029,7 +2033,7 @@ def plot_summary_time_voltage_consumption(
     )
 
 
-def plot_tf_time_b_field_tor(
+def plot_tf_coil_time_b_t(
     source: Any,
     *,
     ax: Any = None,
@@ -2039,14 +2043,14 @@ def plot_tf_time_b_field_tor(
 ) -> tuple[Any, Any]:
     """Toroidal field history at the reference radius.
 
-    Renders with :func:`vaft.plot.tf_time_b_field_tor`.
+    Renders with :func:`vaft.plot.tf_coil_time_b_t`.
     """
     return render(
-        "tf_time_b_field_tor", source, ax=ax, show=show, label=label, **options
+        "tf_coil_time_b_t", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_tf_time_b_field_tor_vacuum_r(
+def plot_tf_coil_time_b_t_vacuum_r(
     source: Any,
     *,
     ax: Any = None,
@@ -2056,14 +2060,14 @@ def plot_tf_time_b_field_tor_vacuum_r(
 ) -> tuple[Any, Any]:
     """Vacuum toroidal field times major radius (B_t * R).
 
-    Renders with :func:`vaft.plot.tf_time_b_field_tor_vacuum_r`.
+    Renders with :func:`vaft.plot.tf_coil_time_b_t_vacuum_r`.
     """
     return render(
-        "tf_time_b_field_tor_vacuum_r", source, ax=ax, show=show, label=label, **options
+        "tf_coil_time_b_t_vacuum_r", source, ax=ax, show=show, label=label, **options
     )
 
 
-def plot_tf_time_coil_current(
+def plot_tf_coil_time_current(
     source: Any,
     *,
     ax: Any = None,
@@ -2073,10 +2077,10 @@ def plot_tf_time_coil_current(
 ) -> tuple[Any, Any]:
     """TF coil current history.
 
-    Renders with :func:`vaft.plot.tf_time_coil_current`.
+    Renders with :func:`vaft.plot.tf_coil_time_current`.
     """
     return render(
-        "tf_time_coil_current", source, ax=ax, show=show, label=label, **options
+        "tf_coil_time_current", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -2207,6 +2211,76 @@ def plot_wall_geometry_poloidal(
     )
 
 
+
+# --- Deprecated adapters for stems renamed by the issue #251 taxonomy --------
+#
+# The subject-taxonomy redesign renamed 34 canonical stems (see
+# ``vaft.plot._migration.RENAMED`` and docs/design/plotting/001-taxonomy.md).
+# The old ``plot_<stem>`` adapters keep working with a ``DeprecationWarning``
+# until ``RENAMED_REMOVAL_RELEASE``.
+
+def _renamed_adapter(old_stem: str, new_stem: str):
+    def adapter(
+        source: Any,
+        *,
+        ax: Any = None,
+        show: bool = False,
+        label: str | Sequence[str] = "shot",
+        **options: Any,
+    ) -> tuple[Any, Any]:
+        warnings.warn(
+            f"vaft.omas.plot_{old_stem} was renamed to "
+            f"vaft.omas.plot_{new_stem} in the subject-taxonomy redesign "
+            f"(issue #251); the old name is removed in "
+            f"{_RENAMED_REMOVAL_RELEASE}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return render(new_stem, source, ax=ax, show=show, label=label, **options)
+
+    adapter.__name__ = f"plot_{old_stem}"
+    adapter.__qualname__ = f"plot_{old_stem}"
+    adapter.__doc__ = (
+        f"Deprecated alias of :func:`plot_{new_stem}` (renamed by issue #251)."
+    )
+    return adapter
+
+
+plot_coils_non_axisymmetric_geometry3d = _renamed_adapter("coils_non_axisymmetric_geometry3d", "coil_3d_geometry3d")
+plot_coils_non_axisymmetric_geometry_topview = _renamed_adapter("coils_non_axisymmetric_geometry_topview", "coil_3d_geometry_topview")
+plot_core_profiles_field_electron_density = _renamed_adapter("core_profiles_field_electron_density", "electron_density_field")
+plot_core_profiles_field_electron_temperature = _renamed_adapter("core_profiles_field_electron_temperature", "electron_temperature_field")
+plot_core_profiles_profile_electron_density = _renamed_adapter("core_profiles_profile_electron_density", "electron_density_profile")
+plot_core_profiles_profile_electron_temperature = _renamed_adapter("core_profiles_profile_electron_temperature", "electron_temperature_profile")
+plot_core_profiles_profile_ion_temperature = _renamed_adapter("core_profiles_profile_ion_temperature", "ion_temperature_profile")
+plot_core_profiles_profile_pressure = _renamed_adapter("core_profiles_profile_pressure", "thermal_pressure_profile")
+plot_core_profiles_time_electron_density = _renamed_adapter("core_profiles_time_electron_density", "electron_density_time")
+plot_core_profiles_time_electron_temperature = _renamed_adapter("core_profiles_time_electron_temperature", "electron_temperature_time")
+plot_electromagnetics_time_current = _renamed_adapter("electromagnetics_time_current", "current_overview")
+plot_equilibrium_time_beta_pol = _renamed_adapter("equilibrium_time_beta_pol", "equilibrium_time_beta_p")
+plot_equilibrium_time_beta_tor = _renamed_adapter("equilibrium_time_beta_tor", "equilibrium_time_beta_t")
+plot_magnetics_overview_impa = _renamed_adapter("magnetics_overview_impa", "impa_overview")
+plot_magnetics_profile_impa_tf = _renamed_adapter("magnetics_profile_impa_tf", "impa_profile_field")
+plot_magnetics_spectrogram_mirnov = _renamed_adapter("magnetics_spectrogram_mirnov", "mirnov_spectrogram")
+plot_magnetics_spectrum_mirnov = _renamed_adapter("magnetics_spectrum_mirnov", "mirnov_spectrum")
+plot_magnetics_time_b_field_pol_probe_field = _renamed_adapter("magnetics_time_b_field_pol_probe_field", "b_field_probe_time_field")
+plot_magnetics_time_diamagnetic_flux = _renamed_adapter("magnetics_time_diamagnetic_flux", "diamagnetic_flux_time")
+plot_magnetics_time_flux_loop_flux = _renamed_adapter("magnetics_time_flux_loop_flux", "flux_loop_time_flux")
+plot_magnetics_time_flux_loop_voltage = _renamed_adapter("magnetics_time_flux_loop_voltage", "flux_loop_time_voltage")
+plot_magnetics_time_impa_field = _renamed_adapter("magnetics_time_impa_field", "impa_time_field")
+plot_magnetics_time_impa_voltage = _renamed_adapter("magnetics_time_impa_voltage", "impa_time_voltage")
+plot_magnetics_time_ip = _renamed_adapter("magnetics_time_ip", "plasma_current_time")
+plot_magnetics_time_limiter_current = _renamed_adapter("magnetics_time_limiter_current", "limiter_current_time")
+plot_magnetics_time_mirnov_voltage = _renamed_adapter("magnetics_time_mirnov_voltage", "mirnov_time_voltage")
+plot_pf_active_geometry_poloidal = _renamed_adapter("pf_active_geometry_poloidal", "pf_coil_geometry_poloidal")
+plot_pf_active_time_current = _renamed_adapter("pf_active_time_current", "pf_coil_time_current")
+plot_pf_active_time_current_turns = _renamed_adapter("pf_active_time_current_turns", "pf_coil_time_current_turns")
+plot_pf_passive_geometry_poloidal = _renamed_adapter("pf_passive_geometry_poloidal", "passive_structure_geometry_poloidal")
+plot_summary_time_beta = _renamed_adapter("summary_time_beta", "equilibrium_time_beta")
+plot_tf_time_b_field_tor = _renamed_adapter("tf_time_b_field_tor", "tf_coil_time_b_t")
+plot_tf_time_b_field_tor_vacuum_r = _renamed_adapter("tf_time_b_field_tor_vacuum_r", "tf_coil_time_b_t_vacuum_r")
+plot_tf_time_coil_current = _renamed_adapter("tf_time_coil_current", "tf_coil_time_current")
+
 __all__ = [
     "available_plots",
     "disable_plot_methods",
@@ -2220,23 +2294,23 @@ __all__ = [
     "plot_camera_visible_image_frame",
     "plot_charge_exchange_geometry_poloidal",
     "plot_charge_exchange_profile_ion_temperature",
-    "plot_coils_non_axisymmetric_geometry3d",
-    "plot_coils_non_axisymmetric_geometry_topview",
+    "plot_coil_3d_geometry3d",
+    "plot_coil_3d_geometry_topview",
     "plot_charge_exchange_profile_velocity_tor",
     "plot_charge_exchange_time_ion_temperature",
     "plot_charge_exchange_time_velocity_tor",
     "plot_chease_overview_profile_validity",
     "plot_chease_overview_refinement_summary",
-    "plot_core_profiles_field_electron_density",
-    "plot_core_profiles_field_electron_temperature",
-    "plot_core_profiles_profile_electron_density",
-    "plot_core_profiles_profile_electron_temperature",
-    "plot_core_profiles_profile_ion_temperature",
-    "plot_core_profiles_profile_pressure",
-    "plot_core_profiles_time_electron_density",
-    "plot_core_profiles_time_electron_temperature",
+    "plot_electron_density_field",
+    "plot_electron_temperature_field",
+    "plot_electron_density_profile",
+    "plot_electron_temperature_profile",
+    "plot_ion_temperature_profile",
+    "plot_thermal_pressure_profile",
+    "plot_electron_density_time",
+    "plot_electron_temperature_time",
     "plot_core_profiles_time_volume_averaged",
-    "plot_electromagnetics_time_current",
+    "plot_current_overview",
     "plot_equilibrium_field_psi",
     "plot_equilibrium_field_psi_vacuum",
     "plot_equilibrium_geometry_boundary",
@@ -2256,8 +2330,8 @@ __all__ = [
     "plot_equilibrium_profile_pressure",
     "plot_equilibrium_profile_q",
     "plot_equilibrium_time_beta_n",
-    "plot_equilibrium_time_beta_pol",
-    "plot_equilibrium_time_beta_tor",
+    "plot_equilibrium_time_beta_p",
+    "plot_equilibrium_time_beta_t",
     "plot_equilibrium_time_diamagnetic_flux",
     "plot_equilibrium_time_li",
     "plot_equilibrium_time_major_radius",
@@ -2277,26 +2351,26 @@ __all__ = [
     "plot_machine_geometry_topview",
     "plot_magnetics_geometry_poloidal",
     "plot_magnetics_overview",
-    "plot_magnetics_overview_impa",
+    "plot_impa_overview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
     "plot_mhd_linear_time_energy_perturbed",
-    "plot_magnetics_profile_impa_tf",
-    "plot_magnetics_time_impa_field",
-    "plot_magnetics_time_impa_voltage",
-    "plot_magnetics_spectrogram_mirnov",
-    "plot_magnetics_spectrum_mirnov",
-    "plot_magnetics_time_b_field_pol_probe_field",
-    "plot_magnetics_time_diamagnetic_flux",
-    "plot_magnetics_time_flux_loop_flux",
-    "plot_magnetics_time_flux_loop_voltage",
-    "plot_magnetics_time_ip",
-    "plot_magnetics_time_limiter_current",
-    "plot_magnetics_time_mirnov_voltage",
-    "plot_pf_active_geometry_poloidal",
-    "plot_pf_active_time_current",
-    "plot_pf_active_time_current_turns",
-    "plot_pf_passive_geometry_poloidal",
+    "plot_impa_profile_field",
+    "plot_impa_time_field",
+    "plot_impa_time_voltage",
+    "plot_mirnov_spectrogram",
+    "plot_mirnov_spectrum",
+    "plot_b_field_probe_time_field",
+    "plot_diamagnetic_flux_time",
+    "plot_flux_loop_time_flux",
+    "plot_flux_loop_time_voltage",
+    "plot_plasma_current_time",
+    "plot_limiter_current_time",
+    "plot_mirnov_time_voltage",
+    "plot_pf_coil_geometry_poloidal",
+    "plot_pf_coil_time_current",
+    "plot_pf_coil_time_current_turns",
+    "plot_passive_structure_geometry_poloidal",
     "plot_soft_x_rays_geometry_lines_of_sight",
     "plot_soft_x_rays_overview",
     "plot_soft_x_rays_spectrogram",
@@ -2304,13 +2378,13 @@ __all__ = [
     "plot_soft_x_rays_time_power",
     "plot_spectrometer_uv_time_impurity",
     "plot_spectrometer_uv_time_intensity",
-    "plot_summary_time_beta",
+    "plot_equilibrium_time_beta",
     "plot_summary_time_energy",
     "plot_summary_time_power_balance",
     "plot_summary_time_voltage_consumption",
-    "plot_tf_time_b_field_tor",
-    "plot_tf_time_b_field_tor_vacuum_r",
-    "plot_tf_time_coil_current",
+    "plot_tf_coil_time_b_t",
+    "plot_tf_coil_time_b_t_vacuum_r",
+    "plot_tf_coil_time_current",
     "plot_thomson_scattering_geometry_poloidal",
     "plot_thomson_scattering_profile_electron_density",
     "plot_thomson_scattering_profile_electron_temperature",
@@ -2318,4 +2392,39 @@ __all__ = [
     "plot_thomson_scattering_time_electron_temperature",
     "plot_wall_geometry_poloidal",
     "render",
+    # deprecated renamed adapters (issue #251):
+    "plot_coils_non_axisymmetric_geometry3d",
+    "plot_coils_non_axisymmetric_geometry_topview",
+    "plot_core_profiles_field_electron_density",
+    "plot_core_profiles_field_electron_temperature",
+    "plot_core_profiles_profile_electron_density",
+    "plot_core_profiles_profile_electron_temperature",
+    "plot_core_profiles_profile_ion_temperature",
+    "plot_core_profiles_profile_pressure",
+    "plot_core_profiles_time_electron_density",
+    "plot_core_profiles_time_electron_temperature",
+    "plot_electromagnetics_time_current",
+    "plot_equilibrium_time_beta_pol",
+    "plot_equilibrium_time_beta_tor",
+    "plot_magnetics_overview_impa",
+    "plot_magnetics_profile_impa_tf",
+    "plot_magnetics_spectrogram_mirnov",
+    "plot_magnetics_spectrum_mirnov",
+    "plot_magnetics_time_b_field_pol_probe_field",
+    "plot_magnetics_time_diamagnetic_flux",
+    "plot_magnetics_time_flux_loop_flux",
+    "plot_magnetics_time_flux_loop_voltage",
+    "plot_magnetics_time_impa_field",
+    "plot_magnetics_time_impa_voltage",
+    "plot_magnetics_time_ip",
+    "plot_magnetics_time_limiter_current",
+    "plot_magnetics_time_mirnov_voltage",
+    "plot_pf_active_geometry_poloidal",
+    "plot_pf_active_time_current",
+    "plot_pf_active_time_current_turns",
+    "plot_pf_passive_geometry_poloidal",
+    "plot_summary_time_beta",
+    "plot_tf_time_b_field_tor",
+    "plot_tf_time_b_field_tor_vacuum_r",
+    "plot_tf_time_coil_current",
 ]

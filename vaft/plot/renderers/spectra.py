@@ -24,7 +24,7 @@ from ..style import finalize, resolve_axes
 
 __all__ = [
     "interferometer_spectrum",
-    "magnetics_spectrum_mirnov",
+    "mirnov_spectrum",
     "render_power_spectrum",
     "soft_x_rays_spectrum",
 ]
@@ -134,14 +134,14 @@ def render_power_spectrum(
     domain="magnetics",
     subject="mirnov",
     view="spectrum",
-    quantity="mirnov",
+    quantity="",
     model=PowerSpectrum,
     description="Power spectral density of one Mirnov coil signal.",
     ids=("magnetics",),
     required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
     optional_paths=("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
 )
-def magnetics_spectrum_mirnov(
+def mirnov_spectrum(
     model: PowerSpectrum, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Power spectral density of one Mirnov coil signal."""

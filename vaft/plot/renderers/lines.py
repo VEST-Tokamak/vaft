@@ -78,7 +78,7 @@ def render_line_series(
     domain="magnetics",
     subject="plasma_current",
     view="time",
-    quantity="ip",
+    quantity="",
     model=LineSeries,
     description="Measured plasma current history from the Rogowski coil.",
     ids=("magnetics",),
@@ -88,7 +88,7 @@ def render_line_series(
     ),
     optional_paths=(),
 )
-def magnetics_time_ip(
+def plasma_current_time(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -103,7 +103,7 @@ def magnetics_time_ip(
     domain="magnetics",
     subject="diamagnetic_flux",
     view="time",
-    quantity="diamagnetic_flux",
+    quantity="",
     model=LineSeries,
     description="Measured diamagnetic flux history.",
     ids=("magnetics",),
@@ -113,7 +113,7 @@ def magnetics_time_ip(
     ),
     optional_paths=(),
 )
-def magnetics_time_diamagnetic_flux(
+def diamagnetic_flux_time(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -128,7 +128,7 @@ def magnetics_time_diamagnetic_flux(
     domain="magnetics",
     subject="flux_loop",
     view="time",
-    quantity="flux_loop_flux",
+    quantity="flux",
     model=LineSeries,
     description="Poloidal flux measured by each selected flux loop.",
     ids=("magnetics",),
@@ -140,7 +140,7 @@ def magnetics_time_diamagnetic_flux(
         "magnetics.flux_loop.{i}.position.0.z",
     ),
 )
-def magnetics_time_flux_loop_flux(
+def flux_loop_time_flux(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -155,7 +155,7 @@ def magnetics_time_flux_loop_flux(
     domain="magnetics",
     subject="flux_loop",
     view="time",
-    quantity="flux_loop_voltage",
+    quantity="voltage",
     model=LineSeries,
     description="Loop voltage measured by each selected flux loop.",
     ids=("magnetics",),
@@ -165,7 +165,7 @@ def magnetics_time_flux_loop_flux(
         "magnetics.time",
     ),
 )
-def magnetics_time_flux_loop_voltage(
+def flux_loop_time_voltage(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -180,7 +180,7 @@ def magnetics_time_flux_loop_voltage(
     domain="magnetics",
     subject="b_field_probe",
     view="time",
-    quantity="b_field_pol_probe_field",
+    quantity="field",
     model=LineSeries,
     description="Poloidal field measured by each selected B-field probe.",
     ids=("magnetics",),
@@ -192,7 +192,7 @@ def magnetics_time_flux_loop_voltage(
         "magnetics.b_field_pol_probe.{i}.position.z",
     ),
 )
-def magnetics_time_b_field_pol_probe_field(
+def b_field_probe_time_field(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -207,7 +207,7 @@ def magnetics_time_b_field_pol_probe_field(
     domain="magnetics",
     subject="impa",
     view="time",
-    quantity="impa_field",
+    quantity="field",
     model=LineSeries,
     description="Calibrated field from the IMPA Hall-probe array.",
     ids=("magnetics",),
@@ -218,7 +218,7 @@ def magnetics_time_b_field_pol_probe_field(
         "magnetics.b_field_pol_probe.{i}.field.data",
     ),
 )
-def magnetics_time_impa_field(
+def impa_time_field(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -233,7 +233,7 @@ def magnetics_time_impa_field(
     domain="magnetics",
     subject="impa",
     view="time",
-    quantity="impa_voltage",
+    quantity="voltage",
     model=LineSeries,
     description="Raw IMPA Hall-probe voltages, one trace per channel.",
     ids=("magnetics",),
@@ -243,7 +243,7 @@ def magnetics_time_impa_field(
         "magnetics.b_field_pol_probe.{i}.voltage.data",
     ),
 )
-def magnetics_time_impa_voltage(
+def impa_time_voltage(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -258,7 +258,7 @@ def magnetics_time_impa_voltage(
     domain="magnetics",
     subject="mirnov",
     view="time",
-    quantity="mirnov_voltage",
+    quantity="voltage",
     model=LineSeries,
     description="Raw or preprocessed Mirnov coil voltage traces.",
     ids=("magnetics",),
@@ -268,7 +268,7 @@ def magnetics_time_impa_voltage(
         "magnetics.time",
     ),
 )
-def magnetics_time_mirnov_voltage(
+def mirnov_time_voltage(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -293,7 +293,7 @@ def magnetics_time_mirnov_voltage(
     ),
     optional_paths=("pf_active.coil.{i}.name",),
 )
-def pf_active_time_current(
+def pf_coil_time_current(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -319,7 +319,7 @@ def pf_active_time_current(
     ),
     optional_paths=("pf_active.coil.{i}.name",),
 )
-def pf_active_time_current_turns(
+def pf_coil_time_current_turns(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -384,7 +384,7 @@ def equilibrium_time_li(
     domain="equilibrium",
     subject="equilibrium",
     view="time",
-    quantity="beta_pol",
+    quantity="beta_p",
     model=LineSeries,
     description="Poloidal beta history.",
     ids=("equilibrium",),
@@ -394,7 +394,7 @@ def equilibrium_time_li(
     ),
     optional_paths=(),
 )
-def equilibrium_time_beta_pol(
+def equilibrium_time_beta_p(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -409,7 +409,7 @@ def equilibrium_time_beta_pol(
     domain="equilibrium",
     subject="equilibrium",
     view="time",
-    quantity="beta_tor",
+    quantity="beta_t",
     model=LineSeries,
     description="Toroidal beta history.",
     ids=("equilibrium",),
@@ -419,7 +419,7 @@ def equilibrium_time_beta_pol(
     ),
     optional_paths=(),
 )
-def equilibrium_time_beta_tor(
+def equilibrium_time_beta_t(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -659,7 +659,7 @@ def equilibrium_time_diamagnetic_flux(
     domain="tf",
     subject="tf_coil",
     view="time",
-    quantity="b_field_tor",
+    quantity="b_t",
     model=LineSeries,
     description="Toroidal field history at the reference radius.",
     ids=("tf",),
@@ -669,7 +669,7 @@ def equilibrium_time_diamagnetic_flux(
     ),
     optional_paths=("tf.r0",),
 )
-def tf_time_b_field_tor(
+def tf_coil_time_b_t(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -684,7 +684,7 @@ def tf_time_b_field_tor(
     domain="tf",
     subject="tf_coil",
     view="time",
-    quantity="b_field_tor_vacuum_r",
+    quantity="b_t_vacuum_r",
     model=LineSeries,
     description="Vacuum toroidal field times major radius (B_t * R).",
     ids=("tf",),
@@ -694,7 +694,7 @@ def tf_time_b_field_tor(
     ),
     optional_paths=(),
 )
-def tf_time_b_field_tor_vacuum_r(
+def tf_coil_time_b_t_vacuum_r(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -709,7 +709,7 @@ def tf_time_b_field_tor_vacuum_r(
     domain="tf",
     subject="tf_coil",
     view="time",
-    quantity="coil_current",
+    quantity="current",
     model=LineSeries,
     description="TF coil current history.",
     ids=("tf",),
@@ -719,7 +719,7 @@ def tf_time_b_field_tor_vacuum_r(
     ),
     optional_paths=("tf.coil.{i}.name",),
 )
-def tf_time_coil_current(
+def tf_coil_time_current(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -940,7 +940,7 @@ def charge_exchange_time_velocity_tor(
     domain="core_profiles",
     subject="electron_temperature",
     view="time",
-    quantity="electron_temperature",
+    quantity="",
     model=LineSeries,
     description="Volume-averaged electron temperature history.",
     ids=("core_profiles",),
@@ -950,7 +950,7 @@ def charge_exchange_time_velocity_tor(
     ),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.volume",),
 )
-def core_profiles_time_electron_temperature(
+def electron_temperature_time(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -965,7 +965,7 @@ def core_profiles_time_electron_temperature(
     domain="core_profiles",
     subject="electron_density",
     view="time",
-    quantity="electron_density",
+    quantity="",
     model=LineSeries,
     description="Volume-averaged electron density history.",
     ids=("core_profiles",),
@@ -975,7 +975,7 @@ def core_profiles_time_electron_temperature(
     ),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.volume",),
 )
-def core_profiles_time_electron_density(
+def electron_density_time(
     model: LineSeries,
     *,
     ax: Axes | None = None,
@@ -991,11 +991,11 @@ __all__ = [
     "barometry_time_pressure",
     "charge_exchange_time_ion_temperature",
     "charge_exchange_time_velocity_tor",
-    "core_profiles_time_electron_density",
-    "core_profiles_time_electron_temperature",
+    "electron_density_time",
+    "electron_temperature_time",
     "equilibrium_time_beta_n",
-    "equilibrium_time_beta_pol",
-    "equilibrium_time_beta_tor",
+    "equilibrium_time_beta_p",
+    "equilibrium_time_beta_t",
     "equilibrium_time_diamagnetic_flux",
     "equilibrium_time_li",
     "equilibrium_time_major_radius",
@@ -1007,22 +1007,22 @@ __all__ = [
     "equilibrium_time_w_mhd",
     "equilibrium_time_w_tot",
     "interferometer_time_n_e_line",
-    "magnetics_time_b_field_pol_probe_field",
-    "magnetics_time_diamagnetic_flux",
-    "magnetics_time_flux_loop_flux",
-    "magnetics_time_flux_loop_voltage",
-    "magnetics_time_impa_field",
-    "magnetics_time_impa_voltage",
-    "magnetics_time_ip",
+    "b_field_probe_time_field",
+    "diamagnetic_flux_time",
+    "flux_loop_time_flux",
+    "flux_loop_time_voltage",
+    "impa_time_field",
+    "impa_time_voltage",
+    "plasma_current_time",
     "mhd_linear_time_energy_perturbed",
-    "magnetics_time_mirnov_voltage",
-    "pf_active_time_current",
-    "pf_active_time_current_turns",
+    "mirnov_time_voltage",
+    "pf_coil_time_current",
+    "pf_coil_time_current_turns",
     "soft_x_rays_time_power",
     "spectrometer_uv_time_intensity",
-    "tf_time_b_field_tor",
-    "tf_time_b_field_tor_vacuum_r",
-    "tf_time_coil_current",
+    "tf_coil_time_b_t",
+    "tf_coil_time_b_t_vacuum_r",
+    "tf_coil_time_current",
     "thomson_scattering_time_electron_density",
     "thomson_scattering_time_electron_temperature",
 ]

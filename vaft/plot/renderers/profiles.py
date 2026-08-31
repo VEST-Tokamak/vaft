@@ -20,13 +20,13 @@ from ..registry import renderer
 from ..style import axis_label, finalize, resolve_axes
 
 __all__ = [
-    "magnetics_profile_impa_tf",
+    "impa_profile_field",
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
-    "core_profiles_profile_electron_density",
-    "core_profiles_profile_electron_temperature",
-    "core_profiles_profile_ion_temperature",
-    "core_profiles_profile_pressure",
+    "electron_density_profile",
+    "electron_temperature_profile",
+    "ion_temperature_profile",
+    "thermal_pressure_profile",
     "equilibrium_profile_f",
     "equilibrium_profile_ffprime",
     "equilibrium_profile_j_tor",
@@ -200,14 +200,14 @@ def equilibrium_profile_ffprime(
 
 
 @_profile_renderer(
-    domain="core_profiles", quantity="electron_temperature",
+    domain="core_profiles", quantity="",
     subject="electron_temperature",
     description="Core electron temperature profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.temperature",),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
 )
-def core_profiles_profile_electron_temperature(
+def electron_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Core electron temperature profile."""
@@ -215,14 +215,14 @@ def core_profiles_profile_electron_temperature(
 
 
 @_profile_renderer(
-    domain="core_profiles", quantity="electron_density",
+    domain="core_profiles", quantity="",
     subject="electron_density",
     description="Core electron density profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.density",),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
 )
-def core_profiles_profile_electron_density(
+def electron_density_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Core electron density profile."""
@@ -230,14 +230,14 @@ def core_profiles_profile_electron_density(
 
 
 @_profile_renderer(
-    domain="core_profiles", quantity="ion_temperature",
+    domain="core_profiles", quantity="",
     subject="ion_temperature",
     description="Core ion temperature profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.ion.{j}.temperature",),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
 )
-def core_profiles_profile_ion_temperature(
+def ion_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Core ion temperature profile."""
@@ -245,14 +245,14 @@ def core_profiles_profile_ion_temperature(
 
 
 @_profile_renderer(
-    domain="core_profiles", quantity="pressure",
+    domain="core_profiles", quantity="",
     subject="thermal_pressure",
     description="Core total pressure profile.",
     ids=("core_profiles",),
     required_paths=("core_profiles.profiles_1d.{i}.pressure_thermal",),
     optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
 )
-def core_profiles_profile_pressure(
+def thermal_pressure_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Core total pressure profile."""
@@ -335,7 +335,7 @@ def charge_exchange_profile_velocity_tor(
     domain="magnetics",
     subject="impa",
     view="profile",
-    quantity="impa_tf",
+    quantity="field",
     model=Profile1D,
     description="IMPA measured field against probe radius with the 1/R toroidal-field model.",
     ids=("magnetics", "tf"),
@@ -347,7 +347,7 @@ def charge_exchange_profile_velocity_tor(
         "tf.coil.{i}.current.data",
     ),
 )
-def magnetics_profile_impa_tf(
+def impa_profile_field(
     model: Profile1D,
     *,
     ax: Axes | None = None,

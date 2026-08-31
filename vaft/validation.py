@@ -88,24 +88,24 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
     ),
     # Enough machine geometry to catch a wrong machine era or malformed
     # geometry before anything downstream trusts it.  ``machine_geometry_poloidal``
-    # carries the PF coils; the dedicated ``pf_active_geometry_poloidal`` renderer
+    # carries the PF coils; the dedicated ``pf_coil_geometry_poloidal`` renderer
     # needs element outlines, and VEST's PF elements are rectangles, so it is
     # deliberately not declared here rather than being permanently skipped.
     "static": (
         ValidationPlot("machine_geometry_poloidal"),
         ValidationPlot("wall_geometry_poloidal", required=False),
-        ValidationPlot("pf_passive_geometry_poloidal", required=False),
+        ValidationPlot("passive_structure_geometry_poloidal", required=False),
         ValidationPlot("magnetics_geometry_poloidal", required=False),
     ),
     # A fixed per-shot visual QA set, not everything the registry can draw for
     # the shot; the manifest's ``available`` list carries the rest.
     "diagnostics": (
-        ValidationPlot("magnetics_time_ip"),
+        ValidationPlot("plasma_current_time"),
         ValidationPlot("magnetics_overview"),
-        ValidationPlot("pf_active_time_current"),
-        ValidationPlot("magnetics_time_b_field_pol_probe_field", required=False),
-        ValidationPlot("magnetics_time_flux_loop_flux", required=False),
-        ValidationPlot("tf_time_coil_current", required=False),
+        ValidationPlot("pf_coil_time_current"),
+        ValidationPlot("b_field_probe_time_field", required=False),
+        ValidationPlot("flux_loop_time_flux", required=False),
+        ValidationPlot("tf_coil_time_current", required=False),
         ValidationPlot("interferometer_overview", required=False),
     ),
     # Validated physically, by forward-modeling the magnetic response of the

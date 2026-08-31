@@ -6,7 +6,7 @@
 
     vaft.plot.<domain>_<view>_<quantity>
 
-for example :func:`magnetics_time_ip`, :func:`equilibrium_profile_pressure`, and
+for example :func:`plasma_current_time`, :func:`equilibrium_profile_pressure`, and
 :func:`soft_x_rays_spectrogram`.
 
 ``<domain>`` is the IDS root the plot belongs to -- ``magnetics``,
@@ -20,8 +20,8 @@ summary panels.  ``<view>`` is one of ``time``, ``profile``, ``field``,
 already unambiguous, as in ``soft_x_rays_spectrogram``.
 
 There is no redundant ``plot_`` prefix here; adapter layers and object methods
-use ``plot_<canonical-stem>``, so ``vaft.plot.magnetics_time_ip`` is rendered
-from an ODS by ``vaft.omas.plot_magnetics_time_ip``.
+use ``plot_<canonical-stem>``, so ``vaft.plot.plasma_current_time`` is rendered
+from an ODS by ``vaft.omas.plot_plasma_current_time``.
 
 The radial coordinate is *not* part of a profile renderer's name.  One
 :func:`equilibrium_profile_q` serves every coordinate; pick one with the
@@ -33,7 +33,7 @@ The renderer contract
 
 Every canonical renderer has this shape::
 
-    def magnetics_time_ip(model: LineSeries, *, ax=None, show=False, **style
+    def plasma_current_time(model: LineSeries, *, ax=None, show=False, **style
                           ) -> tuple[Figure, Axes]:
 
 * ``ax=None`` -- when you pass axes they are authoritative: nothing new is
@@ -115,8 +115,8 @@ Rendering from data
 :mod:`vaft.omas` exposes one ``plot_<canonical-stem>`` per canonical plot,
 accepting a single ``ODS``, an ``ODC``, or a list of either::
 
-    fig, ax = vaft.omas.plot_magnetics_time_ip(ods)
-    fig, ax = vaft.omas.plot_magnetics_time_ip([ods_a, ods_b], label="shot")
+    fig, ax = vaft.omas.plot_plasma_current_time(ods)
+    fig, ax = vaft.omas.plot_plasma_current_time([ods_a, ods_b], label="shot")
 
 Ordering follows the caller's ordering -- ODC key order, or list order -- and
 labels default to the data-entry pulse number, falling back to the key.  Pass
@@ -153,6 +153,8 @@ from ._migration import (
     RELOCATED,
     REMOVAL_RELEASE,
     REMOVED,
+    RENAMED,
+    RENAMED_REMOVAL_RELEASE,
 )
 from ._migration import render_markdown_table as migration_table
 from .models import (
@@ -187,22 +189,22 @@ from .style import save_figure
 # documentation tools, IDEs and type checkers see every ``vaft.plot.<name>``.
 # ``test_plot_registry`` asserts this block stays in step with the registry.
 from .renderers.fields import (
-    core_profiles_field_electron_density,
-    core_profiles_field_electron_temperature,
+    electron_density_field,
+    electron_temperature_field,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
 )
 from .renderers.geometry import (
     charge_exchange_geometry_poloidal,
-    coils_non_axisymmetric_geometry3d,
-    coils_non_axisymmetric_geometry_topview,
+    coil_3d_geometry3d,
+    coil_3d_geometry_topview,
     equilibrium_geometry_boundary,
     equilibrium_geometry_topview,
     machine_geometry_poloidal,
     machine_geometry_topview,
     magnetics_geometry_poloidal,
-    pf_active_geometry_poloidal,
-    pf_passive_geometry_poloidal,
+    pf_coil_geometry_poloidal,
+    passive_structure_geometry_poloidal,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
     wall_geometry_poloidal,
@@ -217,11 +219,11 @@ from .renderers.lines import (
     barometry_time_pressure,
     charge_exchange_time_ion_temperature,
     charge_exchange_time_velocity_tor,
-    core_profiles_time_electron_density,
-    core_profiles_time_electron_temperature,
+    electron_density_time,
+    electron_temperature_time,
     equilibrium_time_beta_n,
-    equilibrium_time_beta_pol,
-    equilibrium_time_beta_tor,
+    equilibrium_time_beta_p,
+    equilibrium_time_beta_t,
     equilibrium_time_diamagnetic_flux,
     equilibrium_time_li,
     equilibrium_time_major_radius,
@@ -233,22 +235,22 @@ from .renderers.lines import (
     equilibrium_time_w_mhd,
     equilibrium_time_w_tot,
     interferometer_time_n_e_line,
-    magnetics_time_b_field_pol_probe_field,
-    magnetics_time_diamagnetic_flux,
-    magnetics_time_flux_loop_flux,
-    magnetics_time_flux_loop_voltage,
-    magnetics_time_impa_field,
-    magnetics_time_impa_voltage,
-    magnetics_time_ip,
-    magnetics_time_mirnov_voltage,
+    b_field_probe_time_field,
+    diamagnetic_flux_time,
+    flux_loop_time_flux,
+    flux_loop_time_voltage,
+    impa_time_field,
+    impa_time_voltage,
+    plasma_current_time,
+    mirnov_time_voltage,
     mhd_linear_time_energy_perturbed,
-    pf_active_time_current,
-    pf_active_time_current_turns,
+    pf_coil_time_current,
+    pf_coil_time_current_turns,
     soft_x_rays_time_power,
     spectrometer_uv_time_intensity,
-    tf_time_b_field_tor,
-    tf_time_b_field_tor_vacuum_r,
-    tf_time_coil_current,
+    tf_coil_time_b_t,
+    tf_coil_time_b_t_vacuum_r,
+    tf_coil_time_current,
     thomson_scattering_time_electron_density,
     thomson_scattering_time_electron_temperature,
 )
@@ -256,7 +258,7 @@ from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
-    electromagnetics_time_current,
+    current_overview,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -268,13 +270,13 @@ from .renderers.panels import (
     equilibrium_time_virial,
     interferometer_overview,
     magnetics_overview,
-    magnetics_overview_impa,
+    impa_overview,
     magnetics_overview_plasma_residual,
     magnetics_overview_vacuum,
-    magnetics_time_limiter_current,
+    limiter_current_time,
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
-    summary_time_beta,
+    equilibrium_time_beta,
     summary_time_energy,
     summary_time_power_balance,
     summary_time_voltage_consumption,
@@ -282,28 +284,28 @@ from .renderers.panels import (
 from .renderers.profiles import (
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
-    core_profiles_profile_electron_density,
-    core_profiles_profile_electron_temperature,
-    core_profiles_profile_ion_temperature,
-    core_profiles_profile_pressure,
+    electron_density_profile,
+    electron_temperature_profile,
+    ion_temperature_profile,
+    thermal_pressure_profile,
     equilibrium_profile_f,
     equilibrium_profile_ffprime,
     equilibrium_profile_j_tor,
     equilibrium_profile_pprime,
     equilibrium_profile_pressure,
     equilibrium_profile_q,
-    magnetics_profile_impa_tf,
+    impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
 )
 from .renderers.spectra import (
     interferometer_spectrum,
-    magnetics_spectrum_mirnov,
+    mirnov_spectrum,
     soft_x_rays_spectrum,
 )
 from .renderers.spectrograms import (
     interferometer_spectrogram,
-    magnetics_spectrogram_mirnov,
+    mirnov_spectrogram,
     soft_x_rays_spectrogram,
 )
 from .parameter_history import plot_parameter_history
@@ -367,6 +369,19 @@ def __getattr__(name: str) -> Any:
             f"vaft.plot.{name} was an internal helper and is no longer exported "
             f"({REMOVED[name]}). See vaft.plot.migration_table()."
         )
+    if name in RENAMED:
+        replacement = RENAMED[name]
+        warnings.warn(
+            f"vaft.plot.{name} was renamed to vaft.plot.{replacement} in the "
+            f"subject-taxonomy redesign (issue #251); use the new name, or "
+            f"vaft.omas.plot_{replacement} to render directly from an ODS. "
+            f"The old name is removed in {RENAMED_REMOVAL_RELEASE}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        value = globals()[replacement]
+        globals()[name] = value
+        return value
     if name in RELOCATED:
         warnings.warn(
             f"vaft.plot.{name} moved to {RELOCATED[name]}; import it from there. "
