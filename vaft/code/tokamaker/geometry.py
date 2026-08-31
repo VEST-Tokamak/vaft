@@ -47,6 +47,14 @@ def _limiter_from_ods(ods: Any, config: TokaMakerConfig) -> tuple[np.ndarray, np
     return r, z
 
 
+def split_coil_names(config: TokaMakerConfig) -> set[str]:
+    """Upper-cased names of coils whose U/L halves are independent coil sets."""
+    names = {str(name).upper() for name in config.split_coils}
+    if config.vsc_coil is not None:
+        names.add(str(config.vsc_coil).upper())
+    return names
+
+
 def _coil_name(ods: Any, index: int) -> str:
     """Coil (set) name: pf_active name when present, else PF<index+1>.
 
@@ -96,6 +104,7 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
     the coil itself.
     """
     excluded = {name.upper() for name in config.exclude_coils}
+    split_names = split_coil_names(config)
     coils: dict[str, dict] = {}
     ncoil = len(ods["pf_active.coil"])
     for i in range(ncoil):
@@ -105,14 +114,12 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
         r, z, w, h, turns = _element_arrays(ods, i)
         halves = {"U": z >= 0.0, "L": z < 0.0}
         present = {suffix: mask for suffix, mask in halves.items() if np.any(mask)}
-        vsc_split = (
-            config.vsc_coil is not None and set_name == str(config.vsc_coil).upper()
-        )
-        if vsc_split and set(present) != {"U", "L"}:
+        split = set_name in split_names
+        if split and set(present) != {"U", "L"}:
             raise ValueError(
-                f"vsc_coil={config.vsc_coil!r} must be an up/down-mirrored coil "
-                f"(found halves: {sorted(present)}). Pick a coil with elements "
-                "on both sides of Z = 0."
+                f"Coil {set_name} (split_coils/vsc_coil) must be an up/down-"
+                f"mirrored coil (found halves: {sorted(present)}). Pick a coil "
+                "with elements on both sides of Z = 0."
             )
         for suffix, mask in present.items():
             name = set_name if len(present) == 1 else f"{set_name}_{suffix}"
@@ -122,19 +129,19 @@ def _coil_rectangles_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, di
                     f"Coil {name} has zero net turns_with_sign; cannot build a "
                     "TokaMaker coil region (check pf_active or exclude the coil)."
                 )
-            # A VSC coil's halves get their OWN coil sets so they can be wired
-            # as a Vertical Stability Coil pair with opposite gains.
-            rect["coil_set"] = name if vsc_split else set_name
+            # A split coil's halves get their OWN coil sets so their currents
+            # can be set independently (VSC pairs, up/down-asymmetric scans).
+            rect["coil_set"] = name if split else set_name
             coils[name] = rect
     if not coils:
         raise ValueError("No usable pf_active coils found for the TokaMaker mesh")
-    if config.vsc_coil is not None:
-        wanted = str(config.vsc_coil).upper()
-        sets = {entry["coil_set"] for entry in coils.values()}
+    sets = {entry["coil_set"] for entry in coils.values()}
+    for wanted in sorted(split_names):
         if not {f"{wanted}_U", f"{wanted}_L"} <= sets:
             raise ValueError(
-                f"vsc_coil={config.vsc_coil!r} matches no pf_active coil. "
-                f"Available coils: {', '.join(sorted({s.rsplit('_', 1)[0] for s in sets}))}"
+                f"split coil {wanted!r} (split_coils/vsc_coil) matches no "
+                "pf_active coil. Available coils: "
+                f"{', '.join(sorted({s.rsplit('_', 1)[0] for s in sets}))}"
             )
     return coils
 

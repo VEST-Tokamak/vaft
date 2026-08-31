@@ -121,3 +121,15 @@ def test_vsc_coil_must_be_mirrored():
 def test_vsc_coil_matching_no_coil_is_rejected_early():
     with pytest.raises(ValueError, match="matches no pf_active coil"):
         tokamaker_geometry_from_ods(_build_ods(), TokaMakerConfig(vsc_coil="PF99"))
+
+
+def test_split_coils_generalize_the_vsc_split():
+    config = TokaMakerConfig(split_coils=("PF1",))
+    geometry = tokamaker_geometry_from_ods(_build_ods(), config)
+    assert geometry["coils"]["PF1_U"]["coil_set"] == "PF1_U"
+    assert geometry["coils"]["PF1_L"]["coil_set"] == "PF1_L"
+
+
+def test_split_coils_matching_no_coil_are_rejected():
+    with pytest.raises(ValueError, match="matches no"):
+        tokamaker_geometry_from_ods(_build_ods(), TokaMakerConfig(split_coils=("PF77",)))

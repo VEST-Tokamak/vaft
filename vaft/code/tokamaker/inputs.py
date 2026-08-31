@@ -19,7 +19,12 @@ import numpy as np
 from dataclasses import replace
 
 from .config import TokaMakerConfig, TokaMakerEvolutionInputs, TokaMakerInputs
-from .geometry import _coil_name, geometry_signature, tokamaker_geometry_from_ods
+from .geometry import (
+    _coil_name,
+    geometry_signature,
+    split_coil_names,
+    tokamaker_geometry_from_ods,
+)
 
 
 # ----------------------------------------------------------------------------- #
@@ -174,20 +179,17 @@ def _coil_currents_from_ods(
         data = np.asarray(pf[f"coil.{i}.current.data"], dtype=float)
         by_coil[name] = float(np.interp(time, pf_time, data))
 
-    vsc_parent = str(config.vsc_coil).upper() if config.vsc_coil is not None else None
+    split_parents = split_coil_names(config)
     currents: dict[str, float] = {}
     missing = []
     for coil_set in coil_sets:
+        parent, _, suffix = coil_set.rpartition("_")
         if coil_set in by_coil:
             currents[coil_set] = by_coil[coil_set]
-        elif (
-            vsc_parent is not None
-            and coil_set in (f"{vsc_parent}_U", f"{vsc_parent}_L")
-            and vsc_parent in by_coil
-        ):
-            # VSC-split halves carry the parent coil's measured current; the
-            # differential stabilizing component rides on the virtual '#VSC'.
-            currents[coil_set] = by_coil[vsc_parent]
+        elif suffix in ("U", "L") and parent in split_parents and parent in by_coil:
+            # Split halves carry the parent coil's measured current; any
+            # asymmetry comes from explicit overrides (or the virtual '#VSC').
+            currents[coil_set] = by_coil[parent]
         else:
             missing.append(coil_set)
     if missing:

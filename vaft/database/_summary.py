@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from vaft.data.eqdsk import TWO_PI, ods_psi_to_wb_per_radian_factor
+
 from dataclasses import dataclass
 import json
 import logging
@@ -309,7 +311,10 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             "eq_index": int(index),
             "time_s": _extract_time(eq_slice, eq_times, index),
             "ip_kA": _as_float(_safe_get(eq_slice, "global_quantities.ip")) / 1e3,
-            "psi_axis_Wb": _as_float(_safe_get(eq_slice, "global_quantities.psi_axis")),
+            # Column is labeled Wb: convert from the storage convention
+            # (Wb for DD-conformant files, Wb/rad for legacy ones; issue #236).
+            "psi_axis_Wb": _as_float(_safe_get(eq_slice, "global_quantities.psi_axis"))
+            * ods_psi_to_wb_per_radian_factor(eq_slice) * TWO_PI,
             "q_axis": _as_float(_safe_get(eq_slice, "global_quantities.q_axis")),
             "q_95": _as_float(_safe_get(eq_slice, "global_quantities.q_95")),
             "q_min": _extract_q_min(eq_slice),

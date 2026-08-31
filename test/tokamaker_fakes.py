@@ -180,6 +180,10 @@ def make_fake_oft(
         def get_coil_currents(self):
             return {"PF1": -640.0, "PF2": 320.0}, np.zeros(4)
 
+        def get_xpoints(self):
+            calls.append(("get_xpoints",))
+            return np.array([[0.45, -0.35]]), True
+
         def get_conductor_currents(self, psi, cell_centered=False):
             calls.append(("get_conductor_currents",))
             return np.ones(6, dtype=bool), np.full(self.np, 2.0)
