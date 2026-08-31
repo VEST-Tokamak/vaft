@@ -42,11 +42,21 @@ def _parser() -> argparse.ArgumentParser:
     diagnostics.add_argument("--static-ods", required=True, type=Path)
     diagnostics.add_argument("--output", required=True, type=Path)
     diagnostics.add_argument("--metadata", required=True, type=Path)
-    diagnostics.add_argument("--tstart", default=0.26, type=float)
-    diagnostics.add_argument("--tend", default=0.36, type=float)
-    diagnostics.add_argument("--dt", default=4e-5, type=float)
+    # Unset means "use the configured plasma-analysis window".
+    diagnostics.add_argument("--tstart", default=None, type=float)
+    diagnostics.add_argument("--tend", default=None, type=float)
+    diagnostics.add_argument("--dt", default=None, type=float)
     diagnostics.add_argument("--run", default=1, type=int)
     diagnostics.add_argument("--vest-magnetics-processing-json", default="")
+    diagnostics.add_argument(
+        "--time-policies-json",
+        default="",
+        help=(
+            "JSON object overriding the per-component diagnostics time policies "
+            "configured in vest.yaml. --tstart/--tend/--dt retune the default "
+            "(plasma-analysis) window only."
+        ),
+    )
 
     eddy = subparsers.add_parser("eddy", help="build eddy-current ODS")
     eddy.add_argument("--shot", required=True, type=int)
@@ -81,6 +91,11 @@ def main(argv: Iterable[str] | None = None) -> int:
             vest_magnetics_processing=(
                 json.loads(args.vest_magnetics_processing_json)
                 if args.vest_magnetics_processing_json.strip()
+                else None
+            ),
+            time_policies=(
+                json.loads(args.time_policies_json)
+                if args.time_policies_json.strip()
                 else None
             ),
         )

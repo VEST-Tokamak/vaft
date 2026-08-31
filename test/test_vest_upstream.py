@@ -23,6 +23,10 @@ from vaft.omas.vest_upstream import (
     write_stage_product,
 )
 from vaft.machine_mapping.pf_active import vfit_pf
+from vaft.machine_mapping.utils import (
+    DiagnosticsTimePolicy,
+    DiagnosticsTimePolicyTable,
+)
 from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibrium_magnetics_signals
 
 
@@ -51,6 +55,7 @@ def test_default_diagnostics_grid_is_half_open_and_25_khz():
 
 
 def test_native_mirnov_coordinate_marks_magnetics_heterogeneous():
+    analysis = DiagnosticsTimePolicy("analysis", 0.26, 0.36, 4e-5)
     processed_time = _canonical_diagnostics_time(0.26, 0.36, 4e-5)
     native_time = np.arange(0.26, 0.36, 4e-6)
     ods = ODS(consistency_check=False)
@@ -59,7 +64,11 @@ def test_native_mirnov_coordinate_marks_magnetics_heterogeneous():
     ods["magnetics.b_field_pol_probe.0.voltage.data"] = np.ones(native_time.size)
 
     metadata = _validate_diagnostics_time_coordinates(
-        ods, processed_time, tstart=0.26, tend=0.36, dt=4e-5
+        ods,
+        {"magnetics": processed_time},
+        policies=DiagnosticsTimePolicyTable(
+            {"magnetics": analysis}, windows={"analysis": analysis}, default=analysis
+        ),
     )
 
     assert ods["magnetics.ids_properties.homogeneous_time"] == 0

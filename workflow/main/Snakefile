@@ -140,12 +140,16 @@ rule build_diagnostics:
         magnetics=json.dumps(
             DIAGNOSTICS.get("vest_magnetics_processing", {}), separators=(",", ":")
         ),
+        time_policies=json.dumps(
+            DIAGNOSTICS.get("time_policies", {}), separators=(",", ":")
+        ),
     shell:
         "python -m vaft.cli vest-upstream diagnostics --shot {wildcards.shot} "
         "--raw-source {input.raw:q} --static-ods {input.static:q} "
         "--output {output.data:q} --metadata {output.metadata:q} "
         "--tstart {params.tstart} --tend {params.tend} --dt {params.dt} --run {params.run} "
-        "--vest-magnetics-processing-json {params.magnetics:q}"
+        "--vest-magnetics-processing-json {params.magnetics:q} "
+        "--time-policies-json {params.time_policies:q}"
 
 
 rule build_eddy:

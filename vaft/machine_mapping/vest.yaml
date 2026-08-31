@@ -1451,6 +1451,44 @@
       0:
         gain: -50000
 
+# Temporal coverage of the processed diagnostics product, by component.
+#
+# The short analysis window exists for equilibrium magnetics, where the
+# reconstruction is only meaningful during the plasma. Engineering and
+# discharge-history signals need the whole shot: the TF ramp-up/flat-top/
+# ramp-down timing, and the prefill pressure history before breakdown, are
+# physical information that a 0.1 s crop destroys. VEST's slow DAQ already
+# records those channels over the full 0-1 s sequence.
+#
+# Like `diagnostic_registry`, this top-level namespace is deliberately outside
+# the `0:` / shot-override runtime configuration: it is pipeline policy, not
+# per-shot hardware history.
+diagnostics_time_policies:
+  default: analysis
+  windows:
+    # Windows are half-open, `tstart <= t < tend`, on a uniform `dt` grid --
+    # the same convention for every policy.
+    analysis:
+      tstart: 0.26
+      tend: 0.36
+      dt: 4.0e-5
+    full_discharge:
+      tstart: 0.0
+      tend: 1.0
+      dt: 4.0e-5
+  components:
+    pf_active: analysis
+    magnetics: analysis
+    impa: analysis
+    spectrometer_uv: analysis
+    langmuir_probes: analysis
+    tf: full_discharge
+    barometry: full_discharge
+    # Reserved for the EC power mapping (issue #165), which has no mapper yet.
+    # Registering it here means EC power inherits the full-discharge policy
+    # from the start rather than the short analysis window.
+    ec_power: full_discharge
+
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.
 diagnostic_registry:

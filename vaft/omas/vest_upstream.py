@@ -45,7 +45,13 @@ from vaft.machine_mapping.pf_passive import DEFAULT_STATIC_GEOMETRY, pf_passive
 from vaft.machine_mapping.spectrometer_uv import spectrometer_uv
 from vaft.machine_mapping.tf import vfit_tf_dynamic, vfit_tf_static
 from vaft.machine_mapping.wall import wall
-from vaft.machine_mapping.utils import get_path, path_exists
+from vaft.machine_mapping.utils import (
+    DiagnosticsTimePolicy,
+    DiagnosticsTimePolicyTable,
+    get_path,
+    path_exists,
+    resolve_diagnostics_time_policies,
+)
 from vaft.omas import save
 from vaft.omas.process_wrapper import compute_eddy_currents
 from vaft.process.magnetics import VestMagneticsProcessingConfig
@@ -235,11 +241,15 @@ def _copy_ids(target: ODS, source: ODS, ids_names: tuple[str, ...]) -> None:
 
 
 def _canonical_diagnostics_time(tstart: float, tend: float, dt: float) -> np.ndarray:
-    """Build the one processed grid used by the diagnostics product.
+    """Build one processed grid for the diagnostics product.
 
     Diagnostics windows are always half-open: ``tstart <= t < tend``.  Native
     acquisition timebases are handled explicitly by their mapper and are not
     selected by overloading a non-positive ``dt`` value.
+
+    Since issue #244 the product carries more than one such grid -- the short
+    plasma-analysis window and the full-discharge window -- so this builds *a*
+    grid, not *the* grid.
     """
     tstart, tend, dt = float(tstart), float(tend), float(dt)
     if not all(np.isfinite(value) for value in (tstart, tend, dt)):
@@ -252,6 +262,15 @@ def _canonical_diagnostics_time(tstart: float, tend: float, dt: float) -> np.nda
     if time.size == 0:
         raise ValueError("Diagnostics window produces an empty processed time grid")
     return time
+
+
+def _policy_time(policy: DiagnosticsTimePolicy) -> np.ndarray:
+    """Build the processed grid for one time policy (issue #244).
+
+    Every policy uses the same half-open convention, so the analysis window and
+    the full-discharge window differ only in their numbers.
+    """
+    return _canonical_diagnostics_time(policy.tstart, policy.tend, policy.dt)
 
 
 def _validate_time_data_pair(ods: ODS, time_path: str, data_path: str) -> None:
@@ -282,34 +301,71 @@ def _time_equal(left: np.ndarray, right: np.ndarray) -> bool:
     return left.shape == right.shape and np.allclose(left, right, rtol=0.0, atol=1e-12)
 
 
+def _component_grid(
+    grids: Mapping[str, np.ndarray], component: str
+) -> np.ndarray | None:
+    grid = grids.get(component)
+    if grid is None:
+        return None
+    return np.asarray(grid, dtype=float).reshape(-1)
+
+
+def _realized_window(grid: np.ndarray) -> dict[str, Any]:
+    """Describe one realized coordinate: span, cadence, and sample count."""
+    grid = np.asarray(grid, dtype=float).reshape(-1)
+    realized_dt = float(np.median(np.diff(grid))) if grid.size > 1 else None
+    return {
+        "realized_start": float(grid[0]) if grid.size else None,
+        "realized_end_exclusive": (
+            float(grid[0] + grid.size * realized_dt) if grid.size and realized_dt else None
+        ),
+        "realized_dt": realized_dt,
+        "sample_count": int(grid.size),
+    }
+
+
 def _validate_diagnostics_time_coordinates(
     ods: ODS,
-    processed_time: np.ndarray,
+    grids: Mapping[str, np.ndarray],
     *,
-    tstart: float,
-    tend: float,
-    dt: float,
+    policies: DiagnosticsTimePolicyTable,
 ) -> dict[str, Any]:
-    """Validate realized diagnostic coordinates and return manifest metadata."""
-    processed_time = np.asarray(processed_time, dtype=float)
-    present_ids = set(ods.keys())
-    if processed_time.size > 1 and np.any(np.diff(processed_time) <= 0.0):
-        raise ValueError("Canonical diagnostics time must be strictly monotonic")
+    """Validate realized diagnostic coordinates and return manifest metadata.
 
+    Each component is checked against *its own* time policy's grid.  A single
+    ODS-wide time axis is not required and must not be imposed: TF and
+    barometry carry the full discharge history while equilibrium magnetics
+    carries the short analysis window, and both are valid at once (issue #244).
+    """
+    present_ids = set(ods.keys())
+    magnetics_policy = policies.get("magnetics") or policies.default
+    magnetics_grid = _component_grid(grids, "magnetics")
+
+    for component, grid in grids.items():
+        grid = np.asarray(grid, dtype=float).reshape(-1)
+        if grid.size > 1 and np.any(np.diff(grid) <= 0.0):
+            raise ValueError(f"{component} diagnostics time must be strictly monotonic")
+
+    # Each canonical coordinate belongs to the component that produced it, so
+    # it is compared against that component's grid rather than a shared one.
     canonical_paths = (
-        "pf_active.time",
-        "spectrometer_uv.time",
-        "tf.time",
-        "magnetics.time",
-        "barometry.gauge.0.pressure.time",
+        ("pf_active.time", "pf_active"),
+        ("spectrometer_uv.time", "spectrometer_uv"),
+        ("tf.time", "tf"),
+        ("magnetics.time", "magnetics"),
+        ("barometry.gauge.0.pressure.time", "barometry"),
     )
-    for path in canonical_paths:
+    for path, component in canonical_paths:
         if path.split(".", 1)[0] not in present_ids:
             continue
-        if path_exists(ods, path):
-            actual = np.asarray(get_path(ods, path), dtype=float).reshape(-1)
-            if not _time_equal(actual, processed_time):
-                raise ValueError(f"{path} does not use the canonical diagnostics grid")
+        grid = _component_grid(grids, component)
+        if grid is None or not path_exists(ods, path):
+            continue
+        actual = np.asarray(get_path(ods, path), dtype=float).reshape(-1)
+        if not _time_equal(actual, grid):
+            raise ValueError(
+                f"{path} does not use the {policies[component].name} diagnostics grid"
+            )
 
     for time_path, signal_data_path in (
         ("pf_active.coil.0.current.time", "pf_active.coil.0.current.data"),
@@ -330,40 +386,41 @@ def _validate_diagnostics_time_coordinates(
                 f"pf_active.coil.{index}.current.time",
                 f"pf_active.coil.{index}.current.data",
             )
-    if "magnetics" in present_ids:
+    if "magnetics" in present_ids and magnetics_grid is not None:
         for index in range(len(ods["magnetics.flux_loop"])):
             base = f"magnetics.flux_loop.{index}.flux"
             _validate_time_data_pair(ods, f"{base}.time", f"{base}.data")
-            _validate_data_on_grid(ods, f"{base}.data", processed_time)
+            _validate_data_on_grid(ods, f"{base}.data", magnetics_grid)
             if (
                 path_exists(ods, f"{base}.data")
                 and np.asarray(get_path(ods, f"{base}.data")).size > 0
                 and path_exists(ods, f"{base}.time")
                 and not _time_equal(
                 np.asarray(get_path(ods, f"{base}.time"), dtype=float).reshape(-1),
-                processed_time,
+                magnetics_grid,
                 )
             ):
-                raise ValueError(f"{base}.time does not use the canonical diagnostics grid")
+                raise ValueError(f"{base}.time does not use the magnetics diagnostics grid")
         for index in range(len(ods["magnetics.b_field_pol_probe"])):
             base = f"magnetics.b_field_pol_probe.{index}.field"
             _validate_time_data_pair(ods, f"{base}.time", f"{base}.data")
-            _validate_data_on_grid(ods, f"{base}.data", processed_time)
+            _validate_data_on_grid(ods, f"{base}.data", magnetics_grid)
             if (
                 path_exists(ods, f"{base}.data")
                 and np.asarray(get_path(ods, f"{base}.data")).size > 0
                 and path_exists(ods, f"{base}.time")
                 and not _time_equal(
                 np.asarray(get_path(ods, f"{base}.time"), dtype=float).reshape(-1),
-                processed_time,
+                magnetics_grid,
                 )
             ):
-                raise ValueError(f"{base}.time does not use the canonical diagnostics grid")
+                raise ValueError(f"{base}.time does not use the magnetics diagnostics grid")
 
     native_paths: list[str] = []
     native_time_metadata: list[dict[str, Any]] = []
     native_flux_loop_metadata: list[dict[str, Any]] = []
     if "magnetics" in present_ids:
+        tstart, tend = magnetics_policy.tstart, magnetics_policy.tend
         root_time = np.asarray(get_path(ods, "magnetics.time"), dtype=float).reshape(-1)
         for index in range(len(ods["magnetics.b_field_pol_probe"])):
             base = f"magnetics.b_field_pol_probe.{index}.voltage"
@@ -389,7 +446,7 @@ def _validate_diagnostics_time_coordinates(
             if voltage_time.size == 0:
                 continue
             if np.any(voltage_time < tstart) or np.any(voltage_time >= tend):
-                raise ValueError(f"{time_path} is outside the diagnostics analysis window")
+                raise ValueError(f"{time_path} is outside the magnetics analysis window")
             if not _time_equal(voltage_time, root_time):
                 native_paths.append(time_path)
                 native_dt = (
@@ -419,7 +476,7 @@ def _validate_diagnostics_time_coordinates(
             if voltage_time.size == 0:
                 continue
             if np.any(voltage_time < tstart) or np.any(voltage_time >= tend):
-                raise ValueError(f"{time_path} is outside the diagnostics analysis window")
+                raise ValueError(f"{time_path} is outside the magnetics analysis window")
             if not _time_equal(voltage_time, root_time):
                 native_paths.append(time_path)
                 native_dt = (
@@ -447,19 +504,55 @@ def _validate_diagnostics_time_coordinates(
         # dynamic quantity. Native Mirnov coordinates therefore require mode 0.
         ods["magnetics.ids_properties.homogeneous_time"] = 0 if native_paths else 1
 
-    realized_dt = float(np.median(np.diff(processed_time))) if processed_time.size > 1 else None
-    if realized_dt is not None and not np.isclose(realized_dt, dt, rtol=0.0, atol=1e-12):
+    # Per-component provenance: what each policy asked for, what the source
+    # actually supported, and whether the difference cost any coverage.
+    component_metadata: dict[str, Any] = {}
+    for component, grid in sorted(grids.items()):
+        policy = policies[component]
+        realized = _realized_window(np.asarray(grid, dtype=float).reshape(-1))
+        requested = _policy_time(policy)
+        # Counted in samples rather than compared as floats: a record that ends
+        # one sample short of the nominal window is the DAQ's own half-open
+        # convention (25 000 slow samples span 0 to 0.99996 s), not coverage
+        # the source failed to provide.
+        missing = int(requested.size) - int(realized["sample_count"])
+        component_metadata[component] = {
+            "policy": policy.name,
+            "requested_start": policy.tstart,
+            "requested_end": policy.tend,
+            "requested_dt": policy.dt,
+            "requested_sample_count": int(requested.size),
+            **realized,
+            "missing_samples": max(missing, 0),
+            "source_clipping": missing > 1,
+        }
+
+    default_policy = policies.default
+    default_time = _policy_time(default_policy)
+    realized_dt = (
+        float(np.median(np.diff(default_time))) if default_time.size > 1 else None
+    )
+    if realized_dt is not None and not np.isclose(
+        realized_dt, default_policy.dt, rtol=0.0, atol=1e-12
+    ):
         raise ValueError("Canonical diagnostics time does not realize the configured dt")
     return {
-        "requested_start": float(tstart),
-        "requested_end": float(tend),
-        "requested_dt": float(dt),
-        "processed_start": float(processed_time[0]),
-        "processed_end_exclusive": float(processed_time[0] + processed_time.size * (realized_dt or 0.0)),
-        "processed_sample_count": int(processed_time.size),
+        # The unprefixed keys describe the default (plasma-analysis) window,
+        # which is what this manifest section meant before issue #244 added
+        # per-component policies below.
+        "requested_start": float(default_policy.tstart),
+        "requested_end": float(default_policy.tend),
+        "requested_dt": float(default_policy.dt),
+        "processed_start": float(default_time[0]),
+        "processed_end_exclusive": float(
+            default_time[0] + default_time.size * (realized_dt or 0.0)
+        ),
+        "processed_sample_count": int(default_time.size),
         "realized_dt": realized_dt,
         "processed_time_clipped": False,
-        "source_clipping": False,
+        "source_clipping": any(
+            entry["source_clipping"] for entry in component_metadata.values()
+        ),
         "magnetics_homogeneous_time": int(ods["magnetics.ids_properties.homogeneous_time"])
         if "magnetics" in present_ids
         else None,
@@ -469,6 +562,12 @@ def _validate_diagnostics_time_coordinates(
         # voltage (issue #209) reports under its own key.
         "native_mirnov": native_time_metadata,
         "native_flux_loop_voltage": native_flux_loop_metadata,
+        "default_policy": default_policy.name,
+        "policies": {
+            name: {"tstart": window.tstart, "tend": window.tend, "dt": window.dt}
+            for name, window in sorted(policies.windows.items())
+        },
+        "components": component_metadata,
     }
 
 
@@ -477,13 +576,23 @@ def build_diagnostics_ods(
     shot: int,
     raw_source: str | Path,
     static_ods: str | Path,
-    tstart: float = 0.26,
-    tend: float = 0.36,
-    dt: float = 4e-5,
+    tstart: float | None = None,
+    tend: float | None = None,
+    dt: float | None = None,
     run: int = 1,
     vest_magnetics_processing: dict[str, Any] | None = None,
+    time_policies: Mapping[str, Any] | None = None,
 ) -> tuple[ODS, dict[str, Any]]:
-    """Build independent diagnostic IDSs without losing valid siblings."""
+    """Build independent diagnostic IDSs without losing valid siblings.
+
+    ``tstart``/``tend``/``dt`` retune the plasma-analysis window, which is what
+    the equilibrium magnetics need; left unset, that window comes from the
+    configured policy document so `vest.yaml` stays the single source of truth
+    for it.  Components whose physics spans the whole discharge -- TF,
+    barometry, and EC power once #165 lands -- follow their own configured
+    window instead, so the product carries more than one temporal coverage
+    (issue #244).  ``time_policies`` overrides the whole policy document.
+    """
     raw_path = Path(raw_source)
     static_path = Path(static_ods)
     if not raw_path.exists():
@@ -492,7 +601,17 @@ def build_diagnostics_ods(
         raise FileNotFoundError(f"Static ODS not found: {static_path}")
 
     shot = int(shot)
-    processed_time = _canonical_diagnostics_time(tstart, tend, dt)
+    policies = resolve_diagnostics_time_policies(
+        analysis_override={"tstart": tstart, "tend": tend, "dt": dt},
+        overrides=time_policies,
+    )
+    # `tstart`/`tend`/`dt` may be unset; report what was actually applied.
+    analysis = policies.default
+    # One grid per distinct window, built once and shared by every component
+    # that uses it.  Components whose window may exceed their source coverage
+    # realize their own axis inside the mapper and are filled in below.
+    policy_grids: dict[str, np.ndarray] = {}
+    grids: dict[str, np.ndarray] = {}
     era = machine_era_for_shot(shot)
     static, _ = load_ods(static_path)
     ods = ODS(consistency_check=False)
@@ -510,6 +629,30 @@ def build_diagnostics_ods(
     )
     statuses: dict[str, Any] = {}
     archived_fields = _archived_field_codes(raw_path)
+
+    def policy_grid(component: str) -> np.ndarray:
+        """The exact grid for a component whose window is inside its source."""
+        policy = policies[component]
+        if policy.name not in policy_grids:
+            policy_grids[policy.name] = _policy_time(policy)
+        return policy_grids[policy.name]
+
+    def record_realized_grid(component: str, ids_name: str, path: str) -> None:
+        """Record the axis a full-window component actually realized.
+
+        These mappers clip their window to real source coverage rather than
+        extrapolating, so the realized axis -- not the requested one -- is what
+        validation and the manifest must describe.
+
+        The IDS is checked against `ods.keys()` first: probing a path under an
+        absent IDS would auto-vivify empty nodes into the product, which is
+        exactly the leak the validator's own `present_ids` guard avoids.
+        """
+        if statuses.get(component, {}).get("status", "unavailable") == "unavailable":
+            return
+        if ids_name not in set(ods.keys()) or not path_exists(ods, path):
+            return
+        grids[component] = np.asarray(get_path(ods, path), dtype=float).reshape(-1)
 
     def run_component(
         name: str,
@@ -533,52 +676,89 @@ def build_diagnostics_ods(
                 ods[f"{ids_name}.ids_properties.homogeneous_time"] = 1
         statuses[name] = {"status": component_status, **details}
 
+    pf_active_policy = policies["pf_active"]
     run_component(
         "pf_active",
         ("pf_active",),
         lambda component: (
             _copy_ids(component, static, ("pf_active",)),
             vfit_pf_active_dynamic(
-                component, shot, tstart, tend, dt, raw_source=raw_path,
-                target_time=processed_time,
+                component,
+                shot,
+                pf_active_policy.tstart,
+                pf_active_policy.tend,
+                pf_active_policy.dt,
+                raw_source=raw_path,
+                target_time=policy_grid("pf_active"),
             ),
         ),
         disabled_channels=_disabled_pf_coils(),
     )
+    grids["pf_active"] = policy_grid("pf_active")
+    uv_policy = policies["spectrometer_uv"]
     run_component(
         "spectrometer_uv",
         ("spectrometer_uv",),
         lambda component: spectrometer_uv(
-            component, shot, tstart, tend, dt, raw_source=raw_path,
-            target_time=processed_time,
+            component,
+            shot,
+            uv_policy.tstart,
+            uv_policy.tend,
+            uv_policy.dt,
+            raw_source=raw_path,
+            target_time=policy_grid("spectrometer_uv"),
         ),
     )
+    grids["spectrometer_uv"] = policy_grid("spectrometer_uv")
+    # barometry and tf follow the full-discharge policy: the prefill history
+    # before breakdown and the TF ramp-up/ramp-down are physical information
+    # that the short analysis window would crop away.  They are given no
+    # explicit target axis so the mapper clips their window to whatever the
+    # source actually recorded instead of extrapolating past it.
+    barometry_policy = policies["barometry"]
     run_component(
         "barometry",
         ("barometry",),
         lambda component: barometry(
-            component, shot, tstart, tend, dt, raw_source=raw_path,
-            target_time=processed_time,
+            component,
+            shot,
+            barometry_policy.tstart,
+            barometry_policy.tend,
+            barometry_policy.dt,
+            raw_source=raw_path,
         ),
     )
+    record_realized_grid("barometry", "barometry", "barometry.gauge.0.pressure.time")
+    langmuir_policy = policies["langmuir_probes"]
     run_component(
         "langmuir_probes",
         ("langmuir_probes",),
         lambda component: langmuir_probes(
-            component, shot, tstart, tend, dt, raw_source=raw_path
+            component,
+            shot,
+            langmuir_policy.tstart,
+            langmuir_policy.tend,
+            langmuir_policy.dt,
+            raw_source=raw_path,
         ),
     )
+    tf_policy = policies["tf"]
     run_component(
         "tf",
         ("tf",),
         lambda component: (
             _copy_ids(component, static, ("tf",)),
             vfit_tf_dynamic(
-                component, shot, tstart, tend, dt, raw_source=raw_path,
-                target_time=processed_time,
+                component,
+                shot,
+                tf_policy.tstart,
+                tf_policy.tend,
+                tf_policy.dt,
+                raw_source=raw_path,
             ),
         ),
     )
+    record_realized_grid("tf", "tf", "tf.time")
     processing = (
         VestMagneticsProcessingConfig(**vest_magnetics_processing)
         if vest_magnetics_processing
@@ -596,6 +776,7 @@ def build_diagnostics_ods(
     missing_magnetics_channels = sorted(
         field for field in magnetics_channels if field not in archived_fields
     )
+    magnetics_policy = policies["magnetics"]
     run_component(
         "magnetics",
         ("magnetics",),
@@ -604,28 +785,38 @@ def build_diagnostics_ods(
             vfit_magnetics_dynamic(
                 component,
                 shot,
-                tstart,
-                tend,
-                dt,
+                magnetics_policy.tstart,
+                magnetics_policy.tend,
+                magnetics_policy.dt,
                 processing_config=processing,
                 raw_source=raw_path,
-                target_time=processed_time,
+                target_time=policy_grid("magnetics"),
             ),
         ),
         processing="VestMagneticsProcessingConfig",
         component_status="partial" if missing_magnetics_channels else "success",
         missing_channels=missing_magnetics_channels,
     )
+    grids["magnetics"] = policy_grid("magnetics")
 
     # IMPA extends magnetics.b_field_pol_probe, so the component is seeded from
     # the magnetics IDS built above and copied back.  A failed IMPA calibration
     # must never discard valid magnetics data.
     impa_status: dict[str, Any] = {}
 
+    impa_policy = policies["impa"]
+
     def _map_impa(component: ODS) -> None:
         _copy_ids(component, ods, ("magnetics",))
         impa_status.update(
-            impa_mapper(component, shot, tstart, tend, dt, raw_source=raw_path)
+            impa_mapper(
+                component,
+                shot,
+                impa_policy.tstart,
+                impa_policy.tend,
+                impa_policy.dt,
+                raw_source=raw_path,
+            )
         )
 
     # This shot's own era may not wire every channel (the 2022-04-23 block
@@ -669,9 +860,14 @@ def build_diagnostics_ods(
             "missing_channels": missing_impa_channels,
         }
 
-    time_grid = _validate_diagnostics_time_coordinates(
-        ods, processed_time, tstart=tstart, tend=tend, dt=dt
-    )
+    # A component whose raw signals were unavailable produced no coordinate,
+    # so it must not appear in the realized-coverage record either.
+    grids = {
+        name: grid
+        for name, grid in grids.items()
+        if statuses.get(name, {}).get("status", "unavailable") != "unavailable"
+    }
+    time_grid = _validate_diagnostics_time_coordinates(ods, grids, policies=policies)
     successes = sum(value["status"] == "success" for value in statuses.values())
     unavailable = sorted(
         name for name, value in statuses.items() if value["status"] == "unavailable"
@@ -692,11 +888,14 @@ def build_diagnostics_ods(
             "static_sha256": sha256_file(static_path),
         },
         "configuration": {
-            "tstart": float(tstart),
-            "tend": float(tend),
-            "dt": float(dt),
+            # These stay the plasma-analysis window; per-component coverage is
+            # reported under `time_grid` (issue #244).
+            "tstart": float(analysis.tstart),
+            "tend": float(analysis.tend),
+            "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
+            "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
         "channel_status": statuses,

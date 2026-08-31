@@ -7,9 +7,12 @@ from scipy.signal import medfilt
 
 from vaft.database import raw as raw_db
 
-from .utils import calibrate_vest_signal, resolve_vest_diagnostic, set_path
-
-DEFAULT_DT = 4e-5
+from .utils import (
+    build_window_time_axis,
+    calibrate_vest_signal,
+    resolve_vest_diagnostic,
+    set_path,
+)
 
 
 def _safe_vest_load(
@@ -22,21 +25,6 @@ def _safe_vest_load(
         field,
         sample_opt=False if raw_source is None else raw_source,
     )
-
-
-def _build_target_time(
-    source_time: np.ndarray,
-    tstart: float,
-    tend: float,
-    dt: float,
-) -> np.ndarray:
-    if dt > 0 and source_time.size > 0:
-        start = max(tstart, float(source_time[0]))
-        end = min(tend, float(source_time[-1]))
-        if end > start:
-            return np.arange(start, end, dt)
-    step = dt if dt > 0 else DEFAULT_DT
-    return np.arange(tstart, tend, step)
 
 
 def vfit_barometry_static(ods: object) -> None:
@@ -73,7 +61,7 @@ def vfit_barometry_dynamic(
     time = (
         np.asarray(target_time, dtype=float)
         if target_time is not None
-        else _build_target_time(source_time, tstart, tend, dt)
+        else build_window_time_axis(source_time, tstart, tend, dt)
     )
 
     pressure_torr = calibrate_vest_signal(source_data, config["calibration"])

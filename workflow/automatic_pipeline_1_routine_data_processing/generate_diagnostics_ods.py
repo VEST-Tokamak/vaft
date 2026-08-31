@@ -28,14 +28,37 @@ def main() -> int:
     parser.add_argument("--static-ods", required=True, type=Path, help="Versioned static machine ODS.")
     parser.add_argument("--output", required=True, type=Path, help="Output diagnostics ODS JSON file.")
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
-    parser.add_argument("--tstart", default=0.26, type=float, help="Start time for mapped diagnostics.")
-    parser.add_argument("--tend", default=0.36, type=float, help="End time for mapped diagnostics.")
-    parser.add_argument("--dt", default=4e-5, type=float, help="Mapped diagnostics time step.")
+    # Unset means "use the plasma-analysis window configured in vest.yaml".
+    parser.add_argument(
+        "--tstart",
+        default=None,
+        type=float,
+        help="Start time of the plasma-analysis window.",
+    )
+    parser.add_argument(
+        "--tend",
+        default=None,
+        type=float,
+        help="End time of the plasma-analysis window.",
+    )
+    parser.add_argument(
+        "--dt", default=None, type=float, help="Plasma-analysis window time step."
+    )
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
     parser.add_argument(
         "--vest-magnetics-processing-json",
         default="",
         help="JSON object overriding VEST magnetics processing defaults.",
+    )
+    parser.add_argument(
+        "--time-policies-json",
+        default="",
+        help=(
+            "JSON object overriding the per-component diagnostics time policies "
+            "configured in vest.yaml. TF, barometry, and EC power follow the "
+            "full-discharge window; --tstart/--tend/--dt retune the "
+            "plasma-analysis window only."
+        ),
     )
     args = parser.parse_args()
 
@@ -55,6 +78,9 @@ def main() -> int:
         run=args.run,
         vest_magnetics_processing=json.loads(args.vest_magnetics_processing_json)
         if args.vest_magnetics_processing_json.strip()
+        else None,
+        time_policies=json.loads(args.time_policies_json)
+        if args.time_policies_json.strip()
         else None,
     )
 

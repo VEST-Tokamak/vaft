@@ -10,7 +10,12 @@ from scipy import signal
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import smooth
 
-from .utils import calibrate_vest_signal, resolve_vest_diagnostic, set_path
+from .utils import (
+    build_window_time_axis,
+    calibrate_vest_signal,
+    resolve_vest_diagnostic,
+    set_path,
+)
 
 Signal = tuple[np.ndarray, np.ndarray]
 
@@ -24,23 +29,6 @@ def _safe_vest_load(
         field,
         sample_opt=False if raw_source is None else raw_source,
     )
-
-
-def _build_target_time_axis(
-    source_time: np.ndarray,
-    tstart: float,
-    tend: float,
-    dt: float,
-) -> np.ndarray:
-    if source_time.size == 0:
-        return np.array([0.0])
-    if dt <= 0:
-        return source_time
-    start = max(tstart, float(source_time[0]))
-    end = min(tend, float(source_time[-1]))
-    if end <= start:
-        return source_time
-    return np.arange(start, end, dt)
 
 
 def vfit_tf_current(
@@ -100,7 +88,7 @@ def vfit_tf_dynamic(
     target_time = (
         np.asarray(target_time, dtype=float)
         if target_time is not None
-        else _build_target_time_axis(source_time, tstart, tend, dt)
+        else build_window_time_axis(source_time, tstart, tend, dt)
     )
 
     bt_r = 4 * math.pi * 1e-7 * turns * tf_current / (2.0 * math.pi)
