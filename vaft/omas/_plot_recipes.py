@@ -882,7 +882,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.flux_loop.{i}.position.0.r",
                 "magnetics.flux_loop.{i}.position.0.z",
                 "magnetics.flux_loop",
-                "",
+                "Flux Loops",
                 {"marker": "s", "markersize": 3, "color": "#377eb8"},
             ),
             (
@@ -890,7 +890,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.b_field_pol_probe.{i}.position.r",
                 "magnetics.b_field_pol_probe.{i}.position.z",
                 "magnetics.b_field_pol_probe",
-                "",
+                "B-field Probes",
                 {"marker": "x", "markersize": 4, "color": "#ff7f00"},
             ),
         ),
@@ -1047,6 +1047,16 @@ RECIPES: dict[str, Any] = {
         ncols=2,
         share_x=False,
         suptitle="Equilibrium Analysis Overview",
+    ),
+    "equilibrium_overview_profiles": PanelRecipe(
+        members=(
+            "equilibrium_profile_pressure",
+            "equilibrium_profile_j_tor",
+            "equilibrium_profile_q",
+        ),
+        ncols=3,
+        share_x=True,
+        suptitle="Equilibrium Profiles",
     ),
     "magnetics_time_impa_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="field", **options),
@@ -1292,8 +1302,21 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
     )
 
 
-def _build_lines_of_sight(ods: Any, *, channels: Any = None, **_: Any) -> GeometryLayers:
-    """Soft X-ray lines of sight, drawn as one segment per channel."""
+def _build_lines_of_sight(
+    ods: Any,
+    *,
+    channels: Any = None,
+    label_channels: bool = True,
+    include_wall: bool = True,
+    **_: Any,
+) -> GeometryLayers:
+    """Soft X-ray lines of sight, drawn as one segment per channel.
+
+    ``label_channels=False`` collapses the per-channel legend entries into a
+    single one, which is what a composed machine view wants: forty labelled
+    sight lines orient nobody. ``include_wall=False`` leaves the wall to the
+    caller so a composite does not draw it twice.
+    """
     template = "soft_x_rays.channel.{i}.line_of_sight.first_point.r"
     indices = _resolve_indices(ods, template, channels)
     layers: list[GeometryLayer] = []
@@ -1310,13 +1333,18 @@ def _build_lines_of_sight(ods: Any, *, channels: Any = None, **_: Any) -> Geomet
                 r=[float(first_r), float(second_r)],
                 z=[float(first_z), float(second_z)],
                 kind="polyline",
-                label=_channel_label(
-                    ods, "soft_x_rays.channel.{i}.name", index, f"ch{index}"
+                label=(
+                    _channel_label(
+                        ods, "soft_x_rays.channel.{i}.name", index, f"ch{index}"
+                    )
+                    if label_channels
+                    else ("Soft X-ray LOS" if not layers else "")
                 ),
-                style={"lw": 0.8},
+                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": "#e6ab02"},
             )
         )
-    layers.extend(_wall_layers(ods))
+    if include_wall:
+        layers.extend(_wall_layers(ods))
     return GeometryLayers(layers=tuple(layers), title="Soft X-ray Lines of Sight")
 
 
@@ -1334,6 +1362,32 @@ def _wall_layers(ods: Any) -> list[GeometryLayer]:
     return layers
 
 
+def _wall_radii(ods: Any) -> tuple[list[float], str]:
+    """Every wall radius available, with the description it came from.
+
+    ``_wall_layers`` reads only the limiter description. The top view also has
+    to work for an ODS that describes a vessel instead, otherwise plot discovery
+    advertises a view that then raises. The label is returned alongside because
+    "limiter" and "vessel" are different surfaces and must not be conflated.
+    """
+    radii: list[float] = []
+    for layer in _wall_layers(ods):
+        radii.extend(float(value) for value in np.asarray(layer.r).ravel())
+    if radii:
+        return radii, "Limiter"
+    for template in (
+        "wall.description_2d.0.vessel.unit.{i}.annular.outline_inner.r",
+        "wall.description_2d.0.vessel.unit.{i}.annular.outline_outer.r",
+        "wall.description_2d.0.vessel.unit.{i}.annular.centreline.r",
+        "wall.description_2d.0.vessel.unit.{i}.element.{j}.outline.r",
+    ):
+        for index in _resolve_indices(ods, template, None):
+            values = _array(ods, template.format(i=index, j=0))
+            if values is not None:
+                radii.extend(float(value) for value in np.asarray(values).ravel())
+    return radii, "Vessel"
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
@@ -1347,10 +1401,17 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
         if not entry_supports(ods, member):
             continue
         layers.extend(_build_geometry(ods, RECIPES[member], **options).layers)
+    if entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
+        layers.extend(
+            _build_lines_of_sight(
+                ods, label_channels=False, include_wall=False, **options
+            ).layers
+        )
     if not layers:
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
-            "pf_passive, magnetics, thomson_scattering, charge_exchange) are present"
+            "pf_passive, magnetics, thomson_scattering, charge_exchange, "
+            "soft_x_rays) are present"
         )
     return GeometryLayers(layers=tuple(layers), title="Machine Cross-section")
 
@@ -1412,8 +1473,24 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
 def _build_machine_topview(
     ods: Any, *, time_slice: int = 0, **_: Any
 ) -> GeometryLayers:
-    """Compose the plasma extent with launcher, antenna and pellet geometry."""
+    """Compose the machine and plasma extent with launcher and pellet geometry."""
     layers: list[GeometryLayer] = []
+    # The machine boundary first: without it the top view has nothing to orient
+    # against. These are limiter/first-wall radii, not the vacuum vessel: VEST's
+    # wall description carries no vessel outline (type "multiple_units_no_vessel").
+    wall_r, wall_label = _wall_radii(ods)
+    if wall_r:
+        for radius, label in (
+            (max(wall_r), f"{wall_label} outboard"),
+            (min(wall_r), f"{wall_label} inboard"),
+        ):
+            x, y = _ring(radius)
+            layers.append(
+                GeometryLayer(
+                    r=x, z=y, kind="polyline", label=label,
+                    style={"color": "0.4", "lw": 1.0},
+                )
+            )
     if "equilibrium" in ods:
         try:
             layers.extend(_build_equilibrium_topview(ods, time_slice=time_slice).layers)
@@ -1460,8 +1537,8 @@ def _build_machine_topview(
         )
     if not layers:
         raise ValueError(
-            "none of the top-view IDS (equilibrium, lh_antennas, ec_launchers, "
-            "pellets) are present"
+            "none of the top-view IDS (wall, equilibrium, lh_antennas, "
+            "ec_launchers, pellets) are present"
         )
     return GeometryLayers(
         layers=tuple(layers),
@@ -2359,7 +2436,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                         r=r_values,
                         z=z_values,
                         kind="points",
-                        label=recipe.title,
+                        label=label_template or recipe.title,
                         style=style,
                     )
                 )
