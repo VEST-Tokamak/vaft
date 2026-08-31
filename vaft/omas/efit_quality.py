@@ -27,15 +27,50 @@ convention, since the ODS stores flux in Wb while the k-file writer divides by
 2*pi on submission. The effective uncertainty is then ``sigma_i = k / weight_i``,
 and the normalized residual ``z_i = (m_i - r_i) * weight_i / k`` is the residual
 in units of that uncertainty, directly comparable across diagnostic families.
+
+One canonical channel convention (issue #186)
+---------------------------------------------
+Every EFIT statistic in this package -- whether reached through
+:func:`efit_quality_metrics`, through ``vaft.validation``, or through a plot
+recipe -- uses the same three definitions, exported here as
+:func:`fitted_mask`, :func:`normalizable_mask` and
+:func:`family_chi_squared_sum`:
+
+* statistics in the residual's own physical units use the **fitted** channels:
+  ``enabled`` and a finite residual;
+* statistics in units of sigma use the **normalizable** channels: the fitted
+  ones whose ``z`` is also finite -- a strict subset, since a family whose ``k``
+  could not be recovered has no usable ``z`` at all;
+* a family's chi-square aggregate sums the **enabled** channels only, because a
+  zero-weight channel never entered EFIT's minimization.
+
+The mathematics itself lives in :mod:`vaft.formula.statistics`; what stays here
+is which channels enter it, which thresholds interpret it, and how the report is
+shaped.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 
 import numpy as np
+
+from vaft.formula.statistics import (
+    bias_standard_error,
+    lag1_autocorrelation,
+    log10_decay_rate,
+    monotonic_fraction,
+    normalized_residual,
+    outlier_fraction,
+    reduced_chi_squared,
+    relative_spread,
+    residual_bias,
+    rms,
+    runs_test_z,
+)
+from vaft.formula.statistics import sigma_unit_factor as _sigma_unit_factor
 
 __all__ = [
     "CONSTRAINT_STATES",
@@ -47,7 +82,10 @@ __all__ = [
     "constraint_table",
     "convergence_metrics",
     "efit_quality_metrics",
+    "family_chi_squared_sum",
     "fit_quality_metrics",
+    "fitted_mask",
+    "normalizable_mask",
     "normalized_residuals",
     "run_test_z",
     "sigma_unit_factor",
@@ -188,6 +226,51 @@ class ConstraintTable:
         return sum(1 for item in self.state if item == state)
 
 
+# ---------------------------------------------------------------------------
+# The canonical channel conventions
+# ---------------------------------------------------------------------------
+#
+# Every EFIT statistic in this package answers one of two questions, and each
+# has exactly one channel set.  These three helpers are that single definition;
+# `vaft.validation` and the plot recipes call them rather than re-deriving a
+# mask, so the same family can never report two different residual RMS values
+# depending on which entry point produced it.
+
+def fitted_mask(table: ConstraintTable) -> np.ndarray:
+    """Channels EFIT fitted that carry a usable residual.
+
+    ``enabled`` and a finite ``measured - reconstructed``.  This is the channel
+    set for every statistic expressed in the residual's own physical units.
+
+    Deliberately independent of the normalization: a family whose
+    :func:`sigma_unit_factor` could not be recovered still has a meaningful
+    residual RMS, and silencing it because the *normalized* residual is
+    unavailable would hide a real, measurable disagreement.
+    """
+    return table.mask("enabled") & np.isfinite(table.residual)
+
+
+def normalizable_mask(table: ConstraintTable, z: np.ndarray) -> np.ndarray:
+    """Fitted channels whose normalized residual is also finite.
+
+    A strict subset of :func:`fitted_mask`.  This is the channel set for every
+    statistic in units of sigma -- z-RMS, bias, outlier fractions, the runs test
+    -- none of which is defined without a usable ``z``.
+    """
+    return fitted_mask(table) & np.isfinite(z)
+
+
+def family_chi_squared_sum(table: ConstraintTable) -> float:
+    """Chi-square summed over the family's ``enabled`` channels only.
+
+    Disabled and missing channels were given zero weight, so EFIT never fitted
+    them; whatever their stored chi-square happens to be, it did not enter the
+    minimization and must not enter a goodness-of-fit aggregate.  Non-finite
+    entries among the enabled channels are skipped rather than poisoning the sum.
+    """
+    return float(np.nansum(table.chi_squared[table.mask("enabled")]))
+
+
 def constraint_table(
     ods: Any, *, time_slice: int, family: str, is_array: bool = True, scale: float = 1.0
 ) -> ConstraintTable:
@@ -259,30 +342,12 @@ def sigma_unit_factor(table: ConstraintTable) -> tuple[float, float]:
     means the stored chi-square and the stored residual no longer describe the
     same fit, and every normalized residual built on it is suspect.
     """
-    usable = (
-        (table.weight > 0)
-        & np.isfinite(table.chi_squared)
-        & (table.chi_squared > 0)
-        & np.isfinite(table.residual)
-    )
-    if not usable.any():
-        return float("nan"), float("nan")
-    ratios = np.abs(table.residual[usable] * table.weight[usable]) / np.sqrt(
-        table.chi_squared[usable]
-    )
-    ratios = ratios[np.isfinite(ratios) & (ratios > 0)]
-    if not ratios.size:
-        return float("nan"), float("nan")
-    k = float(np.median(ratios))
-    spread = float(np.ptp(ratios) / k) if k else float("nan")
-    return k, spread
+    return _sigma_unit_factor(table.residual, table.weight, table.chi_squared)
 
 
 def normalized_residuals(table: ConstraintTable, k: float) -> np.ndarray:
     """Residuals in units of the uncertainty EFIT assigned: ``z = (m-r)*w/k``."""
-    if not np.isfinite(k) or k == 0.0:
-        return np.full(table.residual.shape, np.nan)
-    return table.residual * table.weight / k
+    return normalized_residual(table.residual, table.weight, k)
 
 
 # ---------------------------------------------------------------------------
@@ -292,42 +357,17 @@ def normalized_residuals(table: ConstraintTable, k: float) -> np.ndarray:
 def run_test_z(values: np.ndarray) -> float:
     """Wald-Wolfowitz runs-test z-score for the sign sequence of ``values``.
 
-    Coherent sign patterns across a spatially ordered channel array indicate an
-    unmodelled field component rather than random scatter.  ``|z| > 2`` means
-    the sign sequence is unlikely under independence: too few runs (negative z)
-    is clustering, too many (positive z) is alternation.
+    The statistic itself is :func:`vaft.formula.statistics.runs_test_z`.  What
+    this wrapper adds is the EFIT-side reading of it: coherent sign patterns
+    across a spatially ordered channel array indicate an unmodelled field
+    component rather than random scatter, and ``|z| > 2`` means the sign
+    sequence is unlikely under independence -- too few runs (negative z) is
+    clustering, too many (positive z) is alternation.
 
     Channels are taken in array order, which is VEST's own channel ordering --
     not poloidal angle, since the EFIT ODS carries no ``magnetics`` IDS.
     """
-    signs = np.sign(values[np.isfinite(values) & (values != 0.0)])
-    n = signs.size
-    if n < 3:
-        return float("nan")
-    positive = int(np.sum(signs > 0))
-    negative = n - positive
-    if positive == 0 or negative == 0:
-        return float("nan")
-    runs = 1 + int(np.sum(signs[1:] != signs[:-1]))
-    expected = 2.0 * positive * negative / n + 1.0
-    variance = (
-        2.0 * positive * negative * (2.0 * positive * negative - n)
-        / (n * n * (n - 1.0))
-    )
-    if variance <= 0.0:
-        return float("nan")
-    return float((runs - expected) / math.sqrt(variance))
-
-
-def _lag1_autocorrelation(values: np.ndarray) -> float:
-    finite = values[np.isfinite(values)]
-    if finite.size < 3:
-        return float("nan")
-    centered = finite - finite.mean()
-    denominator = float(np.sum(centered * centered))
-    if denominator == 0.0:
-        return float("nan")
-    return float(np.sum(centered[1:] * centered[:-1]) / denominator)
+    return runs_test_z(values)
 
 
 # ---------------------------------------------------------------------------
@@ -348,8 +388,10 @@ def fit_quality_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         role = classify_fit_role(ods, table, time_slice=time_slice)
         k, spread = sigma_unit_factor(table)
         z = normalized_residuals(table, k)
-        fitted = table.mask("enabled") & np.isfinite(z)
-        chi_sum = float(np.nansum(table.chi_squared[table.mask("enabled")]))
+        # Two channel sets, one per unit system -- see fitted_mask.
+        fitted = fitted_mask(table)
+        normalizable = normalizable_mask(table, z)
+        chi_sum = family_chi_squared_sum(table)
 
         entry: dict[str, Any] = {
             "title": title,
@@ -361,35 +403,31 @@ def fit_quality_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
             "sigma_unit_factor_spread": spread,
             "chi_squared_sum": chi_sum,
             # Display units, kept from the earlier slice for continuity.
-            "residual_rms_display": (
-                float(np.sqrt(np.mean((table.residual[fitted] * scale) ** 2)))
-                if fitted.any()
-                else float("nan")
-            ),
+            "residual_rms_display": rms(table.residual[fitted] * scale),
         }
-        if role == "fitted" and fitted.any():
-            selected = z[fitted]
+        if role == "fitted" and normalizable.any():
+            selected = z[normalizable]
             count = selected.size
-            bias = float(np.mean(selected))
-            standard_error = 1.0 / math.sqrt(count)
+            bias = residual_bias(selected)
+            standard_error = bias_standard_error(count)
             worst = int(np.argmax(np.abs(selected)))
-            worst_index = int(np.flatnonzero(fitted)[worst])
+            worst_index = int(np.flatnonzero(normalizable)[worst])
             entry.update(
                 {
-                    "z_rms": float(np.sqrt(np.mean(selected**2))),
+                    "z_rms": rms(selected),
                     "z_bias": bias,
                     "z_bias_standard_error": standard_error,
+                    # Two standard errors: EFIT-side policy for calling a bias
+                    # systematic, not part of the statistic.
                     "z_bias_significant": bool(abs(bias) > 2.0 * standard_error),
                     "z_abs_max": float(np.abs(selected).max()),
                     "z_abs_max_channel": table.source[worst_index],
                     "outlier_fraction": {
-                        f"gt_{level:g}sigma": float(
-                            np.mean(np.abs(selected) > level)
-                        )
+                        f"gt_{level:g}sigma": outlier_fraction(selected, level)
                         for level in OUTLIER_LEVELS
                     },
                     "residual_structure": {
-                        "lag1_autocorrelation": _lag1_autocorrelation(selected),
+                        "lag1_autocorrelation": lag1_autocorrelation(selected),
                         "run_test_z": run_test_z(selected),
                         "ordering": "channel index (VEST array order, not poloidal angle)",
                     },
@@ -428,7 +466,7 @@ def fit_quality_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         "num_fit_variables": _scalar(_get(ods, f"{aux}.num_fit_variables")),
         "num_hard_constraints": _scalar(_get(ods, f"{aux}.num_hard_constraints")),
     }
-    reduced = float(total_chi / dof) if np.isfinite(dof) and dof > 0 else float("nan")
+    reduced = reduced_chi_squared(total_chi, dof)
 
     shares = {
         name: (entry["chi_squared_sum"] / total_chi if total_chi else float("nan"))
@@ -487,16 +525,6 @@ def _bilinear(
         + values[i, j + 1] * (1 - tx) * ty
         + values[i + 1, j + 1] * tx * ty
     )
-
-
-def _relative_difference(values: Iterable[float]) -> float:
-    finite = [value for value in values if np.isfinite(value)]
-    if len(finite) < 2:
-        return float("nan")
-    scale = max(abs(value) for value in finite)
-    if scale == 0.0:
-        return 0.0
-    return float((max(finite) - min(finite)) / scale)
 
 
 def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
@@ -685,22 +713,16 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
             "reason": "no m-file cerror history was mapped for this slice",
         }
     else:
-        positive = history[np.isfinite(history) & (history > 0)]
-        decreases = int(np.sum(history[1:] < history[:-1]))
-        tail = positive[-min(positive.size, 5) :]
-        if tail.size >= 3:
-            rate = float(
-                np.polyfit(np.arange(tail.size, dtype=float), np.log10(tail), 1)[0]
-            )
-        else:
-            rate = float("nan")
+        rate = log10_decay_rate(history, tail=5)
         history_block = {
             "available": True,
             "iterations": int(history.size),
             "first_error": float(history[0]),
             "final_error": float(history[-1]),
-            "monotonic_fraction": float(decreases / max(history.size - 1, 1)),
+            "monotonic_fraction": monotonic_fraction(history),
             "final_decade_rate": rate,
+            # Under 0.05 decades per iteration is EFIT-side policy for calling
+            # an iteration stalled, not part of the rate estimate.
             "stagnated": bool(np.isfinite(rate) and abs(rate) < 0.05),
         }
         if not np.isfinite(terror):
@@ -719,7 +741,7 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
         _scalar(_get(ods, f"{parameters}.aeqdsk.cpasma")),
     ]
     self_consistency: dict[str, Any] = {
-        "ip_relative_spread": _relative_difference(ip_values),
+        "ip_relative_spread": relative_spread(ip_values),
         "ip_sources": {
             "global_quantities": ip_values[0],
             "constraint_reconstructed": ip_values[1],

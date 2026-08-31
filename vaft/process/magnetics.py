@@ -7,6 +7,7 @@ from scipy import signal
 from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
+from vaft.formula.statistics import rms
 from vaft.database import raw as raw_db
 from vaft.process import define_baseline, subtract_baseline
 
@@ -585,7 +586,7 @@ def _fit_wrapped_toroidal_n(
         intercept = float(np.angle(np.mean(np.exp(1j * residual_offset))))
         fitted = _wrap_phase_radians(intercept - float(n_value) * toroidal_angle)
         residual = _wrap_phase_radians(phase - fitted)
-        rms_error = float(np.sqrt(np.mean(residual**2)))
+        rms_error = rms(residual)
         if rms_error < best_error:
             best_n = int(n_value)
             best_intercept = intercept

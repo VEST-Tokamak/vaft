@@ -11,6 +11,7 @@ from typing import Iterable
 _COMMANDS = {
     "filedb": (".filedb", "resolve and audit local FileDB layouts"),
     "raw-redump": (".raw_redump", "serial, restartable VEST raw-DAQ exports"),
+    "raw-upgrade": (".raw_upgrade", "in-place timebase upgrade for legacy raw dumps"),
     "compare-ods": (".compare_ods", "compare two local ODS products"),
     "vest-upstream": (".vest_upstream", "run VEST upstream OMAS stages"),
     "summary": (".summary", "query and export preset database summaries"),

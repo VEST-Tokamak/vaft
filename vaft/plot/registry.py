@@ -34,7 +34,17 @@ __all__ = [
 Status = Literal["canonical", "legacy"]
 
 #: The ``<view>`` component of ``<domain>_<view>_<quantity>``.
-VIEWS = ("time", "profile", "field", "geometry", "spectrogram", "overview", "image", "animation")
+VIEWS = (
+    "time",
+    "profile",
+    "field",
+    "geometry",
+    "spectrum",
+    "spectrogram",
+    "overview",
+    "image",
+    "animation",
+)
 
 
 @dataclass(frozen=True)

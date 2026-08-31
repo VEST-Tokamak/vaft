@@ -111,6 +111,8 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 from scipy import ndimage, optimize, signal
 
+from vaft.formula.statistics import rms
+
 __all__ = [
     "IMPA_CHANNEL_COUNT",
     "ImpaCouplingFit",
@@ -558,7 +560,10 @@ def fit_impa_tf_coupling(
         solution, *_ = np.linalg.lstsq(design, y, rcond=None)
         alpha[channel], beta[channel] = float(solution[0]), float(solution[1])
         residual = y - design @ solution
-        rmse[channel] = float(np.sqrt(np.mean(residual**2)))
+        rmse[channel] = rms(residual)
+        # Normalized by the spread of the measurement, not by its RMS: the
+        # offset beta is fitted, so only the varying part of y was ever signal
+        # the model had to explain.
         spread = float(np.std(y))
         nrmse[channel] = rmse[channel] / spread if spread > 0 else np.inf
         total = float(np.sum((y - np.mean(y)) ** 2))
@@ -659,7 +664,7 @@ def fit_impa_geometry(
         fitted_pitch = float(pitch)
     r0 = float(solution.x[0])
     final = residual(solution.x)
-    rmse = float(np.sqrt(np.mean(final**2)))
+    rmse = rms(final)
     spread = float(np.std(fitted))
     radii = r0 + positions * fitted_pitch
     # arccos of the projected-to-physical pitch ratio; 0 deg is a purely radial
@@ -751,8 +756,10 @@ def fit_impa_crosstalk(
         solution, *_ = np.linalg.lstsq(design, y, rcond=None)
         slope[channel], offset[channel] = float(solution[0]), float(solution[1])
         residual = y - design @ solution
+        # Spread-normalized, as in fit_impa_tf_coupling: the fitted offset
+        # means only the varying part of y was ever signal.
         spread = float(np.std(y))
-        nrmse[channel] = float(np.sqrt(np.mean(residual**2))) / spread if spread > 0 else np.inf
+        nrmse[channel] = rms(residual) / spread if spread > 0 else np.inf
         total = float(np.sum((y - np.mean(y)) ** 2))
         r_squared[channel] = 1.0 - float(np.sum(residual**2)) / total if total > 0 else np.nan
 
@@ -879,7 +886,7 @@ def legacy_impa_position(
         "tf_current": float(i_tf[index]),
         "measured": measured,
         "residual": final,
-        "rmse": float(np.sqrt(np.mean(final**2))),
+        "rmse": rms(final),
         "bound_hit": bool((r0 - lower) <= edge or (upper - r0) <= edge),
     }
 

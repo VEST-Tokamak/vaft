@@ -22,6 +22,11 @@ _EXTERNAL_ENVIRONMENT = (
     "EFIT",
     "TESHOME",
     "RTES",
+    # TokaMaker (Open FUSION Toolkit) is imported in-process rather than run
+    # as a $XHOME/bin binary; these steer library discovery and sys.path.
+    "OFT_ROOTPATH",
+    "OFT_LIBRARY_DIR",
+    "OFT_INSTALL_DIR",
 )
 
 

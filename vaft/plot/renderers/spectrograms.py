@@ -76,8 +76,13 @@ def magnetics_spectrogram_mirnov(
     model=Spectrogram,
     description="Time-frequency map of one soft X-ray channel.",
     ids=("soft_x_rays",),
-    required_paths=("soft_x_rays.channel.{i}.power.data",),
-    optional_paths=("soft_x_rays.channel.{i}.power.time", "soft_x_rays.time"),
+    required_paths=("soft_x_rays.channel.{i}.brightness.data",),
+    optional_paths=(
+        "soft_x_rays.channel.{i}.brightness.time",
+        "soft_x_rays.channel.{i}.power.data",
+        "soft_x_rays.channel.{i}.power.time",
+        "soft_x_rays.time",
+    ),
 )
 def soft_x_rays_spectrogram(
     model: Spectrogram, *, ax: Axes | None = None, show: bool = False, **style: Any

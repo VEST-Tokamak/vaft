@@ -24,9 +24,15 @@ import yaml
 from .utils import path_exists, resolve_data_root, set_path
 
 # ``sample_v3.py`` records a waveform relative to its digitizer trigger and
-# then decimates it.  The two known digitizers use different decimation.
+# then decimates it.  In the 455xx SXR campaign both digitizers decimate by
+# 128: the packaged shot-45531 records hold identical 48,828-sample rows per
+# digitizer, i.e. the same 50 ms acquisition window, and the validated VEST SXR
+# Viewer analyses both systems at 125e6/128 Hz.  (17592 was previously listed
+# here at 125e6/32, which would compress its record to 12.5 ms and misalign it
+# against 22577; pass ``sample_rate=`` explicitly for any campaign that really
+# used a different decimation.)
 DEFAULT_SAMPLE_RATES: dict[str, float] = {
-    "17592": 125e6 / 32.0,
+    "17592": 125e6 / 128.0,
     "22577": 125e6 / 128.0,
 }
 # Kept as a compatibility alias for callers that explicitly build a 22577 axis.

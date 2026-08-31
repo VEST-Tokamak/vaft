@@ -108,6 +108,7 @@ vaft = [
   "data/gpec/*.dat",
   "data/legacy/*.txt",
   "data/legacy/*.yaml",
+  "data/legacy/sxr_te_ratio_be_al.csv",
   "data/samples/*/manifest.yaml",
   "data/samples/39915/omas.json.gz",
   "data/samples/39915/imas.nc",

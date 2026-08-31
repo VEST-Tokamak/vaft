@@ -15,6 +15,8 @@ from matplotlib.ticker import ScalarFormatter
 from typing import Dict, List, Optional, Tuple, Union
 import logging
 
+from vaft.formula.statistics import rms
+
 logger = logging.getLogger(__name__)
 
 # Human-readable y-axis labels for confinement scaling regression bars (mathtext).
@@ -642,7 +644,7 @@ def compute_confinement_scaling_metrics(
         log_h = np.log(y_exp / x_scal)
 
         pearson_r = np.corrcoef(x_scal, y_exp)[0, 1] if len(x_scal) > 1 else np.nan
-        rmse = float(np.sqrt(np.mean(diff**2)))
+        rmse = rms(diff)
         mae = float(np.mean(np.abs(diff)))
         mean_rel_error = float(np.mean(rel_err))
         mean_log_error = float(np.mean(log_h))

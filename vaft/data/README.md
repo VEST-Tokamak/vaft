@@ -20,7 +20,7 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 | `samples/41672/` | `manifest.yaml`, `imas.nc` | Complete repository-only native IMAS example composed from the current pipeline through EFIT |
 | `samples/41672/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41672 pipeline run through EFIT |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
-| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
+| `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `shot_45531.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and coil data |
 
 ## Access
@@ -140,3 +140,29 @@ for issue #152. `legacy/langmuir_probes_42699.json.gz` is a repository-only
 sample `langmuir_probes` IDS built from that pipeline against shot 42699's
 real SQL-backed raw signals (both mid and upper assemblies present, plasma
 pulse near t=0.35-0.46 s).
+
+`legacy/sxr_te_ratio_be_al.csv` is the VEST soft X-ray two-filter
+electron-temperature calibration table (`te` [eV], `ratio` = Be/Al filtered
+signal ratio), used by `vaft.process.soft_x_rays.load_te_ratio_calibration`.
+It originates from the validated VEST SXR Viewer analysis tool (`ratio.csv`,
+2024-11-22) documented in the 2026 VEST SXR thesis presentation; the ratio ->
+Te inversion assumes the Al channel gain correction and validity threshold
+applied by `sxr_electron_temperature`.
+
+`legacy/shot_45531.json.gz` is a trimmed raw-signal archive of VEST shot 45531
+(the discharge whose soft X-ray digitizer records are packaged alongside it),
+holding the 117 field codes used by `notebooks/fluctuation_diagnostics_analysis.ipynb`:
+the equilibrium magnetics channels, the 30 outboard fluctuation Mirnov coils
+(2 MHz / 500 kHz), the plasma-current Rogowski and reference flux loop, the
+diamagnetic-flux and TF signals, and the filterscope set.
+
+Both raw archives (`shot_44740.json.gz`, `shot_45531.json.gz`) use the
+self-describing timebase schema: every field records its corrected start time
+`t0` and measured cadence `dt`, so loading reproduces the live-DB time axis at
+any sampling rate. (The older two-rate schema labeled fields only "fast"/"slow"
+and reconstructed every fast channel at 250 kHz, which stretched the 2 MHz
+outboard-Mirnov timebase eightfold; `shot_44740.json.gz` was re-dumped from the
+VEST SQL database to repair its 52 affected channels.) Data are verified
+bit-identical to the DB waveforms at dump time; reconstructed times agree with
+the DB's stored time strings to within the DB's own ~0.5 microsecond string
+quantization.
