@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Literal, Mapping
 
+from . import taxonomy
+
 __all__ = [
     "PlotSpec",
     "VIEWS",
@@ -33,10 +35,15 @@ __all__ = [
 
 Status = Literal["canonical", "legacy"]
 
-#: The ``<view>`` component of ``<domain>_<view>_<quantity>``.
+#: The ``<view>`` component of canonical plot identity.  ``evolution`` is
+#: ``quantity(t, x)`` -- distinct from ``time`` (``quantity(t)``), ``profile``
+#: (``quantity(x)`` at one time), and ``spectrogram``
+#: (``spectral_quantity(t, f)``).  Interaction, 3D representation, comparison,
+#: and validation are capabilities, not views (issue #251).
 VIEWS = (
     "time",
     "profile",
+    "evolution",
     "field",
     "geometry",
     "geometry3d",
@@ -58,6 +65,10 @@ class PlotSpec:
     domain: str
     view: str
     description: str
+    #: The physical or diagnostic concept the plot represents, registered in
+    #: :mod:`vaft.plot.taxonomy`.  ``domain`` records where the data lives;
+    #: ``subject`` records what it physically is (issue #251).
+    subject: str = ""
     quantity: str = ""
     #: Top-level IDS names the adapter must read.  Drives selective loading.
     ids: tuple[str, ...] = ()
@@ -88,6 +99,13 @@ def register(spec: PlotSpec) -> PlotSpec:
         )
     if spec.view not in VIEWS:
         raise ValueError(f"unknown view {spec.view!r}; expected one of {VIEWS}")
+    if not spec.subject:
+        raise ValueError(f"plot {spec.name!r} declares no subject")
+    if spec.subject not in taxonomy.SUBJECTS:
+        raise ValueError(
+            f"plot {spec.name!r} declares unregistered subject {spec.subject!r}; "
+            f"register it in vaft.plot.taxonomy first"
+        )
     _REGISTRY[spec.name] = spec
     return spec
 
@@ -95,6 +113,7 @@ def register(spec: PlotSpec) -> PlotSpec:
 def renderer(
     *,
     domain: str,
+    subject: str,
     view: str,
     model: type,
     description: str,
@@ -115,6 +134,7 @@ def renderer(
                 model=model,
                 renderer=function,
                 domain=domain,
+                subject=subject,
                 view=view,
                 quantity=quantity,
                 description=description,
@@ -143,15 +163,22 @@ def get_spec(name: str) -> PlotSpec:
 def specs(
     *,
     domain: str | None = None,
+    subject: str | None = None,
     view: str | None = None,
     model: type | None = None,
     status: Status | None = "canonical",
 ) -> tuple[PlotSpec, ...]:
-    """Return registered specs, filtered and ordered by canonical name."""
+    """Return registered specs, filtered and ordered by canonical name.
+
+    ``subject`` accepts a canonical subject name or one of its strict aliases.
+    """
+    if subject is not None:
+        subject = taxonomy.resolve_subject(subject).name
     selected = [
         spec
         for spec in _REGISTRY.values()
         if (domain is None or spec.domain == domain)
+        and (subject is None or spec.subject == subject)
         and (view is None or spec.view == view)
         and (model is None or spec.model is model)
         and (status is None or spec.status == status)
@@ -167,6 +194,7 @@ def canonical_names() -> tuple[str, ...]:
 def available_plots(
     *,
     domain: str | None = None,
+    subject: str | None = None,
     view: str | None = None,
     model: type | None = None,
     status: Status | None = "canonical",
@@ -181,6 +209,7 @@ def available_plots(
         {
             "name": spec.name,
             "domain": spec.domain,
+            "subject": spec.subject,
             "view": spec.view,
             "quantity": spec.quantity,
             "model": spec.model.__name__,
@@ -189,5 +218,7 @@ def available_plots(
             "description": spec.description,
             "status": spec.status,
         }
-        for spec in specs(domain=domain, view=view, model=model, status=status)
+        for spec in specs(
+            domain=domain, subject=subject, view=view, model=model, status=status
+        )
     )

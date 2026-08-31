@@ -104,18 +104,19 @@ def render_geometry_layers(
     return finalize(figure, axes, show=show)
 
 
-def _geometry_renderer(*, domain: str, quantity: str, description: str,
+def _geometry_renderer(*, domain: str, subject: str, quantity: str, description: str,
                        ids: tuple[str, ...], required_paths: tuple[str, ...],
                        optional_paths: tuple[str, ...] = ()):
     return renderer(
-        domain=domain, view="geometry", quantity=quantity, model=GeometryLayers,
-        description=description, ids=ids, required_paths=required_paths,
-        optional_paths=optional_paths,
+        domain=domain, subject=subject, view="geometry", quantity=quantity,
+        model=GeometryLayers, description=description, ids=ids,
+        required_paths=required_paths, optional_paths=optional_paths,
     )
 
 
 @_geometry_renderer(
     domain="pf_active", quantity="poloidal",
+    subject="pf_coil",
     description="PF coil outlines in the poloidal plane.",
     ids=("pf_active",),
     required_paths=("pf_active.coil.{i}.element.{j}.geometry.outline.r",
@@ -131,6 +132,7 @@ def pf_active_geometry_poloidal(
 
 @_geometry_renderer(
     domain="pf_passive", quantity="poloidal",
+    subject="passive_structure",
     description="Passive conducting-structure loop outlines in the poloidal plane.",
     ids=("pf_passive",),
     required_paths=("pf_passive.loop.{i}.element.{j}.geometry.outline.r",
@@ -146,6 +148,7 @@ def pf_passive_geometry_poloidal(
 
 @_geometry_renderer(
     domain="magnetics", quantity="poloidal",
+    subject="magnetics",
     description="Flux-loop and B-field-probe positions in the poloidal plane.",
     ids=("magnetics",),
     required_paths=(),
@@ -163,6 +166,7 @@ def magnetics_geometry_poloidal(
 
 @_geometry_renderer(
     domain="wall", quantity="poloidal",
+    subject="wall",
     description="First-wall and limiter outline in the poloidal plane.",
     ids=("wall",),
     required_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
@@ -177,6 +181,7 @@ def wall_geometry_poloidal(
 
 @_geometry_renderer(
     domain="equilibrium", quantity="boundary",
+    subject="equilibrium",
     description="Last-closed-flux-surface outline in the poloidal plane.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.boundary.outline.r",
@@ -193,6 +198,7 @@ def equilibrium_geometry_boundary(
 
 @_geometry_renderer(
     domain="soft_x_rays", quantity="lines_of_sight",
+    subject="soft_x_rays",
     description="Soft X-ray detector lines of sight over the poloidal cross-section.",
     ids=("soft_x_rays", "wall"),
     required_paths=("soft_x_rays.channel.{i}.line_of_sight.first_point.r",
@@ -210,6 +216,7 @@ def soft_x_rays_geometry_lines_of_sight(
 
 @_geometry_renderer(
     domain="thomson_scattering", quantity="poloidal",
+    subject="thomson_scattering",
     description="Thomson-scattering measurement positions in the poloidal plane.",
     ids=("thomson_scattering",),
     required_paths=("thomson_scattering.channel.{i}.position.r",
@@ -224,6 +231,7 @@ def thomson_scattering_geometry_poloidal(
 
 @_geometry_renderer(
     domain="charge_exchange", quantity="poloidal",
+    subject="charge_exchange",
     description="Charge-exchange measurement positions in the poloidal plane.",
     ids=("charge_exchange",),
     required_paths=("charge_exchange.channel.{i}.position.r.data",
@@ -238,6 +246,7 @@ def charge_exchange_geometry_poloidal(
 
 @_geometry_renderer(
     domain="machine", quantity="poloidal",
+    subject="machine",
     description="Composed poloidal machine view: wall, coils, passive structure "
                 "and diagnostic positions and sight lines in one axes.",
     ids=("wall", "pf_active", "pf_passive", "magnetics", "thomson_scattering",
@@ -256,6 +265,7 @@ def machine_geometry_poloidal(
 
 @_geometry_renderer(
     domain="equilibrium", quantity="topview",
+    subject="equilibrium",
     description="Equilibrium boundary projected into the machine top view.",
     ids=("equilibrium",),
     required_paths=("equilibrium.time_slice.{i}.boundary.outline.r",),
@@ -269,6 +279,7 @@ def equilibrium_geometry_topview(
 
 @_geometry_renderer(
     domain="machine", quantity="topview",
+    subject="machine",
     description="Composed machine top view: machine-boundary and plasma extent "
                 "plus launcher, antenna and pellet-injector geometry.",
     ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets"),
@@ -357,6 +368,7 @@ def render_geometry_3d_layers(
 
 @renderer(
     domain="coils_non_axisymmetric", view="geometry3d", model=Geometry3DLayers,
+    subject="coil_3d",
     description="Non-axisymmetric 3D coil filaments in machine Cartesian coordinates.",
     ids=("coils_non_axisymmetric",),
     required_paths=(
@@ -374,6 +386,7 @@ def coils_non_axisymmetric_geometry3d(
 
 @_geometry_renderer(
     domain="coils_non_axisymmetric", quantity="topview",
+    subject="coil_3d",
     description="Non-axisymmetric 3D coil filaments projected into the machine top view.",
     ids=("coils_non_axisymmetric",),
     required_paths=(
