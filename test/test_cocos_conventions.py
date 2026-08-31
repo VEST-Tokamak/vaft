@@ -720,12 +720,19 @@ def test_the_solovev_model_carries_its_convention_and_its_constant_sources():
     model = SolovevEquilibrium(np.array([0.0, c1, c2, 0.0, 0.0]), pprime, 0.0, 1.0, psi_boundary=-0.002)
     equilibrium = solovev_to_equilibrium(model, np.linspace(0.5, 1.5, 151), np.linspace(-0.7, 0.7, 151))
 
-    assert equilibrium.convention.cocos == 1
+    assert equilibrium.convention.cocos == 11
     assert equilibrium.r0 == pytest.approx(1.0)
     assert equilibrium.bt0 == pytest.approx(model.f_boundary / model.rref)
-    # A Solov'ev equilibrium has constant sources by construction.
-    np.testing.assert_allclose(equilibrium.pprime, pprime)
+    # solovev_to_equilibrium emits the requested convention, so psi carries the
+    # 2*pi for COCOS 11 and the d/dpsi sources carry its inverse.
+    np.testing.assert_allclose(equilibrium.pprime, pprime / (2 * np.pi))
     np.testing.assert_allclose(equilibrium.ffprime, 0.0)
+
+    per_radian = solovev_to_equilibrium(
+        model, np.linspace(0.5, 1.5, 151), np.linspace(-0.7, 0.7, 151), convention=1
+    )
+    np.testing.assert_allclose(equilibrium.psi, per_radian.psi * 2 * np.pi)
+    np.testing.assert_allclose(per_radian.pprime, pprime)
 
 
 # --- Adapters declaring their conventions ---------------------------------

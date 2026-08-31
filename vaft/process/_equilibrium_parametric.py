@@ -1165,6 +1165,31 @@ def _ray_intersections(contour: Contour, origin: tuple[float, float], angle: flo
     return sorted(result)
 
 
+def _outboard_midplane_radius(eq: EquilibriumData, psi_value: float, r_axis: float, z0: float) -> float | None:
+    """First R outboard of the axis on ``Z = z0`` where psi reaches ``psi_value``.
+
+    dRsep is a midplane offset, so it is defined by inverting psi along the
+    outboard ray rather than by the extent of an extracted contour: at the
+    X-point flux the separatrix contour is open (it carries the divertor legs)
+    and ``max(contour.r)`` would report the grid edge.  This differs from
+    :func:`_outboard_radius_at_z`, which intersects an already-extracted
+    contour and is therefore subject to that contour being clipped.
+    """
+    if eq.r is None or eq.z is None or eq.psi is None:
+        return None
+    spline = RectBivariateSpline(eq.r, eq.z, eq.psi, kx=min(3, eq.r.size-1), ky=min(3, eq.z.size-1))
+    samples = np.linspace(r_axis, float(eq.r[-1]), 1024)
+    delta = np.asarray(spline.ev(samples, np.full_like(samples, z0)), dtype=float) - psi_value
+    crossings = np.where(delta[:-1] * delta[1:] <= 0)[0]
+    if not crossings.size:
+        return None
+    index = int(crossings[0])
+    if delta[index + 1] == delta[index]:
+        return float(samples[index])
+    weight = -delta[index] / (delta[index + 1] - delta[index])
+    return float(samples[index] + weight * (samples[index + 1] - samples[index]))
+
+
 def _fourier_boundary(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float]:
     sampled = _resample_contour(contour, max(256, 8*modes))
     start = int(np.argmax(sampled.r)); r = np.roll(sampled.r, -start); z = np.roll(sampled.z, -start)
