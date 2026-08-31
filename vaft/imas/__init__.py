@@ -9,7 +9,7 @@ from pathlib import Path
 from ..database._local import IMASHandle
 from .omas_imas import IMAS_DD_VERSION_CONVERSION
 
-__all__ = ["IMASHandle", "load", "save", "IMAS_DD_VERSION_CONVERSION"]
+__all__ = ["IMASHandle", "load", "save", "to_equilibrium", "IMAS_DD_VERSION_CONVERSION"]
 
 
 def load(source, *, imas_version=None):
@@ -97,3 +97,12 @@ def save(data, target, *, imas_version=None, occurrence=None):
         uri="imas:hdf5?path=" + str(target_path),
     )
     return target_path
+
+
+def to_equilibrium(source, *, time_index=0, profile_index=0, convention=None):
+    """Adapt an IMAS handle (or converted native IDS) for scientific algorithms."""
+    from vaft.process.equilibrium import as_equilibrium
+
+    return as_equilibrium(
+        source, time_index=time_index, profile_index=profile_index, convention=convention
+    )

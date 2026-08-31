@@ -289,6 +289,44 @@ vaft/
 | [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb)                             | Vessel eddy currents, wall modes, and quasi-static evolution with TokaMaker |
 | [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb)                                                                     | End-to-end kinetic-EFIT workflow            |
 
+## Parametric Equilibrium Analysis
+
+`EquilibriumData` is VAFT's lightweight, single-slice, axisymmetric working
+model for numerical algorithms. It is not a persistence schema: GEQDSK, ODS,
+and native IDS remain the authoritative storage and interchange formats.
+
+```python
+from vaft.data.resources import sample_geqdsk
+from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
+
+equilibrium = as_equilibrium(sample_geqdsk(), convention=11)
+descriptors = derive_global_descriptors(equilibrium)
+print(descriptors["beta_t"].value, descriptors["beta_t"].provenance)
+```
+
+Every `DerivedValue` records its SI unit, implemented definition, source
+fields, convention, method, tolerances, and quality information. Missing or
+ambiguous inputs produce an unavailable result with a reason. In particular,
+VAFT does not infer one COCOS index when the observable signs admit several;
+an explicit convention is required before conversion.
+
+The descriptor definitions distinguish the LCFS area-centroid major radius,
+midplane minor radius, boundary-length-averaged poloidal field, and Lao virial
+internal inductance. Normalized coordinates are
+`psi_n=(psi-psi_axis)/(psi_boundary-psi_axis)`,
+`rho_pol_n=sqrt(psi_n)`, and
+`rho_tor_n=sqrt(integral(q dpsi)/integral_boundary(q dpsi))`. A non-monotonic
+toroidal-flux mapping is reported rather than repaired with absolute values.
+
+Local Miller fits use bounded symmetric contour least squares and report RMS,
+maximum, and Hausdorff errors. Fits at `psi_n >= 0.995` or within `0.05a` of an
+X-point are flagged because the local form is not meaningful there. The
+analytic Solov'ev model is restricted to axisymmetric constant-`p'` and
+constant-`FF'` solutions; it is a regression/example model, not a general
+experimental equilibrium solver. Edge `dRsep` is always the outboard-midplane
+quantity `R_out(psi_X,upper)-R_out(psi_X,lower)`, never an absolute X-point
+coordinate.
+
 
 ## Related Resources
 
