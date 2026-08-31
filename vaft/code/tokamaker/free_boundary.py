@@ -51,7 +51,7 @@ from .config import TokaMakerConfig, TokaMakerInputs
 from .inputs import prepare_tokamaker_inputs
 from .mesh import build_tokamaker_mesh
 from .runner import _apply_profiles, _apply_vsc, _configure_tokamaker, _json_safe
-from .topology import TopologyReport, classify_boundary
+from .topology import ScanTopology, TopologyReport, classify_boundary
 
 _log = logging.getLogger(__name__)
 
@@ -569,9 +569,21 @@ class FreeBoundaryScan:
             self.classify_kwargs.get("near_null_band"),
         ):
             report = classify_boundary(reloaded.gfile, **self.classify_kwargs)
-            reloaded.topology = report.to_dict()
-            reloaded.report = report
-            changed = True
+            if (
+                report.topology is ScanTopology.UNKNOWN
+                and stored.get("topology") not in (None, ScanTopology.UNKNOWN.value)
+            ):
+                # a transient read/classification failure must not permanently
+                # replace a good stored report: keep it (with its old
+                # tolerances, so the next resume re-classifies again)
+                _log.warning(
+                    "Re-classification of resumed case %s failed (%s); "
+                    "keeping the stored topology", reloaded.case_id, report.reason,
+                )
+            else:
+                reloaded.topology = report.to_dict()
+                reloaded.report = report
+                changed = True
 
         discontinuity = self._discontinuity(previous, reloaded)
         if discontinuity != dict(reloaded.discontinuity):

@@ -299,6 +299,46 @@ def test_resume_reclassifies_when_thresholds_change(tmp_path, monkeypatch):
         assert payload["topology"]["active_tolerance"] == pytest.approx(1.0e-2)
 
 
+def test_resume_reclassification_failure_keeps_the_stored_topology(tmp_path, monkeypatch):
+    from vaft.code.tokamaker.topology import ScanTopology, TopologyReport
+
+    def _report(topology, **kwargs):
+        return TopologyReport(
+            topology=topology,
+            active_tolerance=kwargs["active_tolerance"],
+            near_null_band=kwargs["near_null_band"],
+            reason="transient" if topology is ScanTopology.UNKNOWN else None,
+        )
+
+    make_fake_oft(monkeypatch)
+    monkeypatch.setattr(
+        fb, "classify_boundary", lambda *a, **k: _report(ScanTopology.LIMITED, **k)
+    )
+    _scan(tmp_path).run()          # stored: limited @ default tolerances
+
+    # a resume with new thresholds hits a transient classification failure:
+    # the good stored report must survive, with its OLD tolerances
+    make_fake_oft(monkeypatch)
+    monkeypatch.setattr(
+        fb, "classify_boundary", lambda *a, **k: _report(ScanTopology.UNKNOWN, **k)
+    )
+    result = _scan(tmp_path, active_tolerance=1.0e-2).run(resume=True)
+    for case in result.cases:
+        assert case.topology["topology"] == "limited"
+        assert case.topology["active_tolerance"] == pytest.approx(2.0e-3)
+
+    # once the failure clears, the next resume re-classifies to the new knobs
+    make_fake_oft(monkeypatch)
+    monkeypatch.setattr(
+        fb, "classify_boundary", lambda *a, **k: _report(ScanTopology.LIMITED, **k)
+    )
+    result = _scan(tmp_path, active_tolerance=1.0e-2).run(resume=True)
+    for case in result.cases:
+        assert case.topology["active_tolerance"] == pytest.approx(1.0e-2)
+        payload = json.loads(case.manifest.read_text())
+        assert payload["topology"]["active_tolerance"] == pytest.approx(1.0e-2)
+
+
 def test_resume_reloads_succeeded_cases_without_solving(tmp_path, monkeypatch):
     make_fake_oft(monkeypatch)
     scan = _scan(tmp_path)
