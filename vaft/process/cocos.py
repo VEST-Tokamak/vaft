@@ -24,6 +24,12 @@ quantity         required sign
 The ``q`` relation is reported as a warning rather than an error: Sauter Sect. IV
 notes that codes frequently emit ``abs(q)``, so a mismatch there is common and is
 not on its own evidence of a wrong index.
+
+Only four of the six are checkable against :class:`~vaft.data.equilibrium.EquilibriumData`
+as it stands: it carries no toroidal current density and no toroidal flux, so
+``j_phi`` and ``Phi_tor`` are always reported as unverifiable.  They are listed
+here because they are part of Eq. 23 and become checkable if those fields are
+ever added, not because they are being tested today.
 """
 
 from __future__ import annotations
@@ -35,7 +41,18 @@ import numpy as np
 from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 
-__all__ = ["cocos_consistency_signs", "identify_convention", "identify_flux_exponent", "validate_cocos"]
+__all__ = [
+    "FLUX_EXPONENT_TOLERANCE", "cocos_consistency_signs", "identify_convention",
+    "identify_flux_exponent", "validate_cocos",
+]
+
+#: Relative band around 1 and 2*pi within which the Ampere ratio is accepted.
+#: A correct equilibrium lands within about half a percent -- the residual is
+#: LCFS discretization -- so 15% is roughly thirty times the observed numerical
+#: error while still rejecting anything a fifth of the way to the other answer.
+#: The two outcomes are a factor 2*pi apart, so the bands stay far apart:
+#: [0.85, 1.15] against [5.34, 7.23], with everything between an abstention.
+FLUX_EXPONENT_TOLERANCE = 0.15
 
 #: Relations Eq. 23 defines, in report order, with the field each one inspects.
 _RELATIONS = (
@@ -228,7 +245,15 @@ def identify_flux_exponent(equilibrium: Any) -> tuple[int | None, float | None]:
     ratio = loop / expected
     if not np.isfinite(ratio) or ratio <= 0:
         return None, None
-    return (0 if abs(ratio - 1.0) < abs(ratio - 2.0 * np.pi) else 1), float(ratio)
+
+    # The whole value of the test is that the two answers are 2*pi apart, so a
+    # ratio that is near neither is evidence the input is broken -- a truncated
+    # LCFS, an Ip that disagrees with the psi map, a rescaled psi -- not evidence
+    # of a convention.  Abstain rather than pick the nearer of two wrong answers.
+    for exponent, expected_ratio in ((0, 1.0), (1, 2.0 * np.pi)):
+        if abs(ratio - expected_ratio) <= FLUX_EXPONENT_TOLERANCE * expected_ratio:
+            return exponent, float(ratio)
+    return None, float(ratio)
 
 
 def identify_convention(

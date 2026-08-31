@@ -97,15 +97,10 @@ def _detect_convention(
             q_sign=_sign(float(np.nanmedian(q))) if q is not None else None,
             source=source,
         )
+    # Identification is deliberately not run here: `_resolve_convention` runs it
+    # on the assembled equilibrium, where the psi grid and LCFS it needs exist.
+    # Doing it twice cost a second omas call whose result was then discarded.
     candidates: tuple[int, ...] = ()
-    if bt0 is not None and ip is not None and q is not None and psi_1d is not None:
-        try:
-            from omas import identify_cocos
-
-            identified = identify_cocos(bt0, ip, q, psi_1d, clockwise_phi=clockwise_phi)
-            candidates = tuple(sorted({int(value) for value in identified}))
-        except Exception:
-            candidates = ()
     unique = candidates[0] if len(candidates) == 1 else None
     return EquilibriumConvention(
         cocos=unique, candidates=candidates,
@@ -202,7 +197,14 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
     if bt0 is None:
         bt0 = _scalar(_path_get(source, "equilibrium.vacuum_toroidal_field.b0"))
     ip = _scalar(_path_get(ts, "global_quantities.ip"))
-    explicit_meta = _scalar(_path_get(source, "equilibrium.ids_properties.cocos"))
+    # ods_cocos reads the DD 4 field and VAFT's code.parameters fallback; the
+    # bare path below cannot exist under DD 3.41, which is what OMAS defaults to.
+    try:
+        from vaft.omas.general import ods_cocos
+
+        explicit_meta = ods_cocos(source)
+    except Exception:
+        explicit_meta = _scalar(_path_get(source, "equilibrium.ids_properties.cocos"))
     explicit = convention if convention is not None else (int(explicit_meta) if explicit_meta else None)
     conv = _detect_convention(
         explicit=explicit, bt0=bt0, ip=ip, q=q, psi_1d=psi_1d,
@@ -313,6 +315,12 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
         bt_sign=_sign(None if equilibrium.bt0 is None else equilibrium.bt0 * factors["BT"]),
         q_sign=_sign(None if equilibrium.q is None else float(np.nanmedian(equilibrium.q * factors["Q"]))),
         source=f"converted from COCOS {source_cocos}",
+        # Carried so a declaration the data contradicts stays visible after a
+        # conversion instead of being laundered into a clean-looking record.
+        identified=tuple(
+            value + 10 * (target_cocos >= 11) - 10 * (source_cocos >= 11)
+            for value in equilibrium.convention.identified
+        ) if equilibrium.convention.identified else (),
     )
     return replace(
         equilibrium, psi=scale(equilibrium.psi, "PSI"),
@@ -1055,6 +1063,15 @@ def _confined_contour(eq: EquilibriumData, level: float) -> tuple[Contour | None
     return contour, None
 
 
+#: How precisely a reconstruction is assumed to place ``psi_boundary`` on the
+#: separatrix, as a fraction of the axis-to-boundary flux difference.  Below
+#: this the X-point flux test is limited by the source data rather than by the
+#: grid, so the per-saddle window is floored here.  It is two orders of
+#: magnitude tighter than the nearest numerical artifact seen on real VEST
+#: reconstructions (psi_n 1.073), so it does not readmit them.
+BOUNDARY_FLUX_PRECISION = 2e-3
+
+
 def _boundary_relevant_saddles(
     eq: EquilibriumData, saddles: Sequence[StationaryPoint], tolerance: float | None,
     resolution: float, minor_radius: float,
@@ -1079,10 +1096,18 @@ def _boundary_relevant_saddles(
         ``curvature*h^2/2``.  That makes the identity test far sharper than the
         grid's generic flux resolution, and it is set by the saddle's own local
         topology rather than by any global assumption.
+
+        It is not the only uncertainty, though, and on a fine grid it stops
+        being the dominant one.  ``psi_boundary`` is taken from the source and
+        no reconstruction places it at the X-point flux to one part in a
+        million -- EFIT routinely puts the boundary a fraction of a percent
+        inside the separatrix.  Without a floor the window shrinks as ``h^2``,
+        so refining the grid would start rejecting real X-points, which is
+        backwards.  :data:`BOUNDARY_FLUX_PRECISION` is that floor.
         """
         if tolerance is not None:
             return tolerance
-        return max(0.5 * point.curvature * spacing**2 / scale, 1e-9)
+        return max(0.5 * point.curvature * spacing**2 / scale, BOUNDARY_FLUX_PRECISION)
 
     candidates = [
         point for point in saddles
@@ -1270,6 +1295,8 @@ def derive_boundary_representation(
     minor_radius = 0.5 * float(np.max(eq.lcfs.r) - np.min(eq.lcfs.r))
     stationary = _stationary_points(eq)
     saddles = [point for point in stationary if point.kind == "x"]
+    # Computed once: the classification tests it and the report publishes it.
+    contact = _wall_contact_distance(eq)
 
     reason: str | None = None
     if resolution is None:
@@ -1294,7 +1321,6 @@ def derive_boundary_representation(
                     else Topology.LOWER_SINGLE_NULL
                 )
         else:
-            contact = _wall_contact_distance(eq)
             touching = max(3.0 * spacing, 0.02 * minor_radius) if spacing is not None else 0.02 * minor_radius
             if contact is None:
                 topology = Topology.AMBIGUOUS
@@ -1314,10 +1340,9 @@ def derive_boundary_representation(
         key=lambda point: (abs(point.psi_n - 1), point.z),
     ))
 
-    contact_distance = _wall_contact_distance(eq)
     wall_contact = (
-        _derived(eq, contact_distance, "m", "min distance from the LCFS to the limiter/first wall", "nearest-point search", ("lcfs", "limiter"))
-        if contact_distance is not None
+        _derived(eq, contact, "m", "min distance from the LCFS to the limiter/first wall", "nearest-point search", ("lcfs", "limiter"))
+        if contact is not None
         else unavailable("min distance from the LCFS to the limiter/first wall", "a limiter/first-wall contour is required")
     )
 
@@ -1338,7 +1363,6 @@ def derive_boundary_representation(
                 d_r_sep = _derived(eq, float(r_up-r_low), "m", "R_out(psi_X,upper)-R_out(psi_X,lower) at Z=Z_axis", "outboard-midplane flux inversion", ("psi", "magnetic_axis"))
     gaps: list[Gap] = []
     angles = dict(gap_angles or {"outboard": 0.0, "top": np.pi/2, "inboard": np.pi, "bottom": 3*np.pi/2})
-    center_geo = _polygon_geometry(eq.lcfs); center=(center_geo["r"],center_geo["z"])
     for name, angle in angles.items():
         plasma_hits = _ray_intersections(eq.lcfs, center, angle)
         wall_hits = _ray_intersections(eq.limiter, center, angle) if eq.limiter is not None else []

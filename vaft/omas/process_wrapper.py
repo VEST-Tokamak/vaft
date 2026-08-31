@@ -1174,8 +1174,11 @@ def compute_virial_equilibrium_quantities_ods(
             dpsi_dR, dpsi_dZ = np.gradient(psi_RZ, R_grid_1d, Z_grid_1d, edge_order=2)
             Rm, Zm = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
             Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
-            B_R_grid = -(1.0 / Rm_safe) * dpsi_dZ
-            B_Z_grid = (1.0 / Rm_safe) * dpsi_dR
+            # Same Eq. 20 coefficient as the boundary field a few lines above:
+            # feeding shafranov_integrals one of each mixes conventions.
+            k_grid = poloidal_field_factor(ods_cocos(ods))
+            B_R_grid = k_grid * (1.0 / Rm_safe) * dpsi_dZ
+            B_Z_grid = -k_grid * (1.0 / Rm_safe) * dpsi_dR
 
 
         # Axis geometry: validate per-slice and fallback to boundary geometry when missing/invalid.
@@ -2293,7 +2296,7 @@ def compute_field_line_trace(
     field_data = _equilibrium_field_slice_data(time_slice)
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"],
+        field_data["psi_1d"], field_data["f_1d"], cocos=ods_cocos(ods),
     )
 
     wall_r = wall_z = None

@@ -843,3 +843,164 @@ def test_labelling_never_breaks_a_conversion():
     })
     ods = to_omas(minimal)
     assert "equilibrium.time_slice.0.profiles_1d.psi" in ods
+
+
+# --- Review findings ------------------------------------------------------
+
+
+def test_the_ods_virial_path_uses_one_convention_for_both_fields():
+    """Regression: the boundary field was converted and the grid field was not.
+
+    `compute_virial_equilibrium_quantities_ods` feeds both to
+    `shafranov_integrals`.  With a COCOS 11 label the boundary field carried
+    k = +1/(2*pi) while the grid field still carried k = -1, so the two differed
+    by -2*pi inside one calculation and li came out about 17% wrong.  li, the
+    Shafranov integrals and the diamagnetism are dimensionless, so the same
+    equilibrium expressed in either convention must give the same numbers.
+    """
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.omas.general import set_ods_cocos
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    def virial(cocos):
+        equilibrium = as_equilibrium(sample_geqdsk(), convention=1)
+        if cocos != 1:
+            equilibrium = convert_cocos(equilibrium, cocos)
+        ods = from_equilibrium(equilibrium).to_omas()
+        set_ods_cocos(ods, cocos)
+        return compute_virial_equilibrium_quantities_ods(ods)[0]
+
+    per_radian, weber = virial(1), virial(11)
+    for name in ("li", "li_vir_lao", "s_1", "s_2", "s_3", "beta_pd_vir", "mui"):
+        assert weber[name] == pytest.approx(per_radian[name], rel=1e-6), name
+
+
+def test_the_field_interpolator_receives_the_ods_convention():
+    """Regression: the interpolator gained a cocos parameter its caller ignored."""
+    import inspect
+
+    from vaft.omas import process_wrapper
+
+    source = inspect.getsource(process_wrapper)
+    index = source.index("make_equilibrium_field_interpolator(\n")
+    call = source[index:index + 400]
+    assert "cocos=" in call, "the production caller must declare the ODS convention"
+
+
+def test_a_recorded_ods_convention_is_read_back_by_the_adapter():
+    """Regression: the write side used code.parameters, the read side did not.
+
+    `_from_ods` only looked at `ids_properties.cocos`, which cannot exist under
+    DD 3.41, so an ODS VAFT had just labelled came back ambiguous and
+    `convert_cocos` refused it.
+    """
+    from vaft.data.resources import sample_geqdsk
+    from vaft.omas.general import set_ods_cocos
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    ods = sample_geqdsk().to_omas()
+    set_ods_cocos(ods, 2)
+    equilibrium = as_equilibrium(ods)
+    assert equilibrium.convention.cocos == 2
+    assert not equilibrium.convention.ambiguous
+    assert convert_cocos(equilibrium, 11).convention.cocos == 11
+
+
+@pytest.mark.parametrize("scale", [3.0, 3.7, 10.0])
+def test_the_flux_exponent_abstains_when_the_ratio_is_near_neither_answer(scale):
+    """The two answers are 2*pi apart, so anything between is a broken input.
+
+    A bare nearest-neighbour would confidently pick one; with psi scaled by
+    3, 3.7 or 10 there is no honest answer to give.
+    """
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import identify_flux_exponent
+    from vaft.process.equilibrium import as_equilibrium
+
+    base = as_equilibrium(sample_geqdsk(), convention=1)
+    scaled = EquilibriumData(**{
+        **base.__dict__, "psi": base.psi * scale,
+        "psi_axis": base.psi_axis * scale, "psi_boundary": base.psi_boundary * scale,
+    })
+    exponent, ratio = identify_flux_exponent(scaled)
+    assert exponent is None, f"ratio {ratio} should not have produced an answer"
+    assert ratio == pytest.approx(scale, rel=0.05)
+
+
+def test_an_ip_that_disagrees_with_the_psi_map_does_not_produce_a_confident_index():
+    """A 5x mismatch between Ip and the flux map is evidence of a broken file."""
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.cocos import identify_convention, identify_flux_exponent
+    from vaft.process.equilibrium import as_equilibrium
+
+    base = as_equilibrium(sample_geqdsk(), convention=1)
+    wrong = EquilibriumData(**{**base.__dict__, "ip": base.ip * 0.2})
+    assert identify_flux_exponent(wrong)[0] is None
+    # Falls back to the sign family rather than naming a single index.
+    assert len(identify_convention(wrong, clockwise_phi=True)) > 1
+
+
+def test_a_real_x_point_survives_grid_refinement():
+    """Regression: the flux window shrank as h^2, so refining lost X-points.
+
+    psi_boundary is taken from the source and no reconstruction places it at the
+    X-point flux to one part in a million, so the window needs a floor tied to
+    that precision rather than to the grid alone.
+    """
+    import numpy as np
+
+    from vaft.data.equilibrium import Contour, EquilibriumConvention, EquilibriumData, Topology
+    from vaft.process.equilibrium import derive_boundary_representation, extract_flux_surface_contours
+
+    def single_null(points, psi_boundary_error):
+        c = 1.481
+        r = np.linspace(0.5, 1.5, points)
+        z = np.linspace(-0.8, 0.8, points + 40)
+        rm, zm = np.meshgrid(r, z, indexing="ij")
+        psi = (rm - 1) ** 2 + zm**2 - c * zm**3
+        boundary = 4.0 / (27.0 * c**2) * (1.0 + psi_boundary_error)
+        raw = extract_flux_surface_contours(psi, r, z, 0.0, boundary, [1.0])[1.0]
+        rb, zb = max(raw, key=lambda pair: pair[0].size)
+        theta = np.linspace(0, 2 * np.pi, 481, endpoint=False)
+        eq = EquilibriumData(
+            r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=boundary, magnetic_axis=(1.0, 0.0),
+            lcfs=Contour(rb, zb),
+            limiter=Contour(1.0 + 0.42 * np.cos(theta), 0.62 * np.sin(theta)),
+            convention=EquilibriumConvention(1, (1,), True, False, 1, 1, 1, "test"),
+        )
+        return derive_boundary_representation(eq).topology
+
+    # A boundary flux 0.01% off the separatrix is routine for a reconstruction.
+    for points in (161, 321):
+        assert single_null(points, -1e-4) is Topology.UPPER_SINGLE_NULL, points
+    # And refining must not lose it.
+    assert single_null(321, -1e-4) is single_null(161, -1e-4)
+
+
+def test_the_flux_window_floor_does_not_readmit_real_reconstruction_artifacts():
+    """The floor must stay far below the nearest artifact on real VEST data."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process._equilibrium_parametric import BOUNDARY_FLUX_PRECISION
+    from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+    assert BOUNDARY_FLUX_PRECISION < 0.07 / 10, "the nearest VEST artifact sits at psi_n ~ 1.073"
+    boundary = derive_boundary_representation(as_equilibrium(sample_geqdsk(), convention=1))
+    assert len(boundary.x_points) > 1
+    assert not [point for point in boundary.x_points if point.active]
+
+
+def test_a_contradicted_declaration_stays_visible_through_a_conversion():
+    """Regression: convert_cocos rebuilt the convention without `identified`."""
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path, require_repository_sample
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    equilibrium = as_equilibrium(read_geqdsk(require_repository_sample(data_path("efit/g040330.00320"))))
+    assert equilibrium.convention.contradicted
+    converted = convert_cocos(equilibrium, 12)
+    assert converted.convention.identified, "the evidence must survive the conversion"
+    assert converted.convention.contradicted
