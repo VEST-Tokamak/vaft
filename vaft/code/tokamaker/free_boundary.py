@@ -742,3 +742,8 @@ def scan(
             "near_null_band": near_null_band,
         },
     )
+
+
+# Exported alias: `scan` stays the natural name inside this module, but the
+# package-level export needs an unambiguous name.
+free_boundary_scan = scan
