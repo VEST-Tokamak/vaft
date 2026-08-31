@@ -111,8 +111,13 @@ def test_equilibrium_field_slice_data_psi_norm_correct_at_axis_and_lcfs():
     data = _equilibrium_field_slice_data(ts)
 
     spline = RectBivariateSpline(data["R_grid"], data["Z_grid"], data["psi_grid"])
-    psi_axis = float(ts["global_quantities.psi_axis"])
-    psi_boundary = float(ts["global_quantities.psi_boundary"])
+    # The slice data is converted to Wb/rad for field construction (issue
+    # #236); normalize with axis/boundary values in the same frame.
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+
+    factor = ods_psi_to_wb_per_radian_factor(ts)
+    psi_axis = float(ts["global_quantities.psi_axis"]) * factor
+    psi_boundary = float(ts["global_quantities.psi_boundary"]) * factor
 
     psiN_axis = (float(spline.ev(R0, Z0)) - psi_axis) / (psi_boundary - psi_axis)
     assert psiN_axis == pytest.approx(0.0, abs=1e-3)
