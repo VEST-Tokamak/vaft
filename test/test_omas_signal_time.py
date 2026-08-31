@@ -82,3 +82,19 @@ def test_onset_helpers_work_on_the_packaged_heterogeneous_sample():
 
     # change_time_convention drives all three and was the reported failure.
     vaft.omas.change_time_convention(vaft.omas.sample_ods(), convention="breakdown")
+
+
+def test_find_pf_active_onset_returns_an_onset_for_every_coil():
+    """It iterated ``pf_active.channel``, which the DD does not define.
+
+    OMAS yields an empty list for a missing node instead of raising, so the
+    helper silently returned ``[]`` for every caller rather than failing loudly.
+    """
+    ods = vaft.omas.sample_ods()
+    coil_count = len(ods["pf_active.coil"])
+    assert coil_count == 10
+
+    onsets = vaft.omas.find_pf_active_onset(ods)
+
+    assert len(onsets) == coil_count
+    assert all(np.isfinite(onset) for onset in onsets)

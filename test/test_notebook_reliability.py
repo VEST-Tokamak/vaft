@@ -185,29 +185,126 @@ def _backend_use_aliases(tree: ast.AST) -> frozenset[str]:
     return frozenset(aliases)
 
 
+#: Names that only appear in a test that is deciding whether a frontend is
+#: present: the ``sys.modules`` membership check, ``get_ipython`` itself, and
+#: the kernel-app marker the notebooks read off its config.
+_INTERACTIVITY_HINTS = frozenset(
+    {"get_ipython", "modules", "ipykernel", "IPKernelApp", "IPython"}
+)
+
+
+def _interactivity_names(tree: ast.AST) -> frozenset[str]:
+    """Names bound from a ``get_ipython()`` call.
+
+    The notebooks spell the guard as ``_ipython = get_ipython()`` followed by
+    ``if _ipython is None:``, so the interactivity test is one indirection away
+    from any literal hint and has to be resolved through the binding.
+    """
+    names = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        call = node.value
+        if not isinstance(call, ast.Call):
+            continue
+        if _attribute_name(call.func) not in {"get_ipython", "IPython.get_ipython"}:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            for name in ast.walk(target):
+                if isinstance(name, ast.Name):
+                    names.add(name.id)
+    return frozenset(names)
+
+
+def _is_interactivity_guard(statement: ast.If, ipython_names: frozenset[str]) -> bool:
+    """True when this ``if`` actually tests for an interactive frontend.
+
+    Treating every ``if`` as a guard would accept a pin under ``if True:`` or
+    under an unrelated ``if output_dir:`` -- the pin would still run in Jupyter,
+    which is the whole failure mode (#175/#179/#182).
+    """
+    for node in ast.walk(statement.test):
+        if isinstance(node, ast.Name) and (
+            node.id in ipython_names or node.id in _INTERACTIVITY_HINTS
+        ):
+            return True
+        if isinstance(node, ast.Attribute) and node.attr in _INTERACTIVITY_HINTS:
+            return True
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node.value in _INTERACTIVITY_HINTS:
+                return True
+    return False
+
+
+def _unguarded_backend_pins(source: str, filename: str = "<cell>") -> list[str]:
+    """Backend pins in ``source`` that no interactivity guard protects."""
+    tree = ast.parse(source, filename=filename)
+    aliases = _backend_use_aliases(tree)
+    ipython_names = _interactivity_names(tree)
+    guarded = {
+        node
+        for statement in ast.walk(tree)
+        if isinstance(statement, ast.If) and _is_interactivity_guard(statement, ipython_names)
+        for node in ast.walk(statement)
+    }
+    return [
+        f"{filename}: unguarded backend pin"
+        for node in ast.walk(tree)
+        if _is_backend_pin(node, aliases) and node not in guarded
+    ]
+
+
 def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
     """A pin outside an interactivity guard silences figures in Jupyter and VS Code.
 
     Notebooks may still fall back to Agg when no kernel is present -- that is
-    what the ``"ipykernel" not in sys.modules`` guard expresses -- but a pin at
-    cell top level applies to interactive frontends too (issues #175/#179/#182).
+    what the ``get_ipython() is None`` guard expresses -- but a pin at cell top
+    level applies to interactive frontends too (issues #175/#179/#182).
     """
     failures = []
-    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
+    for path in _notebook_paths():
         for index, source in _code_cells(path):
-            tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
-            aliases = _backend_use_aliases(tree)
-            guarded = {
-                node
-                for statement in ast.walk(tree)
-                if isinstance(statement, ast.If)
-                for node in ast.walk(statement)
-            }
-            for node in ast.walk(tree):
-                if _is_backend_pin(node, aliases) and node not in guarded:
-                    failures.append(f"{path.name}:cell-{index}: unguarded backend pin")
+            failures.extend(
+                _unguarded_backend_pins(source, f"{path.name}:cell-{index}")
+            )
 
     assert failures == []
+
+
+def test_backend_pin_detector_rejects_a_guard_that_is_not_about_interactivity():
+    """The detector must not accept any ``if`` as proof of a guard.
+
+    A pin under an unrelated condition still runs under Jupyter, so accepting
+    it would let the very regression this test exists for back in.
+    """
+    real_guard = (
+        "import os\n"
+        "try:\n"
+        "    _ipython = get_ipython()\n"
+        "except NameError:\n"
+        "    _ipython = None\n"
+        "if _ipython is None:\n"
+        "    os.environ.setdefault('MPLBACKEND', 'Agg')\n"
+    )
+    assert _unguarded_backend_pins(real_guard) == []
+
+    sys_modules_guard = (
+        "import os, sys\n"
+        "if 'ipykernel' not in sys.modules:\n"
+        "    os.environ.setdefault('MPLBACKEND', 'Agg')\n"
+    )
+    assert _unguarded_backend_pins(sys_modules_guard) == []
+
+    for weak in (
+        "import os\nif True:\n    os.environ['MPLBACKEND'] = 'Agg'\n",
+        "import os\noutput_dir = 'x'\nif output_dir:\n"
+        "    os.environ['MPLBACKEND'] = 'Agg'\n",
+        "import matplotlib\nif 1 + 1 == 2:\n    matplotlib.use('Agg')\n",
+    ):
+        assert _unguarded_backend_pins(weak), weak
+
+    assert _unguarded_backend_pins("import matplotlib\nmatplotlib.use('Agg')\n")
 
 
 #: Modules whose use is unambiguous: a bare ``itertools.x`` in a notebook means
@@ -233,35 +330,82 @@ STDLIB_MODULES_USED_BY_NAME = frozenset(
 )
 
 
+def _stdlib_import_failures(cells, label: str = "<notebook>") -> list[str]:
+    """Report stdlib modules a notebook uses before -- or without -- binding.
+
+    ``cells`` is an iterable of ``(index, source)`` in execution order. The
+    binding has to be compared against the *order* cells run in: pooling every
+    import in the notebook first would accept ``itertools.chain`` in cell 2
+    with ``import itertools`` in cell 9, which raises ``NameError`` on a real
+    top-to-bottom run and is exactly the issue-#180 failure.
+    """
+    first_bound: dict[str, int] = {}
+    first_used: dict[str, tuple[int, str]] = {}
+
+    for index, source in cells:
+        tree = ast.parse(source, filename=f"{label}:cell-{index}")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    first_bound.setdefault(
+                        (alias.asname or alias.name).split(".")[0], index
+                    )
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    first_bound.setdefault(alias.asname or alias.name, index)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                for target in ast.walk(node):
+                    if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store):
+                        first_bound.setdefault(target.id, index)
+            elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                module = node.value.id
+                if module in STDLIB_MODULES_USED_BY_NAME:
+                    first_used.setdefault(module, (index, f"{label}:cell-{index}"))
+
+    failures = []
+    for module, (used_at, where) in sorted(first_used.items()):
+        if module not in first_bound:
+            failures.append(f"{where}: uses {module}.* but never imports {module}")
+        elif first_bound[module] > used_at:
+            failures.append(
+                f"{where}: uses {module}.* before importing it in "
+                f"cell-{first_bound[module]}"
+            )
+    return failures
+
+
 def test_notebooks_import_every_stdlib_module_they_reference():
     """Guards the ``itertools`` class of failure from issue #180."""
     failures = []
-    for path in sorted(NOTEBOOKS.glob("*.ipynb")):
-        bound = set()
-        used = {}
-        for index, source in _code_cells(path):
-            tree = ast.parse(source, filename=f"{path.name}:cell-{index}")
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    for alias in node.names:
-                        bound.add((alias.asname or alias.name).split(".")[0])
-                elif isinstance(node, ast.ImportFrom):
-                    for alias in node.names:
-                        bound.add(alias.asname or alias.name)
-                elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
-                    for target in ast.walk(node):
-                        if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store):
-                            bound.add(target.id)
-                elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-                    module = node.value.id
-                    if module in STDLIB_MODULES_USED_BY_NAME:
-                        used.setdefault(module, f"{path.name}:cell-{index}")
-
-        for module, where in sorted(used.items()):
-            if module not in bound:
-                failures.append(f"{where}: uses {module}.* but never imports {module}")
+    for path in _notebook_paths():
+        failures.extend(_stdlib_import_failures(_code_cells(path), path.name))
 
     assert failures == []
+
+
+def test_stdlib_import_check_is_sensitive_to_cell_order():
+    """Pooling imports notebook-wide would miss the #180 failure entirely.
+
+    A use in an early cell with the import in a later one runs clean only if
+    the reader executes out of order; top-to-bottom it is a ``NameError``.
+    """
+    use_before_import = [
+        (2, "rows = list(itertools.chain([1], [2]))"),
+        (9, "import itertools"),
+    ]
+    assert _stdlib_import_failures(use_before_import)
+
+    import_then_use = [
+        (2, "import itertools"),
+        (9, "rows = list(itertools.chain([1], [2]))"),
+    ]
+    assert _stdlib_import_failures(import_then_use) == []
+
+    same_cell = [(2, "import itertools\nrows = list(itertools.chain([1], [2]))")]
+    assert _stdlib_import_failures(same_cell) == []
+
+    never_imported = [(2, "rows = list(itertools.chain([1], [2]))")]
+    assert _stdlib_import_failures(never_imported)
 
 
 def test_notebook_references_to_packaged_data_resolve():

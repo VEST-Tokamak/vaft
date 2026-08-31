@@ -104,10 +104,15 @@ def find_ip_onset(ods):
     return _find_signal_onset(ods, 'magnetics.ip.0.data')
 
 def find_pf_active_onset(ods):
-    """Find the onset for each pf_active channel current signal."""
+    """Find the onset for each pf_active coil current signal.
+
+    The IMAS DD names these ``pf_active.coil``; ``pf_active.channel`` does not
+    exist, and OMAS yields an empty list for a missing node rather than
+    raising, so iterating it silently returned no onsets at all.
+    """
     onsets = []
-    for i in range(len(ods['pf_active.channel'])):
-        current_path = f'pf_active.channel.{i}.current.data'
+    for i in range(len(ods['pf_active.coil'])):
+        current_path = f'pf_active.coil.{i}.current.data'
         time = signal_time(ods, current_path)
         current = ods[current_path]
         onset, _ = vaft.process.signal_on_offset(time, current)

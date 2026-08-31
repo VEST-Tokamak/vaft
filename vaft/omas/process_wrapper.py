@@ -410,9 +410,19 @@ def ensure_em_coupling(ods: ODS) -> None:
     a measurement, so the compact samples ship the pf_active/pf_passive geometry
     and leave the matrices to be reconstructed. Rebuild them here rather than
     making every caller materialize them first.
+
+    A partially populated ``em_coupling`` still needs reconstruction: the sample
+    that shipped before the geometry-only change carried
+    ``mutual_passive_active`` without ``mutual_passive_passive``, so gating on
+    any single matrix lets such an ODS through to a bare ``KeyError`` in
+    :func:`compute_impedance_matrices_ods`. Require every matrix that function
+    reads, and leave a caller-supplied pair untouched.
     """
     existing = ods["em_coupling"] if "em_coupling" in ods else None
-    if existing is not None and np.size(existing.get("mutual_passive_active", [])):
+    if existing is not None and all(
+        np.size(existing.get(matrix, []))
+        for matrix in ("mutual_passive_passive", "mutual_passive_active")
+    ):
         return
 
     from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
