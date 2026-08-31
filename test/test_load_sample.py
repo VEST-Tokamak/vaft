@@ -275,3 +275,26 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     )
     assert len(wheel_native["magnetics.b_field_pol_probe"]) == 76
     assert len(wheel_native["magnetics.flux_loop"]) == 11
+
+
+def test_39915_sample_carries_the_complete_pf_active_machine_state():
+    """The compact sample must keep every PF coil (regression: it once shipped
+    only PF1-PF5, which cannot even hold the measured equilibrium — the
+    outboard coils carry real current, so free-boundary work silently broke
+    offline)."""
+    ods = vaft.omas.load(vaft.data.sample(39915))
+
+    assert len(ods["pf_active.coil"]) == 10
+    time = np.asarray(ods["pf_active.time"], dtype=float)
+    currents = {
+        str(ods[f"pf_active.coil.{i}.name"]): float(
+            np.interp(0.325, time, ods[f"pf_active.coil.{i}.current.data"])
+        )
+        for i in range(10)
+    }
+    # the outboard coils' measured currents, not zero-padded placeholders
+    assert currents["PF6"] == pytest.approx(-1431.8, abs=1.0)
+    assert currents["PF9"] == pytest.approx(-522.1, abs=1.0)
+    assert currents["PF10"] == pytest.approx(-522.1, abs=1.0)
+    # every coil still carries its element geometry for adapter meshing
+    assert all(len(ods[f"pf_active.coil.{i}.element"]) > 0 for i in range(10))
