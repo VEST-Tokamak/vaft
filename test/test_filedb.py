@@ -291,11 +291,22 @@ def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
     assert symlink_collision.existing_target_kind == "symlink"
 
 
-def test_workflow_main_uses_only_the_canonical_resolver():
-    workflow = Path(__file__).parents[1] / "workflow/main/Snakefile"
-    text = workflow.read_text()
+def test_production_pipeline_resolves_every_path_through_filedb():
+    """PR #121 folded workflow/main into pipeline 1, which is now the only
+    maintained production DAG. It must keep resolving paths through the
+    canonical resolver rather than reconstructing the legacy server's layout.
+    """
+    workflow = (
+        Path(__file__).parents[1]
+        / "workflow"
+        / "automatic_pipeline_1_routine_data_processing"
+    )
+    assert "from vaft.database.filedb import FileDB" in (workflow / "paths.py").read_text()
 
-    assert "from vaft.database.filedb import FileDB" in text
-    assert "/srv/vest.filedb/public" not in text
-    assert "imas/baseline" not in text
-    assert "omas/baseline" not in text
+    # The rules themselves must go through PipelinePaths. paths.py names the
+    # legacy root in its prose, so only the Snakefile is scanned for it.
+    rules = (workflow / "Snakefile").read_text()
+    assert "from paths import" in rules
+    assert "/srv/vest.filedb" not in rules
+    assert "imas/baseline" not in rules
+    assert "omas/baseline" not in rules
