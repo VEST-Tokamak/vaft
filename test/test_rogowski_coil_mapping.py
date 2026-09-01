@@ -70,7 +70,10 @@ def test_both_physical_rogowski_sensors_are_mapped(magnetics_ods):
     assert tf["measured_quantity.name"] not in {
         "plasma", "plasma_eddy", "eddy", "halo", "compound",
     }
-    assert tf["current.validity"] == 0
+    # Not asserted as 0: this shot's channel carries reconstructed samples, so
+    # validity must not claim a clean acquisition. See
+    # `test_validity_does_not_claim_a_reconstructed_waveform_is_clean`.
+    assert tf["current.validity"] >= 0
     assert np.asarray(tf["current.data"]).size > 0
 
 
@@ -349,3 +352,75 @@ def test_sensor_current_matches_the_flux_path_it_feeds():
     np.testing.assert_array_equal(sensor, np.asarray(stages["integrated"], dtype=float))
     # The repair is what makes this non-trivial: raw and repaired differ here.
     assert report["n_saturated"] > 0
+
+
+def test_validity_does_not_claim_a_reconstructed_waveform_is_clean(magnetics_ods):
+    """A repaired sample is an interpolation, not a measurement (#285).
+
+    Shot 41672 has samples pinned at the diamagnetic channel's acquisition
+    rail, which `vest_diamagnetic_flux_detailed` reconstructs before
+    integrating. Publishing that as `validity = 0` would tell every consumer
+    the channel acquired cleanly.
+    """
+    from vaft.machine_mapping.magnetics import diamagnetic_saturation_report
+
+    report = diamagnetic_saturation_report(SHOT, raw_source=RAW)
+    assert report["n_saturated"] > 0, "fixture shot must exercise the repair"
+
+    diamag = magnetics_ods[
+        f"magnetics.rogowski_coil.{_ROGOWSKI_DIAMAGNETIC_TF}.current.validity"
+    ]
+    assert diamag != 0
+
+    # The plasma-current sensor is calibration-only, with nothing reconstructed.
+    plasma = magnetics_ods[
+        f"magnetics.rogowski_coil.{_ROGOWSKI_PLASMA_CURRENT}.current.validity"
+    ]
+    assert plasma == 0
+
+
+def test_an_unrepairable_sensor_does_not_fail_its_siblings(tmp_path):
+    """`SignalRepairError` must degrade one sensor, not the whole mapping.
+
+    develop lets it propagate from the *flux* path, where the caller asked for
+    that quantity. A caller asking for plasma current has not, so routing the
+    sensor mapping through the diamagnetic channel must not make an
+    unrecoverable field-257 record fail `magnetics.ip`.
+    """
+    import gzip
+    import json
+
+    from vaft.machine_mapping.magnetics import ip_rogowski_coil_from_raw_database
+
+    n = 25_000
+    healthy = (np.linspace(0.0, 1.0, n) * 0.5).tolist()
+    raw = tmp_path / "raw.json.gz"
+    with gzip.open(raw, "wt", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "shot": SHOT,
+                "fields": {
+                    "109": {"data": healthy, "type": "slow"},
+                    "25": {"data": healthy, "type": "slow"},
+                    # Pinned at the rail for the whole record: unrepairable.
+                    "257": {"data": [-5.0] * n, "type": "slow"},
+                },
+            },
+            handle,
+        )
+
+    ods = ODS(consistency_check=False)
+    ip_rogowski_coil_from_raw_database(
+        ods, SHOT, tstart=TSTART, tend=TEND, dt=DT, raw_source=raw
+    )
+
+    assert "ip" in ods["magnetics"]
+    assert (
+        ods[f"magnetics.rogowski_coil.{_ROGOWSKI_DIAMAGNETIC_TF}.current.validity"] == -2
+    )
+    assert (
+        np.asarray(
+            ods[f"magnetics.rogowski_coil.{_ROGOWSKI_PLASMA_CURRENT}.current.data"]
+        ).size
+        > 0
+    )

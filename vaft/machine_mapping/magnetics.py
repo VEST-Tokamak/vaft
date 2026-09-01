@@ -23,6 +23,7 @@ from vaft.process.magnetics import (
     vest_equilibrium_magnetics_detailed,
 )
 from vaft.process.signal_processing import (
+    SignalRepairError,
     detect_active_window,
     detect_clipped_samples,
     repair_clipped_interval,
@@ -1580,6 +1581,9 @@ def _map_rogowski_coils(
             "induced current in the tungsten limiter around the CS wall"
         ),
         loader=lambda: vest_plasma_rogowski_current(shot, raw_source=raw_source),
+        # Calibration only, no reconstruction: acquisition validity is all
+        # that can be asserted here.
+        validity=lambda _n: 0,
         tstart=tstart,
         tend=tend,
     )
@@ -1597,9 +1601,28 @@ def _map_rogowski_coils(
             "covers only plasma, plasma_eddy, eddy, halo and compound sensors"
         ),
         loader=lambda: vest_diamagnetic_rogowski_current(shot, raw_source=raw_source),
+        validity=lambda _n: _diamagnetic_current_validity(shot, raw_source),
         tstart=tstart,
         tend=tend,
     )
+
+
+def _diamagnetic_current_validity(
+    shot: int, raw_source: raw_db.RawSource | None
+) -> int:
+    """Validity for the diamagnetic sensor current, honest about repair.
+
+    ``0`` only when no sample sat at the acquisition rail. Otherwise ``1``
+    ("valid from manual/automated processing but with a caveat" in DD terms is
+    not available, so the non-zero code marks the waveform as carrying
+    reconstructed samples) -- the count and extent live in
+    :func:`diamagnetic_saturation_report`.
+    """
+    try:
+        report = diamagnetic_saturation_report(shot, raw_source=raw_source)
+    except (raw_db.RawSignalUnavailableError, SignalRepairError, KeyError):
+        return -2
+    return 0 if not report["n_saturated"] else 1
 
 
 def _map_one_rogowski_coil(
@@ -1612,6 +1635,7 @@ def _map_one_rogowski_coil(
     measured_index: int,
     measured_description: str,
     loader: Callable[[], tuple[np.ndarray, np.ndarray]],
+    validity: Callable[[int], int],
     tstart: float | None,
     tend: float | None,
 ) -> None:
@@ -1630,13 +1654,26 @@ def _map_one_rogowski_coil(
 
     try:
         native_time, native_data = loader()
-    except raw_db.RawSignalUnavailableError:
+    except (raw_db.RawSignalUnavailableError, SignalRepairError):
         # Keep the slot so the other sensor's index never moves.
+        #
+        # SignalRepairError is caught here, unlike in the flux path where it
+        # deliberately propagates: a caller asking for plasma current has not
+        # asked for the diamagnetic channel, so an unrecoverable waveform on
+        # one sensor must degrade that sensor rather than fail the whole
+        # magnetics component (issue #285 interaction).
         _set_current_signal(ods, base, np.array([], dtype=float), np.array([], dtype=float), -2)
         return
 
     time, data = _crop_native_window(native_time, native_data, tstart=tstart, tend=tend)
-    _set_current_signal(ods, base, time, data, 0 if data.size else -2)
+    if not data.size:
+        _set_current_signal(ods, base, time, data, -2)
+        return
+    # A repaired sample is an interpolation, not a measurement, so a waveform
+    # containing any must not be published as `validity = 0` ("valid from
+    # automated processing"). This is the structured home for the issue-#285
+    # saturation outcome that `_map_diamagnetic_flux` points at.
+    _set_current_signal(ods, base, time, data, validity(len(data)))
 
 
 def _map_probes(
