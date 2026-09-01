@@ -757,6 +757,191 @@ def update_equilibrium_global_quantities_area(ods, time_slice=None):
         )
 
 
+
+def update_equilibrium_global_quantities_beta_li(ods, time_slice=None):
+    r"""Derive ``beta_pol``, ``beta_tor``, ``beta_normal``, ``li_3`` and ``length_pol``.
+
+    Issue #238. A g-file stores none of these and OMFIT supplied them from its
+    own flux-surface solve, so losing that path left them empty -- four of the
+    database summary's columns among them.
+
+    **The definitions are the IMAS DD's**, read from the DD rather than from
+    memory:
+
+    ==============  =====================================================
+    ``beta_pol``    ``4 int(p dV) / (R_0 mu_0 Ip^2)``
+    ``beta_tor``    ``2 mu0 int(p dV) / V / B0^2``
+    ``beta_normal`` ``100 beta_tor a[m] B0[T] / Ip[MA]``
+    ``li_3``        ``2 int(B_pol^2 dV) / (mu0^2 Ip^2 R_0)``
+    ==============  =====================================================
+
+    ``li_3`` is the one the DD gives no formula for -- it documents only
+    "Internal inductance". This is the ITER/Jackson third definition, and it is
+    written on the strength of reproducing the packaged OMFIT reference to 0.3%,
+    not on the strength of the DD text.
+
+    ``beta_pol`` is where the DD and EFIT disagree, and it is not a numerical
+    disagreement: EFIT normalizes by the field implied by the LCFS circumference,
+    ``2 mu0 <p>_V / (mu0 Ip/L_pol)^2``, which on the packaged reference gives
+    0.0287 against the DD's 0.0227 -- **26% apart**, with the EFIT form matching
+    the stored value to 0.1%. The DD form is what goes in the DD leaf; the other
+    is available to the database summary under its own name, and #318 owns the
+    sensitivity study of the two. Do not "fix" the leaf by matching OMFIT.
+
+    ``B0`` is ``vacuum_toroidal_field.b0``, as the DD says. That does not
+    reproduce the reference's ``beta_tor`` (ratio 1.041, and the field that would
+    match is 0.1539 T against a stored 0.1509 T); OMFIT's reference field is
+    unidentified and is recorded as such on #238 rather than reverse-engineered.
+
+    ``int(B_pol^2 dV)`` rides on the surfaces
+    :func:`update_equilibrium_profiles_1d_geometry` already traced -- the volume
+    element cancels one power of ``B_pol``, so the per-surface line integral
+    ``bp_dl`` is all it needs -- and the psi convention comes from the same
+    resolved frame as the rest of this module, not from a further
+    ``ods_psi_to_wb_per_radian_factor`` call site (issue #294).
+
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure, updated in place.
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+    """
+    from vaft.formula.equilibrium import (
+        beta_normal_from_beta_tor,
+        beta_poloidal_from_pressure_integral,
+        beta_toroidal_from_p_B0,
+        li_3_from_Bp2_volume_integral,
+    )
+    from vaft.process.equilibrium import flux_surface_quantities
+
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
+            continue
+        ts = frame["ts"]
+
+        r0 = _scalar_or_nan(ods, "equilibrium.vacuum_toroidal_field.r0")
+        b0 = _time_indexed_scalar(ods, "equilibrium.vacuum_toroidal_field.b0", idx)
+        ip = _scalar_or_nan(ts, "global_quantities.ip")
+        if not np.isfinite(r0) or r0 <= 0.0 or not np.isfinite(b0) or b0 == 0.0:
+            logger.warning(
+                "vacuum_toroidal_field.r0/b0 unusable for time slice %s; skipping betas.",
+                idx,
+            )
+            continue
+        if not np.isfinite(ip) or ip == 0.0:
+            logger.warning("global_quantities.ip unusable for time slice %s; skipping betas.", idx)
+            continue
+
+        if "profiles_1d.volume" not in ts or "profiles_1d.pressure" not in ts:
+            update_equilibrium_profiles_1d_geometry(ods, time_slice=[idx])
+        if "profiles_1d.volume" not in ts or "profiles_1d.pressure" not in ts:
+            logger.warning(
+                "profiles_1d.pressure/volume unavailable for time slice %s; skipping betas.",
+                idx,
+            )
+            continue
+
+        pressure = np.asarray(ts["profiles_1d.pressure"], float).reshape(-1)
+        volume = np.asarray(ts["profiles_1d.volume"], float).reshape(-1)
+        if pressure.size != volume.size or pressure.size < 2:
+            logger.warning("pressure/volume lengths disagree for time slice %s.", idx)
+            continue
+        plasma_volume = float(volume[-1])
+        if not np.isfinite(plasma_volume) or plasma_volume <= 0.0:
+            logger.warning("plasma volume is not positive for time slice %s.", idx)
+            continue
+        pressure_integral = float(trapz_compat(pressure, x=volume))
+        p_average = pressure_integral / plasma_volume
+
+        beta_tor = beta_toroidal_from_p_B0(p_average, b0)
+        beta_pol = beta_poloidal_from_pressure_integral(pressure_integral, r0, ip)
+        if np.isfinite(beta_tor):
+            ts["global_quantities.beta_tor"] = float(beta_tor)
+        if np.isfinite(beta_pol):
+            ts["global_quantities.beta_pol"] = float(beta_pol)
+
+        minor_radius = _minor_radius(ts)
+        if np.isfinite(beta_tor) and np.isfinite(minor_radius) and minor_radius > 0.0:
+            beta_normal = beta_normal_from_beta_tor(beta_tor, minor_radius, b0, ip)
+            if np.isfinite(beta_normal):
+                ts["global_quantities.beta_normal"] = float(beta_normal)
+
+        surfaces = _surface_line_integrals(ods, idx, frame)
+        if surfaces is None:
+            continue
+        length_pol, bp_dl = surfaces
+        if np.isfinite(length_pol):
+            ts["global_quantities.length_pol"] = float(length_pol)
+        bp2_volume = abs(
+            2.0 * np.pi * float(trapz_compat(bp_dl, x=frame["psi_1d_radian"]))
+        )
+        li_3 = li_3_from_Bp2_volume_integral(bp2_volume, ip, r0)
+        if np.isfinite(li_3):
+            ts["global_quantities.li_3"] = float(li_3)
+
+
+def _scalar_or_nan(node, path) -> float:
+    try:
+        return float(np.asarray(node[path], float).reshape(-1)[0])
+    except Exception:
+        return float("nan")
+
+
+def _time_indexed_scalar(ods, path, idx) -> float:
+    """One entry of a time-dependent scalar, tolerating a single stored value."""
+    try:
+        values = np.asarray(ods[path], float).reshape(-1)
+    except Exception:
+        return float("nan")
+    if not values.size:
+        return float("nan")
+    return float(values[min(idx, values.size - 1)])
+
+
+def _minor_radius(ts) -> float:
+    """``a`` from ``boundary.minor_radius``, or from the outline it comes from."""
+    if "boundary.minor_radius" in ts:
+        value = _scalar_or_nan(ts, "boundary.minor_radius")
+        if np.isfinite(value) and value > 0.0:
+            return value
+    if "boundary.outline.r" in ts:
+        outline = np.asarray(ts["boundary.outline.r"], float).reshape(-1)
+        if outline.size >= 3:
+            return 0.5 * (float(np.max(outline)) - float(np.min(outline)))
+    return float("nan")
+
+
+def _surface_line_integrals(ods, idx, frame):
+    """``(length_pol_edge, bp_dl_profile)`` for one slice, tracing only if needed."""
+    from vaft.process.equilibrium import flux_surface_quantities
+
+    ts = frame["ts"]
+    f_profile = None
+    if "profiles_1d.f" in ts:
+        candidate = np.asarray(ts["profiles_1d.f"], float).reshape(-1)
+        if candidate.size == frame["psi_norm"].size:
+            f_profile = candidate
+    try:
+        surfaces = flux_surface_quantities(
+            frame["psi_2d_radian"],
+            frame["r_grid"],
+            frame["z_grid"],
+            frame["psi_axis_radian"],
+            frame["psi_boundary_radian"],
+            frame["psi_norm"],
+            f_profile=f_profile,
+            axis_rz=frame["axis_rz"],
+            boundary=frame["boundary"],
+        )
+    except Exception as exc:
+        logger.warning("Flux-surface trace failed for time slice %s: %s", idx, exc)
+        return None
+    bp_dl = np.asarray(surfaces["bp_dl"], float)
+    if not np.all(np.isfinite(bp_dl)):
+        logger.warning("bp_dl is not finite for time slice %s; skipping li_3.", idx)
+        return None
+    return float(np.asarray(surfaces["length_pol"], float)[-1]), bp_dl
+
+
 def update_equilibrium_derived_profiles(ods, time_slice=None):
     """Derive every flux-surface quantity an EFIT-sourced ODS omits, in order.
 
@@ -779,6 +964,8 @@ def update_equilibrium_derived_profiles(ods, time_slice=None):
     update_equilibrium_global_quantities_area(ods, indices)
     update_equilibrium_stored_energy(ods, indices)
     update_equilibrium_boundary(ods, indices)
+    # Last: beta_normal reads boundary.minor_radius, which the line above writes.
+    update_equilibrium_global_quantities_beta_li(ods, indices)
 
 def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profiles_2d_idx=1, convention='sfl', n_theta=129, plot_opt=0):
     """

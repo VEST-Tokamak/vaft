@@ -121,6 +121,7 @@ def test_equilibrium_extractor_preserves_canonical_schema(monkeypatch):
     }
     for name in (
         "update_equilibrium_profiles_1d_geometry",
+        "update_equilibrium_global_quantities_beta_li",
         "update_equilibrium_boundary",
         "update_equilibrium_global_quantities_q_min",
         "update_equilibrium_global_quantities_volume",
@@ -448,8 +449,10 @@ def test_export_validates_upsert_contract(tmp_path):
 def test_equilibrium_summary_fills_the_shape_and_volume_columns():
     """Regression for issue #290's wider half: eleven of the forty-four columns
     were empty on the packaged sample because an EFIT-sourced ODS stores no
-    flux-surface geometry, not because nothing could compute it. Four remain --
-    the betas and li_3, which need a normative definition chosen first.
+    flux-surface geometry, not because nothing could compute it.
+
+    Four of them -- the betas and li_3 -- outlived that fix because they needed a
+    normative definition chosen first, and #238 chose it. Nothing is empty now.
     """
     import numpy as np
 
@@ -466,7 +469,7 @@ def test_equilibrium_summary_fills_the_shape_and_volume_columns():
         for name, value in row.items()
         if value is None or (isinstance(value, float) and not np.isfinite(value))
     }
-    assert empty == {"beta_pol", "beta_tor", "beta_normal", "li_3"}
+    assert not empty, f"summary columns still empty: {sorted(empty)}"
     assert row["volume_m3"] > 0.0
     assert row["area_m2"] > 0.0
     assert row["energy_mhd_J"] > 0.0

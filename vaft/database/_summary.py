@@ -32,6 +32,12 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "q_95",
     "q_min",
     "beta_pol",
+    # The EFIT/OMFIT convention, kept alongside the DD-normative beta_pol above
+    # for continuity with the CHEASE history summaries. These are *different
+    # definitions* of a quantity that shares a name, not two estimates of one:
+    # they differ by the exact geometric factor R0*L_pol^2/(2V) -- 26% on the
+    # packaged reference. See issue #318.
+    "beta_pol_circumference",
     "beta_tor",
     "beta_normal",
     "li_3",
@@ -253,6 +259,38 @@ def _value_at(value, index: int) -> float:
         return np.nan
 
 
+
+def _beta_pol_circumference(eq_slice) -> float:
+    """The EFIT/OMFIT poloidal beta, for continuity with the old summaries.
+
+    ``2 mu0 <p>_V / (mu0 Ip / L_pol)^2`` -- not the DD's ``beta_pol``, and not an
+    estimate of it. It reproduces what OMFIT reported to 0.1% where the DD form
+    is 26% away, because the two normalize by different fields. The DD leaf keeps
+    the DD definition; this column keeps the number the CHEASE history carried.
+    """
+    import numpy as np
+
+    from vaft.compat import trapz_compat
+    from vaft.formula.equilibrium import beta_poloidal_from_circumference
+
+    try:
+        pressure = np.asarray(eq_slice["profiles_1d.pressure"], float).reshape(-1)
+        volume = np.asarray(eq_slice["profiles_1d.volume"], float).reshape(-1)
+        length_pol = float(eq_slice["global_quantities.length_pol"])
+        ip = float(eq_slice["global_quantities.ip"])
+    except Exception:
+        return float("nan")
+    if pressure.size != volume.size or pressure.size < 2:
+        return float("nan")
+    plasma_volume = float(volume[-1])
+    if not np.isfinite(plasma_volume) or plasma_volume <= 0.0:
+        return float("nan")
+    if not np.isfinite(length_pol) or length_pol <= 0.0 or not np.isfinite(ip) or ip == 0.0:
+        return float("nan")
+    p_average = float(trapz_compat(pressure, x=volume)) / plasma_volume
+    return float(beta_poloidal_from_circumference(p_average, ip, length_pol))
+
+
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     """Extract the legacy equilibrium-global history schema from one lazy ODS."""
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
@@ -268,6 +306,9 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         vaft.omas.update_equilibrium_global_quantities_volume,
         vaft.omas.update_equilibrium_global_quantities_area,
         vaft.omas.update_equilibrium_stored_energy,
+        # beta_normal reads boundary.minor_radius, so this follows the boundary
+        # updater that the loop's first entry ultimately feeds.
+        vaft.omas.update_equilibrium_global_quantities_beta_li,
     ):
         try:
             updater(ods, time_slice=None)
@@ -324,6 +365,7 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             "q_95": _as_float(_safe_get(eq_slice, "global_quantities.q_95")),
             "q_min": _extract_q_min(eq_slice),
             "beta_pol": _as_float(_safe_get(eq_slice, "global_quantities.beta_pol")),
+            "beta_pol_circumference": _beta_pol_circumference(eq_slice),
             "beta_tor": _as_float(_safe_get(eq_slice, "global_quantities.beta_tor")),
             "beta_normal": _as_float(
                 _safe_get(eq_slice, "global_quantities.beta_normal")

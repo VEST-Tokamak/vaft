@@ -1117,6 +1117,8 @@ FLUX_SURFACE_QUANTITIES = (
     "r_outboard",
     "b_field_max",
     "b_field_min",
+    "bp_dl",
+    "length_pol",
 )
 
 
@@ -1143,6 +1145,10 @@ def flux_surface_quantities(
 
     The flux-surface average weights by the volume element,
     ``<X> = closed_integral(X R dl / |grad psi|) / closed_integral(R dl / |grad psi|)``,
+    ``bp_dl`` is ``closed_integral(B_p dl)`` and ``length_pol`` the poloidal
+    perimeter; the first is what ``int(B_p^2 dV)`` needs, since the volume
+    element cancels one power of ``B_p``.
+
     so ``gm1 = <1/R^2>``, ``gm8 = <R>``, ``gm9 = <1/R>`` and, when ``f_profile``
     supplies ``F = R B_phi`` on the same levels, ``gm5 = <B^2>`` with
     ``|B|^2 = (|grad psi|^2 + F^2) / R^2``. ``dvolume_dpsi`` and ``darea_dpsi``
@@ -1226,6 +1232,8 @@ def flux_surface_quantities(
             out["volume"][index] = 0.0
             out["area"][index] = 0.0
             out["surface"][index] = 0.0
+            out["bp_dl"][index] = 0.0
+            out["length_pol"][index] = 0.0
             continue
 
         if edge_from_boundary and level == 1.0:
@@ -1263,6 +1271,12 @@ def flux_surface_quantities(
         total = float(np.sum(weight))
         if not np.isfinite(total) or total <= 0:
             continue
+        # closed_integral(B_p dl), with B_p = |grad psi|/R.  This is all that
+        # int(B_p^2 dV) needs: dV = 2*pi*R dl dpsi/|grad psi| cancels one power
+        # of B_p exactly, leaving int B_p^2 dV = 2*pi * sum_k (oint B_p dl)_k
+        # dpsi_k.  Per radian, like the two derivatives.
+        out["bp_dl"][index] = float(np.sum((grad / r_mid) * length))
+        out["length_pol"][index] = float(np.sum(length))
         out["gm1"][index] = float(np.sum(weight / r_mid**2) / total)
         out["gm8"][index] = float(np.sum(weight * r_mid) / total)
         out["gm9"][index] = float(np.sum(weight / r_mid) / total)
