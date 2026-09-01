@@ -205,10 +205,15 @@ def resolve_display(
     ``canonical_unit`` is the IMAS storage unit of the data.  ``unit`` may be
     an explicit display unit (always wins), ``"auto"`` (magnitude-based within
     the allowed units, requires ``data``), or ``None`` for the subject/quantity
-    default.  ``subject`` and ``quantity`` name the canonical plot identity and
-    select the subject-specific preferences.  Unknown units raise
-    :class:`ValueError` naming the alternatives; pass-through quantities accept
-    only their canonical unit.
+    default.  Unknown units raise :class:`ValueError` naming the alternatives;
+    pass-through quantities accept only their canonical unit.
+
+    Two different notions of "quantity" meet here, so keep them apart:
+    :data:`SUBJECT_UNIT_DEFAULTS` and :data:`SUBJECT_NOTATION_DEFAULTS` are
+    keyed by the *unit-derived* quantity (``magnetic_field``, from
+    :func:`quantity_for_unit`), while ``quantity`` is the *taxonomy* quantity
+    of the canonical plot identity (``b_t``, ``beta_t``) and selects only
+    :data:`DIMENSIONLESS_DISPLAY`.
     """
     quantity_name = quantity_for_unit(canonical_unit)
     if quantity_name is None:

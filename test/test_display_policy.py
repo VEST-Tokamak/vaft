@@ -115,13 +115,14 @@ def test_titles_and_channel_labels_follow_the_grammar():
 @pytest.fixture()
 def ip_ods():
     ods = omas.ODS()
+    ods["dataset_description.data_entry.pulse"] = 39915
     ods["magnetics.ip.0.time"] = np.array([0.0, 0.1, 0.2])
     ods["magnetics.ip.0.data"] = np.array([0.0, 1.0e5, 2.0e5])
     return ods
 
 
 def test_plasma_current_defaults_to_ka_with_canonical_title(ip_ods):
-    figure, axes = vaft.omas.plot_plasma_current_time(ip_ods, label=["39915"])
+    figure, axes = vaft.omas.plot_plasma_current_time(ip_ods)
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.0, 100.0, 200.0])
     assert "[kA]" in axes.get_ylabel()
     # The heading is the recipe's own title, so siblings that share a display
@@ -200,14 +201,14 @@ def test_beta_members_keep_their_own_dimensionless_conventions():
 
 def test_panel_members_keep_the_short_recipe_title(ip_ods):
     """A composite carries the shot in its suptitle, not on every panel."""
-    figure, axes = vaft.omas.plot_current_overview(ip_ods, label=["39915"])
+    figure, axes = vaft.omas.plot_current_overview(ip_ods)
     titles = [panel.get_title() for panel in np.asarray(axes).ravel() if panel.get_visible()]
     assert titles == ["Plasma Current"], titles
+    # The identity the panels no longer repeat lives on the suptitle.
+    assert figure._suptitle.get_text().endswith("#39915")
 
     # The same plot standalone is decorated with unit and shot.
-    standalone_figure, standalone = vaft.omas.plot_plasma_current_time(
-        ip_ods, label=["39915"]
-    )
+    standalone_figure, standalone = vaft.omas.plot_plasma_current_time(ip_ods)
     assert standalone.get_title() == "Plasma Current [kA] #39915"
     plt.close(figure)
     plt.close(standalone_figure)
@@ -220,4 +221,15 @@ def test_multi_shot_titles_leave_shot_identity_to_the_legend(ip_ods):
     assert "#" not in axes.get_title()
     labels = [line.get_label() for line in axes.lines]
     assert labels == ["39915", "39916"]
+    plt.close(figure)
+
+
+def test_an_ods_without_a_pulse_names_no_shot():
+    """A container-key fallback must not be printed as a fabricated shot."""
+    ods = omas.ODS()
+    ods["magnetics.ip.0.time"] = np.array([0.0, 0.1])
+    ods["magnetics.ip.0.data"] = np.array([0.0, 1.0e5])
+    figure, axes = vaft.omas.plot_plasma_current_time(ods)
+    assert axes.get_title() == "Plasma Current [kA]"
+    assert "#" not in axes.get_title()
     plt.close(figure)

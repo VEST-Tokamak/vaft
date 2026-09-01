@@ -2222,17 +2222,30 @@ def _apply_display(trace: Series, *, x_scale: float, y_scale: float) -> Series:
     )
 
 
+def _entry_shot(entries) -> str | None:
+    """The shot a figure may name, taken from the ODS's own pulse.
+
+    Deliberately not the display label: :func:`normalize_entries` falls back to
+    the container key when an ODS carries no ``dataset_description``, and
+    printing that as ``#0`` would fabricate a shot number that reads like real
+    VEST metadata.  A figure built from several entries names no shot at all --
+    the legend distinguishes them.
+    """
+    if len(entries) != 1:
+        return None
+    pulse = _get(entries[0][1], "dataset_description.data_entry.pulse")
+    return None if pulse is None else str(pulse)
+
+
 def _decorated_title(heading: str, unit_label: str, entries) -> str:
     """``<Recipe title> [unit] #<shot>`` for a standalone figure.
 
     The heading is the recipe's own title rather than a synthesized
     subject/quantity pair: recipe titles are human-authored and already
     distinguish siblings that share a display unit (``w_mhd``/``w_mag``/
-    ``w_tot`` are all ``[J]``).  A figure built from several entries omits the
-    shot, which the legend carries instead.
+    ``w_tot`` are all ``[J]``).
     """
-    shot = entries[0][0] if len(entries) == 1 else None
-    return figure_title(heading, unit_label, shot=shot)
+    return figure_title(heading, unit_label, shot=_entry_shot(entries))
 
 
 def _entry_prefix(label: str, extra: str) -> str:
@@ -2353,7 +2366,7 @@ def _build_line_series(
             )
         )
     x_display = _resolve_axis_display(
-        "s", unit=options.get("xunit"), subject=subject,
+        recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
         series_values=[trace.x for trace in traces],
     )
     y_display = _resolve_axis_display(
@@ -2727,11 +2740,18 @@ def _build_panels(
             + ", ".join(recipe.members)
             + " have data in this input"
         )
+    if "title" in options:
+        suptitle = options["title"]
+    else:
+        suptitle = recipe.suptitle
+        shot = _entry_shot(entries)
+        if suptitle and shot:
+            suptitle = f"{suptitle} #{shot}"
     return Panels(
         models=tuple(members),
         ncols=recipe.ncols,
         share_x=recipe.share_x,
-        suptitle=options.get("title", recipe.suptitle),
+        suptitle=suptitle,
     )
 
 
