@@ -1646,18 +1646,20 @@ diagnostic_registry:
     mapping_status: not_implemented
     quantities: {static: [gun_position], measured: [injection_voltage, injection_current, arc_voltage, arc_current, limit_voltage], derived: []}
   magnetics.ip:
-    name: Plasma-current Rogowski coil
+    name: Plasma current
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
     ids_path: magnetics.ip
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
-    quantities: {static: [area, turns], measured: [rogowski_voltage], derived: [plasma_current]}
+    # Derived quantity, not the sensor: the physical Rogowski coil is
+    # magnetics.rogowski_coil (issue #215).
+    quantities: {static: [], measured: [], derived: [plasma_current]}
   magnetics.flux_loop:
     name: Flux loops
     family: magnetic_diagnostics
@@ -1690,18 +1692,36 @@ diagnostic_registry:
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
     quantities: {static: [position, poloidal_angle, toroidal_angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
   magnetics.diamagnetic_flux:
-    name: Diamagnetic-flux Rogowski coil
+    name: Diamagnetic flux
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
     ids_path: magnetics.diamagnetic_flux
     responsible: [{name: 김태경}]
+    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    # Derived quantity, not the sensor: the physical high-sensitivity TF
+    # Rogowski coil is magnetics.rogowski_coil (issue #215).
+    quantities: {static: [], measured: [], derived: [diamagnetic_flux]}
+  magnetics.rogowski_coil:
+    name: Rogowski coils
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.rogowski_coil
+    responsible: [{name: Joint}]
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
-    quantities: {static: [area, turns], measured: [rogowski_voltage], derived: [diamagnetic_flux]}
+    # The two physical VEST Rogowski sensors themselves. Shot-era source
+    # fields and calibration stay in the `plasma_current` / `rogowski_coil`
+    # blocks above -- this entry adds no second source of truth.
+    quantities: {static: [], measured: [rogowski_current], derived: []}
   magnetics.internal_probe:
     name: Internal magnetic probes
     family: magnetic_diagnostics

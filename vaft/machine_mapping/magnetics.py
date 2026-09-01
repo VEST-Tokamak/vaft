@@ -6,7 +6,7 @@ import math
 import os
 import re
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from pathlib import Path
@@ -570,6 +570,18 @@ def _set_voltage_signal(
     set_path(ods, f"{base_path}.voltage.validity", int(validity))
 
 
+def _set_current_signal(
+    ods: object,
+    base_path: str,
+    time: np.ndarray,
+    data: np.ndarray,
+    validity: int,
+) -> None:
+    set_path(ods, f"{base_path}.current.time", np.asarray(time, dtype=float))
+    set_path(ods, f"{base_path}.current.data", np.asarray(data, dtype=float))
+    set_path(ods, f"{base_path}.current.validity", int(validity))
+
+
 def _polyfit_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
     valid = indices[(indices >= 0) & (indices < values.size)]
     if valid.size < 2:
@@ -682,24 +694,48 @@ def _apply_fl10_windowed_compensation(
     return compensated
 
 
+def vest_plasma_rogowski_current(
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the calibration-only plasma-current Rogowski sensor current [A].
+
+    This is the sensor-level physical quantity: the channel calibration and
+    shot-era gain have been applied, but not the baseline removal, the FL10
+    compensation, or the shot-era sign convention that together turn it into
+    the plasma-current estimate.  It is the single definition of the Rogowski
+    calibration used by both :func:`vfit_plasma_current` and the
+    ``magnetics.rogowski_coil[0].current`` mapping (issue #215).
+    """
+    config, _, _, _ = _plasma_processing_for_shot(shot)
+    plasma_field = int(config["source"]["field"])
+    time, raw_ip = raw_db.require_signal(
+        _safe_vest_load(shot, plasma_field, raw_source),
+        shot=shot,
+        field=plasma_field,
+        signal_name="plasma-current Rogowski coil",
+    )
+    return time, calibrate_vest_signal(raw_ip, config["calibration"])
+
+
 def vfit_plasma_current(
     shot: int,
     ref: int = -1,
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return the processed plasma-current waveform."""
+    """Return the processed plasma-current waveform.
+
+    Composition of :func:`vest_plasma_rogowski_current` with the shot-era
+    baseline, FL10 compensation, and sign convention -- numerically unchanged
+    by the issue-#215 split.
+    """
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
     if ref == -1:
-        time, raw_ip = raw_db.require_signal(
-            _safe_vest_load(shot, plasma_field, raw_source),
-            shot=shot,
-            field=plasma_field,
-            signal_name="plasma-current Rogowski coil",
-        )
+        time, calibrated_ip = vest_plasma_rogowski_current(shot, raw_source=raw_source)
         x_base = _plasma_current_baseline_indices(time, baseline_config)
-        calibrated_ip = calibrate_vest_signal(raw_ip, config["calibration"])
         ip_shot = _linear_baseline_subtract(time, calibrated_ip, x_base)
 
         mode = reference_config.get("mode", "subtract")
@@ -926,6 +962,45 @@ def diamagnetic_saturation_report(
         plasma_start=plasma_start,
         plasma_end=plasma_end,
         repaired=False,
+    )
+
+
+def vest_diamagnetic_rogowski_current(
+    shot: int,
+    *,
+    plasma_start: float = DEFAULT_TSTART,
+    plasma_end: float = DEFAULT_TEND,
+    raw_source: raw_db.RawSource | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the calibrated hi-sensitivity TF-current Rogowski signal [A].
+
+    This is the sensor-level quantity feeding the diamagnetic-flux
+    calculation, before the reference-waveform subtraction that produces
+    ``delta_i_tf``.  ``delta_i_tf`` depends on the chosen plasma interval, so
+    it is this signal that is stored as
+    ``magnetics.rogowski_coil[1].current`` (issue #215).
+
+    It delegates to :func:`vest_diamagnetic_flux_detailed` and takes the
+    ``"integrated"`` stage rather than repeating the load-repair-integrate
+    chain, so the stored sensor current is exactly the waveform the flux is
+    derived from -- including the saturation repair of issue #285. Duplicating
+    that chain here would create a second, silently diverging definition of the
+    same measurement.
+
+    The plasma window only selects the reference interval for the *downstream*
+    flux; the integrated sensor current is independent of it.
+    """
+    _, _, report = vest_diamagnetic_flux_detailed(
+        shot,
+        plasma_start,
+        plasma_end,
+        raw_source=raw_source,
+        with_stages=True,
+    )
+    stages = report["stages"]
+    return (
+        np.asarray(stages["time"], dtype=float),
+        np.asarray(stages["integrated"], dtype=float),
     )
 
 
@@ -1433,6 +1508,118 @@ def _map_flux_loop_voltage(
     _set_voltage_signal(ods, f"magnetics.flux_loop.{index}", time, data, validity)
 
 
+# Sensor slots in `magnetics.rogowski_coil`.  Fixed so a shot missing one
+# sensor never shifts the other's index.
+_ROGOWSKI_PLASMA_CURRENT = 0
+_ROGOWSKI_DIAMAGNETIC_TF = 1
+
+# The DD enumerates only plasma(1), plasma_eddy(2), eddy(3), halo(4) and
+# compound(5) for `measured_quantity`, and requires private identifiers to use
+# a negative index.  The hi-sensitivity TF-current sensor is none of the five,
+# so it takes a private index rather than being misfiled as one of them.
+_ROGOWSKI_TF_CURRENT_INDEX = -1
+
+
+def _map_rogowski_coils(
+    ods: object,
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+    tstart: float | None = None,
+    tend: float | None = None,
+) -> None:
+    """Map the two physical VEST Rogowski sensors (issue #215).
+
+    VEST processes two Rogowski coils but previously stored only what they were
+    processed *into*.  Both are now represented as measurements in their own
+    right, at the sensor level, with the derived quantities left untouched::
+
+        plasma-current Rogowski
+            -> magnetics.rogowski_coil[0].current   (calibration only)
+            -> baseline removal, FL10 compensation, shot-era sign
+            -> magnetics.ip[0]
+
+        hi-sensitivity TF-current Rogowski
+            -> magnetics.rogowski_coil[1].current   (integration + calibration)
+            -> reference-waveform subtraction (delta_i_tf)
+            -> magnetics.diamagnetic_flux[0]
+
+    The stored current is the sensor-level quantity in both cases, never the
+    processing intermediate and never reconstructed from the derived product.
+    Currents keep their native acquisition timebase, cropped to the analysis
+    window, exactly as the flux-loop and Mirnov voltages do (issue #209).
+    """
+    _map_one_rogowski_coil(
+        ods,
+        _ROGOWSKI_PLASMA_CURRENT,
+        name="Plasma-current Rogowski coil",
+        identifier="rogowski_coil:plasma_current",
+        measured_name="plasma_eddy",
+        measured_index=2,
+        measured_description=(
+            "Plasma and eddy currents linked by the plasma-current Rogowski "
+            "contour, before FL10 vessel-current compensation"
+        ),
+        loader=lambda: vest_plasma_rogowski_current(shot, raw_source=raw_source),
+        tstart=tstart,
+        tend=tend,
+    )
+    _map_one_rogowski_coil(
+        ods,
+        _ROGOWSKI_DIAMAGNETIC_TF,
+        name="Diamagnetic hi-sensitivity TF-current Rogowski coil",
+        identifier="rogowski_coil:diamagnetic_tf_current",
+        measured_name="tf_coil_current",
+        measured_index=_ROGOWSKI_TF_CURRENT_INDEX,
+        measured_description=(
+            "Toroidal-field coil current measured by the high-sensitivity "
+            "Rogowski coil used as the input to the diamagnetic-flux "
+            "diagnostic; a private identifier because the DD enumeration "
+            "covers only plasma, eddy, halo and compound sensors"
+        ),
+        loader=lambda: vest_diamagnetic_rogowski_current(shot, raw_source=raw_source),
+        tstart=tstart,
+        tend=tend,
+    )
+
+
+def _map_one_rogowski_coil(
+    ods: object,
+    index: int,
+    *,
+    name: str,
+    identifier: str,
+    measured_name: str,
+    measured_index: int,
+    measured_description: str,
+    loader: Callable[[], tuple[np.ndarray, np.ndarray]],
+    tstart: float | None,
+    tend: float | None,
+) -> None:
+    """Write one Rogowski sensor, keeping its slot even when unavailable.
+
+    Geometry (`position`, `turns_per_metre`, `area`) is deliberately left
+    unset: VEST has no authoritative winding contour or turn density recorded,
+    and inventing one to satisfy the schema would be worse than omitting it.
+    """
+    base = f"magnetics.rogowski_coil.{index}"
+    set_path(ods, f"{base}.name", name)
+    set_path(ods, f"{base}.identifier", identifier)
+    set_path(ods, f"{base}.measured_quantity.name", measured_name)
+    set_path(ods, f"{base}.measured_quantity.index", int(measured_index))
+    set_path(ods, f"{base}.measured_quantity.description", measured_description)
+
+    try:
+        native_time, native_data = loader()
+    except raw_db.RawSignalUnavailableError:
+        # Keep the slot so the other sensor's index never moves.
+        _set_current_signal(ods, base, np.array([], dtype=float), np.array([], dtype=float), -2)
+        return
+
+    time, data = _crop_native_window(native_time, native_data, tstart=tstart, tend=tend)
+    _set_current_signal(ods, base, time, data, 0 if data.size else -2)
+
+
 def _map_probes(
     ods: object,
     shot: int,
@@ -1513,10 +1700,26 @@ def _map_probes(
         )
 
 
+_IP_METHOD_NAME = (
+    "VEST plasma-current Rogowski: shot-era channel calibration, linear "
+    "baseline removal, FL10 vessel-current compensation, shot-era sign "
+    "convention. The pre-compensation sensor current is retained in "
+    "magnetics.rogowski_coil[0].current."
+)
+
+_DIAMAGNETIC_METHOD_NAME = (
+    "VEST TF-current-change diamagnetic flux: hi-sensitivity TF Rogowski "
+    "current, reference-waveform subtraction over the plasma interval, then "
+    "the TF-circuit L/R/C response. The sensor current is retained in "
+    "magnetics.rogowski_coil[1].current."
+)
+
+
 def _map_ip(ods: object, target_time: np.ndarray, ip_time: np.ndarray, ip: np.ndarray) -> None:
     _set_magnetics_time(ods, target_time)
     set_path(ods, "magnetics.ip.0.data", _interpolate_signal(target_time, ip_time, ip))
     set_path(ods, "magnetics.ip.0.time", target_time)
+    set_path(ods, "magnetics.ip.0.method_name", _IP_METHOD_NAME)
 
 
 def _plasma_window(
@@ -1622,6 +1825,7 @@ def vfit_magnetics_dynamic(
     _map_flux_loops(ods, context, tstart=tstart, tend=tend)
     _map_probes(ods, shot, context, raw_source, tstart=tstart, tend=tend)
     vfit_limiter_shunts_dynamic(ods, shot, raw_source=raw_source)
+    _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     _map_ip(ods, context.target_time, ip_time, ip)
     _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)

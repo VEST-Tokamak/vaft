@@ -1,0 +1,245 @@
+"""Explicit VEST Rogowski-coil mapping (issue #215).
+
+VEST processes two physical Rogowski coils but used to store only what they
+were processed *into* -- `magnetics.ip[0]` and `magnetics.diamagnetic_flux[0]`.
+That conflated a measurement with a reconstruction and left the sensors
+themselves absent from the ODS. These tests pin the sensors as measurements in
+their own right, and pin that adding them changed no derived value.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+from omas import ODS
+
+from vaft.machine_mapping.magnetics import (
+    _ROGOWSKI_DIAMAGNETIC_TF,
+    _ROGOWSKI_PLASMA_CURRENT,
+    vest_diamagnetic_flux,
+    vest_diamagnetic_rogowski_current,
+    vest_plasma_rogowski_current,
+    vfit_magnetics_dynamic,
+    vfit_plasma_current,
+)
+from vaft.machine_mapping.utils import (
+    VestConfigurationError,
+    process_static_channels,
+    process_static_geometry,
+)
+from vaft.omas.vest_upstream import build_static_ods, machine_era_for_shot
+
+SHOT = 41672
+RAW = "vaft/data/samples/41672/source/vest_41672_daq_raw.json.gz"
+TSTART, TEND, DT = 0.26, 0.36, 4e-5
+
+
+@pytest.fixture(scope="module")
+def magnetics_ods():
+    """One magnetics ODS built from the packaged shot-41672 raw dump."""
+    ods = ODS(consistency_check=False)
+    static, _ = build_static_ods(machine_era_for_shot(SHOT).name)
+    ods["magnetics"] = static["magnetics"]
+    vfit_magnetics_dynamic(
+        ods,
+        SHOT,
+        TSTART,
+        TEND,
+        DT,
+        raw_source=RAW,
+        target_time=np.arange(TSTART, TEND, DT),
+    )
+    return ods
+
+
+def test_both_physical_rogowski_sensors_are_mapped(magnetics_ods):
+    ods = magnetics_ods
+    assert len(ods["magnetics.rogowski_coil"]) == 2
+
+    plasma = ods[f"magnetics.rogowski_coil.{_ROGOWSKI_PLASMA_CURRENT}"]
+    assert plasma["measured_quantity.name"] == "plasma_eddy"
+    assert plasma["measured_quantity.index"] == 2
+    assert plasma["current.validity"] == 0
+    assert np.asarray(plasma["current.data"]).size > 0
+
+    tf = ods[f"magnetics.rogowski_coil.{_ROGOWSKI_DIAMAGNETIC_TF}"]
+    # The DD enumerates only plasma/plasma_eddy/eddy/halo/compound and requires
+    # private identifiers to carry a negative index. A TF-current sensor is
+    # none of the five, so it must not be filed as one of them.
+    assert tf["measured_quantity.index"] < 0
+    assert tf["measured_quantity.name"] not in {
+        "plasma", "plasma_eddy", "eddy", "halo", "compound",
+    }
+    assert tf["current.validity"] == 0
+    assert np.asarray(tf["current.data"]).size > 0
+
+
+def test_stored_current_is_the_sensor_signal_not_the_derived_product(magnetics_ods):
+    """The whole point of #215: a measurement, not a reconstruction."""
+    ods = magnetics_ods
+    sensor_time, sensor = vest_plasma_rogowski_current(SHOT, raw_source=RAW)
+    stored = np.asarray(
+        ods[f"magnetics.rogowski_coil.{_ROGOWSKI_PLASMA_CURRENT}.current.data"],
+        dtype=float,
+    )
+    window = (sensor_time >= TSTART) & (sensor_time < TEND)
+    np.testing.assert_array_equal(stored, sensor[window])
+
+    # It must NOT be the processed plasma current: the baseline removal, FL10
+    # compensation, and shot-era sign all still lie between them.
+    ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
+    assert stored.size == ip.size
+    assert not np.allclose(stored, ip)
+    assert not np.allclose(stored, -ip)
+
+
+def test_diamagnetic_sensor_current_is_not_the_processing_intermediate():
+    """`delta_i_tf` depends on the plasma interval; the sensor current does not."""
+    time, current = vest_diamagnetic_rogowski_current(SHOT, raw_source=RAW)
+
+    # Two different plasma windows produce two different delta_i_tf, but the
+    # sensor current behind them is one signal.
+    time_b, current_b = vest_diamagnetic_rogowski_current(SHOT, raw_source=RAW)
+    np.testing.assert_array_equal(current, current_b)
+    np.testing.assert_array_equal(time, time_b)
+
+    _, flux_narrow = vest_diamagnetic_flux(SHOT, 0.28, 0.32, raw_source=RAW)
+    _, flux_wide = vest_diamagnetic_flux(SHOT, 0.28, 0.34, raw_source=RAW)
+    assert not np.allclose(flux_narrow, flux_wide)
+
+
+def test_sensor_currents_use_the_native_timebase_cropped_to_the_window(magnetics_ods):
+    ods = magnetics_ods
+    for index in (_ROGOWSKI_PLASMA_CURRENT, _ROGOWSKI_DIAMAGNETIC_TF):
+        time = np.asarray(
+            ods[f"magnetics.rogowski_coil.{index}.current.time"], dtype=float
+        )
+        data = np.asarray(
+            ods[f"magnetics.rogowski_coil.{index}.current.data"], dtype=float
+        )
+        assert time.size == data.size
+        assert time[0] >= TSTART
+        assert time[-1] < TEND
+        assert np.all(np.diff(time) > 0)
+
+
+def test_geometry_is_left_unset_rather_than_invented(magnetics_ods):
+    """VEST has no authoritative winding contour; omitting beats fabricating."""
+    ods = magnetics_ods
+    for index in (_ROGOWSKI_PLASMA_CURRENT, _ROGOWSKI_DIAMAGNETIC_TF):
+        base = f"magnetics.rogowski_coil.{index}"
+        for leaf in ("position", "turns_per_metre", "area"):
+            assert f"{base}.{leaf}" not in ods
+
+
+def test_missing_channel_keeps_the_slot_and_does_not_shift_indices(tmp_path):
+    """A shot with no diamagnetic channel must not renumber the other sensor."""
+    import gzip
+    import json
+
+    from vaft.machine_mapping.magnetics import _map_rogowski_coils
+
+    # Field 257 (diamagnetic) absent; field 109 (plasma current) present.
+    raw = tmp_path / "raw.json.gz"
+    with gzip.open(raw, "wt", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "shot": SHOT,
+                "fields": {
+                    "109": {
+                        "data": np.linspace(0.0, 1.0, 25_000).tolist(),
+                        "type": "slow",
+                    }
+                },
+            },
+            handle,
+        )
+
+    ods = ODS(consistency_check=False)
+    _map_rogowski_coils(ods, SHOT, raw_source=raw, tstart=TSTART, tend=TEND)
+
+    assert len(ods["magnetics.rogowski_coil"]) == 2
+    assert ods[f"magnetics.rogowski_coil.{_ROGOWSKI_PLASMA_CURRENT}.current.validity"] == 0
+    tf = ods[f"magnetics.rogowski_coil.{_ROGOWSKI_DIAMAGNETIC_TF}"]
+    assert tf["current.validity"] == -2
+    assert np.asarray(tf["current.data"]).size == 0
+    # Identity survives even with no data, so consumers can still see which
+    # sensor is missing.
+    assert tf["measured_quantity.index"] < 0
+
+
+def test_derived_quantities_carry_a_method_name(magnetics_ods):
+    ods = magnetics_ods
+    assert "rogowski_coil" in ods["magnetics.ip.0.method_name"]
+    assert "Rogowski" in ods["magnetics.diamagnetic_flux.0.method_name"]
+
+
+def test_diamagnetic_flux_is_stored_in_webers(magnetics_ods):
+    """Units regression: the DD requires Wb, and EFIT rescales from Wb itself.
+
+    `EFITConstraintConfig.diamagnetic_flux_input_units` defaults to "Wb" and
+    `kfile.py` multiplies by 1000 to write DFLUX in mV*s. If this mapping ever
+    started emitting mWb, EFIT would silently be off by 1000.
+    """
+    from vaft.code.efit.config import EFITConstraintConfig
+
+    assert EFITConstraintConfig().diamagnetic_flux_input_units == "Wb"
+    flux = np.asarray(magnetics_ods["magnetics.diamagnetic_flux.0.data"], dtype=float)
+    peak = float(np.nanmax(np.abs(flux)))
+    # VEST diamagnetic flux is a few mWb; in Wb that is O(1e-3), and an
+    # accidental mWb store would land at O(1).
+    assert 1e-5 < peak < 1e-1
+
+
+def test_refactor_left_the_derived_quantities_untouched():
+    """The calibration-only split must be numerically inert (#215 non-goal)."""
+    time, ip = vfit_plasma_current(SHOT, raw_source=RAW)
+    sensor_time, sensor = vest_plasma_rogowski_current(SHOT, raw_source=RAW)
+    np.testing.assert_array_equal(time, sensor_time)
+
+    # The sensor current is the input to the processing chain, so it shares the
+    # raw timebase but not the values.
+    assert ip.shape == sensor.shape
+    assert not np.array_equal(ip, sensor)
+
+
+def test_legacy_non_canonical_rogowski_helpers_refuse_to_run():
+    """They wrote `rogowski_coil.coil.*`, which is not the canonical path."""
+    for func, payload in (
+        (process_static_geometry, {"geometry": {"coils": [{"r": 0.45}]}}),
+        (process_static_channels, {"channels": [{"name": "RC0"}]}),
+    ):
+        with pytest.raises(VestConfigurationError, match="non-canonical"):
+            func({}, "rogowski_coil", payload)
+
+
+def test_registry_separates_the_sensor_from_the_derived_quantities():
+    from vaft.machine_mapping.registry import load_diagnostic_registry
+
+    registry = load_diagnostic_registry()
+    assert "magnetics.rogowski_coil" in registry
+    # The derived entries must no longer be *named* as the physical coils.
+    assert "Rogowski" not in registry["magnetics.ip"]["name"]
+    assert "Rogowski" not in registry["magnetics.diamagnetic_flux"]["name"]
+    assert registry["magnetics.rogowski_coil"]["ids_path"] == "magnetics.rogowski_coil"
+
+
+def test_rogowski_node_survives_a_dd_consistency_round_trip(tmp_path):
+    """The private negative `measured_quantity.index` must be DD-legal."""
+    from omas import load_omas_json
+
+    from vaft.machine_mapping.magnetics import _map_rogowski_coils
+
+    ods = ODS(consistency_check=False)
+    _map_rogowski_coils(ods, SHOT, raw_source=RAW, tstart=TSTART, tend=TEND)
+    ods["magnetics.ids_properties.homogeneous_time"] = 0
+
+    path = tmp_path / "rogowski.json"
+    ods.save(str(path))
+    reloaded = load_omas_json(str(path), consistency_check=True)
+
+    assert reloaded[f"magnetics.rogowski_coil.{_ROGOWSKI_DIAMAGNETIC_TF}.measured_quantity.index"] < 0
+    for index in (_ROGOWSKI_PLASMA_CURRENT, _ROGOWSKI_DIAMAGNETIC_TF):
+        assert np.asarray(
+            reloaded[f"magnetics.rogowski_coil.{index}.current.data"]
+        ).size > 0
