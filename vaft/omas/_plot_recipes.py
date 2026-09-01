@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
 import dataclasses
@@ -187,6 +188,136 @@ def _resolve_indices(
     if requested is not None:
         return [int(item) for item in requested]
     return list(range(_count(ods, _container_of(template, marker))))
+
+
+#: Where a channel's human identifier lives, in the order they are tried.
+_IDENTIFIER_LEAVES = ("identifier", "name")
+
+
+def _channel_identifiers(ods: Any, container: str, count: int) -> list[str]:
+    """The identifier of each channel in ``container``, blank where unnamed."""
+    identifiers = []
+    for index in range(count):
+        label = ""
+        for leaf in _IDENTIFIER_LEAVES:
+            value = _get(ods, f"{container}.{index}.{leaf}")
+            if value not in (None, ""):
+                label = str(value)
+                break
+        identifiers.append(label)
+    return identifiers
+
+
+def _channel_positions(ods: Any, container: str, count: int):
+    """``(r, z)`` of each channel, as arrays with ``nan`` where absent.
+
+    Flux loops store a list of points (``position.0.r``) while probes store a
+    single point (``position.r``); both spellings are read here so callers do
+    not need to know which diagnostic they hold.
+    """
+    r_values, z_values = [], []
+    for index in range(count):
+        r = z = np.nan
+        for prefix in (f"{container}.{index}.position", f"{container}.{index}.position.0"):
+            candidate_r = _get(ods, f"{prefix}.r")
+            candidate_z = _get(ods, f"{prefix}.z")
+            if candidate_r is not None and candidate_z is not None:
+                try:
+                    r = float(np.asarray(candidate_r, dtype=float).ravel()[0])
+                    z = float(np.asarray(candidate_z, dtype=float).ravel()[0])
+                except (IndexError, TypeError, ValueError):
+                    r = z = np.nan
+                break
+        r_values.append(r)
+        z_values.append(z)
+    return np.asarray(r_values, dtype=float), np.asarray(z_values, dtype=float)
+
+
+def _resolve_selection(
+    ods: Any, template: str, selection: Any, marker: str = "{i}"
+) -> list[int]:
+    """Resolve the public ``selection=`` contract to ODS channel indices.
+
+    ``None`` or ``"all"`` selects every channel; an ``int`` or a sequence of
+    ints selects those indices; a ``str`` resolves as a named physical preset
+    first and then as an exact identifier; a sequence of ``str`` resolves as
+    identifiers.  Anything unresolved raises, naming what was available --
+    fuzzy matching would let a typo silently plot the wrong diagnostic.
+    """
+    container = _container_of(template, marker)
+    count = _count(ods, container)
+    if selection is None or (isinstance(selection, str) and selection == "all"):
+        return list(range(count))
+    if isinstance(selection, (int, np.integer)) and not isinstance(selection, bool):
+        return [int(selection)]
+
+    terms = [selection] if isinstance(selection, str) else list(selection)
+    if all(isinstance(term, (int, np.integer)) and not isinstance(term, bool)
+           for term in terms):
+        return [int(term) for term in terms]
+
+    identifiers = _channel_identifiers(ods, container, count)
+    lookup = {name: index for index, name in enumerate(identifiers) if name}
+    indices: list[int] = []
+    for term in terms:
+        if not isinstance(term, str):
+            raise TypeError(
+                "selection must be indices or identifiers, not a mixture; "
+                f"got {term!r}"
+            )
+        preset = _resolve_preset(ods, container, count, term)
+        if preset is not None:
+            indices.extend(preset)
+            continue
+        if term in lookup:
+            indices.append(lookup[term])
+            continue
+        known = ", ".join(sorted(name for name in identifiers if name)) or "none"
+        raise ValueError(
+            f"unknown selection {term!r} for {container}; "
+            f"supported presets: {', '.join(selection_presets())}; "
+            f"available identifiers: {known}"
+        )
+    # Preserve ODS order and drop repeats so overlapping terms stay predictable.
+    return sorted(dict.fromkeys(indices))
+
+
+def _resolve_preset(ods: Any, container: str, count: int, term: str):
+    """Resolve a named physical preset, or ``None`` when ``term`` is not one.
+
+    Presets arrive with the representative-channel work; the hook exists here
+    so the resolution order -- preset, then identifier, then error -- is fixed
+    by the contract rather than by whichever lands first.
+    """
+    return None
+
+
+def selection_presets() -> tuple[str, ...]:
+    """The named physical presets this build understands."""
+    return ()
+
+
+def _selection_option(options: dict) -> Any:
+    """Read ``selection=``, honouring the deprecated ``channels=`` spelling."""
+    from vaft.plot._migration import RENAMED_REMOVAL_RELEASE
+
+    selection = options.get("selection")
+    channels = options.get("channels")
+    if selection is not None:
+        if channels is not None:
+            raise TypeError(
+                "pass either selection= or the deprecated channels=, not both"
+            )
+        return selection
+    if channels is not None:
+        warnings.warn(
+            "channels= is deprecated; use selection=, which takes the same "
+            "indices and also accepts identifiers and named physical presets. "
+            f"Removed in {RENAMED_REMOVAL_RELEASE}.",
+            DeprecationWarning,
+            stacklevel=4,
+        )
+    return channels
 
 
 def _squeeze_energy_band(values: np.ndarray | None, *, where: str) -> np.ndarray | None:
@@ -2331,7 +2462,7 @@ def _build_line_traces(
     recipe: LineRecipe,
     *,
     entry_label: str,
-    channels: Any = None,
+    selection: Any = None,
 ) -> list[Series]:
     """Extract traces in IMAS canonical units; display scaling happens later."""
     value_scale = recipe.scale
@@ -2364,7 +2495,7 @@ def _build_line_traces(
         ]
 
     if recipe.index == "channel":
-        indices = _resolve_indices(ods, recipe.y_path, channels)
+        indices = _resolve_selection(ods, recipe.y_path, selection)
         traces = []
         for index in indices:
             try:
@@ -2435,7 +2566,7 @@ def _build_line_series(
                 ods,
                 recipe,
                 entry_label=entry_label,
-                channels=options.get("channels"),
+                selection=_selection_option(options),
             )
         )
     x_display = _resolve_axis_display(
@@ -2502,7 +2633,7 @@ def _build_profile_1d(
     traces: list[Series] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
-            indices = _resolve_indices(ods, recipe.y_path, options.get("channels"))
+            indices = _resolve_selection(ods, recipe.y_path, _selection_option(options))
             x_values, y_values = [], []
             for index in indices:
                 x = _get(ods, _profile_coordinate(recipe, coordinate).format(i=index))

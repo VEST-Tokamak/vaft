@@ -1,6 +1,10 @@
 from pathlib import Path
 
 import numpy as np
+
+from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
+
+from .selection import classify_regions
 import matplotlib.pyplot as plt
 import vaft
 import matplotlib.patches as patches
@@ -100,9 +104,13 @@ def analysis_diagnostics(
         flux_count = len(ods["magnetics.flux_loop"])
     except (KeyError, TypeError):
         flux_count = 0
+    flux_regions = classify_regions([
+        float(_value(ods, f"magnetics.flux_loop.{index}.position.0.r", np.nan))
+        for index in range(flux_count)
+    ])
     for index in range(flux_count):
-        radius = float(_value(ods, f"magnetics.flux_loop.{index}.position.0.r", np.nan))
-        group = 0 if radius < 0.15 else 1 if radius > 0.5 else None
+        region = flux_regions[index]
+        group = 0 if region == "inboard" else 1 if region == "outboard" else None
         if group is not None:
             _plot_series(flux_groups[group], magnetics_time, _value(ods, f"magnetics.flux_loop.{index}.flux.data"), label=str(index))
 
@@ -110,10 +118,26 @@ def analysis_diagnostics(
         probe_count = len(ods["magnetics.b_field_pol_probe"])
     except (KeyError, TypeError):
         probe_count = 0
+    # The radial split comes from the probes' own geometry; only the vertical
+    # "side" cut is a machine constant, and it is imported rather than retyped.
+    # It is tested first, as vaft.omas.vacuum_magnetics.probe_family does --
+    # this file used to test it second and so disagreed with the reconstruction
+    # about which family a high, inboard probe belonged to.
+    probe_regions = classify_regions([
+        float(_value(ods, f"magnetics.b_field_pol_probe.{index}.position.r", np.nan))
+        for index in range(probe_count)
+    ])
     for index in range(probe_count):
-        radius = float(_value(ods, f"magnetics.b_field_pol_probe.{index}.position.r", np.nan))
         z = float(_value(ods, f"magnetics.b_field_pol_probe.{index}.position.z", np.nan))
-        group = 0 if radius < 0.09 else 1 if abs(z) > 0.8 else 2 if radius > 0.795 else None
+        region = probe_regions[index]
+        if abs(z) > SIDE_PROBE_MIN_ABS_Z:
+            group = 1
+        elif region == "inboard":
+            group = 0
+        elif region == "outboard":
+            group = 2
+        else:
+            group = None
         if group is not None:
             _plot_series(probe_groups[group], magnetics_time, _value(ods, f"magnetics.b_field_pol_probe.{index}.field.data"), label=str(index))
 
