@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import os
 import re
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
@@ -21,7 +22,12 @@ from vaft.process.magnetics import (
     VestMagneticsProcessingConfig,
     vest_equilibrium_magnetics_detailed,
 )
-from vaft.process.signal_processing import detect_active_window, smooth
+from vaft.process.signal_processing import (
+    detect_active_window,
+    detect_clipped_samples,
+    repair_clipped_interval,
+    smooth,
+)
 
 from .utils import (
     VestConfigurationError,
@@ -817,15 +823,136 @@ def vfit_plasma_mgods_startend(ods: object) -> tuple[float, float]:
     return float(time[start_index]), float(time[end_index])
 
 
-def vest_diamagnetic_flux(
+def _diamagnetic_config(shot: int) -> dict[str, Any]:
+    """Resolve the shot-era diamagnetic-Rogowski configuration from `vest.yaml`."""
+    return resolve_vest_diagnostic(shot, "diamagnetic_flux")
+
+
+def _saturation_runs(mask: np.ndarray) -> list[tuple[int, int]]:
+    """Return inclusive ``(start, stop)`` index pairs for each saturated run."""
+    indices = np.flatnonzero(mask)
+    if indices.size == 0:
+        return []
+    breaks = np.flatnonzero(np.diff(indices) > 1)
+    starts = np.concatenate(([indices[0]], indices[breaks + 1]))
+    stops = np.concatenate((indices[breaks], [indices[-1]]))
+    return [(int(a), int(b)) for a, b in zip(starts, stops)]
+
+
+def _diamagnetic_saturation_report(
+    shot: int,
+    field_code: int,
+    time: np.ndarray,
+    mask: np.ndarray,
+    limits: Mapping[str, Any],
+    *,
+    plasma_start: float | None = None,
+    plasma_end: float | None = None,
+    repaired: bool = False,
+) -> dict[str, Any]:
+    """Summarise which samples sat at the acquisition rail, and where."""
+    runs = _saturation_runs(mask)
+    n_saturated = int(mask.sum())
+    in_window = 0
+    if plasma_start is not None and plasma_end is not None and n_saturated:
+        window = (time >= float(plasma_start)) & (time <= float(plasma_end))
+        in_window = int(np.count_nonzero(mask & window))
+
+    if n_saturated == 0:
+        reason = "no sample reached the acquisition limit"
+    elif not repaired:
+        reason = f"{n_saturated} samples at the acquisition limit, not repaired"
+    elif in_window:
+        reason = (
+            f"{n_saturated} samples reconstructed at the acquisition limit, "
+            f"{in_window} of them inside the plasma window"
+        )
+    else:
+        reason = (
+            f"{n_saturated} samples reconstructed at the acquisition limit, "
+            "none inside the plasma window"
+        )
+
+    return {
+        "shot": int(shot),
+        "field": int(field_code),
+        "clip_values": [float(v) for v in limits.get("values", ())],
+        "tolerance": float(limits["tolerance"]) if "tolerance" in limits else None,
+        "n_samples": int(time.size),
+        "n_saturated": n_saturated,
+        "n_intervals": len(runs),
+        "longest_run": max((b - a + 1 for a, b in runs), default=0),
+        "first_time": float(time[runs[0][0]]) if runs else None,
+        "last_time": float(time[runs[-1][1]]) if runs else None,
+        "n_saturated_in_window": in_window,
+        "plasma_start": None if plasma_start is None else float(plasma_start),
+        "plasma_end": None if plasma_end is None else float(plasma_end),
+        "repaired": bool(repaired and n_saturated),
+        "reason": reason,
+    }
+
+
+def diamagnetic_saturation_report(
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+    plasma_start: float | None = None,
+    plasma_end: float | None = None,
+) -> dict[str, Any]:
+    """Report acquisition-limit saturation on the diamagnetic Rogowski channel.
+
+    Detection only -- no integration, no repair. This is the seam a validity
+    mapper should call (`magnetics.rogowski_coil[:].current.validity`, issue
+    #215) so that saturation is detected in exactly one place.
+    """
+    config = _diamagnetic_config(shot)
+    field_code = int(config["source"]["field"])
+    limits = config["processing"]["saturation_repair"]
+    temp_time, raw_values = raw_db.require_signal(
+        _safe_vest_load(shot, field_code, raw_source),
+        shot=shot,
+        field=field_code,
+        signal_name="diamagnetic flux",
+    )
+    mask = detect_clipped_samples(
+        raw_values, clip_values=limits["values"], tolerance=float(limits["tolerance"])
+    )
+    return _diamagnetic_saturation_report(
+        shot,
+        field_code,
+        temp_time,
+        mask,
+        limits,
+        plasma_start=plasma_start,
+        plasma_end=plasma_end,
+        repaired=False,
+    )
+
+
+def vest_diamagnetic_flux_detailed(
     shot: int,
     plasma_start: float,
     plasma_end: float,
     *,
     raw_source: raw_db.RawSource | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the corrected diamagnetic flux waveform."""
-    field_code = 246 if shot < 37505 else 4 if shot < 38452 else 257
+    with_stages: bool = False,
+) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    """Compute the diamagnetic flux waveform and report input saturation.
+
+    The raw Rogowski voltage is integrated three times on the way to
+    `magnetics.diamagnetic_flux`, so a sample pinned at the acquisition rail is
+    a known underestimate whose error does not average out. Saturated samples
+    are reconstructed with the shared `repair_clipped_interval` primitive
+    before any integration, and the outcome is returned rather than discarded.
+
+    With ``with_stages=True`` the report also carries a ``"stages"`` mapping of
+    the measured and intermediate waveforms, so the effect of the repair can be
+    inspected at each integration without reimplementing the chain elsewhere.
+    """
+    config = _diamagnetic_config(shot)
+    field_code = int(config["source"]["field"])
+    processing = config["processing"]
+    limits = processing["saturation_repair"]
     temp_time, raw_values = raw_db.require_signal(
         _safe_vest_load(shot, field_code, raw_source),
         shot=shot,
@@ -833,17 +960,60 @@ def vest_diamagnetic_flux(
         signal_name="diamagnetic flux",
     )
 
-    turn_tf = 24
-    ind_tf = 9.3e-4
-    res_tf = 0.0279
-    cap_tf = 120.0
-    rogo_gain = -1 / 8.12e-3
+    measured_values = np.asarray(raw_values, dtype=float).copy()
+    # A SignalRepairError propagates deliberately: fabricating a waveform
+    # would be worse than reporting that it is unrecoverable (cf. PF6 in
+    # `vaft/machine_mapping/pf_active.py`).
+    raw_values, saturated = repair_clipped_interval(
+        temp_time,
+        raw_values,
+        clip_value=limits["values"],
+        tolerance=float(limits["tolerance"]),
+        return_mask=True,
+    )
+    report = _diamagnetic_saturation_report(
+        shot,
+        field_code,
+        temp_time,
+        saturated,
+        limits,
+        plasma_start=plasma_start,
+        plasma_end=plasma_end,
+        repaired=True,
+    )
+    if report["n_saturated_in_window"]:
+        warnings.warn(
+            f"Shot {shot}: the diamagnetic Rogowski channel (field {field_code}) "
+            f"saturated at its acquisition limit on {report['n_saturated_in_window']} "
+            "samples inside the plasma window; the reconstructed waveform there is "
+            "an interpolation, not a measurement.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    tf_circuit = processing["tf_circuit"]
+    turn_tf = float(tf_circuit["turns"])
+    ind_tf = float(tf_circuit["inductance"])
+    res_tf = float(tf_circuit["resistance"])
+    cap_tf = float(tf_circuit["capacitance"])
+    rogo_gain = -1 / float(processing["rogowski_shunt"])
 
     integrated = integrate.cumulative_trapezoid(raw_values, temp_time, initial=0.0) * rogo_gain
     start_index = int(np.argmin(np.abs(temp_time - plasma_start)))
     end_index = int(np.argmin(np.abs(temp_time - plasma_end)))
     if end_index <= start_index:
-        return temp_time, np.zeros(temp_time.size, dtype=float)
+        empty = np.zeros(temp_time.size, dtype=float)
+        if with_stages:
+            report["stages"] = {
+                "time": temp_time,
+                "raw": measured_values,
+                "raw_repaired": raw_values,
+                "saturated": saturated,
+                "integrated": integrated,
+                "delta_i_tf": empty,
+                "flux": empty,
+            }
+        return temp_time, empty, report
 
     ref_signal = np.interp(
         temp_time,
@@ -866,7 +1036,35 @@ def vest_diamagnetic_flux(
 
     dia_flux_final = -1000.0 * (dia_flux - baseline)
     dia_flux_final[end_index:] = 0.0
-    return temp_time, dia_flux_final
+    if with_stages:
+        report["stages"] = {
+            "time": temp_time,
+            "raw": measured_values,
+            "raw_repaired": raw_values,
+            "saturated": saturated,
+            "integrated": integrated,
+            "delta_i_tf": delta_i_tf,
+            "flux": dia_flux_final,
+        }
+    return temp_time, dia_flux_final, report
+
+
+def vest_diamagnetic_flux(
+    shot: int,
+    plasma_start: float,
+    plasma_end: float,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the corrected diamagnetic flux waveform.
+
+    Thin wrapper over `vest_diamagnetic_flux_detailed` for callers that do not
+    need the saturation report.
+    """
+    time, flux, _ = vest_diamagnetic_flux_detailed(
+        shot, plasma_start, plasma_end, raw_source=raw_source
+    )
+    return time, flux
 
 
 def _equilibrium_magnetics_window_for_shot(shot: int) -> dict[str, Any]:
@@ -1354,6 +1552,21 @@ def _plasma_window(
     return tstart2, tend2
 
 
+def _diamagnetic_method_name(report: Mapping[str, Any]) -> str:
+    """One-line provenance string for `magnetics.diamagnetic_flux[0].method_name`."""
+    base = (
+        "Rogowski triple-integration of VEST raw field "
+        f"{report['field']}"
+    )
+    if not report["n_saturated"]:
+        return f"{base}; no acquisition-limit saturation detected"
+    return (
+        f"{base}; {report['n_saturated']}/{report['n_samples']} samples "
+        f"reconstructed at the acquisition limit in {report['n_intervals']} intervals, "
+        f"{report['n_saturated_in_window']} inside the plasma window"
+    )
+
+
 def _map_diamagnetic_flux(
     ods: object,
     shot: int,
@@ -1364,9 +1577,16 @@ def _map_diamagnetic_flux(
 ) -> None:
     tstart2, tend2 = _plasma_window(ods, shot, target_time, ip_time, ip, raw_source)
 
-    time_dia, dia_flux = vest_diamagnetic_flux(shot, tstart2, tend2, raw_source=raw_source)
+    time_dia, dia_flux, report = vest_diamagnetic_flux_detailed(
+        shot, tstart2, tend2, raw_source=raw_source
+    )
     set_path(ods, "magnetics.diamagnetic_flux.0.data", _interpolate_signal(target_time, time_dia, dia_flux))
     set_path(ods, "magnetics.diamagnetic_flux.0.time", target_time)
+    # The IMAS DD has no `validity` under `magnetics.diamagnetic_flux`, so the
+    # saturation outcome is recorded in the one string field it does offer.
+    # `magnetics.rogowski_coil[:].current.validity` is the structured home and
+    # belongs to issue #215; it can call `diamagnetic_saturation_report`.
+    set_path(ods, "magnetics.diamagnetic_flux.0.method_name", _diamagnetic_method_name(report))
 
 
 def vfit_magnetics_dynamic(
@@ -1563,7 +1783,9 @@ __all__ = [
     "flux_loop_from_raw_database",
     "ip_rogowski_coil_from_raw_database",
     "magnetics_from_raw_database",
+    "diamagnetic_saturation_report",
     "vest_diamagnetic_flux",
+    "vest_diamagnetic_flux_detailed",
     "vest_equilibrium_magnetics_channel_definitions",
     "fluctuation_mirnov_channel_definitions",
     "fluctuation_mirnov_gain_by_identifier",
