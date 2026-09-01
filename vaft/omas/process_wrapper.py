@@ -31,6 +31,8 @@ from vaft.process import (
     trace_field_line,
     trajectory_world_points,
 )
+from vaft.formula.equilibrium import poloidal_field_factor
+from vaft.omas.general import ods_cocos
 from vaft.formula import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
     virial_bongard_from_S_alpha_mu,
@@ -1066,10 +1068,13 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     Rm, Zm = np.meshgrid(R_grid, Z_grid, indexing="ij")
     Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
 
-    # B field from poloidal flux psi
-    # B_R = -(1/R) dpsi/dZ, B_Z = (1/R) dpsi/dR
-    B_R = -(1.0 / Rm_safe) * dpsi_dZ
-    B_Z = (1.0 / Rm_safe) * dpsi_dR
+    # B field from poloidal flux psi, Sauter Eq. 20:
+    # B_R = k (1/R) dpsi/dZ, B_Z = -k (1/R) dpsi/dR, with
+    # k = sigma_RphiZ sigma_Bp / (2*pi)**e_Bp.  IMAS declares psi in weber
+    # (COCOS 11), so a labelled ODS needs the 2*pi that a Wb/rad one does not.
+    k = poloidal_field_factor(ods_cocos(ods))
+    B_R = k * (1.0 / Rm_safe) * dpsi_dZ
+    B_Z = -k * (1.0 / Rm_safe) * dpsi_dR
 
     # Toroidal field: B_phi = F(psi) / R.
     # Here we approximate F as constant using reference point: F ≈ B0 * R0
@@ -1195,7 +1200,7 @@ def compute_virial_equilibrium_quantities_ods(
             continue
 
         B_p_bdry, _, _ = poloidal_field_at_boundary(
-            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry
+            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
         )
         B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -1214,8 +1219,11 @@ def compute_virial_equilibrium_quantities_ods(
             dpsi_dR, dpsi_dZ = np.gradient(psi_RZ, R_grid_1d, Z_grid_1d, edge_order=2)
             Rm, Zm = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
             Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
-            B_R_grid = -(1.0 / Rm_safe) * dpsi_dZ
-            B_Z_grid = (1.0 / Rm_safe) * dpsi_dR
+            # Same Eq. 20 coefficient as the boundary field a few lines above:
+            # feeding shafranov_integrals one of each mixes conventions.
+            k_grid = poloidal_field_factor(ods_cocos(ods))
+            B_R_grid = k_grid * (1.0 / Rm_safe) * dpsi_dZ
+            B_Z_grid = -k_grid * (1.0 / Rm_safe) * dpsi_dR
 
 
         # Axis geometry: validate per-slice and fallback to boundary geometry when missing/invalid.
@@ -1633,7 +1641,7 @@ def compute_diamagnetism(ods, time_index=0):
     R_bdry = np.asarray(eq_slice["boundary.outline.r"], float)
     Z_bdry = np.asarray(eq_slice["boundary.outline.z"], float)
     B_p_bdry, _, _ = poloidal_field_at_boundary(
-        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry
+        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
     )
     B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -2338,7 +2346,7 @@ def compute_field_line_trace(
     field_data = _equilibrium_field_slice_data(time_slice)
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"],
+        field_data["psi_1d"], field_data["f_1d"], cocos=ods_cocos(ods),
     )
 
     wall_r = wall_z = None

@@ -530,3 +530,63 @@ def combine_ods(ods_list):
             break
 
     return combined_ods
+
+
+#: Where the convention is recorded on an ODS.
+#:
+#: IMAS DD 4 adds ``ids_properties.cocos``, but DD 3.x -- which OMAS defaults to
+#: and VAFT targets -- has no such field, which is why nothing has ever written
+#: the path VAFT reads.  The convention therefore lives on
+#: ``equilibrium.code.parameters``, the same place VAFT already keeps CHEASE's
+#: comparison metrics and EFIT's auxiliary quantities, and the standard field is
+#: written too whenever the data dictionary in use accepts it.
+COCOS_PARAMETER_PATH = "equilibrium.code.parameters.cocos"
+
+
+def ods_cocos(ods, *, default=None):
+    """The COCOS index an ODS declares, or ``default`` when it declares none.
+
+    Reads the DD 4 ``ids_properties.cocos`` field first, then VAFT's
+    ``equilibrium.code.parameters.cocos`` block.  An ODS written before VAFT
+    labelled its output declares nothing, so the caller keeps whatever legacy
+    assumption it had rather than guessing.
+    """
+    from vaft.data.cocos import COCOS_INDICES
+
+    for path in ("equilibrium.ids_properties.cocos", COCOS_PARAMETER_PATH):
+        try:
+            value = ods[path]
+        except Exception:
+            continue
+        try:
+            index = int(value)
+        except (TypeError, ValueError):
+            continue
+        if index in COCOS_INDICES:
+            return index
+    return default
+
+
+def set_ods_cocos(ods, index, *, source=None):
+    """Record ``index`` on ``ods`` so a consumer need not guess the convention.
+
+    Every VAFT path that produces an equilibrium ODS should call this.  Writes
+    ``equilibrium.code.parameters.cocos`` always, and the standard
+    ``ids_properties.cocos`` as well when the data dictionary defines it, so an
+    ODS is correctly labelled under both DD 3 and DD 4.
+    """
+    from vaft.data.cocos import COCOS_INDICES
+
+    index = int(index)
+    if index not in COCOS_INDICES:
+        raise ValueError(
+            f"COCOS index {index!r} is not defined; expected one of {COCOS_INDICES}"
+        )
+    ods[COCOS_PARAMETER_PATH] = index
+    if source is not None:
+        ods["equilibrium.code.parameters.cocos_source"] = str(source)
+    try:  # DD 4 only; harmless where the field does not exist.
+        ods["equilibrium.ids_properties.cocos"] = index
+    except Exception:
+        pass
+    return index

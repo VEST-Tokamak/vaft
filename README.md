@@ -312,7 +312,8 @@ and native IDS remain the authoritative storage and interchange formats.
 from vaft.data.resources import sample_geqdsk
 from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
 
-equilibrium = as_equilibrium(sample_geqdsk(), convention=11)
+# An EFIT g-file stores psi in weber/radian, so it is a COCOS 1-8 index.
+equilibrium = as_equilibrium(sample_geqdsk(), convention=1)
 descriptors = derive_global_descriptors(equilibrium)
 print(descriptors["beta_t"].value, descriptors["beta_t"].provenance)
 ```
@@ -323,9 +324,15 @@ ambiguous inputs produce an unavailable result with a reason. In particular,
 VAFT does not infer one COCOS index when the observable signs admit several;
 an explicit convention is required before conversion.
 
-The descriptor definitions distinguish the LCFS area-centroid major radius,
-midplane minor radius, boundary-length-averaged poloidal field, and Lao virial
-internal inductance. Normalized coordinates are
+Shape descriptors follow the conventional definitions, so `major_radius` is
+`(R_out+R_in)/2` and triangularity is measured from it, matching IMAS
+`boundary.geometric_axis` and `boundary.triangularity`. The LCFS area centroid
+is reported separately as `area_centroid_r`/`area_centroid_z` because that, not
+the geometric centre, is the radius Pappus's theorem needs for `volume`. The
+descriptors also cover the boundary-length-averaged poloidal field and the Lao
+virial internal inductance. Poloidal fields honour the COCOS `e_Bp` factor, so
+dimensionless quantities such as `beta_p` and `li` agree whether an equilibrium
+is expressed in weber or weber-per-radian. Normalized coordinates are
 `psi_n=(psi-psi_axis)/(psi_boundary-psi_axis)`,
 `rho_pol_n=sqrt(psi_n)`, and
 `rho_tor_n=sqrt(integral(q dpsi)/integral_boundary(q dpsi))`. A non-monotonic
@@ -338,7 +345,22 @@ analytic Solov'ev model is restricted to axisymmetric constant-`p'` and
 constant-`FF'` solutions; it is a regression/example model, not a general
 experimental equilibrium solver. Edge `dRsep` is always the outboard-midplane
 quantity `R_out(psi_X,upper)-R_out(psi_X,lower)`, never an absolute X-point
-coordinate.
+coordinate, and it is reported only for a diverted configuration.
+
+Boundary topology is decided from the flux map, with no machine-specific
+geometry. Stationary points of `psi` are located and split into O-points and
+saddles by the sign of the Hessian determinant. A saddle is promoted to a
+physical X-point only when it is relevant to the boundary: its flux must match
+the boundary flux within a window derived from its own curvature and the grid
+spacing, and the confined region's level set just inside the boundary must
+reach it on the scale that curvature implies. At least one such X-point gives
+`UPPER_SINGLE_NULL`, `LOWER_SINGLE_NULL`, or `DOUBLE_NULL` (all
+`Topology.is_diverted`); none, with an LCFS in contact with the wall, gives
+`LIMITED`. A grid-clipped confined region, a missing wall, or an LCFS bounded
+by neither gives `AMBIGUOUS` with a reason rather than a guess. Real
+reconstructions routinely contain numerical saddles far from the plasma; those
+are returned in `x_points` with `active=False` instead of being filtered by
+hard-coded geometry.
 
 
 ## Related Resources

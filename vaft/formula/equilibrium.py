@@ -6,9 +6,9 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
 
 Notation
 --------
-ψ      : poloidal magnetic flux                     [Wb]
-ψ_a    : ψ at magnetic axis                         [Wb]
-ψ_b    : ψ at plasma boundary                       [Wb]
+ψ      : poloidal magnetic flux                     [Wb] or [Wb/rad], per COCOS
+ψ_a    : ψ at magnetic axis                         (same convention as ψ)
+ψ_b    : ψ at plasma boundary                       (same convention as ψ)
 Φ(ψ)   : toroidal flux through surface C(ψ)         [Wb]
 Φ_b    : Φ(ψ_b)                                     [Wb]
 ρ_N    : normalised minor-radius (0 at axis, 1 at edge)
@@ -207,24 +207,45 @@ def bootstrap_current_fraction(n_e: float,
 Magnetic Field $B$
 """
 
+
+def poloidal_field_factor(cocos: int | None) -> float:
+    r"""Sauter Eq. 20 prefactor $k = \sigma_{R\varphi Z}\,\sigma_{B_p}/(2\pi)^{e_{B_p}}$.
+
+    ``B_R = k/R * dψ/dZ`` and ``B_Z = -k/R * dψ/dR``.  The factor carries both
+    the 2π normalization *and* the orientation sign, so applying only the former
+    leaves the field inverted for half the conventions.
+
+    ``cocos=None`` keeps the historical weber-per-radian, ``k = -1`` behaviour
+    that the rest of this module assumed before conventions were explicit.  It is
+    the COCOS 2/3/6/7 form; pass an index to get any other.
+    """
+    if cocos is None:
+        return -1.0
+    from vaft.data.cocos import cocos_spec
+
+    return cocos_spec(int(cocos)).bp_factor
+
+
 def radial_magnetic_field_from_psi(psi: np.ndarray,
                                    R: np.ndarray,
-                                   Z: np.ndarray) -> np.ndarray:
+                                   Z: np.ndarray,
+                                   cocos: int | None = None) -> np.ndarray:
     r"""
-    # $B_r = -1/R \frac{\partial \psi}{\partial Z}$
-    # B_r = -1/R dψ/dZ
+    # $B_r = k/R \frac{\partial \psi}{\partial Z}$, Sauter Eq. 20
+    # B_r = k/R dψ/dZ
     """
 
-    return -1/R * gradient(Z, psi)
+    return poloidal_field_factor(cocos)/R * gradient(Z, psi)
 
 def vertical_magnetic_field_from_psi(psi: np.ndarray,
                                    R: np.ndarray,
-                                   Z: np.ndarray) -> np.ndarray:
+                                   Z: np.ndarray,
+                                   cocos: int | None = None) -> np.ndarray:
     r"""
-    # $B_z = 1/R \frac{\partial \psi}{\partial R}$
-    # B_z = 1/R dψ/dR
+    # $B_z = -k/R \frac{\partial \psi}{\partial R}$, Sauter Eq. 20
+    # B_z = -k/R dψ/dR
     """
-    return 1/R * gradient(R, psi)
+    return -poloidal_field_factor(cocos)/R * gradient(R, psi)
 
 
 

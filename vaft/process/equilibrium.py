@@ -367,7 +367,7 @@ def psi_to_radial(
 # Shafranov Integral
 # ------------------------------------------------------------------
 
-def poloidal_field_at_boundary(R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry):
+def poloidal_field_at_boundary(R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry, cocos=None):
     """
     자속(Psi) 격자 데이터를 이용하여 경계면(Boundary)에서의 
     Poloidal Magnetic Field (Bp) 벡터와 크기를 계산합니다.
@@ -405,16 +405,19 @@ def poloidal_field_at_boundary(R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry):
     # dPsi/dZ
     dPsi_dZ = interp_spline.ev(R_bdry, Z_bdry, dx=0, dy=1)
 
-    # 3. 자기장 계산 (Cylindrical Coordinates)
-    # 주의: Psi 단위가 Weber(Total flux)라면 2*pi로 나누어야 하고, 
-    #       EFIT처럼 Weber/rad 단위라면 아래 수식이 맞습니다.
-    #       여기서는 일반적인 EFIT 관례인 Weber/rad를 따릅니다.
+    # 3. 자기장 계산 (Cylindrical Coordinates), Sauter Eq. 20
+    #    k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp 는 2*pi 정규화와 방향 부호를
+    #    함께 담습니다. cocos=None 이면 기존 EFIT Weber/rad 관례(k = -1)를
+    #    그대로 사용합니다.
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    k = poloidal_field_factor(cocos)
+
+    # B_R = k * (1/R) * dPsi/dZ
+    B_R_bdry = k * (1.0 / R_bdry) * dPsi_dZ
     
-    # B_R = -(1/R) * dPsi/dZ
-    B_R_bdry = -(1.0 / R_bdry) * dPsi_dZ
-    
-    # B_Z = (1/R) * dPsi/dR
-    B_Z_bdry = (1.0 / R_bdry) * dPsi_dR
+    # B_Z = -k * (1/R) * dPsi/dR
+    B_Z_bdry = -k * (1.0 / R_bdry) * dPsi_dR
     
     # 4. Poloidal Field 크기 계산
     B_p_bdry = np.sqrt(B_R_bdry**2 + B_Z_bdry**2)
@@ -978,11 +981,13 @@ def make_equilibrium_field_interpolator(
     psi_grid: np.ndarray,
     psi_1d: np.ndarray,
     f_1d: np.ndarray,
+    cocos=None,
 ):
     """Build a callable ``(R, Z) -> (B_R, B_Z, B_phi)`` for one equilibrium time slice.
 
-    Same EFIT Weber/rad psi convention as :func:`poloidal_field_at_boundary`:
-    ``B_R = -(1/R) dPsi/dZ``, ``B_Z = (1/R) dPsi/dR`` (from a bicubic spline
+    Same convention handling as :func:`poloidal_field_at_boundary`, via Sauter
+    Eq. 20: ``B_R = k (1/R) dPsi/dZ``, ``B_Z = -k (1/R) dPsi/dR`` with
+    ``k = sigma_RphiZ sigma_Bp / (2*pi)**e_Bp`` (from a bicubic spline
     over the 2D psi grid, built once and reused for every evaluation), and
     ``B_phi = F(psi)/R`` with ``F = R*B_phi`` interpolated from
     ``profiles_1d.{psi, f}`` (``psi_1d``, ``f_1d``). ``psi_grid`` must be
@@ -1015,11 +1020,15 @@ def make_equilibrium_field_interpolator(
 
     psi_spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
 
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    k = poloidal_field_factor(cocos)
+
     def b_field(R: float, Z: float) -> tuple[float, float, float]:
         dpsi_dR = float(psi_spline.ev(R, Z, dx=1, dy=0))
         dpsi_dZ = float(psi_spline.ev(R, Z, dx=0, dy=1))
-        B_R = -(1.0 / R) * dpsi_dZ
-        B_Z = (1.0 / R) * dpsi_dR
+        B_R = k * (1.0 / R) * dpsi_dZ
+        B_Z = -k * (1.0 / R) * dpsi_dR
 
         psi_here = float(psi_spline.ev(R, Z))
         psi_clipped = np.clip(psi_here, psi_1d_sorted[0], psi_1d_sorted[-1])

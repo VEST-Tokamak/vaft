@@ -15,11 +15,46 @@ import numpy as np
 
 
 class Topology(str, Enum):
-    LIMITER = "limiter"
+    """How the last closed flux surface is bounded.
+
+    The primary distinction is diverted versus limited.  A plasma is diverted
+    when a saddle point of psi is *relevant to the boundary*: its flux matches
+    the boundary flux to within what the grid can resolve, and the confined
+    region's level-set topology is consistent with a separatrix through it.
+    ``UPPER_SINGLE_NULL``/``LOWER_SINGLE_NULL``/``DOUBLE_NULL`` refine that by
+    where those X-points sit relative to the magnetic axis; ``DIVERTED`` is used
+    when a boundary-relevant X-point exists but cannot be attributed to a branch.
+    ``LIMITED`` means no boundary-relevant X-point exists and the LCFS is in
+    contact with the wall.  ``AMBIGUOUS`` means the classification could not be
+    made robustly -- typically a grid-clipped contour, insufficient resolution,
+    or no wall against which to confirm a limited boundary.
+    """
+
+    LIMITED = "limited"
     LOWER_SINGLE_NULL = "lower_single_null"
     UPPER_SINGLE_NULL = "upper_single_null"
     DOUBLE_NULL = "double_null"
+    DIVERTED = "diverted"
     AMBIGUOUS = "ambiguous"
+
+    @property
+    def is_diverted(self) -> bool:
+        """True when a boundary-relevant X-point was identified."""
+        return self in _DIVERTED_TOPOLOGIES
+
+    @property
+    def is_limited(self) -> bool:
+        return self is Topology.LIMITED
+
+    @property
+    def is_determinate(self) -> bool:
+        return self is not Topology.AMBIGUOUS
+
+
+_DIVERTED_TOPOLOGIES = frozenset({
+    Topology.LOWER_SINGLE_NULL, Topology.UPPER_SINGLE_NULL,
+    Topology.DOUBLE_NULL, Topology.DIVERTED,
+})
 
 
 @dataclass(frozen=True)
@@ -34,10 +69,19 @@ class EquilibriumConvention:
     bt_sign: int | None = None
     q_sign: int | None = None
     source: str = "unknown"
+    identified: tuple[int, ...] = ()
+    """Indices the observable signs and flux scale support, independently of
+    whatever was declared.  Kept even when a declaration wins, so a declaration
+    the data contradicts can be reported rather than silently trusted."""
 
     @property
     def ambiguous(self) -> bool:
         return self.cocos is None and len(self.candidates) != 1
+
+    @property
+    def contradicted(self) -> bool:
+        """True when a declared index is not among the ones the data supports."""
+        return bool(self.identified) and self.cocos is not None and self.cocos not in self.identified
 
 
 @dataclass(frozen=True)
@@ -124,6 +168,12 @@ class EquilibriumData:
     pressure: np.ndarray | None = None
     f: np.ndarray | None = None
     q: np.ndarray | None = None
+    pprime: np.ndarray | None = None
+    """dp/dpsi as the source carried it.  Kept rather than re-derived because it
+    transforms by the ``PPRIME`` COCOS factor, which is the inverse of ``PSI``,
+    and because differentiating pressure against psi cannot round-trip a file."""
+    ffprime: np.ndarray | None = None
+    """F dF/dpsi, transforming by ``F_FPRIME``; see :attr:`pprime`."""
     ip: float | None = None
     bt0: float | None = None
     r0: float | None = None
@@ -132,7 +182,7 @@ class EquilibriumData:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for name in ("r", "z", "psi_1d", "pressure", "f", "q"):
+        for name in ("r", "z", "psi_1d", "pressure", "f", "q", "pprime", "ffprime"):
             value = getattr(self, name)
             if value is not None:
                 object.__setattr__(self, name, np.asarray(value, dtype=float).reshape(-1))
@@ -222,6 +272,31 @@ class SolovevEquilibrium:
 
 
 @dataclass(frozen=True)
+class StationaryPoint:
+    """A point where grad(psi) vanishes, classified by its Hessian.
+
+    ``kind`` is ``"o"`` for an extremum (positive Hessian determinant, a
+    magnetic axis candidate) and ``"x"`` for a saddle (negative determinant,
+    an X-point candidate).  Being a saddle does not make a point a physical
+    X-point; see :class:`Topology` for the boundary-relevance criteria.
+    """
+
+    r: float
+    z: float
+    psi: float
+    psi_n: float
+    kind: str
+    hessian_determinant: float
+    curvature: float = 0.0
+    """Smaller Hessian eigenvalue magnitude, d2psi/dl2 along the flattest axis.
+
+    Near a stationary point psi varies quadratically, so a flux offset dpsi
+    displaces its level set by about ``sqrt(2*dpsi/curvature)``.  That is the
+    scale on which a separatrix contour retreats from an X-point.
+    """
+
+
+@dataclass(frozen=True)
 class XPoint:
     r: float
     z: float
@@ -262,12 +337,14 @@ class BoundaryRepresentation:
     fourier_reconstruction_error: DerivedValue
     provenance: DerivationProvenance
     reason: str | None = None
+    stationary_points: tuple[StationaryPoint, ...] = ()
+    wall_contact_distance: DerivedValue | None = None
 
 
 __all__ = [
     "BoundaryRepresentation", "Contour", "DerivationProvenance", "DerivedValue",
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
-    "SolovevEquilibrium", "StrikePoint", "Topology", "ValidationIssue",
+    "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
     "ValidationReport", "XPoint",
 ]

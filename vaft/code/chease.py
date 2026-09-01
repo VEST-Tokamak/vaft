@@ -142,13 +142,36 @@ class GeqdskSignInfo:
         }
 
 
-CHEASE_COCOS02_SIGNS = {
-    "dpsi": -1,
-    "bcentr": 1,
-    "current": -1,
-    "fpol": 1,
-    "q": -1,
-}
+#: The convention CHEASE expects, declared once in the shared registry.
+#:
+#: CHEASE works in normalised units with Ip and B0 positive (it is handed |Ip|
+#: and |BCENTR| with SIGNIPXP = SIGNB0XP = 1), so its g-file input is oriented to
+#: Ip < 0, B0 > 0 in the COCOS 2 system.  See Sauter Sect. IX for the index and
+#: Eq. 22 for the input consistency conditions.
+CHEASE_ORIENTATION = {"sigma_ip": -1, "sigma_b0": +1}
+
+
+def _desired_signs_for_cocos(cocos: int, *, sigma_ip: int, sigma_b0: int) -> dict[str, int]:
+    """The g-file sign pattern of an equilibrium in ``cocos`` with these orientations.
+
+    Every entry follows from Sauter Eq. 23 once the index and the two
+    orientation signs are fixed; none of them is an independent choice.
+    """
+    from vaft.data.cocos import cocos_spec
+
+    spec = cocos_spec(cocos)
+    return {
+        "dpsi": spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+        "bcentr": sigma_b0,
+        "current": sigma_ip,
+        "fpol": spec.expected_sign("f", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+        "q": spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+    }
+
+
+#: Kept as a module-level name because the Snakemake workflow and the JSON
+#: manifests refer to it; it is now derived rather than hand-maintained.
+CHEASE_COCOS02_SIGNS = _desired_signs_for_cocos(2, **CHEASE_ORIENTATION)
 
 
 def _sign(value: float, *, default: int = 1) -> int:
@@ -214,13 +237,11 @@ def _desired_signs_from_info(info: GeqdskSignInfo) -> dict[str, int]:
 
 
 def _desired_signs_for_chease() -> dict[str, int]:
-    return {
-        "desired_dpsi_sign": CHEASE_COCOS02_SIGNS["dpsi"],
-        "desired_bcentr_sign": CHEASE_COCOS02_SIGNS["bcentr"],
-        "desired_current_sign": CHEASE_COCOS02_SIGNS["current"],
-        "desired_fpol_sign": CHEASE_COCOS02_SIGNS["fpol"],
-        "desired_q_sign": CHEASE_COCOS02_SIGNS["q"],
-    }
+    """CHEASE's input sign pattern, derived from its declared COCOS."""
+    from vaft.data.cocos import convention_for
+
+    signs = _desired_signs_for_cocos(convention_for("chease").cocos, **CHEASE_ORIENTATION)
+    return {f"desired_{name}_sign": value for name, value in signs.items()}
 
 
 def _force_geqdsk_signs(
