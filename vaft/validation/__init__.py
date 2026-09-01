@@ -28,7 +28,16 @@ plotting backend is imported until a figure is actually asked for.
 
 from __future__ import annotations
 
+from pathlib import Path as _Path
+
 from .model import CATEGORIES, ValidationStatus
+
+#: The package's own submodules, discovered rather than listed, so a new domain
+#: module is reachable as ``vaft.validation.<name>`` the moment it exists and
+#: cannot be shadowed by a stale hand-maintained tuple.
+_SUBMODULES = frozenset(
+    path.stem for path in _Path(__file__).parent.glob("*.py") if path.stem != "__init__"
+)
 
 #: Names ``production_qa`` owns, re-exported here for the workflow and test
 #: modules that have always imported them from ``vaft.validation``.
@@ -59,7 +68,7 @@ def __getattr__(name: str):
     the migration from the former flat ``vaft/validation.py`` must not break a
     caller that reached for one of its helpers by name.
     """
-    if name in ("imas", "model", "production_qa"):
+    if name in _SUBMODULES:
         from importlib import import_module
 
         module = import_module(f".{name}", __name__)
@@ -77,4 +86,4 @@ def __getattr__(name: str):
 
 
 def __dir__():
-    return sorted(set(globals()) | set(__all__) | {"imas", "model", "production_qa"})
+    return sorted(set(globals()) | set(__all__) | _SUBMODULES)

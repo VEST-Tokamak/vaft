@@ -100,6 +100,11 @@ def test_no_exported_name_is_shadowed_by_a_submodule():
     package_dir = Path(validation.__file__).parent
     submodules = {path.stem for path in package_dir.glob("*.py")} - {"__init__"}
     assert not sorted(set(validation.__all__) & submodules)
+    # The package discovers its own submodules rather than listing them, so a
+    # new domain module is reachable the moment it exists.
+    assert validation._SUBMODULES == submodules
+    for name in sorted(submodules):
+        assert getattr(validation, name).__name__ == f"vaft.validation.{name}"
 
 
 # ---------------------------------------------------------------------------

@@ -269,11 +269,17 @@ def valid_fraction(
 # Writing
 # ---------------------------------------------------------------------------
 
-def write_validity(source: Any, base: str, timed: Iterable[int]) -> int:
+def write_validity(
+    source: Any, base: str, timed: Iterable[int], *, scalar: int | None = None
+) -> int:
     """Project a per-sample assessment into ``base``'s native validity nodes.
 
-    Writes ``validity_timed`` and the :func:`aggregate_validity` scalar that
-    summarizes it, and returns that scalar.
+    Writes ``validity_timed`` and the scalar that summarizes it, and returns
+    that scalar.  ``scalar`` overrides :func:`aggregate_validity` for callers
+    whose vocabulary the plain aggregate cannot express -- a layer that uses
+    ``1`` to mean "flagged" cannot let a wholly flagged channel aggregate to
+    ``1``, which the Data Dictionary reads as *certified*, and better than a
+    clean one.
 
     The node's time coordinate is *not* written: ``validity_timed`` is
     coordinated on ``<base>.time``, which an ODS may legitimately leave to the
@@ -297,15 +303,15 @@ def write_validity(source: Any, base: str, timed: Iterable[int]) -> int:
             f"validity_timed for {base!r} has {values.size} samples but its "
             f"time coordinate has {grid.size}"
         )
-    scalar = aggregate_validity(values)
+    summary = aggregate_validity(values) if scalar is None else int(scalar)
     if isinstance(source, dict):
         raise TypeError(
             "write_validity needs an ODS; a plain mapping has no IDS structure "
             "to write validity into"
         )
     source[f"{base}.validity_timed"] = values
-    source[f"{base}.validity"] = scalar
-    return scalar
+    source[f"{base}.validity"] = summary
+    return summary
 
 
 # ---------------------------------------------------------------------------

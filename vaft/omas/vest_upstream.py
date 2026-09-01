@@ -906,6 +906,26 @@ def build_diagnostics_ods(
         if statuses.get(name, {}).get("status", "unavailable") != "unavailable"
     }
     time_grid = _validate_diagnostics_time_coordinates(ods, grids, policies=policies)
+
+    # Magnetics signal quality (issue #189), projected into the native IDS
+    # validity nodes so every downstream stage reads one answer instead of
+    # rediscovering sensor health.  It runs here rather than in the mapper
+    # because mapping is a transformation layer and this is an assessment of
+    # what it produced (#253 §2).  Report-only: nothing is dropped or
+    # rewritten, and a channel with no waveform is left untouched rather than
+    # asserted invalid.
+    magnetics_quality: dict[str, Any] = {}
+    if "magnetics" in ods:
+        from vaft.validation.magnetics import (
+            magnetics_quality_metrics,
+            project_validity,
+            validate_magnetics_signals,
+        )
+
+        quality_report = validate_magnetics_signals(ods)
+        project_validity(ods, quality_report)
+        magnetics_quality = magnetics_quality_metrics(ods, quality_report)
+
     successes = sum(value["status"] == "success" for value in statuses.values())
     unavailable = sorted(
         name for name, value in statuses.items() if value["status"] == "unavailable"
@@ -936,6 +956,7 @@ def build_diagnostics_ods(
             "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
+        "magnetics_quality": magnetics_quality,
         "channel_status": statuses,
         "quality_summary": {
             "missing": sorted(unavailable + missing_channels),
