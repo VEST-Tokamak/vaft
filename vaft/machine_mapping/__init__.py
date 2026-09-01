@@ -130,10 +130,14 @@ __all__ = [
 
 _EXPORT_MAP = {
     "BT_SIGN_VEST_TO_IMAS": (".conventions", "BT_SIGN_VEST_TO_IMAS"),
+    "DischargeSignContract": (".conventions", "DischargeSignContract"),
+    "IMAS_DISCHARGE_SIGNS": (".conventions", "IMAS_DISCHARGE_SIGNS"),
     "IP_SIGN_VEST_TO_IMAS": (".conventions", "IP_SIGN_VEST_TO_IMAS"),
     "SignTransformation": (".conventions", "SignTransformation"),
     "equilibrium_orientation_is_resolved": (".conventions", "equilibrium_orientation_is_resolved"),
+    "expected_q_sign": (".conventions", "expected_q_sign"),
     "sign_transformations": (".conventions", "sign_transformations"),
+    "to_imas_discharge_signs": (".conventions", "to_imas_discharge_signs"),
     "DEFAULT_CONSTRAINT_UNCERTAINTIES": (".utils", "DEFAULT_CONSTRAINT_UNCERTAINTIES"),
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR": (".utils", "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR"),
     "VEST_DiamagneticFlux": (".magnetics", "VEST_DiamagneticFlux"),
