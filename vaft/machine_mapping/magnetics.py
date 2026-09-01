@@ -981,40 +981,45 @@ def diamagnetic_saturation_report(
 def vest_diamagnetic_rogowski_current(
     shot: int,
     *,
-    plasma_start: float = DEFAULT_TSTART,
-    plasma_end: float = DEFAULT_TEND,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the calibrated hi-sensitivity TF-current Rogowski signal [A].
 
     This is the sensor-level quantity feeding the diamagnetic-flux
     calculation, before the reference-waveform subtraction that produces
-    ``delta_i_tf``.  ``delta_i_tf`` depends on the chosen plasma interval, so
-    it is this signal that is stored as
-    ``magnetics.rogowski_coil[1].current`` (issue #215).
+    ``delta_i_tf``. ``delta_i_tf`` depends on the chosen plasma interval, so it
+    is this signal that is stored as ``magnetics.rogowski_coil[1].current``
+    (issue #215).
 
-    It delegates to :func:`vest_diamagnetic_flux_detailed` and takes the
-    ``"integrated"`` stage rather than repeating the load-repair-integrate
-    chain, so the stored sensor current is exactly the waveform the flux is
-    derived from -- including the saturation repair of issue #285. Duplicating
-    that chain here would create a second, silently diverging definition of the
-    same measurement.
-
-    The plasma window only selects the reference interval for the *downstream*
-    flux; the integrated sensor current is independent of it.
+    It reads the same `diamagnetic_flux` configuration and applies the same
+    `repair_clipped_interval` primitive as
+    :func:`vest_diamagnetic_flux_detailed`, so the stored sensor current is the
+    waveform the flux is actually derived from -- saturation repair of issue
+    #285 included. It stops at the first integration rather than running the
+    full triple-integration chain, and `test_rogowski_coil_mapping` pins the
+    two against each other so the shared expression cannot drift.
     """
-    _, _, report = vest_diamagnetic_flux_detailed(
-        shot,
-        plasma_start,
-        plasma_end,
-        raw_source=raw_source,
-        with_stages=True,
+    config = _diamagnetic_config(shot)
+    processing = config["processing"]
+    limits = processing["saturation_repair"]
+    field_code = int(config["source"]["field"])
+
+    time, raw_values = raw_db.require_signal(
+        _safe_vest_load(shot, field_code, raw_source),
+        shot=shot,
+        field=field_code,
+        signal_name="diamagnetic hi-sensitivity TF Rogowski coil",
     )
-    stages = report["stages"]
-    return (
-        np.asarray(stages["time"], dtype=float),
-        np.asarray(stages["integrated"], dtype=float),
+    repaired, _ = repair_clipped_interval(
+        time,
+        raw_values,
+        clip_value=limits["values"],
+        tolerance=float(limits["tolerance"]),
+        return_mask=True,
     )
+    rogo_gain = -1 / float(processing["rogowski_shunt"])
+    integrated = integrate.cumulative_trapezoid(repaired, time, initial=0.0) * rogo_gain
+    return np.asarray(time, dtype=float), np.asarray(integrated, dtype=float)
 
 
 def vest_diamagnetic_flux_detailed(

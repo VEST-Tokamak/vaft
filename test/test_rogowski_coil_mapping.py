@@ -317,3 +317,35 @@ def test_sensor_travels_with_its_derived_quantity_on_every_entry_point():
             ).size
             > 0
         ), entrypoint.__name__
+
+
+def test_sensor_current_matches_the_flux_path_it_feeds():
+    """The two must not drift apart after the #285 saturation work.
+
+    `vest_diamagnetic_rogowski_current` stops at the first integration instead
+    of running the full triple-integration chain, so it repeats the gain
+    expression. This pins it against the `"integrated"` stage that
+    `vest_diamagnetic_flux_detailed` actually derives the flux from -- including
+    the clipping repair -- so a change to one that is not made to the other
+    fails here rather than silently storing a sensor current the flux was never
+    computed from.
+    """
+    import warnings
+
+    from vaft.machine_mapping.magnetics import (
+        vest_diamagnetic_flux_detailed,
+        vest_diamagnetic_rogowski_current,
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        time, sensor = vest_diamagnetic_rogowski_current(SHOT, raw_source=RAW)
+        _, _, report = vest_diamagnetic_flux_detailed(
+            SHOT, 0.28, 0.34, raw_source=RAW, with_stages=True
+        )
+
+    stages = report["stages"]
+    np.testing.assert_array_equal(time, np.asarray(stages["time"], dtype=float))
+    np.testing.assert_array_equal(sensor, np.asarray(stages["integrated"], dtype=float))
+    # The repair is what makes this non-trivial: raw and repaired differ here.
+    assert report["n_saturated"] > 0
