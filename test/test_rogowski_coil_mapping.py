@@ -133,7 +133,16 @@ def test_geometry_is_left_unset_rather_than_invented(magnetics_ods):
 
 
 def test_missing_channel_keeps_the_slot_and_does_not_shift_indices(tmp_path):
-    """A shot with no diamagnetic channel must not renumber the other sensor."""
+    """A shot with no diamagnetic channel must not renumber the other sensor.
+
+    This pins the *helper* contract. It is deliberately not routed through
+    `vfit_magnetics_dynamic`, because that mapper calls `vfit_plasma_current`
+    immediately after the sensor mapping, and a missing plasma-current channel
+    still aborts the whole magnetics component there -- pre-existing behaviour
+    this change does not alter. See
+    `test_pipeline_still_aborts_magnetics_when_the_plasma_channel_is_missing`,
+    which pins that actual behaviour so the two are not confused.
+    """
     import gzip
     import json
 
@@ -243,3 +252,68 @@ def test_rogowski_node_survives_a_dd_consistency_round_trip(tmp_path):
         assert np.asarray(
             reloaded[f"magnetics.rogowski_coil.{index}.current.data"]
         ).size > 0
+
+
+def test_pipeline_still_aborts_magnetics_when_the_plasma_channel_is_missing(tmp_path):
+    """Record what the real mapper does, so the helper test is not misread.
+
+    `_map_rogowski_coils` tolerates a missing channel, but `vfit_magnetics_dynamic`
+    calls `vfit_plasma_current` on the next line, which does not. A shot missing
+    field 109 therefore loses the entire magnetics component, sensor slots
+    included -- graceful degradation of the Rogowski mapping alone does not make
+    the pipeline tolerant. Widening that is #189/#195 territory, not #215.
+    """
+    import gzip
+    import json
+
+    from vaft.database import raw as raw_db
+
+    raw = tmp_path / "raw.json.gz"
+    with gzip.open(raw, "wt", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "shot": SHOT,
+                "fields": {
+                    "257": {
+                        "data": np.linspace(0.0, 1.0, 25_000).tolist(),
+                        "type": "slow",
+                    }
+                },
+            },
+            handle,
+        )
+
+    ods = ODS(consistency_check=False)
+    with pytest.raises(raw_db.RawSignalUnavailableError, match="field 109"):
+        vfit_magnetics_dynamic(
+            ods,
+            SHOT,
+            TSTART,
+            TEND,
+            DT,
+            raw_source=raw,
+            target_time=np.arange(TSTART, TEND, DT),
+        )
+
+
+def test_sensor_travels_with_its_derived_quantity_on_every_entry_point():
+    """Which entry point a caller reaches for must not decide whether the
+    physical Rogowski coil appears in the ODS."""
+    from vaft.machine_mapping.magnetics import (
+        diamagnetic_flux_rogowski_coil_from_raw_database,
+        ip_rogowski_coil_from_raw_database,
+    )
+
+    for entrypoint in (
+        ip_rogowski_coil_from_raw_database,
+        diamagnetic_flux_rogowski_coil_from_raw_database,
+    ):
+        ods = ODS(consistency_check=False)
+        entrypoint(ods, SHOT, tstart=TSTART, tend=TEND, dt=DT, raw_source=RAW)
+        assert len(ods["magnetics.rogowski_coil"]) == 2, entrypoint.__name__
+        assert (
+            np.asarray(
+                ods[f"magnetics.rogowski_coil.{_ROGOWSKI_PLASMA_CURRENT}.current.data"]
+            ).size
+            > 0
+        ), entrypoint.__name__

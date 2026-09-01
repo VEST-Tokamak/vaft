@@ -1575,7 +1575,7 @@ def _map_rogowski_coils(
             "Toroidal-field coil current measured by the high-sensitivity "
             "Rogowski coil used as the input to the diamagnetic-flux "
             "diagnostic; a private identifier because the DD enumeration "
-            "covers only plasma, eddy, halo and compound sensors"
+            "covers only plasma, plasma_eddy, eddy, halo and compound sensors"
         ),
         loader=lambda: vest_diamagnetic_rogowski_current(shot, raw_source=raw_source),
         tstart=tstart,
@@ -1922,11 +1922,15 @@ def ip_rogowski_coil_from_raw_database(
     processing_config: VestMagneticsProcessingConfig | None = None,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    """Map the processed plasma-current Rogowski signal."""
+    """Map the plasma-current Rogowski sensor and its derived plasma current."""
     del processing_config
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     target_time = _build_target_time(ip_time, tstart, tend, dt)
     _set_magnetics_properties(ods)
+    # The sensor itself, not only what it was processed into (issue #215):
+    # which entry point a caller reaches for must not decide whether the
+    # physical coil appears.
+    _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
     _map_ip(ods, target_time, ip_time, ip)
 
 
@@ -1940,12 +1944,15 @@ def diamagnetic_flux_rogowski_coil_from_raw_database(
     processing_config: VestMagneticsProcessingConfig | None = None,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    """Map the diamagnetic-flux Rogowski signal without adding plasma current."""
+    """Map the diamagnetic Rogowski sensor and flux, without plasma current."""
     del processing_config
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     target_time = _build_target_time(ip_time, tstart, tend, dt)
     _set_magnetics_properties(ods)
     _set_magnetics_time(ods, target_time)
+    # See ip_rogowski_coil_from_raw_database: the sensor travels with its
+    # derived quantity regardless of entry point (issue #215).
+    _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
     _map_diamagnetic_flux(ods, shot, target_time, ip_time, ip, raw_source)
 
 
