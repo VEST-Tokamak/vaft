@@ -42,10 +42,15 @@ _LEGACY_REPLACEMENTS = {
 }
 
 __all__ = [
+    "BT_SIGN_VEST_TO_IMAS",
     "DEFAULT_CONSTRAINT_UNCERTAINTIES",
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
+    "IP_SIGN_VEST_TO_IMAS",
+    "SignTransformation",
     "VEST_DiamagneticFlux",
     "apply_default_constraint_uncertainties",
+    "equilibrium_orientation_is_resolved",
+    "sign_transformations",
     "apply_magnetics_uncertainties",
     "apply_pf_active_current_uncertainties",
     "apply_tf_uncertainties",
@@ -124,6 +129,11 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "BT_SIGN_VEST_TO_IMAS": (".conventions", "BT_SIGN_VEST_TO_IMAS"),
+    "IP_SIGN_VEST_TO_IMAS": (".conventions", "IP_SIGN_VEST_TO_IMAS"),
+    "SignTransformation": (".conventions", "SignTransformation"),
+    "equilibrium_orientation_is_resolved": (".conventions", "equilibrium_orientation_is_resolved"),
+    "sign_transformations": (".conventions", "sign_transformations"),
     "DEFAULT_CONSTRAINT_UNCERTAINTIES": (".utils", "DEFAULT_CONSTRAINT_UNCERTAINTIES"),
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR": (".utils", "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR"),
     "VEST_DiamagneticFlux": (".magnetics", "VEST_DiamagneticFlux"),

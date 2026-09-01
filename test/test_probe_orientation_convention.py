@@ -164,3 +164,145 @@ def test_probe_orientation_is_established_from_the_coil_forward_model():
         f"only {positive}/{correlations.size} probes correlate positively with +Bz"
     )
     assert np.median(correlations) > 0.7
+
+
+# --- VEST-native to IMAS sign transformations (issue #288) -----------------
+
+
+def test_both_orientation_transformations_are_declared():
+    """The two signs that fix the VEST COCOS index must be named, not implicit."""
+    from vaft.machine_mapping import (
+        BT_SIGN_VEST_TO_IMAS,
+        IP_SIGN_VEST_TO_IMAS,
+        sign_transformations,
+    )
+
+    assert sign_transformations() == (IP_SIGN_VEST_TO_IMAS, BT_SIGN_VEST_TO_IMAS)
+    for transformation in sign_transformations():
+        assert transformation.sign in (-1, +1)
+        assert transformation.vest_native_source, transformation.quantity
+        assert transformation.evidence, transformation.quantity
+        assert transformation.needed_to_confirm, transformation.quantity
+
+
+def test_the_declared_signs_follow_from_the_working_machine_convention():
+    """Ip clockwise, Bt counter-clockwise, both viewed from above.
+
+    In a right-handed (R, phi, Z) frame with phi counter-clockwise that is
+    sigma_Ip = -1 and sigma_B0 = +1.  Every packaged shot maps to ip_vest > 0
+    and bt_vest > 0, so the transformations are -1 and +1.
+    """
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS, IP_SIGN_VEST_TO_IMAS
+
+    assert IP_SIGN_VEST_TO_IMAS.sign == -1
+    assert BT_SIGN_VEST_TO_IMAS.sign == +1
+    # The product is what fixes the COCOS index: antiparallel.
+    assert IP_SIGN_VEST_TO_IMAS.sign * BT_SIGN_VEST_TO_IMAS.sign == -1
+
+
+def test_the_declared_signs_imply_cocos_three_or_thirteen():
+    """Re-derive the implied index from Eq. 23 rather than trusting the docstring.
+
+    sigma_Ip = -1 with sigma_B0 = +1, plus the reconstructions' own q > 0 and
+    psi_edge - psi_axis > 0, admits exactly COCOS 3 (weber/radian) and 13
+    (weber) among the phi-counter-clockwise indices.  COCOS 3 is also what
+    Sauter section IX and OMAS give for EFIT, which produced these files.
+    """
+    from vaft.data.cocos import COCOS_INDICES, cocos_spec
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS, IP_SIGN_VEST_TO_IMAS
+
+    sigma_ip = IP_SIGN_VEST_TO_IMAS.sign
+    sigma_b0 = BT_SIGN_VEST_TO_IMAS.sign
+    admissible = [
+        index for index in COCOS_INDICES
+        if cocos_spec(index).sigma_rpz == +1
+        and cocos_spec(index).expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0) > 0
+        and cocos_spec(index).expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=sigma_b0) > 0
+    ]
+    assert admissible == [3, 13]
+
+
+def test_the_packaged_shots_all_map_to_the_same_native_signs():
+    """The transformations are uniform only if the native signs are."""
+    import numpy as np
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert float(np.nanmax(np.asarray(ods["magnetics.ip.0.data"], float))) > 0
+    assert float(np.median(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float))) > 0
+
+
+def test_the_plasma_current_transformation_is_declared_but_not_yet_applied():
+    """IP_SIGN is -1 while the mapping still writes ip_vest unchanged.
+
+    Applying it flips Ip and, through Sauter Eq. 23, the sign of q and the
+    orientation of psi, so the whole equilibrium has to move together.  Until
+    that migration happens the declared sign and the stored data disagree
+    deliberately, and this pins that so nobody reads the constant as describing
+    what is currently in the IDS.
+    """
+    import numpy as np
+    import vaft
+
+    from vaft.machine_mapping import IP_SIGN_VEST_TO_IMAS
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    stored = float(np.nanmax(np.asarray(ods["magnetics.ip.0.data"], float)))
+    assert stored > 0, "the packaged ODS still carries the VEST-native sign"
+    assert IP_SIGN_VEST_TO_IMAS.apply(stored) < 0, "the declared transformation would flip it"
+
+
+def test_the_toroidal_transformation_is_the_identity_under_this_assumption():
+    """BT_SIGN is +1, so the stored b0 already matches what it declares.
+
+    That agreement is a property of the assumption meeting a positive bt_vest,
+    not evidence for the assumption, and it must not be read as confirmation --
+    which is why `confirmed` stays False next to it.
+    """
+    import numpy as np
+    import vaft
+
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    stored = float(np.median(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float)))
+    assert stored > 0
+    assert BT_SIGN_VEST_TO_IMAS.apply(stored) == stored
+    assert BT_SIGN_VEST_TO_IMAS.confirmed is False
+
+
+def test_neither_transformation_claims_confirmation_it_does_not_have():
+    """Guard against a value being promoted without an oriented reference.
+
+    Internal agreement among the DAQ, magnetics, PF and EFIT chains cannot
+    confirm these: those chains can share a global inversion.  Flipping
+    `confirmed` must come with evidence naming a spatially oriented reference.
+    """
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS, IP_SIGN_VEST_TO_IMAS
+
+    assert IP_SIGN_VEST_TO_IMAS.confirmed is False
+    assert BT_SIGN_VEST_TO_IMAS.confirmed is False
+    # The Bt entry must record both the evidence found and why it falls short:
+    # the alignment shots that give alpha ~ +1, and the fact that the two gains
+    # share a datasheet and so show consistency rather than orientation.
+    evidence = BT_SIGN_VEST_TO_IMAS.evidence
+    assert "35376" in evidence, "the alignment shots that produced alpha ~ +1"
+    assert "datasheet" in evidence, "why that agreement is not an absolute orientation"
+    assert "mutual consistency" in evidence
+
+
+def test_the_cocos_index_is_not_claimed_resolved():
+    """sigma_Ip * sigma_B0 is the product, so one unknown leaves it unresolved."""
+    from vaft.machine_mapping import equilibrium_orientation_is_resolved
+
+    assert equilibrium_orientation_is_resolved() is False
+
+
+def test_a_transformation_rejects_a_value_that_is_not_a_sign():
+    from vaft.machine_mapping import SignTransformation
+
+    with pytest.raises(ValueError, match="must be \\+1 or -1"):
+        SignTransformation(
+            quantity="ip", sign=0, confirmed=False,
+            vest_native_source="x", evidence="y", needed_to_confirm="z",
+        )
