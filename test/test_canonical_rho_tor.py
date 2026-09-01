@@ -185,3 +185,34 @@ def test_a_bare_index_axis_is_labelled_as_one():
     np.testing.assert_allclose(
         np.asarray(axes.get_lines()[0].get_xdata(), float), np.arange(6.0)
     )
+
+
+def test_overlaid_entries_share_one_abscissa_and_its_label():
+    """Review finding: the coordinate was resolved per entry but the axis carries
+    one label, so a figure overlaying a slice that can derive rho_tor_norm with
+    one that cannot took its label from whichever came last -- and the label
+    flipped on input order alone while one curve sat on an axis that did not
+    describe it. They fall back together now."""
+    from vaft.omas.sample import sample_ods
+
+    with_q = sample_ods()
+    without_q = copy.deepcopy(with_q)
+    del without_q["equilibrium.time_slice.0.profiles_1d.q"]
+
+    labels = []
+    for entries in ([with_q, without_q], [without_q, with_q]):
+        _figure, axes = vomas.plot_equilibrium_profile_pressure(
+            entries, show=False, label="key"
+        )
+        drawn = [np.asarray(line.get_xdata(), float) for line in axes.get_lines()]
+        assert len(drawn) == 2
+        np.testing.assert_allclose(drawn[0], drawn[1], rtol=1e-12)
+        assert "Poloidal" in axes.get_xlabel()
+        labels.append(axes.get_xlabel())
+    assert labels[0] == labels[1], "the label must not depend on input order"
+
+    # Two entries that both resolve keep the coordinate they both support.
+    _figure, axes = vomas.plot_equilibrium_profile_pressure(
+        [with_q, with_q], show=False, label="key"
+    )
+    assert "Toroidal" in axes.get_xlabel()

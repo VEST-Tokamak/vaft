@@ -2532,6 +2532,41 @@ _EQUILIBRIUM_COORDINATES = {
 }
 
 
+#: Equilibrium abscissae, weakest last. When entries in one figure resolve to
+#: different coordinates they all fall back to the weakest any of them supports,
+#: because a figure has one x axis and it has to describe every curve on it.
+_COORDINATE_FALLBACK_ORDER = ("rho_tor_norm", "psi_norm", "index")
+
+
+def _common_coordinate(resolved: list[str], requested: str) -> str:
+    """The one coordinate a figure can label, given what each entry resolved to."""
+    if not resolved:
+        return requested
+    distinct = set(resolved)
+    if len(distinct) == 1:
+        return resolved[0]
+    for name in reversed(_COORDINATE_FALLBACK_ORDER):
+        if name in distinct:
+            return name
+    return "index"
+
+
+def _recoordinate(
+    trace: Series, was: str, wanted: str, ods: Any, recipe: ProfileRecipe, time_slice: int
+) -> Series:
+    """Redraw one trace against ``wanted``, or against an index if it cannot."""
+    if was == wanted:
+        return trace
+    size = np.asarray(trace.y).size
+    if wanted != "index":
+        values, resolved = _equilibrium_coordinate_values(
+            ods, recipe, wanted, time_slice, size
+        )
+        if values is not None and resolved == wanted:
+            return dataclasses.replace(trace, x=values)
+    return dataclasses.replace(trace, x=np.arange(size, dtype=float))
+
+
 def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     if recipe.coordinate_paths:
         return recipe.coordinate_paths.get(name)
@@ -2560,15 +2595,23 @@ def _equilibrium_coordinate_values(
     """
     path = _profile_coordinate(recipe, coordinate)
     values = _array(ods, path.format(i=time_slice)) if path else None
+    if values is not None and values.size != size:
+        values = None
+
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    psi = _array(ods, f"{base}.psi")
+    psi_norm = None
+    if psi is not None and psi.size == size and psi[-1] != psi[0]:
+        psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+
+    if coordinate == "psi_norm" and values is None:
+        # psi_norm is a ratio of a leaf that is always there, so a slice can
+        # supply it whether or not the DD leaf itself was written.
+        return psi_norm, coordinate
 
     if coordinate == "rho_tor_norm":
         from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
 
-        base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
-        psi = _array(ods, f"{base}.psi")
-        psi_norm = None
-        if psi is not None and psi.size >= 2 and psi[-1] != psi[0]:
-            psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
         if values is not None and is_rho_pol_proxy(values, psi_norm):
             values = None  # the sqrt(psi_N) proxy: derive or fall back instead
         if values is None and psi is not None:
@@ -2579,12 +2622,10 @@ def _equilibrium_coordinate_values(
         if values is None:
             # Say psi_norm on the axis rather than draw a poloidal coordinate,
             # or a sample index, under a toroidal label.
-            if psi_norm is not None and psi_norm.size == size:
+            if psi_norm is not None:
                 return psi_norm, "psi_norm"
             return None, coordinate
 
-    if values is not None and values.size != size:
-        values = None
     return values, coordinate
 
 
@@ -2598,8 +2639,8 @@ def _build_profile_1d(
     panel_member = bool(options.pop("_panel_member", False))
     coordinate = options.get("coordinate") or recipe.default_coordinate
     time_slice = options.get("time_slice", 0)
-    drawn_coordinate = coordinate
     traces: list[Series] = []
+    resolved_per_entry: list[str] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
             indices = _resolve_indices(ods, recipe.y_path, options.get("channels"))
@@ -2640,21 +2681,37 @@ def _build_profile_1d(
             )
             if x is not None and x.size != y.size:
                 x = None
+            resolved = coordinate
         else:
-            x, drawn_coordinate = _equilibrium_coordinate_values(
+            x, resolved = _equilibrium_coordinate_values(
                 ods, recipe, coordinate, time_slice, y.size
             )
         if x is None:
             # A sample index is not a coordinate; label it as one, do not
             # pass it off as the coordinate that was asked for.
             x = np.arange(y.size, dtype=float)
-            drawn_coordinate = "index"
+            resolved = "index"
+        resolved_per_entry.append(resolved)
         code, mask = _validity_of(ods, recipe.y_path, time_slice)
         spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
         traces.append(
             Series(x=x, y=y, label=entry_label, yerr=spread,
                    validity=code, valid_mask=mask)
         )
+
+    # One figure carries one abscissa. Entries can resolve to different
+    # coordinates -- one slice derives rho_tor_norm, another only has psi_norm --
+    # and labelling from whichever came last would put a curve on an axis that
+    # does not describe it, with the label flipping on input order alone. They
+    # fall back together instead, to the weakest coordinate any entry supports.
+    drawn_coordinate = _common_coordinate(resolved_per_entry, coordinate)
+    if len(set(resolved_per_entry)) > 1:
+        traces = [
+            _recoordinate(trace, was, drawn_coordinate, ods, recipe, time_slice)
+            for trace, was, (_entry_label, ods) in zip(
+                traces, resolved_per_entry, entries
+            )
+        ]
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
