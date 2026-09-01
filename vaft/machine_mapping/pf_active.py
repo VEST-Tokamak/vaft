@@ -195,11 +195,31 @@ def vfit_pf_active_static(
     set_path(ods, "pf_active.ids_properties.comment", "PF config from vest_pf_active")
     set_path(ods, "pf_active.ids_properties.homogeneous_time", 1)
 
+    # Total series turns per coil, summed from the discretised geometry
+    # (column 5 is turns-with-sign, column 7 the 1-based coil index). Needed
+    # before the resistance loop below, which runs ahead of the element loop
+    # that writes `turns_with_sign` into the ODS.
+    turns_by_coil = np.zeros(PF_COIL_COUNT, dtype=float)
+    for line in line_data:
+        turns_by_coil[int(line[7]) - 1] += abs(float(line[5]))
+
     for coil_index in range(PF_COIL_COUNT):
         set_path(ods, f"pf_active.coil.{coil_index}.name", f"PF{coil_index + 1}")
         set_path(ods, f"pf_active.coil.{coil_index}.identifier", f"PF{coil_index + 1}")
         area = PF_WIDTH_BY_COIL[coil_index] * height_by_coil[coil_index]
-        resistance = 2.0 * math.pi * COPPER_RESISTIVITY * PF_RADIUS_BY_COIL[coil_index] / area
+        # Terminal resistance of the whole coil, per the DD ("Coil resistance"):
+        # N turns in series, each of cross-section A_pack/N, so
+        #     R = N * rho * (2*pi*r) / (A_pack / N) = N^2 * rho * 2*pi*r / A_pack.
+        #
+        # Before issue #117 the N^2 factor was missing, which computes the
+        # resistance of a *single* turn occupying the entire winding pack --
+        # 1.4e-7 Ohm for PF1's 632 turns, some five orders of magnitude below a
+        # physical terminal resistance. The same single-turn expression is left
+        # in place in `vaft/code/efit/legacy.py` on purpose: that module exists
+        # to reproduce legacy behaviour byte-for-byte, and no EFIT writer reads
+        # the field. Do not "fix" the copy there without retiring that contract.
+        turns = turns_by_coil[coil_index]
+        resistance = turns**2 * 2.0 * math.pi * COPPER_RESISTIVITY * PF_RADIUS_BY_COIL[coil_index] / area
         set_path(ods, f"pf_active.coil.{coil_index}.resistance", resistance)
 
     element_counts = np.zeros(PF_COIL_COUNT, dtype=int)
