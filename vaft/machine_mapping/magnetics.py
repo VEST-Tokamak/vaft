@@ -47,19 +47,35 @@ DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
 DEFAULT_DT = 4e-5
 PROBE_LENGTH = 0.01
-#: Orientation of VEST's poloidal probes, in the IMAS convention: the sensitive
-#: axis is ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)``, so
-#: pi/2 declares a probe measuring **+Bz**.
+#: Orientation of VEST's poloidal probes, in the IMAS DD convention.
 #:
-#: That is what these probes measure, settled numerically on shot 39915 against
-#: a coil+eddy Green's-function forward model: +Bz correlates with the mapped
-#: ``field.data`` at +0.96, -Bz at -0.96 and +Br at -0.72. The EFIT k-file
-#: writer groups the same channels by that understanding (its
-#: ``Index_inBz``/``sideBz``/``outBz`` families) and the mapped channel names
-#: end in ``_Bz``. Consumers should project with the stored angle (issue #169);
-#: it read 3*pi/2 -- -Bz -- until the packaged reference ODSs were relabelled
-#: along with this constant.
-POLOIDAL_ANGLE = math.pi / 2
+#: The DD defines ``poloidal_angle`` as a **clockwise** theta-like angle from the
+#: horizontal plane, zero when the sensor normal points toward increasing major
+#: radius.  Clockwise from ``+R`` turns toward ``-Z``, so the sensitive axis is
+#: ``(cos(poloidal_angle), -sin(poloidal_angle))`` in ``(R, Z)`` and a probe
+#: measuring ``+Bz`` must be stored as ``3*pi/2``, not ``pi/2``.
+#:
+#: That the probes measure ``+Bz`` is established empirically **relative to the
+#: PF coil current polarity**, not assumed.  The forward model takes the coil
+#: currents and ``turns_with_sign`` as given, and both are VEST-native DAQ
+#: signs, so a global inversion of the PF chain would flip every correlation
+#: with it.  What the check establishes is the probe orientation *within* that
+#: chain, which is what the stored angle describes; the absolute orientation is
+#: the open question tracked in :mod:`vaft.machine_mapping.conventions`.
+#: Forward-modelling the PF coil response with
+#: :func:`vaft.formula.green.green_br_bz_exact` over the packaged
+#: ``pf_active`` geometry and correlating it against the mapped probe signals
+#: during the pre-plasma vacuum phase gives, on shot 39915, a median correlation
+#: of +0.85 with 62 of 63 probes positive; shot 41672 gives +0.84 with 59 of 63.
+#: See ``test_probe_orientation_is_established_from_the_coil_forward_model``.
+#:
+#: This value was ``pi/2`` until the audit for issue #288.  That was not a
+#: standalone error: the consumer in :mod:`vaft.omas.vacuum_magnetics` projected
+#: with ``(cos, +sin)``, the counter-clockwise reading, so the two cancelled and
+#: VAFT's own analysis was self-consistent.  What was wrong was the value written
+#: into the IDS, which told any DD-conformant reader that the probes measure
+#: ``-Bz``.  The stored angle and the projection must move together.
+POLOIDAL_ANGLE = 3 * math.pi / 2
 MIRNOV_TYPE_INDEX = 2
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept

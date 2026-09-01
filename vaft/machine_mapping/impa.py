@@ -53,11 +53,16 @@ IMPA_IDENTIFIER_PREFIX = "impa:"
 #: it carries the array's position calibration.
 IMPA_PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
 #: The IMPA Bz sensors measure the vertical field, so under the IMAS convention
-#: -- the sensitive axis being ``(cos(poloidal_angle), sin(poloidal_angle))`` in
-#: ``(R, Z)`` -- their nominal poloidal angle is pi/2, matching the equilibrium
-#: probes (:data:`vaft.machine_mapping.magnetics.POLOIDAL_ANGLE`).  A measured
-#: crosstalk misalignment is applied as an offset from this nominal.
-IMPA_POLOIDAL_ANGLE = math.pi / 2
+#: -- ``poloidal_angle`` being a **clockwise** angle from ``+R``, hence a
+#: sensitive axis of ``(cos(poloidal_angle), -sin(poloidal_angle))`` in
+#: ``(R, Z)`` -- their nominal poloidal angle is ``3*pi/2``, matching the
+#: equilibrium probes (:data:`vaft.machine_mapping.magnetics.POLOIDAL_ANGLE`).
+#:
+#: A measured crosstalk misalignment is applied as an offset from this nominal,
+#: and it is **subtracted**: the misalignment is measured counter-clockwise
+#: positive, and an axis written ``pi/2 + delta`` under the counter-clockwise
+#: reading is the same axis as ``3*pi/2 - delta`` under the DD's clockwise one.
+IMPA_POLOIDAL_ANGLE = 3 * math.pi / 2
 #: A Hall channel wired for the toroidal field has no sensitive component in the
 #: poloidal plane at all; ``toroidal_angle = 0`` is what declares its
 #: orientation, and a poloidal angle of 0 is written only to keep the node
@@ -670,7 +675,7 @@ def impa(
                 set_path(
                     ods,
                     f"{prefix}.poloidal_angle",
-                    IMPA_POLOIDAL_ANGLE + math.radians(float(result.crosstalk.angle_deg[offset])),
+                    IMPA_POLOIDAL_ANGLE - math.radians(float(result.crosstalk.angle_deg[offset])),
                 )
             else:
                 set_path(ods, f"{prefix}.poloidal_angle", IMPA_POLOIDAL_ANGLE)

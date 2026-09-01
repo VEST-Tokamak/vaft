@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 9910535
-    sha256: 8b4bed47c0b5e433c299e26554eaf10441251498f2eabc483d2f72644ace0fd2
+    size: 9852213
+    sha256: f901bcc6f8f27af9dc422b953189ba7c404207b191398346d134bf3db21e0df4
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -59,7 +59,7 @@ representations:
     - imas
     - omas
     size: 11182674
-    sha256: cb35b6204998420549310cb9913cf7647e607d4c2b223688df325b6ca9c4c1d6
+    sha256: 11ba8b37fa60c9c00eb0939b02c853c4ffc5cd23303a3cf22991293373d24b76
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -141,3 +141,18 @@ packaging_policy:
   canonical_source: repository-only
   raw_source: repository-only
   future_large_goldens: repository-only
+corrections:
+- issue: 288
+  field: magnetics.b_field_pol_probe.:.poloidal_angle
+  from: pi/2
+  to: 3*pi/2
+  reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
+    measuring +Bz is 3*pi/2. This wheel variant carried pi/2, which declares -Bz to
+    a DD-conformant reader and, since setup.py substitutes these files into every
+    build, would have shipped an inverted probe response while the consumer
+    projection moved to (cos, -sin). Applied in place to match
+    vaft/data/samples/39915: the mapper writes this leaf as a constant, no stage
+    output depends on it, and the reference generators were corrected in the same
+    change to read POLOIDAL_ANGLE so a regeneration now reproduces this value. The
+    pipeline stage hashes are therefore unchanged and still describe the run that
+    produced the rest of the artifact.'

@@ -23,7 +23,7 @@ Both sides of every comparison carry the same physical quantity and unit:
   already returns as full poloidal flux in Wb -- no ``2*pi`` enters here;
 * B probes compare ``magnetics.b_field_pol_probe.*.field.data`` [T] against the
   field response projected onto the probe's own sensitive axis,
-  ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)`` -- the IMAS
+  ``(cos(poloidal_angle), -sin(poloidal_angle))`` in ``(R, Z)`` -- the IMAS
   convention, read per channel from the ODS so a probe mounted differently from
   the rest projects differently (issue #169).  An ODS that stores no angle for a
   channel falls back to
@@ -384,7 +384,11 @@ def synthetic_vacuum_magnetics(
             response = psi[position]
         else:
             angle = row["poloidal_angle"]
-            response = b_r[position] * np.cos(angle) + b_z[position] * np.sin(angle)
+            # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
+            # (cos, -sin) in (R, Z).  Projecting with (cos, +sin) inverts every
+            # probe; it did so here until issue #288, cancelling against a
+            # stored angle that was wrong the same way.
+            response = b_r[position] * np.cos(angle) - b_z[position] * np.sin(angle)
         coil = response[:n_coil] @ coil_currents
         eddy = response[n_coil : n_coil + n_loop] @ loop_currents
         built.append(
