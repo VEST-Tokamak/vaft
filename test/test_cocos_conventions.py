@@ -358,6 +358,49 @@ def test_poloidal_field_factor_falls_back_to_the_historical_form():
         assert poloidal_field_factor(index) == -1.0
 
 
+def test_the_two_pi_survives_an_index_the_signs_cannot_pin_down():
+    """Regression: the storage family is known long before the index is.
+
+    Identification settles the 2*pi from Ampere's law but leaves the index
+    ambiguous whenever `clockwise_phi` is unknown -- an ODS read lands on
+    candidates {11, 12}, so `cocos` is None while `psi_per_radian` is False.
+    Falling back to the historical k = -1 there builds B_p from a weber psi as
+    if it were weber-per-radian.  The family alone has to supply the 2*pi.
+    """
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    assert poloidal_field_factor(None, psi_per_radian=False) == pytest.approx(
+        -1.0 / (2.0 * math.pi)
+    )
+    # It is exactly the magnitude both weber-family candidates agree on, the
+    # orientation being the only thing {11, 12} still disagree about.
+    for index in (11, 12):
+        assert abs(poloidal_field_factor(index)) == pytest.approx(
+            abs(poloidal_field_factor(None, psi_per_radian=False))
+        )
+    # True and None both mean "no 2*pi to remove": untouched callers are unchanged.
+    assert poloidal_field_factor(None, psi_per_radian=True) == -1.0
+    assert poloidal_field_factor(None, psi_per_radian=None) == -1.0
+    # A declared index carries both halves and is not second-guessed.
+    assert poloidal_field_factor(2, psi_per_radian=False) == -1.0
+
+
+def test_an_ods_read_reports_the_family_even_when_the_index_is_ambiguous():
+    """Regression for the #274/#281 merge: `_resolve_convention` rebuilt the
+    convention record from the resolved index alone, dropping the family that
+    both `identify_flux_exponent` and the dphi/dpsi-vs-q slope had established.
+    """
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    convention = as_equilibrium(sample_geqdsk("efit/g039915.00319").to_omas()).convention
+    assert convention.cocos is None, "clockwise_phi is unknown, so the index stays open"
+    assert convention.identified == (11, 12)
+    assert convention.psi_per_radian is False
+    # The g-file itself is the other family, read through the same resolver.
+    assert as_equilibrium(sample_geqdsk("efit/g039915.00319")).convention.psi_per_radian is True
+
+
 def test_poloidal_field_has_opposite_sign_in_cocos_1_and_cocos_2():
     """The sign the old code could not distinguish.
 

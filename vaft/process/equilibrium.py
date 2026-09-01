@@ -367,7 +367,9 @@ def psi_to_radial(
 # Shafranov Integral
 # ------------------------------------------------------------------
 
-def poloidal_field_at_boundary(R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry, cocos=None):
+def poloidal_field_at_boundary(
+    R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry, cocos=None, psi_per_radian=None,
+):
     """
     자속(Psi) 격자 데이터를 이용하여 경계면(Boundary)에서의 
     Poloidal Magnetic Field (Bp) 벡터와 크기를 계산합니다.
@@ -408,10 +410,11 @@ def poloidal_field_at_boundary(R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry, c
     # 3. 자기장 계산 (Cylindrical Coordinates), Sauter Eq. 20
     #    k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp 는 2*pi 정규화와 방향 부호를
     #    함께 담습니다. cocos=None 이면 기존 EFIT Weber/rad 관례(k = -1)를
-    #    그대로 사용합니다.
+    #    그대로 사용하되, psi_per_radian=False 로 저장 계열만 알려주면 부호는
+    #    그대로 두고 2*pi 정규화만 적용합니다 (Wb 저장 psi 에 필요).
     from vaft.formula.equilibrium import poloidal_field_factor
 
-    k = poloidal_field_factor(cocos)
+    k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
 
     # B_R = k * (1/R) * dPsi/dZ
     B_R_bdry = k * (1.0 / R_bdry) * dPsi_dZ
