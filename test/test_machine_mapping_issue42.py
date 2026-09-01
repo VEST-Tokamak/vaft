@@ -120,12 +120,12 @@ def test_split_magnetics_mappers_reject_incompatible_shared_time(mock_md, mock_i
 
 
 @patch("vaft.machine_mapping.magnetics._safe_vest_load", return_value=None)
-@patch("vaft.machine_mapping.magnetics.vest_diamagnetic_flux")
+@patch("vaft.machine_mapping.magnetics.vest_diamagnetic_flux_detailed")
 @patch("vaft.machine_mapping.magnetics.vfit_plasma_current")
 def test_diamagnetic_mapper_does_not_add_ip(mock_ip, mock_dia, _mock_load):
     time = np.array([0.26, 0.31, 0.36])
     mock_ip.return_value = (time, np.array([0.0, 10.0, 0.0]))
-    mock_dia.return_value = (time, np.array([0.0, 1.0, 0.0]))
+    mock_dia.return_value = (time, np.array([0.0, 1.0, 0.0]), {"n_saturated": 0, "field": 257})
     payload = {}
     diamagnetic_flux_rogowski_coil_from_raw_database(payload, 41672, dt=0.01)
     assert "diamagnetic_flux" in payload["magnetics"]
