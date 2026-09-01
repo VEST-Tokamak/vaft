@@ -495,8 +495,11 @@ def _slope_flux_exponent(ts: Any) -> Optional[int]:
         dphi/dpsi_stored = q      (psi stored in Wb,     e_Bp = 1)
         dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad, e_Bp = 0)
 
-    The two answers are 2*pi apart, so the midpoint ``sqrt(2*pi)`` separates them
-    with a wide margin.
+    The two answers are 2*pi apart, so the test is decisive when it applies -- but
+    a ratio near neither is evidence that ``phi`` and ``q`` disagree (a stale phi
+    against a rescaled q, say), not evidence of a convention. Abstain there and
+    let :func:`_ampere_flux_exponent` answer from the field instead, the same
+    bargain :func:`vaft.process.cocos.identify_flux_exponent` makes.
     """
     phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
     q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
@@ -517,7 +520,12 @@ def _slope_flux_exponent(ts: Any) -> Optional[int]:
     ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
     if not np.isfinite(ratio) or ratio <= 0:
         return None
-    return 1 if ratio < np.sqrt(TWO_PI) else 0
+    from vaft.process.cocos import FLUX_EXPONENT_TOLERANCE
+
+    for exponent, expected in ((1, 1.0), (0, TWO_PI)):
+        if abs(ratio - expected) <= FLUX_EXPONENT_TOLERANCE * expected:
+            return exponent
+    return None
 
 
 def _ampere_flux_exponent(ts: Any) -> Optional[int]:
@@ -583,16 +591,18 @@ def _flux_exponent_candidates(ods: Any, time_index: int) -> Iterable[Any]:
     psi_boundary`` and no boundary outline, which the packaged VEST samples do
     contain -- must not force the whole ODS onto the default.
     """
-    requested = _path_get(ods, f"equilibrium.time_slice.{time_index}")
-    if requested is None:
-        yield ods  # accept a bare equilibrium time slice as well
-        return
-    yield requested
     slices = _path_get(ods, "equilibrium.time_slice")
     try:
         total = len(slices)
     except TypeError:
+        total = 0
+    if not total:
+        # No time_slice container at all: the caller handed us a bare slice.
+        yield ods
         return
+    requested = _path_get(ods, f"equilibrium.time_slice.{time_index}")
+    if requested is not None:
+        yield requested
     for index in range(total):
         if index == time_index:
             continue
@@ -616,8 +626,10 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
        LCFS against ``mu0*|Ip|``, which needs no ``phi``.
 
     Both are decisive because their two outcomes are 2*pi apart, and both abstain
-    rather than guess. Only when every slice abstains is the DD convention (Wb)
-    assumed. Returns ``1/(2*pi)`` for Wb storage, ``1.0`` for Wb/rad.
+    rather than guess -- a ratio near neither outcome says the input is
+    inconsistent, not which family it belongs to. Only when every slice abstains
+    is the DD convention (Wb) assumed. Returns ``1/(2*pi)`` for Wb storage,
+    ``1.0`` for Wb/rad.
     """
     for ts in _flux_exponent_candidates(ods, time_index):
         for probe in (_slope_flux_exponent, _ampere_flux_exponent):

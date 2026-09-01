@@ -209,3 +209,40 @@ def test_virial_quantities_are_physical_on_the_packaged_sample():
     virial = compute_virial_equilibrium_quantities_ods(ods, time_slice=0)[0]
     assert 0.01 < float(virial["B_pa"]) < 0.5
     assert 0.0 < float(virial["beta_p"]) < 10.0
+
+
+def test_an_inconsistent_phi_abstains_instead_of_overriding_ampere():
+    """Review finding: the slope rung classified every finite ratio, so a phi
+    that disagrees with q pre-empted the physically decisive Ampere test and
+    produced a 2*pi error. A ratio near neither 1 nor 2*pi is evidence the input
+    is broken, not evidence of a convention."""
+    import copy
+
+    from vaft.data.eqdsk import _ampere_flux_exponent, _slope_flux_exponent
+
+    ods = sample_geqdsk("efit/g039915.00319").to_omas()  # weber family
+    broken = copy.deepcopy(ods)
+    ts = broken["equilibrium.time_slice.0"]
+    ts["profiles_1d.phi"] = np.asarray(ts["profiles_1d.phi"], float) * 3.0
+
+    assert _slope_flux_exponent(ts) is None, "a ratio of ~3 must abstain"
+    assert _ampere_flux_exponent(ts) == 1, "Ampere's law still knows the family"
+    assert ods_psi_to_wb_per_radian_factor(broken) == pytest.approx(1.0 / TWO_PI)
+
+    # The healthy file still answers from the slope, without needing Ampere.
+    assert _slope_flux_exponent(ods["equilibrium.time_slice.0"]) == 1
+
+
+def test_an_out_of_range_time_index_still_consults_the_other_slices():
+    """Review finding: a missing index made the walk yield the whole ODS as if it
+    were a bare time slice and stop, so a file that could answer fell back to the
+    DD default."""
+    legacy = _strip_phi(_legacy_style(sample_geqdsk("efit/g039915.00319").to_omas()))
+
+    assert ods_psi_to_wb_per_radian_factor(legacy, 0) == pytest.approx(1.0)
+    assert ods_psi_to_wb_per_radian_factor(legacy, 7) == pytest.approx(1.0)
+
+    # A caller handing over a bare time slice is still served.
+    assert ods_psi_to_wb_per_radian_factor(
+        legacy["equilibrium.time_slice.0"]
+    ) == pytest.approx(1.0)
