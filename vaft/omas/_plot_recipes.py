@@ -2517,6 +2517,7 @@ def _build_line_series(
 
 
 _COORDINATE_LABELS = {
+    "index": "Profile sample index",
     "rho_tor_norm": "Normalized Toroidal Flux (rho_N)",
     "psi_norm": "Normalized Poloidal Flux (psi_N)",
     "r_major": "Major Radius R [m]",
@@ -2537,6 +2538,56 @@ def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     return _EQUILIBRIUM_COORDINATES.get(name)
 
 
+def _equilibrium_coordinate_values(
+    ods: Any, recipe: ProfileRecipe, coordinate: str, time_slice: int, size: int
+) -> tuple[Any, str]:
+    """The abscissa for one equilibrium profile, and the coordinate it really is.
+
+    Two ways this used to lie about its x-axis (issue #276):
+
+    * the stored ``rho_tor_norm`` on anything written before the fix is
+      ``sqrt(psi_N)`` -- a *poloidal* coordinate under a toroidal label, up to
+      0.126 away from the real one on the packaged samples. It is detected and
+      refused here rather than plotted, and the toroidal coordinate is derived
+      from ``q`` on the spot when the slice can support one;
+    * a missing or length-mismatched coordinate fell back to
+      ``linspace(0, 1, n)`` while the label still read "Normalized Toroidal
+      Flux", so a bare sample index was drawn as rho_N.
+
+    Returns ``(values, coordinate_name)``. ``values`` is ``None`` only when
+    nothing can be resolved; the name is what the axis must be labelled with,
+    which is not always what was asked for.
+    """
+    path = _profile_coordinate(recipe, coordinate)
+    values = _array(ods, path.format(i=time_slice)) if path else None
+
+    if coordinate == "rho_tor_norm":
+        from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
+
+        base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+        psi = _array(ods, f"{base}.psi")
+        psi_norm = None
+        if psi is not None and psi.size >= 2 and psi[-1] != psi[0]:
+            psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+        if values is not None and is_rho_pol_proxy(values, psi_norm):
+            values = None  # the sqrt(psi_N) proxy: derive or fall back instead
+        if values is None and psi is not None:
+            q = _array(ods, f"{base}.q")
+            derived = rho_tor_profile(q, psi) if q is not None else None
+            if derived is not None and derived.rho_tor_norm.size == size:
+                return derived.rho_tor_norm, coordinate
+        if values is None:
+            # Say psi_norm on the axis rather than draw a poloidal coordinate,
+            # or a sample index, under a toroidal label.
+            if psi_norm is not None and psi_norm.size == size:
+                return psi_norm, "psi_norm"
+            return None, coordinate
+
+    if values is not None and values.size != size:
+        values = None
+    return values, coordinate
+
+
 def _build_profile_1d(
     entries: Sequence[tuple[str, Any]], recipe: ProfileRecipe, **options: Any
 ) -> Profile1D:
@@ -2547,6 +2598,7 @@ def _build_profile_1d(
     panel_member = bool(options.pop("_panel_member", False))
     coordinate = options.get("coordinate") or recipe.default_coordinate
     time_slice = options.get("time_slice", 0)
+    drawn_coordinate = coordinate
     traces: list[Series] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
@@ -2579,14 +2631,24 @@ def _build_profile_1d(
                 y = _array(ods, fallback.format(i=time_slice))
         if y is None:
             continue
-        coordinate_path = _profile_coordinate(recipe, coordinate)
-        x = (
-            _array(ods, coordinate_path.format(i=time_slice))
-            if coordinate_path
-            else None
-        )
-        if x is None or x.size != y.size:
-            x = np.linspace(0.0, 1.0, y.size)
+        if recipe.coordinate_paths:
+            coordinate_path = _profile_coordinate(recipe, coordinate)
+            x = (
+                _array(ods, coordinate_path.format(i=time_slice))
+                if coordinate_path
+                else None
+            )
+            if x is not None and x.size != y.size:
+                x = None
+        else:
+            x, drawn_coordinate = _equilibrium_coordinate_values(
+                ods, recipe, coordinate, time_slice, y.size
+            )
+        if x is None:
+            # A sample index is not a coordinate; label it as one, do not
+            # pass it off as the coordinate that was asked for.
+            x = np.arange(y.size, dtype=float)
+            drawn_coordinate = "index"
         code, mask = _validity_of(ods, recipe.y_path, time_slice)
         spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
         traces.append(
@@ -2609,7 +2671,7 @@ def _build_profile_1d(
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
     return Profile1D(
         series=scaled,
-        coordinate_label=_COORDINATE_LABELS.get(coordinate, coordinate),
+        coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
         y_label=recipe.y_label,
         y_unit=y_display.unit,
         title=options.get("title", default_title),
