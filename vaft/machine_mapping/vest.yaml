@@ -674,19 +674,55 @@
         #                               inside `fl10.subtract_window`.
         #   disabled                 - no FL10 compensation at all; `ip` is
         #                               `ip_shot` unmodified (from #195).
+        # FL10 vessel-current compensation (issue #214).
+        #
+        # `field: 25` is Flux Loop #10 (R = 0.091 m, Z = 0.04 m, inboard /
+        # centre column). In THIS path its raw signal is used as a LOOP
+        # VOLTAGE and is deliberately NOT integrated -- unlike the generic
+        # equilibrium-magnetics path, where flux-loop voltage is integrated
+        # into poloidal flux. The two uses of field 25 are different
+        # quantities and must not be conflated.
+        #
+        # Units of `effective_resistance_ohm`, and why it is not called a
+        # mutual inductance:
+        #
+        #   ip_ref = V_FL10 * flux_gain / X   is subtracted from a current,
+        #   so X must be in V/A = ohm. An inductance would give V/H = A/s,
+        #   which cannot be subtracted from amperes.
+        #
+        # The donor `vest_ip.m` names this constant `indMutual_FL10_inLimiter`
+        # and labels its plots "FL10 Voltage/Mutual Inductance with Inboard
+        # Limiter" -- i.e. the donor calls it a mutual inductance between FL10
+        # and the inboard limiter. That name is dimensionally inconsistent
+        # with the operation the donor itself performs. The dimensional
+        # requirement is the harder evidence, and the earliest VAFT-era config
+        # independently labelled the same value `effective_res`, so the key is
+        # named for the units the formula requires. The conflict with the
+        # donor's name is recorded here rather than erased: it is not settled
+        # provenance, and resolving it needs VEST calibration documentation.
+        #
+        # The plausible physical reading -- FL10 sees the total induced loop
+        # voltage, which approximates the voltage around a dominant passive
+        # current path, so V ~= R_eff * I_eddy -- is an UNVERIFIED hypothesis.
+        # FL10 is not known to see an "eddy-only" signal; it sees total loop
+        # voltage including PF and plasma contributions. Quantitative
+        # validation of the approximation is deliberately out of scope here.
+        #
+        # Numerical values are unchanged from the donor:
+        #   shot <  17455 -> 2.8e-4 ; shot >= 17455 -> 5.0e-4.
         reference:
           mode: subtract
           field: 25
           flux_gain: 11.0
-          mutual_inductance: 2.8e-4
+          effective_resistance_ohm: 2.8e-4
           revisions:
             - from_shot: 17455
               to_shot: 46402
-              mutual_inductance: 5.0e-4
+              effective_resistance_ohm: 5.0e-4
             - from_shot: 46403
               to_shot: 47116
               mode: subtract_fl10_windowed
-              mutual_inductance: 5.0e-4
+              effective_resistance_ohm: 5.0e-4
               fl10:
                 # `field` intentionally left equal to the pre-existing
                 # `reference.field` (25) pending confirmation against the
@@ -710,9 +746,16 @@
                 # the documented VAFT interpretation of the degenerate
                 # single-point polyfit this offset replaces.
                 reference_offset_index: 175
+            # Shot >= 47117: the donor drops FL10 compensation entirely
+            # (`if shot < 47117 ... else ip = ipShot`) and gives NO stated
+            # reason for the change. A Rogowski/wiring/electronics transition
+            # is a plausible cause but is an unverified hypothesis; it is
+            # recorded as such rather than asserted. `effective_resistance_ohm`
+            # is retained for provenance only -- `mode: disabled` means it is
+            # not read. Resolving the cause needs VEST hardware history.
             - from_shot: 47117
               mode: disabled
-              mutual_inductance: 5.0e-4
+              effective_resistance_ohm: 5.0e-4
         # `baseline.analysis_start/analysis_end` is the shot-era *analysis
         # window* (`xTime` in the legacy `vest_ip.m`). It is NOT the fitted
         # baseline interval. The actual linear-baseline-fit window (`xBase`)

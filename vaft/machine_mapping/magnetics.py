@@ -638,7 +638,7 @@ def _apply_fl10_windowed_compensation(
     """
     fl10_config = reference_config["fl10"]
     fl10_field = int(fl10_config["field"])
-    ind_mutual = float(reference_config["mutual_inductance"])
+    effective_resistance = float(reference_config["effective_resistance_ohm"])
 
     fl10_time, raw_fl10 = raw_db.require_signal(
         _safe_vest_load(shot, fl10_field, raw_source),
@@ -656,7 +656,10 @@ def _apply_fl10_windowed_compensation(
     )
     decimated_time = shifted_time[::decimate_factor][: decimated_flux.size]
 
-    ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / ind_mutual
+    # FL10 raw signal is a loop VOLTAGE here (never integrated), so the
+    # divisor must be in ohms for the result to be a current -- see
+    # `vest_flux_loop_voltage` for the integrated flux path (issue #214).
+    ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / effective_resistance
 
     # Donor: `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
     # (`vest_ip.m`). That is a degree-1 fit through a single (x, y) point, so
@@ -756,7 +759,7 @@ def vfit_plasma_current(
 
         # Legacy full-trace subtraction (default, unchanged since #135).
         x_flux_loop = int(reference_config["field"])
-        ind_mutual = float(reference_config["mutual_inductance"])
+        effective_resistance = float(reference_config["effective_resistance_ohm"])
         flux_time, raw_flux = raw_db.require_signal(
             _safe_vest_load(shot, x_flux_loop, raw_source),
             shot=shot,
@@ -766,7 +769,11 @@ def vfit_plasma_current(
         if flux_time.size != time.size or not np.allclose(flux_time, time):
             raw_flux = np.interp(time, flux_time, raw_flux)
 
-        ip_ref = raw_flux * float(reference_config["flux_gain"]) / ind_mutual
+        # `raw_flux` is FL10's loop VOLTAGE, deliberately not integrated:
+        # V / R gives the current-equivalent vessel reference subtracted from
+        # the Rogowski measurement.  Dividing by an inductance instead would
+        # give A/s, which is not subtractable from a current (issue #214).
+        ip_ref = raw_flux * float(reference_config["flux_gain"]) / effective_resistance
         ip_ref = _linear_baseline_subtract(time, ip_ref, x_base)
         ip = (ip_shot - ip_ref) * float(sign_config["multiply"])
         return time, ip
