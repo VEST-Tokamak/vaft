@@ -190,10 +190,16 @@ def test_compensation_is_disabled_once_the_inboard_is_carbon():
     the induced current in that structure is no longer measured by the inner
     Rogowski coil and there is nothing left for FL10 to compensate.
 
-    Note the unresolved boundary: issue #191 places the full-carbon inboard
-    limiter at shot >= 47018, 99 shots earlier than this processing change.
-    This asserts the processing boundary the donor implements; reconciling it
-    with the hardware record is tracked in #191/#216.
+    Resolved empirically against the SQL database (2026-09-01): 47113 -> 47114
+    is a 6.5-day machine access window, and reproducing IP from raw signals
+    shows the FL10 term improves the post-discharge residual on 23/23 plasma
+    shots over 47050-47113 but only 5/49 over 47114-47200. #191's competing
+    47018 sits 12 minutes after 47017 inside a continuous run day with no
+    machine access and no signal step, so it is not a transition.
+
+    The physical boundary is 47114; `from_shot` stays at the donor's 47117
+    because 47114-47116 carry no plasma (7-10 kA, FL10 ~0.005 V), so the
+    three-shot difference cannot change any processed result.
     """
     for shot in (47115, 47116):
         _, reference, _, _ = _plasma_processing_for_shot(shot)
@@ -202,3 +208,26 @@ def test_compensation_is_disabled_once_the_inboard_is_carbon():
     for shot in (47117, 47118, 50000):
         _, reference, _, _ = _plasma_processing_for_shot(shot)
         assert reference.get("mode") == "disabled", shot
+
+
+def test_the_commissioning_shots_inside_the_boundary_carry_no_plasma():
+    """Why the donor's 47117 is harmless despite 47114 being the real break.
+
+    47114-47117 are four vacuum/commissioning shots taken in a 22-minute block
+    on 2025-11-13, immediately after a 6.5-day machine access window. They are
+    still configured as compensated, but they contain no plasma, so the
+    three-shot offset between the physical boundary (47114) and the configured
+    one (47117) cannot affect any analysed result.
+
+    Offline assertion: this pins the configured eras only. The raw-signal
+    evidence lives in the #214/#216 investigation record.
+    """
+    _, at_47113, _, _ = _plasma_processing_for_shot(47113)
+    assert at_47113.get("mode") == "subtract_fl10_windowed"
+
+    for shot in (47114, 47115, 47116):
+        _, reference, _, _ = _plasma_processing_for_shot(shot)
+        assert reference.get("mode") == "subtract_fl10_windowed", shot
+
+    _, at_47117, _, _ = _plasma_processing_for_shot(47117)
+    assert at_47117.get("mode") == "disabled"

@@ -774,13 +774,31 @@
             # Rogowski coil, so there is nothing left for the FL10 term to
             # compensate and the subtraction is correctly disabled.
             #
-            # UNRESOLVED shot boundary: issue #191 documents the full-carbon
-            # inboard limiter at `shot >= 47018` (elements 721-950, tungsten
-            # -> carbon, R 0.100 -> 0.101 m), 99 shots earlier than this
-            # processing change at 47117. These may be two events (retrofit,
-            # then processing follow-up) or one number may be wrong. Both are
-            # recorded rather than reconciled by guesswork; the machine log
-            # settles it. See #191 and #216.
+            # Boundary resolved empirically against the VEST SQL database
+            # (2026-09-01; 361 shots, 46900-47260). There is ONE transition,
+            # not two, and #191's `shot >= 47018` is not supported:
+            #
+            #   * 47113 -> 47114 is a 6.5-day machine access window
+            #     (2025-11-06 23:04 -> 2025-11-13 10:52). 47114-47117 are four
+            #     vacuum/commissioning shots in a 22-minute block (7-10 kA,
+            #     FL10 collapsed to 0.003-0.007 V); plasma resumes at 47118
+            #     after a further 4-day gap, at roughly half the previous
+            #     current (210-230 kA -> 60-110 kA).
+            #   * Reproducing IP from raw signals both with and without the
+            #     FL10 term, and scoring the post-discharge residual (where
+            #     true Ip must be ~0): compensation improves 23/23 plasma
+            #     shots over 47050-47113 and only 5/49 over 47114-47200. The
+            #     term stops removing anything real exactly at the break.
+            #   * 47018 is 12 minutes after 47017 inside a continuous run day
+            #     (2025-11-05, ~12 min cadence). No machine access, and no
+            #     step in FL10 amplitude or compensation behaviour there.
+            #
+            # The physically correct boundary is therefore 47114, the first
+            # shot after the intervention. `from_shot` is kept at the donor's
+            # 47117 (the last commissioning shot) because 47114-47116 carry no
+            # plasma, so the three-shot difference cannot change any result;
+            # changing it would alter processed output for no physical gain.
+            # See #191 (which needs its 47018 corrected) and #216.
             #
             # `effective_resistance_ohm` is retained for provenance only --
             # `mode: disabled` means it is not read.
