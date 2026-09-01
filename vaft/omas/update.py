@@ -522,7 +522,7 @@ _GEOMETRY_LEAVES = (
 _GEOMETRY_PSI_DERIVATIVES = ("dvolume_dpsi", "darea_dpsi")
 
 
-def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
+def update_equilibrium_profiles_1d_geometry(ods, time_slice=None, *, return_surfaces=False):
     """Derive the flux-surface geometry profiles by tracing the 2-D psi map.
 
     Writes ``profiles_1d`` ``gm1`` (<1/R^2>), ``gm5`` (<B^2>), ``gm8`` (<R>),
@@ -549,9 +549,17 @@ def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
     Parameters:
         ods (OMAS structure): Input OMAS data structure, updated in place.
         time_slice (int/list/None): Specific time slice(s) to process. None=all
+        return_surfaces (bool): also return ``{time_slice_index: surfaces}``.
+            The trace is the expensive part of every derivation built on it, and
+            two of its results -- ``bp_dl`` and the per-surface ``length_pol`` --
+            are not DD quantities and so are not written to the ODS. A caller
+            that needs them, such as
+            :func:`update_equilibrium_global_quantities_beta_li`, takes them
+            here rather than tracing a second time.
     """
     from vaft.process.equilibrium import flux_surface_quantities
 
+    traced: dict[int, dict] = {}
     for idx in _equilibrium_time_slices(ods, time_slice):
         frame = _equilibrium_flux_frame(ods, idx)
         if frame is None:
@@ -580,6 +588,7 @@ def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
             logger.warning("Flux-surface trace failed for time slice %s: %s", idx, exc)
             continue
 
+        traced[idx] = surfaces
         for name in _GEOMETRY_LEAVES:
             values = surfaces[name]
             if np.all(np.isfinite(values)):
@@ -588,6 +597,10 @@ def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
             values = surfaces[name] * frame["to_radian"]
             if np.all(np.isfinite(values)):
                 ts[f"profiles_1d.{name}"] = values
+
+    if return_surfaces:
+        return traced
+    return None
 
 
 def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
@@ -758,7 +771,7 @@ def update_equilibrium_global_quantities_area(ods, time_slice=None):
 
 
 
-def update_equilibrium_global_quantities_beta_li(ods, time_slice=None):
+def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfaces=None):
     r"""Derive ``beta_pol``, ``beta_tor``, ``beta_normal``, ``li_3`` and ``length_pol``.
 
     Issue #238. A g-file stores none of these and OMFIT supplied them from its
@@ -793,16 +806,20 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None):
     match is 0.1539 T against a stored 0.1509 T); OMFIT's reference field is
     unidentified and is recorded as such on #238 rather than reverse-engineered.
 
-    ``int(B_pol^2 dV)`` rides on the surfaces
-    :func:`update_equilibrium_profiles_1d_geometry` already traced -- the volume
-    element cancels one power of ``B_pol``, so the per-surface line integral
-    ``bp_dl`` is all it needs -- and the psi convention comes from the same
-    resolved frame as the rest of this module, not from a further
-    ``ods_psi_to_wb_per_radian_factor`` call site (issue #294).
+    ``int(B_pol^2 dV)`` needs only the per-surface line integral ``bp_dl``,
+    because the volume element cancels one power of ``B_pol``; and the psi
+    convention comes from the same resolved frame as the rest of this module,
+    not from a further ``ods_psi_to_wb_per_radian_factor`` call site (#294).
 
     Parameters:
         ods (OMAS structure): Input OMAS data structure, updated in place.
         time_slice (int/list/None): Specific time slice(s) to process. None=all
+        surfaces (dict/None): ``{time_slice_index: surfaces}`` from
+            :func:`update_equilibrium_profiles_1d_geometry` with
+            ``return_surfaces=True``. ``bp_dl`` is not a DD quantity and is not
+            written to the ODS, so without this the trace has to be repeated --
+            0.95x the geometry updater's own cost on the packaged sample. Called
+            standalone it traces, as it must.
     """
     from vaft.formula.equilibrium import (
         beta_normal_from_beta_tor,
@@ -810,7 +827,6 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None):
         beta_toroidal_from_p_B0,
         li_3_from_Bp2_volume_integral,
     )
-    from vaft.process.equilibrium import flux_surface_quantities
 
     for idx in _equilibrium_time_slices(ods, time_slice):
         frame = _equilibrium_flux_frame(ods, idx)
@@ -832,7 +848,14 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None):
             continue
 
         if "profiles_1d.volume" not in ts or "profiles_1d.pressure" not in ts:
-            update_equilibrium_profiles_1d_geometry(ods, time_slice=[idx])
+            # Keep what that trace produced: without it this would trace once to
+            # get the volume and again below to get bp_dl.
+            healed = update_equilibrium_profiles_1d_geometry(
+                ods, time_slice=[idx], return_surfaces=True
+            )
+            if healed and idx in healed:
+                surfaces = dict(surfaces or {})
+                surfaces[idx] = healed[idx]
         if "profiles_1d.volume" not in ts or "profiles_1d.pressure" not in ts:
             logger.warning(
                 "profiles_1d.pressure/volume unavailable for time slice %s; skipping betas.",
@@ -865,10 +888,12 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None):
             if np.isfinite(beta_normal):
                 ts["global_quantities.beta_normal"] = float(beta_normal)
 
-        surfaces = _surface_line_integrals(ods, idx, frame)
-        if surfaces is None:
+        line_integrals = _surface_line_integrals(
+            idx, frame, None if surfaces is None else surfaces.get(idx)
+        )
+        if line_integrals is None:
             continue
-        length_pol, bp_dl = surfaces
+        length_pol, bp_dl = line_integrals
         if np.isfinite(length_pol):
             ts["global_quantities.length_pol"] = float(length_pol)
         bp2_volume = abs(
@@ -910,11 +935,22 @@ def _minor_radius(ts) -> float:
     return float("nan")
 
 
-def _surface_line_integrals(ods, idx, frame):
-    """``(length_pol_edge, bp_dl_profile)`` for one slice, tracing only if needed."""
+def _surface_line_integrals(idx, frame, surfaces=None):
+    """``(length_pol_edge, bp_dl_profile)`` for one slice.
+
+    ``surfaces`` is a trace the caller already paid for; only without one does
+    this trace again.
+    """
     from vaft.process.equilibrium import flux_surface_quantities
 
     ts = frame["ts"]
+    if surfaces is not None:
+        bp_dl = np.asarray(surfaces["bp_dl"], float)
+        if np.all(np.isfinite(bp_dl)):
+            return float(np.asarray(surfaces["length_pol"], float)[-1]), bp_dl
+        logger.warning("bp_dl is not finite for time slice %s; skipping li_3.", idx)
+        return None
+
     f_profile = None
     if "profiles_1d.f" in ts:
         candidate = np.asarray(ts["profiles_1d.f"], float).reshape(-1)
@@ -957,7 +993,9 @@ def update_equilibrium_derived_profiles(ods, time_slice=None):
     indices = _equilibrium_time_slices(ods, time_slice)
     if not indices:
         return
-    update_equilibrium_profiles_1d_geometry(ods, indices)
+    surfaces = update_equilibrium_profiles_1d_geometry(
+        ods, indices, return_surfaces=True
+    )
     update_equilibrium_profiles_1d_toroidal_flux(ods, indices)
     update_equilibrium_profiles_1d_j_tor(ods, indices)
     update_equilibrium_global_quantities_volume(ods, indices)
@@ -965,7 +1003,8 @@ def update_equilibrium_derived_profiles(ods, time_slice=None):
     update_equilibrium_stored_energy(ods, indices)
     update_equilibrium_boundary(ods, indices)
     # Last: beta_normal reads boundary.minor_radius, which the line above writes.
-    update_equilibrium_global_quantities_beta_li(ods, indices)
+    # The surfaces traced at the top are handed on rather than traced again.
+    update_equilibrium_global_quantities_beta_li(ods, indices, surfaces=surfaces)
 
 def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profiles_2d_idx=1, convention='sfl', n_theta=129, plot_opt=0):
     """

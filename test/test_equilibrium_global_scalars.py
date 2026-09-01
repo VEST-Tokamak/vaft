@@ -210,3 +210,50 @@ def test_the_packaged_sample_gets_physical_values_and_fills_the_summary():
     # The two conventions are both reported, and they are not the same number.
     assert row["beta_pol_circumference"] != row["beta_pol"]
     assert 0.0 < row["beta_pol_circumference"] < 1.0
+
+
+def test_the_flux_surfaces_are_traced_once_not_twice():
+    """Review finding: `int(B_pol^2 dV)` needs `bp_dl`, which is not a DD quantity
+    and so is never written to the ODS -- the beta layer therefore repeated the
+    whole trace the geometry updater had just done, at 0.95x its cost, while both
+    docstrings claimed reuse. `vaft.database.summary` runs both over every shot in
+    a range, so the doubling was the equilibrium cost of a database sweep.
+
+    The surfaces are handed over now. What this pins is that they are handed over
+    *and* that doing so changes no number.
+    """
+    from vaft.omas.sample import sample_ods
+
+    try:
+        shared = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged
+        pytest.skip(f"39915 sample unavailable: {exc}")
+    standalone = copy.deepcopy(shared)
+
+    calls = []
+    import vaft.process.equilibrium as process_equilibrium
+
+    original = process_equilibrium.flux_surface_quantities
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    process_equilibrium.flux_surface_quantities = counted
+    try:
+        update.update_equilibrium_derived_profiles(shared)
+        shared_traces = len(calls)
+        calls.clear()
+        update.update_equilibrium_global_quantities_beta_li(standalone)
+        standalone_traces = len(calls)
+    finally:
+        process_equilibrium.flux_surface_quantities = original
+
+    # Eight non-degenerate slices, so one trace each and no more, by either route.
+    assert shared_traces == 8, f"entry point traced {shared_traces} times"
+    assert standalone_traces == 8, f"standalone traced {standalone_traces} times"
+
+    left = shared["equilibrium.time_slice.0.global_quantities"]
+    right = standalone["equilibrium.time_slice.0.global_quantities"]
+    for leaf in ("beta_pol", "beta_tor", "beta_normal", "li_3", "length_pol"):
+        assert float(left[leaf]) == float(right[leaf]), leaf

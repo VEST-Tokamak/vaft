@@ -296,24 +296,38 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
 
+    # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
+    # profiles_1d.volume/area, and without them the volume, area and
+    # stored-energy columns below are empty no matter what runs after. Its trace
+    # is the expensive step and is handed to the beta updater rather than repeated
+    # -- over a shot range that doubling is the whole equilibrium cost.
+    surfaces = None
+    try:
+        surfaces = vaft.omas.update_equilibrium_profiles_1d_geometry(
+            ods, time_slice=None, return_surfaces=True
+        )
+    except Exception as exc:
+        logger.debug("Shot %s: flux-surface geometry failed: %s", shot, exc)
+
     for updater in (
-        # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
-        # profiles_1d.volume/area, and without them the volume, area and
-        # stored-energy columns below are empty no matter what runs after.
-        vaft.omas.update_equilibrium_profiles_1d_geometry,
         vaft.omas.update_equilibrium_boundary,
         vaft.omas.update_equilibrium_global_quantities_q_min,
         vaft.omas.update_equilibrium_global_quantities_volume,
         vaft.omas.update_equilibrium_global_quantities_area,
         vaft.omas.update_equilibrium_stored_energy,
-        # beta_normal reads boundary.minor_radius, so this follows the boundary
-        # updater that the loop's first entry ultimately feeds.
-        vaft.omas.update_equilibrium_global_quantities_beta_li,
     ):
         try:
             updater(ods, time_slice=None)
         except Exception as exc:
             logger.debug("Shot %s: %s failed: %s", shot, updater.__name__, exc)
+
+    # beta_normal reads boundary.minor_radius, so this follows the boundary updater.
+    try:
+        vaft.omas.update_equilibrium_global_quantities_beta_li(
+            ods, time_slice=None, surfaces=surfaces
+        )
+    except Exception as exc:
+        logger.debug("Shot %s: global betas failed: %s", shot, exc)
 
     try:
         vaft.omas.update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None)
