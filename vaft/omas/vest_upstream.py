@@ -681,13 +681,13 @@ def build_diagnostics_ods(
         extrapolating, so the realized axis -- not the requested one -- is what
         validation and the manifest must describe.
 
-        The IDS is checked against `ods.keys()` first: probing a path under an
-        absent IDS would auto-vivify empty nodes into the product, which is
-        exactly the leak the validator's own `present_ids` guard avoids.
+        The `ods.keys()` pre-guard this used to need is gone: `path_exists` no
+        longer materializes what it probes, so asking about a path under an
+        absent IDS is safe on its own (issue #118).
         """
         if statuses.get(component, {}).get("status", "unavailable") == "unavailable":
             return
-        if ids_name not in set(ods.keys()) or not path_exists(ods, path):
+        if not path_exists(ods, path):
             return
         grids[component] = np.asarray(get_path(ods, path), dtype=float).reshape(-1)
 

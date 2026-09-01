@@ -12,6 +12,8 @@ from pathlib import Path
 from scipy import optimize
 from omas import ODS, save_omas_json
 
+from vaft.ods_access import path_value
+
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
     INBOARD_PROBE_MAX_R,
@@ -51,11 +53,12 @@ def _efit_bpol_probe_count(magnetics) -> int:
 
 def _has_matching_signal(magnetics, path: str) -> bool:
     """Whether a diagnostic leaf is finite-length and aligned to magnetics.time."""
-    if path not in magnetics or "time" not in magnetics:
+    data, time = path_value(magnetics, path), path_value(magnetics, "time")
+    if data is None or time is None:
         return False
     try:
-        data = np.asarray(magnetics[path]).reshape(-1)
-        time = np.asarray(magnetics["time"]).reshape(-1)
+        data = np.asarray(data).reshape(-1)
+        time = np.asarray(time).reshape(-1)
     except Exception:
         return False
     return bool(data.size and data.size == time.size)

@@ -42,6 +42,7 @@ import numpy as np
 from omas import ODS
 
 from vaft.code.gpec import DconOutput, Pest3MatchingOutput, read_dcon_output, read_pest3_matching_output
+from vaft.ods_access import path_count
 
 _MODULE_PATTERNS = {
     "dcon": re.compile(r"dcon_output_n(\d+)\.nc"),
@@ -65,31 +66,15 @@ def _ensure_time_slice(ods: ODS, ids: str, time_slice: int) -> None:
 
 
 def _time_slice_count(ods: ODS, ids: str) -> int:
-    """Number of ``<ids>.time_slice`` entries, 0 when the node is absent.
-
-    Plain ``in`` checks are non-mutating on an ODS; indexing a path that does
-    not exist yet auto-vivifies it.
-    """
-    if f"{ids}.time_slice" not in ods:
-        return 0
-    return len(ods[f"{ids}.time_slice"])
+    """Number of ``<ids>.time_slice`` entries, 0 when the node is absent."""
+    return path_count(ods, f"{ids}.time_slice")
 
 
 def _existing_aos_count(ods: ODS, ids: str, time_slice: int, aos_name: str) -> int:
-    """Length of ``<ids>.time_slice.<time_slice>.<aos_name>``, 0 if not present.
-
-    Plain ``in`` checks are non-mutating on an ODS; indexing a path that does
-    not exist yet auto-vivifies it, which would corrupt an ``ods`` this
-    function was never asked to touch.
-    """
-    if f"{ids}.time_slice" not in ods:
+    """Length of ``<ids>.time_slice.<time_slice>.<aos_name>``, 0 if not present."""
+    if time_slice >= _time_slice_count(ods, ids):
         return 0
-    if time_slice >= len(ods[f"{ids}.time_slice"]):
-        return 0
-    path = f"{ids}.time_slice.{time_slice}.{aos_name}"
-    if path not in ods:
-        return 0
-    return len(ods[path])
+    return path_count(ods, f"{ids}.time_slice.{time_slice}.{aos_name}")
 
 
 def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *, code_name: str) -> None:

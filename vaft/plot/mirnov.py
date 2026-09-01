@@ -8,7 +8,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from vaft.machine_mapping.utils import get_path
+from vaft.ods_access import get_path, path_count, path_value
 from vaft.machine_mapping.magnetics import (
     fluctuation_mirnov_channel_definitions,
     fluctuation_mirnov_gain_by_identifier,
@@ -40,18 +40,28 @@ def _as_array(value: Any) -> np.ndarray:
 
 
 def _channel_count(ods: Any, probe_group: str) -> int:
-    try:
-        return len(get_path(ods, f"magnetics.{probe_group}"))
-    except Exception as exc:
-        raise KeyError(f"ODS does not contain magnetics.{probe_group} data.") from exc
+    """How many channels the group holds, 0 when the ODS carries none.
+
+    The 0 is what this has always returned for an absent group -- the previous
+    ``except`` was unreachable, because reading a missing path yielded an empty
+    placeholder whose ``len`` is 0 rather than an error. What is new is that
+    asking no longer creates the group (issue #118).
+    """
+    return path_count(ods, f"magnetics.{probe_group}")
 
 
 def _channel_label(ods: Any, probe_group: str, index: int) -> str:
+    """The channel's own name, falling back to a positional label.
+
+    The fallback used to be unreachable: reading a missing ``name`` returned an
+    empty placeholder rather than raising, and ``str()`` of one is the IDS path
+    -- so an unnamed channel was labelled ``magnetics.b_field_pol_probe.0.name``
+    in the legend it appeared in (issue #118).
+    """
     for field in ("name", "identifier"):
-        try:
-            return str(get_path(ods, f"magnetics.{probe_group}.{index}.{field}"))
-        except Exception:
-            pass
+        value = path_value(ods, f"magnetics.{probe_group}.{index}.{field}")
+        if value is not None:
+            return str(value)
     return f"{probe_group} {index}"
 
 
@@ -112,10 +122,12 @@ def _sample_rate_from_time(time: np.ndarray) -> float:
 
 def _gain_for_channel(ods: Any, gains: Any, channel: int, probe_group: str) -> float:
     if gains is None:
-        try:
-            return float(get_path(ods, f"magnetics.{probe_group}.{channel}.calibration_factor"))
-        except Exception:
-            pass
+        stored = path_value(ods, f"magnetics.{probe_group}.{channel}.calibration_factor")
+        if stored is not None:
+            try:
+                return float(stored)
+            except (TypeError, ValueError):
+                pass
         if probe_group == "b_field_pol_probe":
             label = _channel_label(ods, probe_group, channel)
             if label in _known_gain_by_identifier():
@@ -292,10 +304,13 @@ def _common_timebase_many(
 
 def _channel_toroidal_angle(ods: Any, probe_group: str, channel: int) -> float:
     for suffix in ("toroidal_angle", "position.phi"):
+        stored = path_value(ods, f"magnetics.{probe_group}.{channel}.{suffix}")
+        if stored is None:
+            continue
         try:
-            return float(get_path(ods, f"magnetics.{probe_group}.{channel}.{suffix}"))
-        except Exception:
-            pass
+            return float(stored)
+        except (TypeError, ValueError):
+            continue
     raise KeyError(f"{probe_group} channel {channel} does not define toroidal_angle or position.phi.")
 
 

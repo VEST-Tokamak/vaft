@@ -36,6 +36,7 @@ from .utils import (
     calibrate_vest_signal,
     get_path,
     load_yaml,
+    path_count,
     path_exists,
     resolve_data_root,
     resolve_shot_revisions,
@@ -375,11 +376,8 @@ def fluctuation_mirnov_probe_indices(ods: object, *, shot: int = 0) -> dict[str,
     so callers that need a full array should check what they got back.
     """
     registered = {channel["identifier"] for channel in _load_fluctuation_mirnov_channels(int(shot))}
-    if not path_exists(ods, "magnetics.b_field_pol_probe"):
-        return {}
-
     indices: dict[str, int] = {}
-    for index in range(len(get_path(ods, "magnetics.b_field_pol_probe"))):
+    for index in range(path_count(ods, "magnetics.b_field_pol_probe")):
         path = f"magnetics.b_field_pol_probe.{index}.identifier"
         if not path_exists(ods, path):
             continue
@@ -1339,11 +1337,7 @@ def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
     after ``FLUCTUATION_MIRNOV_FIRST_SHOT``, since these probes are not
     physically wired before that shot.
     """
-    probe_index = (
-        len(get_path(ods, "magnetics.b_field_pol_probe"))
-        if path_exists(ods, "magnetics.b_field_pol_probe")
-        else 0
-    )
+    probe_index = path_count(ods, "magnetics.b_field_pol_probe")
     for channel in _load_fluctuation_mirnov_channels(int(shot)):
         identifier = str(channel["identifier"])
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", identifier)
@@ -1705,11 +1699,7 @@ def _map_probes(
     # have no mapped processed field. In heterogeneous mode they are treated
     # as malformed dynamic signals, so omit them rather than assigning a time
     # coordinate to a non-waveform.
-    probe_count = (
-        len(get_path(ods, "magnetics.b_field_pol_probe"))
-        if path_exists(ods, "magnetics.b_field_pol_probe")
-        else 0
-    )
+    probe_count = path_count(ods, "magnetics.b_field_pol_probe")
     for index in range(probe_count):
         data_path = f"magnetics.b_field_pol_probe.{index}.field.data"
         if not path_exists(ods, data_path):
@@ -1745,7 +1735,7 @@ def _map_probes(
     # Captured before the fluctuation-Mirnov array (if any) is appended below,
     # so the toroidal-reference "explicitly empty field" loop never reaches
     # into the fluctuation probes -- those carry no `field` node at all.
-    toroidal_reference_end = len(get_path(ods, "magnetics.b_field_pol_probe"))
+    toroidal_reference_end = path_count(ods, "magnetics.b_field_pol_probe")
     if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
         fluctuation_start_index = toroidal_reference_end
         _populate_fluctuation_mirnov_static(ods, shot)
