@@ -54,7 +54,13 @@ PROBE_LENGTH = 0.01
 #: ``(cos(poloidal_angle), -sin(poloidal_angle))`` in ``(R, Z)`` and a probe
 #: measuring ``+Bz`` must be stored as ``3*pi/2``, not ``pi/2``.
 #:
-#: That the probes measure ``+Bz`` is established empirically, not assumed.
+#: That the probes measure ``+Bz`` is established empirically **relative to the
+#: PF coil current polarity**, not assumed.  The forward model takes the coil
+#: currents and ``turns_with_sign`` as given, and both are VEST-native DAQ
+#: signs, so a global inversion of the PF chain would flip every correlation
+#: with it.  What the check establishes is the probe orientation *within* that
+#: chain, which is what the stored angle describes; the absolute orientation is
+#: the open question tracked in :mod:`vaft.machine_mapping.conventions`.
 #: Forward-modelling the PF coil response with
 #: :func:`vaft.formula.green.green_br_bz_exact` over the packaged
 #: ``pf_active`` geometry and correlating it against the mapped probe signals

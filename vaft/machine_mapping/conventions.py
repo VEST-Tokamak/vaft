@@ -61,21 +61,46 @@ The equilibrium-level consequence
 ``q`` through Sauter Eq. 23, ``sign(q) = sigma_rhotp * sigma_Ip * sigma_B0``:
 
 * In **IMAS/COCOS 11** (``sigma_rhotp = +1``): ``q < 0``.
-* In the **native EFIT gEQDSK**, admissible as **COCOS 3** (weber/radian) or
-  **13** (weber) under this contract, ``sigma_rhotp = -1``: ``q > 0``.
+* In a **native EFIT gEQDSK** that satisfies the contract, admissible as
+  **COCOS 3** (weber/radian) or **13** (weber), ``sigma_rhotp = -1``: ``q > 0``.
 
 Both are correct simultaneously; they are the same equilibrium in two
-conventions.  The packaged g-files do carry ``q > 0``, which is consistent with
-COCOS 3/13 rather than evidence against the contract.  It is mild corroboration
-that COCOS 3 is the index Sauter section IX and OMAS give for EFIT, the code that
-produced these reconstructions.
+conventions.
 
-Crucially, ``cocos_transform(3, 11)`` carries ``Q = -1`` but ``IP = +1`` and
-``BT = +1``: **converting the index never changes the sign of Ip or B0.**  Both
-indices share ``sigma_RphiZ = +1``, so the physical directions are already the
-same and only the flux/safety-factor conventions differ.  The discharge contract
-is therefore orthogonal to the COCOS index, which is exactly why it is stated on
-its own rather than folded into the index discussion.
+**The packaged g-files do not satisfy the contract, and must not be read as
+corroborating it.**  ``g039915.00319`` stores ``CURRENT = +77040`` beside
+``BCENTR = +0.1498``: parallel, where the contract requires antiparallel.  By its
+own signs it validates as COCOS 1 or 11 and *fails* validation against 3 and 13
+on ``dpsi`` and ``pprime`` -- which :func:`vaft.process.cocos.validate_cocos`
+reports directly.  Its ``q > 0`` is therefore not evidence for COCOS 3; it is
+what a parallel configuration gives in COCOS 1/11.
+
+That mismatch is Anomaly A of issue #288, still open, and it is the same fact as
+``IP_SIGN_VEST_TO_IMAS`` being declared but not applied: the stored current
+carries the VEST-native sign.  Apply the transformation to ``CURRENT`` and the
+file validates cleanly as COCOS 3 and 13 and fails 1 and 11 -- so COCOS 3/13 is
+what the contract predicts *once the Ip sign complies*, a prediction the
+confirmation work can test rather than a description of what is on disk today.
+It is mild corroboration that COCOS 3 is the index Sauter section IX and OMAS
+give for EFIT, the code that produced these reconstructions.
+
+Why relabelling can never repair a polarity
+-------------------------------------------
+Every COCOS transform carries the **same factor** for ``IP`` and ``BT``.  Going
+to 11, eight of the sixteen source indices flip both (2, 4, 6, 8, 12, 14, 16, 18)
+and eight leave both alone; none flips one without the other.  So the *product*
+``sigma_Ip * sigma_B0`` -- and with it whether the configuration is parallel or
+antiparallel -- is **invariant under any COCOS transform**.
+
+A parallel equilibrium therefore cannot be relabelled into an antiparallel one.
+A wrong ``Ip`` or ``B0`` polarity is a machine-convention or diagnostic-polarity
+defect and never a labelling defect, which is exactly why the discharge contract
+is stated on its own rather than folded into the index discussion.
+
+For the specific pair at issue here, ``cocos_transform(3, 11)`` carries
+``Q = -1`` with ``IP = +1`` and ``BT = +1``: 3 and 11 share ``sigma_RphiZ = +1``,
+so they already agree on which way ``+phi`` runs and the conversion only rescales
+``psi`` and flips ``q``.
 
 Why internal agreement cannot settle the polarities
 ---------------------------------------------------
@@ -124,6 +149,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
 __all__ = [
     "BT_SIGN_VEST_TO_IMAS",
     "DischargeSignContract",
@@ -162,8 +189,6 @@ class DischargeSignContract:
 
     def satisfied_by(self, ip, b0) -> bool:
         """Whether a mapped ``(Ip, B0)`` pair, already in IMAS terms, complies."""
-        import numpy as np
-
         return bool(np.sign(ip) == self.ip and np.sign(b0) == self.b0)
 
 
@@ -181,10 +206,9 @@ def expected_q_sign(cocos_index: int, contract: DischargeSignContract | None = N
     from vaft.data.cocos import cocos_spec
 
     contract = IMAS_DISCHARGE_SIGNS if contract is None else contract
-    sign = cocos_spec(cocos_index).expected_sign(
+    return int(cocos_spec(cocos_index).expected_sign(
         "q", sigma_ip=contract.ip, sigma_b0=contract.b0,
-    )
-    return int(round(sign))
+    ))
 
 
 def to_imas_discharge_signs(ip_vest, bt_vest):

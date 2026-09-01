@@ -73,7 +73,12 @@ generation:
     path: magnetics.b_field_pol_probe.*.poloidal_angle
     from_direction: -Bz
     to_direction: +Bz
-    value_radians: 1.5707963267948966
+    value_radians: 4.71238898038469
+    superseded_by: 288
+    note: 'The +Bz intent recorded here still holds. The radian value does not: #169
+      wrote pi/2 on the reading that the IMAS projection is (cos, +sin), where the DD
+      defines poloidal_angle clockwise from +R, making +Bz 3*pi/2. Value updated to
+      match the artifact; see the corrections block below.'
   selectors:
   - dataset_description.*
   - wall.*
@@ -154,6 +159,9 @@ corrections:
   reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
     measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
     reader. Applied in place rather than by rerunning the pipeline: the mapper writes
-    this leaf as a constant, so the value is exactly what a regeneration produces,
-    and no stage output depends on it. The stage hashes above are therefore unchanged
+    this leaf as a constant and no stage output depends on it. The reference
+    generators under workflow/reference_validation were hardcoding pi/2 on both
+    their generate and verify paths; they were corrected in the same change to
+    read POLOIDAL_ANGLE, so a regeneration now reproduces this value rather than
+    reverting it. The stage hashes above are therefore unchanged
     and still describe the run that produced the rest of the artifact.'

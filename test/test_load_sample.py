@@ -279,6 +279,19 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     )
     assert len(wheel_native["magnetics.b_field_pol_probe"]) == 76
     assert len(wheel_native["magnetics.flux_loop"]) == 11
+    # The wheel variant is substituted into every build, so a probe convention
+    # fixed only in vaft/data/samples would ship inverted (issue #288). Both
+    # representations must carry the DD-conformant angle, not just the checkout.
+    from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
+
+    for label, source in (("omas", wheel_ods), ("imas", wheel_native)):
+        angles = [
+            float(source[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"])
+            for index in range(len(source["magnetics.b_field_pol_probe"]))
+            if "poloidal_angle" in source[f"magnetics.b_field_pol_probe.{index}"]
+        ]
+        assert angles, label
+        np.testing.assert_allclose(angles, POLOIDAL_ANGLE, err_msg=label)
 
 
 def test_39915_sample_carries_the_complete_pf_active_machine_state():

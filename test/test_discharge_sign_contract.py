@@ -65,9 +65,8 @@ def test_the_contract_is_a_convention_fact_not_a_measurement():
         sign_transformations,
     )
 
-    # The contract is definite ...
-    assert IMAS_DISCHARGE_SIGNS.ip in (-1, +1)
-    assert IMAS_DISCHARGE_SIGNS.b0 in (-1, +1)
+    # The contract is definite -- a specific pair, not merely a valid one ...
+    assert (IMAS_DISCHARGE_SIGNS.ip, IMAS_DISCHARGE_SIGNS.b0) == (-1, +1)
     # ... while every polarity behind it is still open.
     assert all(t.confirmed is False for t in sign_transformations())
     assert equilibrium_orientation_is_resolved() is False
@@ -198,14 +197,29 @@ def test_the_contract_admits_exactly_cocos_three_and_thirteen():
     assert admissible == [3, 13]
 
 
-def test_converting_the_index_flips_q_but_never_ip_or_b0():
-    """Why the discharge contract is orthogonal to the COCOS index.
+def test_no_cocos_transform_can_change_whether_the_configuration_is_antiparallel():
+    """Why relabelling can never repair a wrong Ip or B0 polarity.
 
-    COCOS 3 and 11 share sigma_RphiZ = +1, so they already agree on which way
-    +phi runs. Converting between them rescales psi and flips q; it cannot move
-    Ip or B0. Anything wrong with those signs is a machine-convention or
-    diagnostic-polarity problem, never a relabelling problem.
+    Every transform carries the same factor for IP and BT, so their product --
+    and with it parallel-versus-antiparallel -- survives any relabelling. Eight
+    of the sixteen source indices flip both going to 11; none flips one alone.
     """
+    from omas.omas_physics import cocos_transform
+
+    from vaft.data.cocos import COCOS_INDICES
+
+    flipped = []
+    for source in COCOS_INDICES:
+        factors = cocos_transform(source, 11)
+        ip, bt = factors.get("IP", 1), factors.get("BT", 1)
+        assert ip == bt, f"COCOS {source} -> 11 moves Ip and B0 independently"
+        if ip == -1:
+            flipped.append(source)
+    assert flipped == [2, 4, 6, 8, 12, 14, 16, 18]
+
+
+def test_converting_three_to_eleven_flips_q_and_leaves_ip_and_b0_alone():
+    """The specific pair the VEST path uses; 3 and 11 share sigma_RphiZ = +1."""
     from omas.omas_physics import cocos_transform
 
     for source in (3, 13):
@@ -215,29 +229,90 @@ def test_converting_the_index_flips_q_but_never_ip_or_b0():
         assert factors["BT"] == +1, source
 
 
-def test_the_native_gfile_carries_positive_q_as_cocos_three_predicts():
-    """The packaged reconstruction agrees with the contract once read correctly.
-
-    g039915 is the EFIT reconstruction of packaged shot 39915. Its q > 0 is what
-    COCOS 3/13 requires under this contract, and converting it to COCOS 11 gives
-    the q < 0 the contract predicts there.
-    """
-    from omas.omas_physics import cocos_transform
-
+def _packaged_gfile():
     from vaft.data.eqdsk import read_geqdsk
     from vaft.data.resources import data_path, require_repository_sample
+
+    return read_geqdsk(require_repository_sample(data_path("efit/g039915.00319")))
+
+
+def test_the_packaged_gfile_does_not_yet_satisfy_the_contract():
+    """It stores a parallel configuration where the contract requires antiparallel.
+
+    This is Anomaly A of #288, still open, and the same fact as IP_SIGN being
+    declared but not applied. Reading the file's own CURRENT and BCENTR is the
+    point: comparing its q against a contract-derived expectation would compare
+    two numbers computed from disjoint inputs and see agreement that is not there.
+    """
+    from vaft.machine_mapping import IMAS_DISCHARGE_SIGNS
+
+    mapping = _packaged_gfile().mapping
+    current, bcentr = float(mapping["CURRENT"]), float(mapping["BCENTR"])
+    assert current > 0 and bcentr > 0, "the file stores a parallel configuration"
+    assert not IMAS_DISCHARGE_SIGNS.satisfied_by(current, bcentr)
+    assert np.sign(current) * np.sign(bcentr) == +1
+    assert IMAS_DISCHARGE_SIGNS.ip * IMAS_DISCHARGE_SIGNS.b0 == -1
+
+
+def test_the_packaged_gfile_validates_as_cocos_one_and_eleven_not_three():
+    """Its q > 0 is what a parallel configuration gives in COCOS 1/11.
+
+    Guards the claim the docstring makes, using the repository's own validator
+    rather than restating the prose.
+    """
+    from vaft.process.cocos import validate_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    equilibrium = as_equilibrium(_packaged_gfile())
+    for index in (1, 11):
+        assert validate_cocos(equilibrium, index).valid, index
+    for index in (3, 13):
+        report = validate_cocos(equilibrium, index)
+        assert not report.valid, index
+        codes = {issue.code for issue in report.issues if issue.severity == "error"}
+        assert {"cocos_sign_dpsi", "cocos_sign_pprime"} <= codes, (index, codes)
+
+
+def test_applying_the_ip_transformation_makes_the_gfile_cocos_three_or_thirteen():
+    """The contract's prediction, demonstrated on the real reconstruction.
+
+    COCOS 3/13 is what the file becomes once its plasma-current sign complies --
+    not a description of what is on disk today. Flipping CURRENT is exactly
+    IP_SIGN_VEST_TO_IMAS applied to the one leaf that carries the sign.
+    """
+    from vaft.data.eqdsk import GEQDSK
+    from vaft.machine_mapping import IP_SIGN_VEST_TO_IMAS
+    from vaft.process.cocos import validate_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    mapping = dict(_packaged_gfile().mapping)
+    mapping["CURRENT"] = IP_SIGN_VEST_TO_IMAS.apply(float(mapping["CURRENT"]))
+    assert mapping["CURRENT"] < 0
+    equilibrium = as_equilibrium(GEQDSK(mapping))
+
+    for index in (3, 13):
+        assert validate_cocos(equilibrium, index).valid, index
+    for index in (1, 11):
+        assert not validate_cocos(equilibrium, index).valid, index
+
+    # And the q it carries is the positive one COCOS 3 predicts there.
+    q = np.asarray(mapping["QPSI"], float)
+    assert np.all(q > 0)
+
+
+def test_the_corrected_gfile_converts_to_negative_q_in_cocos_eleven():
+    """End to end: contract-compliant native COCOS 3 -> canonical COCOS 11."""
+    from omas.omas_physics import cocos_transform
+
     from vaft.machine_mapping import expected_q_sign
 
-    mapping = read_geqdsk(
-        require_repository_sample(data_path("efit/g039915.00319"))
-    ).mapping
-    q = np.asarray(mapping["QPSI"], float)
-    assert np.all(q > 0), "the native EFIT file carries positive q"
-    assert expected_q_sign(3) == +1, "which is what COCOS 3 predicts here"
+    q_native = np.asarray(_packaged_gfile().mapping["QPSI"], float)
+    assert np.all(q_native > 0), "native EFIT q"
+    assert expected_q_sign(3) == +1
 
-    q_imas = q * cocos_transform(3, 11)["Q"]
+    q_imas = q_native * cocos_transform(3, 11)["Q"]
     assert np.all(q_imas < 0)
-    assert expected_q_sign(11) == -1, "and COCOS 11 predicts the flipped sign"
+    assert expected_q_sign(11) == -1
 
 
 # --- provenance: the open half ---------------------------------------------
