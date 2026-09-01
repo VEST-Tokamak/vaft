@@ -359,7 +359,9 @@ def test_metrics_record_every_quantity_the_stage_owes(plasma_ods):
 def test_metrics_need_a_pre_plasma_window(plasma_ods):
     ods, time, _ = plasma_ods
     channels = synthetic_vacuum_magnetics(ods)
-    with pytest.raises(VacuumMagneticsError, match="no pre-plasma samples"):
+    # "usable", not merely "present": the window is now intersected with the
+    # validity the diagnostics stage established (issue #189).
+    with pytest.raises(VacuumMagneticsError, match="no usable pre-plasma samples"):
         vacuum_magnetics_metrics(channels, plasma_onset=float(time[0]))
 
 
