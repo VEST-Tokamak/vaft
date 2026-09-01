@@ -60,6 +60,8 @@ def render_line_series(
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
     if model.title:
         axes.set_title(model.title)
+    if model.display is not None and model.display.notation == "scientific":
+        axes.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
     if model.log_y:
         axes.set_yscale("log")
     if model.x_limits is not None:
