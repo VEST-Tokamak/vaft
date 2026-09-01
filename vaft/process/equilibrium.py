@@ -1194,12 +1194,19 @@ def flux_surface_quantities(
     out = {name: np.full(levels.size, np.nan) for name in FLUX_SURFACE_QUANTITIES}
     spline = RectBivariateSpline(R, Z, psi_grid)
 
+    # A supplied boundary replaces the traced edge contour only when it is at
+    # least as well resolved as an interior level would have to be.  A coarse
+    # EFIT outline -- `update_equilibrium_boundary` passes anything with 3 points
+    # -- would otherwise set the edge, and the edge anchors the gap fill inward.
+    edge_from_boundary = boundary is not None and (
+        np.asarray(boundary[0], dtype=float).reshape(-1).size >= min_points
+    )
     # The axis level has no contour and the boundary level may come from the
     # stored outline, so only the rest need tracing.
     traced = [
         float(level)
         for level in levels
-        if level != 0.0 and not (boundary is not None and level == 1.0)
+        if level != 0.0 and not (edge_from_boundary and level == 1.0)
     ]
     contours = (
         extract_flux_surface_contours(psi_grid, R, Z, psi_axis, psi_boundary, traced)
@@ -1221,13 +1228,11 @@ def flux_surface_quantities(
             out["surface"][index] = 0.0
             continue
 
-        if boundary is not None and level == 1.0:
+        if edge_from_boundary and level == 1.0:
             segment = (
                 np.asarray(boundary[0], dtype=float).reshape(-1),
                 np.asarray(boundary[1], dtype=float).reshape(-1),
             )
-            if segment[0].size < 3:
-                segment = None
         else:
             segment = _enclosing_segment(
                 contours.get(float(level), []), axis_rz, min_points
@@ -1273,12 +1278,20 @@ def flux_surface_quantities(
     # surface's linear size goes as sqrt(psi_N), so every quantity that vanishes
     # there is linear in sqrt and badly curved in psi_N.  Interpolating a dropped
     # innermost level in psi_N underestimates `surface` by a third.
+    #
+    # `np.interp` requires an increasing `xp` and returns nonsense rather than
+    # raising when it does not get one, so the levels are sorted here instead of
+    # assumed: a psi profile stored boundary-first is a real input, and it
+    # corrupted only the quantities that happened to need a gap filled.
     coordinate = np.sqrt(np.clip(levels, 0.0, None))
+    order = np.argsort(coordinate, kind="stable")
     for name, values in out.items():
         missing = ~np.isfinite(values)
         if missing.any() and not missing.all():
-            good = ~missing
-            values[missing] = np.interp(coordinate[missing], coordinate[good], values[good])
+            good_sorted = order[np.isfinite(values[order])]
+            values[missing] = np.interp(
+                coordinate[missing], coordinate[good_sorted], values[good_sorted]
+            )
     return out
 
 

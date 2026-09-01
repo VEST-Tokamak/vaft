@@ -273,3 +273,80 @@ def test_volume_is_the_integral_of_its_own_dvolume_dpsi(packaged):
                                                 + np.asarray(p["dvolume_dpsi"], float)[:-1]))]
     )
     assert np.max(np.abs(integrated - volume)) / volume[-1] < 0.02
+
+
+# --- review findings on this branch -------------------------------------------
+
+
+def test_the_entry_point_accepts_a_single_time_slice_index(packaged):
+    """Review finding: `time_slice` was forwarded verbatim to
+    `update_equilibrium_stored_energy`, which had no int branch, so the entry
+    point raised `TypeError: 'int' object is not iterable` -- after the profile
+    updaters had already written, leaving the ODS half-updated."""
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    update.update_equilibrium_derived_profiles(ods, time_slice=0)
+    ts = ods["equilibrium.time_slice.0"]
+    assert "profiles_1d.j_tor" in ts
+    assert "global_quantities.volume" in ts
+    assert "global_quantities.energy_mhd" in ts
+
+    # The sibling that had the gap is callable with an int on its own now too.
+    update.update_equilibrium_stored_energy(ods, 0)
+
+
+def test_gap_filling_does_not_depend_on_the_level_ordering(packaged):
+    """Review finding: the NaN gap fill called `np.interp` with a coordinate
+    inherited from `levels_norm`, which is only valid increasing. A psi profile
+    stored boundary-first made it decrease, and `np.interp` returns nonsense
+    rather than raising -- `dvolume_dpsi` came out 34.5% wrong while `gm9` and
+    `volume` looked fine, because only the quantities needing a filled gap were
+    corrupted."""
+    from vaft.omas.update import _equilibrium_flux_frame
+    from vaft.process.equilibrium import flux_surface_quantities
+
+    frame = _equilibrium_flux_frame(packaged, 0)
+    levels = frame["psi_norm"]
+    common = dict(axis_rz=frame["axis_rz"], boundary=frame["boundary"])
+    forward = flux_surface_quantities(
+        frame["psi_2d_radian"], frame["r_grid"], frame["z_grid"],
+        frame["psi_axis_radian"], frame["psi_boundary_radian"], levels, **common,
+    )
+    reversed_ = flux_surface_quantities(
+        frame["psi_2d_radian"], frame["r_grid"], frame["z_grid"],
+        frame["psi_axis_radian"], frame["psi_boundary_radian"], levels[::-1], **common,
+    )
+    for leaf in ("gm1", "gm9", "volume", "surface", "dvolume_dpsi", "darea_dpsi"):
+        np.testing.assert_allclose(
+            np.asarray(reversed_[leaf])[::-1], np.asarray(forward[leaf]),
+            rtol=1e-12, atol=0.0, err_msg=leaf,
+        )
+
+
+def test_a_coarse_boundary_outline_does_not_set_the_edge_surface(packaged):
+    """Review finding: a supplied boundary was accepted on 3 points alone, while
+    an interior level needs `MIN_FLUX_SURFACE_POINTS`. The edge anchors the gap
+    fill inward, so it must be no weaker than what it anchors -- a coarse outline
+    is now ignored in favour of tracing the edge like any other level."""
+    from vaft.omas.update import _equilibrium_flux_frame
+    from vaft.process.equilibrium import MIN_FLUX_SURFACE_POINTS, flux_surface_quantities
+
+    frame = _equilibrium_flux_frame(packaged, 0)
+    levels = frame["psi_norm"]
+    args = (frame["psi_2d_radian"], frame["r_grid"], frame["z_grid"],
+            frame["psi_axis_radian"], frame["psi_boundary_radian"], levels)
+
+    full = np.asarray(frame["boundary"][0]), np.asarray(frame["boundary"][1])
+    assert full[0].size >= MIN_FLUX_SURFACE_POINTS
+    stub = (full[0][:5], full[1][:5])
+
+    good = flux_surface_quantities(*args, axis_rz=frame["axis_rz"], boundary=full)
+    coarse = flux_surface_quantities(*args, axis_rz=frame["axis_rz"], boundary=stub)
+    traced = flux_surface_quantities(*args, axis_rz=frame["axis_rz"], boundary=None)
+
+    # The 5-point stub is refused, so the edge is traced -- not built from it.
+    np.testing.assert_allclose(coarse["surface"], traced["surface"], rtol=1e-12)
+    assert abs(float(coarse["surface"][-1]) - float(good["surface"][-1])) / float(
+        good["surface"][-1]
+    ) < 0.05

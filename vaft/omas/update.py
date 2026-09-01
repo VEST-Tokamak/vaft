@@ -763,14 +763,22 @@ def update_equilibrium_derived_profiles(ods, time_slice=None):
     Geometry first (it supplies ``gm1``/``gm9``), then the toroidal flux
     coordinate, then ``j_tor``, then the 0-D scalars that read the profiles back.
     Each step is independently callable; this is the one-line entry point.
+
+    ``time_slice`` is normalized once here rather than forwarded verbatim: the
+    older updaters below differ in what argument forms they accept, and an int
+    used to reach the end of this sequence and raise after the profiles had
+    already been written.
     """
-    update_equilibrium_profiles_1d_geometry(ods, time_slice)
-    update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice)
-    update_equilibrium_profiles_1d_j_tor(ods, time_slice)
-    update_equilibrium_global_quantities_volume(ods, time_slice)
-    update_equilibrium_global_quantities_area(ods, time_slice)
-    update_equilibrium_stored_energy(ods, time_slice)
-    update_equilibrium_boundary(ods, time_slice)
+    indices = _equilibrium_time_slices(ods, time_slice)
+    if not indices:
+        return
+    update_equilibrium_profiles_1d_geometry(ods, indices)
+    update_equilibrium_profiles_1d_toroidal_flux(ods, indices)
+    update_equilibrium_profiles_1d_j_tor(ods, indices)
+    update_equilibrium_global_quantities_volume(ods, indices)
+    update_equilibrium_global_quantities_area(ods, indices)
+    update_equilibrium_stored_energy(ods, indices)
+    update_equilibrium_boundary(ods, indices)
 
 def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profiles_2d_idx=1, convention='sfl', n_theta=129, plot_opt=0):
     """
@@ -881,6 +889,12 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         else:
             print("Warning: No time slices found in ODS. Cannot update stored energy.")
             return
+    # Convert a single integer to a list for iteration, as the sibling
+    # update_equilibrium_global_quantities_volume already did; without it any
+    # caller passing one index -- including update_equilibrium_derived_profiles
+    # -- got "TypeError: 'int' object is not iterable".
+    if isinstance(time_slice, (int, np.integer)):
+        time_slice = [time_slice]
     for idx in time_slice:
         ts = ods['equilibrium.time_slice'][idx]
         # check if profiles_1d.pressure and profiles_1d.volume exist
