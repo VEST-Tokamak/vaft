@@ -1,4 +1,5 @@
 import warnings
+from collections.abc import Sequence
 
 import numpy as np
 import scipy.signal as scipy_signal
@@ -11,6 +12,7 @@ __all__ = [
     "butterworth_bandpass",
     "butterworth_lowpass",
     "detect_active_window",
+    "detect_clipped_samples",
     "detrend_moving_average",
     "define_baseline",
     "exp_baseline",
@@ -41,13 +43,45 @@ class SignalRepairError(ValueError):
     """
 
 
+def detect_clipped_samples(data, *, clip_values, tolerance: float) -> np.ndarray:
+    """Return a boolean mask of samples sitting at an acquisition limit.
+
+    ``clip_values`` is a single signed level or a sequence of them, and the
+    mask is their union: a sample is saturated when it lies within
+    ``tolerance`` of *any* supplied level. Real acquisition hardware rails on
+    both sides and rarely symmetrically -- VEST's diamagnetic Rogowski channel
+    is a signed 16-bit ADC over +/-5 V, so its rails are exactly ``-5.0`` and
+    ``5 * 32767 / 32768`` (see `vest.yaml`, issue #285).
+
+    Detecting every level in one pass is not a convenience. Where a waveform
+    oscillates hard enough to hit both rails within a few samples, repairing
+    one rail at a time would fit the reconstruction through samples still
+    pinned at the other one.
+    """
+    values = np.asarray(data, dtype=float)
+    levels = np.atleast_1d(np.asarray(clip_values, dtype=float)).reshape(-1)
+    if levels.size == 0:
+        raise SignalRepairError("`clip_values` must contain at least one acquisition limit.")
+    if not np.all(np.isfinite(levels)):
+        raise SignalRepairError(f"`clip_values` must be finite, got {clip_values!r}.")
+    width = float(tolerance)
+    if not np.isfinite(width) or width <= 0.0:
+        raise SignalRepairError(f"`tolerance` must be a positive finite width, got {tolerance!r}.")
+
+    saturated = np.zeros(values.shape, dtype=bool)
+    for level in levels:
+        saturated |= np.abs(values - level) < width
+    return saturated
+
+
 def repair_clipped_interval(
     time,
     data,
     *,
-    clip_value: float,
+    clip_value: float | Sequence[float],
     tolerance: float,
     min_support: int = 4,
+    return_mask: bool = False,
 ):
     """Reconstruct samples saturated at an acquisition limit by interpolation.
 
@@ -55,8 +89,15 @@ def repair_clipped_interval(
     and replaced by a cubic spline fitted to the remaining samples on the
     physical ``time`` axis. Every unsaturated sample is preserved exactly.
 
+    ``clip_value`` may be a single signed level or a sequence of levels, in
+    which case saturation is their union (see `detect_clipped_samples`).
+
     This is deliberately machine-independent: callers supply the limit and
     tolerance (VEST's PF6 acquisition clips near -5000 A, see `vest.yaml`).
+
+    With ``return_mask=True`` the saturation mask is returned alongside the
+    repaired waveform, so a caller can report which samples it reconstructed
+    instead of handing downstream consumers an unmarked mixture.
 
     Raises:
         SignalRepairError: if the inputs contain non-finite values, the whole
@@ -78,9 +119,9 @@ def repair_clipped_interval(
             "clean or mask the signal before requesting saturation repair."
         )
 
-    saturated = np.abs(values - float(clip_value)) < float(tolerance)
+    saturated = detect_clipped_samples(values, clip_values=clip_value, tolerance=tolerance)
     if not saturated.any():
-        return values.copy()
+        return (values.copy(), saturated) if return_mask else values.copy()
     if saturated.all():
         raise SignalRepairError(
             f"Every sample is saturated at {clip_value}; there is no unsaturated "
@@ -105,7 +146,7 @@ def repair_clipped_interval(
     spline = CubicSpline(time[support], values[support])
     repaired = values.copy()
     repaired[clipped] = spline(time[clipped])
-    return repaired
+    return (repaired, saturated) if return_mask else repaired
 
 
 def line_average_density(n_e_line, path_length_m: float) -> np.ndarray:

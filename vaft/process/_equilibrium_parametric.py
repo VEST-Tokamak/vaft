@@ -111,6 +111,28 @@ def _detect_convention(
     )
 
 
+def _psi_family(
+    resolved: int | None, identified: tuple[int, ...], detected: bool | None,
+) -> bool | None:
+    """Whether psi is stored per radian, from the strongest evidence available.
+
+    A declared or uniquely identified index settles it outright.  Failing that,
+    the family is still knowable whenever every identified candidate falls on
+    the same side of 10: :func:`~vaft.process.cocos.identify_convention` settles
+    the 2*pi from Ampere's law, independently of the sign family, so ``(11, 12)``
+    -- ambiguous only in ``clockwise_phi``, which is a fact about the machine
+    rather than about the flux -- pins the storage even though it does not pin
+    the index.  Failing both, a family the reader detected for itself (the
+    dphi/dpsi-vs-q slope in :func:`_from_ods`) is kept rather than discarded.
+    """
+    if resolved is not None:
+        return resolved < 10
+    families = {index < 10 for index in identified}
+    if len(families) == 1:
+        return families.pop()
+    return detected
+
+
 def _resolve_convention(
     equilibrium: EquilibriumData, *, declared: int | None, source: str,
     clockwise_phi: bool | None = None,
@@ -134,7 +156,7 @@ def _resolve_convention(
     candidates = (resolved,) if resolved is not None else identified
     return replace(equilibrium, convention=EquilibriumConvention(
         cocos=resolved, candidates=candidates,
-        psi_per_radian=(resolved < 10) if resolved is not None else None,
+        psi_per_radian=_psi_family(resolved, identified, convention.psi_per_radian),
         clockwise_phi=clockwise_phi, ip_sign=convention.ip_sign,
         bt_sign=convention.bt_sign, q_sign=convention.q_sign,
         source=source, identified=identified,
@@ -212,17 +234,17 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
     )
     if conv.psi_per_radian is None:
         # Sign-based identification cannot separate the per-radian (1-8) from
-        # the full-weber (11-18) family; the dphi/dpsi-vs-q slope can
-        # (issue #236). Narrow the candidate set to the detected family.
+        # the full-weber (11-18) family; the dphi/dpsi-vs-q slope can (issue
+        # #236).  It reads the stored profiles directly, so it still answers on
+        # an ODS whose LCFS or psi map is too thin for the Ampere-law test
+        # `_resolve_convention` runs, and `_psi_family` keeps this answer when
+        # that test abstains.  Candidates are left alone: `_detect_convention`
+        # no longer identifies, so there is nothing here to narrow.
         from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 
-        per_radian = ods_psi_to_wb_per_radian_factor(source, time_index) == 1.0
-        family = tuple(c for c in conv.candidates if (c < 10) == per_radian)
         conv = replace(
             conv,
-            candidates=family if family else conv.candidates,
-            cocos=family[0] if len(family) == 1 else conv.cocos,
-            psi_per_radian=per_radian,
+            psi_per_radian=ods_psi_to_wb_per_radian_factor(source, time_index) == 1.0,
             source=conv.source + " + phi/q slope family detection",
         )
     rb, zb = _array(_path_get(ts, "boundary.outline.r")), _array(_path_get(ts, "boundary.outline.z"))
@@ -422,12 +444,21 @@ def _bp_factor(eq: EquilibriumData) -> float:
     ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp`` carries both the 2*pi
     normalization -- a psi in weber (COCOS 11-18, what IMAS and ODS use) needs
     the division that a weber-per-radian psi does not -- and the orientation
-    sign.  An unidentified convention keeps the historical ``k = -1``, which is
+    sign.  An unidentified convention keeps the historical orientation ``-1``,
     the COCOS 2/3/6/7 form the rest of :mod:`vaft.process.equilibrium` assumed.
+
+    The 2*pi is not left to that fallback, because it is usually known when the
+    index is not: identification settles the storage family from Ampere's law
+    while ``clockwise_phi`` leaves the index open, so an ODS read arrives here
+    as ``cocos=None`` with ``psi_per_radian=False``.  Taking the fallback there
+    would build B_p from a weber psi as if it were weber-per-radian -- a field
+    2*pi too large, and a beta_p (2*pi)**2 too small.
     """
     from vaft.formula.equilibrium import poloidal_field_factor
 
-    return poloidal_field_factor(eq.convention.cocos)
+    return poloidal_field_factor(
+        eq.convention.cocos, psi_per_radian=eq.convention.psi_per_radian,
+    )
 
 
 def _grid_fields(eq: EquilibriumData) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -529,7 +560,10 @@ def derive_global_descriptors(
             values["thermal_energy"] = _derived(eq, 1.5 * pressure_integral, "J", "(3/2)*integral_plasma p dV", "grid quadrature", ("pressure", "psi", "lcfs"))
             from vaft.process.equilibrium import calculate_average_boundary_poloidal_field, efit_virial_volume_integrals, poloidal_field_at_boundary, shafranov_integrals
             rb, zb = _closed_points(eq.lcfs)
-            bp_boundary, _, _ = poloidal_field_at_boundary(eq.r, eq.z, eq.psi, rb, zb, cocos=eq.convention.cocos)
+            bp_boundary, _, _ = poloidal_field_at_boundary(
+                eq.r, eq.z, eq.psi, rb, zb, cocos=eq.convention.cocos,
+                psi_per_radian=eq.convention.psi_per_radian,
+            )
             bpa = float(calculate_average_boundary_poloidal_field(rb, zb, bp_boundary))
             s1, s2, s3, alpha = shafranov_integrals(rb, zb, bp_boundary, rm, zm, br, bz, R_0=geometry["r"], Z_0=geometry["z"], B_ref=bpa, volume=geometry["volume"])
             virial.update(s1=float(s1), s2=float(s2), s3=float(s3), alpha=float(alpha))

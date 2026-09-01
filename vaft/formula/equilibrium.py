@@ -208,7 +208,9 @@ Magnetic Field $B$
 """
 
 
-def poloidal_field_factor(cocos: int | None) -> float:
+def poloidal_field_factor(
+    cocos: int | None, *, psi_per_radian: bool | None = None,
+) -> float:
     r"""Sauter Eq. 20 prefactor $k = \sigma_{R\varphi Z}\,\sigma_{B_p}/(2\pi)^{e_{B_p}}$.
 
     ``B_R = k/R * dψ/dZ`` and ``B_Z = -k/R * dψ/dR``.  The factor carries both
@@ -218,9 +220,18 @@ def poloidal_field_factor(cocos: int | None) -> float:
     ``cocos=None`` keeps the historical weber-per-radian, ``k = -1`` behaviour
     that the rest of this module assumed before conventions were explicit.  It is
     the COCOS 2/3/6/7 form; pass an index to get any other.
+
+    The two halves are established by different evidence, so they can be known
+    separately.  ``psi_per_radian`` supplies the 2π half on its own for a caller
+    that settled the storage family without pinning the index -- an ODS whose
+    flux scale is unambiguous while ``clockwise_phi`` leaves the index open, say.
+    It is consulted only when ``cocos`` is ``None``, where the orientation still
+    falls back to ``-1``; an index carries both halves and wins outright.
     """
     if cocos is None:
-        return -1.0
+        # False is the only value that changes anything: True and None both mean
+        # "no 2*pi to remove", which is the historical assumption.
+        return -1.0 if psi_per_radian in (None, True) else -1.0 / (2.0 * np.pi)
     from vaft.data.cocos import cocos_spec
 
     return cocos_spec(int(cocos)).bp_factor

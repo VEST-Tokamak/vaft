@@ -36,6 +36,7 @@ OFFLINE_NOTEBOOKS: dict[str, dict[str, str]] = {
     "plotting_sample_using_vaft_plot_module.ipynb": {},
     "vest_experimental_data_list.ipynb": {},
     "confinement_time_scaling.ipynb": {},
+    "magnetic_diagnostics_processing.ipynb": {},
     "verification_and_validation.ipynb": {},
     "database_initialization_and_load.ipynb": {"VAFT_DOCS_READ_ONLY": "1"},
 }

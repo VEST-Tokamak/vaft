@@ -787,6 +787,47 @@
         turns: 24
         reference_radius: 0.4
 
+    # Diamagnetic-flux Rogowski coil (issue #285). This block is the home for
+    # the shot-era field code and the TF-circuit constants that used to sit as
+    # Python literals inside `vest_diamagnetic_flux`; the values below
+    # reproduce that code exactly, they are not a recalibration.
+    #
+    # TODO(#285): the field codes here are the ones the mapper has always
+    # used, but `vaft/data/legacy/sql_table.txt` names 246 "Flux Loop - #15"
+    # and 4 "PF2 and 3 Current", and reserves the name "Diamagnetic Flux" for
+    # field 236 (257 has no entry at all). Either the name tables are stale or
+    # the era selector is; field 236 is absent from every packaged sample dump
+    # so it cannot be checked offline. Behaviour is preserved until that is
+    # resolved with the diagnostic owner.
+    diamagnetic_flux:
+      source:
+        field: 257
+        raw_unit: V
+        daq_type: 0
+      processing:
+        tf_circuit:
+          turns: 24
+          inductance: 9.3e-4
+          resistance: 0.0279
+          capacitance: 120.0
+        # Applied as `-1 / rogowski_shunt`, matching the donor expression.
+        rogowski_shunt: 8.12e-3
+        # Signed 16-bit ADC spanning +/-5 V: the negative rail is exactly
+        # -5.0 V and the positive rail is 5 * 32767 / 32768, so the two limits
+        # are NOT symmetric and both must be listed. Tolerance is ~2 LSB
+        # (1 LSB = 10/65536 V ~= 1.5e-4 V).
+        saturation_repair:
+          values: [-5.0, 4.999847412109375]
+          tolerance: 3.0e-4
+      revisions:
+        - to_shot: 37504
+          source: {field: 246, raw_unit: V, daq_type: 0}
+        - from_shot: 37505
+          to_shot: 38451
+          source: {field: 4, raw_unit: V, daq_type: 0}
+        - from_shot: 38452
+          source: {field: 257, raw_unit: V, daq_type: 0}
+
     pf_active:
       processing:
         baseline_samples: 5000
