@@ -120,9 +120,11 @@ def test_equilibrium_extractor_preserves_canonical_schema(monkeypatch):
         "equilibrium.vacuum_toroidal_field.r0": 0.2,
     }
     for name in (
+        "update_equilibrium_profiles_1d_geometry",
         "update_equilibrium_boundary",
         "update_equilibrium_global_quantities_q_min",
         "update_equilibrium_global_quantities_volume",
+        "update_equilibrium_global_quantities_area",
         "update_equilibrium_stored_energy",
         "update_equilibrium_constraints_diamagnetic_flux",
     ):
@@ -441,3 +443,33 @@ def test_export_validates_upsert_contract(tmp_path):
         )
     with pytest.raises(ValueError, match=r"\.csv or \.xlsx"):
         database.export_summary(frame, tmp_path / "out.json")
+
+
+def test_equilibrium_summary_fills_the_shape_and_volume_columns():
+    """Regression for issue #290's wider half: eleven of the forty-four columns
+    were empty on the packaged sample because an EFIT-sourced ODS stores no
+    flux-surface geometry, not because nothing could compute it. Four remain --
+    the betas and li_3, which need a normative definition chosen first.
+    """
+    import numpy as np
+
+    from vaft.omas.sample import sample_ods
+
+    try:
+        ods = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged
+        pytest.skip(f"39915 sample unavailable: {exc}")
+
+    row = summary_module.extract_equilibrium_global(ods, 39915)[0]
+    empty = {
+        name
+        for name, value in row.items()
+        if value is None or (isinstance(value, float) and not np.isfinite(value))
+    }
+    assert empty == {"beta_pol", "beta_tor", "beta_normal", "li_3"}
+    assert row["volume_m3"] > 0.0
+    assert row["area_m2"] > 0.0
+    assert row["energy_mhd_J"] > 0.0
+    # The virial path read psi through a detector that assumed weber and got
+    # beta_p = 30.5 on this Wb/rad sample (issue #278 follow-up).
+    assert 0.0 < row["virial_beta"] < 10.0

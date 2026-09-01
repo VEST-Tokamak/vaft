@@ -259,9 +259,14 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         return []
 
     for updater in (
+        # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
+        # profiles_1d.volume/area, and without them the volume, area and
+        # stored-energy columns below are empty no matter what runs after.
+        vaft.omas.update_equilibrium_profiles_1d_geometry,
         vaft.omas.update_equilibrium_boundary,
         vaft.omas.update_equilibrium_global_quantities_q_min,
         vaft.omas.update_equilibrium_global_quantities_volume,
+        vaft.omas.update_equilibrium_global_quantities_area,
         vaft.omas.update_equilibrium_stored_energy,
     ):
         try:

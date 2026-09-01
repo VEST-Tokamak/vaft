@@ -6,6 +6,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import logging
 from vaft.formula import normalize_psi
+from vaft.formula.constants import MU0
 from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
 from vaft.compat import trapz_compat
@@ -379,6 +380,397 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
         except Exception as e:
             print(f"Warning: Could not map j_tor to 2D for time slice {idx}: {e}")
             continue
+
+
+def _equilibrium_time_slices(ods, time_slice):
+    """Normalize the ``time_slice`` argument the ``update_equilibrium_*`` way."""
+    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+        return []
+    total = len(ods["equilibrium.time_slice"])
+    if time_slice is None:
+        return list(range(total))
+    if isinstance(time_slice, (int, np.integer)):
+        indices = [int(time_slice)]
+    else:
+        indices = [int(index) for index in time_slice]
+    return [index for index in indices if 0 <= index < total]
+
+
+def _equilibrium_flux_frame(ods, idx):
+    """Everything the flux-surface derivations need, in weber per radian.
+
+    Returns ``None`` when the slice cannot support a trace -- no 2-D map, or a
+    degenerate solution with ``psi_axis == psi_boundary``, which the packaged
+    VEST samples do contain.
+
+    The storage convention comes from :func:`vaft.process.equilibrium.as_equilibrium`,
+    whose ``convention.psi_per_radian`` is settled by Ampere's law round the LCFS
+    and so answers on legacy Wb/rad artifacts that carry no ``profiles_1d.phi``
+    (issue #236).
+    """
+    from vaft.process.equilibrium import as_equilibrium
+
+    ts = ods["equilibrium.time_slice"][idx]
+    required = (
+        "profiles_2d.0.grid.dim1",
+        "profiles_2d.0.grid.dim2",
+        "profiles_2d.0.psi",
+        "profiles_1d.psi",
+        "global_quantities.psi_axis",
+        "global_quantities.psi_boundary",
+    )
+    missing = [path for path in required if path not in ts]
+    if missing:
+        logger.warning(
+            "equilibrium.time_slice.%s is missing %s; skipping flux-surface derivation.",
+            idx,
+            ", ".join(missing),
+        )
+        return None
+
+    psi_axis = float(ts["global_quantities.psi_axis"])
+    psi_boundary = float(ts["global_quantities.psi_boundary"])
+    if not np.isfinite(psi_axis) or not np.isfinite(psi_boundary) or psi_axis == psi_boundary:
+        logger.warning(
+            "equilibrium.time_slice.%s has a degenerate psi range; skipping.", idx
+        )
+        return None
+
+    r_grid = np.asarray(ts["profiles_2d.0.grid.dim1"], float).reshape(-1)
+    z_grid = np.asarray(ts["profiles_2d.0.grid.dim2"], float).reshape(-1)
+    psi_2d = np.asarray(ts["profiles_2d.0.psi"], float)
+    if psi_2d.shape == (z_grid.size, r_grid.size) and psi_2d.shape != (r_grid.size, z_grid.size):
+        psi_2d = psi_2d.T
+    if psi_2d.shape != (r_grid.size, z_grid.size):
+        logger.warning(
+            "equilibrium.time_slice.%s psi shape %s does not match its grid; skipping.",
+            idx,
+            psi_2d.shape,
+        )
+        return None
+
+    try:
+        convention = as_equilibrium(ods, time_index=idx).convention
+        per_radian = convention.psi_per_radian
+    except Exception as exc:
+        logger.warning(
+            "COCOS identification failed for time slice %s (%s); assuming the DD weber psi.",
+            idx,
+            exc,
+        )
+        convention, per_radian = None, False
+    exp_bp = 0 if per_radian else 1
+    to_radian = 1.0 / (2.0 * np.pi) ** exp_bp
+
+    psi_1d = np.asarray(ts["profiles_1d.psi"], float).reshape(-1)
+    psi_norm = (psi_1d - psi_axis) / (psi_boundary - psi_axis)
+
+    axis_rz = None
+    if "global_quantities.magnetic_axis.r" in ts and "global_quantities.magnetic_axis.z" in ts:
+        axis_r = float(ts["global_quantities.magnetic_axis.r"])
+        axis_z = float(ts["global_quantities.magnetic_axis.z"])
+        if np.isfinite(axis_r) and np.isfinite(axis_z):
+            axis_rz = (axis_r, axis_z)
+
+    boundary = None
+    if "boundary.outline.r" in ts and "boundary.outline.z" in ts:
+        outline_r = np.asarray(ts["boundary.outline.r"], float).reshape(-1)
+        outline_z = np.asarray(ts["boundary.outline.z"], float).reshape(-1)
+        if outline_r.size >= 3 and outline_r.size == outline_z.size:
+            boundary = (outline_r, outline_z)
+
+    return {
+        "ts": ts,
+        "r_grid": r_grid,
+        "z_grid": z_grid,
+        "psi_2d_radian": psi_2d * to_radian,
+        "psi_axis_radian": psi_axis * to_radian,
+        "psi_boundary_radian": psi_boundary * to_radian,
+        "psi_1d_radian": psi_1d * to_radian,
+        "psi_norm": np.clip(psi_norm, 0.0, 1.0),
+        "axis_rz": axis_rz,
+        "boundary": boundary,
+        "exp_bp": exp_bp,
+        "to_radian": to_radian,
+        "convention": convention,
+    }
+
+
+#: Leaves ``update_equilibrium_profiles_1d_geometry`` writes, and the
+#: :func:`~vaft.process.equilibrium.flux_surface_quantities` key each comes from.
+#: ``r_inboard``/``r_outboard`` are deliberately absent: they belong to
+#: :func:`update_equilibrium_profiles_1d_radial_coordinates`, and one leaf must
+#: have one writer.
+_GEOMETRY_LEAVES = (
+    "gm1",
+    "gm5",
+    "gm8",
+    "gm9",
+    "volume",
+    "area",
+    "surface",
+    "elongation",
+    "triangularity_upper",
+    "triangularity_lower",
+    "b_field_max",
+    "b_field_min",
+)
+
+#: Written after dividing out the per-radian contract, because a psi-derivative
+#: transforms inversely to psi and must match the ODS's own psi unit -- the same
+#: bargain ``profiles_1d.dpressure_dpsi`` already keeps.
+_GEOMETRY_PSI_DERIVATIVES = ("dvolume_dpsi", "darea_dpsi")
+
+
+def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
+    """Derive the flux-surface geometry profiles by tracing the 2-D psi map.
+
+    Writes ``profiles_1d`` ``gm1`` (<1/R^2>), ``gm5`` (<B^2>), ``gm8`` (<R>),
+    ``gm9`` (<1/R>), ``volume``, ``area``, ``surface``, ``dvolume_dpsi``,
+    ``darea_dpsi``, ``elongation``, ``triangularity_upper``,
+    ``triangularity_lower``, ``b_field_max`` and ``b_field_min``.
+
+    An EFIT g-file stores none of these, so an ODS built from one carries only
+    ``p``, ``q``, ``f``, ``ff'``, ``p'`` and ``psi``; every consumer that wants
+    a volume, a plasma cross-section or a flux-surface average -- the stored
+    energy, the database summary's shape columns, and
+    :func:`update_equilibrium_profiles_1d_j_tor` -- is blocked without them.
+
+    Accuracy against the OMFIT-produced reference in
+    ``vaft/data/kineticEfit/ods_48224_300ms.json``, as a fraction of each
+    profile's peak away from the innermost couple of surfaces: the ``gm*`` set
+    and ``b_field_max`` to 6e-4, ``surface`` to 1e-3, ``elongation`` to 2e-3,
+    ``b_field_min`` to 2e-3, ``volume`` and ``area`` to 5e-3 -- the last being the
+    systematic difference between tracing a 129x129 map and OMFIT's own surface
+    solve. ``b_field_average`` is *not* written: no averaging definition tried
+    reproduces the reference to better than 8%, so what it means there is
+    unresolved and writing a guess would be worse than leaving the leaf empty.
+
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure, updated in place.
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+    """
+    from vaft.process.equilibrium import flux_surface_quantities
+
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
+            continue
+        ts = frame["ts"]
+
+        f_profile = None
+        if "profiles_1d.f" in ts:
+            candidate = np.asarray(ts["profiles_1d.f"], float).reshape(-1)
+            if candidate.size == frame["psi_norm"].size:
+                f_profile = candidate
+
+        try:
+            surfaces = flux_surface_quantities(
+                frame["psi_2d_radian"],
+                frame["r_grid"],
+                frame["z_grid"],
+                frame["psi_axis_radian"],
+                frame["psi_boundary_radian"],
+                frame["psi_norm"],
+                f_profile=f_profile,
+                axis_rz=frame["axis_rz"],
+                boundary=frame["boundary"],
+            )
+        except Exception as exc:
+            logger.warning("Flux-surface trace failed for time slice %s: %s", idx, exc)
+            continue
+
+        for name in _GEOMETRY_LEAVES:
+            values = surfaces[name]
+            if np.all(np.isfinite(values)):
+                ts[f"profiles_1d.{name}"] = values
+        for name in _GEOMETRY_PSI_DERIVATIVES:
+            values = surfaces[name] * frame["to_radian"]
+            if np.all(np.isfinite(values)):
+                ts[f"profiles_1d.{name}"] = values
+
+
+def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
+    """Derive ``profiles_1d`` ``phi``, ``rho_tor`` and ``rho_tor_norm`` from ``q``.
+
+    ``q = dPhi/dPsi`` with both fluxes in weber, so ``Phi`` follows from
+    integrating ``q`` against psi and ``rho_tor = sqrt(|Phi| / (pi |B0|))``.
+
+    This replaces the ``sqrt(psi_N)`` proxy that VAFT wrote before issue #192 and
+    that the packaged samples still hold -- bit-identical to ``sqrt(psi_N)`` and
+    up to 0.126 away from the real coordinate. ``rho_tor_norm`` is
+    ``ProfileRecipe.default_coordinate``, so the proxy is the abscissa of every
+    1-D equilibrium profile plot drawn from those samples.
+
+    The integral inherits whatever ``q`` says on axis, and EFIT's ``q[0]`` is
+    often an outlier -- 8.07 against a neighbourhood of 1.9 in the packaged
+    kineticEfit reference, which alone moves ``rho_tor_norm`` by 0.037 over the
+    innermost surfaces. The same is true of :func:`vaft.data.eqdsk.to_omas`, so
+    the two paths stay consistent with each other; a reference whose ``rho_tor``
+    came from an independent surface solve will differ there by about that much.
+
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure, updated in place.
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+    """
+    from vaft.data.eqdsk import _rho_tor_profile
+
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
+            continue
+        ts = frame["ts"]
+        if "profiles_1d.q" not in ts:
+            logger.warning("profiles_1d.q not found for time slice %s; skipping.", idx)
+            continue
+        q_profile = np.asarray(ts["profiles_1d.q"], float).reshape(-1)
+
+        b0 = None
+        if "equilibrium.vacuum_toroidal_field.b0" in ods:
+            field = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+            if field.size:
+                b0 = float(field[min(idx, field.size - 1)])
+        if b0 is None or not np.isfinite(b0) or b0 == 0.0:
+            logger.warning(
+                "vacuum_toroidal_field.b0 unavailable for time slice %s; skipping.", idx
+            )
+            continue
+
+        # _rho_tor_profile takes psi in Wb/rad and supplies the 2*pi itself.
+        result = _rho_tor_profile(q_profile, frame["psi_1d_radian"], b0)
+        if result is None:
+            logger.warning("Toroidal flux is degenerate for time slice %s; skipping.", idx)
+            continue
+        phi, rho_tor, rho_tor_norm = result
+        ts["profiles_1d.phi"] = phi
+        ts["profiles_1d.rho_tor"] = rho_tor
+        ts["profiles_1d.rho_tor_norm"] = rho_tor_norm
+
+
+def update_equilibrium_profiles_1d_j_tor(ods, time_slice=None):
+    r"""Derive the flux-surface-averaged toroidal current density (issue #290).
+
+    The IMAS Data Dictionary defines ``profiles_1d.j_tor`` as
+    ``<j_tor/R> / <1/R>``. Substituting the Grad-Shafranov current
+    ``j_phi = -sigma_Bp (2 pi)^e_Bp (R p' + f f' / (mu0 R))`` gives
+
+        j_tor = -sigma_Bp (2 pi)^e_Bp (p' + gm1 f f' / mu0) / gm9
+
+    with ``p'`` and ``ff'`` as the ODS stores them, ``gm1 = <1/R^2>`` and
+    ``gm9 = <1/R>``. Fed the reference's own ``gm1``/``gm9`` this reproduces the
+    OMFIT-stored profile to 1.3e-10 relative; with the averages traced here it
+    holds to 4e-4 of peak, and 1.3e-3 at the axis point.
+
+    The sign is not inherited. ``sigma_Bp`` comes from the identified COCOS, and
+    :meth:`vaft.data.cocos.CocosSpec.expected_sign` requires ``p'`` to carry
+    ``-sigma_ip sigma_Bp``; multiplying by ``-sigma_Bp`` therefore leaves
+    ``sign(j_tor) = sigma_ip``, which is the sign the same table requires of
+    ``j_phi``. COCOS 1 and 2 share both ``sigma_Bp`` and ``e_Bp``, so the
+    candidate ambiguity the packaged samples leave open does not reach the answer.
+
+    ``gm1``/``gm9`` are derived by :func:`update_equilibrium_profiles_1d_geometry`
+    when the slice does not already carry them.
+
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure, updated in place.
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+    """
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
+            continue
+        ts = frame["ts"]
+        if "profiles_1d.dpressure_dpsi" not in ts or "profiles_1d.f_df_dpsi" not in ts:
+            logger.warning(
+                "profiles_1d.dpressure_dpsi/f_df_dpsi not found for time slice %s; skipping.",
+                idx,
+            )
+            continue
+
+        if "profiles_1d.gm1" not in ts or "profiles_1d.gm9" not in ts:
+            update_equilibrium_profiles_1d_geometry(ods, time_slice=idx)
+        if "profiles_1d.gm1" not in ts or "profiles_1d.gm9" not in ts:
+            logger.warning(
+                "Could not derive gm1/gm9 for time slice %s; skipping j_tor.", idx
+            )
+            continue
+
+        pprime = np.asarray(ts["profiles_1d.dpressure_dpsi"], float).reshape(-1)
+        ffprime = np.asarray(ts["profiles_1d.f_df_dpsi"], float).reshape(-1)
+        gm1 = np.asarray(ts["profiles_1d.gm1"], float).reshape(-1)
+        gm9 = np.asarray(ts["profiles_1d.gm9"], float).reshape(-1)
+        if not (pprime.size == ffprime.size == gm1.size == gm9.size):
+            logger.warning(
+                "profiles_1d lengths disagree for time slice %s; skipping j_tor.", idx
+            )
+            continue
+
+        sigma_bp = _sigma_bp(frame["convention"])
+        prefactor = -sigma_bp * (2.0 * np.pi) ** frame["exp_bp"]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            j_tor = prefactor * (pprime + gm1 * ffprime / MU0) / gm9
+        if not np.all(np.isfinite(j_tor)):
+            logger.warning(
+                "Derived j_tor is not finite for time slice %s; skipping.", idx
+            )
+            continue
+        ts["profiles_1d.j_tor"] = j_tor
+
+
+def _sigma_bp(convention) -> int:
+    """``sigma_Bp`` of the identified convention, defaulting to the DD's +1.
+
+    Every candidate must agree: COCOS 1 and 2 do, and so do 11 and 12, which are
+    the pairs an unknown ``clockwise_phi`` leaves open. A genuinely split
+    candidate set means the orientation is unidentified, and the DD convention is
+    the honest default there.
+    """
+    from vaft.data.cocos import cocos_spec
+
+    candidates = () if convention is None else tuple(
+        index for index in (getattr(convention, "candidates", None) or ()) if index
+    )
+    signs = set()
+    for index in candidates:
+        try:
+            signs.add(cocos_spec(int(index)).sigma_bp)
+        except Exception:
+            return 1
+    if len(signs) == 1:
+        return int(signs.pop())
+    return 1
+
+
+def update_equilibrium_global_quantities_area(ods, time_slice=None):
+    """Update ``global_quantities.area`` from the edge of ``profiles_1d.area``.
+
+    The scalar counterpart of :func:`update_equilibrium_global_quantities_volume`,
+    which the database summary's ``area_m2`` column reads.
+    """
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        ts = ods["equilibrium.time_slice"][idx]
+        if "profiles_1d.area" not in ts:
+            logger.warning("profiles_1d.area not found for time slice %s", idx)
+            continue
+        ts["global_quantities.area"] = float(
+            np.asarray(ts["profiles_1d.area"], float).reshape(-1)[-1]
+        )
+
+
+def update_equilibrium_derived_profiles(ods, time_slice=None):
+    """Derive every flux-surface quantity an EFIT-sourced ODS omits, in order.
+
+    Geometry first (it supplies ``gm1``/``gm9``), then the toroidal flux
+    coordinate, then ``j_tor``, then the 0-D scalars that read the profiles back.
+    Each step is independently callable; this is the one-line entry point.
+    """
+    update_equilibrium_profiles_1d_geometry(ods, time_slice)
+    update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice)
+    update_equilibrium_profiles_1d_j_tor(ods, time_slice)
+    update_equilibrium_global_quantities_volume(ods, time_slice)
+    update_equilibrium_global_quantities_area(ods, time_slice)
+    update_equilibrium_stored_energy(ods, time_slice)
+    update_equilibrium_boundary(ods, time_slice)
 
 def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profiles_2d_idx=1, convention='sfl', n_theta=129, plot_opt=0):
     """

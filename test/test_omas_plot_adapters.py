@@ -145,6 +145,37 @@ def test_missing_data_produces_an_actionable_error(sample_ods):
         vomas.plot_equilibrium_field_psi(empty)
 
 
+def test_render_refuses_exactly_what_available_plots_omits(sample_ods):
+    """A path-driven adapter used to hand back a figure with no lines in it when
+    its leaf was absent -- silently, so nothing told the caller why (issue #290).
+    ``render`` now refuses those, and refuses precisely the ones this object's
+    ``available_plots`` leaves out, so the listing and the adapters cannot
+    disagree about what is drawable.
+    """
+    from vaft.omas._plot_recipes import diagnoses_itself
+
+    offered = {row["name"] for row in vomas.available_plots(sample_ods)}
+    checked = 0
+    for row in vomas.available_plots():
+        name = row["name"]
+        if name in offered or diagnoses_itself(name):
+            continue
+        with pytest.raises(ValueError, match="not available in this input"):
+            vomas.render_plot(name, sample_ods, show=False)
+        checked += 1
+    assert checked, "no unsupported path-driven plot to check"
+
+
+def test_a_recipe_that_diagnoses_itself_keeps_its_own_message(sample_ods):
+    """The guard must not speak over a builder that explains the absence better.
+    ``mhd_linear_time_energy_perturbed`` names the code that writes the leaf."""
+    ods = ODS(consistency_check=False)
+    ods["mhd_linear.time_slice.0.toroidal_mode.0.n_tor"] = 1
+    ods["mhd_linear.time"] = np.array([0.0])
+    with pytest.raises(ValueError, match="DCON"):
+        vomas.plot_mhd_linear_time_energy_perturbed(ods, show=False)
+
+
 def test_tf_field_divides_by_reference_radius(sample_ods):
     # Regression: tf.b_field_tor_vacuum_r.data is B_t * R [T*m], not B_t [T];
     # the adapter must divide by tf.r0 to recover the field itself.

@@ -707,7 +707,15 @@ def from_omas(
 #: Minimum marching-squares vertex count for a traced flux surface to be
 #: trusted for a volume; below this the polygon is grid resolution, not
 #: plasma geometry.
-_MIN_CONTOUR_POINTS = 24
+def _min_contour_points() -> int:
+    """The vertex floor for a usable contour, shared with the ODS surface path.
+
+    Imported lazily because :mod:`vaft.process.equilibrium` reaches back into
+    :mod:`vaft.data` at import time.
+    """
+    from vaft.process.equilibrium import MIN_FLUX_SURFACE_POINTS
+
+    return MIN_FLUX_SURFACE_POINTS
 
 
 def _rho_tor_profile(
@@ -748,52 +756,16 @@ def _rho_tor_profile(
 
 
 def _contour_geometry(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
-    """Shape parameters of one closed flux-surface contour."""
-    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
+    """Shape parameters of one closed flux-surface contour.
 
-    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
-    z_min, z_max = float(np.min(z_seg)), float(np.max(z_seg))
-    minor = 0.5 * (r_max - r_min)
-    r_geo = 0.5 * (r_max + r_min)
-    if minor <= 0.0:
-        raise ValueError("degenerate contour")
-    return {
-        "volume": exact_volume_from_RZ_contour(r_seg, z_seg),
-        # Poloidal cross-section area, by the shoelace formula.
-        "area": 0.5
-        * abs(
-            float(np.dot(r_seg, np.roll(z_seg, 1)) - np.dot(z_seg, np.roll(r_seg, 1)))
-        ),
-        "elongation": (z_max - z_min) / (2.0 * minor),
-        "triangularity_upper": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=True)) / minor,
-        "triangularity_lower": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=False)) / minor,
-    }
-
-
-def _r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
-    """R where the contour reaches its highest (or lowest) point.
-
-    Taking R at the sampled vertex of extreme Z is off by several percent in
-    triangularity, because the true extremum falls between vertices. Fitting a
-    parabola to Z over the three points around it locates the extremum to
-    sub-vertex resolution, and R is interpolated there.
+    A thin wrapper over :func:`vaft.process.equilibrium.contour_shape_parameters`,
+    which the ODS-side flux-surface engine uses too, so the g-file path and the
+    ODS path cannot drift apart. Only the keys this module writes are kept.
     """
-    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
-    size = z_seg.size
-    if size < 3:
-        return float(r_seg[index])
-    prev, nxt = (index - 1) % size, (index + 1) % size
-    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
-    denominator = z_prev - 2.0 * z_here + z_next
-    if denominator == 0.0:
-        return float(r_seg[index])
-    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
-    shift = 0.5 * (z_prev - z_next) / denominator
-    if not np.isfinite(shift) or abs(shift) > 1.0:
-        return float(r_seg[index])
-    r_here = float(r_seg[index])
-    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
-    return r_here + abs(shift) * (neighbour - r_here)
+    from vaft.process.equilibrium import contour_shape_parameters
+
+    shape = contour_shape_parameters(r_seg, z_seg)
+    return {name: shape[name] for name in _SURFACE_QUANTITIES}
 
 
 #: Flux-surface quantities ``_surface_geometry`` returns, in the order they are
@@ -831,6 +803,7 @@ def _surface_geometry(
     """
     from vaft.process.equilibrium import extract_flux_surface_contours
 
+    min_points = _min_contour_points()
     psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
     if psi_norm.size < 3:
         return None
@@ -874,7 +847,7 @@ def _surface_geometry(
             # surfaces, where the flux surface is only a few cells across; what
             # those polygons describe is grid artifact, not geometry. Drop them
             # and let the fill below interpolate.
-            segments = [seg for seg in segments if seg[0].size >= _MIN_CONTOUR_POINTS]
+            segments = [seg for seg in segments if seg[0].size >= min_points]
             if not segments:
                 continue
             r_seg, z_seg = max(segments, key=lambda segment: segment[0].size)
