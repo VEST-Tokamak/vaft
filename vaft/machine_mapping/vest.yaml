@@ -467,22 +467,24 @@
           field: 73
           daq_type: 1
       
-    rogowski_coil:
-      label: "Measured Rogowski Coil Current"
-      raw:
-        gain: 1
-        field: 109
-        daq_type: 0
-        fl_field: 25
-        effective_res: 2.8e-4
-        baseline_onset: 0.29
-      geometry:
-        coils:
-          - r: 0.45
-            z: 0.0
-            phi: 0.0
-            turns: 1
-            area: 0.01
+    # The legacy `rogowski_coil` block was removed in issue #214.
+    #
+    # It was read by nothing -- its only consumers were the
+    # `process_static_geometry` / `process_static_channels` Rogowski branches,
+    # which issue #215 made raise because they wrote the non-canonical
+    # `rogowski_coil.coil.*` path. What it left behind was actively harmful:
+    #
+    #   * a second, unrevised copy of the FL10 coefficient (`effective_res:
+    #     2.8e-4`), wrong for every shot >= 17455, under a third name. Reading
+    #     that stale label as authoritative is what prompted #214;
+    #   * duplicates of `field: 109` / `fl_field: 25`, which the live
+    #     `plasma_current` block already owns;
+    #   * an invented winding geometry (r 0.45, turns 1, area 0.01) that
+    #     #215 explicitly declines to map, VEST having no authoritative
+    #     contour on record.
+    #
+    # The canonical sources are `plasma_current` below (channels, calibration,
+    # shot eras) and `magnetics.rogowski_coil` in the ODS (the sensors).
 
     # Internal Magnetic Probe Array: eight midplane Hall probes, plus a
     # co-located Bz sensor per position.  Sign convention: I_TF = raw_field_1
@@ -695,10 +697,12 @@
         # Limiter" -- i.e. the donor calls it a mutual inductance between FL10
         # and the inboard limiter. That name is dimensionally inconsistent
         # with the operation the donor itself performs. The dimensional
-        # requirement is the harder evidence, and the earliest VAFT-era config
-        # independently labelled the same value `effective_res`, so the key is
-        # named for the units the formula requires. The conflict with the
-        # donor's name is recorded here rather than erased: it is not settled
+        # requirement is the harder evidence, so the key is named for the
+        # units the formula requires. (An early VAFT config also labelled this
+        # value `effective_res`, but that came from the same author porting
+        # the same algorithm, so it corroborates nothing on its own and has
+        # since been removed.) The conflict with the donor's name is recorded
+        # here rather than erased: it is not settled
         # provenance, and resolving it needs VEST calibration documentation.
         #
         # The plausible physical reading -- FL10 sees the total induced loop

@@ -58,16 +58,34 @@ def test_the_coefficient_is_not_named_as_an_inductance():
         assert "mutual_inductance" not in reference
 
 
-def test_the_orphan_effective_res_label_is_gone_from_the_live_path():
-    """The legacy `rogowski_coil` block's `effective_res` was read by nothing.
+def test_only_one_name_for_the_coefficient_survives_in_config():
+    """The stale `effective_res` label is what caused #214 to be filed.
 
-    It is the same 2.8e-4 value under a third name; #214 keeps exactly one
-    name for the live configuration.
+    It sat in a dead `rogowski_coil` block as a third name for this constant,
+    at the unrevised 2.8e-4 value -- wrong for every shot >= 17455 -- and a
+    reader taking it as authoritative is how the coefficient came to be read
+    as a resistance. Leaving it while renaming the live key would keep the
+    trap armed, so the block is gone and this asserts it stays gone.
     """
     document = load_yaml(package_data_path("vest.yaml"))
-    reference = document[0]["diagnostics"]["plasma_current"]["processing"]["reference"]
+    diagnostics = document[0]["diagnostics"]
+    assert "rogowski_coil" not in diagnostics
+
+    reference = diagnostics["plasma_current"]["processing"]["reference"]
     assert "effective_resistance_ohm" in reference
     assert "mutual_inductance" not in reference
+
+    # No `effective_res` key anywhere in the document, at any depth.
+    def keys(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                yield str(key)
+                yield from keys(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from keys(item)
+
+    assert "effective_res" not in set(keys(document))
 
 
 def test_shot_era_modes_match_the_donor():
