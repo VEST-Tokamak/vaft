@@ -770,9 +770,15 @@ def vfit_plasma_current(
             raw_flux = np.interp(time, flux_time, raw_flux)
 
         # `raw_flux` is FL10's loop VOLTAGE, deliberately not integrated:
-        # V / R gives the current-equivalent vessel reference subtracted from
-        # the Rogowski measurement.  Dividing by an inductance instead would
-        # give A/s, which is not subtractable from a current (issue #214).
+        # V / R gives the current-equivalent reference subtracted from the
+        # Rogowski measurement.  Dividing by an inductance instead would give
+        # A/s, which is not subtractable from a current (issue #214).
+        #
+        # The subtracted quantity is a proxy for the induced current in the
+        # tungsten limiter surrounding the CS wall -- not a general vessel
+        # eddy current: the plasma-current channel is the INNER Rogowski coil.
+        # See vest.yaml; the method for computing that effective current is
+        # under revision as of 2026-09-01.
         ip_ref = raw_flux * float(reference_config["flux_gain"]) / effective_resistance
         ip_ref = _linear_baseline_subtract(time, ip_ref, x_base)
         ip = (ip_shot - ip_ref) * float(sign_config["multiply"])
@@ -1564,8 +1570,9 @@ def _map_rogowski_coils(
         measured_name="plasma_eddy",
         measured_index=2,
         measured_description=(
-            "Plasma and eddy currents linked by the plasma-current Rogowski "
-            "contour, before FL10 vessel-current compensation"
+            "Currents linked by the inner plasma-current Rogowski contour, "
+            "before the FL10 compensation that subtracts a proxy for the "
+            "induced current in the tungsten limiter around the CS wall"
         ),
         loader=lambda: vest_plasma_rogowski_current(shot, raw_source=raw_source),
         tstart=tstart,
@@ -1708,9 +1715,11 @@ def _map_probes(
 
 
 _IP_METHOD_NAME = (
-    "VEST plasma-current Rogowski: shot-era channel calibration, linear "
-    "baseline removal, FL10 vessel-current compensation, shot-era sign "
-    "convention. The pre-compensation sensor current is retained in "
+    "VEST inner plasma-current Rogowski: shot-era channel calibration, "
+    "linear baseline removal, FL10 compensation for the induced current in "
+    "the tungsten limiter around the CS wall (disabled from shot 47117, when "
+    "the inboard was changed to carbon), shot-era sign convention. The "
+    "pre-compensation sensor current is retained in "
     "magnetics.rogowski_coil[0].current."
 )
 

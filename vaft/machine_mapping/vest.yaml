@@ -705,12 +705,27 @@
         # here rather than erased: it is not settled
         # provenance, and resolving it needs VEST calibration documentation.
         #
-        # The plausible physical reading -- FL10 sees the total induced loop
-        # voltage, which approximates the voltage around a dominant passive
-        # current path, so V ~= R_eff * I_eddy -- is an UNVERIFIED hypothesis.
-        # FL10 is not known to see an "eddy-only" signal; it sees total loop
-        # voltage including PF and plasma contributions. Quantitative
-        # validation of the approximation is deliberately out of scope here.
+        # What the compensation term physically represents
+        # (corrected 2026-09-01 from VEST operations; supersedes the earlier
+        # "dominant passive-current mode" reading):
+        #
+        #   * The plasma-current channel is the INNER Rogowski coil. In
+        #     principle an inner coil links no vessel eddy current at all, so
+        #     the compensation is NOT a general vessel-eddy subtraction.
+        #   * What it does link is the induced current in the TUNGSTEN LIMITER
+        #     surrounding the CS wall. The FL10-derived term has effectively
+        #     been used as a proxy measurement of that specific induced
+        #     current -- one structure, not a distributed wall mode.
+        #   * FL10 still sees TOTAL loop voltage, including PF and plasma
+        #     contributions; it is not an "eddy-only" pickup.
+        #
+        # The scalar `V / R_eff` transfer below is therefore a stand-in for
+        # that limiter induced current, and VEST's understanding of how the
+        # effective current should be computed HAS CHANGED as of 2026-09-01.
+        # The replacement model is not yet specified here, so the donor
+        # arithmetic is retained unchanged and this note records that the
+        # scalar form is superseded pending that specification. Do not treat
+        # `effective_resistance_ohm` as a settled physical constant.
         #
         # Numerical values are unchanged from the donor:
         #   shot <  17455 -> 2.8e-4 ; shot >= 17455 -> 5.0e-4.
@@ -751,12 +766,24 @@
                 # single-point polyfit this offset replaces.
                 reference_offset_index: 175
             # Shot >= 47117: the donor drops FL10 compensation entirely
-            # (`if shot < 47117 ... else ip = ipShot`) and gives NO stated
-            # reason for the change. A Rogowski/wiring/electronics transition
-            # is a plausible cause but is an unverified hypothesis; it is
-            # recorded as such rather than asserted. `effective_resistance_ohm`
-            # is retained for provenance only -- `mode: disabled` means it is
-            # not read. Resolving the cause needs VEST hardware history.
+            # (`if shot < 47117 ... else ip = ipShot`) with no comment.
+            #
+            # The cause is now known (VEST operations, 2026-09-01): the
+            # inboard side was changed to CARBON. The induced current in the
+            # modified inboard structure is no longer measured by the inner
+            # Rogowski coil, so there is nothing left for the FL10 term to
+            # compensate and the subtraction is correctly disabled.
+            #
+            # UNRESOLVED shot boundary: issue #191 documents the full-carbon
+            # inboard limiter at `shot >= 47018` (elements 721-950, tungsten
+            # -> carbon, R 0.100 -> 0.101 m), 99 shots earlier than this
+            # processing change at 47117. These may be two events (retrofit,
+            # then processing follow-up) or one number may be wrong. Both are
+            # recorded rather than reconciled by guesswork; the machine log
+            # settles it. See #191 and #216.
+            #
+            # `effective_resistance_ohm` is retained for provenance only --
+            # `mode: disabled` means it is not read.
             - from_shot: 47117
               mode: disabled
               effective_resistance_ohm: 5.0e-4

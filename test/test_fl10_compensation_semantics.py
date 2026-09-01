@@ -12,6 +12,15 @@ The donor `vest_ip.m` nevertheless names the constant
 with Inboard Limiter". That conflict is real and unresolved; these tests pin
 the dimensional requirement and the donor's numbers so a future refactor cannot
 silently reinterpret the coefficient as an inductance again.
+
+What the term represents was corrected by VEST operations on 2026-09-01: the
+channel is the INNER Rogowski coil, which in principle links no vessel eddy
+current, and the subtracted quantity is a proxy for the induced current in the
+tungsten limiter around the CS wall. From shot 47117 the inboard was changed to
+carbon, that induced current is no longer measured, and the compensation is
+correctly disabled. The method for computing the effective current is under
+revision, so these tests deliberately pin only the arithmetic and the shot
+eras -- not the physical model, which is expected to change.
 """
 
 from __future__ import annotations
@@ -172,3 +181,24 @@ def test_provenance_reports_the_renamed_coefficient():
 
     disabled = vest_processing_provenance(47200)["plasma_current"]["reference"]
     assert disabled["compensation_enabled"] is False
+
+
+def test_compensation_is_disabled_once_the_inboard_is_carbon():
+    """Shot 47117 is a physical boundary, not an unexplained processing quirk.
+
+    VEST operations (2026-09-01): the inboard side was changed to carbon, so
+    the induced current in that structure is no longer measured by the inner
+    Rogowski coil and there is nothing left for FL10 to compensate.
+
+    Note the unresolved boundary: issue #191 places the full-carbon inboard
+    limiter at shot >= 47018, 99 shots earlier than this processing change.
+    This asserts the processing boundary the donor implements; reconciling it
+    with the hardware record is tracked in #191/#216.
+    """
+    for shot in (47115, 47116):
+        _, reference, _, _ = _plasma_processing_for_shot(shot)
+        assert reference.get("mode") != "disabled", shot
+
+    for shot in (47117, 47118, 50000):
+        _, reference, _, _ = _plasma_processing_for_shot(shot)
+        assert reference.get("mode") == "disabled", shot
