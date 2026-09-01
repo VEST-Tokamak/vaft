@@ -18,7 +18,7 @@ representations:
     - imas
     - omas
     size: 27918897
-    sha256: e28678c827f1ac66ca170e13d7f11bef0f0332b83de36fcd61676d88a74db034
+    sha256: 84dfb42c54db55435a04ac7e2bea99d22f48af50725e0d65bee13c0e24a5fd50
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
@@ -82,3 +82,14 @@ acceptance:
 packaging_policy:
   manifest: wheel-and-sdist
   artifact: repository-only
+corrections:
+- issue: 288
+  field: magnetics.b_field_pol_probe.:.poloidal_angle
+  from: pi/2
+  to: 3*pi/2
+  reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
+    measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
+    reader. Applied in place rather than by rerunning the pipeline: the mapper writes
+    this leaf as a constant, so the value is exactly what a regeneration produces,
+    and no stage output depends on it. The stage hashes above are therefore unchanged
+    and still describe the run that produced the rest of the artifact.'

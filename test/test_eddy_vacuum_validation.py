@@ -109,7 +109,10 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
 
     positions = [(r, z) for _, r, z in PROBES] + [(r, z) for _, r, z in LOOPS]
     psi, b_z, b_r = compute_point_response_ods(ods, [[r, z] for r, z in positions])
-    direction_r, direction_z = math.cos(POLOIDAL_ANGLE), math.sin(POLOIDAL_ANGLE)
+    # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
+    # (cos, -sin).  The synthetic "measured" signal must be built with the same
+    # projection the forward model uses, or the fixture tests the wrong sign.
+    direction_r, direction_z = math.cos(POLOIDAL_ANGLE), -math.sin(POLOIDAL_ANGLE)
 
     # A plasma-like contribution switched on at PLASMA_ONSET, so the residual has
     # something physical to find.
@@ -224,11 +227,14 @@ def test_each_forward_model_preserves_its_own_physical_quantity_and_unit(vacuum_
 # --- conventions -----------------------------------------------------------
 
 def test_stored_poloidal_angle_declares_the_plus_bz_the_probes_measure():
-    # Issue #169: the stored angle now *is* the measured direction, so the
-    # IMAS (cos, sin) projection of it is +Bz and consumers may read it.
-    assert POLOIDAL_ANGLE == pytest.approx(math.pi / 2)
+    # Issue #288.  Issue #169 set this to pi/2 on the reading that the IMAS
+    # projection is (cos, sin).  The DD says poloidal_angle is a *clockwise*
+    # angle from +R, so the projection is (cos, -sin) and +Bz is 3*pi/2.  The
+    # pi/2 value declared -Bz to any DD-conformant reader; it only looked right
+    # because the consumer projected with the opposite handedness too.
+    assert POLOIDAL_ANGLE == pytest.approx(3 * math.pi / 2)
     assert math.cos(POLOIDAL_ANGLE) == pytest.approx(0.0, abs=1e-12)
-    assert math.sin(POLOIDAL_ANGLE) == pytest.approx(1.0)
+    assert -math.sin(POLOIDAL_ANGLE) == pytest.approx(1.0)
 
 
 def test_packaged_reference_odss_carry_the_corrected_angle():
