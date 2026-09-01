@@ -3,8 +3,7 @@
 Unit, scale, and notation are separate concepts resolved through one table:
 changing the display unit always rescales the data and relabels the axis
 together, unsupported units fail loudly instead of silently keeping factor 1,
-and titles/channel labels follow the canonical grammar.  Design record:
-``docs/design/plotting/002-display-policy.md``.
+and titles/channel labels follow the canonical grammar.  Policy: ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
 import matplotlib
@@ -125,7 +124,9 @@ def test_plasma_current_defaults_to_ka_with_canonical_title(ip_ods):
     figure, axes = vaft.omas.plot_plasma_current_time(ip_ods, label=["39915"])
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.0, 100.0, 200.0])
     assert "[kA]" in axes.get_ylabel()
-    assert axes.get_title() == "Plasma current [kA] #39915"
+    # The heading is the recipe's own title, so siblings that share a display
+    # unit stay distinguishable ("MHD Stored Energy" vs "Magnetic Stored Energy").
+    assert axes.get_title() == "Plasma Current [kA] #39915"
     plt.close(figure)
 
 
@@ -171,6 +172,45 @@ def test_interferometer_scaled_axis_comes_from_the_table():
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [1.0, 2.0])
     assert "[10^18 m^-2]" in axes.get_ylabel()
     plt.close(figure)
+
+
+def test_beta_members_keep_their_own_dimensionless_conventions():
+    """Related quantities are not interchangeable: beta_t is a percent, beta_p is not."""
+    ods = omas.ODS()
+    ods["equilibrium.time"] = np.array([0.1, 0.2])
+    for index, (beta_t, beta_p) in enumerate(((0.025, 0.8), (0.030, 0.9))):
+        slice_path = f"equilibrium.time_slice.{index}.global_quantities"
+        ods[f"{slice_path}.beta_tor"] = beta_t
+        ods[f"{slice_path}.beta_pol"] = beta_p
+
+    figure, axes = vaft.omas.plot_equilibrium_time_beta_t(ods)
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [2.5, 3.0])
+    assert axes.get_ylabel() == "Toroidal Beta [%]"
+    plt.close(figure)
+
+    figure, axes = vaft.omas.plot_equilibrium_time_beta_p(ods)
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [0.8, 0.9])
+    assert axes.get_ylabel() == "Poloidal Beta"
+    plt.close(figure)
+
+    # The percent convention is the only one on offer for that quantity.
+    with pytest.raises(ValueError, match="displayed as"):
+        vaft.omas.plot_equilibrium_time_beta_t(ods, yunit="kA")
+
+
+def test_panel_members_keep_the_short_recipe_title(ip_ods):
+    """A composite carries the shot in its suptitle, not on every panel."""
+    figure, axes = vaft.omas.plot_current_overview(ip_ods, label=["39915"])
+    titles = [panel.get_title() for panel in np.asarray(axes).ravel() if panel.get_visible()]
+    assert titles == ["Plasma Current"], titles
+
+    # The same plot standalone is decorated with unit and shot.
+    standalone_figure, standalone = vaft.omas.plot_plasma_current_time(
+        ip_ods, label=["39915"]
+    )
+    assert standalone.get_title() == "Plasma Current [kA] #39915"
+    plt.close(figure)
+    plt.close(standalone_figure)
 
 
 def test_multi_shot_titles_leave_shot_identity_to_the_legend(ip_ods):

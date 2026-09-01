@@ -19,7 +19,8 @@ The contract enforced here: changing the display unit always changes the
 numeric scaling and the label together, and an unsupported unit raises instead
 of silently falling back to factor 1.
 
-Design record: ``docs/design/plotting/002-display-policy.md``.
+The policy this module implements is documented in
+``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
 from __future__ import annotations
@@ -144,6 +145,16 @@ SUBJECT_NOTATION_DEFAULTS: dict[tuple[str, str], str] = {
 }
 
 
+#: Dimensionless quantities that still carry a display convention, keyed by
+#: ``(subject, quantity)`` because the stored unit -- nothing at all -- cannot
+#: tell ``beta_t`` from ``beta_p``.  Toroidal beta is conventionally read as a
+#: percentage; poloidal beta, normalized beta, ``li`` and ``q`` are not, which
+#: is why a beta family plot cannot put all three on one shared axis.
+DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
+    ("equilibrium", "beta_t"): ("%", 100.0, "percent"),
+}
+
+
 def quantity_for_unit(canonical_unit: str) -> str | None:
     """Map an IMAS canonical unit string to its display quantity, if any.
 
@@ -186,6 +197,7 @@ def resolve_display(
     *,
     unit: str | None = None,
     subject: str | None = None,
+    quantity: str | None = None,
     data: Any = None,
 ) -> DisplaySpec:
     """Resolve the display unit/scale/notation for one plotted quantity.
@@ -193,11 +205,24 @@ def resolve_display(
     ``canonical_unit`` is the IMAS storage unit of the data.  ``unit`` may be
     an explicit display unit (always wins), ``"auto"`` (magnitude-based within
     the allowed units, requires ``data``), or ``None`` for the subject/quantity
-    default.  Unknown units raise :class:`ValueError` naming the alternatives;
-    pass-through quantities accept only their canonical unit.
+    default.  ``subject`` and ``quantity`` name the canonical plot identity and
+    select the subject-specific preferences.  Unknown units raise
+    :class:`ValueError` naming the alternatives; pass-through quantities accept
+    only their canonical unit.
     """
     quantity_name = quantity_for_unit(canonical_unit)
     if quantity_name is None:
+        convention = DIMENSIONLESS_DISPLAY.get((subject, quantity))
+        if convention is not None and not canonical_unit:
+            label, factor, notation = convention
+            if unit not in (None, "auto", label):
+                raise ValueError(
+                    f"{subject}/{quantity} is displayed as {label!r}; "
+                    f"got unit={unit!r}"
+                )
+            return DisplaySpec(
+                quantity=quantity, unit=label, scale=factor, notation=notation
+            )
         # Pass-through: no conversion table for this unit.
         if unit not in (None, "auto", canonical_unit):
             raise ValueError(

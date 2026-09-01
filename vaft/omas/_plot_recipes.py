@@ -37,7 +37,7 @@ from vaft.plot.models import (
     Series,
     Spectrogram,
 )
-from vaft.plot.display import figure_title, resolve_display, subject_display_name
+from vaft.plot.display import figure_title, resolve_display
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -2195,7 +2195,9 @@ RECIPES["camera_visible_animation_frames"] = CallableRecipe(
 # Model construction
 # ---------------------------------------------------------------------------
 
-def _resolve_axis_display(canonical_unit, *, unit, subject, series_values):
+def _resolve_axis_display(
+    canonical_unit, *, unit, subject, series_values, quantity=None
+):
     """Resolve one axis through the shared display policy (issue #256).
 
     ``unit="auto"`` needs data; with nothing plotted it falls back to the
@@ -2204,7 +2206,9 @@ def _resolve_axis_display(canonical_unit, *, unit, subject, series_values):
     if unit == "auto" and not series_values:
         unit = None
     data = np.concatenate([np.ravel(v) for v in series_values]) if series_values else None
-    return resolve_display(canonical_unit, unit=unit, subject=subject, data=data)
+    return resolve_display(
+        canonical_unit, unit=unit, subject=subject, quantity=quantity, data=data
+    )
 
 
 def _apply_display(trace: Series, *, x_scale: float, y_scale: float) -> Series:
@@ -2218,16 +2222,15 @@ def _apply_display(trace: Series, *, x_scale: float, y_scale: float) -> Series:
     )
 
 
-def _canonical_title(spec, unit_label: str, entries) -> str:
-    """``<Subject> [<quantity>] [unit] #<shot>`` per doc 002 section C5.
+def _decorated_title(heading: str, unit_label: str, entries) -> str:
+    """``<Recipe title> [unit] #<shot>`` for a standalone figure.
 
-    The quantity joins the heading whenever canonical identity carries one, so
-    sibling plots that share a display unit (w_mhd/w_mag/w_tot, all [J]) stay
-    distinguishable.  Multi-entry figures identify shots in the legend instead.
+    The heading is the recipe's own title rather than a synthesized
+    subject/quantity pair: recipe titles are human-authored and already
+    distinguish siblings that share a display unit (``w_mhd``/``w_mag``/
+    ``w_tot`` are all ``[J]``).  A figure built from several entries omits the
+    shot, which the legend carries instead.
     """
-    heading = subject_display_name(spec.subject)
-    if spec.quantity:
-        heading += f" {spec.quantity}"
     shot = entries[0][0] if len(entries) == 1 else None
     return figure_title(heading, unit_label, shot=shot)
 
@@ -2336,6 +2339,9 @@ def _build_line_series(
 ) -> LineSeries:
     spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
     subject = spec.subject if spec is not None else None
+    # Inside a composite the suptitle carries subject/unit/shot, so a member
+    # keeps the short recipe title that identifies it within the figure.
+    panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
     for entry_label, ods in entries:
         traces.extend(
@@ -2352,16 +2358,17 @@ def _build_line_series(
     )
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
+        quantity=spec.quantity if spec is not None else None,
         series_values=[trace.y for trace in traces],
     )
     scaled = tuple(
         _apply_display(trace, x_scale=x_display.scale, y_scale=y_display.scale)
         for trace in traces
     )
-    if spec is not None:
-        default_title = _canonical_title(spec, y_display.unit, entries)
-    else:
+    if panel_member:
         default_title = recipe.title
+    else:
+        default_title = _decorated_title(recipe.title, y_display.unit, entries)
     return LineSeries(
         series=scaled,
         x_label=recipe.x_label,
@@ -2401,6 +2408,9 @@ def _build_profile_1d(
 ) -> Profile1D:
     spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
     subject = spec.subject if spec is not None else None
+    # Inside a composite the suptitle carries subject/unit/shot, so a member
+    # keeps the short recipe title that identifies it within the figure.
+    panel_member = bool(options.pop("_panel_member", False))
     coordinate = options.get("coordinate") or recipe.default_coordinate
     time_slice = options.get("time_slice", 0)
     traces: list[Series] = []
@@ -2447,16 +2457,17 @@ def _build_profile_1d(
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
+        quantity=spec.quantity if spec is not None else None,
         series_values=[trace.y for trace in traces],
     )
     scaled = tuple(
         _apply_display(trace, x_scale=1.0, y_scale=y_display.scale)
         for trace in traces
     )
-    if spec is not None:
-        default_title = _canonical_title(spec, y_display.unit, entries)
-    else:
+    if panel_member:
         default_title = recipe.y_label
+    else:
+        default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(coordinate, coordinate),
@@ -2702,11 +2713,14 @@ def _build_power_spectrum(
 def _build_panels(
     entries: Sequence[tuple[str, Any]], recipe: PanelRecipe, **options: Any
 ) -> Panels:
+    # A composite nested inside another composite is still a composite, so drop
+    # any inherited flag before re-adding it for this level's members.
+    options.pop("_panel_member", None)
     members = []
     for name in recipe.members:
         if not any(entry_supports(ods, name) for _, ods in entries):
             continue
-        members.append(build_model(name, entries, **options))
+        members.append(build_model(name, entries, _panel_member=True, **options))
     if not members:
         raise ValueError(
             "none of the panels "
