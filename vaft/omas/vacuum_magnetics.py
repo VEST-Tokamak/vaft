@@ -202,14 +202,19 @@ def _signal(ods: Any, path: str) -> np.ndarray | None:
     return array
 
 
-def _channel_time(ods: Any, path: str, fallback: np.ndarray | None) -> np.ndarray | None:
+def _channel_time(ods: Any, base: str) -> np.ndarray | None:
     """The channel's own time base, or the IDS's when it is homogeneous.
 
     A round-tripped ODS written with ``homogeneous_time=1`` carries only
     ``magnetics.time``; the per-node ``*.time`` the mapper wrote is not stored.
+    That fallback is the same one ``validity_timed`` needs -- it is coordinated
+    on the very node whose time may be absent -- so the policy lives once, in
+    :func:`vaft.validation.imas.resolve_signal_time`, rather than being
+    rediscovered per consumer.
     """
-    explicit = _signal(ods, path)
-    return fallback if explicit is None else explicit
+    from vaft.validation.imas import resolve_signal_time
+
+    return resolve_signal_time(ods, base)
 
 
 def _position(ods: Any, base: str) -> tuple[float, float] | None:
@@ -248,11 +253,10 @@ def _poloidal_angle(ods: Any, base: str) -> float:
 
 def _candidates(ods: Any) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    shared_time = _signal(ods, "magnetics.time")
     for index in range(_count(ods, f"magnetics.{B_FIELD_POL_PROBE}")):
         base = f"magnetics.{B_FIELD_POL_PROBE}.{index}"
         data = _signal(ods, f"{base}.field.data")
-        time = _channel_time(ods, f"{base}.field.time", shared_time)
+        time = _channel_time(ods, f"{base}.field")
         if data is None or time is None or data.size != time.size:
             continue
         # A flatlined channel is unwired, not quiet: it carries no information
@@ -280,7 +284,7 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
     for index in range(_count(ods, f"magnetics.{FLUX_LOOP}")):
         base = f"magnetics.{FLUX_LOOP}.{index}"
         data = _signal(ods, f"{base}.flux.data")
-        time = _channel_time(ods, f"{base}.flux.time", shared_time)
+        time = _channel_time(ods, f"{base}.flux")
         if data is None or time is None or data.size != time.size:
             continue
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
