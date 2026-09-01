@@ -3,7 +3,7 @@
 Canonical plot identity is ``subject / view / [quantity]``: every registered
 spec declares a subject from :mod:`vaft.plot.taxonomy`, aliases resolve
 deterministically to exactly one canonical subject, and quantity families are
-groups, never synonyms.  Design record: ``docs/design/plotting/001-taxonomy.md``.
+groups, never synonyms.  Policy: ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
 import matplotlib

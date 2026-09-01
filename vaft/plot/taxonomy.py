@@ -14,7 +14,8 @@ Alias semantics are strict: an alias is registered only when both terms
 confidently denote the same concept.  A family is not a synonym; it never
 appears in the alias maps.
 
-Design record: ``docs/design/plotting/001-taxonomy.md``.
+The plotting policy this vocabulary belongs to is documented in
+``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
 from __future__ import annotations
@@ -165,6 +166,7 @@ def resolve_quantity(term: str) -> str:
     if canonical is not None:
         return canonical
     raise KeyError(f"unknown quantity {term!r}")
+
 
 _FAMILIES = (
     QuantityFamily("beta", ("beta_n", "beta_p", "beta_t")),
