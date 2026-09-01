@@ -186,17 +186,21 @@ def test_equilibrium_profile_overview_draws_the_same_curves_as_its_members():
     ods = vaft.omas.load(kinetic)
 
     figure, axes = vaft.omas.plot_equilibrium_overview_profiles(ods, show=False)
-    panels = {
-        panel.get_title(): panel.get_lines()[0].get_ydata()
+    drawn = [
+        panel.get_lines()[0].get_ydata()
         for panel in np.asarray(axes).ravel()
         if panel.get_visible() and panel.get_lines()
-    }
-    for name in ("equilibrium_profile_pressure", "equilibrium_profile_j_tor",
-                 "equilibrium_profile_q"):
+    ]
+    # Panels are matched by position, not by title text: a member panel keeps
+    # the short recipe title while the standalone figure decorates its own with
+    # the display unit and shot, and panel order follows the recipe's member
+    # order deterministically.
+    members = ("equilibrium_profile_pressure", "equilibrium_profile_j_tor",
+               "equilibrium_profile_q")
+    assert len(drawn) == len(members)
+    for curve, name in zip(drawn, members):
         _, single = getattr(vaft.omas, f"plot_{name}")(ods, show=False)
-        title = single.get_title()
-        assert title in panels, f"{name} is missing from the overview"
-        np.testing.assert_allclose(panels[title], single.get_lines()[0].get_ydata())
+        np.testing.assert_allclose(curve, single.get_lines()[0].get_ydata())
 
 
 def test_equilibrium_profile_overview_hides_panels_with_no_data(sample):

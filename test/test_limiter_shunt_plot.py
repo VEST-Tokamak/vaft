@@ -38,8 +38,12 @@ def test_omas_limiter_current_adapter_creates_lc_uc_mm_three_by_one_panels():
     ]
     for index, axis in enumerate(axes.ravel()):
         np.testing.assert_allclose(axis.lines[0].get_xdata(), [0.0, 0.1, 0.2])
-        np.testing.assert_allclose(axis.lines[0].get_ydata(), (index + 1) * np.array([0.0, 0.1, 0.2]))
-        assert axis.get_ylabel() == "Limiter Current [A]"
+        # The display policy (see the plotting sample notebook)
+        # renders currents in kA by default; data and label scale together.
+        np.testing.assert_allclose(
+            axis.lines[0].get_ydata(), (index + 1) * np.array([0.0, 0.1, 0.2]) * 1e-3
+        )
+        assert axis.get_ylabel() == "Limiter Current [kA]"
     assert "magnetics.shunt.0.current" not in ods
     assert "limiter_current_time" in {
         row["name"] for row in vomas.available_plots(ods)

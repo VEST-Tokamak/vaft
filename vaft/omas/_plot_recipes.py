@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 import json
 from typing import Any, Iterable, Mapping, Sequence
 
+import dataclasses
+
 import numpy as np
 
 from vaft.plot.models import (
@@ -35,6 +37,7 @@ from vaft.plot.models import (
     Series,
     Spectrogram,
 )
+from vaft.plot.display import figure_title, resolve_display
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -655,7 +658,7 @@ RECIPES: dict[str, Any] = {
     "interferometer_time_n_e_line": LineRecipe(
         y_path="interferometer.channel.{i}.n_e_line.data", index="channel",
         x_paths=("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
-        y_label="Line-integrated Electron Density", y_unit="10^18 m^-2", scale=1e-18,
+        y_label="Line-integrated Electron Density", y_unit="m^-2",
         label_path="interferometer.channel.{i}.name", title="Interferometer Line Density",
     ),
     "thomson_scattering_time_electron_temperature": LineRecipe(
@@ -2192,12 +2195,57 @@ RECIPES["camera_visible_animation_frames"] = CallableRecipe(
 # Model construction
 # ---------------------------------------------------------------------------
 
-_TIME_SCALES = {"s": 1.0, "ms": 1e3, "us": 1e6}
-_VALUE_SCALES = {"A": 1.0, "kA": 1e-3, "MA": 1e-6, "Wb": 1.0, "mWb": 1e3}
+def _resolve_axis_display(
+    canonical_unit, *, unit, subject, series_values, quantity=None
+):
+    """Resolve one axis through the shared display policy (issue #256).
+
+    ``unit="auto"`` needs data; with nothing plotted it falls back to the
+    subject/quantity default rather than failing an empty-but-valid figure.
+    """
+    if unit == "auto" and not series_values:
+        unit = None
+    data = np.concatenate([np.ravel(v) for v in series_values]) if series_values else None
+    return resolve_display(
+        canonical_unit, unit=unit, subject=subject, quantity=quantity, data=data
+    )
 
 
-def _scaled(array: np.ndarray, unit: str, table: dict[str, float]) -> np.ndarray:
-    return array * table.get(unit, 1.0)
+def _apply_display(trace: Series, *, x_scale: float, y_scale: float) -> Series:
+    if x_scale == 1.0 and y_scale == 1.0:
+        return trace
+    return dataclasses.replace(
+        trace,
+        x=trace.x * x_scale,
+        y=trace.y * y_scale,
+        yerr=None if trace.yerr is None else trace.yerr * y_scale,
+    )
+
+
+def _entry_shot(entries) -> str | None:
+    """The shot a figure may name, taken from the ODS's own pulse.
+
+    Deliberately not the display label: :func:`normalize_entries` falls back to
+    the container key when an ODS carries no ``dataset_description``, and
+    printing that as ``#0`` would fabricate a shot number that reads like real
+    VEST metadata.  A figure built from several entries names no shot at all --
+    the legend distinguishes them.
+    """
+    if len(entries) != 1:
+        return None
+    pulse = _get(entries[0][1], "dataset_description.data_entry.pulse")
+    return None if pulse is None else str(pulse)
+
+
+def _decorated_title(heading: str, unit_label: str, entries) -> str:
+    """``<Recipe title> [unit] #<shot>`` for a standalone figure.
+
+    The heading is the recipe's own title rather than a synthesized
+    subject/quantity pair: recipe titles are human-authored and already
+    distinguish siblings that share a display unit (``w_mhd``/``w_mag``/
+    ``w_tot`` are all ``[J]``).
+    """
+    return figure_title(heading, unit_label, shot=_entry_shot(entries))
 
 
 def _entry_prefix(label: str, extra: str) -> str:
@@ -2232,11 +2280,9 @@ def _build_line_traces(
     *,
     entry_label: str,
     channels: Any = None,
-    xunit: str = "s",
-    yunit: str | None = None,
 ) -> list[Series]:
-    time_scale = _TIME_SCALES.get(xunit, 1.0)
-    value_scale = _VALUE_SCALES.get(yunit or recipe.y_unit, 1.0) * recipe.scale
+    """Extract traces in IMAS canonical units; display scaling happens later."""
+    value_scale = recipe.scale
 
     if recipe.index in ("time_slice", "time_slice_mean"):
         time = _first_time(ods, recipe.x_paths)
@@ -2255,13 +2301,7 @@ def _build_line_traces(
         y = np.asarray(values, dtype=float)
         if time is None or time.size != y.size:
             time = np.arange(y.size, dtype=float)
-        return [
-            Series(
-                x=_scaled(time, xunit, _TIME_SCALES),
-                y=y * value_scale,
-                label=entry_label,
-            )
-        ]
+        return [Series(x=time, y=y * value_scale, label=entry_label)]
 
     if recipe.index == "channel":
         indices = _resolve_indices(ods, recipe.y_path, channels)
@@ -2287,7 +2327,7 @@ def _build_line_traces(
                 time = np.arange(y.size, dtype=float)
             traces.append(
                 Series(
-                    x=time * time_scale,
+                    x=time,
                     y=y * value_scale * _weight(ods, recipe.weight_path, index),
                     label=_entry_prefix(
                         entry_label,
@@ -2304,14 +2344,17 @@ def _build_line_traces(
     if time is None or time.size != y.size:
         time = np.arange(y.size, dtype=float)
     y = y / _divisor(ods, recipe.divide_by_path)
-    return [Series(x=time * time_scale, y=y * value_scale, label=entry_label)]
+    return [Series(x=time, y=y * value_scale, label=entry_label)]
 
 
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
-    xunit = options.get("xunit", "s")
-    yunit = options.get("yunit") or recipe.y_unit
+    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    subject = spec.subject if spec is not None else None
+    # Inside a composite the suptitle carries subject/unit/shot, so a member
+    # keeps the short recipe title that identifies it within the figure.
+    panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
     for entry_label, ods in entries:
         traces.extend(
@@ -2320,19 +2363,35 @@ def _build_line_series(
                 recipe,
                 entry_label=entry_label,
                 channels=options.get("channels"),
-                xunit=xunit,
-                yunit=yunit,
             )
         )
+    x_display = _resolve_axis_display(
+        recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
+        series_values=[trace.x for trace in traces],
+    )
+    y_display = _resolve_axis_display(
+        recipe.y_unit, unit=options.get("yunit"), subject=subject,
+        quantity=spec.quantity if spec is not None else None,
+        series_values=[trace.y for trace in traces],
+    )
+    scaled = tuple(
+        _apply_display(trace, x_scale=x_display.scale, y_scale=y_display.scale)
+        for trace in traces
+    )
+    if panel_member:
+        default_title = recipe.title
+    else:
+        default_title = _decorated_title(recipe.title, y_display.unit, entries)
     return LineSeries(
-        series=tuple(traces),
+        series=scaled,
         x_label=recipe.x_label,
-        x_unit=xunit,
+        x_unit=x_display.unit,
         y_label=recipe.y_label,
-        y_unit=yunit,
-        title=options.get("title", recipe.title),
+        y_unit=y_display.unit,
+        title=options.get("title", default_title),
         x_limits=options.get("x_limits"),
         log_y=bool(options.get("log_y", False)),
+        display=y_display,
     )
 
 
@@ -2360,6 +2419,11 @@ def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
 def _build_profile_1d(
     entries: Sequence[tuple[str, Any]], recipe: ProfileRecipe, **options: Any
 ) -> Profile1D:
+    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    subject = spec.subject if spec is not None else None
+    # Inside a composite the suptitle carries subject/unit/shot, so a member
+    # keeps the short recipe title that identifies it within the figure.
+    panel_member = bool(options.pop("_panel_member", False))
     coordinate = options.get("coordinate") or recipe.default_coordinate
     time_slice = options.get("time_slice", 0)
     traces: list[Series] = []
@@ -2404,12 +2468,26 @@ def _build_profile_1d(
             x = np.linspace(0.0, 1.0, y.size)
         traces.append(Series(x=x, y=y, label=entry_label))
 
+    y_display = _resolve_axis_display(
+        recipe.y_unit, unit=options.get("yunit"), subject=subject,
+        quantity=spec.quantity if spec is not None else None,
+        series_values=[trace.y for trace in traces],
+    )
+    scaled = tuple(
+        _apply_display(trace, x_scale=1.0, y_scale=y_display.scale)
+        for trace in traces
+    )
+    if panel_member:
+        default_title = recipe.y_label
+    else:
+        default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
     return Profile1D(
-        series=tuple(traces),
+        series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(coordinate, coordinate),
         y_label=recipe.y_label,
-        y_unit=options.get("yunit") or recipe.y_unit,
-        title=options.get("title", recipe.y_label),
+        y_unit=y_display.unit,
+        title=options.get("title", default_title),
+        display=y_display,
     )
 
 
@@ -2648,22 +2726,32 @@ def _build_power_spectrum(
 def _build_panels(
     entries: Sequence[tuple[str, Any]], recipe: PanelRecipe, **options: Any
 ) -> Panels:
+    # A composite nested inside another composite is still a composite, so drop
+    # any inherited flag before re-adding it for this level's members.
+    options.pop("_panel_member", None)
     members = []
     for name in recipe.members:
         if not any(entry_supports(ods, name) for _, ods in entries):
             continue
-        members.append(build_model(name, entries, **options))
+        members.append(build_model(name, entries, _panel_member=True, **options))
     if not members:
         raise ValueError(
             "none of the panels "
             + ", ".join(recipe.members)
             + " have data in this input"
         )
+    if "title" in options:
+        suptitle = options["title"]
+    else:
+        suptitle = recipe.suptitle
+        shot = _entry_shot(entries)
+        if suptitle and shot:
+            suptitle = f"{suptitle} #{shot}"
     return Panels(
         models=tuple(members),
         ncols=recipe.ncols,
         share_x=recipe.share_x,
-        suptitle=options.get("title", recipe.suptitle),
+        suptitle=suptitle,
     )
 
 
@@ -2677,16 +2765,13 @@ def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
     """
     from vaft.machine_mapping.magnetics import LIMITER_SHUNT_CHANNELS
 
-    xunit = str(options.get("xunit", "s"))
-    panels: list[LineSeries] = []
-    have_signal = False
+    extracted: list[tuple[str, np.ndarray | None, np.ndarray | None]] = []
     for index, channel in enumerate(LIMITER_SHUNT_CHANNELS):
         base = f"magnetics.shunt.{index}"
         name = _get(ods, f"{base}.name") or channel["name"]
         voltage = _array(ods, f"{base}.voltage.data")
         time = _first_time(ods, (f"{base}.voltage.time", "magnetics.time"))
         resistance = _get(ods, f"{base}.resistance")
-        traces: tuple[Series, ...] = ()
         try:
             coefficient = float(np.asarray(resistance, dtype=float).ravel()[0])
         except (IndexError, TypeError, ValueError):
@@ -2698,24 +2783,41 @@ def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
             and np.isfinite(coefficient)
             and coefficient != 0.0
         ):
+            extracted.append((str(name), time, voltage / coefficient))
+        else:
+            extracted.append((str(name), None, None))
+    currents = [current for _, _, current in extracted if current is not None]
+    if not currents:
+        raise ValueError(
+            "no limiter-shunt voltage data with a valid resistance is available"
+        )
+    # One display resolution across all panels so the shared unit is consistent.
+    x_display = _resolve_axis_display(
+        "s", unit=options.get("xunit"), subject="limiter_current",
+        series_values=[time for _, time, cur in extracted if cur is not None],
+    )
+    y_display = _resolve_axis_display(
+        "A", unit=options.get("yunit"), subject="limiter_current",
+        series_values=currents,
+    )
+    panels: list[LineSeries] = []
+    for name, time, current in extracted:
+        traces: tuple[Series, ...] = ()
+        if current is not None:
             traces = (
-                Series(x=_scaled(time, xunit, _TIME_SCALES), y=voltage / coefficient),
+                Series(x=time * x_display.scale, y=current * y_display.scale),
             )
-            have_signal = True
         panels.append(
             LineSeries(
                 series=traces,
                 x_label="Time",
-                x_unit=xunit,
+                x_unit=x_display.unit,
                 y_label="Limiter Current",
-                y_unit="A",
-                title=str(name),
+                y_unit=y_display.unit,
+                title=name,
                 x_limits=options.get("x_limits"),
+                display=y_display,
             )
-        )
-    if not have_signal:
-        raise ValueError(
-            "no limiter-shunt voltage data with a valid resistance is available"
         )
     return Panels(
         models=tuple(panels),
@@ -4037,9 +4139,9 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
         raise ValueError("no ODS entries were supplied")
 
     if isinstance(recipe, LineRecipe):
-        return _build_line_series(entries, recipe, **options)
+        return _build_line_series(entries, recipe, _plot_name=name, **options)
     if isinstance(recipe, ProfileRecipe):
-        return _build_profile_1d(entries, recipe, **options)
+        return _build_profile_1d(entries, recipe, _plot_name=name, **options)
     if isinstance(recipe, PanelRecipe):
         return _build_panels(entries, recipe, **options)
     if isinstance(recipe, GeometryRecipe):

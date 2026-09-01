@@ -18,6 +18,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from .display import DisplaySpec
+
 __all__ = [
     "Field2D",
     "Geometry3DLayer",
@@ -148,6 +150,9 @@ class LineSeries(ViewModel):
     x_limits: tuple[float, float] | None = None
     y_limits: tuple[float, float] | None = None
     log_y: bool = False
+    #: Resolved display policy (unit/scale/notation) the series were built
+    #: with; ``None`` for models assembled outside the display layer.
+    display: "DisplaySpec | None" = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -170,6 +175,8 @@ class Profile1D(ViewModel):
     y_unit: str = ""
     title: str = ""
     x_limits: tuple[float, float] | None = None
+    #: Resolved display policy (unit/scale/notation); see :class:`LineSeries`.
+    display: "DisplaySpec | None" = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
