@@ -486,40 +486,144 @@ def _infer_source_shot(source: Optional[Path]) -> int:
 TWO_PI = 2.0 * np.pi
 
 
+def _slope_flux_exponent(ts: Any) -> Optional[int]:
+    """``e_Bp`` from the ``dphi/dpsi``-vs-``q`` slope, or ``None`` if it cannot answer.
+
+    ``profiles_1d.phi`` is written in Wb by both producers, and ``q`` is
+    ``dPhi/dPsi`` with both fluxes in Wb, so
+
+        dphi/dpsi_stored = q      (psi stored in Wb,     e_Bp = 1)
+        dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad, e_Bp = 0)
+
+    The two answers are 2*pi apart, so the midpoint ``sqrt(2*pi)`` separates them
+    with a wide margin.
+    """
+    phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
+    q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
+    psi = np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
+    if phi.size < 3 or phi.size != q.size or phi.size != psi.size:
+        return None
+    if not np.all(np.isfinite(phi)):
+        return None
+    dpsi = np.diff(psi)
+    good = np.abs(dpsi) > 0
+    if np.count_nonzero(good) < 2:
+        return None
+    slope = np.diff(phi)[good] / dpsi[good]
+    q_mid = 0.5 * (q[1:] + q[:-1])[good]
+    finite = np.isfinite(slope) & np.isfinite(q_mid) & (np.abs(q_mid) > 1e-12)
+    if np.count_nonzero(finite) < 2:
+        return None
+    ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
+    if not np.isfinite(ratio) or ratio <= 0:
+        return None
+    return 1 if ratio < np.sqrt(TWO_PI) else 0
+
+
+def _ampere_flux_exponent(ts: Any) -> Optional[int]:
+    """``e_Bp`` from Ampere's law round the LCFS, or ``None`` if it cannot answer.
+
+    This is :func:`vaft.process.cocos.identify_flux_exponent`, which needs only
+    the psi map, the boundary outline and ``Ip`` -- no ``phi``. It is the rung
+    that answers for artifacts the slope test cannot reach: an EFIT-pipeline ODS
+    written before issue #236 holds Wb/rad and carries no ``profiles_1d.phi``, so
+    without this the DD default below would silently rescale it by 2*pi.
+
+    ``EquilibriumData`` is built here field by field rather than through
+    :func:`vaft.process.equilibrium.as_equilibrium`, which calls this module back
+    when its own sign-based identification leaves the family open.
+    """
+    try:
+        from vaft.data.equilibrium import Contour, EquilibriumData
+        from vaft.process.cocos import identify_flux_exponent
+    except Exception:
+        return None
+
+    def _grid(path: str) -> Optional[np.ndarray]:
+        value = _path_get(ts, path)
+        if value is None:
+            return None
+        array = np.asarray(value, dtype=float)
+        return array if array.size else None
+
+    r = _grid("profiles_2d.0.grid.dim1")
+    z = _grid("profiles_2d.0.grid.dim2")
+    psi = _grid("profiles_2d.0.psi")
+    boundary_r = _grid("boundary.outline.r")
+    boundary_z = _grid("boundary.outline.z")
+    ip = _path_get(ts, "global_quantities.ip")
+    if r is None or z is None or psi is None or boundary_r is None or boundary_z is None:
+        return None
+    r, z = r.reshape(-1), z.reshape(-1)
+    boundary_r, boundary_z = boundary_r.reshape(-1), boundary_z.reshape(-1)
+    if psi.shape == (z.size, r.size) and psi.shape != (r.size, z.size):
+        psi = psi.T
+    try:
+        ip = float(np.asarray(ip, dtype=float).reshape(-1)[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    if not np.isfinite(ip) or ip == 0.0:
+        return None
+    try:
+        equilibrium = EquilibriumData(
+            r=r, z=z, psi=psi, ip=ip,
+            lcfs=Contour(boundary_r, boundary_z, True),
+        )
+        exponent, _ratio = identify_flux_exponent(equilibrium)
+    except Exception:
+        return None
+    return exponent
+
+
+def _flux_exponent_candidates(ods: Any, time_index: int) -> Iterable[Any]:
+    """The time slices to consult, the requested one first.
+
+    The storage convention is a property of the file, not of a slice, so a slice
+    that cannot answer -- a degenerate EFIT solution with ``psi_axis ==
+    psi_boundary`` and no boundary outline, which the packaged VEST samples do
+    contain -- must not force the whole ODS onto the default.
+    """
+    requested = _path_get(ods, f"equilibrium.time_slice.{time_index}")
+    if requested is None:
+        yield ods  # accept a bare equilibrium time slice as well
+        return
+    yield requested
+    slices = _path_get(ods, "equilibrium.time_slice")
+    try:
+        total = len(slices)
+    except TypeError:
+        return
+    for index in range(total):
+        if index == time_index:
+            continue
+        other = _path_get(ods, f"equilibrium.time_slice.{index}")
+        if other is not None:
+            yield other
+
+
 def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     """Factor converting an ODS equilibrium's stored ``psi`` to Wb/rad.
 
     The IMAS Data Dictionary defines ``equilibrium.*.psi`` as the full
     poloidal flux in Wb (issue #236); ``to_omas`` writes that since the fix,
     and OMFIT-produced ODSs always did. Legacy VAFT-native artifacts instead
-    hold the g-file's Wb/rad verbatim. The two families are told apart
-    deterministically from data the file itself carries:
+    hold the g-file's Wb/rad verbatim. The two families are told apart from
+    data the file itself carries, strongest evidence first:
 
-        dphi/dpsi_stored = q      (psi stored in Wb)
-        dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad)
+    1. :func:`_slope_flux_exponent` -- ``dphi/dpsi`` against ``q``, exact when
+       ``profiles_1d.phi`` is stored;
+    2. :func:`_ampere_flux_exponent` -- the loop integral of ``B_pol`` round the
+       LCFS against ``mu0*|Ip|``, which needs no ``phi``.
 
-    because ``profiles_1d.phi`` is written in Wb by both producers. When the
-    slope test is unavailable (no phi/q/psi profiles) the DD convention (Wb)
-    is assumed. Returns ``1/(2*pi)`` for Wb storage, ``1.0`` for Wb/rad.
+    Both are decisive because their two outcomes are 2*pi apart, and both abstain
+    rather than guess. Only when every slice abstains is the DD convention (Wb)
+    assumed. Returns ``1/(2*pi)`` for Wb storage, ``1.0`` for Wb/rad.
     """
-    ts = _path_get(ods, f"equilibrium.time_slice.{time_index}")
-    if ts is None:
-        ts = ods  # accept a bare equilibrium time slice as well
-    phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
-    q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
-    psi = np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
-    if phi.size >= 3 and phi.size == q.size == psi.size and np.all(np.isfinite(phi)):
-        dpsi = np.diff(psi)
-        good = np.abs(dpsi) > 0
-        if np.count_nonzero(good) >= 2:
-            slope = np.diff(phi)[good] / dpsi[good]
-            q_mid = 0.5 * (q[1:] + q[:-1])[good]
-            finite = np.isfinite(slope) & np.isfinite(q_mid) & (np.abs(q_mid) > 1e-12)
-            if np.count_nonzero(finite) >= 2:
-                ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
-                if np.isfinite(ratio) and ratio > 0:
-                    # ratio ~ 1 -> psi in Wb; ratio ~ 2*pi -> psi in Wb/rad.
-                    return 1.0 / TWO_PI if ratio < np.sqrt(TWO_PI) else 1.0
+    for ts in _flux_exponent_candidates(ods, time_index):
+        for probe in (_slope_flux_exponent, _ampere_flux_exponent):
+            exponent = probe(ts)
+            if exponent is not None:
+                return 1.0 if exponent == 0 else 1.0 / TWO_PI
     return 1.0 / TWO_PI
 
 

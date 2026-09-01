@@ -151,3 +151,61 @@ def test_loop_voltage_is_correct_and_storage_invariant(gfile):
     _t2, v_legacy, _vi2, _vr2 = compute_voltage_consumption(legacy)
     v_legacy = np.asarray(v_legacy, float)
     np.testing.assert_allclose(v_legacy, v_loop, rtol=1e-9)
+
+
+def _strip_phi(ods):
+    """Drop ``profiles_1d.phi`` from every slice, as the EFIT pipeline once did."""
+    for index in range(len(ods["equilibrium.time_slice"])):
+        ts = ods[f"equilibrium.time_slice.{index}"]
+        if "profiles_1d.phi" in ts:
+            del ts["profiles_1d.phi"]
+    return ods
+
+
+def test_storage_family_is_detected_without_phi():
+    """The slope test needs ``profiles_1d.phi``; the EFIT-pipeline ODS written
+    before issue #236 holds Wb/rad and carries none, so the DD default used to
+    rescale it by 2*pi. Ampere's law round the LCFS answers without phi."""
+    import copy
+
+    gfile = sample_geqdsk("efit/g039915.00319")
+    legacy = _strip_phi(_legacy_style(gfile.to_omas()))
+    assert ods_psi_to_wb_per_radian_factor(legacy) == pytest.approx(1.0)
+
+    weber = _strip_phi(copy.deepcopy(gfile.to_omas()))
+    assert ods_psi_to_wb_per_radian_factor(weber) == pytest.approx(1.0 / TWO_PI)
+
+
+def test_storage_family_survives_a_degenerate_slice():
+    """The convention is a property of the file. A slice EFIT failed on --
+    psi_axis == psi_boundary, no boundary outline, which the packaged samples do
+    contain -- must not drag the whole ODS onto the default."""
+    import copy
+
+    gfile = sample_geqdsk("efit/g039915.00319")
+    ods = _strip_phi(_legacy_style(gfile.to_omas()))
+    ods["equilibrium.time_slice.1"] = copy.deepcopy(ods["equilibrium.time_slice.0"])
+    broken = ods["equilibrium.time_slice.1"]
+    broken["global_quantities.psi_boundary"] = float(broken["global_quantities.psi_axis"])
+    del broken["boundary.outline.r"]
+    del broken["boundary.outline.z"]
+    del broken["profiles_1d.q"]
+
+    assert ods_psi_to_wb_per_radian_factor(ods, 1) == pytest.approx(1.0)
+
+
+def test_virial_quantities_are_physical_on_the_packaged_sample():
+    """Regression for the issue #278 default: on sample 39915 (Wb/rad, no phi)
+    the virial path returned B_pa 2*pi too small and beta_p = 30.5."""
+    from vaft.omas.sample import sample_ods
+
+    try:
+        ods = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged in this build
+        pytest.skip(f"39915 sample unavailable: {exc}")
+
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+
+    virial = compute_virial_equilibrium_quantities_ods(ods, time_slice=0)[0]
+    assert 0.01 < float(virial["B_pa"]) < 0.5
+    assert 0.0 < float(virial["beta_p"]) < 10.0
