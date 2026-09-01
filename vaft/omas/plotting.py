@@ -2347,7 +2347,7 @@ def plot_wall_geometry_poloidal(
 # --- Deprecated adapters for stems renamed by the issue #251 taxonomy --------
 #
 # The subject-taxonomy redesign renamed 34 canonical stems (see
-# ``vaft.plot._migration.RENAMED`` and docs/design/plotting/001-taxonomy.md).
+# ``vaft.plot._migration.RENAMED``, and the plotting policy notebook).
 # The old ``plot_<stem>`` adapters keep working with a ``DeprecationWarning``
 # until ``RENAMED_REMOVAL_RELEASE``.
 
