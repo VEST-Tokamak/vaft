@@ -68,6 +68,43 @@ def test_two_separate_dropouts_shade_separately():
     plt.close(figure)
 
 
+@pytest.mark.parametrize(
+    "mask",
+    [
+        [False, True, True, True, True],   # first sample
+        [True, False, True, True, True],   # interior
+        [True, True, True, True, False],   # last sample
+        [False, True, False, True, True],  # two isolated dropouts
+        [True, False, False, True, True],  # a run
+        [False, False, False, False, False],
+    ],
+)
+def test_every_shaded_span_is_actually_visible(mask):
+    """A one-sample dropout is the common case and must not shade zero width.
+
+    Counting patches is not enough: taking the span from the first to the last
+    invalid sample gives a single-sample run identical endpoints, so the
+    rectangle renders with no width and the dropout stays invisible.
+    """
+    figure, axes = plt.subplots()
+    draw_series(axes, _line(valid_mask=mask))
+    assert axes.patches
+    for patch in axes.patches:
+        assert patch.get_width() > 0, f"zero-width span for mask {mask}"
+    plt.close(figure)
+
+
+def test_a_single_point_series_does_not_crash_on_a_dropout():
+    figure, axes = plt.subplots()
+    draw_series(
+        axes,
+        Series(x=np.zeros(1), y=np.zeros(1), valid_mask=[False]),
+    )
+    # Nothing meaningful to shade across a single sample; it must not raise.
+    assert not axes.patches
+    plt.close(figure)
+
+
 def test_a_valid_channel_flag_is_not_an_invalid_one():
     """IMAS spells "valid" as 0; only a negative code means invalid."""
     assert not _line(validity=0).is_invalid_channel
@@ -204,4 +241,39 @@ def test_the_packaged_sample_has_channels_its_source_flagged(sample_ods=None):
     demoted = [line for line in axes.lines if line.get_linestyle() == "--"]
     assert demoted, "the sample carries channels flagged invalid at the source"
     assert all("(invalid)" in line.get_label() for line in demoted)
+    plt.close(figure)
+
+
+def test_a_marker_without_an_explicit_none_linestyle_is_still_a_line():
+    """Matplotlib joins marked points with a line unless told otherwise, so
+    such a trace gets a band rather than error bars."""
+    figure, axes = plt.subplots()
+    draw_series(axes, _line(yerr=np.full(5, 0.1), style={"marker": "o"}))
+    assert axes.collections and not axes.containers
+    plt.close(figure)
+
+
+def test_slice_indexed_plots_surface_their_stored_uncertainty():
+    """Equilibrium constraints store `measured_error_upper` per time slice."""
+    ods = omas.ODS()
+    ods["equilibrium.time"] = np.array([0.1, 0.2])
+    for index, (value, error) in enumerate(((1.0e-3, 4.0e-5), (2.0e-3, 5.0e-5))):
+        base = f"equilibrium.time_slice.{index}.constraints.diamagnetic_flux"
+        ods[f"{base}.measured"] = value
+        ods[f"{base}.measured_error_upper"] = error
+
+    figure, axes = vaft.omas.plot_equilibrium_time_diamagnetic_flux(ods)
+    assert axes.collections, "the stored uncertainty should shade a band"
+    plt.close(figure)
+
+
+def test_profiles_read_validity_and_uncertainty_too():
+    """The profile path reads the same metadata the line path does."""
+    ods = omas.ODS()
+    ods["equilibrium.time_slice.0.profiles_1d.psi_norm"] = np.linspace(0, 1, 4)
+    ods["equilibrium.time_slice.0.profiles_1d.pressure"] = np.array([400.0, 300.0, 200.0, 0.0])
+    ods["equilibrium.time_slice.0.profiles_1d.pressure_error_upper"] = np.full(4, 20.0)
+
+    figure, axes = vaft.omas.plot_equilibrium_profile_pressure(ods, coordinate="psi_norm")
+    assert axes.collections, "a profile with stored uncertainty shades a band"
     plt.close(figure)

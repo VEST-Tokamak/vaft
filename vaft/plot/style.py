@@ -142,10 +142,15 @@ INVALID_COLOR = "0.65"
 
 
 def _scatter_like(series: Any, options: dict) -> bool:
-    """Whether a trace reads as discrete points rather than a continuous line."""
+    """Whether a trace reads as discrete points rather than a continuous line.
+
+    A marker alone does not make a scatter: Matplotlib still joins the points
+    with a solid line unless the line is explicitly switched off, so only an
+    explicit ``linestyle`` of "none" counts.
+    """
     marker = options.get("marker") or series.style.get("marker")
     linestyle = options.get("linestyle", series.style.get("linestyle"))
-    return bool(marker) and linestyle in ("none", "None", "", None)
+    return bool(marker) and linestyle in ("none", "None", "")
 
 
 def draw_series(
@@ -227,14 +232,37 @@ def draw_series(
             )
 
     if mask is not None and not mask.all() and validity == "show":
-        # Shade each contiguous invalid run so a dropout is visible as such.
-        invalid = ~mask
-        edges = np.flatnonzero(np.diff(invalid.astype(int)))
-        starts = ([0] if invalid[0] else []) + [i + 1 for i in edges if invalid[i + 1]]
-        ends = [i + 1 for i in edges if invalid[i]] + ([invalid.size] if invalid[-1] else [])
-        for start, end in zip(starts, ends):
-            axes.axvspan(
-                x[start], x[min(end, x.size) - 1],
-                color=INVALID_COLOR, alpha=0.25, linewidth=0,
-            )
+        for start, end in _invalid_runs(mask):
+            span = _run_extent(x, start, end)
+            if span is not None:
+                axes.axvspan(*span, color=INVALID_COLOR, alpha=0.25, linewidth=0)
     return labelled
+
+
+def _invalid_runs(mask: Any):
+    """Yield ``(start, end)`` index pairs for each contiguous invalid run."""
+    invalid = ~np.asarray(mask, dtype=bool)
+    if not invalid.any():
+        return
+    padded = np.concatenate([[False], invalid, [False]])
+    edges = np.flatnonzero(np.diff(padded.astype(np.int8)))
+    for start, end in zip(edges[0::2], edges[1::2]):
+        yield int(start), int(end)
+
+
+def _run_extent(x: Any, start: int, end: int):
+    """The x-range to shade for the invalid samples ``x[start:end]``.
+
+    A run covers half the gap to the neighbouring valid sample on each side, so
+    a single bad sample still shades a visible width.  Taking ``x[start]`` to
+    ``x[end - 1]`` instead would give a one-sample dropout zero width and hide
+    exactly the case this is meant to reveal.
+    """
+    x = np.asarray(x, dtype=float)
+    if x.size < 2:
+        return None
+    left = x[start] if start == 0 else 0.5 * (x[start - 1] + x[start])
+    right = x[end - 1] if end >= x.size else 0.5 * (x[end - 1] + x[end])
+    if right == left:
+        return None
+    return left, right
