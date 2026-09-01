@@ -251,13 +251,25 @@ def _resolve_selection(
     if isinstance(selection, (int, np.integer)) and not isinstance(selection, bool):
         return [int(selection)]
 
+    if isinstance(selection, (bool, np.bool_)):
+        raise TypeError(
+            f"selection must be indices, identifiers or a preset; got {selection!r}"
+        )
     terms = [selection] if isinstance(selection, str) else list(selection)
     if all(isinstance(term, (int, np.integer)) and not isinstance(term, bool)
            for term in terms):
         return [int(term) for term in terms]
 
     identifiers = _channel_identifiers(ods, container, count)
-    lookup = {name: index for index, name in enumerate(identifiers) if name}
+    lookup: dict[str, int] = {}
+    ambiguous: set[str] = set()
+    for index, name in enumerate(identifiers):
+        if not name:
+            continue
+        if name in lookup:
+            ambiguous.add(name)
+        else:
+            lookup[name] = index
     indices: list[int] = []
     for term in terms:
         if not isinstance(term, str):
@@ -269,6 +281,11 @@ def _resolve_selection(
         if preset is not None:
             indices.extend(preset)
             continue
+        if term in ambiguous:
+            raise ValueError(
+                f"identifier {term!r} names more than one channel of "
+                f"{container}; select it by index instead"
+            )
         if term in lookup:
             indices.append(lookup[term])
             continue
@@ -278,23 +295,35 @@ def _resolve_selection(
             f"supported presets: {', '.join(selection_presets())}; "
             f"available identifiers: {known}"
         )
-    # Preserve ODS order and drop repeats so overlapping terms stay predictable.
-    return sorted(dict.fromkeys(indices))
+    # Keep the caller's order, as an integer selection does; a preset
+    # contributes its own channels in ODS order.  Repeats collapse to their
+    # first appearance so overlapping terms stay predictable.
+    return list(dict.fromkeys(indices))
 
 
 def _resolve_preset(ods: Any, container: str, count: int, term: str):
-    """Resolve a named physical preset, or ``None`` when ``term`` is not one.
+    """Resolve a named physical region preset, or ``None`` if not one.
 
-    Presets arrive with the representative-channel work; the hook exists here
-    so the resolution order -- preset, then identifier, then error -- is fixed
-    by the contract rather than by whichever lands first.
+    The region comes from :func:`vaft.plot.selection.classify_regions`, which
+    infers this family's own inboard/outboard divider from its geometry.  A
+    preset that names a real region but matches no channel here still resolves
+    -- to nothing -- rather than falling through to the identifier lookup and
+    reporting an unknown selection.
     """
-    return None
+    from vaft.plot.selection import PRESETS, classify_regions
+
+    if term not in PRESETS:
+        return None
+    r_values, _ = _channel_positions(ods, container, count)
+    regions = classify_regions(r_values)
+    return [index for index, region in enumerate(regions) if region == term]
 
 
 def selection_presets() -> tuple[str, ...]:
     """The named physical presets this build understands."""
-    return ()
+    from vaft.plot.selection import PRESETS
+
+    return PRESETS
 
 
 def _selection_option(options: dict) -> Any:
@@ -315,7 +344,7 @@ def _selection_option(options: dict) -> Any:
             "indices and also accepts identifiers and named physical presets. "
             f"Removed in {RENAMED_REMOVAL_RELEASE}.",
             DeprecationWarning,
-            stacklevel=4,
+            stacklevel=6,
         )
     return channels
 

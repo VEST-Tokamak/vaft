@@ -69,6 +69,10 @@ PRESETS = (INBOARD, OUTBOARD, "inboard_mid", "outboard_mid")
 #: half: its widest gap is no more meaningful than any of its others.
 MIN_GAP_DOMINANCE = 3.0
 
+#: A gap smaller than this fraction of the family's radial scale is numerical
+#: noise in the stored geometry rather than a real separation.
+NOISE_FRACTION = 1e-6
+
 #: Half-width of the band around the divider in which a channel is not assigned
 #: a side, as a fraction of the gap.  It absorbs floating-point noise in stored
 #: geometry; a channel genuinely sitting mid-gap is a third cluster, not a
@@ -117,6 +121,12 @@ def radial_divider(r_values: Sequence[float] | Any) -> RadialSplit:
     gaps = np.diff(ordered)
     widest = int(np.argmax(gaps))
     gap = float(gaps[widest])
+    scale = float(np.max(np.abs(ordered)))
+    if scale > 0.0 and gap < NOISE_FRACTION * scale:
+        # Two radii a nanometre apart are one position recorded twice, not two
+        # sides of a machine.  Without this a two-channel family would always
+        # split, however tightly clustered.
+        return RadialSplit(None)
     others = np.delete(gaps, widest)
     if others.size:
         typical = float(np.median(others))

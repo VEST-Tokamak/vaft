@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from vaft.process import is_signal_active, signal_on_offset
 import matplotlib.pyplot as plt
 import numpy as np
+
+from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
 from vaft.omas import odc_or_ods_check
 from vaft.plot.utils import get_from_path, extract_labels_from_odc
 from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
@@ -782,7 +784,7 @@ def _find_flux_loop_all_indices(ods):
     indices = np.arange(len(ods['magnetics.flux_loop']))
     return indices
 
-def _region_indices(ods, r_path, region):
+def _region_indices(ods, r_path, region, z_path=None):
     """Indices of the channels this diagnostic family places in ``region``.
 
     The inboard/outboard divider is inferred from the family's own geometry by
@@ -790,12 +792,22 @@ def _region_indices(ods, r_path, region):
     validation share.  Hard-coded VEST radii used to be repeated here, in
     ``vaft.plot.analysis`` and in ``machine_mapping``, and the copies disagreed
     about which test won for a probe that is both inboard and high up.
+
+    ``z_path`` names the vertical position of a family that also has a "side"
+    selection.  Those channels are excluded here, so `inboard`, `side` and
+    `outboard` stay mutually exclusive the way callers have always relied on:
+    the side array sits at a radius the inferred divider calls inboard, so
+    classifying by radius alone would return each of them twice.
     """
     from .selection import classify_regions
 
     radii = np.asarray(ods[r_path], dtype=float)
     regions = classify_regions(radii)
-    return (np.array([i for i, name in enumerate(regions) if name == region], dtype=int),)
+    chosen = [i for i, name in enumerate(regions) if name == region]
+    if z_path is not None:
+        heights = np.abs(np.asarray(ods[z_path], dtype=float))
+        chosen = [i for i in chosen if not heights[i] > SIDE_PROBE_MIN_ABS_Z]
+    return (np.array(chosen, dtype=int),)
 
 
 def _find_flux_loop_inboard_indices(ods):
@@ -886,11 +898,13 @@ magnetics_time_flux_loop_voltage = time_magnetics_flux_loop_voltage
 
 def _find_bpol_probe_inboard_indices(ods):
     # find the indices of the bpol probe inboard
-    return _region_indices(ods, 'magnetics.b_field_pol_probe.:.position.r', 'inboard')
+    return _region_indices(ods, 'magnetics.b_field_pol_probe.:.position.r', 'inboard',
+                           z_path='magnetics.b_field_pol_probe.:.position.z')
 
 def _find_bpol_probe_outboard_indices(ods):
     # find the indices of the bpol probe outboard
-    return _region_indices(ods, 'magnetics.b_field_pol_probe.:.position.r', 'outboard')
+    return _region_indices(ods, 'magnetics.b_field_pol_probe.:.position.r', 'outboard',
+                           z_path='magnetics.b_field_pol_probe.:.position.z')
 
 def _find_bpol_probe_side_indices(ods):
     # find the indices of the bpol probe side

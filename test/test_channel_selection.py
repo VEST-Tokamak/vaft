@@ -208,3 +208,76 @@ def test_the_midplane_loop_is_found_by_geometry_not_by_a_literal():
         if name == INBOARD
     ]
     assert abs(z) == pytest.approx(min(inboard_z))
+
+
+def test_legacy_probe_regions_stay_mutually_exclusive():
+    """inboard, side and outboard must partition the probes, not overlap.
+
+    The side array sits at a radius the inferred divider calls inboard, so
+    classifying by radius alone returned each of those channels twice -- the
+    precedence bug this shared classifier exists to remove.
+    """
+    from vaft.plot.time import (
+        _find_bpol_probe_inboard_indices,
+        _find_bpol_probe_outboard_indices,
+        _find_bpol_probe_side_indices,
+    )
+
+    ods = _sample()
+    inboard = set(_find_bpol_probe_inboard_indices(ods)[0].tolist())
+    outboard = set(_find_bpol_probe_outboard_indices(ods)[0].tolist())
+    side = set(_find_bpol_probe_side_indices(ods)[0].tolist())
+    assert inboard and outboard and side
+    assert not inboard & side
+    assert not outboard & side
+    assert not inboard & outboard
+
+
+def test_region_presets_select_through_the_shared_classifier(loop_ods):
+    """`selection="inboard"` is the capability the whole rule exists for."""
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="inboard")
+    assert len(axes.lines) == 2  # FL01 and FL02 sit inboard of the divider
+    matplotlib.pyplot.close(figure)
+
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="outboard")
+    assert len(axes.lines) == 1
+    matplotlib.pyplot.close(figure)
+
+
+def test_the_packaged_shot_resolves_its_presets(loop_ods):
+    ods = _sample()
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard")
+    assert len(axes.lines) == 7
+    matplotlib.pyplot.close(figure)
+
+
+def test_selection_keeps_the_callers_order(loop_ods):
+    """Identifiers order the traces as asked, exactly as indices already did."""
+    by_index = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=[2, 0])[1]
+    by_name = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=["FL03", "FL01"])[1]
+    assert [line.get_label() for line in by_index.lines] == [
+        line.get_label() for line in by_name.lines
+    ]
+    matplotlib.pyplot.close("all")
+
+
+def test_a_duplicated_identifier_is_refused_rather_than_shadowed():
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index in range(2):
+        ods[f"magnetics.flux_loop.{index}.name"] = "FL01"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 + index
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = 0.0
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+    with pytest.raises(ValueError, match="more than one channel"):
+        vaft.omas.plot_flux_loop_time_flux(ods, selection="FL01")
+
+
+def test_a_boolean_is_not_an_index(loop_ods):
+    with pytest.raises(TypeError, match="indices, identifiers or a preset"):
+        vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=True)
+
+
+def test_numerically_indistinguishable_radii_are_not_two_sides():
+    assert not radial_divider([0.5, 0.5 + 1e-9])
+    assert radial_divider([0.1, 0.9])
