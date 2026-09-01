@@ -786,12 +786,18 @@ def process_static_geometry(ods: Any, diagnostic_type: str, static_info: Dict[st
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.phi", probe.get("orientation_phi", 0.0))
 
     elif diagnostic_type == "rogowski_coil":
-        for i, coil in enumerate(geometry.get("coils", [])):
-            set_path(ods, f"rogowski_coil.coil.{i}.position.r", coil.get("r", 0.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.position.z", coil.get("z", 0.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.position.phi", coil.get("phi", 0.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.turns", coil.get("turns", 1))
-            set_path(ods, f"rogowski_coil.coil.{i}.area", coil.get("area", 0.0))
+        # Issue #215: these legacy helpers write a top-level
+        # `rogowski_coil.coil.<i>.*` path that is not the canonical IMAS
+        # location (`magnetics.rogowski_coil.<i>.*`) and does not match the DD
+        # geometry convention (`position[:]` contour, `turns_per_metre`).
+        # Refuse rather than silently populating the wrong structure; the
+        # canonical mapping lives in vaft.machine_mapping.magnetics.
+        raise VestConfigurationError(
+            "Legacy rogowski_coil static helpers write the non-canonical "
+            "'rogowski_coil.coil.*' path; use "
+            "vaft.machine_mapping.magnetics._map_rogowski_coils, which writes "
+            "magnetics.rogowski_coil.* (issue #215)"
+        )
 
 
 def process_static_channels(ods: Any, diagnostic_type: str, static_info: Dict[str, Any]) -> None:
@@ -823,15 +829,18 @@ def process_static_channels(ods: Any, diagnostic_type: str, static_info: Dict[st
             )
 
     elif diagnostic_type == "rogowski_coil":
-        for i, channel in enumerate(channels):
-            set_path(ods, f"rogowski_coil.coil.{i}.name", channel.get("name", f"RC{i}"))
-            set_path(ods, f"rogowski_coil.coil.{i}.gain", channel.get("gain", 1.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.offset", channel.get("offset", 0.0))
-            set_path(
-                ods,
-                f"rogowski_coil.coil.{i}.calibration_factor",
-                channel.get("calibration_factor", 1.0),
-            )
+        # Issue #215: these legacy helpers write a top-level
+        # `rogowski_coil.coil.<i>.*` path that is not the canonical IMAS
+        # location (`magnetics.rogowski_coil.<i>.*`) and does not match the DD
+        # geometry convention (`position[:]` contour, `turns_per_metre`).
+        # Refuse rather than silently populating the wrong structure; the
+        # canonical mapping lives in vaft.machine_mapping.magnetics.
+        raise VestConfigurationError(
+            "Legacy rogowski_coil static helpers write the non-canonical "
+            "'rogowski_coil.coil.*' path; use "
+            "vaft.machine_mapping.magnetics._map_rogowski_coils, which writes "
+            "magnetics.rogowski_coil.* (issue #215)"
+        )
 
 
 def get_metadata(source: str, options: dict | None = None) -> dict[str, Any]:

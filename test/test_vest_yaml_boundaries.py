@@ -69,9 +69,12 @@ def test_plasma_current_fl10_windowed_config_is_complete():
 
 
 @pytest.mark.parametrize("shot", [17455, 46402, 46403, 47116, 47117, 60000])
-def test_plasma_current_mutual_inductance_is_late_era_value_everywhere_post_17455(shot):
+def test_plasma_current_effective_resistance_is_late_era_value_post_17455(shot):
+    # Renamed from `mutual_inductance` in issue #214: dividing a loop voltage
+    # by an inductance yields A/s, not the current this term is subtracted
+    # from. The value is unchanged from the donor.
     reference = _resolve_nested("plasma_current", ("reference",), shot)
-    assert reference["mutual_inductance"] == pytest.approx(5.0e-4)
+    assert reference["effective_resistance_ohm"] == pytest.approx(5.0e-4)
 
 
 @pytest.mark.parametrize(

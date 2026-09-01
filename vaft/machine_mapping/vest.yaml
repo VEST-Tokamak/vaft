@@ -467,22 +467,24 @@
           field: 73
           daq_type: 1
       
-    rogowski_coil:
-      label: "Measured Rogowski Coil Current"
-      raw:
-        gain: 1
-        field: 109
-        daq_type: 0
-        fl_field: 25
-        effective_res: 2.8e-4
-        baseline_onset: 0.29
-      geometry:
-        coils:
-          - r: 0.45
-            z: 0.0
-            phi: 0.0
-            turns: 1
-            area: 0.01
+    # The legacy `rogowski_coil` block was removed in issue #214.
+    #
+    # It was read by nothing -- its only consumers were the
+    # `process_static_geometry` / `process_static_channels` Rogowski branches,
+    # which issue #215 made raise because they wrote the non-canonical
+    # `rogowski_coil.coil.*` path. What it left behind was actively harmful:
+    #
+    #   * a second, unrevised copy of the FL10 coefficient (`effective_res:
+    #     2.8e-4`), wrong for every shot >= 17455, under a third name. Reading
+    #     that stale label as authoritative is what prompted #214;
+    #   * duplicates of `field: 109` / `fl_field: 25`, which the live
+    #     `plasma_current` block already owns;
+    #   * an invented winding geometry (r 0.45, turns 1, area 0.01) that
+    #     #215 explicitly declines to map, VEST having no authoritative
+    #     contour on record.
+    #
+    # The canonical sources are `plasma_current` below (channels, calibration,
+    # shot eras) and `magnetics.rogowski_coil` in the ODS (the sensors).
 
     # Internal Magnetic Probe Array: eight midplane Hall probes, plus a
     # co-located Bz sensor per position.  Sign convention: I_TF = raw_field_1
@@ -674,19 +676,72 @@
         #                               inside `fl10.subtract_window`.
         #   disabled                 - no FL10 compensation at all; `ip` is
         #                               `ip_shot` unmodified (from #195).
+        # FL10 vessel-current compensation (issue #214).
+        #
+        # `field: 25` is Flux Loop #10 (R = 0.091 m, Z = 0.04 m, inboard /
+        # centre column). In THIS path its raw signal is used as a LOOP
+        # VOLTAGE and is deliberately NOT integrated -- unlike the generic
+        # equilibrium-magnetics path, where flux-loop voltage is integrated
+        # into poloidal flux. The two uses of field 25 are different
+        # quantities and must not be conflated.
+        #
+        # Units of `effective_resistance_ohm`, and why it is not called a
+        # mutual inductance:
+        #
+        #   ip_ref = V_FL10 * flux_gain / X   is subtracted from a current,
+        #   so X must be in V/A = ohm. An inductance would give V/H = A/s,
+        #   which cannot be subtracted from amperes.
+        #
+        # The donor `vest_ip.m` names this constant `indMutual_FL10_inLimiter`
+        # and labels its plots "FL10 Voltage/Mutual Inductance with Inboard
+        # Limiter" -- i.e. the donor calls it a mutual inductance between FL10
+        # and the inboard limiter. That name is dimensionally inconsistent
+        # with the operation the donor itself performs. The dimensional
+        # requirement is the harder evidence, so the key is named for the
+        # units the formula requires. (An early VAFT config also labelled this
+        # value `effective_res`, but that came from the same author porting
+        # the same algorithm, so it corroborates nothing on its own and has
+        # since been removed.) The conflict with the donor's name is recorded
+        # here rather than erased: it is not settled
+        # provenance, and resolving it needs VEST calibration documentation.
+        #
+        # What the compensation term physically represents
+        # (corrected 2026-09-01 from VEST operations; supersedes the earlier
+        # "dominant passive-current mode" reading):
+        #
+        #   * The plasma-current channel is the INNER Rogowski coil. In
+        #     principle an inner coil links no vessel eddy current at all, so
+        #     the compensation is NOT a general vessel-eddy subtraction.
+        #   * What it does link is the induced current in the TUNGSTEN LIMITER
+        #     surrounding the CS wall. The FL10-derived term has effectively
+        #     been used as a proxy measurement of that specific induced
+        #     current -- one structure, not a distributed wall mode.
+        #   * FL10 still sees TOTAL loop voltage, including PF and plasma
+        #     contributions; it is not an "eddy-only" pickup.
+        #
+        # The scalar `V / R_eff` transfer below is therefore a stand-in for
+        # that limiter induced current, and VEST's understanding of how the
+        # effective current should be computed HAS CHANGED as of 2026-09-01.
+        # The replacement model is not yet specified here, so the donor
+        # arithmetic is retained unchanged and this note records that the
+        # scalar form is superseded pending that specification. Do not treat
+        # `effective_resistance_ohm` as a settled physical constant.
+        #
+        # Numerical values are unchanged from the donor:
+        #   shot <  17455 -> 2.8e-4 ; shot >= 17455 -> 5.0e-4.
         reference:
           mode: subtract
           field: 25
           flux_gain: 11.0
-          mutual_inductance: 2.8e-4
+          effective_resistance_ohm: 2.8e-4
           revisions:
             - from_shot: 17455
               to_shot: 46402
-              mutual_inductance: 5.0e-4
+              effective_resistance_ohm: 5.0e-4
             - from_shot: 46403
               to_shot: 47116
               mode: subtract_fl10_windowed
-              mutual_inductance: 5.0e-4
+              effective_resistance_ohm: 5.0e-4
               fl10:
                 # `field` intentionally left equal to the pre-existing
                 # `reference.field` (25) pending confirmation against the
@@ -710,9 +765,46 @@
                 # the documented VAFT interpretation of the degenerate
                 # single-point polyfit this offset replaces.
                 reference_offset_index: 175
+            # Shot >= 47117: the donor drops FL10 compensation entirely
+            # (`if shot < 47117 ... else ip = ipShot`) with no comment.
+            #
+            # The cause is now known (VEST operations, 2026-09-01): the
+            # inboard side was changed to CARBON. The induced current in the
+            # modified inboard structure is no longer measured by the inner
+            # Rogowski coil, so there is nothing left for the FL10 term to
+            # compensate and the subtraction is correctly disabled.
+            #
+            # Boundary resolved empirically against the VEST SQL database
+            # (2026-09-01; 361 shots, 46900-47260). There is ONE transition,
+            # not two, and #191's `shot >= 47018` is not supported:
+            #
+            #   * 47113 -> 47114 is a 6.5-day machine access window
+            #     (2025-11-06 23:04 -> 2025-11-13 10:52). 47114-47117 are four
+            #     vacuum/commissioning shots in a 22-minute block (7-10 kA,
+            #     FL10 collapsed to 0.003-0.007 V); plasma resumes at 47118
+            #     after a further 4-day gap, at roughly half the previous
+            #     current (210-230 kA -> 60-110 kA).
+            #   * Reproducing IP from raw signals both with and without the
+            #     FL10 term, and scoring the post-discharge residual (where
+            #     true Ip must be ~0): compensation improves 23/23 plasma
+            #     shots over 47050-47113 and only 5/49 over 47114-47200. The
+            #     term stops removing anything real exactly at the break.
+            #   * 47018 is 12 minutes after 47017 inside a continuous run day
+            #     (2025-11-05, ~12 min cadence). No machine access, and no
+            #     step in FL10 amplitude or compensation behaviour there.
+            #
+            # The physically correct boundary is therefore 47114, the first
+            # shot after the intervention. `from_shot` is kept at the donor's
+            # 47117 (the last commissioning shot) because 47114-47116 carry no
+            # plasma, so the three-shot difference cannot change any result;
+            # changing it would alter processed output for no physical gain.
+            # See #191 (which needs its 47018 corrected) and #216.
+            #
+            # `effective_resistance_ohm` is retained for provenance only --
+            # `mode: disabled` means it is not read.
             - from_shot: 47117
               mode: disabled
-              mutual_inductance: 5.0e-4
+              effective_resistance_ohm: 5.0e-4
         # `baseline.analysis_start/analysis_end` is the shot-era *analysis
         # window* (`xTime` in the legacy `vest_ip.m`). It is NOT the fitted
         # baseline interval. The actual linear-baseline-fit window (`xBase`)
@@ -1646,18 +1738,20 @@ diagnostic_registry:
     mapping_status: not_implemented
     quantities: {static: [gun_position], measured: [injection_voltage, injection_current, arc_voltage, arc_current, limit_voltage], derived: []}
   magnetics.ip:
-    name: Plasma-current Rogowski coil
+    name: Plasma current
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
     ids_path: magnetics.ip
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
-    quantities: {static: [area, turns], measured: [rogowski_voltage], derived: [plasma_current]}
+    # Derived quantity, not the sensor: the physical Rogowski coil is
+    # magnetics.rogowski_coil (issue #215).
+    quantities: {static: [], measured: [], derived: [plasma_current]}
   magnetics.flux_loop:
     name: Flux loops
     family: magnetic_diagnostics
@@ -1690,18 +1784,36 @@ diagnostic_registry:
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
     quantities: {static: [position, poloidal_angle, toroidal_angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
   magnetics.diamagnetic_flux:
-    name: Diamagnetic-flux Rogowski coil
+    name: Diamagnetic flux
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
     ids_path: magnetics.diamagnetic_flux
     responsible: [{name: 김태경}]
+    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    # Derived quantity, not the sensor: the physical high-sensitivity TF
+    # Rogowski coil is magnetics.rogowski_coil (issue #215).
+    quantities: {static: [], measured: [], derived: [diamagnetic_flux]}
+  magnetics.rogowski_coil:
+    name: Rogowski coils
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.rogowski_coil
+    responsible: [{name: Joint}]
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
-    quantities: {static: [area, turns], measured: [rogowski_voltage], derived: [diamagnetic_flux]}
+    # The two physical VEST Rogowski sensors themselves. Shot-era source
+    # fields and calibration stay in the `plasma_current` / `rogowski_coil`
+    # blocks above -- this entry adds no second source of truth.
+    quantities: {static: [], measured: [rogowski_current], derived: []}
   magnetics.internal_probe:
     name: Internal magnetic probes
     family: magnetic_diagnostics
