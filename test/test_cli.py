@@ -53,8 +53,21 @@ def test_summary_cli_composes_query_and_export(monkeypatch, tmp_path):
         "export", "--shot-range", "10:12", "--output", str(output), "--upsert"
     ]) == 0
 
-    assert calls["summary"] == ((10, 12), {"preset": "equilibrium_global", "source": "public"})
+    # No --source means the VAFT-native default; the registry resolves None.
+    assert calls["summary"] == ((10, 12), {"preset": "equilibrium_global", "source": None})
     assert calls["export"][0] is frame
     assert calls["export"][1] == str(output)
     assert calls["export"][2]["mode"] == "upsert"
     assert calls["export"][2]["replace_groups"] == ("shot",)
+
+
+def test_summary_sources_lists_the_catalog(capsys):
+    from vaft.cli.summary import main as summary_main
+
+    assert summary_main(["sources"]) == 0
+
+    printed = capsys.readouterr().out
+    assert "main" in printed
+    assert "chease-mhd-stability" in printed
+    # The legacy namespace has to be visibly read-only in the listing.
+    assert "public" in printed and "read-only" in printed

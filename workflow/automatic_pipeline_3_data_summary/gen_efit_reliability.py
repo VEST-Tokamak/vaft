@@ -16,7 +16,7 @@ KINETIC_OUTPUT_FILENAME = "efit_kinetic_reliability_history.xlsx"
 def generate_efit_reliability_history(
     shot_range: tuple[int, int] | None = None,
     *,
-    source: str = "public",
+    source: str | None = None,
     magnetic_output_path: str | None = None,
     kinetic_output_path: str | None = None,
     rebuild: bool = False,
@@ -56,7 +56,7 @@ def _shot_range(value: str) -> tuple[int, int]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot-range", type=_shot_range)
-    parser.add_argument("--source", default="public")
+    parser.add_argument("--source", default=None)
     parser.add_argument("--magnetic-output", default=None)
     parser.add_argument("--kinetic-output", default=None)
     parser.add_argument("--rebuild", action="store_true")

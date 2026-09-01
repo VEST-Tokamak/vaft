@@ -16,8 +16,8 @@ def test_compatibility_attributes_resolve():
 def test_ods_load_warns_and_forwards(monkeypatch):
     called = {}
 
-    def fake_load_ods(shot, directory="public", **kwargs):
-        called.update(shot=shot, directory=directory, kwargs=kwargs)
+    def fake_load_ods(shot, source=None, **kwargs):
+        called.update(shot=shot, source=source, kwargs=kwargs)
         return "ODS"
 
     monkeypatch.setattr(database_ods, "load_ods", fake_load_ods)
@@ -28,8 +28,8 @@ def test_ods_load_warns_and_forwards(monkeypatch):
     assert result == "ODS"
     assert called == {
         "shot": 39915,
-        "directory": "public",
-        "kwargs": {"paths": ["magnetics"]},
+        "source": None,
+        "kwargs": {"directory": "public", "paths": ["magnetics"]},
     }
 
 

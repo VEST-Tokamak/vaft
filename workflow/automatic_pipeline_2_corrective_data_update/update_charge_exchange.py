@@ -36,6 +36,7 @@ from vaft.machine_mapping.charge_exchange import charge_exchange
 # Reuse the shot-registry helpers from the Thomson updater (same directory).
 from update_thomson_scattering_and_core_profile import (
     load_processed_shots,
+    SOURCE,
     save_processed_shot,
 )
 
@@ -84,7 +85,7 @@ def update_charge_exchange_auto(ion_matfile):
         return None
 
     try:
-        ods = database.load(shotnumber, source="public")
+        ods = database.load(shotnumber, source=SOURCE)
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {exc}")
         return None
@@ -98,7 +99,7 @@ def update_charge_exchange_auto(ion_matfile):
         print(f"[ERROR] Failed to load {option} for shot {shotnumber}: {exc}")
         return None
 
-    database.save(ods, shotnumber)
+    database.save(ods, shotnumber, source=SOURCE)
     print(f"[SAVED] charge_exchange for shot {shotnumber}")
     return ods, shotnumber, option
 

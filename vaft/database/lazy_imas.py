@@ -19,6 +19,7 @@ try:  # pragma: no cover - guarded by the public constructor
 except ImportError:  # pragma: no cover
     h5pyd = None
 
+from .sources import resolve as resolve_source
 from .lazy_common import decode_hdf5_value, discover_hsds_ids, normalize_ids
 from .utils import _require_h5pyd
 
@@ -183,8 +184,9 @@ class HSDSIMASHandle:
     def __init__(
         self,
         shot: int,
-        directory: str = "public",
+        source: str | None = None,
         *,
+        directory: str | None = None,
         ids: str | Iterable[str] | None = None,
         imas_version: str,
         h5pyd_module: Any = None,
@@ -193,7 +195,7 @@ class HSDSIMASHandle:
             _require_h5pyd()
             h5pyd_module = h5pyd
         self.shot = int(shot)
-        self.directory = directory.strip("/")
+        self.source = resolve_source(source, directory=directory)
         self.imas_version = imas_version
         self._h5pyd = h5pyd_module
         self._requested_ids = normalize_ids(ids)
@@ -217,7 +219,7 @@ class HSDSIMASHandle:
             if self.closed:
                 raise LazyIMASClosedError("Cannot discover IDS after close()")
             self._available_ids = discover_hsds_ids(
-                self._h5pyd, self.directory, self.shot
+                self._h5pyd, self.source, self.shot
             )
         return self._available_ids
 
@@ -238,7 +240,7 @@ class HSDSIMASHandle:
         if ids_name not in self.ids:
             raise KeyError(f"IDS {ids_name!r} is not available for shot {self.shot}")
         domain = self._h5pyd.File(
-            f"hdf5://{self.directory}/{self.shot}/{ids_name}.h5", "r"
+            f"hdf5://{self.source}/{self.shot}/{ids_name}.h5", "r"
         )
         self._domains[ids_name] = domain
         self._metrics["ids_domain_open_count"] += 1
@@ -287,12 +289,15 @@ class HSDSIMASHandle:
 
 def open_imas(
     shot: int,
-    directory: str = "public",
+    source: str | None = None,
     *,
+    directory: str | None = None,
     ids: str | Iterable[str] | None = None,
     imas_version: str,
 ) -> HSDSIMASHandle:
-    return HSDSIMASHandle(shot, directory, ids=ids, imas_version=imas_version)
+    return HSDSIMASHandle(
+        shot, source, directory=directory, ids=ids, imas_version=imas_version
+    )
 
 
 __all__ = ["HSDSIMASHandle", "LazyIMASClosedError", "open_imas"]

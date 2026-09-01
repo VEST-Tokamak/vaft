@@ -883,17 +883,18 @@ def summary(
     shot_range: tuple[int, int] | None = None,
     *,
     preset: str = "equilibrium_global",
-    source: str = "public",
+    source: str | None = None,
+    directory: str | None = None,
 ) -> pd.DataFrame:
     """Return a canonical preset summary for a range or every available shot."""
     definition = get_summary_preset(preset)
-    from . import _namespace
+    from .sources import resolve
 
-    source = _namespace(source, "source")
+    source = resolve(source, directory=directory)
     if shot_range is None:
         from .utils import exist_shot
 
-        discovered = exist_shot(username=source, sort=1) or []
+        discovered = exist_shot(source=source, sort=1) or []
         shots = sorted({int(value) for value in discovered if str(value).isdigit()})
     else:
         if (

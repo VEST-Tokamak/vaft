@@ -16,9 +16,15 @@ from pathlib import Path
 from typing import Literal, Optional, Union
 import imas
 
-from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, is_connect
+from .utils import (
+    _require_h5pyd,
+    ensure_imas_hdf5_userblock,
+    is_connect,
+    require_source_exists,
+)
 from .transport import run_hsget, run_hsload, verify_uploaded_image
 from .h5image import publish_image
+from .sources import resolve as resolve_source
 from .staging import external_h5_links, stage_imas_shot
 
 
@@ -48,8 +54,10 @@ def _ids_top_level_name(ids_obj):
 def save(
     ids: imas.ids_toplevel.IDSToplevel,
     shot: int,
-    directory: str = "public",
+    source: Optional[str] = None,
     dd_version: Optional[str] = None,
+    *,
+    directory: Optional[str] = None,
     derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
 ) -> Optional[str]:
     """
@@ -64,13 +72,20 @@ def save(
     Args:
         ids: IMAS IDS object to save.
         shot: shot number.
-        directory: Bare HSDS namespace such as ``public``.
+        source: Named HSDS source to publish into. Defaults to ``main``; the
+            read-only legacy ``public`` source is refused.
         dd_version: IMAS DD version.
+        directory: Deprecated alias for ``source``.
+
+    A native IDS carries no ``dataset_description``, so unlike
+    :func:`vaft.database.ods.save_ods` this path records no source provenance
+    inside the payload; the namespace is the URI it is written to.
     Returns:
         HSDS URI string for the IDS file when uploaded, otherwise local path.
     """
     logging.getLogger().setLevel(logging.WARNING)
 
+    source = resolve_source(source, directory=directory, writable=True)
     ids_name = _ids_top_level_name(ids)
     filename = f"{ids_name}.h5"
     if derived_cache not in {"auto", "none", "imas-images", "omas", "both"}:
@@ -87,6 +102,7 @@ def save(
 
     if not is_connect():
         raise ConnectionError("Connection to HSDS server failed")
+    require_source_exists(source)
 
     with tempfile.TemporaryDirectory(prefix="hsds_tmp_") as tmp_dir:
         _staging_dir = Path(tmp_dir)
@@ -100,10 +116,10 @@ def save(
         print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
 
         # Upload to explicitly requested HSDS namespace.
-        ids_remote_uri = f"hdf5://{directory}/{shot}/{filename}"
+        ids_remote_uri = f"hdf5://{source}/{shot}/{filename}"
         run_hsload(_staging_dir / filename, ids_remote_uri)
         verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
-        master_remote_uri = f"hdf5://{directory}/{shot}/master.h5"
+        master_remote_uri = f"hdf5://{source}/{shot}/master.h5"
         run_hsload(_staging_dir / "master.h5", master_remote_uri)
         verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
         if derived_mode == "imas-images":
@@ -112,7 +128,7 @@ def save(
                 try:
                     result = publish_image(
                         local_path,
-                        directory,
+                        source,
                         int(shot),
                         imas_version=dd_version,
                     )
@@ -130,12 +146,14 @@ def save(
 def load(
     shot: int,
     ids_name: Union[str, list[str]],
-    directory: str = "public",
+    source: Optional[str] = None,
     occurrence: int | dict[str, int] = 0,
     dd_version: Optional[str] = None,
     local_dir: Optional[str] = None,
     cache: str | Path = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
+    *,
+    directory: Optional[str] = None,
 ) -> Union[object, dict[str, object]]:
     """
     Load IDS object(s) from HSDS as native IMAS objects.
@@ -149,16 +167,19 @@ def load(
     Args:
         shot: shot number.
         ids_name: IDS name (str) or list of IDS names to load.
-        directory: HSDS directory/user (e.g. `public`).
+        source: Named HSDS source holding the shot. Defaults to ``main``.
         occurrence: IDS occurrence index.
         dd_version: IMAS DD version passed to DBEntry.
         local_dir: optional local staging directory. If omitted, temp dir is used.
         cache: ``"auto"`` (default) stores validated domains locally, ``"off"``
             always downloads, or a path selects a cache base directory.
+        directory: Deprecated alias for ``source``.
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
     logging.getLogger().setLevel(logging.WARNING)
+
+    source = resolve_source(source, directory=directory)
 
     try:
         import imas
@@ -187,7 +208,7 @@ def load(
         print(f"[INFO] Creating local staging directory: {shot_dir.absolute()}")
 
         plan = stage_imas_shot(
-            directory=directory,
+            directory=source,
             shot=shot,
             staging_dir=shot_dir,
             requested_ids=ids_list,
