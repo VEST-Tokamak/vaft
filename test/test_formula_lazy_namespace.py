@@ -32,6 +32,7 @@ _IMPORT_ORDER = (
     "green",
     "atomic",
     "statistics",
+    "magnetics",
 )
 
 

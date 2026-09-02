@@ -460,3 +460,85 @@ def test_the_residual_band_and_the_onset_markers_use_the_same_sigma(plasma_ods):
         for text in ax.get_legend().get_texts()
     }
     assert any("±2σ" in label for label in labels)
+
+
+# ---------------------------------------------------------------------------
+# Wall authority: how much of a reading the wall term can explain at all
+# ---------------------------------------------------------------------------
+
+def _channel(name, eddy_scale, *, kind="flux_loop", family="outboard_flux_loop", index=0):
+    from vaft.omas.vacuum_magnetics import VacuumChannel
+
+    time = np.linspace(0.0, 1.0, 400)
+    rng = np.random.default_rng(index + 7)
+    coil = 0.10 * np.sin(2.0 * np.pi * time)
+    eddy = eddy_scale * np.cos(2.0 * np.pi * time)
+    measured = coil + eddy + 1.0e-4 * rng.standard_normal(time.size)
+    measured[time >= 0.5] += 0.05  # a "plasma" after onset
+    return VacuumChannel(
+        name=name, kind=kind, family=family, index=index, r=0.6, z=0.0, unit="Wb",
+        time=time, measured=measured, coil=coil, coil_eddy=coil + eddy,
+    )
+
+
+def test_wall_authority_is_the_eddy_term_as_a_fraction_of_the_reading():
+    from vaft.formula.statistics import rms
+
+    channel = _channel("loud", 0.05)
+    mask = channel.time < 0.5
+    expected = rms(channel.eddy_term[mask]) / rms(channel.measured[mask])
+    assert channel.wall_authority(mask) == pytest.approx(expected)
+    assert _channel("deaf", 0.0).wall_authority(mask) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_scored_improvement_summaries_skip_channels_the_wall_cannot_reach():
+    """A channel whose wall term is a few percent of its reading has an
+    improvement whose sign is noise; ask the summary to leave it out and it
+    must, while the unscored summary still counts everyone."""
+    from vaft.omas.vacuum_magnetics import vacuum_magnetics_metrics
+
+    channels = (_channel("a", 0.05, index=0), _channel("b", 0.04, index=1), _channel("deaf", 0.0005, index=2))
+    every = vacuum_magnetics_metrics(channels, plasma_onset=0.5)
+    scored = vacuum_magnetics_metrics(channels, plasma_onset=0.5, min_wall_authority=0.1)
+
+    assert every["summary"]["scored_channel_count"] == 3
+    assert every["summary"]["median_improvement_scored"] == every["summary"]["median_improvement"]
+    assert scored["summary"]["scored_channel_count"] == 2
+    assert scored["summary"]["min_improvement_scored"] > 0.9
+    assert scored["summary"]["min_improvement"] == every["summary"]["min_improvement"]
+    assert all("wall_authority" in row for row in scored["channels"])
+    assert scored["channels"][2]["wall_authority"] < 0.1
+
+
+def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
+    """The physics behind the scoring floor: vessel currents flow at larger R
+    and their flux nearly cancels through a small inboard loop, so on the
+    packaged shot the inboard loops sit an order of magnitude below the
+    outboard ones."""
+    import vaft
+    import vaft.omas
+    from vaft.omas.vacuum_magnetics import (
+        plasma_onset_time,
+        synthetic_vacuum_magnetics,
+        vacuum_magnetics_metrics,
+    )
+
+    # The full IMAS artifact carries solved pf_passive currents; the compact
+    # wheel sample does not, and this is a statement about the machine's
+    # geometry, not about any one eddy solve.
+    try:
+        path = vaft.data.sample(41672, "imas")
+    except Exception:  # repository-only artifact
+        pytest.skip("sample 41672 is not available in this checkout")
+    ods = vaft.omas.load(path)
+    onset = plasma_onset_time(ods)
+    metrics = vacuum_magnetics_metrics(
+        synthetic_vacuum_magnetics(ods, per_family=2), plasma_onset=onset, min_wall_authority=0.1
+    )
+    by_family = {}
+    for row in metrics["channels"]:
+        by_family.setdefault(row["family"], []).append(row["wall_authority"])
+    assert max(by_family["inboard_flux_loop"]) < 0.1
+    assert min(by_family["outboard_flux_loop"]) > 0.4
+    assert metrics["summary"]["scored_channel_count"] == metrics["summary"]["channel_count"] - 2
+    assert metrics["summary"]["min_improvement_scored"] > 0.5

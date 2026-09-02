@@ -73,6 +73,16 @@ __all__ = [
 #: decayed by ``exp(-n)``, so three leaves under 5% of it.
 DEFAULT_HISTORY_TIME_CONSTANTS = 3.0
 
+#: Smallest fraction of the shot's peak PF current that must appear inside the
+#: validation window for a plasma-free eddy score to mean anything.  The wall
+#: term is a response to the coils; a window in which the coils barely moved
+#: is instrument baseline, and the residual improvement measured there is a
+#: ratio of two noise numbers.  Measured on the packaged samples: 39915 0.99
+#: and 41672 1.00, but 41524 only 0.003 -- its solenoid fires ~0.8 ms *after*
+#: the Ip detector triggers, so its nominal pre-plasma window carries no drive
+#: at all and no model can pass or fail on it.
+MIN_COIL_DRIVE_FRACTION = 0.10
+
 #: Sigma above the early-record noise band at which the plasma current is
 #: considered to have emerged.  Matches the residual-onset convention in
 #: :mod:`vaft.omas.vacuum_magnetics` so the two detectors speak the same way.
@@ -343,32 +353,59 @@ def solver_history_check(
 # One case
 # ---------------------------------------------------------------------------
 
-def _pf_excitation(ods: Any) -> dict[str, Any]:
-    """Which coils drove this case, and how hard.
+def _pf_excitation(
+    ods: Any, window: tuple[float, float] | None = None
+) -> dict[str, Any]:
+    """Which coils drove this case, and how hard -- over the shot and, when a
+    ``window`` is given, inside it.
 
     The grouping key for "many sensors go bad whenever a particular PF response
     dominates": a case is characterized by which coils actually carried current,
     not by a configuration label that may not match what the shot did.
+
+    ``coil_drive_fraction`` is the peak coil current inside the window as a
+    fraction of the shot's peak, and ``sufficiently_driven`` compares it with
+    :data:`MIN_COIL_DRIVE_FRACTION`: a precondition for reading the window's
+    eddy score at all, reported rather than raised, in the spirit of
+    :func:`solver_history_check`.
     """
+    time = _signal(ods, "pf_active.time")
+    inside = None
+    if window is not None and time is not None:
+        inside = (time >= float(window[0])) & (time < float(window[1]))
     coils: list[dict[str, Any]] = []
     for index in range(len(ods["pf_active.coil"])):
         current = _signal(ods, f"pf_active.coil.{index}.current.data")
         if current is None:
             continue
         peak = float(np.max(np.abs(current)))
-        coils.append(
-            {
-                "index": index,
-                "name": str(ods.get(f"pf_active.coil.{index}.name", f"PF{index}") or f"PF{index}"),
-                "peak_abs_current": peak,
-            }
-        )
+        entry = {
+            "index": index,
+            "name": str(ods.get(f"pf_active.coil.{index}.name", f"PF{index}") or f"PF{index}"),
+            "peak_abs_current": peak,
+        }
+        if inside is not None and inside.size == current.size:
+            entry["window_peak_abs_current"] = (
+                float(np.max(np.abs(current[inside]))) if inside.any() else 0.0
+            )
+        coils.append(entry)
     driven = [entry for entry in coils if entry["peak_abs_current"] > 0.0]
-    return {
+    report: dict[str, Any] = {
         "current_source": "measured pf_active.coil.*.current.data",
         "active_coils": [entry["name"] for entry in driven],
         "coils": coils,
     }
+    if inside is not None:
+        shot_peak = max((entry["peak_abs_current"] for entry in coils), default=0.0)
+        window_peak = max(
+            (entry.get("window_peak_abs_current", 0.0) for entry in coils), default=0.0
+        )
+        fraction = float(window_peak / shot_peak) if shot_peak > 0.0 else float("nan")
+        report["window"] = [float(window[0]), float(window[1])]
+        report["coil_drive_fraction"] = fraction
+        report["min_coil_drive_fraction"] = MIN_COIL_DRIVE_FRACTION
+        report["sufficiently_driven"] = bool(fraction >= MIN_COIL_DRIVE_FRACTION)
+    return report
 
 
 def _static_model(ods: Any) -> dict[str, Any]:
@@ -485,7 +522,7 @@ def run_benchmark_case(
         "solver_input_window": list(solver_window),
         "validation_window": list(validation_window),
         "plasma_free_evidence": interval["plasma_free_evidence"],
-        "pf_excitation": _pf_excitation(ods),
+        "pf_excitation": _pf_excitation(ods, window=validation_window),
         "static_model": {
             **_static_model(ods),
             "resistance_scale": float(resistance_scale),

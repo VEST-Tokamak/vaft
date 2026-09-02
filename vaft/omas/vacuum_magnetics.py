@@ -37,6 +37,7 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from vaft.formula.magnetics import project_poloidal_field
 from vaft.ods_access import path_count as _count, path_value
 from vaft.formula.statistics import (
     fractional_rms_improvement,
@@ -128,6 +129,32 @@ class VacuumChannel:
     def coil_residual(self) -> np.ndarray:
         """Measured minus the coil-only synthetic, the eddy term's baseline."""
         return self.measured - self.coil
+
+    @property
+    def eddy_term(self) -> np.ndarray:
+        """What the passive wall adds to the coil-only forward model."""
+        return self.coil_eddy - self.coil
+
+    def wall_authority(self, mask: np.ndarray | None = None) -> float:
+        """``rms(eddy term) / rms(measured)`` over ``mask`` -- how much of what
+        this sensor reads the wall term can account for at all.
+
+        A conditioning number, not a verdict.  Where it is small the eddy
+        model's *improvement* is undefined in practice: the term being judged
+        is comparable to the model's own error, so the sign of the improvement
+        is a coin flip.  On VEST the inboard flux loops (r ~ 0.09-0.14 m) sit
+        at 0.02-0.05 because vessel currents flow at larger R and their flux
+        nearly cancels through a small inboard loop; the outboard loops sit
+        at 0.45-0.85.  Comparing the two families' improvements as if they
+        were the same measurement is what this number exists to prevent.
+        """
+        use = self.usable if mask is None else (np.asarray(mask, dtype=bool) & self.usable)
+        if not use.any():
+            return float("nan")
+        denominator = rms(self.measured[use])
+        if not denominator > 0.0:
+            return float("nan")
+        return float(rms(self.eddy_term[use]) / denominator)
 
 
 # ---------------------------------------------------------------------------
@@ -489,12 +516,9 @@ def synthetic_vacuum_magnetics(
         if row["kind"] == FLUX_LOOP:
             response = psi[position]
         else:
-            angle = row["poloidal_angle"]
-            # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
-            # (cos, -sin) in (R, Z).  Projecting with (cos, +sin) inverts every
-            # probe; it did so here until issue #288, cancelling against a
-            # stored angle that was wrong the same way.
-            response = b_r[position] * np.cos(angle) - b_z[position] * np.sin(angle)
+            # The one shared reading of the stored angle (issue #288): see
+            # vaft.formula.magnetics for why (cos, +sin) would be wrong.
+            response = project_poloidal_field(b_r[position], b_z[position], row["poloidal_angle"])
         coil = response[:n_coil] @ coil_currents
         eddy = response[n_coil : n_coil + n_loop] @ loop_currents
         quantity = "flux" if row["kind"] == FLUX_LOOP else "field"
@@ -580,6 +604,12 @@ def channel_residual_metrics(
         Measured against coil+eddy.  Near 1 with a large residual means the
         dynamics are right and the gain is wrong -- a calibration question, not
         a wall-model one.
+    ``wall_authority``
+        ``rms(eddy term) / rms(measured)`` -- see
+        :meth:`VacuumChannel.wall_authority`.  Read ``improvement`` in its
+        light: where the wall term is a few percent of the reading, a
+        negative improvement is a rounding of the model's error, not a
+        finding about the wall.
 
     A channel with too few usable samples is reported ``excluded`` with a
     reason rather than being counted as a model failure.
@@ -631,6 +661,7 @@ def channel_residual_metrics(
                 rms(residual) / span if span > 0 else float("nan")
             ),
             "correlation": pearson_correlation(measured, channel.coil_eddy[mask]),
+            "wall_authority": channel.wall_authority(mask),
         }
     )
     return row
@@ -714,8 +745,15 @@ def vacuum_magnetics_metrics(
     plasma_onset: float,
     plasma_current: tuple[np.ndarray, np.ndarray] | None = None,
     sigma: float = ONSET_SIGMA,
+    min_wall_authority: float = 0.0,
 ) -> dict[str, Any]:
     """Quantitative QA for one shot's vacuum-magnetics validation.
+
+    ``min_wall_authority`` selects which channels the ``*_scored`` summary
+    entries are taken over: those whose wall term is at least that fraction
+    of what they read (:meth:`VacuumChannel.wall_authority`).  The unscored
+    ``median_improvement`` / ``min_improvement`` are always over every
+    channel, so the default of ``0.0`` changes nothing.
 
     Everything issue #139 asks the eddy stage to record: the pre-plasma residual
     RMS with and without the eddy response, the improvement from adding it, the
@@ -777,6 +815,15 @@ def vacuum_magnetics_metrics(
     improvements = np.array(
         [row["improvement"] for row in rows if np.isfinite(row["improvement"])]
     )
+    scored = np.array(
+        [
+            row["improvement"]
+            for row in rows
+            if np.isfinite(row["improvement"])
+            and np.isfinite(row["wall_authority"])
+            and row["wall_authority"] >= float(min_wall_authority)
+        ]
+    )
     families = {
         family: {
             "channels": sum(1 for row in rows if row["family"] == family),
@@ -824,6 +871,14 @@ def vacuum_magnetics_metrics(
             ),
             "channels_without_onset": sum(
                 1 for row in rows if not np.isfinite(row["residual_onset"])
+            ),
+            "min_wall_authority": float(min_wall_authority),
+            "scored_channel_count": int(scored.size),
+            "median_improvement_scored": (
+                float(np.median(scored)) if scored.size else float("nan")
+            ),
+            "min_improvement_scored": (
+                float(np.min(scored)) if scored.size else float("nan")
             ),
         },
     }

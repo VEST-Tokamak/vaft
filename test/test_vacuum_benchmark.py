@@ -581,3 +581,60 @@ def test_the_evaluation_window_excludes_its_own_upper_bound(vacuum_shot):
 
     assert evaluation_mask(channel, (float("-inf"), onset)).sum() == (grid < onset).sum()
     assert not evaluation_mask(channel, (float("-inf"), onset))[5]
+
+
+# ---------------------------------------------------------------------------
+# Coil drive: a precondition for reading a plasma-free score at all
+# ---------------------------------------------------------------------------
+
+def test_a_window_without_coil_drive_is_reported_as_undriven():
+    from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION, _pf_excitation
+
+    ods = ODS(consistency_check=False)
+    time = np.linspace(0.0, 1.0, 101)
+    ods["pf_active.time"] = time
+    ods["pf_active.coil.0.name"] = "PF1"
+    ods["pf_active.coil.0.current.data"] = np.where(time >= 0.5, 1000.0 * (time - 0.5), 0.0)
+
+    quiet = _pf_excitation(ods, window=(0.0, 0.5))
+    assert quiet["coil_drive_fraction"] == pytest.approx(0.0)
+    assert quiet["sufficiently_driven"] is False
+    assert quiet["min_coil_drive_fraction"] == MIN_COIL_DRIVE_FRACTION
+
+    driven = _pf_excitation(ods, window=(0.5, 1.01))
+    assert driven["coil_drive_fraction"] == pytest.approx(1.0)
+    assert driven["sufficiently_driven"] is True
+
+    assert "coil_drive_fraction" not in _pf_excitation(ods)
+
+
+def test_the_packaged_shot_was_driven_through_its_validation_window(packaged_case):
+    """39915's benchmark window opens after the solver-history requirement and
+    closes at plasma onset; the coils reach a third of their shot peak inside
+    it -- comfortably driven, though far from the peak, which the shot only
+    reaches once the plasma is up."""
+    from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION
+
+    excitation = packaged_case["pf_excitation"]
+    assert excitation["window"] == packaged_case["validation_window"]
+    assert MIN_COIL_DRIVE_FRACTION < excitation["coil_drive_fraction"] < 0.5
+    assert excitation["sufficiently_driven"] is True
+
+
+def test_a_shot_whose_solenoid_fires_after_breakdown_is_reported_undriven():
+    """41524 is the case the precondition exists for: its solenoid fires about
+    0.8 ms *after* the Ip detector triggers, so the nominal plasma-free window
+    carries 0.3 % of the shot's coil drive and the eddy score there is a ratio
+    of two noise numbers.  The benchmark must say so rather than score it."""
+    import vaft
+    import vaft.omas
+    from vaft.validation.vacuum_benchmark import run_benchmark_case
+
+    try:
+        path = vaft.data.sample(41524, "imas")
+    except Exception:  # repository-only artifact
+        pytest.skip("sample 41524 is not available in this checkout")
+    case = run_benchmark_case(vaft.omas.load(path), shot=41524, machine_era="packaged")
+    excitation = case["pf_excitation"]
+    assert excitation["coil_drive_fraction"] < 0.02
+    assert excitation["sufficiently_driven"] is False

@@ -54,12 +54,21 @@ def test_the_consumer_projects_with_the_clockwise_axis():
     """
     import inspect
 
+    from vaft.formula.magnetics import probe_axis, project_poloidal_field
+    from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
     from vaft.omas import vacuum_magnetics
 
+    # The consumer no longer spells the projection out: it goes through the
+    # one shared helper, so the rule cannot be re-derived wrongly here ...
     source = inspect.getsource(vacuum_magnetics)
-    assert "b_z[position] * np.sin(angle)" in source
-    index = source.index("b_z[position] * np.sin(angle)")
-    assert source[index - 2] == "-", "the b_z term must be subtracted, not added"
+    assert "project_poloidal_field(" in source
+    assert "np.sin(angle)" not in source, "no private copy of the projection rule"
+    # ... and the helper is the clockwise reading: the stored +Bz angle
+    # projects to +Bz, and a pure Bz field comes back with its own sign.
+    c_r, c_z = probe_axis(POLOIDAL_ANGLE)
+    assert c_r == pytest.approx(0.0, abs=1e-12)
+    assert c_z == pytest.approx(+1.0)
+    assert project_poloidal_field(0.0, 0.37, POLOIDAL_ANGLE) == pytest.approx(+0.37)
 
 
 def test_the_projection_recovers_plus_bz_from_the_stored_angle():
