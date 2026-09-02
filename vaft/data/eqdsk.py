@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, MutableMapping, Optional
 import re
+import warnings
 
 import numpy as np
 
@@ -487,6 +488,51 @@ def _infer_source_shot(source: Optional[Path]) -> int:
 
 TWO_PI = 2.0 * np.pi
 
+# A g-file records its vacuum toroidal field twice: as ``BCENTR`` at ``RCENTR``,
+# and as ``FPOL`` at the boundary, where ``f = R*B_phi`` has stopped varying
+# because no poloidal current flows outside the plasma.  The two are the same
+# number, so a g-file where they disagree is inconsistent with itself.  On the
+# VEST database they disagree badly -- ``BCENTR`` drifts by up to 101% within a
+# single shot while ``FPOL`` holds flat to under 1% -- and ``FPOL`` is the half
+# the Grad-Shafranov solution actually used (issue #325).
+BCENTR_FPOL_RTOL = 1e-3
+
+
+def _vacuum_b0(data: Mapping[str, Any]) -> float:
+    """The vacuum ``B0`` at ``RCENTR``, from ``FPOL`` in preference to ``BCENTR``.
+
+    Falls back to ``BCENTR`` whenever ``FPOL`` cannot answer, and warns rather
+    than silently repairing when the two disagree: a file that contradicts
+    itself is reporting a defect upstream, and quietly papering over it is how
+    that defect becomes permanent.
+
+    Note this fixes the *drift*, not the reference radius.  ``B0`` is returned
+    at ``RCENTR``, so ``b0 * r0 == FPOL[-1]`` holds however wrong ``RCENTR``
+    itself may be -- nothing inside a g-file can validate that.  Downstream,
+    ``resolve_reference_major_radius`` cross-checks ``r0`` against ``tf``.
+    """
+    bcentr = _scalar(data.get("BCENTR"), 0.0)
+    rcentr = _scalar(data.get("RCENTR"), 0.0)
+    fpol = np.asarray(data.get("FPOL", ()), dtype=float).reshape(-1)
+    if fpol.size == 0 or not np.isfinite(fpol[-1]) or fpol[-1] == 0.0:
+        return bcentr
+    if not np.isfinite(rcentr) or rcentr == 0.0:
+        return bcentr
+    derived = float(fpol[-1]) / rcentr
+    if not np.isfinite(derived):
+        return bcentr
+    stated = np.isfinite(bcentr) and bcentr != 0.0
+    if stated and not np.isclose(derived, bcentr, rtol=BCENTR_FPOL_RTOL, atol=0.0):
+        warnings.warn(
+            f"g-file BCENTR={bcentr:.6g} T disagrees with FPOL[-1]/RCENTR="
+            f"{derived:.6g} T (FPOL[-1]={fpol[-1]:.6g} T.m, RCENTR={rcentr:.6g} m); "
+            "using the FPOL value, which is the field the equilibrium was solved "
+            "with (issue #325)",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return derived
+
 
 def _slope_flux_exponent(ts: Any) -> Optional[int]:
     """``e_Bp`` from the ``dphi/dpsi``-vs-``q`` slope, or ``None`` if it cannot answer.
@@ -877,10 +923,11 @@ def to_omas(
     eqt["global_quantities.psi_boundary"] = float(data["SIBRY"]) * TWO_PI
     eqt["global_quantities.ip"] = float(data["CURRENT"])
     ods["equilibrium.vacuum_toroidal_field.r0"] = float(data["RCENTR"])
+    b0 = _vacuum_b0(data)
     try:
-        ods.set_time_array("equilibrium.vacuum_toroidal_field.b0", time_index, float(data["BCENTR"]))
+        ods.set_time_array("equilibrium.vacuum_toroidal_field.b0", time_index, b0)
     except Exception:
-        ods[f"equilibrium.vacuum_toroidal_field.b0.{time_index}"] = float(data["BCENTR"])
+        ods[f"equilibrium.vacuum_toroidal_field.b0.{time_index}"] = b0
 
     eqt["profiles_1d.psi"] = psi_1d * TWO_PI
     eqt["profiles_1d.f"] = np.asarray(data["FPOL"], dtype=float)
@@ -890,7 +937,7 @@ def to_omas(
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
 
     # psi_1d is the g-file's weber-per-radian; the shared routine takes weber.
-    rho_tor_terms = rho_tor_profile(data["QPSI"], psi_1d * TWO_PI, data["BCENTR"])
+    rho_tor_terms = rho_tor_profile(data["QPSI"], psi_1d * TWO_PI, b0)
     if rho_tor_terms is None:
         # No toroidal coordinate is derivable, so write the poloidal one the DD
         # does define -- equilibrium profiles_1d has psi_norm but no
@@ -910,7 +957,9 @@ def to_omas(
     prof2d["psi"] = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh) * TWO_PI
 
     if allow_derived_data and float(data["CURRENT"]) != 0.0:
-        eqt["global_quantities.magnetic_axis.b_field_tor"] = float(data["BCENTR"]) * float(data["RCENTR"]) / float(data["RMAXIS"])
+        # b0 * RCENTR is FPOL[-1], the vacuum R*B_phi, so this is that field
+        # carried to the magnetic axis.
+        eqt["global_quantities.magnetic_axis.b_field_tor"] = b0 * float(data["RCENTR"]) / float(data["RMAXIS"])
         eqt["global_quantities.q_axis"] = float(np.asarray(data["QPSI"])[0])
         eqt["global_quantities.q_95"] = float(np.interp(0.95, np.linspace(0.0, 1.0, nw), np.asarray(data["QPSI"], dtype=float)))
         qpsi = np.asarray(data["QPSI"], dtype=float)
