@@ -6,7 +6,7 @@ source:
 - path: vaft/formula/utils.py
   sha256: 8cff7e12b46207ebdc394d51ca1ddeac1ed46b456b31861312512e4db250ffb8
 - path: vaft/formula/equilibrium.py
-  sha256: 6608f80acc9111485f398b553b4eaf2811a867643a2a9f68e9f02489039b7d46
+  sha256: e1d7c861a9ece2d53ffc793667a335861e25c3f924b0224dc767181e4d9eeb5c
 - path: vaft/formula/stability.py
   sha256: fa80e0cfde050c7aa36f349341670b1ca286ac458f361966de9f44c076668f29
 - path: vaft/formula/green.py
@@ -133,7 +133,7 @@ categories:
     description: triangularity
     unit: '-'
   conventions: ''
-  count: 89
+  count: 91
 - name: stability
   module: vaft.formula.stability
   title: Plasma stability, operational limits, and transport calculations.
@@ -3479,6 +3479,52 @@ formulas:
   aliases:
   - calc_rho_star
   shadowed_by: null
+- id: equilibrium.rho_tor_from_phi
+  name: rho_tor_from_phi
+  category: equilibrium
+  module: vaft.formula.equilibrium
+  signature: (phi, B0)
+  summary: Dimensional toroidal-flux radius $\rho_{tor} = \sqrt{|\Phi|/(\pi|B_0|)}$.
+  description: $$\rho_{tor} = \sqrt{\frac{|\Phi|}{\pi\,|B_0|}}$$
+  parameters:
+  - name: phi
+    type: float or np.ndarray
+    unit: Wb
+    description: Toroidal flux enclosed by the surface.
+  - name: B0
+    type: float
+    unit: T
+    description: Vacuum toroidal field at the reference major radius.
+  returns:
+  - name: null
+    type: float or np.ndarray
+    unit: m
+    description: Toroidal-flux radius.
+  sections:
+  - title: Convention
+    text: 'The IMAS ``rho_tor`` coordinate: the minor radius of the circle that
+
+      would carry the same toroidal flux in a uniform field $B_0$, with $B_0 =$
+
+      ``vacuum_toroidal_field.b0`` at ``r0``.  Absolute values are taken, so the
+
+      result is independent of the COCOS signs of $\Phi$ and $B_0$; divide by
+
+      the boundary value for ``rhoN_from_phi``''s ``rho_tor_norm``.'
+  - title: Physical interpretation
+    text: 'A length-like flux label that reduces to the geometric minor radius for a
+
+      circular, large-aspect-ratio plasma with uniform $B_0$.'
+  references:
+  - label: '1'
+    text: IMAS Data Dictionary, ``equilibrium.time_slice[:].profiles_1d.rho_tor``.
+  - label: '2'
+    text: F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239, Sec. II.B.
+  empirical: false
+  convention_sensitive: true
+  deprecated: false
+  aliases: []
+  shadowed_by: null
 - id: equilibrium.shear_from_r_q
   name: shear_from_r_q
   category: equilibrium
@@ -3706,6 +3752,58 @@ formulas:
     text: S. Ejima et al., Nucl. Fusion 22 (1982) 1313, Sec. 2.
   - label: '2'
     text: O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293, Table I.
+  empirical: false
+  convention_sensitive: true
+  deprecated: false
+  aliases: []
+  shadowed_by: null
+- id: equilibrium.toroidal_flux_from_q_psi
+  name: toroidal_flux_from_q_psi
+  category: equilibrium
+  module: vaft.formula.equilibrium
+  signature: (q, psi_wb)
+  summary: Cumulative toroidal flux $\Phi(\psi)$ from the $q$ profile on a full-weber grid.
+  description: $$\Phi(\psi) = \int_{\psi_a}^{\psi} q\,d\psi', \qquad \psi\ \text{in Wb}$$
+  parameters:
+  - name: q
+    type: np.ndarray
+    unit: '-'
+    description: Safety factor on the flux grid.
+  - name: psi_wb
+    type: np.ndarray
+    unit: Wb
+    description: Poloidal flux of the same surfaces, monotonic, full weber.
+  returns:
+  - name: null
+    type: np.ndarray
+    unit: Wb
+    description: Toroidal flux enclosed by each surface, starting at zero.
+  sections:
+  - title: Convention
+    text: '``psi_wb`` is the IMAS Data Dictionary flux (COCOS 11-18).  No $2\pi$
+
+      appears because $d\Phi/d\psi_{rad} = 2\pi q$ and $\psi_{wb} = 2\pi
+
+      \psi_{rad}$ cancel; pass ``2*np.pi*psi_rad`` for an EFIT or VFIT
+
+      per-radian profile (``vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor``
+
+      settles which family an ODS holds).  The orientation sign of $q$ and
+
+      $\psi$ is not applied: a COCOS with $\sigma_{\rho\theta\varphi} = -1$
+
+      gives a negative $\Phi$.'
+  - title: Numerical notes
+    text: 'Cumulative trapezoidal rule (``scipy.integrate.cumulative_trapezoid`` via
+
+      ``vaft.compat.cumtrapz_compat``); second order in the grid spacing,
+
+      and the result is the running integral, so its first element is zero.'
+  references:
+  - label: '1'
+    text: O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293, Eq. (17) and Table I.
+  - label: '2'
+    text: IMAS Data Dictionary, ``equilibrium.time_slice[:].profiles_1d.phi``.
   empirical: false
   convention_sensitive: true
   deprecated: false
