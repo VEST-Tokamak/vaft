@@ -56,7 +56,7 @@ flowchart TD
 | `vaft.database` | Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
 | `vaft.omas` | The ODS-aware API: `find_*`, `compute_*`, `update_*`, sample data | this page |
 | `vaft.process` | Array-in / array-out signal processing, EM response, magnetics chains | [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) |
-| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Physics formulas]({{ site.baseurl }}/guide/Formula/) |
+| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
 | `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
 | `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES) | this page |
@@ -258,11 +258,13 @@ physics layer. Neither one touches an ODS. Modules at a glance:
 | `vaft.formula.stability` | `beta_N_from_beta_a_B0_Ip`, `greenwald_density`, `greenwald_fraction`, ballooning/kink/sawtooth criteria |
 | `vaft.formula.green` | `greens_function_2d`, `green_br_bz`, complete elliptic integrals |
 | `vaft.formula.utils` | `gradient`, `trapz_integral`, `fit_profile`, `make_fit_function` |
+| `vaft.formula.atomic` | `interpolate_adf11`, `fractional_abundances`, `line_cooling_coefficient` on OPEN-ADAS ADF11 tables |
+| `vaft.formula.statistics` | residual, goodness-of-fit and convergence statistics (`rms`, `chi_squared`, `runs_test_z`, `log10_decay_rate`, ...) |
 | `vaft.formula.constants` | Physical constants used by the formula layer |
 
 Both are documented in full on the
 [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) and
-[Physics formulas]({{ site.baseurl }}/guide/Formula/) pages.
+[Formula reference]({{ site.baseurl }}/reference/formula/) pages; the latter is generated per function from the standardized docstrings.
 
 # `vaft.machine_mapping`
 
@@ -476,6 +478,6 @@ Browse the package on GitHub: [`vaft/`](https://github.com/VEST-Tokamak/vaft/tre
 * [Quick start guide]({{ site.baseurl }}/guide/Quick_start_guide/) — install, connect, load a shot.
 * [Data structures]({{ site.baseurl }}/guide/Data_structures/) — ODS, IDS and the IMAS data model.
 * [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) — `vaft.process` in depth.
-* [Physics formulas]({{ site.baseurl }}/guide/Formula/) — `vaft.formula` in depth.
+* [Formula reference]({{ site.baseurl }}/reference/formula/) — every `vaft.formula` function with definition, units, conventions and references.
 * [Magnetics]({{ site.baseurl }}/guide/Magnetics/) — plotting the magnetics IDS.
 * [Examples]({{ site.baseurl }}/guide/examples/) — the notebook index.

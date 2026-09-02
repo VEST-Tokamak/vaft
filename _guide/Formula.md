@@ -12,7 +12,7 @@ guide:
   expected: Limits, confinement metrics, statistical summaries, tables, and comparison plots.
 related:
   notebooks: [confinement-scaling, plotting-sample]
-  api: [process, plot]
+  api: [formula, process, plot]
   data_sources: [sample-ods, hsds-public]
   outputs: [confinement-scaling, hsds-39915]
 ---
@@ -39,16 +39,22 @@ flowchart LR
 | `vaft.formula.equilibrium` | Flux, safety factor, shear, current, geometry, energy, virial/Shafranov relations, power balance, dimensionless parameters, confinement scalings |
 | `vaft.formula.stability` | Beta conversions, ballooning/kink/sawtooth criteria, Greenwald limit, transport speeds |
 | `vaft.formula.green` | Axisymmetric Green's functions for $\psi$, $B_R$, $B_Z$ and the elliptic integrals behind them |
-| `vaft/formula/fittings.py` | Empty placeholder file. It is **not** star-imported and **not** registered in `_SUBMODULES`, so `vaft.formula.fittings` raises `AttributeError` on attribute access. Nothing is lost — the file defines no symbols. |
+| `vaft.formula.atomic` | OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients |
+| `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
-`vaft/formula/__init__.py` star-imports the five importable submodules above (`constants`, `utils`,
-`equilibrium`, `stability`, `green`), so each public symbol they define is reachable three ways:
+`vaft/formula/__init__.py` resolves its submodules lazily (PEP 562): importing one of them costs
+only that module, and `from vaft.formula import *` still exposes every public symbol.  Each is
+reachable three ways:
 
 ```python
 import vaft                                             # lazy: vaft.formula loads on first access
 from vaft.formula import greenwald_density              # flat namespace
 from vaft.formula.equilibrium import q_from_phi         # explicit submodule
 ```
+
+Every public function documents its definition, units, convention, validity, limitations and
+references in one standardized layout; `vaft.formula.describe("greenwald_density")` prints it, and the
+[Formula reference]({{ site.baseurl }}/reference/formula/) renders the same text per submodule.
 
 Function names encode their inputs — `confinement_time_from_engineering_parameters`,
 `beta_N_from_beta_a_B0_Ip`, `rho_star_from_M_T_B_R_epsilon`. Where two conventions exist for the same

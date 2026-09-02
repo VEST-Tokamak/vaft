@@ -64,6 +64,38 @@ if registry_source && !registry_source.empty?
   end
 end
 
+formula_snapshot = data("formula_catalog.yml")
+%w[schema_version generator source categories formulas].each do |field|
+  errors << "formula snapshot missing #{field}" unless formula_snapshot.key?(field)
+end
+formula_sources = formula_snapshot.fetch("source", [])
+errors << "formula snapshot has no sources" unless formula_sources.is_a?(Array) && !formula_sources.empty?
+formula_sources.each do |entry|
+  errors << "formula snapshot source checksum is invalid: #{entry['path']}" unless entry["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
+end
+formula_categories = formula_snapshot.fetch("categories", []).map { |item| item["name"] }
+formulas = formula_snapshot.fetch("formulas", [])
+errors << "formula snapshot has no formulas" unless formulas.is_a?(Array) && !formulas.empty?
+formula_ids = formulas.map { |item| item["id"] }
+errors << "formula snapshot has duplicate IDs" unless formula_ids.uniq.length == formula_ids.length
+formulas.each do |item|
+  %w[id name category signature summary parameters returns sections references empirical convention_sensitive].each do |field|
+    errors << "formula #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
+  end
+  errors << "formula #{item['id']} has unknown category #{item['category']}" unless formula_categories.include?(item["category"])
+end
+if registry_source && !registry_source.empty?
+  formula_sources.each do |entry|
+    source_path = Pathname(registry_source) / entry.fetch("path")
+    if source_path.file?
+      actual = Digest::SHA256.file(source_path).hexdigest
+      errors << "formula snapshot does not match VAFT_REGISTRY_SOURCE: #{entry['path']}" unless actual == entry["sha256"]
+    else
+      errors << "VAFT_REGISTRY_SOURCE has no #{entry['path']}"
+    end
+  end
+end
+
 migrations = data("page_migrations.yml")
 legacy_urls = migrations.map { |item| item.fetch("legacy_url") }
 errors << "duplicate legacy URL in page_migrations.yml" unless legacy_urls.uniq.length == legacy_urls.length
