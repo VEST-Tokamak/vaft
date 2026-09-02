@@ -146,3 +146,124 @@ def test_rho_tor_norm_is_indifferent_to_the_contamination_but_rho_tor_is_not():
         np.testing.assert_allclose(
             np.asarray(got["rho_tor"]), np.asarray(reference["rho_tor"]), rtol=1e-9
         )
+
+
+# --- the summary layer, which repairs what is already stored -----------------
+
+def _legacy_ods(b0_values, r0, f_edge, tf_r0=0.4, tf_field=0.060133):
+    """An ODS shaped like a VEST database shot: drifting b0, clean f."""
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.arange(len(b0_values), dtype=float) * 1e-3
+    ods["equilibrium.vacuum_toroidal_field.r0"] = r0
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.asarray(b0_values, float)
+    for index in range(len(b0_values)):
+        ts = ods[f"equilibrium.time_slice.{index}"]
+        ts["time"] = index * 1e-3
+        ts["profiles_1d.f"] = np.linspace(f_edge * 1.08, f_edge, 9)
+    if tf_r0 is not None:
+        ods["tf.r0"] = tf_r0
+        ods["tf.b_field_tor_vacuum_r.data"] = np.full(4, tf_field)
+        ods["tf.time"] = np.arange(4, dtype=float)
+    return ods
+
+
+def test_a_drifting_stored_b0_is_rebuilt_flat_from_f():
+    from vaft.database._summary import _normalize_vacuum_field
+
+    # Shot 39915's actual numbers: b0 climbing 73%, f_edge flat.
+    drifting = [0.14980, 0.16032, 0.16707, 0.17224, 0.17586, 0.19268, 0.23335, 0.25899]
+    ods = _legacy_ods(drifting, r0=0.231317, f_edge=-0.059906)
+
+    _normalize_vacuum_field(ods, 39915)
+
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+    r0 = float(ods["equilibrium.vacuum_toroidal_field.r0"])
+    assert r0 == pytest.approx(0.4)                     # tf's, not the back-solve
+    assert b0.max() / b0.min() == pytest.approx(1.0)    # the drift is gone
+    assert b0[0] * r0 == pytest.approx(0.059906)        # and it is the right field
+
+
+def test_the_correct_r0_shot_is_repaired_too():
+    # 41672 stores the right r0 and a b0 that swings 101% anyway -- the case
+    # that rules out r0 as the cause.
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = _legacy_ods([0.17339, 0.34901], r0=0.4, f_edge=-0.069, tf_field=0.07021)
+    _normalize_vacuum_field(ods, 41672)
+
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+    assert b0[0] == pytest.approx(b0[1])
+    assert b0[0] == pytest.approx(0.069 / 0.4)
+
+
+def test_a_healthy_shot_is_left_where_it_was():
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = _legacy_ods([0.15, 0.15], r0=0.4, f_edge=-0.06, tf_field=0.06)
+    _normalize_vacuum_field(ods, 12345)
+
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+    np.testing.assert_allclose(b0, [0.15, 0.15], rtol=1e-12)
+    assert float(ods["equilibrium.vacuum_toroidal_field.r0"]) == pytest.approx(0.4)
+
+
+def test_the_stored_sign_survives_the_rebuild():
+    # f is negative and b0 positive on VEST; flipping the column's sign would
+    # look like a physics change rather than a repair.
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = _legacy_ods([-0.15, -0.20], r0=0.4, f_edge=-0.06, tf_field=0.06)
+    _normalize_vacuum_field(ods, 12345)
+
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+    assert np.all(b0 < 0)
+    assert b0[0] == pytest.approx(-0.15)
+
+
+def test_without_f_nothing_is_touched():
+    from omas import ODS
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.vacuum_toroidal_field.r0"] = 0.231317
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15, 0.26])
+    ods["equilibrium.time_slice.0.time"] = 0.0
+    ods["equilibrium.time_slice.1.time"] = 1e-3
+
+    _normalize_vacuum_field(ods, 12345)
+
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+    np.testing.assert_allclose(b0, [0.15, 0.26], rtol=1e-12)
+    assert float(ods["equilibrium.vacuum_toroidal_field.r0"]) == pytest.approx(0.231317)
+
+
+def test_a_clean_f_does_not_excuse_a_corrupt_r0():
+    """``profiles_1d.f`` must not become the basis of the R_0 cross-check.
+
+    It is the better field, which is exactly why it is the wrong test: f is the
+    vacuum ``B*R`` whatever reference radius the file names, so it matches ``tf``
+    even when ``r0`` is the back-solved 0.2313. Only ``b0*r0`` carries ``r0``
+    into the comparison. Swapping one for the other silently disables the
+    detection while every other test still passes.
+    """
+    import vaft.omas as vomas
+
+    ods = _legacy_ods(
+        [0.14980, 0.16032, 0.16707, 0.17224, 0.17586, 0.19268, 0.23335, 0.25899],
+        r0=0.231317,          # the corruption
+        f_edge=-0.059906,     # clean, and agreeing with tf below
+        tf_field=0.060133,
+    )
+    assert vomas.resolve_reference_major_radius(ods) == pytest.approx(0.4)
+
+
+def test_a_self_consistent_unconventional_r0_is_not_overruled():
+    # A machine may legitimately reference its field somewhere other than tf.r0;
+    # what marks the VEST corruption is the pair disagreeing about the physics,
+    # not r0 differing from tf.r0.
+    import vaft.omas as vomas
+
+    ods = _legacy_ods([0.060133 / 0.3] * 3, r0=0.3, f_edge=-0.060133, tf_field=0.060133)
+    assert vomas.resolve_reference_major_radius(ods) == pytest.approx(0.3)
