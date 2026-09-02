@@ -896,34 +896,27 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
 def beta_toroidal_from_p_B0(p_average: float,
                             B0: float) -> float:
     r"""Toroidal beta from the volume-averaged pressure and the vacuum field.
-
-    $$\beta_t = \frac{2\mu_0\,\langle p\rangle_V}{B_0^2}$$
-
+    
+    $$\beta_t = \frac{2\mu_0 \langle p \rangle_V}{B_0^2}$$
+    
     Parameters
     ----------
     p_average : float
-        Volume-averaged total plasma pressure [Pa].
+        Volume-averaged plasma pressure [Pa].
     B0 : float
-        Vacuum toroidal field at the reference major radius [T].
-
+        Vacuum toroidal field at ``r0`` (``equilibrium.vacuum_toroidal_field.b0``),
+        as the DD requires [T].
+    
     Returns
     -------
     float
-        Toroidal beta as a fraction [-].
-
-    Convention
-    ----------
-    ``B0`` is the *vacuum* field at ``r0``
-    (``equilibrium.vacuum_toroidal_field.b0``), as the IMAS Data Dictionary
-    requires for ``global_quantities.beta_tor``, not the field on the magnetic
-    axis and not the field including the plasma's own diamagnetism. Returns a
-    fraction; :func:`beta_normal_from_beta_tor` converts to the percent
-    convention $\beta_N$ is quoted in.
-
+        Toroidal beta [-].
+    
     References
     ----------
-    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_tor``.
-    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.5.
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 3, Equilibrium (definition of beta).
+    .. [2] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_tor``.
     """
     return 2 * MU0 * float(p_average) / float(B0) ** 2
 
@@ -932,38 +925,34 @@ def beta_poloidal_from_pressure_integral(pressure_integral: float,
                                          R0: float,
                                          Ip: float) -> float:
     r"""Poloidal beta in the IMAS definition, from the pressure volume integral.
-
-    $$\beta_p = \frac{4\int p\,dV}{R_0\,\mu_0\,I_p^2}$$
-
+    
+    $$\beta_p = \frac{4 \int p \, dV}{R_0 \mu_0 I_p^2}$$
+    
     Parameters
     ----------
     pressure_integral : float
-        $\int p\,dV$ over the plasma volume [J].
+        Plasma pressure integrated over the plasma volume [Pa m^3].
     R0 : float
-        Reference major radius [m].
+        Reference major radius the DD normalizes by [m].
     Ip : float
         Plasma current [A].
-
+    
     Returns
     -------
     float
         Poloidal beta [-].
-
+    
     Convention
     ----------
-    The Data Dictionary normalisation, which divides by $R_0\mu_0I_p^2$. It is
-    *not* the EFIT and OMFIT convention, which normalises by the poloidal field
-    implied by the boundary circumference; that is
-    :func:`beta_poloidal_from_circumference`, and the two differ by the geometric
-    factor $R_0L_{pol}^2/(2V)$, 26 % on the packaged kinetic reference. Which one
-    a stored value used has to be established, not assumed; issue #318 owns that
-    comparison.
-
+    This is the DD-normative ``beta_pol``, normalized by ``R_0 mu_0 Ip^2``.
+    The EFIT/OMFIT circumference form is a different definition; see
+    :func:`beta_poloidal_from_circumference`.
+    
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_pol``.
-    .. [2] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
-           25 (1985) 1421, Sec. 2.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 3, Equilibrium (definition of beta).
     """
     return 4 * float(pressure_integral) / (float(R0) * MU0 * float(Ip) ** 2)
 
@@ -972,42 +961,26 @@ def beta_normal_from_beta_tor(beta_tor: float,
                               a: float,
                               B0: float,
                               Ip: float) -> float:
-    r"""Normalised beta in the community convention, from toroidal beta.
-
-    $$\beta_N = 100\,\beta_t\,\frac{a\,|B_0|}{|I_p\,[\mathrm{MA}]|}$$
-
+    r"""Normalized beta (Troyon) from toroidal beta, minor radius, field and current.
+    
+    $$\beta_N = 100\,\beta_t \frac{a |B_0|}{|I_p[\mathrm{MA}]|}$$
+    
     Parameters
     ----------
     beta_tor : float
-        Toroidal beta as a fraction [-].
+        Toroidal beta [-].
     a : float
         Minor radius [m].
     B0 : float
-        Vacuum toroidal field at the reference major radius [T].
+        Vacuum toroidal field at ``r0`` [T].
     Ip : float
-        Plasma current, converted to MA internally [A].
-
+        Plasma current; converted to MA internally [A].
+    
     Returns
     -------
     float
-        Normalised beta [%·m·T/MA].
-
-    Convention
-    ----------
-    The convention the Troyon limit is quoted in: $\beta_t$ as a fraction on the
-    way in, percent on the way out, and $I_p$ in amperes converted to MA here.
-    Signs are removed from $B_0$ and $I_p$, so the result is positive whatever
-    the COCOS orientation. This is the definition
-    :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` does *not* implement;
-    that one evaluates the ratio literally in SI and is 1e-8 times this
-    (issue #349).
-
-    Physical interpretation
-    -----------------------
-    Pressure measured against the current that confines it. The Troyon limit is
-    $\beta_N \lesssim 2.8$ in these units, and spherical tokamaks operate well
-    above it.
-
+        Normalized beta [% m T/MA].
+    
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
@@ -1019,45 +992,31 @@ def beta_normal_from_beta_tor(beta_tor: float,
 def li_3_from_Bp2_volume_integral(Bp2_dV: float,
                                   Ip: float,
                                   R0: float) -> float:
-    r"""Internal inductance in the IMAS ``li_3`` definition.
-
-    $$l_{i3} = \frac{2\int B_p^2\,dV}{\mu_0^2\,I_p^2\,R_0}
-            = \frac{2V\langle B_p^2\rangle}{\mu_0^2 I_p^2 R_0}$$
-
+    r"""Internal inductance in the IMAS ``li_3`` definition, from the poloidal-field energy.
+    
+    $$l_{i3} = \frac{2 \int B_p^2 \, dV}{\mu_0^2 I_p^2 R_0}$$
+    
+    The same quantity OMFIT reports as ``li_(3)_IMAS``.
+    
     Parameters
     ----------
     Bp2_dV : float
-        $\int B_p^2\,dV$ over the plasma volume [T^2 m^3].
+        Poloidal field squared integrated over the plasma volume [T^2 m^3].
     Ip : float
         Plasma current [A].
     R0 : float
-        Reference major radius [m].
-
+        Reference major radius the DD normalizes by [m].
+    
     Returns
     -------
     float
-        Internal inductance $l_{i3}$ [-].
-
-    Convention
-    ----------
-    The third of the three internal-inductance definitions in circulation, and
-    the one the Data Dictionary stores; it is what OMFIT reports as
-    ``li_(3)_IMAS``. The Lao and EFIT $l_i$ normalises $\langle B_p^2\rangle$ by
-    the boundary-averaged $B_{pa}$ instead
-    (:func:`virial_li_from_volume`), and the cylindrical $l_i$ by $B_p(a)$. The
-    three differ by shape-dependent factors, so a value is only comparable within
-    one definition.
-
-    Physical interpretation
-    -----------------------
-    How peaked the current profile is: higher $l_{i3}$ means more of the plasma
-    current, and so more poloidal field energy, concentrated near the axis.
-
+        Internal inductance, ``li_3`` definition [-].
+    
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
-    .. [2] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
-           25 (1985) 1421, Sec. 2.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 3, Equilibrium (internal inductance).
     """
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
 
@@ -1065,46 +1024,41 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
 def beta_poloidal_from_circumference(p_average: float,
                                      Ip: float,
                                      length_pol: float) -> float:
-    r"""Poloidal beta in the EFIT and OMFIT convention, normalised by the boundary length.
-
-    $$\beta_{p,\mathrm{circ}} = \frac{2\mu_0\langle p\rangle_V}{B_{pa}^2},
-      \qquad B_{pa} = \frac{\mu_0 I_p}{L_{pol}}$$
-
+    r"""Poloidal beta in the EFIT/OMFIT convention, normalized by the LCFS circumference.
+    
+    $$\beta_{p,\mathrm{circ}} = \frac{2\mu_0 \langle p \rangle_V}{B_{pa}^2}, \qquad
+      B_{pa} = \frac{\mu_0 I_p}{L_{pol}}$$
+    
     Parameters
     ----------
     p_average : float
-        Volume-averaged total plasma pressure [Pa].
+        Volume-averaged plasma pressure [Pa].
     Ip : float
         Plasma current [A].
     length_pol : float
         Poloidal circumference of the last closed flux surface [m].
-
+    
     Returns
     -------
     float
-        Poloidal beta in the circumference normalisation [-].
-
+        Poloidal beta, circumference convention [-].
+    
     Convention
     ----------
-    **Not** the Data Dictionary's ``beta_pol``, and not an approximation of it.
-    This normalises the volume-averaged pressure by the poloidal field implied by
-    the boundary *circumference*, where the DD form
-    (:func:`beta_poloidal_from_pressure_integral`) normalises by $R_0\mu_0I_p^2$.
-    They are different definitions sharing a name, differing by the geometric
-    factor $R_0L_{pol}^2/(2V)$: 26 % on the packaged kinetic reference, where this
-    form reproduces the stored value to 0.1 % and the DD form does not.
-
-    It exists so the database summary can keep reporting what OMFIT reported
-    before VAFT derived these itself. ``global_quantities.beta_pol`` stays
-    DD-normative. Issue #318 owns the convergence and geometry comparison of the
-    two.
-
+    **Not** the IMAS DD's ``beta_pol``, and not an estimate of it: this
+    normalizes the volume-averaged pressure by the poloidal field implied by
+    the LCFS *circumference* rather than by ``R_0 mu_0 Ip^2``.  The two differ
+    by the geometric factor ``R_0 L_pol^2 / (2 V)`` -- 26% on the packaged
+    kineticEfit reference, where this form reproduces the stored value to
+    0.1% and the DD form does not.  It exists so the database summary can keep
+    reporting what OMFIT reported; ``global_quantities.beta_pol`` stays
+    DD-normative (see :func:`beta_poloidal_from_pressure_integral` and issue
+    #318, which owns the sensitivity study of the two).
+    
     References
     ----------
-    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
-           25 (1985) 1421, Sec. 2.
-    .. [2] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_pol``
-           (the definition this one deliberately differs from).
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh, A. G. Kellman and
+           W. Pfeiffer, Nucl. Fusion 25 (1985) 1611 (EFIT definitions).
     """
     b_pa = MU0 * abs(float(Ip)) / float(length_pol)
     return 2 * MU0 * float(p_average) / b_pa**2
