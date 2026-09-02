@@ -37,6 +37,7 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from vaft.formula.magnetics import project_poloidal_field
 from vaft.ods_access import path_count as _count, path_value
 from vaft.formula.statistics import (
     fractional_rms_improvement,
@@ -74,6 +75,8 @@ __all__ = [
     "vacuum_magnetics_metrics",
     "vacuum_response",
     "vacuum_residual_metrics",
+    "wall_authority",
+    "DEFAULT_MIN_WALL_AUTHORITY",
 ]
 
 B_FIELD_POL_PROBE = "b_field_pol_probe"
@@ -131,11 +134,54 @@ class VacuumChannel:
         """Measured minus the coil-only synthetic, the eddy term's baseline."""
         return self.measured - self.coil
 
+    @property
+    def eddy_term(self) -> np.ndarray:
+        """What the passive wall adds to the coil-only forward model."""
+        return self.coil_eddy - self.coil
+
+    def wall_authority(self, mask: np.ndarray | None = None) -> float:
+        """See :func:`wall_authority`; ``mask`` is expected to be an
+        :func:`evaluation_mask` (validity already applied)."""
+        return wall_authority(self.eddy_term, self.measured, self.usable if mask is None else mask)
+
 
 # ---------------------------------------------------------------------------
 # Scalar QA helpers.  Pure array functions, so the physics tests can drive them
 # directly with synthetic signals.
 # ---------------------------------------------------------------------------
+
+def wall_authority(eddy_term: np.ndarray, measured: np.ndarray, window: np.ndarray) -> float:
+    """``rms(eddy term) / rms(measured)`` over ``window`` -- how much of what a
+    sensor reads the passive-wall term can account for at all.
+
+    A conditioning number, not a verdict.  Where it is small the eddy model's
+    *improvement* is undefined in practice: the term being judged is
+    comparable to the model's own error, so the sign of the improvement is a
+    coin flip.  On VEST the inboard flux loops (r ~ 0.09-0.14 m) sit at
+    0.02-0.05 because vessel currents flow at larger R and their flux nearly
+    cancels through a small inboard loop; the outboard loops sit at 0.45-0.85.
+    Comparing the two families' improvements as if they were the same
+    measurement is what this number exists to prevent.  ``measured`` is the
+    raw reading, so a channel carrying a large DC offset reports a deflated
+    authority; ``nan`` when the window is empty or the reading is identically
+    zero.
+    """
+    window = np.asarray(window, dtype=bool)
+    if not window.any():
+        return float("nan")
+    denominator = rms(np.asarray(measured, dtype=float)[window])
+    if not denominator > 0.0:
+        return float("nan")
+    return float(rms(np.asarray(eddy_term, dtype=float)[window]) / denominator)
+
+
+#: Wall authority below which a channel's improvement is not scored by the
+#: routine QA (:func:`vacuum_magnetics_metrics`) and the production stage:
+#: the wall term is then under a tenth of the reading, i.e. comparable to
+#: the model's own error, and on VEST this selects exactly the inboard flux
+#: loops (0.02-0.05).  A conditioning floor, not an acceptance threshold.
+DEFAULT_MIN_WALL_AUTHORITY = 0.10
+
 
 def residual_rms(residual: np.ndarray, window: np.ndarray) -> float:
     """RMS of ``residual`` over the boolean ``window``."""
@@ -562,12 +608,9 @@ def synthetic_vacuum_magnetics(
         if row["kind"] == FLUX_LOOP:
             response = psi[position]
         else:
-            angle = row["poloidal_angle"]
-            # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
-            # (cos, -sin) in (R, Z).  Projecting with (cos, +sin) inverts every
-            # probe; it did so here until issue #288, cancelling against a
-            # stored angle that was wrong the same way.
-            response = b_r[position] * np.cos(angle) - b_z[position] * np.sin(angle)
+            # The one shared reading of the stored angle (issue #288): see
+            # vaft.formula.magnetics for why (cos, +sin) would be wrong.
+            response = project_poloidal_field(b_r[position], b_z[position], row["poloidal_angle"])
         coil = response[:n_coil] @ coil_currents
         eddy = response[n_coil : n_coil + n_loop] @ loop_currents
         quantity = "flux" if row["kind"] == FLUX_LOOP else "field"
@@ -695,6 +738,12 @@ def channel_residual_metrics(
         Measured against coil+eddy.  Near 1 with a large residual means the
         dynamics are right and the gain is wrong -- a calibration question, not
         a wall-model one.
+    ``wall_authority``
+        ``rms(eddy term) / rms(measured)`` -- see
+        :meth:`VacuumChannel.wall_authority`.  Read ``improvement`` in its
+        light: where the wall term is a few percent of the reading, a
+        negative improvement is a rounding of the model's error, not a
+        finding about the wall.
 
     A channel with too few usable samples is reported ``excluded`` with a
     reason rather than being counted as a model failure.
@@ -719,6 +768,7 @@ def channel_residual_metrics(
         "window_start": float(channel.time[mask][0]) if mask.any() else float("nan"),
         "window_end": float(channel.time[mask][-1]) if mask.any() else float("nan"),
     }
+    row["wall_authority"] = channel.wall_authority(mask)
     if int(mask.sum()) < int(min_samples):
         usable = int(channel.usable.sum())
         row["status"] = "excluded"
@@ -756,6 +806,7 @@ def vacuum_residual_metrics(
     *,
     window: tuple[float, float] | None = None,
     min_samples: int = 2,
+    min_wall_authority: float = 0.0,
 ) -> dict[str, Any]:
     """Per-channel and per-family measured-versus-model agreement (issue #190).
 
@@ -767,16 +818,27 @@ def vacuum_residual_metrics(
     Metrics only -- no thresholds, no verdict.  What counts as acceptable
     depends on the study, and #190 is explicit that broad acceptance thresholds
     must wait until the VEST benchmark distribution has been inspected.
+
+    ``min_wall_authority`` is a *conditioning* floor, not an acceptance one:
+    the ``summary["scored"]`` block repeats the improvement spread over the
+    channels whose wall term is at least that fraction of their reading
+    (:func:`wall_authority`), so a family the wall barely reaches cannot set
+    the minimum.  The unfloored spreads are always reported too; at the
+    default ``0.0`` the two differ only by channels whose authority is
+    undefined (an identically zero reading).
     """
     rows = [
         channel_residual_metrics(channel, window=window, min_samples=min_samples)
         for channel in channels
     ]
     evaluated = [row for row in rows if row["status"] == "evaluated"]
+    scored_rows = [
+        row for row in evaluated if row["wall_authority"] >= float(min_wall_authority)
+    ]
 
-    def spread(key: str) -> dict[str, float]:
+    def spread(key: str, over: list[dict[str, Any]] = evaluated) -> dict[str, float]:
         values = np.array(
-            [row[key] for row in evaluated if np.isfinite(row[key])], dtype=float
+            [row[key] for row in over if np.isfinite(row[key])], dtype=float
         )
         if values.size == 0:
             return {"median": float("nan"), "min": float("nan"), "max": float("nan")}
@@ -812,6 +874,12 @@ def vacuum_residual_metrics(
             "improvement": spread("improvement"),
             "normalized_residual": spread("normalized_residual"),
             "correlation": spread("correlation"),
+            "wall_authority": spread("wall_authority"),
+            "scored": {
+                "min_wall_authority": float(min_wall_authority),
+                "count": len(scored_rows),
+                "improvement": spread("improvement", scored_rows),
+            },
             "improved_fraction": (
                 float(
                     np.mean([row["improvement"] > 0.0 for row in evaluated])
@@ -829,8 +897,15 @@ def vacuum_magnetics_metrics(
     plasma_onset: float,
     plasma_current: tuple[np.ndarray, np.ndarray] | None = None,
     sigma: float = ONSET_SIGMA,
+    min_wall_authority: float = 0.0,
 ) -> dict[str, Any]:
     """Quantitative QA for one shot's vacuum-magnetics validation.
+
+    ``min_wall_authority`` is handed to the shared kernel: ``summary["scored"]``
+    repeats the improvement spread over the channels whose wall term is at
+    least that fraction of what they read (:func:`wall_authority`).  The
+    unfloored ``median_improvement`` / ``min_improvement`` are always over
+    every channel.
 
     Everything issue #139 asks the eddy stage to record: the pre-plasma residual
     RMS with and without the eddy response, the improvement from adding it, the
@@ -867,7 +942,10 @@ def vacuum_magnetics_metrics(
     # "residual RMS" means. What stays here is the onset analysis, which is
     # specific to asking where the plasma signal emerges.
     pre_plasma = (float("-inf"), float(plasma_onset))
-    rows = vacuum_residual_metrics(channels, window=pre_plasma)["channels"]
+    kernel = vacuum_residual_metrics(
+        channels, window=pre_plasma, min_wall_authority=min_wall_authority
+    )
+    rows = kernel["channels"]
     for channel, row in zip(channels, rows):
         window = evaluation_mask(channel, pre_plasma)
         if row["status"] != "evaluated":
@@ -940,5 +1018,7 @@ def vacuum_magnetics_metrics(
             "channels_without_onset": sum(
                 1 for row in rows if not np.isfinite(row["residual_onset"])
             ),
+            "wall_authority": kernel["summary"]["wall_authority"],
+            "scored": kernel["summary"]["scored"],
         },
     }

@@ -49,3 +49,14 @@ workflow/**/*.log
 # HSDS credentials (written by `hsconfigure`; never commit a real one)
 .hscfg
 **/.hscfg
+
+# Quarto render products and cache (issue #322). Presentation outputs are built
+# on demand and by CI; none of them are committed.
+/tutorial/**/_output/
+/tutorial/**/.quarto/
+/tutorial/**/_freeze/
+/tutorial/presentations/**/*.html
+/tutorial/presentations/**/*.pdf
+/tutorial/presentations/**/*_files/
+# Only the rendered deck .tex, never the theme partials in _extensions/.
+/tutorial/presentations/*.tex

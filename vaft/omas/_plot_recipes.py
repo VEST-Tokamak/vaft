@@ -4365,6 +4365,7 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
     from vaft.omas.vacuum_magnetics import (
         plasma_onset_time,
         synthetic_vacuum_magnetics,
+        DEFAULT_MIN_WALL_AUTHORITY,
         vacuum_magnetics_metrics,
     )
 
@@ -4385,6 +4386,9 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         # The same threshold the residual figure draws its band at, so the
         # markers and the Delta-t annotations describe the band the reader sees.
         sigma=float(options.get("sigma", 5.0)),
+        min_wall_authority=float(
+            options.get("min_wall_authority", DEFAULT_MIN_WALL_AUTHORITY)
+        ),
     )
     return channels, metrics
 
@@ -4392,10 +4396,13 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
 def _vacuum_suptitle(ods: Any, metrics: Mapping[str, Any], headline: str) -> str:
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     summary = metrics["summary"]
+    scored = summary["scored"]
     return (
         f"{headline} — shot {pulse}\n"
         f"{summary['channel_count']} channels, median eddy improvement "
-        f"{summary['median_improvement']:.2f} (worst {summary['min_improvement']:.2f})"
+        f"{summary['median_improvement']:.2f} (worst {summary['min_improvement']:.2f}); "
+        f"worst where the wall reaches {scored['improvement']['min']:.2f} "
+        f"({scored['count']} channels, authority ≥ {scored['min_wall_authority']:.2f})"
     )
 
 

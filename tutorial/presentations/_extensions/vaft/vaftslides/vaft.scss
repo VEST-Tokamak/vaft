@@ -1,0 +1,81 @@
+/*-- scss:defaults --*/
+
+// VAFT Reveal.js theme.
+//
+// The counterpart to vaft-beamer.tex beside it. The two are the same design
+// expressed twice, and drift between them shows up as two decks that no longer
+// look like the same course -- so change them together.
+
+// Brand colour, matching \definecolor{vaftblue}{RGB}{25,76,127}.
+$vaft-blue: #194c7f;
+
+// Typeface.
+//
+// Reveal ships Source Sans Pro, but Beamer can only reach it through
+// sourcesanspro in texlive-fonts-extra (~1.2 GB in CI). Both sides meet on a
+// Helvetica-metric face instead: helvet/Nimbus Sans there, this stack here.
+// Nimbus Sans and Liberation Sans are the usual Linux substitutes and are
+// metrically identical, so the two outputs set the same text the same way.
+$font-family-sans-serif: "Helvetica Neue", Helvetica, Arial, "Nimbus Sans", sans-serif !default;
+$presentation-heading-font: $font-family-sans-serif !default;
+
+// Sizes are Quarto's Reveal defaults, deliberately left alone: vaft-beamer.tex
+// converts *these* into points so the Beamer output matches. Overriding the
+// root here silently shrinks one backend relative to the other, which is the
+// bug this file previously had.
+//   root/body 40px | frametitle (h2) 64px | title (h1) 100px
+
+$body-bg: #ffffff;
+$body-color: #1a1a1a;
+$link-color: $vaft-blue;
+$selection-bg: rgba(25, 76, 127, 0.25);
+
+$presentation-heading-color: $vaft-blue;
+$presentation-heading-font-weight: 600;
+
+$code-block-font-size: 0.62em;
+$code-block-border-color: rgba(25, 76, 127, 0.35);
+
+/*-- scss:rules --*/
+
+.reveal .slide-number {
+  background-color: transparent;
+  color: $vaft-blue;
+}
+
+.reveal .title-slide h1.title {
+  color: $vaft-blue;
+  line-height: 1.15;
+}
+
+.reveal .title-slide .subtitle {
+  color: rgba(26, 26, 26, 0.75);
+}
+
+.reveal section.center h1 {
+  color: $vaft-blue;
+}
+
+.reveal blockquote {
+  border-left: 4px solid $vaft-blue;
+  padding-left: 0.6em;
+  font-style: normal;
+}
+
+.reveal table th {
+  color: $vaft-blue;
+  border-bottom: 2px solid $vaft-blue;
+}
+
+// Do NOT add horizontal padding or margins to .column here. Quarto lays the
+// columns out as inline-block boxes at the width= you give them, with
+// content-box sizing, so two 50% columns already fill the line exactly. Any
+// extra padding pushes the pair past 100%, and the second column wraps onto the
+// next line -- silently turning a two-column slide into a stacked one that
+// overflows the bottom of the slide. Quarto already spaces the columns via
+// `.reveal .columns > .column > :not(ul, ol)` margins.
+
+.reveal figure figcaption {
+  font-size: 0.55em;
+  color: rgba(26, 26, 26, 0.7);
+}

@@ -48,16 +48,21 @@ validate them would turn the benchmark into an underconstrained fit.
 from __future__ import annotations
 
 import copy
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, TYPE_CHECKING
 
 import numpy as np
 
 from vaft.formula.statistics import sigma_threshold_crossing
 from vaft.ods_access import path_value
 
+if TYPE_CHECKING:  # pragma: no cover
+    from vaft.machine_mapping.wall_resistance import WallResistanceCalibration
+
 __all__ = [
     "BenchmarkError",
     "DEFAULT_HISTORY_TIME_CONSTANTS",
+    "MIN_COIL_DRIVE_FRACTION",
+    "coil_drive_check",
     "PlasmaFreeInterval",
     "aggregate_benchmark",
     "benchmark_wall_currents",
@@ -72,6 +77,16 @@ __all__ = [
 #: begins from ``I_wall = 0``; after ``n`` time constants that assumption has
 #: decayed by ``exp(-n)``, so three leaves under 5% of it.
 DEFAULT_HISTORY_TIME_CONSTANTS = 3.0
+
+#: Smallest fraction of the shot's peak PF current that must appear inside the
+#: validation window for a plasma-free eddy score to mean anything (see
+#: :func:`coil_drive_check`).  Measured through the benchmark's own validation
+#: windows on the packaged samples: 39915 reaches 0.34 of its shot peak (the
+#: peak itself comes during the plasma phase), while 41524 reaches 0.003 --
+#: its solenoid fires ~0.8 ms *after* the Ip detector triggers, so its nominal
+#: plasma-free window carries no drive at all and no model can pass or fail
+#: on it.  Over the full pre-onset stretch the driven shots sit at 0.99-1.00.
+MIN_COIL_DRIVE_FRACTION = 0.10
 
 #: Sigma above the early-record noise band at which the plasma current is
 #: considered to have emerged.  Matches the residual-onset convention in
@@ -238,6 +253,7 @@ def benchmark_wall_currents(
     ods: Any,
     *,
     resistance_scale: float = 1.0,
+    calibration: "WallResistanceCalibration | None" = None,
     dt_sub: float = 5.0e-5,
 ) -> Any:
     """Re-solve the passive-wall currents driven by measured PF currents alone.
@@ -258,6 +274,15 @@ def benchmark_wall_currents(
     It is deliberately a single scalar: fitting hundreds of loop resistances
     against the magnetic data used to validate them would make the benchmark an
     underconstrained fit rather than an independent qualification.
+
+    ``calibration`` replaces the shipped resistances with the nominal hoop
+    resistance times that vintage's 31 band factors
+    (:mod:`vaft.machine_mapping.wall_resistance`). ``None`` leaves the ODS's
+    own values in place -- byte-identical to before this seam existed -- and
+    the vintage the shipped asset was built from reproduces them exactly, so
+    passing it is a no-op that makes the wall's provenance explicit. This is
+    the seam a #308 calibration fit varies; ``resistance_scale`` still
+    multiplies on top.
     """
     from vaft.omas.process_wrapper import compute_eddy_currents
 
@@ -265,6 +290,11 @@ def benchmark_wall_currents(
     scale = float(resistance_scale)
     if scale <= 0.0:
         raise BenchmarkError(f"resistance_scale must be positive, got {scale}")
+    if calibration is not None:
+        from vaft.machine_mapping.wall_resistance import calibrated_resistance
+
+        for index, value in enumerate(calibrated_resistance(working, calibration)):
+            working[f"pf_passive.loop.{index}.resistance"] = float(value)
     if scale != 1.0:
         for index in range(len(working["pf_passive.loop"])):
             path = f"pf_passive.loop.{index}.resistance"
@@ -371,6 +401,74 @@ def _pf_excitation(ods: Any) -> dict[str, Any]:
     }
 
 
+def coil_drive_check(ods: Any, window: tuple[float, float]) -> dict[str, Any]:
+    """Whether the coils drove the vessel inside ``window`` at all.
+
+    The wall term is a response to the coils, so a window in which the coils
+    barely moved is instrument baseline and the residual improvement measured
+    there is a ratio of two noise numbers.  ``coil_drive_fraction`` is the
+    peak coil current inside the half-open window as a fraction of the shot's
+    peak (the shot peak, which VEST reaches during the plasma phase, is the
+    only current scale the ODS itself supplies); ``sufficiently_driven``
+    compares it with :data:`MIN_COIL_DRIVE_FRACTION`.  A precondition,
+    reported rather than raised, like :func:`solver_history_check`.  It
+    answers "did the coils move here", not "is the wall excited here": a coil
+    that ramped before the window still drives a decaying wall current.
+
+    Every key is always present.  A coil whose current is stored on a grid of
+    a different length than ``pf_active.time`` cannot be windowed and is
+    listed in ``skipped_coils`` rather than silently counted as zero drive.
+    """
+    time = _signal(ods, "pf_active.time")
+    start, end = float(window[0]), float(window[1])
+    report: dict[str, Any] = {
+        "window": [start, end],
+        "min_coil_drive_fraction": MIN_COIL_DRIVE_FRACTION,
+        "shot_peak_abs_current": None,
+        "window_peak_abs_current": None,
+        "coil_drive_fraction": None,
+        "sufficiently_driven": False,
+        "skipped_coils": [],
+        "reason": "",
+    }
+    if time is None:
+        report["reason"] = "the ODS carries no usable pf_active time grid"
+        return report
+    inside = (time >= start) & (time < end)
+    shot_peak = 0.0
+    window_peak = 0.0
+    for index in range(len(ods["pf_active.coil"])):
+        current = _signal(ods, f"pf_active.coil.{index}.current.data")
+        if current is None:
+            continue
+        shot_peak = max(shot_peak, float(np.max(np.abs(current))))
+        if current.size != inside.size:
+            report["skipped_coils"].append(
+                str(ods.get(f"pf_active.coil.{index}.name", f"PF{index}") or f"PF{index}")
+            )
+            continue
+        if inside.any():
+            window_peak = max(window_peak, float(np.max(np.abs(current[inside]))))
+    report["shot_peak_abs_current"] = shot_peak
+    report["window_peak_abs_current"] = window_peak
+    if shot_peak <= 0.0:
+        report["reason"] = "no coil carried current anywhere in the record"
+        return report
+    fraction = window_peak / shot_peak
+    report["coil_drive_fraction"] = float(fraction)
+    report["sufficiently_driven"] = bool(fraction >= MIN_COIL_DRIVE_FRACTION)
+    if not report["sufficiently_driven"]:
+        report["reason"] = (
+            f"peak coil current inside the window is {fraction:.3g} of the shot peak, "
+            f"below {MIN_COIL_DRIVE_FRACTION:g}: the eddy score here is a ratio of noise"
+        )
+    if report["skipped_coils"]:
+        report["reason"] = (report["reason"] + "; " if report["reason"] else "") + (
+            f"{len(report['skipped_coils'])} coil(s) off the pf_active grid were not windowed"
+        )
+    return report
+
+
 def _static_model(ods: Any) -> dict[str, Any]:
     """The machine-model revision a case was evaluated against.
 
@@ -385,7 +483,14 @@ def _static_model(ods: Any) -> dict[str, Any]:
         ]
     )
     outline = _signal(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    from vaft.machine_mapping.wall_resistance import identify_calibration
+
+    try:
+        calibration = identify_calibration(ods)
+    except (KeyError, ValueError, TypeError) as reason:  # unbanded or foreign passive model
+        calibration = {"key": None, "error": str(reason)}
     return {
+        "wall_calibration": calibration,
         "passive_loop_count": int(resistances.size),
         "pf_coil_count": int(len(ods["pf_active.coil"])),
         "passive_resistance_sum": float(resistances.sum()),
@@ -405,6 +510,7 @@ def run_benchmark_case(
     window: tuple[float, float] | None = None,
     per_family: int | None = None,
     resistance_scale: float = 1.0,
+    calibration: "WallResistanceCalibration | None" = None,
     dt_sub: float = 5.0e-5,
     n_tau: float = DEFAULT_HISTORY_TIME_CONSTANTS,
     min_samples: int = 2,
@@ -460,7 +566,7 @@ def run_benchmark_case(
         )
 
     working = benchmark_wall_currents(
-        ods, resistance_scale=resistance_scale, dt_sub=dt_sub
+        ods, resistance_scale=resistance_scale, calibration=calibration, dt_sub=dt_sub
     )
     channels = synthetic_vacuum_magnetics(
         working,
@@ -486,9 +592,15 @@ def run_benchmark_case(
         "validation_window": list(validation_window),
         "plasma_free_evidence": interval["plasma_free_evidence"],
         "pf_excitation": _pf_excitation(ods),
+        "coil_drive": coil_drive_check(ods, validation_window),
         "static_model": {
             **_static_model(ods),
             "resistance_scale": float(resistance_scale),
+            "applied_calibration": None if calibration is None else {
+                "key": calibration.key,
+                "digest": calibration.digest(),
+                "source": calibration.source,
+            },
             "wall_time_constants": {
                 "slowest": float(constants[0]),
                 "median": float(np.median(constants)),
@@ -554,10 +666,17 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     inspected.
     """
     rows: list[dict[str, Any]] = []
+    undriven: list[str] = []
     listed = list(cases)
     for position, case in enumerate(listed):
         label = str(case.get("shot") if case.get("shot") is not None else position)
         excitation = ",".join(case.get("pf_excitation", {}).get("active_coils", [])) or "none"
+        # A case whose coils never moved inside its window (coil_drive_check)
+        # contributes rows for inspection but not to the cross-case spreads:
+        # its improvements are ratios of noise, not evidence about the wall.
+        driven = bool(case.get("coil_drive", {}).get("sufficiently_driven", True))
+        if not driven:
+            undriven.append(label)
         for row in case.get("metrics", {}).get("channels", []):
             if row["status"] != "evaluated":
                 continue
@@ -569,9 +688,11 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
                     "family": row["family"],
                     "excitation": excitation,
                     "machine_era": str(case.get("machine_era") or "unknown"),
+                    "driven": driven,
                     "improvement": row["improvement"],
                     "normalized_residual": row["normalized_residual"],
                     "correlation": row["correlation"],
+                    "wall_authority": row.get("wall_authority", float("nan")),
                 }
             )
 
@@ -583,6 +704,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             "reason": "no case produced an evaluated channel",
         }
 
+    scored = [row for row in rows if row["driven"]]
     return {
         "schema_version": 1,
         "case_count": len(listed),
@@ -592,13 +714,16 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         "by_family": _group(rows, "family"),
         "by_excitation": _group(rows, "excitation"),
         "by_machine_era": _group(rows, "machine_era"),
+        "undriven_cases": undriven,
         "summary": {
-            "median_improvement": _median([row["improvement"] for row in rows]),
+            "median_improvement": _median([row["improvement"] for row in scored]),
             "improved_fraction": float(
-                np.mean([row["improvement"] > 0.0 for row in rows])
-            ),
+                np.mean([row["improvement"] > 0.0 for row in scored])
+            ) if scored else float("nan"),
             "median_normalized_residual": _median(
-                [row["normalized_residual"] for row in rows]
+                [row["normalized_residual"] for row in scored]
             ),
+            "median_wall_authority": _median([row["wall_authority"] for row in scored]),
+            "driven_channel_rows": len(scored),
         },
     }
