@@ -16,7 +16,11 @@ result credible for its intended use?" are two questions about one object.  See
 Layout::
 
     model.py          the status vocabulary and taxonomy
+    registry.py       stable per-check metadata: category, unit, provider, tolerance
     imas.py           native IMAS/OMAS validity and status fields
+    equilibrium.py    the unified equilibrium report (#72), the reference implementation
+    magnetics.py      magnetics signal quality (#189)
+    vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
@@ -63,9 +67,14 @@ _ARTIFACT_EXPORTS = (
     "validation_plots",
 )
 
+#: The initial public API (#253 §14): the equilibrium report, reachable as
+#: ``vaft.validation.validate_equilibrium``.  Lazy, like everything else here.
+_EQUILIBRIUM_EXPORTS = ("validate_equilibrium",)
+
 __all__ = [
     "CATEGORIES",
     "ValidationStatus",
+    *_EQUILIBRIUM_EXPORTS,
     *_EVIDENCE_EXPORTS,
     *_ARTIFACT_EXPORTS,
 ]
@@ -87,6 +96,13 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
+
+    if name in _EQUILIBRIUM_EXPORTS:
+        from . import equilibrium
+
+        value = getattr(equilibrium, name)
+        globals()[name] = value
+        return value
 
     if name in _ARTIFACT_EXPORTS:
         import warnings
