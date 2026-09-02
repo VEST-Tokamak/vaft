@@ -625,6 +625,10 @@ def _determine_magnetics_indices(odc, indices_param, ods_path_prefix, find_funcs
         )
 
 # (ods_path_prefix, indices_param) -> (nrows, ncols) for m x n grid
+# Superseded: the canonical plots size their grids from the resolved selection
+# (vaft.omas._plot_recipes._layout_columns, issue #260).  This table serves only
+# the deprecated entry points in this module and gains no new entries; it goes
+# with them in 0.8.0.
 MAGNETICS_PLOT_LAYOUT = {
     ('magnetics.flux_loop', 'all'): (3, 4),
     ('magnetics.flux_loop', 'inboard'): (2, 4),

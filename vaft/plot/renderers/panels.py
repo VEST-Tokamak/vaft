@@ -29,6 +29,7 @@ __all__ = [
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
     "current_overview",
+    "diagnostics_overview",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -54,6 +55,21 @@ __all__ = [
 
 _DEFAULT_PANEL_HEIGHT = 2.2
 _DEFAULT_PANEL_WIDTH = 6.5
+
+
+def _mark_if_invalid(axis: Any, panel_model: Any, style: dict) -> None:
+    """Mark a panel whose every trace the source flagged invalid.
+
+    With per-panel legends off in a subplots layout, the grey dashed trace
+    alone can be missed; the panel background and a corner note keep the
+    display policy's "never silently hidden" promise (issue #256, #260).
+    """
+    if not isinstance(panel_model, LineSeries) or style.get("validity", "show") != "show":
+        return
+    if panel_model.series and all(s.is_invalid_channel for s in panel_model.series):
+        axis.set_facecolor("0.94")
+        axis.text(0.99, 0.95, "invalid", transform=axis.transAxes, ha="right",
+                  va="top", color="0.5", fontsize="small")
 
 
 def _panel_drawer(model: Any):
@@ -90,28 +106,53 @@ def render_panels(
             f"expected a vaft.plot.models.Panels; got {type(model).__name__}. "
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
-    if figsize is None:
-        figsize = (
-            _DEFAULT_PANEL_WIDTH * model.ncols,
-            _DEFAULT_PANEL_HEIGHT * model.nrows,
+    occupied = len(model.models) + len(model.placeholders)
+    if ax is not None:
+        # Caller-supplied axes are authoritative and *are* the grid: exactly one
+        # axes per panel, filled in order, whatever grid this model would have
+        # chosen for itself (issue #260 section 8).  Nothing is truncated,
+        # recycled or created.
+        supplied = np.asarray(ax, dtype=object)
+        if supplied.ndim == 0:
+            supplied = supplied.reshape(1)
+        if supplied.size != occupied:
+            raise ValueError(
+                f"this layout draws {occupied} panels but received {supplied.size} axes"
+            )
+        flat = supplied.ravel()
+        figure = flat[0].figure
+        grid = supplied if supplied.ndim == 2 else supplied.reshape(-1, 1)
+    else:
+        if figsize is None:
+            figsize = (
+                _DEFAULT_PANEL_WIDTH * model.ncols,
+                _DEFAULT_PANEL_HEIGHT * model.nrows,
+            )
+        figure, axes = resolve_axes(
+            None,
+            nrows=model.nrows,
+            ncols=model.ncols,
+            figsize=figsize,
+            sharex=model.share_x,
+            sharey=model.share_y,
+            squeeze=False,
         )
-    figure, axes = resolve_axes(
-        ax,
-        nrows=model.nrows,
-        ncols=model.ncols,
-        figsize=figsize,
-        sharex=model.share_x,
-        sharey=model.share_y,
-        squeeze=False,
-    )
-    grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
-
-    flat = grid.ravel()
+        grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
+        flat = grid.ravel()
+    placeholders = dict(model.placeholders)
+    slots = [slot for slot in range(flat.size) if slot not in placeholders]
     for index, panel_model in enumerate(model.models):
+        axis = flat[slots[index]]
+        member_style = dict(model.member_styles[index]) if model.member_styles else {}
         draw = _panel_drawer(panel_model)
-        draw(panel_model, ax=flat[index], show=False, **style)
-    for unused in flat[len(model.models) :]:
-        unused.set_visible(False)
+        draw(panel_model, ax=axis, show=False, **{**member_style, **style})
+        _mark_if_invalid(axis, panel_model, {**member_style, **style})
+    for slot, text in placeholders.items():
+        axis = flat[slot]
+        axis.set_axis_off()
+        axis.text(0.5, 0.5, text, transform=axis.transAxes, ha="center", va="center", color="0.4")
+    for slot in slots[len(model.models) :]:
+        flat[slot].set_visible(False)
 
     if model.suptitle:
         figure.suptitle(model.suptitle)
@@ -316,6 +357,28 @@ def spectrometer_uv_time_impurity(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Impurity line-intensity panels against plasma current."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    subject="diagnostics",
+    view="overview",
+    quantity="",
+    description=(
+        "Time histories of every diagnostic subject, one panel each, in a fixed "
+        "grid: a diagnostic absent from the input is a labelled empty panel, so "
+        "the figure has the same shape on every shot. Channels the source "
+        "flagged invalid are excluded by default."
+    ),
+    ids=("magnetics", "interferometer", "thomson_scattering", "charge_exchange",
+         "spectrometer_uv", "barometry", "soft_x_rays"),
+    required_paths=(),
+)
+def diagnostics_overview(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Fixed-shape time overview across the diagnostic subjects."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

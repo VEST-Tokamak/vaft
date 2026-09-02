@@ -666,12 +666,20 @@ class CallableRecipe:
 
 @dataclass(frozen=True)
 class PanelRecipe:
-    """A composite built from other canonical plots, one per panel."""
+    """A composite built from other canonical plots, one per panel.
+
+    ``member_defaults`` are renderer keyword arguments applied to every member
+    beneath whatever the caller passes.  ``keep_unavailable`` renders a member
+    the input cannot support as a labelled empty panel instead of dropping it,
+    so the composite keeps one shape on every shot (issue #260).
+    """
 
     members: tuple[str, ...]
     ncols: int = 1
     share_x: bool = True
     suptitle: str = ""
+    member_defaults: Mapping[str, Any] = field(default_factory=dict)
+    keep_unavailable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1352,6 +1360,27 @@ RECIPES: dict[str, Any] = {
         members=("soft_x_rays_time_power", "soft_x_rays_geometry_lines_of_sight"),
         share_x=False,
         suptitle="Soft X-ray Overview",
+    ),
+    "diagnostics_overview": PanelRecipe(
+        members=(
+            "flux_loop_time_flux",
+            "b_field_probe_time_field",
+            "mirnov_time_voltage",
+            "impa_time_field",
+            "soft_x_rays_time_power",
+            "interferometer_time_n_e_line",
+            "thomson_scattering_time_electron_density",
+            "charge_exchange_time_ion_temperature",
+            "spectrometer_uv_time_intensity",
+            "barometry_time_pressure",
+        ),
+        ncols=2,
+        share_x=False,
+        suptitle="Diagnostics Overview",
+        # An overview compares the trustworthy signals; flagged channels would
+        # only obscure them, so they are excluded here and only here.
+        member_defaults={"validity": "mask"},
+        keep_unavailable=True,
     ),
     "interferometer_overview": PanelRecipe(
         members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
@@ -2732,7 +2761,7 @@ def _build_line_series(
         default_title = recipe.title
     else:
         default_title = _decorated_title(recipe.title, y_display.unit, entries)
-    return LineSeries(
+    model = LineSeries(
         series=scaled,
         x_label=recipe.x_label,
         x_unit=x_display.unit,
@@ -2743,6 +2772,11 @@ def _build_line_series(
         log_y=bool(options.get("log_y", False)),
         display=y_display,
     )
+    layout = options.get("layout") or "overlay"
+    if panel_member and layout != "overlay":
+        raise ValueError("a composite's members cannot themselves take a layout")
+    return _lay_out(model, layout, entries=entries, recipe=recipe, options=options,
+                    suptitle=options.get("title", _decorated_title(recipe.title, y_display.unit, entries)))
 
 
 _COORDINATE_LABELS = {
@@ -3204,9 +3238,11 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
-    members = []
-    for name in recipe.members:
+    members, placeholders = [], []
+    for slot, name in enumerate(recipe.members):
         if not any(entry_supports(ods, name) for _, ods in entries):
+            if recipe.keep_unavailable:
+                placeholders.append((slot, f"{name}\nnot available in this input"))
             continue
         members.append(build_model(name, entries, _panel_member=True, **options))
     if not members:
@@ -3227,7 +3263,98 @@ def _build_panels(
         ncols=recipe.ncols,
         share_x=recipe.share_x,
         suptitle=suptitle,
+        placeholders=tuple(placeholders),
+        member_styles=tuple(dict(recipe.member_defaults) for _ in members) or None,
     )
+
+
+LAYOUTS = ("overlay", "subplots", "grouped")
+
+
+def _layout_columns(count: int, requested: Any = None) -> int:
+    """Columns for a subplots grid: a function of the panel count alone.
+
+    Deterministic in the resolved selection (issue #260 section 6): one column
+    up to six panels, two up to sixteen, three up to thirty-six, four beyond.
+    ``ncols=`` overrides.
+    """
+    if requested is not None:
+        return max(1, int(requested))
+    return 1 if count <= 6 else 2 if count <= 16 else 3 if count <= 36 else 4
+
+
+def _share_x_for(models: Sequence[LineSeries]) -> bool:
+    """Share x only when every panel's time range overlaps the others.
+
+    Sharing across a mixed array -- Mirnov coils sampled over 0.26-0.34 s beside
+    IMPA probes sampled over 0-1 s -- stretches every panel to the widest base
+    and hides the signal, so x is shared only when each panel keeps at least
+    half of its own range inside the common window.
+    """
+    ranges = []
+    for model in models:
+        xs = [s.x for s in model.series if s.x.size]
+        if xs:
+            ranges.append((min(float(x.min()) for x in xs), max(float(x.max()) for x in xs)))
+    if len(ranges) < 2:
+        return True
+    low, high = max(r[0] for r in ranges), min(r[1] for r in ranges)
+    if high <= low:
+        return False
+    return all((high - low) >= 0.5 * (hi - lo) for lo, hi in ranges if hi > lo)
+
+
+def _lay_out(
+    model: LineSeries, layout: str, *, entries, recipe: LineRecipe, options: dict,
+    suptitle: str,
+) -> LineSeries | Panels:
+    """Arrange an already-resolved set of traces (issue #260).
+
+    Layout never changes which channels were selected; it only decides how the
+    same traces are presented, and the figure's structure follows from the
+    layout and the resolved selection alone.
+    """
+    if layout not in LAYOUTS:
+        raise ValueError(f"layout must be one of {', '.join(LAYOUTS)}; got {layout!r}")
+    if layout == "overlay":
+        return model
+    common = dict(x_label=model.x_label, x_unit=model.x_unit, y_label=model.y_label,
+                  y_unit=model.y_unit, display=model.display)
+
+    if layout == "subplots":
+        # One panel per channel, in resolved order; several shots of one channel
+        # share that channel's panel (section 17).
+        by_channel: dict[str, list[Series]] = {}
+        for trace in model.series:
+            by_channel.setdefault(trace.channel or trace.label, []).append(trace)
+        panels = [LineSeries(series=tuple(traces), title=key, **common)
+                  for key, traces in by_channel.items()]
+        return Panels(models=tuple(panels), ncols=_layout_columns(len(panels), options.get("ncols")),
+                      share_x=_share_x_for(panels), suptitle=suptitle)
+
+    # grouped: one panel per canonical region of this family, canonical order.
+    if recipe.index != "channel":
+        raise ValueError("grouped layout applies to multi-channel plots only")
+    from vaft.plot.selection import INBOARD, OUTBOARD, UNCLASSIFIED, classify_regions, radial_divider
+
+    container = _container_of(recipe.y_path, "{i}")
+    ods = entries[0][1]
+    r_all, _ = _channel_positions(ods, container, _count(ods, container))
+    split = radial_divider(r_all)
+    if not split:
+        raise ValueError(
+            f"grouped layout is unsupported for {container}: its channels sit at one "
+            "radius, so there is no inboard/outboard to group by"
+        )
+    groups: dict[str, list[Series]] = {INBOARD: [], OUTBOARD: [], UNCLASSIFIED: []}
+    for trace in model.series:
+        region = (classify_regions([trace.position[0]], split=split)[0]
+                  if trace.position is not None else UNCLASSIFIED)
+        groups[region].append(trace)
+    panels = [LineSeries(series=tuple(traces), title=region, **common)
+              for region, traces in groups.items() if traces]
+    return Panels(models=tuple(panels), ncols=_layout_columns(len(panels), options.get("ncols")),
+                  share_x=_share_x_for(panels), suptitle=suptitle)
 
 
 def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:

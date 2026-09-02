@@ -663,11 +663,29 @@ class Panels(ViewModel):
     share_y: bool = False
     suptitle: str = ""
     squeeze: bool = False
+    #: Grid slots that hold a note instead of a model, as ``(slot, text)``.  A
+    #: composite with a fixed member list keeps its shape on every input by
+    #: rendering an unavailable member as a labelled empty panel rather than
+    #: dropping it (issue #260).
+    placeholders: tuple[tuple[int, str], ...] = ()
+    #: Per-model renderer defaults, one mapping per model, applied beneath the
+    #: caller's own keyword arguments -- how an overview asks its members for
+    #: ``validity="mask"`` without forcing that on every individual plot.
+    member_styles: tuple[Mapping[str, Any], ...] | None = None
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
         models = tuple(self.models)
-        if not models:
+        placeholders = tuple((int(slot), str(text)) for slot, text in self.placeholders)
+        object.__setattr__(self, "placeholders", placeholders)
+        if self.member_styles is not None:
+            styles = tuple(_frozen_style(s) for s in self.member_styles)
+            if len(styles) != len(models):
+                raise ValueError(
+                    f"Panels.member_styles has {len(styles)} entries for {len(models)} models"
+                )
+            object.__setattr__(self, "member_styles", styles)
+        if not models and not placeholders:
             raise ValueError("Panels.models must contain at least one view model")
         for model in models:
             if not isinstance(model, ViewModel) or isinstance(model, Panels):
@@ -677,11 +695,14 @@ class Panels(ViewModel):
                 )
         object.__setattr__(self, "models", models)
         ncols = max(1, int(self.ncols))
+        occupied = len(models) + len(placeholders)
         nrows = self.nrows
-        nrows = -(-len(models) // ncols) if nrows is None else max(1, int(nrows))
-        if nrows * ncols < len(models):
+        nrows = -(-occupied // ncols) if nrows is None else max(1, int(nrows))
+        if nrows * ncols < occupied:
             raise ValueError(
-                f"Panels grid {nrows}x{ncols} cannot hold {len(models)} models"
+                f"Panels grid {nrows}x{ncols} cannot hold {occupied} panels"
             )
+        if any(slot >= nrows * ncols for slot, _ in placeholders):
+            raise ValueError("Panels.placeholders names a slot outside the grid")
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)

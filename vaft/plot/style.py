@@ -61,7 +61,7 @@ _POLICY_LEGEND_GID = "vaft-legend"
 _COUNT_NOTE_GID = "vaft-legend-count"
 
 
-def trace_labels(series_list) -> tuple[list[str], str | None]:
+def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[str], str | None]:
     """Legend text for each trace, and a legend title, from structured identity.
 
     The rule states each thing once (issue #256 section 9): a figure from one
@@ -87,6 +87,10 @@ def trace_labels(series_list) -> tuple[list[str], str | None]:
         else:
             labels.append(f"{s.entry} \u00b7 {s.channel}" if s.channel else s.entry)
     title = next(iter(channels)) if len(entries) > 1 and one_shared_channel else None
+    if title is not None and panel_title and title == panel_title:
+        # In a subplots layout the panel is already titled by its channel; a
+        # legend repeating that title says nothing (issue #260 section 16).
+        title = None
     return labels, title
 
 
