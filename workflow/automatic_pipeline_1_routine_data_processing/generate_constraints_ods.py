@@ -72,6 +72,60 @@ def _detect_broken_bpol_probes(ods, *, threshold: float = 12.0) -> list[int]:
     return broken
 
 
+def _condemned_by_diagnostics_stage(ods) -> list[int] | None:
+    """One-based probe indexes the diagnostics stage marked invalid, or ``None``
+    when the magnetics carry no assessment at all.
+
+    Since #189/#343 the diagnostics stage assesses every channel and projects
+    the verdict into ``field.validity``; ``vaft.code.efit.kfile`` folds those
+    channels into the legacy ``broken`` list on its own. When that projection
+    is present, the amplitude detector below is redundant and must not vote --
+    two detectors disagreeing on one channel is worse than one. It stays only
+    as a fallback for products that predate the assessment.
+    """
+    from vaft.validation.imas import VALIDITY_VALID, read_validity
+
+    kind = "b_field_pol_probe"
+    count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
+    assessed = False
+    condemned: list[int] = []
+    for index in range(count):
+        validity = read_validity(ods, f"magnetics.{kind}.{index}.field")
+        if validity is None:
+            continue
+        assessed = True
+        if int(validity) < VALIDITY_VALID:
+            condemned.append(index + 1)
+    return condemned if assessed else None
+
+
+def _resolve_broken(ods, explicit: list[int], *, detect: bool) -> list[int]:
+    """The ``broken`` list handed to the constraint writer.
+
+    Explicit indexes always apply. With ``detect``, projected validity wins
+    when present (kfile folds it in regardless; it is listed here so the log
+    says what will be excluded); otherwise the amplitude detector runs.
+    """
+    broken = set(explicit)
+    if detect:
+        condemned = _condemned_by_diagnostics_stage(ods)
+        if condemned is not None:
+            LOGGER.info(
+                "magnetics carry a diagnostics-stage assessment; kfile folds its "
+                "condemned probes %s into broken -- amplitude detector not run",
+                condemned,
+            )
+        else:
+            detected = _detect_broken_bpol_probes(ods)
+            LOGGER.warning(
+                "magnetics carry no diagnostics-stage assessment (product predates "
+                "#189); falling back to the 12-MAD amplitude detector: %s",
+                detected,
+            )
+            broken |= set(detected)
+    return sorted(broken)
+
+
 def _select_times(ods, timeset: str, tstep: float, tstart: float | None, tend: float | None) -> np.ndarray:
     ip_time = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
     ip_data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
@@ -114,7 +168,14 @@ def main() -> int:
     parser.add_argument("--uncertainty", default=",".join(str(v) for v in DEFAULT_UNCERTAINTY))
     parser.add_argument("--weighting", default=",".join(str(v) for v in DEFAULT_WEIGHTING))
     parser.add_argument("--broken", default="", help="Comma-separated one-based broken diagnostic indices.")
-    parser.add_argument("--detect-broken", default="false", help="Reserved for future automatic broken-channel detection.")
+    parser.add_argument(
+        "--detect-broken",
+        default="false",
+        help=(
+            "Exclude probes the diagnostics stage condemned (projected validity); "
+            "for products without an assessment, fall back to the 12-MAD amplitude detector."
+        ),
+    )
     parser.add_argument("--fl-correct-option", default=0, type=int, help="Reserved for future flux-loop correction.")
     parser.add_argument("--gaussian-fit-option", default=1, type=int, help="Gaussian fit option forwarded to EFIT constraints.")
     parser.add_argument("--npprime", default=2, type=int, help="EFIT KPPCUR value.")
@@ -127,11 +188,7 @@ def main() -> int:
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
     ods = load_omas_json(str(args.eddy_ods), consistency_check=False)
-    broken = _csv_ints(args.broken)
-    if _bool(args.detect_broken):
-        detected = _detect_broken_bpol_probes(ods)
-        broken = sorted(set(broken) | set(detected))
-        LOGGER.info("Automatically detected broken Bpol probes: %s", detected)
+    broken = _resolve_broken(ods, _csv_ints(args.broken), detect=_bool(args.detect_broken))
     times = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
