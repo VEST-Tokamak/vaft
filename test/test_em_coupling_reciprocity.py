@@ -94,7 +94,10 @@ def test_thresholds_separate_round_off_from_defect_from_nonsense(asymmetry, expe
     sym = (base + base.T) / 2.0
     skew = np.zeros((n, n))
     skew[0, 1] = asymmetry * np.max(np.abs(sym))
-    matrix = sym + skew  # exactly the requested max relative asymmetry
+    matrix = sym + skew
+    # The injected scalar is only the asymmetry if [0, 1] is not the matrix's
+    # maximum, which depends on the seed. Assert against what the matrix IS.
+    expected = float(np.max(np.abs(matrix - matrix.T)) / np.max(np.abs(matrix)))
 
     if expect == "reject":
         with pytest.raises(ValueError, match="will not be symmetrized"):
@@ -106,7 +109,7 @@ def test_thresholds_separate_round_off_from_defect_from_nonsense(asymmetry, expe
         out, measured = em._symmetrize_passive_coupling(matrix, source="test")
 
     assert np.array_equal(out, out.T)
-    assert measured == pytest.approx(asymmetry, rel=1e-9, abs=1e-15)
+    assert measured == pytest.approx(expected, rel=1e-12, abs=1e-15)
     raised = [w for w in caught if issubclass(w.category, RuntimeWarning)]
     assert (len(raised) == 1) == (expect == "warn")
 
@@ -132,3 +135,14 @@ def test_a_caller_supplied_reference_matrix_is_also_held_to_reciprocity(tmp_path
     out = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
     assert np.array_equal(out, out.T)
     assert out[0, 1] == pytest.approx((lopsided[0, 1] + lopsided[1, 0]) / 2.0)
+
+
+def test_a_non_finite_matrix_is_refused_rather_than_recorded_as_symmetric():
+    """NaN compares false against every threshold, so without a guard a NaN
+    matrix would be reported as asymmetry 0.0 and stored with a provenance
+    record claiming it was clean. Refuse it before measuring anything.
+    """
+    matrix = np.full((4, 4), 1.0e-6)
+    matrix[1, 2] = np.nan
+    with pytest.raises(ValueError, match="non-finite"):
+        em._symmetrize_passive_coupling(matrix, source="test")

@@ -138,6 +138,13 @@ def _symmetrize_passive_coupling(mutual_pp: np.ndarray, *, source: str) -> tuple
     input, so the caller can record the correction as provenance rather than
     apply it silently.
     """
+    if not np.all(np.isfinite(mutual_pp)):
+        # Measured before symmetrizing, so a NaN or inf cannot masquerade as
+        # a perfectly symmetric input in the provenance record.
+        raise ValueError(
+            f"{source}: mutual_passive_passive contains non-finite entries and "
+            "cannot be assessed for reciprocity"
+        )
     scale = float(np.max(np.abs(mutual_pp))) if mutual_pp.size else 0.0
     asymmetry = (
         float(np.max(np.abs(mutual_pp - mutual_pp.T))) / scale if scale > 0.0 else 0.0
