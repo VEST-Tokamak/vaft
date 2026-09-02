@@ -319,16 +319,20 @@ def test_publishing_leaves_the_checkout_and_its_index_alone(build, sandbox, comp
     work, origin, git = sandbox
     before_status = git("status", "--porcelain", "--untracked-files=all").stdout
     before_worktrees = git("worktree", "list").stdout
-    index = work / ".git" / "index"
-    before_index = index.stat().st_mtime_ns if index.exists() else None
 
+    # Read the index immediately either side of the publish and run nothing
+    # else in between: `git status` refreshes the index's stat cache itself, so
+    # asking git anything after publishing would rewrite the very file this is
+    # checking publish did not touch.
+    index = work / ".git" / "index"
+    before_index = index.read_bytes() if index.exists() else None
     build.publish(composed, work, build.remote_tip(work, "origin", "gh-pages"),
                   "docs: publish\n", scratch=tmp_path / "scratch-clean")
+    after_index = index.read_bytes() if index.exists() else None
+    assert after_index == before_index, "the repository index was written to"
 
     assert git("status", "--porcelain", "--untracked-files=all").stdout == before_status
     assert git("worktree", "list").stdout == before_worktrees
-    if before_index is not None:
-        assert index.stat().st_mtime_ns == before_index, "the repository index was written to"
 
 
 @pytest_git
