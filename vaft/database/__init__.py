@@ -27,6 +27,7 @@ __all__ = [
     "filedb",
     "sources",
     "replication",
+    "production_qa",
     "load",
     "open",
     "save",

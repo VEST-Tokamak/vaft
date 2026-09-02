@@ -22,12 +22,8 @@ import pytest
 from omas import ODS
 
 import vaft.omas as vomas
-from vaft.validation import (
-    STAGE_METRICS,
-    STAGE_PRECONDITIONS,
-    render_stage_plots,
-    stage_plot_filenames,
-)
+from vaft.database.production_qa import render_stage_plots, stage_plot_filenames
+from vaft.validation.stage_evidence import STAGE_METRICS, STAGE_PRECONDITIONS
 
 COMPARISON_METRICS = {
     "0": {

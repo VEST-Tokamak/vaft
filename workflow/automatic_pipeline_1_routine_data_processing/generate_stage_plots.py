@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render one stage's canonical validation plots into its FileDB ``plot/`` dir.
 
-The stage's plot set is declared once in :mod:`vaft.validation`; this script is
+The stage's plot set is declared once in :mod:`vaft.database.production_qa`; this script is
 the workflow's thin driver for it, so a new stage or a new figure is a registry
 edit rather than a new script.
 """
@@ -19,7 +19,7 @@ import tempfile
 os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
 
 from vaft.omas.vest_upstream import sha256_file
-from vaft.validation import render_stage_plots
+from vaft.database.production_qa import render_stage_plots
 
 
 LOGGER = logging.getLogger("vaft.generate_stage_plots")

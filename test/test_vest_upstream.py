@@ -722,7 +722,7 @@ def test_build_mhd_linear_ods_pads_a_shot_no_solver_produced_anything_for(tmp_pa
     """A shot with no usable result is still structurally dense, but must not
     look like a successful run: the manifest says `empty`, every flag is
     negative, and the validation precondition reports it as an empty product."""
-    from vaft.validation import STAGE_PRECONDITIONS
+    from vaft.validation.stage_evidence import STAGE_PRECONDITIONS
 
     workdir = tmp_path / "gpec"
     workdir.mkdir(parents=True)
