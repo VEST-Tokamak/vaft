@@ -330,6 +330,8 @@ def test_efit_reliability_skips_nonfinite_and_malformed_fits():
 
 
 def test_split_reliability_summary_injects_database_source(monkeypatch):
+    # An experiment namespace outside the catalog, opted into explicitly.
+    monkeypatch.setenv("VAFT_HSDS_EXTRA_SOURCES", "private")
     monkeypatch.setattr(
         database,
         "open",

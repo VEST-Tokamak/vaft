@@ -19,7 +19,7 @@ OUTPUT_FILENAME = "omas_history.xlsx"
 def generate_omas_history_excel(
     shot_range: tuple[int, int] | None = None,
     *,
-    source: str = "public",
+    source: str | None = None,
     output_path: str | None = None,
     rebuild: bool = False,
 ):
@@ -49,7 +49,7 @@ def _shot_range(value: str) -> tuple[int, int]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot-range", type=_shot_range)
-    parser.add_argument("--source", default="public")
+    parser.add_argument("--source", default=None)
     parser.add_argument("--output", default=None)
     parser.add_argument("--rebuild", action="store_true")
     arguments = parser.parse_args()

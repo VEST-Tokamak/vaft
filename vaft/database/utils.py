@@ -17,10 +17,43 @@ import pandas as pd
 import requests
 import urllib3
 
-# Must match the path the corrective updaters write to
-# (workflow/automatic_pipeline_2_corrective_data_update/*.py), otherwise
-# exist_shot() reads a stale copy and never reflects reprocessing.
-PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
+from .sources import LEGACY_SOURCE, MissingSourceError
+from .sources import resolve as resolve_source
+
+
+def require_source_exists(source: str) -> None:
+    """Fail with the administrator fix when a source folder is not there yet.
+
+    ``hsload`` does not create a missing top-level folder, so publishing into a
+    source nobody has provisioned otherwise surfaces as an opaque CLI exit code.
+    Callers check :func:`is_connect` first, so a failure here is a missing or
+    unreadable namespace rather than a dead connection.
+    """
+    try:
+        # mode="r" is explicit rather than load-bearing: h5pyd.Folder() already
+        # defaults to "r", and only w/w-/x reach its create branch. Note that a
+        # missing folder logs "folder put status_code: 404" on the way to
+        # raising -- h5pyd's message is misnamed, no PUT is issued.
+        list(h5pyd.Folder("/" + source + "/", mode="r"))
+    except Exception as exc:  # noqa: BLE001 - re-raised with the remedy
+        raise MissingSourceError(source, str(exc)) from exc
+
+
+def processed_registry_uri(
+    source: Optional[str] = None, *, writable: bool = False
+) -> str:
+    """Return the corrective-pipeline registry domain for one named source.
+
+    Must match the path the corrective updaters write to
+    (workflow/automatic_pipeline_2_corrective_data_update/*.py), otherwise
+    exist_shot() reads a stale copy and never reflects reprocessing.
+
+    The registry is opened with raw h5pyd rather than through
+    :func:`vaft.database.save`, so its own writability gate is the only thing
+    standing between an append-mode open and the read-only legacy namespace.
+    Pass ``writable=True`` at every call site that opens it for writing.
+    """
+    return f"hdf5://{resolve_source(source, writable=writable)}/processed_shots.h5"
 
 
 def _require_h5pyd() -> None:
@@ -96,11 +129,17 @@ def is_connect() -> bool:
         return False
 
 
-def _get_public_folders(sort: int = 0) -> List[str]:
-    """Get numeric folder names (shot numbers) from ``public`` with optional sorting."""
+def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
+    """Return the shot folders of one named source, with optional sorting.
+
+    Every source stores shots the same way, so the same numeric filter applies
+    to all of them; listing must not depend on which namespace is asked for.
+    """
     try:
-        folder = list(h5pyd.Folder("/public/"))
-        folder_list = [item for item in folder if not item.endswith('.h5') and item.isdigit()]
+        folder = list(h5pyd.Folder("/" + source + "/", mode="r"))
+        folder_list = [
+            item for item in folder if not item.endswith(".h5") and item.isdigit()
+        ]
 
         if sort == 0:
             pass
@@ -118,38 +157,18 @@ def _get_public_folders(sort: int = 0) -> List[str]:
         return []
 
 
-def _get_folder_contents(folder_name: str, sort: int = -1) -> List[str]:
-    """Get all contents from custom folder with sorting."""
-    try:
-        folder = list(h5pyd.Folder("/" + folder_name + "/"))
-
-        if sort == 0:
-            file_list = list(folder)
-        elif sort == 1:
-            file_list = sorted(folder)
-        elif sort == -1:
-            file_list = sorted(folder, reverse=True)
-        else:
-            print(f"[WARNING] Invalid sort value: {sort}. Using default (-1, descending)")
-            file_list = sorted(folder, reverse=True)
-
-        print(file_list)
-        return file_list
-    except urllib3.exceptions.MaxRetryError:
-        print("Connection error")
-        return []
-
-
 def exist_shot(
-    username: Optional[str] = None,
+    source: Optional[str] = None,
     shot: Optional[int] = None,
     data_filter: Optional[str] = None,
     sort: int = -1,
+    *,
+    username: Optional[str] = None,
 ) -> Union[List[str], bool, pd.DataFrame, None]:
     """Return a list of shot names or processed-diagnostic data from HSDS.
 
     Supports multiple filter options and folder-specific behaviors:
-    - None (default): Standard ODS/IDS shots from ``public`` directory
+    - None (default): Standard ODS/IDS shots from the named HSDS source
     - 'ts' or 'thomson_scattering': Thomson scattering processed shots from processed_shots.h5
     - 'cx' or 'charge_exchange': Charge exchange (IDS/CES) processed shots from processed_shots.h5
     - 'cp' or 'core_profiles': Kinetic core_profiles built shots from processed_shots.h5
@@ -162,12 +181,13 @@ def exist_shot(
     three listings are independent and never overwrite one another.
 
     Args:
-        username (str, optional): The folder to access.
-            Defaults to 'public'. Options: 'public' or other folder names.
+        source (str, optional): Named HSDS source to list. Defaults to ``main``;
+            pass ``"public"`` to inspect the legacy reference.
         shot (int, optional): The specific shot number to search for. Only used with ODS filter.
         data_filter (str, optional): Filter type - None for ODS, 'ts'/'thomson_scattering'
             for Thomson scattering, 'cx'/'charge_exchange' for charge exchange,
             'cp'/'core_profiles' for kinetic core_profiles.
+        username (str, optional): Deprecated alias for ``source``.
         sort (int, optional): Sort order for shot listings.
             - 1: Ascending (oldest first)
             - -1: Descending (newest first)
@@ -187,28 +207,25 @@ def exist_shot(
     logging.getLogger().setLevel(logging.WARNING)
 
     _filter = data_filter.lower().strip() if isinstance(data_filter, str) else data_filter
+    source = resolve_source(source, directory=username)
 
     # Handle Thomson Scattering filter
     if _filter in ('ts', 'thomson_scattering', 'thomson scattering'):
-        return _exist_shot_ts(sort=sort != 0)
+        return _exist_shot_ts(sort=sort != 0, source=source)
 
     # Handle Charge Exchange (IDS / CES) filter
     if _filter in ('cx', 'charge_exchange', 'charge exchange', 'ces', 'ids'):
-        return _exist_shot_cx(sort=sort != 0)
+        return _exist_shot_cx(sort=sort != 0, source=source)
 
     # Handle kinetic core_profiles filter
     if _filter in ('cp', 'core_profiles', 'core_profile', 'kinetic',
                    'kinetic_core_profile'):
-        return _exist_shot_cp(sort=sort != 0)
-
-    # Default folder
-    if username is None:
-        username = 'public'
+        return _exist_shot_cp(sort=sort != 0, source=source)
 
     # Check for specific shot
     if shot is not None:
         try:
-            folder = list(h5pyd.Folder("/" + username + "/"))
+            folder = list(h5pyd.Folder("/" + source + "/", mode="r"))
             for file in folder:
                 if file.split(".")[0] == str(shot):
                     print(file)
@@ -219,10 +236,37 @@ def exist_shot(
             print("Connection error")
             return False
 
-    # List contents based on folder
-    if username == 'public':
-        return _get_public_folders(sort=sort)
-    return _get_folder_contents(username, sort=sort)
+    return _get_namespace_folders(source, sort=sort)
+
+
+def read_legacy_processed_registry(group: str) -> dict:
+    """Return the legacy ``public`` registry entries for one diagnostic group.
+
+    The registry moved with the shots it describes, so a freshly created source
+    starts empty and every updater would reprocess its whole backlog. Reading
+    the legacy copy avoids that without ever writing to ``public``.
+    """
+    records: dict = {}
+    try:
+        with h5pyd.File(processed_registry_uri(LEGACY_SOURCE), "r") as handle:
+            if group not in handle:
+                return records
+            for key in handle[group]:
+                entry = handle[group][key]
+                value = {}
+                for field in ("timestamp", "status"):
+                    if field not in entry:
+                        continue
+                    raw = entry[field][...]
+                    if isinstance(raw, np.ndarray) and raw.dtype == object:
+                        raw = raw.item()
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8", errors="replace")
+                    value[field] = str(raw)
+                records[key] = value
+    except Exception as exc:  # noqa: BLE001 - a missing legacy copy is normal
+        print(f"[INFO] No legacy processed-shot registry to read: {exc}")
+    return records
 
 
 # HDF5 groups inside processed_shots.h5, one per diagnostic. Each updater owns
@@ -234,7 +278,7 @@ CX_REGISTRY_GROUP = "cx_shots"    # update_charge_exchange.py
 CP_REGISTRY_GROUP = "cp_shots"    # update_core_profile.py
 
 
-def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
+def _exist_shot_ts(sort: bool = True, source: Optional[str] = None) -> Union[pd.DataFrame, None]:
     """
     Retrieve all processed Thomson scattering shots from h5pyd in a formatted table.
 
@@ -250,11 +294,11 @@ def _exist_shot_ts(sort: bool = True) -> Union[pd.DataFrame, None]:
         Union[pd.DataFrame, None]: DataFrame of TS shots or None on error.
     """
     return _read_processed_registry(
-        sort=sort, group=TS_REGISTRY_GROUP, label="Thomson Scattering"
+        sort=sort, group=TS_REGISTRY_GROUP, label="Thomson Scattering", source=source
     )
 
 
-def _exist_shot_cx(sort: bool = True) -> Union[pd.DataFrame, None]:
+def _exist_shot_cx(sort: bool = True, source: Optional[str] = None) -> Union[pd.DataFrame, None]:
     """
     Retrieve processed charge_exchange (IDS/CES) shots from h5pyd in a table.
 
@@ -269,11 +313,11 @@ def _exist_shot_cx(sort: bool = True) -> Union[pd.DataFrame, None]:
         Union[pd.DataFrame, None]: DataFrame of charge_exchange shots or None.
     """
     return _read_processed_registry(
-        sort=sort, group=CX_REGISTRY_GROUP, label="Charge Exchange"
+        sort=sort, group=CX_REGISTRY_GROUP, label="Charge Exchange", source=source
     )
 
 
-def _exist_shot_cp(sort: bool = True) -> Union[pd.DataFrame, None]:
+def _exist_shot_cp(sort: bool = True, source: Optional[str] = None) -> Union[pd.DataFrame, None]:
     """
     Retrieve shots with kinetic core_profiles built, in a table.
 
@@ -289,7 +333,7 @@ def _exist_shot_cp(sort: bool = True) -> Union[pd.DataFrame, None]:
         Union[pd.DataFrame, None]: DataFrame of core_profiles shots or None.
     """
     return _read_processed_registry(
-        sort=sort, group=CP_REGISTRY_GROUP, label="Core Profiles"
+        sort=sort, group=CP_REGISTRY_GROUP, label="Core Profiles", source=source
     )
 
 
@@ -297,6 +341,7 @@ def _read_processed_registry(
     sort: bool = True,
     group: str = TS_REGISTRY_GROUP,
     label: str = "Processed",
+    source: Optional[str] = None,
 ) -> Union[pd.DataFrame, None]:
     """
     Read one diagnostic's shot registry group from ``processed_shots.h5``.
@@ -314,9 +359,10 @@ def _read_processed_registry(
     logging.getLogger().setLevel(logging.WARNING)
 
     try:
-        with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
+        uri = processed_registry_uri(source)
+        with h5pyd.File(uri, "r") as f:
             if group not in f:
-                print(f"[INFO] No '{group}' group found in processed_shots.h5.")
+                print(f"[INFO] No '{group}' group found in {uri}.")
                 return None
 
             g = f[group]

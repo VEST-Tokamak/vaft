@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 from vaft import database
 from vaft.database._summary import get_summary_preset
+from vaft.database.sources import known_sources
 
 
 def _shot_range(value: str) -> tuple[int, int]:
@@ -31,13 +32,23 @@ def _parser() -> argparse.ArgumentParser:
         help="inclusive START:END; omit to query every available shot",
     )
     export.add_argument("--output", required=True)
-    export.add_argument("--source", default="public")
+    export.add_argument(
+        "--source",
+        default=None,
+        help="named HSDS source to summarize; defaults to 'main'",
+    )
     export.add_argument("--upsert", action="store_true")
+    subparsers.add_parser("sources", help="list the named HSDS sources")
     return parser
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = _parser().parse_args(list(argv) if argv is not None else None)
+    if args.action == "sources":
+        for entry in known_sources():
+            access = "read-write" if entry.writable else "read-only"
+            print(f"{entry.name:<22} {access:<10} {entry.purpose}")
+        return 0
     definition = get_summary_preset(args.preset)
     frame = database.summary(args.shot_range, preset=args.preset, source=args.source)
     database.export_summary(

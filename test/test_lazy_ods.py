@@ -44,7 +44,7 @@ class FakeH5pyd:
         self.opened.append(uri)
         return self.files[uri]
 
-    def Folder(self, path):
+    def Folder(self, path, mode=None):
         self.folder_calls.append(path)
         shot = path.strip("/").split("/")[-1]
         return [name.rsplit("/", 1)[-1] for name in self.files if f"/{shot}/" in name]
@@ -75,8 +75,8 @@ def fake_hsds():
     other = FakeFile("core_profiles", FakeGroup({"time": other_signal}))
     module = FakeH5pyd(
         {
-            "hdf5://public/39915/equilibrium.h5": equilibrium,
-            "hdf5://public/39915/core_profiles.h5": other,
+            "hdf5://main/39915/equilibrium.h5": equilibrium,
+            "hdf5://main/39915/core_profiles.h5": other,
         }
     )
     return module, datasets, equilibrium, other, other_signal
@@ -97,7 +97,7 @@ def test_metadata_trie_opens_only_visited_ids_and_does_not_read_leaf(fake_hsds):
     assert "equilibrium.time_slice.0.profiles_2d.0.psi" in ods
     assert store.opened_ids == ("equilibrium",)
     assert datasets["time_slice[]&profiles_2d[]&psi"].reads == []
-    assert "hdf5://public/39915/core_profiles.h5" not in module.opened
+    assert "hdf5://main/39915/core_profiles.h5" not in module.opened
 
 
 def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
@@ -180,7 +180,7 @@ def test_discovered_ids_and_cached_leaf_remain_usable_after_close(fake_hsds):
     assert ods["equilibrium.time"] is not None
     ods.close()
     np.testing.assert_array_equal(ods["equilibrium.time"], [0.1, 0.2])
-    assert module.folder_calls == ["/public/39915/"]
+    assert module.folder_calls == ["/main/39915/"]
 
 
 def test_public_open_ods_uses_direct_h5pyd_without_folder_when_ids_given(

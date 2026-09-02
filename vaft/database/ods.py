@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 import hashlib
 import json
 import logging
@@ -19,8 +19,15 @@ import h5pyd
 from ..imas.omas_imas import load_omas_imas, save_omas_imas
 from .transport import run_hsget, run_hsload, verify_uploaded_image
 from .h5image import is_derived_filename, publish_image
+from .sources import resolve as resolve_source
 from .staging import external_h5_links, requested_ids_from_paths, stage_imas_shot
-from .utils import _require_h5pyd, ensure_imas_hdf5_userblock, exist_shot, is_connect
+from .utils import (
+    _require_h5pyd,
+    ensure_imas_hdf5_userblock,
+    exist_shot,
+    is_connect,
+    require_source_exists,
+)
 
 
 _DERIVED_CACHE_SCHEMA = 1
@@ -44,7 +51,7 @@ def _source_revision(
     domains: dict[str, dict[str, str | None]] = {}
     names = sorted(
         name
-        for name in h5pyd.Folder(f"/{directory}/{shot}/")
+        for name in h5pyd.Folder(f"/{directory}/{shot}/", mode="r")
         if name.endswith(".h5") and not is_derived_filename(name)
     )
     for name in names:
@@ -169,7 +176,7 @@ def _download_remote_shot(directory: str, shot: int, shot_dir: Path) -> list[Pat
     """Download every IMAS HDF5 image stored for one shot."""
 
     try:
-        entries = list(h5pyd.Folder(f"/{directory}/{shot}/"))
+        entries = list(h5pyd.Folder(f"/{directory}/{shot}/", mode="r"))
     except Exception as exc:
         raise FileNotFoundError(
             f"Could not open HSDS folder /{directory}/{shot}/"
@@ -217,8 +224,9 @@ def _upload_local_shot(shot_dir: Path, directory: str, shot: int) -> list[str]:
 
 def load_ods(
     shot: Union[int, list[int]],
-    directory: str = "public",
+    source: Optional[str] = None,
     *,
+    directory: Optional[str] = None,
     occurrence: Optional[dict] = None,
     paths: Optional[list] = None,
     time: Optional[float] = None,
@@ -232,11 +240,13 @@ def load_ods(
     transport: Literal["auto", "canonical", "h5image"] = "auto",
 ) -> Union[omas.ODS, list[omas.ODS]]:
     """
-    Load ODS data by reading IMAS images from ``{directory}/{shot}`` and converting via OMAS.
+    Load ODS data by reading IMAS images from ``{source}/{shot}`` and converting via OMAS.
 
     Args:
         shot: One shot number or a list of shot numbers.
-        directory: HSDS folder containing shot subdirectories. Defaults to ``public``.
+        source: Named HSDS source holding the shot. Defaults to ``main``; pass
+            ``"public"`` to read the legacy reference.
+        directory: Deprecated alias for ``source``.
         occurrence: Optional IDS occurrence mapping forwarded to ``load_omas_imas``.
         paths: Optional IMAS paths to fetch.
         time: Optional time slice in seconds.
@@ -256,6 +266,7 @@ def load_ods(
     """
     logging.getLogger().setLevel(logging.WARNING)
 
+    source = resolve_source(source, directory=directory)
     occurrence = occurrence or {}
 
     if isinstance(shot, list) and path is not None:
@@ -266,7 +277,7 @@ def load_ods(
         for s in shot:
             ods = _load_one_shot(
                 int(s),
-                directory=directory,
+                directory=source,
                 occurrence=occurrence,
                 paths=paths,
                 time=time,
@@ -287,7 +298,7 @@ def load_ods(
     s = int(shot)
     ods = _load_one_shot(
         s,
-        directory=directory,
+        directory=source,
         occurrence=occurrence,
         paths=paths,
         time=time,
@@ -342,7 +353,7 @@ def _load_one_shot(
                 name[:-3] for name in external_h5_links(shot_dir / "master.h5")
             ],
         )
-        ods.setdefault("dataset_description.data_entry.user", str(directory))
+        ods["dataset_description.data_entry.user"] = str(directory)
         ods.setdefault("dataset_description.data_entry.pulse", int(shot))
         ods.setdefault("dataset_description.data_entry.run", 0)
         return ods
@@ -350,7 +361,7 @@ def _load_one_shot(
     if paths is None and time is None and transport != "canonical":
         derived = _load_derived_omas_cache(directory, shot, consistency_check)
         if derived is not None:
-            derived.setdefault("dataset_description.data_entry.user", str(directory))
+            derived["dataset_description.data_entry.user"] = str(directory)
             derived.setdefault("dataset_description.data_entry.pulse", int(shot))
             derived.setdefault("dataset_description.data_entry.run", 0)
             return derived
@@ -388,10 +399,26 @@ def _load_one_shot(
         # confinement_time_for_kps branch and adapt it to this IMAS-backed ODS
         # loading flow if those overestimated n_e shots still require scaling.
 
-        ods.setdefault("dataset_description.data_entry.user", str(directory))
+        ods["dataset_description.data_entry.user"] = str(directory)
         ods.setdefault("dataset_description.data_entry.pulse", int(shot))
         ods.setdefault("dataset_description.data_entry.run", 0)
         return ods
+
+
+@contextmanager
+def _recorded_source(ods: omas.ODS, user: str):
+    """State the namespace being written in the ODS, restoring it afterwards."""
+    key = "dataset_description.data_entry.user"
+    had = key in ods
+    previous = ods[key] if had else None
+    ods[key] = str(user)
+    try:
+        yield
+    finally:
+        if had:
+            ods[key] = previous
+        else:
+            del ods[key]
 
 
 def save_ods(
@@ -400,7 +427,8 @@ def save_ods(
     filename: Optional[str] = None,
     env: str = "server",
     *,
-    directory: str = "public",
+    source: Optional[str] = None,
+    directory: Optional[str] = None,
     path: Optional[Union[str, Path]] = None,
     occurrence: Optional[dict] = None,
     user: Optional[str] = None,
@@ -421,7 +449,9 @@ def save_ods(
         shot: Shot number / IMAS pulse.
         filename: Ignored compatibility parameter.
         env: ``server`` uploads to HSDS, ``local`` only writes local IMAS files.
-        directory: HSDS target folder for ``env="server"``. Defaults to ``public``.
+        source: Named HSDS source to publish into for ``env="server"``. Defaults
+            to ``main``. Writing to the read-only legacy ``public`` source raises.
+        directory: Deprecated alias for ``source``.
         path: Local target directory for ``env="local"``.
         occurrence: Optional IDS occurrence mapping.
         user: Optional IMAS user metadata override.
@@ -436,11 +466,21 @@ def save_ods(
     _ = filename
     logging.getLogger().setLevel(logging.WARNING)
 
+    source = resolve_source(source, directory=directory, writable=env == "server")
     occurrence = occurrence or {}
     shot = int(shot)
     if derived_cache not in {"auto", "none", "imas-images", "omas", "both"}:
         raise ValueError(
             "derived_cache must be 'auto', 'none', 'imas-images', 'omas', or 'both'"
+        )
+    # On the server path the URI opens the data entry, so `user` has no effect
+    # beyond dataset_description.data_entry.user -- which records the namespace
+    # a shot was written to. An override could only mislabel the destination.
+    if env == "server" and user is not None and user != source:
+        raise ValueError(
+            f"user={user!r} contradicts the HSDS source being written ({source!r}). "
+            "dataset_description.data_entry.user records the namespace a shot was "
+            "written to; pass source= to choose it."
         )
     # The per-IDS transport passed the public-shot rollout thresholds. Keep the
     # historical full-ODS cache readable, but no longer create it by default.
@@ -475,14 +515,24 @@ def save_ods(
 
     if not is_connect():
         raise ConnectionError("Connection to HSDS server failed")
+    require_source_exists(source)
 
-    with tempfile.TemporaryDirectory(prefix="hsds_imas_ods_") as staging_base:
+    # save_omas_imas() only fills data_entry.user when it is absent, so an ODS
+    # loaded from one source and republished to another would keep the namespace
+    # it came from. The source actually written is the authoritative provenance,
+    # so state it for every artifact this call produces -- the canonical IMAS
+    # images and the derived full-ODS cache alike -- then hand the caller's ODS
+    # back exactly as it was given to us.
+    with (
+        _recorded_source(ods, source),
+        tempfile.TemporaryDirectory(prefix="hsds_imas_ods_") as staging_base,
+    ):
         shot_dir = Path(staging_base) / str(shot)
         shot_dir.mkdir(parents=True, exist_ok=True)
 
         save_omas_imas(
             ods,
-            user=user,
+            user=source,
             machine=machine,
             pulse=shot,
             run=run_value,
@@ -492,7 +542,7 @@ def save_ods(
             verbose=verbose,
             uri="imas:hdf5?path=" + str(shot_dir),
         )
-        _upload_local_shot(shot_dir=shot_dir, directory=directory, shot=shot)
+        _upload_local_shot(shot_dir=shot_dir, directory=source, shot=shot)
         if derived_mode != "none":
             wall_time.sleep(8.0)
         if derived_mode in {"imas-images", "both"}:
@@ -500,7 +550,7 @@ def save_ods(
                 try:
                     result = publish_image(
                         image_path,
-                        directory,
+                        source,
                         shot,
                         imas_version=imas_version,
                     )
@@ -516,7 +566,7 @@ def save_ods(
             try:
                 cache_uri = _publish_derived_omas_cache(
                     ods,
-                    directory,
+                    source,
                     shot,
                     imas_version,
                 )
@@ -528,14 +578,14 @@ def save_ods(
                     "Could not publish derived OMAS cache for shot %s: %s", shot, exc
                 )
 
-    return f"hdf5://{directory}/{shot}/"
+    return f"hdf5://{source}/{shot}/"
 
 
 # --------------------------------------------------------------------------- #
 # Deprecated compatibility shims (issue #38)
 # --------------------------------------------------------------------------- #
 
-def load(shot, directory: str = "public", **kwargs):
+def load(shot, source: Optional[str] = None, **kwargs):
     """Deprecated compatibility alias for :func:`load_ods`."""
     import warnings
 
@@ -545,7 +595,7 @@ def load(shot, directory: str = "public", **kwargs):
         DeprecationWarning,
         stacklevel=2,
     )
-    return load_ods(shot, directory=directory, **kwargs)
+    return load_ods(shot, source, **kwargs)
 
 
 def exist_ts_file(*args, **kwargs):
