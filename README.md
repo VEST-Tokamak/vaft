@@ -88,11 +88,14 @@ python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
 This is a legacy compatibility option; `pip check` may report the intentionally
 bypassed NumPy requirement.
 
-Install from PyPI (obsolete):
+#### Install the released package from PyPI
 
 ```bash
 pip install vaft
 ```
+
+This installs the latest published release. Install from source instead when
+you need unreleased changes from `develop`.
 
 
 **Supported Python**: 3.10 -- 3.13

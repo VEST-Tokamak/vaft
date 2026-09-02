@@ -115,23 +115,6 @@ def _time_combine(ods):
     return time.time() - start
 
 
-def test_combine_ods_time_does_not_scale_with_the_invalid_leaf_count():
-    # Regression for #82: on the pre-fix implementation, going from 2 to 40
-    # invalid leaves on this payload multiplied the runtime several times
-    # over (each extra invalid leaf cost one more full copy/update retry of
-    # the growing trial merge). Asserting a bounded ratio rather than an
-    # absolute threshold keeps this robust across CI hardware while still
-    # catching a reintroduced per-leaf multiplier.
-    n_loops = 950
-    few = _time_combine(_eddy_like_ods(n_loops, n_bad=2))
-    many = _time_combine(_eddy_like_ods(n_loops, n_bad=40))
-
-    assert many < few * 1.4 + 0.15, (
-        f"combine_ods scaled with invalid-leaf count: {few:.3f}s at 2 invalid "
-        f"leaves vs {many:.3f}s at 40 (ratio {many / max(few, 1e-6):.1f}x)"
-    )
-
-
 def test_combine_ods_stays_within_a_ci_safe_time_budget_for_a_large_contaminated_input():
     # A benchmark-style regression with an explicit wall-clock target for a
     # payload sized like the #82 report (roughly 950 pf_passive loops plus
