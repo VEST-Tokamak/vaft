@@ -64,6 +64,7 @@ __all__ = [
     "channel_residual_metrics",
     "eddy_improvement",
     "evaluation_mask",
+    "plasma_free_residual",
     "plasma_onset_time",
     "probe_family",
     "residual_onset",
@@ -400,6 +401,13 @@ def select_vacuum_channels(
 
 
 def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Coil and passive-loop currents on the `pf_active` grid.
+
+    Both are read from the ODS. A plasma-free benchmark that needs the wall
+    driven by the PF coils alone does not inject currents here; it passes the
+    ODS that :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`
+    returns, whose loops were solved without any plasma source (#190).
+    """
     coil_count = _count(ods, "pf_active.coil")
     loop_count = _count(ods, "pf_passive.loop")
     if coil_count == 0:
@@ -447,6 +455,11 @@ def synthetic_vacuum_magnetics(
     interval it judges by, which the eddy stage does: it selects on pre-plasma
     validity but needs post-onset samples for the residual to emerge into.
     Unset, ``validity_window`` follows ``window``.
+
+    The passive-loop currents are whatever the ODS carries. For a plasma-free
+    benchmark pass the ODS from
+    :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`, whose
+    loops were solved from the PF coils alone (#190).
     """
     from vaft.omas.process_wrapper import compute_point_response_ods
 
@@ -525,6 +538,48 @@ def synthetic_vacuum_magnetics(
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
+def plasma_free_residual(
+    channels: Sequence[VacuumChannel],
+    window: tuple[float, float] | None = None,
+    *,
+    normalize: bool = False,
+) -> np.ndarray:
+    """Stack ``measured - coil_eddy`` over the usable samples of every channel.
+
+    This is the objective a wall-resistance calibration minimises (issue #308):
+    with the model driven by the PF coils alone over a plasma-free interval,
+    what is left is the passive-wall response the resistances control.
+
+    Channels are concatenated in the order given, each restricted by
+    :func:`evaluation_mask`, so the result is a single 1-D vector suitable for
+    a least-squares fit. It is deliberately not reduced to a scalar: a fitter
+    wants residuals, and the summary statistics already live in
+    :func:`channel_residual_metrics`.
+
+    ``normalize`` divides each channel's block by the RMS of its own measured
+    signal over the same samples, which puts B-probes in tesla and flux loops
+    in webers on a comparable footing. Without it a fit is dominated by
+    whichever quantity happens to carry the larger numbers. Channels whose
+    measured RMS is zero are left unscaled rather than divided by zero.
+    """
+    blocks: list[np.ndarray] = []
+    for channel in channels:
+        mask = evaluation_mask(channel, window)
+        if not np.any(mask):
+            continue
+        residual = np.asarray(channel.measured, dtype=float)[mask] - np.asarray(
+            channel.coil_eddy, dtype=float
+        )[mask]
+        if normalize:
+            scale = float(np.sqrt(np.mean(np.asarray(channel.measured, dtype=float)[mask] ** 2)))
+            if scale > 0.0:
+                residual = residual / scale
+        blocks.append(residual)
+    if not blocks:
+        return np.zeros(0, dtype=float)
+    return np.concatenate(blocks)
+
 
 def evaluation_mask(
     channel: VacuumChannel, window: tuple[float, float] | None

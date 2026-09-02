@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
 import dataclasses
@@ -41,6 +42,7 @@ from vaft.plot.models import (
     Spectrogram,
 )
 from vaft.plot.display import figure_title, resolve_display
+from vaft.plot.selection import INBOARD, OUTBOARD
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -174,6 +176,226 @@ def _resolve_indices(
     if requested is not None:
         return [int(item) for item in requested]
     return list(range(_count(ods, _container_of(template, marker))))
+
+
+#: Where a channel's human identifier lives, in the order they are tried.
+_IDENTIFIER_LEAVES = ("identifier", "name")
+
+
+def _channel_identifiers(ods: Any, container: str, count: int) -> list[str]:
+    """The identifier of each channel in ``container``, blank where unnamed."""
+    identifiers = []
+    for index in range(count):
+        label = ""
+        for leaf in _IDENTIFIER_LEAVES:
+            value = _get(ods, f"{container}.{index}.{leaf}")
+            if value not in (None, ""):
+                label = str(value)
+                break
+        identifiers.append(label)
+    return identifiers
+
+
+def _channel_positions(ods: Any, container: str, count: int):
+    """``(r, z)`` of each channel, as arrays with ``nan`` where absent.
+
+    Flux loops store a list of points (``position.0.r``) while probes store a
+    single point (``position.r``); both spellings are read here so callers do
+    not need to know which diagnostic they hold.
+    """
+    r_values, z_values = [], []
+    for index in range(count):
+        r = z = np.nan
+        for prefix in (f"{container}.{index}.position", f"{container}.{index}.position.0"):
+            candidate_r = _get(ods, f"{prefix}.r")
+            candidate_z = _get(ods, f"{prefix}.z")
+            if candidate_r is not None and candidate_z is not None:
+                try:
+                    r = float(np.asarray(candidate_r, dtype=float).ravel()[0])
+                    z = float(np.asarray(candidate_z, dtype=float).ravel()[0])
+                except (IndexError, TypeError, ValueError):
+                    r = z = np.nan
+                break
+        r_values.append(r)
+        z_values.append(z)
+    return np.asarray(r_values, dtype=float), np.asarray(z_values, dtype=float)
+
+
+def _resolve_selection(
+    ods: Any,
+    template: str,
+    selection: Any,
+    marker: str = "{i}",
+    fallbacks: Sequence[str] = (),
+) -> list[int]:
+    """Resolve the public ``selection=`` contract to ODS channel indices.
+
+    ``None`` or ``"all"`` selects every channel; an ``int`` or a sequence of
+    ints selects those indices; a ``str`` resolves as a named physical preset
+    first and then as an exact identifier; a sequence of ``str`` resolves as
+    identifiers.  Anything unresolved raises, naming what was available --
+    fuzzy matching would let a typo silently plot the wrong diagnostic.
+    """
+    container = _container_of(template, marker)
+    count = _count(ods, container)
+    if selection is None or (isinstance(selection, str) and selection == "all"):
+        return list(range(count))
+    if isinstance(selection, (int, np.integer)) and not isinstance(selection, bool):
+        return [int(selection)]
+
+    if isinstance(selection, (bool, np.bool_)):
+        raise TypeError(
+            f"selection must be indices, identifiers or a preset; got {selection!r}"
+        )
+    terms = [selection] if isinstance(selection, str) else list(selection)
+    if all(isinstance(term, (int, np.integer)) and not isinstance(term, bool)
+           for term in terms):
+        return [int(term) for term in terms]
+
+    identifiers = _channel_identifiers(ods, container, count)
+    lookup: dict[str, int] = {}
+    ambiguous: set[str] = set()
+    for index, name in enumerate(identifiers):
+        if not name:
+            continue
+        if name in lookup:
+            ambiguous.add(name)
+        else:
+            lookup[name] = index
+    indices: list[int] = []
+    for term in terms:
+        if not isinstance(term, str):
+            raise TypeError(
+                "selection must be indices or identifiers, not a mixture; "
+                f"got {term!r}"
+            )
+        preset = _resolve_preset(
+            ods, container, count, term, (template, *fallbacks)
+        )
+        if preset is not None:
+            indices.extend(preset)
+            continue
+        if term in ambiguous:
+            raise ValueError(
+                f"identifier {term!r} names more than one channel of "
+                f"{container}; select it by index instead"
+            )
+        if term in lookup:
+            indices.append(lookup[term])
+            continue
+        known = ", ".join(sorted(name for name in identifiers if name)) or "none"
+        raise ValueError(
+            f"unknown selection {term!r} for {container}; "
+            f"supported presets: {', '.join(selection_presets())}; "
+            f"available identifiers: {known}"
+        )
+    # Keep the caller's order, as an integer selection does; a preset
+    # contributes its own channels in ODS order.  Repeats collapse to their
+    # first appearance so overlapping terms stay predictable.
+    return list(dict.fromkeys(indices))
+
+
+def _channel_has_data(ods: Any, candidates: Sequence[str], index: int) -> bool:
+    """Whether this channel actually carries the signal being plotted.
+
+    A representative must be a real measurement: the channel nearest the
+    midplane is no use if it recorded nothing, so an empty one is passed over
+    rather than returned and drawn blank.
+
+    The question is answered exactly as :func:`_first_array` answers it when it
+    builds the trace -- every candidate spelling of the path, and a usable 1D
+    array -- so a channel can never be chosen here and then decline to draw, or
+    be passed over while the plot would happily have shown it.
+    """
+    try:
+        array = _first_array(ods, tuple(candidates), i=index)
+    except ValueError:
+        return False
+    return array is not None and array.ndim == 1 and bool(np.isfinite(array).any())
+
+
+def _resolve_preset(
+    ods: Any, container: str, count: int, term: str, candidates: Sequence[str]
+):
+    """Resolve a named physical region preset, or ``None`` if not one.
+
+    The region comes from :func:`vaft.plot.selection.classify_regions`, which
+    infers this family's own inboard/outboard divider from its geometry.  A
+    preset that names a real region but matches no channel here still resolves
+    -- to nothing -- rather than falling through to the identifier lookup and
+    reporting an unknown selection.
+    """
+    from vaft.plot.selection import (
+        PRESETS,
+        REGION_PRESETS,
+        classify_regions,
+        radial_divider,
+        representative_index,
+    )
+
+    if term not in PRESETS:
+        return None
+    r_values, z_values = _channel_positions(ods, container, count)
+    split = radial_divider(r_values)
+    if not split:
+        raise ValueError(
+            f"{container} has no inboard/outboard split -- its channels sit at "
+            f"one radius -- so {term!r} does not apply to it; select by index "
+            "or identifier instead"
+        )
+    regions = classify_regions(r_values, split=split)
+
+    if term in REGION_PRESETS:
+        return [index for index, region in enumerate(regions) if region == term]
+
+    # A representative names the one channel that best stands for its region.
+    region = next(
+        (name for name in (INBOARD, OUTBOARD) if term.startswith(name)), None
+    )
+    if region is None:
+        raise ValueError(f"preset {term!r} names no physical region")
+    candidates = [
+        index
+        for index, name in enumerate(regions)
+        if name == region and _channel_has_data(ods, candidates, index)
+    ]
+    chosen = representative_index(z_values, candidates)
+    if chosen is None:
+        raise ValueError(
+            f"no usable {region} channel of {container} can represent "
+            f"{term!r}; the region is empty or carries no data in this input"
+        )
+    return [chosen]
+
+
+def selection_presets() -> tuple[str, ...]:
+    """The named physical presets this build understands."""
+    from vaft.plot.selection import PRESETS
+
+    return PRESETS
+
+
+def _selection_option(options: dict) -> Any:
+    """Read ``selection=``, honouring the deprecated ``channels=`` spelling."""
+    from vaft.plot._migration import RENAMED_REMOVAL_RELEASE
+
+    selection = options.get("selection")
+    channels = options.get("channels")
+    if selection is not None:
+        if channels is not None:
+            raise TypeError(
+                "pass either selection= or the deprecated channels=, not both"
+            )
+        return selection
+    if channels is not None:
+        warnings.warn(
+            "channels= is deprecated; use selection=, which takes the same "
+            "indices and also accepts identifiers and named physical presets. "
+            f"Removed in {RENAMED_REMOVAL_RELEASE}.",
+            DeprecationWarning,
+            stacklevel=6,
+        )
+    return channels
 
 
 def _squeeze_energy_band(values: np.ndarray | None, *, where: str) -> np.ndarray | None:
@@ -2379,7 +2601,7 @@ def _build_line_traces(
     recipe: LineRecipe,
     *,
     entry_label: str,
-    channels: Any = None,
+    selection: Any = None,
 ) -> list[Series]:
     """Extract traces in IMAS canonical units; display scaling happens later."""
     value_scale = recipe.scale
@@ -2412,7 +2634,9 @@ def _build_line_traces(
         ]
 
     if recipe.index == "channel":
-        indices = _resolve_indices(ods, recipe.y_path, channels)
+        indices = _resolve_selection(
+            ods, recipe.y_path, selection, fallbacks=recipe.fallback_y_paths
+        )
         traces = []
         for index in indices:
             try:
@@ -2483,7 +2707,7 @@ def _build_line_series(
                 ods,
                 recipe,
                 entry_label=entry_label,
-                channels=options.get("channels"),
+                selection=_selection_option(options),
             )
         )
     x_display = _resolve_axis_display(
@@ -2517,6 +2741,7 @@ def _build_line_series(
 
 
 _COORDINATE_LABELS = {
+    "index": "Profile sample index",
     "rho_tor_norm": "Normalized Toroidal Flux (rho_N)",
     "psi_norm": "Normalized Poloidal Flux (psi_N)",
     "r_major": "Major Radius R [m]",
@@ -2531,10 +2756,101 @@ _EQUILIBRIUM_COORDINATES = {
 }
 
 
+#: Equilibrium abscissae, weakest last. When entries in one figure resolve to
+#: different coordinates they all fall back to the weakest any of them supports,
+#: because a figure has one x axis and it has to describe every curve on it.
+_COORDINATE_FALLBACK_ORDER = ("rho_tor_norm", "psi_norm", "index")
+
+
+def _common_coordinate(resolved: list[str], requested: str) -> str:
+    """The one coordinate a figure can label, given what each entry resolved to."""
+    if not resolved:
+        return requested
+    distinct = set(resolved)
+    if len(distinct) == 1:
+        return resolved[0]
+    for name in reversed(_COORDINATE_FALLBACK_ORDER):
+        if name in distinct:
+            return name
+    return "index"
+
+
+def _recoordinate(
+    trace: Series, was: str, wanted: str, ods: Any, recipe: ProfileRecipe, time_slice: int
+) -> Series:
+    """Redraw one trace against ``wanted``, or against an index if it cannot."""
+    if was == wanted:
+        return trace
+    size = np.asarray(trace.y).size
+    if wanted != "index":
+        values, resolved = _equilibrium_coordinate_values(
+            ods, recipe, wanted, time_slice, size
+        )
+        if values is not None and resolved == wanted:
+            return dataclasses.replace(trace, x=values)
+    return dataclasses.replace(trace, x=np.arange(size, dtype=float))
+
+
 def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     if recipe.coordinate_paths:
         return recipe.coordinate_paths.get(name)
     return _EQUILIBRIUM_COORDINATES.get(name)
+
+
+def _equilibrium_coordinate_values(
+    ods: Any, recipe: ProfileRecipe, coordinate: str, time_slice: int, size: int
+) -> tuple[Any, str]:
+    """The abscissa for one equilibrium profile, and the coordinate it really is.
+
+    Two ways this used to lie about its x-axis (issue #276):
+
+    * the stored ``rho_tor_norm`` on anything written before the fix is
+      ``sqrt(psi_N)`` -- a *poloidal* coordinate under a toroidal label, up to
+      0.126 away from the real one on the packaged samples. It is detected and
+      refused here rather than plotted, and the toroidal coordinate is derived
+      from ``q`` on the spot when the slice can support one;
+    * a missing or length-mismatched coordinate fell back to
+      ``linspace(0, 1, n)`` while the label still read "Normalized Toroidal
+      Flux", so a bare sample index was drawn as rho_N.
+
+    Returns ``(values, coordinate_name)``. ``values`` is ``None`` only when
+    nothing can be resolved; the name is what the axis must be labelled with,
+    which is not always what was asked for.
+    """
+    path = _profile_coordinate(recipe, coordinate)
+    values = _array(ods, path.format(i=time_slice)) if path else None
+    if values is not None and values.size != size:
+        values = None
+
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    psi = _array(ods, f"{base}.psi")
+    psi_norm = None
+    if psi is not None and psi.size == size and psi[-1] != psi[0]:
+        psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+
+    if coordinate == "psi_norm" and values is None:
+        # psi_norm is a ratio of a leaf that is always there, so a slice can
+        # supply it whether or not the DD leaf itself was written.
+        return psi_norm, coordinate
+
+    if coordinate == "rho_tor_norm":
+        from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
+
+        if values is not None and is_rho_pol_proxy(values, psi_norm):
+            values = None  # the sqrt(psi_N) proxy: derive or fall back instead
+        if values is None and psi is not None:
+            q = _array(ods, f"{base}.q")
+            derived = rho_tor_profile(q, psi) if q is not None else None
+            if derived is not None and derived.rho_tor_norm.size == size:
+                return derived.rho_tor_norm, coordinate
+        if values is None:
+            # Say psi_norm on the axis rather than draw a poloidal coordinate,
+            # or a sample index, under a toroidal label.
+            if psi_norm is not None:
+                return psi_norm, "psi_norm"
+            return None, coordinate
+
+    return values, coordinate
 
 
 def _build_profile_1d(
@@ -2548,9 +2864,10 @@ def _build_profile_1d(
     coordinate = options.get("coordinate") or recipe.default_coordinate
     time_slice = options.get("time_slice", 0)
     traces: list[Series] = []
+    resolved_per_entry: list[str] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
-            indices = _resolve_indices(ods, recipe.y_path, options.get("channels"))
+            indices = _resolve_selection(ods, recipe.y_path, _selection_option(options))
             x_values, y_values = [], []
             for index in indices:
                 x = _get(ods, _profile_coordinate(recipe, coordinate).format(i=index))
@@ -2579,20 +2896,46 @@ def _build_profile_1d(
                 y = _array(ods, fallback.format(i=time_slice))
         if y is None:
             continue
-        coordinate_path = _profile_coordinate(recipe, coordinate)
-        x = (
-            _array(ods, coordinate_path.format(i=time_slice))
-            if coordinate_path
-            else None
-        )
-        if x is None or x.size != y.size:
-            x = np.linspace(0.0, 1.0, y.size)
+        if recipe.coordinate_paths:
+            coordinate_path = _profile_coordinate(recipe, coordinate)
+            x = (
+                _array(ods, coordinate_path.format(i=time_slice))
+                if coordinate_path
+                else None
+            )
+            if x is not None and x.size != y.size:
+                x = None
+            resolved = coordinate
+        else:
+            x, resolved = _equilibrium_coordinate_values(
+                ods, recipe, coordinate, time_slice, y.size
+            )
+        if x is None:
+            # A sample index is not a coordinate; label it as one, do not
+            # pass it off as the coordinate that was asked for.
+            x = np.arange(y.size, dtype=float)
+            resolved = "index"
+        resolved_per_entry.append(resolved)
         code, mask = _validity_of(ods, recipe.y_path, time_slice)
         spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
         traces.append(
             Series(x=x, y=y, label=entry_label, yerr=spread,
                    validity=code, valid_mask=mask)
         )
+
+    # One figure carries one abscissa. Entries can resolve to different
+    # coordinates -- one slice derives rho_tor_norm, another only has psi_norm --
+    # and labelling from whichever came last would put a curve on an axis that
+    # does not describe it, with the label flipping on input order alone. They
+    # fall back together instead, to the weakest coordinate any entry supports.
+    drawn_coordinate = _common_coordinate(resolved_per_entry, coordinate)
+    if len(set(resolved_per_entry)) > 1:
+        traces = [
+            _recoordinate(trace, was, drawn_coordinate, ods, recipe, time_slice)
+            for trace, was, (_entry_label, ods) in zip(
+                traces, resolved_per_entry, entries
+            )
+        ]
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
@@ -2609,7 +2952,7 @@ def _build_profile_1d(
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
     return Profile1D(
         series=scaled,
-        coordinate_label=_COORDINATE_LABELS.get(coordinate, coordinate),
+        coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
         y_label=recipe.y_label,
         y_unit=y_display.unit,
         title=options.get("title", default_title),

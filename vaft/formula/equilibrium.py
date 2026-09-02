@@ -241,6 +241,37 @@ def rhoN_from_phi(phi: Union[np.ndarray, float],
     return np.sqrt(phi / phi_boundary)
 
 
+def toroidal_flux_from_q_psi(q: np.ndarray,
+                             psi_wb: np.ndarray) -> np.ndarray:
+    r"""
+    # $\Phi(\psi) = \int_{\psi_a}^{\psi} q \, d\psi$   (ψ in weber)
+    # Φ(ψ) = ∫ q dψ
+
+    ``psi_wb`` is the poloidal flux **in weber**, which is what the IMAS DD
+    stores.  No 2π appears: ``dΦ/dψ_rad = 2π q`` and ``ψ_wb = 2π ψ_rad``, so the
+    two factors cancel.  Pass ``2*np.pi*psi_rad`` for a weber-per-radian profile.
+
+    Returns the cumulative flux on the same grid, starting at zero.
+    """
+    from vaft.compat import cumtrapz_compat
+
+    q = np.asarray(q, dtype=float).reshape(-1)
+    psi_wb = np.asarray(psi_wb, dtype=float).reshape(-1)
+    return np.asarray(cumtrapz_compat(q, x=psi_wb), dtype=float)
+
+
+def rho_tor_from_phi(phi: Union[np.ndarray, float],
+                     B0: float) -> Union[np.ndarray, float]:
+    r"""
+    # $\rho_{tor} = \sqrt{\frac{|\Phi|}{\pi |B_0|}}$
+    # ρ_tor = √(|Φ| / (π|B₀|))
+
+    The dimensional toroidal-flux coordinate: the minor radius of a circle
+    carrying the same toroidal flux in a uniform field ``B0``.
+    """
+    return np.sqrt(np.abs(phi) / (np.pi * abs(float(B0))))
+
+
 # ------------------------------------------------------------------
 # Safety Factor Calculations
 # ------------------------------------------------------------------

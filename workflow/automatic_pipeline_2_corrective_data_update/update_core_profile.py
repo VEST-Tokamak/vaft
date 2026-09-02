@@ -37,6 +37,7 @@ from vaft.code.efit import build_kinetic_core_profiles
 from update_thomson_scattering_and_core_profile import (
     extract_shotnumber_of_thomson_scattering,
     load_processed_shots,
+    SOURCE,
     save_processed_shot,
     strip_electron_only_pressure,
 )
@@ -136,7 +137,7 @@ def build_core_profiles_all_times(ods, shotnumber):
     omas.save_omas_json(
         ods, f"{PUBLIC_BASE}/{shotnumber}/omas/{shotnumber}_core_profile.json"
     )
-    database.save(ods, shotnumber)
+    database.save(ods, shotnumber, source=SOURCE)
     print(f"[SAVED] shot {shotnumber}: {n_kinetic} kinetic + {n_thomson} Thomson-only slices")
     return "kinetic_core_profile" if n_kinetic > 0 else "core_profile"
 
@@ -144,7 +145,7 @@ def build_core_profiles_all_times(ods, shotnumber):
 def process_shot(shotnumber):
     """Build core_profiles for a single shot already loaded in the database."""
     try:
-        ods = database.load(shotnumber, source="public")
+        ods = database.load(shotnumber, source=SOURCE)
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {exc}")
         return None

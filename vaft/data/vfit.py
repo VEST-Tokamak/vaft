@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any, Literal, Mapping
 
 import numpy as np
+
+from vaft.data._derived import rho_tor_profile
 from scipy.io import loadmat
 
 
@@ -602,7 +604,16 @@ class VFITResult:
             raise ValueError("VFIT PsiN and q profiles must have the same length")
         psi = psi_axis + psin * (psi_boundary - psi_axis)
         eqt["profiles_1d.psi"] = psi
-        eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psin, 0.0, 1.0))
+        # This adapter wrote sqrt(psi_N) into rho_tor_norm unconditionally, with
+        # q already in hand -- the worse half of issue #276. It now derives the
+        # real coordinate through the same routine the g-file path uses, and
+        # writes the poloidal quantity the DD defines when it cannot.
+        rho_tor_terms = rho_tor_profile(q, psi)
+        if rho_tor_terms is None:
+            eqt["profiles_1d.psi_norm"] = np.clip(psin, 0.0, 1.0)
+        else:
+            eqt["profiles_1d.phi"] = rho_tor_terms.phi
+            eqt["profiles_1d.rho_tor_norm"] = rho_tor_terms.rho_tor_norm
         eqt["profiles_1d.q"] = q
         for name, values in profiles.items():
             if values.size == psin.size:
@@ -611,9 +622,10 @@ class VFITResult:
             eqt["global_quantities.q_axis"] = float(q[0])
             qmin = int(np.argmin(np.abs(q)))
             eqt["global_quantities.q_min.value"] = float(q[qmin])
-            eqt["global_quantities.q_min.rho_tor_norm"] = float(
-                eqt["profiles_1d.rho_tor_norm"][qmin]
-            )
+            if "profiles_1d.rho_tor_norm" in eqt:
+                eqt["global_quantities.q_min.rho_tor_norm"] = float(
+                    eqt["profiles_1d.rho_tor_norm"][qmin]
+                )
 
     def _fem_slice(
         self, ods: Any, destination: int, source_index: int, time: float

@@ -81,7 +81,7 @@ def test_source_revision_excludes_derived_domains(monkeypatch):
 
     class FakeH5PYD:
         @staticmethod
-        def Folder(_path):
+        def Folder(_path, mode=None):
             return ["master.h5", "equilibrium.h5", "equilibrium.h5image.h5"]
 
         @staticmethod

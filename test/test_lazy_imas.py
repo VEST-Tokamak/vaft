@@ -37,7 +37,7 @@ class _H5PYD:
         name = uri.rsplit('/', 1)[-1].removesuffix('.h5')
         return self.domains[name]
 
-    def Folder(self, _path):
+    def Folder(self, _path, mode=None):
         return [f"{name}.h5" for name in self.domains]
 
 

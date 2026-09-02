@@ -12,6 +12,7 @@ from typing import Any
 from omas import ODS, save_omas_json
 
 from vaft.data.eqdsk import read_geqdsk
+from vaft.omas.vest_upstream import write_manifest
 
 
 LOGGER = logging.getLogger("vaft.generate_chease_ods")
@@ -92,6 +93,7 @@ def main() -> int:
     parser.add_argument("--refined-gfile-manifest", required=True, type=Path, help="Input CHEASE refined gfile manifest.")
     parser.add_argument("--status", required=True, type=Path, help="Input CHEASE status file.")
     parser.add_argument("--output", required=True, type=Path, help="Output CHEASE ODS JSON.")
+    parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest.")
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
     parser.add_argument(
         "--runs-summary",
@@ -141,6 +143,25 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     save_omas_json(ods, str(args.output))
+
+    # A refinement that parsed no g-file leaves a placeholder ODS on disk for
+    # inspection. The manifest is where that is said, so nothing downstream
+    # mistakes the placeholder for a refined equilibrium.
+    write_manifest(
+        {
+            "schema_version": 1,
+            "stage": "chease",
+            "shot": int(args.shot),
+            "run": int(args.run),
+            "status": "success" if gfiles and not parse_errors else
+                      "partial" if gfiles else "no_output",
+            "chease_status": status_text,
+            "gfiles": len(gfiles),
+            "parse_errors": parse_errors,
+            "records_summary": records_summary,
+        },
+        args.metadata,
+    )
     LOGGER.info("CHEASE ODS saved to %s", args.output)
     return 0
 

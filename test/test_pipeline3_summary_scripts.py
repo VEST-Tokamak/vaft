@@ -71,9 +71,11 @@ def test_entry_point_accepts_the_arguments_its_callers_pass(stem):
     parameters = signature.parameters
     # The notebook passes the shot range positionally and the rest by keyword.
     assert list(parameters)[0] == "shot_range"
-    for keyword in ("directory", "output_path", "rebuild"):
+    for keyword in ("source", "directory", "output_path", "rebuild"):
         assert keyword in parameters, keyword
         assert parameters[keyword].kind is inspect.Parameter.KEYWORD_ONLY
+    # `source` is the name now; `directory` stays bindable for existing callers.
+    signature.bind(None, source="main", output_path="out.xlsx")
     signature.bind(None, directory="public", output_path="out.xlsx")
 
 

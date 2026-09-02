@@ -19,7 +19,8 @@ OUTPUT_FILENAME = "equilibrium_global_history.xlsx"
 def generate_equilibrium_global_history_excel(
     shot_range: tuple[int, int] | None = None,
     *,
-    directory: str = "public",
+    source: str | None = None,
+    directory: str | None = None,
     output_path: str | None = None,
     rebuild: bool = False,
 ):
@@ -28,7 +29,8 @@ def generate_equilibrium_global_history_excel(
     frame = database.summary(
         shot_range,
         preset="equilibrium_global",
-        source=directory,
+        source=source,
+        directory=directory,
     )
     definition = get_summary_preset("equilibrium_global")
     return database.export_summary(
@@ -54,12 +56,14 @@ def _shot_range(value: str) -> tuple[int, int]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot-range", type=_shot_range)
-    parser.add_argument("--directory", default="public")
+    parser.add_argument("--source", default=None)
+    parser.add_argument("--directory", default=None, help="deprecated alias for --source")
     parser.add_argument("--output", default=None)
     parser.add_argument("--rebuild", action="store_true")
     arguments = parser.parse_args()
     generate_equilibrium_global_history_excel(
         arguments.shot_range,
+        source=arguments.source,
         directory=arguments.directory,
         output_path=arguments.output,
         rebuild=arguments.rebuild,

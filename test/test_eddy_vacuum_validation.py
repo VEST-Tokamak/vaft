@@ -33,6 +33,8 @@ from vaft.omas.process_wrapper import (
     compute_point_vacuum_fields_ods,
 )
 from vaft.omas.vacuum_magnetics import (
+    evaluation_mask,
+    plasma_free_residual,
     B_FIELD_POL_PROBE,
     FLUX_LOOP,
     VacuumMagneticsError,
@@ -460,3 +462,88 @@ def test_the_residual_band_and_the_onset_markers_use_the_same_sigma(plasma_ods):
         for text in ax.get_legend().get_texts()
     }
     assert any("±2σ" in label for label in labels)
+
+
+def test_plasma_free_residual_stacks_channels_for_a_fitter(vacuum_ods):
+    """#308 minimises this vector, so its length and content must be predictable."""
+    ods, _, _ = vacuum_ods
+    channels = synthetic_vacuum_magnetics(ods)
+    window = (float(channels[0].time[0]), PLASMA_ONSET)
+
+    residual = plasma_free_residual(channels, window)
+    expected = sum(int(np.count_nonzero(evaluation_mask(c, window))) for c in channels)
+    assert residual.shape == (expected,)
+
+    # This fixture's measurement is exactly coil + eddy before onset.
+    assert np.max(np.abs(residual)) < 1e-9
+
+    # Normalisation puts tesla and weber channels on a comparable footing
+    # without changing how many samples are compared.
+    assert plasma_free_residual(channels, window, normalize=True).shape == (expected,)
+
+
+def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
+    """End-to-end on the packaged shot #190 cites as its working regression.
+
+    This is the check the synthetic fixtures cannot make: 950 real passive
+    loops, the real coupling matrices, and a real PF programme. #308 will call
+    `benchmark_wall_currents` inside a fit loop, so this is also its cost.
+
+    Before plasma onset the PF-only and routine drives coincide, so the
+    residual must agree between them; that it does is what makes the PF-only
+    solve a drop-in objective for the calibration.
+    """
+    import gzip
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from omas import load_omas_json
+
+    from vaft.data import resources
+    from vaft.validation.vacuum_benchmark import benchmark_wall_currents
+
+    try:
+        source = resources.data_path("samples/39915/source/pipeline-until-efit.json.gz")
+    except Exception:  # pragma: no cover - packaging-dependent
+        pytest.skip("packaged 39915 pipeline sample is unavailable")
+    if not Path(source).is_file():
+        pytest.skip("packaged 39915 pipeline sample is repository-only")
+
+    with gzip.open(source, "rt") as handle, tempfile.NamedTemporaryFile(
+        "w", suffix=".json", delete=False
+    ) as plain:
+        shutil.copyfileobj(handle, plain)
+        plain_path = plain.name
+    try:
+        ods = load_omas_json(plain_path, consistency_check=False)
+    finally:
+        Path(plain_path).unlink(missing_ok=True)
+
+    n_loop = len(ods["pf_passive.loop"])
+    assert n_loop == 950
+
+    solved = benchmark_wall_currents(ods)
+    pf_only = np.array(
+        [np.asarray(solved[f"pf_passive.loop.{i}.current"], dtype=float) for i in range(n_loop)]
+    )
+    assert pf_only.shape[0] == n_loop
+    assert np.all(np.isfinite(pf_only))
+
+    onset = plasma_onset_time(ods)
+    routine_channels = synthetic_vacuum_magnetics(ods)
+    window = (float(routine_channels[0].time[0]), onset)
+    pf_channels = synthetic_vacuum_magnetics(solved)
+
+    routine_rms = float(
+        np.sqrt(np.mean(plasma_free_residual(routine_channels, window, normalize=True) ** 2))
+    )
+    pf_rms = float(
+        np.sqrt(np.mean(plasma_free_residual(pf_channels, window, normalize=True) ** 2))
+    )
+    # Pre-onset the two drives are the same, so the residuals must be too.
+    assert pf_rms == pytest.approx(routine_rms, rel=0.05)
+    # And the model does not yet explain the wall response -- which is the
+    # gap #308 exists to close. If this ever falls near zero without a
+    # calibration landing, the benchmark has stopped being informative.
+    assert 0.01 < pf_rms < 1.0

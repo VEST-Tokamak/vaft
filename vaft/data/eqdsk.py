@@ -9,6 +9,8 @@ import re
 
 import numpy as np
 
+from vaft.data._derived import rho_tor_profile
+
 
 _STANDARD_KEYS = (
     "CASE",
@@ -718,43 +720,6 @@ def _min_contour_points() -> int:
     return MIN_FLUX_SURFACE_POINTS
 
 
-def _rho_tor_profile(
-    qpsi: Any, psi_1d: np.ndarray, b0: Any
-) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Integrate ``q`` into toroidal flux and the rho_tor coordinate.
-
-    EFIT writes ``psi`` in Wb/rad, so ``dPhi/dpsi = 2*pi*q`` and
-
-        Phi(psi) = 2*pi * cumulative_trapezoid(q, psi)
-        rho_tor  = sqrt(|Phi| / (pi * |B0|))
-
-    This is the same coordinate OMFIT's ``fluxSurfaces`` produces -- they agree
-    to within 1.5e-3 in normalized units on VEST g-files. The ``sqrt(psi_N)``
-    proxy VAFT wrote before is not: it is off by percent-level amounts, and
-    every kinetic profile is mapped onto this grid.
-
-    Returns ``(phi, rho_tor, rho_tor_norm)``, or ``None`` when the profile is
-    degenerate (flat psi, zero field, no toroidal flux) and the caller should
-    fall back to the proxy.
-    """
-    from vaft.compat import cumtrapz_compat
-
-    qpsi = np.asarray(qpsi, dtype=float).reshape(-1)
-    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
-    b0 = abs(float(b0))
-    if qpsi.size != psi_1d.size or qpsi.size < 2 or b0 == 0.0:
-        return None
-    if not np.all(np.isfinite(qpsi)) or not np.all(np.isfinite(psi_1d)):
-        return None
-
-    phi = 2.0 * np.pi * np.asarray(cumtrapz_compat(qpsi, x=psi_1d), dtype=float)
-    rho_tor = np.sqrt(np.abs(phi) / (np.pi * b0))
-    edge = float(rho_tor[-1])
-    if not np.isfinite(edge) or edge <= 0.0:
-        return None
-    return phi, rho_tor, rho_tor / edge
-
-
 def _contour_geometry(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
     """Shape parameters of one closed flux-surface contour.
 
@@ -924,14 +889,19 @@ def to_omas(
     eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float) / TWO_PI
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
 
-    rho_tor_terms = _rho_tor_profile(data["QPSI"], psi_1d, data["BCENTR"])
+    # psi_1d is the g-file's weber-per-radian; the shared routine takes weber.
+    rho_tor_terms = rho_tor_profile(data["QPSI"], psi_1d * TWO_PI, data["BCENTR"])
     if rho_tor_terms is None:
-        eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+        # No toroidal coordinate is derivable, so write the poloidal one the DD
+        # does define -- equilibrium profiles_1d has psi_norm but no
+        # rho_pol_norm -- and leave rho_tor_norm unset for the reader to notice.
+        # Filling it with sqrt(psi_N) is what issue #276 is about.
+        eqt["profiles_1d.psi_norm"] = np.clip(psi_norm, 0.0, 1.0)
     else:
-        phi, rho_tor, rho_tor_norm = rho_tor_terms
-        eqt["profiles_1d.phi"] = phi
-        eqt["profiles_1d.rho_tor"] = rho_tor
-        eqt["profiles_1d.rho_tor_norm"] = rho_tor_norm
+        eqt["profiles_1d.phi"] = rho_tor_terms.phi
+        if rho_tor_terms.rho_tor is not None:
+            eqt["profiles_1d.rho_tor"] = rho_tor_terms.rho_tor
+        eqt["profiles_1d.rho_tor_norm"] = rho_tor_terms.rho_tor_norm
 
     prof2d = eqt[f"profiles_2d.{profile_index}"]
     prof2d["grid_type.index"] = 1
@@ -946,7 +916,10 @@ def to_omas(
         qpsi = np.asarray(data["QPSI"], dtype=float)
         qmin_idx = int(np.argmin(np.abs(qpsi)))
         eqt["global_quantities.q_min.value"] = float(qpsi[qmin_idx])
-        eqt["global_quantities.q_min.rho_tor_norm"] = float(eqt["profiles_1d.rho_tor_norm"][qmin_idx])
+        if "profiles_1d.rho_tor_norm" in eqt:
+            eqt["global_quantities.q_min.rho_tor_norm"] = float(
+                eqt["profiles_1d.rho_tor_norm"][qmin_idx]
+            )
 
     if float(data["CURRENT"]) != 0.0:
         eqt["boundary.outline.r"] = np.asarray(data.get("RBBBS", []), dtype=float)

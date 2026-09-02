@@ -142,3 +142,17 @@ gpec:
   #   - {name: MID, currents_a: [200, 200, 0, -200, -200, 0]}
   coil:
     source: vest_reference
+
+# HSDS replication (issue #94). Off by default: it needs a reachable HSDS and
+# canonical products. Each stage replicates only the IDS subtree it owns, into
+# the source vaft.database.sources.STAGE_REPLICATION gives it -- the workflow
+# never chooses a destination itself.
+#
+# Requires `layout: filedb`; the shot-first tree is a read-only legacy
+# reference and is never replicated. The top-level namespaces must already
+# exist on the deployment (`hstouch -u <admin> -o <owner> /main/`); nothing here
+# creates one.
+hsds:
+  replicate: false
+  attempts: 3
+  retry_delay: 5.0
