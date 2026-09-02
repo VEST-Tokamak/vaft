@@ -57,15 +57,13 @@ from ._plot_recipes import (
     _channel_has_data,
     _channel_identifiers,
     _channel_positions,
-    _constraint_slices,
-    _constraint_values,
     _container_of,
     _count,
-    _get,
     _resolve_preset,
     _uncertainty_of,
     _validity_of,
     diagnoses_itself,
+    has_synthetic_values,
     missing_required_path,
     normalize_entries,
 )
@@ -234,27 +232,9 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         if record.synthetic:
             updates["synthetic"] = {
                 **record.synthetic,
-                "available": _has_synthetic_values(ods, record.name),
+                "available": has_synthetic_values(ods, record.name),
             }
     return with_capabilities(record, **updates)
-
-
-def _has_synthetic_values(ods: Any, name: str) -> bool:
-    """Whether any slice stores a finite reconstruction for this plot."""
-    family, per_channel = SYNTHETIC_CONSTRAINTS[name]
-    if not per_channel:
-        times, _ = _constraint_values(ods, family, False, "reconstructed", None)
-        return times.size > 0
-    for index, _ in _constraint_slices(ods):
-        base = f"equilibrium.time_slice.{index}.constraints.{family}"
-        for j in range(_count(ods, base)):
-            source = _get(ods, f"{base}.{j}.source")
-            if source is None:
-                continue
-            times, _ = _constraint_values(ods, family, True, "reconstructed", str(source))
-            if times.size > 0:
-                return True
-    return False
 
 
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:

@@ -58,6 +58,11 @@ LEGEND_MAX_ENTRIES = 8
 #: Matplotlib group ids marking what the legend policy itself placed, so a
 #: repeated draw into the same axes can replace them rather than pile up.
 _POLICY_LEGEND_GID = "vaft-legend"
+#: Handles drawn for a trace that stands beside a measurement in a role (a
+#: reconstruction under a channel).  The legend threshold counts the
+#: measurements only, so an overlay never halves the channel count at which
+#: the legend gives way to a note (issue #261).
+_ROLE_GID = "vaft-role"
 _COUNT_NOTE_GID = "vaft-legend-count"
 
 
@@ -110,6 +115,11 @@ def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) ->
     ``legend=None`` applies the policy: nothing for a lone trace, a legend for
     up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
     trace count.  ``True`` forces a legend, ``False`` suppresses it.
+
+    Traces drawn in a role beside a measurement (a reconstruction under each
+    channel, issue #261) are legend entries but do not count toward the
+    threshold, so an overlay never halves the channel count at which the
+    legend gives way to a note.
     """
     # Decide afresh from everything now on the axes.  A caller may draw into
     # the same axes more than once, so whatever this policy placed last time --
@@ -131,7 +141,8 @@ def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) ->
         return
     if count <= 1:
         return
-    if count > LEGEND_MAX_ENTRIES:
+    judged = sum(1 for handle in handles if getattr(handle, "get_gid", lambda: None)() != _ROLE_GID)
+    if judged > LEGEND_MAX_ENTRIES:
         axes.text(
             0.99, 0.97, f"{count} traces", transform=axes.transAxes,
             ha="right", va="top", fontsize="small", alpha=0.7, gid=_COUNT_NOTE_GID,
@@ -320,9 +331,15 @@ def draw_series(
         yerr = None
 
     if draw_errorbars:
-        axes.errorbar(x, y, yerr=yerr, **options)
+        container = axes.errorbar(x, y, yerr=yerr, **options)
+        if series.role:
+            for artist in container.get_children():
+                artist.set_gid(_ROLE_GID)
     else:
         lines = axes.plot(x, y, **options)
+        if series.role:
+            for line in lines:
+                line.set_gid(_ROLE_GID)
         if yerr is not None and uncertainty in ("band", "auto"):
             spread = np.asarray(yerr, dtype=float)
             low, high = (spread[0], spread[1]) if spread.ndim == 2 else (spread, spread)
