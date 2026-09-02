@@ -1,0 +1,819 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VEST diagnostics and data availability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/api/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/vest-systems/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >VEST diagnostics and data availability</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/VEST_diagnostics">VEST diagnostics and data availability</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference view of the VEST diagnostic registry in vaft.machine_mapping.vest.yaml.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>A system's data source, operational classification, lifecycle, and VAFT support state.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>This page is generated from VAFT’s canonical diagnostic registry in
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/machine_mapping/vest.yaml"><code class="language-plaintext highlighter-rouge">vest.yaml</code></a>.
+It separates operational data availability from hardware lifecycle and VAFT mapping support.
+<code class="language-plaintext highlighter-rouge">If-requested</code> is a conservative status pending device-operation confirmation; it does not mean
+that the system cannot have historical data.</p>
+
+<p>For public data access and general administration, see <a href="/vaft/reference/database-data-sources/">Database and data sources</a>
+and <a href="/vaft/reference/contacts/">Contacts</a>. Manager names are retained from the legacy
+inventory; no personal email is shown unless it is explicitly recorded in the registry.</p>
+
+<h2 id="overview">Overview</h2>
+
+<table>
+  <thead><tr><th>System</th><th>IDS</th><th>Responsible</th><th>Source</th><th>Availability</th><th>Lifecycle</th><th>VAFT mapping</th></tr></thead>
+  <tbody>
+  
+    
+    <tr>
+      <td>Vacuum gauges</td><td><code>barometry.gauge</code></td><td>정원익, 전찬휘</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Visible bremsstrahlung spectroscopy</td><td><code>bremsstrahlung_visible</code></td><td>유정원</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>FAST camera</td><td><code>camera_visible</code></td><td>Joint</td>
+      <td>File (bmp, text)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Charge-exchange / beam-emission spectroscopy</td><td><code>charge_exchange</code></td><td>이원석, 엄태희</td>
+      <td>File (mat)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Ion Doppler spectroscopy</td><td><code>charge_exchange</code></td><td>이원석, 엄태희</td>
+      <td>File (mat, xls)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Non-axisymmetric 3D coils</td><td><code>coils_non_axisymmetric</code></td><td>서광근</td>
+      <td>Reference ODS</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Data description</td><td><code>dataset_description</code></td><td>Joint</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Outboard limiter current monitor</td><td><code>disruption.halo_currents</code></td><td>Joint</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Electron cyclotron heating</td><td><code>ec_launchers</code></td><td>변준혁</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Electromagnetic coupling model</td><td><code>em_coupling</code></td><td>Not listed</td>
+      <td>Reference ODS</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Gas injection</td><td><code>gas_injection</code></td><td>Joint</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Gas pumping</td><td><code>gas_pumping</code></td><td>정원익, 전찬휘</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Hard X-ray detector</td><td><code>hard_x_rays</code></td><td>임수빈</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Helicity injection</td><td><code>not_developed</code></td><td>박종윤, 김태경</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Interferometer</td><td><code>interferometer</code></td><td>변준혁</td>
+      <td>File (mat)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Triple Langmuir probe</td><td><code>langmuir_probes.embedded</code></td><td>변준혁</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>in_maintenance</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Magnetic probes (Mirnov coils)</td><td><code>magnetics.b_field_pol_probe</code></td><td>남건우</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Diamagnetic flux</td><td><code>magnetics.diamagnetic_flux</code></td><td>김태경</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Flux loops</td><td><code>magnetics.flux_loop</code></td><td>남건우</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Internal magnetic probes</td><td><code>magnetics.b_field_pol_probe</code></td><td>남건우</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Plasma current</td><td><code>magnetics.ip</code></td><td>Joint</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Rogowski coils</td><td><code>magnetics.rogowski_coil</code></td><td>Joint</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Neutral beam injection</td><td><code>nbi</code></td><td>정윤호</td>
+      <td>Unknown</td>
+      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>PF coils</td><td><code>pf_active</code></td><td>Joint</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Passive structures</td><td><code>pf_passive</code></td><td>Not listed</td>
+      <td>Reference ODS</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Soft X-ray detector</td><td><code>soft_x_rays</code></td><td>임수빈, 이명원</td>
+      <td>File (csv)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Filterscope spectroscopy</td><td><code>spectrometer_uv</code></td><td>Joint</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>TF coils</td><td><code>tf</code></td><td>Joint</td>
+      <td>Raw DAQ (MySQL / archived raw dump)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>Thomson scattering spectroscopy</td><td><code>thomson_scattering</code></td><td>김중화, 이종민</td>
+      <td>File (mat)</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+    
+    <tr>
+      <td>First wall and limiter geometry</td><td><code>wall</code></td><td>정원익, 전찬휘</td>
+      <td>Reference ODS</td>
+      <td>If-requested</td><td>available</td><td>implemented</td>
+    </tr>
+  
+  </tbody>
+</table>
+
+<h2 id="by-physical-family">By physical family</h2>
+
+<h3 id="magnetic-diagnostics">Magnetic diagnostics</h3>
+
+<ul>
+  <li><strong>Magnetic probes (Mirnov coils)</strong> — <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe</code>; implemented via raw DAQ.</li>
+  <li><strong>Diamagnetic flux</strong> — <code class="language-plaintext highlighter-rouge">magnetics.diamagnetic_flux</code>; implemented via derived.</li>
+  <li><strong>Flux loops</strong> — <code class="language-plaintext highlighter-rouge">magnetics.flux_loop</code>; implemented via raw DAQ.</li>
+  <li><strong>Internal magnetic probes</strong> — <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe</code>; implemented via raw DAQ.</li>
+  <li><strong>Plasma current</strong> — <code class="language-plaintext highlighter-rouge">magnetics.ip</code>; implemented via derived.</li>
+  <li><strong>Rogowski coils</strong> — <code class="language-plaintext highlighter-rouge">magnetics.rogowski_coil</code>; implemented via raw DAQ.</li>
+</ul>
+
+<h3 id="kinetic-diagnostics">Kinetic diagnostics</h3>
+
+<ul>
+  <li><strong>Charge-exchange / beam-emission spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">charge_exchange</code>; implemented via file-backed mat.</li>
+  <li><strong>Ion Doppler spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">charge_exchange</code>; implemented via file-backed mat, xls.</li>
+  <li><strong>Thomson scattering spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">thomson_scattering</code>; implemented via file-backed mat.</li>
+</ul>
+
+<h3 id="spectroscopy-radiation">Spectroscopy radiation</h3>
+
+<ul>
+  <li><strong>Visible bremsstrahlung spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">bremsstrahlung_visible</code>; not_implemented via unknown.</li>
+  <li><strong>Hard X-ray detector</strong> — <code class="language-plaintext highlighter-rouge">hard_x_rays</code>; not_implemented via unknown.</li>
+  <li><strong>Soft X-ray detector</strong> — <code class="language-plaintext highlighter-rouge">soft_x_rays</code>; implemented via file-backed csv.</li>
+  <li><strong>Filterscope spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">spectrometer_uv</code>; implemented via raw DAQ.</li>
+</ul>
+
+<h3 id="imaging">Imaging</h3>
+
+<ul>
+  <li><strong>FAST camera</strong> — <code class="language-plaintext highlighter-rouge">camera_visible</code>; implemented via file-backed bmp, text.</li>
+</ul>
+
+<h3 id="edge-diagnostics">Edge diagnostics</h3>
+
+<ul>
+  <li><strong>Vacuum gauges</strong> — <code class="language-plaintext highlighter-rouge">barometry.gauge</code>; implemented via raw DAQ.</li>
+  <li><strong>Outboard limiter current monitor</strong> — <code class="language-plaintext highlighter-rouge">disruption.halo_currents</code>; not_implemented via raw DAQ.</li>
+  <li><strong>Interferometer</strong> — <code class="language-plaintext highlighter-rouge">interferometer</code>; implemented via file-backed mat.</li>
+  <li><strong>Triple Langmuir probe</strong> — <code class="language-plaintext highlighter-rouge">langmuir_probes.embedded</code>; implemented via raw DAQ.</li>
+</ul>
+
+<h3 id="heating-current-drive">Heating current drive</h3>
+
+<ul>
+  <li><strong>Electron cyclotron heating</strong> — <code class="language-plaintext highlighter-rouge">ec_launchers</code>; not_implemented via raw DAQ.</li>
+  <li><strong>Helicity injection</strong> — <code class="language-plaintext highlighter-rouge">not_developed</code>; not_implemented via unknown.</li>
+  <li><strong>Neutral beam injection</strong> — <code class="language-plaintext highlighter-rouge">nbi</code>; not_implemented via unknown.</li>
+</ul>
+
+<h3 id="machine-systems">Machine systems</h3>
+
+<ul>
+  <li><strong>Non-axisymmetric 3D coils</strong> — <code class="language-plaintext highlighter-rouge">coils_non_axisymmetric</code>; implemented via reference_ods.</li>
+  <li><strong>Gas injection</strong> — <code class="language-plaintext highlighter-rouge">gas_injection</code>; not_implemented via unknown.</li>
+  <li><strong>Gas pumping</strong> — <code class="language-plaintext highlighter-rouge">gas_pumping</code>; not_implemented via unknown.</li>
+  <li><strong>PF coils</strong> — <code class="language-plaintext highlighter-rouge">pf_active</code>; implemented via raw DAQ.</li>
+  <li><strong>TF coils</strong> — <code class="language-plaintext highlighter-rouge">tf</code>; implemented via raw DAQ.</li>
+</ul>
+
+<h3 id="machine-models">Machine models</h3>
+
+<ul>
+  <li><strong>Electromagnetic coupling model</strong> — <code class="language-plaintext highlighter-rouge">em_coupling</code>; implemented via reference_ods.</li>
+  <li><strong>Passive structures</strong> — <code class="language-plaintext highlighter-rouge">pf_passive</code>; implemented via reference_ods.</li>
+  <li><strong>First wall and limiter geometry</strong> — <code class="language-plaintext highlighter-rouge">wall</code>; implemented via reference_ods.</li>
+</ul>
+
+<h3 id="information">Information</h3>
+
+<ul>
+  <li><strong>Data description</strong> — <code class="language-plaintext highlighter-rouge">dataset_description</code>; implemented via raw DAQ.</li>
+</ul>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.machine_mapping.registry <span class="nt">--output</span> /path/to/vaft-gh/_data/vest_diagnostics.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of its source <code class="language-plaintext highlighter-rouge">vest.yaml</code>; documentation validation compares it
+when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database-initialization">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="raw-daq"><strong>VEST raw DAQ and archived raw dumps</strong><br><span>Native diagnostic signals used by machine mapping.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/api/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VAFT API">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/vest-systems/" class="navigation navigation-next navigation-unique" aria-label="Next page: Vest_systems">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#by-physical-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">By physical family</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#magnetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic diagnostics</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-3"><a href="#spectroscopy-radiation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy radiation</a></li><li class="page-toc-item page-toc-level-3"><a href="#imaging" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Imaging</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Edge diagnostics</a></li><li class="page-toc-item page-toc-level-3"><a href="#heating-current-drive" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Heating current drive</a></li><li class="page-toc-item page-toc-level-3"><a href="#machine-systems" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine systems</a></li><li class="page-toc-item page-toc-level-3"><a href="#machine-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine models</a></li><li class="page-toc-item page-toc-level-3"><a href="#information" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Information</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Vest_systems",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_systems.md",
+            "ref": "_guide/VEST_systems.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/VEST_diagnostics.md",
+        "mtime": "2026-09-02 18:05:38 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:38 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

@@ -1,0 +1,994 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>MHD stability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/guide/Equilibrium/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >MHD stability</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/Stability">MHD stability</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Screens equilibria analytically before optional DCON, RDCON, and GPEC execution.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Reconstructed equilibrium and, for full runs, configured GPEC-suite binaries.</dd>
+    <dt>Expected result</dt><dd>Stability margins plus deterministic run inputs or collected solver outputs.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>VAFT answers stability questions at two levels of fidelity, and they are meant to be used in that
+order.</p>
+
+<ol>
+  <li><strong>Analytic and empirical criteria</strong> — <code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>. Closed-form limits (Greenwald,
+Troyon-type $\beta_N$, ballooning, kink, sawtooth) evaluated on scalars or NumPy arrays. Cheap
+enough to run on every time slice of every shot, so it is what the database summary uses to screen
+an operational space.</li>
+  <li><strong>Linear MHD codes</strong> — <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code>. VAFT prepares inputs for and drives the GPEC suite
+(<strong>DCON</strong>, <strong>RDCON</strong>, <strong>STRIDE</strong>, <strong>GPEC</strong>) from a reconstructed equilibrium, then collects the
+NetCDF products. This is where an actual $\delta W$ or $\Delta’$ comes from.</li>
+</ol>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Reconstructed equilibrium&lt;br/&gt;(GEQDSK / ODS)"] --&gt; B["vaft.formula.stability&lt;br/&gt;analytic limits"]
+    A --&gt; C["vaft.code.gpec&lt;br/&gt;prepare + run"]
+    C --&gt; D["DCON&lt;br/&gt;ideal delta W"]
+    C --&gt; E["RDCON / STRIDE&lt;br/&gt;tearing index Delta'"]
+    C --&gt; F["GPEC&lt;br/&gt;3-D perturbed response"]
+    D --&gt; G["NetCDF outputs&lt;br/&gt;collect_gpec_suite_outputs"]
+    E --&gt; G
+    F --&gt; G
+    B --&gt; H["stability_history.xlsx&lt;br/&gt;shot/time database summary"]
+    G --&gt; H
+</code></pre>
+
+<p>The closed-form criteria are catalogued with their exact signatures and unit traps on the
+<a href="/vaft/develop/guide/Formula/">Physics formulas</a> page. This page covers what to do with them and
+how to run the codes.</p>
+
+<hr />
+
+<h1 id="screening-an-equilibrium">Screening an equilibrium</h1>
+
+<p>The stability functions are pure — they never touch an ODS — so pull the global quantities out
+yourself and hand them over.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+<span class="n">eq</span>  <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">time_slice</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">global_quantities</span><span class="sh">'</span><span class="p">]</span>
+
+<span class="n">beta_N</span> <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">beta_normal</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">q_95</span>   <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">q_95</span><span class="sh">'</span><span class="p">]</span>
+
+<span class="n">d_beta</span><span class="p">,</span> <span class="n">beta_N_crit</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>
+<span class="n">d_bN</span><span class="p">,</span>   <span class="n">bN_crit</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_stability_boundary</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Every criterion returns a <code class="language-plaintext highlighter-rouge">(margin, critical_value)</code> pair, and the margin is literally
+<code class="language-plaintext highlighter-rouge">value - critical</code>. A <strong>positive</strong> margin therefore means the plasma sits <strong>above</strong> the boundary:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>   <span class="c1"># alpha = -2 mu0 R (dp/dR) / B^2
+</span><span class="n">s</span>            <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">shear_from_r_q</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>                   <span class="c1"># s = (r/q) dq/dr
+</span><span class="n">d_alpha</span><span class="p">,</span> <span class="n">a_c</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">ballooning_stability_criterion</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>   <span class="c1"># alpha_crit = 0.6 s
+</span>
+<span class="n">unstable</span> <span class="o">=</span> <span class="n">d_alpha</span> <span class="o">&gt;</span> <span class="mi">0</span>        <span class="c1"># alpha has crossed the ideal ballooning boundary
+</span></code></pre></div></div>
+
+\[\alpha = -\frac{2\mu_0 R}{B^2}\frac{dp}{dR}, \qquad \alpha_{\rm crit} = 0.6\,s, \qquad
+   s = \frac{r}{q}\frac{dq}{dr}\]
+
+<h2 id="density-limit">Density limit</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">n_G</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">greenwald_density</span><span class="p">(</span><span class="n">I_p</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mf">0.4</span><span class="p">)</span>   <span class="c1"># I_p in MA -&gt; n_G in 1e19 m^-3
+</span><span class="n">f_G</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">greenwald_fraction</span><span class="p">(</span><span class="n">n_e</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">n_G</span><span class="o">=</span><span class="n">n_G</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">greenwald_density</code> takes $I_p$ in <strong>MA</strong> and returns $n_G$ in $10^{19}\ \mathrm{m^{-3}}$, and $f_G$
+is conventionally formed with the <strong>line-averaged</strong> electron density. Both arguments to
+<code class="language-plaintext highlighter-rouge">greenwald_fraction</code> must use the same density definition and units — it just divides.</p>
+
+<h2 id="the-combined-margin-helper-and-its-one-trap">The combined margin helper, and its one trap</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">beta_margin</span><span class="p">,</span> <span class="n">q_margin</span><span class="p">,</span> <span class="n">density_margin</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">plasma_stability_margins</span><span class="p">(</span>
+    <span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_G</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>The three returned numbers are <strong>not</strong> the same kind of quantity:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Element</th>
+      <th>Definition</th>
+      <th>Reading</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">beta_margin</code></td>
+      <td>$\beta_N - 0.028\,q_{95}$</td>
+      <td>$&gt;0$ is above the beta boundary</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">q_margin</code></td>
+      <td>$q_{95} - 2$</td>
+      <td>$&gt;0$ is above the minimum $q_{95}$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">density_margin</code></td>
+      <td>$n_e / n_G$</td>
+      <td>a <strong>ratio</strong>, not a difference — it is the Greenwald fraction</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Note also that <code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> is built on <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code>, so it inherits the
+$0.028\,q_{95}$ convention, while <code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> uses $2.8\,q_{95}$ — the same
+Troyon-type relation expressed in two different unit conventions. Do not mix the two in one plot.</p>
+
+<h2 id="operational-space-traces">Operational-space traces</h2>
+
+<p>The equilibrium IDS already carries $\beta_N$ and $q_{95}$ per time slice, so the whole-discharge view
+needs no formula call:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_beta_n</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_q95</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_beta_pol</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_beta_tor</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.plot.time_equilibrium_analysis(ods)</code> packs $I_p$, $V_{\rm loop}$ and $\beta_N$ against
+$H_\alpha$, $B_z$ and $R_{\rm major}$ into one 3×2 figure — the fastest way to see whether a beta
+excursion coincides with a disruption.</p>
+
+<p>The empirical $(q_a, l_i)$ disruption boundary from the JET survey (Wesson <em>et al.</em>, Nucl. Fusion
+<strong>29</strong>, 1989) is available for overlaying on that space:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">qa_ref</span><span class="p">,</span> <span class="n">li_ref</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">empirical_li_qa</span><span class="p">()</span>          <span class="c1"># 18 surveyed points
+</span><span class="n">li</span>             <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">li_from_qa_empirical</span><span class="p">(</span><span class="n">qa</span><span class="p">)</span>   <span class="c1"># piecewise-linear interpolation
+</span></code></pre></div></div>
+
+<hr />
+
+<h1 id="running-the-gpec-suite">Running the GPEC suite</h1>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> drives four external programs from one reconstructed GEQDSK. VAFT does <strong>not</strong> ship
+them: it writes their namelists, lays out the run directories, invokes the executables and collects
+the products.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Module</th>
+      <th>Physics</th>
+      <th>Key output</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dcon</code></td>
+      <td>Ideal linear MHD energy principle</td>
+      <td>$\delta W$ eigenvalue, <code class="language-plaintext highlighter-rouge">dcon_output_n{n}.nc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rdcon</code></td>
+      <td>Resistive inner-layer matching</td>
+      <td>tearing index $\Delta’$, <code class="language-plaintext highlighter-rouge">rdcon_output_n{n}.nc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stride</code></td>
+      <td>Independent $\Delta’$ via parallel shooting</td>
+      <td><code class="language-plaintext highlighter-rouge">stride_output_n{n}.nc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpec</code></td>
+      <td>Perturbed equilibrium / 3-D field response</td>
+      <td><code class="language-plaintext highlighter-rouge">gpec_control_output_n{n}.nc</code>, profile and cylindrical outputs</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The installation root is read from the <strong><code class="language-plaintext highlighter-rouge">GPECHOME</code></strong> environment variable unless you set <code class="language-plaintext highlighter-rouge">gpec_home</code>
+(or <code class="language-plaintext highlighter-rouge">executable_dir</code>) explicitly.</p>
+
+<h2 id="configure-prepare-run">Configure, prepare, run</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">GPECCaseInputs</span><span class="p">,</span> <span class="n">GPECSuiteConfig</span><span class="p">,</span> <span class="n">run_gpec_suite_case</span>
+
+<span class="n">inputs</span> <span class="o">=</span> <span class="nc">GPECCaseInputs</span><span class="p">(</span>
+    <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span>
+    <span class="n">time_ms</span><span class="o">=</span><span class="mi">340</span><span class="p">,</span>
+    <span class="n">geqdsk</span><span class="o">=</span><span class="nc">Path</span><span class="p">(</span><span class="sh">"</span><span class="s">/srv/vest.filedb/public/39915/efit/g039915.00340</span><span class="sh">"</span><span class="p">),</span>
+    <span class="n">workdir</span><span class="o">=</span><span class="nc">Path</span><span class="p">(</span><span class="sh">"</span><span class="s">/srv/vest.filedb/public/39915/linear_stability</span><span class="sh">"</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="nc">GPECSuiteConfig</span><span class="p">(</span>
+    <span class="n">modules</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">dcon</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rdcon</span><span class="sh">"</span><span class="p">),</span>   <span class="c1"># default: dcon, rdcon, stride, gpec
+</span>    <span class="n">modes</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>                <span class="c1"># toroidal mode numbers n
+</span>    <span class="n">psilow</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span>
+    <span class="n">psihigh</span><span class="o">=</span><span class="mf">0.994</span><span class="p">,</span>
+    <span class="n">run_mode</span><span class="o">=</span><span class="sh">"</span><span class="s">run_if_available</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="nf">run_gpec_suite_case</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">ok</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">GPECSuiteConfig</code> also exposes the DCON edge controls <code class="language-plaintext highlighter-rouge">dcon_sas_flag</code> (default <code class="language-plaintext highlighter-rouge">False</code>),
+<code class="language-plaintext highlighter-rouge">dcon_qhigh</code> (<code class="language-plaintext highlighter-rouge">20.2</code>) and <code class="language-plaintext highlighter-rouge">dcon_psiedge</code> (<code class="language-plaintext highlighter-rouge">1.0</code>), plus a per-module <code class="language-plaintext highlighter-rouge">timeout</code> (1200 s) and an <code class="language-plaintext highlighter-rouge">env</code>
+mapping merged into the subprocess environment.</p>
+
+<p><code class="language-plaintext highlighter-rouge">run_mode</code> selects what happens when the executables are not installed:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">run_mode</code></th>
+      <th>Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"run_if_available"</code> (default)</td>
+      <td>Prepare, then run whatever is installed; missing executables are recorded as <code class="language-plaintext highlighter-rouge">skipped</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"prepare_only"</code></td>
+      <td>Write the input decks and stop</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"strict"</code></td>
+      <td>A missing or failing executable is an error</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>To stage the inputs without executing anything — useful when the run itself is dispatched by a
+scheduler — call <code class="language-plaintext highlighter-rouge">prepare_gpec_suite_case(inputs, config)</code> directly. <code class="language-plaintext highlighter-rouge">run_gpec(inputs, config)</code> is a
+compatibility entry point that forwards to <code class="language-plaintext highlighter-rouge">run_gpec_suite_case</code>.</p>
+
+<h2 id="directory-layout-and-outputs">Directory layout and outputs</h2>
+
+<p>A prepared case materialises one directory per module and mode:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;workdir&gt;/&lt;time_label&gt;/&lt;module&gt;/nn=&lt;n&gt;/
+</code></pre></div></div>
+
+<p>so the DCON $n=1$ run of the case above lands in <code class="language-plaintext highlighter-rouge">.../linear_stability/00340/dcon/nn=1/</code>. Collect the
+products of a whole case with:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">collect_gpec_suite_outputs</span>
+
+<span class="n">outputs</span> <span class="o">=</span> <span class="nf">collect_gpec_suite_outputs</span><span class="p">(</span><span class="sh">"</span><span class="s">/srv/vest.filedb/public/39915/linear_stability</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">[</span><span class="sh">"</span><span class="s">dcon</span><span class="sh">"</span><span class="p">]:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The result is a dict keyed by module name (<code class="language-plaintext highlighter-rouge">dcon</code>, <code class="language-plaintext highlighter-rouge">rdcon</code>, <code class="language-plaintext highlighter-rouge">stride</code>, <code class="language-plaintext highlighter-rouge">gpec</code>).</p>
+
+<p><code class="language-plaintext highlighter-rouge">GPECSuiteResult.records</code> is a tuple of <code class="language-plaintext highlighter-rouge">GPECModuleRun</code>, one per module/mode, each carrying <code class="language-plaintext highlighter-rouge">status</code>
+(<code class="language-plaintext highlighter-rouge">prepared</code>, <code class="language-plaintext highlighter-rouge">completed</code>, <code class="language-plaintext highlighter-rouge">failed</code>, <code class="language-plaintext highlighter-rouge">skipped</code>), <code class="language-plaintext highlighter-rouge">returncode</code>, <code class="language-plaintext highlighter-rouge">reason</code>, <code class="language-plaintext highlighter-rouge">logs</code> and <code class="language-plaintext highlighter-rouge">outputs</code>. The
+<code class="language-plaintext highlighter-rouge">ok</code> property is true only when <code class="language-plaintext highlighter-rouge">status == "completed"</code> <strong>and</strong> <code class="language-plaintext highlighter-rouge">returncode == 0</code>, so inspect it per
+module rather than trusting the suite-level return code alone:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">result</span><span class="p">.</span><span class="n">records</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">record</span><span class="p">.</span><span class="n">module</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">mode</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">status</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">ok</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">reason</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="geqdsk-headers">GEQDSK headers</h2>
+
+<p>GPEC’s EFIT reader is fixed-column and rejects headers that EFIT itself will happily write. If a case
+fails at the file-reading stage, normalise the header first:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">format_gfile_header_for_gpec</span>
+
+<span class="n">header</span> <span class="o">=</span> <span class="nf">format_gfile_header_for_gpec</span><span class="p">(</span><span class="n">header_line</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">time_ms</span><span class="o">=</span><span class="mi">340</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>It recovers the shot and time from the existing header when you do not pass them.</p>
+
+<hr />
+
+<h1 id="batch-runs-and-the-stability-database">Batch runs and the stability database</h1>
+
+<p>Running one case at a time is only useful for debugging. Two Snakemake workflows do the real work.</p>
+
+<p><strong>Sweeping shots and times</strong> —
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/workflow/running_linear_stability/Snakefile"><code class="language-plaintext highlighter-rouge">workflow/running_linear_stability/</code></a>
+discovers the reconstructed g-files under <code class="language-plaintext highlighter-rouge">BASE_DIR</code> (<code class="language-plaintext highlighter-rouge">/srv/vest.filedb/public</code> by default, set in
+<code class="language-plaintext highlighter-rouge">config.yaml</code>) and fans out the codes over the mode scans: $n = 1\ldots6$ for the ideal (DCON) scan
+and $n = 1, 2$ for the resistive (RDCON/STRIDE) scan.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>workflow/running_linear_stability
+snakemake <span class="nt">--cores</span> 16
+</code></pre></div></div>
+
+<p><strong>Mining the results into a table</strong> —
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_3_data_summary/gen_stability_history.py"><code class="language-plaintext highlighter-rouge">gen_stability_history.py</code></a>
+walks <code class="language-plaintext highlighter-rouge">{shot}/linear_stability/{time}/{dcon,rdcon,stride}/nn={n}/</code>, reads the NetCDF products and
+emits <code class="language-plaintext highlighter-rouge">stability_history.xlsx</code>, one row per (shot, time):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Column group</th>
+      <th>Content</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shot</code>, <code class="language-plaintext highlighter-rouge">time [ms]</code></td>
+      <td>Case identity</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ideal_stability</code>, <code class="language-plaintext highlighter-rouge">delta_w_n1</code> … <code class="language-plaintext highlighter-rouge">delta_w_n6</code></td>
+      <td>DCON <code class="language-plaintext highlighter-rouge">W_t_eigenvalue</code> per $n$, plus the verdict</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">resistive_stability</code>, <code class="language-plaintext highlighter-rouge">tearing_index_rdcon_n{1,2}</code>, <code class="language-plaintext highlighter-rouge">tearing_index_stride_n{1,2}</code></td>
+      <td>$\Delta’$ per code and $n$, plus the verdict</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ballooning_stability</code>, <code class="language-plaintext highlighter-rouge">ballooning_unstable_index</code></td>
+      <td>Ballooning verdict and the $\psi$ where it first goes unstable</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">qlim</code>, <code class="language-plaintext highlighter-rouge">qa</code></td>
+      <td>Limiting and edge safety factor</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The verdicts follow the standard linear-MHD reading, with a guard against numerical blow-ups:</p>
+
+<ul>
+  <li><strong>Ideal</strong>: <code class="language-plaintext highlighter-rouge">"Stable"</code> when $\delta W &gt; 0$ for <em>every</em> scanned $n$; <code class="language-plaintext highlighter-rouge">"Unstable"</code> if any $n$ has
+$\delta W &lt; 0$. If any $|\delta W| \geq 100$ the row is flagged <code class="language-plaintext highlighter-rouge">"Error"</code> rather than trusted.</li>
+  <li><strong>Resistive</strong>: <code class="language-plaintext highlighter-rouge">"Stable"</code> when <em>no</em> scanned $\Delta’$ is positive; <code class="language-plaintext highlighter-rouge">"Unstable"</code> as soon as one is.
+Any $|\Delta’| \geq 1000$ flags the row <code class="language-plaintext highlighter-rouge">"Error"</code>.</li>
+</ul>
+
+<p>Because a single bad eigenvalue poisons the verdict, always filter on <code class="language-plaintext highlighter-rouge">ideal_stability != "Error"</code>
+before drawing conclusions from the sheet.</p>
+
+<p>Companion scripts in the same directory join the stability table to the CHEASE equilibrium history
+(<code class="language-plaintext highlighter-rouge">join_chease_stability_history.py</code>, merging on <code class="language-plaintext highlighter-rouge">shot</code> + <code class="language-plaintext highlighter-rouge">time [ms]</code>), plot the resulting history
+(<code class="language-plaintext highlighter-rouge">plot_stability_history.py</code>), and draw the operational-limit diagram
+(<code class="language-plaintext highlighter-rouge">plot_stability_limit.py</code>). See
+<a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> for how these pipelines fit
+together with the rest of the automatic processing.</p>
+
+<hr />
+
+<h1 id="notebooks">Notebooks</h1>
+
+<p>Three notebooks in the repository frame the stability workflow. They are currently <strong>outlines</strong> —
+they define the inputs, configuration conventions and expected products for each code rather than
+executing them, so read them as specifications, not as runnable examples.</p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb"><code class="language-plaintext highlighter-rouge">linear_ideal_stability_analysis_with_dcon.ipynb</code></a></li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb"><code class="language-plaintext highlighter-rouge">linear_resistive_stability_analysis_with_rdcon.ipynb</code></a></li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb"><code class="language-plaintext highlighter-rouge">perturbed_equilibrium_and_3d_response_with_gpec.ipynb</code></a></li>
+</ul>
+
+<p>For equilibria that actually run end to end today, start from
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/mhd_equilibrium_analysis.ipynb"><code class="language-plaintext highlighter-rouge">mhd_equilibrium_analysis.ipynb</code></a>
+and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a>,
+which produce the refined equilibria the GPEC suite consumes — see the
+<a href="/vaft/develop/guide/examples/">Examples</a> page.</p>
+
+<hr />
+
+<h1 id="see-also">See also</h1>
+
+<ul>
+  <li><a href="/vaft/develop/guide/Formula/">Physics formulas</a> — full signature reference for
+<code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>, including the beta conversions, characteristic speeds and unit traps.</li>
+  <li><a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a> — producing the equilibrium the codes consume.</li>
+  <li><a href="/vaft/develop/guide/Data_structures/">Data structures (ODS, IDS, IMAS)</a> — where <code class="language-plaintext highlighter-rouge">beta_normal</code>,
+<code class="language-plaintext highlighter-rouge">q_95</code> and the rest of <code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities</code> live.</li>
+  <li>Source: <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>
+and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/code/gpec.py"><code class="language-plaintext highlighter-rouge">vaft/code/gpec.py</code></a>.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="external-codes">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/initialize_external_fusion_codes.ipynb">Initialize external fusion codes</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="ideal-stability">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb">Linear ideal stability with DCON</a>
+              
+            <span class="resource-status resource-status-design-shell">design shell</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="resistive-stability">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb">Linear resistive stability with RDCON</a>
+              
+            <span class="resource-status resource-status-design-shell">design shell</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/#vaftcode"><code>vaft.code</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="external-codes"><strong>EFIT, CHEASE, DCON/RDCON and GPEC installations</strong><br><span>Optional external executables resolved from their HOME variables.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="external-readiness"><a href="/vaft/develop/reference/notebooks/#output-title-external-readiness">External-code readiness</a></li>
+        
+          
+          <li data-resource-id="equilibrium-inputs"><a href="/vaft/develop/reference/notebooks/#output-title-equilibrium-inputs">Equilibrium input preparation</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/guide/Equilibrium/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Equilibrium">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" class="navigation navigation-next navigation-unique" aria-label="Next page: Equilibrium and kinetic profiles">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper, and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Equilibrium and kinetic profiles",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Profiles.md",
+            "ref": "_guide/Profiles.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Stability.md",
+        "mtime": "2026-07-01 10:10:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

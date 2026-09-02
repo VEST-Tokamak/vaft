@@ -1,0 +1,1269 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT API · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/notebooks/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >VAFT API</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/API_reference">VAFT API</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Developer-facing map of stable package entry points on develop.</dd>
+    <dt>Prerequisites / inputs</dt><dd>An installed VAFT environment; sample-data calls work offline.</dd>
+    <dt>Expected result</dt><dd>Direct links and signatures for database, OMAS/IMAS, mapping, process, plotting, and code adapters.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>This page is the map of the <code class="language-plaintext highlighter-rouge">vaft</code> package: what each subpackage is for, the entry points you are
+expected to call, and where the detailed guide for each area lives. The signatures shown here are the
+real ones — copy them.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">__version__</span>          <span class="c1"># '0.5.0' on the inspected develop baseline
+</span></code></pre></div></div>
+
+<p>Importing <code class="language-plaintext highlighter-rouge">vaft</code> is cheap. The top-level package exposes its subpackages <strong>lazily</strong> (<code class="language-plaintext highlighter-rouge">__getattr__</code>),
+so <code class="language-plaintext highlighter-rouge">import vaft</code> does not drag in <code class="language-plaintext highlighter-rouge">omas</code>, <code class="language-plaintext highlighter-rouge">imas</code> or <code class="language-plaintext highlighter-rouge">matplotlib</code> until you actually touch
+<code class="language-plaintext highlighter-rouge">vaft.omas</code>, <code class="language-plaintext highlighter-rouge">vaft.imas</code> or <code class="language-plaintext highlighter-rouge">vaft.plot</code>. Two compatibility shims are applied at import time —
+<code class="language-plaintext highlighter-rouge">vaft.apply_runtime_compat_patches()</code> and <code class="language-plaintext highlighter-rouge">vaft.apply_omfit_compat_patches()</code> — which restore
+NumPy/SciPy APIs that recent releases removed (<code class="language-plaintext highlighter-rouge">trapz</code>, <code class="language-plaintext highlighter-rouge">cumtrapz</code>, <code class="language-plaintext highlighter-rouge">interp2d</code>) so that OMFIT-derived
+code keeps working. You never need to call them yourself.</p>
+
+<h1 id="package-map">Package map</h1>
+
+<pre><code class="language-mermaid">flowchart TD
+    RAW["VEST raw DAQ / SQL"] --&gt; MM["vaft.machine_mapping&lt;br/&gt;raw signals to IMAS IDSs"]
+    MM --&gt; DB[("vaft.database&lt;br/&gt;load / save")]
+    DB --&gt; ODS["ODS / IDS&lt;br/&gt;(IMAS data model)"]
+    ODS --&gt; OMASL["vaft.omas&lt;br/&gt;ODS-aware find_ / compute_ / update_"]
+    OMASL --&gt; PROC["vaft.process&lt;br/&gt;signal and EM math"]
+    OMASL --&gt; FORM["vaft.formula&lt;br/&gt;closed-form physics"]
+    ODS --&gt; PLOT["vaft.plot&lt;br/&gt;figures"]
+    ODS --&gt; CODE["vaft.code&lt;br/&gt;EFIT / CHEASE / GPEC / TES"]
+    CODE --&gt; ODS
+    ODS --&gt; DATA["vaft.data&lt;br/&gt;GEQDSK I/O"]
+    ODS --&gt; IMASP["vaft.imas&lt;br/&gt;OMAS to IMAS Access Layer"]
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Subpackage</th>
+      <th>Purpose</th>
+      <th>Deep dive</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database</code></td>
+      <td>Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive</td>
+      <td><a href="/vaft/develop/guide/Data_structures/">Data structures</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas</code></td>
+      <td>The ODS-aware API: <code class="language-plaintext highlighter-rouge">find_*</code>, <code class="language-plaintext highlighter-rouge">compute_*</code>, <code class="language-plaintext highlighter-rouge">update_*</code>, sample data</td>
+      <td>this page</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process</code></td>
+      <td>Array-in / array-out signal processing, EM response, magnetics chains</td>
+      <td><a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code></td>
+      <td>Pure physics functions: equilibrium, stability, Green’s functions, constants</td>
+      <td><a href="/vaft/develop/reference/formula/">Formula reference</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code></td>
+      <td>Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults</td>
+      <td>this page</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot</code></td>
+      <td>Matplotlib figures straight from an ODS/ODC</td>
+      <td>this page</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
+      <td>Adapters for external codes (EFIT, CHEASE, GPEC, TES)</td>
+      <td>this page</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data</code></td>
+      <td>GEQDSK read/write and packaged sample files</td>
+      <td>this page</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas</code></td>
+      <td>OMAS to IMAS Access Layer bridge</td>
+      <td><a href="/vaft/develop/guide/Data_structures/">Data structures</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Everything in an ODS is in <strong>IMAS SI units</strong>: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
+where the Data Dictionary says so. The plotting layer is the only place that rescales (for example A
+to kA) and it does so through an explicit <code class="language-plaintext highlighter-rouge">yunit</code> argument.</p>
+
+<h1 id="vaftdatabase"><code class="language-plaintext highlighter-rouge">vaft.database</code></h1>
+
+<p>The historical, and still the shortest, way to get a shot:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>        <span class="c1"># eager omas.ODS
+</span><span class="k">with</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">remote</span><span class="p">:</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="n">remote</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">]</span>                   <span class="c1"># lazy, read-only
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">load()</code> returns an ODS unless <code class="language-plaintext highlighter-rouge">representation="imas"</code> is requested. <code class="language-plaintext highlighter-rouge">paths</code> scopes OMAS requests to
+IDS roots or leaves; native requests accept top-level IDS names:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">eq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span>
+    <span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">imas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>Full signatures:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                   <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                   <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                   <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">derived_cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>For local files use <code class="language-plaintext highlighter-rouge">vaft.omas.load/save</code> or <code class="language-plaintext highlighter-rouge">vaft.imas.load/save</code>; use
+<code class="language-plaintext highlighter-rouge">vaft.database.filedb.FileDB</code> to resolve canonical archive paths. Remote save access is restricted and
+is never required by the documentation examples.</p>
+
+<h2 id="raw-daq-access">Raw DAQ access</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database.raw</code> talks to the VEST SQL archive directly:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
+
+<span class="n">time</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">vest_load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="mi">109</span><span class="p">)</span>     <span class="c1"># (time_array, data_array), or None on failure
+</span><span class="n">time</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">load_raw</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="mi">109</span><span class="p">)</span>     <span class="c1"># the loader vest_load delegates to
+</span><span class="n">label</span>      <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">name</span><span class="p">(</span><span class="mi">109</span><span class="p">)</span>                       <span class="c1"># field code to human-readable name
+</span><span class="n">shots</span>      <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">vest_shots</span><span class="p">(</span><span class="sh">"</span><span class="s">2024-08-08</span><span class="sh">"</span><span class="p">)</span>        <span class="c1"># shots taken on a date
+</span><span class="n">date</span>       <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">vest_date</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>
+<span class="n">latest</span>     <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">last_shot</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Other members worth knowing: <code class="language-plaintext highlighter-rouge">raw.load_raw(shot, fields=None, daq_type=None, sample_opt=False)</code>
+(<code class="language-plaintext highlighter-rouge">sample_opt</code> points it at an archived dump instead of the live DB),
+<code class="language-plaintext highlighter-rouge">raw.vest_load_by_name(shot, name)</code>, <code class="language-plaintext highlighter-rouge">raw.get_all_field_codes_for_shot(shot)</code>,
+<code class="language-plaintext highlighter-rouge">raw.dump_all_raw_signals_for_shot(shot, output_path=...)</code> (offline cache) and its counterpart
+<code class="language-plaintext highlighter-rouge">raw.compare_db_and_dumped_raw_signals_for_shot(...)</code>. <code class="language-plaintext highlighter-rouge">raw.sql_loading_available()</code> and
+<code class="language-plaintext highlighter-rouge">raw.raw_offline_only()</code> report whether the SQL driver and credentials are usable at all — this is
+how the test suite decides to skip online tests. Credentials are managed by <code class="language-plaintext highlighter-rouge">raw.setup_raw_db()</code> and
+<code class="language-plaintext highlighter-rouge">raw.configuration()</code> (backed by <code class="language-plaintext highlighter-rouge">SecureConfigManager</code>).</p>
+
+<p>Connection and inventory helpers for the HSDS side live in <code class="language-plaintext highlighter-rouge">vaft.database.utils</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">utils</span>
+
+<span class="n">utils</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>                                   <span class="c1"># is HSDS reachable?
+</span><span class="n">utils</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">data_filter</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sort</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h1 id="vaftomas"><code class="language-plaintext highlighter-rouge">vaft.omas</code></h1>
+
+<p>This is the layer you actually call to do physics on a shot. Everything here takes an <code class="language-plaintext highlighter-rouge">ODS</code> (or an
+<code class="language-plaintext highlighter-rouge">ODC</code>) and reads/writes IMAS paths. It is a flat namespace: <code class="language-plaintext highlighter-rouge">vaft.omas.&lt;name&gt;</code> resolves into the
+<code class="language-plaintext highlighter-rouge">general</code>, <code class="language-plaintext highlighter-rouge">process_wrapper</code>, <code class="language-plaintext highlighter-rouge">formula_wrapper</code>, <code class="language-plaintext highlighter-rouge">update</code> and <code class="language-plaintext highlighter-rouge">sample</code> modules.</p>
+
+<h2 id="sample-data-works-offline">Sample data (works offline)</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>    <span class="c1"># packaged shot 39915
+</span><span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>    <span class="c1"># 39915, 41524, 41672
+</span><span class="n">geq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_gfile</span><span class="p">()</span>  <span class="c1"># packaged g-file as a GEQDSK object
+</span></code></pre></div></div>
+
+<h2 id="shot-introspection--general">Shot introspection — <code class="language-plaintext highlighter-rouge">general</code></h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_shotnumber</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_shotclass</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_chamber_boundary</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_vloop_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_ip_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pf_active_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_max_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_bt</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_major_radius</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">classify_shot</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">pressure_threshold</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">halpha_threshold</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">print_info</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">key_name</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_matching_time_indices</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Time-base bookkeeping (DAQ time versus breakdown-referenced time) and container plumbing:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">shift_time</span><span class="p">(</span><span class="n">one_ods</span><span class="p">,</span> <span class="n">time_shift</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc_or_ods</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">vloop</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">odc_or_ods_check</span><span class="p">(</span><span class="n">odc_or_ods</span><span class="p">)</span>     <span class="c1"># returns an ODC either way
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">combine_ods</span><span class="p">(</span><span class="n">ods_list</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="derived-quantities--process_wrapper">Derived quantities — <code class="language-plaintext highlighter-rouge">process_wrapper</code></h2>
+
+<p>These pull geometry and signals out of the ODS, call into <code class="language-plaintext highlighter-rouge">vaft.process</code>, and hand back arrays.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Electromagnetic response and eddy currents
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_grid_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">xvar</span><span class="p">,</span> <span class="n">zvar</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_point_response_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">rz</span><span class="p">,</span> <span class="n">plasma</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_grid_response_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plasma</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_impedance_matrices_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plasma</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_eddy_currents</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plasma</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">dt_sub</span><span class="o">=</span><span class="p">...)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_point_vacuum_fields_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">rz</span><span class="o">=</span><span class="p">[(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)],</span> <span class="n">plot_opt</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="sh">"</span><span class="s">vacuum</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_null_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+
+<span class="c1"># Equilibrium, profiles, energy
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_core_profile_psi</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">option</span><span class="o">=</span><span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_core_profile_2d</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">option</span><span class="o">=</span><span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_magnetic_energy</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_virial_equilibrium_quantities_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_volume_averaged_pressure</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">option</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_reconstructed_diamagnetic_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_diamagnetic_flux_measured_vs_computed</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_diamagnetism</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_ohmic_heating_power_from_core_profiles</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="o">=</span><span class="mf">17.0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="physics-scalings--formula_wrapper">Physics scalings — <code class="language-plaintext highlighter-rouge">formula_wrapper</code></h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_exp</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_scaling</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="sh">"</span><span class="s">IBP98y2</span><span class="sh">"</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                                <span class="n">eng_params</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_engineering_parameters</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_confiment_time_paramters</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_power_balance</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">include_line_radiation</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">line_radiation_species</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                                <span class="n">impurity_fractions</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_bremsstrahlung_power</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_voltage_consumption</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_magnetic_shear</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="in-place-enrichment--update">In-place enrichment — <code class="language-plaintext highlighter-rouge">update</code></h2>
+
+<p><code class="language-plaintext highlighter-rouge">update_*</code> functions <strong>mutate the ODS</strong>: they fill IMAS fields that the reconstruction itself did not
+provide. Run them once after loading, then plot.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_profiles_1d_normalized_psi</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_profiles_1d_radial_coordinates</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_boundary</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_coordinates</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_global_quantities_q_min</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_global_quantities_volume</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_profiles_2d_j_tor</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_profiles_2d_sfl_coordinates</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">profiles_2d_idx</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">sfl</span><span class="sh">"</span><span class="p">,</span> <span class="n">n_theta</span><span class="o">=</span><span class="mi">129</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_stored_energy</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_constraints_diamagnetic_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_core_profiles_global_quantities_volume_average</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h1 id="vaftprocess-and-vaftformula"><code class="language-plaintext highlighter-rouge">vaft.process</code> and <code class="language-plaintext highlighter-rouge">vaft.formula</code></h1>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process</code> is the numerical layer (NumPy in, NumPy out) and <code class="language-plaintext highlighter-rouge">vaft.formula</code> is the closed-form
+physics layer. Neither one touches an ODS. Modules at a glance:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Module</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.signal_processing</code></td>
+      <td><code class="language-plaintext highlighter-rouge">smooth</code>, <code class="language-plaintext highlighter-rouge">define_baseline</code>, <code class="language-plaintext highlighter-rouge">subtract_baseline</code>, <code class="language-plaintext highlighter-rouge">signal_on_offset</code>, <code class="language-plaintext highlighter-rouge">is_signal_active</code>, <code class="language-plaintext highlighter-rouge">process_signal</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.numerical</code></td>
+      <td><code class="language-plaintext highlighter-rouge">time_derivative(time, data)</code> on a non-uniform grid</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.electromagnetics</code></td>
+      <td><code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>, <code class="language-plaintext highlighter-rouge">calc_grid</code>, <code class="language-plaintext highlighter-rouge">compute_response_matrix</code>, <code class="language-plaintext highlighter-rouge">compute_impedance_matrices</code>, <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code>, <code class="language-plaintext highlighter-rouge">compute_vacuum_fields_1d</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.magnetics</code></td>
+      <td><code class="language-plaintext highlighter-rouge">rogowski_coil_ip</code>, <code class="language-plaintext highlighter-rouge">flux_loop_flux</code>, <code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code>, <code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code>, <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code>, <code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium</code></td>
+      <td><code class="language-plaintext highlighter-rouge">psi_to_rz</code>, <code class="language-plaintext highlighter-rouge">psi_to_rho</code>, <code class="language-plaintext highlighter-rouge">volume_average</code>, <code class="language-plaintext highlighter-rouge">shafranov_integrals</code>, <code class="language-plaintext highlighter-rouge">efit_virial_volume_integrals</code>, <code class="language-plaintext highlighter-rouge">calculate_diamagnetism</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.profile</code></td>
+      <td>Thomson and charge-exchange mapping/fitting, <code class="language-plaintext highlighter-rouge">core_profiles</code>, <code class="language-plaintext highlighter-rouge">core_profiles_from_eq</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_core_profiles_history_dataframe</code>, <code class="language-plaintext highlighter-rouge">perform_ols_regression</code>, <code class="language-plaintext highlighter-rouge">compute_metrics</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code></td>
+      <td>flux, <code class="language-plaintext highlighter-rouge">q</code> and shear; geometry from an $(R,Z)$ boundary; virial (Shafranov) relations; power balance; confinement scalings</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.stability</code></td>
+      <td><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code>, <code class="language-plaintext highlighter-rouge">greenwald_density</code>, <code class="language-plaintext highlighter-rouge">greenwald_fraction</code>, ballooning/kink/sawtooth criteria</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.green</code></td>
+      <td><code class="language-plaintext highlighter-rouge">greens_function_2d</code>, <code class="language-plaintext highlighter-rouge">green_br_bz</code>, complete elliptic integrals</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.utils</code></td>
+      <td><code class="language-plaintext highlighter-rouge">gradient</code>, <code class="language-plaintext highlighter-rouge">trapz_integral</code>, <code class="language-plaintext highlighter-rouge">fit_profile</code>, <code class="language-plaintext highlighter-rouge">make_fit_function</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code></td>
+      <td><code class="language-plaintext highlighter-rouge">interpolate_adf11</code>, <code class="language-plaintext highlighter-rouge">fractional_abundances</code>, <code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> on OPEN-ADAS ADF11 tables</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.statistics</code></td>
+      <td>residual, goodness-of-fit and convergence statistics (<code class="language-plaintext highlighter-rouge">rms</code>, <code class="language-plaintext highlighter-rouge">chi_squared</code>, <code class="language-plaintext highlighter-rouge">runs_test_z</code>, <code class="language-plaintext highlighter-rouge">log10_decay_rate</code>, …)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.constants</code></td>
+      <td>Physical constants used by the formula layer</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Both are documented in full on the
+<a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> and
+<a href="/vaft/develop/reference/formula/">Formula reference</a> pages; the latter is generated per function from the standardized docstrings.</p>
+
+<h1 id="vaftmachine_mapping"><code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code></h1>
+
+<p>This is how a raw VEST shot becomes IMAS. Each time-dependent diagnostic has a canonical function
+with a uniform signature — <code class="language-plaintext highlighter-rouge">(ods, shot, tstart, tend, dt)</code> — that fills the corresponding IDS in
+place:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
+<span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span> <span class="o">=</span> <span class="mi">39915</span><span class="p">,</span> <span class="mf">0.24</span><span class="p">,</span> <span class="mf">0.36</span><span class="p">,</span> <span class="mf">1e-4</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">pf_active</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">tf</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">barometry</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">spectrometer_uv</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Geometry, coupling and model IDSs take a <code class="language-plaintext highlighter-rouge">source</code> instead of a time window:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">pf_passive</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>            <span class="c1"># source=None uses the packaged geometry
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">em_coupling</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>           <span class="c1"># packaged mutual-inductance matrices
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">mhd_linear</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>    <span class="c1"># source = a linear-MHD output file
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">summary</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Two names in this namespace are reserved but not wired up yet:
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.equilibrium</code> and <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.pf_plasma</code> raise
+<code class="language-plaintext highlighter-rouge">NotImplementedError</code>. Equilibria enter the ODS through <code class="language-plaintext highlighter-rouge">vaft.code</code> (EFIT/CHEASE) instead.</p>
+
+<p>Kinetic and imaging diagnostics take a shot number plus an optional data root:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">mat_file</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="sh">"</span><span class="s">ces</span><span class="sh">"</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">soft_x_rays</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">daq_label</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">digitizer_file</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">*_from_raw_database</code> variants — <code class="language-plaintext highlighter-rouge">magnetics_from_raw_database</code>, <code class="language-plaintext highlighter-rouge">pf_active_from_raw_database</code>,
+<code class="language-plaintext highlighter-rouge">tf_from_raw_database</code>, <code class="language-plaintext highlighter-rouge">barometry_from_raw_database</code>, <code class="language-plaintext highlighter-rouge">filterscope_from_raw_database</code>,
+<code class="language-plaintext highlighter-rouge">dataset_description_from_raw_database</code>, <code class="language-plaintext highlighter-rouge">calculate_em_coupling_from_raw_database</code> — are the
+pipeline-facing entry points: they take an <code class="language-plaintext highlighter-rouge">options</code> dict and reach into the SQL DAQ themselves.
+Per-channel entry points at that level (<code class="language-plaintext highlighter-rouge">flux_loop_from_raw_database</code>,
+<code class="language-plaintext highlighter-rouge">b_field_pol_probe_from_raw_database</code>, <code class="language-plaintext highlighter-rouge">rogowski_coil_and_ip_from_raw_database</code>) exist as names but
+raise <code class="language-plaintext highlighter-rouge">NotImplementedError</code> — use the IDS-level <code class="language-plaintext highlighter-rouge">magnetics(...)</code> mapping instead.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">vfit_*</code> names are the legacy VEST-fit API, kept as aliases and split into
+<code class="language-plaintext highlighter-rouge">vfit_&lt;diag&gt;_static</code> (geometry) and <code class="language-plaintext highlighter-rouge">vfit_&lt;diag&gt;_dynamic</code> (signals) — for example
+<code class="language-plaintext highlighter-rouge">vfit_magnetics_static</code> / <code class="language-plaintext highlighter-rouge">vfit_magnetics_dynamic</code>, <code class="language-plaintext highlighter-rouge">vfit_pf_active_static</code> /
+<code class="language-plaintext highlighter-rouge">vfit_pf_active_dynamic</code>, <code class="language-plaintext highlighter-rouge">vfit_tf_static</code> / <code class="language-plaintext highlighter-rouge">vfit_tf_dynamic</code>.</p>
+
+<p>Uncertainties for equilibrium reconstruction are not hard-coded in the mapping; they come from a
+central table:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="n">DEFAULT_CONSTRAINT_UNCERTAINTIES</span>       <span class="c1"># dict
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="n">DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR</span>  <span class="c1"># ordered vector
+</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">apply_default_constraint_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">uncertainty</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                                                            <span class="n">fl_correct_coeff</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">apply_magnetics_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">ip_relative_error</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">apply_pf_active_current_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">relative_error</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">apply_tf_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">relative_error</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">normalize_constraint_uncertainties</span><span class="p">(</span><span class="n">uncertainty</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Geometry assets shipped with the package are resolved with
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.resolve_geometry_asset(filename, geometry_root=None)</code>, and DAQ field metadata
+with <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.raw_database_info(file, shot, key)</code> and
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.get_metadata(source)</code>.</p>
+
+<h1 id="vaftplot"><code class="language-plaintext highlighter-rouge">vaft.plot</code></h1>
+
+<p>Every plotting function takes an ODS or an ODC (a multi-shot container) — pass an ODC and the shots
+are overlaid. The common keywords are <code class="language-plaintext highlighter-rouge">label</code> (<code class="language-plaintext highlighter-rouge">'shot'</code>, <code class="language-plaintext highlighter-rouge">'pulse'</code>, <code class="language-plaintext highlighter-rouge">'run'</code>, <code class="language-plaintext highlighter-rouge">'key'</code>, or an explicit
+list), <code class="language-plaintext highlighter-rouge">xunit</code> (<code class="language-plaintext highlighter-rouge">'s'</code> or <code class="language-plaintext highlighter-rouge">'ms'</code>), <code class="language-plaintext highlighter-rouge">yunit</code>, and <code class="language-plaintext highlighter-rouge">xlim</code> (<code class="language-plaintext highlighter-rouge">'plasma'</code>, <code class="language-plaintext highlighter-rouge">'coil'</code>, <code class="language-plaintext highlighter-rouge">'none'</code>, or
+<code class="language-plaintext highlighter-rouge">[t0, t1]</code>).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">"</span><span class="s">kA</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_pf_active_current</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">"</span><span class="s">used</span><span class="sh">"</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">"</span><span class="s">kA</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_flux_loop_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_b_field_pol_probe_field</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_tf_b_field_tor</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_barometry_pressure</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_spectrometer_uv_intensity</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th>Functions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Time traces</td>
+      <td><code class="language-plaintext highlighter-rouge">time_magnetics_ip</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_diamagnetic_flux</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_flux_loop_flux</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_flux_loop_voltage</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_b_field_pol_probe_field</code>, <code class="language-plaintext highlighter-rouge">time_pf_active_current</code>, <code class="language-plaintext highlighter-rouge">time_pf_active_current_turns</code>, <code class="language-plaintext highlighter-rouge">time_tf_coil_current</code>, <code class="language-plaintext highlighter-rouge">time_tf_b_field_tor</code>, <code class="language-plaintext highlighter-rouge">time_tf_b_field_tor_vacuum_r</code>, <code class="language-plaintext highlighter-rouge">time_barometry_pressure</code>, <code class="language-plaintext highlighter-rouge">time_spectrometer_uv_intensity</code>, <code class="language-plaintext highlighter-rouge">time_impurity_effect</code>, <code class="language-plaintext highlighter-rouge">time_electromagnetics_current</code></td>
+    </tr>
+    <tr>
+      <td>Equilibrium scalars vs. time</td>
+      <td><code class="language-plaintext highlighter-rouge">time_equilibrium_plasma_current</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_li</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_beta_pol</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_beta_tor</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_beta_n</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_w_mhd</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_w_mag</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_w_tot</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_q0</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_q95</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_qa</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_major_radius</code></td>
+    </tr>
+    <tr>
+      <td>Energy and power</td>
+      <td><code class="language-plaintext highlighter-rouge">time_energy</code>, <code class="language-plaintext highlighter-rouge">time_beta</code>, <code class="language-plaintext highlighter-rouge">time_power_balance</code>, <code class="language-plaintext highlighter-rouge">time_voltage_consumption</code>, <code class="language-plaintext highlighter-rouge">time_virial_equilibrium_quantities</code></td>
+    </tr>
+    <tr>
+      <td>Profiles (1-D)</td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_1d_radial</code>, <code class="language-plaintext highlighter-rouge">plot_onedim_profile</code>, <code class="language-plaintext highlighter-rouge">plot_onedim_profile_interactive</code></td>
+    </tr>
+    <tr>
+      <td>Geometry and 2-D</td>
+      <td><code class="language-plaintext highlighter-rouge">twodim_geometry_all</code>, <code class="language-plaintext highlighter-rouge">overlay_all</code>, <code class="language-plaintext highlighter-rouge">pf_passive_overlay</code>, <code class="language-plaintext highlighter-rouge">vacuum_psi_contour</code>, <code class="language-plaintext highlighter-rouge">overlay_all_with_vacuum_psi_contour</code>, <code class="language-plaintext highlighter-rouge">equilibrium_2d_profiles</code></td>
+    </tr>
+    <tr>
+      <td>Kinetic diagnostics</td>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering_radial</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering_time</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering_radial_profiles</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_radial</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_time</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_rho_profiles</code>, <code class="language-plaintext highlighter-rouge">plot_electron_psi_profile</code>, <code class="language-plaintext highlighter-rouge">plot_electron_2d_profile</code></td>
+    </tr>
+    <tr>
+      <td>Fluctuations</td>
+      <td><code class="language-plaintext highlighter-rouge">mirnov_signal</code>, <code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code>, <code class="language-plaintext highlighter-rouge">toroidal_mode_spectrum</code>, <code class="language-plaintext highlighter-rouge">toroidal_phase_mode_fit</code></td>
+    </tr>
+    <tr>
+      <td>Soft X-rays</td>
+      <td><code class="language-plaintext highlighter-rouge">plot_soft_x_ray_los</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_signal</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_spectrogram</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_pattern</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_overview</code></td>
+    </tr>
+    <tr>
+      <td>Overviews</td>
+      <td><code class="language-plaintext highlighter-rouge">analysis_diagnostics</code>, <code class="language-plaintext highlighter-rouge">analysis_electromagnetics</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_analysis</code></td>
+    </tr>
+    <tr>
+      <td>Multi-shot history</td>
+      <td><code class="language-plaintext highlighter-rouge">plot_scaling_fit</code>, <code class="language-plaintext highlighter-rouge">plot_correlation_heatmap</code>, <code class="language-plaintext highlighter-rouge">plot_regression_summary</code>, <code class="language-plaintext highlighter-rouge">plot_tauE_exp_vs_scaling_loglog</code>, <code class="language-plaintext highlighter-rouge">plot_H_factor_distribution</code>, <code class="language-plaintext highlighter-rouge">plot_H_factor_vs_greenwald_fraction</code>, <code class="language-plaintext highlighter-rouge">confinement_time_exp_vs_scaling</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <a href="/vaft/develop/guide/Magnetics/">Magnetics</a> page shows several of these traces rendered from
+real shots.</p>
+
+<p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Plasma current" /></p>
+
+<h1 id="vaftcode"><code class="language-plaintext highlighter-rouge">vaft.code</code></h1>
+
+<p>Adapters for the external codes that VAFT drives. They all share one shape: a <code class="language-plaintext highlighter-rouge">*Config</code> (paths,
+executable, run options), an <code class="language-plaintext highlighter-rouge">*Inputs</code> object produced by <code class="language-plaintext highlighter-rouge">prepare_*</code>, a <code class="language-plaintext highlighter-rouge">run_*</code> that executes the
+code, and a <code class="language-plaintext highlighter-rouge">collect_*</code> / <code class="language-plaintext highlighter-rouge">*Result</code> pair that reads the outputs back.</p>
+
+<p>When a configuration does not supply an executable explicitly, adapters follow the documented
+installation roots: <code class="language-plaintext highlighter-rouge">EFITHOME</code>, <code class="language-plaintext highlighter-rouge">CHEASEHOME</code>, <code class="language-plaintext highlighter-rouge">GPECHOME</code>, and <code class="language-plaintext highlighter-rouge">TESHOME</code>. Missing binaries are a
+readiness state, not a failure of deterministic input preparation.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">EFITConfig</span><span class="p">,</span> <span class="n">prepare_efit_inputs</span><span class="p">,</span> <span class="n">run_efit</span><span class="p">,</span> <span class="n">collect_efit_outputs</span>
+
+<span class="n">cfg</span>     <span class="o">=</span> <span class="nc">EFITConfig</span><span class="p">(...)</span>
+<span class="n">inputs</span>  <span class="o">=</span> <span class="nf">prepare_efit_inputs</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>      <span class="c1"># k-file and constraint set
+</span><span class="n">result</span>  <span class="o">=</span> <span class="nf">run_efit</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>              <span class="c1"># EFITResult
+</span><span class="n">outputs</span> <span class="o">=</span> <span class="nf">collect_efit_outputs</span><span class="p">(</span><span class="n">workdir</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Code</th>
+      <th>Entry points</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EFIT (equilibrium reconstruction)</td>
+      <td><code class="language-plaintext highlighter-rouge">EFITConfig</code>, <code class="language-plaintext highlighter-rouge">EFITInputs</code>, <code class="language-plaintext highlighter-rouge">EFITResult</code>, <code class="language-plaintext highlighter-rouge">prepare_efit_inputs</code>, <code class="language-plaintext highlighter-rouge">run_efit</code>, <code class="language-plaintext highlighter-rouge">collect_efit_outputs</code>, <code class="language-plaintext highlighter-rouge">generate_kfile</code>, <code class="language-plaintext highlighter-rouge">generate_constraints_ods</code>, <code class="language-plaintext highlighter-rouge">gfile_to_omas</code></td>
+    </tr>
+    <tr>
+      <td>CHEASE (fixed-boundary refinement)</td>
+      <td><code class="language-plaintext highlighter-rouge">CHEASEConfig</code>, <code class="language-plaintext highlighter-rouge">CHEASEInputs</code>, <code class="language-plaintext highlighter-rouge">CHEASEResult</code>, <code class="language-plaintext highlighter-rouge">find_chease_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_chease_inputs</code>, <code class="language-plaintext highlighter-rouge">run_chease</code>, <code class="language-plaintext highlighter-rouge">refine_equilibrium</code></td>
+    </tr>
+    <tr>
+      <td>GPEC (perturbed equilibrium, 3-D response)</td>
+      <td><code class="language-plaintext highlighter-rouge">GPECSuiteConfig</code>, <code class="language-plaintext highlighter-rouge">GPECCaseInputs</code>, <code class="language-plaintext highlighter-rouge">GPECModuleRun</code>, <code class="language-plaintext highlighter-rouge">GPECSuiteResult</code>, <code class="language-plaintext highlighter-rouge">prepare_gpec_suite_case</code>, <code class="language-plaintext highlighter-rouge">run_gpec_suite_case</code>, <code class="language-plaintext highlighter-rouge">run_gpec</code>, <code class="language-plaintext highlighter-rouge">collect_gpec_suite_outputs</code>, <code class="language-plaintext highlighter-rouge">format_gfile_header_for_gpec</code></td>
+    </tr>
+    <tr>
+      <td>TES (forward equilibrium)</td>
+      <td><code class="language-plaintext highlighter-rouge">TESConfig</code>, <code class="language-plaintext highlighter-rouge">TESInputs</code>, <code class="language-plaintext highlighter-rouge">TESResult</code>, <code class="language-plaintext highlighter-rouge">prepare_tes_inputs</code>, <code class="language-plaintext highlighter-rouge">run_tes</code>, <code class="language-plaintext highlighter-rouge">collect_tes_outputs</code>, <code class="language-plaintext highlighter-rouge">scan_tes</code>, <code class="language-plaintext highlighter-rouge">parse_result_scalars</code>, <code class="language-plaintext highlighter-rouge">parse_result_coils</code></td>
+    </tr>
+    <tr>
+      <td>Base classes</td>
+      <td><code class="language-plaintext highlighter-rouge">CodeConfig</code>, <code class="language-plaintext highlighter-rouge">CodeInputs</code>, <code class="language-plaintext highlighter-rouge">CodeResult</code>, <code class="language-plaintext highlighter-rouge">CodeRunner</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">refine_equilibrium(source, config=None)</code> is the one-shot CHEASE convenience: g-file or ODS in,
+refined equilibrium out. <code class="language-plaintext highlighter-rouge">scan_tes(ods, base_config, values, param="ip0_kA")</code> sweeps a single TES
+parameter and collects every result. Snakemake rules should start with
+<code class="language-plaintext highlighter-rouge">vaft.code.init_snakemake_logger(snakemake)</code> so that stdout and stderr land in the rule’s log file.</p>
+
+<h1 id="vaftdata"><code class="language-plaintext highlighter-rouge">vaft.data</code></h1>
+
+<p>Portable file formats and the packaged sample files.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_geqdsk</span><span class="p">,</span> <span class="n">write_geqdsk</span><span class="p">,</span> <span class="n">to_omas</span><span class="p">,</span> <span class="n">from_omas</span><span class="p">,</span> <span class="n">sample_geqdsk</span><span class="p">,</span> <span class="n">data_path</span>
+
+<span class="n">geq</span> <span class="o">=</span> <span class="nf">read_geqdsk</span><span class="p">(</span><span class="sh">"</span><span class="s">g039915.00319</span><span class="sh">"</span><span class="p">)</span>          <span class="c1"># GEQDSK
+</span><span class="n">ods</span> <span class="o">=</span> <span class="nf">to_omas</span><span class="p">(</span><span class="n">geq</span><span class="p">)</span>                          <span class="c1"># GEQDSK to ODS (equilibrium IDS)
+</span><span class="n">geq</span> <span class="o">=</span> <span class="nf">from_omas</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>          <span class="c1"># ODS to GEQDSK
+</span><span class="nf">write_geqdsk</span><span class="p">(</span><span class="n">geq</span><span class="p">,</span> <span class="sh">"</span><span class="s">g039915.00319.copy</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">geq</span>  <span class="o">=</span> <span class="nf">sample_geqdsk</span><span class="p">()</span>                      <span class="c1"># packaged default: efit/g039915.00319
+</span><span class="n">root</span> <span class="o">=</span> <span class="nf">data_path</span><span class="p">()</span>                          <span class="c1"># the packaged vaft/data directory
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">from_imas</code> and <code class="language-plaintext highlighter-rouge">to_imas</code> perform the same round trip against a native IMAS entry instead of an ODS.</p>
+
+<h1 id="vaftimas"><code class="language-plaintext highlighter-rouge">vaft.imas</code></h1>
+
+<p>The OMAS to IMAS Access Layer bridge: <code class="language-plaintext highlighter-rouge">load_omas_imas</code>, <code class="language-plaintext highlighter-rouge">save_omas_imas</code>, <code class="language-plaintext highlighter-rouge">imas_open</code>,
+<code class="language-plaintext highlighter-rouge">imas_open_uri</code>, <code class="language-plaintext highlighter-rouge">imas_get</code>, <code class="language-plaintext highlighter-rouge">imas_set</code>, plus <code class="language-plaintext highlighter-rouge">IMAS_DD_VERSION_CONVERSION</code> (the Data Dictionary
+version used for conversion, overridable through the environment variable of the same name).
+<code class="language-plaintext highlighter-rouge">vaft.database</code> uses this under the hood; call it directly only when you need to talk to an Access
+Layer entry that is not a VEST shot. See
+<a href="/vaft/develop/guide/Data_structures/">Data structures</a> for worked examples.</p>
+
+<h1 id="notebooks-and-workflows">Notebooks and workflows</h1>
+
+<p>Each subpackage has at least one notebook that exercises it end to end:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Notebook</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb"><code class="language-plaintext highlighter-rouge">database_initialization_and_load.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.raw</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/vest_raw_signal_sql_database.ipynb"><code class="language-plaintext highlighter-rouge">vest_raw_signal_sql_database.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data</code>, <code class="language-plaintext highlighter-rouge">vaft.imas</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/imas_omas_data_conversion.ipynb"><code class="language-plaintext highlighter-rouge">imas_omas_data_conversion.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb"><code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>, <code class="language-plaintext highlighter-rouge">vaft.process.magnetics</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/magnetic_diagnostics_processing.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_diagnostics_processing.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.electromagnetics</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/electromagnetic_response_modeling_with_efund.ipynb"><code class="language-plaintext highlighter-rouge">electromagnetic_response_modeling_with_efund.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/eddy_current_calculation_and_startup_analysis.ipynb"><code class="language-plaintext highlighter-rouge">eddy_current_calculation_and_startup_analysis.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_equilibrium_reconstruction_with_efit.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb"><code class="language-plaintext highlighter-rouge">perturbed_equilibrium_and_3d_response_with_gpec.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/forward_equilibrium_using_TES.ipynb"><code class="language-plaintext highlighter-rouge">forward_equilibrium_using_TES.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code>, <code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb"><code class="language-plaintext highlighter-rouge">confinement_time_scaling.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/tokamak_power_balance.ipynb"><code class="language-plaintext highlighter-rouge">tokamak_power_balance.ipynb</code></a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot</code></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb"><code class="language-plaintext highlighter-rouge">plotting_sample_using_vaft_plot_module.ipynb</code></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The Snakemake pipelines that stitch these together live under
+<a href="https://github.com/VEST-Tokamak/vaft/tree/4f7c48341a222ca8055a681ccd3667d39a930b13/workflow"><code class="language-plaintext highlighter-rouge">workflow/</code></a>:
+<code class="language-plaintext highlighter-rouge">automatic_pipeline_1_routine_data_processing</code> (raw DAQ to diagnostics ODS to constraints to EFIT and
+CHEASE), <code class="language-plaintext highlighter-rouge">automatic_pipeline_2_corrective_data_update</code> (re-run equilibrium and profile updates on
+existing shots), and <code class="language-plaintext highlighter-rouge">automatic_pipeline_3_data_summary</code> (multi-shot history tables and figures).</p>
+
+<h1 id="source">Source</h1>
+
+<p>Browse the package on GitHub: <a href="https://github.com/VEST-Tokamak/vaft/tree/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft"><code class="language-plaintext highlighter-rouge">vaft/</code></a> —
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/database/__init__.py"><code class="language-plaintext highlighter-rouge">database/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/omas/__init__.py"><code class="language-plaintext highlighter-rouge">omas/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/process/__init__.py"><code class="language-plaintext highlighter-rouge">process/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/formula/__init__.py"><code class="language-plaintext highlighter-rouge">formula/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/machine_mapping/__init__.py"><code class="language-plaintext highlighter-rouge">machine_mapping/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/plot/__init__.py"><code class="language-plaintext highlighter-rouge">plot/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/code/__init__.py"><code class="language-plaintext highlighter-rouge">code/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/data/__init__.py"><code class="language-plaintext highlighter-rouge">data/</code></a>,
+<a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/vaft/imas/__init__.py"><code class="language-plaintext highlighter-rouge">imas/</code></a>.</p>
+
+<h1 id="see-also">See also</h1>
+
+<ul>
+  <li><a href="/vaft/develop/guide/Quick_start_guide/">Quick start guide</a> — install, connect, load a shot.</li>
+  <li><a href="/vaft/develop/guide/Data_structures/">Data structures</a> — ODS, IDS and the IMAS data model.</li>
+  <li><a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> — <code class="language-plaintext highlighter-rouge">vaft.process</code> in depth.</li>
+  <li><a href="/vaft/develop/reference/formula/">Formula reference</a> — every <code class="language-plaintext highlighter-rouge">vaft.formula</code> function with definition, units, conventions and references.</li>
+  <li><a href="/vaft/develop/guide/Magnetics/">Magnetics</a> — plotting the magnetics IDS.</li>
+  <li><a href="/vaft/develop/guide/examples/">Examples</a> — the notebook index.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database-initialization">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="data-conversion">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb">Read and convert data structures</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="plotting-sample">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb">Plotting sample data</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="imas"><a href="/vaft/develop/reference/api/#vaftimas"><code>vaft.imas</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/#vaftcode"><code>vaft.code</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="first-result"><a href="/vaft/develop/reference/notebooks/#output-title-first-result">Offline first result</a></li>
+        
+          
+          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
+        
+          
+          <li data-resource-id="imas-roundtrip"><a href="/vaft/develop/reference/notebooks/#output-title-imas-roundtrip">OMAS and IMAS-path round trip</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/notebooks/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Notebooks">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference.md",
+            "ref": "_guide/Formula_reference.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/API_reference.md",
+        "mtime": "2026-07-01 11:20:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

@@ -1,0 +1,1340 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Notebooks · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/workflows/automated-pipelines/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/api/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Notebooks</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Examples">Notebooks</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Executable examples and immutable provenance connecting develop source to published outputs.</dd>
+    <dt>Prerequisites / inputs</dt><dd>The pinned companion source, its documented environment, and optional public HSDS configuration.</dd>
+    <dt>Expected result</dt><dd>A complete notebook inventory and verified artifact cards with hashes and execution context.</dd>
+    <dt>Status</dt><dd>Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue</dd>
+  </dl>
+</aside>
+
+<h1 id="notebook-examples">Notebook Examples</h1>
+
+<p>This branch contains <strong>38 notebooks</strong>. The page inventories every one of them; the output cards below are published separately and are described under <a href="#verified-notebook-outputs">Verified notebook outputs</a>.</p>
+
+<p><img src="/vaft/assets/images/IMG_3873.jpg" alt="VAFT overview" /></p>
+
+<h2 id="how-to-read-this-index">How to read this index</h2>
+
+<p>The notebooks are at two different levels of maturity, and it saves a lot of time to know which is which before you open one:</p>
+
+<ul>
+  <li><strong>Runnable</strong> — the notebook contains executable cells and a working data path. 27 notebooks.</li>
+  <li><strong>Design shell</strong> — the notebook is currently a structured markdown outline (objectives, expected inputs and outputs, planned sections) with <strong>no code cells yet</strong>. 11 notebooks. They are useful as specifications of where a pipeline stage is heading, but they will not execute anything.</li>
+</ul>
+
+<p>Design shells are marked <em>(design shell)</em> below.</p>
+
+<h2 id="verified-notebook-outputs">Verified notebook outputs</h2>
+
+<p>The figures below were exported on 2026-08-21 with <code class="language-plaintext highlighter-rouge">MPLBACKEND=Agg</code> and <code class="language-plaintext highlighter-rouge">VAFT_DOCS_READ_ONLY=1</code>, from a commit and a branch that no longer exist, by an exporter that has since been removed from the repository. Every image still matches its recorded checksum, but none of them can be tied to the notebook that produced it, because the notebooks have moved on. They are kept as <strong>legacy artifacts</strong> and are labelled as such in <code class="language-plaintext highlighter-rouge">_data/notebook_outputs.yml</code>; regenerating them is tracked in <a href="https://github.com/VEST-Tokamak/vaft/issues/156">issue #156</a>. Treat them as illustrative, not as current output.</p>
+
+<div class="notebook-output-grid">
+  
+    
+    
+    
+    <article class="notebook-output notebook-output-has-image" id="output-first-result" data-output-id="first-result">
+      <h3 id="output-title-first-result">Offline first result</h3>
+      
+        
+        
+          <figure>
+            <a href="/vaft/assets/notebook-outputs/first-result/first-result.png"><img src="/vaft/assets/notebook-outputs/first-result/first-result.png" alt="Line plot of VEST shot 39915 plasma current from 300 to 330 milliseconds." loading="lazy" /></a>
+            <figcaption>Plasma current from the packaged offline sample.</figcaption>
+          </figure>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/database_initialization_and_load.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>f7c97ecf5f92a355e870cc0d77b0006cf4fa437f5e49e638db856dd5be53df3f</code></dd>
+          <dt>Execution mode</dt><dd>offline-packaged-data</dd>
+          <dt>Data</dt><dd>Packaged OMAS sample for VEST shot 39915</dd>
+          <dt>Shot / time</dt><dd>39915 / 0.300–0.330 s</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>first-result.png SHA-256</dt><dd><code>9301167e833591d9591c6463b60269be75f22c0e1e8d47008d9f167216cd828e</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output" id="output-hsds-39915" data-output-id="hsds-39915">
+      <h3 id="output-title-hsds-39915">Public HSDS shot 39915 metadata</h3>
+      
+        
+        
+          <p><a class="output-artifact-link" href="/vaft/assets/notebook-outputs/hsds-39915/hsds-39915.txt">Open TXT artifact</a> — Lazy-ODS metadata returned by a live read-only HSDS request.</p>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/database_initialization_and_load.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>f7c97ecf5f92a355e870cc0d77b0006cf4fa437f5e49e638db856dd5be53df3f</code></dd>
+          <dt>Execution mode</dt><dd>read-only-public-hsds</dd>
+          <dt>Data</dt><dd>public/39915/equilibrium</dd>
+          <dt>Shot / time</dt><dd>39915 / 0.316–0.327 s</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>hsds-39915.txt SHA-256</dt><dd><code>b638972489ba5c784ec52851a624be8d9f6d09706cb91d93b2a9d94cb72f65a6</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output" id="output-imas-roundtrip" data-output-id="imas-roundtrip">
+      <h3 id="output-title-imas-roundtrip">OMAS and IMAS-path round trip</h3>
+      
+        
+        
+          <p><a class="output-artifact-link" href="/vaft/assets/notebook-outputs/imas-roundtrip/imas-roundtrip.txt">Open TXT artifact</a> — Root-IDS comparison before and after a local compressed-JSON round trip.</p>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/read_and_convert_data_structure.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>ab0bdecbfe70ed117ccac0611f8dcd994d1feaee889645f0236365c3fd5a95bc</code></dd>
+          <dt>Execution mode</dt><dd>offline-temporary-directory</dd>
+          <dt>Data</dt><dd>Packaged OMAS sample</dd>
+          <dt>Shot / time</dt><dd>39915 / not-applicable</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>imas-roundtrip.txt SHA-256</dt><dd><code>5e0522ddb6c3c459d38c96a5261350b45ca84fa58d61f69c9094609c4f1505b2</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output notebook-output-has-image" id="output-mirnov-spectrogram" data-output-id="mirnov-spectrogram">
+      <h3 id="output-title-mirnov-spectrogram">Archived-shot Mirnov spectrogram</h3>
+      
+        
+        
+          <figure>
+            <a href="/vaft/assets/notebook-outputs/mirnov-spectrogram/mirnov-spectrogram.png"><img src="/vaft/assets/notebook-outputs/mirnov-spectrogram/mirnov-spectrogram.png" alt="Two stacked spectrograms showing Mirnov fluctuation magnitude up to 80 kilohertz." loading="lazy" /></a>
+            <figcaption>Inboard and outboard Mirnov power spectra from archived shot 44740.</figcaption>
+          </figure>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/fluctuation_diagnostics_analysis.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>a41968189104e0047c9867e1e0b772ca2f1519da270bd384cdf1fd89ea11e21a</code></dd>
+          <dt>Execution mode</dt><dd>offline-archived-shot</dd>
+          <dt>Data</dt><dd>vaft/data/legacy/shot_44740.json.gz</dd>
+          <dt>Shot / time</dt><dd>44740 / 0.304–0.330 s</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>mirnov-spectrogram.png SHA-256</dt><dd><code>17c631ea70e35f0383f66c53b6adec638df27f7cedee9edd4c302fb22ec899f1</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output notebook-output-has-image" id="output-kinetic-profile" data-output-id="kinetic-profile">
+      <h3 id="output-title-kinetic-profile">Paired kinetic-profile result</h3>
+      
+        
+        
+          <figure>
+            <a href="/vaft/assets/notebook-outputs/kinetic-profile/kinetic-profile.png"><img src="/vaft/assets/notebook-outputs/kinetic-profile/kinetic-profile.png" alt="Side-by-side electron temperature and density profiles for VEST shot 48224 at 300 milliseconds." loading="lazy" /></a>
+            <figcaption>Electron temperature and density profiles generated on a 129-point normalized-flux grid.</figcaption>
+          </figure>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/kinetic_efit_end_to_end.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>789fdf1591de3f8d87777e9bcb6f8c549a6f43f0bcf535900735782c2f3915f2</code></dd>
+          <dt>Execution mode</dt><dd>offline-paired-diagnostics</dd>
+          <dt>Data</dt><dd>Repository GEQDSK, Thomson and ion-Doppler files</dd>
+          <dt>Shot / time</dt><dd>48224 / 0.300 s</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>kinetic-profile.png SHA-256</dt><dd><code>a90e3861a2c18382e478a24526b8a5354d769266e679744d56362215028a7453</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output notebook-output-has-image" id="output-equilibrium-inputs" data-output-id="equilibrium-inputs">
+      <h3 id="output-title-equilibrium-inputs">Equilibrium input preparation</h3>
+      
+        
+        
+          <figure>
+            <a href="/vaft/assets/notebook-outputs/equilibrium-inputs/equilibrium-inputs.png"><img src="/vaft/assets/notebook-outputs/equilibrium-inputs/equilibrium-inputs.png" alt="Six-panel equilibrium input figure with profiles, normalized-flux contours, boundary and limiter." loading="lazy" /></a>
+            <figcaption>EFIT profiles, flux contours and boundary used to prepare CHEASE inputs.</figcaption>
+          </figure>
+        
+      
+        
+        
+          <p><a class="output-artifact-link" href="/vaft/assets/notebook-outputs/equilibrium-inputs/equilibrium-readiness.txt">Open TXT artifact</a> — Prepared-file and executable-readiness report.</p>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/equilibrium_refinement_using_chease.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>9e2b221eab484bbba055e0aed1a9690c831233c4f4a7df2bf5fc05f26ff0de8c</code></dd>
+          <dt>Execution mode</dt><dd>deterministic-input-preparation</dd>
+          <dt>Data</dt><dd>vaft/data/efit/g039915.00319</dd>
+          <dt>Shot / time</dt><dd>39915 / 0.319 s</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>equilibrium-inputs.png SHA-256</dt><dd><code>680abc32c64b5e9ba8b296cec3468e1e128a9fef2d35b3c9de094fa4ed28e0c7</code></dd>
+          
+            <dt>equilibrium-readiness.txt SHA-256</dt><dd><code>14b3d14bb3ab6776adb80e7e4078499a9211d4bff0f3de9907055e112882f3bc</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output" id="output-external-readiness" data-output-id="external-readiness">
+      <h3 id="output-title-external-readiness">External-code readiness</h3>
+      
+        
+        
+          <p><a class="output-artifact-link" href="/vaft/assets/notebook-outputs/external-readiness/external-code-readiness.txt">Open TXT artifact</a> — Optional external-code configuration status without credential or secret values.</p>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/initialize_external_fusion_codes.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>a7169d5ceb351ee781d059ba8189e46b7ab696e67a39723484cac25d29ebbdaf</code></dd>
+          <dt>Execution mode</dt><dd>read-only-environment-inspection</dd>
+          <dt>Data</dt><dd>GPECHOME, CHEASEHOME, EFITHOME and TESHOME</dd>
+          <dt>Shot / time</dt><dd>not-applicable / not-applicable</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>external-code-readiness.txt SHA-256</dt><dd><code>5412b49b5173c00f81d994d25e585d0b2e0c28cfef8df5cb1ccbb34b7b665708</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output notebook-output-has-image" id="output-confinement-scaling" data-output-id="confinement-scaling">
+      <h3 id="output-title-confinement-scaling">Confinement-scaling result</h3>
+      
+        
+        
+          <figure>
+            <a href="/vaft/assets/notebook-outputs/confinement-scaling/confinement-scaling.png"><img src="/vaft/assets/notebook-outputs/confinement-scaling/confinement-scaling.png" alt="Two-panel plot comparing confinement-time estimates and the IPB89 H factor." loading="lazy" /></a>
+            <figcaption>Experimental and empirical confinement times with the IPB89 H factor.</figcaption>
+          </figure>
+        
+      
+        
+        
+          <p><a class="output-artifact-link" href="/vaft/assets/notebook-outputs/confinement-scaling/confinement-scaling.txt">Open TXT artifact</a> — Row count and mean confinement metrics.</p>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/confinement_time_scaling.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>02f602010db261dd6eb71cbba5334ad2854e325c14907bfb325c56d85979f812</code></dd>
+          <dt>Execution mode</dt><dd>deterministic-offline-analysis</dd>
+          <dt>Data</dt><dd>Pinned synthetic operations-analysis fixture</dd>
+          <dt>Shot / time</dt><dd>not-applicable / 0.290–0.345 s</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>confinement-scaling.png SHA-256</dt><dd><code>d589ce0aa5c2a8669532a7832f1a7464854d204da5b11d479bef4bd81ebb705d</code></dd>
+          
+            <dt>confinement-scaling.txt SHA-256</dt><dd><code>0e0a93ed6eb137150fe0a0991db52306bd14fb5caffd8386789bd02c2d04c393</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+    
+    
+    
+    <article class="notebook-output notebook-output-has-image" id="output-pipeline-overview" data-output-id="pipeline-overview">
+      <h3 id="output-title-pipeline-overview">Snakemake pipeline stage summary</h3>
+      
+        
+        
+          <figure>
+            <a href="/vaft/assets/notebook-outputs/pipeline-overview/pipeline-overview.png"><img src="/vaft/assets/notebook-outputs/pipeline-overview/pipeline-overview.png" alt="Horizontal diagram from raw DAQ through diagnostics, equilibrium, profiles and MHD products to history tables." loading="lazy" /></a>
+            <figcaption>Routine, corrective and summary products in the VAFT Snakemake workflow.</figcaption>
+          </figure>
+        
+      
+        
+        
+          <p><a class="output-artifact-link" href="/vaft/assets/notebook-outputs/pipeline-overview/pipeline-overview.txt">Open TXT artifact</a> — Machine-readable workflow stage and output summary.</p>
+        
+      
+      <details class="output-provenance">
+        <summary>Execution provenance</summary>
+        <dl>
+          <dt>Notebook</dt><dd><code>notebooks/automated_pipeline_overview.ipynb</code></dd>
+          <dt>Notebook SHA-256</dt><dd><code>a04dd9ff3b1c8b9a6a4b888374977a041b1236e7644a1d8ae71d99904657250f</code></dd>
+          <dt>Execution mode</dt><dd>deterministic-offline-diagram</dd>
+          <dt>Data</dt><dd>Pinned workflow-stage definition</dd>
+          <dt>Shot / time</dt><dd>not-applicable / not-applicable</dd>
+          <dt>Python / VAFT</dt><dd>3.12.9 / 0.5.0</dd>
+          <dt>Executed</dt><dd>2026-08-21T21:40:52+09:00</dd>
+          
+            <dt>pipeline-overview.png SHA-256</dt><dd><code>8c78973028a647a5a398cfb816ebdc9c040ee621d5f8ff04921550eeee778165</code></dd>
+          
+            <dt>pipeline-overview.txt SHA-256</dt><dd><code>193e1ba7806cc3ebb3d41f53391264780a48cf0197d03cd55c9bb2e3a83b06ad</code></dd>
+          
+        </dl>
+      </details>
+    </article>
+  
+</div>
+
+<h2 id="getting-started-and-the-database">Getting started and the database</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb"><code class="language-plaintext highlighter-rouge">database_initialization_and_load.ipynb</code></a></td>
+      <td>Install VAFT, verify the HSDS connection, list public shots, and load a shot into an ODS.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/vest_experimental_data_list.ipynb"><code class="language-plaintext highlighter-rouge">vest_experimental_data_list.ipynb</code></a></td>
+      <td>Tour of IMAS/OMAS concepts and of which VEST diagnostics are mapped into the database today.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/vest_raw_signal_sql_database.ipynb"><code class="language-plaintext highlighter-rouge">vest_raw_signal_sql_database.ipynb</code></a></td>
+      <td>Reach the legacy SQL DAQ store: field codes, slow vs fast channels, and raw waveform retrieval.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/verify_exist_shot_and_load.ipynb"><code class="language-plaintext highlighter-rouge">verify_exist_shot_and_load.ipynb</code></a></td>
+      <td>Inspect published-shot status and verify selected read paths without changing the remote namespace.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Start here. This is the shortest path from a fresh install to a shot in memory.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="c1"># Is the HSDS backend reachable?
+</span><span class="nf">print</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">())</span>
+
+<span class="c1"># Which shots are published?
+</span><span class="n">shots</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># Load one shot as an OMAS ODS
+</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database.load</code> is the canonical entry point: it returns an OMAS ODS, and it also accepts an explicit <code class="language-plaintext highlighter-rouge">ids_name=</code> keyword when you want a native IMAS IDS instead. See <a href="/vaft/guide/Database/">Database</a> for the full surface.</p>
+
+<p>If you have no network access, every example below can also be driven from the packaged sample data described in the next section.</p>
+
+<h2 id="data-structures-and-imas">Data structures and IMAS</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb"><code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code></a></td>
+      <td>Walk an equilibrium ODS key by key — <code class="language-plaintext highlighter-rouge">equilibrium.time_slice</code>, <code class="language-plaintext highlighter-rouge">profiles_1d</code>, and the rest of the hierarchy.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/imas_omas_data_conversion.ipynb"><code class="language-plaintext highlighter-rouge">imas_omas_data_conversion.ipynb</code></a></td>
+      <td>Bridge OMAS ODS objects and native IMAS AL5 HDF5 storage, in both directions.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The packaged samples are the fastest way to get a realistic ODS without touching the network:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>   <span class="c1"># one shot
+</span><span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>   <span class="c1"># a collection of three shots
+</span>
+<span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">])</span>
+<span class="nf">print</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time_slice.0</span><span class="sh">"</span><span class="p">].</span><span class="nf">keys</span><span class="p">()))</span>
+</code></pre></div></div>
+
+<p>To reach a packaged file by name rather than through the sample helpers, use the resource accessor — it resolves paths inside the installed package:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
+
+<span class="n">sample_path</span> <span class="o">=</span> <span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">omas/39915.json</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>For the IMAS round trip:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">save_omas_imas</span><span class="p">,</span> <span class="n">load_omas_imas</span>
+
+<span class="nf">save_omas_imas</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="sh">"</span><span class="s">test_user</span><span class="sh">"</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">ods_back</span> <span class="o">=</span> <span class="nf">load_omas_imas</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="sh">"</span><span class="s">test_user</span><span class="sh">"</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Related reading: <a href="/vaft/guide/Data_structures/">Data structures</a> and <a href="/vaft/guide/Machine_mapping/">Machine mapping</a>.</p>
+
+<h2 id="diagnostics">Diagnostics</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/magnetic_diagnostics_processing.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_diagnostics_processing.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned preprocessing, filtering, calibration, and sign conventions for <code class="language-plaintext highlighter-rouge">ip</code>, flux loops, and poloidal probes.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/soft_x_ray_signal_analysis.ipynb"><code class="language-plaintext highlighter-rouge">soft_x_ray_signal_analysis.ipynb</code></a></td>
+      <td>Map digitizer CSVs into a soft X-ray ODS, then plot lines of sight, signals, and spectrograms.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/fluctuation_diagnostics_analysis.ipynb"><code class="language-plaintext highlighter-rouge">fluctuation_diagnostics_analysis.ipynb</code></a></td>
+      <td>Mirnov coil fluctuation work: spectrograms, toroidal mode spectra, and mode-number fits.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/fast_camera_video_analysis.ipynb"><code class="language-plaintext highlighter-rouge">fast_camera_video_analysis.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned camera image and video loading, plasma-behavior observation, and synchronization.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/assets/images/magnetics/Inboard_B_z.png" alt="Probe example" /></p>
+
+<p>The soft X-ray notebook is a good template for “raw file to ODS to plot” in one pass:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays_from_digitizer_csv</span>
+<span class="kn">from</span> <span class="n">vaft.plot</span> <span class="kn">import</span> <span class="n">plot_soft_x_ray_los</span><span class="p">,</span> <span class="n">plot_soft_x_ray_signal</span><span class="p">,</span> <span class="n">plot_soft_x_ray_spectrogram</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="nf">soft_x_rays_from_digitizer_csv</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">daq_label</span><span class="p">,</span> <span class="n">digitizer_file</span><span class="o">=</span><span class="n">plasma_file</span><span class="p">)</span>
+
+<span class="nf">plot_soft_x_ray_los</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">arrays</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">lowermid</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bottom</span><span class="sh">"</span><span class="p">])</span>
+<span class="nf">plot_soft_x_ray_signal</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="nf">plot_soft_x_ray_spectrogram</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>See <a href="/vaft/guide/Magnetics/">Magnetics</a> and <a href="/vaft/guide/Processing/">Processing</a>.</p>
+
+<h2 id="equilibrium-and-stability">Equilibrium and stability</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a></td>
+      <td>Refine a GEQDSK with CHEASE: build <code class="language-plaintext highlighter-rouge">EXPEQ</code> and the namelist, resolve the binary, run, collect outputs.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/forward_equilibrium_using_TES.ipynb"><code class="language-plaintext highlighter-rouge">forward_equilibrium_using_TES.ipynb</code></a></td>
+      <td>Forward (Grad-Shafranov) equilibrium solve with TES, driven straight from an ODS.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/forward_equilibrium_using_TokaMaker.ipynb"><code class="language-plaintext highlighter-rouge">forward_equilibrium_using_TokaMaker.ipynb</code></a></td>
+      <td>Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit), driven by measured PF coil currents.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb"><code class="language-plaintext highlighter-rouge">time_dependent_equilibrium_using_TokaMaker.ipynb</code></a></td>
+      <td>Vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/free_boundary_pf_coil_scan.ipynb"><code class="language-plaintext highlighter-rouge">free_boundary_pf_coil_scan.ipynb</code></a></td>
+      <td>Free-boundary PF-coil-current scans: commanded against materialized currents, per-case topology classification, and resumable continuation.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/analytic_solovev_equilibrium.ipynb"><code class="language-plaintext highlighter-rouge">analytic_solovev_equilibrium.ipynb</code></a></td>
+      <td>Constant-source analytic Solov’ev construction, verified against the gridded field.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/local_miller_equilibrium_fitting.ipynb"><code class="language-plaintext highlighter-rouge">local_miller_equilibrium_fitting.ipynb</code></a></td>
+      <td>Local Miller fitting, its reconstruction errors, and where it stops working near the separatrix.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/parametric_equilibrium_descriptors.ipynb"><code class="language-plaintext highlighter-rouge">parametric_equilibrium_descriptors.ipynb</code></a></td>
+      <td>Convention-aware global descriptors, and GEQDSK against ODS parity.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/edge_and_boundary_representation.ipynb"><code class="language-plaintext highlighter-rouge">edge_and_boundary_representation.ipynb</code></a></td>
+      <td>Limiter and diverted topology, X-points, gaps, and separatrix balance.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/initialize_external_fusion_codes.ipynb"><code class="language-plaintext highlighter-rouge">initialize_external_fusion_codes.ipynb</code></a></td>
+      <td>Read-only readiness checks for the <code class="language-plaintext highlighter-rouge">GPECHOME</code>, <code class="language-plaintext highlighter-rouge">CHEASEHOME</code>, <code class="language-plaintext highlighter-rouge">EFITHOME</code>, and <code class="language-plaintext highlighter-rouge">TESHOME</code> conventions.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/electromagnetic_response_modeling_with_efund.ipynb"><code class="language-plaintext highlighter-rouge">electromagnetic_response_modeling_with_efund.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned EFUND response modeling over wall geometry, PF active and PF passive structures.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/eddy_current_calculation_and_startup_analysis.ipynb"><code class="language-plaintext highlighter-rouge">eddy_current_calculation_and_startup_analysis.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned PF-passive eddy-current ODE solve and tokamak startup / null analysis.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_equilibrium_reconstruction_with_efit.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned EFIT reconstruction from magnetics, eddy currents, and PF coil information.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/mhd_equilibrium_analysis.ipynb"><code class="language-plaintext highlighter-rouge">mhd_equilibrium_analysis.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned equilibrium loading, representative quantities, and coordinate transformations.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb"><code class="language-plaintext highlighter-rouge">linear_ideal_stability_analysis_with_dcon.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned ideal MHD stability (delta-W) with DCON from the GPEC package.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb"><code class="language-plaintext highlighter-rouge">linear_resistive_stability_analysis_with_rdcon.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned resistive stability (Delta-prime) with RDCON.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb"><code class="language-plaintext highlighter-rouge">perturbed_equilibrium_and_3d_response_with_gpec.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned perturbed equilibrium and non-axisymmetric 3D response with GPEC.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>CHEASE is the most complete code-coupling example in the repository. The <code class="language-plaintext highlighter-rouge">prepare_*</code> / <code class="language-plaintext highlighter-rouge">run_*</code> / <code class="language-plaintext highlighter-rouge">collect_*</code> triple is the pattern every code wrapper in <code class="language-plaintext highlighter-rouge">vaft.code</code> follows:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_geqdsk</span>
+<span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
+<span class="kn">from</span> <span class="n">vaft.code.chease</span> <span class="kn">import</span> <span class="n">CHEASEConfig</span><span class="p">,</span> <span class="n">prepare_chease_inputs</span><span class="p">,</span> <span class="n">find_chease_executable</span>
+
+<span class="n">initial</span> <span class="o">=</span> <span class="nf">read_geqdsk</span><span class="p">(</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">efit/g039915.00319</span><span class="sh">"</span><span class="p">))</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="n">initial</span><span class="p">.</span><span class="nf">to_omas</span><span class="p">()</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="nc">CHEASEConfig</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">)</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="nf">prepare_chease_inputs</span><span class="p">(</span><span class="n">initial</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>   <span class="c1"># writes EXPEQ + chease_namelist
+</span>
+<span class="n">executable</span> <span class="o">=</span> <span class="nf">find_chease_executable</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>       <span class="c1"># None if CHEASE is not installed
+</span></code></pre></div></div>
+
+<p>TES shows the same idea starting from a database shot rather than a file:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">tes</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">tes</span><span class="p">.</span><span class="nc">TESConfig</span><span class="p">(</span>
+    <span class="n">executable</span><span class="o">=</span><span class="n">RTES</span><span class="p">,</span>
+    <span class="n">workdir</span><span class="o">=</span><span class="n">WORKDIR</span><span class="p">,</span>
+    <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="mf">0.325</span><span class="p">,</span>
+    <span class="n">bt0</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span>     <span class="c1"># fix the toroidal field; omit to read it from the tf IDS
+</span>    <span class="n">eddy</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>    <span class="c1"># treat pf_passive as eddy coils
+</span><span class="p">)</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="n">tes</span><span class="p">.</span><span class="nf">prepare_tes_inputs</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Both binaries are optional: the notebooks degrade to input generation when the executable is absent. See <a href="/vaft/guide/Equilibrium/">Equilibrium</a> and <a href="/vaft/guide/Stability/">Stability</a>.</p>
+
+<h2 id="profiles-and-transport">Profiles and transport</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb"><code class="language-plaintext highlighter-rouge">profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb</code></a></td>
+      <td>Map Thomson scattering onto equilibrium flux surfaces to fit core <code class="language-plaintext highlighter-rouge">Te</code> and <code class="language-plaintext highlighter-rouge">ne</code> profiles.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/kinetic_efit_end_to_end.ipynb"><code class="language-plaintext highlighter-rouge">kinetic_efit_end_to_end.ipynb</code></a></td>
+      <td>Build electron and ion profiles from the paired shot 48224 repository inputs at 300 ms.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb"><code class="language-plaintext highlighter-rouge">confinement_time_scaling.ipynb</code></a></td>
+      <td>Single-shot workflow test, then a dataset-wide confinement-time scaling and regression study.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/tokamak_power_balance.ipynb"><code class="language-plaintext highlighter-rouge">tokamak_power_balance.ipynb</code></a></td>
+      <td>Ohmic input against radiated and conducted losses, with an Aurora-based impurity treatment.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The profile notebook is the largest runnable example that stays inside pure VAFT:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">40330</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_thomson_radial_position</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_thomson_time_series</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_electron_profile_with_thomson</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>See <a href="/vaft/guide/Profiles/">Profiles</a> and <a href="/vaft/guide/Formula/">Formula</a>.</p>
+
+<h2 id="analysis-vv-and-publication">Analysis, V&amp;V, and publication</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb"><code class="language-plaintext highlighter-rouge">plotting_sample_using_vaft_plot_module.ipynb</code></a></td>
+      <td>The plot module tour: naming conventions, ODS vs ODC input, and time-convention shifts.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/publication_figures.ipynb"><code class="language-plaintext highlighter-rouge">publication_figures.ipynb</code></a></td>
+      <td>Reproduce publication-quality composite figures at print DPI.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/verification_and_validation.ipynb"><code class="language-plaintext highlighter-rouge">verification_and_validation.ipynb</code></a></td>
+      <td>Cross-check volume-averaged parameters across shots and export a V&amp;V spreadsheet.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/multiple_tokamak_comparison.ipynb"><code class="language-plaintext highlighter-rouge">multiple_tokamak_comparison.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned cross-device comparison of geometry, equilibrium, and diagnostic signals.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The plot module names functions as <code class="language-plaintext highlighter-rouge">{ids}_{coordinate}_{quantity}</code> — for example <code class="language-plaintext highlighter-rouge">time_magnetics_ip</code>. Any plot function accepts a single ODS, an ODC, or a list of ODS objects, which is what makes shot overlays trivial:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+<span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">odc</span><span class="p">)</span>          <span class="c1"># overlays every shot in the collection
+</span>
+<span class="c1"># Re-zero the time axis on breakdown, then replot
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">breakdown</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="/vaft/assets/images/magnetics/plasma_current.png" alt="Magnetics example" /></p>
+
+<p>Composite figures are single calls:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">overlay_all_with_vacuum_psi_contour</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>See <a href="/vaft/guide/Plotting/">Plotting</a> for the full catalogue.</p>
+
+<h2 id="operations-and-monitoring">Operations and monitoring</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Notebook</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/vest_daily_monitoring.ipynb"><code class="language-plaintext highlighter-rouge">vest_daily_monitoring.ipynb</code></a></td>
+      <td>Day-to-day shot health check: load the day’s shots into an ODC and compare key signals.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/shot_characteristics_classification.ipynb"><code class="language-plaintext highlighter-rouge">shot_characteristics_classification.ipynb</code></a></td>
+      <td><em>(design shell)</em> Planned representative-signal extraction, shot classification, and summary sheets.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/automated_pipeline_overview.ipynb"><code class="language-plaintext highlighter-rouge">automated_pipeline_overview.ipynb</code></a></td>
+      <td>Deterministic stage and product summary for routine, corrective, and history-table Snakemake paths.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These pair with the automated Snakemake stages described in <a href="/vaft/guide/Pipelines/">Pipelines</a>.</p>
+
+<h2 id="notebook-maturity-and-remaining-legacy-apis">Notebook maturity and remaining legacy APIs</h2>
+
+<p>The nine documentation-allowlisted notebooks are repaired on the companion branch. Some other runnable notebooks retained from the <code class="language-plaintext highlighter-rouge">develop</code> baseline still demonstrate older discovery or file-loading APIs; the working forms below are the migration path.</p>
+
+<p><strong>1. <code class="language-plaintext highlighter-rouge">vaft.database.exist_ts_file()</code> does not exist.</strong> It is called by <code class="language-plaintext highlighter-rouge">tokamak_power_balance.ipynb</code> and <code class="language-plaintext highlighter-rouge">verification_and_validation.ipynb</code> to discover processed shots. There is no replacement helper in the package; supply the shot list directly, as <code class="language-plaintext highlighter-rouge">profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb</code> now does:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+
+<span class="n">core_profile_shots</span> <span class="o">=</span> <span class="p">[</span><span class="mi">40330</span><span class="p">]</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">({</span><span class="sh">"</span><span class="s">Shot Number</span><span class="sh">"</span><span class="p">:</span> <span class="n">core_profile_shots</span><span class="p">,</span> <span class="sh">"</span><span class="s">Status</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">core_profile</span><span class="sh">"</span><span class="p">]})</span>
+</code></pre></div></div>
+
+<p><strong>2. <code class="language-plaintext highlighter-rouge">vaft.omas.load_omas_json()</code> does not exist, and the packaged data moved.</strong> Sample JSON files are no longer flat under <code class="language-plaintext highlighter-rouge">vaft/data/</code>; they live under <code class="language-plaintext highlighter-rouge">vaft/data/omas/</code>. Notebooks that still build a path like <code class="language-plaintext highlighter-rouge">os.path.join(os.path.dirname(vaft.__file__), "data", "39915.json")</code> — including <code class="language-plaintext highlighter-rouge">vest_daily_monitoring.ipynb</code> and parts of <code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code> — will fail. Use the sample helpers or the resource accessor instead:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>            <span class="c1"># preferred
+</span><span class="n">sample_path</span> <span class="o">=</span> <span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">omas/39915.json</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># or resolve the file explicitly
+</span></code></pre></div></div>
+
+<p>Note that <code class="language-plaintext highlighter-rouge">load_omas_json</code> <em>does</em> exist in the upstream <code class="language-plaintext highlighter-rouge">omas</code> package (<code class="language-plaintext highlighter-rouge">from omas import load_omas_json</code>); only the <code class="language-plaintext highlighter-rouge">vaft.omas</code> alias was removed.</p>
+
+<h2 id="recommended-order">Recommended order</h2>
+
+<p>A newcomer should work through the runnable notebooks in this order:</p>
+
+<ol>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb"><code class="language-plaintext highlighter-rouge">database_initialization_and_load.ipynb</code></a> — install, connect, load your first shot.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb"><code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code></a> — learn the ODS hierarchy before you plot anything.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb"><code class="language-plaintext highlighter-rouge">plotting_sample_using_vaft_plot_module.ipynb</code></a> — the plot naming convention pays for itself immediately.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/vest_experimental_data_list.ipynb"><code class="language-plaintext highlighter-rouge">vest_experimental_data_list.ipynb</code></a> — find out which diagnostics are actually mapped.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb"><code class="language-plaintext highlighter-rouge">profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb</code></a> — the first real physics workflow.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a> — how VAFT wraps an external code.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb"><code class="language-plaintext highlighter-rouge">confinement_time_scaling.ipynb</code></a> — scale up from one shot to the whole dataset.</li>
+</ol>
+
+<p>Then branch by interest: <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/imas_omas_data_conversion.ipynb"><code class="language-plaintext highlighter-rouge">imas_omas_data_conversion.ipynb</code></a> for interoperability, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/soft_x_ray_signal_analysis.ipynb"><code class="language-plaintext highlighter-rouge">soft_x_ray_signal_analysis.ipynb</code></a> and <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/fluctuation_diagnostics_analysis.ipynb"><code class="language-plaintext highlighter-rouge">fluctuation_diagnostics_analysis.ipynb</code></a> for diagnostics, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/forward_equilibrium_using_TES.ipynb"><code class="language-plaintext highlighter-rouge">forward_equilibrium_using_TES.ipynb</code></a> for forward modeling, and <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/publication_figures.ipynb"><code class="language-plaintext highlighter-rouge">publication_figures.ipynb</code></a> when it is time to write the paper.</p>
+
+<p>If you have not installed VAFT yet, start at <a href="/vaft/guide/Installation/">Installation</a> and the <a href="/vaft/guide/Quick_start_guide/">Quick start guide</a>. The complete function list is in the <a href="/vaft/guide/API_reference/">API reference</a>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database-initialization">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="plotting-sample">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb">Plotting sample data</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="fluctuation-diagnostics">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/fluctuation_diagnostics_analysis.ipynb">Fluctuation diagnostics analysis</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="kinetic-efit">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/kinetic_efit_end_to_end.ipynb">Kinetic-EFIT end-to-end chain</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="chease-refinement">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb">Equilibrium refinement using CHEASE</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="confinement-scaling">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb">Confinement-time scaling</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="external-codes">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/initialize_external_fusion_codes.ipynb">Initialize external fusion codes</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="pipeline-overview">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/automated_pipeline_overview.ipynb">Automated pipeline overview</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="imas"><a href="/vaft/reference/api/#vaftimas"><code>vaft.imas</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/reference/api/#vaftcode"><code>vaft.code</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+          
+          <li data-resource-id="raw-44740"><strong>Archived magnetics sample, shot 44740</strong><br><span>Repository raw-signal archive used by the fluctuation notebook.</span></li>
+        
+          
+          <li data-resource-id="kinetic-48224"><strong>Paired kinetic sample, shot 48224 at 300 ms</strong><br><span>Repository GEQDSK, Thomson and ion Doppler inputs.</span></li>
+        
+          
+          <li data-resource-id="external-codes"><strong>EFIT, CHEASE, DCON/RDCON and GPEC installations</strong><br><span>Optional external executables resolved from their HOME variables.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/workflows/automated-pipelines/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Automated pipelines">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/api/" class="navigation navigation-next navigation-unique" aria-label="Next page: VAFT API">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#how-to-read-this-index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How to read this index</a></li><li class="page-toc-item page-toc-level-2"><a href="#verified-notebook-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Verified notebook outputs</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#output-title-first-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Offline first result</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-hsds-39915" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Public HSDS shot 39915 metadata</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-imas-roundtrip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">OMAS and IMAS-path round trip</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-mirnov-spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Archived-shot Mirnov spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-kinetic-profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Paired kinetic-profile result</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-equilibrium-inputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium input preparation</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-external-readiness" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">External-code readiness</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-confinement-scaling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Confinement-scaling result</a></li><li class="page-toc-item page-toc-level-3"><a href="#output-title-pipeline-overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Snakemake pipeline stage summary</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#getting-started-and-the-database" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Getting started and the database</a></li><li class="page-toc-item page-toc-level-2"><a href="#data-structures-and-imas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Data structures and IMAS</a></li><li class="page-toc-item page-toc-level-2"><a href="#diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-and-stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium and stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#profiles-and-transport" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Profiles and transport</a></li><li class="page-toc-item page-toc-level-2"><a href="#analysis-vv-and-publication" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analysis, V&amp;V, and publication</a></li><li class="page-toc-item page-toc-level-2"><a href="#operations-and-monitoring" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operations and monitoring</a></li><li class="page-toc-item page-toc-level-2"><a href="#notebook-maturity-and-remaining-legacy-apis" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Notebook maturity and remaining legacy APIs</a></li><li class="page-toc-item page-toc-level-2"><a href="#recommended-order" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Recommended order</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VAFT API",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/API_reference.md",
+            "ref": "_guide/API_reference.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Examples.md",
+        "mtime": "2026-07-01 11:10:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:38 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

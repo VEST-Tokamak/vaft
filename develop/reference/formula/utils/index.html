@@ -1,0 +1,917 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: utils · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/equilibrium/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: utils</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_utils">Formula reference: utils</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.utils, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/utils.py"><code class="language-plaintext highlighter-rouge">vaft/formula/utils.py</code></a>:
+9 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("utils.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>This module provides common utility functions and fitting utilities used throughout
+the formula module.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#calculate_peaking_factor"><code>calculate_peaking_factor</code></a> &mdash; Peaking factor, central value over volume average.
+</li>
+  <li><a href="#calculate_poloidal_flux"><code>calculate_poloidal_flux</code></a> &mdash; Poloidal flux per radian from a line integral of $RB_\theta$.
+</li>
+  <li><a href="#calculate_toroidal_flux"><code>calculate_toroidal_flux</code></a> &mdash; Toroidal flux as a sum of $B_\varphi$ over area elements.
+</li>
+  <li><a href="#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a> &mdash; Volume-weighted average of a sampled profile.
+</li>
+  <li><a href="#fit_profile"><code>fit_profile</code></a> &mdash; Fit a 1-D profile with a selectable model and evaluate it on a grid.
+</li>
+  <li><a href="#gradient"><code>gradient</code></a> &mdash; Derivative $dy/dx$ on a sampled 1-D profile.
+</li>
+  <li><a href="#make_fit_function"><code>make_fit_function</code></a> &mdash; Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.
+</li>
+  <li><a href="#normalize_profile"><code>normalize_profile</code></a> &mdash; Linear normalisation of a profile between its axis and boundary values.
+</li>
+  <li><a href="#trapz_integral"><code>trapz_integral</code></a> &mdash; Definite integral $\int y\,dx$ by the trapezoidal rule.
+</li>
+</ul>
+
+<h3 id="calculate_peaking_factor"><code class="language-plaintext highlighter-rouge">calculate_peaking_factor</code></h3>
+
+<p class="formula-signature"><code>calculate_peaking_factor(central, volume_avg)</code></p>
+
+<p>Peaking factor, central value over volume average.</p>
+
+\[\mathrm{PF} = \frac{X(0)}{\langle X\rangle}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>central</code></td><td>float</td><td>any</td><td><p>Value on the magnetic axis.</p>
+</td></tr>
+  <tr><td><code>volume_avg</code></td><td>float</td><td>any</td><td><p>Volume average of the same quantity, same unit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Peaking factor.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>No guard against a zero volume average.  Tracked in #357.</p>
+
+<h3 id="calculate_poloidal_flux"><code class="language-plaintext highlighter-rouge">calculate_poloidal_flux</code></h3>
+
+<p class="formula-signature"><code>calculate_poloidal_flux(R, B_theta, l, psi_axis=0.0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Poloidal flux per radian from a line integral of $RB_\theta$.</p>
+
+\[\psi(l) = \int_0^{l} R\,B_\theta\,dl' + \psi_a\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius along the path.</p>
+</td></tr>
+  <tr><td><code>B_theta</code></td><td>np.ndarray</td><td>T</td><td><p>Poloidal field normal to the path.</p>
+</td></tr>
+  <tr><td><code>l</code></td><td>np.ndarray</td><td>m</td><td><p>Path coordinate, monotonic.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td>float, optional</td><td>Wb/rad</td><td><p>Offset added to the integral; default 0.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>Wb/rad</td><td><p>Flux at the end of the path.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Flux per radian (COCOS 1-8 storage); multiply by $2\pi$ for the IMAS
+full-weber flux.  Sign follows <code class="language-plaintext highlighter-rouge">B_theta</code> and the direction of <code class="language-plaintext highlighter-rouge">l</code>.
+The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.psi_from_RBtheta</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Trapezoidal rule over the whole path; returns the end value only.</p>
+
+<h3 id="calculate_toroidal_flux"><code class="language-plaintext highlighter-rouge">calculate_toroidal_flux</code></h3>
+
+<p class="formula-signature"><code>calculate_toroidal_flux(B_phi, dA)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Toroidal flux as a sum of $B_\varphi$ over area elements.</p>
+
+\[\Phi = \sum_i B_{\varphi,i}\,\Delta A_i\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>B_phi</code></td><td>np.ndarray</td><td>T</td><td><p>Toroidal field on the area elements.</p>
+</td></tr>
+  <tr><td><code>dA</code></td><td>np.ndarray</td><td>m^2</td><td><p>Area of each element, same shape.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>Wb</td><td><p>Toroidal flux.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$.
+The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.phi_from_Bphi</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>A Riemann sum with caller-supplied areas, not a quadrature rule; first
+order in the cell size.  Tracked in #358.</p>
+
+<h3 id="calculate_volume_weighted_average"><code class="language-plaintext highlighter-rouge">calculate_volume_weighted_average</code></h3>
+
+<p class="formula-signature"><code>calculate_volume_weighted_average(x, V)</code></p>
+
+<p>Volume-weighted average of a sampled profile.</p>
+
+\[\langle X\rangle = \frac{\sum_i X_i\,V_i}{\sum_i V_i}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>np.ndarray</td><td>any</td><td><p>Profile values at each cell.</p>
+</td></tr>
+  <tr><td><code>V</code></td><td>np.ndarray</td><td>m^3</td><td><p>Volume of each cell, same shape.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Volume-weighted average in the unit of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>No guard against a zero total volume.  Tracked in #357.</p>
+
+<h3 id="fit_profile"><code class="language-plaintext highlighter-rouge">fit_profile</code></h3>
+
+<p class="formula-signature"><code>fit_profile(x, y, y_std, x_eval, order=3, uncertainty_option=1, fitting_function='polynomial', gp_kernel=None, gp_anchor=None, n_restarts_optimizer=5)</code></p>
+
+<p>Fit a 1-D profile with a selectable model and evaluate it on a grid.</p>
+
+<p>Least-squares (<code class="language-plaintext highlighter-rouge">scipy.optimize.curve_fit</code>) for the parametric modes,
+Gaussian-process regression (<code class="language-plaintext highlighter-rouge">sklearn</code>) for <code class="language-plaintext highlighter-rouge">'gp'</code>, linear
+interpolation for <code class="language-plaintext highlighter-rouge">'linear'</code>, a core-polynomial/edge-exponential blend
+with a $\tanh$ transition for <code class="language-plaintext highlighter-rouge">'core_poly_edge_exp'</code>, and square-root
+modes that fit $y^2$ and return $\sqrt{f}$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array-like</td><td>any</td><td><p>Data abscissae, 1-D.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>array-like</td><td>any</td><td><p>Data values.</p>
+</td></tr>
+  <tr><td><code>y_std</code></td><td>array-like or None</td><td>any</td><td><p>Per-point uncertainty, same unit as <code class="language-plaintext highlighter-rouge">y</code>; <code class="language-plaintext highlighter-rouge">None</code> for unweighted.</p>
+</td></tr>
+  <tr><td><code>x_eval</code></td><td>array-like</td><td>any</td><td><p>Evaluation grid.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Number of polynomial coefficients (degree <code class="language-plaintext highlighter-rouge">order - 1</code>); default 3.</p>
+</td></tr>
+  <tr><td><code>uncertainty_option</code></td><td>int, optional</td><td>-</td><td><p>1 (default) weights by <code class="language-plaintext highlighter-rouge">y_std</code> when given; 0 ignores it.</p>
+</td></tr>
+  <tr><td><code>fitting_function</code></td><td>str, optional</td><td>str</td><td><p>Model name, default <code class="language-plaintext highlighter-rouge">'polynomial'</code>. One of <code class="language-plaintext highlighter-rouge">'gp'</code>, <code class="language-plaintext highlighter-rouge">'polynomial'</code>, <code class="language-plaintext highlighter-rouge">'free_polynomial'</code>, <code class="language-plaintext highlighter-rouge">'exponential'</code>, <code class="language-plaintext highlighter-rouge">'free_exponential'</code>, <code class="language-plaintext highlighter-rouge">'linear'</code>, <code class="language-plaintext highlighter-rouge">'core_poly_edge_exp'</code>, <code class="language-plaintext highlighter-rouge">'sqrt'</code>, <code class="language-plaintext highlighter-rouge">'sqrt_exponential'</code>.</p>
+</td></tr>
+  <tr><td><code>gp_kernel</code></td><td>sklearn kernel or None, optional</td><td>n/a</td><td><p>Kernel for the GP mode; default constant times RBF.</p>
+</td></tr>
+  <tr><td><code>gp_anchor</code></td><td>tuple or None, optional</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">(x_anchor, y_anchor, y_std_anchor)</code> extra points for the GP.</p>
+</td></tr>
+  <tr><td><code>n_restarts_optimizer</code></td><td>int, optional</td><td>-</td><td><p>GP hyperparameter restarts; default 5.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>y_eval</code></td><td>np.ndarray</td><td>any</td><td><p>Fitted values on <code class="language-plaintext highlighter-rouge">x_eval</code>.</p>
+</td></tr>
+  <tr><td><code>y_std_eval</code></td><td>np.ndarray</td><td>any</td><td><p>Fitted uncertainty; non-zero for the GP mode only.</p>
+</td></tr>
+  <tr><td><code>fit_function</code></td><td>callable</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">f(x)</code> evaluating the fit at arbitrary <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>coeffs</code></td><td>np.ndarray or None</td><td>any</td><td><p>Fitted coefficients; <code class="language-plaintext highlighter-rouge">None</code> for the GP and linear modes.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Fewer than two valid points after masking, or an unknown mode.
+RuntimeError
+    When <code class="language-plaintext highlighter-rouge">curve_fit</code> does not converge.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">x</code> is a normalised radius on $[0, 1]$ for the constrained modes (they
+force zero at $x = 1$); uncertainties are one-sigma and independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Non-finite points and non-positive <code class="language-plaintext highlighter-rouge">y_std</code> are dropped with a warning.
+The <code class="language-plaintext highlighter-rouge">'linear'</code> mode uses <code class="language-plaintext highlighter-rouge">numpy.interp</code>, which holds the end values
+constant outside the data range (silent constant extrapolation; tracked in
+#359).  The square-root modes clip negative data to zero before squaring,
+biasing the fit where the data cross zero, and report zero uncertainty.
+A fit that returns its initial guess unchanged is reported by a warning,
+not an exception.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>The initial guess is scaled to <code class="language-plaintext highlighter-rouge">max|y|</code> so raw densities in m^-3 do not
+stall the optimiser; <code class="language-plaintext highlighter-rouge">maxfev=20000</code>.</p>
+
+<p><strong>Examples.</strong></p>
+
+<blockquote>
+  <blockquote>
+    <blockquote>
+      <p>fit_profile(x, y, y_std, x_eval, fitting_function=’gp’)
+fit_profile(x, y, y_std, x_eval, order=3, fitting_function=’polynomial’)
+fit_profile(x, y, y_std, x_eval, fitting_function=’linear’)
+fit_profile(x, y, y_std, x_eval, order=3, fitting_function=’core_poly_edge_exp’)</p>
+    </blockquote>
+  </blockquote>
+</blockquote>
+
+<h3 id="gradient"><code class="language-plaintext highlighter-rouge">gradient</code></h3>
+
+<p class="formula-signature"><code>gradient(x, y)</code></p>
+
+<p>Derivative $dy/dx$ on a sampled 1-D profile.</p>
+
+\[\frac{dy}{dx}\Big|_i \approx \frac{y_{i+1} - y_{i-1}}{x_{i+1} - x_{i-1}}\]
+
+<p>(second-order central difference on a possibly non-uniform grid).</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>np.ndarray</td><td>any</td><td><p>Independent variable, monotonic.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>np.ndarray</td><td>any</td><td><p>Dependent variable, same length as <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>$dy/dx$ at every sample, in units of <code class="language-plaintext highlighter-rouge">y</code> per unit <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Wraps <code class="language-plaintext highlighter-rouge">numpy.gradient(y, x)</code>: second-order accurate in the interior,
+first-order one-sided at the two end points, and noise-amplifying (a
+relative noise $\delta$ on <code class="language-plaintext highlighter-rouge">y</code> becomes $\delta/\Delta x$ on the
+derivative).  Needs at least two samples; only the first axis of a 2-D
+<code class="language-plaintext highlighter-rouge">y</code> is differentiated.</p>
+
+<h3 id="make_fit_function"><code class="language-plaintext highlighter-rouge">make_fit_function</code></h3>
+
+<p class="formula-signature"><code>make_fit_function(mode)</code></p>
+
+<p>Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.</p>
+
+\[\begin{aligned}
+  \text{polynomial:}\ &amp; (1-x)\,\textstyle\sum_k c_kx^k &amp;
+  \text{free\_polynomial:}\ &amp; \textstyle\sum_k c_kx^k \\
+  \text{exponential:}\ &amp; (1-x)\exp\big(\textstyle\sum_k c_kx^k\big) &amp;
+  \text{free\_exponential:}\ &amp; \exp\big(\textstyle\sum_k c_kx^k\big)
+\end{aligned}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>mode</code></td><td>str</td><td>str</td><td><p>Model name, case-insensitive. One of <code class="language-plaintext highlighter-rouge">'polynomial'</code>, <code class="language-plaintext highlighter-rouge">'free_polynomial'</code>, <code class="language-plaintext highlighter-rouge">'exponential'</code>, <code class="language-plaintext highlighter-rouge">'free_exponential'</code> (a few aliases are accepted).</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>callable</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">f(x, *coeffs)</code> evaluating the model, in the unit of the data.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For an unknown mode.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">x</code> is a normalised radius on $[0, 1]$: the $(1 - x)$ factor forces the
+constrained modes to zero at $x = 1$; the exponential modes are strictly
+positive and decay monotonically when the polynomial is decreasing.</p>
+
+<h3 id="normalize_profile"><code class="language-plaintext highlighter-rouge">normalize_profile</code></h3>
+
+<p class="formula-signature"><code>normalize_profile(x, x_axis, x_boundary)</code></p>
+
+<p>Linear normalisation of a profile between its axis and boundary values.</p>
+
+\[x_N = \frac{x - x_{\mathrm{axis}}}{x_{\mathrm{boundary}} - x_{\mathrm{axis}}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>float or np.ndarray</td><td>any</td><td><p>Values to normalise.</p>
+</td></tr>
+  <tr><td><code>x_axis</code></td><td>float</td><td>any</td><td><p>Value mapped to 0.</p>
+</td></tr>
+  <tr><td><code>x_boundary</code></td><td>float</td><td>any</td><td><p>Value mapped to 1.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Normalised values, 0 at the axis value and 1 at the boundary value.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>No guard against <code class="language-plaintext highlighter-rouge">x_boundary == x_axis</code>: a degenerate equilibrium with
+equal axis and boundary flux, which packaged VEST samples do contain,
+returns <code class="language-plaintext highlighter-rouge">inf</code>/<code class="language-plaintext highlighter-rouge">nan</code>.  Tracked in #357.</p>
+
+<h3 id="trapz_integral"><code class="language-plaintext highlighter-rouge">trapz_integral</code></h3>
+
+<p class="formula-signature"><code>trapz_integral(x, y)</code></p>
+
+<p><em><code>vaft.formula.trapz_integral</code> resolves to the <code>green</code> copy; reach this one as <code>vaft.formula.utils.trapz_integral</code>.</em></p>
+
+<p>Definite integral $\int y\,dx$ by the trapezoidal rule.</p>
+
+\[\int y\,dx \approx \sum_i \frac{y_i + y_{i+1}}{2}\,(x_{i+1} - x_i)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>np.ndarray</td><td>any</td><td><p>Sample abscissae, monotonic.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>np.ndarray</td><td>any</td><td><p>Integrand at the samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Integral over the sampled range, in units of <code class="language-plaintext highlighter-rouge">y</code> times <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">numpy.trapezoid</code> through <code class="language-plaintext highlighter-rouge">vaft.compat.trapz_compat</code>; second-order
+accurate in the spacing, exact for piecewise-linear integrands, and
+sign-reversed for a decreasing <code class="language-plaintext highlighter-rouge">x</code>.  A same-named helper in
+<code class="language-plaintext highlighter-rouge">vaft.formula.green</code> shadows this one on the package namespace
+(<code class="language-plaintext highlighter-rouge">vaft.formula.trapz_integral</code> is the Green’s-function copy).</p>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/equilibrium/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: equilibrium">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calculate_peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_poloidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_poloidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_toroidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_toroidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_volume_weighted_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_volume_weighted_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#gradient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gradient</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_fit_function" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_fit_function</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapz_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapz_integral</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: equilibrium",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_equilibrium.md",
+            "ref": "_guide/Formula_reference_equilibrium.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_utils.md",
+        "mtime": "2026-09-02 10:10:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

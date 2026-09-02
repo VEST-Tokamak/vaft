@@ -1,0 +1,1485 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: stability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/equilibrium/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/green/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: stability</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_stability">Formula reference: stability</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.stability, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>:
+19 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>This module provides functions for calculating various stability parameters
+including beta limits, ballooning stability, MHD stability criteria, operational
+limits, and transport parameters.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>β_N</td><td>normalized beta</td><td>-</td></tr>
+  <tr><td>β_p</td><td>poloidal beta</td><td>-</td></tr>
+  <tr><td>β_t</td><td>toroidal beta</td><td>-</td></tr>
+  <tr><td>q_95</td><td>safety factor at 95% flux surface</td><td>-</td></tr>
+  <tr><td>α</td><td>ballooning parameter</td><td>-</td></tr>
+  <tr><td>s</td><td>magnetic shear</td><td>-</td></tr>
+  <tr><td>n_G</td><td>Greenwald density limit</td><td>10¹⁹ m⁻³</td></tr>
+  <tr><td>P_L</td><td>power limit</td><td>W</td></tr>
+  <tr><td>ν*</td><td>effective collisionality</td><td>-</td></tr>
+  <tr><td>v_A</td><td>Alfven speed</td><td>m/s</td></tr>
+  <tr><td>c_s</td><td>ion-sound speed</td><td>m/s</td></tr>
+  <tr><td>τ_E</td><td>energy confinement time</td><td>s</td></tr>
+  </tbody>
+</table>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> &mdash; Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.
+</li>
+  <li><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
+</li>
+  <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.
+</li>
+  <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
+</li>
+  <li><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a> &mdash; Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
+</li>
+  <li><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.
+</li>
+  <li><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a> &mdash; Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
+</li>
+  <li><a href="#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a> &mdash; Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.
+</li>
+  <li><a href="#empirical_li_qa"><code>empirical_li_qa</code></a> &mdash; Surveyed $(q_a, l_i)$ operating points from the JET disruption study.
+</li>
+  <li><a href="#greenwald_density"><code>greenwald_density</code></a> &mdash; Greenwald density limit $n_G$.
+</li>
+  <li><a href="#greenwald_fraction"><code>greenwald_fraction</code></a> &mdash; Greenwald fraction $f_G = n_e/n_G$.
+</li>
+  <li><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a> &mdash; Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
+</li>
+  <li><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a> &mdash; Internal inductance at a given $q_a$ by interpolating the JET survey points.
+</li>
+  <li><a href="#plasma_stability_margins"><code>plasma_stability_margins</code></a> &mdash; Beta, $q_{95}$ and density margins in one call.
+</li>
+  <li><a href="#power_limit_from_beta"><code>power_limit_from_beta</code></a> &mdash; Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
+</li>
+  <li><a href="#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
+</li>
+  <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).
+</li>
+  <li><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
+</li>
+  <li><a href="#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a> &mdash; Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.
+</li>
+</ul>
+
+<h3 id="ballooning_alpha_from_p_B_R"><code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code></h3>
+
+<p class="formula-signature"><code>ballooning_alpha_from_p_B_R(p, B, R)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.</p>
+
+\[\alpha = -\frac{2\mu_0 R}{B^2}\,\frac{dp}{dR}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>p</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Pressure along a radial cut.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>T</td><td><p>Magnetic field strength.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius of the samples, monotonic.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter as defined above.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Connor, Hastie and Taylor define $\alpha = -2\mu_0 R q^2\,(dp/dr)/B^2$ with
+$r$ the minor radius.  This routine omits the $q^2$ factor and
+differentiates against the major radius $R$, so it returns the standard
+$\alpha$ divided by $q^2$; multiply by $q^2$ before reading it against the
+$s$-$\alpha$ diagram.  Tracked in #364.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">numpy.gradient</code> along the supplied axis (second-order interior, first-order
+ends), sign-sensitive to the direction of <code class="language-plaintext highlighter-rouge">R</code>.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978) 396, Eq. (2).
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13 (ballooning modes).
+</li>
+</ol>
+
+<h3 id="ballooning_stability_criterion"><code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code></h3>
+
+<p class="formula-signature"><code>ballooning_stability_criterion(alpha, s)</code></p>
+
+<p><strong>Empirical fit.</strong> </p>
+
+<p>Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.</p>
+
+\[\Delta = \alpha - \alpha_{crit}, \qquad \alpha_{crit} = 0.6\,s\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>alpha</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
+</td></tr>
+  <tr><td><code>s</code></td><td>float or np.ndarray</td><td>-</td><td><p>Magnetic shear.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>margin</code></td><td>float or np.ndarray</td><td>-</td><td><p>$\alpha - \alpha_{crit}$; positive means unstable.</p>
+</td></tr>
+  <tr><td><code>alpha_crit</code></td><td>float or np.ndarray</td><td>-</td><td><p>The threshold $0.6\,s$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  A straight-line approximation of the first-stability
+boundary of the circular $s$-$\alpha$ diagram [1] for moderate shear
+($0.3 \lesssim s \lesssim 1.5$); the true boundary bends over and closes at
+$\alpha \approx 1$, with second stability beyond.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Ignores shaping, which raises the boundary, and the second-stable region;
+uncited coefficient (read from the diagram).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978) 396, Fig. 1.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13.
+</li>
+</ol>
+
+<h3 id="beta_N_from_beta_a_B0_Ip"><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></h3>
+
+<p class="formula-signature"><code>beta_N_from_beta_a_B0_Ip(beta, a, B0, I_p)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.</p>
+
+\[\beta_N = \frac{\beta\,a\,B_0}{I_p}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta</code></td><td>float</td><td>-</td><td><p>Toroidal beta as a fraction.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td>float</td><td>T</td><td><p>Toroidal field on axis.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td>float</td><td>A</td><td><p>Plasma current.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>m T/A</td><td><p>The ratio in fraction-metre-tesla per ampere.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The community $\beta_N$ (Troyon) is quoted in %·m·T/MA, i.e. $\beta$ in
+percent and $I_p$ in MA, and the Troyon limit is $\beta_N \lesssim 2.8$ in
+those units.  This function does not rescale: with the SI inputs above the
+result is $10^{-8}$ times the conventional number.  Feed $\beta$ in percent
+and $I_p$ in MA to obtain it directly.  Tracked in #349.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+</li>
+  <li>ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 3, Sec. 2.1 (definition of $\beta_N$).
+</li>
+</ol>
+
+<h3 id="beta_pol_from_beta_tor"><code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code></h3>
+
+<p class="formula-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95)</code></p>
+
+<p>Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.</p>
+
+\[\beta_p = \beta_t\,q_{95}^2\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_tor</code></td><td>float</td><td>-</td><td><p>Toroidal beta.</p>
+</td></tr>
+  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Circular, large-aspect-ratio cylinder in which $B_p/B_t = \varepsilon/q$.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The cylindrical relation is $\beta_p = \beta_t\,(q/\varepsilon)^2$; the
+$1/\varepsilon^2$ is missing here, so the result equals the standard value
+only at $\varepsilon = 1$ and underestimates $\beta_p$ by $\varepsilon^2$
+otherwise.  Tracked in #363.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.5 (relation between $\beta$, $\beta_p$ and $q$).
+</li>
+</ol>
+
+<h3 id="beta_stability_boundary"><code class="language-plaintext highlighter-rouge">beta_stability_boundary</code></h3>
+
+<p class="formula-signature"><code>beta_stability_boundary(beta_N, q_95)</code></p>
+
+<p><strong>Empirical fit.</strong> </p>
+
+<p>Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.</p>
+
+\[\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 0.028\,q_{95}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta as a fraction (Troyon’s 2.8 % is 0.028).</p>
+</td></tr>
+  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$\beta_N - \beta_{N,crit}$; positive means the limit is exceeded.</p>
+</td></tr>
+  <tr><td><code>beta_N_crit</code></td><td>float</td><td>-</td><td><p>The threshold $0.028\,q_{95}$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  The fraction-convention twin of
+<code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> (2.8 versus 0.028); the Troyon coefficient
+[1] is the only sourced part, the $q_{95}$ factor is not.
+<code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> builds on this function, so it lives in
+the fraction convention.  Tracked in #350.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+</li>
+</ol>
+
+<h3 id="beta_tor_from_beta_pol"><code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code></h3>
+
+<p class="formula-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95)</code></p>
+
+<p>Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.</p>
+
+\[\beta_t = \frac{\beta_p}{q_{95}^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_pol</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Toroidal beta.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Circular, large-aspect-ratio cylinder; inverse of <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Missing $\varepsilon^2$ factor of the cylindrical relation $\beta_t =
+\beta_p\,\varepsilon^2/q^2$, as for <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.
+Tracked in #363.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.5.
+</li>
+</ol>
+
+<h3 id="c_s_from_Te_Ti_mi"><code class="language-plaintext highlighter-rouge">c_s_from_Te_Ti_mi</code></h3>
+
+<p class="formula-signature"><code>c_s_from_Te_Ti_mi(T_e_keV, T_i_keV, m_i=1.67262192e-27)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.</p>
+
+\[c_s = \sqrt{\frac{\gamma_eT_e + \gamma_iT_i}{m_i}}, \qquad \gamma_e = \gamma_i = 1\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>T_e_keV</code></td><td>float</td><td>keV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>T_i_keV</code></td><td>float</td><td>keV</td><td><p>Ion temperature.</p>
+</td></tr>
+  <tr><td><code>m_i</code></td><td>float, optional</td><td>kg</td><td><p>Ion mass; default the proton mass.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>m/s</td><td><p>Ion sound speed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Isothermal closure ($\gamma = 1$ for both species); the adiabatic
+$\gamma_i = 3$ used for ion acoustic waves gives a speed larger by up to
+$\sqrt{(T_e + 3T_i)/(T_e + T_i)}$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. P. Freidberg, <em>Plasma Physics and Fusion Energy</em>, Cambridge University Press (2007), Sec. 10.4 (sound waves).
+</li>
+  <li>NRL Plasma Formulary (2019), p. 29.
+</li>
+</ol>
+
+<h3 id="collisionality_from_n_T_B_R"><code class="language-plaintext highlighter-rouge">collisionality_from_n_T_B_R</code></h3>
+
+<p class="formula-signature"><code>collisionality_from_n_T_B_R(n_e, T_e_keV, B_t, R0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.</p>
+
+\[\nu_* = 6.921\times10^{-18}\,\frac{n_e\,R_0}{T_e^2\,B_t}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e</code></td><td>float</td><td>1e19 m^-3</td><td><p>Electron density.</p>
+</td></tr>
+  <tr><td><code>T_e_keV</code></td><td>float</td><td>keV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Toroidal field.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Collisionality figure in this function’s own normalisation.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The prefactor is Sauter’s $\nu_{e<em>} = 6.921\times10^{-18}\,qR\,n_e
+Z_{\mathrm{eff}}\ln\Lambda/(T_e^2\varepsilon^{3/2})$ with $n_e$ in m^-3 and
+$T_e$ in eV [1].  This routine drops $q$, $\varepsilon^{-3/2}$,
+$Z_{\mathrm{eff}}$ and $\ln\Lambda$, divides by $B_t$ instead, and takes
+$n_e$ in $10^{19}$ m^-3 and $T_e$ in keV, so it is not Sauter’s $\nu_</em>$ nor
+the IPB98 database $\nu_*$ it was labelled with, and it is not comparable
+to <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I</code>.
+Tracked in #353.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Use only for relative trends within one dataset.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (18b).
+</li>
+</ol>
+
+<h3 id="empirical_li_qa"><code class="language-plaintext highlighter-rouge">empirical_li_qa</code></h3>
+
+<p class="formula-signature"><code>empirical_li_qa()</code></p>
+
+<p><strong>Empirical fit.</strong> </p>
+
+<p>Surveyed $(q_a, l_i)$ operating points from the JET disruption study.</p>
+
+<p>Eighteen $(q_a, l_i)$ pairs read from the JET operational diagram: at each
+integer $q_a$ from 2 to 10, the upper and lower $l_i$ of the observed
+operating band.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>qa</code></td><td>np.ndarray</td><td>-</td><td><p>Edge safety factor of each point.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>np.ndarray</td><td>-</td><td><p>Internal inductance of each point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Low $q_a$ goes with high $l_i$ (a peaked current profile); above
+$q_a \approx 6$ the lower branch saturates near $l_i \approx 0.3$ (flat
+profile).  The band bounds the region where JET discharges avoided
+disruptions in the $q_a$-$l_i$ plane.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Digitised from the JET survey of Wesson et al. [1]
+(ohmic and early NBI discharges, circular-to-D-shaped, 1985-1988); the
+values are approximate readings of a published figure, not tabulated data.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>JET-specific operating experience; a spherical tokamak reaches lower $q_a$
+and different $l_i$ ranges, so use only as a qualitative boundary.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Wesson et al., “Disruptions in JET”, Nucl. Fusion 29 (1989) 641, Fig. 5 ($l_i$-$q_a$ diagram).
+</li>
+</ol>
+
+<h3 id="greenwald_density"><code class="language-plaintext highlighter-rouge">greenwald_density</code></h3>
+
+<p class="formula-signature"><code>greenwald_density(I_p, a)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Greenwald density limit $n_G$.</p>
+
+\[n_G\,[10^{20}\,\mathrm{m^{-3}}] = \frac{I_p\,[\mathrm{MA}]}{\pi a^2\,[\mathrm{m^2}]}\]
+
+<p>returned as $10\,I_p/(\pi a^2)$ in units of $10^{19}\,\mathrm{m^{-3}}$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>I_p</code></td><td>float</td><td>MA</td><td><p>Plasma current.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>1e19 m^-3</td><td><p>Greenwald density limit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Engineering units (MA, m) with the result in $10^{19}\,\mathrm{m^{-3}}$; the
+literature quotes $n_G$ in $10^{20}\,\mathrm{m^{-3}}$.  Pair with the
+line-averaged electron density when forming $f_G$
+(<code class="language-plaintext highlighter-rouge">greenwald_fraction</code>).</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Operational density limit above which discharges typically disrupt through
+edge cooling and MARFE formation; not a hard MHD boundary.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Multi-machine ohmic and auxiliary-heated database,
+Greenwald et al. 1988 [1]; reviewed with H-mode data in [2].  Peaked
+profiles can exceed $f_G = 1$.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>No dependence on shaping, heating power or fuelling; spherical tokamaks
+routinely exceed it.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>M. Greenwald et al., Nucl. Fusion 28 (1988) 2199, Eq. (1).
+</li>
+  <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
+</li>
+</ol>
+
+<h3 id="greenwald_fraction"><code class="language-plaintext highlighter-rouge">greenwald_fraction</code></h3>
+
+<p class="formula-signature"><code>greenwald_fraction(n_e, n_G)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Greenwald fraction $f_G = n_e/n_G$.</p>
+
+\[f_G = \frac{\bar n_e}{n_G}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e</code></td><td>float</td><td>1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+</td></tr>
+  <tr><td><code>n_G</code></td><td>float</td><td>1e19 m^-3</td><td><p>Greenwald density limit in the same unit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Greenwald fraction.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Both inputs in one unit and with the line-averaged density, the definition
+used in the Greenwald database; a volume average gives a systematically
+lower fraction.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
+</li>
+</ol>
+
+<h3 id="kink_stability_criterion"><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code></h3>
+
+<p class="formula-signature"><code>kink_stability_criterion(q_95, beta_N)</code></p>
+
+<p><strong>Empirical fit.</strong> </p>
+
+<p>Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.</p>
+
+\[\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 2.8\,q_{95}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta in %·m·T/MA.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$\beta_N - \beta_{N,crit}$; positive means the limit is exceeded.</p>
+</td></tr>
+  <tr><td><code>beta_N_crit</code></td><td>float</td><td>-</td><td><p>The threshold $2.8\,q_{95}$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  The coefficient 2.8 is the Troyon limit $\beta_N \le 2.8$
+[1]; the multiplication by $q_{95}$ has no source in the literature or the
+VAFT history and makes the limit rise with $q_{95}$, opposite to the
+observed trend.  <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code> uses the same form with
+0.028, i.e. the fraction rather than percent convention of $\beta_N$.
+Tracked in #350.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Not a stability calculation; use DCON or a Troyon-type $\beta_N \le C\,l_i$
+estimate for a physical limit.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+</li>
+</ol>
+
+<h3 id="li_from_qa_empirical"><code class="language-plaintext highlighter-rouge">li_from_qa_empirical</code></h3>
+
+<p class="formula-signature"><code>li_from_qa_empirical(qa)</code></p>
+
+<p><strong>Empirical fit.</strong> </p>
+
+<p>Internal inductance at a given $q_a$ by interpolating the JET survey points.</p>
+
+\[l_i(q_a) = \mathrm{interp}\big(q_a;\ q_a^{(k)}, l_i^{(k)}\big)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>qa</code></td><td>np.ndarray</td><td>-</td><td><p>Edge safety factor values.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Interpolated internal inductance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Piecewise-linear interpolation through the eighteen
+<code class="language-plaintext highlighter-rouge">empirical_li_qa</code> points from Wesson et al. [1]; a sanity check for
+when only $q_a$ is known.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The survey lists two $l_i$ per integer $q_a$ (upper and lower band edge),
+so <code class="language-plaintext highlighter-rouge">numpy.interp</code> over the duplicated abscissae returns a value that
+depends on the point ordering; outside $2 \le q_a \le 10$ the end values are
+held constant (no extrapolation).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 5.
+</li>
+</ol>
+
+<h3 id="plasma_stability_margins"><code class="language-plaintext highlighter-rouge">plasma_stability_margins</code></h3>
+
+<p class="formula-signature"><code>plasma_stability_margins(beta_N, q_95, n_e, n_G)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Beta, $q_{95}$ and density margins in one call.</p>
+
+\[\Delta_\beta = \beta_N - 0.028\,q_{95}, \qquad
+  \Delta_q = q_{95} - 2, \qquad
+  f_G = \frac{n_e}{n_G}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta as a fraction.</p>
+</td></tr>
+  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td>float</td><td>1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+</td></tr>
+  <tr><td><code>n_G</code></td><td>float</td><td>1e19 m^-3</td><td><p>Greenwald density limit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_margin</code></td><td>float</td><td>-</td><td><p>From <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code>; positive exceeds the limit.</p>
+</td></tr>
+  <tr><td><code>q_margin</code></td><td>float</td><td>-</td><td><p>$q_{95} - 2$; negative is below the $q_{95} = 2$ disruption boundary.</p>
+</td></tr>
+  <tr><td><code>density_margin</code></td><td>float</td><td>-</td><td><p>Greenwald fraction, from <code class="language-plaintext highlighter-rouge">greenwald_fraction</code>; 1 is the limit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The three margins use three different sign conventions: beta and $q$ are
+differences (sign tells the side of the boundary) while density is a ratio.
+$q_{95} = 2$ is the empirical operational boundary [1].</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Wesson et al., Nucl. Fusion 29 (1989) 641.
+</li>
+  <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27.
+</li>
+</ol>
+
+<h3 id="power_limit_from_beta"><code class="language-plaintext highlighter-rouge">power_limit_from_beta</code></h3>
+
+<p class="formula-signature"><code>power_limit_from_beta(beta_N, B0, V)</code></p>
+
+<p>Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.</p>
+
+\[P = \beta_N\,\frac{B_0^2}{2\mu_0}\,V\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta, any convention.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td>float</td><td>T</td><td><p>Toroidal field on axis.</p>
+</td></tr>
+  <tr><td><code>V</code></td><td>float</td><td>m^3</td><td><p>Plasma volume.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>J</td><td><p>The expression above, dimensionally an energy.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>$\beta B_0^2V/2\mu_0$ is the stored energy at beta $\beta$
+(<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.stored_energy_from_beta_V</code>), not a power;
+no time scale enters, and no source records what limit was intended.  Kept
+for compatibility.  Tracked in #362.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209 (the $\beta_N$ limit the expression appears to draw on).
+</li>
+</ol>
+
+<h3 id="power_limit_from_q"><code class="language-plaintext highlighter-rouge">power_limit_from_q</code></h3>
+
+<p class="formula-signature"><code>power_limit_from_q(q_95, I_p, R0)</code></p>
+
+<p>Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.</p>
+
+\[P = \frac{2\pi R_0\,I_p}{\mu_0\,q_{95}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td>float</td><td>A</td><td><p>Plasma current.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>A^2</td><td><p>The expression above.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Dimensionally $I_p R/\mu_0 q$ is A$^2$ (current times $R/L$), not a power;
+no derivation or source is recorded.  Kept for compatibility.  Tracked in
+#362.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.4 (cylindrical $q$, the relation this seems to rearrange).
+</li>
+</ol>
+
+<h3 id="rhostar_from_Te_a_Bt"><code class="language-plaintext highlighter-rouge">rhostar_from_Te_a_Bt</code></h3>
+
+<p class="formula-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t, m_e=9.10938356e-31)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).</p>
+
+\[\rho_*^{\mathrm{(impl)}} = \frac{\sqrt{T_e}}{B_t}\,a\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>Te_eV</code></td><td>float</td><td>eV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>a_minor</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Toroidal field.</p>
+</td></tr>
+  <tr><td><code>m_e</code></td><td>float, optional</td><td>kg</td><td><p>Electron mass, accepted but unused; default <code class="language-plaintext highlighter-rouge">ME</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>eV^1/2 m/T</td><td><p>The expression above.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Intended as the normalised electron gyroradius $\rho_e/a$ with $\rho_e =
+\sqrt{2m_eT_e}/(eB)$, which <em>divides</em> by $a$ and carries the constant
+$\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$.  The implementation
+multiplies by $a$ and omits the constant, so it is neither dimensionless
+nor proportional to $\rho_*$ across devices.  Tracked in #348; use
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code>
+with <code class="language-plaintext highlighter-rouge">M=ME</code>.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6 (dimensionless parameters).
+</li>
+</ol>
+
+<h3 id="sawtooth_stability_criterion"><code class="language-plaintext highlighter-rouge">sawtooth_stability_criterion</code></h3>
+
+<p class="formula-signature"><code>sawtooth_stability_criterion(q_0, beta_pol)</code></p>
+
+<p><strong>Empirical fit.</strong> </p>
+
+<p>Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.</p>
+
+\[\Delta = \beta_p - \beta_{p,crit}, \qquad \beta_{p,crit} = 0.3\,(1 - q_0)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q_0</code></td><td>float</td><td>-</td><td><p>Safety factor on axis.</p>
+</td></tr>
+  <tr><td><code>beta_pol</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$\beta_p - \beta_{p,crit}$; positive means the threshold is exceeded.</p>
+</td></tr>
+  <tr><td><code>beta_pol_crit</code></td><td>float</td><td>-</td><td><p>The threshold.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Modelled on the Porcelli trigger, in which the internal-kink
+threshold scales with the poloidal beta inside the $q=1$ surface and a
+critical value of order 0.3 [1]; the linear $(1 - q_0)$ dependence and
+the coefficient are VAFT heuristics without a recorded source.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Uses the global $\beta_p$, not $\beta_{p,1}$ inside $q=1$; returns a
+negative threshold for $q_0 &gt; 1$, where sawteeth do not occur.  Tracked in
+#350.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. Porcelli, D. Boucher and M. N. Rosenbluth, Plasma Phys. Control. Fusion 38 (1996) 2163, Sec. 3.
+</li>
+</ol>
+
+<h3 id="v_alfven_from_B_n_mi"><code class="language-plaintext highlighter-rouge">v_alfven_from_B_n_mi</code></h3>
+
+<p class="formula-signature"><code>v_alfven_from_B_n_mi(B, n, m_i=1.67262192e-27)</code></p>
+
+<p>Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.</p>
+
+\[v_A = \frac{B}{\sqrt{\mu_0\,n\,m_i}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>B</code></td><td>float</td><td>T</td><td><p>Magnetic field strength.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td>float</td><td>m^-3</td><td><p>Ion number density.</p>
+</td></tr>
+  <tr><td><code>m_i</code></td><td>float, optional</td><td>kg</td><td><p>Ion mass; default the proton mass.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>m/s</td><td><p>Alfven speed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Single ion species, $n_i = n$; the mass density is $n m_i$ (electron mass
+neglected).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. P. Freidberg, <em>Plasma Physics and Fusion Energy</em>, Cambridge University Press (2007), Sec. 10.5 (Alfven waves).
+</li>
+  <li>NRL Plasma Formulary (2019), p. 29.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/equilibrium/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: equilibrium">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/green/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: green">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: green",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_green.md",
+            "ref": "_guide/Formula_reference_green.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_stability.md",
+        "mtime": "2026-09-02 10:12:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

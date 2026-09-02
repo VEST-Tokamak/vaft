@@ -1,0 +1,1256 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Electromagnetic modeling · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/workflows/equilibrium-kinetic-profiles/" />
+        
+
+        
+            <link rel="next" href="/vaft/workflows/operations-statistical-analysis/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Electromagnetic modeling</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/Processing">Electromagnetic modeling</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Numerical processing and electromagnetic response beneath ODS-aware wrappers.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Coil, passive-structure, sensor geometry, and optional external-code roots.</dd>
+    <dt>Expected result</dt><dd>Response matrices, eddy-current results, or a readiness/input-preparation report.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process</code> is the <strong>computation layer</strong> of VAFT. Almost every function in it takes plain NumPy
+arrays and scalars and returns arrays, tuples or dataclasses — it does not read or write ODS. The
+ODS-aware layer lives in <code class="language-plaintext highlighter-rouge">vaft.omas</code> (mainly <code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper</code>), which pulls geometry and
+signals out of an ODS, calls into <code class="language-plaintext highlighter-rouge">vaft.process</code>, and writes the results back.</p>
+
+<blockquote>
+  <p>Rule of thumb: <strong><code class="language-plaintext highlighter-rouge">vaft.process</code> is the math, <code class="language-plaintext highlighter-rouge">vaft.omas.compute_*</code> is the API you usually call.</strong></p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th>Module</th>
+      <th>Concern</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.signal_processing</code></td>
+      <td>Smoothing, baseline definition/removal, filtering, on/off-set detection, liveness test</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.numerical</code></td>
+      <td>Time derivative on a non-uniform grid</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.electromagnetics</code></td>
+      <td>Green’s-function response matrices, R/L/M coupling matrices, eddy-current RL solve, vacuum-field reconstruction</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.magnetics</code></td>
+      <td>Legacy VEST EFIT magnetics chain, Mirnov preprocessing/spectrogram, toroidal mode numbers, Rogowski → $I_p$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium</code></td>
+      <td>$\psi \leftrightarrow R \leftrightarrow \rho$ mapping, volume averages, diamagnetism, Shafranov/virial integrals</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.profile</code></td>
+      <td>Diagnostic→equilibrium mapping and profile fitting (writes <code class="language-plaintext highlighter-rouge">core_profiles</code> into ODS)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code></td>
+      <td>Log-log confinement-time scaling regression</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">vaft/process/__init__.py</code> is a star-import chain, so every public symbol below is reachable both as
+<code class="language-plaintext highlighter-rouge">vaft.process.&lt;name&gt;</code> and as <code class="language-plaintext highlighter-rouge">vaft.process.&lt;module&gt;.&lt;name&gt;</code>. All of these work:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>                                    <span class="c1"># lazy: vaft.process is imported on first attribute access
+</span><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">smooth</span>
+<span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">mirnov_spectrogram</span>
+</code></pre></div></div>
+
+<hr />
+
+<h1 id="signal-conditioning">Signal conditioning</h1>
+
+<h2 id="smoothing-and-de-spiking">Smoothing and de-spiking</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                   <span class="c1"># packaged VEST shot 39915
+</span><span class="n">t</span>   <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.time</span><span class="sh">'</span><span class="p">])</span>
+<span class="n">ip</span>  <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">])</span>
+
+<span class="n">ip_s</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">smooth</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>             <span class="c1"># MATLAB-style moving average, edge-tapered
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">smooth(array, span)</code> reproduces MATLAB’s <code class="language-plaintext highlighter-rouge">smooth</code>: the window narrows towards the two ends instead of
+padding, an even <code class="language-plaintext highlighter-rouge">span</code> is decremented to the nearest odd value, and <code class="language-plaintext highlighter-rouge">span &lt;= 1</code> returns a copy. It is
+<strong>1-D only</strong> and raises <code class="language-plaintext highlighter-rouge">ValueError</code> on anything else. It is the workhorse of the machine mapping layer
+(<code class="language-plaintext highlighter-rouge">pf_active</code>, <code class="language-plaintext highlighter-rouge">tf</code>, <code class="language-plaintext highlighter-rouge">magnetics</code> all call it).</p>
+
+<p>For PF coil-current traces there is a dedicated single-sample spike remover:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">clean</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">vest_coil_current_noise_reduction</span><span class="p">(</span><span class="n">raw_coil_current</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>It replaces sample $i$ with sample $i-1$ whenever $\lvert x_i \rvert - \lvert (x_{i+1}+x_{i-1})/2 \rvert &gt; 0.001$.
+That threshold is hard-coded and <strong>absolute</strong>, so the trace must already be in the units the VEST coil
+digitizer produces.</p>
+
+<h2 id="crop-resample-filter">Crop, resample, filter</h2>
+
+<p><code class="language-plaintext highlighter-rouge">process_signal</code> is the general conditioning wrapper. Every key of the options dict is optional, and
+they are applied in order (crop → resample → Butterworth <code class="language-plaintext highlighter-rouge">filtfilt</code>):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">options</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">'</span><span class="s">time_range</span><span class="sh">'</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.27</span><span class="p">,</span> <span class="mf">0.36</span><span class="p">),</span>
+    <span class="sh">'</span><span class="s">resample</span><span class="sh">'</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">dt</span><span class="sh">'</span><span class="p">:</span> <span class="mf">4e-5</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">filter_params</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">lowpass</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">cutoff</span><span class="sh">'</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="sh">'</span><span class="s">order</span><span class="sh">'</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span>
+<span class="p">}</span>
+<span class="n">t_out</span><span class="p">,</span> <span class="n">d_out</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">process_signal</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">type</code> is one of <code class="language-plaintext highlighter-rouge">'lowpass'</code>, <code class="language-plaintext highlighter-rouge">'highpass'</code>, <code class="language-plaintext highlighter-rouge">'bandpass'</code>; a bandpass <strong>requires</strong> <code class="language-plaintext highlighter-rouge">cutoff=[low, high]</code>.
+The sampling rate is derived as $1/(t_1-t_0)$, so the filter branch assumes a uniformly spaced time
+base — resample first if it is not. Cutoffs are validated against Nyquist and raise <code class="language-plaintext highlighter-rouge">ValueError</code> when
+out of range.</p>
+
+<h2 id="baselines">Baselines</h2>
+
+<p>Baseline handling is a two-step API: build the index set of the “quiet” region, then fit and subtract a
+model over it.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">idx</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">define_baseline</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">,</span>
+    <span class="n">onset_time</span><span class="o">=</span><span class="mf">0.28</span><span class="p">,</span>        <span class="c1"># seconds
+</span>    <span class="n">onset_window</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>       <span class="c1"># number of SAMPLES before the onset index
+</span>    <span class="n">offset_time</span><span class="o">=</span><span class="mf">0.34</span><span class="p">,</span>       <span class="c1"># seconds
+</span>    <span class="n">offset_window</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>      <span class="c1"># number of SAMPLES after the offset index
+</span><span class="p">)</span>
+
+<span class="n">corrected</span><span class="p">,</span> <span class="n">baseline</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">subtract_baseline</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">fitting_opt</span><span class="o">=</span><span class="sh">'</span><span class="s">linear</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">onset_time</code> / <code class="language-plaintext highlighter-rouge">offset_time</code> are <strong>times in seconds</strong> (converted internally with <code class="language-plaintext highlighter-rouge">np.searchsorted</code>);
+<code class="language-plaintext highlighter-rouge">onset_window</code> / <code class="language-plaintext highlighter-rouge">offset_window</code> are <strong>integer sample counts</strong>. Do not pass indices in the time slots.</li>
+  <li><code class="language-plaintext highlighter-rouge">fitting_opt</code> accepts <code class="language-plaintext highlighter-rouge">'linear'</code>, <code class="language-plaintext highlighter-rouge">'quadratic'</code>, <code class="language-plaintext highlighter-rouge">'spline'</code> (<code class="language-plaintext highlighter-rouge">UnivariateSpline(s=0)</code>) and <code class="language-plaintext highlighter-rouge">'exp'</code>;
+anything else raises <code class="language-plaintext highlighter-rouge">ValueError</code>.</li>
+  <li>The models are exposed for direct use with <code class="language-plaintext highlighter-rouge">scipy.optimize.curve_fit</code>: <code class="language-plaintext highlighter-rouge">linear_baseline(x, a, b)</code>,
+<code class="language-plaintext highlighter-rouge">quadratic_baseline(x, a, b, c)</code>, <code class="language-plaintext highlighter-rouge">exp_baseline(x, a, b, c)</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">subtract_baseline</code> returns <strong>two</strong> arrays: the corrected signal and the fitted baseline.</li>
+</ul>
+
+<h2 id="pulse-window-and-channel-liveness">Pulse window and channel liveness</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">onset</span><span class="p">,</span> <span class="n">offset</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">signal_on_offset</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">smooth_window</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">t0</span><span class="p">,</span> <span class="n">t1</span>        <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">vfit_signal_start_end</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">alive</span>         <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">is_signal_active</span><span class="p">(</span><span class="n">ip</span><span class="p">)</span>          <span class="c1"># -&gt; bool
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">signal_on_offset</code> applies a Savitzky–Golay smooth (polyorder 3) and returns the contiguous
+above-threshold window <strong>containing the global maximum</strong>; <code class="language-plaintext highlighter-rouge">vfit_signal_start_end</code> does the same without
+the smoothing stage. <code class="language-plaintext highlighter-rouge">is_signal_active</code> is a scale-invariant “is this channel alive?” test
+(<code class="language-plaintext highlighter-rouge">var_ratio_thresh=1e-2</code>, <code class="language-plaintext highlighter-rouge">change_ratio_thresh=1e-2</code>) that returns <code class="language-plaintext highlighter-rouge">False</code> for arrays shorter than 2.</p>
+
+<p>These are what the ODS-level event finders are built on — <code class="language-plaintext highlighter-rouge">vaft.omas.find_breakdown_onset</code>,
+<code class="language-plaintext highlighter-rouge">find_ip_onset</code>, <code class="language-plaintext highlighter-rouge">find_pf_active_onset</code> and <code class="language-plaintext highlighter-rouge">find_pulse_duration</code> all call <code class="language-plaintext highlighter-rouge">signal_on_offset</code>
+internally:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_bd</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># from the spectrometer_uv line intensity
+</span><span class="n">t_dur</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="deprecated-aliases">Deprecated aliases</h2>
+
+<p>Still live, still exported, but do not use them in new code:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Alias</th>
+      <th>Canonical name</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VEST_CoilCurrentNoiseReduction</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vest_coil_current_noise_reduction</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vfit_signal_startend</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vfit_signal_start_end</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">signal_onoffset</code></td>
+      <td><code class="language-plaintext highlighter-rouge">signal_on_offset</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">psi_to_RZ</code></td>
+      <td><code class="language-plaintext highlighter-rouge">psi_to_rz</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h1 id="numerical-helper">Numerical helper</h1>
+
+<p>VEST time bases are not always uniform (a resampled or concatenated trace rarely is). Use
+<code class="language-plaintext highlighter-rouge">time_derivative</code> rather than <code class="language-plaintext highlighter-rouge">np.gradient</code> when the spacing varies:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">dip_dt</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">time_derivative</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ip</span><span class="p">)</span>    <span class="c1"># interval-weighted central difference
+</span></code></pre></div></div>
+
+<p>Forward difference at the first point, backward at the last, interval-weighted central difference in
+between. It raises <code class="language-plaintext highlighter-rouge">ValueError</code> if the two arrays differ in shape or have fewer than two points.</p>
+
+<hr />
+
+<h1 id="electromagnetic-response-efund-style">Electromagnetic response (EFUND-style)</h1>
+
+<p>The response layer answers one question: <em>what flux and field does a unit current in each conductor
+produce at each observation point?</em> Everything is built on the axisymmetric Green’s functions in
+<code class="language-plaintext highlighter-rouge">vaft.formula.green</code> (<code class="language-plaintext highlighter-rouge">green_br_bz</code> for $B_R, B_Z$ and <code class="language-plaintext highlighter-rouge">green_r</code> for $\psi$, both per unit source
+current), assembled into matrices that play the same role as EFUND’s response tables.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    A["pf_active geometry&lt;br/&gt;pf_passive geometry"] --&gt; B["compute_br_bz_phi&lt;br/&gt;one filament / obs points"]
+    K["green_br_bz / green_r&lt;br/&gt;vaft.formula.green kernels"] --&gt; B
+    B --&gt; C["compute_response_matrix&lt;br/&gt;sensors / arbitrary points"]
+    B --&gt; D["calc_grid&lt;br/&gt;regular R x Z grid"]
+    E["em_coupling.mutual_passive_passive&lt;br/&gt;em_coupling.mutual_passive_active"] --&gt; F["compute_impedance_matrices&lt;br/&gt;R, L, M"]
+    F --&gt; G["solve_eddy_currents"]
+    C --&gt; H["compute_vacuum_fields_1d&lt;br/&gt;psi, Br, Bz at points"]
+    G --&gt; H
+    D --&gt; I["null / vacuum psi contour"]
+    G --&gt; I
+</code></pre>
+
+<h2 id="single-filament">Single filament</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">br</span><span class="p">,</span> <span class="n">bz</span><span class="p">,</span> <span class="n">psi</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">compute_br_bz_phi</span><span class="p">(</span>
+    <span class="n">r_obs</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]),</span>
+    <span class="n">z_obs</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
+    <span class="n">r_src</span><span class="o">=</span><span class="mf">0.053</span><span class="p">,</span>
+    <span class="n">z_src</span><span class="o">=</span><span class="mf">1.1924</span><span class="p">,</span>
+    <span class="n">shift</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">shift</code> is the <strong>desingularization</strong> knob: when an observation point falls within <code class="language-plaintext highlighter-rouge">shift/3</code> of the
+filament, the returned value is the average of the fields evaluated at $r_{\rm obs} \pm {\rm shift}$
+instead of the divergent direct evaluation. Return order is <code class="language-plaintext highlighter-rouge">(Br, Bz, Psi)</code>.</p>
+
+<h2 id="response-at-sensors">Response at sensors</h2>
+
+<p><code class="language-plaintext highlighter-rouge">compute_response_matrix</code> evaluates the response at arbitrary $(r, z)$ points — diagnostic positions, a
+radial line, a null-search stencil — and returns matrices of shape
+<code class="language-plaintext highlighter-rouge">(n_obs, nb_coil + nb_loop + nb_plasma)</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Psi</span><span class="p">,</span> <span class="n">Bz</span><span class="p">,</span> <span class="n">Br</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">compute_response_matrix</span><span class="p">(</span>
+    <span class="n">observation_points</span><span class="o">=</span><span class="p">[[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]],</span>
+    <span class="n">coil_data</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">{</span><span class="sh">'</span><span class="s">elements</span><span class="sh">'</span><span class="p">:</span> <span class="p">[{</span><span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">:</span> <span class="mf">0.053</span><span class="p">,</span> <span class="sh">'</span><span class="s">z</span><span class="sh">'</span><span class="p">:</span> <span class="mf">1.1924</span><span class="p">,</span> <span class="sh">'</span><span class="s">turns</span><span class="sh">'</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span>
+                      <span class="p">{</span><span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">:</span> <span class="mf">0.053</span><span class="p">,</span> <span class="sh">'</span><span class="s">z</span><span class="sh">'</span><span class="p">:</span> <span class="mf">1.2124</span><span class="p">,</span> <span class="sh">'</span><span class="s">turns</span><span class="sh">'</span><span class="p">:</span> <span class="mi">4</span><span class="p">}]},</span>
+        <span class="c1"># ... one dict per coil, 'elements' per turn-block
+</span>    <span class="p">],</span>
+    <span class="n">passive_loop_data</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">{</span><span class="sh">'</span><span class="s">geometry_type</span><span class="sh">'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">'</span><span class="s">outline_r</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.30</span><span class="p">,</span> <span class="mf">0.31</span><span class="p">,</span> <span class="mf">0.31</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">],</span>
+                             <span class="sh">'</span><span class="s">outline_z</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.11</span><span class="p">,</span> <span class="mf">0.11</span><span class="p">]},</span>     <span class="c1"># polygon
+</span>        <span class="p">{</span><span class="sh">'</span><span class="s">geometry_type</span><span class="sh">'</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">'</span><span class="s">rectangle_r</span><span class="sh">'</span><span class="p">:</span> <span class="mf">0.40</span><span class="p">,</span> <span class="sh">'</span><span class="s">rectangle_z</span><span class="sh">'</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">},</span>  <span class="c1"># rectangle
+</span>    <span class="p">],</span>
+    <span class="n">plasma_points</span><span class="o">=</span><span class="p">[[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]],</span>   <span class="c1"># None / [r, z] / [[r1, z1], ...] are all accepted
+</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>The return order is <code class="language-plaintext highlighter-rouge">(Psi, Bz, Br)</code></strong> — flux first. <code class="language-plaintext highlighter-rouge">compute_response_vector</code> is the same computation
+with a different positional argument order. <code class="language-plaintext highlighter-rouge">calc_grid</code>, which builds the same physics on a regular
+grid, returns <strong><code class="language-plaintext highlighter-rouge">(br, bz, phi)</code></strong> instead:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">br</span><span class="p">,</span> <span class="n">bz</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">calc_grid</span><span class="p">(</span>
+    <span class="n">xvar</span><span class="p">,</span> <span class="n">zvar</span><span class="p">,</span>                                   <span class="c1"># 1-D R and Z grid vectors
+</span>    <span class="n">coil_turns</span><span class="p">,</span> <span class="n">coil_r</span><span class="p">,</span> <span class="n">coil_z</span><span class="p">,</span>                   <span class="c1"># per-coil, per-element arrays
+</span>    <span class="n">loop_geometry_type</span><span class="p">,</span> <span class="n">loop_outline_r</span><span class="p">,</span> <span class="n">loop_outline_z</span><span class="p">,</span>
+    <span class="n">loop_rectangle_r</span><span class="p">,</span> <span class="n">loop_rectangle_z</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1"># each output: (len(xvar)*len(zvar), nbcoil + nbloop), z varying fastest
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">calc_grid</code> prints a running percentage to stdout every 100 grid points, and it takes the polygon
+centroid of a <code class="language-plaintext highlighter-rouge">geometry_type == 1</code> loop with a $1/(n-1)$ normalisation, whereas
+<code class="language-plaintext highlighter-rouge">compute_response_matrix</code> uses a plain <code class="language-plaintext highlighter-rouge">np.mean</code>. The two therefore do <strong>not</strong> agree exactly for polygon
+loops — do not mix them inside one workflow.</p>
+
+<h2 id="from-an-ods">From an ODS</h2>
+
+<p>You do not normally build those dicts by hand. The ODS wrappers read <code class="language-plaintext highlighter-rouge">pf_active</code> and <code class="language-plaintext highlighter-rouge">pf_passive</code>
+straight out of the data structure:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                             <span class="c1"># 10 PF coils, 950 passive loops
+</span>
+<span class="n">Psi</span><span class="p">,</span> <span class="n">Bz</span><span class="p">,</span> <span class="n">Br</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_point_response_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">rz</span><span class="o">=</span><span class="p">[(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="p">(</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)])</span>
+<span class="n">cpsi</span>        <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_grid_response_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>   <span class="c1"># (n_grid, nbcoil + nbloop)
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">compute_grid_response_ods</code> uses the <code class="language-plaintext highlighter-rouge">equilibrium.time_slice.0.profiles_2d.0.grid</code> axes (<code class="language-plaintext highlighter-rouge">dim1</code> = R,
+<code class="language-plaintext highlighter-rouge">dim2</code> = Z) as its observation grid, so an equilibrium IDS carrying a grid must be present.</p>
+
+<h2 id="coupling-matrices">Coupling matrices</h2>
+
+<p>The passive-structure circuit model needs three matrices:</p>
+
+\[R = \mathrm{diag}(R_w), \qquad M = M_{ww}, \qquad L = M_{wc}\]
+
+<p><code class="language-plaintext highlighter-rouge">R</code> from the per-loop resistances, <code class="language-plaintext highlighter-rouge">M</code> from the passive–passive mutual inductances, and <code class="language-plaintext highlighter-rouge">L</code> from the
+passive–active mutuals (extended with plasma-filament columns when a plasma is present). The mutual
+inductance matrices live in the <code class="language-plaintext highlighter-rouge">em_coupling</code> IDS (<code class="language-plaintext highlighter-rouge">mutual_passive_passive</code>, <code class="language-plaintext highlighter-rouge">mutual_passive_active</code>,
+<code class="language-plaintext highlighter-rouge">mutual_active_active</code>) and can be populated from the packaged VEST reference with
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.em_coupling(ods)</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">R_mat</span><span class="p">,</span> <span class="n">L_mat</span><span class="p">,</span> <span class="n">M_mat</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_impedance_matrices_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plasma</span><span class="o">=</span><span class="p">[])</span>
+<span class="c1"># R_mat: (nbloop, nbloop)   M_mat: (nbloop, nbloop)   L_mat: (nbloop, nbcoil [+ nbplas])
+</span></code></pre></div></div>
+
+<p>With <code class="language-plaintext highlighter-rouge">plasma=[]</code> the wrapper passes <code class="language-plaintext highlighter-rouge">em_coupling.mutual_passive_active</code> straight through (fast, and the
+correct choice for a pure vacuum / startup study). With a non-empty plasma filament list, <code class="language-plaintext highlighter-rouge">L</code> is
+<strong>recomputed from Green’s functions</strong> and the plasma columns are appended — expect a substantially
+longer run time on the full 950-loop VEST vessel model. The matrices are also cached back into the ODS
+under <code class="language-plaintext highlighter-rouge">pf_passive['R_mat']</code>, <code class="language-plaintext highlighter-rouge">['L_mat']</code> and <code class="language-plaintext highlighter-rouge">['M_mat']</code>.</p>
+
+<p>The underlying pure-array function is <code class="language-plaintext highlighter-rouge">vaft.process.compute_impedance_matrices(loop_resistances,
+passive_loop_geometry, coil_geometry, mutual_pp, mutual_pa, plasma_rz)</code>, where <code class="language-plaintext highlighter-rouge">passive_loop_geometry</code>
+is a list of <code class="language-plaintext highlighter-rouge">(loop_name, r_avg, z_avg, geometry_coef)</code> tuples and <code class="language-plaintext highlighter-rouge">coil_geometry</code> is a list of
+per-coil lists of <code class="language-plaintext highlighter-rouge">(r, z, turns_with_sign)</code>.</p>
+
+<hr />
+
+<h1 id="eddy-currents-and-startup-analysis">Eddy currents and startup analysis</h1>
+
+<h2 id="the-circuit-equation">The circuit equation</h2>
+
+<p>The passive vessel currents $I_w$ obey</p>
+
+\[M \, \dot{I}_w + R \, I_w = -L \, \dot{I}_c\]
+
+<p>where $I_c$ stacks the PF-coil currents and any plasma filament currents. <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code>
+integrates this with an <strong>eigenvalue decomposition</strong> of $A = -M^{-1}R$: the state-transition matrix
+$E \, \mathrm{diag}(e^{\lambda \delta t}) \, E^{-1}$ is formed once, marched on a fine sub-step grid
+(<code class="language-plaintext highlighter-rouge">dt_sub</code>, default $5 \times 10^{-5}$ s), then interpolated back onto the input time base.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">I_w</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">solve_eddy_currents</span><span class="p">(</span>
+    <span class="n">R_mat</span><span class="p">,</span> <span class="n">L_mat</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">,</span>
+    <span class="n">coil_plasma_currents</span><span class="p">,</span>      <span class="c1"># (n_times, nbcoil + nbplas)
+</span>    <span class="n">time</span><span class="p">,</span>                      <span class="c1"># (n_times,)
+</span>    <span class="n">dt_sub</span><span class="o">=</span><span class="mf">5e-5</span><span class="p">,</span>
+<span class="p">)</span>                              <span class="c1"># -&gt; (n_times, nbloop)
+</span></code></pre></div></div>
+
+<h2 id="from-an-ods-1">From an ODS</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                       <span class="c1"># VEST shot 39915
+</span>
+<span class="c1"># Vacuum case: coils only, no plasma filament.
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_eddy_currents</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plasma</span><span class="o">=</span><span class="p">[],</span> <span class="n">ip</span><span class="o">=</span><span class="p">[],</span> <span class="n">dt_sub</span><span class="o">=</span><span class="mf">5e-5</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">pf_passive.loop.0.current</span><span class="sh">'</span><span class="p">]).</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (900,) — matches pf_active.time
+</span></code></pre></div></div>
+
+<p>To include the plasma as one or more current filaments, pass the filament positions and, for each of
+them, a current trace <strong>on the <code class="language-plaintext highlighter-rouge">pf_active</code> time base</strong>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_pf</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">pf_active.time</span><span class="sh">'</span><span class="p">])</span>
+<span class="n">ip</span>   <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">interp</span><span class="p">(</span><span class="n">t_pf</span><span class="p">,</span>
+                 <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.time</span><span class="sh">'</span><span class="p">]),</span>
+                 <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">]))</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_eddy_currents</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">plasma</span><span class="o">=</span><span class="p">[(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)],</span> <span class="n">ip</span><span class="o">=</span><span class="p">[</span><span class="n">ip</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">compute_eddy_currents</code> calls <code class="language-plaintext highlighter-rouge">compute_impedance_matrices_ods</code> for you, solves the RL system, and writes
+<code class="language-plaintext highlighter-rouge">pf_passive.time</code> plus <code class="language-plaintext highlighter-rouge">pf_passive.loop.&lt;i&gt;.current</code> back into the ODS.</p>
+
+<blockquote>
+  <p><strong>Check the result.</strong> <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code> does not raise on a singular $M$ or $R$: it falls back
+<code class="language-plaintext highlighter-rouge">inv</code> → <code class="language-plaintext highlighter-rouge">pinv</code> → <strong>an array full of <code class="language-plaintext highlighter-rouge">np.nan</code></strong>, after printing an error to stdout. An
+<code class="language-plaintext highlighter-rouge">np.isfinite(...).all()</code> guard is worth the line.</p>
+</blockquote>
+
+<h2 id="vacuum-fields-loop-voltage-decay-index">Vacuum fields, loop voltage, decay index</h2>
+
+<p>Once the eddy currents exist, the vacuum flux and field at any set of points follow from the response
+matrices:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">br</span><span class="p">,</span> <span class="n">bz</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_point_vacuum_fields_ods</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span>
+    <span class="n">rz</span><span class="o">=</span><span class="p">[(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)],</span>
+    <span class="n">mode</span><span class="o">=</span><span class="sh">'</span><span class="s">vacuum</span><span class="sh">'</span><span class="p">,</span>       <span class="c1"># 'vacuum' | 'pf_active' | 'pf_passive'
+</span><span class="p">)</span>
+<span class="c1"># psi, br, bz: (n_times, n_points)
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">mode</code> selects which current sources contribute, which is exactly what separates the directly driven
+field from the vessel’s response: <code class="language-plaintext highlighter-rouge">'pf_active'</code> gives the coil-only field, <code class="language-plaintext highlighter-rouge">'pf_passive'</code> the
+eddy-current-only field, <code class="language-plaintext highlighter-rouge">'vacuum'</code> their sum.</p>
+
+<p>Differentiating the flux gives the loop voltage at that point (mind the $\psi$ convention of <code class="language-plaintext highlighter-rouge">green_r</code>
+— flux per turn, not per radian — when comparing against a physical flux loop):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">dpsi_dt</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">time_derivative</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">psi</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">v_loop</span>  <span class="o">=</span> <span class="o">-</span><span class="n">dpsi_dt</span>
+</code></pre></div></div>
+
+<p>The field decay index $n = -\dfrac{R}{B_z}\dfrac{\partial B_z}{\partial R}$ — the quantity that decides
+whether a startup null is vertically stable — comes from the same call evaluated on a radial line:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">r_line</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.65</span><span class="p">,</span> <span class="mi">41</span><span class="p">)</span>
+<span class="n">t</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">br</span><span class="p">,</span> <span class="n">bz</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_point_vacuum_fields_ods</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span> <span class="n">rz</span><span class="o">=</span><span class="p">[(</span><span class="nf">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">r_line</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="sh">'</span><span class="s">vacuum</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="n">it</span>      <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">))))</span>
+<span class="n">bz_line</span> <span class="o">=</span> <span class="n">bz</span><span class="p">[</span><span class="n">it</span><span class="p">]</span>
+<span class="n">n_index</span> <span class="o">=</span> <span class="o">-</span><span class="n">r_line</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">gradient</span><span class="p">(</span><span class="n">bz_line</span><span class="p">,</span> <span class="n">r_line</span><span class="p">)</span> <span class="o">/</span> <span class="n">bz_line</span>
+</code></pre></div></div>
+
+<h2 id="the-breakdown-null">The breakdown null</h2>
+
+<p><code class="language-plaintext highlighter-rouge">compute_null_ods</code> contracts the grid response matrix with the coil <strong>and</strong> eddy currents at one time
+and reshapes the result onto the equilibrium $(R, Z)$ mesh:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_bd</span>      <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_null_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">t_bd</span><span class="p">)</span>   <span class="c1"># psi: (len(Zgrid), len(Rgrid))
+</span></code></pre></div></div>
+
+<p>Two ready-made figures follow exactly this path — a bare contour, and a contour over the machine
+geometry:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">vacuum_psi_contour</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                    <span class="c1"># defaults to the breakdown onset time
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">overlay_all_with_vacuum_psi_contour</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>   <span class="c1"># + coils, vessel, limiter, Thomson
+</span></code></pre></div></div>
+
+<p>Both mask $\psi$ to the chamber interior using <code class="language-plaintext highlighter-rouge">vaft.omas.find_chamber_boundary(ods)</code>.</p>
+
+<hr />
+
+<h1 id="magnetic-diagnostics-processing">Magnetic diagnostics processing</h1>
+
+<h2 id="the-legacy-vest-chain">The legacy VEST chain</h2>
+
+<p>The VEST EFIT input chain (FIR low-pass → calibration → negated integration → baseline subtraction) is
+reproduced exactly, with every magic constant lifted into one frozen dataclass:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">VestMagneticsProcessingConfig</span><span class="p">,</span>
+    <span class="n">DEFAULT_VEST_MAGNETICS_PROCESSING</span><span class="p">,</span>
+    <span class="n">vest_magnetics_time_window</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="nc">VestMagneticsProcessingConfig</span><span class="p">()</span>              <span class="c1"># 25 000 samples over 0 – 0.99996 s
+</span><span class="n">cfg</span> <span class="o">=</span> <span class="nc">VestMagneticsProcessingConfig</span><span class="p">(</span><span class="n">lowpass_cutoff</span><span class="o">=</span><span class="mf">5_000.0</span><span class="p">,</span> <span class="n">lowpass_taps</span><span class="o">=</span><span class="mi">301</span><span class="p">)</span>   <span class="c1"># parameter scan
+</span>
+<span class="n">tb</span>               <span class="o">=</span> <span class="n">cfg</span><span class="p">.</span><span class="nf">timebase</span><span class="p">()</span>                  <span class="c1"># (25000,)
+</span><span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">base_end</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">.</span><span class="nf">window_for_shot</span><span class="p">(</span><span class="mi">41660</span><span class="p">)</span>      <span class="c1"># -&gt; (6500, 9000, 5000)
+</span><span class="n">t_out</span>            <span class="o">=</span> <span class="nf">vest_magnetics_time_window</span><span class="p">(</span><span class="mi">41660</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">window_for_shot</code> is <strong>shot-dependent physics configuration, not a free tunable</strong>: shots 41446–41451 and
+every shot ≥ 41660 use the “late” window (<code class="language-plaintext highlighter-rouge">6500, 9000, 5000</code>); everything else uses the default
+(<code class="language-plaintext highlighter-rouge">6000, 8500, 8500</code>). Reprocessing a late shot with the default window silently changes the answer.</p>
+
+<p>Per-channel entry points:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">vest_b_field_pol_probe_legacy</span><span class="p">,</span> <span class="n">vest_flux_loop_legacy</span>
+
+<span class="n">field</span> <span class="o">=</span> <span class="nf">vest_b_field_pol_probe_legacy</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">calibration</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+<span class="n">flux</span>  <span class="o">=</span> <span class="nf">vest_flux_loop_legacy</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">calibration</span><span class="p">,</span> <span class="n">flux_loop_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">shot</code> and <code class="language-plaintext highlighter-rouge">flux_loop_number</code> are <strong>keyword-only</strong>.</li>
+  <li><code class="language-plaintext highlighter-rouge">flux_loop_number</code> is <strong>1-based</strong>. The config field <code class="language-plaintext highlighter-rouge">flux_baseline_late_loop_numbers = (9, 10, 11)</code>
+is matched against that 1-based number and selects a different baseline window for those loops.</li>
+  <li>The probe path low-passes (251-tap <code class="language-plaintext highlighter-rouge">firwin</code> at 2.5 kHz); the flux-loop path <strong>does not</strong>, and divides
+by $2\pi$ when <code class="language-plaintext highlighter-rouge">flux_output_per_radian</code> is true.</li>
+</ul>
+
+<p>Batch processing over a channel table is <code class="language-plaintext highlighter-rouge">vest_md_signals(shot, channels, loader, indices=None,
+config=None)</code>, where <code class="language-plaintext highlighter-rouge">channels</code> is a sequence of dicts with keys <code class="language-plaintext highlighter-rouge">field_code</code>, <code class="language-plaintext highlighter-rouge">calibration</code> and <code class="language-plaintext highlighter-rouge">kind</code>
+(<code class="language-plaintext highlighter-rouge">'flux_loop'</code> or <code class="language-plaintext highlighter-rouge">'b_field_pol_probe'</code>), and <code class="language-plaintext highlighter-rouge">loader</code> is any callable
+<code class="language-plaintext highlighter-rouge">(shot, field_code) -&gt; (time, data) | None</code> — returning <code class="language-plaintext highlighter-rouge">None</code> yields a zero-filled trace. VEST’s own
+channel table and raw-database loader are already wired up in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+
+<span class="n">time</span><span class="p">,</span> <span class="n">flux_loops</span><span class="p">,</span> <span class="n">probes</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">vfit_md</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># -&gt; (time, list, list)
+</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">44740</span><span class="p">,</span> <span class="n">tstart</span><span class="o">=</span><span class="mf">0.26</span><span class="p">,</span> <span class="n">tend</span><span class="o">=</span><span class="mf">0.34</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">4e-5</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="standalone-processing-chains">Standalone processing chains</h2>
+
+<p>Three self-contained multi-channel routines exist for working outside the ODS:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">rogowski_coil_ip</span><span class="p">,</span> <span class="n">flux_loop_flux</span><span class="p">,</span> <span class="n">b_field_pol_probe_field</span>
+
+<span class="n">t</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="nf">rogowski_coil_ip</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">rogowski_raw</span><span class="p">,</span> <span class="n">flux_loop_raw</span><span class="p">,</span>
+                         <span class="n">flux_loop_gain</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">effective_vessel_res</span><span class="o">=</span><span class="mf">5.8e-4</span><span class="p">,</span>
+                         <span class="n">baseline_type</span><span class="o">=</span><span class="sh">'</span><span class="s">linear</span><span class="sh">'</span><span class="p">,</span> <span class="n">smooth_window</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">t</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">baselines</span> <span class="o">=</span> <span class="nf">flux_loop_flux</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">gain</span><span class="p">)</span>            <span class="c1"># raw: (m_samples, n_channels)
+</span>
+<span class="n">raw</span><span class="p">,</span> <span class="n">filt</span><span class="p">,</span> <span class="n">integrated</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">baselines</span> <span class="o">=</span> <span class="nf">b_field_pol_probe_field</span><span class="p">(</span>
+    <span class="n">time</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">gain</span><span class="p">,</span> <span class="n">lowpass_param</span><span class="p">)</span>                             <span class="c1"># lowpass_param: FIR coefficients you design
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">rogowski_coil_ip</code> subtracts a flux-loop reference from the Rogowski signal and <strong>auto-flips the sign</strong>
+when $\lvert \min I_p \rvert &gt; \lvert \max I_p \rvert$. Note the asymmetric returns:
+<code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code> gives <strong>five</strong> arrays, <code class="language-plaintext highlighter-rouge">flux_loop_flux</code> gives <strong>three</strong>. Both accept
+<code class="language-plaintext highlighter-rouge">plot_opt=True</code>, which builds an <code class="language-plaintext highlighter-rouge">ipywidgets</code> slider and so only does anything inside Jupyter.</p>
+
+<p><img src="/vaft/assets/images/magnetics/plasma_current.png" alt="Plasma current" /></p>
+
+<h2 id="mirnov-fluctuations-and-toroidal-mode-numbers">Mirnov fluctuations and toroidal mode numbers</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">mirnov_preprocess_signal</span><span class="p">,</span> <span class="n">mirnov_spectrogram</span><span class="p">,</span>
+    <span class="n">toroidal_mode_analysis</span><span class="p">,</span> <span class="n">toroidal_phase_fit_at_time</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">clean</span> <span class="o">=</span> <span class="nf">mirnov_preprocess_signal</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sample_rate</span><span class="o">=</span><span class="mf">250_000.0</span><span class="p">,</span>
+                                 <span class="n">high_pass_cutoff</span><span class="o">=</span><span class="mf">2_000.0</span><span class="p">,</span> <span class="n">low_pass_cutoff</span><span class="o">=</span><span class="mf">90_000.0</span><span class="p">,</span>
+                                 <span class="n">amplifier_gain</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>            <span class="c1"># all kwargs keyword-only
+</span>
+<span class="n">spec</span> <span class="o">=</span> <span class="nf">mirnov_spectrogram</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">clean</span><span class="p">,</span> <span class="n">sample_rate</span><span class="o">=</span><span class="mf">250_000.0</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">time_resolution</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="c1"># spec.time, spec.frequency, spec.magnitude
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code> is a manual Hann-window rFFT spectrogram (magnitude
+$= 2 \lvert \mathrm{FFT} \rvert / N_{\rm win}$) that reproduces the legacy <code class="language-plaintext highlighter-rouge">vest_mirnov.m</code>.
+<code class="language-plaintext highlighter-rouge">window_size</code> must be <strong>even and greater than 1</strong>.</p>
+
+<p>Two-probe cross-spectral mode number, and multi-probe wrapped-phase fit:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">res</span> <span class="o">=</span> <span class="nf">toroidal_mode_analysis</span><span class="p">(</span><span class="n">signal_a</span><span class="p">,</span> <span class="n">signal_b</span><span class="p">,</span>
+                             <span class="n">sample_rate</span><span class="o">=</span><span class="mf">250_000.0</span><span class="p">,</span>
+                             <span class="n">phase_geometry</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">,</span>          <span class="c1"># toroidal separation [rad]
+</span>                             <span class="n">peak_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">sensor_count</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="c1"># res.frequency, res.n, res.power, res.phase, res.coherence, ...
+</span>
+<span class="n">fit</span> <span class="o">=</span> <span class="nf">toroidal_phase_fit_at_time</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">signals</span><span class="p">,</span> <span class="n">toroidal_angle</span><span class="p">,</span>   <span class="c1"># signals: (n_channels, n_time)
+</span>                                 <span class="n">center_time</span><span class="o">=</span><span class="mf">0.3215</span><span class="p">,</span>
+                                 <span class="n">sample_rate</span><span class="o">=</span><span class="mf">250_000.0</span><span class="p">,</span>
+                                 <span class="n">window_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+                                 <span class="n">num_modes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                                 <span class="n">candidate_n</span><span class="o">=</span><span class="nf">range</span><span class="p">(</span><span class="o">-</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+<span class="n">best</span> <span class="o">=</span> <span class="n">fit</span><span class="p">.</span><span class="n">modes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>                                              <span class="c1"># sorted by amplitude, descending
+</span><span class="nf">print</span><span class="p">(</span><span class="n">best</span><span class="p">.</span><span class="n">frequency</span><span class="p">,</span> <span class="n">best</span><span class="p">.</span><span class="n">n</span><span class="p">,</span> <span class="n">best</span><span class="p">.</span><span class="n">rms_error</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>$n$ is recovered as $\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on $\lvert \mathrm{CSD} \rvert$
+and filtered by a coherence threshold. The plot module wraps all of this against an ODS — this is the
+path the fluctuation notebook takes on shot 44740:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft.plot</span> <span class="k">as</span> <span class="n">vplot</span>
+
+<span class="n">vplot</span><span class="p">.</span><span class="nf">mirnov_signal</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">[</span><span class="mi">14</span><span class="p">,</span> <span class="mi">37</span><span class="p">],</span> <span class="n">time_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.304</span><span class="p">,</span> <span class="mf">0.330</span><span class="p">),</span> <span class="n">preprocess</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">vplot</span><span class="p">.</span><span class="nf">mirnov_spectrogram</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">time_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.304</span><span class="p">,</span> <span class="mf">0.330</span><span class="p">),</span> <span class="n">max_frequency</span><span class="o">=</span><span class="mf">80e3</span><span class="p">)</span>
+<span class="n">vplot</span><span class="p">.</span><span class="nf">toroidal_mode_spectrum</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">channel_pair</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">37</span><span class="p">),</span> <span class="n">time_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.304</span><span class="p">,</span> <span class="mf">0.330</span><span class="p">))</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">phase_fit</span> <span class="o">=</span> <span class="n">vplot</span><span class="p">.</span><span class="nf">toroidal_phase_mode_fit</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span> <span class="n">center_time</span><span class="o">=</span><span class="mf">0.3215</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">65</span><span class="p">,</span> <span class="mi">66</span><span class="p">,</span> <span class="mi">67</span><span class="p">],</span> <span class="n">return_result</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</code></pre></div></div>
+
+<hr />
+
+<h1 id="statistical-analysis">Statistical analysis</h1>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code> fits a log-log power-law scaling
+$\tau_E \propto \prod_k x_k^{\alpha_k}$ by ordinary least squares.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">statistical_analysis</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">load_data_from_excel</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">excel_file</span><span class="p">))</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">filter_dataframe</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>          <span class="c1"># drops Ploss_MW &gt; 3, takes abs(Bt_T)
+</span>
+<span class="n">eng_params</span>   <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">Ip_MA</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Bt_T</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Ploss_MW</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">ne_19m3</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">R_m</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">epsilon</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">kappa</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">target_param</span> <span class="o">=</span> <span class="sh">'</span><span class="s">tauE_s</span><span class="sh">'</span>
+
+<span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">confinement_time_histogram</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">eng_params</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">perform_ols_regression</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">eng_params</span><span class="p">,</span> <span class="n">target_param</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">results</span><span class="p">.</span><span class="n">rsquared</span><span class="p">,</span> <span class="n">results</span><span class="p">.</span><span class="n">rsquared_adj</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">results</span><span class="p">.</span><span class="nf">get_summary</span><span class="p">())</span>                            <span class="c1"># Coefficient / P-value / Significant
+</span><span class="nf">print</span><span class="p">(</span><span class="n">results</span><span class="p">.</span><span class="nf">get_exponents</span><span class="p">())</span>                          <span class="c1"># {'Ip_MA': ..., 'Bt_T': ..., ...}
+</span>
+<span class="n">significance</span> <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">analyze_significance</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="n">metrics</span>      <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">compute_metrics</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">target_param</span><span class="p">)</span>
+<span class="c1"># {'R2', 'RMSE', 'MAE', 'Mean_Relative_Error_%', 'Median_Relative_Error_%'}
+</span></code></pre></div></div>
+
+<p><strong>Which DataFrame goes where matters.</strong> <code class="language-plaintext highlighter-rouge">perform_ols_regression</code>, <code class="language-plaintext highlighter-rouge">compute_metrics</code> and
+<code class="language-plaintext highlighter-rouge">confinement_time_histogram</code> take the <strong>raw</strong> frame; <code class="language-plaintext highlighter-rouge">get_correlation_matrix</code> and
+<code class="language-plaintext highlighter-rouge">get_individual_correlations</code> take the <strong>log-transformed</strong> frame (<code class="language-plaintext highlighter-rouge">results.log_df</code>, or the output of
+<code class="language-plaintext highlighter-rouge">log_transform</code>). Mixing them up silently produces garbage rather than an error.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">log_df</span> <span class="o">=</span> <span class="n">results</span><span class="p">.</span><span class="n">log_df</span>
+<span class="n">corr</span>   <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">get_correlation_matrix</span><span class="p">(</span><span class="n">log_df</span><span class="p">,</span> <span class="n">eng_params</span><span class="p">,</span> <span class="n">target_param</span><span class="p">)</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_individual_parameter_effects</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">eng_params</span><span class="p">,</span> <span class="n">target_param</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_correlation_heatmap</span><span class="p">(</span><span class="n">log_df</span><span class="p">,</span> <span class="n">eng_params</span><span class="p">,</span> <span class="n">target_param</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">compute_metrics</code> imports scikit-learn lazily inside the function body — it is not otherwise a VAFT
+dependency, so install it before calling.</p>
+
+<hr />
+
+<h1 id="conventions-worth-memorizing">Conventions worth memorizing</h1>
+
+<ol>
+  <li><strong>Return orders are not uniform.</strong> <code class="language-plaintext highlighter-rouge">compute_response_matrix</code> → <code class="language-plaintext highlighter-rouge">(Psi, Bz, Br)</code>; <code class="language-plaintext highlighter-rouge">calc_grid</code> and
+<code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code> → <code class="language-plaintext highlighter-rouge">(br, bz, phi)</code>; <code class="language-plaintext highlighter-rouge">volume_average</code> → <code class="language-plaintext highlighter-rouge">(average, volume)</code>;
+<code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code> → 5 arrays; <code class="language-plaintext highlighter-rouge">flux_loop_flux</code> → 3.</li>
+  <li><strong>Grid index order is <code class="language-plaintext highlighter-rouge">(R, Z)</code>.</strong> The equilibrium and Shafranov routines assume
+<code class="language-plaintext highlighter-rouge">np.meshgrid(r, z, indexing='ij')</code>, i.e. a <code class="language-plaintext highlighter-rouge">psi_grid</code> shaped <code class="language-plaintext highlighter-rouge">(len(R), len(Z))</code>.</li>
+  <li><strong>Silent degradations.</strong> <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code> returns all-NaN on singular matrices;
+<code class="language-plaintext highlighter-rouge">shafranov_integrals</code> returns <code class="language-plaintext highlighter-rouge">(0, 0, 0, 0)</code> on a degenerate boundary;
+<code class="language-plaintext highlighter-rouge">prepare_boundary_for_shafranov</code> returns empty arrays. None of them raise.</li>
+  <li><strong>These modules print.</strong> <code class="language-plaintext highlighter-rouge">calc_grid</code> prints progress, the <code class="language-plaintext highlighter-rouge">core_profiles*</code> writers print
+<code class="language-plaintext highlighter-rouge">[INFO]</code> / <code class="language-plaintext highlighter-rouge">[UPDATED]</code> lines, <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code> prints on failure. <code class="language-plaintext highlighter-rouge">statistical_analysis</code> uses
+<code class="language-plaintext highlighter-rouge">logging</code> instead.</li>
+  <li><strong>Importing <code class="language-plaintext highlighter-rouge">vaft.process</code> pulls in <code class="language-plaintext highlighter-rouge">matplotlib</code> and <code class="language-plaintext highlighter-rouge">ipywidgets</code></strong> — both are module-level imports
+in <code class="language-plaintext highlighter-rouge">magnetics.py</code>.</li>
+  <li>The <code class="language-plaintext highlighter-rouge">electromagnetics</code> module prints a Numba warning on import when Numba is absent. <strong>Numba is never
+actually used</strong>, so installing it changes nothing.</li>
+</ol>
+
+<hr />
+
+<h1 id="notebooks">Notebooks</h1>
+
+<p>Working, executable examples:</p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/fluctuation_diagnostics_analysis.ipynb"><code class="language-plaintext highlighter-rouge">fluctuation_diagnostics_analysis.ipynb</code></a>
+— Mirnov raw traces, spectrograms and toroidal phase-mode fits on shot 44740.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/confinement_time_scaling.ipynb"><code class="language-plaintext highlighter-rouge">confinement_time_scaling.ipynb</code></a>
+— the full <code class="language-plaintext highlighter-rouge">statistical_analysis</code> regression workflow.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb"><code class="language-plaintext highlighter-rouge">profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb</code></a>
+— <code class="language-plaintext highlighter-rouge">vaft.process.profile</code> mapping and fitting.</li>
+</ul>
+
+<p>The three notebooks that will eventually own this area are currently <strong>outline-only shells</strong> (one
+markdown cell, no code cells). They fix the intended section structure and the expected inputs and
+outputs, and they are the right place to contribute runnable versions of the code on this page:</p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_diagnostics_processing.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_diagnostics_processing.ipynb</code></a>
+— raw $I_p$, flux-loop and Bp-probe processing; calibration and sign conventions; processed-signal format.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/electromagnetic_response_modeling_with_efund.ipynb"><code class="language-plaintext highlighter-rouge">electromagnetic_response_modeling_with_efund.ipynb</code></a>
+— geometry inputs, Green’s-function response products, coupling-matrix construction, comparison against EFUND tables.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/eddy_current_calculation_and_startup_analysis.ipynb"><code class="language-plaintext highlighter-rouge">eddy_current_calculation_and_startup_analysis.ipynb</code></a>
+— the PF-passive eddy-current ODE, vacuum field, loop voltage, decay index, startup profiles.</li>
+</ul>
+
+<p>Source: <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/process"><code class="language-plaintext highlighter-rouge">vaft/process/</code></a> and the ODS
+wrappers in
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/omas/process_wrapper.py"><code class="language-plaintext highlighter-rouge">vaft/omas/process_wrapper.py</code></a>.</p>
+
+<h1 id="see-also">See also</h1>
+
+<ul>
+  <li><a href="/vaft/guide/Magnetics/">Magnetics</a> — plotting the processed magnetics IDS.</li>
+  <li><a href="/vaft/guide/examples/">Examples</a> — the notebook index.</li>
+  <li><a href="/vaft/guide/Quick_start_guide/">Quick start guide</a> — loading an ODS in the first place.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="external-codes">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/initialize_external_fusion_codes.ipynb">Initialize external fusion codes</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="chease-refinement">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb">Equilibrium refinement using CHEASE</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="em-response">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/electromagnetic_response_modeling_with_efund.ipynb">Electromagnetic response modeling with EFUND</a>
+              
+            <span class="resource-status resource-status-design-shell">design shell</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/reference/api/#vaftcode"><code>vaft.code</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="external-codes"><strong>EFIT, CHEASE, DCON/RDCON and GPEC installations</strong><br><span>Optional external executables resolved from their HOME variables.</span></li>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="external-readiness"><a href="/vaft/reference/notebooks/#output-title-external-readiness">External-code readiness</a></li>
+        
+          
+          <li data-resource-id="equilibrium-inputs"><a href="/vaft/reference/notebooks/#output-title-equilibrium-inputs">Equilibrium input preparation</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Equilibrium and kinetic profiles">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" class="navigation navigation-next navigation-unique" aria-label="Next page: Operations and statistical analysis">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#smoothing-and-de-spiking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Smoothing and de-spiking</a></li><li class="page-toc-item page-toc-level-2"><a href="#crop-resample-filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Crop, resample, filter</a></li><li class="page-toc-item page-toc-level-2"><a href="#baselines" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Baselines</a></li><li class="page-toc-item page-toc-level-2"><a href="#pulse-window-and-channel-liveness" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pulse window and channel liveness</a></li><li class="page-toc-item page-toc-level-2"><a href="#deprecated-aliases" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Deprecated aliases</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-filament" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single filament</a></li><li class="page-toc-item page-toc-level-2"><a href="#response-at-sensors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Response at sensors</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#coupling-matrices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coupling matrices</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-circuit-equation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The circuit equation</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods-1" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#vacuum-fields-loop-voltage-decay-index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vacuum fields, loop voltage, decay index</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-breakdown-null" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The breakdown null</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-legacy-vest-chain" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The legacy VEST chain</a></li><li class="page-toc-item page-toc-level-2"><a href="#standalone-processing-chains" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Standalone processing chains</a></li><li class="page-toc-item page-toc-level-2"><a href="#mirnov-fluctuations-and-toroidal-mode-numbers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Mirnov fluctuations and toroidal mode numbers</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Operations and statistical analysis",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula.md",
+            "ref": "_guide/Formula.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Processing.md",
+        "mtime": "2026-07-01 10:30:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:38 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

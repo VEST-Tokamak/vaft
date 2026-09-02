@@ -1,0 +1,1391 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: green · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/stability/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/atomic/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: green</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_green">Formula reference: green</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.green, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/green.py"><code class="language-plaintext highlighter-rouge">vaft/formula/green.py</code></a>:
+16 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("green.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>This module provides functions for calculating various Green’s function integrals
+used in plasma physics calculations.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>G</td><td>Green&#39;s function</td><td>-</td></tr>
+  <tr><td>K</td><td>complete elliptic integral of first kind</td><td>-</td></tr>
+  <tr><td>E</td><td>complete elliptic integral of second kind</td><td>-</td></tr>
+  </tbody>
+</table>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#calculate_distance"><code>calculate_distance</code></a> &mdash; Euclidean distance between $(r_1, z_1)$ and $(r_2, z_2)$ in the poloidal plane.
+</li>
+  <li><a href="#complete_elliptic_integral_e"><code>complete_elliptic_integral_e</code></a> &mdash; Complete elliptic integral of the second kind $E(m)$.
+</li>
+  <li><a href="#complete_elliptic_integral_k"><code>complete_elliptic_integral_k</code></a> &mdash; Complete elliptic integral of the first kind $K(m)$.
+</li>
+  <li><a href="#elliptic_integral"><code>elliptic_integral</code></a> &mdash; Polynomial approximations of $K$ and $E$ for a ring source and observer points.
+</li>
+  <li><a href="#green_br_bz"><code>green_br_bz</code></a> &mdash; Field of a unit-current ring, $(B_r, B_z)$ at observer points (legacy elliptic path).
+</li>
+  <li><a href="#green_br_bz_exact"><code>green_br_bz_exact</code></a> &mdash; $(B_r, B_z)$ per unit ring current, exact elliptic integrals, broadcasting.
+</li>
+  <li><a href="#green_psi_exact"><code>green_psi_exact</code></a> &mdash; Poloidal flux per unit ring current, exact elliptic integrals.
+</li>
+  <li><a href="#green_r"><code>green_r</code></a> &mdash; Poloidal flux per unit ring current at observer points (legacy elliptic path).
+</li>
+  <li><a href="#greens_function_2d"><code>greens_function_2d</code></a> &mdash; Axisymmetric kernel $\sqrt{RR_0}\,K(m)$ between a field point and a ring source.
+</li>
+  <li><a href="#greens_function_3d"><code>greens_function_3d</code></a> &mdash; Toroidal-angle-resolved variant of the $\sqrt{RR_0}\,K(m)$ kernel.
+</li>
+  <li><a href="#greens_function_exact"><code>greens_function_exact</code></a> &mdash; Exact free-space axisymmetric Green’s function and its derivatives.
+</li>
+  <li><a href="#greens_integral_2d"><code>greens_integral_2d</code></a> &mdash; Line integral along $R$ of the 2-D kernel times a source density.
+</li>
+  <li><a href="#greens_integral_3d"><code>greens_integral_3d</code></a> &mdash; Line integral along $R$ of the 3-D kernel times a source density.
+</li>
+  <li><a href="#mutual_inductance"><code>mutual_inductance</code></a> &mdash; Mutual inductance between two rectangular-cross-section ring coils.
+</li>
+  <li><a href="#self_inductance"><code>self_inductance</code></a> &mdash; Self-inductance of a rectangular-cross-section ring coil.
+</li>
+  <li><a href="#trapz_integral"><code>trapz_integral</code></a> &mdash; Trapezoidal integral $\int y\,dx$, local copy for the Green kernels.
+</li>
+</ul>
+
+<h3 id="calculate_distance"><code class="language-plaintext highlighter-rouge">calculate_distance</code></h3>
+
+<p class="formula-signature"><code>calculate_distance(r1, r2, z1, z2)</code></p>
+
+<p>Euclidean distance between $(r_1, z_1)$ and $(r_2, z_2)$ in the poloidal plane.</p>
+
+\[d = \sqrt{(r_2 - r_1)^2 + (z_2 - z_1)^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r1</code></td><td>float or np.ndarray</td><td>m</td><td><p>Radius of the first point(s).</p>
+</td></tr>
+  <tr><td><code>r2</code></td><td>float or np.ndarray</td><td>m</td><td><p>Radius of the second point(s).</p>
+</td></tr>
+  <tr><td><code>z1</code></td><td>float or np.ndarray</td><td>m</td><td><p>Height of the first point(s).</p>
+</td></tr>
+  <tr><td><code>z2</code></td><td>float or np.ndarray</td><td>m</td><td><p>Height of the second point(s).</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>m</td><td><p>Distance, broadcast over the inputs.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Notes.</strong></p>
+
+<p>A distance in the $(R, Z)$ half-plane, not the 3-D distance between points
+on two current loops.</p>
+
+<h3 id="complete_elliptic_integral_e"><code class="language-plaintext highlighter-rouge">complete_elliptic_integral_e</code></h3>
+
+<p class="formula-signature"><code>complete_elliptic_integral_e(m)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Complete elliptic integral of the second kind $E(m)$.</p>
+
+\[E(m) = \int_0^{\pi/2}\sqrt{1 - m\sin^2\theta}\,d\theta\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>m</code></td><td>float or np.ndarray</td><td>-</td><td><p>Parameter $m = k^2$, in $[0, 1]$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>$E(m)$, from $\pi/2$ at $m = 0$ to 1 at $m = 1$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Takes the parameter $m = k^2$, as <code class="language-plaintext highlighter-rouge">scipy.special.ellipe</code> does.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST Digital Library of Mathematical Functions, Sec. 19.2(ii), https://dlmf.nist.gov/19.2.
+</li>
+  <li>M. Abramowitz and I. A. Stegun, <em>Handbook of Mathematical Functions</em>, Dover (1972), Sec. 17.3.
+</li>
+</ol>
+
+<h3 id="complete_elliptic_integral_k"><code class="language-plaintext highlighter-rouge">complete_elliptic_integral_k</code></h3>
+
+<p class="formula-signature"><code>complete_elliptic_integral_k(m)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Complete elliptic integral of the first kind $K(m)$.</p>
+
+\[K(m) = \int_0^{\pi/2}\frac{d\theta}{\sqrt{1 - m\sin^2\theta}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>m</code></td><td>float or np.ndarray</td><td>-</td><td><p>Parameter $m = k^2$, in $[0, 1)$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>$K(m)$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Takes the <em>parameter</em> $m = k^2$, as <code class="language-plaintext highlighter-rouge">scipy.special.ellipk</code> does, not the
+modulus $k$; $K \to \infty$ logarithmically as $m \to 1$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST Digital Library of Mathematical Functions, Sec. 19.2(ii), https://dlmf.nist.gov/19.2.
+</li>
+  <li>M. Abramowitz and I. A. Stegun, <em>Handbook of Mathematical Functions</em>, Dover (1972), Sec. 17.3.
+</li>
+</ol>
+
+<h3 id="elliptic_integral"><code class="language-plaintext highlighter-rouge">elliptic_integral</code></h3>
+
+<p class="formula-signature"><code>elliptic_integral(r_obs, z_obs, r_src, z_src)</code></p>
+
+<p>Polynomial approximations of $K$ and $E$ for a ring source and observer points.</p>
+
+\[m = \frac{4r_{obs}r_{src}}{(r_{obs} + r_{src})^2 + (z_{obs} - z_{src})^2}, \qquad
+  m_1 = 1 - m\]
+
+<p>then the Hastings polynomials
+$K \approx \sum a_km_1^k + \ln(1/m_1)\sum b_km_1^k$ and
+$E \approx \sum c_km_1^k + \ln(1/m_1)\sum d_km_1^k$ to fourth order.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_obs</code></td><td>np.ndarray</td><td>m</td><td><p>Radius of the observation points.</p>
+</td></tr>
+  <tr><td><code>z_obs</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the observation points.</p>
+</td></tr>
+  <tr><td><code>r_src</code></td><td>float</td><td>m</td><td><p>Radius of the ring source.</p>
+</td></tr>
+  <tr><td><code>z_src</code></td><td>float</td><td>m</td><td><p>Height of the ring source.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ek</code></td><td>np.ndarray</td><td>-</td><td><p>Approximate $K(m)$.</p>
+</td></tr>
+  <tr><td><code>ee</code></td><td>np.ndarray</td><td>-</td><td><p>Approximate $E(m)$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Validity.</strong></p>
+
+<p>Abramowitz and Stegun 17.3.34 and 17.3.36, absolute error below
+$2\times10^{-8}$ for $0 \le m &lt; 1$; the legacy path of <code class="language-plaintext highlighter-rouge">green_r</code> and
+<code class="language-plaintext highlighter-rouge">green_br_bz</code>, retained so their numbers do not change.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>$\ln(1/m_1)$ diverges at a coincident observer and source and a warning is
+emitted with a bare <code class="language-plaintext highlighter-rouge">print</code> rather than <code class="language-plaintext highlighter-rouge">warnings.warn</code> (tracked in
+#356); <code class="language-plaintext highlighter-rouge">greens_function_exact</code> uses scipy’s exact integrals instead.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>M. Abramowitz and I. A. Stegun, <em>Handbook of Mathematical Functions</em>, Dover (1972), Eqs. 17.3.34 and 17.3.36.
+</li>
+  <li>C. Hastings, <em>Approximations for Digital Computers</em>, Princeton University Press (1955).
+</li>
+</ol>
+
+<h3 id="green_br_bz"><code class="language-plaintext highlighter-rouge">green_br_bz</code></h3>
+
+<p class="formula-signature"><code>green_br_bz(r_obs, z_obs, r_src, z_src)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Field of a unit-current ring, $(B_r, B_z)$ at observer points (legacy elliptic path).</p>
+
+\[B_r = \frac{\mu_0}{2\pi r}\,\frac{z - z_0}{\sqrt{(r + r_0)^2 + (z - z_0)^2}}
+  \left[\frac{r^2 + r_0^2 + (z - z_0)^2}{(r - r_0)^2 + (z - z_0)^2}E - K\right], \quad
+  B_z = \frac{\mu_0}{2\pi}\,\frac{1}{\sqrt{(r + r_0)^2 + (z - z_0)^2}}
+  \left[K - \frac{r^2 - r_0^2 + (z - z_0)^2}{(r - r_0)^2 + (z - z_0)^2}E\right]\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_obs</code></td><td>np.ndarray</td><td>m</td><td><p>Radius of the observation points.</p>
+</td></tr>
+  <tr><td><code>z_obs</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the observation points.</p>
+</td></tr>
+  <tr><td><code>r_src</code></td><td>float</td><td>m</td><td><p>Radius of the current ring.</p>
+</td></tr>
+  <tr><td><code>z_src</code></td><td>float</td><td>m</td><td><p>Height of the current ring.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>br</code></td><td>np.ndarray</td><td>T/A</td><td><p>Radial field per ampere.</p>
+</td></tr>
+  <tr><td><code>bz</code></td><td>np.ndarray</td><td>T/A</td><td><p>Vertical field per ampere.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Right-handed $(r, \varphi, z)$ with the current flowing in $+\varphi$; $B_z$
+is positive inside the ring.  SI throughout; no $2\pi$ flux ambiguity
+arises for fields.  Uses the approximate <code class="language-plaintext highlighter-rouge">elliptic_integral</code>; the
+exact, broadcasting counterpart is <code class="language-plaintext highlighter-rouge">green_br_bz_exact</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Divides by $(r - r_0)^2 + (z - z_0)^2$ and by $r_{obs}$ without guards, so
+a coincident point or an on-axis observer gives <code class="language-plaintext highlighter-rouge">inf</code>/<code class="language-plaintext highlighter-rouge">nan</code> (the
+callers’ shifted-evaluation scheme avoids exact coincidence).  Tracked in
+#356.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>W. R. Smythe, <em>Static and Dynamic Electricity</em>, 3rd ed., McGraw-Hill (1968), Sec. 7.10 (field of a circular loop).
+</li>
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Wiley (1999), Sec. 5.5.
+</li>
+</ol>
+
+<h3 id="green_br_bz_exact"><code class="language-plaintext highlighter-rouge">green_br_bz_exact</code></h3>
+
+<p class="formula-signature"><code>green_br_bz_exact(r_obs, z_obs, r_src, z_src)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>$(B_r, B_z)$ per unit ring current, exact elliptic integrals, broadcasting.</p>
+
+\[B_r = -\frac{\mu_0}{2\pi r}\,\frac{\partial G}{\partial z}, \qquad
+  B_z = +\frac{\mu_0}{2\pi r}\,\frac{\partial G}{\partial r}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_obs</code></td><td>array-like</td><td>m</td><td><p>Observation major radius.</p>
+</td></tr>
+  <tr><td><code>z_obs</code></td><td>array-like</td><td>m</td><td><p>Observation height.</p>
+</td></tr>
+  <tr><td><code>r_src</code></td><td>array-like</td><td>m</td><td><p>Source major radius.</p>
+</td></tr>
+  <tr><td><code>z_src</code></td><td>array-like</td><td>m</td><td><p>Source height.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>br</code></td><td>np.ndarray</td><td>T/A</td><td><p>Radial field per ampere.</p>
+</td></tr>
+  <tr><td><code>bz</code></td><td>np.ndarray</td><td>T/A</td><td><p>Vertical field per ampere.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Right-handed $(r, \varphi, z)$, current in $+\varphi$; consistent with
+<code class="language-plaintext highlighter-rouge">green_psi_exact</code> through $B_z = (1/r)\,\partial\psi/\partial r
+\times 1/2\pi$ for a full-weber $\psi$.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Observation points on the geometric axis ($r_{obs} = 0$) return the analytic
+limits $B_r = 0$, $B_z = \mu_0 r_0^2/(2(r_0^2 + (z - z_0)^2)^{3/2})$; the
+coincident-point caveat of <code class="language-plaintext highlighter-rouge">greens_function_exact</code> applies.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>W. R. Smythe, <em>Static and Dynamic Electricity</em>, 3rd ed., McGraw-Hill (1968), Sec. 7.10.
+</li>
+</ol>
+
+<h3 id="green_psi_exact"><code class="language-plaintext highlighter-rouge">green_psi_exact</code></h3>
+
+<p class="formula-signature"><code>green_psi_exact(r_obs, z_obs, r_src, z_src)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Poloidal flux per unit ring current, exact elliptic integrals.</p>
+
+\[\psi = \mu_0\,G(r, z; r_0, z_0)\]
+
+<p>with $G$ from <code class="language-plaintext highlighter-rouge">greens_function_exact</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_obs</code></td><td>array-like</td><td>m</td><td><p>Observation major radius.</p>
+</td></tr>
+  <tr><td><code>z_obs</code></td><td>array-like</td><td>m</td><td><p>Observation height.</p>
+</td></tr>
+  <tr><td><code>r_src</code></td><td>array-like</td><td>m</td><td><p>Source major radius.</p>
+</td></tr>
+  <tr><td><code>z_src</code></td><td>array-like</td><td>m</td><td><p>Source height.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>Wb/A</td><td><p>Flux per ampere, broadcast over observation and source arrays.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Full weber, the IMAS Data Dictionary storage (COCOS 11-18), same as
+<code class="language-plaintext highlighter-rouge">green_r</code>.  The per-radian flux of an EFIT g-file or of
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.poloidal_field_factor</code> with <code class="language-plaintext highlighter-rouge">cocos=None</code>
+is this divided by $2\pi$; mixing the two silently mis-scales fields by
+$2\pi$.  Tracked in #354.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Wiley (1999), Sec. 5.5.
+</li>
+</ol>
+
+<h3 id="green_r"><code class="language-plaintext highlighter-rouge">green_r</code></h3>
+
+<p class="formula-signature"><code>green_r(r_obs, z_obs, r_src, z_src)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Poloidal flux per unit ring current at observer points (legacy elliptic path).</p>
+
+\[\psi = 2\mu_0\,\frac{\sqrt{r r_0}}{k}\left[\left(1 - \frac{k^2}{2}\right)K - E\right],
+  \qquad k^2 = \frac{4rr_0}{(r + r_0)^2 + (z - z_0)^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_obs</code></td><td>np.ndarray</td><td>m</td><td><p>Radius of the observation points.</p>
+</td></tr>
+  <tr><td><code>z_obs</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the observation points.</p>
+</td></tr>
+  <tr><td><code>r_src</code></td><td>float</td><td>m</td><td><p>Radius of the current ring.</p>
+</td></tr>
+  <tr><td><code>z_src</code></td><td>float</td><td>m</td><td><p>Height of the current ring.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>Wb/A</td><td><p>Flux per ampere at each observation point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Full weber ($\psi = \mu_0 G$, identical to <code class="language-plaintext highlighter-rouge">green_psi_exact</code> up to
+the elliptic-integral approximation); divide by $2\pi$ before combining
+with the per-radian equilibrium helpers.  Tracked in #354.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Uses the Hastings polynomials of <code class="language-plaintext highlighter-rouge">elliptic_integral</code>; returns 0 on
+the axis ($r_{obs} = 0$ or $r_{src} = 0$) and clips $k^2$ into $[0, 1]$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Wiley (1999), Sec. 5.5, Eq. (5.37).
+</li>
+</ol>
+
+<h3 id="greens_function_2d"><code class="language-plaintext highlighter-rouge">greens_function_2d</code></h3>
+
+<p class="formula-signature"><code>greens_function_2d(R, Z, R0, Z0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Axisymmetric kernel $\sqrt{RR_0}\,K(m)$ between a field point and a ring source.</p>
+
+\[G_{2D} = \sqrt{R R_0}\;K(m), \qquad
+  m = \frac{4RR_0}{(R + R_0)^2 + (Z - Z_0)^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the field points.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the field points.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius of the ring source.</p>
+</td></tr>
+  <tr><td><code>Z0</code></td><td>float</td><td>m</td><td><p>Height of the ring source.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m</td><td><p>Kernel value at each field point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>This is the leading term of the ring-current flux function, <em>not</em> the flux
+Green’s function itself: the poloidal flux per unit current is
+$\mu_0\sqrt{RR_0}\,[(2 - m)K(m) - 2E(m)]/\sqrt{m}$
+(<code class="language-plaintext highlighter-rouge">greens_function_exact</code>, <code class="language-plaintext highlighter-rouge">green_psi_exact</code>).  Use those for
+any physical field; this kernel is kept for the legacy integrals below.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Diverges logarithmically at the source point; no guard.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Wiley (1999), Sec. 5.5 (vector potential of a circular loop).
+</li>
+</ol>
+
+<h3 id="greens_function_3d"><code class="language-plaintext highlighter-rouge">greens_function_3d</code></h3>
+
+<p class="formula-signature"><code>greens_function_3d(R, Z, phi, R0, Z0, phi0)</code></p>
+
+<p>Toroidal-angle-resolved variant of the $\sqrt{RR_0}\,K(m)$ kernel.</p>
+
+\[G_{3D} = \sqrt{R R_0}\;K(m), \qquad
+  m = \frac{4RR_0}{(R + R_0)^2 + (Z - Z_0)^2 + 4RR_0\sin^2\!\big(\tfrac{\varphi - \varphi_0}{2}\big)}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the field points.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the field points.</p>
+</td></tr>
+  <tr><td><code>phi</code></td><td>np.ndarray</td><td>rad</td><td><p>Toroidal angle of the field points.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius of the source.</p>
+</td></tr>
+  <tr><td><code>Z0</code></td><td>float</td><td>m</td><td><p>Height of the source.</p>
+</td></tr>
+  <tr><td><code>phi0</code></td><td>float</td><td>rad</td><td><p>Toroidal angle of the source.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m</td><td><p>Kernel value at each field point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The $\sin^2$ term augments the denominator with the 3-D chord between the
+two toroidal angles, but the resulting expression is a heuristic
+generalisation of <code class="language-plaintext highlighter-rouge">greens_function_2d</code> without a recorded derivation
+or source; it is not the Biot-Savart kernel of a point source.  Tracked in
+#356.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Wiley (1999), Sec. 5.5.
+</li>
+</ol>
+
+<h3 id="greens_function_exact"><code class="language-plaintext highlighter-rouge">greens_function_exact</code></h3>
+
+<p class="formula-signature"><code>greens_function_exact(r, z, r0, z0, mode='psi')</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Exact free-space axisymmetric Green’s function and its derivatives.</p>
+
+\[G(r, z; r_0, z_0) = \frac{\sqrt{rr_0}}{k}\left[(2 - k^2)K(k^2) - 2E(k^2)\right], \qquad
+  k^2 = m = \frac{4rr_0}{(r + r_0)^2 + (z - z_0)^2}\]
+
+<p>so that $\psi = \mu_0 I\,G$ is the poloidal flux of a ring current $I$;
+<code class="language-plaintext highlighter-rouge">mode</code> selects $G$, $\partial G/\partial r$, $\partial G/\partial z$,
+$\partial^2G/\partial r\partial z$, $\partial^2G/\partial r^2$, or the raw
+$K$ and $E$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r</code></td><td>array-like</td><td>m</td><td><p>Observation major radius.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td>array-like</td><td>m</td><td><p>Observation height.</p>
+</td></tr>
+  <tr><td><code>r0</code></td><td>array-like</td><td>m</td><td><p>Source major radius.</p>
+</td></tr>
+  <tr><td><code>z0</code></td><td>array-like</td><td>m</td><td><p>Source height.</p>
+</td></tr>
+  <tr><td><code>mode</code></td><td>str, optional</td><td>str</td><td><p>One of <code class="language-plaintext highlighter-rouge">GREEN_EXACT_MODES</code>; default <code class="language-plaintext highlighter-rouge">"psi"</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Requested quantity, broadcast over all four coordinates. $G$ is in m, its derivatives in m per m, $K$ and $E$ dimensionless.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Unknown <code class="language-plaintext highlighter-rouge">mode</code> or coordinates giving $m$ outside $[0, 1]$.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Full weber: $\psi = \mu_0 G$ per ampere (same as <code class="language-plaintext highlighter-rouge">green_r</code>), and
+$B_z = +\mu_0/(2\pi r)\,\partial G/\partial r$, $B_r = -\mu_0/(2\pi r)\,
+\partial G/\partial z$.  The equilibrium helpers assume flux per radian by
+default, so divide by $2\pi$ (or pass <code class="language-plaintext highlighter-rouge">cocos</code>) before feeding this flux to
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.vertical_magnetic_field_from_psi</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Points with $rr_0 = 0$ return their analytic limits (0 for every mode except
+<code class="language-plaintext highlighter-rouge">d2psi_dr2</code>, whose on-axis limit is $\pi r_0^2/(r_0^2 + (z - z_0)^2)^{3/2}$).
+The elliptic parameter is clamped just below 1, so a coincident observer and
+source return finite numbers, but those are artifacts of the clamp, not
+physical limits (the ideal-filament self term diverges): handle genuinely
+coincident pairs yourself, e.g. with <code class="language-plaintext highlighter-rouge">self_inductance</code> or a
+shifted-evaluation scheme such as <code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">scipy.special.ellipk</code>/<code class="language-plaintext highlighter-rouge">ellipe</code> on the parameter $m$; every $1/k$,
+$1/m$ and $1/r$ is guarded and overwritten on axis.  The <code class="language-plaintext highlighter-rouge">d2psi_dr2</code>
+branch corrects a sign error in the legacy VFIT <code class="language-plaintext highlighter-rouge">getGreenFunction.m</code>
+case 7 ($-2(r + r_0)A$, from $d(1/D)/dr = -D’/D^2$) and is validated
+against finite differences of <code class="language-plaintext highlighter-rouge">dpsi_dr</code>.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Wiley (1999), Sec. 5.5, Eq. (5.37).
+</li>
+  <li>Legacy VFIT <code class="language-plaintext highlighter-rouge">getGreenFunction.m</code> (modes 1-7), the reference algorithm.
+</li>
+</ol>
+
+<h3 id="greens_integral_2d"><code class="language-plaintext highlighter-rouge">greens_integral_2d</code></h3>
+
+<p class="formula-signature"><code>greens_integral_2d(R, Z, R0, Z0, f)</code></p>
+
+<p>Line integral along $R$ of the 2-D kernel times a source density.</p>
+
+\[I = \int G_{2D}(R, Z; R_0, Z_0)\,f(R)\,dR\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the samples, monotonic.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the samples.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius of the source.</p>
+</td></tr>
+  <tr><td><code>Z0</code></td><td>float</td><td>m</td><td><p>Height of the source.</p>
+</td></tr>
+  <tr><td><code>f</code></td><td>np.ndarray</td><td>any</td><td><p>Source density at the samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Integral in units of <code class="language-plaintext highlighter-rouge">f</code> times m^2.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Integrates along the single supplied <code class="language-plaintext highlighter-rouge">R</code> array (a line, not an area) with
+the kernel of <code class="language-plaintext highlighter-rouge">greens_function_2d</code>; not a flux or field.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Trapezoidal rule.</p>
+
+<h3 id="greens_integral_3d"><code class="language-plaintext highlighter-rouge">greens_integral_3d</code></h3>
+
+<p class="formula-signature"><code>greens_integral_3d(R, Z, phi, R0, Z0, phi0, f)</code></p>
+
+<p>Line integral along $R$ of the 3-D kernel times a source density.</p>
+
+\[I = \int G_{3D}(R, Z, \varphi; R_0, Z_0, \varphi_0)\,f(R)\,dR\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the samples, monotonic.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the samples.</p>
+</td></tr>
+  <tr><td><code>phi</code></td><td>np.ndarray</td><td>rad</td><td><p>Toroidal angle of the samples.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius of the source.</p>
+</td></tr>
+  <tr><td><code>Z0</code></td><td>float</td><td>m</td><td><p>Height of the source.</p>
+</td></tr>
+  <tr><td><code>phi0</code></td><td>float</td><td>rad</td><td><p>Toroidal angle of the source.</p>
+</td></tr>
+  <tr><td><code>f</code></td><td>np.ndarray</td><td>any</td><td><p>Source density at the samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Integral in units of <code class="language-plaintext highlighter-rouge">f</code> times m^2.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Same caveats as <code class="language-plaintext highlighter-rouge">greens_integral_2d</code> and <code class="language-plaintext highlighter-rouge">greens_function_3d</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Trapezoidal rule along <code class="language-plaintext highlighter-rouge">R</code> only.</p>
+
+<h3 id="mutual_inductance"><code class="language-plaintext highlighter-rouge">mutual_inductance</code></h3>
+
+<p class="formula-signature"><code>mutual_inductance(r1, z1, dr1, dz1, r2, z2, dr2, dz2, *, tilt1=0.0, tilt2=0.0, turns1=1.0, turns2=1.0, mu_r=1.0, n_div=5)</code></p>
+
+<p>Mutual inductance between two rectangular-cross-section ring coils.</p>
+
+\[M = N_1N_2\,\mu_r\mu_0\,\big\langle G(r_i, z_i; r_j, z_j)\big\rangle_{i \in 1,\ j \in 2}\]
+
+<p>the Neumann formula evaluated as the mean flux linkage between midpoint
+filaments laid over each cross-section.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r1</code></td><td>float</td><td>m</td><td><p>Centre radius of coil 1.</p>
+</td></tr>
+  <tr><td><code>z1</code></td><td>float</td><td>m</td><td><p>Centre height of coil 1.</p>
+</td></tr>
+  <tr><td><code>dr1</code></td><td>float</td><td>m</td><td><p>Radial width of coil 1; 0 degenerates to a filament.</p>
+</td></tr>
+  <tr><td><code>dz1</code></td><td>float</td><td>m</td><td><p>Height of coil 1; 0 degenerates to a filament.</p>
+</td></tr>
+  <tr><td><code>r2</code></td><td>float</td><td>m</td><td><p>Centre radius of coil 2.</p>
+</td></tr>
+  <tr><td><code>z2</code></td><td>float</td><td>m</td><td><p>Centre height of coil 2.</p>
+</td></tr>
+  <tr><td><code>dr2</code></td><td>float</td><td>m</td><td><p>Radial width of coil 2.</p>
+</td></tr>
+  <tr><td><code>dz2</code></td><td>float</td><td>m</td><td><p>Height of coil 2.</p>
+</td></tr>
+  <tr><td><code>tilt1</code></td><td>float, optional</td><td>rad</td><td><p>Tilt of cross-section 1 about its centre; default 0.</p>
+</td></tr>
+  <tr><td><code>tilt2</code></td><td>float, optional</td><td>rad</td><td><p>Tilt of cross-section 2; default 0.</p>
+</td></tr>
+  <tr><td><code>turns1</code></td><td>float, optional</td><td>-</td><td><p>Turns of coil 1; default 1.</p>
+</td></tr>
+  <tr><td><code>turns2</code></td><td>float, optional</td><td>-</td><td><p>Turns of coil 2; default 1.</p>
+</td></tr>
+  <tr><td><code>mu_r</code></td><td>float, optional</td><td>-</td><td><p>Relative permeability of the medium, e.g. 1.04 for SUS304; default 1.</p>
+</td></tr>
+  <tr><td><code>n_div</code></td><td>int, optional</td><td>-</td><td><p>Subdivision refinement; default 5. The cell size is half the pair’s characteristic scale over <code class="language-plaintext highlighter-rouge">n_div</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>H</td><td><p>Mutual inductance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Axisymmetric coils with uniform current density over the cross-section;
+the toroidal curvature correction $r \to r\,(1 + (\cos\theta\,\Delta r/r)^2/24)$
+is applied to each cell.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Midpoint rule over both cross-sections (reference: legacy VFIT
+<code class="language-plaintext highlighter-rouge">getMutualInductanceCoil.m</code>).  The cell size uses the $z$-<em>separation</em>
+$\sqrt{(r_1 + r_2)^2 + (z_1 - z_2)^2}$; the legacy code used $z_1 + z_2$,
+which is not invariant under a rigid vertical translation.  Legacy
+material codes are intentionally not reproduced: pass <code class="language-plaintext highlighter-rouge">mu_r</code> explicitly.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>W. R. Smythe, <em>Static and Dynamic Electricity</em>, 3rd ed., McGraw-Hill (1968), Sec. 8.06 (mutual inductance of coaxial circles).
+</li>
+  <li>Legacy VFIT <code class="language-plaintext highlighter-rouge">getMutualInductanceCoil.m</code>.
+</li>
+</ol>
+
+<h3 id="self_inductance"><code class="language-plaintext highlighter-rouge">self_inductance</code></h3>
+
+<p class="formula-signature"><code>self_inductance(r, dr, dz, *, tilt=0.0, turns=1.0, mu_r=1.0, n_div=5)</code></p>
+
+<p>Self-inductance of a rectangular-cross-section ring coil.</p>
+
+\[L = \frac{N^2}{n^2}\left[\sum_{i \ne j}\mu_r\mu_0\,G(r_i, z_i; r_j, z_j)
+  + \sum_i \mu_r\mu_0\,r_i\left(\ln\frac{8r_i}{s} - \frac{7}{4}\right)\right],
+  \qquad s = \sqrt{\Delta r\,\Delta z/\pi}\]
+
+<p>midpoint subdivision into $n$ cells with the analytic self-term of a
+circular filament of equivalent radius $s$ on the diagonal.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r</code></td><td>float</td><td>m</td><td><p>Centre radius, positive.</p>
+</td></tr>
+  <tr><td><code>dr</code></td><td>float</td><td>m</td><td><p>Radial width, positive.</p>
+</td></tr>
+  <tr><td><code>dz</code></td><td>float</td><td>m</td><td><p>Height, positive.</p>
+</td></tr>
+  <tr><td><code>tilt</code></td><td>float, optional</td><td>rad</td><td><p>Tilt of the cross-section; default 0.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>float, optional</td><td>-</td><td><p>Number of turns; default 1.</p>
+</td></tr>
+  <tr><td><code>mu_r</code></td><td>float, optional</td><td>-</td><td><p>Relative permeability; default 1.</p>
+</td></tr>
+  <tr><td><code>n_div</code></td><td>int, optional</td><td>-</td><td><p>Cells per centre radius; default 5.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>H</td><td><p>Self-inductance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-positive <code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">dr</code> or <code class="language-plaintext highlighter-rouge">dz</code>.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Uniform current density; the self-cell term is the low-frequency
+inductance of a thin ring of wire radius $s$ (internal inductance
+included, hence $7/4$ rather than 2).</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Reference: legacy VFIT <code class="language-plaintext highlighter-rouge">getSelfInductanceCoil.m</code>; <code class="language-plaintext highlighter-rouge">nz</code> is forced even.
+Convergence in <code class="language-plaintext highlighter-rouge">n_div</code> is first order because of the self-cell
+approximation.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>W. R. Smythe, <em>Static and Dynamic Electricity</em>, 3rd ed., McGraw-Hill (1968), Sec. 8.10 (self-inductance of a circular ring).
+</li>
+  <li>Legacy VFIT <code class="language-plaintext highlighter-rouge">getSelfInductanceCoil.m</code>.
+</li>
+</ol>
+
+<h3 id="trapz_integral"><code class="language-plaintext highlighter-rouge">trapz_integral</code></h3>
+
+<p class="formula-signature"><code>trapz_integral(x, y)</code></p>
+
+<p>Trapezoidal integral $\int y\,dx$, local copy for the Green kernels.</p>
+
+\[\int y\,dx \approx \sum_i \frac{y_i + y_{i+1}}{2}\,(x_{i+1} - x_i)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>np.ndarray</td><td>any</td><td><p>Sample abscissae, monotonic.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>np.ndarray</td><td>any</td><td><p>Integrand at the samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Integral over the sampled range, in units of <code class="language-plaintext highlighter-rouge">y</code> times <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Identical to <code class="language-plaintext highlighter-rouge">vaft.formula.utils.trapz_integral</code> (<code class="language-plaintext highlighter-rouge">numpy.trapezoid</code>
+via <code class="language-plaintext highlighter-rouge">vaft.compat.trapz_compat</code>) but defined here so the Green’s
+function module does not import the sklearn-heavy utilities; this copy is
+the one <code class="language-plaintext highlighter-rouge">vaft.formula.trapz_integral</code> resolves to.</p>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/stability/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: stability">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/atomic/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: atomic">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calculate_distance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_distance</a></li><li class="page-toc-item page-toc-level-3"><a href="#complete_elliptic_integral_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">complete_elliptic_integral_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#complete_elliptic_integral_k" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">complete_elliptic_integral_k</a></li><li class="page-toc-item page-toc-level-3"><a href="#elliptic_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">elliptic_integral</a></li><li class="page-toc-item page-toc-level-3"><a href="#green_br_bz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">green_br_bz</a></li><li class="page-toc-item page-toc-level-3"><a href="#green_br_bz_exact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">green_br_bz_exact</a></li><li class="page-toc-item page-toc-level-3"><a href="#green_psi_exact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">green_psi_exact</a></li><li class="page-toc-item page-toc-level-3"><a href="#green_r" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">green_r</a></li><li class="page-toc-item page-toc-level-3"><a href="#greens_function_2d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greens_function_2d</a></li><li class="page-toc-item page-toc-level-3"><a href="#greens_function_3d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greens_function_3d</a></li><li class="page-toc-item page-toc-level-3"><a href="#greens_function_exact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greens_function_exact</a></li><li class="page-toc-item page-toc-level-3"><a href="#greens_integral_2d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greens_integral_2d</a></li><li class="page-toc-item page-toc-level-3"><a href="#greens_integral_3d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greens_integral_3d</a></li><li class="page-toc-item page-toc-level-3"><a href="#mutual_inductance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">mutual_inductance</a></li><li class="page-toc-item page-toc-level-3"><a href="#self_inductance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">self_inductance</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapz_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapz_integral</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: atomic",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_atomic.md",
+            "ref": "_guide/Formula_reference_atomic.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_green.md",
+        "mtime": "2026-09-02 10:13:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

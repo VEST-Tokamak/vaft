@@ -1,0 +1,738 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/green/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/statistics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: atomic</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_atomic">Formula reference: atomic</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.atomic, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
+3 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The equilibrium construction follows MIT-licensed work, Copyright (c) 2021
+Francesco Sciortino. See the third-party notices in the project README.</p>
+
+<p>This module is the numerical layer of VAFT’s atomic package.  It accepts SI
+electron densities, evaluates native ADF11 tables in log10 space, and returns
+charge-state fractions or cooling coefficients without depending on OMAS.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#fractional_abundances"><code>fractional_abundances</code></a> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+</li>
+  <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
+</li>
+  <li><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
+</li>
+</ul>
+
+<h3 id="fractional_abundances"><code class="language-plaintext highlighter-rouge">fractional_abundances</code></h3>
+
+<p class="formula-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.</p>
+
+\[\frac{f_{z+1}}{f_z} = \frac{S_z(n_e, T_e)}{\alpha_{z+1}(n_e, T_e)}, \qquad
+  \tilde f_0 = 1, \quad \tilde f_z = \prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}}, \quad
+  f_z = \frac{\tilde f_z}{\sum_k\tilde f_k}\]
+
+<p>with $S_z$ the SCD effective ionisation and $\alpha_{z+1}$ the ACD effective
+recombination coefficients.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+</td></tr>
+  <tr><td><code>acd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective recombination table.</p>
+</td></tr>
+  <tr><td><code>scd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective ionisation table.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Fractional abundances, summing to one over the last axis. That axis has <code class="language-plaintext highlighter-rouge">n_rate_blocks + 1</code> charge states, neutral to fully stripped.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Mismatched charge-state counts, wrong table class, or non-finite rates.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Effective (collisional-radiative, density-dependent) coefficients in the
+ADAS sense, evaluated in cm^-3 internally; the density cancels in the
+ratio, so the result is dimensionless.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Steady state, no transport: the local balance of ionisation and
+recombination alone sets the charge-state distribution.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Transport in a real edge or start-up plasma shifts the distribution toward
+lower charge states than coronal equilibrium predicts (the effect Aurora
+models with an impurity transport solve).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), Sec. on ADF11 (ionisation balance).
+</li>
+  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001, Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
+</li>
+</ol>
+
+<h3 id="interpolate_adf11"><code class="language-plaintext highlighter-rouge">interpolate_adf11</code></h3>
+
+<p class="formula-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.</p>
+
+\[C_z(n_e, T_e) = 10^{\,\mathcal{I}_2[\log_{10}C_z]}\]
+
+<p>where $\mathcal{I}<em>2$ is bilinear interpolation on the table’s rectangular
+grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>table</code></td><td>ADF11Data</td><td>n/a</td><td><p>Parsed ADF11 table (<code class="language-plaintext highlighter-rouge">acd</code>, <code class="language-plaintext highlighter-rouge">scd</code>, <code class="language-plaintext highlighter-rouge">plt</code>, …).</p>
+</td></tr>
+  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+</td></tr>
+  <tr><td><code>multiply_density</code></td><td>bool, optional</td><td>bool</td><td><p>Multiply by $n_e$ in cm^-3 to turn coefficients into rates; default <code class="language-plaintext highlighter-rouge">False</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Coefficients in the table’s own unit, or rates with <code class="language-plaintext highlighter-rouge">multiply_density</code>. Shape <code class="language-plaintext highlighter-rouge">broadcast(ne_m3, te_eV).shape + (n_blocks,)</code>; cm^3/s for ACD/SCD and W cm^3 for PLT, s^-1 when multiplied by density.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Empty, non-finite or non-positive profiles.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>ADF11 stores densities in cm^-3 and rate coefficients in cm^3 s^-1; the SI
+input is converted to cm^-3 internally and the output is <em>not</em> converted
+back, so callers multiply by $10^{-6}$ for m^3 s^-1 (as
+<code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> does for W m^3).</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Inside the tabulated grid (typically $10^{8}$-$10^{15}$ cm^-3 and
+1 eV-10 keV for iso-nuclear ADF11 files).</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Linear extrapolation in log space is retained outside the grid to match the
+established ADF11 calculation path; extrapolated coefficients are not
+physical and are not flagged.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">scipy.interpolate.RegularGridInterpolator</code> with <code class="language-plaintext highlighter-rouge">bounds_error=False</code>,
+<code class="language-plaintext highlighter-rouge">fill_value=None</code>, one interpolator per charge-state block.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), https://www.adas.ac.uk/manual.php, ADF11 format.
+</li>
+  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001 (Aurora; the calculation path this follows).
+</li>
+</ol>
+
+<h3 id="line_cooling_coefficient"><code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code></h3>
+
+<p class="formula-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.</p>
+
+\[L_{\mathrm{line}}(n_e, T_e) = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e, T_e)\,
+  P^{\mathrm{PLT}}_q(n_e, T_e)\]
+
+<p>the PLT coefficients weighted by the coronal abundances of
+<code class="language-plaintext highlighter-rouge">fractional_abundances</code>; the fully stripped state has no line
+radiation and is omitted.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>species</code></td><td>str</td><td>str</td><td><p>Atomic symbol with configured default ADF11 files, e.g. <code class="language-plaintext highlighter-rouge">"C"</code>.</p>
+</td></tr>
+  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+</td></tr>
+  <tr><td><code>acd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Recombination table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
+</td></tr>
+  <tr><td><code>scd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Ionisation table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
+</td></tr>
+  <tr><td><code>plt</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Line-power table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
+</td></tr>
+  <tr><td><code>cache_dir</code></td><td>str or path-like or None, optional</td><td>n/a</td><td><p>OPEN-ADAS cache directory; downloads on a miss.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>W m^3</td><td><p>Cooling coefficient with the broadcast input shape. Multiply by $n_e n_Z$ for a power density.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>KeyError
+    Unconfigured species.
+ADASDataError
+    Lookup, download or parsing failure.
+ValueError
+    Invalid inputs or mismatched charge-state dimensions.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>ADF11 PLT is stored in W cm^3; the factor $10^{-6}$ converts to W m^3.
+Coronal equilibrium, no transport, no recombination/bremsstrahlung
+continuum (that is the separate PRB class).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11 PLT class.
+</li>
+  <li>D. E. Post et al., At. Data Nucl. Data Tables 20 (1977) 397 (coronal cooling curves).
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/green/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: green">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/statistics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: statistics">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: statistics",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_statistics.md",
+            "ref": "_guide/Formula_reference_statistics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_atomic.md",
+        "mtime": "2026-09-02 10:14:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

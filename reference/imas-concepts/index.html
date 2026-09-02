@@ -1,0 +1,1397 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Fusion data structure and IMAS concepts · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/database-data-sources/" />
+        
+
+        
+            <link rel="next" href="/vaft/workflows/data-access-imas/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Fusion data structure and IMAS concepts</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Data_structures">Fusion data structure and IMAS concepts</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Conceptual contract shared by database, mapping, processing, and plotting code.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Familiarity with Python containers; no database access is required for samples.</dd>
+    <dt>Expected result</dt><dd>Correct IDS-path navigation, time-base handling, and local OMAS/IMAS conversion choices.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>VAFT stores <strong>every</strong> VEST shot — raw diagnostics, processed signals, equilibria, kinetic profiles — in the
+<a href="https://imas.iter.org/">IMAS</a> data model. There is no VEST-specific container format: if you know the IMAS
+Data Dictionary, you already know how to read VEST data.</p>
+
+<p>Two libraries are involved, and it is worth keeping them straight.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><strong>IMAS</strong></th>
+      <th><strong>OMAS</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>What it is</td>
+      <td>ITER’s Integrated Modelling &amp; Analysis Suite: the <strong>Data Dictionary</strong> (which defines the IDSs) plus the <strong>Access Layer</strong> (which reads and writes them)</td>
+      <td>A Python library that keeps data <em>always compliant</em> with the IMAS data model without requiring an IMAS installation</td>
+    </tr>
+    <tr>
+      <td>In-memory object</td>
+      <td><code class="language-plaintext highlighter-rouge">IDSToplevel</code> — one IDS (e.g. <code class="language-plaintext highlighter-rouge">equilibrium</code>), minted by an <code class="language-plaintext highlighter-rouge">IDSFactory</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ODS</code> — a dict-like tree keyed by paths; one ODS holds <strong>many</strong> IDSs</td>
+    </tr>
+    <tr>
+      <td>On-disk handle</td>
+      <td><code class="language-plaintext highlighter-rouge">imas.DBEntry(uri, mode)</code></td>
+      <td>backend-agnostic (<code class="language-plaintext highlighter-rouge">json</code>, <code class="language-plaintext highlighter-rouge">nc</code>, <code class="language-plaintext highlighter-rouge">imas</code>, …)</td>
+    </tr>
+    <tr>
+      <td>Used in VAFT for</td>
+      <td>the storage format on the HSDS server (HDF5 images), and native-IDS workflows</td>
+      <td>the working object that every <code class="language-plaintext highlighter-rouge">vaft.process</code>, <code class="language-plaintext highlighter-rouge">vaft.formula</code> and <code class="language-plaintext highlighter-rouge">vaft.plot</code> function consumes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In practice: <strong>you work with an ODS, and IMAS is the format it is persisted in.</strong> <code class="language-plaintext highlighter-rouge">vaft.imas</code> is the bridge
+between the two.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    RAW[VEST raw DAQ / SQL] --&gt;|vaft.machine_mapping| ODS
+    ODS[omas.ODS in memory] --&gt;|vaft.imas.save_omas_imas| H5[IMAS HDF5 images: master.h5 + equilibrium.h5 + ...]
+    H5 --&gt;|vaft.imas.load_omas_imas| ODS
+    H5 --&gt;|imas.DBEntry.get| IDS[IDSToplevel: native IMAS-Python]
+    H5 --&gt;|hsload / hsget| HSDS[(VEST HSDS server)]
+    ODS --&gt;|save_omas_json / save_omas_nc| FILES[.json / .nc]
+</code></pre>
+
+<p>Anchor notebooks for this page:</p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/read_and_convert_data_structure.ipynb"><code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code></a> — walking an ODS tree.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/imas_omas_data_conversion.ipynb"><code class="language-plaintext highlighter-rouge">imas_omas_data_conversion.ipynb</code></a> — ODS ↔ IMAS AL5 round-trips.</li>
+</ul>
+
+<hr />
+
+<h1 id="idss-available-in-the-vest-database">IDSs available in the VEST database</h1>
+
+<p>A VEST shot is a <em>set</em> of IDSs. Which ones exist depends on whether the quantity was measured or computed.</p>
+
+<p><strong>Experimental</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">dataset_description</code> · <code class="language-plaintext highlighter-rouge">magnetics</code> · <code class="language-plaintext highlighter-rouge">tf</code> · <code class="language-plaintext highlighter-rouge">pf_active</code> · <code class="language-plaintext highlighter-rouge">barometry</code> · <code class="language-plaintext highlighter-rouge">spectrometer_uv</code> ·
+<code class="language-plaintext highlighter-rouge">thomson_scattering</code> · <code class="language-plaintext highlighter-rouge">charge_exchange</code></p>
+
+<p><strong>Modelling</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">wall</code> · <code class="language-plaintext highlighter-rouge">em_coupling</code> · <code class="language-plaintext highlighter-rouge">pf_passive</code> · <code class="language-plaintext highlighter-rouge">equilibrium</code> (EFIT/CHEASE) · <code class="language-plaintext highlighter-rouge">core_profiles</code> ·
+<code class="language-plaintext highlighter-rouge">mhd_linear</code> (DCON/RDCON)</p>
+
+<p>Not every shot carries every IDS. Check before you index:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">.</span><span class="nf">keys</span><span class="p">()))</span>
+<span class="c1"># ['coils_non_axisymmetric', 'dataset_description', 'em_coupling', 'equilibrium',
+#  'magnetics', 'pf_active', 'pf_passive', 'spectrometer_uv', 'tf', 'wall']
+</span>
+<span class="k">if</span> <span class="sh">'</span><span class="s">thomson_scattering</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">ods</span><span class="p">:</span>
+    <span class="n">n_e</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">thomson_scattering.channel.0.n_e.data</span><span class="sh">'</span><span class="p">]</span>
+</code></pre></div></div>
+
+<hr />
+
+<h1 id="navigating-imas-paths-in-an-ods">Navigating IMAS paths in an ODS</h1>
+
+<p>An ODS is addressed by <strong>path strings</strong> — the IMAS DD path, with array indices written as plain integers.
+These three forms are equivalent:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">]</span>          <span class="c1"># flat path string (idiomatic)
+</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">ip</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">]</span>   <span class="c1"># step by step
+</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">]</span>      <span class="c1"># mixed
+</span></code></pre></div></div>
+
+<p>The essential moves, all taken from
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/read_and_convert_data_structure.ipynb"><code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code></a>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>           <span class="c1"># packaged shot 39915 — no server needed
+</span>
+<span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>                       <span class="c1"># which IDSs are present
+</span><span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium</span><span class="sh">'</span><span class="p">].</span><span class="nf">keys</span><span class="p">())</span>        <span class="c1"># what is inside one IDS
+</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time</span><span class="sh">'</span><span class="p">]</span>                <span class="c1"># the IDS time base (ndarray)
+</span><span class="nf">len</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time_slice</span><span class="sh">'</span><span class="p">])</span>     <span class="c1"># number of reconstructed slices
+</span><span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time_slice.0</span><span class="sh">'</span><span class="p">].</span><span class="nf">keys</span><span class="p">())</span>
+<span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time_slice.0.profiles_1d.volume</span><span class="sh">'</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>     <span class="c1"># plasma volume at the boundary
+</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time_slice.0.global_quantities.ip</span><span class="sh">'</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">ODS.paths()</code> returns every filled leaf as a list of path components. It is the workhorse for programmatic
+traversal, and it is what <code class="language-plaintext highlighter-rouge">vaft.omas.shift_time</code> and <code class="language-plaintext highlighter-rouge">vaft.imas.save_omas_imas</code> iterate over internally:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">ods</span><span class="p">.</span><span class="nf">paths</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span> <span class="ow">and</span> <span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">.</span><span class="sh">'</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">path</span><span class="p">))</span>
+<span class="c1"># magnetics.flux_loop.0.flux.data
+# magnetics.b_field_pol_probe.0.field.data
+# magnetics.ip.0.data
+# ...
+</span></code></pre></div></div>
+
+<p>To dump the whole tree, use the recursive helper from the notebook:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">print_hierarchy</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="sh">""</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="n">d</span><span class="p">.</span><span class="nf">keys</span><span class="p">()</span>
+    <span class="k">except</span> <span class="nb">AttributeError</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+        <span class="n">new_prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s">.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="sh">"</span> <span class="k">if</span> <span class="n">prefix</span> <span class="k">else</span> <span class="n">k</span>
+        <span class="nf">print</span><span class="p">(</span><span class="n">new_prefix</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nf">print_hierarchy</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">new_prefix</span><span class="p">)</span>
+        <span class="k">except</span> <span class="nb">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<span class="nf">print_hierarchy</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="time-bases">Time bases</h2>
+
+<p>Each IDS carries its own time base. <code class="language-plaintext highlighter-rouge">ODS.time(&lt;ids&gt;)</code> resolves it for you, which matters because different
+diagnostics are digitised at different rates:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_mag</span>  <span class="o">=</span> <span class="n">ods</span><span class="p">.</span><span class="nf">time</span><span class="p">(</span><span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">)</span>        <span class="c1"># DAQ base of the magnetics IDS
+</span><span class="n">t_spec</span> <span class="o">=</span> <span class="n">ods</span><span class="p">.</span><span class="nf">time</span><span class="p">(</span><span class="sh">'</span><span class="s">spectrometer_uv</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">ip</span>     <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">]</span>   <span class="c1"># same length as t_mag
+</span></code></pre></div></div>
+
+<p>Never assume two IDSs share a grid. Interpolate, or use
+<code class="language-plaintext highlighter-rouge">vaft.omas.find_matching_time_indices(ods, time_slice=...)</code>, which returns <code class="language-plaintext highlighter-rouge">(cp_idx, equil_idx, time)</code> after
+verifying that the selected <code class="language-plaintext highlighter-rouge">core_profiles</code> slice and the matched <code class="language-plaintext highlighter-rouge">equilibrium</code> slice refer to the same
+instant. It raises <code class="language-plaintext highlighter-rouge">ValueError</code> when the closest equilibrium time is farther away than <code class="language-plaintext highlighter-rouge">atol</code> (default
+1 µs) — a deliberate refusal to silently pair kinetic profiles with the wrong equilibrium.</p>
+
+<hr />
+
+<h1 id="shot-metadata-dataset_description">Shot metadata (<code class="language-plaintext highlighter-rouge">dataset_description</code>)</h1>
+
+<p>Provenance lives in the <code class="language-plaintext highlighter-rouge">dataset_description</code> IDS.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Path</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.data_entry.machine</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"VEST"</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.data_entry.pulse</code></td>
+      <td>the shot number</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.data_entry.run</code></td>
+      <td>run / revision index (<code class="language-plaintext highlighter-rouge">0</code> for the primary entry)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.data_entry.user</code></td>
+      <td>owner; <code class="language-plaintext highlighter-rouge">vaft.database.load_ods</code> sets this to the HSDS folder (<code class="language-plaintext highlighter-rouge">"public"</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.data_entry.pulse_type</code></td>
+      <td>e.g. <code class="language-plaintext highlighter-rouge">"pulse"</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.imas_version</code></td>
+      <td>DD version the ODS was written against</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_shotnumber</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>            <span class="c1"># -&gt; 39915  (reads data_entry.pulse)
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">print_info</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                 <span class="c1"># metadata header, then one line per IDS with its sub-keys
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">print_info</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">)</span>    <span class="c1"># channel counts inside one IDS
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.classify_shot(ods)</code> is <em>intended</em> to label a shot <code class="language-plaintext highlighter-rouge">'Plasma'</code>, <code class="language-plaintext highlighter-rouge">'BD failure'</code> or <code class="language-plaintext highlighter-rouge">'Vacuum'</code> from the
+barometry, H-alpha and Ip signals.</p>
+
+<blockquote>
+  <p><strong>Do not rely on it as it stands.</strong> On <code class="language-plaintext highlighter-rouge">main</code> it calls <code class="language-plaintext highlighter-rouge">vaft.process.is_signal_active(data, threshold=...)</code>,
+but that function’s signature is <code class="language-plaintext highlighter-rouge">is_signal_active(data, var_ratio_thresh=1e-2, change_ratio_thresh=1e-2,
+verbose=False)</code> — there is no <code class="language-plaintext highlighter-rouge">threshold</code> argument. The resulting <code class="language-plaintext highlighter-rouge">TypeError</code> is swallowed by a bare
+<code class="language-plaintext highlighter-rouge">except</code>, so the call prints
+<code class="language-plaintext highlighter-rouge">Error in find_shotclass: is_signal_active() got an unexpected keyword argument 'threshold'</code>
+and returns <code class="language-plaintext highlighter-rouge">'Vacuum'</code> for <strong>every</strong> shot. It also needs a <code class="language-plaintext highlighter-rouge">barometry</code> IDS, which the packaged sample
+(shot 39915) does not carry.</p>
+</blockquote>
+
+<p>The underlying primitive does work, and it is scale-invariant — it compares a variance ratio and a mean-|Δx|
+ratio against relative thresholds, so it needs no knowledge of the signal’s units:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+
+<span class="n">halpha</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">spectrometer_uv.channel.0.processed_line.0.intensity.data</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">is_signal_active</span><span class="p">(</span><span class="n">halpha</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>   <span class="c1"># -&gt; True  (H-alpha fired: breakdown occurred)
+# Variance ratio: 1.000e+00 (thresh=1.000e-02)
+# Mean |Δx| ratio: 1.976e-01 (thresh=1.000e-02)
+</span></code></pre></div></div>
+
+<p>Compose your own classifier on top of it, guarding each IDS before you index it:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="k">def</span> <span class="nf">classify</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">var_thresh</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="n">change_thresh</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">active</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">path</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s">.</span><span class="sh">'</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ods</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>                       <span class="c1"># IDS absent — undecidable
+</span>        <span class="k">return</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">is_signal_active</span><span class="p">(</span>
+            <span class="n">ods</span><span class="p">[</span><span class="n">path</span><span class="p">],</span> <span class="n">var_ratio_thresh</span><span class="o">=</span><span class="n">var_thresh</span><span class="p">,</span> <span class="n">change_ratio_thresh</span><span class="o">=</span><span class="n">change_thresh</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nf">active</span><span class="p">(</span><span class="sh">'</span><span class="s">barometry.gauge.0.pressure.data</span><span class="sh">'</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sh">'</span><span class="s">Vacuum</span><span class="sh">'</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">active</span><span class="p">(</span><span class="sh">'</span><span class="s">spectrometer_uv.channel.0.processed_line.0.intensity.data</span><span class="sh">'</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sh">'</span><span class="s">BD failure</span><span class="sh">'</span>
+    <span class="k">if</span> <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">ods</span> <span class="ow">and</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sh">'</span><span class="s">BD failure</span><span class="sh">'</span>
+    <span class="k">return</span> <span class="sh">'</span><span class="s">Plasma</span><span class="sh">'</span>
+
+<span class="nf">classify</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">())</span>     <span class="c1"># -&gt; 'Plasma'
+</span></code></pre></div></div>
+
+<p>When you build an ODS yourself (for example from the raw DAQ), populate the metadata with the canonical
+builder rather than by hand:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">vfit_dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                              <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse_type</span><span class="o">=</span><span class="sh">"</span><span class="s">pulse</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database.load_ods</code> back-fills <code class="language-plaintext highlighter-rouge">user</code>, <code class="language-plaintext highlighter-rouge">pulse</code> and <code class="language-plaintext highlighter-rouge">run</code> with <code class="language-plaintext highlighter-rouge">setdefault</code> after a download, so a shot
+loaded from HSDS always carries at least those three.</p>
+
+<hr />
+
+<h1 id="sample-ods--odc-data-works-offline">Sample ODS / ODC data (works offline)</h1>
+
+<p>VAFT ships real VEST shots inside the package, so the snippets on this page run without HSDS credentials —
+with the caveat that the packaged shots do not carry <em>every</em> IDS. Shot 39915 holds:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="sh">'</span><span class="s">coils_non_axisymmetric</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">dataset_description</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">em_coupling</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">equilibrium</span><span class="sh">'</span><span class="p">,</span>
+ <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">pf_active</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">pf_passive</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">spectrometer_uv</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">tf</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">wall</span><span class="sh">'</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>There is no <code class="language-plaintext highlighter-rouge">barometry</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering</code> or <code class="language-plaintext highlighter-rouge">core_profiles</code> in it, so anything keyed on those IDSs needs a
+shot pulled from the database.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>    <span class="c1"># ODS  — shot 39915
+</span><span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>    <span class="c1"># ODC  — shots 39915, 41524, 41672 under keys '0', '1', '2'
+</span><span class="n">gf</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_gfile</span><span class="p">()</span>  <span class="c1"># GEQDSK — packaged EFIT g-file for shot 39915
+</span></code></pre></div></div>
+
+<p>An <strong>ODC</strong> (OMAS Data Collection) is a dict of ODSs — the natural container for a multi-shot study:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">one_ods</span> <span class="ow">in</span> <span class="n">odc</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_shotnumber</span><span class="p">(</span><span class="n">one_ods</span><span class="p">),</span> <span class="nf">len</span><span class="p">(</span><span class="n">one_ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.time</span><span class="sh">'</span><span class="p">]))</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.odc_or_ods_check(x)</code> normalises either input to an ODC (a bare ODS is wrapped under key <code class="language-plaintext highlighter-rouge">'0'</code>).
+That is how the multi-shot helpers accept both types.</p>
+
+<p>Packaged files are reached through <code class="language-plaintext highlighter-rouge">vaft.data.resources.data_path()</code>. Paths are <strong>category-prefixed</strong>; flat
+calls such as <code class="language-plaintext highlighter-rouge">data_path("39915.json")</code> are intentionally unsupported.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Call</th>
+      <th>Content</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data_path("omas/39915.json")</code></td>
+      <td>ODS sample (also <code class="language-plaintext highlighter-rouge">omas/41524.json</code>, <code class="language-plaintext highlighter-rouge">omas/41672.json</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data_path("omas/thomson_scattering.json")</code></td>
+      <td>Thomson-scattering contract-test payload</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data_path("imas/vest_imas_3.40.1.nc")</code></td>
+      <td>IMAS NetCDF sample container</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data_path("efit/g039915.00319")</code></td>
+      <td>GEQDSK sample</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data_path("legacy/shot_44740.json.gz")</code></td>
+      <td>gzipped raw-DAQ dump used by the offline loader</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Loading a JSON ODS explicitly — this is what <code class="language-plaintext highlighter-rouge">sample_ods()</code> does under the hood:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">().</span><span class="nf">load</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">omas/39915.json</span><span class="sh">"</span><span class="p">)),</span> <span class="n">consistency_check</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">consistency_check=False</code> is deliberate: the packaged files predate the current DD and would otherwise be
+rejected on load.</p>
+
+<hr />
+
+<h1 id="ods--imas-python-al5">ODS ↔ IMAS-Python (AL5)</h1>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.imas</code> is a hardened fork of OMAS’s <code class="language-plaintext highlighter-rouge">omas_imas</code> module. It exists because stock OMAS targets the <strong>AL4</strong>
+stack, whereas the open-source IMAS distribution (IMAS-Python + <code class="language-plaintext highlighter-rouge">imas_core</code>) is <strong>AL5</strong>:</p>
+
+<ul>
+  <li>AL4 addressed a data entry by <code class="language-plaintext highlighter-rouge">user / machine / pulse / run</code> under a fixed backend root.
+AL5 addresses it by <strong>URI</strong> — <code class="language-plaintext highlighter-rouge">imas:hdf5?path=/any/directory</code> — with a mode (<code class="language-plaintext highlighter-rouge">'r'</code>, <code class="language-plaintext highlighter-rouge">'w'</code>, <code class="language-plaintext highlighter-rouge">'x'</code>, <code class="language-plaintext highlighter-rouge">'a'</code>).</li>
+  <li>AL4’s <code class="language-plaintext highlighter-rouge">DBEntry.create()</code> returned a tuple; AL5’s returns <code class="language-plaintext highlighter-rouge">None</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">imasdef</code> moved from the <code class="language-plaintext highlighter-rouge">imas</code> package into <code class="language-plaintext highlighter-rouge">imas_core</code>.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.imas</code> handles all three, and pins the DD version used for conversion:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">IMAS_DD_VERSION_CONVERSION</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">IMAS_DD_VERSION_CONVERSION</span><span class="p">)</span>   <span class="c1"># '3.41.0'
+</span></code></pre></div></div>
+
+<p>Override it with the <code class="language-plaintext highlighter-rouge">IMAS_DD_VERSION_CONVERSION</code> environment variable if you must, but 3.41.0 is the version
+OMAS is validated against and the version the VEST HSDS images are written with. Note that
+<code class="language-plaintext highlighter-rouge">dataset_description</code> was <strong>removed</strong> in newer DD releases — <code class="language-plaintext highlighter-rouge">vaft.imas.IMAS_REMOVED_IDS</code> records that — so
+round-trip checks use <code class="language-plaintext highlighter-rouge">equilibrium</code> (or <code class="language-plaintext highlighter-rouge">summary</code>), never <code class="language-plaintext highlighter-rouge">dataset_description</code>.</p>
+
+<h2 id="write-an-ods-to-an-al5-hdf5-entry">Write an ODS to an AL5 HDF5 entry</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">tempfile</span>
+<span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">save_omas_imas</span><span class="p">,</span> <span class="n">load_omas_imas</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
+<span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.ids_properties.homogeneous_time</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.ids_properties.comment</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="sh">'</span><span class="s">testing</span><span class="sh">'</span>
+<span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">]</span>
+
+<span class="n">entry_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">.</span><span class="nf">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sh">'</span><span class="s">imas_step1_</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">uri</span> <span class="o">=</span> <span class="sh">'</span><span class="s">imas:hdf5?path=</span><span class="sh">'</span> <span class="o">+</span> <span class="n">entry_dir</span>
+
+<span class="n">paths_written</span> <span class="o">=</span> <span class="nf">save_omas_imas</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span> <span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">Paths written:</span><span class="sh">'</span><span class="p">,</span> <span class="n">paths_written</span><span class="p">[:</span><span class="mi">5</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">save_omas_imas</code> returns the list of paths it actually wrote — each a list of components, e.g.
+<code class="language-plaintext highlighter-rouge">['equilibrium', 'time']</code>. Keep it; you need it on the way back.</p>
+
+<p>Key arguments:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">uri</code></td>
+      <td>AL5 URI. When set, <code class="language-plaintext highlighter-rouge">user</code> / <code class="language-plaintext highlighter-rouge">machine</code> / <code class="language-plaintext highlighter-rouge">pulse</code> / <code class="language-plaintext highlighter-rouge">run</code> / <code class="language-plaintext highlighter-rouge">backend</code> are <strong>not</strong> used to open the entry.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">new</code></td>
+      <td><code class="language-plaintext highlighter-rouge">True</code> → mode <code class="language-plaintext highlighter-rouge">'x'</code> (create, fail if it exists); <code class="language-plaintext highlighter-rouge">False</code> → mode <code class="language-plaintext highlighter-rouge">'a'</code> (append). Point <code class="language-plaintext highlighter-rouge">new=True</code> at a fresh directory, otherwise IMAS-Core complains that <code class="language-plaintext highlighter-rouge">master.h5</code> already exists.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">occurrence</code></td>
+      <td>dict giving the occurrence index per IDS.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas_version</code></td>
+      <td>DD version to save against. When <code class="language-plaintext highlighter-rouge">None</code>, it defaults to <strong>the ODS’s own</strong> <code class="language-plaintext highlighter-rouge">ods.imas_version</code> — <em>not</em> to <code class="language-plaintext highlighter-rouge">IMAS_DD_VERSION_CONVERSION</code>. The constant only steps in as a fallback: the value handed to <code class="language-plaintext highlighter-rouge">imas_open_uri</code> / <code class="language-plaintext highlighter-rouge">imas_open</code> is <code class="language-plaintext highlighter-rouge">imas_version or IMAS_DD_VERSION_CONVERSION</code>, so the pin applies solely when the ODS carries no version of its own. (<code class="language-plaintext highlighter-rouge">load_omas_imas</code> is the other way round — there <code class="language-plaintext highlighter-rouge">imas_version=None</code> <em>does</em> resolve to <code class="language-plaintext highlighter-rouge">IMAS_DD_VERSION_CONVERSION</code>.)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>If you need the write pinned to the conversion DD, pass it explicitly rather than relying on the default:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">save_omas_imas</span><span class="p">,</span> <span class="n">IMAS_DD_VERSION_CONVERSION</span>
+
+<span class="n">paths</span> <span class="o">=</span> <span class="nf">save_omas_imas</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span> <span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                       <span class="n">imas_version</span><span class="o">=</span><span class="n">IMAS_DD_VERSION_CONVERSION</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Without <code class="language-plaintext highlighter-rouge">uri</code>, the legacy coordinates still work, and they default to what the ODS already knows
+(<code class="language-plaintext highlighter-rouge">dataset_description.data_entry.user</code> / <code class="language-plaintext highlighter-rouge">.machine</code> / <code class="language-plaintext highlighter-rouge">.pulse</code> / <code class="language-plaintext highlighter-rouge">.run</code>):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">save_omas_imas</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="sh">'</span><span class="s">test_user</span><span class="sh">'</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">'</span><span class="s">VEST</span><span class="sh">'</span><span class="p">,</span> <span class="n">pulse</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+               <span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="sh">'</span><span class="s">HDF5</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="read-it-back">Read it back</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods_loaded</span> <span class="o">=</span> <span class="nf">load_omas_imas</span><span class="p">(</span><span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="n">paths_written</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">ods_loaded</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time</span><span class="sh">'</span><span class="p">])</span>     <span class="c1"># [0.01]
+</span></code></pre></div></div>
+
+<p>Passing <code class="language-plaintext highlighter-rouge">paths=</code> is not merely an optimisation. With <code class="language-plaintext highlighter-rouge">paths=None</code>, <code class="language-plaintext highlighter-rouge">load_omas_imas</code> asks the entry for <em>every</em>
+IDS in the DD, so IDSs that were never written (<code class="language-plaintext highlighter-rouge">amns_data</code>, …) get probed and skipped one at a time.
+Restricting to the paths you wrote keeps the load fast and the log readable.</p>
+
+<p><code class="language-plaintext highlighter-rouge">load_omas_imas</code> also accepts <code class="language-plaintext highlighter-rouge">time=&lt;seconds&gt;</code> for a single-slice <code class="language-plaintext highlighter-rouge">getSlice</code>, <code class="language-plaintext highlighter-rouge">skip_uncertainties=True</code> to
+drop the <code class="language-plaintext highlighter-rouge">*_error_upper</code> companions, and <code class="language-plaintext highlighter-rouge">consistency_check=False</code> for non-compliant legacy entries.</p>
+
+<h2 id="converting-a-real-vest-shot">Converting a real VEST shot</h2>
+
+<p>The full flow, from
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/imas_omas_data_conversion.ipynb"><code class="language-plaintext highlighter-rouge">imas_omas_data_conversion.ipynb</code></a>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">tempfile</span>
+<span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">save_omas_imas</span><span class="p">,</span> <span class="n">load_omas_imas</span>
+
+<span class="n">ods_from_legacy</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>          <span class="c1"># shot 39915
+</span>
+<span class="c1"># Legacy files can carry coordinate-inconsistent IDSs: drop them before conversion
+</span><span class="k">for</span> <span class="n">drop_ids</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">'</span><span class="s">em_coupling</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">drop_ids</span> <span class="ow">in</span> <span class="n">ods_from_legacy</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">ods_from_legacy</span><span class="p">[</span><span class="n">drop_ids</span><span class="p">]</span>
+
+<span class="n">entry_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">.</span><span class="nf">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sh">'</span><span class="s">imas_step3_</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">uri</span> <span class="o">=</span> <span class="sh">'</span><span class="s">imas:hdf5?path=</span><span class="sh">'</span> <span class="o">+</span> <span class="n">entry_dir</span>
+
+<span class="n">paths</span> <span class="o">=</span> <span class="nf">save_omas_imas</span><span class="p">(</span><span class="n">ods_from_legacy</span><span class="p">,</span> <span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span> <span class="n">new</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">ods_round_trip</span> <span class="o">=</span> <span class="nf">load_omas_imas</span><span class="p">(</span><span class="n">uri</span><span class="o">=</span><span class="n">uri</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="n">paths</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">Saved IDSs:</span><span class="sh">'</span><span class="p">,</span> <span class="nf">sorted</span><span class="p">(</span><span class="nf">set</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">)))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">Loaded IDSs:</span><span class="sh">'</span><span class="p">,</span> <span class="nf">list</span><span class="p">(</span><span class="n">ods_round_trip</span><span class="p">.</span><span class="nf">keys</span><span class="p">()))</span>
+</code></pre></div></div>
+
+<p>Now look at what landed on disk. This <em>is</em> the layout the VEST HSDS server stores per shot:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;entry_dir&gt;/
+    master.h5
+    equilibrium.h5
+    wall.h5
+    pf_active.h5
+    ...
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">master.h5</code> is the aggregator: it externally links every <code class="language-plaintext highlighter-rouge">&lt;ids&gt;.h5</code>. IMAS-Core refuses to open the entry when
+a linked file is missing, which is why <code class="language-plaintext highlighter-rouge">vaft.database.ids.load</code> always downloads <code class="language-plaintext highlighter-rouge">master.h5</code> <strong>plus</strong> every
+file it links, even for a single-IDS request.</p>
+
+<h2 id="verify-with-the-native-imas-python-api">Verify with the native IMAS-Python API</h2>
+
+<p>An OMAS round-trip only proves that OMAS can read what OMAS wrote. To prove the entry is genuinely valid
+IMAS, open it with the Access Layer directly:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">imas</span>
+<span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">IMAS_DD_VERSION_CONVERSION</span>
+
+<span class="k">with</span> <span class="n">imas</span><span class="p">.</span><span class="nc">DBEntry</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="n">IMAS_DD_VERSION_CONVERSION</span><span class="p">)</span> <span class="k">as</span> <span class="n">dbentry</span><span class="p">:</span>
+    <span class="n">eq</span> <span class="o">=</span> <span class="n">dbentry</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">equilibrium</span><span class="sh">'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>          <span class="c1"># -&gt; IDSToplevel
+</span>    <span class="nf">print</span><span class="p">(</span><span class="n">eq</span><span class="p">.</span><span class="n">ids_properties</span><span class="p">.</span><span class="n">homogeneous_time</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">eq</span><span class="p">.</span><span class="n">time</span><span class="p">),</span> <span class="n">eq</span><span class="p">.</span><span class="n">time</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>Pass the <strong>same</strong> <code class="language-plaintext highlighter-rouge">dd_version</code> you saved with, or <code class="language-plaintext highlighter-rouge">get()</code> cannot interpret the layout.</p>
+
+<p>Creating an IDS from scratch, with no OMAS involved at all:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">imas</span>
+
+<span class="n">factory</span> <span class="o">=</span> <span class="n">imas</span><span class="p">.</span><span class="nc">IDSFactory</span><span class="p">()</span>
+<span class="n">equilibrium</span> <span class="o">=</span> <span class="n">factory</span><span class="p">.</span><span class="nf">equilibrium</span><span class="p">()</span>
+<span class="n">equilibrium</span><span class="p">.</span><span class="n">ids_properties</span><span class="p">.</span><span class="n">homogeneous_time</span> <span class="o">=</span> <span class="n">imas</span><span class="p">.</span><span class="n">ids_defs</span><span class="p">.</span><span class="n">IDS_TIME_MODE_HOMOGENEOUS</span>
+<span class="n">equilibrium</span><span class="p">.</span><span class="n">ids_properties</span><span class="p">.</span><span class="n">comment</span> <span class="o">=</span> <span class="sh">"</span><span class="s">testing</span><span class="sh">"</span>
+<span class="n">equilibrium</span><span class="p">.</span><span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">]</span>
+
+<span class="k">with</span> <span class="n">imas</span><span class="p">.</span><span class="nc">DBEntry</span><span class="p">(</span><span class="sh">"</span><span class="s">imas:hdf5?path=/tmp/my_entry</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">dbentry</span><span class="p">:</span>
+    <span class="n">dbentry</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">equilibrium</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">IDSFactory</code> knows the DD and mints empty IDSs; <code class="language-plaintext highlighter-rouge">DBEntry</code> is the I/O handle for one entry; one <code class="language-plaintext highlighter-rouge">DBEntry</code> holds
+many IDSs, each identified by name and occurrence. That is the whole IMAS object model.</p>
+
+<hr />
+
+<h1 id="netcdf-export">NetCDF export</h1>
+
+<p>The HDF5 backend needs <code class="language-plaintext highlighter-rouge">imas_core</code>. The <strong>NetCDF</strong> backend does not — IMAS-Python writes it natively, which
+makes <code class="language-plaintext highlighter-rouge">.nc</code> the format of choice for shipping a self-contained entry to a collaborator:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">imas</span>
+
+<span class="k">with</span> <span class="n">imas</span><span class="p">.</span><span class="nc">DBEntry</span><span class="p">(</span><span class="sh">"</span><span class="s">/tmp/vest_39915.nc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">dbentry</span><span class="p">:</span>
+    <span class="n">dbentry</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">equilibrium</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The packaged <code class="language-plaintext highlighter-rouge">data_path("imas/vest_imas_3.40.1.nc")</code> is exactly such a container.</p>
+
+<p>If you are staying inside OMAS, its own NetCDF backend serialises a whole ODS (all IDSs at once):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">save_omas_nc</span>
+
+<span class="nf">save_omas_nc</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">'</span><span class="s">ods_39915.nc</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<hr />
+
+<h1 id="round-tripping-through-the-vest-database">Round-tripping through the VEST database</h1>
+
+<p>The database layer wraps the conversion above: <code class="language-plaintext highlighter-rouge">vaft.database.load_ods</code> downloads a shot’s IMAS images from
+HSDS and hands you an ODS; <code class="language-plaintext highlighter-rouge">vaft.database.save_ods</code> does the reverse.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>                             <span class="c1"># ODS, directory="public"
+</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">])</span>    <span class="c1"># only one IDS
+</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mf">0.325</span><span class="p">)</span>             <span class="c1"># single time slice
+</span><span class="n">ods_list</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">([</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">41524</span><span class="p">,</span> <span class="mi">41672</span><span class="p">])</span>    <span class="c1"># list in, list out
+</span></code></pre></div></div>
+
+<p>If the IMAS images are already on disk — for instance the <code class="language-plaintext highlighter-rouge">entry_dir</code> you just wrote — skip HSDS entirely:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">entry_dir</span><span class="p">)</span>   <span class="c1"># directory must contain master.h5
+</span></code></pre></div></div>
+
+<p>For native IDS objects instead of an ODS, <code class="language-plaintext highlighter-rouge">ids_name</code> must be passed <strong>by keyword</strong>: the second positional
+argument of <code class="language-plaintext highlighter-rouge">vaft.database.load</code> is <code class="language-plaintext highlighter-rouge">directory</code>, not an IDS name.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">equilibrium</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ids_name</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="sh">"</span><span class="s">3.41.0</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># equivalently: vaft.database.load_ids(2, "equilibrium", dd_version="3.41.0")
+</span></code></pre></div></div>
+
+<p>Symmetrically, <code class="language-plaintext highlighter-rouge">vaft.database.save</code> / <code class="language-plaintext highlighter-rouge">save_ods</code> take an <strong>ODS only</strong>; a native <code class="language-plaintext highlighter-rouge">IDSToplevel</code> must go through
+<code class="language-plaintext highlighter-rouge">vaft.database.save_ids</code>. Writing to the shared server is admin-restricted, but <code class="language-plaintext highlighter-rouge">env="local"</code> writes the IMAS
+images to disk and returns the local directory:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">local_dir</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="sh">"</span><span class="s">local</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>See the <a href="/vaft/guide/Quick_start_guide/">Quick start guide</a> for HSDS credentials and the
+<code class="language-plaintext highlighter-rouge">h5pyd</code> / <code class="language-plaintext highlighter-rouge">hsget</code> / <code class="language-plaintext highlighter-rouge">hsload</code> prerequisites.</p>
+
+<hr />
+
+<h1 id="time-convention-handling">Time-convention handling</h1>
+
+<p>VEST diagnostics are digitised on a DAQ clock whose $t=0$ is the trigger, not any physics event. Comparing
+shots on that clock is meaningless: breakdown happens tens of milliseconds later, and <em>when</em> it happens varies
+from shot to shot. VAFT therefore lets you re-reference an entire ODS to a physical event.</p>
+
+<p>Four conventions are defined.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">convention</code></th>
+      <th>$t=0$ at</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">'daq'</code></td>
+      <td>the DAQ trigger (as stored)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">'vloop'</code></td>
+      <td>loop-voltage onset — the time of maximum <code class="language-plaintext highlighter-rouge">magnetics.flux_loop.0.flux.data</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">'ip'</code></td>
+      <td>plasma-current onset (<code class="language-plaintext highlighter-rouge">magnetics.ip.0.data</code> crosses threshold)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">'breakdown'</code></td>
+      <td>H-alpha onset (<code class="language-plaintext highlighter-rouge">spectrometer_uv.channel.0.processed_line.0.intensity.data</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>                                  <span class="c1"># 39915, 41524, 41672
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">breakdown</span><span class="sh">'</span><span class="p">)</span>
+<span class="c1"># [0] shift -0.3069 s  (daq → breakdown)
+# [1] shift -0.31484 s  (daq → breakdown)
+# [2] shift -0.31476 s  (daq → breakdown)
+</span></code></pre></div></div>
+
+<p>The shifts differ from shot to shot — breakdown lands at a different point on the DAQ clock every time — which
+is exactly why the raw clock is useless for comparing shots.</p>
+
+<p><code class="language-plaintext highlighter-rouge">change_time_convention(odc_or_ods, convention='vloop')</code> accepts an ODS or an ODC (a bare ODS is wrapped
+internally, and an ODC is returned). On the first call it records the reference times under
+<code class="language-plaintext highlighter-rouge">summary.code.parameters</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">params</span> <span class="o">=</span> <span class="n">odc</span><span class="p">[</span><span class="sh">'</span><span class="s">0</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">summary.code.parameters</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">time_convention</span><span class="sh">'</span><span class="p">]</span>    <span class="c1"># 'breakdown'
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">vloop_onset</span><span class="sh">'</span><span class="p">]</span>        <span class="c1"># seconds, on the ORIGINAL daq clock
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">ip_onset</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">breakdown_onset</span><span class="sh">'</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>Because the onsets are stored, conversions are <strong>composable and reversible</strong>: call it again with a different
+convention and the shift is computed from the recorded originals, not re-derived from already-shifted data.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">ip</span><span class="sh">'</span><span class="p">)</span>     <span class="c1"># breakdown → ip
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">daq</span><span class="sh">'</span><span class="p">)</span>    <span class="c1"># back to the raw clock
+</span></code></pre></div></div>
+
+<p>The underlying primitive is <code class="language-plaintext highlighter-rouge">vaft.omas.shift_time(one_ods, time_shift)</code>. It is deliberately conservative: it
+walks <code class="language-plaintext highlighter-rouge">ods.paths()</code> and shifts a leaf <strong>only</strong> when the last component of the path is exactly <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">onset</code>
+or <code class="language-plaintext highlighter-rouge">offset</code>, and it never touches anything under <code class="language-plaintext highlighter-rouge">summary.code.parameters</code>. That narrowness is the point — a
+looser rule corrupts data by shifting fields such as <code class="language-plaintext highlighter-rouge">magnetics.ip.0.data</code> whose <em>path</em> merely contains a
+time-like word.</p>
+
+<p>Individual onsets are available directly:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_vloop_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_ip_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># H-alpha offset - onset
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_max_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>             <span class="c1"># median-filtered peak Ip
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_bt</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                 <span class="c1"># mean toroidal field during the plasma phase
+</span></code></pre></div></div>
+
+<p><strong>Fix the time convention before you compare shots or overlay traces.</strong> Mixing an ODS on the <code class="language-plaintext highlighter-rouge">daq</code> clock with
+one on the <code class="language-plaintext highlighter-rouge">breakdown</code> clock in the same figure is the easiest way to produce a wrong result that still looks
+plausible.</p>
+
+<hr />
+
+<h1 id="combining-odss">Combining ODSs</h1>
+
+<p>A shot is assembled piecewise by the pipeline — diagnostics mapped first, equilibrium reconstructed later,
+kinetic profiles fitted last — and the pieces have to end up in one ODS before it can be written back as a
+single IMAS entry.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.combine_ods(ods_list)</code> is the function nominally for this, but <strong>it does not merge more than one
+ODS.</strong> Its loop calls <code class="language-plaintext highlighter-rouge">combined_ods.update(ods)</code> and then <code class="language-plaintext highlighter-rouge">break</code>s on the first success, so only
+<code class="language-plaintext highlighter-rouge">ods_list[0]</code> ever lands:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">merged</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">combine_ods</span><span class="p">([</span><span class="n">ods_equilibrium</span><span class="p">,</span> <span class="n">ods_magnetics</span><span class="p">,</span> <span class="n">ods_wall</span><span class="p">])</span>
+<span class="nf">list</span><span class="p">(</span><span class="n">merged</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
+<span class="c1"># ['equilibrium']          &lt;- magnetics and wall silently dropped
+</span></code></pre></div></div>
+
+<p>Its error-recovery branch is dead code too: on an IMAS-validity failure it increments an <code class="language-plaintext highlighter-rouge">attempt_count</code> that
+is never initialised (<code class="language-plaintext highlighter-rouge">NameError</code>) and <code class="language-plaintext highlighter-rouge">continue</code>s to the <em>next</em> ODS rather than retrying the current one.</p>
+
+<p>Merge with <code class="language-plaintext highlighter-rouge">ODS.update()</code> directly instead — that is the primitive <code class="language-plaintext highlighter-rouge">combine_ods</code> was built on, and in a plain
+loop it does the whole job:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+
+<span class="n">merged</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">one</span> <span class="ow">in</span> <span class="p">[</span><span class="n">ods_equilibrium</span><span class="p">,</span> <span class="n">ods_magnetics</span><span class="p">,</span> <span class="n">ods_wall</span><span class="p">]:</span>
+    <span class="n">merged</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">one</span><span class="p">)</span>
+
+<span class="nf">list</span><span class="p">(</span><span class="n">merged</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
+<span class="c1"># ['equilibrium', 'magnetics', 'wall']
+</span></code></pre></div></div>
+
+<p>If a source ODS carries a coordinate-inconsistent IDS, drop it before the update (the same guard the
+conversion example above uses) rather than relying on <code class="language-plaintext highlighter-rouge">combine_ods</code> to recover:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">drop_ids</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">'</span><span class="s">em_coupling</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">drop_ids</span> <span class="ow">in</span> <span class="n">one</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">one</span><span class="p">[</span><span class="n">drop_ids</span><span class="p">]</span>
+</code></pre></div></div>
+
+<hr />
+
+<h1 id="reference">Reference</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symbol</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.save_omas_imas(ods, uri=..., new=...)</code></td>
+      <td>ODS → IMAS entry (AL5 URI, or legacy user/machine/pulse/run); returns the written paths</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.load_omas_imas(uri=..., paths=..., time=...)</code></td>
+      <td>IMAS entry → ODS</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.imas_open_uri(uri, mode='r', dd_version=...)</code></td>
+      <td>Open an AL5 <code class="language-plaintext highlighter-rouge">DBEntry</code> by URI, wrapped for OMAS</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.imas_open(user, machine, pulse, run, backend=..., new=...)</code></td>
+      <td>Open by legacy data-entry coordinates (AL4 or AL5)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.imas_get(ids, path)</code> / <code class="language-plaintext highlighter-rouge">vaft.imas.imas_set(ids, path, value)</code></td>
+      <td>Leaf-level read / write on an open IDS</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.IMAS_DD_VERSION_CONVERSION</code></td>
+      <td>DD version used for conversion (<code class="language-plaintext highlighter-rouge">'3.41.0'</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.imas.IMAS_REMOVED_IDS</code></td>
+      <td>IDSs dropped by newer DD releases (<code class="language-plaintext highlighter-rouge">dataset_description</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.sample_ods()</code> / <code class="language-plaintext highlighter-rouge">sample_odc()</code> / <code class="language-plaintext highlighter-rouge">sample_gfile()</code></td>
+      <td>Packaged VEST samples</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.find_shotnumber(ods)</code> / <code class="language-plaintext highlighter-rouge">print_info(ods)</code></td>
+      <td>Shot metadata</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.classify_shot(ods)</code></td>
+      <td>Shot class — <strong>broken on <code class="language-plaintext highlighter-rouge">main</code></strong>: returns <code class="language-plaintext highlighter-rouge">'Vacuum'</code> unconditionally (see above)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.is_signal_active(data, var_ratio_thresh=..., change_ratio_thresh=...)</code></td>
+      <td>Scale-invariant “is this channel live?” test</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.change_time_convention(odc_or_ods, convention=...)</code> / <code class="language-plaintext highlighter-rouge">shift_time(ods, dt)</code></td>
+      <td>Time-convention handling</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.find_matching_time_indices(ods, time_slice=...)</code></td>
+      <td>Align <code class="language-plaintext highlighter-rouge">core_profiles</code> and <code class="language-plaintext highlighter-rouge">equilibrium</code> slices</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.odc_or_ods_check(x)</code></td>
+      <td>Normalise ODS → ODC</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.combine_ods(ods_list)</code></td>
+      <td>Merge ODSs — <strong>only merges <code class="language-plaintext highlighter-rouge">ods_list[0]</code></strong>; use <code class="language-plaintext highlighter-rouge">ODS.update()</code> in a loop</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.resources.data_path(name)</code></td>
+      <td>Absolute path to a packaged data file</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.vfit_dataset_description(ods, shot, run, ...)</code></td>
+      <td>Populate <code class="language-plaintext highlighter-rouge">dataset_description</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.load_ods</code> / <code class="language-plaintext highlighter-rouge">save_ods</code> / <code class="language-plaintext highlighter-rouge">load_ids</code> / <code class="language-plaintext highlighter-rouge">save_ids</code></td>
+      <td>HSDS I/O</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Source:
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/imas/omas_imas.py"><code class="language-plaintext highlighter-rouge">vaft/imas/omas_imas.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/omas/general.py"><code class="language-plaintext highlighter-rouge">vaft/omas/general.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/omas/sample.py"><code class="language-plaintext highlighter-rouge">vaft/omas/sample.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/process/signal_processing.py"><code class="language-plaintext highlighter-rouge">vaft/process/signal_processing.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/ods.py"><code class="language-plaintext highlighter-rouge">vaft/database/ods.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/ids.py"><code class="language-plaintext highlighter-rouge">vaft/database/ids.py</code></a></p>
+
+<p>More runnable examples: <a href="/vaft/guide/examples/">Examples</a>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="data-conversion">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb">Read and convert data structures</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="database-initialization">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="imas"><a href="/vaft/reference/api/#vaftimas"><code>vaft.imas</code></a></li>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="imas-roundtrip"><a href="/vaft/reference/notebooks/#output-title-imas-roundtrip">OMAS and IMAS-path round trip</a></li>
+        
+          
+          <li data-resource-id="hsds-39915"><a href="/vaft/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/database-data-sources/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Database and data sources">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/workflows/data-access-imas/" class="navigation navigation-next navigation-unique" aria-label="Next page: Data access and IMAS">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#time-bases" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Time bases</a></li><li class="page-toc-item page-toc-level-2"><a href="#write-an-ods-to-an-al5-hdf5-entry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Write an ODS to an AL5 HDF5 entry</a></li><li class="page-toc-item page-toc-level-2"><a href="#read-it-back" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Read it back</a></li><li class="page-toc-item page-toc-level-2"><a href="#converting-a-real-vest-shot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Converting a real VEST shot</a></li><li class="page-toc-item page-toc-level-2"><a href="#verify-with-the-native-imas-python-api" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Verify with the native IMAS-Python API</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Data access and IMAS",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Machine_mapping.md",
+            "ref": "_guide/Machine_mapping.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Data_structures.md",
+        "mtime": "2026-07-01 09:30:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:38 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

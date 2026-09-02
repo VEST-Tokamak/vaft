@@ -1,0 +1,1138 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Automated pipelines · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/guide/Plotting/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/notebooks/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Automated pipelines</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/Pipelines">Automated pipelines</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Snakemake orchestration over mapping, equilibrium, profiles, stability, and reports.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Workflow configuration, source data, VAFT, and only the external binaries required by selected stages.</dd>
+    <dt>Expected result</dt><dd>Auditable routine, corrective, and summary products with explicit skipped-stage semantics.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>The <code class="language-plaintext highlighter-rouge">workflow/</code> directory of the repository holds the batch pipelines that turn a raw VEST shot into
+reconstructed equilibria, refined equilibria, stability results and cross-shot summary sheets. They are the
+production counterpart of the interactive notebooks: the same <code class="language-plaintext highlighter-rouge">vaft</code> library calls, driven by
+<a href="https://snakemake.readthedocs.io/">Snakemake</a> over hundreds of shots instead of one.</p>
+
+<blockquote>
+  <p><strong>These are scripts, not a package.</strong> <code class="language-plaintext highlighter-rouge">workflow/</code> contains no <code class="language-plaintext highlighter-rouge">__init__.py</code>; nothing in it is importable as
+<code class="language-plaintext highlighter-rouge">vaft.workflow.*</code>. Each directory is self-contained and is meant to be run <strong>from inside itself</strong>, because
+several scripts resolve output paths relative to the working directory. Only the <code class="language-plaintext highlighter-rouge">vaft.*</code> calls they make
+are library API.</p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pipeline</th>
+      <th>Orchestration</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">automatic_pipeline_1_routine_data_processing</code></td>
+      <td>Snakemake DAG (10 rules) + <code class="language-plaintext highlighter-rouge">Makefile</code></td>
+      <td>Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">automatic_pipeline_2_corrective_data_update</code></td>
+      <td>none (long-running daemon)</td>
+      <td>Back-fills Thomson scattering and fitted core profiles into already-stored shots</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">automatic_pipeline_3_data_summary</code></td>
+      <td>partial Snakefile (2 rules) + manual scripts</td>
+      <td>Mines the file database into cross-shot <code class="language-plaintext highlighter-rouge">.xlsx</code> history sheets and plots</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">running_linear_stability</code></td>
+      <td>Snakemake DAG (1 rule, fanned out)</td>
+      <td>Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>All four share one on-disk convention, rooted at <code class="language-plaintext highlighter-rouge">base_dir</code> (<code class="language-plaintext highlighter-rouge">/srv/vest.filedb/public</code> in every shipped config):</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{base_dir}/{shot}/
+├── diagnostics/          vest_{shot}_daq_raw.json.gz, Thomson *.mat
+├── omas/                 {shot}_diagnostics.json, _eddy.json, _constraints.json,
+│                         _efit.json, _chease.json
+├── efit/                 kfile/ gfile/ afile/ mfile/  + efit_status.txt
+├── chease/               refined g-files (flat), work/, plots/{time}.png
+├── linear_stability/     {time}/{dcon,rdcon,stride}/nn={n}/
+└── logs/
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="pipeline-1--routine-data-processing">Pipeline 1 — routine data processing</h2>
+
+<h3 id="running-it">Running it</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>workflow/automatic_pipeline_1_routine_data_processing
+make run          <span class="c"># snakemake --cores 30 --configfile config.yaml, tee'd into logs/</span>
+make clean        <span class="c"># snakemake --delete-all-output</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">make run</code> hardcodes <strong>30 cores</strong> in the <code class="language-plaintext highlighter-rouge">Makefile</code>; the <code class="language-plaintext highlighter-rouge">cores:</code> key in <code class="language-plaintext highlighter-rouge">config.yaml</code> is never read by the
+<code class="language-plaintext highlighter-rouge">Snakefile</code>. You can equally invoke Snakemake yourself:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>snakemake <span class="nt">--cores</span> 8 <span class="nt">--configfile</span> config.yaml
+</code></pre></div></div>
+
+<p>Two things to know before the first run. <code class="language-plaintext highlighter-rouge">make run</code> deletes <code class="language-plaintext highlighter-rouge">.snakemake/</code> when it finishes, so there is no
+incremental DAG state between runs — re-execution is decided purely from output-file timestamps. And although
+every rule carries a <code class="language-plaintext highlighter-rouge">conda:</code> directive, it names a bare environment (<code class="language-plaintext highlighter-rouge">vaft</code>) rather than an environment file
+and the <code class="language-plaintext highlighter-rouge">Makefile</code> does not pass <code class="language-plaintext highlighter-rouge">--use-conda</code>; <strong>activate the <code class="language-plaintext highlighter-rouge">vaft</code> environment yourself</strong>.</p>
+
+<h3 id="the-dag">The DAG</h3>
+
+<pre><code class="language-mermaid">flowchart TD
+    A["generate_raw_db_dump&lt;br/&gt;vest_SHOT_daq_raw.json.gz"] --&gt; B["generate_diagnostics_ods&lt;br/&gt;SHOT_diagnostics.json"]
+    B --&gt; C["generate_eddy_ods&lt;br/&gt;SHOT_eddy.json"]
+    C --&gt; D["generate_constraints_ods&lt;br/&gt;SHOT_constraints.json"]
+    D --&gt; E["generate_kfile&lt;br/&gt;efit/kfile/kfiles_generated.txt"]
+    E --&gt; F["run_efit_reconstruction&lt;br/&gt;gfiles_generated.txt + efit_status.txt"]
+    F --&gt; G["generate_efit_ods&lt;br/&gt;SHOT_efit.json"]
+    F --&gt; H["run_chease&lt;br/&gt;refined_gfiles_generated.txt + chease_status.txt"]
+    H --&gt; I["generate_chease_ods&lt;br/&gt;SHOT_chease.json"]
+    H --&gt; J["run_gpec_suite&lt;br/&gt;gpec_suite_runs.json + gpec_suite_status.txt"]
+</code></pre>
+
+<p>Stages do <strong>not</strong> hand individual g-/k-files to each other as Snakemake outputs. Each stage writes a
+<strong>manifest</strong> — a text file with one absolute path per line — and the next stage reads it. <code class="language-plaintext highlighter-rouge">run_gpec_suite</code>
+instead emits a JSON payload. Alongside each manifest is a one-line status file, e.g.</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>completed: returncode=0; gfiles=12
+skipped: efit.run=false; kfiles=40
+partial: refined_gfiles=8; failed=2
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Script</th>
+      <th>Key <code class="language-plaintext highlighter-rouge">vaft</code> calls</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_raw_db_dump</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_raw_db_dump.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.init_pool</code>, <code class="language-plaintext highlighter-rouge">vaft.database.dump_all_raw_signals_for_shot</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_diagnostics_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_diagnostics_ods.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.dataset_description</code>, <code class="language-plaintext highlighter-rouge">pf_active</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv</code>, <code class="language-plaintext highlighter-rouge">barometry</code>, <code class="language-plaintext highlighter-rouge">tf</code>, <code class="language-plaintext highlighter-rouge">magnetics</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_eddy_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_eddy_ods.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.pf_passive</code>, <code class="language-plaintext highlighter-rouge">em_coupling</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_eddy_currents</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_constraints_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_constraints_ods.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.efit.correct_flux_loop</code>, <code class="language-plaintext highlighter-rouge">vaft.code.efit.generate_constraints_ods</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_kfile</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_kfile.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.efit.generate_kfile</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">run_efit_reconstruction</code></td>
+      <td><code class="language-plaintext highlighter-rouge">run_efit_reconstruction.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.efit.run_efit</code> with <code class="language-plaintext highlighter-rouge">EFITInputs</code> / <code class="language-plaintext highlighter-rouge">EFITConfig</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_efit_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_efit_ods.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.efit.collect_efit_outputs</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">run_chease</code></td>
+      <td><code class="language-plaintext highlighter-rouge">run_chease_refinement.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.chease.find_chease_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_chease_inputs</code>, <code class="language-plaintext highlighter-rouge">run_chease</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_chease_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_chease_ods.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.read_geqdsk</code> → <code class="language-plaintext highlighter-rouge">.to_omas(ods=ods, time_index=...)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">run_gpec_suite</code></td>
+      <td><code class="language-plaintext highlighter-rouge">run_gpec_suite.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.gpec.run_gpec_suite_case</code> with <code class="language-plaintext highlighter-rouge">GPECCaseInputs</code> / <code class="language-plaintext highlighter-rouge">GPECSuiteConfig</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Note the one rule whose name differs from its script: rule <code class="language-plaintext highlighter-rouge">run_chease</code> runs <code class="language-plaintext highlighter-rouge">run_chease_refinement.py</code>.</p>
+
+<h3 id="the-library-calls-verbatim">The library calls, verbatim</h3>
+
+<p>Each script is a thin CLI around a handful of <code class="language-plaintext highlighter-rouge">vaft</code> calls. These are the load-bearing ones:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.efit</span> <span class="kn">import</span> <span class="n">EFITConfig</span><span class="p">,</span> <span class="n">EFITInputs</span><span class="p">,</span> <span class="n">run_efit</span><span class="p">,</span> <span class="n">collect_efit_outputs</span>
+<span class="kn">from</span> <span class="n">vaft.code.chease</span> <span class="kn">import</span> <span class="n">CHEASEConfig</span><span class="p">,</span> <span class="n">find_chease_executable</span><span class="p">,</span> <span class="n">prepare_chease_inputs</span><span class="p">,</span> <span class="n">run_chease</span>
+<span class="kn">from</span> <span class="n">vaft.code.gpec</span> <span class="kn">import</span> <span class="n">GPECCaseInputs</span><span class="p">,</span> <span class="n">GPECSuiteConfig</span><span class="p">,</span> <span class="n">run_gpec_suite_case</span>
+<span class="kn">from</span> <span class="n">vaft.data.eqdsk</span> <span class="kn">import</span> <span class="n">read_geqdsk</span>
+
+<span class="c1"># EFIT: run, then collect whatever landed in the workdir
+</span><span class="n">result</span> <span class="o">=</span> <span class="nf">run_efit</span><span class="p">(</span><span class="nc">EFITInputs</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span> <span class="n">kfiles</span><span class="o">=</span><span class="n">kfiles</span><span class="p">),</span>
+                  <span class="nc">EFITConfig</span><span class="p">(</span><span class="n">executable</span><span class="o">=</span><span class="n">exe</span><span class="p">,</span> <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span>
+                             <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">129</span><span class="sh">"</span><span class="p">,),</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">))</span>
+<span class="n">result</span> <span class="o">=</span> <span class="nf">collect_efit_outputs</span><span class="p">(</span><span class="n">workdir</span><span class="p">,</span> <span class="nc">EFITConfig</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="n">shot</span><span class="p">))</span>
+
+<span class="c1"># CHEASE: resolve the binary (falls back to $PATH), prepare, run
+</span><span class="n">config</span> <span class="o">=</span> <span class="nc">CHEASEConfig</span><span class="p">(</span><span class="n">executable</span><span class="o">=</span><span class="n">exe</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">target_psin</span><span class="o">=</span><span class="mf">0.993</span><span class="p">,</span> <span class="n">nideal</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">nw</span><span class="o">=</span><span class="mi">513</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="nf">run_chease</span><span class="p">(</span><span class="nf">prepare_chease_inputs</span><span class="p">(</span><span class="n">gfile</span><span class="p">,</span> <span class="n">config</span><span class="p">),</span> <span class="n">config</span><span class="p">)</span>
+
+<span class="c1"># GPEC suite: one case per refined g-file
+</span><span class="n">result</span> <span class="o">=</span> <span class="nf">run_gpec_suite_case</span><span class="p">(</span>
+    <span class="nc">GPECCaseInputs</span><span class="p">(</span><span class="n">shot</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span> <span class="n">time_ms</span><span class="o">=</span><span class="n">time_label</span><span class="p">,</span> <span class="n">geqdsk</span><span class="o">=</span><span class="n">gfile</span><span class="p">,</span> <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">),</span>
+    <span class="nc">GPECSuiteConfig</span><span class="p">(</span><span class="n">gpec_home</span><span class="o">=</span><span class="n">gpec_home</span><span class="p">,</span> <span class="n">modules</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">dcon</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rdcon</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">stride</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">gpec</span><span class="sh">"</span><span class="p">),</span>
+                    <span class="n">modes</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">psilow</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">psihigh</span><span class="o">=</span><span class="mf">0.994</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">1200.0</span><span class="p">))</span>
+
+<span class="c1"># CHEASE ODS: accumulate refined g-files as time slices
+</span><span class="n">ods</span> <span class="o">=</span> <span class="nf">read_geqdsk</span><span class="p">(</span><span class="n">gfile</span><span class="p">).</span><span class="nf">to_omas</span><span class="p">(</span><span class="n">ods</span><span class="o">=</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_index</span><span class="o">=</span><span class="n">time_index</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">GPECSuiteConfig.gpec_home</code> defaults to <code class="language-plaintext highlighter-rouge">None</code>, in which case the installation root is read from the
+<strong><code class="language-plaintext highlighter-rouge">$GPECHOME</code></strong> environment variable.</p>
+
+<p>The diagnostics stage forces the machine-mapping layer offline by setting <code class="language-plaintext highlighter-rouge">VAFT_RAW_SAMPLE_PATH</code> and
+<code class="language-plaintext highlighter-rouge">VAFT_RAW_OFFLINE_ONLY=1</code> before it maps anything, so the whole pipeline can be replayed from an archived raw
+dump with no SQL server in reach. Magnetics processing parameters travel as a
+<code class="language-plaintext highlighter-rouge">vaft.process.magnetics.VestMagneticsProcessingConfig</code>, built from the <code class="language-plaintext highlighter-rouge">vest.magnetics.processing</code> block of
+<code class="language-plaintext highlighter-rouge">config.yaml</code> and passed to <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.magnetics(..., processing_config=...)</code>. See
+<a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> for what those knobs mean.</p>
+
+<h3 id="configuration">Configuration</h3>
+
+<p><code class="language-plaintext highlighter-rouge">config.yaml</code> is organised by stage: <code class="language-plaintext highlighter-rouge">raw</code> (<code class="language-plaintext highlighter-rouge">mode: sql | archive</code>), <code class="language-plaintext highlighter-rouge">diagnostics</code> (<code class="language-plaintext highlighter-rouge">tstart</code>, <code class="language-plaintext highlighter-rouge">tend</code>, <code class="language-plaintext highlighter-rouge">dt</code>,
+<code class="language-plaintext highlighter-rouge">run</code>), <code class="language-plaintext highlighter-rouge">vest.magnetics.processing</code>, <code class="language-plaintext highlighter-rouge">wall.reference_ods</code>, <code class="language-plaintext highlighter-rouge">eddy.filament</code> (<code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">z</code>, <code class="language-plaintext highlighter-rouge">fraction</code>, <code class="language-plaintext highlighter-rouge">dt_sub</code>),
+<code class="language-plaintext highlighter-rouge">constraints</code>, <code class="language-plaintext highlighter-rouge">efit</code>, <code class="language-plaintext highlighter-rouge">chease</code> and <code class="language-plaintext highlighter-rouge">gpec</code>. Three points repeatedly bite newcomers:</p>
+
+<ul>
+  <li><strong>The shipped <code class="language-plaintext highlighter-rouge">config.yaml</code> is a template, not a working config.</strong> <code class="language-plaintext highlighter-rouge">efit.executable</code>, <code class="language-plaintext highlighter-rouge">efit.table_dir</code>,
+<code class="language-plaintext highlighter-rouge">chease.executable</code>, <code class="language-plaintext highlighter-rouge">gpec.home</code>, <code class="language-plaintext highlighter-rouge">wall.reference_ods</code> and <code class="language-plaintext highlighter-rouge">raw.archive_template</code> all point into one
+developer’s home directory, while <code class="language-plaintext highlighter-rouge">base_dir</code> points at the Linux data server. Repoint them before running.</li>
+  <li><strong>Dead keys.</strong> <code class="language-plaintext highlighter-rouge">cores</code>, <code class="language-plaintext highlighter-rouge">raw.offline_only</code> and <code class="language-plaintext highlighter-rouge">gpec.coil.source</code> appear in <code class="language-plaintext highlighter-rouge">config.yaml</code> but are never read
+by the <code class="language-plaintext highlighter-rouge">Snakefile</code>.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">constraints.detect_broken</code> is accepted and then ignored</strong> — the script logs a warning and uses only the
+explicit <code class="language-plaintext highlighter-rouge">constraints.broken</code> list of 1-based channel indices.</li>
+</ul>
+
+<p>Constraint time selection is worth spelling out, because <code class="language-plaintext highlighter-rouge">timeset: auto</code> is the default and it is not
+obvious. The base window is $[\max(0.28,\ t_0),\ \min(0.38,\ t_{-1})]$ seconds; within it the script keeps
+only samples where $I_p &gt; 20\ \mathrm{kA}$, falling back to the full window and then to all times if that
+selection is empty. Start and end are snapped to the <code class="language-plaintext highlighter-rouge">tstep</code> grid. With <code class="language-plaintext highlighter-rouge">timeset: manual</code> you get exactly
+<code class="language-plaintext highlighter-rouge">np.arange(tstart, tend, tstep)</code> and both bounds become mandatory.</p>
+
+<h3 id="failure-semantics--a-green-run-does-not-mean-everything-ran">Failure semantics — a green run does not mean everything ran</h3>
+
+<p>The runners deliberately disagree about what counts as failure, so <strong>always read the <code class="language-plaintext highlighter-rouge">*_status.txt</code> files
+rather than the exit code</strong>:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">run_efit_reconstruction</code> and <code class="language-plaintext highlighter-rouge">generate_efit_ods</code> <strong>exit 0 even when EFIT is absent or produced nothing</strong>.
+A minimal stub ODS is written instead, carrying
+<code class="language-plaintext highlighter-rouge">equilibrium.ids_properties.comment = "EFIT output unavailable: ..."</code>. Check that comment to detect a stub.</li>
+  <li>EFIT failure is detected by <strong>string-sniffing stdout and stderr</strong> for <code class="language-plaintext highlighter-rouge">Invalid line in namelist</code>,
+<code class="language-plaintext highlighter-rouge">Fortran runtime error</code> and <code class="language-plaintext highlighter-rouge">Error termination</code> — EFIT is known to exit 0 on namelist errors, so the
+return code alone is not trustworthy.</li>
+  <li><code class="language-plaintext highlighter-rouge">run_chease_refinement</code> exits <strong>1</strong> if CHEASE ran but refined zero g-files (though 0 if it was skipped
+outright), and <code class="language-plaintext highlighter-rouge">run_gpec_suite</code> exits <strong>1</strong> if any case failed.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">run_chease_refinement.py</code> also writes <code class="language-plaintext highlighter-rouge">chease/chease_runs.json</code> and the per-time comparison plots in
+<code class="language-plaintext highlighter-rouge">chease/plots/</code>, neither of which is declared as a Snakemake output — <code class="language-plaintext highlighter-rouge">snakemake --delete-all-output</code> will
+leave them behind.</p>
+
+<hr />
+
+<h2 id="pipeline-2--corrective-data-update">Pipeline 2 — corrective data update</h2>
+
+<p>This pipeline back-fills data that arrives <em>after</em> a shot has already been processed. It consists of one
+polling daemon (<code class="language-plaintext highlighter-rouge">update_thomson_scattering_and_core_profile.py</code>); the sibling <code class="language-plaintext highlighter-rouge">update_equilibrium.py</code> is an
+empty placeholder with no behavior.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>workflow/automatic_pipeline_2_corrective_data_update
+<span class="nb">nohup </span>python3 update_thomson_scattering_and_core_profile.py <span class="se">\</span>
+    <span class="o">&gt;</span> thomson_scattering_update_fitting.log 2&gt;&amp;1 &amp;
+</code></pre></div></div>
+
+<p>There are no command-line flags; the paths are module constants (<code class="language-plaintext highlighter-rouge">WATCH_DIAG = /srv/vest.diagnostic</code>,
+<code class="language-plaintext highlighter-rouge">PUBLIC_BASE = /srv/vest.filedb/public</code>, <code class="language-plaintext highlighter-rouge">CHECK_INTERVAL = 10</code> seconds). Despite what its docstring says, the
+daemon does <strong>not</strong> use <code class="language-plaintext highlighter-rouge">watchdog</code> — <code class="language-plaintext highlighter-rouge">main()</code> is a <code class="language-plaintext highlighter-rouge">while True:</code> loop that re-lists the watch directory every
+ten seconds.</p>
+
+<p>Each cycle it scans for new Thomson <code class="language-plaintext highlighter-rouge">*.mat</code> files, parses the shot number (both <code class="language-plaintext highlighter-rouge">Shot40330_v10.mat</code> and
+<code class="language-plaintext highlighter-rouge">40330_NeTe.mat</code> spellings are accepted), skips files whose mtime it has already recorded, copies the file
+into the shot’s <code class="language-plaintext highlighter-rouge">diagnostics/</code> directory, and then:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft</span> <span class="kn">import</span> <span class="n">database</span><span class="p">,</span> <span class="n">machine_mapping</span><span class="p">,</span> <span class="n">process</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shotnumber</span><span class="p">,</span> <span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">machine_mapping</span><span class="p">.</span><span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+<span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">)</span>
+
+<span class="c1"># and, when a refined equilibrium exists for that shot, per time slice:
+</span><span class="n">mapped_rho</span> <span class="o">=</span> <span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
+<span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_thomson_scattering</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped_rho</span><span class="p">,</span> <span class="n">Te_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">Ne_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">fitting_function_te</span><span class="o">=</span><span class="sh">'</span><span class="s">polynomial</span><span class="sh">'</span><span class="p">,</span> <span class="n">fitting_function_ne</span><span class="o">=</span><span class="sh">'</span><span class="s">exponential</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="n">process</span><span class="p">.</span><span class="nf">core_profiles</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped_rho</span><span class="p">,</span> <span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The equilibrium it maps against is the CHEASE-refined g-file at
+<code class="language-plaintext highlighter-rouge">{base}/{shot}/chease/g0{shot}.00{ms:03d}</code>, so profile fitting only happens for shots pipeline 1 has already
+refined. Shots with Thomson data but no refined equilibrium get the raw Thomson IDS and nothing more.</p>
+
+<h3 id="the-registry">The registry</h3>
+
+<p>Progress is recorded in an HSDS-backed registry, <code class="language-plaintext highlighter-rouge">hdf5://public/processed_shots.h5</code>, keyed by shot with a
+timestamp and one of three statuses:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">core_profile</code></td>
+      <td>Thomson stored <strong>and</strong> profile fits succeeded</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">thomson_only</code></td>
+      <td>Thomson stored, no fits (usually: no refined equilibrium yet)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">invalid</code></td>
+      <td>load or parse failed</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>An existing <code class="language-plaintext highlighter-rouge">core_profile</code> / <code class="language-plaintext highlighter-rouge">thomson_only</code> entry is never downgraded to <code class="language-plaintext highlighter-rouge">invalid</code>. <strong>This registry is the
+input to pipeline 3</strong> — three of its generators take their shot list from it, so if this daemon has never
+run, those sheets come out empty no matter how much data sits on disk. The module also contains a registry
+reset routine that wipes the H5 file and strips <code class="language-plaintext highlighter-rouge">thomson_scattering</code> / <code class="language-plaintext highlighter-rouge">core_profiles</code> back out of every ODS.
+It is commented out in <code class="language-plaintext highlighter-rouge">__main__</code>, it is destructive, and its default branch iterates the wrong keys. Do not
+run it.</p>
+
+<hr />
+
+<h2 id="pipeline-3--data-summary">Pipeline 3 — data summary</h2>
+
+<p>Cross-shot mining. The <code class="language-plaintext highlighter-rouge">Snakefile</code> here wires up only two of the ten-odd scripts (with <code class="language-plaintext highlighter-rouge">BASE_PATH</code> hardcoded,
+not read from a config — <code class="language-plaintext highlighter-rouge">config.yaml</code> and <code class="language-plaintext highlighter-rouge">README.md</code> are both empty files); everything else is run by hand.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>workflow/automatic_pipeline_3_data_summary
+snakemake <span class="nt">--cores</span> 8                                   <span class="c"># chease_history.xlsx + efit_history.xlsx</span>
+python gen_omas_history.py     <span class="nt">--base-path</span> /srv/vest.filedb/public
+python gen_stability_history.py <span class="nt">--base_path</span> /srv/vest.filedb/public   <span class="c"># underscore!</span>
+python gen_core_profiles_history.py <span class="nt">--directory</span> public <span class="nt">--Z-eff</span> 2.0 <span class="nt">--save-every</span> 10
+python gen_equilibrium_global_history.py <span class="nt">--directory</span> public <span class="nt">--rebuild</span>
+python gen_volume_averaged_parameter_sheet.py <span class="nt">--max-shots</span> 50 <span class="nt">--directory</span> public
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Script</th>
+      <th>Sheet</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_chease_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">chease_history.xlsx</code></td>
+      <td>Global quantities per (shot, time) from refined g-files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_efit_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">efit_history.xlsx</code></td>
+      <td>Same columns from EFIT g-files (key column is <code class="language-plaintext highlighter-rouge">shot_number</code>, not <code class="language-plaintext highlighter-rouge">shot</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_omas_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_history_new.xlsx</code></td>
+      <td>One row per shot: onset, pulse duration, peak $I_p$, $B_t$, file-existence flags</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_stability_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">stability_history.xlsx</code></td>
+      <td>Ideal/resistive/ballooning classification per (shot, time)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_core_profiles_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles_history.xlsx</code></td>
+      <td>$\tau_E$ and confinement scalings per time slice</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_equilibrium_global_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_global_history.xlsx</code></td>
+      <td>50+ columns: globals, geometry, diamagnetic flux, virial/Shafranov block</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gen_volume_averaged_parameter_sheet.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">volume_averaged_parameters.xlsx</code></td>
+      <td>$\langle n_e \rangle$, $\langle T_e \rangle$, $\langle P_e \rangle$ vs. $\langle P_{eq} \rangle$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">join_chease_stability_history.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">chease_stability_history.xlsx</code></td>
+      <td>Inner-join of the CHEASE and stability sheets on <code class="language-plaintext highlighter-rouge">['shot', 'time [ms]']</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plot_stability_limit.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">stability_limit.png</code>, <code class="language-plaintext highlighter-rouge">histograms.png</code>, <code class="language-plaintext highlighter-rouge">corr/*.png</code></td>
+      <td>Stability-limit scatter, histograms, pairwise correlations</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The equilibrium and profile generators lean on the ODS-aware layer described in
+<a href="/vaft/develop/guide/Data_structures/">Data structures</a>, calling <code class="language-plaintext highlighter-rouge">vaft.omas.update_equilibrium_boundary</code>,
+<code class="language-plaintext highlighter-rouge">update_equilibrium_global_quantities_q_min</code>, <code class="language-plaintext highlighter-rouge">update_equilibrium_global_quantities_volume</code>,
+<code class="language-plaintext highlighter-rouge">update_equilibrium_stored_energy</code> and <code class="language-plaintext highlighter-rouge">update_equilibrium_constraints_diamagnetic_flux</code> to fill any gaps,
+then <code class="language-plaintext highlighter-rouge">vaft.omas.compute_virial_equilibrium_quantities_ods</code> and
+<code class="language-plaintext highlighter-rouge">vaft.omas.compute_diamagnetic_flux_measured_vs_computed</code> for the derived blocks. Confinement times come from
+<code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper.compute_tau_E_engineering_parameters</code> together with
+<code class="language-plaintext highlighter-rouge">vaft.omas.general.find_matching_time_indices</code>, which pairs a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice with the nearest
+<code class="language-plaintext highlighter-rouge">equilibrium</code> slice. Volume averages use <code class="language-plaintext highlighter-rouge">vaft.omas.update_core_profiles_global_quantities_volume_average</code> and
+<code class="language-plaintext highlighter-rouge">vaft.omas.compute_volume_averaged_pressure(ods, time_slice=None, option="equilibrium")</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">gen_core_profiles_history.py</code>, <code class="language-plaintext highlighter-rouge">gen_equilibrium_global_history.py</code> and
+<code class="language-plaintext highlighter-rouge">gen_volume_averaged_parameter_sheet.py</code> share an incremental-upsert engine: they reload the existing sheet,
+reprocess any shot that is <strong>missing or defective</strong> (any required column NaN or non-finite), upsert on the key
+columns, and checkpoint every <code class="language-plaintext highlighter-rouge">--save-every</code> shots. <code class="language-plaintext highlighter-rouge">--rebuild</code> ignores the existing sheet entirely. The other
+generators rebuild from scratch and overwrite.</p>
+
+<h3 id="reading-these-sheets-correctly">Reading these sheets correctly</h3>
+
+<ul>
+  <li><strong>The stability classifications are heuristics with magic thresholds.</strong> <code class="language-plaintext highlighter-rouge">ideal_stability</code> is <code class="language-plaintext highlighter-rouge">"Error"</code> if any
+$|\delta W| \ge 100$, else <code class="language-plaintext highlighter-rouge">"Stable"</code> only if <strong>every</strong> $\delta W &gt; 0$ (scanned over $n = 1 \ldots 6$).
+<code class="language-plaintext highlighter-rouge">resistive_stability</code> is <code class="language-plaintext highlighter-rouge">"Error"</code> if any $|\Delta’| \ge 1000$, else <code class="language-plaintext highlighter-rouge">"Stable"</code> if <strong>no</strong> $\Delta’ &gt; 0$
+($n = 1, 2$). <code class="language-plaintext highlighter-rouge">ballooning_stability</code> is <code class="language-plaintext highlighter-rouge">"Unstable"</code> if $c_{a1} &lt; 0$ anywhere with $\psi_N &gt; 0.5$.
+The <code class="language-plaintext highlighter-rouge">sas_flag</code> values are parsed from the code input files but <strong>dropped</strong> from the final sheet.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">chease_history.xlsx</code> is indexed by PNG files, not g-files.</strong> Discovery enumerates <code class="language-plaintext highlighter-rouge">chease/plots/*.png</code> and
+derives the time from the stem. Set <code class="language-plaintext highlighter-rouge">chease.create_plot: false</code> in pipeline 1 and this sheet comes out
+<strong>empty</strong> even with hundreds of valid refined g-files present.</li>
+  <li><strong>There is no canonical schema across sheets.</strong> The key column is variously <code class="language-plaintext highlighter-rouge">shot</code>, <code class="language-plaintext highlighter-rouge">shot_number</code> or
+<code class="language-plaintext highlighter-rouge">shotnumber</code>, and the time column <code class="language-plaintext highlighter-rouge">time [ms]</code>, <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">time_s</code> or <code class="language-plaintext highlighter-rouge">time_ms</code>. That is why
+<code class="language-plaintext highlighter-rouge">join_chease_stability_history.py</code> can join the CHEASE sheet but not the EFIT one.</li>
+  <li><code class="language-plaintext highlighter-rouge">gen_chease_history.py</code> applies <code class="language-plaintext highlighter-rouge">abs()</code> to $I_p$; <code class="language-plaintext highlighter-rouge">gen_efit_history.py</code> does not, so EFIT currents can come
+out negative.</li>
+  <li><strong>The filename chains do not compose.</strong> <code class="language-plaintext highlighter-rouge">gen_omas_history.py</code> writes <code class="language-plaintext highlighter-rouge">omas_history_new.xlsx</code> but
+<code class="language-plaintext highlighter-rouge">plot_omas_history.py</code> reads <code class="language-plaintext highlighter-rouge">omas_history.xlsx</code>; <code class="language-plaintext highlighter-rouge">join_chease_stability_history.py</code> writes
+<code class="language-plaintext highlighter-rouge">chease_stability_history.xlsx</code> but <code class="language-plaintext highlighter-rouge">plot_stability_limit.py</code> reads <code class="language-plaintext highlighter-rouge">chease_dcon_history.xlsx</code>. Rename or
+copy by hand between steps.</li>
+  <li>Despite their names, <code class="language-plaintext highlighter-rouge">plot_chease_history.py</code> and <code class="language-plaintext highlighter-rouge">plot_efit_history.py</code> <strong>do not plot</strong>. Both are older
+generators; <code class="language-plaintext highlighter-rouge">plot_chease_history.py</code> in particular overwrites <code class="language-plaintext highlighter-rouge">chease_history.xlsx</code> with an incompatible
+schema that can no longer be joined. Do not run it. <code class="language-plaintext highlighter-rouge">plot_stability_history.py</code> is an empty file.</li>
+  <li><code class="language-plaintext highlighter-rouge">gen_efit_reliability.py</code> currently emits only diamagnetic-flux rows — the append calls in its magnetic-probe
+and flux-loop branches are unreachable — so do not read its output as per-probe reliability data.</li>
+</ul>
+
+<h3 id="known-breakage-on-main">Known breakage on <code class="language-plaintext highlighter-rouge">main</code></h3>
+
+<p>The three incremental generators listed above resolve their shot list from pipeline 2’s registry, and load each
+shot, by calling two helpers on <code class="language-plaintext highlighter-rouge">vaft.database.ods</code> that the module <strong>does not define on <code class="language-plaintext highlighter-rouge">main</code></strong> — it exposes
+<code class="language-plaintext highlighter-rouge">load_ods</code> and <code class="language-plaintext highlighter-rouge">save_ods</code>. As committed they will raise <code class="language-plaintext highlighter-rouge">AttributeError</code> before doing any work. The equivalent
+supported entry points are:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># -&gt; ODS
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>See <a href="/vaft/develop/guide/Data_structures/">Data structures</a> for the loader’s semantics.</p>
+
+<hr />
+
+<h2 id="running_linear_stability"><code class="language-plaintext highlighter-rouge">running_linear_stability</code></h2>
+
+<p>Pipeline 1’s <code class="language-plaintext highlighter-rouge">run_gpec_suite</code> rule runs the GPEC suite through the <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> API. This separate
+pipeline is the older, coarser alternative: a fan-out that launches DCON, RDCON and STRIDE directly, one
+Snakemake job per (shot, time, code, n-mode). For what these codes compute and how to read their output, see
+<a href="/vaft/develop/guide/Stability/">Stability</a>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>workflow/running_linear_stability
+./snakemake_worker.sh          <span class="c"># snakemake --cores 28</span>
+</code></pre></div></div>
+
+<p>Targets are discovered by <code class="language-plaintext highlighter-rouge">find_plotted_gfiles.py</code>, which the <code class="language-plaintext highlighter-rouge">Snakefile</code> shells out to at parse time. It
+walks <code class="language-plaintext highlighter-rouge">{BASE_DIR}/{5-digit shot}/chease/plots/*.png</code>, takes each PNG stem as a 5-digit time, and emits the
+matching <code class="language-plaintext highlighter-rouge">chease/g{shot:06d}.{time}</code> — <strong>the same PNG-as-index coupling as <code class="language-plaintext highlighter-rouge">gen_chease_history.py</code></strong>, so
+CHEASE comparison plots must exist or this pipeline finds nothing to do. You can run the discovery step alone:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python find_plotted_gfiles.py <span class="nt">--base-path</span> /srv/vest.filedb/public
+</code></pre></div></div>
+
+<p>The single rule <code class="language-plaintext highlighter-rouge">run_stability_code_for_mode</code> fans out over $n = 1 \ldots 6$ for DCON and $n = 1, 2$ for RDCON
+and STRIDE, writing a <code class="language-plaintext highlighter-rouge">completed.txt</code> marker to
+<code class="language-plaintext highlighter-rouge">{BASE_DIR}/{shot}/linear_stability/{time}/{code}/nn={n}/</code> and a log to
+<code class="language-plaintext highlighter-rouge">{BASE_DIR}/{shot}/logs/linear_stability/{time}/{code}_nn{n}.log</code>. That directory layout is exactly what
+<code class="language-plaintext highlighter-rouge">gen_stability_history.py</code> in pipeline 3 later reads.</p>
+
+<p>Two caveats. The rule loads GPEC through environment modules (<code class="language-plaintext highlighter-rouge">module use /home/user1/GPEC/module; module load
+GPEC-dev</code>), and the runner it invokes is an <strong>absolute path to a script outside this repository</strong>
+(<code class="language-plaintext highlighter-rouge">RUN_PARALLEL_DCON_SCRIPT</code> at the top of the <code class="language-plaintext highlighter-rouge">Snakefile</code>). Both must be repointed for the pipeline to run
+anywhere else. <code class="language-plaintext highlighter-rouge">config.yaml</code> holds a single key, <code class="language-plaintext highlighter-rouge">BASE_DIR</code>.</p>
+
+<p>To wipe stability outputs and start over — inspect first, it is a recursive delete:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python cleanup_stability_outputs.py <span class="nt">--base-path</span> /srv/vest.filedb/public <span class="nt">--dry-run</span>
+python cleanup_stability_outputs.py <span class="nt">--base-path</span> /srv/vest.filedb/public
+</code></pre></div></div>
+
+<p>It removes <code class="language-plaintext highlighter-rouge">{shot}/linear_stability/</code> and <code class="language-plaintext highlighter-rouge">{shot}/logs/linear_stability/</code> for <strong>every</strong> shot under the base
+path.</p>
+
+<hr />
+
+<h2 id="related">Related</h2>
+
+<p>Each pipeline stage has an interactive notebook counterpart — read those first if you want to understand what
+a stage does before running it at scale:</p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_diagnostics_processing.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_diagnostics_processing.ipynb</code></a> and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/eddy_current_calculation_and_startup_analysis.ipynb"><code class="language-plaintext highlighter-rouge">eddy_current_calculation_and_startup_analysis.ipynb</code></a> — pipeline 1, diagnostics and eddy stages</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_equilibrium_reconstruction_with_efit.ipynb</code></a> and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a> — the EFIT and CHEASE stages</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb"><code class="language-plaintext highlighter-rouge">linear_ideal_stability_analysis_with_dcon.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb"><code class="language-plaintext highlighter-rouge">linear_resistive_stability_analysis_with_rdcon.ipynb</code></a> and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb"><code class="language-plaintext highlighter-rouge">perturbed_equilibrium_and_3d_response_with_gpec.ipynb</code></a> — the stability codes</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb"><code class="language-plaintext highlighter-rouge">profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb</code></a> and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/confinement_time_scaling.ipynb"><code class="language-plaintext highlighter-rouge">confinement_time_scaling.ipynb</code></a> — pipelines 2 and 3</li>
+</ul>
+
+<p>Guide pages: <a href="/vaft/develop/guide/Installation/">Installation</a> ·
+<a href="/vaft/develop/guide/Database/">Database</a> ·
+<a href="/vaft/develop/guide/Data_structures/">Data structures</a> ·
+<a href="/vaft/develop/guide/Machine_mapping/">Machine mapping</a> ·
+<a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> ·
+<a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a> ·
+<a href="/vaft/develop/guide/Stability/">Stability</a> ·
+<a href="/vaft/develop/guide/Formula/">Physics formulas</a> ·
+<a href="/vaft/develop/guide/examples/">Examples</a></p>
+
+<p>Pipeline sources:
+<a href="https://github.com/VEST-Tokamak/vaft/tree/main/workflow"><code class="language-plaintext highlighter-rouge">workflow/</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/code/efit.py"><code class="language-plaintext highlighter-rouge">vaft/code/efit.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/code/chease.py"><code class="language-plaintext highlighter-rouge">vaft/code/chease.py</code></a> ·
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/code/gpec.py"><code class="language-plaintext highlighter-rouge">vaft/code/gpec.py</code></a></p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="pipeline-overview">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/automated_pipeline_overview.ipynb">Automated pipeline overview</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="external-codes">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/initialize_external_fusion_codes.ipynb">Initialize external fusion codes</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/#vaftcode"><code>vaft.code</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="raw-daq"><strong>VEST raw DAQ and archived raw dumps</strong><br><span>Native diagnostic signals used by machine mapping.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+          
+          <li data-resource-id="external-codes"><strong>EFIT, CHEASE, DCON/RDCON and GPEC installations</strong><br><span>Optional external executables resolved from their HOME variables.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="pipeline-overview"><a href="/vaft/develop/reference/notebooks/#output-title-pipeline-overview">Snakemake pipeline stage summary</a></li>
+        
+          
+          <li data-resource-id="external-readiness"><a href="/vaft/develop/reference/notebooks/#output-title-external-readiness">External-code readiness</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/guide/Plotting/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Plotting">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/notebooks/" class="navigation navigation-next navigation-unique" aria-label="Next page: Notebooks">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline-1--routine-data-processing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 1 — routine data processing</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-it" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running it</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-dag" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The DAG</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-library-calls-verbatim" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The library calls, verbatim</a></li><li class="page-toc-item page-toc-level-3"><a href="#configuration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configuration</a></li><li class="page-toc-item page-toc-level-3"><a href="#failure-semantics--a-green-run-does-not-mean-everything-ran" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Failure semantics — a green run does not mean everything ran</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pipeline-2--corrective-data-update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 2 — corrective data update</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#the-registry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The registry</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pipeline-3--data-summary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 3 — data summary</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#reading-these-sheets-correctly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading these sheets correctly</a></li><li class="page-toc-item page-toc-level-3"><a href="#known-breakage-on-main" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Known breakage on main</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#running_linear_stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">running_linear_stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Notebooks",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Examples.md",
+            "ref": "_guide/Examples.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Pipelines.md",
+        "mtime": "2026-07-01 11:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

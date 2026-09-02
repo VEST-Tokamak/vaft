@@ -1,0 +1,1174 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Data access and IMAS · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/imas-concepts/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/workflows/experimental-interpretation/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Data access and IMAS</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/Machine_mapping">Data access and IMAS</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Boundary between VEST-native signals and IMAS-aligned OMAS structures.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A packaged sample, public HSDS shot, or archived raw diagnostic source.</dd>
+    <dt>Expected result</dt><dd>A mapped ODS whose IDS paths can be consumed by processing and plotting layers.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code> is the layer that turns <strong>VEST machine reality</strong> — DAQ field codes, coil geometry
+tables, digitizer CSVs, MATLAB exports — into an <strong>IMAS-compliant ODS</strong>. It is the only place in VAFT that
+knows about VEST-specific things like “field code 102 is the Rogowski coil” or “PF2 changed height in 2025”.
+Everything downstream (<a href="/vaft/develop/guide/Processing/"><code class="language-plaintext highlighter-rouge">vaft.process</code></a>,
+<a href="/vaft/develop/guide/Formula/"><code class="language-plaintext highlighter-rouge">vaft.formula</code></a>, <code class="language-plaintext highlighter-rouge">vaft.plot</code>) consumes the ODS and never touches the raw
+database.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    SQL[(VEST SQL raw DB&lt;br/&gt;field codes)] --&gt; MM
+    GEO[Packaged geometry&lt;br/&gt;*.yaml / *.mat / *.csv] --&gt; MM
+    MAT[Thomson / CXRS&lt;br/&gt;.mat exports] --&gt; MM
+    CSV[SXR digitizer CSV] --&gt; MM
+    MM[vaft.machine_mapping] --&gt; ODS[omas.ODS&lt;br/&gt;magnetics · tf · pf_active · ...]
+    ODS --&gt; DOWN[vaft.process / vaft.formula / EFIT / CHEASE]
+</code></pre>
+
+<p>If you only want to <em>read</em> already-mapped shots, you do not need this page — see
+<a href="/vaft/develop/guide/Data_structures/">Data structures</a>. Read this page when you are mapping a <strong>new
+shot</strong>, adding a <strong>new diagnostic</strong>, or debugging why a mapped signal looks wrong.</p>
+
+<hr />
+
+<h1 id="the-two-layer-api">The two-layer API</h1>
+
+<p>Every diagnostic module follows the same shape.</p>
+
+<p><strong>1. The canonical IDS entry point</strong> — named exactly after the IDS it fills. This is what you should call.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">tf</span>
+
+<span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>   <span class="c1"># fills ods['magnetics']
+</span><span class="nf">tf</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>          <span class="c1"># fills ods['tf']
+</span></code></pre></div></div>
+
+<p><strong>2. The <code class="language-plaintext highlighter-rouge">vfit_*</code> builders</strong> — the static/dynamic split underneath. <code class="language-plaintext highlighter-rouge">*_static</code> writes geometry and metadata
+that do not depend on time; <code class="language-plaintext highlighter-rouge">*_dynamic</code> writes the time-dependent signals. The canonical entry point simply
+calls both. Reach for these when you want geometry without touching the database, or want to re-map only the
+waveforms.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">vfit_tf_static</span><span class="p">,</span> <span class="n">vfit_tf_dynamic</span>
+
+<span class="nf">vfit_tf_static</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                                  <span class="c1"># tf.r0, ids_properties — no DB access
+</span><span class="nf">vfit_tf_dynamic</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>         <span class="c1"># tf.coil.0.current, tf.b_field_tor_vacuum_r
+</span></code></pre></div></div>
+
+<p>All names are also re-exported lazily from the package root, so <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.vfit_md(...)</code> works
+without importing the submodule. The explicit <code class="language-plaintext highlighter-rouge">from vaft.machine_mapping.&lt;module&gt; import &lt;name&gt;</code> form used
+above is what the production pipeline uses, and it is unambiguous — prefer it in scripts.</p>
+
+<hr />
+
+<h1 id="coverage-which-ids-which-module">Coverage: which IDS, which module</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>IDS</th>
+      <th>Module</th>
+      <th>Canonical entry point</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics</code></td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics(ods, shot, tstart, tend, dt, processing_config=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tf</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tf.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tf(ods, shot, tstart, tend, dt)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pf_active</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pf_active.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pf_active(ods, shot, tstart, tend, dt, geometry_root=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">barometry</code></td>
+      <td><code class="language-plaintext highlighter-rouge">barometry.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">barometry(ods, shot, tstart, tend, dt)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spectrometer_uv</code></td>
+      <td><code class="language-plaintext highlighter-rouge">spectrometer_uv.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">spectrometer_uv(ods, shot, t_start, t_end, dt)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering</code></td>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">charge_exchange</code></td>
+      <td><code class="language-plaintext highlighter-rouge">charge_exchange.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">charge_exchange(ods, shotnumber, options='ces', data_root=None, mat_file=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">soft_x_rays</code></td>
+      <td><code class="language-plaintext highlighter-rouge">soft_x_rays.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">soft_x_rays(ods, shot, daq_label, **kwargs)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description</code></td>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">dataset_description(ods, source, options=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pf_passive</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pf_passive.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pf_passive(ods, source=None, options=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">em_coupling</code></td>
+      <td><code class="language-plaintext highlighter-rouge">em_coupling.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">em_coupling(ods, source=None, options=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">summary</code></td>
+      <td><code class="language-plaintext highlighter-rouge">summary.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">summary(ods, source, options=None)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mhd_linear</code></td>
+      <td><code class="language-plaintext highlighter-rouge">mhd_linear.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">mhd_linear(ods, source, options=None)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Note the argument shapes differ, and deliberately so — they follow the data source:</p>
+
+<ul>
+  <li><strong>Raw-DAQ diagnostics</strong> (<code class="language-plaintext highlighter-rouge">magnetics</code>, <code class="language-plaintext highlighter-rouge">tf</code>, <code class="language-plaintext highlighter-rouge">pf_active</code>, <code class="language-plaintext highlighter-rouge">barometry</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv</code>) take
+<code class="language-plaintext highlighter-rouge">(ods, shot, tstart, tend, dt)</code>: they resample DAQ traces onto a uniform window you choose.</li>
+  <li><strong>File-backed diagnostics</strong> (<code class="language-plaintext highlighter-rouge">thomson_scattering</code>, <code class="language-plaintext highlighter-rouge">charge_exchange</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays</code>) take a shot plus a
+file/root override: their timebase comes from the exported file, not from you.</li>
+  <li><strong>Reference-ODS diagnostics</strong> (<code class="language-plaintext highlighter-rouge">pf_passive</code>, <code class="language-plaintext highlighter-rouge">em_coupling</code>) take a <code class="language-plaintext highlighter-rouge">source</code> path to a reference ODS.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">equilibrium</code> and <code class="language-plaintext highlighter-rouge">pf_plasma</code> exist as modules but their mapping functions raise <code class="language-plaintext highlighter-rouge">NotImplementedError</code> —
+equilibria are produced by EFIT/CHEASE, not by machine mapping. See
+<a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a>.</p>
+
+<p>Source: <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/machine_mapping/__init__.py"><code class="language-plaintext highlighter-rouge">vaft/machine_mapping/</code></a></p>
+
+<hr />
+
+<h1 id="mapping-a-shot-end-to-end">Mapping a shot end to end</h1>
+
+<p>This is the real production recipe, condensed from
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_1_routine_data_processing/generate_diagnostics_ods.py"><code class="language-plaintext highlighter-rouge">generate_diagnostics_ods.py</code></a>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span><span class="p">,</span> <span class="n">save_omas_json</span>
+
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.dataset_description</span> <span class="kn">import</span> <span class="n">dataset_description</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_active</span> <span class="kn">import</span> <span class="n">pf_active</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.spectrometer_uv</span> <span class="kn">import</span> <span class="n">spectrometer_uv</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.barometry</span> <span class="kn">import</span> <span class="n">barometry</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">tf</span>
+
+<span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span> <span class="o">=</span> <span class="mi">39915</span><span class="p">,</span> <span class="mf">0.26</span><span class="p">,</span> <span class="mf">0.36</span><span class="p">,</span> <span class="mf">4e-5</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
+<span class="nf">dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">source_type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">shot</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">run</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">machine</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">})</span>
+<span class="nf">pf_active</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">spectrometer_uv</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">barometry</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">tf</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+
+<span class="nf">save_omas_json</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">39915_diagnostics.json</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Order matters only for <code class="language-plaintext highlighter-rouge">dataset_description</code> (it stamps the pulse/run identity). The rest are independent and
+each writes into its own IDS.</p>
+
+<p><code class="language-plaintext highlighter-rouge">dt = 4e-5</code> (25 kHz) matches the native DAQ rate — asking for a finer grid does not create information, it
+just interpolates.</p>
+
+<hr />
+
+<h1 id="per-diagnostic-detail">Per-diagnostic detail</h1>
+
+<h2 id="magnetics">magnetics</h2>
+
+<p>The heaviest module, and the one you are most likely to need to reason about.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vfit_magnetics_static(ods)</code> writes probe and loop geometry from packaged YAML: <code class="language-plaintext highlighter-rouge">position.r</code>, <code class="language-plaintext highlighter-rouge">position.z</code>,
+a probe <code class="language-plaintext highlighter-rouge">length</code> of 0.01 m, <code class="language-plaintext highlighter-rouge">poloidal_angle</code> of $3\pi/2$, and <code class="language-plaintext highlighter-rouge">type.index = 2</code> (Mirnov). It also appends four
+<strong>toroidal reference Mirnov channels</strong> at $r = 0.796$ m, $z = 0.02$ m spaced at
+$\phi = 0,\ 2\pi/3,\ \pi,\ 4\pi/3$ — these are what make toroidal mode-number analysis possible.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vfit_magnetics_dynamic(ods, shot, tstart, tend, dt, processing_config=None)</code> fills:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.flux_loop.:.flux.data</code></td>
+      <td>integrated loop signal, multiplied by $2\pi$ to give poloidal flux in Wb</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe.:.field.data</code></td>
+      <td>integrated probe signal, T</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe.:.voltage.data</code></td>
+      <td><strong>raw</strong> un-integrated Mirnov voltage at native DAQ timebase</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.ip.0.data</code></td>
+      <td>plasma current, A</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.diamagnetic_flux.0.data</code></td>
+      <td>diamagnetic flux, Wb</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The raw voltage traces are written by <code class="language-plaintext highlighter-rouge">vfit_mirnov_raw_dynamic(ods, shot)</code> and kept on the <strong>acquisition</strong>
+timebase, not the resampled one — fluctuation analysis needs the full bandwidth. See
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/fluctuation_diagnostics_analysis.ipynb"><code class="language-plaintext highlighter-rouge">fluctuation_diagnostics_analysis.ipynb</code></a>.</p>
+
+<p>Two lower-level helpers are worth knowing:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">vfit_md</span><span class="p">,</span> <span class="n">vfit_plasma_current</span><span class="p">,</span> <span class="n">vest_diamagnetic_flux</span>
+
+<span class="n">time</span><span class="p">,</span> <span class="n">flux_loops</span><span class="p">,</span> <span class="n">probes</span> <span class="o">=</span> <span class="nf">vfit_md</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>          <span class="c1"># -&gt; (ndarray, list[ndarray], list[ndarray])
+</span><span class="n">time</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="nf">vfit_plasma_current</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>              <span class="c1"># -&gt; (ndarray, ndarray), amps
+</span><span class="n">time</span><span class="p">,</span> <span class="n">dia</span> <span class="o">=</span> <span class="nf">vest_diamagnetic_flux</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">,</span> <span class="mf">0.34</span><span class="p">)</span>  <span class="c1"># needs the plasma start/end window
+</span></code></pre></div></div>
+
+<p><strong>Plasma current is not just the Rogowski trace.</strong> The bare Rogowski signal picks up the vacuum-vessel and
+coil contribution, so <code class="language-plaintext highlighter-rouge">vfit_plasma_current</code> subtracts a flux-loop-derived reference scaled by a mutual
+inductance, then removes a linear baseline fitted on a pre-plasma window. The mutual inductance value and the
+overall sign are both <strong>shot-range dependent</strong> (VEST rewired and re-polarised its diagnostics over the years),
+which is exactly the kind of machine trivia this module exists to hide. If a historical shot’s $I_p$ comes out
+inverted, that switch is the first thing to check.</p>
+
+<p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Mapped plasma current" /></p>
+
+<p>Signal conditioning (integration, drift removal, smoothing) is delegated to <code class="language-plaintext highlighter-rouge">vaft.process</code> and is tunable
+through <code class="language-plaintext highlighter-rouge">processing_config</code>, a <code class="language-plaintext highlighter-rouge">VestMagneticsProcessingConfig</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">VestMagneticsProcessingConfig</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
+
+<span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="mf">0.26</span><span class="p">,</span> <span class="mf">0.36</span><span class="p">,</span> <span class="mf">4e-5</span><span class="p">,</span>
+          <span class="n">processing_config</span><span class="o">=</span><span class="nc">VestMagneticsProcessingConfig</span><span class="p">())</span>
+</code></pre></div></div>
+
+<p>See <a href="/vaft/develop/guide/Processing/">Signal processing</a> for what those knobs do, and
+<a href="/vaft/develop/guide/Magnetics/">Magnetics</a> for plotting the result.</p>
+
+<h2 id="tf">tf</h2>
+
+<p><code class="language-plaintext highlighter-rouge">tf</code> reconstructs the toroidal field from a <strong>Hall probe</strong>, not from a coil current shunt. The raw signal is
+scaled by a Hall gain, baselined against the first samples, low-pass filtered and smoothed, then converted:</p>
+
+\[B_{t} R = \frac{\mu_0 N_{TF} I_{TF}}{2\pi}, \qquad N_{TF} = 24\]
+
+<p>which is written to <code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r</code> (units T·m). The VEST reference radius <code class="language-plaintext highlighter-rouge">tf.r0</code> is 0.4 m, so
+$B_t$ on axis is <code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r / tf.r0</code>. The reconstructed coil current also lands in
+<code class="language-plaintext highlighter-rouge">tf.coil.0.current</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">vfit_tf_current</span><span class="p">,</span> <span class="n">vfit_tf_bt_r</span>
+
+<span class="n">time</span><span class="p">,</span> <span class="n">i_tf</span> <span class="o">=</span> <span class="nf">vfit_tf_current</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># A
+</span><span class="n">time</span><span class="p">,</span> <span class="n">bt_r</span> <span class="o">=</span> <span class="nf">vfit_tf_bt_r</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>      <span class="c1"># T·m
+</span></code></pre></div></div>
+
+<h2 id="pf_active">pf_active</h2>
+
+<p>Ten PF coils. <code class="language-plaintext highlighter-rouge">vfit_pf_active_static</code> loads a <strong>discretized coil geometry</strong> MATLAB table and writes each coil
+as a set of rectangular elements (<code class="language-plaintext highlighter-rouge">geometry.geometry_type = 2</code>) with <code class="language-plaintext highlighter-rouge">turns_with_sign</code> and <code class="language-plaintext highlighter-rouge">area</code>. Coil
+resistance is computed from copper resistivity as</p>
+
+\[R = \frac{2\pi \rho R_{coil}}{A_{coil}}\]
+
+<p>Crucially, <strong>which geometry file is loaded depends on the shot number</strong> — VEST’s PF set was modified, so
+coil heights differ between the older and newer builds. Passing a <code class="language-plaintext highlighter-rouge">shot</code> to <code class="language-plaintext highlighter-rouge">vfit_pf_active_static</code> is what
+selects the right one; the canonical <code class="language-plaintext highlighter-rouge">pf_active(...)</code> does this for you. You can point at a different asset
+tree with <code class="language-plaintext highlighter-rouge">geometry_root</code>, and resolve a packaged asset directly:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_active</span> <span class="kn">import</span> <span class="n">resolve_geometry_asset</span><span class="p">,</span> <span class="n">vfit_pf</span>
+
+<span class="n">path</span> <span class="o">=</span> <span class="nf">resolve_geometry_asset</span><span class="p">(</span><span class="sh">"</span><span class="s">VEST_DiscretizedCoilGeometry_Full_ver_2507.mat</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">time</span><span class="p">,</span> <span class="n">currents</span> <span class="o">=</span> <span class="nf">vfit_pf</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># currents: list of 10 arrays, A
+</span></code></pre></div></div>
+
+<p>Per-coil gains and noise reduction are applied while building the waveforms, so <code class="language-plaintext highlighter-rouge">vfit_pf</code> output is already
+calibrated.</p>
+
+<h2 id="soft_x_rays">soft_x_rays</h2>
+
+<p>SXR does not come from the SQL DAQ — it comes from <strong>digitizer CSV files</strong> named
+<code class="language-plaintext highlighter-rouge">digitizer_{daq_label}_{shot}.csv</code>. The mapper builds the timebase itself from a sample rate
+(125 MHz / 128 by default) and a trigger offset, so <code class="language-plaintext highlighter-rouge">daq_label</code> is a required argument: it selects which
+physical array the digitizer channels belong to.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays</span><span class="p">,</span> <span class="n">soft_x_rays_from_digitizer_csv</span>
+
+<span class="nf">soft_x_rays</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">daq_label</span><span class="o">=</span><span class="sh">"</span><span class="s">22577</span><span class="sh">"</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="sh">"</span><span class="s">/path/to/sxr</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># or build a fresh ODS in one call
+</span><span class="n">ods_sxr</span> <span class="o">=</span> <span class="nf">soft_x_rays_from_digitizer_csv</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="sh">"</span><span class="s">22577</span><span class="sh">"</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="sh">"</span><span class="s">/path/to/sxr</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Line-of-sight geometry (<code class="language-plaintext highlighter-rouge">channel.:.line_of_sight.first_point</code> / <code class="language-plaintext highlighter-rouge">.second_point</code>) is filled from a packaged
+endpoint table, and the default energy band is 0–20 keV. Channels the geometry table does not know about are
+<strong>still stored as brightness traces</strong>, just without LOS metadata — so an unmapped channel degrades gracefully
+rather than failing the run. Override the channel assignment with <code class="language-plaintext highlighter-rouge">channel_map</code>, and flip a mis-wired array
+with <code class="language-plaintext highlighter-rouge">polarity=-1.0</code>.</p>
+
+<p>Worked example:
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/soft_x_ray_signal_analysis.ipynb"><code class="language-plaintext highlighter-rouge">soft_x_ray_signal_analysis.ipynb</code></a>.</p>
+
+<h2 id="thomson_scattering-and-charge_exchange">thomson_scattering and charge_exchange</h2>
+
+<p>Both read MATLAB exports rather than the DAQ, so they take a <code class="language-plaintext highlighter-rouge">shotnumber</code> and an optional <code class="language-plaintext highlighter-rouge">data_root</code> /
+<code class="language-plaintext highlighter-rouge">mat_file</code>. Both write <strong>uncertainties</strong> alongside values when the export provides errors.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.thomson_scattering</span> <span class="kn">import</span> <span class="n">thomson_scattering</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.charge_exchange</span> <span class="kn">import</span> <span class="n">charge_exchange</span>
+
+<span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">)</span>                    <span class="c1"># -&gt; thomson_scattering.channel.:.{t_e, n_e}
+</span><span class="nf">charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="sh">"</span><span class="s">ces</span><span class="sh">"</span><span class="p">)</span>        <span class="c1"># 'ces' or Doppler modes
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">charge_exchange</code> supports more than one instrument: <code class="language-plaintext highlighter-rouge">options</code> selects between the CES export and the ion
+Doppler spectroscopy exports, and <code class="language-plaintext highlighter-rouge">read_doppler_single</code> / <code class="language-plaintext highlighter-rouge">read_doppler_profile</code> are available if you want to
+load Doppler data directly. These two IDSs are the kinetic input to profile fitting —
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb"><code class="language-plaintext highlighter-rouge">profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb</code></a>.</p>
+
+<h2 id="pf_passive-and-em_coupling">pf_passive and em_coupling</h2>
+
+<p>These two are <strong>not measured</strong> — they are machine constants. Both are copied from a packaged reference ODS
+that ships with VAFT:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_passive</span> <span class="kn">import</span> <span class="n">pf_passive</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.em_coupling</span> <span class="kn">import</span> <span class="n">em_coupling</span>
+
+<span class="nf">pf_passive</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># vessel/passive-loop geometry
+</span><span class="nf">em_coupling</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>    <span class="c1"># mutual inductance matrices
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">pf_passive</code> deliberately <strong>deletes the loop currents and the time axis</strong> from the reference while keeping the
+geometry. That is not a bug: the reference ODS contains one historical shot’s eddy currents, and you want the
+geometry so you can compute <em>your</em> shot’s eddy currents fresh. Pass <code class="language-plaintext highlighter-rouge">source</code> (or <code class="language-plaintext highlighter-rouge">options['reference_ods']</code>)
+to substitute your own reference.</p>
+
+<p><code class="language-plaintext highlighter-rouge">em_coupling</code> supplies the mutual inductances that eddy-current reconstruction needs; see
+<a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a>.</p>
+
+<h2 id="dataset_description">dataset_description</h2>
+
+<p>Stamps pulse identity. <code class="language-plaintext highlighter-rouge">vfit_dataset_description</code> is the explicit form:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.dataset_description</span> <span class="kn">import</span> <span class="n">vfit_dataset_description</span>
+
+<span class="nf">vfit_dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse_type</span><span class="o">=</span><span class="sh">"</span><span class="s">pulse</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># -&gt; dataset_description.data_entry.{machine, pulse, pulse_type, run, user}
+</span></code></pre></div></div>
+
+<hr />
+
+<h1 id="static-assets-and-the-channel-table">Static assets and the channel table</h1>
+
+<p>Machine mapping is only as good as its geometry tables. They live under <code class="language-plaintext highlighter-rouge">vaft/data/geometry/</code> and are resolved
+through <code class="language-plaintext highlighter-rouge">resolve_data_root()</code>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Asset</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VEST_MagneticsGeometry_Full_ver_2302.yaml</code></td>
+      <td>probe / flux-loop positions, and the inboard–side–outboard grouping</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MD.yaml</code></td>
+      <td>magnetic-diagnostic channel list used by <code class="language-plaintext highlighter-rouge">vfit_md</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">table.yaml</code></td>
+      <td>field code → channel name lookup</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VEST_DiscretizedCoilGeometry_Full_ver_1906.mat</code>, <code class="language-plaintext highlighter-rouge">..._ver_2507.mat</code></td>
+      <td>PF coil elements (shot-dependent)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">line_of_sight_endpoints.csv</code></td>
+      <td>SXR lines of sight</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A separate <code class="language-plaintext highlighter-rouge">vest.yaml</code> shipped inside <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/</code> carries per-shot DAQ channel metadata (label,
+field code, gain). It is keyed by shot, with a <code class="language-plaintext highlighter-rouge">0</code> block holding defaults that shot-specific blocks are
+deep-merged over — so a recalibrated channel is a small YAML override, not a code change. Query it with:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.utils</span> <span class="kn">import</span> <span class="n">raw_database_info</span>
+
+<span class="n">info</span> <span class="o">=</span> <span class="nf">raw_database_info</span><span class="p">(</span><span class="sh">"</span><span class="s">vest.yaml</span><span class="sh">"</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="sh">"</span><span class="s">b_field_pol_probe</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">labels</span><span class="sh">"</span><span class="p">],</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">fields</span><span class="sh">"</span><span class="p">],</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">gains</span><span class="sh">"</span><span class="p">]</span>   <span class="c1"># dicts keyed by channel index
+</span></code></pre></div></div>
+
+<p>Probes and loops are grouped by position — inboard, side, outboard — and that grouping is what drives
+per-group uncertainties below.</p>
+
+<hr />
+
+<h1 id="uncertainties-for-equilibrium-reconstruction">Uncertainties for equilibrium reconstruction</h1>
+
+<p>EFIT needs an error bar on every constraint. <code class="language-plaintext highlighter-rouge">machine_mapping</code> attaches them, because the <em>machine</em> is what
+determines them: an outboard Mirnov is not as trustworthy as a Rogowski coil.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DEFAULT_CONSTRAINT_UNCERTAINTIES</span><span class="p">,</span>
+    <span class="n">apply_default_constraint_uncertainties</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nf">apply_default_constraint_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>   <span class="c1"># annotates pf_active, tf and magnetics in one call
+</span></code></pre></div></div>
+
+<p>The defaults are <strong>relative</strong> errors:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Constraint key</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pf_active_current</code></td>
+      <td>1e-4</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tf_b_field_tor_vacuum_r</code></td>
+      <td>1e-4</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_ip</code></td>
+      <td>5e-2</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_diamagnetic_flux</code></td>
+      <td>3e-2</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_bpol_inboard</code></td>
+      <td>1e-2</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_bpol_side</code></td>
+      <td>1e-1</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_bpol_outboard</code></td>
+      <td>1e-2</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_flux_loop_inboard</code></td>
+      <td>1e-1</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_flux_loop_outboard</code></td>
+      <td>1e-2</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The pattern is physical: coil currents are known to a part in $10^4$ because they are driven and metered,
+while the <strong>side</strong> probes and <strong>inboard</strong> flux loops get 10% — they sit where the field is weakest and the
+pickup worst, so down-weighting them is what keeps a reconstruction stable.</p>
+
+<p>Override selectively with a mapping (unknown keys raise), or wholesale with a 9-element vector in the table’s
+order:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">apply_default_constraint_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">magnetics_ip</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">})</span>
+<span class="nf">apply_default_constraint_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">[</span><span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">2e-2</span><span class="p">,</span> <span class="mf">3e-2</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>Finer control is available per subsystem — <code class="language-plaintext highlighter-rouge">apply_pf_active_current_uncertainties</code>,
+<code class="language-plaintext highlighter-rouge">apply_tf_uncertainties</code>, and <code class="language-plaintext highlighter-rouge">apply_magnetics_uncertainties</code> (which additionally accepts
+<code class="language-plaintext highlighter-rouge">fl_correct_coeff</code> to divide out per-loop calibration coefficients). <code class="language-plaintext highlighter-rouge">normalize_constraint_uncertainties</code>
+turns either input form into the canonical dict if you want to inspect it first.</p>
+
+<hr />
+
+<h1 id="offline-mapping-and-reproducibility">Offline mapping and reproducibility</h1>
+
+<p>Live SQL access is not always available or desirable — CI, archived reprocessing, and anyone outside the VEST
+network need to work from a dump. Two environment variables control this, and the production pipeline sets
+both:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
+
+<span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">VAFT_RAW_SAMPLE_PATH</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">/data/raw_dumps/39915.json.gz</span><span class="sh">"</span>
+<span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">VAFT_RAW_OFFLINE_ONLY</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">1</span><span class="sh">"</span>     <span class="c1"># never attempt a live SQL connection
+</span>
+<span class="c1"># ... mapping calls now read from the dump
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">VAFT_RAW_SAMPLE_PATH</code> accepts a <code class="language-plaintext highlighter-rouge">{shot}</code> placeholder, so one template serves a whole reprocessing campaign.
+With <code class="language-plaintext highlighter-rouge">VAFT_RAW_OFFLINE_ONLY</code> set, a missing channel yields a <strong>zero waveform on a default timebase</strong> instead
+of an exception — mapping completes and the gap is visible in the data rather than as a crash. When you see an
+identically-zero trace in an offline run, suspect a missing channel in the dump before you suspect the machine.</p>
+
+<p>Database access itself is documented in
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_raw_signal_sql_database.ipynb"><code class="language-plaintext highlighter-rouge">vest_raw_signal_sql_database.ipynb</code></a>.</p>
+
+<hr />
+
+<h1 id="adding-a-new-diagnostic">Adding a new diagnostic</h1>
+
+<p>The contract to satisfy, in order:</p>
+
+<ol>
+  <li>Create <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/&lt;ids_name&gt;.py</code>, named after the <strong>IMAS IDS</strong>, not the instrument.</li>
+  <li>Write <code class="language-plaintext highlighter-rouge">vfit_&lt;ids&gt;_static(ods, ...)</code> for geometry/metadata and <code class="language-plaintext highlighter-rouge">vfit_&lt;ids&gt;_dynamic(ods, shot, ...)</code> for
+signals. Use <code class="language-plaintext highlighter-rouge">set_path</code> from <code class="language-plaintext highlighter-rouge">.utils</code> rather than assigning into the ODS directly — it keeps path handling
+uniform.</li>
+  <li>Write the canonical <code class="language-plaintext highlighter-rouge">&lt;ids_name&gt;(ods, shot, tstart, tend, dt)</code> that calls both.</li>
+  <li>Put geometry in <code class="language-plaintext highlighter-rouge">vaft/data/geometry/</code> as YAML or CSV. Do not hardcode positions in Python.</li>
+  <li>Register the public names in <code class="language-plaintext highlighter-rouge">_EXPORT_MAP</code> and <code class="language-plaintext highlighter-rouge">__all__</code> in
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/machine_mapping/__init__.py"><code class="language-plaintext highlighter-rouge">__init__.py</code></a> so they
+are reachable from the package root.</li>
+  <li>Degrade gracefully when a channel is absent — return an empty or zero signal, do not raise.</li>
+</ol>
+
+<hr />
+
+<h1 id="related-pages">Related pages</h1>
+
+<ul>
+  <li><a href="/vaft/develop/guide/Quick_start_guide/">Quick start guide</a> — load an already-mapped shot in five lines.</li>
+  <li><a href="/vaft/develop/guide/Data_structures/">Data structures</a> — what an ODS/IDS is, and which IDSs VEST carries.</li>
+  <li><a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> — the <code class="language-plaintext highlighter-rouge">vaft.process</code> routines that machine mapping calls into.</li>
+  <li><a href="/vaft/develop/guide/Magnetics/">Magnetics</a> — plotting the mapped magnetics IDS.</li>
+  <li><a href="/vaft/develop/guide/examples/">Examples</a> — the full notebook index.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database-initialization">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="data-conversion">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb">Read and convert data structures</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="imas"><a href="/vaft/develop/reference/api/#vaftimas"><code>vaft.imas</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+          
+          <li data-resource-id="raw-daq"><strong>VEST raw DAQ and archived raw dumps</strong><br><span>Native diagnostic signals used by machine mapping.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
+        
+          
+          <li data-resource-id="imas-roundtrip"><a href="/vaft/develop/reference/notebooks/#output-title-imas-roundtrip">OMAS and IMAS-path round trip</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/imas-concepts/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Fusion data structure and IMAS concepts">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" class="navigation navigation-next navigation-unique" aria-label="Next page: Experimental interpretation">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Experimental interpretation",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Magnetics.md",
+            "ref": "_guide/Magnetics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Machine_mapping.md",
+        "mtime": "2026-07-01 09:40:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

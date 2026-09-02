@@ -1,0 +1,1105 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Operations and statistical analysis · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/workflows/electromagnetic-modeling/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/guide/Plotting/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Operations and statistical analysis</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/Formula">Operations and statistical analysis</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Pure physics formulas and ODS-aware wrappers for single- and multi-shot analysis.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Scalars, NumPy arrays, or an ODS with the required physical quantities.</dd>
+    <dt>Expected result</dt><dd>Limits, confinement metrics, statistical summaries, tables, and comparison plots.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.formula</code> is the <strong>physics layer</strong> of VAFT: closed-form expressions, empirical scalings and
+Green’s functions, written as pure functions of NumPy arrays and scalars. Nothing in it touches an
+ODS, reads a file, or plots. To evaluate the same physics directly on a VEST shot, use the ODS-aware
+wrappers in <code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper</code> (the <code class="language-plaintext highlighter-rouge">vaft.omas.compute_*</code> functions), which pull the inputs
+out of the IDSs and hand them to these functions.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["ODS (IMAS IDSs)"] --&gt; B["vaft.omas.formula_wrapper&lt;br/&gt;compute_tau_E_scaling, compute_power_balance, ..."]
+    B --&gt; C["vaft.formula&lt;br/&gt;equilibrium / stability / green / utils / constants"]
+    C --&gt; B
+    B --&gt; D["scalars and time series,&lt;br/&gt;written back into the ODS"]
+    E["your own NumPy arrays"] --&gt; C
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Submodule</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.constants</code></td>
+      <td>$\mu_0$, $\epsilon_0$, $e$, $m_e$, $m_p$, fusion/transport coefficients, and the confinement-scaling coefficient table</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.utils</code></td>
+      <td>Gradients, trapezoidal integrals, normalisation, volume averaging, 1-D profile fitting</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code></td>
+      <td>Flux, safety factor, shear, current, geometry, energy, virial/Shafranov relations, power balance, dimensionless parameters, confinement scalings</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.stability</code></td>
+      <td>Beta conversions, ballooning/kink/sawtooth criteria, Greenwald limit, transport speeds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.green</code></td>
+      <td>Axisymmetric Green’s functions for $\psi$, $B_R$, $B_Z$ and the elliptic integrals behind them</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code></td>
+      <td>OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.statistics</code></td>
+      <td>Residual, goodness-of-fit and solver-convergence statistics used by the validation layer</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">vaft/formula/__init__.py</code> resolves its submodules lazily (PEP 562): importing one of them costs
+only that module, and <code class="language-plaintext highlighter-rouge">from vaft.formula import *</code> still exposes every public symbol.  Each is
+reachable three ways:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>                                             <span class="c1"># lazy: vaft.formula loads on first access
+</span><span class="kn">from</span> <span class="n">vaft.formula</span> <span class="kn">import</span> <span class="n">greenwald_density</span>              <span class="c1"># flat namespace
+</span><span class="kn">from</span> <span class="n">vaft.formula.equilibrium</span> <span class="kn">import</span> <span class="n">q_from_phi</span>         <span class="c1"># explicit submodule
+</span></code></pre></div></div>
+
+<p>Every public function documents its definition, units, convention, validity, limitations and
+references in one standardized layout; <code class="language-plaintext highlighter-rouge">vaft.formula.describe("greenwald_density")</code> prints it, and the
+<a href="/vaft/develop/reference/formula/">Formula reference</a> renders the same text per submodule.</p>
+
+<p>Function names encode their inputs — <code class="language-plaintext highlighter-rouge">confinement_time_from_engineering_parameters</code>,
+<code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code>, <code class="language-plaintext highlighter-rouge">rho_star_from_M_T_B_R_epsilon</code>. Where two conventions exist for the same
+quantity, they are two functions, not a flag.</p>
+
+<blockquote>
+  <p><strong>Read the units before you call anything.</strong> This module deliberately mixes SI functions with
+published engineering-unit regressions, because those regressions are only valid in the units their
+authors used. Every unit trap on this page is collected again in
+<a href="#unit-traps-at-a-glance">Unit traps at a glance</a> at the end.</p>
+</blockquote>
+
+<hr />
+
+<h1 id="constants">Constants</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.formula.constants</span> <span class="kn">import</span> <span class="n">MU0</span><span class="p">,</span> <span class="n">EPS0</span><span class="p">,</span> <span class="n">QE</span><span class="p">,</span> <span class="n">ME</span><span class="p">,</span> <span class="n">MI_P</span><span class="p">,</span> <span class="n">E_ALPHA</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Value</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MU0</code></td>
+      <td>$4\pi \times 10^{-7}$</td>
+      <td>Vacuum permeability [H/m]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">EPS0</code></td>
+      <td>$8.8541878128 \times 10^{-12}$</td>
+      <td>Vacuum permittivity [F/m]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">QE</code></td>
+      <td>$1.602176634 \times 10^{-19}$</td>
+      <td>Elementary charge [C]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ME</code></td>
+      <td>$9.10938356 \times 10^{-31}$</td>
+      <td>Electron mass [kg]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MI_P</code></td>
+      <td>$1.67262192 \times 10^{-27}$</td>
+      <td>Proton mass [kg]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">E_ALPHA</code></td>
+      <td>$3.5\,\mathrm{MeV} \times$ <code class="language-plaintext highlighter-rouge">QE</code></td>
+      <td>Alpha particle energy [J]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SIGMA_V_COEF</code></td>
+      <td>$1.1 \times 10^{-24}$</td>
+      <td>Fusion cross-section coefficient [m³/s]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SPITZER_RESISTIVITY_COEF</code></td>
+      <td>$5.2 \times 10^{-5}$</td>
+      <td>Spitzer resistivity prefactor [Ω·m]</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">COLLISIONALITY_COEF</code></td>
+      <td>$6.921 \times 10^{-18}$</td>
+      <td>Collisionality coefficient, declared dimensionless [-] in the source; its only consumer is <code class="language-plaintext highlighter-rouge">collisionality_from_n_T_B_R</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The same module also holds <code class="language-plaintext highlighter-rouge">_SCALING_COEFS</code>, the private confinement-scaling coefficient table read by
+<code class="language-plaintext highlighter-rouge">confinement_time_from_engineering_parameters</code> — see
+<a href="#confinement-time-and-scalings">Confinement time and scalings</a> below.</p>
+
+<hr />
+
+<h1 id="flux-safety-factor-shear">Flux, safety factor, shear</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">psi</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">psi_from_RBtheta</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">psi_axis</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>   <span class="c1"># psi = int R B_theta dl + psi_a
+</span><span class="n">psiN</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">psi_normalised</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">psi_axis</span><span class="p">,</span> <span class="n">psi_boundary</span><span class="p">)</span>     <span class="c1"># psi_N = (psi-psi_a)/(psi_b-psi_a)
+</span>
+<span class="n">phi</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">phi_from_Bphi</span><span class="p">(</span><span class="n">B_phi</span><span class="p">,</span> <span class="n">dA</span><span class="p">)</span>                        <span class="c1"># Phi = int B_phi dA
+</span><span class="n">rhoN</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">rhoN_from_phi</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">phi_boundary</span><span class="p">)</span>                <span class="c1"># rho_N = sqrt(Phi/Phi_b)
+</span>
+<span class="n">q</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">q_from_phi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span>                            <span class="c1"># q = dPhi/dpsi
+</span><span class="n">rhoN</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">rhoN_from_qpsiN</span><span class="p">(</span><span class="n">psiN</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>                        <span class="c1"># rho_N from the q integral
+</span><span class="n">s</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">shear_from_r_q</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>                            <span class="c1"># s = (r/q) dq/dr
+</span></code></pre></div></div>
+
+\[q = \frac{d\Phi}{d\psi}, \qquad s = \frac{r}{q}\frac{dq}{dr}, \qquad
+   \rho_N = \sqrt{\frac{\int_0^{\psi_N} q\, d\psi_N'}{\int_0^{1} q\, d\psi_N'}}\]
+
+<p><code class="language-plaintext highlighter-rouge">q_from_rhoN(psiN, rhoN, C=1.0)</code> goes the other way, with <code class="language-plaintext highlighter-rouge">C</code> a user-supplied prefactor.
+<code class="language-plaintext highlighter-rouge">magnetic_shear</code> is a live alias of <code class="language-plaintext highlighter-rouge">shear_from_r_q</code>; <code class="language-plaintext highlighter-rouge">normalize_psi</code> is a <strong>deprecated</strong> alias of
+<code class="language-plaintext highlighter-rouge">psi_normalised</code> and emits a <code class="language-plaintext highlighter-rouge">DeprecationWarning</code>.</p>
+
+<p>Fields and current density from the flux map:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">B_r</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">radial_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>      <span class="c1"># B_r = -(1/R) dpsi/dZ
+</span><span class="n">B_z</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">vertical_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>    <span class="c1"># B_z = +(1/R) dpsi/dR
+</span><span class="n">j</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">current_density_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>               <span class="c1"># j = -(1/(mu0 R)) dpsi/dR
+</span></code></pre></div></div>
+
+<p>All of these differentiate with <code class="language-plaintext highlighter-rouge">np.gradient</code> along a single axis, so they expect <strong>1-D slices</strong>, not
+a 2-D $(R, Z)$ map.</p>
+
+<h2 id="from-an-ods">From an ODS</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                       <span class="c1"># packaged VEST shot
+</span><span class="n">s</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_magnetic_shear</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>     <span class="c1"># equilibrium.time_slice[0].profiles_1d -&gt; shear
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">compute_magnetic_shear(ods, time_slice)</code> reads the radial coordinate and <code class="language-plaintext highlighter-rouge">q</code> from
+<code class="language-plaintext highlighter-rouge">equilibrium.time_slice[i].profiles_1d</code> and calls <code class="language-plaintext highlighter-rouge">magnetic_shear</code> for you.</p>
+
+<hr />
+
+<h1 id="geometry-and-derived-scalars">Geometry and derived scalars</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">V</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">volume_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>              <span class="c1"># 2 pi A_poly R_bar
+</span><span class="n">kappa</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">elongation_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>          <span class="c1"># kappa = (Zmax-Zmin)/(2a)
+</span><span class="n">delta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>   <span class="c1"># delta = (R0 - R_sep)/a
+</span><span class="n">eK</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">eK_from_K</span><span class="p">(</span><span class="n">kappa</span><span class="p">)</span>                                     <span class="c1"># eK = (k^2-1)/(k^2+1)
+</span><span class="n">eps</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">inverse_aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>                  <span class="c1"># epsilon = a/R
+</span><span class="n">A</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>                          <span class="c1"># A = R/a
+</span><span class="n">PF</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">peaking_factor</span><span class="p">(</span><span class="n">x_central</span><span class="p">,</span> <span class="n">x_volume_avg</span><span class="p">)</span>              <span class="c1"># PF = X(0)/&lt;X&gt;
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">volume_from_RZ_boundary</code> multiplies the shoelace polygon area by $2\pi \bar{R}$, with $\bar{R}$ the
+<strong>arithmetic</strong> mean of the boundary points — an approximation, not the exact Pappus centroid.
+<code class="language-plaintext highlighter-rouge">calc_inverse_aspect_ratio(a_m, R_geo_m)</code> is the validated variant (it rejects non-positive input)
+used by the dimensionless-parameter chain.</p>
+
+<p>Energy and resistivity:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>                <span class="c1"># W = p V
+</span><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_beta_V</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>      <span class="c1"># W = beta B0^2 V / (2 mu0)
+</span><span class="n">eta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="o">=</span><span class="mf">17.0</span><span class="p">)</span>
+</code></pre></div></div>
+
+\[\eta = 5.2\times10^{-5}\,\frac{Z_{\rm eff}\ln\Lambda}{T_e^{3/2}}\ [\Omega\,\mathrm{m}],
+   \qquad T_e\ \text{in eV}\]
+
+<p>For a self-consistent $\ln\Lambda$ instead of the 17.0 default:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ln_lambda</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">coulomb_logarithm_from_n_T</span><span class="p">(</span><span class="n">n_m3</span><span class="o">=</span><span class="mf">4e19</span><span class="p">,</span> <span class="n">T_eV</span><span class="o">=</span><span class="mf">200.0</span><span class="p">)</span>   <span class="c1"># 30.9 - ln(sqrt(n)/T)
+</span></code></pre></div></div>
+
+<hr />
+
+<h1 id="beta-current-and-power-limits">Beta, current and power limits</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">beta_N</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_N_from_beta_a_B0_Ip</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">I_p</span><span class="p">)</span>
+<span class="n">beta_p</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_pol_from_beta_tor</span><span class="p">(</span><span class="n">beta_tor</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>      <span class="c1"># beta_p = beta_t q95^2
+</span><span class="n">beta_t</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_tor_from_beta_pol</span><span class="p">(</span><span class="n">beta_pol</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>
+
+<span class="n">I_max</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">current_limit_from_q</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">B0</span><span class="p">)</span>           <span class="c1"># I_p = 2 pi a^2 B0 / (mu0 q95)
+</span><span class="n">P_max</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">power_limit_from_beta</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+<span class="n">P_max</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">power_limit_from_q</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">I_p</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code> evaluates $\beta\, a\, B_0 / I_p$ literally, and its docstring annotates
+<code class="language-plaintext highlighter-rouge">I_p</code> as [A]. The community definition of $\beta_N$ is quoted in <strong>%·m·T/MA</strong>, so decide which
+convention you are working in and feed the function consistently — it will not rescale for you.</p>
+
+<p>Kink safety factor, with three geometry models:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">q_kink</span><span class="p">,</span> <span class="n">q_min</span><span class="p">,</span> <span class="n">beta_max</span><span class="p">,</span> <span class="n">beta_crit</span><span class="p">,</span> <span class="n">ip_max</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">kink_safety_factor</span><span class="p">(</span>
+    <span class="n">R</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">Ip</span><span class="p">,</span> <span class="n">Bt</span><span class="p">,</span> <span class="sh">'</span><span class="s">ST</span><span class="sh">'</span><span class="p">)</span>       <span class="c1"># 'circular' | 'conventional' | 'ST'
+</span></code></pre></div></div>
+
+<p>Only the <code class="language-plaintext highlighter-rouge">'conventional'</code> and <code class="language-plaintext highlighter-rouge">'ST'</code> branches return <code class="language-plaintext highlighter-rouge">beta_max</code> / <code class="language-plaintext highlighter-rouge">beta_crit</code>; <code class="language-plaintext highlighter-rouge">'circular'</code> returns
+<code class="language-plaintext highlighter-rouge">None</code> for both. Any other string raises <code class="language-plaintext highlighter-rouge">ValueError</code>. The ST branch uses</p>
+
+\[q_{\rm kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}\left(1 + \frac{\kappa^2}{2}\right)\]
+
+<p>Normalised plasma current (Phys. Plasmas <strong>23</strong>, 072508):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Ip_star</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">normalized_plasma_current</span><span class="p">(</span><span class="n">Ip</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">Bt</span><span class="p">)</span>   <span class="c1"># I_p [A] in, MA/(m T) out
+</span></code></pre></div></div>
+
+<hr />
+
+<h1 id="stability-limits">Stability limits</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.formula</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">greenwald_density</span><span class="p">,</span> <span class="n">greenwald_fraction</span><span class="p">,</span>
+    <span class="n">ballooning_alpha_from_p_B_R</span><span class="p">,</span> <span class="n">ballooning_stability_criterion</span><span class="p">,</span>
+    <span class="n">kink_stability_criterion</span><span class="p">,</span> <span class="n">sawtooth_stability_criterion</span><span class="p">,</span>
+    <span class="n">beta_stability_boundary</span><span class="p">,</span> <span class="n">plasma_stability_margins</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">n_G</span> <span class="o">=</span> <span class="nf">greenwald_density</span><span class="p">(</span><span class="n">I_p</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mf">0.4</span><span class="p">)</span>        <span class="c1"># I_p in MA  -&gt;  n_G in 1e19 m^-3
+</span><span class="n">f_G</span> <span class="o">=</span> <span class="nf">greenwald_fraction</span><span class="p">(</span><span class="n">n_e</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">n_G</span><span class="o">=</span><span class="n">n_G</span><span class="p">)</span>     <span class="c1"># same units and definition on both arguments
+</span></code></pre></div></div>
+
+\[n_G\,[10^{20}\,\mathrm{m^{-3}}] = \frac{I_p\,[\mathrm{MA}]}{\pi a^2}, \qquad f_G = n_e / n_G\]
+
+<p>The implementation returns $n_G$ in units of $10^{19}\ \mathrm{m^{-3}}$ (that is, $10 I_p / \pi a^2$),
+and the Greenwald fraction is conventionally evaluated with the <strong>line-averaged</strong> density — pair them
+accordingly.</p>
+
+<p>The local and global criteria all return a <code class="language-plaintext highlighter-rouge">(margin, critical_value)</code> pair, so the sign of the first
+element is the answer:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>          <span class="c1"># alpha = -2 mu0 R (dp/dR) / B^2
+</span><span class="n">d_alpha</span><span class="p">,</span> <span class="n">a_c</span> <span class="o">=</span> <span class="nf">ballooning_stability_criterion</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>      <span class="c1"># alpha_crit = 0.6 s
+</span><span class="n">d_beta</span><span class="p">,</span> <span class="n">b_c</span>  <span class="o">=</span> <span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>        <span class="c1"># beta_N_crit = 2.8 q95
+</span><span class="n">d_bp</span><span class="p">,</span>   <span class="n">bp_c</span> <span class="o">=</span> <span class="nf">sawtooth_stability_criterion</span><span class="p">(</span><span class="n">q_0</span><span class="p">,</span> <span class="n">beta_pol</span><span class="p">)</span>   <span class="c1"># beta_p_crit = 0.3 (1 - q0)
+</span><span class="n">d_bN</span><span class="p">,</span>   <span class="n">bN_c</span> <span class="o">=</span> <span class="nf">beta_stability_boundary</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>         <span class="c1"># beta_N_crit = 0.028 q95
+</span>
+<span class="n">beta_margin</span><span class="p">,</span> <span class="n">q_margin</span><span class="p">,</span> <span class="n">density_margin</span> <span class="o">=</span> <span class="nf">plasma_stability_margins</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_G</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> and <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code> use <strong>different</strong> critical-$\beta_N$
+coefficients (2.8 versus 0.028) — the same Troyon-type relation written in two unit conventions
+(%·m·T/MA versus the dimensionless fraction). <code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> is built on
+<code class="language-plaintext highlighter-rouge">beta_stability_boundary</code>, so it lives in the 0.028 convention; its <code class="language-plaintext highlighter-rouge">q_margin</code> is simply $q_{95} - 2$.</p>
+
+<p>Empirical $(q_a, l_i)$ operational boundary from the JET disruption survey
+(Wesson <em>et al.</em>, Nucl. Fusion <strong>29</strong>, 1989):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">qa_ref</span><span class="p">,</span> <span class="n">li_ref</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">empirical_li_qa</span><span class="p">()</span>          <span class="c1"># 18 surveyed points
+</span><span class="n">li</span>             <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">li_from_qa_empirical</span><span class="p">(</span><span class="n">qa</span><span class="p">)</span>   <span class="c1"># piecewise-linear interpolation
+</span></code></pre></div></div>
+
+<p>Characteristic speeds and collisionality:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">v_A</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">v_alfven_from_B_n_mi</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>            <span class="c1"># n in m^-3; m_i defaults to the proton mass
+</span><span class="n">c_s</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">c_s_from_Te_Ti_mi</span><span class="p">(</span><span class="n">T_e_keV</span><span class="p">,</span> <span class="n">T_i_keV</span><span class="p">)</span>   <span class="c1"># keV in, m/s out
+</span><span class="n">nu_star</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">collisionality_from_n_T_B_R</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e_keV</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
+</code></pre></div></div>
+
+\[\nu_* = C_\nu\,\frac{n_e R_0}{T_e^2 B_t}, \qquad C_\nu = \texttt{COLLISIONALITY\_COEF} = 6.921\times10^{-18}\]
+
+<p><code class="language-plaintext highlighter-rouge">collisionality_from_n_T_B_R</code> takes $n_e$ in $10^{19}\ \mathrm{m^{-3}}$, $T_e$ in keV, $B_t$ in T and
+$R_0$ in m — note that <code class="language-plaintext highlighter-rouge">v_alfven_from_B_n_mi</code> on the line above wants $n$ in $\mathrm{m^{-3}}$, so the
+two density arguments are <strong>not</strong> interchangeable.</p>
+
+<hr />
+
+<h1 id="confinement-time-and-scalings">Confinement time and scalings</h1>
+
+<p>The measured confinement time is a one-liner; the fitted one goes through the scaling evaluator:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">tau_exp</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">confinement_time_from_P_loss_W_th</span><span class="p">(</span><span class="n">P_loss</span><span class="p">,</span> <span class="n">W_th</span><span class="p">)</span>   <span class="c1"># tau = W_th / P_loss
+</span>
+<span class="n">tau_iter89p</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">confinement_time_from_engineering_parameters</span><span class="p">(</span>
+    <span class="n">I_p</span><span class="o">=</span><span class="mf">1.0e5</span><span class="p">,</span>        <span class="c1"># [A]    -&gt; MA internally
+</span>    <span class="n">B_t</span><span class="o">=</span><span class="mf">0.18</span><span class="p">,</span>         <span class="c1"># [T]
+</span>    <span class="n">P_loss</span><span class="o">=</span><span class="mf">3.0e5</span><span class="p">,</span>     <span class="c1"># [W]    -&gt; MW internally
+</span>    <span class="n">n_e</span><span class="o">=</span><span class="mf">2.0e19</span><span class="p">,</span>       <span class="c1"># [m^-3] -&gt; 1e19 m^-3 internally
+</span>    <span class="n">M</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>            <span class="c1"># [amu]
+</span>    <span class="n">R</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span>            <span class="c1"># [m]
+</span>    <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span>     <span class="c1"># a/R [-]
+</span>    <span class="n">kappa</span><span class="o">=</span><span class="mf">1.6</span><span class="p">,</span>        <span class="c1"># [-]
+</span>    <span class="n">scaling</span><span class="o">=</span><span class="sh">"</span><span class="s">ITER89P</span><span class="sh">"</span><span class="p">,</span>             <span class="c1"># default
+</span>    <span class="n">input_density_definition</span><span class="o">=</span><span class="sh">"</span><span class="s">line_avg</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">line_to_volume_factor</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>    <span class="c1"># required only when definitions differ
+</span><span class="p">)</span>
+
+<span class="n">H</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">confinement_factor_ITER89P</span><span class="p">(</span><span class="n">tau_exp</span><span class="p">,</span> <span class="n">tau_iter89p</span><span class="p">)</span>   <span class="c1"># H = tau_exp / tau_ITER89P
+</span></code></pre></div></div>
+
+\[\tau_{E,\rm th}^{\rm fit} = C \prod_i x_i^{\alpha_i}\]
+
+<p>with the product running <strong>only</strong> over the variables the selected scaling actually declares. Five
+<code class="language-plaintext highlighter-rouge">scaling</code> names are accepted; anything else raises <code class="language-plaintext highlighter-rouge">ValueError</code> listing the available keys.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">scaling</code></th>
+      <th>$C$</th>
+      <th>Variables in the product</th>
+      <th>Reference stored in the table</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"ITER89P"</code> (default)</td>
+      <td>0.038</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">Mi</code>, <code class="language-plaintext highlighter-rouge">P_MW</code></td>
+      <td>ITER Physics Basis 1989 L-mode scaling</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"H98y2"</code></td>
+      <td>0.0562</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">Mi</code>, <code class="language-plaintext highlighter-rouge">P_MW</code></td>
+      <td>IPB98(y,2) ELMy H-mode scaling</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"NSTX2006H"</code></td>
+      <td>0.0715</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code></td>
+      <td>Kaye <em>et al.</em>, Nucl. Fusion <strong>46</strong>, 848 (2006), H-mode thermal</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"NSTX2006L"</code></td>
+      <td>0.141</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code></td>
+      <td>Kaye <em>et al.</em>, Nucl. Fusion <strong>46</strong>, 848 (2006), L-mode global</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"Kurskiev2022"</code></td>
+      <td>0.066</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">kappa</code></td>
+      <td>Kurskiev <em>et al.</em>, Nucl. Fusion <strong>62</strong>, 016011 (2022), ST multi-machine H-mode</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The two NSTX entries omit <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">kappa</code> and <code class="language-plaintext highlighter-rouge">Mi</code> on purpose: only the dependencies the paper
+publishes are implemented, and unspecified ones are not assumed. The signature is the same for every
+scaling, so you still have to supply those arguments — they are simply not raised to any power, and
+not even range-checked, when the selected scaling ignores them.</p>
+
+<p>Things the evaluator does for you, and things it does not:</p>
+
+<ul>
+  <li><strong>It converts SI to engineering units.</strong> <code class="language-plaintext highlighter-rouge">I_p</code> A → MA, <code class="language-plaintext highlighter-rouge">P_loss</code> W → MW, <code class="language-plaintext highlighter-rouge">n_e</code> m⁻³ → $10^{19}$ m⁻³.
+<code class="language-plaintext highlighter-rouge">B_t</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">M</code> pass through unchanged. Do not pre-scale.</li>
+  <li><strong>The prefactor $C$ is unit-dependent, not universal.</strong> The NSTX coefficients were converted from the
+papers’ SI-like form into this common convention, so the stored $C$ is only correct with the inputs above.</li>
+  <li><strong>Every variable used by the selected scaling must be finite and strictly positive</strong>, or you get a
+<code class="language-plaintext highlighter-rouge">ValueError</code> naming the offending argument.</li>
+  <li><strong>Density definitions are explicit.</strong> Each table entry declares a <code class="language-plaintext highlighter-rouge">density_definition</code>; all five
+currently declare <code class="language-plaintext highlighter-rouge">"line_avg"</code>. If your <code class="language-plaintext highlighter-rouge">input_density_definition</code> differs from the entry’s target,
+you must also pass <code class="language-plaintext highlighter-rouge">line_to_volume_factor</code> — the evaluator refuses to guess and raises <code class="language-plaintext highlighter-rouge">ValueError</code>.</li>
+</ul>
+
+<h2 id="from-an-ods-1">From an ODS</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+
+<span class="n">eng</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_engineering_parameters</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>   <span class="c1"># dict: I_p, B_t, P_loss,
+</span>                                                                <span class="c1"># n_e_line_avg, n_e_vol_avg,
+</span>                                                                <span class="c1"># R, epsilon, kappa, M
+</span><span class="n">tau_fit</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_scaling</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="sh">"</span><span class="s">H98y2</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">tau_exp</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_exp</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="p">(</span><span class="n">tau_ITER89P</span><span class="p">,</span> <span class="n">tau_H98y2</span><span class="p">,</span> <span class="n">tau_NSTX2006H</span><span class="p">,</span> <span class="n">tau_NSTX2006L</span><span class="p">,</span>
+ <span class="n">tau_Kurskiev2022</span><span class="p">,</span> <span class="n">H_factor</span><span class="p">,</span> <span class="n">tau_exp</span><span class="p">)</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_confiment_time_paramters</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">compute_tau_E_scaling</code> picks the line- or volume-averaged density out of <code class="language-plaintext highlighter-rouge">eng</code> to match whatever the
+requested scaling declares, so you never pass <code class="language-plaintext highlighter-rouge">input_density_definition</code> at the ODS level.</p>
+
+<blockquote>
+  <p><strong>Pass <code class="language-plaintext highlighter-rouge">scaling=</code> explicitly.</strong> The default value of that argument in <code class="language-plaintext highlighter-rouge">compute_tau_E_scaling</code> is the
+misspelled <code class="language-plaintext highlighter-rouge">"IBP98y2"</code>, which is not a key of the coefficient table. The wrappers are skip-tolerant:
+instead of raising, they log a warning and return <code class="language-plaintext highlighter-rouge">NaN</code> for that time slice — a silent column of NaNs
+is the symptom.</p>
+</blockquote>
+
+<hr />
+
+<h1 id="unit-traps-at-a-glance">Unit traps at a glance</h1>
+
+<p>Everything on this page that will silently give you a wrong number if you feed it the wrong convention:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symbol</th>
+      <th>Trap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">radial_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">current_density_from_psi</code></td>
+      <td>Differentiate along a single axis with <code class="language-plaintext highlighter-rouge">np.gradient</code> — pass <strong>1-D slices</strong>, not a 2-D $(R,Z)$ map.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">volume_from_RZ_boundary</code></td>
+      <td>Shoelace area $\times\ 2\pi\bar{R}$ with $\bar{R}$ the arithmetic mean of the boundary points — an approximation, not the exact Pappus centroid.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code></td>
+      <td>$T_e$ in <strong>eV</strong>, not keV; $\ln\Lambda$ defaults to 17.0. Use <code class="language-plaintext highlighter-rouge">coulomb_logarithm_from_n_T</code> for a self-consistent value.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></td>
+      <td>Evaluates $\beta a B_0 / I_p$ literally with <code class="language-plaintext highlighter-rouge">I_p</code> documented in [A]; the community $\beta_N$ is quoted in %·m·T/MA. Pick a convention and stay in it.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">normalized_plasma_current</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Ip</code> in [A] on the way in, MA/(m·T) on the way out.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">greenwald_density</code> / <code class="language-plaintext highlighter-rouge">greenwald_fraction</code></td>
+      <td>$I_p$ in <strong>MA</strong>, and $n_G$ comes back in $10^{19}\ \mathrm{m^{-3}}$. Compare against the <strong>line-averaged</strong> density in the same units.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> vs <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code></td>
+      <td>Critical-$\beta_N$ coefficients 2.8 and 0.028 — the same Troyon-type relation in two unit conventions. <code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> lives in the 0.028 one.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kink_safety_factor</code></td>
+      <td><code class="language-plaintext highlighter-rouge">'circular'</code> returns <code class="language-plaintext highlighter-rouge">None</code> for <code class="language-plaintext highlighter-rouge">beta_max</code> / <code class="language-plaintext highlighter-rouge">beta_crit</code>; only <code class="language-plaintext highlighter-rouge">'conventional'</code> and <code class="language-plaintext highlighter-rouge">'ST'</code> fill them in.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">c_s_from_Te_Ti_mi</code></td>
+      <td>Temperatures in <strong>keV</strong>.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">v_alfven_from_B_n_mi</code> vs <code class="language-plaintext highlighter-rouge">collisionality_from_n_T_B_R</code></td>
+      <td>$n$ in $\mathrm{m^{-3}}$ for the Alfvén speed, but $n_e$ in $10^{19}\ \mathrm{m^{-3}}$ for $\nu_*$.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">confinement_time_from_engineering_parameters</code></td>
+      <td>Strict <strong>SI in</strong> (A, W, m⁻³); the conversion to MA/MW/$10^{19}$ m⁻³ happens inside. Pre-scaled inputs are wrong by many orders of magnitude.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.compute_tau_E_scaling</code></td>
+      <td>Default <code class="language-plaintext highlighter-rouge">scaling="IBP98y2"</code> is not a valid key → warning + <code class="language-plaintext highlighter-rouge">NaN</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="confinement-scaling">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb">Confinement-time scaling</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="plotting-sample">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb">Plotting sample data</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="confinement-scaling"><a href="/vaft/develop/reference/notebooks/#output-title-confinement-scaling">Confinement-scaling result</a></li>
+        
+          
+          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Electromagnetic modeling">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/guide/Plotting/" class="navigation navigation-next navigation-unique" aria-label="Next page: Plotting">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods-1" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Plotting",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Plotting.md",
+            "ref": "_guide/Plotting.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula.md",
+        "mtime": "2026-07-01 10:40:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

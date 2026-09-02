@@ -1,0 +1,1880 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: statistics · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/atomic/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/magnetics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: statistics</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>f325304</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_statistics">Formula reference: statistics</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.statistics, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/statistics.py"><code class="language-plaintext highlighter-rouge">vaft/formula/statistics.py</code></a>:
+22 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("statistics.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>This module is the single source of truth for the mathematics used to judge how
+well a reconstruction reproduces its own inputs: residual magnitude, residual
+bias, residual structure, goodness of fit against declared uncertainties, and
+the rate at which an iterative solver approaches its answer.</p>
+
+<p>Every function here takes plain arrays or scalars and returns plain floats.
+Nothing in this module knows what an ODS, an EFIT run, a diagnostic channel or a
+validation policy is – deciding <em>which</em> physical arrays enter a formula belongs
+to the OMAS layer, and deciding what value is acceptable belongs to the
+validation layer.  Keeping the mathematics separate means a definition can be
+tested against an analytic reference without constructing a tokamak.</p>
+
+<ul>
+  <li>Non-finite samples are ignored rather than propagated, so a single dead
+channel does not erase a whole family’s statistic.</li>
+  <li>A statistic that is undefined for the input given – too few samples, zero
+variance, a zero denominator – returns <code class="language-plaintext highlighter-rouge">nan</code> rather than raising, because
+these arise routinely from real diagnostics and every caller aggregates over
+many channels or slices.</li>
+  <li>No numpy warning is emitted for an empty or all-non-finite input; the
+degenerate case is guarded explicitly.</li>
+</ul>
+
+<p>None of these statistics is a pass/fail rule on its own.  Each is a diagnostic
+indicator whose interpretation depends on assumptions – stated per function –
+that the caller is responsible for defending.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#bias_standard_error"><code>bias_standard_error</code></a> &mdash; Standard error of the mean of $n$ unit-variance samples, $1/\sqrt{n}$.
+</li>
+  <li><a href="#chi_squared"><code>chi_squared</code></a> &mdash; Chi-square, $\sum_i (r_i/\sigma_i)^2$ over the finite terms.
+</li>
+  <li><a href="#dynamic_range"><code>dynamic_range</code></a> &mdash; Sample range, $\max - \min$ over the finite entries.
+</li>
+  <li><a href="#fractional_rms_improvement"><code>fractional_rms_improvement</code></a> &mdash; Fractional RMS improvement, $1 - \mathrm{RMS}(r)/\mathrm{RMS}(r_0)$.
+</li>
+  <li><a href="#lag1_autocorrelation"><code>lag1_autocorrelation</code></a> &mdash; Lag-1 autocorrelation of the finite entries, in the order given.
+</li>
+  <li><a href="#linear_trend"><code>linear_trend</code></a> &mdash; Least-squares slope of $y$ against $x$, in units of $y$ per unit $x$.
+</li>
+  <li><a href="#log10_decay_rate"><code>log10_decay_rate</code></a> &mdash; Least-squares slope of $\log_{10}x$ against iteration index over the tail.
+</li>
+  <li><a href="#median_absolute_deviation"><code>median_absolute_deviation</code></a> &mdash; <table>
+  <tbody>
+    <tr>
+      <td>Median absolute deviation, $\mathrm{median}(</td>
+      <td>x - \mathrm{median}(x)</td>
+      <td>)$.</td>
+    </tr>
+  </tbody>
+</table>
+</li>
+  <li><a href="#monotonic_fraction"><code>monotonic_fraction</code></a> &mdash; Fraction of consecutive steps in which the sequence decreased.
+</li>
+  <li><a href="#noise_band"><code>noise_band</code></a> &mdash; Mean and population standard deviation of a reference (effect-free) sample.
+</li>
+  <li><a href="#normalized_residual"><code>normalized_residual</code></a> &mdash; Residuals in units of the fitted uncertainty, $z = r\,w/k$.
+</li>
+  <li><a href="#outlier_fraction"><code>outlier_fraction</code></a> &mdash; <table>
+  <tbody>
+    <tr>
+      <td>Fraction of finite entries with $</td>
+      <td>x_i</td>
+      <td>&gt; \mathrm{level}$.</td>
+    </tr>
+  </tbody>
+</table>
+</li>
+  <li><a href="#pearson_correlation"><code>pearson_correlation</code></a> &mdash; Pearson correlation of two series over their pairwise-finite samples.
+</li>
+  <li><a href="#percentile_scale"><code>percentile_scale</code></a> &mdash; A high percentile of <code class="language-plaintext highlighter-rouge">|x|</code> over the finite entries, an amplitude scale one anomalous sample cannot set.
+</li>
+  <li><a href="#reduced_chi_squared"><code>reduced_chi_squared</code></a> &mdash; Reduced chi-square, $\chi^2/\nu$ per degree of freedom.
+</li>
+  <li><a href="#relative_spread"><code>relative_spread</code></a> &mdash; <table>
+  <tbody>
+    <tr>
+      <td>Relative spread, $(\max - \min)/\max</td>
+      <td>x</td>
+      <td>$ over the finite entries.</td>
+    </tr>
+  </tbody>
+</table>
+</li>
+  <li><a href="#residual_bias"><code>residual_bias</code></a> &mdash; Mean of the finite entries, the systematic offset of a residual sample.
+</li>
+  <li><a href="#rms"><code>rms</code></a> &mdash; Root mean square, $\sqrt{\mathrm{mean}(x_i^2)}$, over the finite entries.
+</li>
+  <li><a href="#robust_z_scores"><code>robust_z_scores</code></a> &mdash; Deviation from the median in robust sigma units, sample by sample.
+</li>
+  <li><a href="#runs_test_z"><code>runs_test_z</code></a> &mdash; Wald-Wolfowitz runs-test z-score for the sign sequence of a sample.
+</li>
+  <li><a href="#sigma_threshold_crossing"><code>sigma_threshold_crossing</code></a> &mdash; First time outside the reference window where the signal leaves its noise band.
+</li>
+  <li><a href="#sigma_unit_factor"><code>sigma_unit_factor</code></a> &mdash; Recover the units-of-fit factor $k$ from a fit’s own per-channel chi-square.
+</li>
+</ul>
+
+<h3 id="bias_standard_error"><code class="language-plaintext highlighter-rouge">bias_standard_error</code></h3>
+
+<p class="formula-signature"><code>bias_standard_error(count)</code></p>
+
+<p>Standard error of the mean of $n$ unit-variance samples, $1/\sqrt{n}$.</p>
+
+\[\sigma_{\bar x} = \frac{1}{\sqrt{n}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>count</code></td><td>int</td><td>-</td><td><p>Number of samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Standard error; <code class="language-plaintext highlighter-rouge">nan</code> for <code class="language-plaintext highlighter-rouge">count &lt;= 0</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The standard deviation of the sample mean when each sample has unit
+variance, which is the case for correctly normalized residuals by
+construction.  It is the yardstick a measured <code class="language-plaintext highlighter-rouge">residual_bias</code> is held
+against.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Unit-variance, independent samples.  Do <strong>not</strong> use this for a raw residual
+in physical units – there the sample standard deviation must be estimated
+from the data instead.  Correlation between channels makes the true
+standard error larger than this value.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>A bias exceeding roughly twice this is unlikely to be a fluctuation, and so
+points at a systematic.  Because it shrinks only as <code class="language-plaintext highlighter-rouge">1/sqrt(n)</code>, a family
+with few channels tolerates a visibly large bias before it becomes
+significant.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 4.2 (standard deviation of the mean).
+</li>
+</ol>
+
+<h3 id="chi_squared"><code class="language-plaintext highlighter-rouge">chi_squared</code></h3>
+
+<p class="formula-signature"><code>chi_squared(residual, sigma)</code></p>
+
+<p>Chi-square, $\sum_i (r_i/\sigma_i)^2$ over the finite terms.</p>
+
+\[\chi^2 = \sum_i\left(\frac{r_i}{\sigma_i}\right)^2\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>residual</code></td><td>array-like</td><td>any</td><td><p>Residuals.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>array-like</td><td>any</td><td><p>One-sigma uncertainty of each residual, same unit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Chi-square; <code class="language-plaintext highlighter-rouge">nan</code> when no usable term remains.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The weighted sum of squared residuals – the quantity a Gaussian
+maximum-likelihood fit minimizes.  Under the null hypothesis that the model
+is correct and the errors are independent, zero-mean and Gaussian with the
+stated <code class="language-plaintext highlighter-rouge">sigma</code>, it follows a chi-square distribution.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Independent, unbiased, correctly scaled Gaussian errors.  Correlated
+channels – a common situation for magnetic diagnostics sharing an
+integrator or a calibration – inflate or deflate this sum without any
+model being wrong.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Terms where <code class="language-plaintext highlighter-rouge">sigma</code> is zero or either input is non-finite are dropped.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Rarely read raw, since its expected size grows with the number of channels;
+divide by the degrees of freedom with <code class="language-plaintext highlighter-rouge">reduced_chi_squared</code>.  Its
+useful raw form is the <em>share</em> each diagnostic family contributes, which
+localizes a bad fit.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 4.3 and Ch. 11 (chi-square test of goodness of fit).
+</li>
+</ol>
+
+<h3 id="dynamic_range"><code class="language-plaintext highlighter-rouge">dynamic_range</code></h3>
+
+<p class="formula-signature"><code>dynamic_range(values)</code></p>
+
+<p>Sample range, $\max - \min$ over the finite entries.</p>
+
+\[D = \max_i x_i - \min_i x_i\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Signal samples; non-finite entries are ignored.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Range in the unit of the signal; 0 for a constant signal, <code class="language-plaintext highlighter-rouge">nan</code> for an empty one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The span the signal actually used, in its own physical units.  Unlike
+<code class="language-plaintext highlighter-rouge">relative_spread</code> it is not normalized, so it stays meaningful for a
+signal whose values straddle zero, where dividing by <code class="language-plaintext highlighter-rouge">max|x|</code> is
+dominated by whichever excursion happened to be larger.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>None, but note that the range is the least robust of the scale estimators
+here: it is defined entirely by the two most extreme samples, so one spike
+sets it.  Screen for spikes (see <code class="language-plaintext highlighter-rouge">robust_z_scores</code>) before reading it
+as the signal’s working span.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>The denominator that turns an absolute residual into a fraction of what the
+channel was actually doing.  A 1 mT residual on a probe that swung 10 mT is
+a 10% model error; the same residual on a probe that swung 1 mT is a
+failure of the model.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 1.3.5.6.
+</li>
+</ol>
+
+<h3 id="fractional_rms_improvement"><code class="language-plaintext highlighter-rouge">fractional_rms_improvement</code></h3>
+
+<p class="formula-signature"><code>fractional_rms_improvement(baseline_residual, residual)</code></p>
+
+<p>Fractional RMS improvement, $1 - \mathrm{RMS}(r)/\mathrm{RMS}(r_0)$.</p>
+
+\[\eta = 1 - \frac{\mathrm{RMS}(\mathrm{residual})}{\mathrm{RMS}(\mathrm{baseline})}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>baseline_residual</code></td><td>array-like</td><td>any</td><td><p>Residual of the reference model.</p>
+</td></tr>
+  <tr><td><code>residual</code></td><td>array-like</td><td>any</td><td><p>Residual of the model under test, same samples and unit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Skill score; <code class="language-plaintext highlighter-rouge">nan</code> when the baseline RMS is zero or non-finite.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The fraction of the baseline residual amplitude removed by whatever
+distinguishes the two models.  It is a relative, dimensionless skill score,
+not a significance test.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The two residuals come from the same samples and the same measurement,
+differing only in the model subtracted.  The baseline must be non-zero and
+finite; otherwise the ratio is meaningless and <code class="language-plaintext highlighter-rouge">nan</code> is returned.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">1.0</code> is a perfect reconstruction, <code class="language-plaintext highlighter-rouge">0.0</code> means the extra model term
+contributed nothing, and a negative value means it made the agreement
+worse – which is informative, since a physically motivated term that
+degrades the fit points at a sign error or a bad response matrix rather
+than at noise.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 4.4.4 (model validation).
+</li>
+</ol>
+
+<h3 id="lag1_autocorrelation"><code class="language-plaintext highlighter-rouge">lag1_autocorrelation</code></h3>
+
+<p class="formula-signature"><code>lag1_autocorrelation(values)</code></p>
+
+<p>Lag-1 autocorrelation of the finite entries, in the order given.</p>
+
+\[r_1 = \frac{\sum_i (x_i - \bar x)(x_{i+1} - \bar x)}{\sum_i (x_i - \bar x)^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Ordered sample; non-finite entries are dropped before pairing.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Lag-1 autocorrelation in roughly $[-1, 1]$; <code class="language-plaintext highlighter-rouge">nan</code> below three samples or for zero variance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The normalized correlation between each sample and its neighbour in
+sequence.  Under independence its expectation is approximately <code class="language-plaintext highlighter-rouge">-1/n</code>,
+i.e. zero for practical purposes.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That the ordering of the array carries meaning – adjacency in time, in
+space, or in a physically ordered channel index.  Applied to an arbitrarily
+ordered array the statistic is meaningless.  The sample must have at least
+three finite entries and non-zero variance.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>A strongly positive value means neighbouring residuals move together, which
+for a spatially ordered channel array is the signature of a smooth
+unmodelled field rather than of independent measurement noise.  A strongly
+negative value means alternation, which points at a wiring or sign
+convention error on alternate channels.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 1.3.5.12 (autocorrelation).
+</li>
+  <li>G. E. P. Box, G. M. Jenkins and G. C. Reinsel, <em>Time Series Analysis</em>, 4th ed., Wiley (2008), Sec. 2.1.
+</li>
+</ol>
+
+<h3 id="linear_trend"><code class="language-plaintext highlighter-rouge">linear_trend</code></h3>
+
+<p class="formula-signature"><code>linear_trend(x, y)</code></p>
+
+<p>Least-squares slope of $y$ against $x$, in units of $y$ per unit $x$.</p>
+
+\[\hat b = \frac{\sum_i (x_i - \bar x)(y_i - \bar y)}{\sum_i (x_i - \bar x)^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array-like</td><td>any</td><td><p>Abscissae.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>array-like</td><td>any</td><td><p>Ordinates, same length.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Slope; <code class="language-plaintext highlighter-rouge">nan</code> below two paired finite samples or for constant <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Mismatched lengths.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The first-order coefficient of an ordinary least-squares fit, over the
+samples where both series are finite.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That a straight line is a meaningful summary.  It is the right question for
+integrator drift or a slowly walking baseline, and the wrong one for a
+signal whose shape is genuinely curved – the slope will report something
+in that case too, and it will not mean drift.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">numpy.polyfit</code> of degree 1 (unweighted).</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Signed, and in physical units, so it is compared against the signal’s own
+scale rather than against a universal number: a drift of 1e-4 T/s matters
+for a probe whose dynamic range is 1e-3 T and does not for one spanning
+1 T.  Unlike <code class="language-plaintext highlighter-rouge">residual_bias</code> it is insensitive to a constant offset,
+which is what separates “this channel is offset” from “this channel is
+walking”.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 6.3.
+</li>
+</ol>
+
+<h3 id="log10_decay_rate"><code class="language-plaintext highlighter-rouge">log10_decay_rate</code></h3>
+
+<p class="formula-signature"><code>log10_decay_rate(values, *, tail=5)</code></p>
+
+<p>Least-squares slope of $\log_{10}x$ against iteration index over the tail.</p>
+
+\[\hat b = \operatorname{slope}\big(\log_{10}x_{n-m+1..n}\ \text{vs}\ 0, 1, \dots, m-1\big)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Iteration history; non-positive and non-finite entries are dropped.</p>
+</td></tr>
+  <tr><td><code>tail</code></td><td>int, optional</td><td>-</td><td><p>Number of trailing samples fitted; default 5.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Decades per iteration; <code class="language-plaintext highlighter-rouge">nan</code> below three usable samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The exponential rate constant of the sequence, estimated in log space so
+that a geometric decay becomes a straight-line fit.  Ordinary least squares
+in log space weights relative rather than absolute errors, which is the
+right choice for a quantity spanning orders of magnitude.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>At least three positive finite samples in the tail; non-positive entries
+cannot be logged and are dropped, which silently shortens the window.  The
+fit assumes a single exponential regime, so a history that changes
+behaviour mid-run gives a slope describing neither phase.  Only the tail is
+used, deliberately: the early transient of an iterative solve says nothing
+about whether it is converging now.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">numpy.polyfit</code> of degree 1 on <code class="language-plaintext highlighter-rouge">log10</code> of the tail.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>A slope of <code class="language-plaintext highlighter-rouge">-1</code> means the error falls by a decade per iteration.  A value
+near zero means the iteration has stagnated – it is still running but no
+longer improving, which is a different and more troubling outcome than
+hitting an iteration limit while still descending.  What counts as “near
+zero” is a solver policy decision and belongs to the caller.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>C. T. Kelley, <em>Iterative Methods for Linear and Nonlinear Equations</em>, SIAM (1995), Sec. 1.2 (linear and q-linear convergence).
+</li>
+</ol>
+
+<h3 id="median_absolute_deviation"><code class="language-plaintext highlighter-rouge">median_absolute_deviation</code></h3>
+
+<p class="formula-signature"><code>median_absolute_deviation(values)</code></p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Median absolute deviation, $\mathrm{median}(</td>
+      <td>x - \mathrm{median}(x)</td>
+      <td>)$.</td>
+    </tr>
+  </tbody>
+</table>
+
+\[\mathrm{MAD} = \operatorname{median}_i\big|x_i - \operatorname{median}(x)\big|\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Sample; non-finite entries are ignored.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Raw MAD in the unit of the sample, not rescaled to a Gaussian sigma; <code class="language-plaintext highlighter-rouge">nan</code> for an empty sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A scale estimator with a 50% breakdown point: half the samples may be
+arbitrarily corrupted before it moves.  The standard deviation, by
+contrast, has a breakdown point of zero – one bad sample moves it without
+limit.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>None beyond the samples sharing a scale.  In particular no distribution is
+assumed; the value returned is the raw median deviation, <em>not</em> rescaled to
+a Gaussian-equivalent sigma.  <code class="language-plaintext highlighter-rouge">robust_z_scores</code> applies the 1.4826
+consistency factor where that interpretation is wanted, so the two uses
+cannot drift apart.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>For a signal being screened for spikes or dropouts, this is the width of
+the bulk of the samples – the noise level the anomalies must be measured
+against, rather than a noise level the anomalies have already inflated.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. J. Rousseeuw and C. Croux, J. Am. Stat. Assoc. 88 (1993) 1273, Sec. 1.
+</li>
+</ol>
+
+<h3 id="monotonic_fraction"><code class="language-plaintext highlighter-rouge">monotonic_fraction</code></h3>
+
+<p class="formula-signature"><code>monotonic_fraction(values)</code></p>
+
+<p>Fraction of consecutive steps in which the sequence decreased.</p>
+
+\[f = \frac{1}{n - 1}\,\operatorname{count}\big(x_{i+1} &lt; x_i\big)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Ordered iteration history.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Decreasing-step fraction; <code class="language-plaintext highlighter-rouge">nan</code> below two samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The empirical rate of the event “the next sample is smaller than this one”
+over the <code class="language-plaintext highlighter-rouge">n - 1</code> adjacent pairs.  Comparisons involving a non-finite entry
+count as non-decreases, so a broken history is penalized rather than
+silently shortened.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The sequence is an ordered iteration history in which decrease is the
+desired direction.  A short history makes the fraction coarse – with four
+iterations it can only take five values.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>For a solver error history, <code class="language-plaintext highlighter-rouge">1.0</code> is a cleanly contracting iteration.
+Values near <code class="language-plaintext highlighter-rouge">0.5</code> mean the error is bouncing, which indicates a step that
+is too aggressive or a solution oscillating between two branches – a
+distinct failure from steady but slow progress, which
+<code class="language-plaintext highlighter-rouge">log10_decay_rate</code> detects instead.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>C. T. Kelley, <em>Iterative Methods for Linear and Nonlinear Equations</em>, SIAM (1995), Sec. 1.2 (convergence histories).
+</li>
+</ol>
+
+<h3 id="noise_band"><code class="language-plaintext highlighter-rouge">noise_band</code></h3>
+
+<p class="formula-signature"><code>noise_band(values)</code></p>
+
+<p>Mean and population standard deviation of a reference (effect-free) sample.</p>
+
+\[\mu = \frac{1}{n}\sum_i x_i, \qquad \sigma = \sqrt{\frac{1}{n}\sum_i (x_i - \mu)^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Reference stretch of signal; non-finite entries are ignored.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>mean</code></td><td>float</td><td>any</td><td><p>Offset of the reference; <code class="language-plaintext highlighter-rouge">nan</code> for an empty sample.</p>
+</td></tr>
+  <tr><td><code>std</code></td><td>float</td><td>any</td><td><p>Population (<code class="language-plaintext highlighter-rouge">ddof = 0</code>) standard deviation; <code class="language-plaintext highlighter-rouge">nan</code> for an empty sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The first two moments of a stretch of signal taken to contain no effect,
+estimating the offset and the amplitude of the measurement noise.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The sample is genuinely effect-free and stationary over its extent.  A
+drift, a switching transient, or a leaked part of the effect inside the
+reference window inflates the estimated noise and makes any threshold
+built on it too permissive.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Deriving the threshold from the channel’s own measured quiet stretch,
+rather than from a global constant, means a noisy channel is judged by its
+own noise – essential when channels differ in gain, integrator drift and
+cabling.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 1.3.
+</li>
+</ol>
+
+<h3 id="normalized_residual"><code class="language-plaintext highlighter-rouge">normalized_residual</code></h3>
+
+<p class="formula-signature"><code>normalized_residual(residual, weight, k)</code></p>
+
+<p>Residuals in units of the fitted uncertainty, $z = r\,w/k$.</p>
+
+\[z_i = \frac{r_i\,w_i}{k}, \qquad \sigma_i = \frac{k}{w_i}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>residual</code></td><td>array-like</td><td>any</td><td><p>Residuals of a weighted least-squares fit.</p>
+</td></tr>
+  <tr><td><code>weight</code></td><td>array-like</td><td>any</td><td><p>Inverse-uncertainty weights of the same channels.</p>
+</td></tr>
+  <tr><td><code>k</code></td><td>float</td><td>any</td><td><p>Common units-of-fit factor, see <code class="language-plaintext highlighter-rouge">sigma_unit_factor</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Normalized residuals, shape of <code class="language-plaintext highlighter-rouge">residual</code>; all <code class="language-plaintext highlighter-rouge">nan</code> for <code class="language-plaintext highlighter-rouge">k</code> zero or non-finite.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A weighted least-squares fit assigns each channel an effective uncertainty
+<code class="language-plaintext highlighter-rouge">sigma = k / weight</code>; dividing the residual by it puts every channel on
+the same dimensionless scale, so a flux loop and a B-probe residual become
+directly comparable.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That <code class="language-plaintext highlighter-rouge">weight</code> really is the inverse uncertainty up to the single common
+factor <code class="language-plaintext highlighter-rouge">k</code> – recover <code class="language-plaintext highlighter-rouge">k</code> from the fit’s own chi-square with
+<code class="language-plaintext highlighter-rouge">sigma_unit_factor</code> rather than assuming it.  If <code class="language-plaintext highlighter-rouge">k</code> is not finite
+or is zero the normalization is undefined and an all-<code class="language-plaintext highlighter-rouge">nan</code> array of the
+residual’s shape is returned.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">|z| ~ 1</code> means a channel is reproduced to within the uncertainty it was
+given.  Because the uncertainties are an input, a uniformly small <code class="language-plaintext highlighter-rouge">|z|</code>
+can equally mean the uncertainties were overstated.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 4.1 (weighted means and standardized residuals).
+</li>
+</ol>
+
+<h3 id="outlier_fraction"><code class="language-plaintext highlighter-rouge">outlier_fraction</code></h3>
+
+<p class="formula-signature"><code>outlier_fraction(values, level)</code></p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Fraction of finite entries with $</td>
+      <td>x_i</td>
+      <td>&gt; \mathrm{level}$.</td>
+    </tr>
+  </tbody>
+</table>
+
+\[f = \frac{1}{n}\,\operatorname{count}\big(|x_i| &gt; \mathrm{level}\big)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>-</td><td><p>Normalized sample; non-finite entries are ignored.</p>
+</td></tr>
+  <tr><td><code>level</code></td><td>float</td><td>-</td><td><p>Threshold in the sample’s own units.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Tail fraction; <code class="language-plaintext highlighter-rouge">nan</code> for an empty sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The empirical tail mass beyond a threshold.  For standard normal samples
+the expected fractions are about 4.6% beyond 2 and 0.27% beyond 3.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That <code class="language-plaintext highlighter-rouge">values</code> are normalized so <code class="language-plaintext highlighter-rouge">level</code> is a number of standard
+deviations – for raw residuals the threshold has no such meaning.  With
+few channels the estimate is coarse: one outlier in ten channels is 10%,
+which is not by itself evidence of anything.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Distinguishes a fit that is uniformly mediocre from one that is good
+everywhere except a handful of channels.  The second, an excess tail with
+an acceptable RMS, usually means a specific broken diagnostic rather than a
+bad reconstruction.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 1.3.5.17 (detection of outliers).
+</li>
+</ol>
+
+<h3 id="pearson_correlation"><code class="language-plaintext highlighter-rouge">pearson_correlation</code></h3>
+
+<p class="formula-signature"><code>pearson_correlation(a, b)</code></p>
+
+<p>Pearson correlation of two series over their pairwise-finite samples.</p>
+
+\[\rho = \frac{\sum_i (a_i - \bar a)(b_i - \bar b)}
+  {\sqrt{\sum_i (a_i - \bar a)^2}\sqrt{\sum_i (b_i - \bar b)^2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>a</code></td><td>array-like</td><td>any</td><td><p>First series.</p>
+</td></tr>
+  <tr><td><code>b</code></td><td>array-like</td><td>any</td><td><p>Second series, same length.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Correlation in $[-1, 1]$; <code class="language-plaintext highlighter-rouge">nan</code> below two pairs or for zero variance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Mismatched lengths.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Covariance normalized by both standard deviations: the cosine of the angle
+between the two mean-centred series.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>A linear relationship.  Two series related by a strong but curved mapping
+correlate poorly, and the low value says the relationship is not linear
+rather than that it is absent.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>For a measured signal against a forward model it separates <em>shape</em>
+agreement from <em>amplitude</em> agreement, which an RMS residual conflates.  A
+correlation near 1 with a large residual says the model has the dynamics
+right and the gain wrong – a calibration question.  A small correlation
+with a small residual says neither signal is doing much, and the comparison
+is uninformative rather than successful.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 11.2 (linear-correlation coefficient).
+</li>
+</ol>
+
+<h3 id="percentile_scale"><code class="language-plaintext highlighter-rouge">percentile_scale</code></h3>
+
+<p class="formula-signature"><code>percentile_scale(values, percentile=90.0)</code></p>
+
+<p>A high percentile of <code class="language-plaintext highlighter-rouge">|x|</code> over the finite entries, an amplitude scale one anomalous sample cannot set.</p>
+
+\[s_q = \operatorname{percentile}_q(|x_i|)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>ndarray or iterable of float</td><td>units of values</td><td><p>Samples; non-finite entries are ignored.</p>
+</td></tr>
+  <tr><td><code>percentile</code></td><td>float</td><td>%</td><td><p>Order statistic to take, between 0 and 100.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>units of values</td><td><p>The percentile of the magnitudes; <code class="language-plaintext highlighter-rouge">nan</code> when no finite sample remains</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The denominator for putting channels of one family on a common footing.
+Normalising a family by its <code class="language-plaintext highlighter-rouge">max</code> lets one saturated or miswired channel
+rescale every other channel’s residual – on the packaged VEST samples a
+single probe reading 2.7 T against a 0.04 T population set the scale for
+all 63 probes, and every derived residual statistic with it.  A percentile
+does not have that failure.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>None.  It is not a noise estimator (see <code class="language-plaintext highlighter-rouge">median_absolute_deviation</code>);
+it answers “how big is this signal, typically at its largest” and is meant
+as a normalisation.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>An order statistic of the magnitudes.  At the 90th percentile, up to a
+tenth of the samples may be arbitrarily large before the value moves,
+whereas <code class="language-plaintext highlighter-rouge">max|x|</code> is defined entirely by the single largest one.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>R. J. Hyndman and Y. Fan, Am. Stat. 50 (1996) 361 (sample quantile definitions; NumPy’s default is their type 7).
+</li>
+</ol>
+
+<h3 id="reduced_chi_squared"><code class="language-plaintext highlighter-rouge">reduced_chi_squared</code></h3>
+
+<p class="formula-signature"><code>reduced_chi_squared(chi_squared_total, degrees_of_freedom)</code></p>
+
+<p>Reduced chi-square, $\chi^2/\nu$ per degree of freedom.</p>
+
+\[\chi^2_\nu = \frac{\chi^2}{\nu}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>chi_squared_total</code></td><td>float</td><td>-</td><td><p>Total chi-square.</p>
+</td></tr>
+  <tr><td><code>degrees_of_freedom</code></td><td>float</td><td>-</td><td><p>Effective degrees of freedom $\nu$, positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Chi-square per degree of freedom; <code class="language-plaintext highlighter-rouge">nan</code> unless $\nu$ is finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The mean squared normalized residual per free parameter’s worth of freedom.
+Its expectation is 1 when the model is correct and the uncertainties are
+right, since each independent constraint contributes one unit of chi-square
+on average.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>All three of these must be defensible before the value means anything: the
+supplied uncertainties are the true measurement uncertainties, the residuals
+are independent, and <code class="language-plaintext highlighter-rouge">dof</code> is the <em>effective</em> number of degrees of freedom
+rather than a nominal channel count.  Regularized or constrained fits
+routinely violate the last of these, and correlated magnetics violate the
+second.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Read it as a diagnostic indicator, never as a pass/fail gate.  A value well
+above 1 means the model does not explain the data <em>given the stated
+uncertainties</em> – which may be a bad model, understated uncertainties, or a
+mis-counted <code class="language-plaintext highlighter-rouge">dof</code>.  A value well below 1 usually means overstated
+uncertainties or over-fitting, not an unusually good reconstruction.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 11.1.
+</li>
+</ol>
+
+<h3 id="relative_spread"><code class="language-plaintext highlighter-rouge">relative_spread</code></h3>
+
+<p class="formula-signature"><code>relative_spread(values)</code></p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Relative spread, $(\max - \min)/\max</td>
+      <td>x</td>
+      <td>$ over the finite entries.</td>
+    </tr>
+  </tbody>
+</table>
+
+\[s = \frac{\max_i x_i - \min_i x_i}{\max_i |x_i|}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>iterable of float</td><td>any</td><td><p>Independent estimates of one quantity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Relative spread; 0 for all-zero values, <code class="language-plaintext highlighter-rouge">nan</code> below two finite values.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A dimensionless, non-parametric measure of disagreement within a small
+set: the full range normalized by the largest magnitude present.  It is
+deliberately range-based rather than variance-based, because it is meant
+for a handful of values where a standard deviation would be noise.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The values are independent estimates of the <em>same</em> quantity, so that any
+spread between them is inconsistency rather than physics.  Being
+range-based it is maximally sensitive to a single bad estimate, which is
+the intent when used as a consistency check.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>A self-consistency metric: several routes to one quantity should agree, and
+the spread is how far they do not.  Returns <code class="language-plaintext highlighter-rouge">0.0</code> – not <code class="language-plaintext highlighter-rouge">nan</code> – when
+every value is exactly zero, since that is perfect agreement, and <code class="language-plaintext highlighter-rouge">nan</code>
+when fewer than two finite values are available to compare.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 1.3.5.6 (measures of scale).
+</li>
+</ol>
+
+<h3 id="residual_bias"><code class="language-plaintext highlighter-rouge">residual_bias</code></h3>
+
+<p class="formula-signature"><code>residual_bias(values)</code></p>
+
+<p>Mean of the finite entries, the systematic offset of a residual sample.</p>
+
+\[\bar r = \frac{1}{n}\sum_{i=1}^{n} r_i\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Residual sample; non-finite entries are ignored.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Sample mean in the unit of the residual; <code class="language-plaintext highlighter-rouge">nan</code> for an empty sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The first moment.  For normalized residuals its sampling distribution under
+the null hypothesis has mean 0 and standard deviation <code class="language-plaintext highlighter-rouge">1/sqrt(n)</code> (see
+<code class="language-plaintext highlighter-rouge">bias_standard_error</code>), so the mean is directly comparable against
+that scale.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Independent samples drawn from one distribution.  Channels that share a
+systematic – a common calibration, a common integrator drift – are not
+independent, and the bias is then easier to trigger than the nominal
+standard error suggests.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Random measurement noise averages to zero; a bias that does not is evidence
+of something the model is not representing, such as an unmodelled field
+component or a geometry offset, rather than of noise.  Unlike <code class="language-plaintext highlighter-rouge">rms</code>,
+it is signed, so cancelling positive and negative residuals give a small
+bias with a large RMS – which is itself diagnostic of structure rather than
+offset.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 1.2.
+</li>
+</ol>
+
+<h3 id="rms"><code class="language-plaintext highlighter-rouge">rms</code></h3>
+
+<p class="formula-signature"><code>rms(values)</code></p>
+
+<p>Root mean square, $\sqrt{\mathrm{mean}(x_i^2)}$, over the finite entries.</p>
+
+\[\mathrm{RMS} = \sqrt{\frac{1}{n}\sum_{i=1}^{n} x_i^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Sample; non-finite entries are ignored.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Quadratic mean in the unit of the sample; <code class="language-plaintext highlighter-rouge">nan</code> for an empty one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The quadratic mean: the scale of the sample about zero, not about its own
+mean.  For a zero-mean sample it coincides with the population standard
+deviation; for a biased one it exceeds it, because a systematic offset
+contributes on equal footing with scatter.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That zero is the meaningful reference.  Applied to a residual this holds by
+construction; applied to a signal it does not, and <code class="language-plaintext highlighter-rouge">residual_bias</code>
+should be inspected alongside it.  Samples are weighted equally, so a
+channel array mixing units or uncertainties must be normalized first (see
+<code class="language-plaintext highlighter-rouge">normalized_residual</code>).</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Returns <code class="language-plaintext highlighter-rouge">nan</code> when no finite sample remains.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>The single number for “how far off is this reconstruction”, in the units of
+the residual.  It is dominated by the worst channels, so a small RMS with a
+large <code class="language-plaintext highlighter-rouge">outlier_fraction</code> is contradictory and means the residual
+distribution is not what the average suggests.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 1.3.
+</li>
+</ol>
+
+<h3 id="robust_z_scores"><code class="language-plaintext highlighter-rouge">robust_z_scores</code></h3>
+
+<p class="formula-signature"><code>robust_z_scores(values)</code></p>
+
+<p>Deviation from the median in robust sigma units, sample by sample.</p>
+
+\[z_i = \frac{x_i - \operatorname{median}(x)}{1.4826\,\mathrm{MAD}}\]
+
+<p>where 1.4826 makes the denominator a consistent estimator of the standard
+deviation for Gaussian samples, so a threshold in these units carries its
+usual meaning.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Robust z-scores with the input’s shape, <code class="language-plaintext highlighter-rouge">nan</code> where the input was non-finite, signed <code class="language-plaintext highlighter-rouge">inf</code> off a zero-MAD bulk.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A z-score built on estimators that the anomalies being looked for cannot
+themselves corrupt.  A single large spike inflates the mean and the
+standard deviation enough to hide itself from a conventional z-score; it
+moves neither the median nor the MAD.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>A unimodal bulk.  These scores are meaningless for a genuinely bimodal
+sample, where the median falls between the modes and every sample scores
+as an outlier.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A zero MAD means the bulk of the samples are identical – a perfectly
+linear ramp differenced, or a flatlined channel.  Any departure from that
+constant is then infinitely many sigmas out, and is reported as signed
+<code class="language-plaintext highlighter-rouge">inf</code> rather than as <code class="language-plaintext highlighter-rouge">nan</code>, because such a sample is the clearest
+possible anomaly and not an undefined one.  Returns an all-<code class="language-plaintext highlighter-rouge">nan</code> array
+when no finite sample remains.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Unlike the scalar reductions elsewhere in this module, the result is
+positional: it has the shape of the input, so a caller can locate <em>which</em>
+samples deviate and not merely how many.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. J. Rousseeuw and C. Croux, J. Am. Stat. Assoc. 88 (1993) 1273.
+</li>
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 1.3.5.17.
+</li>
+</ol>
+
+<h3 id="runs_test_z"><code class="language-plaintext highlighter-rouge">runs_test_z</code></h3>
+
+<p class="formula-signature"><code>runs_test_z(values)</code></p>
+
+<p>Wald-Wolfowitz runs-test z-score for the sign sequence of a sample.</p>
+
+<p>With $n_+$ positive and $n_-$ negative entries out of $n$, and $R$ the
+number of maximal same-sign runs,</p>
+
+\[E[R] = \frac{2n_+n_-}{n} + 1, \qquad
+  \mathrm{Var}[R] = \frac{2n_+n_-(2n_+n_- - n)}{n^2(n - 1)}, \qquad
+  z = \frac{R - E[R]}{\sqrt{\mathrm{Var}[R]}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Ordered sample; zeros and non-finite entries carry no sign and are dropped.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>z-score; <code class="language-plaintext highlighter-rouge">nan</code> below three signed samples or when one sign is absent.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A distribution-free test of whether a binary sequence is randomly ordered.
+It uses only the signs, so it is insensitive to outlier magnitude – which
+makes it complementary to <code class="language-plaintext highlighter-rouge">rms</code> and <code class="language-plaintext highlighter-rouge">lag1_autocorrelation</code>
+rather than redundant with them.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Exchangeable samples under the null, a meaningful ordering, and enough of
+both signs for the normal approximation: this returns <code class="language-plaintext highlighter-rouge">nan</code> below three
+non-zero samples or when one sign is absent entirely.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">|z| &gt; 2</code> means the sign pattern is unlikely under independence.  Too few
+runs (negative <code class="language-plaintext highlighter-rouge">z</code>) is clustering – contiguous stretches of one-signed
+residual, the fingerprint of an unmodelled coherent field component.  Too
+many (positive <code class="language-plaintext highlighter-rouge">z</code>) is alternation, which points at an indexing or
+polarity error rather than at physics.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. Wald and J. Wolfowitz, Ann. Math. Statist. 11 (1940) 147.
+</li>
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 1.3.5.13 (runs test).
+</li>
+</ol>
+
+<h3 id="sigma_threshold_crossing"><code class="language-plaintext highlighter-rouge">sigma_threshold_crossing</code></h3>
+
+<p class="formula-signature"><code>sigma_threshold_crossing(time, values, reference_mask, *, sigma)</code></p>
+
+<p>First time outside the reference window where the signal leaves its noise band.</p>
+
+\[t^* = \min\big(t_i : i \notin \mathrm{ref},\ |x_i - \mu| &gt; \sigma_{\mathrm{thr}}\,\sigma\big)\]
+
+<p>with $(\mu, \sigma)$ from <code class="language-plaintext highlighter-rouge">noise_band</code> over the reference samples.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array-like</td><td>any</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array-like</td><td>any</td><td><p>Signal samples.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array-like of bool</td><td>bool</td><td><p><code class="language-plaintext highlighter-rouge">True</code> on the effect-free reference samples.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float</td><td>-</td><td><p>Threshold in units of the reference noise.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>Crossing time in the unit of <code class="language-plaintext highlighter-rouge">time</code>; <code class="language-plaintext highlighter-rouge">nan</code> when the reference is too short, its noise zero or non-finite, or the signal never emerges.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A fixed-threshold first-passage detector with the threshold expressed in
+units of the sample’s own noise, so the nominal false-alarm probability per
+sample is set by <code class="language-plaintext highlighter-rouge">sigma</code> alone rather than by the channel’s gain.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>A well-defined quiet reference stretch of at least two finite samples,
+stationary noise across the whole record, and independent samples –
+oversampled or filtered data has fewer independent samples than points, so
+the effective false-alarm rate is lower than a naive count suggests.  With
+<code class="language-plaintext highlighter-rouge">n</code> samples searched, the expected number of noise-only crossings is
+roughly <code class="language-plaintext highlighter-rouge">n</code> times the per-sample tail probability, which is why a large
+<code class="language-plaintext highlighter-rouge">sigma</code> is used in practice.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Onset detection: the first moment a channel sees something its own
+pre-event noise cannot explain.  Comparing onsets across channels is the
+real test – a physical event appears everywhere at once, while a
+forward-model or response-matrix artifact does not.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NIST/SEMATECH <em>e-Handbook of Statistical Methods</em> (2012), https://doi.org/10.18434/M32189, Sec. 6.3.2 (Shewhart control limits).
+</li>
+</ol>
+
+<h3 id="sigma_unit_factor"><code class="language-plaintext highlighter-rouge">sigma_unit_factor</code></h3>
+
+<p class="formula-signature"><code>sigma_unit_factor(residual, weight, chi_squared_per_channel)</code></p>
+
+<p>Recover the units-of-fit factor $k$ from a fit’s own per-channel chi-square.</p>
+
+\[k = \operatorname{median}_i\frac{|r_i\,w_i|}{\sqrt{\chi^2_i}}, \qquad
+  \mathrm{spread} = \frac{\max_i - \min_i}{k}\]
+
+<p>from the identity $\chi^2_i = (r_i w_i/k)^2$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>residual</code></td><td>array-like</td><td>any</td><td><p>Stored residual of each channel.</p>
+</td></tr>
+  <tr><td><code>weight</code></td><td>array-like</td><td>any</td><td><p>Stored inverse-uncertainty weight of each channel.</p>
+</td></tr>
+  <tr><td><code>chi_squared_per_channel</code></td><td>array-like</td><td>-</td><td><p>Stored per-channel chi-square.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>k</code></td><td>float</td><td>any</td><td><p>Median units-of-fit factor; <code class="language-plaintext highlighter-rouge">nan</code> when no channel qualifies.</p>
+</td></tr>
+  <tr><td><code>spread</code></td><td>float</td><td>-</td><td><p>Peak-to-peak scatter of the per-channel ratios over <code class="language-plaintext highlighter-rouge">k</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A robust (median) estimate of a single multiplicative constant that
+reconciles the units three stored arrays were written in.  The median
+rather than the mean, so one corrupted channel cannot move the estimate.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That <em>one</em> constant explains all channels.  <code class="language-plaintext highlighter-rouge">spread</code> is the test of that
+assumption, and it is what makes the estimate self-validating: it must be
+small.  A large spread means the stored chi-square and the stored residual
+no longer describe the same fit, and every normalized residual built on
+<code class="language-plaintext highlighter-rouge">k</code> is then suspect.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Channels are used only where the weight is positive and both the chi-square
+and the residual are finite with a positive chi-square; <code class="language-plaintext highlighter-rouge">(nan, nan)</code> comes
+back when none qualify.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>Recovering <code class="language-plaintext highlighter-rouge">k</code> rather than hard-coding a unit convention means a future
+convention change surfaces as a spread warning instead of as silently wrong
+normalized residuals.  Note that <code class="language-plaintext highlighter-rouge">spread</code> here is a peak-to-peak-over-median
+ratio and is deliberately <em>not</em> the same statistic as <code class="language-plaintext highlighter-rouge">relative_spread</code>.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>P. R. Bevington and D. K. Robinson, <em>Data Reduction and Error Analysis for the Physical Sciences</em>, 3rd ed., McGraw-Hill (2003), Sec. 4.1.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/atomic/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: atomic">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/magnetics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: magnetics">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#bias_standard_error" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bias_standard_error</a></li><li class="page-toc-item page-toc-level-3"><a href="#chi_squared" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chi_squared</a></li><li class="page-toc-item page-toc-level-3"><a href="#dynamic_range" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dynamic_range</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_rms_improvement" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_rms_improvement</a></li><li class="page-toc-item page-toc-level-3"><a href="#lag1_autocorrelation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lag1_autocorrelation</a></li><li class="page-toc-item page-toc-level-3"><a href="#linear_trend" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">linear_trend</a></li><li class="page-toc-item page-toc-level-3"><a href="#log10_decay_rate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">log10_decay_rate</a></li><li class="page-toc-item page-toc-level-3"><a href="#median_absolute_deviation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">median_absolute_deviation</a></li><li class="page-toc-item page-toc-level-3"><a href="#monotonic_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">monotonic_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#noise_band" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">noise_band</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#outlier_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">outlier_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#pearson_correlation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pearson_correlation</a></li><li class="page-toc-item page-toc-level-3"><a href="#percentile_scale" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">percentile_scale</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduced_chi_squared" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduced_chi_squared</a></li><li class="page-toc-item page-toc-level-3"><a href="#relative_spread" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">relative_spread</a></li><li class="page-toc-item page-toc-level-3"><a href="#residual_bias" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">residual_bias</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms</a></li><li class="page-toc-item page-toc-level-3"><a href="#robust_z_scores" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">robust_z_scores</a></li><li class="page-toc-item page-toc-level-3"><a href="#runs_test_z" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">runs_test_z</a></li><li class="page-toc-item page-toc-level-3"><a href="#sigma_threshold_crossing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sigma_threshold_crossing</a></li><li class="page-toc-item page-toc-level-3"><a href="#sigma_unit_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sigma_unit_factor</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: magnetics",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_magnetics.md",
+            "ref": "_guide/Formula_reference_magnetics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_statistics.md",
+        "mtime": "2026-09-02 10:15:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-02 18:05:47 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>
