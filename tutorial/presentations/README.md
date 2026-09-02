@@ -99,6 +99,19 @@ presentations/
 └── 01_getting_started_with_vaft.qmd
 ```
 
+### External links live at the end
+
+The deck closes with a *Going further* section — IMAS/OMAS tutorials,
+per-language API documentation, and Data Dictionary references — deliberately
+after the teaching content rather than woven into it, where it would weigh down
+a first pass. The Session 01 notebook carries the same list as an *Additional
+Resources* appendix, which is where a reader will actually click them; the
+slides exist to say the material is there and which Data Dictionary version
+applies.
+
+Links are real annotations in both outputs, so they are clickable in the PDF as
+well as the HTML.
+
 ### Typography
 
 Both backends set the same text the same way, which is what makes them read as

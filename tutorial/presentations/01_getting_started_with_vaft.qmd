@@ -155,6 +155,74 @@ The refusal is the interesting part — demonstrate `yunit="furlongs"` in the
 notebook if there is time.
 :::
 
+# Going further
+
+## Tutorials and API documentation
+
+:::: {.columns}
+
+::: {.column width="52%"}
+**Hands-on, beyond VAFT**
+
+- [IMAS Tutorial](https://github.com/iterorganization/IMAS-tutorial)
+- [IMAS-Python 101](https://imas-python.readthedocs.io/en/stable/courses/basic_user_training.html)
+- [Advanced IMAS-Python](https://imas-python.readthedocs.io/en/stable/courses/advanced_user_training.html)
+- [OMAS Examples Gallery](https://gafusion.github.io/omas/auto_examples/index.html)
+:::
+
+::: {.column width="48%"}
+**API documentation**
+
+*Python* — [OMAS](https://gafusion.github.io/omas/) ·
+[IMAS-Python](https://imas-python.readthedocs.io/en/stable/) ·
+[API reference](https://imas-python.readthedocs.io/en/stable/api.html)
+
+*MATLAB* — [IMAS-MATLAB](https://imas-matlab.readthedocs.io/)
+
+*Julia* — [IMASdd.jl](https://projecttorreypines.github.io/IMASdd.jl/)
+:::
+
+::::
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+Do not read these out. Say they exist, say they are optional, and move on --
+the same list is in the Session 01 notebook's Additional Resources appendix,
+which is where people will actually click them.
+
+WARN:
+Nobody needs any of this to finish the session. Say so, or half the room will
+think they are behind.
+:::
+
+## The Data Dictionary is the reference {.smaller}
+
+For the real IDS hierarchy — node names, coordinates, units, conventions — read
+the Data Dictionary rather than inferring it from examples.
+
+- [OMAS schema browser (DD 3.41.0)](https://gafusion.github.io/omas/schema.html)
+- [Official IMAS Data Dictionary 3.41.0](https://imas-data-dictionary.readthedocs.io/en/3.41.0-doc/)
+- [Official IMAS Data Dictionary 4.1.1 (latest)](https://imas-data-dictionary.readthedocs.io/en/4.1.1/)
+
+**Which version applies.** VAFT works in the version OMAS supports — currently
+**3.41.0** — and every path in this session follows it. 4.1.1 is the current
+reference, not what this course describes.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+This slide is the one worth pausing on. Students guess paths from examples and
+then wonder why they fail.
+
+WARN:
+Node names and coordinates do move between major DD versions. If someone copies
+a path out of 4.1.1 documentation it may simply not exist in what VAFT reads.
+Tell them to check which version a document refers to before trusting a path.
+:::
+
 ## References
 
 ::: {#refs}
