@@ -1,4 +1,10 @@
-from vaft.formula.green import calculate_distance, green_br_bz, green_r
+from vaft.formula.green import (
+    calculate_distance,
+    green_br_bz,
+    green_br_bz_exact,
+    green_psi_exact,
+    green_r,
+)
 from typing import List, Dict, Any, Tuple
 import numpy as np
 from numpy import ndarray
@@ -243,6 +249,84 @@ def compute_response_vector(
         plasma_points=plasma_points
     )
 
+def compute_point_response_matrices(
+    obs_r: np.ndarray,
+    obs_z: np.ndarray,
+    src_r: np.ndarray,
+    src_z: np.ndarray,
+    turns: np.ndarray | None = None,
+    groups: np.ndarray | None = None,
+    n_groups: int | None = None,
+    components: Tuple[str, ...] = ("psi", "bz", "br"),
+) -> Tuple[ndarray, ...]:
+    """Vectorized exact (psi, Bz, Br) response matrices for point sources.
+
+    Fully NumPy-broadcast alternative to :func:`compute_response_matrix`
+    (which is kept unchanged): no per-point Python loops, exact scipy
+    elliptic integrals (see ``vaft.formula.green.greens_function_exact``).
+
+    :param obs_r, obs_z: observation coordinates, shape (n_obs,)
+    :param src_r, src_z: source filament coordinates, shape (n_src,)
+    :param turns: optional per-source turns weighting, shape (n_src,)
+    :param groups: optional integer group index per source, shape
+        (n_src,); columns of the result are summed per group (e.g. 530
+        discretized coil filaments -> 10 PF coil circuits)
+    :param n_groups: number of groups (defaults to ``groups.max() + 1``)
+    :param components: which matrices to compute and return, a subset of
+        ("psi", "bz", "br") in the desired order — requesting only "psi"
+        (or only the fields) skips the unneeded elliptic-integral passes
+        (each field pass costs roughly twice the psi pass)
+    :return: matrices matching *components* (default (Psi, Bz, Br)),
+        each of shape (n_obs, n_src) or
+        (n_obs, n_groups) when *groups* is given. Units per unit source
+        current: psi [Wb], Bz [T], Br [T]. Observation points on the
+        geometric axis (r == 0) get their analytic limits (psi = 0,
+        Br = 0, Bz = on-axis loop field).
+    """
+    obs_r = np.asarray(obs_r, dtype=float).ravel()
+    obs_z = np.asarray(obs_z, dtype=float).ravel()
+    src_r = np.asarray(src_r, dtype=float).ravel()
+    src_z = np.asarray(src_z, dtype=float).ravel()
+    if obs_r.shape != obs_z.shape or src_r.shape != src_z.shape:
+        raise ValueError("observation/source r and z arrays must have equal shapes")
+
+    ro = obs_r[:, None]
+    zo = obs_z[:, None]
+    rs = src_r[None, :]
+    zs = src_z[None, :]
+
+    if not components or any(c not in ("psi", "bz", "br") for c in components):
+        raise ValueError(
+            f'components must be a non-empty subset of ("psi", "bz", "br"); '
+            f"got {components!r}"
+        )
+    matrices = {}
+    if "psi" in components:
+        matrices["psi"] = green_psi_exact(ro, zo, rs, zs)
+    if "bz" in components or "br" in components:
+        matrices["br"], matrices["bz"] = green_br_bz_exact(ro, zo, rs, zs)
+
+    if turns is not None:
+        w = np.asarray(turns, dtype=float).ravel()[None, :]
+        matrices = {k: v * w for k, v in matrices.items()}
+
+    if groups is not None:
+        groups = np.asarray(groups, dtype=int).ravel()
+        if groups.shape != src_r.shape:
+            raise ValueError("groups must have one entry per source")
+        ng = int(n_groups if n_groups is not None else groups.max() + 1)
+        if groups.min() < 0 or groups.max() >= ng:
+            raise ValueError(
+                f"group indices must lie in [0, {ng}); "
+                f"got range [{groups.min()}, {groups.max()}]"
+            )
+        onehot = np.zeros((src_r.size, ng))
+        onehot[np.arange(src_r.size), groups] = 1.0
+        matrices = {k: v @ onehot for k, v in matrices.items()}
+
+    return tuple(matrices[name] for name in components)
+
+
 def compute_mutual_passive_active(
     passive_loop_geometry: List[Tuple[str, float, float, float]],
     coil_geometry: List[List[Tuple[float, float, int]]],
@@ -277,7 +361,7 @@ def compute_impedance_matrices(
     passive_loop_geometry: List[Tuple[str, float, float, float]],  
     # e.g. [(loop_name, average_r, average_z, geometry_coef), ...]
     coil_geometry: List[List[Tuple[float, float, int]]] | None,
-    # e.g. coil_geometry[i] -> list of (rc, zc, turns_with_sign) for each coil element
+    # Retained for API compatibility; canonical coupling now comes from mutual_pa.
     mutual_pp: np.ndarray,       # mutual_passive_passive from ODS
     mutual_pa: np.ndarray,       # mutual_passive_active from ODS
     plasma_rz: List[Tuple[float, float]]
@@ -291,9 +375,9 @@ def compute_impedance_matrices(
            - average_r (float),
            - average_z (float),
            - geometry_coef (float)  # e.g. 1.0 or 1.04 ...
-    :param coil_geometry: active-coil geometry. When provided, its coupling is
-        compared with ``mutual_pa`` and used if the packaged matrix represents
-        a different geometry. ``None`` requires and uses ``mutual_pa`` directly.
+    :param coil_geometry: retained for backward compatibility and shape
+        validation. The solver no longer derives or substitutes coupling from
+        geometry; callers must provide the canonical ``mutual_pa`` matrix.
     :param mutual_pp: mutual_passive_passive matrix from external (shape = (nbloop, nbloop)).
     :param mutual_pa: mutual_passive_active matrix from external (shape = (nbloop, nbcoil)).
     :param plasma_rz: list of (r, z) for each plasma current element (optional).
@@ -325,35 +409,16 @@ def compute_impedance_matrices(
             "coil_geometry and mutual_pa describe different numbers of "
             f"active coils ({len(coil_geometry)} and {mutual_pa.shape[1]})"
         )
-
     # Build R (nbloop x nbloop)
     R_mat = np.diag(loop_resistances)
 
     # M is the standard passive-to-passive coupling from em_coupling.
     M_mat = mutual_pp
 
-    active_coupling = mutual_pa
-    if coil_geometry is not None:
-        geometry_coupling = compute_mutual_passive_active(
-            passive_loop_geometry,
-            coil_geometry,
-        )
-        # The packaged reference agrees with the historical geometry to
-        # floating-point precision. Newer VEST geometries (notably PF6/PF7 in
-        # the 2507 configuration) differ materially and must use the geometry
-        # calculation until versioned em_coupling matrices are available.
-        if not np.allclose(
-            geometry_coupling,
-            mutual_pa,
-            rtol=1e-10,
-            atol=1e-15,
-        ):
-            active_coupling = geometry_coupling
-
     # Plasma filaments are transient VAFT solver inputs; until they are
     # represented by pf_plasma.element URIs, compute only that portion here.
     if nbplas == 0:
-        L_mat = active_coupling
+        L_mat = mutual_pa
     else:
         plasma_coupling = np.zeros((nbloop, nbplas))
         for i_loop, (loop_name, r1, z1, coef) in enumerate(passive_loop_geometry):
@@ -361,7 +426,7 @@ def compute_impedance_matrices(
                 plasma_coupling[i_loop, j_plasma] = (
                     coef * green_r(r1, z1, rp, zp)
                 )
-        L_mat = np.hstack((active_coupling, plasma_coupling))
+        L_mat = np.hstack((mutual_pa, plasma_coupling))
 
     return R_mat, L_mat, M_mat
 

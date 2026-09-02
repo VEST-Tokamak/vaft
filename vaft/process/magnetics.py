@@ -2,29 +2,32 @@ from dataclasses import dataclass
 from typing import Callable, Sequence
 
 import numpy as np
+from ipywidgets import IntSlider, interact
 from scipy import signal
-import matplotlib.pyplot as plt
-from scipy.signal import savgol_filter
-from numpy.polynomial.polynomial import polyfit, polyval
-import statistics
-import scipy
-from ipywidgets import interact, IntSlider
-import numpy as np
-from scipy.signal import csd, coherence, find_peaks
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
+from scipy.signal import coherence, csd, find_peaks, savgol_filter
+
 from vaft.compat import cumtrapz_compat
+from vaft.formula.statistics import rms
+from vaft.database import raw as raw_db
 from vaft.process import define_baseline, subtract_baseline
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
 
 
+class UnsupportedMagneticsDaqModeError(NotImplementedError):
+    """Raised for a magnetics acquisition era with no ported processing path."""
+
+
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
-    """Default VEST magnetics processing settings used by legacy `vfit_md`.
+    """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
 
     The values intentionally preserve the long-running VEST EFIT input workflow
     while making the knobs explicit for reproducibility and parameter scans.
+    Shots 41446--41451 and shots from 41660 onward use indices 6500--9000
+    with a 5000-sample probe baseline. Other shots use indices 6000--8500
+    with an 8500-sample probe baseline. These are legacy acquisition-era
+    policies, not automatic signal-quality decisions.
     """
 
     time_start: float = 0.0
@@ -51,11 +54,20 @@ class VestMagneticsProcessingConfig:
     flux_baseline_late_loop_numbers: tuple[int, ...] = (9, 10, 11)
     calibration_mode: str = "divide"
     flux_output_per_radian: bool = True
+    # Shot-era policy resolved from `vest.yaml` (issue #195). When
+    # `window_override` is None the legacy hardcoded thresholds below still
+    # apply, so directly-constructed configs keep their historical behavior.
+    window_override: tuple[int, int, int] | None = None
+    flux_baseline_window: tuple[float, float] | None = None
+    flux_baseline_samples: int | None = None
+    daq_mode: str = "legacy"
 
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
 
     def window_for_shot(self, shot: int) -> tuple[int, int, int]:
+        if self.window_override is not None:
+            return self.window_override
         if self.transient_shot_min <= shot <= self.transient_shot_max or shot >= self.late_shot_min:
             return self.late_index_start, self.late_index_end, self.late_probe_baseline_end
         return self.default_index_start, self.default_index_end, self.default_probe_baseline_end
@@ -128,6 +140,33 @@ def _linear_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndar
     return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
 
 
+def _validate_daq_mode(cfg: VestMagneticsProcessingConfig) -> None:
+    """Reject configs whose `daq_mode` disagrees with the rules it carries.
+
+    `daq_mode` must not be decorative: the acquisition era it names and the
+    flux-loop baseline rule that actually distinguishes the two donor
+    functions have to agree, or a config could claim `native_daq` while
+    silently processing flux loops the legacy way.
+    """
+    if cfg.daq_mode not in {"legacy", "native_daq"}:
+        raise UnsupportedMagneticsDaqModeError(
+            f"Unknown VEST magnetics daq_mode {cfg.daq_mode!r}; expected 'legacy' or 'native_daq'"
+        )
+    if cfg.daq_mode == "native_daq" and cfg.flux_baseline_samples is None:
+        raise UnsupportedMagneticsDaqModeError(
+            "daq_mode='native_daq' requires flux_baseline_samples: on the native "
+            "acquisition the flux loops take the probes' leading-sample baseline "
+            "(the donor reuses index_Bz_start:index_Bz_end). Without it the flux "
+            "loops would silently fall back to the legacy baseline rule."
+        )
+    if cfg.daq_mode == "legacy" and cfg.flux_baseline_samples is not None:
+        raise UnsupportedMagneticsDaqModeError(
+            "flux_baseline_samples is a native-DAQ rule but daq_mode='legacy'; "
+            "the legacy era selects its flux baseline by physical window "
+            "(flux_baseline_window) or by the historical index ranges."
+        )
+
+
 def vest_magnetics_time_window(shot: int, config: VestMagneticsProcessingConfig | None = None) -> np.ndarray:
     """Return the VEST MD output time window for a shot."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
@@ -149,7 +188,7 @@ def vest_b_field_pol_probe_legacy(
     time = np.asarray(time, dtype=float)
     raw = np.asarray(raw, dtype=float)
     if time.size <= 1 or raw.size <= 1:
-        return np.zeros(time.size, dtype=float)
+        raise ValueError("VEST poloidal-field processing requires at least two samples")
 
     lowpass = signal.firwin(
         cfg.lowpass_taps,
@@ -164,27 +203,60 @@ def vest_b_field_pol_probe_legacy(
     return integrated - baseline
 
 
-def vest_flux_loop_legacy(
-    time: np.ndarray,
+def vest_flux_loop_voltage(
     raw: np.ndarray,
     calibration: float,
+    *,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> np.ndarray:
+    """Return the calibrated flux-loop terminal voltage in volts.
+
+    This is the pre-integration physical signal: the channel calibration and
+    sign convention have been applied, but no time integration or baseline
+    removal. It is the single definition of the flux-loop calibration used by
+    both `vest_flux_loop_legacy` and the `magnetics.flux_loop[*].voltage`
+    mapping (issue #209).
+    """
+    cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    return _calibrated_signal(raw, float(calibration), cfg.calibration_mode)
+
+
+def vest_flux_loop_flux_from_voltage(
+    time: np.ndarray,
+    voltage: np.ndarray,
     *,
     flux_loop_number: int,
     config: VestMagneticsProcessingConfig | None = None,
 ) -> np.ndarray:
-    """Process one VEST flux loop using the legacy EFIT workflow."""
+    """Integrate a calibrated flux-loop voltage into baseline-removed flux.
+
+    ``flux = -integral(voltage dt) / (2*pi) - linear_baseline``, i.e. the
+    per-radian flux consumed by the ODS mapper (which multiplies by ``2*pi``).
+    """
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     time = np.asarray(time, dtype=float)
-    raw = np.asarray(raw, dtype=float)
-    if time.size <= 1 or raw.size <= 1:
-        return np.zeros(time.size, dtype=float)
-
-    calibrated = _calibrated_signal(raw, float(calibration), cfg.calibration_mode)
+    calibrated = np.asarray(voltage, dtype=float)
+    if time.size <= 1 or calibrated.size <= 1:
+        raise ValueError("VEST flux-loop processing requires at least two samples")
     integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
 
-    if int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
+    if cfg.flux_baseline_samples is not None:
+        # Native-DAQ era (VEST_MagneticSignalProcessing2.m): flux loops moved
+        # onto the 250 kHz acquisition and take the same leading-sample
+        # baseline as the B-pol probes -- MATLAB
+        # `polyfit(timeFastFL(index_Bz_start:index_Bz_end), ...)` with
+        # index_Bz_start = 1, index_Bz_end = 1750.
+        baseline_indices = np.arange(min(int(cfg.flux_baseline_samples), integrated.size))
+    elif cfg.flux_baseline_window is not None:
+        # Shot >= 43685 on the slow-DAQ era: MATLAB
+        # `index_FL_start = 6001 (0.24 s), index_FL_end = 6500 (0.26 s)`.
+        # Expressed in physical seconds so it stays correct regardless of the
+        # loop's native sample rate.
+        window_start, window_end = (float(bound) for bound in cfg.flux_baseline_window)
+        baseline_indices = np.flatnonzero((time >= window_start) & (time <= window_end))
+    elif int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
         baseline_indices = np.arange(cfg.flux_baseline_late_start, min(cfg.flux_baseline_late_end, integrated.size))
     else:
         first = np.arange(cfg.flux_baseline_first_start, min(cfg.flux_baseline_first_end, integrated.size))
@@ -194,16 +266,63 @@ def vest_flux_loop_legacy(
     return integrated - baseline
 
 
-def vest_md_signals(
+def vest_flux_loop_legacy(
+    time: np.ndarray,
+    raw: np.ndarray,
+    calibration: float,
+    *,
+    flux_loop_number: int,
+    config: VestMagneticsProcessingConfig | None = None,
+) -> np.ndarray:
+    """Process one VEST flux loop using the legacy EFIT workflow.
+
+    Composition of `vest_flux_loop_voltage` (calibration / sign convention)
+    and `vest_flux_loop_flux_from_voltage` (integration + baseline removal).
+    """
+    time = np.asarray(time, dtype=float)
+    raw = np.asarray(raw, dtype=float)
+    if time.size <= 1 or raw.size <= 1:
+        raise ValueError("VEST flux-loop processing requires at least two samples")
+
+    voltage = vest_flux_loop_voltage(raw, calibration, config=config)
+    return vest_flux_loop_flux_from_voltage(
+        time,
+        voltage,
+        flux_loop_number=flux_loop_number,
+        config=config,
+    )
+
+
+@dataclass(frozen=True)
+class VestEquilibriumMagneticsResult:
+    """Processed VEST equilibrium magnetics waveforms with native voltages.
+
+    `flux_loops`/`probes` are resampled onto `time` (the MD output window),
+    while `flux_loop_voltage`/`flux_loop_voltage_time` keep the native
+    acquisition timebase of each flux-loop channel. All flux-loop lists are
+    index-aligned: an unavailable channel contributes an empty array to each
+    of them rather than shifting later channels.
+    """
+
+    time: np.ndarray
+    flux_loops: list[np.ndarray]
+    probes: list[np.ndarray]
+    flux_loop_voltage_time: list[np.ndarray]
+    flux_loop_voltage: list[np.ndarray]
+
+
+def vest_equilibrium_magnetics_detailed(
     shot: int,
     channels: Sequence[dict],
     loader: Callable[[int, int], tuple[np.ndarray, np.ndarray] | None],
     *,
     indices: Sequence[int] | None = None,
     config: VestMagneticsProcessingConfig | None = None,
-) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Process VEST MD channels into flux-loop and B-probe waveforms."""
+    allow_missing: bool = False,
+) -> VestEquilibriumMagneticsResult:
+    """Process VEST MD channels, retaining the pre-integration flux-loop voltage."""
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    _validate_daq_mode(cfg)
     channel_rows = list(channels)
     if indices is not None:
         channel_rows = [channel_rows[int(index)] for index in indices]
@@ -211,6 +330,8 @@ def vest_md_signals(
     magnetics_time = vest_magnetics_time_window(shot, cfg)
     data_flux_loops: list[np.ndarray] = []
     data_probes: list[np.ndarray] = []
+    flux_loop_voltage_time: list[np.ndarray] = []
+    flux_loop_voltage: list[np.ndarray] = []
     flux_loop_counter = 0
 
     for channel in channel_rows:
@@ -222,33 +343,81 @@ def vest_md_signals(
         if kind == "flux_loop":
             flux_loop_counter += 1
 
-        if loaded is None:
-            processed = np.zeros(magnetics_time.size, dtype=float)
-        else:
-            source_time, source_data = loaded
-            source_time = np.asarray(source_time, dtype=float)
-            source_data = np.asarray(source_data, dtype=float)
-            if source_time.size <= 1 or source_data.size <= 1:
-                processed = np.zeros(magnetics_time.size, dtype=float)
-            elif kind == "b_field_pol_probe":
-                processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
-                processed = np.interp(magnetics_time, source_time, processed_full)
+        try:
+            source_time, source_data = raw_db.require_signal(
+                loaded,
+                shot=shot,
+                field=field_code,
+                signal_name=str(channel.get("name", kind)),
+            )
+        except raw_db.RawSignalUnavailableError:
+            if not allow_missing:
+                raise
+            missing = np.array([], dtype=float)
+            if kind == "b_field_pol_probe":
+                data_probes.append(missing)
             else:
-                processed_full = vest_flux_loop_legacy(
-                    source_time,
-                    source_data,
-                    calibration,
-                    flux_loop_number=flux_loop_counter,
-                    config=cfg,
-                )
-                processed = np.interp(magnetics_time, source_time, processed_full)
+                data_flux_loops.append(missing)
+                flux_loop_voltage_time.append(missing)
+                flux_loop_voltage.append(missing)
+            continue
 
         if kind == "b_field_pol_probe":
-            data_probes.append(processed)
-        else:
-            data_flux_loops.append(processed)
+            processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
+            data_probes.append(np.interp(magnetics_time, source_time, processed_full))
+            continue
 
-    return magnetics_time, data_flux_loops, data_probes
+        source_time = np.asarray(source_time, dtype=float)
+        source_data = np.asarray(source_data, dtype=float)
+        voltage = vest_flux_loop_voltage(source_data, calibration, config=cfg)
+        processed_full = vest_flux_loop_flux_from_voltage(
+            source_time,
+            voltage,
+            flux_loop_number=flux_loop_counter,
+            config=cfg,
+        )
+        data_flux_loops.append(np.interp(magnetics_time, source_time, processed_full))
+        flux_loop_voltage_time.append(source_time)
+        flux_loop_voltage.append(voltage)
+
+    return VestEquilibriumMagneticsResult(
+        time=magnetics_time,
+        flux_loops=data_flux_loops,
+        probes=data_probes,
+        flux_loop_voltage_time=flux_loop_voltage_time,
+        flux_loop_voltage=flux_loop_voltage,
+    )
+
+
+def vest_equilibrium_magnetics_signals(
+    shot: int,
+    channels: Sequence[dict],
+    loader: Callable[[int, int], tuple[np.ndarray, np.ndarray] | None],
+    *,
+    indices: Sequence[int] | None = None,
+    config: VestMagneticsProcessingConfig | None = None,
+    allow_missing: bool = False,
+) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
+    """Process VEST MD channels into flux-loop and B-probe waveforms.
+
+    Backward-compatible view of `vest_equilibrium_magnetics_detailed`, which
+    also exposes the native-rate flux-loop terminal voltage.
+    """
+    result = vest_equilibrium_magnetics_detailed(
+        shot,
+        channels,
+        loader,
+        indices=indices,
+        config=config,
+        allow_missing=allow_missing,
+    )
+    return result.time, result.flux_loops, result.probes
+
+
+# Pre-rename name, kept as a plain alias: `vaft.process` re-exports this
+# module with `from .magnetics import *`, so `vaft.process.vest_md_signals`
+# must keep working for existing callers.
+vest_md_signals = vest_equilibrium_magnetics_signals
 
 
 def _firwin_order(sample_rate: float) -> int:
@@ -417,7 +586,7 @@ def _fit_wrapped_toroidal_n(
         intercept = float(np.angle(np.mean(np.exp(1j * residual_offset))))
         fitted = _wrap_phase_radians(intercept - float(n_value) * toroidal_angle)
         residual = _wrap_phase_radians(phase - fitted)
-        rms_error = float(np.sqrt(np.mean(residual**2)))
+        rms_error = rms(residual)
         if rms_error < best_error:
             best_n = int(n_value)
             best_intercept = intercept
@@ -606,7 +775,8 @@ def rogowski_coil_ip(
     )
 
     # Convert flux loop signal to current reference
-    # For example: flux_ref = flux_corr * (flux_loop_gain / mutual_inductance)
+    # For example: flux_ref = flux_corr * (flux_loop_gain / effective_resistance)
+    # -- the divisor is in ohms, not henries; see issue #214.
     # We'll do the simplest version: flux_corr * flux_loop_gain
     flux_ref = flux_corr * flux_loop_gain
 
@@ -681,30 +851,20 @@ def b_field_pol_probe_field(
 
     if plot_opt:
         def interactive_plot(index):
-            plt.figure(figsize=(10, 8))
-
-            # Plot 1: Raw and filtered signals
-            plt.subplot(2, 1, 1)
-            plt.plot(time, raw[:, index], label="Raw (gain applied)", alpha=0.7)
-            plt.plot(time, filtered_raw[:, index], label="Filtered Signal", alpha=0.7)
-            plt.title(f"B-field Signal Processing: Index {index}\nBaseline: {baseline_type}")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Signal")
-            plt.legend()
-            plt.grid()
-
-            # Plot 2: Integrated signal and baseline-corrected signal
-            plt.subplot(2, 1, 2)
-            plt.plot(time, integrated_flux[:, index], label="Integrated Signal", alpha=0.7)
-            plt.plot(time, baselines[:, index], label="Baseline", alpha=0.7)
-            plt.plot(time, field[:, index], label="Baseline-Corrected Signal", alpha=0.7)
-            plt.xlabel("Time (s)")
-            plt.ylabel("Flux")
-            plt.legend()
-            plt.grid()
-
-            plt.tight_layout()
-            plt.show()
+            return _plot_signal_processing_panels(
+                time,
+                title=f"B-field Signal Processing: Index {index}\n"
+                      f"Baseline: {baseline_type}",
+                raw_traces=(
+                    ("Raw (gain applied)", raw[:, index]),
+                    ("Filtered Signal", filtered_raw[:, index]),
+                ),
+                corrected_traces=(
+                    ("Integrated Signal", integrated_flux[:, index]),
+                    ("Baseline", baselines[:, index]),
+                    ("Baseline-Corrected Signal", field[:, index]),
+                ),
+            )
 
         interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 
@@ -794,29 +954,17 @@ def flux_loop_flux(
 
     if plot_opt:
         def interactive_plot(index):
-            plt.figure(figsize=(10, 8))
-
-            # Plot 1: Raw signal
-            plt.subplot(2, 1, 1)
-            plt.plot(time, raw[:, index], label="Raw (gain applied)", alpha=0.7)
-            plt.title(f"Flux Loop Signal Processing: Index {index}\nBaseline: {baseline_type}")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Signal")
-            plt.legend()
-            plt.grid()
-
-            # Plot 2: Integrated signal and baseline-corrected signal
-            plt.subplot(2, 1, 2)
-            plt.plot(time, integrated_data[:, index], label="Integrated Signal", alpha=0.7)
-            plt.plot(time, baselines[:, index], label="Baseline", alpha=0.7)
-            plt.plot(time, processed_data[:, index], label="Baseline-Corrected Signal", alpha=0.7)
-            plt.xlabel("Time (s)")
-            plt.ylabel("Flux")
-            plt.legend()
-            plt.grid()
-
-            plt.tight_layout()
-            plt.show()
+            return _plot_signal_processing_panels(
+                time,
+                title=f"Flux Loop Signal Processing: Index {index}\n"
+                      f"Baseline: {baseline_type}",
+                raw_traces=(("Raw (gain applied)", raw[:, index]),),
+                corrected_traces=(
+                    ("Integrated Signal", integrated_data[:, index]),
+                    ("Baseline", baselines[:, index]),
+                    ("Baseline-Corrected Signal", processed_data[:, index]),
+                ),
+            )
 
         interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 
@@ -1026,3 +1174,33 @@ def flux_loop_flux(
 #         plt.show()
 
 #     return results
+
+
+def _plot_signal_processing_panels(time, *, title, raw_traces, corrected_traces):
+    """Render the raw/corrected signal-processing panels through ``vaft.plot``.
+
+    Processing owns the numerics; rendering is delegated so no Matplotlib code
+    lives in this namespace (issue #63).
+    """
+    from vaft.plot import LineSeries, Panels, Series, render_panels
+
+    def _panel(traces, y_label, panel_title=""):
+        return LineSeries(
+            series=tuple(
+                Series(x=time, y=values, label=label, style={"alpha": 0.7})
+                for label, values in traces
+            ),
+            x_label="Time", x_unit="s", y_label=y_label, title=panel_title,
+        )
+
+    return render_panels(
+        Panels(
+            models=(
+                _panel(raw_traces, "Signal", title),
+                _panel(corrected_traces, "Flux"),
+            ),
+            share_x=True,
+        ),
+        figsize=(10, 8),
+        show=True,
+    )

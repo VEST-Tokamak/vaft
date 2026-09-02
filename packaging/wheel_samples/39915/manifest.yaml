@@ -1,0 +1,158 @@
+schema_version: 1
+reference_id: vest-39915-until-efit-v1
+shot: 39915
+machine: VEST
+imas_dd_version: 3.41.0
+pipeline:
+  scope:
+  - static
+  - diagnostics
+  - eddy
+  - constraints
+  - efit
+  excluded_stages:
+  - chease
+  - dcon
+  - rdcon
+  - stride
+  - gpec
+  vaft_commit: 9c62a1f54ac547d5d8f26b12986c3e534e1b50cf
+  config: source/pipeline-config.yaml
+  config_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+  raw_source: source/vest_39915_daq_raw.json.gz
+  raw_sha256: ac94261a218fbd9f4a84f94fc6d0ccf5dcde99ef4df2b6a8b12f5def616bf07e
+  eddy_stage_sha256: 845a2a9e28d6b7c2d6a5e4d2eba885d80e029b7803bfd3a3172f432aa3f2c038
+  efit_stage_sha256: 6aa488fc1e42114e474c341c4992b81762997a6200e5b54afa202d49f064ba1b
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: 71edb3996e6184438eabaef2bc7057352e17e44426802629c52a73bd1cff3d7f
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: df15eb043638082081a49358ffaa26c8c5eeb6fa0e2b6e0ec0235772fb15ea55
+  efit:
+    executable_sha256: 843758640d89a857b9529d827903a09bb23a4d4ad1b9144b5ef0b392f0792ca7
+    table: '129'
+    status: 'completed: returncode=0; gfiles=9'
+    requested_time_slices: 22
+    successful_time_slices: 9
+    optional_outputs:
+      mfile:
+        status: unavailable
+        reason: EFIT executable was not linked with NetCDF support
+  stage_status:
+    diagnostics: partial
+    eddy: success
+    efit: completed
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: wheel-and-sdist
+    compatible_adapters:
+    - omas
+    - imas
+    size: 9852213
+    sha256: f901bcc6f8f27af9dc422b953189ba7c404207b191398346d134bf3db21e0df4
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: wheel-and-sdist
+    compatible_adapters:
+    - imas
+    - omas
+    size: 11182674
+    sha256: 11ba8b37fa60c9c00eb0939b02c853c4ffc5cd23303a3cf22991293373d24b76
+generation:
+  command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
+    vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: 426f8e7842e0fcc73dc5df910c797a5a40b5b460bb0165b7de292d9b48235ded
+  canonical_policy: repository-only
+  equilibrium_time_slices: 3
+  materialized_leaves: 15583
+  metadata_corrections:
+  - issue: https://github.com/VEST-Tokamak/vaft/issues/169
+    path: magnetics.b_field_pol_probe.*.poloidal_angle
+    from_direction: -Bz
+    to_direction: +Bz
+    value_radians: 1.5707963267948966
+  selectors:
+  - dataset_description.*
+  - wall.*
+  - barometry.*
+  - tf.*
+  - pf_active.ids_properties.*
+  - pf_active.time
+  - pf_active.coil.*
+  - magnetics.*
+  - spectrometer_uv.ids_properties.*
+  - spectrometer_uv.time
+  - spectrometer_uv.channel.*
+  - pf_passive.ids_properties.*
+  - pf_passive.loop.*.name
+  - pf_passive.loop.*.resistance
+  - pf_passive.loop.*.resistivity
+  - pf_passive.loop.*.element.*
+  - equilibrium.ids_properties.*
+  - equilibrium.time
+  - equilibrium.vacuum_toroidal_field.*
+  - equilibrium.time_slice.*
+  distribution_variant: wheel
+semantic_comparison:
+  paths:
+  - wall.*
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - equilibrium.*
+  exclude_paths:
+  - '*.ids_properties.version_put*'
+  - '*.ids_properties.occurrence'
+  - '*.ids_properties.homogeneous_time'
+acceptance:
+  magnetics:
+    b_field_pol_probe_count: 76
+    flux_loop_count: 11
+  pf_active:
+    coil_count: 10
+  spectrometer_uv:
+    channel_count: 3
+  pf_passive:
+    loop_count: 950
+    static_only: true
+  equilibrium_times:
+  - 0.316
+  - 0.317
+  - 0.318
+  required_ids:
+  - wall
+  - barometry
+  - tf
+  - pf_active
+  - magnetics
+  - spectrometer_uv
+  - pf_passive
+  - equilibrium
+packaging_policy:
+  compact_pair: wheel-and-sdist
+  repository_equilibrium_time_slices: all
+  wheel_equilibrium_time_slices: 3
+  canonical_source: repository-only
+  raw_source: repository-only
+  future_large_goldens: repository-only
+corrections:
+- issue: 288
+  field: magnetics.b_field_pol_probe.:.poloidal_angle
+  from: pi/2
+  to: 3*pi/2
+  reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
+    measuring +Bz is 3*pi/2. This wheel variant carried pi/2, which declares -Bz to
+    a DD-conformant reader and, since setup.py substitutes these files into every
+    build, would have shipped an inverted probe response while the consumer
+    projection moved to (cos, -sin). Applied in place to match
+    vaft/data/samples/39915: the mapper writes this leaf as a constant, no stage
+    output depends on it, and the reference generators were corrected in the same
+    change to read POLOIDAL_ANGLE so a regeneration now reproduces this value. The
+    pipeline stage hashes are therefore unchanged and still describe the run that
+    produced the rest of the artifact.'

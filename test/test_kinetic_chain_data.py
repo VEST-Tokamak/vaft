@@ -29,22 +29,21 @@ TIME_MS = 300.0
 
 @pytest.fixture(scope="module")
 def kinetic_ods():
-    import vaft
+    from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+    from vaft.machine_mapping.dataset_description import dataset_description
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
-    vaft.apply_omfit_compat_patches()
-    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from vaft.code.kineticEfit import build_kinetic_core_profiles
-
-    geq = OMFITgeqdsk(str(GFILE))
-    geq["fluxSurfaces"].load()
+    geq = read_geqdsk(GFILE)
     ods = geq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
-    vaft.machine_mapping.dataset_description(
+    dataset_description(
         ods, source=SHOT,
         options={"source_type": "shot", "description": "kinetic chain test"},
     )
-    vaft.machine_mapping.thomson_scattering(ods, SHOT, str(TS_MAT))
-    vaft.machine_mapping.charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
+    thomson_scattering(ods, SHOT, str(TS_MAT))
+    charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
     ods = build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0)
     return ods, geq
 
@@ -68,7 +67,7 @@ def test_core_profiles_on_equilibrium_grid_are_physical(kinetic_ods):
 
 def test_raw6_pressure_points_drop_invalid_ts_channels(kinetic_ods):
     ods, geq = kinetic_ods
-    from vaft.code.kineticEfit import kinetic_pressure_points
+    from vaft.code.efit import kinetic_pressure_points
 
     pts = kinetic_pressure_points(ods, TIME_MS, geq=geq, encoding="raw6")
     # NeTe_48224 has 7 polychromators, 2 padded with NaN -> 5 valid + 1 edge anchor
@@ -80,7 +79,7 @@ def test_raw6_pressure_points_drop_invalid_ts_channels(kinetic_ods):
 
 def test_spline_encoding_has_129_points(kinetic_ods):
     ods, geq = kinetic_ods
-    from vaft.code.kineticEfit import kinetic_pressure_points
+    from vaft.code.efit import kinetic_pressure_points
 
     pts = kinetic_pressure_points(ods, TIME_MS, geq=geq, encoding="spline")
     assert len(pts.rpress) == 129
@@ -94,18 +93,18 @@ def test_spline_encoding_has_129_points(kinetic_ods):
 def _build(with_ts, with_cx, **kwargs):
     import vaft
 
-    vaft.apply_omfit_compat_patches()
-    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from vaft.code.kineticEfit import build_kinetic_core_profiles
+    from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
-    geq = OMFITgeqdsk(str(GFILE))
-    geq["fluxSurfaces"].load()
+    geq = read_geqdsk(GFILE)
     ods = geq.to_omas()
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
     if with_ts:
-        vaft.machine_mapping.thomson_scattering(ods, SHOT, str(TS_MAT))
+        thomson_scattering(ods, SHOT, str(TS_MAT))
     if with_cx:
-        vaft.machine_mapping.charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
+        charge_exchange(ods, shotnumber=SHOT, options="ids", mat_file=str(ION_MAT))
     build_kinetic_core_profiles(ods, geq, TIME_MS, ion_index=0, time_tolerance_ms=3.0, **kwargs)
     return ods
 
@@ -158,14 +157,10 @@ def test_ion_only_writes_ion_profiles_without_electrons():
 
 
 def test_no_diagnostics_raises():
-    import vaft
+    from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
 
-    vaft.apply_omfit_compat_patches()
-    from omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from vaft.code.kineticEfit import build_kinetic_core_profiles
-
-    geq = OMFITgeqdsk(str(GFILE))
-    geq["fluxSurfaces"].load()
+    geq = read_geqdsk(GFILE)
     ods = geq.to_omas()
     with pytest.raises(Exception):
         build_kinetic_core_profiles(ods, geq, TIME_MS, time_tolerance_ms=3.0)

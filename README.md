@@ -48,7 +48,19 @@ VEST Data Analysis Platform
 
 ### Installation
 
-Install from source (recommended):
+New to VAFT, or setting up a teaching/course machine? Follow
+[`install/README.md`](install/README.md): it has a one-command bootstrap for
+Linux, macOS, native Windows, and WSL2, an environment checker, and the
+procedure for updating an existing checkout.
+
+```bash
+git clone https://github.com/VEST-Tokamak/vaft.git
+cd vaft
+bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+Install from source manually:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -76,15 +88,33 @@ python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
 This is a legacy compatibility option; `pip check` may report the intentionally
 bypassed NumPy requirement.
 
-Install from PyPI (obsolete):
+#### Install the released package from PyPI
 
 ```bash
 pip install vaft
 ```
 
+This installs the latest published release. Install from source instead when
+you need unreleased changes from `develop`.
+
 
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
+
+### Initialize external fusion codes
+
+Set the installation roots for the codes you use before starting VAFT:
+
+```bash
+export GPECHOME=/path/to/gpec
+export CHEASEHOME=/path/to/chease
+export EFITHOME=/path/to/efit
+export TESHOME=/path/to/tes
+```
+
+Each executable belongs under its root's `bin/` directory. See
+[Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
+for layouts, compatibility variables, FileDB configuration, and validation.
 
 ### Connect to the VEST Database
 
@@ -118,6 +148,50 @@ ods = vaft.database.load(39915)
 time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
+
+### EFIT slice status
+
+`vaft.code.run_efit()` preserves its backward-compatible process-level
+`result.ok` property. Use `result.usable` and `result.slice_statuses` when the
+scientific usability of the generated equilibria matters:
+
+```python
+for status in result.slice_statuses:
+    print(status.time, status.overall_status, status.failure_codes)
+```
+
+Each slice reports runtime, output, numerical, and physical status separately.
+The stable failure taxonomy is available as `vaft.code.EFIT_FAILURE_CODES`, and
+each status round-trips through JSON with `to_dict()` and `from_dict()`.
+
+### EFIT scientific configuration
+
+Routine k-file settings are available as typed, validated objects instead of
+generator literals. Defaults preserve the existing VEST routine semantics:
+
+```python
+from vaft.code import (
+    EFITConfig,
+    EFITNumericsConfig,
+    EFITProfileConfig,
+    prepare_efit_inputs,
+)
+
+config = EFITConfig(
+    shot=39915,
+    workdir="efit/39915/work",
+    profile=EFITProfileConfig(kppcur=3, kffcur=2),
+    numerics=EFITNumericsConfig(relaxation=0.8, max_iterations=200),
+    provenance={"geometry_version": "vest-2025-07", "source": "main"},
+)
+inputs = prepare_efit_inputs(ods, config)
+```
+
+Preparation writes `efit_configuration.json` with the resolved configuration,
+its stable hash, VAFT version, provenance, and k-file checksums. Use
+`vaft.code.efit_parameter_grid()` with dotted paths such as
+`profile.kppcur` or `constraints.group_weights.bpol_probe` for deterministic
+convergence scans that do not require the EFIT binary.
 
 `load` is the eager path for complete ODS exports and workflows that need a
 local IMAS staging set. Without `paths` it stages the complete shot; with
@@ -171,9 +245,6 @@ with vaft.imas.load("./equilibrium.nc") as entry:
     equilibrium = entry.get("equilibrium")
 ```
 
-See the [HSDS lazy and per-IDS h5image report](docs/hsds_lazy_h5image_report.md)
-for the architecture, cache policy, and shot 39915 benchmark results.
-
 ### Profile Fitting
 
 ```python
@@ -196,14 +267,15 @@ vaft.imas.save(ods, "./shot.nc")
 
 ```
 vaft/
-├── database/          # Remote database access (HSDS, raw SQL)
+├── cli/               # Command-line workflow dispatch
+├── database/          # HSDS/SQL access and canonical FileDB layout
 ├── machine_mapping/   # Native-to-IDS diagnostic conversion (70+ functions)
 ├── formula/           # Physics formulas (equilibrium, stability, Green's functions)
 ├── process/           # Signal processing, EM modeling, profile fitting
 ├── plot/              # Visualization (time, 1D, 2D, top-view, analysis)
 ├── omas/              # ODS utilities (shot metadata, sample data)
 ├── imas/              # IMAS-Python (AL5) interoperability
-├── code/              # Code interfaces (EFIT, CHEASE, GPEC, Snakemake)
+├── code/              # Code interfaces (EFIT, CHEASE, GPEC, TES, TokaMaker, Snakemake)
 └── data/              # Sample data, geometry assets, calibration tables
 ```
 
@@ -212,6 +284,7 @@ vaft/
 
 | Notebook                                                                                                                               | Description                                 |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [initialize_external_fusion_codes](notebooks/initialize_external_fusion_codes.ipynb)                                                   | Configure and verify external code roots    |
 | [database_initialization_and_load](notebooks/database_initialization_and_load.ipynb)                                                   | Core data loading and framework basics      |
 | [plotting_sample_using_vaft_plot_module](notebooks/plotting_sample_using_vaft_plot_module.ipynb)                                       | Visualization examples with the plot module |
 | [profile_fitting_using_equilibrium_and_kinetic_diagnostics](notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Thomson/CES mapping and profile fitting     |
@@ -227,7 +300,70 @@ vaft/
 | [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb)                                                               | Soft X-ray signal analysis                  |
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb)                                             | Equilibrium refinement with CHEASE          |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb)                                                         | Forward equilibrium reconstruction with TES |
+| [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb)                                             | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) |
+| [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb)                             | Vessel eddy currents, wall modes, and quasi-static evolution with TokaMaker |
+| [free_boundary_pf_coil_scan](notebooks/free_boundary_pf_coil_scan.ipynb)                                                               | Free-boundary PF-coil scans and topology transitions with TokaMaker |
 | [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb)                                                                     | End-to-end kinetic-EFIT workflow            |
+
+## Parametric Equilibrium Analysis
+
+`EquilibriumData` is VAFT's lightweight, single-slice, axisymmetric working
+model for numerical algorithms. It is not a persistence schema: GEQDSK, ODS,
+and native IDS remain the authoritative storage and interchange formats.
+
+```python
+from vaft.data.resources import sample_geqdsk
+from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
+
+# An EFIT g-file stores psi in weber/radian, so it is a COCOS 1-8 index.
+equilibrium = as_equilibrium(sample_geqdsk(), convention=1)
+descriptors = derive_global_descriptors(equilibrium)
+print(descriptors["beta_t"].value, descriptors["beta_t"].provenance)
+```
+
+Every `DerivedValue` records its SI unit, implemented definition, source
+fields, convention, method, tolerances, and quality information. Missing or
+ambiguous inputs produce an unavailable result with a reason. In particular,
+VAFT does not infer one COCOS index when the observable signs admit several;
+an explicit convention is required before conversion.
+
+Shape descriptors follow the conventional definitions, so `major_radius` is
+`(R_out+R_in)/2` and triangularity is measured from it, matching IMAS
+`boundary.geometric_axis` and `boundary.triangularity`. The LCFS area centroid
+is reported separately as `area_centroid_r`/`area_centroid_z` because that, not
+the geometric centre, is the radius Pappus's theorem needs for `volume`. The
+descriptors also cover the boundary-length-averaged poloidal field and the Lao
+virial internal inductance. Poloidal fields honour the COCOS `e_Bp` factor, so
+dimensionless quantities such as `beta_p` and `li` agree whether an equilibrium
+is expressed in weber or weber-per-radian. Normalized coordinates are
+`psi_n=(psi-psi_axis)/(psi_boundary-psi_axis)`,
+`rho_pol_n=sqrt(psi_n)`, and
+`rho_tor_n=sqrt(integral(q dpsi)/integral_boundary(q dpsi))`. A non-monotonic
+toroidal-flux mapping is reported rather than repaired with absolute values.
+
+Local Miller fits use bounded symmetric contour least squares and report RMS,
+maximum, and Hausdorff errors. Fits at `psi_n >= 0.995` or within `0.05a` of an
+X-point are flagged because the local form is not meaningful there. The
+analytic Solov'ev model is restricted to axisymmetric constant-`p'` and
+constant-`FF'` solutions; it is a regression/example model, not a general
+experimental equilibrium solver. Edge `dRsep` is always the outboard-midplane
+quantity `R_out(psi_X,upper)-R_out(psi_X,lower)`, never an absolute X-point
+coordinate, and it is reported only for a diverted configuration.
+
+Boundary topology is decided from the flux map, with no machine-specific
+geometry. Stationary points of `psi` are located and split into O-points and
+saddles by the sign of the Hessian determinant. A saddle is promoted to a
+physical X-point only when it is relevant to the boundary: its flux must match
+the boundary flux within a window derived from its own curvature and the grid
+spacing, and the confined region's level set just inside the boundary must
+reach it on the scale that curvature implies. At least one such X-point gives
+`UPPER_SINGLE_NULL`, `LOWER_SINGLE_NULL`, or `DOUBLE_NULL` (all
+`Topology.is_diverted`); none, with an LCFS in contact with the wall, gives
+`LIMITED`. A grid-clipped confined region, a missing wall, or an LCFS bounded
+by neither gives `AMBIGUOUS` with a reason rather than a guess. Real
+reconstructions routinely contain numerical saddles far from the plasma; those
+are returned in `x_points` with `active=False` instead of being filtered by
+hard-coded geometry.
 
 
 ## Related Resources
@@ -242,6 +378,14 @@ vaft/
 ## Contributing
 
 Contributions are welcome. Please open an [issue](https://github.com/VEST-Tokamak/vaft/issues) or submit a pull request.
+
+Notebook outputs are normalized by the repository's pre-commit hook. Install it
+with `pre-commit install`; the hook retains only static text and image results.
+To normalize notebooks manually, run:
+
+```bash
+python notebooks/_clean_outputs.py notebooks/*.ipynb
+```
 
 For database write access, contact [peppertonic18@snu.ac.kr, satelite2517@snu.ac.kr](mailto:peppertonic18@snu.ac.kr).
 
@@ -279,12 +423,12 @@ the following license.
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
-### OMFIT classes compatibility port
+### Attribution: OMFIT classes
 
-VAFT's native EQDSK compatibility and interoperability paths include behavior
-ported or adapted from `omfit_classes`. VAFT also provides compatibility shims
-for the corresponding legacy NumPy, SciPy, and xarray interfaces. The original
-OMFIT classes software is distributed under the following license.
+VAFT does not depend on, import, or require `omfit_classes`. Parts of VAFT's
+native EQDSK path in `vaft/data/eqdsk.py` were originally ported or adapted
+from it, so its copyright notice is reproduced here as its license requires.
+The original OMFIT classes software is distributed under the following license.
 
 > Copyright 2013-2021 the OMFIT contributors
 >

@@ -1,0 +1,99 @@
+schema_version: 1
+reference_id: vest-41524-pipeline-full-imas-v2
+shot: 41524
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: pipeline-until-efit
+  git_commit: 9c62a1f54ac547d5d8f26b12986c3e534e1b50cf
+  filedb_root: /Volumes/hsyun_ssd/vaft-filedb/issue-166-41524
+  raw_source: source/vest_41524_daq_raw.json.gz
+  raw_sha256: 8d3f9448b0ef351b70b469f303666467bac39c157afd00eddc6617dd8abfb91b
+representations:
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: repository-only
+    compatible_adapters:
+    - imas
+    - omas
+    size: 27918914
+    sha256: c31844f08576e6b0677fef0333845974145579d2c1f7a0f373989e63698c2ddb
+generation:
+  command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
+    vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: 600e5b0dd20fd2aefe7376103b36bf75877502658fb2997001626c06165922a9
+  materialized_leaves: 18486
+  normalizations:
+  - remove non-DD equilibrium.code.parameters parser cache
+  - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
+  - materialize homogeneous barometry and equilibrium time coordinates
+  - retain native-rate voltage and derived magnetic-field waveforms
+  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections,
+    issue 288)
+  related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+pipeline:
+  configuration: source/pipeline-config.yaml
+  configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: d6ab59ea6b5708847c86f00ca6a424ce39332c5fab3f7b57631793306e9fba9a
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: c093482a7bb98b3e2bd46ae92fca4981bfd14315e4c59a08aa297b3572031dc9
+  stages:
+    raw: success
+    static: success
+    diagnostics: partial
+    eddy: success
+    constraints: success
+    efit: partial
+  efit:
+    executable: /Users/yun/git/efit/build-mac/efit/efit
+    status: 'completed: returncode=0; gfiles=6'
+    requested_time_slices: 22
+    successful_time_slices: 6
+    optional_outputs:
+      mfile:
+        status: unavailable
+        reason: EFIT executable was not linked with NetCDF support
+semantic_comparison:
+  paths:
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  - wall.*
+  exclude_paths:
+  - '*.ids_properties.*'
+  - dataset_description.imas_version
+  - equilibrium.code.parameters*
+acceptance:
+  equilibrium_times:
+  - 0.328
+  - 0.329
+  - 0.332
+  - 0.333
+  - 0.334
+  - 0.336
+  equilibrium_ip_required: true
+packaging_policy:
+  manifest: wheel-and-sdist
+  artifact: repository-only
+corrections:
+- issue: 288
+  field: magnetics.b_field_pol_probe.:.poloidal_angle
+  from: pi/2
+  to: 3*pi/2
+  reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
+    measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
+    reader. Applied in place rather than by rerunning the pipeline: the mapper writes
+    this leaf as a constant and no stage output depends on it. The reference generators
+    under workflow/reference_validation were hardcoding pi/2 on both their generate
+    and verify paths; they were corrected in the same change to read POLOIDAL_ANGLE,
+    so a regeneration now reproduces this value rather than reverting it. The stage
+    hashes above are therefore unchanged and still describe the run that produced
+    the rest of the artifact.'

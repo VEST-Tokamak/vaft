@@ -15,8 +15,7 @@ from typing import Dict, List, Tuple, Optional
 import logging
 from datetime import datetime
 
-# OMFIT imports
-from omfit_classes.omfit_eqdsk import OMFITkeqdsk, OMFITgeqdsk
+from vaft.data import read_geqdsk, read_keqdsk
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -72,9 +71,10 @@ class EFITHistoryMiner:
         plasma_current = None
         kfile_data = None
         try:
-            k = OMFITkeqdsk(str(kfile_path))
-            # Extract plasma current from IN1 section safely
-            plasma_current = k['IN1']['PLASMA']
+            k = read_keqdsk(kfile_path)
+            # Extract plasma current from IN1 section safely.  f90nml lowercases
+            # namelist keys, so this is 'plasma', not 'PLASMA'.
+            plasma_current = k['IN1']['plasma']
             kfile_data = k
         except (KeyError, TypeError) as e:
             print(f"Failed to read plasma current from kfile {kfile_path}: {e}")
@@ -94,7 +94,7 @@ class EFITHistoryMiner:
         current = None
         gfile_data = None
         try:
-            g = OMFITgeqdsk(str(gfile_path))
+            g = read_geqdsk(gfile_path)
             current = g['CURRENT']
             gfile_data = g
         except (KeyError, TypeError) as e:

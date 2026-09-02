@@ -29,6 +29,7 @@ dependencies = [
   "astropy==6.1.7",
   "cryptography>=42.0.0",
   "fortranformat",
+  "f90nml>=1.4.4",
   "h5py==3.16.0",
   "h5pyd==0.20.0",
   "imageio>=2.34.0",
@@ -58,6 +59,9 @@ dependencies = [
   "urllib3==1.26.13",
   "wexpect; sys_platform == 'win32'",
   "xarray>=2024.4.0",
+  # omas needs it to serialize equilibrium.code.parameters (the EFIT
+  # namelists a g-file/k-file carries) and only declares it behind an extra.
+  "xmltodict>=0.13.0",
   "imas_core>=5.6.0,<6",
   "imas_python>=2.1.0,<3",
 ]
@@ -65,9 +69,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
+  "pre-commit",
   "black",
   "flake8",
   "ipykernel>=7.2.0",
+  "nbclient>=0.10",
+  "nbformat>=5.10",
 ]
 
 [project.urls]
@@ -92,13 +99,19 @@ vaft = [
   "data/geometry/Coil_info.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
+  "data/geometry/VEST_em_coupling_pf_versions.npz",
+  "data/geometry/VEST_static_geometry.json.gz",
   "data/geometry/*.yaml",
   "data/geometry/*.csv",
+  "data/geometry/camera_visible/*.json",
   "data/gpec/*.in",
   "data/gpec/*.dat",
   "data/legacy/*.txt",
   "data/legacy/*.yaml",
-  "data/omas/39915.json",
+  "data/legacy/sxr_te_ratio_be_al.csv",
+  "data/samples/*/manifest.yaml",
+  "data/samples/39915/omas.json.gz",
+  "data/samples/39915/imas.nc",
 ]
 
 [tool.uv.sources]
@@ -109,4 +122,5 @@ imas_core = [
 [tool.pytest.ini_options]
 markers = [
   "integration: explicit read-only HSDS or IMAS integration test",
+  "perf: performance budget benchmarks",
 ]

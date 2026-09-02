@@ -3,13 +3,13 @@ from pathlib import Path
 import pytest
 
 import vaft
-from vaft import _local_io
+import vaft.database._local as _local_io
 
 
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"
 GFILE = DATA / "efit" / "g039915.00317"
 GFILES = [DATA / "efit" / "g039915.00317", DATA / "efit" / "g039915.00319"]
-IMAS_NC = DATA / "imas" / "vest_imas_3.40.1.nc"
+IMAS_NC = DATA / "samples" / "39915" / "imas.nc"
 
 
 def test_omas_load_detects_single_and_multiple_geqdsk():
@@ -26,9 +26,10 @@ def test_omas_json_and_hdf5_round_trip(tmp_path):
         target = tmp_path / f"equilibrium{suffix}"
         vaft.omas.save(source, target)
         restored = vaft.omas.load(target)
-        assert restored["equilibrium.time_slice.0.profiles_2d.0.psi"].shape == source[
-            "equilibrium.time_slice.0.profiles_2d.0.psi"
-        ].shape
+        assert (
+            restored["equilibrium.time_slice.0.profiles_2d.0.psi"].shape
+            == source["equilibrium.time_slice.0.profiles_2d.0.psi"].shape
+        )
 
 
 def test_imas_handle_detects_netcdf_and_converts_omas_source(tmp_path):

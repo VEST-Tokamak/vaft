@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vaft.machine_mapping.utils import get_path
+from vaft.machine_mapping.magnetics import (
+    fluctuation_mirnov_channel_definitions,
+    fluctuation_mirnov_gain_by_identifier,
+)
 from vaft.process.magnetics import (
     mirnov_preprocess_signal,
     mirnov_spectrogram as compute_mirnov_spectrogram,
@@ -16,13 +20,19 @@ from vaft.process.magnetics import (
     toroidal_mode_analysis,
 )
 
-_DEFAULT_TOROIDAL_REFERENCE_PAIR = (65, 67)
-_DEFAULT_TOROIDAL_REFERENCE_GAINS = {
-    64: 9.0e-4,
-    65: -9.0e-4,
-    66: 9.0e-4,
-    67: 0.004529,
-}
+_DEFAULT_TOROIDAL_REFERENCE_PAIR = (
+    "OutMirnov_530_Bz:phase_reference",
+    "MagneticFieldProbe_C2-05_Bz:phase_reference",
+)
+
+
+def _known_gain_by_identifier() -> dict[str, float]:
+    """Delegate to the machine_mapping gain registry.
+
+    The lookup itself lives in ``vaft.machine_mapping.magnetics`` so
+    ``vaft.process`` can reach it without importing the plot layer.
+    """
+    return fluctuation_mirnov_gain_by_identifier()
 
 
 def _as_array(value: Any) -> np.ndarray:
@@ -107,7 +117,9 @@ def _gain_for_channel(ods: Any, gains: Any, channel: int, probe_group: str) -> f
         except Exception:
             pass
         if probe_group == "b_field_pol_probe":
-            return float(_DEFAULT_TOROIDAL_REFERENCE_GAINS.get(channel, 1.0))
+            label = _channel_label(ods, probe_group, channel)
+            if label in _known_gain_by_identifier():
+                return _known_gain_by_identifier()[label]
         return 1.0
     if isinstance(gains, dict):
         return float(gains.get(channel, 1.0))
@@ -380,7 +392,12 @@ def toroidal_phase_mode_fit(
     ods: Any,
     center_time: float,
     *,
-    channels: Sequence[int | str] = (64, 65, 66, 67),
+    channels: Sequence[int | str] = (
+        "OutMirnov_130_Bz:phase_reference",
+        "OutMirnov_530_Bz:phase_reference",
+        "OutMirnov_730_Bz:phase_reference",
+        "MagneticFieldProbe_C2-05_Bz:phase_reference",
+    ),
     probe_group: str = "b_field_pol_probe",
     time_range: tuple[float, float] | None = None,
     frequencies: Sequence[float] | None = None,

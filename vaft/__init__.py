@@ -10,10 +10,11 @@ the top-level import small while preserving the historical attribute-based API.
 
 from importlib import import_module
 
-from .compat import apply_omfit_compat_patches, apply_runtime_compat_patches
+from .compat import apply_runtime_compat_patches
 from .version import __version__
 
 __all__ = [
+    "__version__",
     "process",
     "formula",
     "machine_mapping",
@@ -21,11 +22,11 @@ __all__ = [
     "data",
     "omas",
     "code",
-    "data",
+    "cli",
     "database",
     "imas",
+    "validation",
     "apply_runtime_compat_patches",
-    "apply_omfit_compat_patches",
 ]
 
 
@@ -41,7 +42,6 @@ def __dir__():
     return sorted(list(globals().keys()) + __all__)
 
 
-# Apply lightweight compatibility shims as early as possible so downstream
-# imports (notably omfit_classes) observe patched NumPy/SciPy behavior.
+# Apply lightweight compatibility shims as early as possible so every
+# subpackage observes the same NumPy/SciPy behavior.
 apply_runtime_compat_patches()
-apply_omfit_compat_patches()

@@ -1,0 +1,234 @@
+"""Issue #236: equilibrium psi is stored in Wb (IMAS DD), not the g-file's Wb/rad.
+
+``to_omas`` multiplies psi-like leaves by 2*pi and divides the psi-derivative
+profiles by it; ``from_omas`` inverts using
+:func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`, which tells the two
+storage families apart from the dphi/dpsi-vs-q slope so that legacy
+VAFT-native artifacts (Wb/rad) and DD-conformant/OMFIT artifacts (Wb) both
+read back correctly. The gradient-based physics in ``vaft.omas`` converts to
+Wb/rad at read time, so its outputs are invariant to the storage convention.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from vaft.data.eqdsk import (
+    TWO_PI,
+    from_omas,
+    ods_psi_to_wb_per_radian_factor,
+    read_geqdsk,
+)
+from vaft.data.resources import data_path, sample_geqdsk
+
+
+@pytest.fixture()
+def gfile():
+    return sample_geqdsk("efit/g039915.00319")
+
+
+def _legacy_style(ods):
+    """Rewrite a DD-correct ODS the way the pre-#236 writer did (Wb/rad)."""
+    import copy
+
+    legacy = copy.deepcopy(ods)
+    for index in range(len(legacy["equilibrium.time_slice"])):
+        ts = legacy[f"equilibrium.time_slice.{index}"]
+        for leaf in ("global_quantities.psi_axis", "global_quantities.psi_boundary"):
+            ts[leaf] = float(ts[leaf]) / TWO_PI
+        ts["profiles_1d.psi"] = np.asarray(ts["profiles_1d.psi"], float) / TWO_PI
+        ts["profiles_2d.0.psi"] = np.asarray(ts["profiles_2d.0.psi"], float) / TWO_PI
+        ts["profiles_1d.f_df_dpsi"] = np.asarray(ts["profiles_1d.f_df_dpsi"], float) * TWO_PI
+        ts["profiles_1d.dpressure_dpsi"] = np.asarray(ts["profiles_1d.dpressure_dpsi"], float) * TWO_PI
+    return legacy
+
+
+def test_to_omas_writes_dd_conformant_weber_psi(gfile):
+    ods = gfile.to_omas()
+    ts = ods["equilibrium.time_slice.0"]
+    assert float(ts["global_quantities.psi_axis"]) == pytest.approx(float(gfile["SIMAG"]) * TWO_PI)
+    assert float(ts["global_quantities.psi_boundary"]) == pytest.approx(float(gfile["SIBRY"]) * TWO_PI)
+    np.testing.assert_allclose(
+        np.asarray(ts["profiles_2d.0.psi"]), np.asarray(gfile["PSIRZ"], float) * TWO_PI
+    )
+    # psi-derivatives transform inversely.
+    np.testing.assert_allclose(
+        np.asarray(ts["profiles_1d.f_df_dpsi"]), np.asarray(gfile["FFPRIM"], float) / TWO_PI
+    )
+    np.testing.assert_allclose(
+        np.asarray(ts["profiles_1d.dpressure_dpsi"]), np.asarray(gfile["PPRIME"], float) / TWO_PI
+    )
+    # phi = integral q dpsi_Wb was already written in Wb and must not change.
+    slope = np.diff(np.asarray(ts["profiles_1d.phi"], float)) / np.diff(np.asarray(ts["profiles_1d.psi"], float))
+    q_mid = 0.5 * (np.asarray(ts["profiles_1d.q"], float)[1:] + np.asarray(ts["profiles_1d.q"], float)[:-1])
+    assert float(np.nanmedian(np.abs(slope / q_mid))) == pytest.approx(1.0, rel=0.05)
+
+
+def test_family_detection_distinguishes_weber_and_per_radian(gfile):
+    ods = gfile.to_omas()
+    assert ods_psi_to_wb_per_radian_factor(ods) == pytest.approx(1.0 / TWO_PI)
+    assert ods_psi_to_wb_per_radian_factor(_legacy_style(ods)) == pytest.approx(1.0)
+
+
+def test_round_trip_and_legacy_read_recover_the_gfile(gfile):
+    ods = gfile.to_omas()
+    for source in (ods, _legacy_style(ods)):
+        back = from_omas(source)
+        for key in ("SIMAG", "SIBRY"):
+            assert float(back[key]) == pytest.approx(float(gfile[key]), rel=1e-12), key
+        np.testing.assert_allclose(np.asarray(back["PSIRZ"]), np.asarray(gfile["PSIRZ"], float), rtol=1e-12)
+        np.testing.assert_allclose(np.asarray(back["FFPRIM"]), np.asarray(gfile["FFPRIM"], float), rtol=1e-12)
+        np.testing.assert_allclose(np.asarray(back["PPRIME"]), np.asarray(gfile["PPRIME"], float), rtol=1e-12)
+
+
+def test_omfit_produced_ods_now_reads_back_to_the_gfile():
+    """The issue's own measurement: the committed OMFIT ODS holds Wb and used
+    to come back 2*pi too large through from_omas."""
+    from omas import load_omas_json
+
+    ods = load_omas_json(str(data_path("kineticEfit/ods_48224_300ms.json")), consistency_check=False)
+    reference = read_geqdsk(data_path("kineticEfit/g048224.00300"))
+    back = from_omas(ods)
+    assert float(back["SIMAG"]) == pytest.approx(float(reference["SIMAG"]), rel=2e-2)
+    assert float(back["SIBRY"]) == pytest.approx(float(reference["SIBRY"]), rel=2e-2, abs=5e-4)
+
+
+def test_gradient_physics_is_invariant_to_the_storage_convention(gfile):
+    from vaft.omas.process_wrapper import (
+        compute_diamagnetism,
+        compute_magnetic_energy,
+        compute_virial_equilibrium_quantities_ods,
+    )
+
+    new = gfile.to_omas()
+    legacy = _legacy_style(new)
+
+    virial_new = compute_virial_equilibrium_quantities_ods(new)[0]
+    virial_legacy = compute_virial_equilibrium_quantities_ods(legacy)[0]
+    for key in ("beta_p", "li", "B_pa", "s_1"):
+        assert virial_new[key] == pytest.approx(virial_legacy[key], rel=1e-9), key
+
+    assert compute_magnetic_energy(new) == pytest.approx(compute_magnetic_energy(legacy), rel=1e-9)
+    mu_new = compute_diamagnetism(new)
+    mu_legacy = compute_diamagnetism(legacy)
+    assert mu_new == pytest.approx(mu_legacy, rel=1e-9)
+
+
+def test_descriptor_path_agrees_between_gfile_and_ods(gfile):
+    from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
+
+    eq_ods = as_equilibrium(gfile.to_omas())
+    assert eq_ods.convention.psi_per_radian is False  # slope-detected Wb family
+    d_ods = derive_global_descriptors(eq_ods)
+    d_g = derive_global_descriptors(as_equilibrium(gfile))
+    for name in ("beta_p_boundary_average", "li_virial", "s1", "q95"):
+        assert d_ods[name].value == pytest.approx(d_g[name].value, rel=1e-9), name
+
+
+def test_loop_voltage_is_correct_and_storage_invariant(gfile):
+    """Post-merge review finding B1: loop_voltage_from_total_flux multiplies by
+    2*pi (a Wb/rad contract), so compute_voltage_consumption must convert the
+    stored psi first. Two slices with d(psi_boundary-psi_axis) = 0.01 Wb over
+    1 ms must give V_loop = 10 V, not 2*pi times that."""
+    import copy
+
+    from vaft.omas.formula_wrapper import compute_voltage_consumption
+
+    ods = gfile.to_omas()
+    second = copy.deepcopy(ods["equilibrium.time_slice.0"])
+    ods["equilibrium.time_slice.1"] = second
+    ods["equilibrium.time_slice.0.time"] = 0.0
+    ods["equilibrium.time_slice.1.time"] = 1.0e-3
+    base = float(ods["equilibrium.time_slice.0.global_quantities.psi_boundary"])
+    ods["equilibrium.time_slice.1.global_quantities.psi_boundary"] = base + 0.01  # +0.01 Wb
+
+    _t, v_loop, _v_ind, _v_res = compute_voltage_consumption(ods)
+    v_loop = np.asarray(v_loop, float)
+    assert float(np.nanmax(np.abs(v_loop))) == pytest.approx(10.0, rel=1e-6)
+
+    legacy = _legacy_style(ods)
+    _t2, v_legacy, _vi2, _vr2 = compute_voltage_consumption(legacy)
+    v_legacy = np.asarray(v_legacy, float)
+    np.testing.assert_allclose(v_legacy, v_loop, rtol=1e-9)
+
+
+def test_legacy_artifact_without_phi_is_detected_by_ampere_law():
+    """A phi-less legacy artifact must not be misread as Wb (release review).
+
+    The packaged 39915 reference sample carries q and psi but no
+    ``profiles_1d.phi``, so the dphi/dpsi slope test cannot run.  Falling
+    back to the DD convention there silently divided a genuine Wb/rad
+    artifact by 2*pi.  Ampere's law over the stored boundary settles it
+    from the file's own data: the loop integral of B_pol reproduces the
+    stored plasma current only under the correct convention.
+    """
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert "phi" not in ods["equilibrium.time_slice.0.profiles_1d"]
+
+    assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
+
+    stored_axis = float(ods["equilibrium.time_slice.0.global_quantities.psi_axis"])
+    recovered = from_omas(ods, 0)
+    simag = (recovered.data if hasattr(recovered, "data") else recovered)["SIMAG"]
+    assert float(simag) == pytest.approx(stored_axis, rel=1e-9)
+
+
+def test_ampere_law_fallback_still_reports_weber_for_dd_conformant_data():
+    """The fallback must not drag DD-conformant (Wb) artifacts backwards."""
+    import copy
+
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    weber = copy.deepcopy(ods)
+    ts = weber["equilibrium.time_slice.0"]
+    for path in (
+        "profiles_1d.psi",
+        "profiles_2d.0.psi",
+        "global_quantities.psi_axis",
+        "global_quantities.psi_boundary",
+    ):
+        ts[path] = np.asarray(ts[path], dtype=float) * 2.0 * np.pi
+
+    assert ods_psi_to_wb_per_radian_factor(weber, 0) == pytest.approx(1.0 / (2.0 * np.pi))
+
+
+def test_detector_accepts_a_bare_time_slice_as_its_docstring_promises():
+    """Callers that pass a time slice must get the same answer as the ODS.
+
+    On an OMAS ODS a missing path returns an empty auto-vivified branch
+    instead of raising, so the `is None` fallback never fired for a bare
+    slice: the empty branch carried no psi, and the detector returned the
+    Weber default for a Wb/rad artifact. Four production call sites pass a
+    slice (vaft/database/_summary.py, vaft/omas/process_wrapper.py x2,
+    vaft/omas/formula_wrapper.py), so this silently scaled B_R/B_Z, loop
+    voltage and the psi_axis_Wb summary column by 1/(2*pi).
+    """
+    import copy
+
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
+    assert ods_psi_to_wb_per_radian_factor(
+        ods["equilibrium.time_slice.0"]
+    ) == pytest.approx(1.0)
+
+    weber = copy.deepcopy(ods)
+    slice_ = weber["equilibrium.time_slice.0"]
+    for path in (
+        "profiles_1d.psi",
+        "profiles_2d.0.psi",
+        "global_quantities.psi_axis",
+        "global_quantities.psi_boundary",
+    ):
+        slice_[path] = np.asarray(slice_[path], dtype=float) * 2.0 * np.pi
+
+    expected = 1.0 / (2.0 * np.pi)
+    assert ods_psi_to_wb_per_radian_factor(weber, 0) == pytest.approx(expected)
+    assert ods_psi_to_wb_per_radian_factor(
+        weber["equilibrium.time_slice.0"]
+    ) == pytest.approx(expected)

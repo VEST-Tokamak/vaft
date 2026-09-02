@@ -362,6 +362,307 @@ def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float
     return br, bz
 
 
+# ------------------------------------------------------------------
+# Exact Green's functions (scipy elliptic integrals) and coil inductances
+#
+# Additive API (see issue #219): the approximate `elliptic_integral` /
+# `green_r` / `green_br_bz` above are kept unchanged for backward
+# compatibility; the functions below use scipy's exact K/E and support
+# full NumPy broadcasting over observation and source coordinates.
+#
+# Conventions (unit source current):
+#   G(r, z; r0, z0) = sqrt(r*r0)/k * [(2 - k^2) K(k) - 2 E(k)],
+#   k^2 = m = 4 r r0 / [(r + r0)^2 + (z - z0)^2]
+#   psi [Wb]  = mu0 * G                (same convention as `green_r`)
+#   Bz  [T]   = +mu0/(2 pi r) dG/dr
+#   Br  [T]   = -mu0/(2 pi r) dG/dz
+# ------------------------------------------------------------------
+
+from vaft.formula.constants import MU0
+
+GREEN_EXACT_MODES = ("psi", "dpsi_dr", "dpsi_dz", "d2psi_drdz", "d2psi_dr2", "K", "E")
+
+# Largest double strictly below 1 — keeps K(m), E(m) and 1/(1-m) finite at
+# the coincident-point singularity instead of returning inf/NaN.
+_M_MAX = np.nextafter(1.0, 0.0)
+
+
+def greens_function_exact(r, z, r0, z0, mode: str = "psi"):
+    """Exact free-space axisymmetric Green's function and its derivatives.
+
+    Dimensionless G (and dG/dr, dG/dz, d2G/drdz, d2G/dr2, or the raw
+    elliptic integrals K/E), evaluated with :func:`scipy.special.ellipk`
+    / :func:`ellipe`. All four coordinates broadcast against each other,
+    so observation and source arrays can be combined as e.g.
+    ``r[:, None]`` vs ``r0[None, :]``.
+
+    Points with ``r * r0 == 0`` (on-axis source or observer) return
+    their analytic limits: 0 for every mode except ``d2psi_dr2``, whose
+    on-axis limit is ``pi * r0**2 / (r0**2 + (z - z0)**2)**1.5``. The
+    elliptic parameter is clamped just below 1 so a coincident
+    observer/source point returns finite numbers instead of inf/NaN —
+    but those values are artifacts of the clamp, NOT physical limits
+    (the ideal-filament self term diverges): callers must handle
+    genuinely coincident pairs themselves, e.g. via
+    :func:`self_inductance` or a shifted-evaluation scheme such as
+    ``compute_br_bz_phi``. Reference algorithm: legacy VFIT
+    ``getGreenFunction.m`` (modes 1-7).
+
+    :param r:  observation major radius [m]
+    :param z:  observation height [m]
+    :param r0: source major radius [m]
+    :param z0: source height [m]
+    :param mode: one of ``GREEN_EXACT_MODES``
+    :return: broadcast array of the requested quantity
+    """
+    if mode not in GREEN_EXACT_MODES:
+        raise ValueError(f"mode must be one of {GREEN_EXACT_MODES}, got {mode!r}")
+
+    r, z, r0, z0 = np.broadcast_arrays(
+        np.asarray(r, dtype=float),
+        np.asarray(z, dtype=float),
+        np.asarray(r0, dtype=float),
+        np.asarray(z0, dtype=float),
+    )
+
+    dz2 = (z - z0) ** 2
+    denom = (r + r0) ** 2 + dz2
+    with np.errstate(divide="ignore", invalid="ignore"):
+        m = np.divide(4.0 * r * r0, denom, out=np.zeros_like(denom), where=denom != 0)
+
+    if np.any(m > 1.0 + 1e-9) or np.any(m < -1e-9):
+        raise ValueError("elliptic parameter m outside [0, 1]: invalid coordinates")
+    m = np.clip(m, 0.0, _M_MAX)
+
+    KK = ellipk(m)
+    EE = ellipe(m)
+    if mode == "K":
+        return KK
+    if mode == "E":
+        return EE
+
+    on_axis = m == 0.0
+    # Guard every 1/k, 1/m, 1/r factor; on-axis entries are overwritten below.
+    m_safe = np.where(on_axis, 1.0, m)
+    k = np.sqrt(m_safe)
+    r_safe = np.where(r == 0.0, 1.0, r)
+    r0_safe = np.where(r0 == 0.0, 1.0, r0)
+    sqrt_rr0 = np.sqrt(r_safe * r0_safe)
+    one_m = 1.0 - m  # clamped above, so strictly positive
+
+    if mode == "psi":
+        out = sqrt_rr0 / k * ((2.0 - m_safe) * KK - 2.0 * EE)
+        return np.where(on_axis, 0.0, out)
+
+    # Shared building blocks for the derivative modes (getGreenFunction.m).
+    Gk = -sqrt_rr0 / m_safe * (2.0 * KK - (1.0 + 1.0 / one_m) * EE)
+    kr = k / (2.0 * r_safe) * (r0**2 - r**2 + dz2) / denom
+    kz = -(k**3) * (z - z0) / (4.0 * r0_safe * r_safe)
+
+    if mode == "dpsi_dr":
+        Gr = (0.5 * r0) / (k * sqrt_rr0) * ((2.0 - m_safe) * KK - 2.0 * EE)
+        out = Gr + Gk * kr
+        return np.where(on_axis, 0.0, out)
+
+    if mode == "dpsi_dz":
+        return np.where(on_axis, 0.0, Gk * kz)
+
+    Gkk = (-5.0 + 1.0 / one_m) * KK + (m_safe**2 - 7.0 * m_safe + 4.0) / one_m**2 * EE
+    Gkk = -Gkk * sqrt_rr0 / (m_safe * k)
+    Gkr = Gk / (2.0 * r_safe)
+
+    if mode == "d2psi_drdz":
+        Gk_dr = Gkr + Gkk * kr
+        kzr = (z - z0) * m_safe * k / (4.0 * r0_safe * r_safe**2)
+        kzk = (-3.0 * m_safe) * (z - z0) / (4.0 * r0_safe * r_safe)
+        kz_dr = kzr + kzk * kr
+        out = Gk_dr * kz + kz_dr * Gk
+        return np.where(on_axis, 0.0, out)
+
+    # mode == "d2psi_dr2"
+    # krr = d(kr)/dr. NOTE: legacy getGreenFunction.m case 7 carries a sign
+    # error here (+2(r+r0)A instead of -2(r+r0)A in the last numerator term,
+    # from d/dr[1/D] = -D'/D^2); the corrected form below is validated
+    # against finite differences of dpsi_dr.
+    krr = (
+        kr / (2.0 * r_safe) * (r0**2 - r**2 + dz2) / denom
+        - k / (2.0 * r_safe**2) * (r0**2 - r**2 + dz2) / denom
+        + k
+        / (2.0 * r_safe)
+        * (-2.0 * r * denom - 2.0 * (r + r0) * (r0**2 - r**2 + dz2))
+        / denom**2
+    )
+    Gr = (0.5 * r0) / (k * sqrt_rr0) * ((2.0 - m_safe) * KK - 2.0 * EE)
+    Grr = -Gr / (2.0 * r_safe)
+    out = Grr + 2.0 * Gkr * kr + Gkk * kr**2 + krr * Gk
+    # On-axis limit is nonzero for this mode: near the axis
+    # G ~ r^2 * pi r0^2 / (2 (r0^2 + dz^2)^{3/2}), so d2G/dr2 -> the
+    # curvature of that parabola (0 when the *source* is on axis).
+    with np.errstate(divide="ignore", invalid="ignore"):
+        axis_limit = np.where(
+            r0 == 0.0, 0.0, np.pi * r0**2 / (r0**2 + dz2) ** 1.5
+        )
+    return np.where(on_axis, axis_limit, out)
+
+
+def green_psi_exact(r_obs, z_obs, r_src, z_src) -> np.ndarray:
+    """Poloidal flux psi [Wb] per unit source current, exact elliptic.
+
+    Same convention as :func:`green_r` (psi = mu0 * G, full Wb), but
+    computed with scipy's exact elliptic integrals and broadcastable
+    over both observation and source arrays.
+    """
+    return MU0 * greens_function_exact(r_obs, z_obs, r_src, z_src, "psi")
+
+
+def green_br_bz_exact(r_obs, z_obs, r_src, z_src) -> Tuple[np.ndarray, np.ndarray]:
+    """(Br, Bz) [T] per unit source current, exact elliptic.
+
+    Br = -mu0/(2 pi r) dG/dz,  Bz = +mu0/(2 pi r) dG/dr. Observation
+    points on the geometric axis (r_obs == 0) return the analytic
+    limits Br = 0 and Bz = mu0 r0^2 / (2 (r0^2 + (z - z0)^2)^{3/2}).
+    """
+    r_obs, z_obs, r_src, z_src = np.broadcast_arrays(
+        np.asarray(r_obs, dtype=float),
+        np.asarray(z_obs, dtype=float),
+        np.asarray(r_src, dtype=float),
+        np.asarray(z_src, dtype=float),
+    )
+    on_axis = r_obs == 0.0
+    r_safe = np.where(on_axis, 1.0, r_obs)
+    coeff = MU0 / (2.0 * np.pi * r_safe)
+    br = -coeff * greens_function_exact(r_obs, z_obs, r_src, z_src, "dpsi_dz")
+    bz = coeff * greens_function_exact(r_obs, z_obs, r_src, z_src, "dpsi_dr")
+    if np.any(on_axis):
+        dz2 = (z_obs - z_src) ** 2
+        bz_axis = MU0 * r_src**2 / (2.0 * (r_src**2 + dz2) ** 1.5)
+        bz = np.where(on_axis, bz_axis, bz)
+        br = np.where(on_axis, 0.0, br)
+    return br, bz
+
+
+def _rect_coil_midpoints(
+    rc: float,
+    zc: float,
+    dr: float,
+    dz: float,
+    tilt: float,
+    dl: float,
+    curvature_correction: bool = True,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Midpoint subdivision of a rectangular cross-section coil.
+
+    Ports the subdivision scheme of ``getMutualInductanceCoil.m``:
+    cell size chosen from *dl*, midpoint filaments laid out along the
+    (possibly tilted) cross-section, with the toroidal curvature
+    correction r -> r * (1 + (cos(tilt) * dr_cell / r)^2 / 24).
+    """
+    nr = max(int(np.floor(dr / dl + 0.5)), 1)
+    nz = max(int(np.floor(dz / dl + 0.5)), 1)
+    ddr = dr / nr
+    ddz = dz / nz
+    ir = np.arange(1, nr + 1, dtype=float)
+    iz = np.arange(1, nz + 1, dtype=float)
+    IR, IZ = np.meshgrid(ir, iz, indexing="ij")
+    ct, st = np.cos(tilt), np.sin(tilt)
+    r = rc - 0.5 * (dr * ct - dz * st) - (IZ - 0.5) * ddz * st + (IR - 0.5) * ddr * ct
+    if curvature_correction:
+        r = r * (1.0 + (ct * ddr / r) ** 2 / 24.0)
+    zz = zc - 0.5 * (dr * st + dz * ct) + (IZ - 0.5) * ddz * ct + (IR - 0.5) * ddr * st
+    return r.ravel(), zz.ravel()
+
+
+def mutual_inductance(
+    r1: float,
+    z1: float,
+    dr1: float,
+    dz1: float,
+    r2: float,
+    z2: float,
+    dr2: float,
+    dz2: float,
+    *,
+    tilt1: float = 0.0,
+    tilt2: float = 0.0,
+    turns1: float = 1.0,
+    turns2: float = 1.0,
+    mu_r: float = 1.0,
+    n_div: int = 5,
+) -> float:
+    """Mutual inductance [H] between two rectangular cross-section coils.
+
+    Midpoint-rule subdivision over both cross sections with toroidal
+    curvature correction (reference: legacy VFIT
+    ``getMutualInductanceCoil.m``). A coil with ``dr == 0`` or
+    ``dz == 0`` degenerates to a point filament. Pass ``mu_r`` (e.g.
+    1.04 for SUS304) explicitly instead of a material code — the legacy
+    material logic is intentionally not reproduced.
+
+    M = turns1 * turns2 * mu_r * mu0 * <G> averaged over filament pairs.
+    """
+    # Subdivision cell size from the pair's characteristic scale. NOTE:
+    # legacy getMutualInductanceCoil.m used hypot(r1+r2, z1+z2), which is
+    # not invariant under a rigid z-translation of the coil pair; the
+    # z-separation form below is.
+    dl = 0.5 * np.hypot(r1 + r2, z1 - z2) / n_div
+
+    if dr1 != 0.0 and dz1 != 0.0:
+        p1r, p1z = _rect_coil_midpoints(r1, z1, dr1, dz1, tilt1, dl)
+    else:
+        p1r, p1z = np.array([r1]), np.array([z1])
+
+    if dr2 != 0.0 and dz2 != 0.0:
+        p2r, p2z = _rect_coil_midpoints(r2, z2, dr2, dz2, tilt2, dl)
+    else:
+        p2r, p2z = np.array([r2]), np.array([z2])
+
+    G = greens_function_exact(p1r[:, None], p1z[:, None], p2r[None, :], p2z[None, :], "psi")
+    return float(turns1 * turns2 * mu_r * MU0 * G.mean())
+
+
+def self_inductance(
+    r: float,
+    dr: float,
+    dz: float,
+    *,
+    tilt: float = 0.0,
+    turns: float = 1.0,
+    mu_r: float = 1.0,
+    n_div: int = 5,
+) -> float:
+    """Self-inductance [H] of a rectangular cross-section ring coil.
+
+    Midpoint subdivision with the analytic self-cell term
+    ``mu0 * mu_r * r_p * (ln(8 r_p / s) - 1.75)``, s = sqrt(dr*dz/pi)
+    of the subdivision cell (reference: legacy VFIT
+    ``getSelfInductanceCoil.m``).
+    """
+    if r <= 0.0 or dr <= 0.0 or dz <= 0.0:
+        raise ValueError("self_inductance requires r, dr, dz > 0")
+
+    cell = r / n_div
+    nr = max(int(np.floor(dr / cell + 0.5)), 1)
+    nz = max(2 * int(np.floor(0.5 * dz / cell + 0.5)), 2)
+    ddr = dr / nr
+    ddz = dz / nz
+    sr = np.sqrt(ddr * ddz / np.pi)
+
+    ir = np.arange(1, nr + 1, dtype=float)
+    iz = np.arange(1, nz + 1, dtype=float)
+    IR, IZ = np.meshgrid(ir, iz, indexing="ij")
+    ct, st = np.cos(tilt), np.sin(tilt)
+    rp = r - 0.5 * (dr * ct - dz * st) - (IZ - 0.5) * ddz * st + (IR - 0.5) * ddr * ct
+    zp = -0.5 * (dr * st + dz * ct) + (IZ - 0.5) * ddz * ct + (IR - 0.5) * ddr * st
+    rp, zp = rp.ravel(), zp.ravel()
+
+    flux = mu_r * MU0 * greens_function_exact(
+        rp[:, None], zp[:, None], rp[None, :], zp[None, :], "psi"
+    )
+    np.fill_diagonal(flux, mu_r * MU0 * rp * (np.log(8.0 * rp / sr) - 1.75))
+    n_cells = rp.size
+    return float(turns**2 * flux.sum() / n_cells**2)
+
+
 def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) -> np.ndarray:
     """
     Green's function for psi (poloidal flux). Vectorized for observer points.

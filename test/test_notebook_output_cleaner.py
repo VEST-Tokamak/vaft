@@ -1,0 +1,114 @@
+"""Tests for the version-control notebook output policy."""
+
+from __future__ import annotations
+
+import copy
+from pathlib import Path
+
+import nbformat
+
+from notebooks._clean_outputs import clean_notebook, clean_path
+
+
+FIXTURE_PATH = Path(__file__).parent / "data" / "notebook_output_policy.ipynb"
+
+
+def _read_notebook(path: Path):
+    with path.open(encoding="utf-8") as source:
+        return nbformat.read(source, as_version=nbformat.NO_CONVERT)
+
+
+def test_clean_notebook_preserves_only_static_outputs_and_sources():
+    notebook = _read_notebook(FIXTURE_PATH)
+    original_sources = [copy.deepcopy(cell.source) for cell in notebook.cells]
+
+    assert clean_notebook(notebook)
+
+    assert [cell.source for cell in notebook.cells] == original_sources
+    assert notebook.metadata == {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3",
+        }
+    }
+    code_cell = notebook.cells[1]
+    assert code_cell.metadata == {"tags": ["keep-for-rendering"]}
+    assert code_cell.execution_count is None
+    assert [output.output_type for output in code_cell.outputs] == [
+        "display_data",
+        "execute_result",
+        "stream",
+        "stream",
+    ]
+
+    static_data = code_cell.outputs[0].data
+    assert static_data == {
+        "text/plain": "static text",
+        "text/markdown": "**formatted text**",
+        "image/png": "cG5n",
+        "image/jpeg": "anBlZw==",
+        "image/svg+xml": "<svg></svg>",
+    }
+    assert code_cell.outputs[0].metadata == {}
+    assert code_cell.outputs[1].data == {"text/plain": "mixed result"}
+    assert code_cell.outputs[1].execution_count is None
+    assert code_cell.outputs[1].metadata == {}
+    assert code_cell.outputs[2].name == "stdout"
+    assert code_cell.outputs[2].text == "ordinary stream\n"
+    assert code_cell.outputs[3].name == "stderr"
+    assert code_cell.outputs[3].text == "ordinary error stream\n"
+
+
+def test_cleaner_rewrites_once_and_is_idempotent(tmp_path):
+    path = tmp_path / "fixture.ipynb"
+    path.write_bytes(FIXTURE_PATH.read_bytes())
+
+    assert clean_path(path)
+    once = path.read_bytes()
+    assert not clean_path(path)
+    assert path.read_bytes() == once
+
+
+def test_redact_paths_replaces_machine_specific_locations():
+    """Stored outputs must not pin the machine that produced them.
+
+    Executing the notebooks bakes their stdout into version control, and those
+    streams carry the checkout location, the user's home directory and per-run
+    temporary directories -- all of which differ for every reader.
+    """
+    from notebooks._clean_outputs import _REPO_ROOT, redact_paths
+
+    assert redact_paths(f"{_REPO_ROOT}/vaft/data/omas/39915.json") == (
+        "<repo>/vaft/data/omas/39915.json"
+    )
+    assert redact_paths("dir: /var/folders/ab/cd/T/hsds_tmp_x/39513") == "dir: <tmp>"
+    assert redact_paths("GPECHOME=/Users/someone/git/GPEC: ready") == (
+        "GPECHOME=~/git/GPEC: ready"
+    )
+    assert redact_paths("/home/runner/work/vaft/data.h5") == "~/work/vaft/data.h5"
+    # Text without paths is returned untouched.
+    assert redact_paths("magnetics.time length: 700") == "magnetics.time length: 700"
+
+
+def test_cleaning_strips_machine_paths_from_stored_outputs():
+    """The policy applies to what is actually committed, not just in principle."""
+    import re
+
+    notebooks_dir = Path(__file__).resolve().parents[1] / "notebooks"
+    pattern = re.compile(r"/Users/|/home/|/srv/|/var/folders/|/private/tmp/")
+    offenders = []
+    for path in sorted(notebooks_dir.glob("*.ipynb")):
+        book = nbformat.read(path, as_version=4)
+        for index, cell in enumerate(book.cells):
+            if cell.cell_type != "code":
+                continue
+            for output in cell.get("outputs", []):
+                text = output.get("text", "") or output.get("data", {}).get(
+                    "text/plain", ""
+                )
+                if isinstance(text, list):
+                    text = "".join(text)
+                if text and pattern.search(text):
+                    offenders.append(f"{path.name}:cell-{index}")
+    assert offenders == [], offenders

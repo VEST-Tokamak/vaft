@@ -5,15 +5,25 @@ graft vaft
 prune vaft/data
 prune test
 global-exclude *.py[cod]
+global-exclude ._*
 
 include vaft/data/*.py
 include vaft/data/geometry/Coil_info.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
+include vaft/data/geometry/VEST_em_coupling_pf_versions.npz
+include vaft/data/geometry/VEST_static_geometry.json.gz
 include vaft/data/geometry/*.yaml
 include vaft/data/geometry/*.csv
+include vaft/data/geometry/camera_visible/*.json
 include vaft/data/gpec/*.in
 include vaft/data/gpec/*.dat
 include vaft/data/legacy/*.txt
 include vaft/data/legacy/*.yaml
-include vaft/data/omas/39915.json
+include vaft/data/legacy/sxr_te_ratio_be_al.csv
+include vaft/data/samples/*/manifest.yaml
+include vaft/data/samples/39915/omas.json.gz
+include vaft/data/samples/39915/imas.nc
+include packaging/wheel_samples/39915/manifest.yaml
+include packaging/wheel_samples/39915/omas.json.gz
+include packaging/wheel_samples/39915/imas.nc

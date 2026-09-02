@@ -1,6 +1,5 @@
 import vaft
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.io import loadmat
@@ -105,6 +104,17 @@ def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
     }
 
 
+def _has_flux_surfaces(geq) -> bool:
+    """True for a legacy mapping that carries precomputed ``fluxSurfaces``.
+
+    VAFT's own ``GEQDSK`` does not; it is read through the psi-grid branch.
+    """
+    try:
+        return "fluxSurfaces" in geq and "levels" in geq["fluxSurfaces"]
+    except Exception:
+        return False
+
+
 def _outermost_surface_path(geq):
     """Return a matplotlib Path around the outermost traced flux surface.
 
@@ -126,8 +136,11 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
     Points outside the last closed flux surface are returned as NaN rather than
     pinned to the edge psi_N level.
     """
-    # Compatibility with legacy precomputed flux-surface dictionaries.
-    try:
+    # Compatibility with legacy precomputed flux-surface dictionaries. This is
+    # keyed on the mapping actually carrying 'fluxSurfaces' rather than on a
+    # bare except, so a genuine failure inside the nearest-surface search
+    # surfaces instead of silently falling through to the psi-grid branch.
+    if _has_flux_surfaces(geq):
         flux_levels = geq['fluxSurfaces']['levels']
         boundary = _outermost_surface_path(geq)
         mapped = []
@@ -147,8 +160,6 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
                     closest_rho = flux_levels[i]
             mapped.append(closest_rho)
         return np.clip(np.asarray(mapped, dtype=float), 0.0, 1.0)
-    except Exception:
-        pass
 
     try:
         nw = int(geq['NW'])
@@ -164,9 +175,14 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
             prof2d = ts['profiles_2d.0']
             r_grid = np.asarray(prof2d['grid.dim1'], dtype=float)
             z_grid = np.asarray(prof2d['grid.dim2'], dtype=float)
+            # The DD declares psi(:,:)'s coordinates as [grid.dim1, grid.dim2],
+            # i.e. axis 0 = dim1 (R) and axis 1 = dim2 (Z). A shape-based
+            # "is this secretly transposed?" heuristic is ambiguous whenever
+            # dim1 and dim2 have the same length (VEST's EFIT/CHEASE grids
+            # always are: 129x129, 513x513) and silently transposes psi that
+            # was already written correctly. Trust the DD convention
+            # unconditionally (see vaft.data.eqdsk.from_omas).
             psi = np.asarray(prof2d['psi'], dtype=float)
-            if psi.shape == (z_grid.size, r_grid.size):
-                psi = psi.T
             psi_axis = float(ts['global_quantities.psi_axis'])
             psi_boundary = float(ts['global_quantities.psi_boundary'])
         except Exception as exc:
@@ -716,7 +732,7 @@ def profile_fitting_charge_exchange(
 
     # No blind extrapolation beyond the psi_N actually covered by CX channels:
     # outside the measured span the fit is held at its value on the nearest
-    # measured end. Same convention as kineticEfit._ti_weighted_fit_psin. Without
+    # measured end. Same convention as efit._ti_weighted_fit_psin. Without
     # it a polynomial extrapolated inward from a poorly-covered slice can blow up
     # (48224 @ 298 ms: only 8/40 channels map inside the LCFS, innermost
     # psi_N = 0.23 -> Ti(axis) = 54 eV against a 21 eV largest measurement).
@@ -766,7 +782,10 @@ def _grid_from_geq(geq):
     if geq is None:
         return None
     try:
-        go = geq.to_omas()
+        # Only the 1D psi/rho grid is wanted here, and the derived-data pass
+        # traces every flux surface -- seconds per slice, for arrays this
+        # function discards.
+        go = geq.to_omas(allow_derived_data=False)
         base = "equilibrium.time_slice.0.profiles_1d"
         rho = np.asarray(go[f"{base}.rho_tor_norm"], dtype=float)
         psi = np.asarray(go[f"{base}.psi"], dtype=float)

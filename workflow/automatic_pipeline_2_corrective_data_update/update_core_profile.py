@@ -12,7 +12,7 @@ Per shot:
   1. Load the shot ODS from the database (already carries thomson_scattering and,
      when available, charge_exchange).
   2. For every Thomson time with a matching CHEASE geqdsk, build kinetic core_profiles
-     via ``vaft.code.kineticEfit.build_kinetic_core_profiles`` (falls back to a
+     via ``vaft.code.efit.build_kinetic_core_profiles`` (falls back to a
      Thomson-only slice, Ti=Te, when the ion diagnostic has no data at that time).
   3. ``core_profiles_pressures`` + save the OMAS json and push the ODS to the database.
   4. Record status ``kinetic_core_profile`` / ``core_profile`` / ``thomson_only``.
@@ -28,11 +28,10 @@ import numpy as np
 import omas
 
 import vaft
-vaft.apply_omfit_compat_patches()  # reentrant np.errstate etc. -- before OMFIT is used
-from omfit_classes.omfit_eqdsk import OMFITgeqdsk
+from vaft.data import read_geqdsk
 
 from vaft import database, process
-from vaft.code.kineticEfit import build_kinetic_core_profiles
+from vaft.code.efit import build_kinetic_core_profiles
 
 # Reuse the shot-registry + Thomson-file discovery helpers (same directory).
 from update_thomson_scattering_and_core_profile import (
@@ -58,9 +57,7 @@ def geqdsk_for_time(shotnumber, time_ms):
         print(f"[WARNING] Geqdsk not found: {path}")
         return None
     try:
-        geq = OMFITgeqdsk(filename=path)
-        geq["fluxSurfaces"].load()
-        return geq
+        return read_geqdsk(path)
     except Exception as exc:  # noqa: BLE001
         print(f"[WARNING] Could not load geqdsk {path}: {exc}")
         return None

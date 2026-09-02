@@ -1,25 +1,66 @@
-# Snakefile for generating chease and efit history files
-# This workflow runs both history generation scripts in parallel
+# Scheduled materialization of database summaries plus the legacy CHEASE export.
 
 # Default base path for data files
 BASE_PATH = "/srv/vest.filedb/public"
+SOURCE = config.get("source", "public")
+SHOT_RANGE = config.get("shot_range")
+SHOT_RANGE_ARG = f"--shot-range {SHOT_RANGE}" if SHOT_RANGE else ""
 
 # Rule to generate chease history
 rule generate_chease_history:
     output:
         "chease_history.xlsx"
     shell:
-        "python gen_chease_history.py --base-path {BASE_PATH}"
+        "python gen_chease_history.py --base-path {BASE_PATH} --output {output}"
 
 # Rule to generate efit history
 rule generate_efit_history:
     output:
         "efit_history.xlsx"
     shell:
-        "python gen_efit_history.py --base-path {BASE_PATH}"
+        "python gen_efit_history.py --source {SOURCE} {SHOT_RANGE_ARG} --output {output} --rebuild"
 
-# Default rule to generate both histories
+rule generate_equilibrium_global_history:
+    output:
+        "equilibrium_global_history.xlsx"
+    shell:
+        "python gen_equilibrium_global_history.py --directory {SOURCE} {SHOT_RANGE_ARG} --output {output} --rebuild"
+
+rule generate_core_profiles_history:
+    output:
+        "core_profiles_history.xlsx"
+    shell:
+        "python gen_core_profiles_history.py --directory {SOURCE} {SHOT_RANGE_ARG} --output {output} --rebuild"
+
+rule generate_volume_averaged_history:
+    output:
+        "volume_averaged_parameters.xlsx"
+    shell:
+        "python gen_volume_averaged_parameter_sheet.py --directory {SOURCE} {SHOT_RANGE_ARG} --output {output} --rebuild"
+
+rule generate_efit_reliability_history:
+    output:
+        magnetic="efit_magnetic_reliability_history.xlsx",
+        kinetic="efit_kinetic_reliability_history.xlsx"
+    shell:
+        "python gen_efit_reliability.py --source {SOURCE} {SHOT_RANGE_ARG} "
+        "--magnetic-output {output.magnetic} --kinetic-output {output.kinetic} --rebuild"
+
+rule generate_shot_overview:
+    output:
+        "omas_history.xlsx"
+    shell:
+        "python gen_omas_history.py --source {SOURCE} {SHOT_RANGE_ARG} --output {output} --rebuild"
+
+# DCON/RDCON stability materialization remains deliberately outside this rule.
 rule all:
+    default_target: True
     input:
         "chease_history.xlsx",
-        "efit_history.xlsx"
+        "efit_history.xlsx",
+        "equilibrium_global_history.xlsx",
+        "core_profiles_history.xlsx",
+        "volume_averaged_parameters.xlsx",
+        "efit_magnetic_reliability_history.xlsx",
+        "efit_kinetic_reliability_history.xlsx",
+        "omas_history.xlsx"

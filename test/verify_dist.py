@@ -16,7 +16,18 @@ _ALLOWED_DATA_FILES = {
     "geometry/Coil_info.mat",
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
-    "omas/39915.json",
+    "geometry/VEST_em_coupling_pf_versions.npz",
+    "geometry/VEST_static_geometry.json.gz",
+    "geometry/camera_visible/intrinsics.json",
+    "geometry/camera_visible/pose_34764.json",
+    "geometry/camera_visible/pose_39915.json",
+    "geometry/camera_visible/pose_47518.json",
+    "legacy/sxr_te_ratio_be_al.csv",
+    "samples/39915/manifest.yaml",
+    "samples/39915/omas.json.gz",
+    "samples/39915/imas.nc",
+    "samples/41524/manifest.yaml",
+    "samples/41672/manifest.yaml",
 }
 _ALLOWED_DATA_SUFFIXES = {
     "geometry/": (".yaml", ".csv"),
@@ -79,14 +90,18 @@ def _verify_distribution(path: Path) -> None:
         )
 
     if path.suffix != ".whl" and any(name.startswith("test/") for name in names):
-        raise ValueError(f"{path.name}: source distribution must not include repository tests")
+        raise ValueError(
+            f"{path.name}: source distribution must not include repository tests"
+        )
 
     print(f"verified {path.name} ({len(names)} files)")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dist_dir", type=Path, help="directory containing wheel and sdist artifacts")
+    parser.add_argument(
+        "dist_dir", type=Path, help="directory containing wheel and sdist artifacts"
+    )
     parser.add_argument("--max-wheel-mib", type=float, default=25.0)
     args = parser.parse_args()
 

@@ -3,7 +3,6 @@ Update derived quantities for the ods data structure.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import logging
 from vaft.formula import normalize_psi
@@ -86,8 +85,7 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
         plot_opt (int): 0=no plot, 1=plot validation, 2=plot derivatives
     """
     from scipy.interpolate import interp1d
-    import matplotlib.pyplot as plt
-    
+        
     # Process all time slices if not specified
     time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
         [time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
@@ -124,39 +122,10 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
         ts['profiles_1d.r_inboard'] = f_in(psi_1d)
         ts['profiles_1d.r_outboard'] = f_out(psi_1d)
 
-        # Generate validation plots
+        # Generate validation plots.  Rendering is delegated to vaft.plot; this
+        # namespace only shapes the data into view models (issue #63).
         if plot_opt >= 1:
-            plt.figure(figsize=[15,10])
-            plt.suptitle(f'Time Slice {idx} Validation')
-            
-            # Primary mapping validation
-            plt.subplot(221)
-            plt.plot(r_in, psi_in, 'r-', label='2D Inboard')
-            plt.plot(ts['profiles_1d.r_inboard'], psi_1d, 'b--', label='Inboard')
-            plt.plot(ts['global_quantities.magnetic_axis.r'], ts['global_quantities.psi_axis'], 'k.', label='Magnetic Axis')
-            plt.plot(r_out, psi_out, 'g-', label='2D Outboard')
-            plt.plot(ts['profiles_1d.r_outboard'], psi_1d, 'm--', label='Outboard')
-            plt.xlabel('R [m]'), plt.ylabel('Psi'), plt.legend(loc='upper right')
-            
-            plt.subplot(222)
-            plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.j_tor'], 'r-', label='Inboard')
-            plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.j_tor'], 'g-', label='Outboard')
-            plt.xlabel('R [m]'), plt.ylabel('J_tor [A/m2]')
-
-            plt.subplot(223)
-            plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.pressure'], 'r-', label='Inboard')
-            plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.pressure'], 'g-', label='Outboard')
-            plt.xlabel('R [m]'), plt.ylabel('Pressure [Pa]')
-
-            plt.subplot(224)
-            plt.plot(ts['profiles_1d.r_inboard'], ts['profiles_1d.q'], 'r-', label='Inboard')
-            plt.plot(ts['global_quantities.magnetic_axis.r'], ts['global_quantities.q_axis'], 'k.', label='Magnetic Axis')
-            plt.plot(ts['profiles_1d.r_outboard'], ts['profiles_1d.q'], 'g-', label='Outboard')
-            plt.xlabel('R [m]'), plt.ylabel('safety factor')
-
-            plt.legend()
-            plt.tight_layout()
-            plt.show()
+            _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1d)
 
 def update_equilibrium_boundary(ods, time_slice=None):
     """
@@ -505,46 +474,10 @@ def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profile
         prof2d['theta'] = Theta_2d_values
 
         if plot_opt >= 1:
-            plt.figure(figsize=(10, 8))
-            # Using prof2d.psi which stores non-normalized psi, as per test script's data population
-            for i_surf in range(nr):
-                # prof2d.psi should be (nr, nt), so prof2d.psi[i_surf,0] is one value for the surface
-                plt.plot(prof2d['grid.dim2'], np.full_like(prof2d['grid.dim2'], prof2d['psi'][i_surf, 0]), 'k-', lw=0.5)
-
-            plt.xlabel(r'$\theta_{\rm SFL}$ [rad]')
-            plt.ylabel(r'$\psi$ [Wb]') # Label reflects non-normalized psi
-            plt.title(f'Time: {time_val:.4f}s - ψ–θ SFL Grid (prof2d[{profiles_2d_idx}], {convention})')
-            plt.ylim(min(prof2d['psi'][:,0]), max(prof2d['psi'][:,0])) # Adjust y-limits
-            if plot_opt >= 2:
-                plt.savefig(f'sfl_psi_theta_t{time_val:.3f}_idx{profiles_2d_idx}_{convention}.png')
-            plt.show()
-
-            fig_rz, ax_rz = plt.subplots(figsize=(10, 10))
-            # Plot flux surfaces (constant psi_norm)
-            for i_surf in range(nr):
-                ax_rz.plot(prof2d['r'][i_surf, :], prof2d['z'][i_surf, :], 'b-', lw=0.7, label='Flux Surface' if i_surf == 0 else None)
-            # Plot field lines (constant SFL theta)
-            for j_theta in range(0, nt, max(1, nt // 16)): # Plot a subset of theta lines for clarity
-                ax_rz.plot(prof2d['r'][:, j_theta], prof2d['z'][:, j_theta], 'r--', lw=0.5, label='SFL $\\theta$ line' if j_theta == 0 else None)
-            
-            ax_rz.set_aspect('equal')
-            ax_rz.set_xlabel('R [m]')
-            ax_rz.set_ylabel('Z [m]')
-            ax_rz.set_title(f'Time: {time_val:.4f}s - SFL R-Z Mesh (prof2d[{profiles_2d_idx}], {convention})')
-            
-            # Add magnetic axis from global_quantities if available
-            gq = ts.get('global_quantities', {})
-            if 'magnetic_axis.r' in gq and 'magnetic_axis.z' in gq:
-                ax_rz.plot(gq['magnetic_axis.r'], gq['magnetic_axis.z'], 'kx', markersize=10, mew=2, label='Mag. Axis')
-            
-            if nr > 0 or nt > 0 : # only add legend if something was plotted.
-                handles, labels = ax_rz.get_legend_handles_labels()
-                by_label = dict(zip(labels, handles)) # remove duplicate labels
-                ax_rz.legend(by_label.values(), by_label.keys())
-
-            if plot_opt >= 2:
-                plt.savefig(f'sfl_rz_mesh_t{time_val:.3f}_idx{profiles_2d_idx}_{convention}.png')
-            plt.show()
+            _plot_sfl_grid(
+                prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
+                save=plot_opt >= 2,
+            )
 
 def update_equilibrium_stored_energy(ods, time_slice=None):
     """
@@ -930,3 +863,122 @@ def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
             eq_ts["constraints"]["diamagnetic_flux"]["reconstructed"] = recon
         except Exception as e:
             print(f"Warning: Reconstructed diamagnetic flux failed for time_slice {idx}: {e}")
+
+
+def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1d):
+    """Render the four radial-coordinate validation panels through ``vaft.plot``."""
+    from vaft.plot import Profile1D, Panels, Series, render_panels
+
+    axis_r = ts["global_quantities.magnetic_axis.r"]
+    axis_style = {"marker": ".", "linestyle": "none", "color": "k"}
+
+    psi_panel = Profile1D(
+        series=(
+            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "r"}),
+            Series(x=ts["profiles_1d.r_inboard"], y=psi_1d, label="Inboard",
+                   style={"color": "b", "linestyle": "--"}),
+            Series(x=[axis_r], y=[ts["global_quantities.psi_axis"]],
+                   label="Magnetic Axis", style=axis_style),
+            Series(x=r_out, y=psi_out, label="2D Outboard", style={"color": "g"}),
+            Series(x=ts["profiles_1d.r_outboard"], y=psi_1d, label="Outboard",
+                   style={"color": "m", "linestyle": "--"}),
+        ),
+        coordinate_label="R [m]", y_label="Psi",
+    )
+
+    def _inboard_outboard(quantity, label, unit="", axis_value=None):
+        series = [
+            Series(x=ts["profiles_1d.r_inboard"], y=ts[f"profiles_1d.{quantity}"],
+                   label="Inboard", style={"color": "r"}),
+            Series(x=ts["profiles_1d.r_outboard"], y=ts[f"profiles_1d.{quantity}"],
+                   label="Outboard", style={"color": "g"}),
+        ]
+        if axis_value is not None:
+            series.insert(
+                1,
+                Series(x=[axis_r], y=[axis_value], label="Magnetic Axis",
+                       style=axis_style),
+            )
+        return Profile1D(series=tuple(series), coordinate_label="R [m]",
+                         y_label=label, y_unit=unit)
+
+    return render_panels(
+        Panels(
+            models=(
+                psi_panel,
+                _inboard_outboard("j_tor", "J_tor", "A/m2"),
+                _inboard_outboard("pressure", "Pressure", "Pa"),
+                _inboard_outboard("q", "safety factor",
+                                  axis_value=ts["global_quantities.q_axis"]),
+            ),
+            ncols=2, share_x=False,
+            suptitle=f"Time Slice {idx} Validation",
+        ),
+        figsize=(15, 10),
+    )
+
+
+def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
+                   *, save=False):
+    """Render the straight-field-line psi-theta and R-Z meshes through ``vaft.plot``."""
+    from vaft.plot import (
+        GeometryLayer,
+        GeometryLayers,
+        LineSeries,
+        Series,
+        render_geometry_layers,
+        render_line_series,
+        save_figure,
+    )
+
+    theta = prof2d["grid.dim2"]
+    psi_theta = LineSeries(
+        series=tuple(
+            Series(x=theta, y=np.full_like(theta, prof2d["psi"][i_surf, 0]),
+                   style={"color": "k", "lw": 0.5})
+            for i_surf in range(nr)
+        ),
+        x_label=r"$\theta_{\rm SFL}$", x_unit="rad",
+        y_label=r"$\psi$", y_unit="Wb",
+        y_limits=(min(prof2d["psi"][:, 0]), max(prof2d["psi"][:, 0])),
+        title=f"Time: {time_val:.4f}s - psi-theta SFL Grid "
+              f"(prof2d[{profiles_2d_idx}], {convention})",
+    )
+    psi_figure, _ = render_line_series(psi_theta, figsize=(10, 8), legend=False)
+
+    layers = [
+        GeometryLayer(r=prof2d["r"][i_surf, :], z=prof2d["z"][i_surf, :],
+                      label="Flux Surface" if i_surf == 0 else "",
+                      style={"color": "b", "lw": 0.7})
+        for i_surf in range(nr)
+    ]
+    layers += [
+        GeometryLayer(r=prof2d["r"][:, j_theta], z=prof2d["z"][:, j_theta],
+                      label="SFL theta line" if j_theta == 0 else "",
+                      style={"color": "r", "linestyle": "--", "lw": 0.5})
+        for j_theta in range(0, nt, max(1, nt // 16))
+    ]
+    global_quantities = ts.get("global_quantities", {})
+    if "magnetic_axis.r" in global_quantities and "magnetic_axis.z" in global_quantities:
+        layers.append(
+            GeometryLayer(
+                r=[global_quantities["magnetic_axis.r"]],
+                z=[global_quantities["magnetic_axis.z"]],
+                kind="points", label="Mag. Axis",
+                style={"marker": "x", "color": "k", "markersize": 10, "mew": 2},
+            )
+        )
+    mesh_figure, _ = render_geometry_layers(
+        GeometryLayers(
+            layers=tuple(layers),
+            title=f"Time: {time_val:.4f}s - SFL R-Z Mesh "
+                  f"(prof2d[{profiles_2d_idx}], {convention})",
+        ),
+        figsize=(10, 10),
+    )
+
+    if save:
+        stem = f"t{time_val:.3f}_idx{profiles_2d_idx}_{convention}"
+        save_figure(psi_figure, f"sfl_psi_theta_{stem}.png", close=False)
+        save_figure(mesh_figure, f"sfl_rz_mesh_{stem}.png", close=False)
+    return (psi_figure, mesh_figure)

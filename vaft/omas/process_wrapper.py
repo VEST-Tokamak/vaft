@@ -2,6 +2,9 @@ from typing import List, Tuple, Dict, Any, Optional
 from numpy import ndarray
 import numpy as np
 from omas import *
+from pathlib import Path
+
+from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 from vaft.process import (
     compute_br_bz_phi,
     compute_response_matrix,
@@ -20,7 +23,16 @@ from vaft.process import (
     calculate_reconstructed_diamagnetic_flux,
     calculate_diamagnetism,
     prepare_boundary_for_shafranov,
+    extract_flux_surface_contours,
+    make_equilibrium_field_interpolator,
+    project_points,
+    sweep_toroidal,
+    toroidal_ring,
+    trace_field_line,
+    trajectory_world_points,
 )
+from vaft.formula.equilibrium import poloidal_field_factor
+from vaft.omas.general import ods_cocos
 from vaft.formula import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
     virial_bongard_from_S_alpha_mu,
@@ -34,8 +46,6 @@ from vaft.omas.update import update_equilibrium_boundary
 from scipy.interpolate import interp1d
 import logging
 import vaft.process
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
 
 
 # Configure logging
@@ -45,6 +55,9 @@ logger = logging.getLogger(__name__)
 GEOMETRY_TYPE_POLYGON = 1
 GEOMETRY_TYPE_RECTANGLE = 2
 DT_SUB = 5e-5
+#: Observation-source separation [m] below which the exact response path
+#: warns: the clamped elliptic integrals return finite artifacts there.
+COINCIDENT_SOURCE_TOL = 1e-6
 
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
     """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
@@ -283,6 +296,149 @@ def compute_grid_response_ods(
         logger.error(f"Error during computation: {e}")
         raise
 
+def compute_point_response_matrices_ods(
+    ods: ODS,
+    rz: List[List[float]],
+    plasma_points: Optional[List[List[float]]] = None,
+    components: Tuple[str, ...] = ("psi", "bz", "br"),
+    ) -> Tuple[ndarray, ...]:
+    """Vectorized, exact-elliptic (Psi, Bz, Br) response matrices from an ODS.
+
+    Fast alternative to :func:`compute_point_response_ods` (issue #239):
+    delegates to ``vaft.process.electromagnetics.compute_point_response_matrices``
+    (scipy-exact Green's functions, full NumPy broadcasting) instead of the
+    per-point Python loops over ``compute_br_bz_phi``. Column ordering matches
+    :func:`compute_point_response_ods`: ``[coils..., loops..., plasma...]``,
+    with coil columns summed over discretized elements weighted by
+    ``turns_with_sign`` and passive loops reduced to their outline centroid
+    (or rectangle centre).
+
+    Two deliberate differences from the legacy path: exact elliptic integrals
+    instead of the polynomial approximation (~1e-6 relative), and no 1 cm
+    shift-averaging near sources. An observation point coincident with a
+    source does NOT diverge or raise — the exact Green's functions clamp the
+    elliptic parameter, so it returns finite but PHYSICALLY MEANINGLESS
+    values; a UserWarning is emitted when any observation point sits within
+    ``COINCIDENT_SOURCE_TOL`` of a source. Keep observation points off the
+    source locations.
+
+    :param ods: OMAS data structure with ``pf_active`` and ``pf_passive``
+    :param rz: observation points, sequence of [r, z] pairs (shape (n, 2))
+    :param plasma_points: optional plasma filament points, same shape rules
+    :param components: which matrices to compute, a subset of
+        ("psi", "bz", "br") in the desired order; "psi" alone skips the
+        field-component elliptic passes (~3x cheaper)
+    :return: matrices matching *components* (default (Psi, Bz, Br)),
+        each (n_points, nbcoil + nbloop + nbplas)
+    """
+    import warnings
+
+    from vaft.process.electromagnetics import compute_point_response_matrices
+
+    rz = np.atleast_2d(np.asarray(rz, dtype=float))
+    if rz.ndim != 2 or rz.shape[1] != 2:
+        raise ValueError(f"rz must have shape (n, 2) of [r, z] pairs; got {rz.shape}")
+    obs_r, obs_z = rz[:, 0], rz[:, 1]
+
+    try:
+        pf = ods["pf_active"]
+        pfp = ods["pf_passive"]
+        nbcoil = len(pf["coil"])
+        nbloop = len(pfp["loop"])
+
+        src_r, src_z, turns, groups = [], [], [], []
+        for ii in range(nbcoil):
+            for jj in range(len(pf[f"coil.{ii}.element"])):
+                src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
+                src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
+                turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
+                groups.append(ii)
+        for ii in range(nbloop):
+            geometry = pfp[f"loop.{ii}.element[0].geometry"]
+            if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
+                src_r.append(float(np.mean(geometry["outline.r"])))
+                src_z.append(float(np.mean(geometry["outline.z"])))
+            else:
+                src_r.append(float(geometry["rectangle.r"]))
+                src_z.append(float(geometry["rectangle.z"]))
+            turns.append(1.0)
+            groups.append(nbcoil + ii)
+    except KeyError as e:
+        logger.error(f"Missing required data in ODS: {e}")
+        raise
+
+    n_groups = nbcoil + nbloop
+    if plasma_points is not None and len(plasma_points) > 0:
+        plasma = np.atleast_2d(np.asarray(plasma_points, dtype=float))
+        if plasma.ndim != 2 or plasma.shape[1] != 2:
+            raise ValueError(
+                f"plasma_points must have shape (n, 2) of [r, z] pairs; "
+                f"got {plasma.shape}"
+            )
+        for r_p, z_p in plasma:
+            src_r.append(float(r_p))
+            src_z.append(float(z_p))
+            turns.append(1.0)
+            groups.append(n_groups)
+            n_groups += 1
+
+    src_r = np.asarray(src_r)
+    src_z = np.asarray(src_z)
+    sep2 = (obs_r[:, None] - src_r[None, :]) ** 2 + (obs_z[:, None] - src_z[None, :]) ** 2
+    n_coincident = int(np.count_nonzero(np.min(sep2, axis=1) < COINCIDENT_SOURCE_TOL**2))
+    if n_coincident:
+        warnings.warn(
+            f"{n_coincident} observation point(s) coincide with a source "
+            f"(within {COINCIDENT_SOURCE_TOL:g} m); the exact Green's "
+            "functions return finite but physically meaningless values there",
+            stacklevel=2,
+        )
+
+    return compute_point_response_matrices(
+        obs_r,
+        obs_z,
+        src_r,
+        src_z,
+        turns=np.asarray(turns),
+        groups=np.asarray(groups, dtype=int),
+        n_groups=n_groups,
+        components=components,
+    )
+
+def ensure_em_coupling(ods: ODS) -> None:
+    """Populate ``em_coupling`` from the packaged asset when it is absent.
+
+    The coupling matrices are a function of the shot's PF geometry version, not
+    a measurement, so the compact samples ship the pf_active/pf_passive geometry
+    and leave the matrices to be reconstructed. Rebuild them here rather than
+    making every caller materialize them first.
+
+    A partially populated ``em_coupling`` still needs reconstruction: the sample
+    that shipped before the geometry-only change carried
+    ``mutual_passive_active`` without ``mutual_passive_passive``, so gating on
+    any single matrix lets such an ODS through to a bare ``KeyError`` in
+    :func:`compute_impedance_matrices_ods`. Require every matrix that function
+    reads, and leave a caller-supplied pair untouched.
+    """
+    existing = ods["em_coupling"] if "em_coupling" in ods else None
+    if existing is not None and all(
+        np.size(existing.get(matrix, []))
+        for matrix in ("mutual_passive_passive", "mutual_passive_active")
+    ):
+        return
+
+    from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
+
+    shot = None
+    try:
+        shot = int(ods["dataset_description.data_entry.pulse"])
+    except (KeyError, ValueError, TypeError):
+        pass
+    _map_em_coupling(ods, shot=shot)
+
+
+
+
 def compute_impedance_matrices_ods(
     ods: ODS,
     plasma: List[Tuple[float, float]]
@@ -300,6 +456,7 @@ def compute_impedance_matrices_ods(
         KeyError: If required ODS data is missing
     """
     try:
+        ensure_em_coupling(ods)
         pf = ods["pf_active"]
         pfp = ods["pf_passive"]
         em = ods["em_coupling"]
@@ -337,33 +494,11 @@ def compute_impedance_matrices_ods(
             coef = 1.0 if loop_name == "W11" else 1.04
             passive_loop_geometry.append((loop_name, r_avg, z_avg, coef))
 
-        # Extract the current shot's active-coil geometry. The packaged
-        # em_coupling matrix represents the historical configuration, while
-        # newer shots can use a different PF6/PF7 geometry.
-        coil_geometry = []
-        for i_coil in range(nbcoil):
-            elements = []
-            for i_element in range(len(pf[f"coil.{i_coil}.element"])):
-                elements.append(
-                    (
-                        pf[
-                            f"coil.{i_coil}.element.{i_element}.geometry.rectangle.r"
-                        ],
-                        pf[
-                            f"coil.{i_coil}.element.{i_element}.geometry.rectangle.z"
-                        ],
-                        pf[
-                            f"coil.{i_coil}.element.{i_element}.turns_with_sign"
-                        ],
-                    )
-                )
-            coil_geometry.append(elements)
-
         # Compute impedance matrices
         R_mat, L_mat, M_mat = compute_impedance_matrices(
             loop_res,
             passive_loop_geometry,
-            coil_geometry,
+            None,
             mutual_pp,
             mutual_pa,
             plasma
@@ -462,7 +597,10 @@ def compute_point_vacuum_fields_ods(
         nbt = len(time_arr)
 
         # Compute response matrix
-        psi_c, br_c, bz_c = compute_point_response_ods(ods, rz, plasma=None)
+        # compute_point_response_ods returns (Psi, Bz, Br) -- Bz before Br.
+        # Unpacking it as (psi, br, bz) swapped the two field components for
+        # every caller of this wrapper.
+        psi_c, bz_c, br_c = compute_point_response_ods(ods, rz, plasma=None)
         
         # Verify response matrix shapes
         expected_sources = nbcoil + nbloop
@@ -487,36 +625,10 @@ def compute_point_vacuum_fields_ods(
             bz_c
         )
 
-        # Plot if requested
+        # Plot if requested.  Rendering is delegated to vaft.plot; this
+        # namespace only shapes the data into the view model (issue #63).
         if plot_opt:
-            n_points = psi_out.shape[1] if psi_out.ndim == 2 else 1
-            fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-            if n_points == 1:
-                psi_plot = psi_out[:, 0] if psi_out.ndim == 2 else psi_out
-                br_plot = br_out[:, 0] if br_out.ndim == 2 else br_out
-                bz_plot = bz_out[:, 0] if bz_out.ndim == 2 else bz_out
-                label = f"(r={rz[0][0]:.3f}, z={rz[0][1]:.3f})" if isinstance(rz[0], (list, tuple)) else str(rz[0])
-                axs[0].plot(time_arr, psi_plot, label=label)
-                axs[1].plot(time_arr, br_plot, label=label)
-                axs[2].plot(time_arr, bz_plot, label=label)
-            else:
-                for i in range(n_points):
-                    psi_plot = psi_out[:, i]
-                    br_plot = br_out[:, i]
-                    bz_plot = bz_out[:, i]
-                    label = f"(r={rz[i][0]:.3f}, z={rz[i][1]:.3f})" if isinstance(rz[i], (list, tuple)) else str(rz[i])
-                    axs[0].plot(time_arr, psi_plot, label=label)
-                    axs[1].plot(time_arr, br_plot, label=label)
-                    axs[2].plot(time_arr, bz_plot, label=label)
-            axs[0].set_ylabel("ψ_out")
-            axs[1].set_ylabel("B_r")
-            axs[2].set_ylabel("B_z")
-            axs[2].set_xlabel("Time [s]")
-            axs[0].set_title(f"Vacuum Field Quantities at Each Time Step (Mode: {mode})")
-            for ax in axs:
-                ax.legend()
-            plt.tight_layout(rect=[0, 0, 1, 0.97])
-            plt.show()
+            _plot_vacuum_field_quantities(time_arr, psi_out, br_out, bz_out, rz, mode)
         return time_arr, psi_out, br_out, bz_out
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
@@ -533,6 +645,10 @@ def compute_null_ods(ods, time):
         Tuple of (psi_reshaped, R_mesh, Z_mesh)
     """
     cpsi = compute_grid_response_ods(ods)
+    if 'time' not in ods['pf_passive']:
+        # Geometry-only samples carry no passive-loop waveform; solve it from
+        # the active-coil currents instead of requiring it to be stored.
+        compute_eddy_currents(ods, plasma=[], ip=[])
     time_eddy = ods['pf_passive']['time']
     time_idx = np.argmin(np.abs(time_eddy - time))
     coil_current = np.array([ods['pf_active'][f'coil.{i}.current.data'][time_idx] for i in range(len(ods['pf_active']['coil']))])
@@ -895,9 +1011,12 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     try:
         R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
         Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
-        psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float)
-        psi_axis = float(eq_ts['global_quantities.psi_axis'])
-        psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
+        # B_pol comes from grad(psi)/R, so psi must be in Wb/rad regardless of
+        # the ODS storage convention (Wb per the IMAS DD since issue #236).
+        _psi_factor = ods_psi_to_wb_per_radian_factor(ods, eq_idx)
+        psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float) * _psi_factor
+        psi_axis = float(eq_ts['global_quantities.psi_axis']) * _psi_factor
+        psi_lcfs = float(eq_ts['global_quantities.psi_boundary']) * _psi_factor
     except KeyError as e:
         raise KeyError(f"Missing equilibrium keys for magnetic energy: {e}")
 
@@ -948,10 +1067,13 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     Rm, Zm = np.meshgrid(R_grid, Z_grid, indexing="ij")
     Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
 
-    # B field from poloidal flux psi
-    # B_R = -(1/R) dpsi/dZ, B_Z = (1/R) dpsi/dR
-    B_R = -(1.0 / Rm_safe) * dpsi_dZ
-    B_Z = (1.0 / Rm_safe) * dpsi_dR
+    # B field from poloidal flux psi, Sauter Eq. 20:
+    # B_R = k (1/R) dpsi/dZ, B_Z = -k (1/R) dpsi/dR, with
+    # k = sigma_RphiZ sigma_Bp / (2*pi)**e_Bp.  IMAS declares psi in weber
+    # (COCOS 11), so a labelled ODS needs the 2*pi that a Wb/rad one does not.
+    k = poloidal_field_factor(ods_cocos(ods))
+    B_R = k * (1.0 / Rm_safe) * dpsi_dZ
+    B_Z = -k * (1.0 / Rm_safe) * dpsi_dR
 
     # Toroidal field: B_phi = F(psi) / R.
     # Here we approximate F as constant using reference point: F ≈ B0 * R0
@@ -1035,7 +1157,10 @@ def compute_virial_equilibrium_quantities_ods(
         try:
             R_grid_1d = np.asarray(eq_ts["profiles_2d.0.grid.dim1"], float)
             Z_grid_1d = np.asarray(eq_ts["profiles_2d.0.grid.dim2"], float)
-            psi_RZ = np.asarray(eq_ts["profiles_2d.0.psi"], float)
+            # Convert to Wb/rad: the Shafranov/virial integrals build B_pol
+            # from grad(psi)/R (issue #236).
+            _psi_factor = ods_psi_to_wb_per_radian_factor(ods, eq_idx)
+            psi_RZ = np.asarray(eq_ts["profiles_2d.0.psi"], float) * _psi_factor
         except KeyError as e:
             raise KeyError(f"Missing equilibrium 2D grid/psi for time_slice {eq_idx}: {e}") from e
 
@@ -1074,7 +1199,7 @@ def compute_virial_equilibrium_quantities_ods(
             continue
 
         B_p_bdry, _, _ = poloidal_field_at_boundary(
-            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry
+            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
         )
         B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -1093,8 +1218,11 @@ def compute_virial_equilibrium_quantities_ods(
             dpsi_dR, dpsi_dZ = np.gradient(psi_RZ, R_grid_1d, Z_grid_1d, edge_order=2)
             Rm, Zm = np.meshgrid(R_grid_1d, Z_grid_1d, indexing="ij")
             Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
-            B_R_grid = -(1.0 / Rm_safe) * dpsi_dZ
-            B_Z_grid = (1.0 / Rm_safe) * dpsi_dR
+            # Same Eq. 20 coefficient as the boundary field a few lines above:
+            # feeding shafranov_integrals one of each mixes conventions.
+            k_grid = poloidal_field_factor(ods_cocos(ods))
+            B_R_grid = k_grid * (1.0 / Rm_safe) * dpsi_dZ
+            B_Z_grid = -k_grid * (1.0 / Rm_safe) * dpsi_dR
 
 
         # Axis geometry: validate per-slice and fallback to boundary geometry when missing/invalid.
@@ -1138,9 +1266,9 @@ def compute_virial_equilibrium_quantities_ods(
             samples_per_axis=5,
         )
 
-        # Psi normalization for profile mapping
-        psi_axis = float(eq_ts["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_ts else np.nan
-        psi_lcfs = float(eq_ts["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_ts else np.nan
+        # Psi normalization for profile mapping (same Wb/rad frame as psi_RZ)
+        psi_axis = float(eq_ts["global_quantities.psi_axis"]) * _psi_factor if "global_quantities.psi_axis" in eq_ts else np.nan
+        psi_lcfs = float(eq_ts["global_quantities.psi_boundary"]) * _psi_factor if "global_quantities.psi_boundary" in eq_ts else np.nan
         if (not np.isfinite(psi_axis)) or (not np.isfinite(psi_lcfs)) or psi_lcfs == psi_axis:
             psi_axis = float(np.nanmin(psi_RZ))
             psi_lcfs = float(np.nanmax(psi_RZ))
@@ -1151,7 +1279,7 @@ def compute_virial_equilibrium_quantities_ods(
         psiN_1d = None
         if f_1d.size:
             if "profiles_1d.psi" in eq_ts:
-                psi_1d = np.asarray(eq_ts["profiles_1d.psi"], float)
+                psi_1d = np.asarray(eq_ts["profiles_1d.psi"], float) * _psi_factor
                 if psi_1d.size == f_1d.size and psi_lcfs != psi_axis:
                     psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
             elif "profiles_1d.psi_norm" in eq_ts:
@@ -1475,19 +1603,21 @@ def compute_diamagnetism(ods, time_index=0):
 
     R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
     Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
+    # poloidal_field_at_boundary below needs psi in Wb/rad (issue #236).
+    _psi_factor = ods_psi_to_wb_per_radian_factor(eq_slice)
     psi_RZ = _ensure_rz_shape(
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
-    )
+    ) * _psi_factor
 
-    psi_axis = float(eq_slice["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in eq_slice else np.nan
-    psi_lcfs = float(eq_slice["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in eq_slice else np.nan
+    psi_axis = float(eq_slice["global_quantities.psi_axis"]) * _psi_factor if "global_quantities.psi_axis" in eq_slice else np.nan
+    psi_lcfs = float(eq_slice["global_quantities.psi_boundary"]) * _psi_factor if "global_quantities.psi_boundary" in eq_slice else np.nan
     if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
         psi_axis = float(np.nanmin(psi_RZ))
         psi_lcfs = float(np.nanmax(psi_RZ))
 
     f_1d = np.asarray(eq_slice["profiles_1d.f"], float)
     if "profiles_1d.psi" in eq_slice:
-        psi_1d = np.asarray(eq_slice["profiles_1d.psi"], float)
+        psi_1d = np.asarray(eq_slice["profiles_1d.psi"], float) * _psi_factor
         psiN_1d = (psi_1d - psi_axis) / (psi_lcfs - psi_axis)
         idx = np.argsort(psi_1d)
         psi_1d_s = psi_1d[idx]
@@ -1510,7 +1640,7 @@ def compute_diamagnetism(ods, time_index=0):
     R_bdry = np.asarray(eq_slice["boundary.outline.r"], float)
     Z_bdry = np.asarray(eq_slice["boundary.outline.z"], float)
     B_p_bdry, _, _ = poloidal_field_at_boundary(
-        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry
+        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
     )
     B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -1920,3 +2050,433 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
         )
 
     return np.asarray(pressure_vol_avg_list, float)
+
+
+# =====================================================================
+
+# FAST-camera EFIT overlay: pinhole projection of equilibrium/wall geometry
+# into camera pixel space. Read-only: computes and returns projected pixel
+# coordinates, never writes them back into the ods.
+# =====================================================================
+
+
+_CAMERA_VISIBLE_CALIBRATED_SHOTS = (34764, 39915, 47518)
+_DEFAULT_FLUX_SURFACE_LEVELS = (0.25, 0.5, 0.75, 0.95)
+
+
+def _load_camera_intrinsics(intrinsics_path: str | Path | None = None) -> dict:
+    """Load the shared VEST FAST-camera intrinsics (fx, fy, cx, cy, distortion)."""
+    import json
+
+    from vaft.machine_mapping import resolve_geometry_asset
+
+    if intrinsics_path is not None:
+        path = Path(intrinsics_path).expanduser()
+    else:
+        path = resolve_geometry_asset("camera_visible/intrinsics.json")
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    camera_matrix = np.array(
+        [[data["fx"], 0.0, data["cx"]], [0.0, data["fy"], data["cy"]], [0.0, 0.0, 1.0]],
+        dtype=float,
+    )
+    dist_coeffs = np.array(
+        [data["k1"], data["k2"], data["p1"], data["p2"], data["k3"]], dtype=float
+    )
+    return {
+        "camera_matrix": camera_matrix,
+        "dist_coeffs": dist_coeffs,
+        "image_size": tuple(data["image_size"]),
+    }
+
+
+def _load_camera_pose(shot: int, pose_path: str | Path | None = None) -> dict:
+    """Load a calibrated FAST-camera pose (rvec, tvec) for one shot."""
+    import json
+
+    from vaft.machine_mapping import resolve_geometry_asset
+
+    if pose_path is not None:
+        path = Path(pose_path).expanduser()
+    else:
+        try:
+            path = resolve_geometry_asset(f"camera_visible/pose_{int(shot)}.json")
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(
+                f"No calibrated FAST-camera pose is packaged for shot {shot}. "
+                f"Calibrated shots: {_CAMERA_VISIBLE_CALIBRATED_SHOTS}. "
+                "Provide pose_path to use an external pose file."
+            ) from exc
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    return {
+        "rvec": np.array(data["rvec"], dtype=float),
+        "tvec": np.array(data["tvec"], dtype=float),
+        "convention": data.get("convention"),
+    }
+
+
+def _nearest_index(values: np.ndarray, target: float) -> int:
+    return int(np.argmin(np.abs(np.asarray(values, dtype=float) - float(target))))
+
+
+def _resolve_camera_frame(
+    ods: Any,
+    *,
+    channel: int,
+    detector: int,
+    frame_index: int | None,
+    frame_time: float | None,
+) -> tuple[int, float, tuple[int, ...]]:
+    """Resolve a camera_visible frame index/time by explicit index or nearest time."""
+    frame_prefix = f"camera_visible.channel.{channel}.detector.{detector}.frame"
+    n_frames = len(ods[frame_prefix])
+    frame_times = np.asarray(
+        [float(ods[f"{frame_prefix}.{i}.time"]) for i in range(n_frames)], dtype=float
+    )
+    if frame_index is not None and frame_time is not None:
+        raise ValueError("Specify at most one of frame_index or frame_time.")
+    if frame_index is not None:
+        resolved_frame_index = int(frame_index)
+    elif frame_time is not None:
+        resolved_frame_index = _nearest_index(frame_times, frame_time)
+    else:
+        resolved_frame_index = 0
+    resolved_frame_time = float(frame_times[resolved_frame_index])
+    image_shape = np.asarray(ods[f"{frame_prefix}.{resolved_frame_index}.image_raw"]).shape
+    return resolved_frame_index, resolved_frame_time, image_shape
+
+
+def _resolve_equilibrium_time_slice(ods: Any, time: float) -> tuple[int, float, Any]:
+    """Resolve the equilibrium time slice nearest to ``time``."""
+    equilibrium_times = np.asarray(ods["equilibrium.time"], dtype=float)
+    equilibrium_time_index = _nearest_index(equilibrium_times, time)
+    equilibrium_time = float(equilibrium_times[equilibrium_time_index])
+    time_slice = ods[f"equilibrium.time_slice.{equilibrium_time_index}"]
+    return equilibrium_time_index, equilibrium_time, time_slice
+
+
+def compute_camera_visible_efit_overlay(
+    ods: Any,
+    shot: int,
+    *,
+    channel: int = 0,
+    detector: int = 0,
+    frame_index: int | None = None,
+    frame_time: float | None = None,
+    theta_deg_range: tuple[float, float] = (-90.0, 90.0),
+    n_theta: int = 181,
+    flux_surface_levels: tuple[float, ...] = _DEFAULT_FLUX_SURFACE_LEVELS,
+    pose_path: str | Path | None = None,
+    intrinsics_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Project equilibrium/wall geometry into FAST-camera pixel space for one frame.
+
+    Reads ``camera_visible`` (frame selection), ``equilibrium`` (LCFS, magnetic
+    axis, psi grid, nearest time slice), and ``wall`` (limiter outline) from
+    ``ods``; forward-projects each through the calibrated pinhole camera model
+    for ``shot`` (see :mod:`vaft.process.camera_geometry`). Nothing is written
+    back into ``ods`` -- this returns plain arrays only.
+
+    Select the camera frame by ``frame_index`` or nearest ``frame_time``
+    (defaults to the first frame if neither is given). Flux surfaces are
+    derived from the equilibrium's 2D psi grid at the requested normalized-psi
+    ``flux_surface_levels`` (not the LCFS-only ``boundary.outline``, which is
+    used directly as the LCFS overlay).
+    """
+    intrinsics = _load_camera_intrinsics(intrinsics_path)
+    pose = _load_camera_pose(shot, pose_path)
+    camera_matrix = intrinsics["camera_matrix"]
+    dist_coeffs = intrinsics["dist_coeffs"]
+    rvec = pose["rvec"]
+    tvec = pose["tvec"]
+
+    resolved_frame_index, resolved_frame_time, image_shape = _resolve_camera_frame(
+        ods, channel=channel, detector=detector, frame_index=frame_index, frame_time=frame_time
+    )
+    equilibrium_time_index, equilibrium_time, time_slice = _resolve_equilibrium_time_slice(
+        ods, resolved_frame_time
+    )
+
+    theta_rad = np.deg2rad(np.linspace(theta_deg_range[0], theta_deg_range[1], n_theta))
+
+    def _project_rz(r_m: np.ndarray, z_m: np.ndarray) -> np.ndarray:
+        world_cm = sweep_toroidal(r_m, z_m, theta_rad)
+        pixel_uv, valid_mask = project_points(world_cm, rvec, tvec, camera_matrix, dist_coeffs)
+        return pixel_uv[valid_mask]
+
+    wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+    wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    wall_uv = _project_rz(wall_r, wall_z)
+
+    lcfs_r = np.asarray(time_slice["boundary.outline.r"], dtype=float)
+    lcfs_z = np.asarray(time_slice["boundary.outline.z"], dtype=float)
+    lcfs_uv = _project_rz(lcfs_r, lcfs_z)
+
+    mag_r = float(time_slice["global_quantities.magnetic_axis.r"])
+    mag_z = float(time_slice["global_quantities.magnetic_axis.z"])
+    mag_axis_world_cm = toroidal_ring(mag_r, mag_z, theta_rad)
+    mag_axis_uv_all, mag_axis_valid = project_points(
+        mag_axis_world_cm, rvec, tvec, camera_matrix, dist_coeffs
+    )
+    magnetic_axis_uv = mag_axis_uv_all[mag_axis_valid]
+
+    flux_surfaces_uv: dict[float, np.ndarray] = {}
+    if flux_surface_levels:
+        R_grid = np.asarray(time_slice["profiles_2d.0.grid.dim1"], dtype=float)
+        Z_grid = np.asarray(time_slice["profiles_2d.0.grid.dim2"], dtype=float)
+        psi_grid = _read_psi_grid(time_slice, R_grid, Z_grid)
+        psi_axis = float(time_slice["global_quantities.psi_axis"])
+        psi_boundary = float(time_slice["global_quantities.psi_boundary"])
+        contours = extract_flux_surface_contours(
+            psi_grid, R_grid, Z_grid, psi_axis, psi_boundary, flux_surface_levels
+        )
+        for level, segments in contours.items():
+            projected_segments = [_project_rz(r_pts, z_pts) for r_pts, z_pts in segments]
+            projected_segments = [seg for seg in projected_segments if seg.size > 0]
+            flux_surfaces_uv[level] = (
+                np.concatenate(projected_segments, axis=0)
+                if projected_segments
+                else np.empty((0, 2))
+            )
+
+    return {
+        "frame_index": resolved_frame_index,
+        "frame_time": resolved_frame_time,
+        "equilibrium_time_index": equilibrium_time_index,
+        "equilibrium_time": equilibrium_time,
+        "image_shape": image_shape,
+        "wall_uv": wall_uv,
+        "lcfs_uv": lcfs_uv,
+        "magnetic_axis_uv": magnetic_axis_uv,
+        "flux_surfaces_uv": flux_surfaces_uv,
+    }
+
+
+# =====================================================================
+
+# Magnetic field-line tracing from an equilibrium time slice, and its
+# projection onto FAST-camera pixel space. Read-only, like the EFIT overlay
+# above: computes and returns arrays, never writes back into ods.
+# =====================================================================
+
+
+
+def _read_psi_grid(time_slice: Any, R_grid: np.ndarray, Z_grid: np.ndarray) -> np.ndarray:
+    """Read ``profiles_2d.0.psi``, asserting the ``(len(R), len(Z))`` orientation.
+
+    ``vaft.data.eqdsk.to_omas`` (the only writer this pipeline uses) reliably
+    stores this as ``(nw, nh) = (R.size, Z.size)`` -- see its
+    ``prof2d["psi"] = PSIRZ.reshape(nw, nh)``. A shape-equality guess at
+    whether to transpose is genuinely ambiguous for a square grid (EFIT's
+    common 129x129/65x65 default), and silently transposing a
+    correctly-oriented square array corrupts it without raising: verified
+    against this exact 129x129 grid, psi_N at the magnetic axis reads
+    ~0.0000 untransposed vs. 1.49 (badly wrong) if transposed. Raise instead
+    of guessing.
+    """
+    psi_grid = np.asarray(time_slice["profiles_2d.0.psi"], dtype=float)
+    expected_shape = (R_grid.size, Z_grid.size)
+    if psi_grid.shape != expected_shape:
+        raise ValueError(
+            f"profiles_2d.0.psi has shape {psi_grid.shape}, expected {expected_shape} "
+            "= (len(grid.dim1), len(grid.dim2)) per vaft.data.eqdsk.to_omas's convention."
+        )
+    return psi_grid
+
+
+def _equilibrium_field_slice_data(time_slice: Any) -> dict[str, np.ndarray]:
+    """Read psi grid + F(psi) profile data needed to build a field interpolator."""
+    R_grid = np.asarray(time_slice["profiles_2d.0.grid.dim1"], dtype=float)
+    Z_grid = np.asarray(time_slice["profiles_2d.0.grid.dim2"], dtype=float)
+    psi_grid = _read_psi_grid(time_slice, R_grid, Z_grid)
+    # The field interpolator forms B_R/B_Z from grad(psi)/R and expects
+    # Wb/rad (issue #236); psi_1d must stay in the same frame for F(psi).
+    _psi_factor = ods_psi_to_wb_per_radian_factor(time_slice)
+    return {
+        "psi_grid": psi_grid * _psi_factor,
+        "R_grid": R_grid,
+        "Z_grid": Z_grid,
+        "psi_1d": np.asarray(time_slice["profiles_1d.psi"], dtype=float) * _psi_factor,
+        "f_1d": np.asarray(time_slice["profiles_1d.f"], dtype=float),
+    }
+
+
+def compute_field_line_trace(
+    ods: Any,
+    *,
+    r0: float,
+    z0: float,
+    phi0: float = 0.0,
+    time: float | None = None,
+    time_index: int | None = None,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 50.0,
+    direction: str = "forward",
+    use_wall_boundary: bool = True,
+) -> dict[str, Any]:
+    """Trace a magnetic field line from ``(r0, z0, phi0)`` using an equilibrium time slice.
+
+    Reads the psi grid and ``F(psi) = R*B_phi`` profile from
+    ``ods['equilibrium.time_slice.N']`` (nearest to ``time``, or ``time_index``
+    directly, or the first slice if neither is given) and integrates
+    ``dR/dphi = R*B_R/B_phi``, ``dZ/dphi = R*B_Z/B_phi`` with fixed-step RK4
+    (see :func:`vaft.process.equilibrium.trace_field_line` for the full
+    integration/termination contract). If ``use_wall_boundary`` and
+    ``ods['wall...outline']`` is present, the trace also terminates on
+    leaving the limiter polygon. Returns plain arrays; nothing is written
+    back into ``ods``.
+    """
+    if time_index is not None and time is not None:
+        raise ValueError("Specify at most one of time_index or time.")
+    if time_index is not None:
+        equilibrium_time_index = int(time_index)
+        equilibrium_time = float(ods["equilibrium.time"][equilibrium_time_index])
+        time_slice = ods[f"equilibrium.time_slice.{equilibrium_time_index}"]
+    elif time is not None:
+        equilibrium_time_index, equilibrium_time, time_slice = _resolve_equilibrium_time_slice(ods, time)
+    else:
+        equilibrium_time_index, equilibrium_time, time_slice = _resolve_equilibrium_time_slice(
+            ods, float(ods["equilibrium.time"][0])
+        )
+
+    field_data = _equilibrium_field_slice_data(time_slice)
+    b_field = make_equilibrium_field_interpolator(
+        field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
+        field_data["psi_1d"], field_data["f_1d"], cocos=ods_cocos(ods),
+    )
+
+    wall_r = wall_z = None
+    if use_wall_boundary:
+        try:
+            wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+            wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+        except Exception:
+            wall_r = wall_z = None
+
+    r_bounds = (float(field_data["R_grid"].min()), float(field_data["R_grid"].max()))
+    z_bounds = (float(field_data["Z_grid"].min()), float(field_data["Z_grid"].max()))
+
+    trace = trace_field_line(
+        r0, z0, phi0, b_field,
+        dphi=np.deg2rad(dphi_deg),
+        max_length_m=max_length_m,
+        direction=direction,
+        wall_r=wall_r, wall_z=wall_z,
+        r_bounds=r_bounds, z_bounds=z_bounds,
+    )
+
+    return {
+        "equilibrium_time_index": equilibrium_time_index,
+        "equilibrium_time": equilibrium_time,
+        "start_point": {"r0": float(r0), "z0": float(z0), "phi0": float(phi0)},
+        "dphi_deg": float(dphi_deg),
+        "max_length_m": float(max_length_m),
+        "direction": direction,
+        **trace,
+    }
+
+
+def compute_camera_visible_field_line_overlay(
+    ods: Any,
+    shot: int,
+    *,
+    r0: float,
+    z0: float,
+    phi0: float = 0.0,
+    channel: int = 0,
+    detector: int = 0,
+    frame_index: int | None = None,
+    frame_time: float | None = None,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 50.0,
+    direction: str = "forward",
+    use_wall_boundary: bool = True,
+    pose_path: str | Path | None = None,
+    intrinsics_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Project a traced magnetic field line into FAST-camera pixel space for one frame.
+
+    Combines :func:`compute_field_line_trace` (equilibrium time slice nearest
+    the resolved camera frame's time) with the calibrated pinhole projection
+    used by :func:`compute_camera_visible_efit_overlay`. Nothing is written
+    back into ``ods``.
+    """
+    intrinsics = _load_camera_intrinsics(intrinsics_path)
+    pose = _load_camera_pose(shot, pose_path)
+
+    resolved_frame_index, resolved_frame_time, image_shape = _resolve_camera_frame(
+        ods, channel=channel, detector=detector, frame_index=frame_index, frame_time=frame_time
+    )
+
+    trace = compute_field_line_trace(
+        ods, r0=r0, z0=z0, phi0=phi0, time=resolved_frame_time,
+        dphi_deg=dphi_deg, max_length_m=max_length_m, direction=direction,
+        use_wall_boundary=use_wall_boundary,
+    )
+
+    world_cm = trajectory_world_points(trace["R"], trace["Z"], trace["phi"])
+    pixel_uv, valid_mask = project_points(
+        world_cm, pose["rvec"], pose["tvec"], intrinsics["camera_matrix"], intrinsics["dist_coeffs"]
+    )
+    # Compacting with pixel_uv[valid_mask] would discard invalid samples'
+    # positions in the trajectory, so a renderer drawing the remaining points
+    # as one connected polyline would join two visible runs across a gap
+    # (behind the camera / outside the distortion guard) with a fabricated
+    # straight segment. Keep the full-length array and mark invalid samples
+    # as NaN instead -- matplotlib breaks a plotted line at NaN, so the
+    # discontinuity is preserved without any renderer-side changes.
+    field_line_uv = pixel_uv.copy()
+    field_line_uv[~valid_mask] = np.nan
+
+    return {
+        "frame_index": resolved_frame_index,
+        "frame_time": resolved_frame_time,
+        "equilibrium_time_index": trace["equilibrium_time_index"],
+        "equilibrium_time": trace["equilibrium_time"],
+        "image_shape": image_shape,
+        "field_line_uv": field_line_uv,
+        "field_line_valid": valid_mask,
+        "trace": trace,
+    }
+
+
+def _point_label(rz, index: int) -> str:
+    point = rz[index]
+    if isinstance(point, (list, tuple)):
+        return f"(r={point[0]:.3f}, z={point[1]:.3f})"
+    return str(point)
+
+
+def _plot_vacuum_field_quantities(time_arr, psi_out, br_out, bz_out, rz, mode):
+    """Render the vacuum-field diagnostic panels through ``vaft.plot``."""
+    from vaft.plot import LineSeries, Panels, Series, render_panels
+
+    n_points = psi_out.shape[1] if psi_out.ndim == 2 else 1
+    panels = []
+    for values, label, unit in (
+        (psi_out, "psi_out", "Wb"),
+        (br_out, "B_r", "T"),
+        (bz_out, "B_z", "T"),
+    ):
+        traces = []
+        for index in range(n_points):
+            column = values[:, index] if values.ndim == 2 else values
+            traces.append(
+                Series(x=time_arr, y=column, label=_point_label(rz, index))
+            )
+        panels.append(
+            LineSeries(
+                series=tuple(traces), x_label="Time", x_unit="s",
+                y_label=label, y_unit=unit,
+            )
+        )
+    return render_panels(
+        Panels(
+            models=tuple(panels),
+            suptitle=f"Vacuum Field Quantities at Each Time Step (Mode: {mode})",
+        ),
+        figsize=(10, 8),
+    )

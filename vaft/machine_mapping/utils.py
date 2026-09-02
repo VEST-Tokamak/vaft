@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import os
 import datetime
+import warnings
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -86,6 +88,424 @@ def _deep_merge(base: Any, override: Any) -> Any:
         else:
             merged[key] = value
     return merged
+
+
+class VestConfigurationError(ValueError):
+    """Raised when VEST machine-mapping configuration is invalid."""
+
+
+def _revision_bound(value: Any, *, name: str, context: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise VestConfigurationError(f"{context}: {name} must be an integer shot number")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise VestConfigurationError(f"{context}: {name} must be an integer shot number") from exc
+
+
+def _match_revision(
+    revisions: Sequence[Mapping[str, Any]] | None,
+    shot: int,
+    *,
+    context: str,
+) -> tuple[Mapping[str, Any] | None, int | None, dict[str, int | None] | None]:
+    """Validate a revision table and return the single entry matching ``shot``.
+
+    Returns ``(revision, index, bounds)``, or ``(None, None, None)`` when the
+    shot falls outside every declared era. Shared by `resolve_shot_revisions`
+    and its provenance-reporting counterpart so overlap validation cannot
+    drift between them.
+    """
+    if revisions is None:
+        return None, None, None
+    if not isinstance(revisions, Sequence) or isinstance(revisions, (str, bytes)):
+        raise VestConfigurationError(f"{context}: revisions must be a list")
+
+    parsed_revisions: list[tuple[Mapping[str, Any], int | None, int | None]] = []
+    matching: list[tuple[Mapping[str, Any], int, int | None, int | None]] = []
+    numeric_shot = int(shot)
+    for index, revision in enumerate(revisions):
+        revision_context = f"{context} revision {index}"
+        if not isinstance(revision, Mapping):
+            raise VestConfigurationError(f"{revision_context}: entry must be a mapping")
+        first = _revision_bound(revision.get("from_shot"), name="from_shot", context=revision_context)
+        last = _revision_bound(revision.get("to_shot"), name="to_shot", context=revision_context)
+        if first is None and last is None:
+            raise VestConfigurationError(
+                f"{revision_context}: at least one of from_shot or to_shot is required"
+            )
+        if first is not None and last is not None and first > last:
+            raise VestConfigurationError(f"{revision_context}: from_shot must not exceed to_shot")
+        parsed_revisions.append((revision, first, last))
+        if (first is None or numeric_shot >= first) and (last is None or numeric_shot <= last):
+            matching.append((revision, index, first, last))
+
+    for index, (_, first, last) in enumerate(parsed_revisions):
+        for other_index, (_, other_first, other_last) in enumerate(parsed_revisions[index + 1 :], index + 1):
+            lower = max(
+                float("-inf") if first is None else first,
+                float("-inf") if other_first is None else other_first,
+            )
+            upper = min(
+                float("inf") if last is None else last,
+                float("inf") if other_last is None else other_last,
+            )
+            if lower <= upper:
+                raise VestConfigurationError(
+                    f"{context}: revisions {index} and {other_index} overlap"
+                )
+
+    if len(matching) > 1:
+        raise VestConfigurationError(f"{context}: overlapping revisions apply to shot {numeric_shot}")
+    if not matching:
+        return None, None, None
+    revision, index, first, last = matching[0]
+    return revision, index, {"from_shot": first, "to_shot": last}
+
+
+def resolve_shot_revisions(
+    base: Mapping[str, Any],
+    revisions: Sequence[Mapping[str, Any]] | None,
+    shot: int,
+    *,
+    context: str,
+) -> dict[str, Any]:
+    """Merge the one unambiguous configuration revision applicable to ``shot``.
+
+    Bounds are inclusive. A revision needs at least one bound; unrestricted
+    defaults belong in ``base``. This helper is intentionally also usable for
+    nested processing eras such as plasma-current baseline windows.
+    """
+    resolved, _provenance = resolve_shot_revisions_with_provenance(
+        base, revisions, shot, context=context
+    )
+    return resolved
+
+
+def resolve_shot_revisions_with_provenance(
+    base: Mapping[str, Any],
+    revisions: Sequence[Mapping[str, Any]] | None,
+    shot: int,
+    *,
+    context: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Like `resolve_shot_revisions`, but also report which era was applied.
+
+    The second return value records the matched revision's index and its
+    inclusive shot bounds (or ``None`` for both when the shot falls back to
+    ``base``), so a shot's effective processing era is recoverable without
+    re-deriving it from scattered conditionals (issue #195).
+    """
+    resolved = _deep_merge({}, dict(base))
+    revision, index, bounds = _match_revision(revisions, shot, context=context)
+    provenance: dict[str, Any] = {
+        "context": context,
+        "revision_index": index,
+        "revision_bounds": bounds,
+    }
+    if revision is not None:
+        override = {
+            key: value
+            for key, value in revision.items()
+            if key not in {"from_shot", "to_shot"}
+        }
+        resolved = _deep_merge(resolved, override)
+    return resolved, provenance
+
+
+def _required_number(mapping: Mapping[str, Any], key: str, *, context: str) -> float:
+    if key not in mapping:
+        raise VestConfigurationError(f"{context}: missing required parameter {key!r}")
+    try:
+        return float(mapping[key])
+    except (TypeError, ValueError) as exc:
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be numeric") from exc
+
+
+def validate_calibration(calibration: Mapping[str, Any]) -> None:
+    """Validate a declarative, named VEST calibration definition."""
+    if not isinstance(calibration, Mapping):
+        raise VestConfigurationError("calibration must be a mapping")
+    calibration_type = calibration.get("type")
+    context = f"calibration {calibration_type!r}"
+    if calibration_type == "linear":
+        operation = calibration.get("operation")
+        if operation not in {"multiply", "divide"}:
+            raise VestConfigurationError(f"{context}: operation must be 'multiply' or 'divide'")
+        factor = _required_number(calibration, "factor", context=context)
+        if operation == "divide" and factor == 0:
+            raise VestConfigurationError(f"{context}: factor must be non-zero for division")
+        return
+    if calibration_type == "exponential_pressure":
+        for key in ("scale", "slope", "offset", "base"):
+            _required_number(calibration, key, context=context)
+        if float(calibration["base"]) <= 0:
+            raise VestConfigurationError(f"{context}: base must be positive")
+        return
+    if calibration_type == "logarithmic_power":
+        for key in ("scale", "input_offset", "slope", "exponent_offset", "base"):
+            _required_number(calibration, key, context=context)
+        if float(calibration["base"]) <= 0 or float(calibration["slope"]) == 0:
+            raise VestConfigurationError(f"{context}: base must be positive and slope non-zero")
+        return
+    raise VestConfigurationError(f"Unsupported VEST calibration type {calibration_type!r}")
+
+
+def calibrate_vest_signal(data: Any, calibration: Mapping[str, Any]) -> np.ndarray:
+    """Apply one named calibration to a raw VEST waveform."""
+    validate_calibration(calibration)
+    values = np.asarray(data, dtype=float)
+    calibration_type = calibration["type"]
+    if calibration_type == "linear":
+        factor = float(calibration["factor"])
+        return values * factor if calibration["operation"] == "multiply" else values / factor
+    if calibration_type == "exponential_pressure":
+        return float(calibration["scale"]) * float(calibration["base"]) ** (
+            float(calibration["slope"]) * values + float(calibration["offset"])
+        )
+    return float(calibration["scale"]) * float(calibration["base"]) ** (
+        (values - float(calibration["input_offset"])) / float(calibration["slope"])
+        + float(calibration["exponent_offset"])
+    )
+
+
+def resolve_vest_diagnostic(
+    shot: int,
+    diagnostic: str,
+    *,
+    info_file: str | None = None,
+    with_provenance: bool = False,
+) -> dict[str, Any] | tuple[dict[str, Any], dict[str, Any]]:
+    """Return the effective, validated canonical configuration for one diagnostic.
+
+    With ``with_provenance=True`` the return value becomes
+    ``(config, provenance)``, where ``provenance`` records which top-level
+    revision was applied. The default single-value return is unchanged for
+    existing callers.
+    """
+    content = load_yaml(_resolve_info_file_path(info_file))
+    defaults = content.get("0") or content.get(0) or {}
+    diagnostics = defaults.get("diagnostics", {}) if isinstance(defaults, Mapping) else {}
+    if not isinstance(diagnostics, Mapping) or diagnostic not in diagnostics:
+        raise VestConfigurationError(f"No canonical VEST diagnostic configuration for {diagnostic!r}")
+    config = diagnostics[diagnostic]
+    if not isinstance(config, Mapping):
+        raise VestConfigurationError(f"VEST diagnostic {diagnostic!r} must be a mapping")
+    base = {key: value for key, value in config.items() if key != "revisions"}
+    resolved, provenance = resolve_shot_revisions_with_provenance(
+        base, config.get("revisions"), int(shot), context=f"VEST diagnostic {diagnostic!r}"
+    )
+    calibration = resolved.get("calibration")
+    if calibration is not None:
+        validate_calibration(calibration)
+    if with_provenance:
+        return resolved, provenance
+    return resolved
+
+
+DIAGNOSTICS_TIME_POLICIES_KEY = "diagnostics_time_policies"
+
+
+@dataclass(frozen=True)
+class DiagnosticsTimePolicy:
+    """One named temporal coverage for a mapped diagnostics component.
+
+    Windows are half-open -- ``tstart <= t < tend`` -- on a uniform ``dt``
+    grid.  The same convention applies to every policy, so a component's
+    coverage is fully described by these three numbers plus the policy name.
+    """
+
+    name: str
+    tstart: float
+    tend: float
+    dt: float
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "policy": self.name,
+            "tstart": self.tstart,
+            "tend": self.tend,
+            "dt": self.dt,
+        }
+
+
+class DiagnosticsTimePolicyTable(dict):
+    """``component -> DiagnosticsTimePolicy`` with an explicit missing-key error.
+
+    A component that reaches the mapping stage without a configured policy is a
+    configuration bug, not a ``KeyError`` to be caught somewhere downstream.
+
+    ``windows`` keeps every configured window (including ones no component
+    currently uses) and ``default`` is the window the stage's own
+    ``tstart``/``tend``/``dt`` arguments retune, so the manifest can report the
+    whole policy document rather than only the components that were mapped.
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        windows: Mapping[str, "DiagnosticsTimePolicy"] | None = None,
+        default: "DiagnosticsTimePolicy | None" = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.windows: Dict[str, DiagnosticsTimePolicy] = dict(windows or {})
+        self.default = default
+
+    def __missing__(self, key: Any) -> "DiagnosticsTimePolicy":
+        known = ", ".join(sorted(str(name) for name in self)) or "<none>"
+        raise VestConfigurationError(
+            f"No diagnostics time policy is configured for component {key!r}; "
+            f"configured components: {known}"
+        )
+
+
+def _diagnostics_time_window(
+    name: Any, window: Any, *, context: str
+) -> DiagnosticsTimePolicy:
+    if not isinstance(window, Mapping):
+        raise VestConfigurationError(f"{context}: window {name!r} must be a mapping")
+    window_context = f"{context}: window {name!r}"
+    policy = DiagnosticsTimePolicy(
+        name=str(name),
+        tstart=_required_number(window, "tstart", context=window_context),
+        tend=_required_number(window, "tend", context=window_context),
+        dt=_required_number(window, "dt", context=window_context),
+    )
+    if not all(np.isfinite([policy.tstart, policy.tend, policy.dt])):
+        raise VestConfigurationError(f"{window_context}: tstart, tend, and dt must be finite")
+    if policy.tend <= policy.tstart:
+        raise VestConfigurationError(f"{window_context}: tend must be greater than tstart")
+    if policy.dt <= 0.0:
+        raise VestConfigurationError(
+            f"{window_context}: dt must be positive; a native timebase is an explicit mapper mode"
+        )
+    return policy
+
+
+def resolve_diagnostics_time_policies(
+    *,
+    analysis_override: Mapping[str, Any] | None = None,
+    overrides: Mapping[str, Any] | None = None,
+    info_file: str | None = None,
+) -> DiagnosticsTimePolicyTable:
+    """Return the effective per-component diagnostics time policy (issue #244).
+
+    The processed diagnostics product does not share one temporal coverage.
+    Equilibrium magnetics intentionally use a short analysis window, while TF,
+    barometry, and EC power must retain the full discharge history; this
+    resolves which named window each component uses.
+
+    ``analysis_override`` retunes the *default* window only -- that is what the
+    stage's long-standing ``tstart``/``tend``/``dt`` arguments have always
+    meant.  ``overrides`` is deep-merged over the whole configured document and
+    can add windows or re-point components.
+    """
+    content = load_yaml(_resolve_info_file_path(info_file))
+    document = content.get(DIAGNOSTICS_TIME_POLICIES_KEY)
+    context = DIAGNOSTICS_TIME_POLICIES_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {DIAGNOSTICS_TIME_POLICIES_KEY!r} section"
+        )
+    if overrides is not None:
+        if not isinstance(overrides, Mapping):
+            raise VestConfigurationError(f"{context}: overrides must be a mapping")
+        document = _deep_merge(document, overrides)
+
+    default_name = document.get("default")
+    if not isinstance(default_name, str) or not default_name:
+        raise VestConfigurationError(f"{context}: 'default' must name a configured window")
+
+    raw_windows = document.get("windows")
+    if not isinstance(raw_windows, Mapping) or not raw_windows:
+        raise VestConfigurationError(f"{context}: 'windows' must be a non-empty mapping")
+    # Checked before the override is applied: otherwise a `default` naming a
+    # window that does not exist would be materialized out of the override's
+    # own tstart/tend/dt, and the "not configured" guard below could never
+    # fire for the callers that always pass them (the Snakemake rule does).
+    if default_name not in raw_windows:
+        raise VestConfigurationError(
+            f"{context}: default window {default_name!r} is not configured; "
+            f"configured windows: {', '.join(sorted(str(n) for n in raw_windows))}"
+        )
+    if analysis_override:
+        merged = dict(raw_windows.get(default_name) or {})
+        merged.update(
+            {
+                key: value
+                for key, value in analysis_override.items()
+                if key in ("tstart", "tend", "dt") and value is not None
+            }
+        )
+        raw_windows = dict(raw_windows)
+        raw_windows[default_name] = merged
+    windows = {
+        str(name): _diagnostics_time_window(name, window, context=context)
+        for name, window in raw_windows.items()
+    }
+    if default_name not in windows:
+        raise VestConfigurationError(
+            f"{context}: default window {default_name!r} is not configured"
+        )
+
+    components = document.get("components")
+    if not isinstance(components, Mapping):
+        raise VestConfigurationError(f"{context}: 'components' must be a mapping")
+    table = DiagnosticsTimePolicyTable(
+        windows=windows, default=windows[default_name]
+    )
+    for component, window_name in components.items():
+        if not isinstance(window_name, str) or window_name not in windows:
+            raise VestConfigurationError(
+                f"{context}: component {str(component)!r} names unknown window "
+                f"{window_name!r}; configured windows: {', '.join(sorted(windows))}"
+            )
+        table[str(component)] = windows[window_name]
+    return table
+
+
+def build_window_time_axis(
+    source_time: Any,
+    tstart: float,
+    tend: float,
+    dt: float,
+) -> np.ndarray:
+    """Build the half-open target grid for one window, clipped to real coverage.
+
+    The result never extrapolates: it is confined to
+    ``[max(tstart, source[0]), min(tend, source[-1]))``.  A component whose
+    acquisition is shorter than its configured window therefore realizes a
+    narrower span rather than a fabricated one, and the caller can report that
+    clipping honestly.
+    """
+    source = np.asarray(source_time, dtype=float).reshape(-1)
+    tstart, tend, dt = float(tstart), float(tend), float(dt)
+    if not all(np.isfinite([tstart, tend, dt])):
+        raise VestConfigurationError("Time window tstart, tend, and dt must be finite")
+    if tend <= tstart:
+        raise VestConfigurationError("Time window tend must be greater than tstart")
+    if dt <= 0.0:
+        raise VestConfigurationError(
+            "Time window dt must be positive; a native timebase is an explicit mapper mode"
+        )
+    if source.size == 0:
+        raise VestConfigurationError("Cannot build a time axis from an empty source timebase")
+    start = max(tstart, float(source[0]))
+    end = min(tend, float(source[-1]))
+    if end <= start:
+        raise VestConfigurationError(
+            f"Requested window [{tstart}, {tend}) does not overlap the source coverage "
+            f"[{float(source[0])}, {float(source[-1])}]"
+        )
+    axis = np.arange(start, end, dt, dtype=float)
+    if axis.size == 0:
+        raise VestConfigurationError(
+            f"Requested window [{tstart}, {tend}) produces an empty grid at dt={dt}"
+        )
+    return axis
 
 
 def _set_nested_mapping_value(mapping: dict[str, Any], path: str, value: Any) -> None:
@@ -249,10 +669,12 @@ def load_raw_data(
             loaded = raw_db.load(int(source), numeric_field)
         except (TypeError, ValueError):
             loaded = raw_db.vest_load_by_name(int(source), str(field))
-        if loaded is None:
-            return np.array([0.0]), np.array([0.0])
-        time, data = loaded
-        return np.asarray(time), np.asarray(data)
+        return raw_db.require_signal(
+            loaded,
+            shot=int(source),
+            field=field,
+            signal_name=str(field),
+        )
 
     file_format = options.get("file_format", "mat")
     if file_format != "mat":
@@ -269,7 +691,13 @@ def load_raw_data(
 def process_signal(
     time: np.ndarray, data: np.ndarray, options: Optional[Dict[str, Any]] = None
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Thin wrapper delegating signal conditioning to `vaft.process.signal_processing`."""
+    """Deprecated wrapper for :func:`vaft.process.process_signal`."""
+    warnings.warn(
+        "vaft.machine_mapping.utils.process_signal() is deprecated; use "
+        "vaft.process.process_signal().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return process_signal_impl(time, data, options)
 
 
@@ -358,12 +786,18 @@ def process_static_geometry(ods: Any, diagnostic_type: str, static_info: Dict[st
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.phi", probe.get("orientation_phi", 0.0))
 
     elif diagnostic_type == "rogowski_coil":
-        for i, coil in enumerate(geometry.get("coils", [])):
-            set_path(ods, f"rogowski_coil.coil.{i}.position.r", coil.get("r", 0.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.position.z", coil.get("z", 0.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.position.phi", coil.get("phi", 0.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.turns", coil.get("turns", 1))
-            set_path(ods, f"rogowski_coil.coil.{i}.area", coil.get("area", 0.0))
+        # Issue #215: these legacy helpers write a top-level
+        # `rogowski_coil.coil.<i>.*` path that is not the canonical IMAS
+        # location (`magnetics.rogowski_coil.<i>.*`) and does not match the DD
+        # geometry convention (`position[:]` contour, `turns_per_metre`).
+        # Refuse rather than silently populating the wrong structure; the
+        # canonical mapping lives in vaft.machine_mapping.magnetics.
+        raise VestConfigurationError(
+            "Legacy rogowski_coil static helpers write the non-canonical "
+            "'rogowski_coil.coil.*' path; use "
+            "vaft.machine_mapping.magnetics._map_rogowski_coils, which writes "
+            "magnetics.rogowski_coil.* (issue #215)"
+        )
 
 
 def process_static_channels(ods: Any, diagnostic_type: str, static_info: Dict[str, Any]) -> None:
@@ -395,15 +829,18 @@ def process_static_channels(ods: Any, diagnostic_type: str, static_info: Dict[st
             )
 
     elif diagnostic_type == "rogowski_coil":
-        for i, channel in enumerate(channels):
-            set_path(ods, f"rogowski_coil.coil.{i}.name", channel.get("name", f"RC{i}"))
-            set_path(ods, f"rogowski_coil.coil.{i}.gain", channel.get("gain", 1.0))
-            set_path(ods, f"rogowski_coil.coil.{i}.offset", channel.get("offset", 0.0))
-            set_path(
-                ods,
-                f"rogowski_coil.coil.{i}.calibration_factor",
-                channel.get("calibration_factor", 1.0),
-            )
+        # Issue #215: these legacy helpers write a top-level
+        # `rogowski_coil.coil.<i>.*` path that is not the canonical IMAS
+        # location (`magnetics.rogowski_coil.<i>.*`) and does not match the DD
+        # geometry convention (`position[:]` contour, `turns_per_metre`).
+        # Refuse rather than silently populating the wrong structure; the
+        # canonical mapping lives in vaft.machine_mapping.magnetics.
+        raise VestConfigurationError(
+            "Legacy rogowski_coil static helpers write the non-canonical "
+            "'rogowski_coil.coil.*' path; use "
+            "vaft.machine_mapping.magnetics._map_rogowski_coils, which writes "
+            "magnetics.rogowski_coil.* (issue #215)"
+        )
 
 
 def get_metadata(source: str, options: dict | None = None) -> dict[str, Any]:
@@ -643,10 +1080,15 @@ def apply_default_constraint_uncertainties(
 __all__ = [
     "DEFAULT_CONSTRAINT_UNCERTAINTIES",
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
+    "DIAGNOSTICS_TIME_POLICIES_KEY",
+    "DiagnosticsTimePolicy",
+    "DiagnosticsTimePolicyTable",
+    "VestConfigurationError",
     "apply_default_constraint_uncertainties",
     "apply_magnetics_uncertainties",
     "apply_pf_active_current_uncertainties",
     "apply_tf_uncertainties",
+    "build_window_time_axis",
     "get_diagnostic_info",
     "get_metadata",
     "get_path",
@@ -661,5 +1103,6 @@ __all__ = [
     "process_static_channels",
     "process_static_geometry",
     "resolve_data_root",
+    "resolve_diagnostics_time_policies",
     "set_path",
 ]

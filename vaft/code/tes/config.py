@@ -26,7 +26,7 @@ class TESConfig:
     """
 
     # --- runtime ---
-    executable: Optional[str] = None          # path to the ``rtes`` binary; falls back to $RTES
+    executable: Optional[str] = None          # explicit rtes; else $TESHOME/bin/rtes, then legacy $RTES
     workdir: Path | str = Path(".")
     env: Mapping[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None

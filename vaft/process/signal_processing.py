@@ -1,9 +1,165 @@
+import warnings
+from collections.abc import Sequence
+
 import numpy as np
-from numpy import ndarray
-from typing import List, Dict, Any, Tuple
-import scipy.signal as signal
+import scipy.signal as scipy_signal
+from scipy.interpolate import CubicSpline, UnivariateSpline
 from scipy.optimize import curve_fit
-from scipy.interpolate import UnivariateSpline
+
+
+__all__ = [
+    "SignalRepairError",
+    "butterworth_bandpass",
+    "butterworth_lowpass",
+    "detect_active_window",
+    "detect_clipped_samples",
+    "detrend_moving_average",
+    "define_baseline",
+    "exp_baseline",
+    "is_signal_active",
+    "line_average_density",
+    "linear_baseline",
+    "process_signal",
+    "quadratic_baseline",
+    "repair_clipped_interval",
+    "signal_on_offset",
+    "smooth",
+    "subtract_baseline",
+    "vest_coil_current_noise_reduction",
+    # Direct compatibility imports remain available for one deprecation cycle.
+    "VEST_CoilCurrentNoiseReduction",
+    "signal_onoffset",
+    "vfit_signal_start_end",
+    "vfit_signal_startend",
+]
+
+
+class SignalRepairError(ValueError):
+    """Raised when a clipped waveform cannot be defensibly reconstructed.
+
+    Reconstructing a saturated interval is an interpolation, so it is only
+    valid where surrounding unsaturated samples actually constrain it.
+    Raising beats returning a fabricated waveform that looks like data.
+    """
+
+
+def detect_clipped_samples(data, *, clip_values, tolerance: float) -> np.ndarray:
+    """Return a boolean mask of samples sitting at an acquisition limit.
+
+    ``clip_values`` is a single signed level or a sequence of them, and the
+    mask is their union: a sample is saturated when it lies within
+    ``tolerance`` of *any* supplied level. Real acquisition hardware rails on
+    both sides and rarely symmetrically -- VEST's diamagnetic Rogowski channel
+    is a signed 16-bit ADC over +/-5 V, so its rails are exactly ``-5.0`` and
+    ``5 * 32767 / 32768`` (see `vest.yaml`, issue #285).
+
+    Detecting every level in one pass is not a convenience. Where a waveform
+    oscillates hard enough to hit both rails within a few samples, repairing
+    one rail at a time would fit the reconstruction through samples still
+    pinned at the other one.
+    """
+    values = np.asarray(data, dtype=float)
+    levels = np.atleast_1d(np.asarray(clip_values, dtype=float)).reshape(-1)
+    if levels.size == 0:
+        raise SignalRepairError("`clip_values` must contain at least one acquisition limit.")
+    if not np.all(np.isfinite(levels)):
+        raise SignalRepairError(f"`clip_values` must be finite, got {clip_values!r}.")
+    width = float(tolerance)
+    if not np.isfinite(width) or width <= 0.0:
+        raise SignalRepairError(f"`tolerance` must be a positive finite width, got {tolerance!r}.")
+
+    saturated = np.zeros(values.shape, dtype=bool)
+    for level in levels:
+        saturated |= np.abs(values - level) < width
+    return saturated
+
+
+def repair_clipped_interval(
+    time,
+    data,
+    *,
+    clip_value: float | Sequence[float],
+    tolerance: float,
+    min_support: int = 4,
+    return_mask: bool = False,
+):
+    """Reconstruct samples saturated at an acquisition limit by interpolation.
+
+    Samples within ``tolerance`` of ``clip_value`` are treated as saturated
+    and replaced by a cubic spline fitted to the remaining samples on the
+    physical ``time`` axis. Every unsaturated sample is preserved exactly.
+
+    ``clip_value`` may be a single signed level or a sequence of levels, in
+    which case saturation is their union (see `detect_clipped_samples`).
+
+    This is deliberately machine-independent: callers supply the limit and
+    tolerance (VEST's PF6 acquisition clips near -5000 A, see `vest.yaml`).
+
+    With ``return_mask=True`` the saturation mask is returned alongside the
+    repaired waveform, so a caller can report which samples it reconstructed
+    instead of handing downstream consumers an unmarked mixture.
+
+    Raises:
+        SignalRepairError: if the inputs contain non-finite values, the whole
+            waveform is saturated, fewer than ``min_support`` unsaturated
+            samples remain, or the saturated interval reaches either end of
+            the record (which would require extrapolation, not interpolation).
+    """
+    time = np.asarray(time, dtype=float)
+    values = np.asarray(data, dtype=float)
+    if time.shape != values.shape:
+        raise SignalRepairError(
+            f"time and data must have the same shape, got {time.shape} and {values.shape}"
+        )
+    if values.ndim != 1:
+        raise SignalRepairError("`data` must be one-dimensional.")
+    if not np.all(np.isfinite(time)) or not np.all(np.isfinite(values)):
+        raise SignalRepairError(
+            "Cannot repair a waveform containing non-finite samples; "
+            "clean or mask the signal before requesting saturation repair."
+        )
+
+    saturated = detect_clipped_samples(values, clip_values=clip_value, tolerance=tolerance)
+    if not saturated.any():
+        return (values.copy(), saturated) if return_mask else values.copy()
+    if saturated.all():
+        raise SignalRepairError(
+            f"Every sample is saturated at {clip_value}; there is no unsaturated "
+            "support to interpolate from, so no waveform can be reconstructed."
+        )
+
+    support = np.flatnonzero(~saturated)
+    if support.size < int(min_support):
+        raise SignalRepairError(
+            f"Cubic reconstruction needs at least {int(min_support)} unsaturated "
+            f"samples, found {support.size}."
+        )
+
+    clipped = np.flatnonzero(saturated)
+    if clipped[0] < support[0] or clipped[-1] > support[-1]:
+        raise SignalRepairError(
+            "The saturated interval reaches the start or end of the record, so "
+            "reconstructing it would extrapolate beyond the measured support "
+            "rather than interpolate between it."
+        )
+
+    spline = CubicSpline(time[support], values[support])
+    repaired = values.copy()
+    repaired[clipped] = spline(time[clipped])
+    return (repaired, saturated) if return_mask else repaired
+
+
+def line_average_density(n_e_line, path_length_m: float) -> np.ndarray:
+    """Return line-average electron density given an explicit chord length.
+
+    ``n_e_line`` is a line-integrated density (m^-2); dividing by the
+    diagnostic's known path length gives a line-average density (m^-3). No
+    calibration or geometry is inferred here -- ``path_length_m`` must be
+    supplied by the caller.
+    """
+    if path_length_m <= 0:
+        raise ValueError(f"path_length_m must be positive, got {path_length_m}")
+    return np.asarray(n_e_line, dtype=float) / float(path_length_m)
 
 
 def smooth(array, span: int) -> np.ndarray:
@@ -43,6 +199,70 @@ def smooth(array, span: int) -> np.ndarray:
     return out
 
 
+def butterworth_lowpass(data, cutoff: float, fs: float, order: int = 2,
+                        *, zero_phase: bool = False) -> np.ndarray:
+    """Butterworth low-pass filter along the last axis.
+
+    ``zero_phase=False`` applies a causal ``lfilter`` -- the convention of the
+    validated VEST SXR viewer, whose low-passed signals feed ratio and reference
+    arithmetic where matched group delay between channels matters more than zero
+    phase.  Pass ``zero_phase=True`` for a forward-backward ``filtfilt``.
+    """
+    values = np.asarray(data, dtype=float)
+    nyquist = 0.5 * float(fs)
+    if not 0.0 < float(cutoff) < nyquist:
+        raise ValueError(
+            f"cutoff must lie in (0, {nyquist:g}) Hz for fs={fs:g}; got {cutoff!r}"
+        )
+    b, a = scipy_signal.butter(int(order), float(cutoff) / nyquist, btype="low")
+    if zero_phase:
+        return scipy_signal.filtfilt(b, a, values, axis=-1)
+    return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
+def butterworth_bandpass(data, low: float, high: float, fs: float, order: int = 2,
+                         *, zero_phase: bool = True) -> np.ndarray:
+    """Butterworth band-pass filter along the last axis (zero-phase by default)."""
+    values = np.asarray(data, dtype=float)
+    nyquist = 0.5 * float(fs)
+    if not 0.0 < float(low) < float(high) < nyquist:
+        raise ValueError(
+            f"band edges must satisfy 0 < low < high < {nyquist:g} Hz for fs={fs:g}; "
+            f"got ({low!r}, {high!r})"
+        )
+    b, a = scipy_signal.butter(
+        int(order), [float(low) / nyquist, float(high) / nyquist], btype="band"
+    )
+    if zero_phase:
+        return scipy_signal.filtfilt(b, a, values, axis=-1)
+    return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
+def detrend_moving_average(data, window_samples: int) -> np.ndarray:
+    """Subtract a centered moving-average trend along the last axis.
+
+    The trend is a centered rolling mean with ``min_periods=1`` semantics: edge
+    windows shrink rather than producing NaNs, so the output has the input's
+    length.  Matches ``pandas.Series.rolling(window, center=True,
+    min_periods=1).mean()``, the convention of the validated VEST SXR viewer.
+    """
+    values = np.asarray(data, dtype=float)
+    window = int(window_samples)
+    if window <= 1 or values.shape[-1] == 0:
+        return values - values  # zero trend removal, preserving shape/dtype
+
+    length = values.shape[-1]
+    cumsum = np.zeros(values.shape[:-1] + (length + 1,), dtype=float)
+    np.cumsum(values, axis=-1, out=cumsum[..., 1:])
+    # A centered pandas window of size w at index i spans
+    # [i - w//2, i + (w-1)//2], clipped to the record.
+    index = np.arange(length)
+    start = np.clip(index - window // 2, 0, length)
+    stop = np.clip(index + (window - 1) // 2 + 1, 0, length)
+    trend = (cumsum[..., stop] - cumsum[..., start]) / (stop - start)
+    return values - trend
+
+
 def vest_coil_current_noise_reduction(data) -> np.ndarray:
     """Suppress point spikes in coil current traces."""
     values = np.asarray(data, dtype=float)
@@ -58,37 +278,45 @@ def vest_coil_current_noise_reduction(data) -> np.ndarray:
     return smoothed
 
 
-def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, float]:
-    """Detect an active signal window containing the main peak."""
+def detect_active_window(time, signal, threshold: float = 0.01) -> tuple[float, float]:
+    """Return the active time window that contains a signal's main peak.
+
+    This operation is machine-independent.  VEST source selection and
+    calibration belong in :mod:`vaft.machine_mapping`; callers should pass the
+    resulting physical signal to this processing function.
+    """
     time_values = np.asarray(time, dtype=float)
-    data_values = np.asarray(data, dtype=float)
+    data_values = np.asarray(signal, dtype=float)
     if time_values.ndim != 1 or data_values.ndim != 1:
-        raise ValueError("`time` and `data` must be one-dimensional.")
+        raise ValueError("`time` and `signal` must be one-dimensional.")
     if time_values.size != data_values.size:
-        raise ValueError("`time` and `data` must have the same length.")
+        raise ValueError("`time` and `signal` must have the same length.")
     if time_values.size == 0:
-        raise ValueError("`time` and `data` must not be empty.")
+        raise ValueError("`time` and `signal` must not be empty.")
 
     peak_index = int(np.argmax(data_values))
-    start_index = -1
-    end_index = -1
+    if data_values[peak_index] < threshold:
+        return float(time_values[0]), float(time_values[-1])
 
-    for idx, value in enumerate(data_values):
-        if value >= threshold:
-            if start_index == -1:
-                start_index = idx
-        else:
-            end_index = idx - 1
-            if start_index != -1 and start_index < peak_index < end_index:
-                break
-            start_index = -1
+    start_index = peak_index
+    while start_index > 0 and data_values[start_index - 1] >= threshold:
+        start_index -= 1
 
-    if start_index == -1:
-        start_index = 0
-    if end_index == -1:
-        end_index = time_values.size - 1
+    end_index = peak_index
+    while end_index + 1 < data_values.size and data_values[end_index + 1] >= threshold:
+        end_index += 1
 
     return float(time_values[start_index]), float(time_values[end_index])
+
+
+def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, float]:
+    """Deprecated compatibility wrapper for :func:`detect_active_window`."""
+    warnings.warn(
+        "vfit_signal_start_end() is deprecated; use detect_active_window().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return detect_active_window(time, data, threshold=threshold)
 
 
 def process_signal(time, data, options=None):
@@ -136,7 +364,7 @@ def process_signal(time, data, options=None):
                     f"For 'bandpass' filter, cutoff must satisfy "
                     f"0 < low ({low}) < high ({high}) < fs/2 ({nyquist})."
                 )
-            b, a = signal.butter(order, [low, high], btype="band", fs=fs)
+            b, a = scipy_signal.butter(order, [low, high], btype="band", fs=fs)
         elif filter_type in ("lowpass", "highpass"):
             cutoff_val = float(
                 cutoff[0] if isinstance(cutoff, (list, tuple, np.ndarray)) else cutoff
@@ -147,11 +375,11 @@ def process_signal(time, data, options=None):
                     f"for '{filter_type}' filter."
                 )
             btype = "low" if filter_type == "lowpass" else "high"
-            b, a = signal.butter(order, cutoff_val, btype=btype, fs=fs)
+            b, a = scipy_signal.butter(order, cutoff_val, btype=btype, fs=fs)
         else:
             raise ValueError(f"Unsupported filter type: {filter_type}")
 
-        data = signal.filtfilt(b, a, data)
+        data = scipy_signal.filtfilt(b, a, data)
 
     return time, data
 
@@ -252,34 +480,45 @@ def signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False)
     if verbose:
         print("threshold for signal detection:", threshold)
     # Smooth the data
-    data=signal.savgol_filter(data, smooth_window, 3)
-
-    # Find the onset and offset of a signal (e.g. Halpha signal)
-    nbt=len(time)
-
-    # index of maximum value
-    indxm=min(range(len(data)), key=lambda i: abs(data[i]-max(data)))
-    indxs=-1
-    indxe=-1
-    # We are looking for windows that constain continue data above threshold.
-    # The window we are looking for, must contain the maximum value
-    for i in range(nbt):
-        if data[i]>= threshold:
-            if indxs==-1:
-                indxs=i # start of the window
-        else:
-            indxe=i-1 # end of the window
-            if indxs < indxm and indxm < indxe:
-                break # if the windiw contains the maximum, we stop
-            indxs=-1
-    onset = time[indxs]
-    offset = time[indxe]
-    return onset, offset
+    smoothed = scipy_signal.savgol_filter(data, smooth_window, 3)
+    return detect_active_window(time, smoothed, threshold=threshold)
 
 
-VEST_CoilCurrentNoiseReduction = vest_coil_current_noise_reduction
-vfit_signal_startend = vfit_signal_start_end
-signal_onoffset = signal_on_offset
+def VEST_CoilCurrentNoiseReduction(data):  # noqa: N802
+    """Deprecated compatibility wrapper for the snake-case function."""
+    warnings.warn(
+        "VEST_CoilCurrentNoiseReduction() is deprecated; use "
+        "vest_coil_current_noise_reduction().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return vest_coil_current_noise_reduction(data)
+
+
+def vfit_signal_startend(time, data, threshold: float = 0.01):
+    """Deprecated compatibility wrapper for :func:`detect_active_window`."""
+    warnings.warn(
+        "vfit_signal_startend() is deprecated; use detect_active_window().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return detect_active_window(time, data, threshold=threshold)
+
+
+def signal_onoffset(time, data, smooth_window=5, threshold=0.01, verbose=False):
+    """Deprecated compatibility wrapper for :func:`signal_on_offset`."""
+    warnings.warn(
+        "signal_onoffset() is deprecated; use signal_on_offset().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return signal_on_offset(
+        time,
+        data,
+        smooth_window=smooth_window,
+        threshold=threshold,
+        verbose=verbose,
+    )
 
 def is_signal_active(
     data,

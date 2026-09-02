@@ -1,5 +1,5 @@
-source: VEST_MagneticsGeometry_Full_ver_2302.mat
-description: Minimal ordered geometry metadata used by magnetics static geometry population
+source: VEST_MagneticsGeometry_Full_ver_2409.mat
+description: Ordered VEST 2409 geometry metadata used by magnetics static geometry population
 channels:
 - field_code: 179
   kind: b_field_pol_probe
@@ -141,7 +141,7 @@ channels:
   kind: b_field_pol_probe
   r: 0.796
   z: 0.1
-- field_code: 170
+- field_code: 225
   kind: b_field_pol_probe
   r: 0.796
   z: 0.06
@@ -189,7 +189,7 @@ channels:
   kind: b_field_pol_probe
   r: 0.796
   z: -0.38
-- field_code: 225
+- field_code: 170
   kind: b_field_pol_probe
   r: 0.796
   z: -0.42

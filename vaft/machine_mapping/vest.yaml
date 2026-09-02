@@ -467,22 +467,802 @@
           field: 73
           daq_type: 1
       
-    rogowski_coil:
-      label: "Measured Rogowski Coil Current"
-      raw:
-        gain: 1
-        field: 102
-        daq_type: 0
-        fl_field: 25
-        effective_res: 2.8e-4
-        baseline_onset: 0.29
+    # The legacy `rogowski_coil` block was removed in issue #214.
+    #
+    # It was read by nothing -- its only consumers were the
+    # `process_static_geometry` / `process_static_channels` Rogowski branches,
+    # which issue #215 made raise because they wrote the non-canonical
+    # `rogowski_coil.coil.*` path. What it left behind was actively harmful:
+    #
+    #   * a second, unrevised copy of the FL10 coefficient (`effective_res:
+    #     2.8e-4`), wrong for every shot >= 17455, under a third name. Reading
+    #     that stale label as authoritative is what prompted #214;
+    #   * duplicates of `field: 109` / `fl_field: 25`, which the live
+    #     `plasma_current` block already owns;
+    #   * an invented winding geometry (r 0.45, turns 1, area 0.01) that
+    #     #215 explicitly declines to map, VEST having no authoritative
+    #     contour on record.
+    #
+    # The canonical sources are `plasma_current` below (channels, calibration,
+    # shot eras) and `magnetics.rogowski_coil` in the ODS (the sensors).
+
+    # Internal Magnetic Probe Array: eight midplane Hall probes, plus a
+    # co-located Bz sensor per position.  Sign convention: I_TF = raw_field_1
+    # * -3e4 (see `tf` below) together with a Hall gain of -2/15 T/V -- the
+    # "Data gain" on the array's own DAQ wiring datasheet, the authoritative
+    # hardware configuration.  daq_channel is that datasheet's DAQ device/line
+    # (Dev8 for Hall, Dev15 for Bz), recorded for provenance only.
+    impa:
+      label: "Internal Magnetic Probe Array"
+      channels:
+        0:
+          label: "IMPA 01"
+          field: 114
+          daq_type: 0
+          daq_channel: "Dev8/0"
+        1:
+          label: "IMPA 02"
+          field: 115
+          daq_type: 0
+          daq_channel: "Dev8/1"
+        2:
+          label: "IMPA 03"
+          field: 116
+          daq_type: 0
+          daq_channel: "Dev8/2"
+        3:
+          label: "IMPA 04"
+          field: 117
+          daq_type: 0
+          daq_channel: "Dev8/3"
+        4:
+          label: "IMPA 05"
+          field: 118
+          daq_type: 0
+          daq_channel: "Dev8/4"
+        5:
+          label: "IMPA 06"
+          field: 119
+          daq_type: 0
+          daq_channel: "Dev8/5"
+        6:
+          label: "IMPA 07"
+          field: 120
+          daq_type: 0
+          daq_channel: "Dev8/6"
+        7:
+          label: "IMPA 08"
+          field: 121
+          daq_type: 0
+          daq_channel: "Dev8/7"
+      # Vertical-field sensors, one per position (Yang et al., Rev. Sci.
+      # Instrum. 85, 11D809 (2014)).  These carry the physics measurement; the
+      # Hall channels above establish where they are and how they are aligned.
+      # Per the wiring datasheet they are NOT co-located with their same-index
+      # Hall sensor -- see geometry.bz_radial_offset below.
+      bz_channels:
+        0: {label: "IMPA Bz 01", field: 122, daq_type: 0, daq_channel: "Dev15/0"}
+        1: {label: "IMPA Bz 02", field: 123, daq_type: 0, daq_channel: "Dev15/1"}
+        2: {label: "IMPA Bz 03", field: 124, daq_type: 0, daq_channel: "Dev15/2"}
+        3: {label: "IMPA Bz 04", field: 125, daq_type: 0, daq_channel: "Dev15/3"}
+        4: {label: "IMPA Bz 05", field: 126, daq_type: 0, daq_channel: "Dev15/4"}
+        5: {label: "IMPA Bz 06", field: 127, daq_type: 0, daq_channel: "Dev15/5"}
+        6: {label: "IMPA Bz 07", field: 128, daq_type: 0, daq_channel: "Dev15/6"}
+        7: {label: "IMPA Bz 08", field: 129, daq_type: 0, daq_channel: "Dev15/7"}
+
+      # Radial-field sensors 130-137 are retired -- the wiring datasheet
+      # assigns them no DAQ channel at all, confirming they were never
+      # connected, not merely quiet.  The 2014 design used B_R only to confirm
+      # the probe sat at the midplane, where B_R ~ 0.  Deliberately not mapped.
+      br_channels_retired: [130, 131, 132, 133, 134, 135, 136, 137]
+
+      crosstalk:
+        # A slight probe misalignment lets the toroidal field bleed into the
+        # vertical-field sensor.  During a TF-only interval the true Bz is
+        # negligible, so whatever the Bz sensor reads there is crosstalk, and
+        # its ratio to the measured toroidal field gives the incident angle.
+        max_angle_deg: 30.0
+        min_r_squared: 0.8
+
       geometry:
-        coils:
-          - r: 0.45
-            z: 0.0
-            phi: 0.0
-            turns: 1
-            area: 0.01
+        z: 0.0
+        radial_pitch: 0.05
+        # Fit the effective radial pitch as well as R0: a probe inserted at an
+        # angle to the midplane projects its rigid 5 cm spacing onto a shorter
+        # radial step, so the ratio recovers the incident angle.
+        fit_pitch: true
+        # Per the wiring datasheet, the Bz and (retired) Br sensors are not
+        # co-located with their same-index Hall sensor: within one probe
+        # housing, Hall_i sits at R0+0.05*i, Bz_i at R0+0.01+0.05*i, and
+        # Br_i at R0+0.02+0.05*i.  These offsets are fixed hardware, not
+        # fitted.
+        bz_radial_offset: 0.01
+        br_radial_offset: 0.02
+        r0_initial: 0.4
+        # Upper bound covers the outboard vessel: the verified 2022-04-23
+        # alignment shots put the outermost wired channel at ~0.80 m, just
+        # outside the outboard magnetic probes at 0.796 m.
+        r_bounds: [0.1, 0.9]
+        # The array is insertable and its radial position is set per shot, so
+        # geometry is normally self-calibrated from the shot's own clean-TF
+        # window.  Set explicit radii only for a shot era where the array was
+        # surveyed or left fixed; they then take precedence.
+        r: null
+      calibration:
+        type: linear
+        # -2/15 T/V, from the DAQ wiring datasheet ("Data gain" column,
+        # -0.13333) -- the authoritative hardware configuration, not inferred
+        # from either legacy MATLAB script.  Channel-to-DAQ mapping: Hall1-8 =
+        # fields 114-121 on Dev8/0-7; Bz1-8 = fields 122-129 on Dev15/0-7;
+        # Br1-8 = fields 130-137, no DAQ channel assigned (retired).  Every
+        # Hall-type sensor (Hall and Bz) runs off the same 12 V supply.
+        gain: -0.13333333333333333
+        # The datasheet leaves the Bz "Data gain" column blank -- Bz sensors
+        # are wired to a separate DAQ card (Dev15) and their raw-voltage-to-
+        # tesla factor is not established.  Do not assume it equals the Hall
+        # gain; leave unset until confirmed, so field values stay in their
+        # native volts rather than fabricating a Tesla scale from an unverified
+        # assumption.
+        bz_gain: null
+        shot_era_overrides:
+          # 2022-04-23 IMPA alignment block (35376-35385).  Verified on
+          # 35376-35379 and 35385: with this sign the rigid 5 cm array fits
+          # the TF 1/R profile to ~1% with R0 ~ 0.48-0.50 m.
+          - min_shot: 35370
+            max_shot: 35390
+            gain: -0.13333333333333333
+            # Field 121 is not wired in this campaign; the array runs seven
+            # channels at the same rigid 5 cm pitch.
+            channels: [114, 115, 116, 117, 118, 119, 120]
+            bz_channels: [122, 123, 124, 125, 126, 127, 128]
+      processing:
+        sample_rate: 25000
+        signal_lowpass_hz: 250      # physics waveform (VEST_IMPAProcessing.m)
+        position_lowpass_hz: 2500   # legacy position fit (vest_impa_position.m)
+        baseline: first_sample
+        baseline_samples: 2500
+      tf_compensation:
+        tf_field: 1
+        tf_turns: 24
+        # The 2022-04-23 alignment shots show alpha ~ 1: the probes face the
+        # toroidal field and measure it directly.  The legacy +/-10 deg model
+        # assumed a near-vertical probe with a small TF pickup, which the data
+        # does not support; the bounds are kept for the legacy comparison.
+        orientation: toroidal
+        alpha_tolerance: 0.15
+        tilt_bounds_deg: [-10, 10]
+      calibration_window:
+        # Tuned against shots 39204 and 44740; a TF-only interval must carry a
+        # strong TF drive while the plasma and PF circuits are quiet.
+        # A TF-only interval needs a strong TF drive *for that shot*: VEST runs
+        # legitimate low-TF shots (39923 peaks at 1.3 kA, 39204 at 12.7 kA), so
+        # the threshold is a fraction of the shot's own peak above an absolute
+        # floor rather than a fixed ampere count tuned on one shot.
+        tf_current_min: 500.0
+        tf_current_min_fraction: 0.5
+        ip_max: 3000.0
+        pf_current_max: 500.0
+        min_duration: 0.005
+        tf_dynamic_range_min: 0.02
+        max_relative_noise: 0.5
+        smoothing_samples: 25       # 1 ms: Ip/PF quiet must be sustained
+      quality:
+        # Set from the verified 2022-04-23 alignment shots, whose rigid-array
+        # fits land at 0.07-0.14; shots with a disturbed or absent array sit
+        # far above this.
+        max_normalized_rmse: 0.15
+        pitch_tolerance: 0.015
+
+  # Canonical raw-field-first diagnostic definitions.  Existing keys above
+  # remain for compatibility with legacy mapping readers.
+  diagnostics:
+    plasma_current:
+      source:
+        field: 109
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: linear
+        operation: divide
+        factor: 2.0e-5
+        output_unit: A
+      processing:
+        # `reference.mode` selects how the FL10-derived reference waveform is
+        # applied to the raw-calibrated plasma current (`ip_shot`):
+        #   subtract                 - legacy full-trace baseline-matched
+        #                               subtraction (default; unchanged since #135).
+        #   subtract_fl10_windowed   - later-era FL10 acquisition/decimation
+        #                               path (issue #195), subtracted only
+        #                               inside `fl10.subtract_window`.
+        #   disabled                 - no FL10 compensation at all; `ip` is
+        #                               `ip_shot` unmodified (from #195).
+        # FL10 vessel-current compensation (issue #214).
+        #
+        # `field: 25` is Flux Loop #10 (R = 0.091 m, Z = 0.04 m, inboard /
+        # centre column). In THIS path its raw signal is used as a LOOP
+        # VOLTAGE and is deliberately NOT integrated -- unlike the generic
+        # equilibrium-magnetics path, where flux-loop voltage is integrated
+        # into poloidal flux. The two uses of field 25 are different
+        # quantities and must not be conflated.
+        #
+        # Units of `effective_resistance_ohm`, and why it is not called a
+        # mutual inductance:
+        #
+        #   ip_ref = V_FL10 * flux_gain / X   is subtracted from a current,
+        #   so X must be in V/A = ohm. An inductance would give V/H = A/s,
+        #   which cannot be subtracted from amperes.
+        #
+        # The donor `vest_ip.m` names this constant `indMutual_FL10_inLimiter`
+        # and labels its plots "FL10 Voltage/Mutual Inductance with Inboard
+        # Limiter" -- i.e. the donor calls it a mutual inductance between FL10
+        # and the inboard limiter. That name is dimensionally inconsistent
+        # with the operation the donor itself performs. The dimensional
+        # requirement is the harder evidence, so the key is named for the
+        # units the formula requires. (An early VAFT config also labelled this
+        # value `effective_res`, but that came from the same author porting
+        # the same algorithm, so it corroborates nothing on its own and has
+        # since been removed.) The conflict with the donor's name is recorded
+        # here rather than erased: it is not settled
+        # provenance, and resolving it needs VEST calibration documentation.
+        #
+        # What the compensation term physically represents
+        # (corrected 2026-09-01 from VEST operations; supersedes the earlier
+        # "dominant passive-current mode" reading):
+        #
+        #   * The plasma-current channel is the INNER Rogowski coil. In
+        #     principle an inner coil links no vessel eddy current at all, so
+        #     the compensation is NOT a general vessel-eddy subtraction.
+        #   * What it does link is the induced current in the TUNGSTEN LIMITER
+        #     surrounding the CS wall. The FL10-derived term has effectively
+        #     been used as a proxy measurement of that specific induced
+        #     current -- one structure, not a distributed wall mode.
+        #   * FL10 still sees TOTAL loop voltage, including PF and plasma
+        #     contributions; it is not an "eddy-only" pickup.
+        #
+        # The scalar `V / R_eff` transfer below is therefore a stand-in for
+        # that limiter induced current, and VEST's understanding of how the
+        # effective current should be computed HAS CHANGED as of 2026-09-01.
+        # The replacement model is not yet specified here, so the donor
+        # arithmetic is retained unchanged and this note records that the
+        # scalar form is superseded pending that specification. Do not treat
+        # `effective_resistance_ohm` as a settled physical constant.
+        #
+        # Numerical values are unchanged from the donor:
+        #   shot <  17455 -> 2.8e-4 ; shot >= 17455 -> 5.0e-4.
+        reference:
+          mode: subtract
+          field: 25
+          flux_gain: 11.0
+          effective_resistance_ohm: 2.8e-4
+          revisions:
+            - from_shot: 17455
+              to_shot: 46402
+              effective_resistance_ohm: 5.0e-4
+            - from_shot: 46403
+              to_shot: 47116
+              mode: subtract_fl10_windowed
+              effective_resistance_ohm: 5.0e-4
+              fl10:
+                # `field` intentionally left equal to the pre-existing
+                # `reference.field` (25) pending confirmation against the
+                # donor field-mapping table; revisit if evidence indicates
+                # a distinct FL10 channel for this era.
+                field: 25
+                # The donor (`vest_ip.m`) does `time2 = time2 + 0.26` because
+                # MATLAB's vest_load returns the fast-DAQ record on a raw
+                # 0-based axis. VAFT's loader already applies that same DAQ
+                # trigger correction (`_daq_trigger_time_correction`, +0.26 s
+                # for shots >= 41660) to every fast record, so re-applying it
+                # here would put FL10 at 0.52--0.62 s -- entirely outside the
+                # compensation window, silently disabling the correction.
+                time_offset_s: 0.0
+                decimate_factor: 10
+                gain_numerator: 11.0
+                smooth_span: 10
+                subtract_window: [0.26, 0.36]
+                # 1-based MATLAB index from the legacy `ipRef(175)` term;
+                # converted to 0-based (174) in Python. See magnetics.py for
+                # the documented VAFT interpretation of the degenerate
+                # single-point polyfit this offset replaces.
+                reference_offset_index: 175
+            # Shot >= 47117: the donor drops FL10 compensation entirely
+            # (`if shot < 47117 ... else ip = ipShot`) with no comment.
+            #
+            # The cause is now known (VEST operations, 2026-09-01): the
+            # inboard side was changed to CARBON. The induced current in the
+            # modified inboard structure is no longer measured by the inner
+            # Rogowski coil, so there is nothing left for the FL10 term to
+            # compensate and the subtraction is correctly disabled.
+            #
+            # Boundary resolved empirically against the VEST SQL database
+            # (2026-09-01; 361 shots, 46900-47260). There is ONE transition,
+            # not two, and #191's `shot >= 47018` is not supported:
+            #
+            #   * 47113 -> 47114 is a 6.5-day machine access window
+            #     (2025-11-06 23:04 -> 2025-11-13 10:52). 47114-47117 are four
+            #     vacuum/commissioning shots in a 22-minute block (7-10 kA,
+            #     FL10 collapsed to 0.003-0.007 V); plasma resumes at 47118
+            #     after a further 4-day gap, at roughly half the previous
+            #     current (210-230 kA -> 60-110 kA).
+            #   * Reproducing IP from raw signals both with and without the
+            #     FL10 term, and scoring the post-discharge residual (where
+            #     true Ip must be ~0): compensation improves 23/23 plasma
+            #     shots over 47050-47113 and only 5/49 over 47114-47200. The
+            #     term stops removing anything real exactly at the break.
+            #   * 47018 is 12 minutes after 47017 inside a continuous run day
+            #     (2025-11-05, ~12 min cadence). No machine access, and no
+            #     step in FL10 amplitude or compensation behaviour there.
+            #
+            # The physically correct boundary is therefore 47114, the first
+            # shot after the intervention. `from_shot` is kept at the donor's
+            # 47117 (the last commissioning shot) because 47114-47116 carry no
+            # plasma, so the three-shot difference cannot change any result;
+            # changing it would alter processed output for no physical gain.
+            # See #191 (which needs its 47018 corrected) and #216.
+            #
+            # `effective_resistance_ohm` is retained for provenance only --
+            # `mode: disabled` means it is not read.
+            - from_shot: 47117
+              mode: disabled
+              effective_resistance_ohm: 5.0e-4
+        # `baseline.analysis_start/analysis_end` is the shot-era *analysis
+        # window* (`xTime` in the legacy `vest_ip.m`). It is NOT the fitted
+        # baseline interval. The actual linear-baseline-fit window (`xBase`)
+        # is derived in code as the `lookback` samples immediately preceding
+        # `analysis_start`, plus `analysis_start` itself.
+        baseline:
+          analysis_start: 6000
+          analysis_end: 8500
+          lookback: 500
+          revisions:
+            - from_shot: 41446
+              to_shot: 41451
+              analysis_start: 7250
+              analysis_end: 8750
+            - from_shot: 41660
+              to_shot: 43760
+              analysis_start: 7250
+              analysis_end: 8750
+            - from_shot: 43761
+              analysis_start: 6000
+              analysis_end: 7251
+        sign:
+          multiply: 1.0
+          revisions:
+            - from_shot: 20259
+              multiply: -1.0
+        reference_comparison:
+          sample_rate: 25000.0
+          cutoff_frequency: 2500.0
+          taps: 26
+          baseline_index: 7499
+      revisions:
+        - from_shot: 42851
+          calibration:
+            factor: 1.0e-5
+
+    barometry_main:
+      source:
+        field: 12
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: exponential_pressure
+        scale: 2.4
+        slope: 1.667
+        offset: -11.46
+        base: 10.0
+        output_unit: Torr
+      processing:
+        median_kernel: 101
+        unit_conversion:
+          factor: 133.3223684211
+          output_unit: Pa
+
+    tf:
+      source:
+        field: 1
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: linear
+        operation: multiply
+        factor: -3.0e4
+        output_unit: A
+      processing:
+        sample_rate: 25000.0
+        cutoff_frequency: 2500.0
+        taps: 26
+        baseline_samples: 1000
+        smoothing_window: 50
+      output:
+        turns: 24
+        reference_radius: 0.4
+
+    # Diamagnetic-flux Rogowski coil (issue #285). This block is the home for
+    # the shot-era field code and the TF-circuit constants that used to sit as
+    # Python literals inside `vest_diamagnetic_flux`; the values below
+    # reproduce that code exactly, they are not a recalibration.
+    #
+    # TODO(#285): the field codes here are the ones the mapper has always
+    # used, but `vaft/data/legacy/sql_table.txt` names 246 "Flux Loop - #15"
+    # and 4 "PF2 and 3 Current", and reserves the name "Diamagnetic Flux" for
+    # field 236 (257 has no entry at all). Either the name tables are stale or
+    # the era selector is; field 236 is absent from every packaged sample dump
+    # so it cannot be checked offline. Behaviour is preserved until that is
+    # resolved with the diagnostic owner.
+    diamagnetic_flux:
+      source:
+        field: 257
+        raw_unit: V
+        daq_type: 0
+      processing:
+        tf_circuit:
+          turns: 24
+          inductance: 9.3e-4
+          resistance: 0.0279
+          capacitance: 120.0
+        # Applied as `-1 / rogowski_shunt`, matching the donor expression.
+        rogowski_shunt: 8.12e-3
+        # Signed 16-bit ADC spanning +/-5 V: the negative rail is exactly
+        # -5.0 V and the positive rail is 5 * 32767 / 32768, so the two limits
+        # are NOT symmetric and both must be listed. Tolerance is ~2 LSB
+        # (1 LSB = 10/65536 V ~= 1.5e-4 V).
+        saturation_repair:
+          values: [-5.0, 4.999847412109375]
+          tolerance: 3.0e-4
+      revisions:
+        - to_shot: 37504
+          source: {field: 246, raw_unit: V, daq_type: 0}
+        - from_shot: 37505
+          to_shot: 38451
+          source: {field: 4, raw_unit: V, daq_type: 0}
+        - from_shot: 38452
+          source: {field: 257, raw_unit: V, daq_type: 0}
+
+    pf_active:
+      processing:
+        baseline_samples: 5000
+        filter:
+          sample_rate: 25000.0
+          cutoff_frequency: 2500.0
+          taps: 251
+          smoothing_window: 10
+        coil_gains:
+          0: 1.0e4
+          1: 1.0e3
+          4: 1.0e4
+          5: 1.0e3
+          8: -1.0e3
+          9: -1.0e3
+        # Coil indices below are 0-based hardware coil numbers (0 = PF1 ...
+        # 9 = PF10), matching `coil_gains`. PF6 = index 5. Saturation repair
+        # reconstructs samples clipped at the acquisition limit via a
+        # generic cubic-spline primitive (`vaft.process.signal_processing.
+        # repair_clipped_interval`); it fails explicitly rather than
+        # fabricating data when insufficient support exists (issue #195).
+        #
+        # Disabled by default and enabled per era below. The donor
+        # (`vest_pf.m`) applies the -5000 A repair unconditionally, but PF6's
+        # gain flips sign at shot 38110 (+1e3 -> -1e3), so before that shot
+        # the acquisition rail appears at *+5000* A and a -5000 A sample is
+        # ordinary measured data. Repairing it there would corrupt real
+        # signal, so the policy is scoped to the negative-gain eras.
+        saturation_repair: null
+      revisions:
+        - from_shot: 19287
+          to_shot: 20258
+          processing:
+            coil_gains: {8: -5.0e2, 9: -5.0e2}
+        - from_shot: 20259
+          to_shot: 38109
+          processing:
+            coil_gains: {0: -5.0e4, 8: -5.0e2, 9: -5.0e2}
+        - from_shot: 38110
+          to_shot: 38360
+          processing:
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        - from_shot: 38361
+          to_shot: 38400
+          processing:
+            coil_gains: {0: 5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        - from_shot: 38401
+          to_shot: 45964
+          processing:
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        - from_shot: 45965
+          to_shot: 48371
+          processing:
+            coil_gains: {0: -1.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        - from_shot: 48372
+          processing:
+            coil_gains: {0: -1.0e4, 4: -5.0e3, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+
+    # Equilibrium-magnetics (flux loop / B-pol probe) DAQ-era processing
+    # (issue #195). `window` mirrors the legacy shot-era acquisition/
+    # baseline policy historically encoded in the Python
+    # `VestMagneticsProcessingConfig` dataclass (`vaft/process/magnetics.py`);
+    # `daq_mode` selects between the legacy slow-DAQ acquisition path and the
+    # later native-DAQ acquisition path (`legacy` | `native_daq`) -- a
+    # resolved config value, not a shot literal, consumed by
+    # `vest_equilibrium_magnetics_signals`.
+    #
+    # The native-DAQ era starts at 46404, one shot later than the
+    # plasma-current FL10 era (46403, confirmed by `vest_ip.m` line 38).
+    # The donor is self-inconsistent for exactly shot 46403:
+    # Batch_FiniteElementFitting_v11_Header.m and
+    # VEST_PrepareFilamentaryFitInput.m both dispatch `shotNumber <= 46403`
+    # to the legacy function, while Batch_Vaccum_Calculation.m sends
+    # `>= 46403` to the new one. VAFT follows the two equilibrium
+    # reconstruction paths that this preprocessing actually feeds.
+    equilibrium_magnetics:
+      processing:
+        # `index_start`/`index_end` select the canonical output window on the
+        # 25 kHz (4e-5 s) equilibrium-magnetics grid: index 6500 = 0.26 s and
+        # index 9000 = 0.36 s, so the late eras below are exactly the
+        # documented 0.26--0.36 s output window. `probe_baseline_end` is the
+        # number of leading samples of the *native* B-pol acquisition used for
+        # the linear baseline fit (1750 fast samples ~ 0.260--0.267 s from
+        # shot 43685). Flux-loop baselines follow one of two rules, matching
+        # the two donor functions (VFIT VEST_MagneticSignalProcessing[2].m):
+        #   flux_baseline_window  - slow-DAQ era, in physical seconds (MATLAB
+        #                           index_FL_start/index_FL_end; 6001:6500 =
+        #                           0.24--0.26 s from shot 43685).
+        #   flux_baseline_samples - native-DAQ era, leading samples of the
+        #                           250 kHz flux acquisition. The donor reuses
+        #                           index_Bz_start:index_Bz_end = 1:1750, i.e.
+        #                           the same window as the B-pol probes.
+        # When both are null the legacy index-based flux baselines on
+        # `VestMagneticsProcessingConfig` apply.
+        #
+        # NOTE: `resolve_shot_revisions` merges exactly one matching revision
+        # onto the base and does NOT chain eras, so every revision below must
+        # restate each key it needs -- not just the delta from the era before.
+        window:
+          index_start: 6000
+          index_end: 8500
+          probe_baseline_end: 8500
+          flux_baseline_window: null
+          flux_baseline_samples: null
+          daq_mode: legacy
+          revisions:
+            - from_shot: 41446
+              to_shot: 41451
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 5000
+            - from_shot: 41660
+              to_shot: 43684
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 5000
+            - from_shot: 43685
+              to_shot: 46403
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 1750
+              flux_baseline_window: [0.24, 0.26]
+              daq_mode: legacy
+            - from_shot: 46404
+              index_start: 6500
+              index_end: 9000
+              probe_baseline_end: 1750
+              # Native-DAQ era: flux loops moved onto the fast acquisition and
+              # take the probes' leading-sample baseline, NOT the 0.24--0.26 s
+              # slow-DAQ window used by the era before it.
+              flux_baseline_window: null
+              flux_baseline_samples: 1750
+              daq_mode: native_daq
+
+    # Triple Langmuir probes (issue #152). Deliberately no unconditional
+    # default block below `revisions:` -- a shot that matches no era has no
+    # valid bias voltage / tip geometry, and `resolve_vest_diagnostic` must
+    # then fail clearly rather than silently reuse a neighboring era. The
+    # documented gaps (mid: 42138-42144, 42641) are intentionally left
+    # unlisted so they fall through to that failure.
+    langmuir_probe_mid:
+      source:
+        voltage_field: 99
+        current_field: 100
+        raw_unit: V
+        daq_type: fast
+      gain:
+        voltage_gain: 22.0
+        current_divisor: 100.0
+      processing:
+        baseline_samples: 500
+        # The MATLAB reference applies "a one-dimensional median filter" but
+        # issue #152 does not record its kernel size, and no MATLAB source or
+        # reference .mat file was available in-repo to recover it (see issue
+        # discussion). Left unset (no filtering) rather than guessing a value
+        # that could distort the physics; set once the true kernel size is
+        # confirmed.
+        median_kernel: null
+      ion:
+        gas_species: H
+      revisions:
+        - to_shot: 42137
+          vd3: 38.0
+          tip_length_mm: 1.5
+          tip_radius_mm: 0.05
+        - from_shot: 42145
+          to_shot: 42640
+          vd3: 48.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 42642
+          to_shot: 43828
+          vd3: 48.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 43829
+          vd3: 57.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+
+    # Upper triple probe (issue #152). The 259/260 assembly modeled here was
+    # installed starting shot 42675 (user-confirmed); machine_mapping treats
+    # the assembly as structurally absent before that shot regardless of what
+    # this era table says, so eras below only matter from 42675 onward. The
+    # table is still transcribed in full from the issue for provenance.
+    langmuir_probe_upper:
+      source:
+        voltage_field: 259
+        current_field: 260
+        raw_unit: V
+        daq_type: fast
+      gain:
+        voltage_gain: 22.0
+        current_divisor: 100.0
+      processing:
+        baseline_samples: 500
+        # See langmuir_probe_mid.processing.median_kernel -- same caveat.
+        median_kernel: null
+      ion:
+        gas_species: H
+      revisions:
+        - to_shot: 42137
+          vd3: 43.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.05
+        - from_shot: 42145
+          to_shot: 43665
+          vd3: 64.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        # issue #152 notes the underlying MATLAB conditions overlap at the
+        # 43666-44065 boundary; the value below is the issue's own cleaned,
+        # single-valued reading of that range, trusted in the absence of the
+        # original MATLAB source.
+        - from_shot: 43666
+          to_shot: 44065
+          vd3: 73.4
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        # issue #152 notes a comment claiming shots 44066/44067/44068 used
+        # 83.1/92.8/92.8 V, but the executable MATLAB branch assigned 102.5 V
+        # to all three; 102.5 V is used here as the value that actually
+        # produced the historical processed data.
+        - from_shot: 44066
+          to_shot: 44280
+          vd3: 102.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 44281
+          to_shot: 45063
+          vd3: 121.6
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 45064
+          to_shot: 45065
+          vd3: 130.4
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 45066
+          to_shot: 46305
+          vd3: 139.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 46306
+          to_shot: 46310
+          vd3: 146.8
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 46311
+          to_shot: 46311
+          vd3: 164.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 46312
+          to_shot: 47257
+          vd3: 188.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - from_shot: 47258
+          vd3: 89.8
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+
+    # VEST outboard Mirnov fluctuation array (issue #155). 30 raw-voltage
+    # channels at three toroidal locations (45/135/225 deg), two vertical
+    # sub-arrays each (L1, L2) of five probes. These probes became physically
+    # operational at first_operational_shot; entries are only mapped for shots
+    # at or after that boundary. Field 301 carries a DB label typo
+    # (OutMirno_225_L2-01, missing the "v"); raw_label preserves that typo for
+    # provenance while identifier is normalized. Field 289's gain is estimated,
+    # not directly transcribed from a calibration sheet. Order below is the
+    # canonical physical order (toroidal group, then L1/L2, then z descending)
+    # and intentionally does not follow raw DB field numbering.
+    fluctuation_mirnov:
+      source: {raw_unit: V, daq_type: fast}
+      role: fluctuation
+      preserve_native_voltage: true
+      first_operational_shot: 44156
+      geometry: {major_radius: 0.796}
+      channels:
+        # 45 degrees
+        - {field: 286, raw_label: OutMirnov_45_L1-01, identifier: OutMirnov_45_L1-01, toroidal_angle_deg: 45, z: 0.4, gain: -0.00105}
+        - {field: 304, raw_label: OutMirnov_45_L1-02, identifier: OutMirnov_45_L1-02, toroidal_angle_deg: 45, z: 0.2, gain: 0.000925}
+        - {field: 287, raw_label: OutMirnov_45_L1-03, identifier: OutMirnov_45_L1-03, toroidal_angle_deg: 45, z: 0.0, gain: 0.00105}
+        - {field: 305, raw_label: OutMirnov_45_L1-04, identifier: OutMirnov_45_L1-04, toroidal_angle_deg: 45, z: -0.2, gain: 0.00105}
+        - {field: 288, raw_label: OutMirnov_45_L1-05, identifier: OutMirnov_45_L1-05, toroidal_angle_deg: 45, z: -0.4, gain: 0.00105}
+        - {field: 289, raw_label: OutMirnov_45_L2-01, identifier: OutMirnov_45_L2-01, toroidal_angle_deg: 45, z: 0.4, gain: 0.00105, calibration_provenance: estimated}
+        - {field: 306, raw_label: OutMirnov_45_L2-02, identifier: OutMirnov_45_L2-02, toroidal_angle_deg: 45, z: 0.2, gain: 0.00265}
+        - {field: 290, raw_label: OutMirnov_45_L2-03, identifier: OutMirnov_45_L2-03, toroidal_angle_deg: 45, z: 0.0, gain: 0.00275}
+        - {field: 307, raw_label: OutMirnov_45_L2-04, identifier: OutMirnov_45_L2-04, toroidal_angle_deg: 45, z: -0.2, gain: 0.0029}
+        - {field: 291, raw_label: OutMirnov_45_L2-05, identifier: OutMirnov_45_L2-05, toroidal_angle_deg: 45, z: -0.4, gain: 0.00275}
+        # 135 degrees
+        - {field: 292, raw_label: OutMirnov_135_L1-01, identifier: OutMirnov_135_L1-01, toroidal_angle_deg: 135, z: 0.4, gain: 0.00096}
+        - {field: 308, raw_label: OutMirnov_135_L1-02, identifier: OutMirnov_135_L1-02, toroidal_angle_deg: 135, z: 0.2, gain: 0.00096}
+        - {field: 293, raw_label: OutMirnov_135_L1-03, identifier: OutMirnov_135_L1-03, toroidal_angle_deg: 135, z: 0.0, gain: 0.0012}
+        - {field: 309, raw_label: OutMirnov_135_L1-04, identifier: OutMirnov_135_L1-04, toroidal_angle_deg: 135, z: -0.2, gain: 0.001025}
+        - {field: 294, raw_label: OutMirnov_135_L1-05, identifier: OutMirnov_135_L1-05, toroidal_angle_deg: 135, z: -0.4, gain: 0.001}
+        - {field: 295, raw_label: OutMirnov_135_L2-01, identifier: OutMirnov_135_L2-01, toroidal_angle_deg: 135, z: 0.4, gain: 0.0024}
+        - {field: 310, raw_label: OutMirnov_135_L2-02, identifier: OutMirnov_135_L2-02, toroidal_angle_deg: 135, z: 0.2, gain: -0.0026}
+        - {field: 296, raw_label: OutMirnov_135_L2-03, identifier: OutMirnov_135_L2-03, toroidal_angle_deg: 135, z: 0.0, gain: -0.0025}
+        - {field: 311, raw_label: OutMirnov_135_L2-04, identifier: OutMirnov_135_L2-04, toroidal_angle_deg: 135, z: -0.2, gain: -0.0025}
+        - {field: 297, raw_label: OutMirnov_135_L2-05, identifier: OutMirnov_135_L2-05, toroidal_angle_deg: 135, z: -0.4, gain: -0.0023}
+        # 225 degrees
+        - {field: 298, raw_label: OutMirnov_225_L1-01, identifier: OutMirnov_225_L1-01, toroidal_angle_deg: 225, z: 0.4, gain: 0.00105}
+        - {field: 312, raw_label: OutMirnov_225_L1-02, identifier: OutMirnov_225_L1-02, toroidal_angle_deg: 225, z: 0.2, gain: -0.00105}
+        - {field: 299, raw_label: OutMirnov_225_L1-03, identifier: OutMirnov_225_L1-03, toroidal_angle_deg: 225, z: 0.0, gain: -0.0008}
+        - {field: 313, raw_label: OutMirnov_225_L1-04, identifier: OutMirnov_225_L1-04, toroidal_angle_deg: 225, z: -0.2, gain: -0.0009}
+        - {field: 300, raw_label: OutMirnov_225_L1-05, identifier: OutMirnov_225_L1-05, toroidal_angle_deg: 225, z: -0.4, gain: 0.00095}
+        - {field: 301, raw_label: OutMirno_225_L2-01, identifier: OutMirnov_225_L2-01, toroidal_angle_deg: 225, z: 0.4, gain: 0.00275}
+        - {field: 314, raw_label: OutMirnov_225_L2-02, identifier: OutMirnov_225_L2-02, toroidal_angle_deg: 225, z: 0.2, gain: 0.0024}
+        - {field: 302, raw_label: OutMirnov_225_L2-03, identifier: OutMirnov_225_L2-03, toroidal_angle_deg: 225, z: 0.0, gain: -0.00225}
+        - {field: 315, raw_label: OutMirnov_225_L2-04, identifier: OutMirnov_225_L2-04, toroidal_angle_deg: 225, z: -0.2, gain: 0.0024}
+        - {field: 303, raw_label: OutMirnov_225_L2-05, identifier: OutMirnov_225_L2-05, toroidal_angle_deg: 225, z: -0.4, gain: 0.00245}
+
+  # Legacy vest_conversion.m inventory. These records are provenance only;
+  # they do not enable or fetch a diagnostic by themselves.
+  legacy_conversions:
+    plasma_current: {source_field: 109, legacy_field: 102, quantity: plasma_current, raw_unit: V, output_unit: A, calibration: {type: linear, operation: divide, factor: 2.0e-5}}
+    ech_6kw_forward: {source_field: 27, legacy_field: 103, quantity: 6kW_ECH_forward_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_6kw_reverse: {source_field: 28, legacy_field: 104, quantity: 6kW_ECH_reverse_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    barometry_main: {source_field: 12, legacy_field: 13, quantity: main_chamber_pressure, raw_unit: V, output_unit: Torr, calibration: {type: exponential_pressure, scale: 2.4, slope: 1.667, offset: -11.46, base: 10.0}}
+    barometry_mcp: {source_field: 219, legacy_field: 220, quantity: mcp_chamber_pressure, raw_unit: V, output_unit: Torr, calibration: {type: exponential_pressure, scale: 2.4, slope: 1.667, offset: -11.46, base: 10.0}}
+    ech_diag_1_forward: {source_field: 159, legacy_field: 164, quantity: ECH_power_diagnostic_1_forward, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_diag_1_reverse: {source_field: 160, legacy_field: 165, quantity: ECH_power_diagnostic_1_reverse, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_diag_2_forward: {source_field: 161, legacy_field: 166, quantity: ECH_power_diagnostic_2_forward, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    ech_diag_2_reverse: {source_field: 162, legacy_field: 167, quantity: ECH_power_diagnostic_2_reverse, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1000.0, input_offset: 1.01745, slope: -0.2763, exponent_offset: 0.0, base: 10.0}}
+    klystron_7875_oscillator: {source_field: 96, legacy_field: 249, quantity: 7.875GHz_klystron_oscillator_output_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.0, slope: -0.2342523835180023, exponent_offset: 5.0144, base: 10.0}}
+    klystron_7875_forward: {source_field: 97, legacy_field: 250, quantity: 7.875GHz_klystron_forward_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.0, slope: -0.2342523835180023, exponent_offset: 7.7180, base: 10.0}}
+    klystron_7875_reflected: {source_field: 98, legacy_field: 251, quantity: 7.875GHz_klystron_reflected_power, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.0, slope: -0.2342523835180023, exponent_offset: 7.7144, base: 10.0}}
+    ech_10kw_forward_1: {source_field: 228, legacy_field: 232, quantity: 10kW_ECH_forward_power_1, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+    ech_10kw_reverse_1: {source_field: 230, legacy_field: 234, quantity: 10kW_ECH_reverse_power_1, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+    ech_10kw_forward_2: {source_field: 229, legacy_field: 233, quantity: 10kW_ECH_forward_power_2, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
+    ech_10kw_reverse_2: {source_field: 231, legacy_field: 235, quantity: 10kW_ECH_reverse_power_2, raw_unit: V, output_unit: W, calibration: {type: logarithmic_power, scale: 1.0, input_offset: 0.9768, slope: -0.249, exponent_offset: 6.3, base: 10.0}}
 
   pf_active:
     ids_properties: 0
@@ -615,6 +1395,163 @@
         2:
           label: Lower Corner [V]
           field: 217
+
+  # VEST interferometer systems (see issue #153). Postprocessed line-integrated
+  # density (line_den) is ingested directly; these values must not be treated
+  # as raw phase and must not receive a second phase-to-density conversion.
+  interferometer:
+    horizontal_94ghz:
+      physical_channels: [5, 6, 7, 8, 9]
+      z_m: [0.000, -0.075, -0.150, -0.225, -0.300]
+      phi_rad: 5.240
+      launch_r_m: 0.8
+      mirror_r_m: 0.1
+      path_length_m: 1.4
+      wavelength_m: 0.00319
+      phase_to_n_e_line: 1.1136e17
+      identifiers: ["94GHz_H_ch05", "94GHz_H_ch06", "94GHz_H_ch07", "94GHz_H_ch08", "94GHz_H_ch09"]
+      filename_pattern: "{shot}_{tokens}_LID.mat"
+    vertical_282ghz:
+      r_m: 0.4
+      phi_rad: 3.665
+      z_bottom_m: -1.2
+      z_top_m: 1.2
+      path_length_m: 2.4
+      wavelength_m: 0.00106
+      phase_to_n_e_line: 3.3409e17
+      identifier: "282GHz_V_ch01"
+      filename_pattern: "{shot}_ALL_LID.mat"
+  # Triple Langmuir probes (issue #152). No unconditional default for
+  # vd3/tip_length_mm/tip_radius_mm outside shot_era_overrides -- a shot that
+  # matches no era has no valid bias voltage / tip geometry, and the mapper
+  # must fail clearly rather than reuse a neighboring era. The documented
+  # gaps (mid: 42138-42144, 42641) are intentionally left unlisted so they
+  # fall through to that failure.
+  langmuir_probes:
+    mid:
+      source:
+        voltage_field: 99
+        current_field: 100
+        raw_unit: V
+        daq_type: fast
+      calibration:
+        voltage_gain: 22.0
+        current_divisor: 100.0
+      processing:
+        baseline_samples: 500
+        # See the note on langmuir_probes.upper.processing.median_kernel.
+        median_kernel: null
+      ion:
+        gas_species: H
+      shot_era_overrides:
+        - max_shot: 42137
+          vd3: 38.0
+          tip_length_mm: 1.5
+          tip_radius_mm: 0.05
+        - min_shot: 42145
+          max_shot: 42640
+          vd3: 48.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 42642
+          max_shot: 43828
+          vd3: 48.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 43829
+          vd3: 57.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+
+    # Upper assembly (raw fields 259/260). Installed starting shot 42675
+    # (user-confirmed against the VEST shot log) -- machine_mapping treats it
+    # as structurally absent before that shot regardless of what this era
+    # table says; the table is still transcribed in full from the issue for
+    # provenance.
+    upper:
+      first_shot: 42675
+      source:
+        voltage_field: 259
+        current_field: 260
+        raw_unit: V
+        daq_type: fast
+      calibration:
+        voltage_gain: 22.0
+        current_divisor: 100.0
+      processing:
+        baseline_samples: 500
+        # The MATLAB reference applies "a one-dimensional median filter" but
+        # issue #152 does not record its kernel size, and no MATLAB source or
+        # reference .mat file was available in-repo to recover it (see issue
+        # discussion). Left unset (no filtering) rather than guessing a value
+        # that could distort the physics; set once the true kernel size is
+        # confirmed.
+        median_kernel: null
+      ion:
+        gas_species: H
+      shot_era_overrides:
+        - max_shot: 42137
+          vd3: 43.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.05
+        - min_shot: 42145
+          max_shot: 43665
+          vd3: 64.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        # issue #152 notes the underlying MATLAB conditions overlap at the
+        # 43666-44065 boundary; the value below is the issue's own cleaned,
+        # single-valued reading of that range, trusted in the absence of the
+        # original MATLAB source.
+        - min_shot: 43666
+          max_shot: 44065
+          vd3: 73.4
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        # issue #152 notes a comment claiming shots 44066/44067/44068 used
+        # 83.1/92.8/92.8 V, but the executable MATLAB branch assigned 102.5 V
+        # to all three; 102.5 V is used here as the value that actually
+        # produced the historical processed data.
+        - min_shot: 44066
+          max_shot: 44280
+          vd3: 102.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 44281
+          max_shot: 45063
+          vd3: 121.6
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 45064
+          max_shot: 45065
+          vd3: 130.4
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 45066
+          max_shot: 46305
+          vd3: 139.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 46306
+          max_shot: 46310
+          vd3: 146.8
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 46311
+          max_shot: 46311
+          vd3: 164.5
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 46312
+          max_shot: 47257
+          vd3: 188.0
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+        - min_shot: 47258
+          vd3: 89.8
+          tip_length_mm: 2.0
+          tip_radius_mm: 0.15
+
 # –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # Shot-specific overrides
 20259:
@@ -646,3 +1583,442 @@
     channel:
       0:
         gain: -50000
+
+# Temporal coverage of the processed diagnostics product, by component.
+#
+# The short analysis window exists for equilibrium magnetics, where the
+# reconstruction is only meaningful during the plasma. Engineering and
+# discharge-history signals need the whole shot: the TF ramp-up/flat-top/
+# ramp-down timing, and the prefill pressure history before breakdown, are
+# physical information that a 0.1 s crop destroys. VEST's slow DAQ already
+# records those channels over the full 0-1 s sequence.
+#
+# Like `diagnostic_registry`, this top-level namespace is deliberately outside
+# the `0:` / shot-override runtime configuration: it is pipeline policy, not
+# per-shot hardware history.
+diagnostics_time_policies:
+  default: analysis
+  windows:
+    # Windows are half-open, `tstart <= t < tend`, on a uniform `dt` grid --
+    # the same convention for every policy.
+    analysis:
+      tstart: 0.26
+      tend: 0.36
+      dt: 4.0e-5
+    full_discharge:
+      tstart: 0.0
+      tend: 1.0
+      dt: 4.0e-5
+  components:
+    pf_active: analysis
+    magnetics: analysis
+    impa: analysis
+    spectrometer_uv: analysis
+    langmuir_probes: analysis
+    tf: full_discharge
+    barometry: full_discharge
+    # Reserved for the EC power mapping (issue #165), which has no mapper yet.
+    # Registering it here means EC power inherits the full-discharge policy
+    # from the start rather than the short analysis window.
+    ec_power: full_discharge
+
+# Canonical ownership and availability registry. This top-level namespace is
+# intentionally not part of the `0:` / shot-override runtime configuration.
+diagnostic_registry:
+  dataset_description:
+    name: Data description
+    family: information
+    category: Information and control
+    ids: dataset_description
+    ids_path: dataset_description
+    responsible: [{name: Joint}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.dataset_description, entrypoint: dataset_description}
+    quantities: {static: [machine], measured: [date, shot_remark, label, wall_condition, trigger_timing], derived: [shot_summary]}
+  pf_active:
+    name: PF coils
+    family: machine_systems
+    category: Information and control
+    ids: pf_active
+    ids_path: pf_active
+    responsible: [{name: Joint}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.pf_active, entrypoint: pf_active}
+    quantities: {static: [geometry, circuit], measured: [current, charging_voltage], derived: []}
+  coils_non_axisymmetric:
+    name: Non-axisymmetric 3D coils
+    family: machine_systems
+    category: Information and control
+    ids: coils_non_axisymmetric
+    ids_path: coils_non_axisymmetric
+    responsible: [{name: 서광근}]
+    source: {type: reference_ods, formats: [dat], patterns: ["gpec/vest_UP.dat", "gpec/vest_MID.dat", "gpec/vest_LOW.dat"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.coils_non_axisymmetric, entrypoint: coils_non_axisymmetric}
+    quantities: {static: [geometry, turns], measured: [], derived: [current]}
+  tf:
+    name: TF coils
+    family: machine_systems
+    category: Information and control
+    ids: tf
+    ids_path: tf
+    responsible: [{name: Joint}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.tf, entrypoint: tf}
+    quantities: {static: [coil_turns], measured: [current], derived: [b_field_tor_vacuum_r]}
+  gas_pumping:
+    name: Gas pumping
+    family: machine_systems
+    category: Information and control
+    ids: gas_pumping
+    ids_path: gas_pumping
+    responsible: [{name: 정원익}, {name: 전찬휘}]
+    source: {type: unknown}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [duct], measured: [flow_rate], derived: []}
+  gas_injection:
+    name: Gas injection
+    family: machine_systems
+    category: Information and control
+    ids: gas_injection
+    ids_path: gas_injection
+    responsible: [{name: Joint}]
+    source: {type: unknown}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [pipe_position], measured: [gas_puffing_timing, duration, flow_rate, species], derived: []}
+  ech:
+    name: Electron cyclotron heating
+    family: heating_current_drive
+    category: Heating and current drive
+    ids: ec_launchers
+    ids_path: ec_launchers
+    responsible: [{name: 변준혁}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [frequency, launching_position, mode], measured: [forward_power, reversed_power], derived: []}
+  nbi:
+    name: Neutral beam injection
+    family: heating_current_drive
+    category: Heating and current drive
+    ids: nbi
+    ids_path: nbi
+    responsible: [{name: 정윤호}]
+    source: {type: unknown}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [aperture, beam_line, source_position, species], measured: [beam_voltage, beam_current, suppression_voltage, particle_fraction, power], derived: []}
+  helicity_injection:
+    name: Helicity injection
+    family: heating_current_drive
+    category: Heating and current drive
+    ids: not_developed
+    ids_path: not_developed
+    responsible: [{name: 박종윤}, {name: 김태경}]
+    source: {type: unknown}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [gun_position], measured: [injection_voltage, injection_current, arc_voltage, arc_current, limit_voltage], derived: []}
+  magnetics.ip:
+    name: Plasma current
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.ip
+    responsible: [{name: Joint}]
+    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    # Derived quantity, not the sensor: the physical Rogowski coil is
+    # magnetics.rogowski_coil (issue #215).
+    quantities: {static: [], measured: [], derived: [plasma_current]}
+  magnetics.flux_loop:
+    name: Flux loops
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.flux_loop
+    responsible: [{name: 남건우}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    quantities: {static: [position], measured: [voltage], derived: [poloidal_magnetic_flux]}
+  # Covers both the equilibrium probe set and the 45/135/225 deg outboard
+  # fluctuation array (issue #155). Both legitimately live in
+  # magnetics.b_field_pol_probe; they are told apart semantically -- by
+  # identifier and by the `role` in 0.diagnostics.fluctuation_mirnov -- not
+  # by inventing an IDS sub-path that IMAS does not define.
+  magnetics.b_field_pol_probe:
+    name: Magnetic probes (Mirnov coils)
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.b_field_pol_probe
+    responsible: [{name: 남건우}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    quantities: {static: [position, poloidal_angle, toroidal_angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
+  magnetics.diamagnetic_flux:
+    name: Diamagnetic flux
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.diamagnetic_flux
+    responsible: [{name: 김태경}]
+    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    # Derived quantity, not the sensor: the physical high-sensitivity TF
+    # Rogowski coil is magnetics.rogowski_coil (issue #215).
+    quantities: {static: [], measured: [], derived: [diamagnetic_flux]}
+  magnetics.rogowski_coil:
+    name: Rogowski coils
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.rogowski_coil
+    responsible: [{name: Joint}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.magnetics, entrypoint: magnetics}
+    # The two physical VEST Rogowski sensors themselves. Shot-era source
+    # fields and calibration stay in the `plasma_current` / `rogowski_coil`
+    # blocks above -- this entry adds no second source of truth.
+    quantities: {static: [], measured: [rogowski_current], derived: []}
+  magnetics.internal_probe:
+    name: Internal magnetic probes
+    family: magnetic_diagnostics
+    category: Diagnostics
+    ids: magnetics
+    ids_path: magnetics.b_field_pol_probe
+    responsible: [{name: 남건우}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.impa, entrypoint: impa}
+    quantities: {static: [type, position, angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
+  camera_visible:
+    name: FAST camera
+    family: imaging
+    category: Diagnostics
+    ids: camera_visible
+    ids_path: camera_visible
+    responsible: [{name: Joint}]
+    source: {type: file, formats: [bmp, text], patterns: ["{shot}/{shot}_{frame:08d}.bmp", "{shot}/{shot}_bmp.txt"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.camera_visible, entrypoint: camera_visible}
+    quantities: {static: [geometry_matrix, filter, lens], measured: [image, resolution, timeframe], derived: []}
+  spectrometer_uv:
+    name: Filterscope spectroscopy
+    family: spectroscopy_radiation
+    category: Diagnostics
+    ids: spectrometer_uv
+    ids_path: spectrometer_uv
+    responsible: [{name: Joint}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.spectrometer_uv, entrypoint: spectrometer_uv}
+    quantities: {static: [line_of_sight, toroidal_angle, line_label], measured: [intensity], derived: []}
+  langmuir_probes.embedded:
+    name: Triple Langmuir probe
+    family: edge_diagnostics
+    category: Diagnostics
+    ids: langmuir_probes
+    ids_path: langmuir_probes.embedded
+    responsible: [{name: 변준혁}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.langmuir_probes, entrypoint: langmuir_probes}
+    # v_floating and ion_saturation_current are deliberately not mapped: issue
+    # #152 requires their physical semantics (polarity, whether the measured
+    # current is truly ion-saturation current) to be verified first.
+    quantities: {static: [vertical_position, surface_area], measured: [], derived: [electron_density, electron_temperature, radial_position]}
+  interferometer:
+    name: Interferometer
+    family: edge_diagnostics
+    category: Diagnostics
+    ids: interferometer
+    ids_path: interferometer
+    responsible: [{name: 변준혁}]
+    source: {type: file, formats: [mat], patterns: ["{shot}_{tokens}_LID.mat", "{shot}_ALL_LID.mat"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.interferometer, entrypoint: interferometer}
+    quantities: {static: [position, line_of_sight, optical_path, wavelength], measured: [line_den], derived: [n_e_line, n_e_line_average]}
+  disruption.halo_currents:
+    name: Outboard limiter current monitor
+    family: edge_diagnostics
+    category: Diagnostics
+    ids: disruption
+    ids_path: disruption.halo_currents
+    responsible: [{name: Joint}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [position], measured: [voltage], derived: []}
+  bremsstrahlung_visible:
+    name: Visible bremsstrahlung spectroscopy
+    family: spectroscopy_radiation
+    category: Diagnostics
+    ids: bremsstrahlung_visible
+    ids_path: bremsstrahlung_visible
+    responsible: [{name: 유정원}]
+    source: {type: unknown}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [filter_wavelength, line_of_sight], measured: [channel_intensity], derived: [z_effective]}
+  barometry.gauge:
+    name: Vacuum gauges
+    family: edge_diagnostics
+    category: Diagnostics
+    ids: barometry
+    ids_path: barometry.gauge
+    responsible: [{name: 정원익}, {name: 전찬휘}]
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.barometry, entrypoint: barometry}
+    quantities: {static: [position, gauge_type], measured: [pressure], derived: []}
+  charge_exchange.ces:
+    name: Charge-exchange / beam-emission spectroscopy
+    family: kinetic_diagnostics
+    category: Diagnostics
+    ids: charge_exchange
+    ids_path: charge_exchange
+    responsible: [{name: 이원석}, {name: 엄태희}]
+    source: {type: file, formats: [mat], patterns: ["CES_{shot}.mat"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.charge_exchange, entrypoint: charge_exchange}
+    quantities: {static: [line_of_sight, position], measured: [intensity, ion_temperature, toroidal_velocity], derived: []}
+  charge_exchange.ion_doppler:
+    name: Ion Doppler spectroscopy
+    family: kinetic_diagnostics
+    category: Diagnostics
+    ids: charge_exchange
+    ids_path: charge_exchange
+    responsible: [{name: 이원석}, {name: 엄태희}]
+    source: {type: file, formats: [mat, xls], patterns: ["IDS_{shot}.mat", "ion_doppler_spectroscophy/{shot}.csv"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.charge_exchange, entrypoint: charge_exchange}
+    quantities: {static: [ion_species, radial_position, line_of_sight], measured: [impurity_ion_temperature, toroidal_velocity], derived: []}
+  hard_x_rays:
+    name: Hard X-ray detector
+    family: spectroscopy_radiation
+    category: Diagnostics
+    ids: hard_x_rays
+    ids_path: hard_x_rays
+    responsible: [{name: 임수빈}]
+    source: {type: unknown}
+    availability: If-requested
+    lifecycle: in_maintenance
+    mapping_status: not_implemented
+    quantities: {static: [channel, line_of_sight, energy_band], measured: [radiance], derived: []}
+  soft_x_rays:
+    name: Soft X-ray detector
+    family: spectroscopy_radiation
+    category: Diagnostics
+    ids: soft_x_rays
+    ids_path: soft_x_rays
+    responsible: [{name: 임수빈}, {name: 이명원}]
+    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.soft_x_rays, entrypoint: soft_x_rays}
+    quantities: {static: [channel, line_of_sight, energy_band, filter_window], measured: [digitizer_voltage], derived: [brightness_proxy, power_proxy, electron_temperature_proxy]}
+  thomson_scattering:
+    name: Thomson scattering spectroscopy
+    family: kinetic_diagnostics
+    category: Diagnostics
+    ids: thomson_scattering
+    ids_path: thomson_scattering
+    responsible: [{name: 김중화}, {name: 이종민}]
+    source: {type: file, formats: [mat], patterns: ["NeTe_Shot{shot}_v9_rev.mat", "{shot}_NeTe.mat"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.thomson_scattering, entrypoint: thomson_scattering}
+    quantities: {static: [radial_position, vertical_position, toroidal_angle], measured: [electron_density, electron_temperature], derived: []}
+  wall:
+    name: First wall and limiter geometry
+    family: machine_models
+    category: Device and model
+    ids: wall
+    ids_path: wall
+    responsible: [{name: 정원익}, {name: 전찬휘}]
+    source: {type: reference_ods, formats: [json_gz], patterns: ["geometry/VEST_static_geometry.json.gz"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.wall, entrypoint: wall}
+    quantities: {static: [limiter_position, material, vessel_volume], measured: [], derived: [wall_inventory, recycling_particles_coefficient, pumping_speed, particle_flux]}
+  pf_passive:
+    name: Passive structures
+    family: machine_models
+    category: Device and model
+    ids: pf_passive
+    ids_path: pf_passive
+    responsible: []
+    source: {type: reference_ods, formats: [json_gz], patterns: ["geometry/VEST_static_geometry.json.gz"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.pf_passive, entrypoint: pf_passive}
+    quantities: {static: [geometry, circuit], measured: [], derived: []}
+  em_coupling:
+    name: Electromagnetic coupling model
+    family: machine_models
+    category: Device and model
+    ids: em_coupling
+    ids_path: em_coupling
+    responsible: []
+    source: {type: reference_ods, formats: [json_gz], patterns: ["geometry/VEST_static_geometry.json.gz"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.em_coupling, entrypoint: em_coupling}
+    quantities: {static: [mutual_inductance, resistance], measured: [], derived: [response_matrix]}

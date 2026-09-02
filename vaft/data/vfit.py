@@ -15,7 +15,25 @@ from scipy.io import loadmat
 
 
 VFITKind = Literal["fem", "gse"]
-_TWO_PI = 2.0 * np.pi
+
+
+def _psi_to_internal() -> float:
+    """The psi factor taking VFIT's convention to VAFT's internal COCOS 11.
+
+    This was a bare ``2*pi``.  That value is ``cocos_transform(1, 11)['PSI']``
+    exactly -- the 2 -> 11 factor is ``-2*pi`` -- so the constant was asserting
+    VFIT is COCOS 1, a stronger claim than "psi is in Wb/rad".  Deriving it from
+    the declared convention makes the assertion explicit and keeps it in step
+    with the registry, where it is marked unconfirmed.
+    """
+    from omas import cocos_transform
+
+    from vaft.data.cocos import VAFT_INTERNAL_COCOS, convention_for
+
+    return float(cocos_transform(convention_for("vfit").cocos, VAFT_INTERNAL_COCOS)["PSI"])
+
+
+_TWO_PI = _psi_to_internal()
 
 
 def _native(value: Any) -> Any:
@@ -193,6 +211,12 @@ class VFITResult:
         ods[
             "equilibrium.ids_properties.comment"
         ] = f"VFIT {self.kind.upper()} MAT import; internal psi converted from Wb/rad to Wb (COCOS 11)"
+        # Machine-readable, unlike the comment above: a consumer should not have
+        # to parse prose to learn which convention this equilibrium is in.
+        from vaft.data.cocos import VAFT_INTERNAL_COCOS
+        from vaft.omas.general import set_ods_cocos
+
+        set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source="vfit import")
         ods["equilibrium.code.name"] = "VFIT"
         ods["equilibrium.code.version"] = "MAT import"
 

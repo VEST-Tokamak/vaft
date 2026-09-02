@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 import json
 import os
@@ -12,10 +13,16 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
+from vaft.formula.statistics import rms
+
+from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
 MU0 = 4.0e-7 * np.pi
 NCHEASE = 401
+CHEASE_HOME_ENV = "CHEASEHOME"
+CHEASE_HOME_EXECUTABLE = Path("bin/chease")
+CHEASE_COMPATIBILITY_ENVS = ("CHEASE", "CHEASE_EXEC_DIR")
 
 
 @dataclass(frozen=True)
@@ -135,13 +142,36 @@ class GeqdskSignInfo:
         }
 
 
-CHEASE_COCOS02_SIGNS = {
-    "dpsi": -1,
-    "bcentr": 1,
-    "current": -1,
-    "fpol": 1,
-    "q": -1,
-}
+#: The convention CHEASE expects, declared once in the shared registry.
+#:
+#: CHEASE works in normalised units with Ip and B0 positive (it is handed |Ip|
+#: and |BCENTR| with SIGNIPXP = SIGNB0XP = 1), so its g-file input is oriented to
+#: Ip < 0, B0 > 0 in the COCOS 2 system.  See Sauter Sect. IX for the index and
+#: Eq. 22 for the input consistency conditions.
+CHEASE_ORIENTATION = {"sigma_ip": -1, "sigma_b0": +1}
+
+
+def _desired_signs_for_cocos(cocos: int, *, sigma_ip: int, sigma_b0: int) -> dict[str, int]:
+    """The g-file sign pattern of an equilibrium in ``cocos`` with these orientations.
+
+    Every entry follows from Sauter Eq. 23 once the index and the two
+    orientation signs are fixed; none of them is an independent choice.
+    """
+    from vaft.data.cocos import cocos_spec
+
+    spec = cocos_spec(cocos)
+    return {
+        "dpsi": spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+        "bcentr": sigma_b0,
+        "current": sigma_ip,
+        "fpol": spec.expected_sign("f", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+        "q": spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0),
+    }
+
+
+#: Kept as a module-level name because the Snakemake workflow and the JSON
+#: manifests refer to it; it is now derived rather than hand-maintained.
+CHEASE_COCOS02_SIGNS = _desired_signs_for_cocos(2, **CHEASE_ORIENTATION)
 
 
 def _sign(value: float, *, default: int = 1) -> int:
@@ -207,13 +237,11 @@ def _desired_signs_from_info(info: GeqdskSignInfo) -> dict[str, int]:
 
 
 def _desired_signs_for_chease() -> dict[str, int]:
-    return {
-        "desired_dpsi_sign": CHEASE_COCOS02_SIGNS["dpsi"],
-        "desired_bcentr_sign": CHEASE_COCOS02_SIGNS["bcentr"],
-        "desired_current_sign": CHEASE_COCOS02_SIGNS["current"],
-        "desired_fpol_sign": CHEASE_COCOS02_SIGNS["fpol"],
-        "desired_q_sign": CHEASE_COCOS02_SIGNS["q"],
-    }
+    """CHEASE's input sign pattern, derived from its declared COCOS."""
+    from vaft.data.cocos import convention_for
+
+    signs = _desired_signs_for_cocos(convention_for("chease").cocos, **CHEASE_ORIENTATION)
+    return {f"desired_{name}_sign": value for name, value in signs.items()}
 
 
 def _force_geqdsk_signs(
@@ -643,11 +671,20 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
     if config.executable:
         candidate = Path(config.executable).expanduser()
         return candidate if candidate.exists() and os.access(candidate, os.X_OK) else None
-    chease_env = config.env.get("CHEASE") or os.environ.get("CHEASE")
+    environment = {**os.environ, **dict(config.env)}
+    home_executable = executable_from_home(
+        environment.get(CHEASE_HOME_ENV),
+        home_variable=CHEASE_HOME_ENV,
+        relative_path=CHEASE_HOME_EXECUTABLE,
+        code_name="CHEASE",
+    )
+    if home_executable is not None:
+        return home_executable
+    chease_env = environment.get("CHEASE")
     if chease_env:
         chease_candidate = Path(chease_env).expanduser()
         candidates.append(chease_candidate / "chease" if chease_candidate.is_dir() else chease_candidate)
-    env_path = config.env.get("CHEASE_EXEC_DIR") or os.environ.get("CHEASE_EXEC_DIR")
+    env_path = environment.get("CHEASE_EXEC_DIR")
     if env_path:
         env_candidate = Path(env_path).expanduser()
         candidates.append(env_candidate / "chease" if env_candidate.is_dir() else env_candidate)
@@ -658,7 +695,7 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
 
 
 def find_chease_executable(config: CHEASEConfig | None = None) -> Path | None:
-    """Return the CHEASE executable resolved from config, environment, or common paths."""
+    """Resolve CHEASE from explicit config, ``$CHEASEHOME``, or legacy variables."""
     return _resolve_executable(config or CHEASEConfig())
 
 
@@ -746,7 +783,34 @@ def _restore_boundary_limiter(refined: Any, source: Any):
     return item
 
 
-def _comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
+def _preserve_source_wall(result: "CHEASEResult", source: Any) -> None:
+    """Make an ODS-sourced run's `wall` provably identical to the input's.
+
+    CHEASE refines the equilibrium only. For a g-file input, the wall never
+    existed in the first place: RLIM/ZLIM is restored exactly by
+    `_restore_boundary_limiter()`, and `geqdsk.to_omas()` derives `wall`
+    from those unchanged values. For an ODS input, go one step further and
+    skip that GEQDSK text round trip entirely -- EQDSK's E14.6 fixed-format
+    only carries 6 significant digits -- by copying the input ODS's own
+    `wall` IDS directly onto the result, so it is provably unchanged rather
+    than merely numerically close.
+    """
+    from omas import ODS
+
+    if result.refined_ods is None or not isinstance(source, ODS) or "wall" not in source:
+        return
+    result.refined_ods["wall"] = copy.deepcopy(source["wall"])
+
+
+def comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
+    """Quantify how far CHEASE's refinement moved an EFIT equilibrium.
+
+    ``original``/``refined`` are :class:`~vaft.data.eqdsk.GEQDSK`-like mappings
+    (pre- and post-refinement g-files). Consumed both by the CHEASE run itself
+    (``CHEASEResult.comparison``) and, embedded into the refined ODS's
+    ``equilibrium.code.parameters``, by the ``chease`` validation stage
+    (:mod:`vaft.validation`).
+    """
     metrics = {}
     for name, key in (
         ("q_rms_rel", "QPSI"),
@@ -756,10 +820,19 @@ def _comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
     ):
         a = np.asarray(original[key], dtype=float).reshape(-1)
         b = _profile(refined[key], a.size)
-        denom = float(np.sqrt(np.nanmean(a * a))) or 1.0
-        metrics[name] = float(np.sqrt(np.nanmean((a - b) ** 2)) / denom)
+        # Normalized by the RMS of the original profile, not by a residual
+        # baseline: this is a relative profile change, so a flat-zero
+        # original falls back to an absolute RMS rather than to nan.
+        denom = rms(a) or 1.0
+        metrics[name] = float(rms(a - b) / denom)
     metrics["psi_axis_abs_diff"] = float(abs(float(original["SIMAG"]) - float(refined["SIMAG"])))
     metrics["psi_boundary_abs_diff"] = float(abs(float(original["SIBRY"]) - float(refined["SIBRY"])))
+    current_original = float(original["CURRENT"])
+    current_refined = float(refined["CURRENT"])
+    metrics["current_abs_diff"] = float(abs(current_original - current_refined))
+    metrics["current_rel_diff"] = float(
+        abs(current_original - current_refined) / abs(current_original) if current_original else float("nan")
+    )
     r0 = np.asarray(original.get("RBBBS", []), dtype=float).reshape(-1)
     z0 = np.asarray(original.get("ZBBBS", []), dtype=float).reshape(-1)
     r1 = np.asarray(refined.get("RBBBS", []), dtype=float).reshape(-1)
@@ -768,9 +841,9 @@ def _comparison_metrics(original: Any, refined: Any) -> dict[str, float]:
         b0 = _resample_closed_curve(np.column_stack([r0[: min(r0.size, z0.size)], z0[: min(r0.size, z0.size)]]), 256)
         b1 = _resample_closed_curve(np.column_stack([r1[: min(r1.size, z1.size)], z1[: min(r1.size, z1.size)]]), 256)
         delta = b0 - b1
-        metrics["boundary_r_rms"] = float(np.sqrt(np.nanmean(delta[:, 0] ** 2)))
-        metrics["boundary_z_rms"] = float(np.sqrt(np.nanmean(delta[:, 1] ** 2)))
-        metrics["boundary_rz_rms"] = float(np.sqrt(np.nanmean(np.sum(delta * delta, axis=1))))
+        metrics["boundary_r_rms"] = rms(delta[:, 0])
+        metrics["boundary_z_rms"] = rms(delta[:, 1])
+        metrics["boundary_rz_rms"] = rms(np.hypot(delta[:, 0], delta[:, 1]))
     metrics["boundary_points"] = float(len(np.asarray(refined.get("RBBBS", []))))
     return metrics
 
@@ -802,66 +875,116 @@ def _resample_closed_curve(rz: np.ndarray, count: int = 256) -> np.ndarray:
     return np.column_stack([np.interp(target, s, rz[:, 0]), np.interp(target, s, rz[:, 1])])
 
 
-def _create_comparison_plot(original: Any, refined: Any, target: Path) -> Path:
-    import matplotlib.pyplot as plt
+def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle: str):
+    """Boundary and limiter outlines for one equilibrium, as geometry layers."""
+    from vaft.plot import GeometryLayer
+
+    layers = []
+    rb = np.asarray(geqdsk.get("RBBBS", []), dtype=float)
+    zb = np.asarray(geqdsk.get("ZBBBS", []), dtype=float)
+    if rb.size and zb.size:
+        count = min(rb.size, zb.size)
+        layers.append(
+            GeometryLayer(
+                r=rb[:count],
+                z=zb[:count],
+                kind="polyline",
+                label=f"{label} boundary",
+                style={"color": color, "linestyle": linestyle, "lw": 1.8},
+            )
+        )
+    rl = np.asarray(geqdsk.get("RLIM", []), dtype=float)
+    zl = np.asarray(geqdsk.get("ZLIM", []), dtype=float)
+    if rl.size and zl.size:
+        count = min(rl.size, zl.size)
+        layers.append(
+            GeometryLayer(
+                r=rl[:count],
+                z=zl[:count],
+                kind="polyline",
+                label="",
+                style={"color": color, "linestyle": ":", "lw": 1.0, "alpha": 0.65},
+            )
+        )
+    return layers
+
+
+def _comparison_model(original: Any, refined: Any):
+    """Build the CHEASE input-vs-refined comparison view model.
+
+    Rendering stays in :mod:`vaft.plot` (issue #63): this only shapes the two
+    EQDSKs into the typed view models the canonical panel renderer consumes.
+
+    The four profile comparisons are drawn exactly as before.  The flux map is
+    the *refined* psi_N field with the input boundary overlaid, rather than two
+    overlaid contour sets: extracting contour polylines needs a live Axes, which
+    only a renderer may own.  The dedicated boundary/limiter panel still
+    compares both geometries directly, so nothing the comparison is for is lost.
+    """
+    from vaft.plot import Field2D, GeometryLayers, Panels, Profile1D, Series
 
     x0 = np.linspace(0.0, 1.0, int(original["NW"]))
     xr = np.linspace(0.0, 1.0, int(refined["NW"]))
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8.5))
-    for ax, key, title, ylabel in (
-        (axes[0, 0], "QPSI", "Safety factor", "q"),
-        (axes[0, 1], "PRES", "Pressure", "Pa"),
-        (axes[1, 0], "PPRIME", "Pressure derivative", "dP/dpsi"),
-        (axes[1, 1], "FFPRIM", "FF prime", "FF'"),
+    panels: list[Any] = []
+    for key, title, ylabel in (
+        ("QPSI", "Safety factor", "q"),
+        ("PRES", "Pressure", "Pa"),
+        ("PPRIME", "Pressure derivative", "dP/dpsi"),
+        ("FFPRIM", "FF prime", "FF'"),
     ):
-        ax.plot(x0, np.asarray(original[key], dtype=float), label="input", lw=2)
-        ax.plot(xr, np.asarray(refined[key], dtype=float), label="CHEASE", lw=1.6)
-        ax.set_title(title)
-        ax.set_xlabel("Normalized flux")
-        ax.set_ylabel(ylabel)
-        ax.grid(True, alpha=0.25)
-        ax.legend()
+        panels.append(
+            Profile1D(
+                series=(
+                    Series(
+                        x=x0,
+                        y=np.asarray(original[key], dtype=float),
+                        label="input",
+                        style={"lw": 2.0},
+                    ),
+                    Series(
+                        x=xr,
+                        y=np.asarray(refined[key], dtype=float),
+                        label="CHEASE",
+                        style={"lw": 1.6},
+                    ),
+                ),
+                coordinate_label="Normalized flux",
+                y_label=ylabel,
+                title=title,
+            )
+        )
 
-    r0, z0, psi0 = _psi_norm_for_plot(original)
     r1, z1, psi1 = _psi_norm_for_plot(refined)
-    levels = np.linspace(0.1, 1.0, 10)
-    ax_psi = axes[0, 2]
-    ax_psi.contour(r0, z0, psi0.T, levels=levels, colors="tab:blue", linewidths=1.0, linestyles="--")
-    ax_psi.contour(r1, z1, psi1.T, levels=levels, colors="tab:orange", linewidths=1.0)
-    ax_psi.plot([], [], "--", color="tab:blue", label="input")
-    ax_psi.plot([], [], "-", color="tab:orange", label="CHEASE")
-    ax_psi.set_title(r"$\psi_N(R,Z)$ contours")
-    ax_psi.set_xlabel("R [m]")
-    ax_psi.set_ylabel("Z [m]")
-    ax_psi.set_aspect("equal", adjustable="box")
-    ax_psi.grid(True, alpha=0.2)
-    ax_psi.legend()
+    input_layers = _boundary_and_limiter_layers(original, "input", "tab:blue", "--")
+    refined_layers = _boundary_and_limiter_layers(refined, "CHEASE", "tab:orange", "-")
+    panels.append(
+        Field2D(
+            r=r1,
+            z=z1,
+            values=psi1.T,
+            value_label=r"$\psi_N$",
+            title=r"$\psi_N(R,Z)$, CHEASE (input boundary overlaid)",
+            contour_levels=np.linspace(0.1, 1.0, 10),
+            filled=False,
+            overlays=tuple(layer for layer in input_layers if layer.label),
+        )
+    )
+    panels.append(
+        GeometryLayers(
+            layers=tuple(input_layers + refined_layers),
+            title="Boundary and limiter",
+        )
+    )
+    return Panels(models=tuple(panels), ncols=3, share_x=False)
 
-    ax_bnd = axes[1, 2]
-    for item, color, label, linestyle in (
-        (original, "tab:blue", "input boundary", "--"),
-        (refined, "tab:orange", "CHEASE boundary", "-"),
-    ):
-        rb = np.asarray(item.get("RBBBS", []), dtype=float)
-        zb = np.asarray(item.get("ZBBBS", []), dtype=float)
-        if rb.size and zb.size:
-            count = min(rb.size, zb.size)
-            ax_bnd.plot(rb[:count], zb[:count], color=color, linestyle=linestyle, lw=1.8, label=label)
-        rl = np.asarray(item.get("RLIM", []), dtype=float)
-        zl = np.asarray(item.get("ZLIM", []), dtype=float)
-        if rl.size and zl.size:
-            count = min(rl.size, zl.size)
-            ax_bnd.plot(rl[:count], zl[:count], color=color, linestyle=":", lw=1.0, alpha=0.65)
-    ax_bnd.set_title("Boundary and limiter")
-    ax_bnd.set_xlabel("R [m]")
-    ax_bnd.set_ylabel("Z [m]")
-    ax_bnd.set_aspect("equal", adjustable="box")
-    ax_bnd.grid(True, alpha=0.2)
-    ax_bnd.legend()
-    fig.tight_layout()
-    fig.savefig(target, dpi=150)
-    plt.close(fig)
-    return target
+
+def _create_comparison_plot(original: Any, refined: Any, target: Path) -> Path:
+    from vaft.plot import render_panels, save_figure
+
+    figure, _axes = render_panels(
+        _comparison_model(original, refined), show=False, figsize=(15.0, 8.5)
+    )
+    return save_figure(figure, target, dpi=150)
 
 
 def _read_optional(path: Path) -> str:
@@ -886,7 +1009,14 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     config = config or CHEASEConfig(workdir=inputs.workdir)
     executable = _resolve_executable(config)
     if executable is None:
-        raise FileNotFoundError("CHEASE executable not found; set CHEASEConfig.executable or CHEASE_EXEC_DIR")
+        raise FileNotFoundError(
+            missing_home_message(
+                home_variable=CHEASE_HOME_ENV,
+                relative_path=CHEASE_HOME_EXECUTABLE,
+                code_name="CHEASE",
+                compatibility_variables=CHEASE_COMPATIBILITY_ENVS,
+            )
+        )
     if inputs.expeq is None or not inputs.expeq.exists():
         raise FileNotFoundError(f"Missing EXPEQ file in {inputs.workdir}")
     if inputs.namelist is None or not inputs.namelist.exists():
@@ -941,7 +1071,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
             )
         write_geqdsk(refined, refined_target)
 
-    result = collect_chease_outputs(inputs.workdir, config)
+    result = collect_chease_outputs(inputs.workdir, config, source=inputs.source)
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
@@ -952,14 +1082,33 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     return result
 
 
-def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = None) -> CHEASEResult:
-    """Collect CHEASE files from a working directory and parse refined GEQDSK."""
+def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = None, source: Any = None) -> CHEASEResult:
+    """Collect CHEASE files from a working directory and parse refined GEQDSK.
+
+    `source` is the original input passed to `prepare_chease_inputs`/`refine_equilibrium`
+    (an ODS or a GEQDSK). When it is an ODS, its `wall` IDS is copied onto the
+    result verbatim so the invariant "CHEASE never invents or replaces limiter
+    geometry" holds for every caller of this function, not only `run_chease()`.
+    """
     base = Path(workdir).expanduser()
     config = config or CHEASEConfig(workdir=base)
     from vaft.data.eqdsk import read_geqdsk
 
     raw = base / "EQDSK_COCOS_02.OUT"
-    refined_candidates = sorted(base.glob("*_chease.geqdsk")) + sorted(base.glob("*_chease.gfile")) + sorted(base.glob("*_chease.g"))
+    # `_refined_output_path()` names the restored file `<stem>_chease<suffix>`,
+    # where `<suffix>` is whatever Path.suffix finds after the last dot in the
+    # *input* name -- for VEST's `g<shot>.<time>` gfiles (no .geqdsk/.gfile/.g
+    # extension) that is the numeric time, e.g. `g039915_chease.00319`. A glob
+    # restricted to the conventional GEQDSK extensions never matches that name
+    # and silently falls back to the raw, pre-restore CHEASE output below,
+    # discarding run_chease()'s boundary/limiter restoration entirely.
+    refined_candidates = sorted(
+        path
+        for path in base.glob("*_chease*")
+        if path.is_file()
+        and not path.name.startswith(".")  # exclude AppleDouble/dotfile sidecars
+        and path.suffix.lower() not in {".json", ".png", ".log"}
+    )
     refined = refined_candidates[0] if refined_candidates else (raw if raw.exists() else None)
     preferred_inputs = [
         base / "source.geqdsk",
@@ -998,7 +1147,7 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
             refined_ods = refined_obj.to_omas()
             if input_geqdsk is not None:
                 original_obj = read_geqdsk(input_geqdsk)
-                comparison = _comparison_metrics(original_obj, refined_obj)
+                comparison = comparison_metrics(original_obj, refined_obj)
                 if config.create_plot:
                     figures.append(_create_comparison_plot(original_obj, refined_obj, base / "chease_comparison.png"))
         except Exception:
@@ -1009,7 +1158,7 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
         "raw": tuple(path for path in (raw,) if path.exists()),
         "inputs": tuple(path for path in (base / "EXPEQ", base / "chease_namelist") if path.exists()),
     }
-    return CHEASEResult(
+    result = CHEASEResult(
         returncode=None,
         workdir=base,
         input_geqdsk=input_geqdsk,
@@ -1022,6 +1171,8 @@ def collect_chease_outputs(workdir: str | Path, config: CHEASEConfig | None = No
         comparison=comparison,
         stdout=_read_optional(base / "chease.log") if base.exists() else "",
     )
+    _preserve_source_wall(result, source)
+    return result
 
 
 def refine_equilibrium(source: Any, config: CHEASEConfig | None = None) -> CHEASEResult:
@@ -1041,6 +1192,7 @@ __all__ = [
     "CodeRunner",
     "GeqdskSignInfo",
     "collect_chease_outputs",
+    "comparison_metrics",
     "find_chease_executable",
     "prepare_chease_inputs",
     "refine_equilibrium",

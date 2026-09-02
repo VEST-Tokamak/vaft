@@ -37,6 +37,38 @@ def _time_label(path: Path) -> str:
     return parts[-1] if len(parts) > 1 else path.stem
 
 
+def _write_runs_summary(output_dir: Path, shot: int, executable: str, gfiles: tuple[Path, ...], refined: tuple[Path, ...], records: list[dict]) -> None:
+    """``chease_runs.json`` must exist on every exit path, including the skip
+    paths where CHEASE never runs, so the ``chease`` FileDB stage always has a
+    summary to read -- the same reasoning as ``_write_plot_manifest``.
+    """
+    summary = {
+        "shot": int(shot),
+        "executable": executable,
+        "input_gfiles": [str(path) for path in gfiles],
+        "refined_gfiles": [str(path) for path in refined],
+        "records": records,
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "chease_runs.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _write_plot_manifest(plots_dir: Path) -> Path:
+    """List the staged comparison figures, even when there are none.
+
+    Snakemake declares this file as a real output of the CHEASE rule, so it has
+    to exist on every exit path -- including the skip paths where CHEASE never
+    runs -- rather than only when figures happen to have been produced.
+    """
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    manifest = plots_dir / "plot_refined_gfiles_generated.txt"
+    figures = sorted(path for path in plots_dir.glob("*.png"))
+    manifest.write_text(
+        "".join(f"{path}\n" for path in figures), encoding="utf-8"
+    )
+    return manifest
+
+
 def _stage_plot(result_workdir: Path, gfile: Path, plots_dir: Path) -> Path | None:
     source = result_workdir / "chease_comparison.png"
     if not source.exists():
@@ -64,23 +96,51 @@ def main() -> int:
     parser.add_argument("--output-cocos", default="input", help="CHEASE output sign convention handling.")
     parser.add_argument("--preserve-boundary-limiter", default="true", help="Restore EFIT boundary/limiter in staged output.")
     parser.add_argument("--create-plot", default="true", help="Create comparison plots for refined gfiles.")
+    parser.add_argument(
+        "--plot-dir",
+        default="",
+        # Deliberately a string: `type=Path` turns both the empty default and an
+        # explicit `--plot-dir ""` (what the shot_first layout passes) into
+        # Path('.'), which is truthy and silently redirected every figure and the
+        # manifest into the working directory.
+        help="Canonical FileDB plot/ directory for the CHEASE comparison figures.",
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    # force=True: vaft.database.raw installs a root handler at import time, which makes
+    # basicConfig() a no-op without this, silently dropping our INFO logs.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
+    )
     gfiles = _read_manifest(args.gfile_manifest)
     output_dir = args.output.parent
     work_root = output_dir / "work"
-    plots_dir = output_dir / "plots"
+    # Issue #139: comparison figures belong in the canonical `chease/{shot}/plot/`
+    # artifact, not in an ad hoc subdirectory of `output/`.
+    plots_dir = Path(args.plot_dir) if args.plot_dir.strip() else output_dir / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
     work_root.mkdir(parents=True, exist_ok=True)
+
+    # An EFIT run with no converged g-files is a valid upstream outcome.  CHEASE
+    # and the stability solvers must receive an explicit empty manifest, not a
+    # synthetic CHEASE failure caused by iterating an empty input set.
+    if not gfiles:
+        _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, args.executable, gfiles, (), [])
+        _write_outputs(args.output, args.status, (), "skipped: no EFIT gfiles; input_gfiles=0")
+        return 0
 
     executable = Path(args.executable).expanduser() if args.executable else None
     config_probe = CHEASEConfig(executable=str(executable) if executable else None)
     resolved_executable = find_chease_executable(config_probe)
     if not _bool(args.run):
+        _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, str(resolved_executable or args.executable), gfiles, (), [])
         _write_outputs(args.output, args.status, (), f"skipped: chease.run=false; input_gfiles={len(gfiles)}")
         return 0
     if resolved_executable is None:
+        _write_plot_manifest(plots_dir)
+        _write_runs_summary(output_dir, args.shot, args.executable, gfiles, (), [])
         _write_outputs(args.output, args.status, (), f"skipped: CHEASE executable unavailable: {args.executable}; input_gfiles={len(gfiles)}")
         return 0
 
@@ -132,19 +192,8 @@ def main() -> int:
             LOGGER.exception("CHEASE failed for %s", gfile)
             records.append({"input": str(gfile), "workdir": str(run_workdir), "status": "error", "error": str(exc)})
 
-    summary = {
-        "shot": int(args.shot),
-        "executable": str(resolved_executable),
-        "input_gfiles": [str(path) for path in gfiles],
-        "refined_gfiles": [str(path) for path in refined],
-        "records": records,
-    }
-    (output_dir / "chease_runs.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
-    if plots_dir.exists():
-        (plots_dir / "plot_refined_gfiles_generated.txt").write_text(
-            "\n".join(str(path) for path in sorted(plots_dir.glob("*.png"))) + "\n",
-            encoding="utf-8",
-        )
+    _write_runs_summary(output_dir, args.shot, str(resolved_executable), gfiles, tuple(refined), records)
+    _write_plot_manifest(plots_dir)
 
     failed = [record for record in records if record.get("status") not in {"completed"}]
     if refined and failed:

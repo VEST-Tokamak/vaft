@@ -6,6 +6,8 @@
 import json
 import os
 import re
+import sys
+from pathlib import Path
 
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
@@ -38,27 +40,127 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 # 1) Global constants
 # --------------------------------------------------------------------------- #
+SCRIPT_DIR = Path(workflow.basedir)
+sys.path.insert(0, str(SCRIPT_DIR))
+from paths import FILEDB, PipelinePaths
+
+from vaft.omas.vest_upstream import machine_era_for_shot
+from vaft.validation import stage_plot_filenames
+
+# Every product path comes from one helper so the legacy shot-first layout and
+# the canonical FileDB layout stay in sync. Select with `layout` in config.yaml.
+PATHS = PipelinePaths.from_config(config)
+
 BASE_DIR = config["base_dir"]                     # Base path for all output
 SHOTS    = config["shots"]                       # List of shot numbers to process
 CONDA    = config.get("conda")                   # Conda environment to use
 RAW_CONFIG = config.get("raw", {})
 RAW_PREFLIGHT_CONFIG = RAW_CONFIG.get("preflight", {})
 DIAGNOSTICS_CONFIG = config.get("diagnostics", {})
-WALL_CONFIG = config.get("wall", {})
 EDDY_CONFIG = config.get("eddy", {})
 CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
 GPEC_CONFIG = config.get("gpec", {})
+GPEC_MODULES = GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])
+GPEC_MODES = GPEC_CONFIG.get("modes", [1, 2])
+GPEC_PATH_CODES = ["ideal-gpec" if module == "gpec" else module for module in GPEC_MODULES]
+# The `mhd_linear` builder maps DCON/RDCON/STRIDE output; ideal-GPEC's `.nc`
+# output is folded into its own `gpec_ideal` stage by `rule build_gpec_ideal`
+# (see vaft/machine_mapping/gpec_ideal.py).
+GPEC_STABILITY_MODULES = [module for module in GPEC_MODULES if module in ("dcon", "rdcon", "stride")]
+GPEC_COIL_CONFIG = GPEC_CONFIG.get("coil", {}) or {}
+# Run-specific coil excitation: `gpec.coil.sets` entries become --coil-set
+# flags so ideal-GPEC's coil.in is generated from the canonical VEST 3D coil
+# configuration (`gpec.coil.source: vest_reference`, the packaged default).
+GPEC_COIL_SET_FLAGS = " ".join(
+    "--coil-set \"{name}={currents}\"".format(
+        name=entry["name"],
+        currents=",".join(str(value) for value in entry["currents_a"]),
+    )
+    for entry in GPEC_COIL_CONFIG.get("sets", [])
+)
 
 DEFAULT_UNCERTAINTY = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
 DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
-REQUIRED_RAW_FIELDS = RAW_PREFLIGHT_CONFIG.get("required_fields", [1, 13, 25, 59, 102])
+REQUIRED_RAW_FIELDS = RAW_PREFLIGHT_CONFIG.get("required_fields", [1, 12, 25, 59, 109])
 RAW_MIN_SAMPLES = RAW_PREFLIGHT_CONFIG.get("min_samples", 2)
+
+# The machine eras actually needed by the configured shots. The static ODS is a
+# per-era product, so it is built once and shared by every shot in that era.
+MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOTS})
+
+
+# --------------------------------------------------------------------------- #
+# Validation plots (issue #139)
+# --------------------------------------------------------------------------- #
+# `plot/` is a canonical FileDB artifact class with no legacy shot-first
+# equivalent, so validation plots exist only under the `filedb` layout. The
+# required figures of each stage are declared once in `vaft.validation`.  A
+# stage which can legitimately be empty is tracked by its plot manifest alone:
+# its manifest lists every declared figure as ``skipped`` and no PNG exists to
+# declare as a static Snakemake output.  Non-empty-only stages retain their
+# figure paths as direct outputs.
+PLOTS_ENABLED = PATHS.layout == FILEDB
+EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}
+
+
+def stage_plot_outputs(stage):
+    if stage in EMPTY_VALIDATION_STAGES:
+        return []
+    return [
+        PATHS.shot_pattern("stage_plot", stage, name)
+        for name in stage_plot_filenames(stage, required_only=True)
+    ]
+
+
+def static_plot_outputs():
+    return [
+        PATHS.version_pattern("static_plot", name)
+        for name in stage_plot_filenames("static", required_only=True)
+    ]
+
+
+def raw_plot_outputs():
+    return [
+        PATHS.shot_pattern("raw_plot", name)
+        for name in stage_plot_filenames("raw", required_only=True)
+    ]
+
+
+def validation_plot_products(shots):
+    """Every per-shot validation-plot product for the eligible shots."""
+    if not PLOTS_ENABLED:
+        return []
+    outputs = []
+    for shot in shots:
+        for name in stage_plot_filenames("raw", required_only=True):
+            outputs.append(PATHS.raw_plot(shot, name))
+        outputs.append(PATHS.raw_plot_manifest(shot))
+        for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
+            if stage not in EMPTY_VALIDATION_STAGES:
+                for name in stage_plot_filenames(stage, required_only=True):
+                    outputs.append(PATHS.stage_plot(shot, stage, name))
+            outputs.append(PATHS.stage_plot_manifest(shot, stage))
+        outputs.append(PATHS.chease_plot_manifest(shot))
+    return outputs
+
+
+def static_validation_plot_products():
+    if not PLOTS_ENABLED:
+        return []
+    outputs = []
+    for version in MACHINE_VERSIONS:
+        for name in stage_plot_filenames("static", required_only=True):
+            outputs.append(PATHS.static_plot(version, name))
+        outputs.append(PATHS.static_plot_manifest(version))
+    return outputs
 
 
 def raw_archive_path(wildcards):
+    if RAW_CONFIG.get("mode", "sql") != "archive":
+        return ""
     template = RAW_CONFIG.get("archive_template", "")
     return template.format(shot=wildcards.shot) if template else ""
 
@@ -72,6 +174,11 @@ def eddy_filament(name):
     return csv(EDDY_CONFIG.get("filament", {}).get(name, []))
 
 
+def static_ods_for_shot(wildcards):
+    """The static machine ODS covering this shot's era."""
+    return PATHS.static_ods(machine_era_for_shot(int(wildcards.shot)).name)
+
+
 def eligible_shots(_wildcards):
     preflight = checkpoints.preflight_raw_dumps.get()
     with open(preflight.output.eligible, encoding="utf-8") as handle:
@@ -80,32 +187,45 @@ def eligible_shots(_wildcards):
 
 def eligible_pipeline_outputs(wildcards):
     shots = eligible_shots(wildcards)
-    patterns = [
-        "{base_dir}/{shot}/omas/{shot}_diagnostics.json",
-        "{base_dir}/{shot}/omas/{shot}_eddy.json",
-        "{base_dir}/{shot}/omas/{shot}_constraints.json",
-        "{base_dir}/{shot}/efit/kfile/kfiles_generated.txt",
-        "{base_dir}/{shot}/efit/gfile/gfiles_generated.txt",
-        "{base_dir}/{shot}/efit/efit_status.txt",
-        "{base_dir}/{shot}/omas/{shot}_efit.json",
-        "{base_dir}/{shot}/chease/refined_gfiles_generated.txt",
-        "{base_dir}/{shot}/chease/chease_status.txt",
-        "{base_dir}/{shot}/omas/{shot}_chease.json",
-        "{base_dir}/{shot}/linear_stability/gpec_suite_runs.json",
-        "{base_dir}/{shot}/linear_stability/gpec_suite_status.txt",
+    products = [
+        "diagnostics_ods",
+        "diagnostics_manifest",
+        "eddy_ods",
+        "eddy_manifest",
+        "constraints_ods",
+        "kfile_manifest",
+        "gfile_manifest",
+        "efit_status",
+        "efit_artifact_manifest",
+        "efit_ods",
+        "chease_refined",
+        "chease_status",
+        "chease_ods",
+        "mhd_linear_ods",
+        "mhd_linear_manifest",
     ]
-    return [
-        output
-        for pattern in patterns
-        for output in expand(pattern, base_dir=BASE_DIR, shot=shots)
+    if "gpec" in GPEC_MODULES:
+        products += ["gpec_ideal_ods", "gpec_ideal_manifest"]
+    outputs = [getattr(PATHS, product)(shot) for product in products for shot in shots]
+    outputs += [
+        PATHS.gpec_module_status(shot, code, mode)
+        for shot in shots
+        for code in GPEC_MODULES
+        for mode in GPEC_MODES
     ]
+    outputs += validation_plot_products(shots)
+    return outputs
 
 
 rule all:
     input:
-        expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS),
-        BASE_DIR + "/preflight/eligible_shots.json",
-        BASE_DIR + "/preflight/excluded_shots.json",
+        [PATHS.raw_dump(shot) for shot in SHOTS],
+        [PATHS.raw_manifest(shot) for shot in SHOTS],
+        [PATHS.static_ods(version) for version in MACHINE_VERSIONS],
+        [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
+        PATHS.preflight_eligible(),
+        PATHS.preflight_excluded(),
+        static_validation_plot_products(),
         eligible_pipeline_outputs
 
 ############################################################
@@ -113,34 +233,58 @@ rule all:
 ############################################################
 rule generate_raw_db_dump:
     params:
-        raw_mode=lambda wildcards: RAW_CONFIG.get("mode", "sql"),
         raw_sample=raw_archive_path
     output:
-        "{BASE_DIR}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz"
+        dump=PATHS.shot_pattern("raw_dump"),
+        manifest=PATHS.shot_pattern("raw_manifest")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_raw_db_dump.log"
+        PATHS.shot_pattern("log", "generate_raw_db_dump")
     conda:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/diagnostics
-        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        if [ "{params.raw_mode}" = "archive" ]; then
-            python generate_raw_db_dump.py --shot {wildcards.shot} --sample "{params.raw_sample}" --output {output} > {log} 2>&1
-        else
-            python generate_raw_db_dump.py --shot {wildcards.shot} --output {output} > {log} 2>&1
-        fi
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_raw_db_dump.py \
+            --shot {wildcards.shot} \
+            --sample "{params.raw_sample}" \
+            --output {output.dump} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
         """
+
+############################################################
+# Versioned Static Machine ODS
+############################################################
+# Replaces the legacy shot-keyed `emcoupling_rules` selection: the machine-era
+# table lives in vaft.omas.vest_upstream, and the static product is built rather
+# than curated by hand.
+rule generate_static_ods:
+    output:
+        ods=PATHS.version_pattern("static_ods"),
+        manifest=PATHS.version_pattern("static_manifest")
+    log:
+        PATHS.version_pattern("static_log", "generate_static_ods")
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_static_ods.py \
+            --machine-version {wildcards.machine_version} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
 ############################################################
 # Required Raw Signal Preflight
 ############################################################
 checkpoint preflight_raw_dumps:
     input:
-        expand("{base_dir}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz", base_dir=BASE_DIR, shot=SHOTS)
+        [PATHS.raw_dump(shot) for shot in SHOTS]
     output:
-        eligible=BASE_DIR + "/preflight/eligible_shots.json",
-        excluded=BASE_DIR + "/preflight/excluded_shots.json"
+        eligible=PATHS.preflight_eligible(),
+        excluded=PATHS.preflight_excluded()
     params:
         required_fields=csv(REQUIRED_RAW_FIELDS),
         min_samples=RAW_MIN_SAMPLES
@@ -148,8 +292,8 @@ checkpoint preflight_raw_dumps:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/preflight
-        python validate_raw_dumps.py \
+        mkdir -p $(dirname {output.eligible})
+        python {SCRIPT_DIR}/validate_raw_dumps.py \
             --required-fields "{params.required_fields}" \
             --min-samples {params.min_samples} \
             --eligible-output {output.eligible} \
@@ -162,11 +306,13 @@ checkpoint preflight_raw_dumps:
 ############################################################
 rule generate_diagnostics_ods:
     input:
-        raw="{BASE_DIR}/{shot}/diagnostics/vest_{shot}_daq_raw.json.gz"
+        raw=PATHS.shot_pattern("raw_dump"),
+        static=static_ods_for_shot
     output:
-        ods="{BASE_DIR}/{shot}/omas/{shot}_diagnostics.json"
+        ods=PATHS.shot_pattern("diagnostics_ods"),
+        manifest=PATHS.shot_pattern("diagnostics_manifest")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_diagnostics_ods.log"
+        PATHS.shot_pattern("log", "generate_diagnostics_ods")
     params:
         tstart=DIAGNOSTICS_CONFIG.get("tstart", 0.26),
         tend=DIAGNOSTICS_CONFIG.get("tend", 0.36),
@@ -177,12 +323,13 @@ rule generate_diagnostics_ods:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_diagnostics_ods.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_diagnostics_ods.py \
             --shot {wildcards.shot} \
             --raw-dump {input.raw} \
+            --static-ods {input.static} \
             --output {output.ods} \
+            --metadata {output.manifest} \
             --tstart {params.tstart} \
             --tend {params.tend} \
             --dt {params.dt} \
@@ -197,13 +344,14 @@ rule generate_diagnostics_ods:
 ############################################################
 rule generate_eddy_ods:
     input:
-        diagnostics="{BASE_DIR}/{shot}/omas/{shot}_diagnostics.json"
+        diagnostics=PATHS.shot_pattern("diagnostics_ods"),
+        static=static_ods_for_shot
     output:
-        ods="{BASE_DIR}/{shot}/omas/{shot}_eddy.json"
+        ods=PATHS.shot_pattern("eddy_ods"),
+        manifest=PATHS.shot_pattern("eddy_manifest")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_eddy_ods.log"
+        PATHS.shot_pattern("log", "generate_eddy_ods")
     params:
-        reference_ods=WALL_CONFIG.get("reference_ods", "/Users/yun/git/vaft/vaft/data/omas/39915.json"),
         filament_r=eddy_filament("r"),
         filament_z=eddy_filament("z"),
         filament_fraction=eddy_filament("fraction"),
@@ -212,13 +360,13 @@ rule generate_eddy_ods:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_eddy_ods.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_eddy_ods.py \
             --shot {wildcards.shot} \
             --diagnostics-ods {input.diagnostics} \
+            --static-ods {input.static} \
             --output {output.ods} \
-            --reference-ods {params.reference_ods} \
+            --metadata {output.manifest} \
             --filament-r "{params.filament_r}" \
             --filament-z "{params.filament_z}" \
             --filament-fraction "{params.filament_fraction}" \
@@ -231,11 +379,11 @@ rule generate_eddy_ods:
 ############################################################
 rule generate_constraints_ods:
     input:
-        eddy="{BASE_DIR}/{shot}/omas/{shot}_eddy.json"
+        eddy=PATHS.shot_pattern("eddy_ods")
     output:
-        ods="{BASE_DIR}/{shot}/omas/{shot}_constraints.json"
+        ods=PATHS.shot_pattern("constraints_ods")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_constraints_ods.log"
+        PATHS.shot_pattern("log", "generate_constraints_ods")
     params:
         timeset=CONSTRAINTS_CONFIG.get("timeset", "auto"),
         tstep=CONSTRAINTS_CONFIG.get("tstep", 0.001),
@@ -252,9 +400,8 @@ rule generate_constraints_ods:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_constraints_ods.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_constraints_ods.py \
             --shot {wildcards.shot} \
             --eddy-ods {input.eddy} \
             --output {output.ods} \
@@ -277,11 +424,11 @@ rule generate_constraints_ods:
 ############################################################
 rule generate_kfile:
     input:
-        constraints="{BASE_DIR}/{shot}/omas/{shot}_constraints.json"
+        constraints=PATHS.shot_pattern("constraints_ods")
     output:
-        manifest="{BASE_DIR}/{shot}/efit/kfile/kfiles_generated.txt"
+        manifest=PATHS.shot_pattern("kfile_manifest")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_kfile.log"
+        PATHS.shot_pattern("log", "generate_kfile")
     params:
         npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
         nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2)
@@ -289,9 +436,8 @@ rule generate_kfile:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/efit/kfile
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_kfile.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_kfile.py \
             --shot {wildcards.shot} \
             --constraints-ods {input.constraints} \
             --output {output.manifest} \
@@ -302,12 +448,13 @@ rule generate_kfile:
 
 rule run_efit_reconstruction:
     input:
-        kfiles="{BASE_DIR}/{shot}/efit/kfile/kfiles_generated.txt"
+        kfiles=PATHS.shot_pattern("kfile_manifest")
     output:
-        gfiles="{BASE_DIR}/{shot}/efit/gfile/gfiles_generated.txt",
-        status="{BASE_DIR}/{shot}/efit/efit_status.txt"
+        gfiles=PATHS.shot_pattern("gfile_manifest"),
+        status=PATHS.shot_pattern("efit_status"),
+        artifacts=PATHS.shot_pattern("efit_artifact_manifest")
     log:
-        "{BASE_DIR}/{shot}/logs/run_efit.log"
+        PATHS.shot_pattern("log", "run_efit")
     params:
         run=bool_text(EFIT_CONFIG.get("run", False)),
         executable=EFIT_CONFIG.get("executable", ""),
@@ -317,13 +464,13 @@ rule run_efit_reconstruction:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/efit/gfile
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python run_efit_reconstruction.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/run_efit_reconstruction.py \
             --shot {wildcards.shot} \
             --kfile-manifest {input.kfiles} \
             --gfile-manifest {output.gfiles} \
             --status {output.status} \
+            --artifact-manifest {output.artifacts} \
             --run {params.run} \
             --executable "{params.executable}" \
             --args "{params.args}" \
@@ -333,28 +480,173 @@ rule run_efit_reconstruction:
 
 rule generate_efit_ods:
     input:
-        gfiles="{BASE_DIR}/{shot}/efit/gfile/gfiles_generated.txt",
-        status="{BASE_DIR}/{shot}/efit/efit_status.txt"
+        gfiles=PATHS.shot_pattern("gfile_manifest"),
+        status=PATHS.shot_pattern("efit_status"),
+        constraints=PATHS.shot_pattern("constraints_ods"),
+        kfiles=PATHS.shot_pattern("kfile_manifest"),
+        artifacts=PATHS.shot_pattern("efit_artifact_manifest")
     output:
-        ods="{BASE_DIR}/{shot}/omas/{shot}_efit.json"
+        ods=PATHS.shot_pattern("efit_ods")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_efit_ods.log"
+        PATHS.shot_pattern("log", "generate_efit_ods")
     params:
         run=DIAGNOSTICS_CONFIG.get("run", 1)
     conda:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_efit_ods.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_efit_ods.py \
             --shot {wildcards.shot} \
             --gfile-manifest {input.gfiles} \
             --status {input.status} \
+            --constraints-ods {input.constraints} \
+            --kfile-manifest {input.kfiles} \
+            --artifact-manifest {input.artifacts} \
             --output {output.ods} \
             --run {params.run} \
             > {log} 2>&1
         """
+
+
+############################################################
+# Canonical post-generation validation plots
+############################################################
+if PLOTS_ENABLED:
+    rule plot_raw:
+        input:
+            dump=PATHS.shot_pattern("raw_dump"),
+            manifest=PATHS.shot_pattern("raw_manifest")
+        output:
+            plots=raw_plot_outputs(),
+            manifest=PATHS.shot_pattern("raw_plot_manifest")
+        log:
+            PATHS.shot_pattern("log", "plot_raw")
+        params:
+            required_fields=csv(REQUIRED_RAW_FIELDS),
+            directory=lambda wildcards: str(Path(PATHS.raw_plot(wildcards.shot, "x.png")).parent)
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage raw \
+                --shot {wildcards.shot} \
+                --input {input.dump} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                --required-fields "{params.required_fields}" \
+                > {log} 2>&1
+            """
+
+
+    rule plot_static:
+        input:
+            ods=PATHS.version_pattern("static_ods")
+        output:
+            plots=static_plot_outputs(),
+            manifest=PATHS.version_pattern("static_plot_manifest")
+        log:
+            PATHS.version_pattern("static_log", "plot_static")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.static_plot(wildcards.machine_version, "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage static \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+    rule plot_diagnostics:
+        input:
+            ods=PATHS.shot_pattern("diagnostics_ods")
+        output:
+            plots=stage_plot_outputs("diagnostics"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "diagnostics")
+        log:
+            PATHS.shot_pattern("log", "plot_diagnostics")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "diagnostics", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage diagnostics \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+    rule plot_eddy:
+        input:
+            ods=PATHS.shot_pattern("eddy_ods")
+        output:
+            plots=stage_plot_outputs("eddy"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "eddy")
+        log:
+            PATHS.shot_pattern("log", "plot_eddy")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "eddy", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage eddy \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+    rule plot_efit:
+        input:
+            ods=PATHS.shot_pattern("efit_ods")
+        output:
+            plots=stage_plot_outputs("efit"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "efit")
+        log:
+            PATHS.shot_pattern("log", "plot_efit")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "efit", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage efit \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
 
 # ############################################################
 # # add information to the DB after EFIT run
@@ -383,17 +675,49 @@ rule generate_efit_ods:
 # rule save_hsds_db:
 
 
+if PLOTS_ENABLED:
+    rule plot_mhd_linear:
+        input:
+            ods=PATHS.shot_pattern("mhd_linear_ods"),
+            manifest=PATHS.shot_pattern("mhd_linear_manifest")
+        output:
+            plots=stage_plot_outputs("mhd_linear"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "mhd_linear")
+        log:
+            PATHS.shot_pattern("log", "plot_mhd_linear")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "mhd_linear", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage mhd_linear \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --stage-manifest {input.manifest} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
 ############################################################
 # CHEASE Refinement/ODS
 ############################################################
 rule run_chease:
     input:
-        gfiles="{BASE_DIR}/{shot}/efit/gfile/gfiles_generated.txt"
+        gfiles=PATHS.shot_pattern("gfile_manifest")
     output:
-        refined="{BASE_DIR}/{shot}/chease/refined_gfiles_generated.txt",
-        status="{BASE_DIR}/{shot}/chease/chease_status.txt"
+        refined=PATHS.shot_pattern("chease_refined"),
+        status=PATHS.shot_pattern("chease_status"),
+        runs=PATHS.shot_pattern("chease_runs"),
+        **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if PLOTS_ENABLED else {})
     log:
-        "{BASE_DIR}/{shot}/logs/run_chease.log"
+        PATHS.shot_pattern("log", "run_chease")
     params:
         run=bool_text(CHEASE_CONFIG.get("run", False)),
         executable=CHEASE_CONFIG.get("executable", ""),
@@ -405,14 +729,16 @@ rule run_chease:
         auto_cocos=bool_text(CHEASE_CONFIG.get("auto_cocos", True)),
         output_cocos=CHEASE_CONFIG.get("output_cocos", "input"),
         preserve_boundary_limiter=bool_text(CHEASE_CONFIG.get("preserve_boundary_limiter", True)),
-        create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True))
+        create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True)),
+        plot_dir=lambda wildcards: (
+            PATHS.code_plot_dir(wildcards.shot, "chease") if PLOTS_ENABLED else ""
+        )
     conda:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/chease
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python run_chease_refinement.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/run_chease_refinement.py \
             --shot {wildcards.shot} \
             --gfile-manifest {input.gfiles} \
             --output {output.refined} \
@@ -428,29 +754,31 @@ rule run_chease:
             --output-cocos "{params.output_cocos}" \
             --preserve-boundary-limiter {params.preserve_boundary_limiter} \
             --create-plot {params.create_plot} \
+            --plot-dir "{params.plot_dir}" \
             > {log} 2>&1
         """
 
 rule generate_chease_ods:
     input:
-        refined="{BASE_DIR}/{shot}/chease/refined_gfiles_generated.txt",
-        status="{BASE_DIR}/{shot}/chease/chease_status.txt"
+        refined=PATHS.shot_pattern("chease_refined"),
+        status=PATHS.shot_pattern("chease_status"),
+        runs=PATHS.shot_pattern("chease_runs")
     output:
-        ods="{BASE_DIR}/{shot}/omas/{shot}_chease.json"
+        ods=PATHS.shot_pattern("chease_ods")
     log:
-        "{BASE_DIR}/{shot}/logs/generate_chease_ods.log"
+        PATHS.shot_pattern("log", "generate_chease_ods")
     params:
         run=DIAGNOSTICS_CONFIG.get("run", 1)
     conda:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/omas
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python generate_chease_ods.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_chease_ods.py \
             --shot {wildcards.shot} \
             --refined-gfile-manifest {input.refined} \
             --status {input.status} \
+            --runs-summary {input.runs} \
             --output {output.ods} \
             --run {params.run} \
             > {log} 2>&1
@@ -459,58 +787,174 @@ rule generate_chease_ods:
 ############################################################
 # GPEC Suite: DCON/RDCON/STRIDE/GPEC
 ############################################################
-rule run_gpec_suite:
+wildcard_constraints:
+    code="|".join(re.escape(module) for module in GPEC_PATH_CODES),
+    mode=r"\d+"
+
+# One job per (shot, code, mode): a failed RDCON n=2 case can be retried on
+# its own instead of forcing the whole shot's GPEC suite to re-run, and
+# FileDB's own grammar (`gpec/{code}/{shot}/n={n}/`) is per-(code, mode) --
+# see workflow/automatic_pipeline_1_routine_data_processing/paths.py.
+rule run_gpec_module:
     input:
-        refined="{BASE_DIR}/{shot}/chease/refined_gfiles_generated.txt",
-        status="{BASE_DIR}/{shot}/chease/chease_status.txt"
+        refined=PATHS.shot_pattern("chease_refined"),
+        status=PATHS.shot_pattern("chease_status"),
+        dcon_status=lambda wildcards: (
+            PATHS.gpec_module_status(wildcards.shot, "dcon", int(wildcards.mode))
+            if wildcards.code == "ideal-gpec"
+            else []
+        )
     output:
-        manifest="{BASE_DIR}/{shot}/linear_stability/gpec_suite_runs.json",
-        status="{BASE_DIR}/{shot}/linear_stability/gpec_suite_status.txt"
+        manifest=PATHS.gpec_module_pattern("gpec_module_manifest"),
+        status=PATHS.gpec_module_pattern("gpec_module_status")
     log:
-        "{BASE_DIR}/{shot}/logs/run_gpec_suite.log"
+        PATHS.shot_pattern("log", "run_gpec_suite") + ".{code}.n{mode}"
     params:
-        gpec_home=GPEC_CONFIG.get("home", "/Users/yun/git/GPEC"),
+        gpec_home=GPEC_CONFIG.get("home", ""),
         run_mode=GPEC_CONFIG.get("run", "auto"),
-        modules=csv(GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])),
-        modes=csv(GPEC_CONFIG.get("modes", [1, 2])),
         psilow=GPEC_CONFIG.get("psilow", 0.01),
         psihigh=GPEC_CONFIG.get("psihigh", 0.994),
-        timeout=GPEC_CONFIG.get("timeout", 1200)
+        timeout=GPEC_CONFIG.get("timeout", 1200),
+        workdir=lambda wildcards: PATHS.gpec_workdir(
+            wildcards.shot, wildcards.code, int(wildcards.mode)
+        ),
+        dcon_option=lambda wildcards: (
+            f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, "dcon", int(wildcards.mode))}"'
+            if wildcards.code == "ideal-gpec"
+            else ""
+        ),
+        coil_option=lambda wildcards: (
+            GPEC_COIL_SET_FLAGS if wildcards.code == "ideal-gpec" else ""
+        )
     conda:
         CONDA if CONDA else None
     shell:
         """
-        mkdir -p {BASE_DIR}/{wildcards.shot}/linear_stability
-        mkdir -p {BASE_DIR}/{wildcards.shot}/logs
-        python run_gpec_suite.py \
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/run_gpec_suite.py \
             --shot {wildcards.shot} \
             --refined-gfile-manifest {input.refined} \
             --output {output.manifest} \
             --status {output.status} \
+            --workdir "{params.workdir}" \
+            {params.dcon_option} \
+            {params.coil_option} \
             --gpec-home "{params.gpec_home}" \
             --run-mode "{params.run_mode}" \
-            --modules "{params.modules}" \
-            --modes "{params.modes}" \
+            --code {wildcards.code} \
+            --mode {wildcards.mode} \
             --psilow {params.psilow} \
             --psihigh {params.psihigh} \
             --timeout {params.timeout} \
             > {log} 2>&1
         """
 
-# rule plot_chease:
+
+def gpec_module_status_for_shot(wildcards):
+    """Every configured (code, mode) status file for one shot."""
+    return [
+        PATHS.gpec_module_status(wildcards.shot, code, mode)
+        for code in GPEC_MODULES
+        for mode in GPEC_MODES
+    ]
+
+
+rule build_mhd_linear:
+    input:
+        refined=PATHS.shot_pattern("chease_refined"),
+        gpec_status=gpec_module_status_for_shot
+    output:
+        ods=PATHS.shot_pattern("mhd_linear_ods"),
+        manifest=PATHS.shot_pattern("mhd_linear_manifest")
+    log:
+        PATHS.shot_pattern("log", "build_mhd_linear")
+    params:
+        modules=csv(GPEC_STABILITY_MODULES),
+        modes=csv(GPEC_MODES),
+        module_workdirs=lambda wildcards: ",".join(
+            f"{code}:{mode}:{PATHS.gpec_workdir(wildcards.shot, code, mode)}"
+            for code in GPEC_STABILITY_MODULES
+            for mode in GPEC_MODES
+        )
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_mhd_linear_ods.py \
+            --shot {wildcards.shot} \
+            --refined-gfile-manifest {input.refined} \
+            --module-workdir "{params.module_workdirs}" \
+            --modules "{params.modules}" \
+            --modes "{params.modes}" \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+rule build_gpec_ideal:
+    input:
+        refined=PATHS.shot_pattern("chease_refined"),
+        gpec_status=lambda wildcards: [
+            PATHS.gpec_module_status(wildcards.shot, "ideal-gpec", mode)
+            for mode in GPEC_MODES
+        ]
+    output:
+        ods=PATHS.shot_pattern("gpec_ideal_ods"),
+        manifest=PATHS.shot_pattern("gpec_ideal_manifest")
+    log:
+        PATHS.shot_pattern("log", "build_gpec_ideal")
+    params:
+        modes=csv(GPEC_MODES),
+        mode_workdirs=lambda wildcards: ",".join(
+            f"{mode}:{PATHS.gpec_workdir(wildcards.shot, 'ideal-gpec', mode)}"
+            for mode in GPEC_MODES
+        )
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_gpec_ideal_ods.py \
+            --shot {wildcards.shot} \
+            --refined-gfile-manifest {input.refined} \
+            --mode-workdir "{params.mode_workdirs}" \
+            --modes "{params.modes}" \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+if PLOTS_ENABLED:
+    rule plot_chease:
+        input:
+            ods=PATHS.shot_pattern("chease_ods")
+        output:
+            plots=stage_plot_outputs("chease"),
+            manifest=PATHS.shot_pattern("stage_plot_manifest", "chease")
+        log:
+            PATHS.shot_pattern("log", "plot_chease")
+        params:
+            directory=lambda wildcards: str(
+                Path(PATHS.stage_plot(wildcards.shot, "chease", "x.png")).parent
+            )
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_stage_plots.py \
+                --stage chease \
+                --shot {wildcards.shot} \
+                --input {input.ods} \
+                --output-dir "{params.directory}" \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
 
 # ############################################################
 # # Combine chease ODS
 # ############################################################
 
 # rule combine_chease_ods:
-
-# ############################################################
-# # Convert ODS chease to IDS
-# ############################################################
-
-
-# ############################################################
-# # Run DCON (Modular Scripts)
-# ############################################################
-# rule run_dcon:

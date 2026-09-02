@@ -10,12 +10,32 @@ permissions:
   contents: read
 
 jobs:
-  package:
+  equilibrium:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install VAFT and notebook test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Test parametric equilibrium APIs and offline notebooks
+        env:
+          MPLBACKEND: Agg
+          NO_PROXY: "*"
+        run: |
+          python -m pytest -q test/test_parametric_equilibrium.py
+          python -m pytest -q test/test_notebook_reliability.py -k "parametric_equilibrium_notebooks or all_notebooks"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -34,3 +54,66 @@ jobs:
           /tmp/vaft-wheel-test/bin/pip install --no-deps dist/*.whl
           cd /tmp
           /tmp/vaft-wheel-test/bin/python -c "import vaft; print(vaft.__version__)"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install vaft with dev dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: python -m pytest -q
+
+  tutorial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The freshness check diffs the change against its base.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install tutorial validation and TeX dependencies
+        run: |
+          python -m pip install nbformat
+          sudo apt-get update
+          sudo apt-get install -y latexmk texlive-latex-recommended texlive-pictures
+
+      - name: Verify committed tutorial source and artifacts
+        run: python test/verify_tutorial.py
+
+      - name: Verify every changed deck input ships a rebuilt PDF
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python test/verify_tutorial_freshness.py pairing --base "$BASE_SHA" --head HEAD
+
+      - name: Snapshot the committed decks before rebuilding
+        run: |
+          mkdir -p "${RUNNER_TEMP}/committed-decks"
+          cp tutorial/[0-9][0-9]_*.pdf "${RUNNER_TEMP}/committed-decks/"
+
+      - name: Rebuild tutorial slide decks independently
+        run: make -B -C tutorial slides
+
+      # The runner builds on a different TeX Live release than the one that
+      # produced the committed PDFs, and pdfTeX stamps its own version into
+      # every file, so the rebuild is compared on page structure rather than
+      # byte-for-byte.
+      - name: Verify the rebuild reproduces the committed decks
+        run: |
+          python test/verify_tutorial.py
+          python test/verify_tutorial_freshness.py compare \
+            --committed "${RUNNER_TEMP}/committed-decks" \
+            --rebuilt tutorial

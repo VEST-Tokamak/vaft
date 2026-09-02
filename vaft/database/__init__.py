@@ -1,7 +1,9 @@
-"""Remote HSDS database API.
+"""Database access and storage infrastructure.
 
-This namespace intentionally accepts only bare HSDS namespaces such as
-``"public"``. Local files belong to :mod:`vaft.omas` and :mod:`vaft.imas`.
+The high-level :func:`load`, :func:`open`, and :func:`save` APIs operate on
+remote HSDS namespaces. Canonical local FileDB paths live in
+:mod:`vaft.database.filedb`; local OMAS/IMAS artifact loading remains exposed
+through :mod:`vaft.omas` and :mod:`vaft.imas`.
 """
 
 from __future__ import annotations
@@ -11,7 +13,19 @@ from importlib import import_module
 from typing import Literal
 import warnings
 
-__all__ = ["raw", "ods", "ids", "utils", "load", "open", "save"]
+__all__ = [
+    "raw",
+    "ods",
+    "ids",
+    "utils",
+    "filedb",
+    "load",
+    "open",
+    "save",
+    "summary",
+    "export_summary",
+    "get_summary_preset",
+]
 
 
 def _namespace(value: str, label: str) -> str:
@@ -281,6 +295,38 @@ def _is_imas_ids(obj) -> bool:
     except Exception:
         return False
     return isinstance(obj, IDSToplevel)
+
+
+def summary(shot_range=None, *, preset="equilibrium_global", source="public"):
+    """Return a canonical preset summary for a range or all available shots."""
+    from ._summary import summary as _summary
+
+    return _summary(shot_range, preset=preset, source=source)
+
+
+def get_summary_preset(name):
+    """Return the :class:`SummaryPreset` describing one canonical summary sheet.
+
+    The preset is the single source of truth for a sheet's column names, key
+    columns and sort order, so consumers validate against it instead of
+    hard-coding a schema.
+    """
+    from ._summary import get_summary_preset as _get_summary_preset
+
+    return _get_summary_preset(name)
+
+
+def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups=None):
+    """Serialize or upsert an already-generated summary DataFrame."""
+    from ._summary import export_summary as _export_summary
+
+    return _export_summary(
+        df,
+        path,
+        mode=mode,
+        key_columns=key_columns,
+        replace_groups=replace_groups,
+    )
 
 
 def __getattr__(name: str):
