@@ -613,7 +613,7 @@ def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
         ods (OMAS structure): Input OMAS data structure, updated in place.
         time_slice (int/list/None): Specific time slice(s) to process. None=all
     """
-    from vaft.data.eqdsk import _rho_tor_profile
+    from vaft.data._derived import rho_tor_profile
 
     for idx in _equilibrium_time_slices(ods, time_slice):
         frame = _equilibrium_flux_frame(ods, idx)
@@ -636,15 +636,15 @@ def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
             )
             continue
 
-        # _rho_tor_profile takes psi in Wb/rad and supplies the 2*pi itself.
-        result = _rho_tor_profile(q_profile, frame["psi_1d_radian"], b0)
+        # The shared routine takes psi in weber; the frame carries Wb/rad.
+        result = rho_tor_profile(q_profile, frame["psi_1d_radian"] * 2.0 * np.pi, b0)
         if result is None:
             logger.warning("Toroidal flux is degenerate for time slice %s; skipping.", idx)
             continue
-        phi, rho_tor, rho_tor_norm = result
-        ts["profiles_1d.phi"] = phi
-        ts["profiles_1d.rho_tor"] = rho_tor
-        ts["profiles_1d.rho_tor_norm"] = rho_tor_norm
+        ts["profiles_1d.phi"] = result.phi
+        if result.rho_tor is not None:
+            ts["profiles_1d.rho_tor"] = result.rho_tor
+        ts["profiles_1d.rho_tor_norm"] = result.rho_tor_norm
 
 
 def update_equilibrium_profiles_1d_j_tor(ods, time_slice=None):
