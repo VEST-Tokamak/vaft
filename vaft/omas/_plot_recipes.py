@@ -3869,11 +3869,21 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
 
 
 def _usable_slices(ods: Any) -> list[int]:
-    """Slices a summary may stand on: a finite time and a stored 2-D psi."""
+    """Slices a summary may stand on.
+
+    A finite time, a stored 2-D psi, and a reconstruction the solver did not
+    disown: IMAS stores that verdict per slice in ``equilibrium.code.
+    output_flag`` ("negative values mean the result shall not be used").
+    The flag is read where present and never computed here.
+    """
+    flags = _array(ods, "equilibrium.code.output_flag")
     usable = []
     for index, _ in _constraint_slices(ods):
-        if _array(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi") is not None:
-            usable.append(index)
+        if _array(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi") is None:
+            continue
+        if flags is not None and index < flags.size and np.isfinite(flags[index]) and flags[index] < 0:
+            continue
+        usable.append(index)
     return usable
 
 
@@ -3883,8 +3893,9 @@ def representative_slice(ods: Any) -> tuple[int, str]:
     Among the usable slices, the one with the largest stored plasma volume: a
     fully developed plasma is more interpretable than whatever sits in the
     middle of the array.  When no slice stores a volume -- true of every
-    packaged sample -- the middle usable slice is taken, and the reason says
-    so.  Deterministic: ties go to the earlier slice.
+    packaged sample -- the middle usable slice is taken (the later of the two
+    middles when their count is even), and the reason says so.
+    Deterministic: volume ties go to the earlier slice.
     """
     usable = _usable_slices(ods)
     if not usable:
@@ -3919,6 +3930,10 @@ def resolve_time_slice(
         raise ValueError("pass either time= or time_slice=, not both")
     usable = _usable_slices(ods)
     if time_slice is not None:
+        if float(time_slice) != int(time_slice):
+            raise ValueError(
+                f"time_slice={time_slice!r} is not a slice index; pass time= for a time in seconds"
+            )
         index = int(time_slice)
         total = _count(ods, "equilibrium.time_slice")
         if not 0 <= index < total:
@@ -3933,6 +3948,14 @@ def resolve_time_slice(
         nearest = int(np.argmin(np.abs(times - float(time))))
         index = usable[nearest]
         reason = f"nearest stored slice to t = {float(time) * 1e3:.2f} ms"
+        if not times.min() <= float(time) <= times.max():
+            warnings.warn(
+                f"time={float(time):g} s lies outside the stored equilibrium slices "
+                f"({times.min():g}-{times.max():g} s); drawing the nearest, slice {index}. "
+                "Times are in seconds.",
+                UserWarning,
+                stacklevel=3,
+            )
     else:
         index, reason = representative_slice(ods)
     stored = _get(ods, f"equilibrium.time_slice.{index}.time")
@@ -3999,7 +4022,28 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     total = _count(ods, "equilibrium.time_slice")
     entries = [("", ods)]
     field = _build_field_2d(ods, RECIPES["equilibrium_field_psi"], time_slice=index)
-    field = dataclasses.replace(field, title="Poloidal flux")
+    # One figure, one convention: psi in the display unit the text panel uses
+    # (mWb under the display policy), and the magnetic axis marked on the map.
+    from vaft.plot.display import resolve_display
+
+    flux_display = resolve_display("Wb", subject="equilibrium")
+    overlays = list(field.overlays)
+    axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r"))
+    axis_z = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.z"))
+    if axis_r is not None and axis_z is not None:
+        overlays.append(
+            GeometryLayer(
+                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
+                style={"marker": "+", "color": "k", "markersize": 10},
+            )
+        )
+    field = dataclasses.replace(
+        field,
+        title="Poloidal flux",
+        values=np.asarray(field.values) * flux_display.scale,
+        value_label=f"Poloidal Flux [{flux_display.unit}]",
+        overlays=tuple(overlays),
+    )
     pressure = _build_profile_1d(
         entries, RECIPES["equilibrium_profile_pressure"],
         _plot_name="equilibrium_profile_pressure", _panel_member=True, time_slice=index,

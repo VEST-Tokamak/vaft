@@ -118,7 +118,8 @@ def test_the_model_composes_canonical_members_for_one_slice(shots):
     assert isinstance(text, TextPanel)
     # The 2-D panel is the same one plot_equilibrium_field_psi draws for that slice.
     same = build_model("equilibrium_field_psi", normalize_entries(shots[39915]), time_slice=2)
-    assert np.array_equal(field.values, same.values)
+    # The same field, in the display unit (mWb) the text panel uses.
+    assert np.allclose(field.values, np.asarray(same.values) * 1e3)
     assert "(slice 3 of 9, requested slice)" in model.suptitle
 
 
@@ -157,3 +158,48 @@ def test_discovery_states_the_contents_and_the_interaction_mode(shots):
     assert record.overview_members == ("poloidal flux", "pressure", "q", "global quantities")
     text = str(vaft.omas.available_plots(query="equilibrium", view="overview"))
     assert "interaction: static" in text and "overview: poloidal flux · pressure · q · global quantities" in text
+
+
+# ---------------------------------------------------------------------------
+# Independent review of the slice summary
+# ---------------------------------------------------------------------------
+
+def test_a_slice_the_solver_disowned_is_not_usable():
+    ods = _with_volumes(_load("samples/39915/omas.json.gz"), [0.0, 0.0, 0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    flags = np.zeros(9)
+    flags[2] = -1  # IMAS: negative output_flag means "shall not be used"
+    ods["equilibrium.code.output_flag"] = flags
+    index, reason = representative_slice(ods)
+    assert index != 2
+    assert resolve_time_slice(ods, time=0.318)[0] != 2
+
+
+def test_the_deprecated_history_function_points_at_the_histories():
+    from vaft.plot._migration import DEPRECATED
+    assert DEPRECATED["time_equilibrium_analysis"] == "equilibrium_overview_histories"
+
+
+def test_the_flux_map_shares_the_text_panel_unit_and_marks_the_axis(shots):
+    model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=4)
+    field = model.models[0]
+    assert field.value_label == "Poloidal Flux [mWb]"
+    same = build_model("equilibrium_field_psi", normalize_entries(shots[39915]), time_slice=4)
+    assert np.allclose(field.values, np.asarray(same.values) * 1e3)
+    axis = [layer for layer in field.overlays if layer.label == "Magnetic axis"]
+    assert len(axis) == 1 and axis[0].kind == "points"
+    assert np.isclose(axis[0].r[0], 0.3645, atol=1e-3)
+
+
+def test_a_time_outside_the_stored_slices_warns_and_snaps(shots):
+    with pytest.warns(UserWarning, match="outside the stored equilibrium slices"):
+        index, stored, _ = resolve_time_slice(shots[39915], time=1000.0)
+    assert index == 8
+    with pytest.raises(ValueError, match="not a slice index"):
+        resolve_time_slice(shots[39915], time_slice=2.7)
+
+
+def test_the_efit_qa_stage_keeps_its_history_artifact():
+    from vaft.database.production_qa import STAGE_VALIDATION_PLOTS
+    efit = {plot.plot: plot for plot in STAGE_VALIDATION_PLOTS["efit"]}
+    assert "equilibrium_overview" not in efit
+    assert efit["equilibrium_overview_histories"].filename == "equilibrium_overview.png"

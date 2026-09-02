@@ -105,7 +105,7 @@ DEPRECATED: dict[str, str] = {
     "plot_core_profiles_time_volume_averaged": "core_profiles_time_volume_averaged",
     # --- vaft.plot.analysis ---------------------------------------------------
     "analysis_diagnostics": "magnetics_overview",
-    "time_equilibrium_analysis": "equilibrium_overview",
+    "time_equilibrium_analysis": "equilibrium_overview_histories",
     # --- vaft.plot.onedim: generic and coordinate-specific profiles -----------
     # The radial coordinate is now a model/adapter option rather than part of the
     # name, so the 24 generated ``equilibrium_<coord>_<quantity>`` globals map
