@@ -31,6 +31,10 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+# Iterating an OMAS AOS yields its integer keys rather than its entries, so
+# everything here counts and indexes positionally (issue #118).
+from vaft.ods_access import path_count as _ods_count
+
 __all__ = [
     "STAGE_METRICS",
     "STAGE_PRECONDITIONS",
@@ -190,18 +194,6 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ),
     ),
 }
-
-
-def _ods_count(source: Any, path: str) -> int:
-    """Length of an ODS array of structures, 0 when the node is absent.
-
-    Iterating an OMAS AOS yields its integer keys rather than its entries, so
-    everything here indexes positionally instead.
-    """
-    try:
-        return len(source[path])
-    except (KeyError, ValueError, IndexError, TypeError):
-        return 0
 
 
 def _no_equilibrium_slices(source: Any) -> str | None:
@@ -413,12 +405,16 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     if reason is not None:
         return {"schema_version": 1, "status": "unavailable", "reason": reason}
 
-    channels = synthetic_vacuum_magnetics(source)
+    onset = plasma_onset_time(source)
+    # The validation window is the pre-plasma stretch, so that is the interval
+    # the channel selection asks about too (#189): a probe that fails after
+    # breakdown is still a good witness before it.
+    channels = synthetic_vacuum_magnetics(source, window=(float("-inf"), onset))
     ip_time = source.get("magnetics.ip.0.time", None)
     ip_data = source.get("magnetics.ip.0.data", None)
     return vacuum_magnetics_metrics(
         channels,
-        plasma_onset=plasma_onset_time(source),
+        plasma_onset=onset,
         plasma_current=(
             None if ip_time is None or ip_data is None else (ip_time, ip_data)
         ),
@@ -471,11 +467,40 @@ def _chease_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     }
 
 
+def _diagnostics_metrics(source: Any, **_context: Any) -> dict[str, Any]:
+    """Magnetics signal-quality QA for the diagnostics stage (issue #189).
+
+    Quantitative, so a channel that degraded between shots is visible without
+    opening a figure.  Deliberately report-only: none of these numbers gates
+    the stage, because their thresholds have not been justified across a
+    representative VEST population.
+
+    The detectors are re-run here rather than read back off the ODS because the
+    metrics -- noise, drift, dynamic range, event extents -- are richer than
+    what the Data Dictionary's validity fields can carry.  The *verdict* the
+    ODS carries and the verdict computed here are the same function of the same
+    waveforms.
+    """
+    from vaft.validation.magnetics import (
+        magnetics_quality_metrics,
+        validate_magnetics_signals,
+    )
+
+    if "magnetics" not in source:
+        return {
+            "schema_version": 1,
+            "status": "unavailable",
+            "reason": "the shot has no magnetics IDS to assess",
+        }
+    return magnetics_quality_metrics(source, validate_magnetics_signals(source))
+
+
 #: Stages that record scalar validation results alongside their figures.  The
 #: callable takes the stage's data product and returns the block the plot
 #: manifest carries under ``"metrics"``.
 STAGE_METRICS: dict[str, Any] = {
     "chease": _chease_metrics,
+    "diagnostics": _diagnostics_metrics,
     "eddy": _eddy_metrics,
     "efit": _efit_metrics,
     "mhd_linear": _mhd_linear_metrics,

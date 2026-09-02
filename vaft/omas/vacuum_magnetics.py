@@ -43,6 +43,11 @@ from vaft.formula.statistics import (
     rms,
     sigma_threshold_crossing,
 )
+from vaft.validation.imas import (
+    VALIDITY_VALID,
+    resolve_signal_time,
+    validity_mask,
+)
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
     INBOARD_PROBE_MAX_R,
@@ -202,19 +207,34 @@ def _signal(ods: Any, path: str) -> np.ndarray | None:
     return array
 
 
-def _channel_time(ods: Any, base: str) -> np.ndarray | None:
-    """The channel's own time base, or the IDS's when it is homogeneous.
+def _usable_in_window(
+    ods: Any,
+    base: str,
+    time: np.ndarray,
+    window: tuple[float, float] | None,
+    min_validity: int,
+) -> bool:
+    """Whether the IDS says this channel has any usable sample in ``window``.
 
-    A round-tripped ODS written with ``homogeneous_time=1`` carries only
-    ``magnetics.time``; the per-node ``*.time`` the mapper wrote is not stored.
-    That fallback is the same one ``validity_timed`` needs -- it is coordinated
-    on the very node whose time may be absent -- so the policy lives once, in
-    :func:`vaft.validation.imas.resolve_signal_time`, rather than being
-    rediscovered per consumer.
+    Step one of the three #189 asks a downstream consumer to take: consult the
+    validity the diagnostics stage established, *then* apply the consumer's own
+    preconditions.  Signal health is not rediscovered here -- an integrator
+    that railed at 0.31 s is the diagnostics stage's finding, and the eddy
+    stage only needs to know whether anything usable is left in the interval it
+    cares about.
+
+    An ODS carrying no validity accepts everything, so this changes nothing for
+    data produced before the quality layer existed.
     """
-    from vaft.validation.imas import resolve_signal_time
-
-    return resolve_signal_time(ods, base)
+    accepted = validity_mask(ods, base, min_validity=min_validity)
+    if accepted.size != time.size:
+        return bool(accepted.all())
+    if window is not None:
+        inside = (time >= window[0]) & (time <= window[1])
+        if not inside.any():
+            return False
+        accepted = accepted[inside]
+    return bool(accepted.any())
 
 
 def _position(ods: Any, base: str) -> tuple[float, float] | None:
@@ -251,16 +271,24 @@ def _poloidal_angle(ods: Any, base: str) -> float:
     return angle if np.isfinite(angle) else POLOIDAL_ANGLE
 
 
-def _candidates(ods: Any) -> list[dict[str, Any]]:
+def _candidates(
+    ods: Any,
+    *,
+    window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for index in range(_count(ods, f"magnetics.{B_FIELD_POL_PROBE}")):
         base = f"magnetics.{B_FIELD_POL_PROBE}.{index}"
         data = _signal(ods, f"{base}.field.data")
-        time = _channel_time(ods, f"{base}.field")
+        time = resolve_signal_time(ods, f"{base}.field")
         if data is None or time is None or data.size != time.size:
             continue
-        # A flatlined channel is unwired, not quiet: it carries no information
-        # to validate against and yields undefined correlations.
+        if not _usable_in_window(ods, f"{base}.field", time, window, min_validity):
+            continue
+        # Then the eddy stage's own precondition, which is a different question
+        # from health: a flatlined channel may be perfectly valid data and
+        # still carry no information to correlate a forward model against.
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
             continue
         position = _position(ods, f"{base}.position")
@@ -284,8 +312,10 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
     for index in range(_count(ods, f"magnetics.{FLUX_LOOP}")):
         base = f"magnetics.{FLUX_LOOP}.{index}"
         data = _signal(ods, f"{base}.flux.data")
-        time = _channel_time(ods, f"{base}.flux")
+        time = resolve_signal_time(ods, f"{base}.flux")
         if data is None or time is None or data.size != time.size:
+            continue
+        if not _usable_in_window(ods, f"{base}.flux", time, window, min_validity):
             continue
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
             continue
@@ -314,6 +344,8 @@ def select_vacuum_channels(
     *,
     per_family: int = DEFAULT_PER_FAMILY,
     channels: Sequence[tuple[str, int]] | None = None,
+    window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
 ) -> list[dict[str, Any]]:
     """Choose the magnetic channels to validate, grouped by EFIT family.
 
@@ -321,8 +353,15 @@ def select_vacuum_channels(
     family, which gives the inboard/outboard B-probe and flux-loop coverage the
     validation contract requires.  Pass ``channels`` as ``(kind, index)`` pairs
     to select explicitly.
+
+    ``window`` restricts the validity question to the interval the caller
+    actually validates over, so a channel that fails late in the discharge is
+    still selected for a pre-plasma comparison.  ``min_validity`` is the floor
+    on the Data Dictionary code; the default accepts flagged-but-valid channels,
+    because a threshold that has not been justified on a VEST population must
+    not silently remove data (#189, non-goals).
     """
-    rows = _candidates(ods)
+    rows = _candidates(ods, window=window, min_validity=min_validity)
     if channels is not None:
         wanted = {(str(kind), int(index)) for kind, index in channels}
         chosen = [row for row in rows if (row["kind"], row["index"]) in wanted]
@@ -372,6 +411,8 @@ def synthetic_vacuum_magnetics(
     *,
     per_family: int = DEFAULT_PER_FAMILY,
     channels: Sequence[tuple[str, int]] | None = None,
+    window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
 ) -> tuple[VacuumChannel, ...]:
     """Forward-model the coil and coil+eddy response at selected magnetics.
 
@@ -385,7 +426,13 @@ def synthetic_vacuum_magnetics(
     # Checked first: "the eddy solve has not run on this ODS" is the more
     # actionable diagnosis than "no usable channels" when both are true.
     time, coil_currents, loop_currents = _currents(ods)
-    rows = select_vacuum_channels(ods, per_family=per_family, channels=channels)
+    rows = select_vacuum_channels(
+        ods,
+        per_family=per_family,
+        channels=channels,
+        window=window,
+        min_validity=min_validity,
+    )
     if not rows:
         raise VacuumMagneticsError(
             "no magnetic channel carries usable measured data for vacuum validation"

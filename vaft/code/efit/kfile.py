@@ -29,8 +29,61 @@ from .legacy import (
     vfit_equilibrium_form_constraints,
     vfit_pf_active_efit26,
 )
+from vaft.validation.magnetics import unusable_channels_at
+
 from .magnetic import EFITConfig
 from .config import EFITScientificConfig, EFITProfileConfig
+
+
+#: How a magnetics channel family is named in the EFIT constraint tree. The
+#: mapping is EFIT's own vocabulary, so it lives here rather than in the
+#: validation layer, which knows only about magnetics channels.
+_EFIT_CONSTRAINT_FAMILY = {
+    "b_field_pol_probe": "bpol_probe",
+    "flux_loop": "flux_loop",
+}
+
+
+def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[str, int], list[int]]:
+    """Zero the weight of every channel unusable at a given reconstruction time.
+
+    Signal quality is time-resolved (issue #189): an integrator that rails at
+    0.31 s leaves every earlier slice perfectly constrained, so the exclusion
+    is per (slice, channel) rather than per channel.
+
+    This reuses the "weight = 0 means excluded from the fit" contract the
+    legacy ``broken`` list and the missing-channel placeholder (#145) already
+    rely on, rather than introducing a second exclusion mechanism.  It must run
+    *after* the weighting loop, which reassigns every family's nominal weight
+    unconditionally and would otherwise overwrite this.
+
+    Only channels the diagnostics stage marked **unusable** gate here.  A
+    channel merely flagged with a warning keeps its weight, because those
+    thresholds are not yet justified across a representative VEST population
+    and must not silently remove data from a reconstruction.
+
+    An ODS carrying no validity excludes nothing, so this is a no-op on data
+    produced before the quality layer existed.  Returns the excluded slice
+    indices per channel, for reporting.
+    """
+    excluded: dict[tuple[str, int], list[int]] = {}
+    # Only the kinds EFIT actually submits are asked about. The validation
+    # layer's model is deliberately open to more of them -- native-rate Mirnov
+    # voltage, for one -- and adding one there must not make this raise on a
+    # family the constraint tree has no name for.
+    for (kind, channel), unusable in unusable_channels_at(
+        ods, EQ["time"], min_validity=min_validity, kinds=tuple(_EFIT_CONSTRAINT_FAMILY)
+    ).items():
+        family = _EFIT_CONSTRAINT_FAMILY[kind]
+        for i in np.flatnonzero(unusable):
+            # A channel outside the submitted families has no constraint entry
+            # to weight, and creating one here would invent a constraint EFIT
+            # never saw.
+            if f"time_slice.{i}.constraints.{family}.{channel}.measured" not in EQ:
+                continue
+            EQ[f"time_slice.{i}.constraints.{family}.{channel}.weight"] = 0.0
+            excluded.setdefault((kind, channel), []).append(int(i))
+    return excluded
 
 
 def _efit_bpol_probe_count(magnetics) -> int:
@@ -586,6 +639,8 @@ def generate_constraints_ods(
         #     plt.close(fig2)
 
     #    make_gif(os.path.join(save_dir, 'plots'), f'{shotnumber}_gfit')
+
+    apply_validity_exclusions(ods, EQ)
 
     # add namelist parameters in the k-file
     for i in range(len(EQ["time"])):
