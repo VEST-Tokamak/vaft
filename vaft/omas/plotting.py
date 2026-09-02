@@ -79,6 +79,7 @@ _EXTRACTION_OPTIONS = frozenset(
         "show_lcfs",
         "show_magnetic_axis",
         "show_wall",
+        "synthetic",
         "time",
         "time_range",
         "time_resolution",

@@ -76,16 +76,26 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     # actually has that channel.  Deciding from the non-empty channels alone
     # would let a trace with no channel of its own borrow another's.
     one_shared_channel = len(channels) == 1 and all(s.channel for s in series_list)
+    roles_present = any(s.role for s in series_list)
     labels = []
     for s in series_list:
         if not (s.entry or s.channel):
-            labels.append(s.label)
+            label = s.label
         elif len(entries) <= 1:
-            labels.append(s.channel or s.label)
+            # One entry: the title carries the shot.  A scalar trace has no
+            # channel to be named by, so it is named only when a role beside
+            # it makes the distinction necessary.
+            label = s.channel or ("measured" if roles_present and not s.role else s.label)
         elif one_shared_channel:
-            labels.append(s.entry)
+            label = s.entry
         else:
-            labels.append(f"{s.entry} \u00b7 {s.channel}" if s.channel else s.entry)
+            label = f"{s.entry} \u00b7 {s.channel}" if s.channel else s.entry
+        # A trace that stands for its channel in another role -- the
+        # reconstruction of a measurement -- is named by that role beside the
+        # channel, so the legend tells the two apart (issue #261 section 9).
+        if s.role:
+            label = f"{label} ({s.role})" if (s.channel or len(entries) > 1) else s.role
+        labels.append(label)
     title = next(iter(channels)) if len(entries) > 1 and one_shared_channel else None
     if title is not None and panel_title and title == panel_title:
         # In a subplots layout the panel is already titled by its channel; a

@@ -117,6 +117,11 @@ class Series(ViewModel):
     entry: str = ""
     channel: str = ""
     position: tuple[float, float] | None = None
+    #: What this trace is relative to its channel: ``""`` for the measurement
+    #: itself, ``"reconstruction"`` for an equilibrium's prediction of it,
+    #: ``"constraint"`` for the value the solver was given (issue #261).  A
+    #: role shares its channel's panel and is named beside it in the legend.
+    role: str = ""
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -155,6 +160,7 @@ class Series(ViewModel):
             object.__setattr__(self, "position", (float(r), float(z)))
         object.__setattr__(self, "entry", str(self.entry or ""))
         object.__setattr__(self, "channel", str(self.channel or ""))
+        object.__setattr__(self, "role", str(self.role or ""))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 

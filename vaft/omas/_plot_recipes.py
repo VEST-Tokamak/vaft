@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import re
 import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -2726,6 +2727,151 @@ def _build_line_traces(
     ]
 
 
+#: Diagnostic time plots that an equilibrium reconstruction also predicts, and
+#: the constraint family that stores the prediction (issue #261 section 9).
+#: A scalar family has one node per slice; an array family has one node per
+#: channel, matched to the diagnostic channel by its ``source`` identifier.
+SYNTHETIC_CONSTRAINTS: dict[str, tuple[str, bool]] = {
+    "plasma_current_time": ("ip", False),
+    "diamagnetic_flux_time": ("diamagnetic_flux", False),
+    "flux_loop_time_flux": ("flux_loop", True),
+    "b_field_probe_time_field": ("bpol_probe", True),
+}
+
+SYNTHETIC_MODES = ("equilibrium", "both")
+
+
+def _synthetic_option(options: Mapping[str, Any], name: str) -> str | None:
+    """Validate ``synthetic=``: which prediction to overlay, if any."""
+    synthetic = options.get("synthetic")
+    if synthetic in (None, False):
+        return None
+    if synthetic is True:
+        synthetic = "equilibrium"
+    if synthetic not in SYNTHETIC_MODES:
+        raise ValueError(
+            f"synthetic must be one of {', '.join(SYNTHETIC_MODES)} or None; got {synthetic!r}"
+        )
+    if name not in SYNTHETIC_CONSTRAINTS:
+        supported = ", ".join(sorted(SYNTHETIC_CONSTRAINTS))
+        raise ValueError(
+            f"synthetic overlay is unsupported for {name!r}: no equilibrium "
+            f"constraint predicts it. Supported: {supported}"
+        )
+    return str(synthetic)
+
+
+def _constraint_slices(ods: Any) -> list[tuple[int, float]]:
+    """``(slice index, time)`` of every stored equilibrium slice with a time."""
+    total = _count(ods, "equilibrium.time_slice")
+    slices = []
+    for index in range(total):
+        time = _get(ods, f"equilibrium.time_slice.{index}.time")
+        if time is None:
+            continue
+        try:
+            slices.append((index, float(np.asarray(time, dtype=float).ravel()[0])))
+        except (IndexError, TypeError, ValueError):
+            continue
+    return slices
+
+
+def _constraint_values(
+    ods: Any, family: str, per_channel: bool, leaf: str, source: str | None
+) -> tuple[np.ndarray, np.ndarray]:
+    """``(times, values)`` of ``leaf`` for one constraint across the slices.
+
+    A per-channel family is looked up by its ``source`` identifier on every
+    slice rather than by position, so a constraint table that lists channels
+    in a different order from the diagnostic still lands on the right trace.
+    Slices where the leaf is absent or non-finite contribute nothing: a
+    reconstruction exists only where the solver wrote one.
+    """
+    times, values = [], []
+    for index, time in _constraint_slices(ods):
+        base = f"equilibrium.time_slice.{index}.constraints.{family}"
+        node = None
+        if not per_channel:
+            node = base
+        else:
+            for j in range(_count(ods, base)):
+                if str(_get(ods, f"{base}.{j}.source", "")) == source:
+                    node = f"{base}.{j}"
+                    break
+        if node is None:
+            continue
+        raw = _get(ods, f"{node}.{leaf}")
+        if raw is None:
+            continue
+        try:
+            value = float(np.asarray(raw, dtype=float).ravel()[0])
+        except (IndexError, TypeError, ValueError):
+            continue
+        if np.isfinite(value):
+            times.append(time)
+            values.append(value)
+    return np.asarray(times, dtype=float), np.asarray(values, dtype=float)
+
+
+def _synthetic_traces(
+    ods: Any, name: str, recipe: LineRecipe, measured: Sequence[Series], mode: str
+) -> list[Series]:
+    """Marker-only traces of the equilibrium's prediction for each measured trace.
+
+    The waveform stays the primary signal; the reconstruction is drawn as a
+    marker at every slice that holds a finite value, in the same canonical
+    unit as the trace it belongs to (display scaling is applied later, to
+    both alike).  ``mode="both"`` adds the measured constraint value the
+    solver was given, which shows where the reconstruction's input differs
+    from the waveform itself.
+    """
+    family, per_channel = SYNTHETIC_CONSTRAINTS[name]
+    container = _container_of(recipe.y_path, "{i}") if per_channel else ""
+    identifiers = (
+        _channel_identifiers(ods, container, _count(ods, container)) if per_channel else []
+    )
+    leaves = (("reconstructed", "reconstruction", "o"),)
+    if mode == "both":
+        leaves += (("measured", "constraint", "x"),)
+    extra: list[Series] = []
+    for trace in measured:
+        source = None
+        if per_channel:
+            index = _channel_index_of(trace, identifiers)
+            if index is None:
+                continue
+            source = identifiers[index]
+        for leaf, role, marker in leaves:
+            times, values = _constraint_values(ods, family, per_channel, leaf, source)
+            if values.size == 0:
+                continue
+            extra.append(
+                Series(
+                    x=times,
+                    y=values * recipe.scale,
+                    label=trace.label,
+                    style={"marker": marker, "linestyle": "none"},
+                    entry=trace.entry,
+                    channel=trace.channel,
+                    position=trace.position,
+                    role=role,
+                )
+            )
+    return extra
+
+
+def _channel_index_of(trace: Series, identifiers: Sequence[str]) -> int | None:
+    """Recover a channel trace's index from its ``[i] (R, Z)`` label or identifier."""
+    match = re.match(r"\[(\d+)\]", trace.channel or "")
+    if match:
+        index = int(match.group(1))
+        return index if index < len(identifiers) else None
+    for index, identifier in enumerate(identifiers):
+        if identifier and identifier == trace.channel:
+            return index
+    return None
+
+
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
@@ -2735,15 +2881,17 @@ def _build_line_series(
     # keeps the short recipe title that identifies it within the figure.
     panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
+    synthetic = _synthetic_option(options, spec.name if spec is not None else "")
     for entry_label, ods in entries:
-        traces.extend(
-            _build_line_traces(
-                ods,
-                recipe,
-                entry_label=entry_label,
-                selection=_selection_option(options),
-            )
+        measured = _build_line_traces(
+            ods,
+            recipe,
+            entry_label=entry_label,
+            selection=_selection_option(options),
         )
+        traces.extend(measured)
+        if synthetic:
+            traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
     x_display = _resolve_axis_display(
         recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
         series_values=[trace.x for trace in traces],
