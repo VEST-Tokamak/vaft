@@ -300,86 +300,109 @@ def update_equilibrium_global_quantities_volume(ods, time_slice=None):
         ts['global_quantities.volume'] = ts['profiles_1d.volume'][-1]
 
 def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
-    """
-    Update 2D toroidal current density (j_tor) by mapping 1D j_tor profile to 2D (R,Z) grid.
-    
-    This function maps profiles_1d.j_tor onto the 2D equilibrium grid using psi_norm
-    coordinate mapping, similar to how pressure is mapped.
-    
+    r"""Evaluate the **local** toroidal current density on the 2-D grid.
+
+    Issue #316. This used to map ``profiles_1d.j_tor`` onto (R,Z) with
+    ``psi_to_rz``, the way pressure is mapped. That is wrong, because
+    ``profiles_1d.j_tor`` is not a flux function: the IMAS DD defines it as the
+    flux-surface *average* ``<j_tor/R> / <1/R>``, while the local density varies
+    across a surface as ``R`` and ``1/R``. Splatting the average back onto the
+    grid produced a field that is constant on each surface, which the DD's
+    ``profiles_2d.j_tor`` -- "Toroidal plasma current density" -- is not.
+
+    Nothing needs mapping. ``p'`` and ``ff'`` *are* flux functions and ``R`` is
+    the grid, so Grad-Shafranov gives the local value directly:
+
+    .. math::
+        j_\varphi(R, Z) = -\sigma_{B_p} (2\pi)^{e_{B_p}}
+            \left( R\, p'(\psi) + \frac{f f'(\psi)}{\mu_0 R} \right)
+
+    the same expression, and the same resolved psi convention, that
+    :func:`update_equilibrium_profiles_1d_j_tor` averages. Points outside the
+    LCFS are written as NaN rather than evaluated: ``p'`` and ``ff'`` are only
+    defined out to the boundary, and clipping them into the scrape-off layer
+    would draw current where there is none. The test is containment in
+    ``boundary.outline``, not ``psi_norm <= 1`` -- see :func:`_inside_boundary`.
+
+    The function was inert before issue #290 -- it skipped every slice for want
+    of a 1-D ``j_tor`` -- so supplying that profile is what armed the defect.
+
     Parameters:
-        ods (OMAS structure): Input OMAS data structure
+        ods (OMAS structure): Input OMAS data structure, updated in place.
         time_slice (int/list/None): Specific time slice(s) to process. None=all
     """
-    from vaft.process.equilibrium import psi_to_rz
-    
-    # Process all time slices if not specified
-    time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
-        [time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
-    
-    for idx in time_slices:
-        try:
-            eq_ts = ods['equilibrium.time_slice'][idx]
-        except (IndexError, KeyError):
-            print(f"Warning: Time slice index {idx} is out of bounds. Skipping.")
+    from vaft.data.cocos import cocos_spec  # noqa: F401  (used via _sigma_bp)
+
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
             continue
-        
-        # Check if 1D j_tor exists
-        if 'profiles_1d.j_tor' not in eq_ts:
-            print(f"Warning: profiles_1d.j_tor not found for time slice {idx}. Skipping.")
+        ts = frame["ts"]
+        if "profiles_1d.dpressure_dpsi" not in ts or "profiles_1d.f_df_dpsi" not in ts:
+            logger.warning(
+                "profiles_1d.dpressure_dpsi/f_df_dpsi not found for time slice %s; "
+                "skipping 2-D j_tor.",
+                idx,
+            )
             continue
-        
-        # Check if 2D grid and psi exist
-        if 'profiles_2d.0.grid.dim1' not in eq_ts or 'profiles_2d.0.grid.dim2' not in eq_ts:
-            print(f"Warning: profiles_2d.0.grid not found for time slice {idx}. Skipping.")
+
+        psi_norm_1d = frame["psi_norm"]
+        pprime = np.asarray(ts["profiles_1d.dpressure_dpsi"], float).reshape(-1)
+        ffprime = np.asarray(ts["profiles_1d.f_df_dpsi"], float).reshape(-1)
+        if pprime.size != psi_norm_1d.size or ffprime.size != psi_norm_1d.size:
+            logger.warning(
+                "profiles_1d lengths disagree for time slice %s; skipping 2-D j_tor.", idx
+            )
             continue
-        
-        if 'profiles_2d.0.psi' not in eq_ts:
-            print(f"Warning: profiles_2d.0.psi not found for time slice {idx}. Skipping.")
-            continue
-        
-        # Get 1D j_tor profile
-        j_tor_1d = np.asarray(eq_ts['profiles_1d.j_tor'], float)
-        
-        # Ensure psi_norm exists
-        eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
-        if 'psi_norm' not in eq_profiles_1d:
-            update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=idx)
-            eq_profiles_1d = eq_ts.get('profiles_1d', ODS())
-            if 'psi_norm' not in eq_profiles_1d:
-                print(f"Warning: Failed to create psi_norm for time slice {idx}. Skipping.")
-                continue
-        
-        # Get psi_norm grid (typically uniform for 1D profiles)
-        psi_norm_1d = np.asarray(eq_profiles_1d['psi_norm'], float)
-        
-        # Ensure psi_norm_1d and j_tor_1d have the same length
-        if len(psi_norm_1d) != len(j_tor_1d):
-            # If lengths don't match, create uniform psi_norm grid
-            psi_norm_1d = np.linspace(0.0, 1.0, len(j_tor_1d))
-        
-        # Get 2D grid and psi
-        R_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim1'], float)
-        Z_grid = np.asarray(eq_ts['profiles_2d.0.grid.dim2'], float)
-        psi_RZ = np.asarray(eq_ts['profiles_2d.0.psi'], float)
-        
-        # Get psi normalization constants
-        psi_axis = float(eq_ts.get('global_quantities.psi_axis', np.nan))
-        psi_lcfs = float(eq_ts.get('global_quantities.psi_boundary', np.nan))
-        
-        if not np.isfinite(psi_axis) or not np.isfinite(psi_lcfs) or psi_lcfs == psi_axis:
-            # Fallback: normalize by min/max of psi_RZ
-            psi_axis = float(np.nanmin(psi_RZ))
-            psi_lcfs = float(np.nanmax(psi_RZ))
-        
-        # Map 1D j_tor to 2D (R,Z)
-        try:
-            j_tor_RZ, _psiN_RZ = psi_to_rz(psi_norm_1d, j_tor_1d, psi_RZ, psi_axis, psi_lcfs)
-            
-            # Store in profiles_2d.0.j_tor
-            eq_ts['profiles_2d.0.j_tor'] = j_tor_RZ
-        except Exception as e:
-            print(f"Warning: Could not map j_tor to 2D for time slice {idx}: {e}")
-            continue
+
+        psi_axis = frame["psi_axis_radian"]
+        psi_boundary = frame["psi_boundary_radian"]
+        psi_norm_2d = (frame["psi_2d_radian"] - psi_axis) / (psi_boundary - psi_axis)
+
+        order = np.argsort(psi_norm_1d)
+        grid_r = frame["r_grid"][:, None] * np.ones_like(frame["z_grid"])[None, :]
+        pprime_2d = np.interp(psi_norm_2d, psi_norm_1d[order], pprime[order])
+        ffprime_2d = np.interp(psi_norm_2d, psi_norm_1d[order], ffprime[order])
+
+        sigma_bp = _sigma_bp(frame["convention"])
+        prefactor = -sigma_bp * (2.0 * np.pi) ** frame["exp_bp"]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            j_tor_2d = prefactor * (grid_r * pprime_2d + ffprime_2d / (MU0 * grid_r))
+
+        # p' and ff' stop at the boundary, so the current does too.
+        confined = _inside_boundary(frame, psi_norm_2d)
+        ts["profiles_2d.0.j_tor"] = np.where(confined, j_tor_2d, np.nan)
+
+
+
+def _inside_boundary(frame, psi_norm_2d):
+    """Mask of the confined region, from the LCFS outline where there is one.
+
+    ``psi_norm <= 1`` is a flux threshold, not a containment test. Outside the
+    plasma psi is not monotonic -- it turns over near the coils and in the
+    private-flux region -- so a large part of the exterior passes the threshold.
+    On the packaged 39915 sample that put current at 8-11% of the exterior grid
+    points, integrating to 265 kA against a 46 kA plasma on one slice.
+
+    The outline is the real boundary, so it is used when the slice has one. The
+    flux threshold remains the fallback for a slice that does not, where it is
+    the best available answer rather than a correct one.
+    """
+    boundary = frame.get("boundary")
+    if boundary is None:
+        return psi_norm_2d <= 1.0
+
+    from matplotlib.path import Path as _MplPath
+
+    outline_r = np.asarray(boundary[0], float).reshape(-1)
+    outline_z = np.asarray(boundary[1], float).reshape(-1)
+    grid_r, grid_z = np.meshgrid(frame["r_grid"], frame["z_grid"], indexing="ij")
+    inside = _MplPath(np.column_stack([outline_r, outline_z])).contains_points(
+        np.column_stack([grid_r.ravel(), grid_z.ravel()])
+    ).reshape(psi_norm_2d.shape)
+    # Both conditions: the outline can enclose a cell whose psi says otherwise on
+    # a coarse grid, and p'/ff' are only defined out to psi_norm = 1 either way.
+    return inside & (psi_norm_2d <= 1.0)
 
 
 def _equilibrium_time_slices(ods, time_slice):
