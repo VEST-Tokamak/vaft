@@ -34,17 +34,38 @@ catalog. The pre-VAFT `public` namespace stays readable and is never written,
 migrated or deleted.
 
 `hsload` does not create a top-level folder, so each source has to be
-provisioned once by an HSDS administrator before anything can be written
-into it:
+provisioned once by an HSDS administrator before anything can be written into
+it. Set the owner in a variable and confirm it before running anything —
+HSDS accepts any string as an owner without checking that the account exists,
+and ownership cannot be changed afterwards:
 
 ```bash
-hstouch -u <admin> -o <owner> /main/
-hstouch -u <admin> -o <owner> /chease-mhd-stability/
+OWNER=admin                     # the account the pipeline runs as
+echo "owner will be: $OWNER"
+
+hstouch -o "$OWNER" /main/      # trailing slash: folder, not domain
+hstouch -o "$OWNER" /chease-mhd-stability/
 ```
+
+Two things that are easy to get wrong and expensive to undo:
+
+- The **trailing slash** is what makes these folders. `hstouch /main` creates a
+  single HDF5 file called `main`, and every later write fails in a way that
+  reads like a permissions problem.
+- `-u` is a **credential override**, not "run as admin"; drop it when
+  `~/.hscfg` already authenticates as the right account. Only `-o` needs admin
+  rights, and it is the flag that silently accepts a placeholder.
+
+Repairing either means `hsdel` and recreate, which is safe only while the
+namespace is still empty.
 
 Writing into a namespace that does not exist fails with `MissingSourceError`
 naming exactly that command, rather than an opaque uploader exit code. Nothing
 in VAFT creates a top-level namespace, and no probe asks the server to.
+
+The full operator procedure — preflight, ACLs, source-policy verification,
+canonical bootstrap, smoke test, rollback and an acceptance checklist — is in
+[DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## HSDS replication
 
