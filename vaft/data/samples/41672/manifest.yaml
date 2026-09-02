@@ -17,20 +17,21 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 31498902
-    sha256: f51827f717605e1ae865f3539bac250aeecc358660d8ce56ac8f9e0a6f2b7095
+    size: 31498919
+    sha256: ace51302537d20d8b82d163752d58c49e1c86fe3ad316ddafe2ce7efed930b56
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 8535f6fd311200ec8e80c8d4b3f0215b2eabf3e4f4e8ae41d6e374f0c725ffb2
+  canonical_sha256: fbdc476145cf472a6b522f50bffae0d06117c1dc90be44692bb6a5deff6e22db
   materialized_leaves: 26839
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
   - materialize homogeneous barometry and equilibrium time coordinates
   - retain native-rate voltage and derived magnetic-field waveforms
-  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections, issue 288)
+  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections,
+    issue 288)
   related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
 pipeline:
   configuration: source/pipeline-config.yaml
@@ -103,9 +104,9 @@ corrections:
   reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
     measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
     reader. Applied in place rather than by rerunning the pipeline: the mapper writes
-    this leaf as a constant and no stage output depends on it. The reference
-    generators under workflow/reference_validation were hardcoding pi/2 on both
-    their generate and verify paths; they were corrected in the same change to
-    read POLOIDAL_ANGLE, so a regeneration now reproduces this value rather than
-    reverting it. The stage hashes above are therefore unchanged
-    and still describe the run that produced the rest of the artifact.'
+    this leaf as a constant and no stage output depends on it. The reference generators
+    under workflow/reference_validation were hardcoding pi/2 on both their generate
+    and verify paths; they were corrected in the same change to read POLOIDAL_ANGLE,
+    so a regeneration now reproduces this value rather than reverting it. The stage
+    hashes above are therefore unchanged and still describe the run that produced
+    the rest of the artifact.'

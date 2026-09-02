@@ -63,11 +63,16 @@ IMPA_PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe"
 #: positive, and an axis written ``pi/2 + delta`` under the counter-clockwise
 #: reading is the same axis as ``3*pi/2 - delta`` under the DD's clockwise one.
 IMPA_POLOIDAL_ANGLE = 3 * math.pi / 2
-#: A Hall channel wired for the toroidal field has no sensitive component in the
-#: poloidal plane at all; ``toroidal_angle = 0`` is what declares its
-#: orientation, and a poloidal angle of 0 is written only to keep the node
-#: complete.
+#: A Hall channel wired for the toroidal field has no sensitive component in
+#: the poloidal plane at all: its normal lies in the horizontal plane, which
+#: the IMAS DD declares with ``poloidal_angle = 0``.
 IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE = 0.0
+#: The DD defines ``b_field_tor_probe.toroidal_angle`` as the angle of the
+#: sensor normal's horizontal projection from grad(R), counter-clockwise from
+#: above (COCOS-11 phi-like, taken modulo pi). A toroidal-field sensor's
+#: normal is parallel to grad(phi), which is pi/2 -- writing 0 there declares
+#: a *radial* (B_R) sensor instead.
+IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE = math.pi / 2
 
 
 def _safe_vest_load(shot: int, field: int, raw_source: raw_db.RawSource | None = None):
@@ -580,7 +585,11 @@ def impa(
             f"{prefix}.poloidal_angle",
             IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE if orientation == "toroidal" else IMPA_POLOIDAL_ANGLE,
         )
-        set_path(ods, f"{prefix}.toroidal_angle", 0.0)
+        set_path(
+            ods,
+            f"{prefix}.toroidal_angle",
+            IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE if orientation == "toroidal" else 0.0,
+        )
         set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
         set_path(ods, f"{prefix}.type.name", "hall")
         set_path(ods, f"{prefix}.type.description", "VEST internal magnetic probe array (Hall probe)")
