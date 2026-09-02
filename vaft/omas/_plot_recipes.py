@@ -39,6 +39,7 @@ from vaft.plot.models import (
     Spectrogram,
 )
 from vaft.plot.display import figure_title, resolve_display
+from vaft.plot.selection import INBOARD, OUTBOARD
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -277,7 +278,7 @@ def _resolve_selection(
                 "selection must be indices or identifiers, not a mixture; "
                 f"got {term!r}"
             )
-        preset = _resolve_preset(ods, container, count, term)
+        preset = _resolve_preset(ods, container, count, term, template)
         if preset is not None:
             indices.extend(preset)
             continue
@@ -301,7 +302,23 @@ def _resolve_selection(
     return list(dict.fromkeys(indices))
 
 
-def _resolve_preset(ods: Any, container: str, count: int, term: str):
+def _channel_has_data(ods: Any, template: str, index: int) -> bool:
+    """Whether this channel actually carries the signal being plotted.
+
+    A representative must be a real measurement: the channel nearest the
+    midplane is no use if it recorded nothing, so an empty one is passed over
+    rather than returned and drawn blank.
+    """
+    values = _get(ods, template.format(i=index))
+    if values is None:
+        return False
+    array = np.asarray(values, dtype=float).ravel()
+    return array.size > 1 and bool(np.isfinite(array).any())
+
+
+def _resolve_preset(
+    ods: Any, container: str, count: int, term: str, template: str
+):
     """Resolve a named physical region preset, or ``None`` if not one.
 
     The region comes from :func:`vaft.plot.selection.classify_regions`, which
@@ -310,23 +327,43 @@ def _resolve_preset(ods: Any, container: str, count: int, term: str):
     -- to nothing -- rather than falling through to the identifier lookup and
     reporting an unknown selection.
     """
-    from vaft.plot.selection import PRESETS, REGION_PRESETS, classify_regions
+    from vaft.plot.selection import (
+        PRESETS,
+        REGION_PRESETS,
+        classify_regions,
+        radial_divider,
+        representative_index,
+    )
 
     if term not in PRESETS:
         return None
-    if term not in REGION_PRESETS:
-        # A representative preset names one channel rather than a region, and
-        # resolving it needs the vertical geometry the representative work
-        # adds.  Refuse it here: returning an empty selection would draw an
-        # empty figure and call that an answer.
+    r_values, z_values = _channel_positions(ods, container, count)
+    split = radial_divider(r_values)
+    if not split:
         raise ValueError(
-            f"selection {term!r} names a representative channel, which this "
-            f"build cannot resolve yet; use one of {', '.join(REGION_PRESETS)} "
-            "or an explicit index or identifier"
+            f"{container} has no inboard/outboard split -- its channels sit at "
+            f"one radius -- so {term!r} does not apply to it; select by index "
+            "or identifier instead"
         )
-    r_values, _ = _channel_positions(ods, container, count)
-    regions = classify_regions(r_values)
-    return [index for index, region in enumerate(regions) if region == term]
+    regions = classify_regions(r_values, split=split)
+
+    if term in REGION_PRESETS:
+        return [index for index, region in enumerate(regions) if region == term]
+
+    # A representative names the one channel that best stands for its region.
+    region = INBOARD if term.startswith(INBOARD) else OUTBOARD
+    candidates = [
+        index
+        for index, name in enumerate(regions)
+        if name == region and _channel_has_data(ods, template, index)
+    ]
+    chosen = representative_index(z_values, candidates)
+    if chosen is None:
+        raise ValueError(
+            f"no usable {region} channel of {container} can represent "
+            f"{term!r}; the region is empty or carries no data in this input"
+        )
+    return [chosen]
 
 
 def selection_presets() -> tuple[str, ...]:
