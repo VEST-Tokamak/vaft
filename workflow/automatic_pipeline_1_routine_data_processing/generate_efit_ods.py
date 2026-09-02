@@ -26,6 +26,35 @@ def _minimal_efit_ods(shot: int, run: int, status: str) -> ODS:
     return ods
 
 
+def efit_collection_parameters(
+    *,
+    status: str,
+    slice_statuses,
+    mapping_diagnostics,
+    artifact_hashes,
+    artifact_manifest,
+) -> str:
+    """Serialize the EFIT collection payload for `equilibrium.code.parameters`.
+
+    The DD types that field as a single string, so everything the collection
+    records has to travel inside one serialized document. Kept as a function so
+    a reader can recover the payload with `json.loads` and a test can pin the
+    round trip without running the stage.
+    """
+    return json.dumps(
+        {
+            "efit_collection": {
+                "status": status,
+                "slice_statuses": [s.to_dict() for s in slice_statuses],
+                "mapping_diagnostics": list(mapping_diagnostics),
+                "artifact_hashes": dict(artifact_hashes),
+                "artifact_manifest": artifact_manifest,
+            }
+        },
+        sort_keys=True,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
@@ -58,17 +87,24 @@ def main() -> int:
         ods["dataset_description.data_entry.machine"] = "VEST"
         ods["dataset_description.data_entry.pulse"] = int(args.shot)
         ods["dataset_description.data_entry.run"] = int(args.run)
-        ods["equilibrium.code.parameters.efit_collection.status"] = status_text
-        ods["equilibrium.code.parameters.efit_collection.slice_statuses"] = [status.to_dict() for status in result.slice_statuses]
-        ods["equilibrium.code.parameters.efit_collection.mapping_diagnostics"] = list(result.mapping_diagnostics)
-        # Keep arbitrary case/path keys opaque. Numeric labels such as
-        # ``039915.00316`` otherwise become ODS path components during reload.
-        ods["equilibrium.code.parameters.efit_collection.artifact_hashes_json"] = json.dumps(
-            dict(result.artifact_hashes), sort_keys=True
-        )
-        ods["equilibrium.code.parameters.efit_collection.artifact_manifest_json"] = json.dumps(
-            json.loads(args.artifact_manifest.read_text(encoding="utf-8")),
-            sort_keys=True,
+        # `code.parameters` is a STR_0D in the DD, so the whole payload is one
+        # serialized string. Writing it as a nested tree looks right locally and
+        # is dropped entirely on the way through the Access Layer -- 4096 paths
+        # of collection provenance vanished between the FileDB product and its
+        # HSDS replica before this was a string (issue #380). CHEASE has always
+        # serialized this field; EFIT now does the same.
+        #
+        # Arbitrary case and path keys stay inside the JSON rather than becoming
+        # ODS path components: a numeric label such as `039915.00316` is not a
+        # path segment.
+        ods["equilibrium.code.parameters"] = efit_collection_parameters(
+            status=status_text,
+            slice_statuses=result.slice_statuses,
+            mapping_diagnostics=result.mapping_diagnostics,
+            artifact_hashes=result.artifact_hashes,
+            artifact_manifest=json.loads(
+                args.artifact_manifest.read_text(encoding="utf-8")
+            ),
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
