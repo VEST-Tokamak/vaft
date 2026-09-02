@@ -30,8 +30,10 @@ make -C tutorial presentations-pdf        # archival Beamer PDF only
 make -C tutorial presentations-presenter  # Beamer PDF with notes shown
 ```
 
-Requires [Quarto](https://quarto.org) and a LaTeX installation for the PDF
-targets. `make -C tutorial slides` still builds the five Beamer decks and is
+Requires [Quarto](https://quarto.org), a LaTeX installation for the PDF targets,
+and `rsvg-convert` (from `librsvg`) so the Beamer output can embed SVG figures --
+LaTeX cannot include an SVG directly. Most developer machines already have it;
+CI installs `librsvg2-bin` explicitly. `make -C tutorial slides` still builds the five Beamer decks and is
 unaffected.
 
 > **Target order matters.** Quarto's `--output` *renames* the render rather than

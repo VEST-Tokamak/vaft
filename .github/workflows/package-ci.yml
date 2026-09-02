@@ -132,8 +132,12 @@ jobs:
         with:
           version: "1.9.36"
 
-      - name: Install the TeX packages Quarto's Beamer template needs
-        run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended
+      # librsvg2-bin supplies rsvg-convert. LaTeX cannot embed an SVG directly,
+      # so Quarto shells out to convert figures for the Beamer output; without
+      # it the render dies on the first SVG. It is present on most developer
+      # machines by accident, which is exactly why CI has to install it.
+      - name: Install the TeX packages and SVG converter Quarto's Beamer output needs
+        run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended librsvg2-bin
 
       - name: Render the presentation pilot to both backends
         run: make -C tutorial presentations
