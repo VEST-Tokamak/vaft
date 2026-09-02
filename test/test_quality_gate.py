@@ -147,3 +147,24 @@ def test_a_gate_with_nothing_excluded_is_a_pure_pass_through():
     )
     gate.check([])
     assert plasma_free_residual([], None, gate=gate).shape == (0,)
+
+
+def test_a_window_with_no_magnetics_samples_is_refused_not_reported_clean(shot_39915):
+    """The magnetics record ends at 0.36 s; a gate over 0.50-0.60 s used to
+    come back 'assessed 87, nothing excluded'."""
+    with pytest.raises(VacuumMagneticsError, match="no samples"):
+        quality_gate(shot_39915, window=(0.50, 0.60))
+
+
+def test_a_gate_for_another_window_is_refused(shot_39915):
+    interval = plasma_free_interval(shot_39915)
+    window = (interval.start, interval.end)
+    gated, gate = quality_gate(shot_39915, window=window)
+    channels = synthetic_vacuum_magnetics(
+        benchmark_wall_currents(gated), per_family=None, window=window, validity_window=window
+    )
+    other = (window[0], window[0] + 0.5 * (window[1] - window[0]))
+    with pytest.raises(VacuumMagneticsError, match="built for window"):
+        plasma_free_residual(channels, other, gate=gate)
+    # the window it was built for is, of course, accepted
+    assert plasma_free_residual(channels, window, gate=gate).size > 0

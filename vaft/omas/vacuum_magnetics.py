@@ -665,8 +665,21 @@ class QualityGate:
     config: Mapping[str, Any]
     validity_source: str
 
-    def check(self, channels: Sequence[VacuumChannel]) -> None:
-        """Refuse a channel set that still carries what the gate excluded."""
+    def check(
+        self, channels: Sequence[VacuumChannel], window: tuple[float, float] | None = None
+    ) -> None:
+        """Refuse a channel set that still carries what the gate excluded.
+
+        Exclusion is window-dependent, so a gate built for one window must not
+        vouch for an evaluation over another.
+        """
+        if self.window is not None and window is not None:
+            same = np.isclose(self.window[0], window[0]) and np.isclose(self.window[1], window[1])
+            if not same:
+                raise VacuumMagneticsError(
+                    f"the quality gate was built for window {self.window}, not "
+                    f"{tuple(float(w) for w in window)}; rebuild it for this window"
+                )
         leaked = [c.name for c in channels if c.name in self.excluded]
         if leaked:
             raise VacuumMagneticsError(
@@ -739,7 +752,13 @@ def quality_gate(
             reasons[quality.name] = seen
 
     grid = _time_grid(gated, window)
-    unusable = unusable_channels_at(gated, grid, min_validity=min_validity) if grid.size else {}
+    if not grid.size:
+        raise VacuumMagneticsError(
+            "the magnetics carry no samples"
+            + ("" if window is None else f" inside the window {window}")
+            + "; a gate over nothing would report a clean array"
+        )
+    unusable = unusable_channels_at(gated, grid, min_validity=min_validity)
     excluded: list[str] = []
     partial: list[str] = []
     for key, mask in unusable.items():
@@ -804,7 +823,7 @@ def plasma_free_residual(
     whichever quantity happens to carry the larger numbers. Channels whose
     measured RMS is zero are left unscaled rather than divided by zero.
     """
-    gate.check(channels)
+    gate.check(channels, window)
     blocks: list[np.ndarray] = []
     for channel in channels:
         mask = evaluation_mask(channel, window)
