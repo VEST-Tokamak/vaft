@@ -15,8 +15,12 @@ bibliography: assets/bibliography/vaft.bib
 one discharge: a few hundred milliseconds in which coil currents ramp, a plasma
 forms, and every diagnostic records a signal.
 
-**VAFT** is the analysis interface for that data [@yun2025vaft]. It loads a
-discharge, gives you its measurements in a standard structure, and plots them.
+**VAFT** is a standardized, verifiable and interoperable scientific
+infrastructure for machine-agnostic tokamak research [@yun2025vaft]. VEST is its
+full reference implementation.
+
+Today you meet the part you touch first: it loads a discharge, gives you its
+measurements in a standard structure, and plots them.
 
 ::: {.notes}
 [2 min]
@@ -25,8 +29,17 @@ NARRATE:
 Set the scene before any code. The audience needs to know that a shot is a few
 hundred milliseconds, not a steady state — everything downstream depends on that.
 
+Say "infrastructure" once and move on. The word matters for where this is going,
+but nobody learns it from a definition — they learn it from the next fifty
+minutes.
+
 WARN:
-Do not call VAFT a file format. It is an analysis interface over OMAS.
+Do not call VAFT a file format, and do not call it a plotting library. It is an
+interface over OMAS *and* a versioned pipeline, a FAIR database and a research
+archive; today's session only exercises the first of those.
+
+Do not say VAFT is VEST-only. VEST is the reference implementation, not the
+scope.
 
 TRANSITION:
 From what a shot is, to how its data is organised.
