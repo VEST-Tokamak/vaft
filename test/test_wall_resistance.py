@@ -203,3 +203,14 @@ def test_the_asset_names_its_calibration_vintage(static_ods):
     parameters = str(static_ods["pf_passive.code.parameters"])
     assert "wall_calibration_vintage=2303" in parameters
     assert LEGACY_CALIBRATIONS["2303"].digest() in parameters
+
+
+def test_an_older_product_with_the_inherited_resistivity_still_uses_the_constants():
+    """The packaged samples carry the field with the pre-#388 vector; without
+    the marker the nominal resistance must ignore it, or the identity breaks."""
+    from vaft.machine_mapping.wall_resistance import RESISTIVITY_MARKER, _declares_nominal_resistivity
+
+    ods = _real_shot(39915)
+    assert not _declares_nominal_resistivity(ods)
+    assert RESISTIVITY_MARKER in str(load_static_ods(DEFAULT_REFERENCE_ODS)["pf_passive.code.parameters"])
+    assert identify_calibration(ods)["key"] == "2303"
