@@ -33,7 +33,7 @@ Both sides of every comparison carry the same physical quantity and unit:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
@@ -66,6 +66,8 @@ __all__ = [
     "eddy_improvement",
     "evaluation_mask",
     "plasma_free_residual",
+    "QualityGate",
+    "quality_gate",
     "plasma_onset_time",
     "probe_family",
     "residual_onset",
@@ -642,13 +644,149 @@ def synthetic_vacuum_magnetics(
 # Metrics
 # ---------------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class QualityGate:
+    """What the diagnostics-stage assessment excluded before a fit saw the data.
+
+    A fit record needs this next to its residual: which channels were refused
+    outright in the fit window, which were partially masked, why, and under
+    which thresholds. The residual function takes the gate as a *required*
+    input and refuses channels the gate excluded, so a residual cannot be
+    built from ungated data by accident -- the failure #308 must not have,
+    since a single implausible probe (H3-08 on 39915, 40x its family median)
+    moved the normalized residual by 11%.
+    """
+
+    assessed: int
+    window: tuple[float, float] | None
+    excluded: tuple[str, ...]
+    partially_masked: tuple[str, ...]
+    reasons: Mapping[str, tuple[str, ...]]
+    config: Mapping[str, Any]
+    validity_source: str
+
+    def check(self, channels: Sequence[VacuumChannel]) -> None:
+        """Refuse a channel set that still carries what the gate excluded."""
+        leaked = [c.name for c in channels if c.name in self.excluded]
+        if leaked:
+            raise VacuumMagneticsError(
+                "channels excluded by the quality gate are present in the residual "
+                f"input: {leaked}; build the channels from the gated ODS"
+            )
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "assessed_channels": int(self.assessed),
+            "window": None if self.window is None else [float(w) for w in self.window],
+            "excluded": [
+                {"channel": name, "reasons": list(self.reasons.get(name, ()))}
+                for name in self.excluded
+            ],
+            "partially_masked": [
+                {"channel": name, "reasons": list(self.reasons.get(name, ()))}
+                for name in self.partially_masked
+            ],
+            "thresholds": dict(self.config),
+            "validity_source": self.validity_source,
+        }
+
+
+def quality_gate(
+    ods: Any,
+    *,
+    window: tuple[float, float] | None = None,
+    report: Sequence[Any] | None = None,
+    config: Any | None = None,
+    min_validity: int = VALIDITY_VALID,
+) -> tuple[Any, QualityGate]:
+    """Assess the magnetics, project the verdict, and say what it excluded.
+
+    Returns a **copy** of ``ods`` with the assessment's validity projected into
+    the native nodes (the one direction #253 permits), plus the
+    :class:`QualityGate` describing the consequence for ``window``. The source
+    is never written.
+
+    The assessment is re-run here unless a ``report`` from
+    :func:`vaft.validation.magnetics.validate_magnetics_signals` is passed,
+    because a product carries no marker saying whether it was ever assessed:
+    "all valid" and "never looked at" are the same bytes. Re-running is
+    deterministic and costs under two seconds on a full shot.
+    """
+    import copy as _copy
+    import dataclasses as _dc
+
+    from vaft.validation.magnetics import (
+        MagneticsQualityConfig,
+        project_validity,
+        unusable_channels_at,
+        validate_magnetics_signals,
+    )
+
+    settings = config if config is not None else MagneticsQualityConfig()
+    source = "report supplied by caller" if report is not None else "re-assessed here"
+    entries = tuple(report) if report is not None else validate_magnetics_signals(ods, config=settings)
+    gated = _copy.deepcopy(ods)
+    project_validity(gated, entries)
+
+    reasons: dict[str, tuple[str, ...]] = {}
+    names: dict[tuple[str, int], str] = {}
+    for quality in entries:
+        names[(quality.kind, quality.index)] = quality.name
+        seen = tuple(dict.fromkeys(event.reason for event in quality.events))
+        if not seen and quality.reason and quality.validity < min_validity:
+            seen = (str(quality.reason),)  # verdict inherited from an earlier stage
+        if seen:
+            reasons[quality.name] = seen
+
+    grid = _time_grid(gated, window)
+    unusable = unusable_channels_at(gated, grid, min_validity=min_validity) if grid.size else {}
+    excluded: list[str] = []
+    partial: list[str] = []
+    for key, mask in unusable.items():
+        name = names.get(key, f"{key[0]}[{key[1]}]")
+        (excluded if bool(np.all(mask)) else partial).append(name)
+    gate = QualityGate(
+        assessed=len(entries),
+        window=None if window is None else (float(window[0]), float(window[1])),
+        excluded=tuple(sorted(excluded)),
+        partially_masked=tuple(sorted(partial)),
+        reasons=reasons,
+        config=_dc.asdict(settings) if _dc.is_dataclass(settings) else dict(settings),
+        validity_source=source,
+    )
+    return gated, gate
+
+
+def _time_grid(ods: Any, window: tuple[float, float] | None) -> np.ndarray:
+    """The magnetics sample instants inside ``window``."""
+    for path in (
+        "magnetics.time",
+        "magnetics.b_field_pol_probe.0.field.time",
+        "magnetics.flux_loop.0.flux.time",
+    ):
+        if path in ods:
+            grid = np.asarray(ods[path], dtype=float).reshape(-1)
+            break
+    else:
+        return np.zeros(0)
+    if window is None:
+        return grid
+    return grid[(grid >= window[0]) & (grid < window[1])]
+
+
 def plasma_free_residual(
     channels: Sequence[VacuumChannel],
     window: tuple[float, float] | None = None,
     *,
+    gate: QualityGate,
     normalize: bool = False,
 ) -> np.ndarray:
     """Stack ``measured - coil_eddy`` over the usable samples of every channel.
+
+    ``gate`` is required: the :class:`QualityGate` from :func:`quality_gate`
+    for the ODS the channels were built from. Its check refuses a channel
+    set that still contains what the gate excluded, so a fit cannot run on
+    unassessed data by omission.
 
     This is the objective a wall-resistance calibration minimises (issue #308):
     with the model driven by the PF coils alone over a plasma-free interval,
@@ -666,6 +804,7 @@ def plasma_free_residual(
     whichever quantity happens to carry the larger numbers. Channels whose
     measured RMS is zero are left unscaled rather than divided by zero.
     """
+    gate.check(channels)
     blocks: list[np.ndarray] = []
     for channel in channels:
         mask = evaluation_mask(channel, window)
