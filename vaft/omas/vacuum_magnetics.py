@@ -463,7 +463,9 @@ def vacuum_response(
         raise VacuumMagneticsError(
             "no magnetic channel carries usable measured data for vacuum validation"
         )
-    return rows, compute_point_response_ods(ods, [[row["r"], row["z"]] for row in rows])
+    positions = np.array([[row["r"], row["z"]] for row in rows], dtype=float)
+    psi, b_z, b_r = compute_point_response_ods(ods, positions.tolist())
+    return rows, (psi, b_z, b_r, positions)
 
 
 def synthetic_vacuum_magnetics(
@@ -474,7 +476,7 @@ def synthetic_vacuum_magnetics(
     window: tuple[float, float] | None = None,
     validity_window: tuple[float, float] | None = None,
     min_validity: int = VALIDITY_VALID,
-    response: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+    response: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> tuple[VacuumChannel, ...]:
     """Forward-model the coil and coil+eddy response at selected magnetics.
 
@@ -496,29 +498,48 @@ def synthetic_vacuum_magnetics(
     :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`, whose
     loops were solved from the PF coils alone (#190).
 
-    ``response`` is the ``(psi, b_z, b_r)`` triple from
-    :func:`vacuum_response` for the *same* channel selection. The geometry
+    ``response`` is the bundle from :func:`vacuum_response`. The geometry
     Green's functions it holds depend only on coil/loop/sensor positions, not
     on any current or resistance, so a calibration that re-solves the wall
     many times (#308) computes them once and passes them back in: on the real
     machine they are ~97% of this function's cost. Unset, they are computed
-    here. A mismatch in channel count is refused rather than contracted.
+    here through the same function, so the two paths select identically by
+    construction. The bundle carries the positions it was computed for, and
+    they are compared to the selection -- not merely counted -- because two
+    selections of equal size but different channels contract silently and
+    wrongly otherwise (an 81% error was measured on the real machine).
     """
-    from vaft.omas.process_wrapper import compute_point_response_ods
-
     # Checked first: "the eddy solve has not run on this ODS" is the more
     # actionable diagnosis than "no usable channels" when both are true.
     time, coil_currents, loop_currents = _currents(ods)
-    rows = select_vacuum_channels(
-        ods,
-        per_family=per_family,
-        channels=channels,
-        window=window if validity_window is None else validity_window,
-        min_validity=min_validity,
-    )
-    if not rows:
+    if response is None:
+        rows, response = vacuum_response(
+            ods,
+            per_family=per_family,
+            channels=channels,
+            window=window,
+            validity_window=validity_window,
+            min_validity=min_validity,
+        )
+    else:
+        rows = select_vacuum_channels(
+            ods,
+            per_family=per_family,
+            channels=channels,
+            window=window if validity_window is None else validity_window,
+            min_validity=min_validity,
+        )
+        if not rows:
+            raise VacuumMagneticsError(
+                "no magnetic channel carries usable measured data for vacuum validation"
+            )
+    psi, b_z, b_r, positions = response
+    selected = np.array([[row["r"], row["z"]] for row in rows], dtype=float)
+    if positions.shape != selected.shape or not np.array_equal(positions, selected):
         raise VacuumMagneticsError(
-            "no magnetic channel carries usable measured data for vacuum validation"
+            f"precomputed response was built for {len(positions)} positions that do "
+            f"not match the {len(rows)} channels selected here; it must come from "
+            "vacuum_response() on the same selection"
         )
     n_coil, n_loop = coil_currents.shape[0], loop_currents.shape[0]
 
@@ -535,19 +556,6 @@ def synthetic_vacuum_magnetics(
     time = time[inside]
     coil_currents = coil_currents[:, inside]
     loop_currents = loop_currents[:, inside]
-
-    if response is None:
-        psi, b_z, b_r = compute_point_response_ods(
-            ods, [[row["r"], row["z"]] for row in rows]
-        )
-    else:
-        psi, b_z, b_r = response
-        if len(psi) != len(rows) or len(b_z) != len(rows) or len(b_r) != len(rows):
-            raise VacuumMagneticsError(
-                f"precomputed response covers {len(psi)} positions but "
-                f"{len(rows)} channels were selected; it must come from "
-                "vacuum_response() on the same selection"
-            )
 
     built: list[VacuumChannel] = []
     for position, row in enumerate(rows):

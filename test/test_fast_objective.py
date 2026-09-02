@@ -35,9 +35,10 @@ import pytest
 from omas import ODS, load_omas_json
 
 from vaft.omas.vacuum_magnetics import (
-    VacuumMagneticsError,
+    select_vacuum_channels,
     synthetic_vacuum_magnetics,
     vacuum_response,
+    VacuumMagneticsError,
 )
 from vaft.process.electromagnetics import solve_eddy_currents, wall_propagator
 from vaft.validation.vacuum_benchmark import benchmark_wall_currents, plasma_free_interval
@@ -189,3 +190,68 @@ def test_eigh_and_eig_agree_on_the_real_machine_to_round_off(shot_39915):
     assert np.max(diff) / np.max(np.abs(eig)) < 1e-10
     peak = np.max(np.abs(eig), axis=0).clip(1e-30)
     assert not np.any(np.max(diff, axis=0) > 1e-6 * peak)
+
+
+# --- review of PR #377: the three propagator-level findings, pinned ---
+
+
+def test_auto_falls_back_to_eig_exactly_when_r_is_coupled():
+    """The pencil form uses only R's diagonal. A coupled R must take the general
+    path, bit-for-bit, and the explicit eigh path must refuse it -- silently
+    dropping the off-diagonal resistance gave a 3.7e-8 propagator divergence."""
+    rng = np.random.default_rng(1)
+    n = 6
+    a = rng.uniform(1.0, 2.0, (n, n))
+    m = (a + a.T) / 2.0 + n * np.eye(n)
+    r = np.diag(np.logspace(-2, 0, n))
+    r[0, 1] = r[1, 0] = 0.3 * np.sqrt(r[0, 0] * r[1, 1])
+    p_eig = wall_propagator(r, m, 5e-5, method="eig")
+    p_auto = wall_propagator(r, m, 5e-5, method="auto")
+    assert np.array_equal(p_eig, p_auto)
+    with pytest.raises(ValueError, match="diagonal R_mat"):
+        wall_propagator(r, m, 5e-5, method="eigh")
+
+
+def test_eig_path_keeps_the_pseudo_inverse_fallback_on_singular_m():
+    """Before the propagator was factored out, a singular M fell back to pinv
+    and the solve proceeded. That parity must survive the refactor rather than
+    turn into a NaN abort."""
+    rng = np.random.default_rng(2)
+    n = 6
+    m_singular = np.zeros((n, n))
+    m_singular[0, 0] = 1.0
+    t = np.linspace(0.0, 0.01, 50)
+    drive = np.stack([np.sin(20.0 * t), -t], axis=1)
+    coupling = rng.uniform(-1.0, 1.0, (n, 2)) * 1e-4
+    out = solve_eddy_currents(np.eye(n), coupling, m_singular, drive, t, method="eig")
+    assert out.shape == (t.size, n)
+    assert np.all(np.isfinite(out))
+
+
+def test_a_response_for_a_different_equal_sized_selection_is_refused(shot_39915):
+    """Count is not identity. The refusal above catches a *different-sized*
+    selection; this one is the case that got through: two probe selections of
+    the same size but different channels. Before the response carried its
+    positions, this contracted silently with an 81% error against the correct
+    forward model -- exactly the #308 hazard, since validity windows differ per
+    shot and era."""
+    solved = benchmark_wall_currents(shot_39915)
+    interval = plasma_free_interval(shot_39915)
+    window = (interval.start, interval.end)
+    probes = [
+        (row["kind"], row["index"])
+        for row in select_vacuum_channels(solved, per_family=None, window=window)
+        if row["kind"] == "b_field_pol_probe"
+    ]
+    assert len(probes) >= 12
+    _, response = vacuum_response(
+        solved, channels=probes[:6], window=window, validity_window=window
+    )
+    with pytest.raises(VacuumMagneticsError, match="must come from vacuum_response"):
+        synthetic_vacuum_magnetics(
+            solved, channels=probes[6:12], window=window, validity_window=window, response=response
+        )
+    kept = synthetic_vacuum_magnetics(
+        solved, channels=probes[:6], window=window, validity_window=window, response=response
+    )
+    assert len(kept) == 6

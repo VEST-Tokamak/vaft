@@ -463,9 +463,14 @@ def wall_propagator(
     if method not in ("auto", "eig", "eigh"):
         raise ValueError(f"method must be 'auto', 'eig' or 'eigh', got {method!r}")
     if method == "auto":
-        method = "eigh" if np.allclose(M_mat, M_mat.T, rtol=_SYMMETRIC_RTOL, atol=0.0) else "eig"
+        symmetric = np.allclose(M_mat, M_mat.T, rtol=_SYMMETRIC_RTOL, atol=0.0)
+        # The pencil form takes R's diagonal; a coupled R must keep the general path.
+        diagonal = np.count_nonzero(R_mat - np.diag(np.diag(R_mat))) == 0
+        method = "eigh" if (symmetric and diagonal) else "eig"
 
     if method == "eigh":
+        if np.count_nonzero(R_mat - np.diag(np.diag(R_mat))):
+            raise ValueError("eigh propagator requires a diagonal R_mat")
         r = np.diag(R_mat)
         if not np.all(r > 0.0):
             raise ValueError("eigh propagator requires a diagonal positive R_mat")
@@ -478,8 +483,11 @@ def wall_propagator(
         # y = R^1/2 I evolves by E, so I(t+dt) = R^-1/2 E R^1/2 I(t):
         # row-scale by s = R^-1/2, column-scale by 1/s = R^1/2.
         return (E * s[:, None]) * (1.0 / s)[None, :]
-    # general path -- byte-for-byte what solve_eddy_currents did before
-    B_inv_M = np.linalg.inv(M_mat)
+    # general path -- what solve_eddy_currents did before, pinv fallback included
+    try:
+        B_inv_M = np.linalg.inv(M_mat)
+    except np.linalg.LinAlgError:
+        B_inv_M = np.linalg.pinv(M_mat)
     A_sys = -B_inv_M @ R_mat
     w, E_vec = np.linalg.eig(A_sys)
     E_inv = np.linalg.inv(E_vec)
@@ -511,19 +519,8 @@ def solve_eddy_currents(
     if n_times_original == 0:
         return np.zeros((0, nbloop))
 
-    # Matrix setup (similar to vfit_eddy, using direct inv with pseudo-inverse fallback)
-    try:
-        B_inv_M = np.linalg.inv(M_mat)
-    except np.linalg.LinAlgError:
-        # print(f"Error inverting M_mat: {e}. Using pseudo-inverse as fallback.")
-        try:
-            B_inv_M = np.linalg.pinv(M_mat)
-        except np.linalg.LinAlgError as e_pinv:
-            print(f"Pseudo-inverse of M_mat also failed: {e_pinv}. Aborting.")
-            return np.full((n_times_original, nbloop), np.nan)
-
-    A_sys = -B_inv_M @ R_mat
-
+    # M_mat is inverted (or decomposed) inside wall_propagator; only R_mat's
+    # inverse is needed here, for the particular solution.
     try:
         C_R_inv = np.linalg.inv(R_mat)
     except np.linalg.LinAlgError:
@@ -534,12 +531,11 @@ def solve_eddy_currents(
             print(f"Pseudo-inverse of R_mat also failed: {e_pinv}. Aborting.")
             return np.full((n_times_original, nbloop), np.nan)
             
-    if np.any(np.isnan(B_inv_M)) or np.any(np.isinf(B_inv_M)) or \
-       np.any(np.isnan(C_R_inv)) or np.any(np.isinf(C_R_inv)):
-        print("Error: Inverse of M_mat or R_mat contains NaN/Inf after fallback. Aborting.")
+    if np.any(np.isnan(C_R_inv)) or np.any(np.isinf(C_R_inv)):
+        print("Error: Inverse of R_mat contains NaN/Inf after fallback. Aborting.")
         return np.full((n_times_original, nbloop), np.nan)
 
-    # One-substep propagator expm(A_sys*dt). The symmetric-pencil path is used
+    # One-substep propagator expm(-M^-1 R dt). The symmetric-pencil path is used
     # automatically when M_mat is symmetric (the loader guarantees that for the
     # packaged asset, #347); a hand-built asymmetric M keeps the general path.
     try:
