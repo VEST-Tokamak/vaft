@@ -33,6 +33,8 @@ from vaft.omas.process_wrapper import (
     compute_point_vacuum_fields_ods,
 )
 from vaft.omas.vacuum_magnetics import (
+    evaluation_mask,
+    plasma_free_residual,
     B_FIELD_POL_PROBE,
     FLUX_LOOP,
     VacuumMagneticsError,
@@ -460,3 +462,231 @@ def test_the_residual_band_and_the_onset_markers_use_the_same_sigma(plasma_ods):
         for text in ax.get_legend().get_texts()
     }
     assert any("±2σ" in label for label in labels)
+
+
+# --- issue #190: the wall must be driveable by the PF coils alone -----------
+
+
+def _solver_ods(plasma_amplitude: float):
+    """An ODS complete enough for the real RL solve, with a plasma source.
+
+    The `_synthetic_ods` fixture above hand-writes `pf_passive.loop[:].current`,
+    so it cannot exercise `solve_eddy_currents`. This one carries the
+    resistances and coupling the impedance builder needs, so both the routine
+    (coil + plasma) and PF-only solves can actually run.
+    """
+    from vaft.process.electromagnetics import compute_mutual_passive_active
+
+    n = 240
+    onset = 0.30
+    time = np.linspace(0.27, 0.34, n)
+
+    ods = ODS(consistency_check=False)
+    ods["pf_active.coil.0.name"] = "PF1"
+    ods["pf_active.coil.0.element.0.geometry.rectangle.r"] = 0.5
+    ods["pf_active.coil.0.element.0.geometry.rectangle.z"] = 0.2
+    ods["pf_active.coil.0.element.0.turns_with_sign"] = 10
+    ods["pf_active.coil.0.current.data"] = 1.0e4 * np.sin(np.linspace(0.0, 2.0, n))
+    ods["pf_active.coil.0.current.time"] = time
+    ods["pf_active.time"] = time
+
+    passive_geometry = [("W11", 0.3, 0.1, 1.0), ("W12", 0.4, -0.1, 1.04)]
+    for index, (name, resistance, r, z) in enumerate(
+        [("W11", 2.0e-3, 0.3, 0.1), ("W12", 3.0e-3, 0.4, -0.1)]
+    ):
+        base = f"pf_passive.loop.{index}"
+        ods[f"{base}.name"] = name
+        ods[f"{base}.resistance"] = resistance
+        ods[f"{base}.element.0.geometry.geometry_type"] = 2
+        ods[f"{base}.element.0.geometry.rectangle.r"] = r
+        ods[f"{base}.element.0.geometry.rectangle.z"] = z
+
+    plasma = [(0.35, 0.0)]
+    ods["em_coupling.mutual_passive_passive"] = np.array([[1.0e-5, 1.0e-6], [1.0e-6, 2.0e-5]])
+    ods["em_coupling.mutual_passive_active"] = compute_mutual_passive_active(
+        passive_geometry, [[(0.5, 0.2, 10)]]
+    )
+
+    # Plasma current: exactly zero before onset, ramping after it.
+    ip = np.where(time < onset, 0.0, plasma_amplitude * 1.0e5 * (time - onset) / (time[-1] - onset))
+    return ods, time, plasma, [ip], onset
+
+
+def test_pf_only_solve_excludes_the_plasma_drive():
+    """The point of #190: plasma forcing must not reach the benchmark wall solve.
+
+    Before onset the plasma current is identically zero, so both solves see the
+    same drive and must agree. After onset the routine solve is pushed by the
+    plasma and the PF-only one is not, so they must diverge -- otherwise the
+    plasma column was never really being applied and the "exclusion" would be
+    vacuous.
+    """
+    from vaft.omas.process_wrapper import (
+        compute_eddy_currents,
+        wall_currents_from_active_coils,
+    )
+
+    ods, time, plasma, ip, onset = _solver_ods(plasma_amplitude=1.0)
+
+    _, pf_only = wall_currents_from_active_coils(ods, plasma)
+    compute_eddy_currents(ods, plasma, ip)
+    routine = np.array(
+        [np.asarray(ods[f"pf_passive.loop.{i}.current"], dtype=float) for i in range(2)]
+    ).T
+
+    assert pf_only.shape == routine.shape
+    # The solve is driven by dI/dt on a sub-stepped grid, so the samples
+    # immediately before onset already feel the plasma ramp that starts there.
+    # That is the circuit responding to a step, not leakage: compare strictly
+    # before the boundary and let the transition itself be excluded.
+    pre = time < onset - 0.002
+    post = time > onset + 0.02
+
+    np.testing.assert_allclose(pf_only[pre], routine[pre], rtol=1e-9, atol=1e-12)
+    separation = np.max(np.abs(pf_only[post] - routine[post]))
+    scale = np.max(np.abs(routine[post]))
+    assert separation > 0.01 * scale, "plasma drive is not actually reaching the routine solve"
+
+
+def test_pf_only_solve_matches_the_routine_one_without_plasma():
+    """With no plasma current, the two solves are the same computation."""
+    from vaft.omas.process_wrapper import (
+        compute_eddy_currents,
+        wall_currents_from_active_coils,
+    )
+
+    ods, _, plasma, ip, _ = _solver_ods(plasma_amplitude=0.0)
+    _, pf_only = wall_currents_from_active_coils(ods, plasma)
+    compute_eddy_currents(ods, plasma, ip)
+    routine = np.array(
+        [np.asarray(ods[f"pf_passive.loop.{i}.current"], dtype=float) for i in range(2)]
+    ).T
+    np.testing.assert_allclose(pf_only, routine, rtol=1e-9, atol=1e-12)
+
+
+def test_the_benchmark_solve_does_not_write_to_the_product():
+    """It returns currents; the routine stage owns `pf_passive.loop[:].current`."""
+    from vaft.omas.process_wrapper import wall_currents_from_active_coils
+
+    ods, _, plasma, _, _ = _solver_ods(plasma_amplitude=1.0)
+    wall_currents_from_active_coils(ods, plasma)
+    for index in range(2):
+        assert f"pf_passive.loop.{index}.current" not in ods
+
+
+def test_injected_loop_currents_drive_the_forward_model(vacuum_ods):
+    """The seam #308 needs: model the same channels off a different wall solution."""
+    ods, _, _ = vacuum_ods
+    baseline = synthetic_vacuum_magnetics(ods)
+
+    loops = np.array(
+        [np.asarray(ods[f"pf_passive.loop.{i}.current"], dtype=float) for i in range(2)]
+    )
+    injected = synthetic_vacuum_magnetics(ods, loop_currents=loops * 2.0)
+
+    for base, alt in zip(baseline, injected):
+        # The coil-only term cannot move; only the eddy contribution may.
+        np.testing.assert_allclose(alt.coil, base.coil, rtol=1e-12, atol=0.0)
+        assert not np.allclose(alt.coil_eddy, base.coil_eddy)
+
+    # Passing the transposed orientation `solve_eddy_currents` returns is
+    # equivalent, since this module works in (n_loops, n_times).
+    transposed = synthetic_vacuum_magnetics(ods, loop_currents=(loops * 2.0).T)
+    for a, b in zip(injected, transposed):
+        np.testing.assert_array_equal(a.coil_eddy, b.coil_eddy)
+
+
+def test_injected_loop_currents_reject_a_wrong_shape(vacuum_ods):
+    ods, _, _ = vacuum_ods
+    with pytest.raises(VacuumMagneticsError, match="match neither"):
+        synthetic_vacuum_magnetics(ods, loop_currents=np.zeros((5, 7)))
+
+
+def test_omitting_loop_currents_keeps_todays_behaviour(vacuum_ods):
+    """Every existing caller must be unaffected by the new parameter."""
+    ods, _, _ = vacuum_ods
+    for base, again in zip(synthetic_vacuum_magnetics(ods), synthetic_vacuum_magnetics(ods, loop_currents=None)):
+        np.testing.assert_array_equal(base.coil_eddy, again.coil_eddy)
+        np.testing.assert_array_equal(base.measured, again.measured)
+
+
+def test_plasma_free_residual_stacks_channels_for_a_fitter(vacuum_ods):
+    """#308 minimises this vector, so its length and content must be predictable."""
+    ods, _, _ = vacuum_ods
+    channels = synthetic_vacuum_magnetics(ods)
+    window = (float(channels[0].time[0]), PLASMA_ONSET)
+
+    residual = plasma_free_residual(channels, window)
+    expected = sum(int(np.count_nonzero(evaluation_mask(c, window))) for c in channels)
+    assert residual.shape == (expected,)
+
+    # This fixture's measurement is exactly coil + eddy before onset.
+    assert np.max(np.abs(residual)) < 1e-9
+
+    # Normalisation puts tesla and weber channels on a comparable footing
+    # without changing how many samples are compared.
+    assert plasma_free_residual(channels, window, normalize=True).shape == (expected,)
+
+
+def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
+    """End-to-end on the packaged shot #190 cites as its working regression.
+
+    This is the check the synthetic fixtures cannot make: 950 real passive
+    loops, the real coupling matrices, and a real PF programme. It also fixes
+    the cost, because #308 will call this solve inside a fit loop.
+
+    Before plasma onset the PF-only and routine drives coincide, so the
+    residual must agree between them; that it does is what makes the PF-only
+    solve a drop-in objective for the calibration.
+    """
+    import gzip
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from omas import load_omas_json
+
+    from vaft.data import resources
+    from vaft.omas.process_wrapper import wall_currents_from_active_coils
+
+    try:
+        source = resources.data_path("samples/39915/source/pipeline-until-efit.json.gz")
+    except Exception:  # pragma: no cover - packaging-dependent
+        pytest.skip("packaged 39915 pipeline sample is unavailable")
+    if not Path(source).is_file():
+        pytest.skip("packaged 39915 pipeline sample is repository-only")
+
+    with gzip.open(source, "rt") as handle, tempfile.NamedTemporaryFile(
+        "w", suffix=".json", delete=False
+    ) as plain:
+        shutil.copyfileobj(handle, plain)
+        plain_path = plain.name
+    try:
+        ods = load_omas_json(plain_path, consistency_check=False)
+    finally:
+        Path(plain_path).unlink(missing_ok=True)
+
+    n_loop = len(ods["pf_passive.loop"])
+    assert n_loop == 950
+
+    _, pf_only = wall_currents_from_active_coils(ods, [(0.4, 0.0)])
+    assert pf_only.shape[1] == n_loop
+    assert np.all(np.isfinite(pf_only))
+
+    onset = plasma_onset_time(ods)
+    routine_channels = synthetic_vacuum_magnetics(ods)
+    window = (float(routine_channels[0].time[0]), onset)
+    pf_channels = synthetic_vacuum_magnetics(ods, loop_currents=pf_only)
+
+    routine_rms = float(
+        np.sqrt(np.mean(plasma_free_residual(routine_channels, window, normalize=True) ** 2))
+    )
+    pf_rms = float(
+        np.sqrt(np.mean(plasma_free_residual(pf_channels, window, normalize=True) ** 2))
+    )
+    # Pre-onset the two drives are the same, so the residuals must be too.
+    assert pf_rms == pytest.approx(routine_rms, rel=0.05)
+    # And the model does not yet explain the wall response -- which is the
+    # gap #308 exists to close. If this ever falls near zero without a
+    # calibration landing, the benchmark has stopped being informative.
+    assert 0.01 < pf_rms < 1.0
