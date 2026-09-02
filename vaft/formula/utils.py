@@ -18,39 +18,59 @@ from vaft.compat import trapz_compat
 # ------------------------------------------------------------------
 
 def gradient(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """
-    Calculate gradient with proper handling of array dimensions.
-    
+    r"""Derivative $dy/dx$ on a sampled 1-D profile.
+
+    $$\frac{dy}{dx}\Big|_i \approx \frac{y_{i+1} - y_{i-1}}{x_{i+1} - x_{i-1}}$$
+
+    (second-order central difference on a possibly non-uniform grid).
+
     Parameters
     ----------
     x : np.ndarray
-        Independent variable
+        Independent variable, monotonic [any].
     y : np.ndarray
-        Dependent variable
-        
+        Dependent variable, same length as ``x`` [any].
+
     Returns
     -------
     np.ndarray
-        Gradient dy/dx
+        $dy/dx$ at every sample, in units of ``y`` per unit ``x`` [any].
+
+    Numerical notes
+    ---------------
+    Wraps ``numpy.gradient(y, x)``: second-order accurate in the interior,
+    first-order one-sided at the two end points, and noise-amplifying (a
+    relative noise $\delta$ on ``y`` becomes $\delta/\Delta x$ on the
+    derivative).  Needs at least two samples; only the first axis of a 2-D
+    ``y`` is differentiated.
     """
     return np.gradient(y, x)
 
 
 def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
-    """
-    Calculate definite integral using trapezoidal rule.
-    
+    r"""Definite integral $\int y\,dx$ by the trapezoidal rule.
+
+    $$\int y\,dx \approx \sum_i \frac{y_i + y_{i+1}}{2}\,(x_{i+1} - x_i)$$
+
     Parameters
     ----------
     x : np.ndarray
-        Independent variable
+        Sample abscissae, monotonic [any].
     y : np.ndarray
-        Dependent variable
-        
+        Integrand at the samples [any].
+
     Returns
     -------
     float
-        Definite integral ∫y dx
+        Integral over the sampled range, in units of ``y`` times ``x`` [any].
+
+    Numerical notes
+    ---------------
+    ``numpy.trapezoid`` through :func:`vaft.compat.trapz_compat`; second-order
+    accurate in the spacing, exact for piecewise-linear integrands, and
+    sign-reversed for a decreasing ``x``.  A same-named helper in
+    :mod:`vaft.formula.green` shadows this one on the package namespace
+    (``vaft.formula.trapz_integral`` is the Green's-function copy).
     """
     return trapz_compat(y, x=x)
 
@@ -58,62 +78,79 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
 def normalize_profile(x: Union[float, np.ndarray],
                      x_axis: float,
                      x_boundary: float) -> Union[float, np.ndarray]:
-    """
-    Normalize a profile to range [0,1].
-    
+    r"""Linear normalisation of a profile between its axis and boundary values.
+
+    $$x_N = \frac{x - x_{\mathrm{axis}}}{x_{\mathrm{boundary}} - x_{\mathrm{axis}}}$$
+
     Parameters
     ----------
-    x : Union[float, np.ndarray]
-        Values to normalize
+    x : float or np.ndarray
+        Values to normalise [any].
     x_axis : float
-        Value at axis
+        Value mapped to 0 [any].
     x_boundary : float
-        Value at boundary
-        
+        Value mapped to 1 [any].
+
     Returns
     -------
-    Union[float, np.ndarray]
-        Normalized values: (x - x_axis) / (x_boundary - x_axis)
+    float or np.ndarray
+        Normalised values, 0 at the axis value and 1 at the boundary value [-].
+
+    Limitations
+    -----------
+    No guard against ``x_boundary == x_axis``: a degenerate equilibrium with
+    equal axis and boundary flux, which packaged VEST samples do contain,
+    returns ``inf``/``nan``.  Tracked in #357.
     """
     return (x - x_axis) / (x_boundary - x_axis)
 
 
 def calculate_peaking_factor(central: float,
                            volume_avg: float) -> float:
-    """
-    Calculate peaking factor PF = X(0) / ⟨X⟩.
-    
+    r"""Peaking factor, central value over volume average.
+
+    $$\mathrm{PF} = \frac{X(0)}{\langle X\rangle}$$
+
     Parameters
     ----------
     central : float
-        Central value
+        Value on the magnetic axis [any].
     volume_avg : float
-        Volume-averaged value
-        
+        Volume average of the same quantity, same unit [any].
+
     Returns
     -------
     float
-        Peaking factor
+        Peaking factor [-].
+
+    Limitations
+    -----------
+    No guard against a zero volume average.  Tracked in #357.
     """
     return central / volume_avg
 
 
 def calculate_volume_weighted_average(x: np.ndarray,
                                     V: np.ndarray) -> float:
-    """
-    Calculate volume-weighted average of a profile.
-    
+    r"""Volume-weighted average of a sampled profile.
+
+    $$\langle X\rangle = \frac{\sum_i X_i\,V_i}{\sum_i V_i}$$
+
     Parameters
     ----------
     x : np.ndarray
-        Profile values
+        Profile values at each cell [any].
     V : np.ndarray
-        Volume elements
-    
+        Volume of each cell, same shape [m^3].
+
     Returns
     -------
     float
-        Volume-weighted average
+        Volume-weighted average in the unit of ``x`` [any].
+
+    Limitations
+    -----------
+    No guard against a zero total volume.  Tracked in #357.
     """
     return np.sum(x * V) / np.sum(V)
 
@@ -122,44 +159,66 @@ def calculate_poloidal_flux(R: np.ndarray,
                           B_theta: np.ndarray,
                           l: np.ndarray,
                           psi_axis: float = 0.0) -> float:
-    """
-    Calculate poloidal flux from line integral of R*B_theta.
-    
+    r"""Poloidal flux per radian from a line integral of $RB_\theta$.
+
+    $$\psi(l) = \int_0^{l} R\,B_\theta\,dl' + \psi_a$$
+
     Parameters
     ----------
     R : np.ndarray
-        Major radius values
+        Major radius along the path [m].
     B_theta : np.ndarray
-        Poloidal magnetic field values
+        Poloidal field normal to the path [T].
     l : np.ndarray
-        Path length values
+        Path coordinate, monotonic [m].
     psi_axis : float, optional
-        Poloidal flux at magnetic axis, by default 0.0
-        
+        Offset added to the integral; default 0 [Wb/rad].
+
     Returns
     -------
     float
-        Poloidal flux value
+        Flux at the end of the path [Wb/rad].
+
+    Convention
+    ----------
+    Flux per radian (COCOS 1-8 storage); multiply by $2\pi$ for the IMAS
+    full-weber flux.  Sign follows ``B_theta`` and the direction of ``l``.
+    The physics wrapper is :func:`vaft.formula.equilibrium.psi_from_RBtheta`.
+
+    Numerical notes
+    ---------------
+    Trapezoidal rule over the whole path; returns the end value only.
     """
     return trapz_integral(l, R * B_theta) + psi_axis
 
 
 def calculate_toroidal_flux(B_phi: np.ndarray,
                           dA: np.ndarray) -> float:
-    """
-    Calculate toroidal flux through surface.
-    
+    r"""Toroidal flux as a sum of $B_\varphi$ over area elements.
+
+    $$\Phi = \sum_i B_{\varphi,i}\,\Delta A_i$$
+
     Parameters
     ----------
     B_phi : np.ndarray
-        Toroidal magnetic field values
+        Toroidal field on the area elements [T].
     dA : np.ndarray
-        Area elements
-    
+        Area of each element, same shape [m^2].
+
     Returns
     -------
     float
-        Toroidal flux value
+        Toroidal flux [Wb].
+
+    Convention
+    ----------
+    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$.
+    The physics wrapper is :func:`vaft.formula.equilibrium.phi_from_Bphi`.
+
+    Numerical notes
+    ---------------
+    A Riemann sum with caller-supplied areas, not a quadrature rule; first
+    order in the cell size.  Tracked in #358.
     """
     return np.sum(B_phi * dA)
 
@@ -169,25 +228,37 @@ def calculate_toroidal_flux(B_phi: np.ndarray,
 # ------------------------------------------------------------------
 
 def make_fit_function(mode):
-    """
-    Build a 1D parametric fit function for polynomial or exponential modes.
+    r"""Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.
 
-    Supported modes:
-    - 'polynomial': (1 - x) * poly(x)            -> forced 0 at x=1
-    - 'free_polynomial': poly(x)                 -> no edge constraint
-    - 'exponential': (1 - x) * exp(poly(x))      -> forced 0 at x=1, positive
-    - 'free_exponential': exp(poly(x))           -> always > 0, no edge-zero;
-      monotonic decay (small-but-finite edge) when poly is decreasing
+    $$\begin{aligned}
+      \text{polynomial:}\ & (1-x)\,\textstyle\sum_k c_kx^k &
+      \text{free\_polynomial:}\ & \textstyle\sum_k c_kx^k \\
+      \text{exponential:}\ & (1-x)\exp\big(\textstyle\sum_k c_kx^k\big) &
+      \text{free\_exponential:}\ & \exp\big(\textstyle\sum_k c_kx^k\big)
+    \end{aligned}$$
 
     Parameters
     ----------
     mode : str
-        Fitting mode: 'polynomial', 'free_polynomial', 'exponential', or 'free_exponential'
+        Model name, case-insensitive [str].
+        One of ``'polynomial'``, ``'free_polynomial'``, ``'exponential'``,
+        ``'free_exponential'`` (a few aliases are accepted).
 
     Returns
     -------
     callable
-        Fit function f(x, *coeffs)
+        ``f(x, *coeffs)`` evaluating the model, in the unit of the data [any].
+
+    Raises
+    ------
+    ValueError
+        For an unknown mode.
+
+    Assumptions
+    -----------
+    ``x`` is a normalised radius on $[0, 1]$: the $(1 - x)$ factor forces the
+    constrained modes to zero at $x = 1$; the exponential modes are strictly
+    positive and decay monotonically when the polynomial is decreasing.
     """
     mode = mode.lower()
     if mode == 'polynomial':
@@ -285,50 +356,77 @@ def fit_profile(
     gp_anchor=None,
     n_restarts_optimizer=5,
 ):
-    """
-    Fit a 1D profile with selectable methods.
+    r"""Fit a 1-D profile with a selectable model and evaluate it on a grid.
 
-    Supported modes:
-    - fitting_function ∈ {'gp', 'polynomial', 'exponential', 'linear', 'core_poly_edge_exp'}
-
-    Behavior:
-    - GP uses sklearn GaussianProcessRegressor; optional anchor points supported.
-    - linear uses 1D interpolation.
-    - core_poly_edge_exp blends core polynomial with edge exponential via tanh transition.
-    - polynomial/exponential include a (1 - x) factor for edge roll-off.
+    Least-squares (``scipy.optimize.curve_fit``) for the parametric modes,
+    Gaussian-process regression (``sklearn``) for ``'gp'``, linear
+    interpolation for ``'linear'``, a core-polynomial/edge-exponential blend
+    with a $\tanh$ transition for ``'core_poly_edge_exp'``, and square-root
+    modes that fit $y^2$ and return $\sqrt{f}$.
 
     Parameters
     ----------
     x : array-like
-        Data x values (1D)
+        Data abscissae, 1-D [any].
     y : array-like
-        Data y values (1D)
-    y_std : array-like, optional
-        Per-point uncertainty
+        Data values [any].
+    y_std : array-like or None
+        Per-point uncertainty, same unit as ``y``; ``None`` for unweighted [any].
     x_eval : array-like
-        Evaluation grid (1D)
+        Evaluation grid [any].
     order : int, optional
-        Number of polynomial coefficients, i.e. polynomial degree ``order - 1``
-        (for polynomial/exponential/core_poly_edge_exp), by default 3
+        Number of polynomial coefficients (degree ``order - 1``); default 3 [-].
     uncertainty_option : int, optional
-        Use y_std as weights if 1, by default 1
+        1 (default) weights by ``y_std`` when given; 0 ignores it [-].
     fitting_function : str, optional
-        Fit method selection, by default 'polynomial'
-    gp_kernel : sklearn kernel, optional
-        Optional sklearn kernel (GP only)
-    gp_anchor : tuple, optional
-        Optional tuple (x_anchor, y_anchor, y_std_anchor) for GP
+        Model name, default ``'polynomial'`` [str].
+        One of ``'gp'``, ``'polynomial'``, ``'free_polynomial'``,
+        ``'exponential'``, ``'free_exponential'``, ``'linear'``,
+        ``'core_poly_edge_exp'``, ``'sqrt'``, ``'sqrt_exponential'``.
+    gp_kernel : sklearn kernel or None, optional
+        Kernel for the GP mode; default constant times RBF [n/a].
+    gp_anchor : tuple or None, optional
+        ``(x_anchor, y_anchor, y_std_anchor)`` extra points for the GP [n/a].
     n_restarts_optimizer : int, optional
-        GP hyperparameter restarts, by default 5
+        GP hyperparameter restarts; default 5 [-].
 
     Returns
     -------
-    tuple
-        Tuple of:
-        - y_eval : fitted values on x_eval
-        - y_std_eval : fitted std (nonzero for GP; zeros otherwise)
-        - fit_function : callable f(x) for arbitrary x
-        - coeffs : fitted coefficients (None for GP/linear)
+    y_eval : np.ndarray
+        Fitted values on ``x_eval`` [any].
+    y_std_eval : np.ndarray
+        Fitted uncertainty; non-zero for the GP mode only [any].
+    fit_function : callable
+        ``f(x)`` evaluating the fit at arbitrary ``x`` [n/a].
+    coeffs : np.ndarray or None
+        Fitted coefficients; ``None`` for the GP and linear modes [any].
+
+    Raises
+    ------
+    ValueError
+        Fewer than two valid points after masking, or an unknown mode.
+    RuntimeError
+        When ``curve_fit`` does not converge.
+
+    Assumptions
+    -----------
+    ``x`` is a normalised radius on $[0, 1]$ for the constrained modes (they
+    force zero at $x = 1$); uncertainties are one-sigma and independent.
+
+    Limitations
+    -----------
+    Non-finite points and non-positive ``y_std`` are dropped with a warning.
+    The ``'linear'`` mode uses ``numpy.interp``, which holds the end values
+    constant outside the data range (silent constant extrapolation; tracked in
+    #359).  The square-root modes clip negative data to zero before squaring,
+    biasing the fit where the data cross zero, and report zero uncertainty.
+    A fit that returns its initial guess unchanged is reported by a warning,
+    not an exception.
+
+    Numerical notes
+    ---------------
+    The initial guess is scaled to ``max|y|`` so raw densities in m^-3 do not
+    stall the optimiser; ``maxfev=20000``.
 
     Examples
     --------

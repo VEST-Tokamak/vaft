@@ -1,8 +1,39 @@
-"""
-Physical constants used in plasma physics calculations.
+r"""Physical constants and the confinement-scaling coefficient table.
 
-This module provides a centralized location for all physical constants
-used throughout the formula module.
+Every physics submodule of :mod:`vaft.formula` takes its constants from here so
+that a value is changed in one place.  The electromagnetic and particle
+constants are CODATA 2018 recommended values [1]_ (``MU0`` keeps the pre-2019
+exact definition $4\pi\times10^{-7}$, which differs from the 2018 measured value
+by $5\times10^{-10}$ relative); ``E_ALPHA`` is the D-T alpha birth energy [2]_.
+``SIGMA_V_COEF``, ``SPITZER_RESISTIVITY_COEF`` and ``COLLISIONALITY_COEF`` are
+fitted prefactors whose meaning is defined by the single function that uses
+each of them, documented there.
+
+The private ``_SCALING_COEFS`` table holds the engineering-unit confinement
+scalings (ITER89P, IPB98(y,2), the two NSTX 2006 fits and the Kurskiev 2022 ST
+fit).  Each entry carries its prefactor, exponents, target density definition,
+source reference and unit-convention notes; the table is read by
+:func:`vaft.formula.equilibrium.confinement_time_from_engineering_parameters`,
+which documents the conventions and cites every entry.
+
+Notation
+--------
+MU0                      : vacuum permeability                       [H/m]
+EPS0                     : vacuum permittivity                       [F/m]
+QE                       : elementary charge                         [C]
+ME                       : electron mass                             [kg]
+MI_P                     : proton mass                               [kg]
+E_ALPHA                  : D-T alpha particle birth energy, 3.5 MeV  [J]
+SIGMA_V_COEF             : prefactor of the rough D-T <sigma v> = 1.1e-24 T_keV^2 fit  [m^3/s/keV^2]
+SPITZER_RESISTIVITY_COEF : prefactor of eta = 5.2e-5 Z_eff ln(Lambda) / T_eV^1.5  [Ohm m eV^1.5]
+COLLISIONALITY_COEF      : prefactor of the IPB98 nu_star = 6.921e-18 n_19 R / (T_keV^2 B_t) form  [-]
+
+References
+----------
+.. [1] E. Tiesinga, P. J. Mohr, D. B. Newell and B. N. Taylor, "CODATA recommended
+       values of the fundamental physical constants: 2018", Rev. Mod. Phys. 93
+       (2021) 025010.
+.. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 1.3.
 """
 
 import numpy as np
