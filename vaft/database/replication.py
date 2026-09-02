@@ -287,9 +287,28 @@ def merge_remote_master(source: str, shot: int, previous_master: Path | None) ->
     return added
 
 
+#: Leaves the IMAS Access Layer stamps into an IDS as it writes it. They record
+#: which library performed the write -- ``access_layer`` is the imas_core
+#: version, ``access_layer_language`` the binding -- so they exist in a replica
+#: and cannot exist in the OMAS JSON product it was built from. Comparing them
+#: measures the writer, not the data.
+WRITE_PROVENANCE_LEAVES = (
+    "access_layer",
+    "access_layer_language",
+)
+
+
+def _is_write_provenance(path: str) -> bool:
+    """Whether an ODS path is an Access Layer write stamp rather than data."""
+    return any(
+        path.endswith(f"ids_properties.version_put.{leaf}")
+        for leaf in WRITE_PROVENANCE_LEAVES
+    )
+
+
 def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrence: int) -> dict[str, Any]:
     """Read the replica back and compare it against what was sent."""
-    from ..omas.comparison import compare_ods
+    from ..omas.comparison import ParityClassification, compare_ods
     from . import load as load_remote
 
     replica = load_remote(
@@ -307,10 +326,27 @@ def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrenc
         candidate_label=f"hdf5://{source}/{shot}/",
     )
     summary = comparison.summary()
-    if not comparison.passed:
+
+    # The comparator has no exclusion filter, so the write stamps are dropped
+    # from the verdict here rather than from the inputs -- nothing is mutated,
+    # nothing is copied, and the count stays visible in the record.
+    regressions = [
+        entry
+        for entry in comparison.entries
+        if entry.classification is ParityClassification.REGRESSION
+        and not _is_write_provenance(entry.path)
+    ]
+    excluded = sum(
+        1
+        for entry in comparison.entries
+        if _is_write_provenance(entry.path)
+    )
+    summary = {**summary, "passed": not regressions, "write_provenance_excluded": excluded}
+    if regressions:
+        paths = ", ".join(entry.path for entry in regressions[:5])
         raise RoundTripValidationError(
-            f"The {source} replica of shot {shot} does not match what was sent: "
-            f"{summary}"
+            f"The {source} replica of shot {shot} does not match what was sent "
+            f"({len(regressions)} path(s), e.g. {paths}): {summary}"
         )
     return summary
 

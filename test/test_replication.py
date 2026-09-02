@@ -614,3 +614,86 @@ def test_the_record_counts_the_attempt_that_actually_worked(staged, monkeypatch)
     )
 
     assert record.attempts == 2, "not the configured ceiling"
+
+
+# --------------------------------------------------------------------------- #
+# round-trip validation vs. Access Layer write stamps
+# --------------------------------------------------------------------------- #
+
+
+def test_access_layer_stamps_are_recognised_but_dd_version_is_not():
+    """`version_put` mixes writer identity with a real compatibility signal.
+
+    `access_layer`/`access_layer_language` say which library wrote the replica.
+    `data_dictionary` says which DD it conforms to -- a genuine difference worth
+    failing on, so it must not be swept up by the same filter.
+    """
+    f = replication._is_write_provenance
+    assert f("pf_passive.ids_properties.version_put.access_layer")
+    assert f("pf_passive.ids_properties.version_put.access_layer_language")
+    assert not f("pf_passive.ids_properties.version_put.data_dictionary")
+    assert not f("pf_passive.current")
+    assert not f("equilibrium.time_slice.0.profiles_2d.0.psi")
+
+
+def _round_trip_against(monkeypatch, replica, sent_stamps=None):
+    """Run _round_trip with a supplied replica, returning its summary.
+
+    `sent` mirrors what replicate_stage actually passes: the object *after*
+    save_ods, which the Access Layer has already stamped in memory. The
+    comparison runs with scope="reference", so a path absent from `sent` is
+    never compared at all -- which is why the stamps have to be here for this
+    to reproduce the production case.
+    """
+    monkeypatch.setattr("vaft.database.load", lambda *a, **k: replica)
+    sent = ODS(consistency_check=False)
+    sent["pf_passive.ids_properties.comment"] = "eddy currents"
+    sent["pf_passive.loop.0.name"] = "PF1"
+    for leaf, value in (sent_stamps or {}).items():
+        sent[f"pf_passive.ids_properties.version_put.{leaf}"] = value
+    return sent, replication._round_trip(
+        sent, shot=39915, source="main", ids=("pf_passive",), occurrence=0
+    )
+
+
+def test_a_replica_stamped_by_the_access_layer_still_validates(monkeypatch):
+    """The source is OMAS JSON and has no Access Layer, so the replica always
+    carries stamps the source structurally cannot have. Before this was
+    excluded, no replication could ever reach `validated`."""
+    replica = ODS(consistency_check=False)
+    replica["pf_passive.ids_properties.comment"] = "eddy currents"
+    replica["pf_passive.loop.0.name"] = "PF1"
+    replica["pf_passive.ids_properties.version_put.access_layer"] = "5.7.2"
+    replica["pf_passive.ids_properties.version_put.access_layer_language"] = "IMAS-Python 2.3.0"
+
+    # The writer stamped its own identity into the object it sent.
+    _sent, summary = _round_trip_against(
+        monkeypatch,
+        replica,
+        sent_stamps={"access_layer": "5.6.0", "access_layer_language": "IMAS-Python 2.1.0"},
+    )
+
+    assert summary["passed"] is True
+    assert summary["write_provenance_excluded"] == 2
+
+
+def test_a_real_difference_still_fails_the_round_trip(monkeypatch):
+    """Excluding the stamps must not blunt the check it exists to perform."""
+    replica = ODS(consistency_check=False)
+    replica["pf_passive.ids_properties.comment"] = "eddy currents"
+    replica["pf_passive.loop.0.name"] = "PF9-WRONG"
+    replica["pf_passive.ids_properties.version_put.access_layer"] = "5.7.2"
+
+    with pytest.raises(replication.RoundTripValidationError, match="loop.0.name"):
+        _round_trip_against(monkeypatch, replica, sent_stamps={"access_layer": "5.6.0"})
+
+
+def test_a_data_dictionary_mismatch_still_fails(monkeypatch):
+    """The DD version is a compatibility signal, not writer identity."""
+    replica = ODS(consistency_check=False)
+    replica["pf_passive.ids_properties.comment"] = "eddy currents"
+    replica["pf_passive.loop.0.name"] = "PF1"
+    replica["pf_passive.ids_properties.version_put.data_dictionary"] = "9.9.9"
+
+    with pytest.raises(replication.RoundTripValidationError, match="data_dictionary"):
+        _round_trip_against(monkeypatch, replica, sent_stamps={"data_dictionary": "3.41.0"})
