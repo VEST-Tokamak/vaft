@@ -319,18 +319,34 @@ def write_track_provenance(track: Track) -> Path:
 # --------------------------------------------------------------------------
 
 
+#: The docs/ directory of the checkout running this script.  The Ruby gems are
+#: installed against *its* Gemfile -- by `bundle install` locally, by
+#: ruby/setup-ruby in CI -- so every bundler command runs from here, with the
+#: extracted tree passed in as data.  Running bundler inside the extracted tree
+#: instead finds a Gemfile with no gems installed against it.
+BUNDLE_ROOT = Path(__file__).resolve().parent
+
+
+def _bundle_env() -> dict[str, str]:
+    env = dict(os.environ)
+    env["BUNDLE_GEMFILE"] = str(BUNDLE_ROOT / "Gemfile")
+    return env
+
+
 def build_track(track: Track, destination: Path) -> Path:
     """Render the track with Jekyll at its own baseurl."""
     _require("bundle")
-    configs = ",".join(track.spec.configs)
+    configs = ",".join(str(track.docs / name) for name in track.spec.configs)
     _run(
         [
             "bundle", "exec", "jekyll", "build",
+            "--source", str(track.docs),
             "--config", configs,
             "--baseurl", track.spec.baseurl,
             "--destination", str(destination),
         ],
-        cwd=track.docs,
+        cwd=BUNDLE_ROOT,
+        env=_bundle_env(),
     )
     track.site = destination
     track.pages = len(list(destination.rglob("*.html")))
@@ -340,13 +356,17 @@ def build_track(track: Track, destination: Path) -> Path:
 def validate_track(track: Track) -> None:
     """Run the site's own validator against this track's build and source."""
     _require("ruby")
-    env = dict(os.environ)
+    env = _bundle_env()
     env["VAFT_DOCS_BASEURL"] = track.spec.baseurl
     env["VAFT_DOCS_SITE"] = str(track.site)
     env["VAFT_NOTEBOOK_SOURCE"] = str(track.root)
     env["VAFT_REGISTRY_SOURCE"] = str(track.root)
+    # Through bundler because the validator requires nokogiri, and from the
+    # track's own docs/ because the script resolves _data and _guide relative
+    # to itself.
     result = _run(
-        ["ruby", "scripts/validate_docs.rb"], cwd=track.docs, env=env, check=False
+        ["bundle", "exec", "ruby", "scripts/validate_docs.rb"],
+        cwd=track.docs, env=env, check=False,
     )
     if result.returncode != 0:
         raise BuildError(
