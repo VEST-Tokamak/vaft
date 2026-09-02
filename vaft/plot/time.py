@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
+
+# `ods[path]` materializes a missing path rather than raising (issue #118).
+from vaft.ods_access import path_value as _value
 from vaft.omas import odc_or_ods_check
 from vaft.plot.utils import get_from_path, extract_labels_from_odc
 from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
@@ -833,7 +836,16 @@ def _find_flux_loop_inboard_midplane_indices(ods):
 
     inboard = _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'inboard')[0]
     z = np.asarray(ods['magnetics.flux_loop.:.position.0.z'], dtype=float)
-    chosen = representative_index(z, list(inboard))
+    # Skip loops that recorded nothing, so this and vaft.omas' `inboard_mid`
+    # never disagree about which channel represents the inboard midplane.
+    usable = [
+        index for index in inboard
+        if np.isfinite(
+            np.asarray(_value(ods, f'magnetics.flux_loop.{index}.flux.data', np.nan),
+                       dtype=float)
+        ).any()
+    ]
+    chosen = representative_index(z, usable)
     return (np.array([] if chosen is None else [chosen], dtype=int),)
 
 def time_magnetics_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit='s', yunit='Wb', xlim='plasma'):

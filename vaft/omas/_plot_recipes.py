@@ -42,6 +42,7 @@ from vaft.plot.models import (
     Spectrogram,
 )
 from vaft.plot.display import figure_title, resolve_display
+from vaft.plot.selection import INBOARD, OUTBOARD
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -221,7 +222,11 @@ def _channel_positions(ods: Any, container: str, count: int):
 
 
 def _resolve_selection(
-    ods: Any, template: str, selection: Any, marker: str = "{i}"
+    ods: Any,
+    template: str,
+    selection: Any,
+    marker: str = "{i}",
+    fallbacks: Sequence[str] = (),
 ) -> list[int]:
     """Resolve the public ``selection=`` contract to ODS channel indices.
 
@@ -264,7 +269,9 @@ def _resolve_selection(
                 "selection must be indices or identifiers, not a mixture; "
                 f"got {term!r}"
             )
-        preset = _resolve_preset(ods, container, count, term)
+        preset = _resolve_preset(
+            ods, container, count, term, (template, *fallbacks)
+        )
         if preset is not None:
             indices.extend(preset)
             continue
@@ -288,7 +295,28 @@ def _resolve_selection(
     return list(dict.fromkeys(indices))
 
 
-def _resolve_preset(ods: Any, container: str, count: int, term: str):
+def _channel_has_data(ods: Any, candidates: Sequence[str], index: int) -> bool:
+    """Whether this channel actually carries the signal being plotted.
+
+    A representative must be a real measurement: the channel nearest the
+    midplane is no use if it recorded nothing, so an empty one is passed over
+    rather than returned and drawn blank.
+
+    The question is answered exactly as :func:`_first_array` answers it when it
+    builds the trace -- every candidate spelling of the path, and a usable 1D
+    array -- so a channel can never be chosen here and then decline to draw, or
+    be passed over while the plot would happily have shown it.
+    """
+    try:
+        array = _first_array(ods, tuple(candidates), i=index)
+    except ValueError:
+        return False
+    return array is not None and array.ndim == 1 and bool(np.isfinite(array).any())
+
+
+def _resolve_preset(
+    ods: Any, container: str, count: int, term: str, candidates: Sequence[str]
+):
     """Resolve a named physical region preset, or ``None`` if not one.
 
     The region comes from :func:`vaft.plot.selection.classify_regions`, which
@@ -297,23 +325,47 @@ def _resolve_preset(ods: Any, container: str, count: int, term: str):
     -- to nothing -- rather than falling through to the identifier lookup and
     reporting an unknown selection.
     """
-    from vaft.plot.selection import PRESETS, REGION_PRESETS, classify_regions
+    from vaft.plot.selection import (
+        PRESETS,
+        REGION_PRESETS,
+        classify_regions,
+        radial_divider,
+        representative_index,
+    )
 
     if term not in PRESETS:
         return None
-    if term not in REGION_PRESETS:
-        # A representative preset names one channel rather than a region, and
-        # resolving it needs the vertical geometry the representative work
-        # adds.  Refuse it here: returning an empty selection would draw an
-        # empty figure and call that an answer.
+    r_values, z_values = _channel_positions(ods, container, count)
+    split = radial_divider(r_values)
+    if not split:
         raise ValueError(
-            f"selection {term!r} names a representative channel, which this "
-            f"build cannot resolve yet; use one of {', '.join(REGION_PRESETS)} "
-            "or an explicit index or identifier"
+            f"{container} has no inboard/outboard split -- its channels sit at "
+            f"one radius -- so {term!r} does not apply to it; select by index "
+            "or identifier instead"
         )
-    r_values, _ = _channel_positions(ods, container, count)
-    regions = classify_regions(r_values)
-    return [index for index, region in enumerate(regions) if region == term]
+    regions = classify_regions(r_values, split=split)
+
+    if term in REGION_PRESETS:
+        return [index for index, region in enumerate(regions) if region == term]
+
+    # A representative names the one channel that best stands for its region.
+    region = next(
+        (name for name in (INBOARD, OUTBOARD) if term.startswith(name)), None
+    )
+    if region is None:
+        raise ValueError(f"preset {term!r} names no physical region")
+    candidates = [
+        index
+        for index, name in enumerate(regions)
+        if name == region and _channel_has_data(ods, candidates, index)
+    ]
+    chosen = representative_index(z_values, candidates)
+    if chosen is None:
+        raise ValueError(
+            f"no usable {region} channel of {container} can represent "
+            f"{term!r}; the region is empty or carries no data in this input"
+        )
+    return [chosen]
 
 
 def selection_presets() -> tuple[str, ...]:
@@ -2582,7 +2634,9 @@ def _build_line_traces(
         ]
 
     if recipe.index == "channel":
-        indices = _resolve_selection(ods, recipe.y_path, selection)
+        indices = _resolve_selection(
+            ods, recipe.y_path, selection, fallbacks=recipe.fallback_y_paths
+        )
         traces = []
         for index in indices:
             try:
