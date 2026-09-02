@@ -310,10 +310,20 @@ def _resolve_preset(ods: Any, container: str, count: int, term: str):
     -- to nothing -- rather than falling through to the identifier lookup and
     reporting an unknown selection.
     """
-    from vaft.plot.selection import PRESETS, classify_regions
+    from vaft.plot.selection import PRESETS, REGION_PRESETS, classify_regions
 
     if term not in PRESETS:
         return None
+    if term not in REGION_PRESETS:
+        # A representative preset names one channel rather than a region, and
+        # resolving it needs the vertical geometry the representative work
+        # adds.  Refuse it here: returning an empty selection would draw an
+        # empty figure and call that an answer.
+        raise ValueError(
+            f"selection {term!r} names a representative channel, which this "
+            f"build cannot resolve yet; use one of {', '.join(REGION_PRESETS)} "
+            "or an explicit index or identifier"
+        )
     r_values, _ = _channel_positions(ods, container, count)
     regions = classify_regions(r_values)
     return [index for index, region in enumerate(regions) if region == term]

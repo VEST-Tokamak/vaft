@@ -281,3 +281,10 @@ def test_a_boolean_is_not_an_index(loop_ods):
 def test_numerically_indistinguishable_radii_are_not_two_sides():
     assert not radial_divider([0.5, 0.5 + 1e-9])
     assert radial_divider([0.1, 0.9])
+
+
+def test_a_representative_preset_is_refused_rather_than_answered_emptily(loop_ods):
+    """`inboard_mid` names one channel; until it resolves, it must not
+    quietly return nothing and let an empty figure pass for an answer."""
+    with pytest.raises(ValueError, match="representative channel"):
+        vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="inboard_mid")

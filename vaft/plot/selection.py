@@ -42,6 +42,8 @@ __all__ = [
     "INBOARD",
     "OUTBOARD",
     "PRESETS",
+    "REGION_PRESETS",
+    "REPRESENTATIVE_PRESETS",
     "REGIONS",
     "UNCLASSIFIED",
     "RadialSplit",
@@ -59,9 +61,16 @@ UNCLASSIFIED = "unclassified"
 #: part of it (issue #259 keeps the generic vocabulary small).
 REGIONS = (INBOARD, OUTBOARD, UNCLASSIFIED)
 
-#: The generic public selection presets.  ``*_mid`` name one representative
-#: channel rather than a set; see :func:`representative_index`.
-PRESETS = (INBOARD, OUTBOARD, "inboard_mid", "outboard_mid")
+#: Presets naming a *set* of channels sharing a physical region.
+REGION_PRESETS = (INBOARD, OUTBOARD)
+
+#: Presets naming a single representative channel; see
+#: :func:`representative_index`.  A representative is one real measurement, not
+#: an aggregate over several -- those stay a separate concept.
+REPRESENTATIVE_PRESETS = ("inboard_mid", "outboard_mid")
+
+#: The generic public selection vocabulary.
+PRESETS = REGION_PRESETS + REPRESENTATIVE_PRESETS
 
 #: The widest gap must be at least this many times the typical spacing between
 #: neighbouring channels before it counts as the divide between two sides.
