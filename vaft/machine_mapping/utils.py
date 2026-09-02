@@ -14,6 +14,12 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import yaml
 
+# Dotted-path access lives in `vaft.ods_access` (issue #118), a leaf module with
+# no VAFT dependencies, so layers that must not import the database -- notably
+# `vaft.validation` -- can reach the same non-mutating primitives this module
+# uses. Re-exported here because these names have always been imported from
+# `vaft.machine_mapping.utils`.
+from vaft.ods_access import get_path, path_count, path_exists, path_value, set_path
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import process_signal as process_signal_impl
 
@@ -508,104 +514,6 @@ def build_window_time_axis(
     return axis
 
 
-def _set_nested_mapping_value(mapping: dict[str, Any], path: str, value: Any) -> None:
-    parts = path.split(".")
-    current: Any = mapping
-
-    for index, part in enumerate(parts):
-        is_last = index == len(parts) - 1
-        next_is_list = not is_last and parts[index + 1].isdigit()
-
-        if isinstance(current, dict):
-            if is_last:
-                current[part] = value
-                return
-            next_value = current.get(part)
-            if next_is_list:
-                if not isinstance(next_value, list):
-                    next_value = []
-                    current[part] = next_value
-            else:
-                if not isinstance(next_value, dict):
-                    next_value = {}
-                    current[part] = next_value
-            current = next_value
-            continue
-
-        if isinstance(current, list):
-            slot = int(part)
-            while len(current) <= slot:
-                current.append(None)
-            if is_last:
-                current[slot] = value
-                return
-            next_value = current[slot]
-            if next_is_list:
-                if not isinstance(next_value, list):
-                    next_value = []
-                    current[slot] = next_value
-            else:
-                if not isinstance(next_value, dict):
-                    next_value = {}
-                    current[slot] = next_value
-            current = next_value
-            continue
-
-        raise TypeError(f"Cannot set nested value on non-container at {part!r} in {path!r}")
-
-
-def _get_nested_mapping_value(mapping: dict[str, Any], path: str) -> Any:
-    current: Any = mapping
-    for part in path.split("."):
-        if isinstance(current, dict):
-            current = current[part]
-            continue
-        if isinstance(current, list):
-            current = current[int(part)]
-            continue
-        raise KeyError(path)
-    return current
-
-
-def set_path(ods: Any, path: str, value: Any) -> None:
-    """Write a dotted path into either a plain dict or an OMAS ODS object."""
-    if isinstance(ods, dict):
-        _set_nested_mapping_value(ods, path, value)
-        return
-    ods[path] = value
-
-
-def get_path(ods: Any, path: str) -> Any:
-    """Read a dotted path from either a plain dict or an OMAS ODS object."""
-    if isinstance(ods, dict):
-        return _get_nested_mapping_value(ods, path)
-    return ods[path]
-
-
-def path_exists(ods: Any, path: str) -> bool:
-    """Return whether a dotted path resolves to actual content.
-
-    On an OMAS ODS with dynamic path creation, reading a missing path returns
-    an EMPTY branch instead of raising, so a naive try/except reports every
-    path as existing. That made every ``path_exists`` guard a no-op on ODS
-    inputs -- e.g. dead b-probe channels (48xxx campaign probes 65-68, stored
-    with ``field: null``) sailed through the constraints validity filter and
-    crashed EFIT input generation with ``float * ODS``. An empty ODS branch
-    therefore counts as non-existent.
-    """
-    try:
-        value = get_path(ods, path)
-    except (KeyError, IndexError, TypeError, ValueError, LookupError):
-        return False
-    try:
-        from omas import ODS
-    except ImportError:
-        return True
-    if isinstance(value, ODS) and len(value) == 0:
-        return False
-    return True
-
-
 def _normalize_shot_key(source: Any) -> str:
     try:
         return str(int(source))
@@ -1098,7 +1006,9 @@ __all__ = [
     "load_yaml",
     "normalize_constraint_uncertainties",
     "package_data_path",
+    "path_count",
     "path_exists",
+    "path_value",
     "process_signal",
     "process_static_channels",
     "process_static_geometry",

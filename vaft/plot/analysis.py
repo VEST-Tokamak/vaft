@@ -1,6 +1,9 @@
 from pathlib import Path
 
 import numpy as np
+
+# One shared non-mutating accessor for the whole repository (issue #118).
+from vaft.ods_access import path_value as _value
 import matplotlib.pyplot as plt
 import vaft
 import matplotlib.patches as patches
@@ -20,15 +23,6 @@ _STYLE = {
     "ytick.labelsize": 10,
     "legend.fontsize": 12,
 }
-
-def _value(ods, path, default=None):
-    try:
-        if path not in ods:
-            return default
-        return ods[path]
-    except (KeyError, TypeError, ValueError, IndexError):
-        return default
-
 
 def _plot_series(axis, time, data, *, label=None, scale=1.0):
     """Draw one signal, skipping it when the ODS does not carry the data."""

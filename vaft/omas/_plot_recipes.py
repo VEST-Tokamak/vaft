@@ -21,6 +21,9 @@ import dataclasses
 
 import numpy as np
 
+# One shared non-mutating accessor for the whole repository (issue #118).
+from vaft.ods_access import path_count as _count, path_value as _get
+
 from vaft.plot.models import (
     Field2D,
     Geometry3DLayer,
@@ -144,16 +147,6 @@ def normalize_entries(
 # ---------------------------------------------------------------------------
 
 
-def _get(ods: Any, path: str, default: Any = None) -> Any:
-    """Read ``path`` from ``ods``, returning ``default`` when it is absent."""
-    try:
-        if path not in ods:
-            return default
-        return ods[path]
-    except Exception:
-        return default
-
-
 def _array(ods: Any, path: str) -> np.ndarray | None:
     value = _get(ods, path)
     if value is None:
@@ -163,14 +156,6 @@ def _array(ods: Any, path: str) -> np.ndarray | None:
     except (TypeError, ValueError):
         return None
     return array if array.size else None
-
-
-def _count(ods: Any, container_path: str) -> int:
-    container = _get(ods, container_path)
-    try:
-        return len(container)
-    except TypeError:
-        return 0
 
 
 def _container_of(template: str, marker: str = "{i}") -> str:

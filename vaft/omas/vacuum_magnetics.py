@@ -37,6 +37,7 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from vaft.ods_access import path_count as _count, path_value
 from vaft.formula.statistics import (
     fractional_rms_improvement,
     rms,
@@ -184,11 +185,18 @@ def probe_family(kind: str, r: float, z: float) -> str:
 # ---------------------------------------------------------------------------
 
 def _signal(ods: Any, path: str) -> np.ndarray | None:
-    try:
-        values = ods[path]
-    except (KeyError, ValueError, IndexError):
+    """A 1-D waveform at ``path``, or ``None`` when the ODS carries none.
+
+    Through the shared non-mutating accessor (issue #118): a bare read would
+    materialize a placeholder at every channel this probes and finds empty.
+    """
+    values = path_value(ods, path)
+    if values is None:
         return None
-    array = np.asarray(values, dtype=float)
+    try:
+        array = np.asarray(values, dtype=float)
+    except (TypeError, ValueError):
+        return None
     if array.ndim != 1 or array.size < 2:
         return None
     return array
@@ -204,11 +212,21 @@ def _channel_time(ods: Any, path: str, fallback: np.ndarray | None) -> np.ndarra
     return fallback if explicit is None else explicit
 
 
-def _count(ods: Any, path: str) -> int:
+def _position(ods: Any, base: str) -> tuple[float, float] | None:
+    """A channel's ``(r, z)``, or ``None`` when the ODS does not carry one.
+
+    A channel with a waveform but no stored geometry cannot be forward-modelled,
+    so it is skipped rather than crashed on -- and probed through the shared
+    accessor, because a bare read would leave a ``position`` branch behind on
+    the way to that crash.
+    """
+    r, z = path_value(ods, f"{base}.r"), path_value(ods, f"{base}.z")
+    if r is None or z is None:
+        return None
     try:
-        return len(ods[path])
-    except (KeyError, ValueError, IndexError):
-        return 0
+        return float(r), float(z)
+    except (TypeError, ValueError):
+        return None
 
 
 def _poloidal_angle(ods: Any, base: str) -> float:
@@ -218,9 +236,12 @@ def _poloidal_angle(ods: Any, base: str) -> float:
     measured misalignment -- the IMPA Bz sensors write one -- projects onto the
     axis it declares.
     """
+    stored = path_value(ods, f"{base}.poloidal_angle")
+    if stored is None:
+        return POLOIDAL_ANGLE
     try:
-        angle = float(ods[f"{base}.poloidal_angle"])
-    except (LookupError, TypeError, ValueError):
+        angle = float(stored)
+    except (TypeError, ValueError):
         return POLOIDAL_ANGLE
     return angle if np.isfinite(angle) else POLOIDAL_ANGLE
 
@@ -238,8 +259,10 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
         # to validate against and yields undefined correlations.
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
             continue
-        r = float(ods[f"{base}.position.r"])
-        z = float(ods[f"{base}.position.z"])
+        position = _position(ods, f"{base}.position")
+        if position is None:
+            continue
+        r, z = position
         rows.append(
             {
                 "kind": B_FIELD_POL_PROBE,
@@ -262,8 +285,10 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
             continue
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
             continue
-        r = float(ods[f"{base}.position.0.r"])
-        z = float(ods[f"{base}.position.0.z"])
+        position = _position(ods, f"{base}.position.0")
+        if position is None:
+            continue
+        r, z = position
         rows.append(
             {
                 "kind": FLUX_LOOP,

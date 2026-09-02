@@ -255,3 +255,37 @@ def test_mirnov_plot_helpers_return_figures(monkeypatch, tmp_path):
     assert ax.lines
     assert ax.collections
     plt.close(fig)
+
+
+def test_an_unnamed_channel_gets_a_positional_label_not_its_ids_path():
+    """Issue #118: the fallback used to be unreachable.
+
+    Reading a missing `name` returned an auto-vivified placeholder rather than
+    raising, and `str()` of one is the IDS path -- so an unnamed channel was
+    labelled `magnetics.b_field_pol_probe.0.name` in every legend it appeared
+    in, and the probe planted a stray node on the way.
+    """
+    from omas import ODS
+
+    from vaft.plot.mirnov import _channel_count, _channel_label
+
+    ods = ODS(consistency_check=False)
+    ods["magnetics.b_field_pol_probe.0.field.data"] = np.ones(4)
+    ods["magnetics.b_field_pol_probe.1.name"] = "OutMirnov_130_Bz"
+
+    assert _channel_label(ods, "b_field_pol_probe", 0) == "b_field_pol_probe 0"
+    assert _channel_label(ods, "b_field_pol_probe", 1) == "OutMirnov_130_Bz"
+    assert "name" not in ods["magnetics.b_field_pol_probe.0"].keys()
+
+
+def test_counting_an_absent_probe_group_returns_zero_without_creating_it():
+    """The count is unchanged; only the side effect is gone (issue #118)."""
+    from omas import ODS
+
+    from vaft.plot.mirnov import _channel_count
+
+    ods = ODS(consistency_check=False)
+    ods["magnetics.time"] = np.linspace(0.26, 0.36, 4)
+
+    assert _channel_count(ods, "b_field_tor_probe") == 0
+    assert "b_field_tor_probe" not in ods["magnetics"].keys()
