@@ -122,6 +122,9 @@ class Series(ViewModel):
     #: ``"constraint"`` for the value the solver was given (issue #261).  A
     #: role shares its channel's panel and is named beside it in the legend.
     role: str = ""
+    #: The channel's index in its diagnostic array, when the trace is one
+    #: channel of an array; identity that survives whatever the label says.
+    index: int | None = None
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -161,6 +164,8 @@ class Series(ViewModel):
         object.__setattr__(self, "entry", str(self.entry or ""))
         object.__setattr__(self, "channel", str(self.channel or ""))
         object.__setattr__(self, "role", str(self.role or ""))
+        if self.index is not None:
+            object.__setattr__(self, "index", int(self.index))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 

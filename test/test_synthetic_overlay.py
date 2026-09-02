@@ -153,3 +153,101 @@ def test_discovery_advertises_the_capability_and_its_availability(bare, reconstr
     )
     with_it = vaft.omas.available_plots(reconstructed, query="ip").find("plasma_current_time")
     assert with_it.synthetic["available"] is True
+
+
+# ---------------------------------------------------------------------------
+# Independent review of the overlay
+# ---------------------------------------------------------------------------
+
+def test_discovery_availability_is_one_pass_over_the_constraints(bare):
+    import time as _time
+    from vaft.omas._plot_recipes import has_synthetic_values
+    started = _time.perf_counter()
+    for name in SYNTHETIC_CONSTRAINTS:
+        assert has_synthetic_values(bare, name) is False
+    assert _time.perf_counter() - started < 1.0
+    started = _time.perf_counter()
+    vaft.omas.available_plots(bare)
+    assert _time.perf_counter() - started < 2.0
+
+
+def test_markers_follow_the_channel_index_not_its_label():
+    import omas
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.5, 6)
+    for j in range(2):
+        ods[f"magnetics.flux_loop.{j}.name"] = "Dup"  # same name, no stored position
+        ods[f"magnetics.flux_loop.{j}.flux.data"] = np.full(6, float(j + 1))
+    for t, when in enumerate((0.1, 0.2)):
+        ods[f"equilibrium.time_slice.{t}.time"] = when
+        for j, value in enumerate((111.0, 222.0)):
+            ods[f"equilibrium.time_slice.{t}.constraints.flux_loop.{j}.source"] = "Dup"
+            ods[f"equilibrium.time_slice.{t}.constraints.flux_loop.{j}.reconstructed"] = value
+    model = build_model("flux_loop_time_flux", normalize_entries(ods), synthetic="equilibrium")
+    measured = [s for s in model.series if not s.role]
+    assert [s.index for s in measured] == [0, 1]
+    # Two channels named alike make the source ambiguous: no constraint may
+    # claim either trace, so neither gets a marker (rather than both getting
+    # the first one's values).
+    assert not [s for s in model.series if s.role]
+    # Distinct names without stored positions: each trace, matched through
+    # its own index, gets its own reconstruction.
+    for j, name in enumerate(("A", "B")):
+        ods[f"magnetics.flux_loop.{j}.name"] = name
+        for t in range(2):
+            ods[f"equilibrium.time_slice.{t}.constraints.flux_loop.{j}.source"] = name
+    model = build_model("flux_loop_time_flux", normalize_entries(ods), synthetic="equilibrium")
+    synthetic = {s.index: s for s in model.series if s.role}
+    assert set(synthetic) == {0, 1}
+    assert np.allclose(synthetic[0].y, 111.0 * 1e3) and np.allclose(synthetic[1].y, 222.0 * 1e3)
+
+
+def test_a_composite_routes_synthetic_to_the_members_that_carry_it(reconstructed):
+    figure, axes = vaft.omas.plot_magnetics_overview(reconstructed, synthetic="equilibrium")
+    roles = {
+        panel.get_title(): [line.get_label() for line in panel.lines if "(reconstruction)" in line.get_label()]
+        for panel in axes.ravel() if panel.get_visible()
+    }
+    assert any(roles.values()), roles
+    assert not roles.get("PF Coil Current", []) and not roles.get("PF Coil Currents", [])
+    plt.close(figure)
+
+
+def test_member_defaults_reach_model_building(reconstructed):
+    from vaft.omas._plot_recipes import RECIPES, PanelRecipe, build_model
+    from vaft.plot.registry import _REGISTRY, PlotSpec
+    from vaft.plot.models import Panels
+    name = "_test_synthetic_composite"
+    RECIPES[name] = PanelRecipe(
+        members=("plasma_current_time", "flux_loop_time_flux"), ncols=1,
+        member_defaults={"synthetic": "equilibrium", "validity": "mask"},
+    )
+    _REGISTRY[name] = PlotSpec(
+        name=name, model=Panels, renderer=vaft.plot.render_panels, domain="magnetics",
+        subject="magnetics", view="overview", description="test", ids=("magnetics", "equilibrium"),
+    )
+    try:
+        model = build_model(name, normalize_entries(reconstructed), selection=[0])
+        assert [s.role for s in model.models[0].series] == ["", "reconstruction"]
+        assert model.member_styles == ({"validity": "mask"}, {"validity": "mask"})
+        figure, axes = vaft.plot.render_panels(model)
+        plt.close(figure)
+    finally:
+        del RECIPES[name], _REGISTRY[name]
+
+
+def test_the_legend_threshold_counts_measurements_not_markers(reconstructed):
+    for t in range(2, 6):
+        for j in range(2, 5):
+            base = f"equilibrium.time_slice.{t}.constraints.flux_loop.{j}"
+            reconstructed[f"{base}.reconstructed"] = float(reconstructed[f"{base}.measured"])
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(
+        reconstructed, selection=[0, 1, 2, 3, 4], synthetic="equilibrium"
+    )
+    assert len(axes.lines) == 10
+    assert axes.get_legend() is not None and len(axes.get_legend().get_texts()) == 10
+    assert not [t for t in axes.texts if "traces" in t.get_text()]
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(reconstructed, selection=list(range(9)), synthetic="equilibrium")
+    assert axes.get_legend() is None and any("traces" in t.get_text() for t in axes.texts)
+    plt.close(figure)
