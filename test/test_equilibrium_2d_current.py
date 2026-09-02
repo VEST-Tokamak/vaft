@@ -137,11 +137,17 @@ def test_the_integral_recovers_the_plasma_current(solovev):
 
 def test_no_current_is_drawn_outside_the_boundary(solovev):
     """`p'` and `ff'` are only defined out to the LCFS; clipping them into the
-    scrape-off layer would put current where there is none."""
+    scrape-off layer would put current where there is none.
+
+    Every exterior point, not most of them. The earlier `> 0.95` here was loose
+    enough to pass while the mask was `psi_norm <= 1` -- a flux threshold, not a
+    containment test -- which on the packaged sample left current at 8-11% of the
+    exterior, integrating to 5.7x the plasma current on one slice.
+    """
     derived = solovev["derived"]
     assert np.isnan(derived).any(), "nothing was masked at all"
     outside = ~solovev["inside"]
-    assert np.isnan(derived[outside]).mean() > 0.95
+    assert np.isnan(derived[outside]).all()
 
 
 def test_the_packaged_sample_integrates_to_its_stored_plasma_current():
@@ -170,5 +176,49 @@ def test_the_packaged_sample_integrates_to_its_stored_plasma_current():
         np.column_stack([grid_r.ravel(), grid_z.ravel()])
     ).reshape(grid_r.shape)
 
-    current = float(np.nansum(np.where(inside, derived, 0.0)) * (r[1] - r[0]) * (z[1] - z[0]))
-    assert current == pytest.approx(float(ts["global_quantities.ip"]), rel=0.01)
+    cell = (r[1] - r[0]) * (z[1] - z[0])
+    # Over the WHOLE grid, not just inside: if anything leaks past the boundary
+    # this picks it up, where masking to the interior first would hide it. The
+    # interior form passed throughout while 265 kA sat outside the LCFS.
+    everywhere = float(np.nansum(derived) * cell)
+    assert everywhere == pytest.approx(float(ts["global_quantities.ip"]), rel=0.01)
+    assert np.isnan(derived[~inside]).all(), "current written outside the LCFS"
+
+    interior = float(np.nansum(np.where(inside, derived, 0.0)) * cell)
+    assert interior == pytest.approx(everywhere, rel=1e-12)
+
+
+def test_every_packaged_slice_keeps_its_current_inside_the_plasma():
+    """Review finding, across all slices rather than one. The flux-threshold mask
+    leaked worst on the later, smaller discharges -- 265 kA outside a 46 kA
+    plasma on slice 7 -- so a single-slice check was not enough to catch it."""
+    from vaft.omas.sample import sample_ods
+
+    try:
+        ods = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged
+        pytest.skip(f"39915 sample unavailable: {exc}")
+    update.update_equilibrium_derived_profiles(ods)
+    update.update_equilibrium_profiles_2d_j_tor(ods)
+
+    checked = 0
+    for index in range(len(ods["equilibrium.time_slice"])):
+        ts = ods["equilibrium.time_slice"][index]
+        if "profiles_2d.0.j_tor" not in ts or "boundary.outline.r" not in ts:
+            continue
+        derived = np.asarray(ts["profiles_2d.0.j_tor"], float)
+        r = np.asarray(ts["profiles_2d.0.grid.dim1"], float)
+        z = np.asarray(ts["profiles_2d.0.grid.dim2"], float)
+        grid_r, grid_z = np.meshgrid(r, z, indexing="ij")
+        inside = MplPath(
+            np.column_stack([
+                np.asarray(ts["boundary.outline.r"], float),
+                np.asarray(ts["boundary.outline.z"], float),
+            ])
+        ).contains_points(np.column_stack([grid_r.ravel(), grid_z.ravel()])).reshape(derived.shape)
+
+        assert np.isnan(derived[~inside]).all(), f"slice {index} leaks current outside the LCFS"
+        current = float(np.nansum(derived) * (r[1] - r[0]) * (z[1] - z[0]))
+        assert current == pytest.approx(float(ts["global_quantities.ip"]), rel=0.02), index
+        checked += 1
+    assert checked >= 8, f"only {checked} slices exercised"

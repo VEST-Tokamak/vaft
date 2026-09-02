@@ -321,7 +321,8 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
     :func:`update_equilibrium_profiles_1d_j_tor` averages. Points outside the
     LCFS are written as NaN rather than evaluated: ``p'`` and ``ff'`` are only
     defined out to the boundary, and clipping them into the scrape-off layer
-    would draw current where there is none.
+    would draw current where there is none. The test is containment in
+    ``boundary.outline``, not ``psi_norm <= 1`` -- see :func:`_inside_boundary`.
 
     The function was inert before issue #290 -- it skipped every slice for want
     of a 1-D ``j_tor`` -- so supplying that profile is what armed the defect.
@@ -369,8 +370,39 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
             j_tor_2d = prefactor * (grid_r * pprime_2d + ffprime_2d / (MU0 * grid_r))
 
         # p' and ff' stop at the boundary, so the current does too.
-        j_tor_2d = np.where(psi_norm_2d <= 1.0, j_tor_2d, np.nan)
-        ts["profiles_2d.0.j_tor"] = j_tor_2d
+        confined = _inside_boundary(frame, psi_norm_2d)
+        ts["profiles_2d.0.j_tor"] = np.where(confined, j_tor_2d, np.nan)
+
+
+
+def _inside_boundary(frame, psi_norm_2d):
+    """Mask of the confined region, from the LCFS outline where there is one.
+
+    ``psi_norm <= 1`` is a flux threshold, not a containment test. Outside the
+    plasma psi is not monotonic -- it turns over near the coils and in the
+    private-flux region -- so a large part of the exterior passes the threshold.
+    On the packaged 39915 sample that put current at 8-11% of the exterior grid
+    points, integrating to 265 kA against a 46 kA plasma on one slice.
+
+    The outline is the real boundary, so it is used when the slice has one. The
+    flux threshold remains the fallback for a slice that does not, where it is
+    the best available answer rather than a correct one.
+    """
+    boundary = frame.get("boundary")
+    if boundary is None:
+        return psi_norm_2d <= 1.0
+
+    from matplotlib.path import Path as _MplPath
+
+    outline_r = np.asarray(boundary[0], float).reshape(-1)
+    outline_z = np.asarray(boundary[1], float).reshape(-1)
+    grid_r, grid_z = np.meshgrid(frame["r_grid"], frame["z_grid"], indexing="ij")
+    inside = _MplPath(np.column_stack([outline_r, outline_z])).contains_points(
+        np.column_stack([grid_r.ravel(), grid_z.ravel()])
+    ).reshape(psi_norm_2d.shape)
+    # Both conditions: the outline can enclose a cell whose psi says otherwise on
+    # a coarse grid, and p'/ff' are only defined out to psi_norm = 1 either way.
+    return inside & (psi_norm_2d <= 1.0)
 
 
 def _equilibrium_time_slices(ods, time_slice):
