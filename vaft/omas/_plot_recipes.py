@@ -235,7 +235,11 @@ def _channel_positions(ods: Any, container: str, count: int):
 
 
 def _resolve_selection(
-    ods: Any, template: str, selection: Any, marker: str = "{i}"
+    ods: Any,
+    template: str,
+    selection: Any,
+    marker: str = "{i}",
+    fallbacks: Sequence[str] = (),
 ) -> list[int]:
     """Resolve the public ``selection=`` contract to ODS channel indices.
 
@@ -278,7 +282,9 @@ def _resolve_selection(
                 "selection must be indices or identifiers, not a mixture; "
                 f"got {term!r}"
             )
-        preset = _resolve_preset(ods, container, count, term, template)
+        preset = _resolve_preset(
+            ods, container, count, term, (template, *fallbacks)
+        )
         if preset is not None:
             indices.extend(preset)
             continue
@@ -302,22 +308,27 @@ def _resolve_selection(
     return list(dict.fromkeys(indices))
 
 
-def _channel_has_data(ods: Any, template: str, index: int) -> bool:
+def _channel_has_data(ods: Any, candidates: Sequence[str], index: int) -> bool:
     """Whether this channel actually carries the signal being plotted.
 
     A representative must be a real measurement: the channel nearest the
     midplane is no use if it recorded nothing, so an empty one is passed over
     rather than returned and drawn blank.
+
+    The question is answered exactly as :func:`_first_array` answers it when it
+    builds the trace -- every candidate spelling of the path, and a usable 1D
+    array -- so a channel can never be chosen here and then decline to draw, or
+    be passed over while the plot would happily have shown it.
     """
-    values = _get(ods, template.format(i=index))
-    if values is None:
+    try:
+        array = _first_array(ods, tuple(candidates), i=index)
+    except ValueError:
         return False
-    array = np.asarray(values, dtype=float).ravel()
-    return array.size > 1 and bool(np.isfinite(array).any())
+    return array is not None and array.ndim == 1 and bool(np.isfinite(array).any())
 
 
 def _resolve_preset(
-    ods: Any, container: str, count: int, term: str, template: str
+    ods: Any, container: str, count: int, term: str, candidates: Sequence[str]
 ):
     """Resolve a named physical region preset, or ``None`` if not one.
 
@@ -351,11 +362,15 @@ def _resolve_preset(
         return [index for index, region in enumerate(regions) if region == term]
 
     # A representative names the one channel that best stands for its region.
-    region = INBOARD if term.startswith(INBOARD) else OUTBOARD
+    region = next(
+        (name for name in (INBOARD, OUTBOARD) if term.startswith(name)), None
+    )
+    if region is None:
+        raise ValueError(f"preset {term!r} names no physical region")
     candidates = [
         index
         for index, name in enumerate(regions)
-        if name == region and _channel_has_data(ods, template, index)
+        if name == region and _channel_has_data(ods, candidates, index)
     ]
     chosen = representative_index(z_values, candidates)
     if chosen is None:
@@ -2571,7 +2586,9 @@ def _build_line_traces(
         ]
 
     if recipe.index == "channel":
-        indices = _resolve_selection(ods, recipe.y_path, selection)
+        indices = _resolve_selection(
+            ods, recipe.y_path, selection, fallbacks=recipe.fallback_y_paths
+        )
         traces = []
         for index in indices:
             try:

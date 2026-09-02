@@ -784,6 +784,14 @@ def _find_flux_loop_all_indices(ods):
     indices = np.arange(len(ods['magnetics.flux_loop']))
     return indices
 
+def _value(ods, path, default=None):
+    """Read ``path`` from ``ods``, returning ``default`` when it is absent."""
+    try:
+        return ods[path]
+    except (KeyError, TypeError, IndexError, ValueError):
+        return default
+
+
 def _region_indices(ods, r_path, region, z_path=None):
     """Indices of the channels this diagnostic family places in ``region``.
 
@@ -833,7 +841,16 @@ def _find_flux_loop_inboard_midplane_indices(ods):
 
     inboard = _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'inboard')[0]
     z = np.asarray(ods['magnetics.flux_loop.:.position.0.z'], dtype=float)
-    chosen = representative_index(z, list(inboard))
+    # Skip loops that recorded nothing, so this and vaft.omas' `inboard_mid`
+    # never disagree about which channel represents the inboard midplane.
+    usable = [
+        index for index in inboard
+        if np.isfinite(
+            np.asarray(_value(ods, f'magnetics.flux_loop.{index}.flux.data', np.nan),
+                       dtype=float)
+        ).any()
+    ]
+    chosen = representative_index(z, usable)
     return (np.array([] if chosen is None else [chosen], dtype=int),)
 
 def time_magnetics_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit='s', yunit='Wb', xlim='plasma'):

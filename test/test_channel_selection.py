@@ -413,3 +413,40 @@ def test_an_empty_region_says_so_rather_than_drawing_nothing():
             ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
     with pytest.raises(ValueError, match="carries no data"):
         vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
+
+
+def test_a_single_sample_channel_still_counts_as_data():
+    """The representative filter must judge a channel the way the renderer does.
+
+    A channel holding one real sample draws a real point, so passing it over
+    would hand back a different channel than the plot itself would use.
+    """
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, (z, data) in enumerate(
+        ((0.5, np.ones(4)), (0.9, np.ones(4)), (0.01, np.array([3.5])))
+    ):
+        ods[f"magnetics.flux_loop.{index}.name"] = f"FL{index:02d}"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 if index == 0 else 0.9
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = data
+
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
+    assert "FL02" in axes.lines[0].get_label()
+    matplotlib.pyplot.close(figure)
+    # And the plot really can draw it, which is what makes the choice right.
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="FL02")
+    assert len(axes.lines[0].get_ydata()) == 1
+    matplotlib.pyplot.close(figure)
+
+
+def test_the_old_and_new_midplane_apis_choose_the_same_channel():
+    """One definition of "the inboard midplane loop", not two."""
+    from vaft.plot.time import _find_flux_loop_inboard_midplane_indices
+
+    ods = _sample()
+    legacy = _find_flux_loop_inboard_midplane_indices(ods)[0]
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard_mid")
+    modern = str(ods[f"magnetics.flux_loop.{int(legacy[0])}.name"])
+    assert modern in axes.lines[0].get_label()
+    matplotlib.pyplot.close(figure)
