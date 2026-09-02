@@ -87,6 +87,24 @@ managed by this file. Decide explicitly whether to enable, retarget, or delete
 it — leaving a disabled ruleset next to an active one is how a repository ends
 up with protection nobody can account for.
 
+## Documentation
+
+The site published at <https://vest-tokamak.github.io/vaft/> is built from
+`docs/` on the code branches: the root from `main`, `/develop/` from `develop`.
+Both are composed and published as one commit on `gh-pages`, which holds
+generated output only and must never be edited by hand.
+
+```bash
+cd docs && bundle install
+python build.py                 # dry run: both tracks, composed and validated
+npm run docs:serve              # local preview of this branch's pages
+npm run test:docs               # build and validate the stable track
+```
+
+A page belongs to the branch whose library it documents, so a fix wanted on both
+tracks travels from `develop` to `main` like any other change. `docs/README.md`
+has the details.
+
 ## Running the tests
 
 ```bash

@@ -4,6 +4,10 @@
 graft vaft
 prune vaft/data
 prune test
+# The documentation site is repository-only.  It is already outside the
+# ``vaft*`` package glob, so nothing ships it today; say so explicitly, because
+# the alternative is relying on an omission staying an omission.
+prune docs
 global-exclude *.py[cod]
 global-exclude ._*
 

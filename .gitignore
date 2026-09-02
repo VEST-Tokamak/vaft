@@ -1,5 +1,16 @@
-/vaft_/_site
-/.jekyll-cache
+# Documentation build products.  The site source is docs/; everything it
+# generates is rebuilt by docs/build.py and must not be committed, because the
+# snapshots embed checksums of the library and would go stale on every change
+# to it.  docs/.gitignore covers the rest.
+/docs/_site/
+/docs/_site-*/
+/docs/.jekyll-cache/
+/docs/vendor/
+/docs/.bundle/
+/docs/node_modules/
+/docs/_data/provenance.yml
+/docs/_data/vest_diagnostics.yml
+/docs/_data/formula_catalog.yml
 vest_database_info.txt
 /__pycache__
 .ipynb_checkpoints

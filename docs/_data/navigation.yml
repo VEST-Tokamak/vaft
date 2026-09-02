@@ -1,0 +1,55 @@
+sections:
+  - id: workflows
+    title: Research workflows
+    items:
+      - id: start-here
+        title: Start here
+        url: /workflows/start-here/
+      - id: data-access-imas
+        title: Data access and IMAS
+        url: /workflows/data-access-imas/
+      - id: experimental-interpretation
+        title: Experimental interpretation
+        url: /workflows/experimental-interpretation/
+      - id: equilibrium-kinetic-profiles
+        title: Equilibrium and kinetic profiles
+        url: /workflows/equilibrium-kinetic-profiles/
+      - id: electromagnetic-modeling
+        title: Electromagnetic modeling
+        url: /workflows/electromagnetic-modeling/
+      - id: mhd-stability
+        title: MHD stability
+        url: /workflows/mhd-stability/
+      - id: operations-statistical-analysis
+        title: Operations and statistical analysis
+        url: /workflows/operations-statistical-analysis/
+      - id: automated-pipelines
+        title: Automated pipelines
+        url: /workflows/automated-pipelines/
+  - id: reference
+    title: Library and data reference
+    items:
+      - id: api
+        title: VAFT API
+        url: /reference/api/
+      - id: imas-concepts
+        title: Fusion data structure and IMAS concepts
+        url: /reference/imas-concepts/
+      - id: database-data-sources
+        title: Database and data sources
+        url: /reference/database-data-sources/
+      - id: vest-tokamak-physics
+        title: VEST and tokamak physics background
+        url: /reference/vest-tokamak-physics/
+      - id: vest-diagnostics
+        title: VEST diagnostics and data availability
+        url: /reference/vest-diagnostics/
+      - id: notebooks
+        title: Notebooks
+        url: /reference/notebooks/
+      - id: references
+        title: References
+        url: /reference/references/
+      - id: contacts
+        title: Contacts
+        url: /reference/contacts/
