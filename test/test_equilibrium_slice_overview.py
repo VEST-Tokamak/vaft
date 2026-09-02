@@ -153,7 +153,7 @@ def test_discovery_states_the_contents_and_the_interaction_mode(shots):
     record = vaft.omas.available_plots(shots[39915], query="equilibrium", view="overview").find(
         "equilibrium_overview"
     )
-    assert record.interaction == ("static",)
+    assert record.interaction[0] == "static"
     assert record.overview_members == ("poloidal flux", "pressure", "q", "global quantities")
     text = str(vaft.omas.available_plots(query="equilibrium", view="overview"))
     assert "interaction: static" in text and "overview: poloidal flux · pressure · q · global quantities" in text

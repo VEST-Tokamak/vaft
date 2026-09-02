@@ -73,7 +73,12 @@ __all__ = ["describe"]
 #: Interaction modes a plot offers (issue #261 sections 14-17).  A static
 #: summary is the baseline; a time-navigable entry point appears beside it.
 INTERACTION: dict[str, tuple[str, ...]] = {
-    "equilibrium_overview": ("static",),
+    "equilibrium_overview": ("static", "time-navigable"),
+}
+
+#: The public entry point behind an interaction mode that is not a view.
+INTERACTION_ENTRY_POINTS: dict[str, str] = {
+    "time-navigable": "plot_equilibrium_interactive()",
 }
 
 #: What a composite built by code (not a PanelRecipe) draws, for discovery's
@@ -171,6 +176,10 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["synthetic"] = {"overlay": "equilibrium"}
     if record.name in INTERACTION:
         updates["interaction"] = INTERACTION[record.name]
+        updates["interaction_entry_points"] = {
+            mode: INTERACTION_ENTRY_POINTS[mode]
+            for mode in INTERACTION[record.name] if mode in INTERACTION_ENTRY_POINTS
+        }
     return with_capabilities(record, **updates) if updates else record
 
 

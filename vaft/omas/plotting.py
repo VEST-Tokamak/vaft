@@ -1582,6 +1582,9 @@ def plot_magnetics_geometry_poloidal(
     )
 
 
+from .interactive import plot_equilibrium_interactive  # noqa: E402  (public entry point, issue #261)
+
+
 def plot_equilibrium_overview_histories(
     source: Any,
     *,
@@ -2501,6 +2504,7 @@ __all__ = [
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
+    "plot_equilibrium_interactive",
     "plot_equilibrium_overview_histories",
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",

@@ -117,6 +117,8 @@ class PlotCapability:
     # -- reserved for issue #261; empty and unprinted until it lands ----------
     sources: Mapping[str, Any] = field(default_factory=dict)
     interaction: tuple[str, ...] = ()
+    #: Public function behind an interaction mode that is not itself a plot.
+    interaction_entry_points: Mapping[str, str] = field(default_factory=dict)
     projection: Mapping[str, Any] = field(default_factory=dict)
 
     # The old ``available_plots`` rows were plain dictionaries; keep that
@@ -580,6 +582,8 @@ def _detail_lines(record: PlotCapability) -> list[str]:
         lines.append("sources: " + ", ".join(record.sources))
     if record.interaction:
         lines.append("interaction: " + " | ".join(record.interaction))
+        for mode, function in record.interaction_entry_points.items():
+            lines.append(f"{mode}: vaft.omas.{function}")
     if record.projection:
         lines.append("projection: " + ", ".join(f"{k}: {v}" for k, v in record.projection.items()))
     lines.append(f"domain: {record.domain}")
