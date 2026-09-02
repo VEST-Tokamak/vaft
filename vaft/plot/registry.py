@@ -193,32 +193,32 @@ def canonical_names() -> tuple[str, ...]:
 
 def available_plots(
     *,
+    query: str | None = None,
     domain: str | None = None,
     subject: str | None = None,
     view: str | None = None,
     model: type | None = None,
     status: Status | None = "canonical",
-) -> tuple[dict[str, Any], ...]:
-    """Describe the registered plots as plain dictionaries.
+    detail: bool = False,
+):
+    """The registered plots as a :class:`~vaft.plot.discovery.PlotCatalog`.
 
-    Each row carries the canonical ``name``, the ``model`` the renderer consumes,
-    the ``ids`` and ``required_paths`` an adapter must provide, and a short
-    ``description``.
+    The catalog prints as a ``subject / view / [quantity]`` tree and iterates
+    as records that still answer ``row["name"]``, ``row["required_paths"]`` and
+    the other registry fields, so callers of the old flat listing keep working.
+    ``query`` resolves a subject through the strict alias registry (``"ip"``
+    lists ``plasma_current``); ``detail=True`` prints the developer block.
+    ``vaft.omas.available_plots(ods)`` evaluates the same catalog against an
+    object (issue #262).
     """
-    return tuple(
-        {
-            "name": spec.name,
-            "domain": spec.domain,
-            "subject": spec.subject,
-            "view": spec.view,
-            "quantity": spec.quantity,
-            "model": spec.model.__name__,
-            "ids": spec.ids,
-            "required_paths": spec.required_paths,
-            "description": spec.description,
-            "status": spec.status,
-        }
-        for spec in specs(
-            domain=domain, subject=subject, view=view, model=model, status=status
-        )
+    from .discovery import catalog
+
+    return catalog(
+        query=query,
+        domain=domain,
+        subject=subject,
+        view=view,
+        model=model,
+        status=status,
+        detail=detail,
     )
