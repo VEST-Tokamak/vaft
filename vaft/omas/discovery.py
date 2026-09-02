@@ -108,13 +108,17 @@ def describe(
     shots = [label for label, _ in normalize_entries(source, label="shot")]
     if available_only is None:
         available_only = True
+    if not entries:
+        # An empty collection can draw nothing; say so rather than evaluate
+        # every plot against no data.
+        return PlotCatalog((), source="no entries", query=query, detail=detail)
     evaluated = [_evaluate(record, entries) for record in records]
     if available_only:
         evaluated = [record for record in evaluated if record.available]
     return PlotCatalog(
         evaluated,
         source=_source_label(shots),
-        query=query or "",
+        query=query,
         detail=detail,
         available_only=False,
     )
@@ -230,10 +234,13 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         "flagged": len(flagged),
     }
     r_values, z_values = _channel_positions(ods, container, total)
+    # The divider is the whole family's (that is what grouped infers it from);
+    # the counts are of the channels that carry data, because those are the
+    # traces grouped actually places -- an empty channel builds no trace.
     split = radial_divider(r_values)
     layouts: tuple[str, ...] = ("overlay", "subplots")
     if split:
-        regions = classify_regions(r_values, split=split)
+        regions = classify_regions(r_values[with_data], split=split)
         counts = {name: regions.count(name) for name in (INBOARD, OUTBOARD, UNCLASSIFIED)}
         channels["regions"] = {name: count for name, count in counts.items() if count}
         representatives: dict[str, int | None] = {}

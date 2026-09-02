@@ -276,3 +276,50 @@ def test_every_channel_plot_declares_layouts_and_nothing_else_does():
             assert ("subplots" in record.layouts) == (recipe.index == "channel")
         else:
             assert record.layouts == ()
+
+
+# ---------------------------------------------------------------------------
+# Independent review of the discovery interface
+# ---------------------------------------------------------------------------
+
+def test_an_empty_collection_yields_an_empty_catalog():
+    for empty in ([], omas.ODC()):
+        catalog = vaft.omas.available_plots(empty)
+        assert len(catalog) == 0
+        assert "(nothing to plot)" in str(catalog)
+
+
+def test_a_family_query_keeps_the_family_plot():
+    names = vaft.plot.available_plots(query="beta").names()
+    assert "equilibrium_time_beta" in names
+    assert {"equilibrium_time_beta_n", "equilibrium_time_beta_p", "equilibrium_time_beta_t"} <= set(names)
+
+
+def test_region_counts_are_the_channels_grouped_would_place(shot):
+    from vaft.omas._plot_recipes import build_model, normalize_entries
+    for name in ("b_field_probe_time_field", "flux_loop_time_flux", "mirnov_time_voltage"):
+        record = vaft.omas.available_plots(shot).find(name)
+        grouped = build_model(name, normalize_entries(shot, label="key"), layout="grouped")
+        placed = {panel.title: len(panel.series) for panel in grouped.models}
+        assert record.channels["regions"] == placed, name
+
+
+def test_a_literal_quantity_names_the_plots_that_carry_it():
+    names = vaft.plot.available_plots(query="pressure").names()
+    assert names and all(row.quantity == "pressure" for row in vaft.plot.available_plots(query="pressure"))
+    assert "barometry_time_pressure" in names and "equilibrium_profile_pressure" in names
+    # A subject prefix still wins over a quantity of the same word.
+    assert {row.subject for row in vaft.plot.available_plots(query="flux")} == {"flux_loop"}
+
+
+def test_records_still_compare_equal_to_the_flat_rows():
+    rows = vaft.plot.available_plots()
+    assert rows[0] == rows[0].row()
+    assert rows[0] != rows[1]
+    assert rows + () == rows.rows() and () + rows == rows.rows()
+    assert len({rows[0], rows[0]}) == 1
+
+
+def test_an_empty_query_matches_nothing_and_says_so():
+    assert "(no plots match)" in str(vaft.plot.available_plots(query=""))
+    assert "(no plots match)" in str(vaft.plot.available_plots(query="   "))

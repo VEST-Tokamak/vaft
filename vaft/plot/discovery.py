@@ -126,6 +126,18 @@ class PlotCapability:
     def get(self, key: str, default: Any = None) -> Any:
         return getattr(self, key, default)
 
+    def __eq__(self, other: object) -> bool:
+        # A record equals the flat row it replaces, so code that compared rows
+        # to literal dictionaries keeps its answer.
+        if isinstance(other, Mapping):
+            return self.row() == dict(other) or self.as_dict() == dict(other)
+        if isinstance(other, PlotCapability):
+            return self.as_dict() == other.as_dict()
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.subject, self.view, self.quantity))
+
     def keys(self) -> tuple[str, ...]:
         return tuple(f.name for f in fields(self))
 
@@ -260,23 +272,37 @@ def match_query(term: str) -> QueryMatch:
     quantities: set[str] = set()
     for candidate in (query, term.strip()):
         try:
-            quantities.update(taxonomy.resolve_family(candidate).members)
+            family = taxonomy.resolve_family(candidate)
         except KeyError:
             pass
+        else:
+            # A family names its members and its own composite plot
+            # (equilibrium / time / beta draws beta_n, beta_p and beta_t).
+            quantities.update(family.members)
+            quantities.add(family.name)
         try:
             quantities.add(taxonomy.resolve_quantity(candidate))
         except KeyError:
             pass
     if quantities:
-        subjects = sorted({spec.subject for spec in specs() if spec.quantity in quantities})
-        return QueryMatch(subjects=tuple(subjects), quantities=tuple(sorted(quantities)))
-    return QueryMatch(
-        subjects=tuple(
-            name
-            for name in taxonomy.subject_names()
-            if name == query or name.startswith(query + "_")
-        )
+        return _by_quantities(quantities)
+    prefixed = tuple(
+        name
+        for name in taxonomy.subject_names()
+        if name == query or name.startswith(query + "_")
     )
+    if prefixed:
+        return QueryMatch(subjects=prefixed)
+    # A canonical quantity spelled exactly ("pressure", "voltage") is an
+    # identity, not a synonym, so it names the plots that carry it.
+    if any(spec.quantity == query for spec in specs()):
+        return _by_quantities({query})
+    return QueryMatch()
+
+
+def _by_quantities(quantities: set[str]) -> QueryMatch:
+    subjects = sorted({spec.subject for spec in specs() if spec.quantity in quantities})
+    return QueryMatch(subjects=tuple(subjects), quantities=tuple(sorted(quantities)))
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +325,7 @@ class PlotCatalog(Sequence[PlotCapability]):
         records: Sequence[PlotCapability],
         *,
         source: str = "",
-        query: str = "",
+        query: str | None = None,
         detail: bool = False,
         available_only: bool = False,
     ) -> None:
@@ -333,6 +359,13 @@ class PlotCatalog(Sequence[PlotCapability]):
         if isinstance(other, (tuple, list)):
             return self._records == tuple(other)
         return NotImplemented
+
+    def __add__(self, other):
+        # The flat listing was a tuple; concatenation still yields one.
+        return self.rows() + tuple(other)
+
+    def __radd__(self, other):
+        return tuple(other) + self.rows()
 
     def __hash__(self) -> int:  # pragma: no cover - sequences are rarely hashed
         return hash(self._records)
@@ -405,7 +438,7 @@ def catalog(
         match = match_query(query)
         selected = tuple(spec for spec in selected if match.accepts(spec))
     records = tuple(capability_for(spec) for spec in selected)
-    return PlotCatalog(records, query=query or "", detail=detail)
+    return PlotCatalog(records, query=query, detail=detail)
 
 
 # ---------------------------------------------------------------------------
@@ -547,7 +580,7 @@ def render_tree(
     records: Sequence[PlotCapability],
     *,
     source: str = "",
-    query: str = "",
+    query: str | None = None,
     detail: bool = False,
     available_only: bool = False,
 ) -> str:
@@ -556,10 +589,10 @@ def render_tree(
         records = [r for r in records if r.available is not False]
     header = "Available plots"
     header += f" — {source}" if source else " — registry"
-    if query:
+    if query is not None:
         header += f" — query {query!r}"
     if not records:
-        return header + "\n\n(no plots match)" if query else header + "\n\n(nothing to plot)"
+        return header + ("\n\n(no plots match)" if query is not None else "\n\n(nothing to plot)")
     out = [header, ""]
     for subject, views in _group(records).items():
         any_record = next(iter(next(iter(views.values()))))
