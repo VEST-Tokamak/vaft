@@ -32,6 +32,125 @@ def test_legacy_process_alias_warns_and_preserves_result():
     assert "detect_active_window" in str(caught[0].message)
 
 
+def test_vaft_process_reaches_no_verdicts():
+    """The boundary rule #253 §2 states, made executable (issue #337).
+
+    `vaft.process` transforms, infers and checks its own preconditions. Whether
+    a datum or a result is *credible* is a verdict, and verdicts live in
+    `vaft.validation` -- one namespace, one status vocabulary. A new
+    `vaft.process.validate_*` is how that boundary erodes, so it fails here.
+
+    The two names still present are deprecating aliases, kept because they were
+    public; both delegate and warn.
+    """
+    import vaft.process
+
+    aliases = {"validate_equilibrium", "validate_impa"}
+    offenders = {
+        name
+        for name in dir(vaft.process)
+        if name.startswith("validate_") and name not in aliases
+    }
+    assert not offenders, (
+        f"{sorted(offenders)} reach a verdict from vaft.process. A precondition is "
+        "named check_*_requirements and stays; an assessment belongs in "
+        "vaft.validation (issues #253, #337)."
+    )
+
+
+def test_the_renamed_equilibrium_precondition_keeps_its_old_name_working():
+    """A public name that moves keeps resolving, warns, and answers identically."""
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process import check_equilibrium_requirements, validate_equilibrium
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        legacy = validate_equilibrium(EquilibriumData(), required_for="global")
+
+    assert any(item.category is DeprecationWarning for item in caught)
+    assert "check_equilibrium_requirements" in str(caught[0].message)
+    assert legacy == check_equilibrium_requirements(
+        EquilibriumData(), required_for="global"
+    )
+
+
+def test_the_renamed_impa_grading_keeps_its_old_name_working():
+    """Its arguments are a whole processed shot, so the delegation is what is
+    asserted here; `test_impa_processing.py` covers the grading itself.
+    """
+    from vaft.process import grade_impa_quality, validate_impa
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(TypeError):
+            validate_impa()
+
+    assert any(item.category is DeprecationWarning for item in caught)
+    assert "grade_impa_quality" in str(caught[0].message)
+    assert callable(grade_impa_quality)
+
+
+def test_the_validation_layer_has_one_status_vocabulary():
+    """#253 §4: findings and verdicts are different shapes, not rival vocabularies.
+
+    `ValidationReport` is a findings list with severities; `ValidationStatus` is
+    the verdict vocabulary. They meet at `ValidationReport.status`, which is what
+    stops a caller composing findings into a report from inventing a third set of
+    strings -- which is how the codebase came to have three.
+    """
+    from vaft.validation.model import (
+        ValidationIssue,
+        ValidationReport,
+        ValidationStatus,
+    )
+
+    assert ValidationReport().status is ValidationStatus.PASS
+    assert ValidationReport((ValidationIssue("warning", "c", "f", "m"),)).status is (
+        ValidationStatus.WARN
+    )
+    assert ValidationReport((ValidationIssue("error", "c", "f", "m"),)).status is (
+        ValidationStatus.FAIL
+    )
+    # The gate stays coarser than the verdict: a warning does not stop a caller.
+    assert ValidationReport((ValidationIssue("warning", "c", "f", "m"),)).valid
+
+
+def test_the_findings_model_resolves_from_every_historical_path():
+    """It moved to the validation layer; the old import sites still work."""
+    from vaft.data import ValidationReport as from_data
+    from vaft.data.equilibrium import ValidationReport as from_equilibrium
+    from vaft.validation.model import ValidationReport as canonical
+
+    assert from_data is from_equilibrium is canonical
+    assert canonical.__module__ == "vaft.validation.model"
+
+
+def test_importing_the_data_layer_stays_light():
+    """`vaft.data` gained a validation import; it must not have gained a layer.
+
+    `vaft.validation.model` is enum-and-dataclass only, so this holds -- but the
+    edge is new, and a heavier import landing in the validation package would
+    otherwise reach `vaft.data` silently.
+    """
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, vaft.data; "
+            "print(','.join(sorted(m for m in sys.modules "
+            "if m.startswith(('vaft.database', 'vaft.plot', 'vaft.omas', 'matplotlib')))))",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "", f"import vaft.data pulled: {result.stdout.strip()}"
+
+
 def test_machine_mapping_public_surface_is_canonical_but_legacy_imports_work():
     from vaft import machine_mapping
 
