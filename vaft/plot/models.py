@@ -100,6 +100,15 @@ class Series(ViewModel):
     label: str = ""
     yerr: np.ndarray | None = None
     style: Mapping[str, Any] = field(default_factory=dict)
+    #: IMAS channel validity code for the whole trace: ``0`` (or ``None``)
+    #: means valid, any negative value means the data provider or an automatic
+    #: check flagged this channel invalid.  Plotting renders that flag; it
+    #: never computes it.
+    validity: int | None = None
+    #: Per-sample validity: ``True`` where the sample is usable.  ``None`` means
+    #: every sample is valid, which is not the same as a channel whose
+    #: ``validity`` flag is negative.
+    valid_mask: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -122,8 +131,24 @@ class Series(ViewModel):
                     f"got {yerr.shape} for y of length {y.size}"
                 )
             object.__setattr__(self, "yerr", yerr)
+        if self.valid_mask is not None:
+            mask = np.asarray(self.valid_mask, dtype=bool)
+            if mask.shape != y.shape:
+                raise ValueError(
+                    "Series.valid_mask must match y's shape; "
+                    f"got {mask.shape} for y of length {y.size}"
+                )
+            mask.setflags(write=False)
+            object.__setattr__(self, "valid_mask", mask)
+        if self.validity is not None:
+            object.__setattr__(self, "validity", int(self.validity))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+
+    @property
+    def is_invalid_channel(self) -> bool:
+        """Whether the whole trace is flagged invalid (IMAS: a negative code)."""
+        return self.validity is not None and self.validity < 0
 
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:

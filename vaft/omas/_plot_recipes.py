@@ -2259,6 +2259,58 @@ def _divisor(ods: Any, path: str) -> float:
     return value if value != 0.0 else 1.0
 
 
+def _validity_of(ods: Any, y_path: str, index: int | None = None):
+    """Read the IMAS validity metadata sitting beside a signal node.
+
+    Returns ``(channel_code, per_sample_mask)``.  IMAS stores the channel flag
+    in ``<node>.validity`` (0 valid, negative invalid) and the per-sample form
+    in ``<node>.validity_timed``.  Plotting reads these; it never computes
+    them.
+    """
+    base = y_path[: -len(".data")] if y_path.endswith(".data") else None
+    if base is None:
+        return None, None
+    code = _get(ods, f"{base}.validity".format(i=index))
+    timed = _array(ods, f"{base}.validity_timed".format(i=index))
+    mask = None if timed is None else np.asarray(timed) >= 0
+    return (None if code is None else int(code)), mask
+
+
+def _uncertainty_of(ods: Any, y_path: str, index: int | None = None, size: int = 0):
+    """Read stored uncertainty beside a signal node, as IMAS spells it.
+
+    ``<node>_error_upper`` and ``<node>_error_lower``.  An upper bound alone --
+    or a lower bound whose shape does not match the trace -- is treated as
+    symmetric.  Plotting renders what is stored and never invents a spread, so
+    an absent node yields ``None`` rather than a guess.
+    """
+    upper = _array(ods, f"{y_path}_error_upper".format(i=index))
+    if upper is None:
+        return None
+    lower = _array(ods, f"{y_path}_error_lower".format(i=index))
+    if upper.ndim != 1 or upper.size != size:
+        return None
+    if lower is None or lower.ndim != 1 or lower.size != size:
+        return upper
+    return np.vstack([np.abs(lower), np.abs(upper)])
+
+
+def _slice_uncertainty(ods: Any, y_path: str, indices, size: int):
+    """Gather ``<node>_error_upper`` across time slices into one array."""
+    values = []
+    for index in indices:
+        raw = _get(ods, f"{y_path}_error_upper".format(i=index))
+        if raw is None:
+            values.append(np.nan)
+        else:
+            flat = np.asarray(raw, dtype=float).ravel()
+            values.append(float(flat[0]) if flat.size else np.nan)
+    spread = np.asarray(values, dtype=float)
+    if spread.size != size or np.all(np.isnan(spread)):
+        return None
+    return np.nan_to_num(spread, nan=0.0)
+
+
 def _build_line_traces(
     ods: Any,
     recipe: LineRecipe,
@@ -2286,7 +2338,15 @@ def _build_line_traces(
         y = np.asarray(values, dtype=float)
         if time is None or time.size != y.size:
             time = np.arange(y.size, dtype=float)
-        return [Series(x=time, y=y * value_scale, label=entry_label)]
+        # Slice-indexed scalars carry their uncertainty per slice, so gather it
+        # the same way the values themselves were gathered.
+        spread = _slice_uncertainty(ods, recipe.y_path, indices, y.size)
+        return [
+            Series(
+                x=time, y=y * value_scale, label=entry_label,
+                yerr=None if spread is None else spread * abs(value_scale),
+            )
+        ]
 
     if recipe.index == "channel":
         indices = _resolve_indices(ods, recipe.y_path, channels)
@@ -2310,6 +2370,8 @@ def _build_line_traces(
             time = _first_time(ods, recipe.x_paths, i=index)
             if time is None or time.ndim != 1 or time.size != y.size:
                 time = np.arange(y.size, dtype=float)
+            code, mask = _validity_of(ods, recipe.y_path, index)
+            spread = _uncertainty_of(ods, recipe.y_path, index, y.size)
             traces.append(
                 Series(
                     x=time,
@@ -2318,6 +2380,9 @@ def _build_line_traces(
                         entry_label,
                         _channel_label(ods, recipe.label_path, index, f"#{index}"),
                     ),
+                    yerr=None if spread is None else spread * abs(value_scale),
+                    validity=code,
+                    valid_mask=mask,
                 )
             )
         return traces
@@ -2329,7 +2394,15 @@ def _build_line_traces(
     if time is None or time.size != y.size:
         time = np.arange(y.size, dtype=float)
     y = y / _divisor(ods, recipe.divide_by_path)
-    return [Series(x=time, y=y * value_scale, label=entry_label)]
+    code, mask = _validity_of(ods, recipe.y_path)
+    spread = _uncertainty_of(ods, recipe.y_path, None, y.size)
+    return [
+        Series(
+            x=time, y=y * value_scale, label=entry_label,
+            yerr=None if spread is None else spread * abs(value_scale),
+            validity=code, valid_mask=mask,
+        )
+    ]
 
 
 def _build_line_series(
@@ -2451,7 +2524,12 @@ def _build_profile_1d(
         )
         if x is None or x.size != y.size:
             x = np.linspace(0.0, 1.0, y.size)
-        traces.append(Series(x=x, y=y, label=entry_label))
+        code, mask = _validity_of(ods, recipe.y_path, time_slice)
+        spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
+        traces.append(
+            Series(x=x, y=y, label=entry_label, yerr=spread,
+                   validity=code, valid_mask=mask)
+        )
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,

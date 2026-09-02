@@ -18,7 +18,7 @@ from matplotlib.figure import Figure
 
 from ..models import LineSeries
 from ..registry import renderer
-from ..style import axis_label, finalize, resolve_axes
+from ..style import axis_label, draw_series, finalize, resolve_axes
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
@@ -31,6 +31,8 @@ def render_line_series(
     figsize: tuple[float, float] | None = None,
     legend: bool = True,
     grid: bool = True,
+    uncertainty: str = "auto",
+    validity: str = "show",
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
@@ -50,11 +52,9 @@ def render_line_series(
         options = {**style, **series.style}
         if series.label:
             options.setdefault("label", series.label)
-            labelled = True
-        if series.yerr is not None:
-            axes.errorbar(series.x, series.y, yerr=series.yerr, **options)
-        else:
-            axes.plot(series.x, series.y, **options)
+        labelled |= draw_series(
+            axes, series, uncertainty=uncertainty, validity=validity, **options
+        )
 
     axes.set_xlabel(axis_label(model.x_label, model.x_unit))
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
