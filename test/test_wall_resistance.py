@@ -177,3 +177,29 @@ def test_a_foreign_passive_model_is_fingerprinted_unidentified_without_side_effe
     assert fingerprint["wall_calibration"]["key"] is None
     assert "error" in fingerprint["wall_calibration"]
     assert set(ods.flat().keys()) == before
+
+
+def test_resistivity_is_the_nominal_material_value_per_region(static_ods):
+    """#388: ``resistivity`` used to be a third, unexplained band vector. It is
+    now the material value the nominal hoop resistance is built from, so
+    ``resistance == resistivity * 2*pi*R_mean/area * band_factor`` on every loop."""
+    from vaft.machine_mapping.wall_resistance import NOMINAL_RESISTIVITY
+
+    n = len(static_ods["pf_passive.loop"])
+    for i in range(n):
+        name = str(static_ods[f"pf_passive.loop.{i}.name"])
+        expected = NOMINAL_RESISTIVITY["tungsten" if name == "W11" else "stainless"]
+        assert float(static_ods[f"pf_passive.loop.{i}.resistivity"]) == expected, (i, name)
+    factors = band_factors(static_ods, LEGACY_CALIBRATIONS["2303"])
+    for i in range(n):
+        loop = static_ods[f"pf_passive.loop.{i}"]
+        r_mean = float(np.mean(np.asarray(loop["element.0.geometry.outline.r"], dtype=float)))
+        rebuilt = float(loop["resistivity"]) * (2.0 * np.pi * r_mean) / float(loop["element.0.area"]) * factors[i]
+        assert rebuilt == float(loop["resistance"]), i
+
+
+def test_the_asset_names_its_calibration_vintage(static_ods):
+    assert "2303" in str(static_ods["pf_passive.ids_properties.comment"])
+    parameters = str(static_ods["pf_passive.code.parameters"])
+    assert "wall_calibration_vintage=2303" in parameters
+    assert LEGACY_CALIBRATIONS["2303"].digest() in parameters
