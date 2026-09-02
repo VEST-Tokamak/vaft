@@ -113,6 +113,7 @@ DEPENDENCIES
   jekyll-readme-index
   jemoji
   logger
+  nokogiri
   webrick
 
 BUNDLED WITH

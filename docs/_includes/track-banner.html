@@ -1,5 +1,9 @@
 {%- comment -%}
 Shown only on the development track, which is published under /vaft/develop/.
+The link to the stable site is absolute on purpose: it points outside this
+track's own tree, so a site-relative href would look like a broken link to
+every per-track validator, and would resolve to the wrong place in a preview
+build served at a different root.
 It is included from the layouts rather than from body.html on purpose: body.html
 renders inside `#book-search-results > .search-noresults`, so a banner placed
 there disappears the moment a reader types into the search box, which is exactly
@@ -11,7 +15,7 @@ when they are least sure which documentation they are reading.
   Built from <code>develop</code>{% if site.data.provenance %} at
   <code>{{ site.data.provenance.short_commit }}</code>{% endif %}. What is described
   here may change before it is released.
-  <a href="{{ site.stable_url }}">Read the stable documentation instead</a>.
+  <a href="{{ site.url }}{{ site.stable_url }}">Read the stable documentation instead</a>.
 </div>
 <style>
 .vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;

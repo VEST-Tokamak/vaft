@@ -506,6 +506,7 @@ def publish(
     ordinary fast-forward: if anything else published in the meantime, git
     rejects it and nothing is overwritten.
     """
+    scratch.mkdir(parents=True, exist_ok=True)
     git_dir = _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
     git_dir = str((repo / git_dir).resolve()) if not os.path.isabs(git_dir) else git_dir
 

@@ -105,8 +105,27 @@ The docstring is the only source of truth: `vaft.formula.describe(name)`,
 `vaft.formula.search(text)` and `vaft.formula.list_formulas(category=...)` parse
 it on demand (the catalog is never imported by `import vaft.formula` or by a
 physics submodule -- `test/test_formula_catalog.py` pins that), and the site's
-reference pages are generated from the same text with
-`python -m vaft.formula.catalog --output <gh-pages checkout>/_data/formula_catalog.yml`.
+reference pages under `/reference/formula/` are generated from the same text by
+`python -m vaft.formula.catalog`, which `docs/build.py` runs for you.
+
+## Documentation
+
+The site published at <https://vest-tokamak.github.io/vaft/> is built from
+`docs/` on the code branches: the root from `main`, `/develop/` from `develop`.
+Both are composed and published as one commit on `gh-pages`, which holds
+generated output only and must never be edited by hand.
+
+```bash
+cd docs && bundle install
+python build.py                 # dry run: both tracks, composed and validated
+npm run docs:serve              # local preview of this branch's pages
+npm run test:docs               # build and validate the stable track
+```
+
+A push to `main` or `develop` rebuilds both tracks and republishes the whole
+site through `.github/workflows/docs.yml`. A page belongs to the branch whose
+library it documents, so a fix wanted on both tracks travels from `develop` to
+`main` like any other change. `docs/README.md` has the details.
 
 ## Running the tests
 
