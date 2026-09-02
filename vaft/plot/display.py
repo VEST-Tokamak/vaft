@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import MappingProxyType
+import re
 from typing import Any, Mapping
 
 import numpy as np
@@ -42,6 +43,7 @@ __all__ = [
     "quantity_for_unit",
     "resolve_display",
     "subject_display_name",
+    "unit_markup",
 ]
 
 NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
@@ -292,7 +294,7 @@ def figure_title(
     """
     parts = [heading]
     if unit:
-        parts.append(f"[{unit}]")
+        parts.append(f"[{unit_markup(unit)}]")
     if shot not in (None, ""):
         parts.append(f"#{shot}")
     title = " ".join(parts)
@@ -304,7 +306,24 @@ def figure_title(
 
 
 def channel_label(index: int, r: float | None = None, z: float | None = None) -> str:
-    """Canonical multi-index channel label: ``[3] (0.82, 0.00)``."""
-    if r is None or z is None:
+    """Canonical multi-index channel label: ``[3] (82.0 cm, 0.0 cm)``.
+
+    Positions are given in metres, as IMAS stores them, and rendered in
+    centimetres inline so a legend needs no separate unit declaration.
+    """
+    if r is None or z is None or not (np.isfinite(r) and np.isfinite(z)):
         return f"[{index}]"
-    return f"[{index}] ({r:.2f}, {z:.2f})"
+    return f"[{index}] ({100 * r:.1f} cm, {100 * z:.1f} cm)"
+
+
+_EXPONENT = re.compile(r"\^(-?\d+)")
+
+
+def unit_markup(unit: str) -> str:
+    """Render an ASCII unit for Matplotlib: ``10^18 m^-3`` -> ``10$^{18}$ m$^{-3}$``.
+
+    Presentation only.  The ASCII spelling stays the key of every conversion
+    table and the string a caller passes as ``yunit=``; only the label a reader
+    sees is typeset.  Units without an exponent come back unchanged.
+    """
+    return _EXPONENT.sub(lambda m: f"$^{{{m.group(1)}}}$", str(unit or ""))

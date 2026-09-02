@@ -41,7 +41,7 @@ from vaft.plot.models import (
     Series,
     Spectrogram,
 )
-from vaft.plot.display import figure_title, resolve_display
+from vaft.plot.display import channel_label, figure_title, resolve_display
 from vaft.plot.selection import INBOARD, OUTBOARD
 from vaft.plot.registry import get_spec
 
@@ -2518,12 +2518,6 @@ def _decorated_title(heading: str, unit_label: str, entries) -> str:
     return figure_title(heading, unit_label, shot=_entry_shot(entries))
 
 
-def _entry_prefix(label: str, extra: str) -> str:
-    if label and extra:
-        return f"{label} {extra}"
-    return label or extra
-
-
 def _weight(ods: Any, template: str, index: int) -> float:
     if not template:
         return 1.0
@@ -2628,7 +2622,7 @@ def _build_line_traces(
         spread = _slice_uncertainty(ods, recipe.y_path, indices, y.size)
         return [
             Series(
-                x=time, y=y * value_scale, label=entry_label,
+                x=time, y=y * value_scale, label=entry_label, entry=entry_label,
                 yerr=None if spread is None else spread * abs(value_scale),
             )
         ]
@@ -2637,6 +2631,8 @@ def _build_line_traces(
         indices = _resolve_selection(
             ods, recipe.y_path, selection, fallbacks=recipe.fallback_y_paths
         )
+        container = _container_of(recipe.y_path, "{i}")
+        r_all, z_all = _channel_positions(ods, container, _count(ods, container))
         traces = []
         for index in indices:
             try:
@@ -2659,17 +2655,26 @@ def _build_line_traces(
                 time = np.arange(y.size, dtype=float)
             code, mask = _validity_of(ods, recipe.y_path, index)
             spread = _uncertainty_of(ods, recipe.y_path, index, y.size)
+            r_i = float(r_all[index]) if index < r_all.size else float("nan")
+            z_i = float(z_all[index]) if index < z_all.size else float("nan")
+            has_position = bool(np.isfinite(r_i) and np.isfinite(z_i))
+            # The canonical channel label is index + position (issue #256
+            # section 8); a channel with no stored geometry keeps its identifier.
+            channel = (
+                channel_label(index, r_i, z_i) if has_position
+                else _channel_label(ods, recipe.label_path, index, f"#{index}")
+            )
             traces.append(
                 Series(
                     x=time,
                     y=y * value_scale * _weight(ods, recipe.weight_path, index),
-                    label=_entry_prefix(
-                        entry_label,
-                        _channel_label(ods, recipe.label_path, index, f"#{index}"),
-                    ),
+                    label=channel,
                     yerr=None if spread is None else spread * abs(value_scale),
                     validity=code,
                     valid_mask=mask,
+                    entry=entry_label,
+                    channel=channel,
+                    position=(r_i, z_i) if has_position else None,
                 )
             )
         return traces
@@ -2687,7 +2692,7 @@ def _build_line_traces(
         Series(
             x=time, y=y * value_scale, label=entry_label,
             yerr=None if spread is None else spread * abs(value_scale),
-            validity=code, valid_mask=mask,
+            validity=code, valid_mask=mask, entry=entry_label,
         )
     ]
 
@@ -2742,8 +2747,8 @@ def _build_line_series(
 
 _COORDINATE_LABELS = {
     "index": "Profile sample index",
-    "rho_tor_norm": "Normalized Toroidal Flux (rho_N)",
-    "psi_norm": "Normalized Poloidal Flux (psi_N)",
+    "rho_tor_norm": r"Normalized Toroidal Flux $\rho_N$",
+    "psi_norm": r"Normalized Poloidal Flux $\psi_N$",
     "r_major": "Major Radius R [m]",
     "r_minor": "Minor Radius r [m]",
 }
@@ -2885,6 +2890,7 @@ def _build_profile_1d(
                         x=np.asarray(x_values)[order],
                         y=np.asarray(y_values)[order],
                         label=entry_label,
+                        entry=entry_label,
                         style={"marker": "o", "linestyle": "-"},
                     )
                 )
@@ -2920,7 +2926,7 @@ def _build_profile_1d(
         spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
         traces.append(
             Series(x=x, y=y, label=entry_label, yerr=spread,
-                   validity=code, valid_mask=mask)
+                   validity=code, valid_mask=mask, entry=entry_label)
         )
 
     # One figure carries one abscissa. Entries can resolve to different

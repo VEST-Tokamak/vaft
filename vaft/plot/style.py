@@ -22,7 +22,9 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 __all__ = [
+    "apply_legend",
     "draw_series",
+    "trace_labels",
     "UNCERTAINTY_MODES",
     "VALIDITY_MODES",
     "axis_label",
@@ -33,14 +35,75 @@ __all__ = [
 
 
 def axis_label(label: str, unit: str = "") -> str:
-    """Compose ``"Label [unit]"``, omitting the bracket when there is no unit."""
+    """Compose ``"Label [unit]"``, omitting the bracket when there is no unit.
+
+    The unit is typeset through :func:`vaft.plot.display.unit_markup`, so an
+    exponent reads as a superscript while the ASCII spelling stays the API.
+    """
+    from .display import unit_markup
+
     label = str(label or "")
-    unit = str(unit or "")
+    unit = unit_markup(unit)
     if not unit:
         return label
     if not label:
         return f"[{unit}]"
     return f"{label} [{unit}]"
+
+
+#: A legend is drawn for this many entries at most; past it the legend would
+#: cover the data it describes, so the axes states the count instead.
+LEGEND_MAX_ENTRIES = 8
+
+
+def trace_labels(series_list) -> tuple[list[str], str | None]:
+    """Legend text for each trace, and a legend title, from structured identity.
+
+    The rule states each thing once (issue #256 section 9): a figure from one
+    entry carries its shot in the title, so traces are labelled by channel
+    alone; several entries of one channel put the shot in each entry and the
+    channel in the legend title; several of each spell both.  A hand-built
+    trace with no structured identity keeps whatever ``label`` it was given.
+    """
+    entries = {s.entry for s in series_list if s.entry}
+    channels = {s.channel for s in series_list if s.channel}
+    labels = []
+    for s in series_list:
+        if not (s.entry or s.channel):
+            labels.append(s.label)
+        elif len(entries) <= 1:
+            labels.append(s.channel or s.label)
+        elif len(channels) <= 1:
+            labels.append(s.entry)
+        else:
+            labels.append(f"{s.entry} \u00b7 {s.channel}")
+    title = next(iter(channels)) if len(entries) > 1 and len(channels) == 1 else None
+    return labels, title
+
+
+def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) -> None:
+    """Draw, omit, or summarise the legend according to the display policy.
+
+    ``legend=None`` applies the policy: nothing for a lone trace, a legend for
+    up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
+    trace count.  ``True`` forces a legend, ``False`` suppresses it.
+    """
+    handles, labels = axes.get_legend_handles_labels()
+    count = len(handles)
+    if legend is False or count == 0:
+        return
+    if legend is True:
+        axes.legend(loc="best", title=title, fontsize="small")
+        return
+    if count <= 1:
+        return
+    if count > LEGEND_MAX_ENTRIES:
+        axes.text(
+            0.99, 0.97, f"{count} traces", transform=axes.transAxes,
+            ha="right", va="top", fontsize="small", alpha=0.7,
+        )
+        return
+    axes.legend(loc="best", title=title, fontsize="small")
 
 
 def resolve_axes(
@@ -204,6 +267,10 @@ def draw_series(
             if yerr is not None:
                 yerr = yerr[..., mask]
             mask = None
+
+    if x.size == 1 and not options.get("marker") and not series.style.get("marker"):
+        # A single sample has no line to draw; without a marker it is invisible.
+        options["marker"] = "o"
 
     if invalid_channel:
         options.setdefault("color", INVALID_COLOR)
