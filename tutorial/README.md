@@ -149,6 +149,22 @@ Completed and executed copies of the notebooks live in the private
 a runtime dependency: the public test suite passes without any access to them,
 and nothing in public CI may reference them.
 
+## Presentation sources: two kinds, during the pilot
+
+Sessions 02-06 are hand-written Beamer `.tex` decks with committed PDFs, as
+described below. **Session 01 is different**: its slides are a Quarto `.qmd`
+source in [`presentations/`](presentations/README.md), rendered to Reveal.js
+HTML and Beamer PDF, with nothing committed.
+
+That is the pilot slice of [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322),
+which proposes QMD as the canonical presentation source repository-wide. It is
+deliberately one deck: the pilot exists so the two forms can be compared before
+the convention spreads. Do not migrate the remaining decks until that review has
+happened, and do not author a deck in both formats -- one source per deck is the
+whole point.
+
+The rest of this section governs the five Beamer decks.
+
 ## Slide and figure contract
 
 Each session has one standalone 16:9 Beamer source and one PDF with the same

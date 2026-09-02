@@ -1,0 +1,39 @@
+% VAFT Beamer theme.
+%
+% This is the shared preamble the six hand-written decks in tutorial/ each carry
+% a duplicated copy of. Centralising it here is the point of the QMD pipeline:
+% one place defines VAFT's slide identity for every deck and both backends.
+%
+% Keep this visually in step with vaft.scss, which does the same job for the
+% Reveal.js output.
+
+% VAFT brand colour, matching the .tex decks: \definecolor{vaftblue}{RGB}{25,76,127}
+\definecolor{vaftblue}{RGB}{25,76,127}
+\setbeamercolor{structure}{fg=vaftblue}
+\setbeamercolor{title}{fg=vaftblue}
+\setbeamercolor{frametitle}{fg=vaftblue}
+
+% Lecture-projector type sizes, carried over from the .tex decks.
+\setbeamerfont{title}{size=\fontsize{40}{46}\selectfont}
+\setbeamerfont{subtitle}{size=\fontsize{20}{24}\selectfont}
+\setbeamerfont{frametitle}{size=\fontsize{26}{30}\selectfont}
+\setbeamerfont{normal text}{size=\fontsize{14}{18}\selectfont}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% Section slides, which the hand-written decks had no mechanism for.
+\setbeamertemplate{section page}{%
+  \begin{centering}
+    \usebeamerfont{title}\usebeamercolor[fg]{structure}\insertsectionhead\par
+  \end{centering}%
+}
+\AtBeginSection[]{\frame{\sectionpage}}
+
+% Speaker notes.
+%
+% Pandoc turns every ::: {.notes} block into \note{...}, and Beamer's default is
+% to hide those. That is what we want for the archival PDF. The presenter build
+% passes \setbeameroption{show notes} instead, which renders the same notes as
+% facing pages -- so the notes are authored once and both PDFs come from one
+% source. See tutorial/presentations/README.md.

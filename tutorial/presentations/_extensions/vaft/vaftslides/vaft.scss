@@ -1,0 +1,65 @@
+/*-- scss:defaults --*/
+
+// VAFT brand colour, matching \definecolor{vaftblue}{RGB}{25,76,127} in the
+// Beamer preamble beside this file. The two themes must stay in step: the whole
+// point of the pipeline is that one source produces two recognisably VAFT decks.
+$vaft-blue: #194c7f;
+
+$body-bg: #ffffff;
+$body-color: #1a1a1a;
+$link-color: $vaft-blue;
+$selection-bg: rgba(25, 76, 127, 0.25);
+
+$presentation-heading-color: $vaft-blue;
+$presentation-heading-font-weight: 600;
+$presentation-font-size-root: 30px;
+
+$code-block-font-size: 0.62em;
+$code-block-border-color: rgba(25, 76, 127, 0.35);
+
+/*-- scss:rules --*/
+
+.reveal .slide-number {
+  background-color: transparent;
+  color: $vaft-blue;
+}
+
+// Title slide: the Beamer side sets these sizes in points; here they are
+// relative, so the deck stays readable at any projector resolution.
+.reveal .title-slide h1.title {
+  color: $vaft-blue;
+  font-size: 1.7em;
+  line-height: 1.15;
+}
+
+.reveal .title-slide .subtitle {
+  color: rgba(26, 26, 26, 0.75);
+  font-size: 0.8em;
+}
+
+// Section slides, matching \setbeamertemplate{section page}.
+.reveal .quarto-title-block .quarto-title-banner,
+.reveal section.center h1 {
+  color: $vaft-blue;
+}
+
+.reveal blockquote {
+  border-left: 4px solid $vaft-blue;
+  padding-left: 0.6em;
+  font-style: normal;
+}
+
+.reveal table th {
+  color: $vaft-blue;
+  border-bottom: 2px solid $vaft-blue;
+}
+
+// Two-column scientific layout: keep columns from colliding at narrow widths.
+.reveal .columns > .column {
+  padding-right: 0.6em;
+}
+
+.reveal figure figcaption {
+  font-size: 0.55em;
+  color: rgba(26, 26, 26, 0.7);
+}

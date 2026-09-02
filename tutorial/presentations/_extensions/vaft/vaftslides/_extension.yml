@@ -1,0 +1,28 @@
+title: VAFT slides
+author: VEST team
+version: 0.1.0
+quarto-required: ">=1.4.0"
+contributes:
+  formats:
+    common:
+      toc: false
+      number-sections: false
+      bibliography: assets/bibliography/vaft.bib
+      highlight-style: github
+    revealjs:
+      theme: [default, vaft.scss]
+      slide-number: c/t
+      controls: true
+      progress: true
+      hash: true
+      # Speaker notes reach the presenter view with the "s" key.
+      # The same `::: {.notes}` blocks become \note{} pages in the Beamer output.
+      chalkboard: false
+      code-line-numbers: true
+      link-external-newwindow: true
+    beamer:
+      aspectratio: 169
+      include-in-header:
+        - file: vaft-beamer.tex
+      keep-tex: false
+      pdf-engine: pdflatex

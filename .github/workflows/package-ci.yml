@@ -117,3 +117,26 @@ jobs:
           python test/verify_tutorial_freshness.py compare \
             --committed "${RUNNER_TEMP}/committed-decks" \
             --rebuilt tutorial
+
+      # --- Quarto presentation pilot (issue #322) --------------------------
+      # Session 01's slides are a .qmd rendered to both backends. Nothing is
+      # committed, so CI is what proves the source still builds, and the
+      # artifacts are how a reviewer compares the two forms side by side.
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install the TeX packages Quarto's Beamer template needs
+        run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended
+
+      - name: Render the presentation pilot to both backends
+        run: make -C tutorial presentations
+
+      - name: Upload the rendered decks for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: presentation-pilot
+          if-no-files-found: error
+          path: |
+            tutorial/presentations/*.html
+            tutorial/presentations/*.pdf
+            tutorial/presentations/*_files/

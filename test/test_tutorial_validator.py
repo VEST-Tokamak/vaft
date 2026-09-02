@@ -48,8 +48,28 @@ assert FRESHNESS_SPEC.loader is not None
 FRESHNESS_SPEC.loader.exec_module(FRESHNESS)
 
 TUTORIAL = ROOT / "tutorial"
-DECK_01 = TUTORIAL / "01_getting_started_with_vaft.pdf"
+# Session 01's slides moved to the QMD pipeline and commit no PDF (issue #322),
+# so the committed decks are 02-06. Two of them stand in wherever a test needs a
+# pair of distinct artifacts.
 DECK_02 = TUTORIAL / "02_operation_scenario_and_vacuum_fields.pdf"
+DECK_03 = TUTORIAL / "03_equilibrium_and_kinetic_profiles.pdf"
+
+
+def synthetic_pdf(pages: int) -> bytes:
+    """Build a minimal PDF with a known page count.
+
+    The committed decks are all four pages, so a differing-page fixture has to
+    be constructed. Building it here rather than leaning on whichever deck
+    happens to have a different length also keeps these tests independent of the
+    deck inventory, which is what let session 01's retirement break them.
+    """
+    body = b"\n".join(
+        b"%d 0 obj\n<< /Type /Page /Parent 1 0 R >>\nendobj" % (index + 2)
+        for index in range(pages)
+    )
+    # pdf_problems() requires at least MINIMUM_PDF_BYTES, so pad with a comment.
+    padding = b"\n% " + b"padding " * 200
+    return b"%PDF-1.5\n" + body + padding + b"\ntrailer\n<< >>\n%%EOF\n"
 
 
 def test_page_counter_reads_decks_packed_into_object_streams():
@@ -57,7 +77,10 @@ def test_page_counter_reads_decks_packed_into_object_streams():
     payload = DECK_02.read_bytes()
     assert b"/Type /Page" not in payload
     assert VALIDATOR.count_pdf_pages(payload) == 4
-    assert VALIDATOR.count_pdf_pages(DECK_01.read_bytes()) == 10
+    # The counter must also work on an uncompressed producer, and must not
+    # simply return a constant.
+    assert VALIDATOR.count_pdf_pages(synthetic_pdf(10)) == 10
+    assert VALIDATOR.count_pdf_pages(synthetic_pdf(1)) == 1
 
 
 def test_pdf_problems_accepts_a_committed_deck():
@@ -77,17 +100,19 @@ def test_pdf_problems_rejects_damaged_artifacts():
 
 
 def test_pairing_requires_a_rebuilt_pdf_for_a_changed_deck_source():
-    failures = FRESHNESS.pairing_failures({"tutorial/01_getting_started_with_vaft.tex"})
+    failures = FRESHNESS.pairing_failures(
+        {"tutorial/02_operation_scenario_and_vacuum_fields.tex"}
+    )
     assert len(failures) == 1
-    assert "01_getting_started_with_vaft.pdf" in failures[0]
+    assert "02_operation_scenario_and_vacuum_fields.pdf" in failures[0]
 
 
 def test_pairing_accepts_a_deck_source_committed_with_its_pdf():
     assert (
         FRESHNESS.pairing_failures(
             {
-                "tutorial/01_getting_started_with_vaft.tex",
-                "tutorial/01_getting_started_with_vaft.pdf",
+                "tutorial/02_operation_scenario_and_vacuum_fields.tex",
+                "tutorial/02_operation_scenario_and_vacuum_fields.pdf",
             }
         )
         == []
@@ -102,7 +127,10 @@ def test_pairing_requires_a_rebuild_when_a_session_figure_changes():
 
 def test_pairing_requires_every_deck_to_rebuild_for_a_shared_figure():
     failures = FRESHNESS.pairing_failures({"tutorial/figures/common/logo.pdf"})
-    assert len(failures) == len(VALIDATOR.SESSIONS)
+    # Every deck that commits a PDF must rebuild. Sessions rendered from QMD
+    # commit nothing, so they are not counted -- deck_stems() is the authority.
+    assert len(failures) == len(FRESHNESS.deck_stems())
+    assert len(failures) == 5
 
 
 def test_pairing_ignores_changes_that_do_not_feed_a_deck():
@@ -110,7 +138,7 @@ def test_pairing_ignores_changes_that_do_not_feed_a_deck():
 
 
 def test_compare_accepts_a_rebuild_with_the_committed_page_structure(tmp_path):
-    for source in (DECK_01, DECK_02):
+    for source in (DECK_02, DECK_03):
         (tmp_path / source.name).write_bytes(source.read_bytes())
 
     assert FRESHNESS.compare_failures(tmp_path, tmp_path) == []
@@ -122,9 +150,9 @@ def test_compare_rejects_a_stale_committed_deck(tmp_path):
     committed.mkdir()
     rebuilt.mkdir()
 
-    # The committed artifact carries a different deck's page count.
-    (committed / DECK_01.name).write_bytes(DECK_02.read_bytes())
-    (rebuilt / DECK_01.name).write_bytes(DECK_01.read_bytes())
+    # The committed artifact carries a different page count from the rebuild.
+    (committed / DECK_02.name).write_bytes(synthetic_pdf(2))
+    (rebuilt / DECK_02.name).write_bytes(synthetic_pdf(7))
 
     failures = FRESHNESS.compare_failures(committed, rebuilt)
     assert len(failures) == 1
@@ -137,9 +165,9 @@ def test_compare_rejects_a_damaged_rebuild(tmp_path):
     committed.mkdir()
     rebuilt.mkdir()
 
-    payload = DECK_01.read_bytes()
-    (committed / DECK_01.name).write_bytes(payload)
-    (rebuilt / DECK_01.name).write_bytes(payload[: len(payload) // 2])
+    payload = DECK_02.read_bytes()
+    (committed / DECK_02.name).write_bytes(payload)
+    (rebuilt / DECK_02.name).write_bytes(payload[: len(payload) // 2])
 
     failures = FRESHNESS.compare_failures(committed, rebuilt)
     assert failures
@@ -152,9 +180,9 @@ def test_compare_rejects_an_inventory_that_changed_during_the_rebuild(tmp_path):
     committed.mkdir()
     rebuilt.mkdir()
 
-    (committed / DECK_01.name).write_bytes(DECK_01.read_bytes())
     (committed / DECK_02.name).write_bytes(DECK_02.read_bytes())
-    (rebuilt / DECK_01.name).write_bytes(DECK_01.read_bytes())
+    (committed / DECK_03.name).write_bytes(DECK_03.read_bytes())
+    (rebuilt / DECK_02.name).write_bytes(DECK_02.read_bytes())
 
     failures = FRESHNESS.compare_failures(committed, rebuilt)
     assert len(failures) == 1
@@ -162,7 +190,7 @@ def test_compare_rejects_an_inventory_that_changed_during_the_rebuild(tmp_path):
 
 
 def test_deck_pdfs_ignores_appledouble_sidecars(tmp_path):
-    (tmp_path / DECK_01.name).write_bytes(DECK_01.read_bytes())
-    (tmp_path / f"._{DECK_01.name}").write_bytes(b"\x00\x05\x16\x07sidecar")
+    (tmp_path / DECK_02.name).write_bytes(DECK_02.read_bytes())
+    (tmp_path / f"._{DECK_02.name}").write_bytes(b"\x00\x05\x16\x07sidecar")
 
-    assert set(FRESHNESS.deck_pdfs(tmp_path)) == {DECK_01.stem}
+    assert set(FRESHNESS.deck_pdfs(tmp_path)) == {DECK_02.stem}

@@ -36,7 +36,11 @@ SESSION_01_HEADINGS = [
 SESSIONS = {
     1: {
         "notebook": "01_getting_started_with_vaft.ipynb",
-        "tex": "01_getting_started_with_vaft.tex",
+        # Session 01 pilots the QMD presentation pipeline (issue #322): one
+        # source renders to Reveal.js and to Beamer, so it has no committed
+        # .tex and no committed .pdf. Sessions 02-06 remain hand-written Beamer
+        # until the pilot is reviewed.
+        "qmd": "presentations/01_getting_started_with_vaft.qmd",
         "headings": SESSION_01_HEADINGS,
         # Session 01 runs entirely from packaged data; it has no lab branch.
         "modes": ["offline"],
@@ -80,7 +84,9 @@ DEFAULT_HEADINGS = [
 MACHINE_PATH = re.compile(
     r"(?:/(?:Users|home|srv|Volumes)/|(?<![A-Za-z0-9+.-])[A-Za-z]:[\\/])"
 )
-RUNTIME_DIRECTORIES = {".build", "outputs"}
+#: Build products, not sources. Quarto writes its render cache and output
+#: under these; nothing in them is committed.
+RUNTIME_DIRECTORIES = {".build", "outputs", "_output", "_freeze", ".quarto"}
 FORBIDDEN_DATA_SUFFIXES = {
     ".csv",
     ".h5",
@@ -142,8 +148,9 @@ def _source_text(cell: nbformat.NotebookNode) -> str:
 
 def _validate_inventory(failures: list[str]) -> None:
     expected_notebooks = {entry["notebook"] for entry in SESSIONS.values()}
-    expected_tex = {entry["tex"] for entry in SESSIONS.values()}
+    expected_tex = {entry["tex"] for entry in SESSIONS.values() if "tex" in entry}
     expected_pdfs = {Path(name).with_suffix(".pdf").name for name in expected_tex}
+    expected_qmd = {entry["qmd"] for entry in SESSIONS.values() if "qmd" in entry}
 
     def artifact_names(pattern: str) -> set[str]:
         return {
@@ -156,6 +163,17 @@ def _validate_inventory(failures: list[str]) -> None:
         ("notebook", expected_notebooks, artifact_names("*.ipynb")),
         ("TeX source", expected_tex, artifact_names("*.tex")),
         ("PDF", expected_pdfs, artifact_names("*.pdf")),
+        # Quarto sources are addressed relative to tutorial/, so compare the
+        # declared paths against what the presentations tree actually holds.
+        (
+            "Quarto source",
+            expected_qmd,
+            {
+                str(path.relative_to(TUTORIAL))
+                for path in TUTORIAL.glob("presentations/*.qmd")
+                if not path.name.startswith("._")
+            },
+        ),
     )
     for label, expected, actual in inventories:
         if actual != expected:
@@ -243,6 +261,40 @@ def _validate_notebook(
         )
 
 
+QMD_REQUIRED_FRAGMENTS = (
+    "vaftslides-revealjs",
+    "vaftslides-beamer",
+)
+
+
+def _validate_qmd_deck(session: int, filename: str, failures: list[str]) -> None:
+    """A Quarto deck must declare both backends and carry speaker notes.
+
+    The equivalent of the LaTeX fragment check below: it pins the properties
+    that make the source canonical for *both* outputs, so a deck cannot quietly
+    become HTML-only or lose the notes that only exist in this one source.
+    """
+    path = TUTORIAL / filename
+    if not path.exists():
+        failures.append(f"{filename}: missing Quarto deck source")
+        return
+    source = path.read_text(encoding="utf-8")
+    for fragment in QMD_REQUIRED_FRAGMENTS:
+        if fragment not in source:
+            failures.append(
+                f"{filename}: missing required format {fragment!r}; the QMD source "
+                "must render to both backends"
+            )
+    if "::: {.notes}" not in source:
+        failures.append(
+            f"{filename}: no speaker notes; they are authored once here and feed "
+            "both the Reveal.js presenter view and the Beamer presenter build"
+        )
+    extension = TUTORIAL / "presentations/_extensions/vaft/vaftslides/_extension.yml"
+    if not extension.is_file():
+        failures.append("presentations: the shared vaftslides theme is missing")
+
+
 def _validate_deck(session: int, filename: str, failures: list[str]) -> None:
     path = TUTORIAL / filename
     if not path.exists():
@@ -280,7 +332,10 @@ def validate() -> list[str]:
             entry.get("headings"),
             entry.get("modes"),
         )
-        _validate_deck(session, entry["tex"], failures)
+        if "tex" in entry:
+            _validate_deck(session, entry["tex"], failures)
+        if "qmd" in entry:
+            _validate_qmd_deck(session, entry["qmd"], failures)
     return failures
 
 
@@ -291,7 +346,12 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print("Tutorial validation passed: 6 clean notebooks and 6 standalone slide decks.")
+    beamer = sum(1 for entry in SESSIONS.values() if "tex" in entry)
+    quarto = sum(1 for entry in SESSIONS.values() if "qmd" in entry)
+    print(
+        f"Tutorial validation passed: {len(SESSIONS)} clean notebooks, "
+        f"{beamer} standalone Beamer decks and {quarto} Quarto deck(s)."
+    )
     return 0
 
 
