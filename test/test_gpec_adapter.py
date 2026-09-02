@@ -322,9 +322,9 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     executable.chmod(0o755)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
-    config = gpec.GPECSuiteConfig(
-        modules=("gpec",), modes=(1,), run_mode="auto", verify_outputs=True
-    )
+    # verify_outputs stays at its shipped default (False): a timed-out run
+    # must not be called successful regardless of that flag.
+    config = gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), run_mode="auto")
     gpec.prepare_gpec_suite_case(case, config)
     run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
 
@@ -364,3 +364,36 @@ def _write_valid_dcon_netcdf(path, *, n):
         coords={"i": [0, 1], "mode": [1]},
         attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": n},
     ).to_netcdf(path / f"dcon_output_n{n}.nc")
+
+
+def test_truncated_netcdf_does_not_pass_the_output_check(tmp_path):
+    """Header-only checking let a truncated classic netCDF read as success.
+
+    xarray opens lazily and a truncated classic file returns silent zeros
+    for its missing tail, so the check must force a read and hold the file
+    to the size its own header declares.
+    """
+    import numpy as np
+    import xarray as xr
+
+    from vaft.code.gpec._solvers import _check_nc_variable
+
+    name = "dcon_output_n1.nc"
+
+    def _write(fmt):
+        xr.Dataset(
+            {"W_t_eigenvalue": (("m",), np.arange(20000, dtype=float))}
+        ).to_netcdf(tmp_path / name, format=fmt)
+
+    for fmt in ("NETCDF3_CLASSIC", "NETCDF4"):
+        _write(fmt)
+        assert _check_nc_variable(tmp_path, name, "W_t_eigenvalue")[0], fmt
+        full = (tmp_path / name).stat().st_size
+
+        for fraction in (0.3, 0.95):
+            _write(fmt)
+            with open(tmp_path / name, "r+b") as handle:
+                handle.truncate(int(full * fraction))
+            ok, reason = _check_nc_variable(tmp_path, name, "W_t_eigenvalue")
+            assert not ok, f"{fmt} truncated to {fraction:.0%} passed the check"
+            assert reason

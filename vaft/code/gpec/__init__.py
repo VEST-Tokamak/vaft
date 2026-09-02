@@ -306,14 +306,12 @@ def _run_module(
         output_names = {path.name for path in outputs}
         if module == "gpec" and core_gpec_outputs.issubset(output_names):
             # A process killed mid-write can leave the core files present but
-            # truncated, so the timeout carve-out must apply the same output
-            # verification as the normal completion path before reporting
-            # success (release review, 0.6.0).
-            ok, check_reason = (
-                solver.check_success(run_dir, mode)
-                if config.verify_outputs
-                else (True, "")
-            )
+            # truncated, so the timeout carve-out must verify its outputs
+            # before reporting success (release review, 0.6.0). This does not
+            # honour `verify_outputs`: that flag trades extra checking against
+            # a run that already exited cleanly, whereas calling a *timed-out*
+            # run successful is a claim that needs evidence either way.
+            ok, check_reason = solver.check_success(run_dir, mode)
             if ok:
                 return GPECModuleRun(
                     module=module,

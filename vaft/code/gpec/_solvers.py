@@ -56,15 +56,43 @@ class Solver(Protocol):
 
 
 def _check_nc_variable(run_dir: Path, filename: str, variable: str) -> tuple[bool, str]:
+    """Check that ``filename`` really carries readable ``variable`` data.
+
+    A solver killed mid-write leaves a file whose header is complete but
+    whose data is not, so presence of the variable *name* is not enough:
+    xarray opens lazily, and a truncated classic netCDF reads back as
+    silent zeros for the missing tail rather than raising. This therefore
+    forces the data to materialize and, for the classic format, requires
+    the file to be at least as large as its own header says its variables
+    need. Compressed HDF5-based files are legitimately smaller than their
+    logical size, so the size floor is applied only to classic files.
+    """
     path = run_dir / filename
     if not path.exists():
         return False, f"missing output: {filename}"
     try:
+        import numpy as np
         import xarray as xr
 
         with xr.open_dataset(path) as ds:
             if variable not in ds.variables:
                 return False, f"{filename} is missing expected variable {variable!r}"
+            # Materialize the values; HDF5-backed truncation raises here.
+            np.asarray(ds[variable].values)
+
+            with open(path, "rb") as handle:
+                classic = handle.read(3) == b"CDF"
+            if classic:
+                needed = sum(
+                    int(np.prod(var.shape)) * int(var.dtype.itemsize)
+                    for var in ds.variables.values()
+                )
+                actual = path.stat().st_size
+                if actual < needed:
+                    return False, (
+                        f"{filename} is truncated: {actual} bytes on disk, but its "
+                        f"header declares at least {needed} bytes of variable data"
+                    )
     except Exception as exc:  # pragma: no cover - defensive, exercised via real .nc files only
         return False, f"could not read {filename}: {exc}"
     return True, ""
