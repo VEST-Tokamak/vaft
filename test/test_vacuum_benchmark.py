@@ -23,7 +23,7 @@ from vaft.formula import green_r
 from vaft.formula.magnetics import project_poloidal_field
 from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
 from vaft.process.electromagnetics import compute_mutual_passive_active
-from vaft.omas.process_wrapper import compute_point_response_ods
+from vaft.omas.process_wrapper import compute_point_response_matrices_ods
 from vaft.omas.vacuum_magnetics import synthetic_vacuum_magnetics, vacuum_residual_metrics
 from vaft.validation.imas import VALIDITY_INVALID, read_validity
 from vaft.validation.vacuum_benchmark import (
@@ -142,7 +142,12 @@ def _synthesize(ods: ODS, *, scale: float = 1.0) -> ODS:
     )
 
     positions = [(r, z) for _n, r, z in PROBES] + [(r, z) for _n, r, z in LOOPS]
-    psi, b_z, b_r = compute_point_response_ods(ods, [[r, z] for r, z in positions])
+    # The same response path the forward model takes (issue #239): a fixture
+    # built on the other implementation would test the ~1e-7 gap between two
+    # Green's-function paths rather than the model.
+    psi, b_z, b_r = compute_point_response_matrices_ods(
+        ods, [[r, z] for r, z in positions], components=("psi", "bz", "br")
+    )
     for position, (r, z) in enumerate(positions):
         if position < len(PROBES):
             # The DD's own convention: `poloidal_angle` runs clockwise from +R,
