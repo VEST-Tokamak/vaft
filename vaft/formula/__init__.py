@@ -29,6 +29,7 @@ _SUBMODULES = {
     "green": ".green",
     "atomic": ".atomic",
     "statistics": ".statistics",
+    "magnetics": ".magnetics",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -46,6 +47,7 @@ _IMPORT_ORDER = (
     "green",
     "atomic",
     "statistics",
+    "magnetics",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
