@@ -522,7 +522,7 @@ _GEOMETRY_LEAVES = (
 _GEOMETRY_PSI_DERIVATIVES = ("dvolume_dpsi", "darea_dpsi")
 
 
-def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
+def update_equilibrium_profiles_1d_geometry(ods, time_slice=None, *, return_surfaces=False):
     """Derive the flux-surface geometry profiles by tracing the 2-D psi map.
 
     Writes ``profiles_1d`` ``gm1`` (<1/R^2>), ``gm5`` (<B^2>), ``gm8`` (<R>),
@@ -549,9 +549,17 @@ def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
     Parameters:
         ods (OMAS structure): Input OMAS data structure, updated in place.
         time_slice (int/list/None): Specific time slice(s) to process. None=all
+        return_surfaces (bool): also return ``{time_slice_index: surfaces}``.
+            The trace is the expensive part of every derivation built on it, and
+            two of its results -- ``bp_dl`` and the per-surface ``length_pol`` --
+            are not DD quantities and so are not written to the ODS. A caller
+            that needs them, such as
+            :func:`update_equilibrium_global_quantities_beta_li`, takes them
+            here rather than tracing a second time.
     """
     from vaft.process.equilibrium import flux_surface_quantities
 
+    traced: dict[int, dict] = {}
     for idx in _equilibrium_time_slices(ods, time_slice):
         frame = _equilibrium_flux_frame(ods, idx)
         if frame is None:
@@ -580,6 +588,7 @@ def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
             logger.warning("Flux-surface trace failed for time slice %s: %s", idx, exc)
             continue
 
+        traced[idx] = surfaces
         for name in _GEOMETRY_LEAVES:
             values = surfaces[name]
             if np.all(np.isfinite(values)):
@@ -588,6 +597,10 @@ def update_equilibrium_profiles_1d_geometry(ods, time_slice=None):
             values = surfaces[name] * frame["to_radian"]
             if np.all(np.isfinite(values)):
                 ts[f"profiles_1d.{name}"] = values
+
+    if return_surfaces:
+        return traced
+    return None
 
 
 def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
@@ -757,6 +770,296 @@ def update_equilibrium_global_quantities_area(ods, time_slice=None):
         )
 
 
+
+def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfaces=None):
+    r"""Derive ``beta_pol``, ``beta_tor``, ``beta_normal``, ``li_3`` and ``length_pol``.
+
+    Issue #238. A g-file stores none of these and OMFIT supplied them from its
+    own flux-surface solve, so losing that path left them empty -- four of the
+    database summary's columns among them.
+
+    **The definitions are the IMAS DD's**, read from the DD rather than from
+    memory:
+
+    ==============  =====================================================
+    ``beta_pol``    ``4 int(p dV) / (R_0 mu_0 Ip^2)``
+    ``beta_tor``    ``2 mu0 int(p dV) / V / B0^2``
+    ``beta_normal`` ``100 beta_tor a[m] B0[T] / Ip[MA]``
+    ``li_3``        ``2 int(B_pol^2 dV) / (mu0^2 Ip^2 R_0)``
+    ==============  =====================================================
+
+    ``li_3`` is the one the DD gives no formula for -- it documents only
+    "Internal inductance". This is the ITER/Jackson third definition, and it is
+    written on the strength of reproducing the packaged OMFIT reference to 0.3%,
+    not on the strength of the DD text.
+
+    ``beta_pol`` is where the DD and EFIT disagree, and it is not a numerical
+    disagreement: EFIT normalizes by the field implied by the LCFS circumference,
+    ``2 mu0 <p>_V / (mu0 Ip/L_pol)^2``, which on the packaged reference gives
+    0.0287 against the DD's 0.0227 -- **26% apart**, with the EFIT form matching
+    the stored value to 0.1%. The DD form is what goes in the DD leaf; the other
+    is available to the database summary under its own name, and #318 owns the
+    sensitivity study of the two. Do not "fix" the leaf by matching OMFIT.
+
+    ``R_0`` comes from :func:`resolve_reference_major_radius`, not straight from
+    ``vacuum_toroidal_field.r0``: on the VEST database that leaf is corrupt and
+    would inflate ``beta_pol`` and ``li_3`` by 1.15-2.1x.
+
+    ``B0`` is ``vacuum_toroidal_field.b0``, as the DD says. That does not
+    reproduce the reference's ``beta_tor`` (ratio 1.041, and the field that would
+    match is 0.1539 T against a stored 0.1509 T); OMFIT's reference field is
+    unidentified and is recorded as such on #238 rather than reverse-engineered.
+
+    ``int(B_pol^2 dV)`` needs only the per-surface line integral ``bp_dl``,
+    because the volume element cancels one power of ``B_pol``; and the psi
+    convention comes from the same resolved frame as the rest of this module,
+    not from a further ``ods_psi_to_wb_per_radian_factor`` call site (#294).
+
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure, updated in place.
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+        surfaces (dict/None): ``{time_slice_index: surfaces}`` from
+            :func:`update_equilibrium_profiles_1d_geometry` with
+            ``return_surfaces=True``. ``bp_dl`` is not a DD quantity and is not
+            written to the ODS, so without this the trace has to be repeated --
+            0.95x the geometry updater's own cost on the packaged sample. Called
+            standalone it traces, as it must.
+    """
+    from vaft.formula.equilibrium import (
+        beta_normal_from_beta_tor,
+        beta_poloidal_from_pressure_integral,
+        beta_toroidal_from_p_B0,
+        li_3_from_Bp2_volume_integral,
+    )
+
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
+            continue
+        ts = frame["ts"]
+
+        r0 = resolve_reference_major_radius(ods)
+        b0 = _time_indexed_scalar(ods, "equilibrium.vacuum_toroidal_field.b0", idx)
+        ip = _scalar_or_nan(ts, "global_quantities.ip")
+        if not np.isfinite(r0) or r0 <= 0.0 or not np.isfinite(b0) or b0 == 0.0:
+            logger.warning(
+                "vacuum_toroidal_field.r0/b0 unusable for time slice %s; skipping betas.",
+                idx,
+            )
+            continue
+        if not np.isfinite(ip) or ip == 0.0:
+            logger.warning("global_quantities.ip unusable for time slice %s; skipping betas.", idx)
+            continue
+
+        if "profiles_1d.volume" not in ts or "profiles_1d.pressure" not in ts:
+            # Keep what that trace produced: without it this would trace once to
+            # get the volume and again below to get bp_dl.
+            healed = update_equilibrium_profiles_1d_geometry(
+                ods, time_slice=[idx], return_surfaces=True
+            )
+            if healed and idx in healed:
+                surfaces = dict(surfaces or {})
+                surfaces[idx] = healed[idx]
+        if "profiles_1d.volume" not in ts or "profiles_1d.pressure" not in ts:
+            logger.warning(
+                "profiles_1d.pressure/volume unavailable for time slice %s; skipping betas.",
+                idx,
+            )
+            continue
+
+        pressure = np.asarray(ts["profiles_1d.pressure"], float).reshape(-1)
+        volume = np.asarray(ts["profiles_1d.volume"], float).reshape(-1)
+        if pressure.size != volume.size or pressure.size < 2:
+            logger.warning("pressure/volume lengths disagree for time slice %s.", idx)
+            continue
+        plasma_volume = float(volume[-1])
+        if not np.isfinite(plasma_volume) or plasma_volume <= 0.0:
+            logger.warning("plasma volume is not positive for time slice %s.", idx)
+            continue
+        pressure_integral = float(trapz_compat(pressure, x=volume))
+        p_average = pressure_integral / plasma_volume
+
+        beta_tor = beta_toroidal_from_p_B0(p_average, b0)
+        beta_pol = beta_poloidal_from_pressure_integral(pressure_integral, r0, ip)
+        if np.isfinite(beta_tor):
+            ts["global_quantities.beta_tor"] = float(beta_tor)
+        if np.isfinite(beta_pol):
+            ts["global_quantities.beta_pol"] = float(beta_pol)
+
+        minor_radius = _minor_radius(ts)
+        if np.isfinite(beta_tor) and np.isfinite(minor_radius) and minor_radius > 0.0:
+            beta_normal = beta_normal_from_beta_tor(beta_tor, minor_radius, b0, ip)
+            if np.isfinite(beta_normal):
+                ts["global_quantities.beta_normal"] = float(beta_normal)
+
+        line_integrals = _surface_line_integrals(
+            idx, frame, None if surfaces is None else surfaces.get(idx)
+        )
+        if line_integrals is None:
+            continue
+        length_pol, bp_dl = line_integrals
+        if np.isfinite(length_pol):
+            ts["global_quantities.length_pol"] = float(length_pol)
+        bp2_volume = abs(
+            2.0 * np.pi * float(trapz_compat(bp_dl, x=frame["psi_1d_radian"]))
+        )
+        li_3 = li_3_from_Bp2_volume_integral(bp2_volume, ip, r0)
+        if np.isfinite(li_3):
+            ts["global_quantities.li_3"] = float(li_3)
+
+
+def _scalar_or_nan(node, path) -> float:
+    try:
+        return float(np.asarray(node[path], float).reshape(-1)[0])
+    except Exception:
+        return float("nan")
+
+
+def _time_indexed_scalar(ods, path, idx) -> float:
+    """One entry of a time-dependent scalar, tolerating a single stored value."""
+    try:
+        values = np.asarray(ods[path], float).reshape(-1)
+    except Exception:
+        return float("nan")
+    if not values.size:
+        return float("nan")
+    return float(values[min(idx, values.size - 1)])
+
+
+def _minor_radius(ts) -> float:
+    """``a`` from ``boundary.minor_radius``, or from the outline it comes from."""
+    if "boundary.minor_radius" in ts:
+        value = _scalar_or_nan(ts, "boundary.minor_radius")
+        if np.isfinite(value) and value > 0.0:
+            return value
+    if "boundary.outline.r" in ts:
+        outline = np.asarray(ts["boundary.outline.r"], float).reshape(-1)
+        if outline.size >= 3:
+            return 0.5 * (float(np.max(outline)) - float(np.min(outline)))
+    return float("nan")
+
+
+def _surface_line_integrals(idx, frame, surfaces=None):
+    """``(length_pol_edge, bp_dl_profile)`` for one slice.
+
+    ``surfaces`` is a trace the caller already paid for; only without one does
+    this trace again.
+    """
+    from vaft.process.equilibrium import flux_surface_quantities
+
+    ts = frame["ts"]
+    if surfaces is not None:
+        bp_dl = np.asarray(surfaces["bp_dl"], float)
+        if np.all(np.isfinite(bp_dl)):
+            return float(np.asarray(surfaces["length_pol"], float)[-1]), bp_dl
+        logger.warning("bp_dl is not finite for time slice %s; skipping li_3.", idx)
+        return None
+
+    f_profile = None
+    if "profiles_1d.f" in ts:
+        candidate = np.asarray(ts["profiles_1d.f"], float).reshape(-1)
+        if candidate.size == frame["psi_norm"].size:
+            f_profile = candidate
+    try:
+        surfaces = flux_surface_quantities(
+            frame["psi_2d_radian"],
+            frame["r_grid"],
+            frame["z_grid"],
+            frame["psi_axis_radian"],
+            frame["psi_boundary_radian"],
+            frame["psi_norm"],
+            f_profile=f_profile,
+            axis_rz=frame["axis_rz"],
+            boundary=frame["boundary"],
+        )
+    except Exception as exc:
+        logger.warning("Flux-surface trace failed for time slice %s: %s", idx, exc)
+        return None
+    bp_dl = np.asarray(surfaces["bp_dl"], float)
+    if not np.all(np.isfinite(bp_dl)):
+        logger.warning("bp_dl is not finite for time slice %s; skipping li_3.", idx)
+        return None
+    return float(np.asarray(surfaces["length_pol"], float)[-1]), bp_dl
+
+
+
+def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
+    """``R_0`` for the DD global quantities, cross-checked against the TF IDS.
+
+    ``beta_pol`` and ``li_3`` both divide by ``R_0``, which the DD takes from
+    ``equilibrium.vacuum_toroidal_field.r0``. On the VEST database that leaf is
+    not trustworthy: every shot sampled from HSDS stores an ``r0`` between 0.19
+    and 0.35 while ``tf.r0`` is 0.4, and the two disagree about the physics --
+    on shot 39915 the equilibrium's ``b0*r0`` is 0.0347 T.m against ``tf``'s
+    0.0601 T.m. ``b0`` alone (0.1498 T) matches ``tf``'s field at R = 0.4, so
+    ``r0`` is the corrupt half of the pair and the scalars come out 1.15-2.1x
+    too large.
+
+    ``b0 * r0`` is the physical invariant, so that product is what is compared:
+    when it disagrees with ``tf.b_field_tor_vacuum_r`` by more than a few percent
+    the equilibrium's ``r0`` is rejected in favour of ``tf.r0``, loudly. With no
+    ``tf`` to check against the equilibrium's own value stands -- this detects a
+    known corruption, it does not overrule a machine that genuinely has a
+    different reference radius.
+
+    Fixing the reader does not fix the database; the pipeline that writes
+    ``vacuum_toroidal_field`` is where that belongs, and issue #325 owns it.
+    """
+    equilibrium_r0 = _scalar_or_nan(ods, "equilibrium.vacuum_toroidal_field.r0")
+    tf_r0 = _scalar_or_nan(ods, "tf.r0")
+    if not np.isfinite(tf_r0) or tf_r0 <= 0.0:
+        return equilibrium_r0
+    if not np.isfinite(equilibrium_r0) or equilibrium_r0 <= 0.0:
+        logger.warning(
+            "equilibrium.vacuum_toroidal_field.r0 is unusable (%s); using tf.r0 = %.4f m.",
+            equilibrium_r0,
+            tf_r0,
+        )
+        return tf_r0
+
+    tf_field_radius = _finite_median(ods, "tf.b_field_tor_vacuum_r.data")
+    b0 = _finite_median(ods, "equilibrium.vacuum_toroidal_field.b0")
+    if not np.isfinite(tf_field_radius) or not np.isfinite(b0) or tf_field_radius == 0.0:
+        return equilibrium_r0
+
+    equilibrium_field_radius = b0 * equilibrium_r0
+    if abs(equilibrium_field_radius - tf_field_radius) <= _TF_CONSISTENCY_TOLERANCE * abs(
+        tf_field_radius
+    ):
+        return equilibrium_r0
+
+    logger.warning(
+        "equilibrium.vacuum_toroidal_field is inconsistent with tf: b0*r0 = %.5f T.m "
+        "(b0 = %.5f T, r0 = %.5f m) against tf's %.5f T.m. Using tf.r0 = %.4f m for R_0; "
+        "the stored r0 is the half that disagrees.",
+        equilibrium_field_radius,
+        b0,
+        equilibrium_r0,
+        tf_field_radius,
+        tf_r0,
+    )
+    return tf_r0
+
+
+#: How far ``b0*r0`` may sit from ``tf``'s ``B*R`` before the equilibrium's ``r0``
+#: is rejected. The corruption this catches is a factor of 1.15-2.1, so a few
+#: percent separates it from ordinary disagreement between two measurements of
+#: the same field.
+_TF_CONSISTENCY_TOLERANCE = 0.05
+
+
+def _finite_median(node, path) -> float:
+    """Median of the finite entries of a possibly time-dependent leaf."""
+    try:
+        values = np.asarray(node[path], float).reshape(-1)
+    except Exception:
+        return float("nan")
+    finite = values[np.isfinite(values)]
+    if not finite.size:
+        return float("nan")
+    return float(np.median(finite))
+
+
 def update_equilibrium_derived_profiles(ods, time_slice=None):
     """Derive every flux-surface quantity an EFIT-sourced ODS omits, in order.
 
@@ -772,13 +1075,18 @@ def update_equilibrium_derived_profiles(ods, time_slice=None):
     indices = _equilibrium_time_slices(ods, time_slice)
     if not indices:
         return
-    update_equilibrium_profiles_1d_geometry(ods, indices)
+    surfaces = update_equilibrium_profiles_1d_geometry(
+        ods, indices, return_surfaces=True
+    )
     update_equilibrium_profiles_1d_toroidal_flux(ods, indices)
     update_equilibrium_profiles_1d_j_tor(ods, indices)
     update_equilibrium_global_quantities_volume(ods, indices)
     update_equilibrium_global_quantities_area(ods, indices)
     update_equilibrium_stored_energy(ods, indices)
     update_equilibrium_boundary(ods, indices)
+    # Last: beta_normal reads boundary.minor_radius, which the line above writes.
+    # The surfaces traced at the top are handed on rather than traced again.
+    update_equilibrium_global_quantities_beta_li(ods, indices, surfaces=surfaces)
 
 def update_equilibrium_profiles_2d_sfl_coordinates(ods, time_slice=None, profiles_2d_idx=1, convention='sfl', n_theta=129, plot_opt=0):
     """

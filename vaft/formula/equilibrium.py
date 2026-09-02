@@ -293,6 +293,76 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
 
 
 
+def beta_toroidal_from_p_B0(p_average: float,
+                            B0: float) -> float:
+    r"""
+    # $\beta_t = \frac{2\mu_0 \langle p \rangle_V}{B_0^2}$
+    # β_t = 2μ₀⟨p⟩_V / B₀²
+
+    ``B0`` is the vacuum toroidal field at ``r0``
+    (``equilibrium.vacuum_toroidal_field.b0``), as the DD requires.
+    """
+    return 2 * MU0 * float(p_average) / float(B0) ** 2
+
+
+def beta_poloidal_from_pressure_integral(pressure_integral: float,
+                                         R0: float,
+                                         Ip: float) -> float:
+    r"""
+    # $\beta_p = \frac{4 \int p \, dV}{R_0 \mu_0 I_p^2}$
+    # β_p = 4∫p dV / (R₀ μ₀ I_p²)
+    """
+    return 4 * float(pressure_integral) / (float(R0) * MU0 * float(Ip) ** 2)
+
+
+def beta_normal_from_beta_tor(beta_tor: float,
+                              a: float,
+                              B0: float,
+                              Ip: float) -> float:
+    r"""
+    # $\beta_N = 100\,\beta_t \frac{a |B_0|}{|I_p[\mathrm{MA}]|}$
+    # β_N = 100 β_t a|B₀| / |I_p[MA]|
+    """
+    return 100 * float(beta_tor) * float(a) * abs(float(B0)) / abs(float(Ip) / 1e6)
+
+
+def li_3_from_Bp2_volume_integral(Bp2_dV: float,
+                                  Ip: float,
+                                  R0: float) -> float:
+    r"""
+    # $l_{i3} = \frac{2 \int B_p^2 \, dV}{\mu_0^2 I_p^2 R_0}$
+    # l_i(3) = 2∫B_p² dV / (μ₀² I_p² R₀)
+
+    The IMAS ``li_3`` definition, ``2 V ⟨B_p²⟩ / (μ₀² I_p² R₀)``.  It is the
+    same quantity OMFIT reports as ``li_(3)_IMAS``.
+    """
+    return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
+
+
+def beta_poloidal_from_circumference(p_average: float,
+                                     Ip: float,
+                                     length_pol: float) -> float:
+    r"""
+    # $\beta_{p,\rm circ} = \frac{2\mu_0 \langle p \rangle_V}{(\mu_0 I_p / L_{pol})^2}$
+    # β_p,circ = 2μ₀⟨p⟩_V / B_pa², B_pa = μ₀I_p/L_pol
+
+    **Not** the IMAS DD's ``beta_pol``, and not an estimate of it: this is the
+    EFIT/OMFIT convention, which normalizes the volume-averaged pressure by the
+    poloidal field implied by the LCFS *circumference* rather than by
+    ``R_0 mu_0 Ip^2``. The two are different definitions of a quantity that
+    shares a name, and they differ by the geometric factor
+    ``R_0 L_pol^2 / (2 V)`` -- 26% on the packaged kineticEfit reference, where
+    this form reproduces the stored value to 0.1% and the DD form does not.
+
+    It exists so the database summary can keep reporting what OMFIT reported
+    before VAFT derived these itself. ``global_quantities.beta_pol`` stays
+    DD-normative; see :func:`beta_poloidal_from_pressure_integral` and issue
+    #318, which owns the sensitivity study of the two.
+    """
+    b_pa = MU0 * abs(float(Ip)) / float(length_pol)
+    return 2 * MU0 * float(p_average) / b_pa**2
+
+
 # ------------------------------------------------------------------
 # Current Limits
 # ------------------------------------------------------------------
