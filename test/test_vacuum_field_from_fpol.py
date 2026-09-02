@@ -267,3 +267,26 @@ def test_a_self_consistent_unconventional_r0_is_not_overruled():
 
     ods = _legacy_ods([0.060133 / 0.3] * 3, r0=0.3, f_edge=-0.060133, tf_field=0.060133)
     assert vomas.resolve_reference_major_radius(ods) == pytest.approx(0.3)
+
+
+def test_both_g_file_readers_take_the_field_from_the_same_place():
+    """``to_omas`` and ``as_equilibrium`` must not disagree about B0.
+
+    They used to: one read BCENTR and the other would have kept reading it, so
+    a file whose two records differ by round-off alone put the descriptor paths
+    3e-9 apart, and a corrupt file would have put them 73% apart. One helper
+    feeds both.
+    """
+    from vaft.process.equilibrium import as_equilibrium
+
+    g = _gfile()
+    g["BCENTR"] = float(g["BCENTR"]) * 1.73
+
+    with pytest.warns(RuntimeWarning, match="issue #325"):
+        via_ods = as_equilibrium(g.to_omas())
+    with pytest.warns(RuntimeWarning, match="issue #325"):
+        direct = as_equilibrium(g)
+
+    assert direct.bt0 == pytest.approx(via_ods.bt0, rel=1e-12)
+    fpol_edge = float(np.asarray(g["FPOL"]).reshape(-1)[-1])
+    assert direct.bt0 * float(g["RCENTR"]) == pytest.approx(fpol_edge, rel=1e-9)
