@@ -7,10 +7,109 @@ English | [한국어](README.ko.md)
 [Python](https://pypi.org/project/vaft/)
 [License](LICENSE)
 
-**VAFT** is an open-source Python library that functions both as a dedicated data platform for the [VEST (Versatile Experiment Spherical Torus)](https://eng.snu.ac.kr/) tokamak at Seoul National University and as a machine- and code-generic data analysis framework built upon the IMAS data model, providing an [IMAS](https://imas.iter.org/)-compliant data interface built on the [OMAS](https://gafusion.github.io/omas/) interface library and an [HSDS](https://github.com/HDFGroup/hsds) remote HDF5 database.
+**VAFT is a standardized, verifiable, and interoperable scientific infrastructure
+for machine-agnostic tokamak research.** Its full end-to-end implementation on the
+[VEST tokamak](https://eng.snu.ac.kr/) at Seoul National University supports
+routine experimental data processing, validation, modeling, physics analysis, and
+shared scientific use across collaborating researchers and institutions, while
+serving as the reference implementation for modern, reproducible, and data-driven
+fusion research.
 
 > Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
 > ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
+
+## What VAFT is
+
+Four things, which together are what "infrastructure" means here.
+
+### Integrated Standardized Interface
+
+Connect standardized data representations, scientific data processing,
+validation, visualization, and physics codes through one consistent interface.
+Machine-specific VEST signals, [IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/)
+representations, VAFT processing and plotting, verification and validation, and
+community physics codes — EFIT, CHEASE, GPEC, TokaMaker, VFIT — interoperate
+rather than being reimplemented here.
+
+### Version-Controlled Data Pipeline
+
+Produce traceable and reproducible data products across the whole workflow, from
+machine design and data acquisition to reconstructed and simulated physics
+states. Versioning covers more than source code: machine descriptions and
+geometry, diagnostic mappings, calibration, conventions, processing logic,
+validation criteria, model configuration, and schema versions.
+
+### IMAS-FAIR Database
+
+Preserve, access, and share validated data through both native and standardized
+representations, following the FAIR principles — Findability, Accessibility,
+Interoperability, Reusability. IMAS/OMAS, FileDB and native artifacts,
+[HSDS](https://github.com/HDFGroup/hsds)-backed storage, lazy and partial access,
+and programmatic APIs. Standardized access **complements** native scientific
+artifacts rather than replacing them.
+
+### Machine & Research Archive
+
+A living archive of the VEST tokamak and its research ecosystem since operation
+began in 2012 — machine history, technical documentation, experimental practices,
+tutorials, example notebooks, and reproducible research knowledge, kept usable
+across generations of researchers and collaborating institutions.
+
+## What can I do with VAFT?
+
+| I want to... | Start here |
+| --- | --- |
+| See what VEST data looks like, with no setup | [Tutorial 01](tutorial/01_getting_started_with_vaft.ipynb) — runs offline from packaged data |
+| Load a real shot and plot it | [Quick Start](#quick-start), then [`notebooks/README.md`](notebooks/README.md) |
+| Reconstruct or refine an equilibrium | [`notebooks/`](notebooks/README.md) — EFIT, CHEASE, TokaMaker, TES workflows |
+| Interpret a diagnostic | [`notebooks/`](notebooks/README.md) — magnetics, soft X-ray, fluctuation, fast-camera |
+| Analyse many shots at once | [`notebooks/`](notebooks/README.md) — database-scale and statistical workflows |
+| Understand the data model | [Fusion data structure and IMAS concepts](https://vest-tokamak.github.io/vaft/reference/imas-concepts/) |
+
+## Research on VEST
+
+### Research historically performed on VEST
+
+Operated at Seoul National University since 2012, VEST has served as an in-house
+experimental tokamak for machine operation, diagnostic development, discharge
+optimization, and plasma-physics research, accumulating more than a decade of
+machine-specific experimental knowledge and analysis practice.
+
+- **Compact and spherical tokamak operation** — low-aspect-ratio plasmas with
+  `R ≈ 0.4` m, `I_p < 300` kA, pulse durations up to about 40 ms
+- **Diagnostic development and experimental analysis** — magnetic, kinetic,
+  imaging and spectroscopic diagnostics, from calibration to interpretation
+- **Discharge formation, heating, and current drive** — start-up; optimization of
+  coil operation, fuelling, wall conditions and magnetic topology; NBI, EC,
+  helicity-injection, trapped-particle and merging-configuration scenarios
+- **Disruptions and transient MHD phenomena** — vertical displacement events,
+  tearing modes, internal reconnection events
+- **Equilibrium reconstruction and interpretation** — the lab-developed VFIT
+  framework, including element-fitting and Grad–Shafranov flux reconstruction
+- **Plasma confinement and performance** — high-`I_p`, long-pulse operation,
+  operational limits, and comparison with spherical-tokamak scaling
+
+### What VAFT enables next
+
+VAFT extends that ecosystem into shareable, interoperable infrastructure.
+
+1. **Collaborative and open research** — shared access to validated data and
+   reproducible workflows across institutions
+2. **Database-scale physics studies** — statistical analysis of large discharge
+   populations rather than selected shots
+3. **Integrated data analysis and modeling** — multiple diagnostics, reconstructed
+   states, stability and plasma-response models in one workflow
+4. **Multi-machine studies** — standardized representations extending beyond VEST
+5. **Data-driven and AI-enabled research** — validated, traceable datasets for
+   event detection, surrogate modeling and machine learning
+6. **Scientific knowledge management** — preservation of data products, procedures,
+   provenance and practice so results can be reproduced and transferred
+
+> **Maturity.** Items 1–3 are implemented and in routine use. Item 4 is in active
+> development. Items 5–6 are partly implemented: validated datasets and provenance
+> exist today, while semantic knowledge graphs, machine-actionable provenance,
+> digital-twin integration and autonomous research agents are **long-term
+> direction, not current functionality.**
 
 ## Key Features
 
@@ -27,6 +126,7 @@ English | [한국어](README.ko.md)
 | **IMAS Interoperability**   | Convert between OMAS ODS and IMAS-Python (AL5) data structures; export to NetCDF                                                                                        |
 
 
+
 ## Architecture
 
 ```
@@ -36,6 +136,7 @@ VEST Data Analysis Platform
 └── Interface (VAFT)                    ── data access, mapping, processing, visualization
 ```
 
+
 ### Available IMAS IDSs in the VEST Database
 
 **Experimental:**
@@ -43,6 +144,7 @@ VEST Data Analysis Platform
 
 **Modelling:**
 `wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` · `mhd_linear` (DCON/RDCON)
+
 
 ## Quick Start
 
@@ -98,6 +200,7 @@ pip install vaft
 **Supported Python**: 3.10 -- 3.13
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
+
 ### Initialize external fusion codes
 
 Set the installation roots for the codes you use before starting VAFT:
@@ -112,6 +215,7 @@ export TESHOME=/path/to/tes
 Each executable belongs under its root's `bin/` directory. See
 [Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
 for layouts, compatibility variables, FileDB configuration, and validation.
+
 
 ### Connect to the VEST Database
 
@@ -133,6 +237,7 @@ Enter the following when prompted:
 
 A `connection ok` message confirms you are connected. See the [detailed guide](https://vest-tokamak.github.io/vaft/guide/Quick_start_guide/) for more information.
 
+
 ### Basic Usage
 
 ```python
@@ -145,6 +250,91 @@ ods = vaft.database.load(39915)
 time = ods['magnetics.time']
 ip = ods['magnetics.ip.0.data']
 ```
+
+
+## Library Modules
+
+```
+vaft/
+├── cli/               # Command-line workflow dispatch
+├── database/          # HSDS/SQL access and canonical FileDB layout
+├── machine_mapping/   # Native-to-IDS diagnostic conversion (70+ functions)
+├── formula/           # Physics formulas (equilibrium, stability, Green's functions)
+├── process/           # Signal processing, EM modeling, profile fitting
+├── plot/              # Visualization (time, 1D, 2D, top-view, analysis)
+├── omas/              # ODS utilities (shot metadata, sample data)
+├── imas/              # IMAS-Python (AL5) interoperability
+├── code/              # Code interfaces (EFIT, CHEASE, GPEC, TES, TokaMaker, Snakemake)
+└── data/              # Sample data, geometry assets, calibration tables
+```
+
+
+## Example Notebooks
+
+
+| Notebook                                                                                                                               | Description                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [initialize_external_fusion_codes](notebooks/initialize_external_fusion_codes.ipynb)                                                   | Configure and verify external code roots    |
+| [database_initialization_and_load](notebooks/database_initialization_and_load.ipynb)                                                   | Core data loading and framework basics      |
+| [plotting_sample_using_vaft_plot_module](notebooks/plotting_sample_using_vaft_plot_module.ipynb)                                       | Visualization examples with the plot module |
+| [profile_fitting_using_equilibrium_and_kinetic_diagnostics](notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Thomson/CES mapping and profile fitting     |
+| [read_and_convert_data_structure](notebooks/read_and_convert_data_structure.ipynb)                                                     | ODS/IMAS data structure conversion          |
+| [imas_omas_data_conversion](notebooks/imas_omas_data_conversion.ipynb)                                                                 | IMAS ↔ OMAS interoperability                |
+| [vest_experimental_data_list](notebooks/vest_experimental_data_list.ipynb)                                                             | Browse the VEST shot database               |
+| [confinement_time_scaling](notebooks/confinement_time_scaling.ipynb)                                                                   | Energy confinement time scaling analysis    |
+| [vest_daily_monitoring](notebooks/vest_daily_monitoring.ipynb)                                                                         | Daily experiment monitoring dashboard       |
+| [publication_figures](notebooks/publication_figures.ipynb)                                                                             | Reproduce figures from publications         |
+| [verify_exist_shot_and_load](notebooks/verify_exist_shot_and_load.ipynb)                                                               | Verify shot availability and load TS/CX data |
+| [tokamak_power_balance](notebooks/tokamak_power_balance.ipynb)                                                                         | Tokamak power balance and radiation decomposition |
+| [verification_and_validation](notebooks/verification_and_validation.ipynb)                                                             | Verification and validation examples        |
+| [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb)                                                               | Soft X-ray signal analysis                  |
+| [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb)                                             | Equilibrium refinement with CHEASE          |
+| [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb)                                                         | Forward equilibrium reconstruction with TES |
+| [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb)                                             | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) |
+| [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb)                             | Vessel eddy currents, wall modes, and quasi-static evolution with TokaMaker |
+| [free_boundary_pf_coil_scan](notebooks/free_boundary_pf_coil_scan.ipynb)                                                               | Free-boundary PF-coil scans and topology transitions with TokaMaker |
+| [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb)                                                                     | End-to-end kinetic-EFIT workflow            |
+
+
+## Related Resources
+
+**In this repository**
+
+- **Tutorial course**: [`tutorial/`](tutorial/README.md) — six guided sessions, starting offline
+- **Example notebooks**: [`notebooks/`](notebooks/README.md) — research workflows by topic
+- **Installation and environment**: [`install/`](install/README.md) — per-platform bootstrap and checks
+- **Contributing**: [`CONTRIBUTING.md`](CONTRIBUTING.md) · **Third-party notices**: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+
+**External**
+
+- **Documentation site**: [vest-tokamak.github.io/vaft](https://vest-tokamak.github.io/vaft/) — workflows, API and reference
+- **Paper**: H.-S. Yun, S. Lee *et al*, "Developing an IMAS-compatible platform for the university-scale tokamak VEST and its application to operating characteristics analysis", *Plasma Phys. Control. Fusion* **67** 115021 (2025). [doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a)
+- **OMAS**: [gafusion.github.io/omas](https://gafusion.github.io/omas/) — Python API for IMAS data structures
+- **OMFIT**: [omfit.io](https://omfit.io/) — Integrated modeling and experimental data analysis framework for tokamak research
+- **HSDS**: [github.com/HDFGroup/hsds](https://github.com/HDFGroup/hsds) — HDF5 REST-based data service
+- **IMAS**: [github.com/iterorganization/IMAS-Data-Dictionary](https://github.com/iterorganization/IMAS-Data-Dictionary) — ITER Integrated Modelling & Analysis Suite
+
+
+## Contributing
+
+Contributions are welcome. Please open an [issue](https://github.com/VEST-Tokamak/vaft/issues) or submit a pull request.
+
+Notebook hygiene, documentation conventions and the branch policy are in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+For database write access, contact [peppertonic18@snu.ac.kr, satelite2517@snu.ac.kr](mailto:peppertonic18@snu.ac.kr).
+
+
+## Acknowledgements
+
+The authors would like to thank O Meneghini and J McClenaghan at General Atomics for their technical advice. Some parts of the data processing were performed using the code API in the OMFIT integrated modeling framework [1]. This research was supported by the National Research Foundation of Korea (NRF) grant funded by the Korean Government (MSIT) (RS-2021-NR057187, RS-2023-00281276, RS-2024-00409564, and RS-2025-02304810).
+
+
+## Reference
+
+Deeper technical material. These sections are migrating to the
+[documentation site](https://vest-tokamak.github.io/vaft/); they remain here until
+they have a home there.
 
 ### EFIT slice status
 
@@ -160,6 +350,7 @@ for status in result.slice_statuses:
 Each slice reports runtime, output, numerical, and physical status separately.
 The stable failure taxonomy is available as `vaft.code.EFIT_FAILURE_CODES`, and
 each status round-trips through JSON with `to_dict()` and `from_dict()`.
+
 
 ### EFIT scientific configuration
 
@@ -267,6 +458,7 @@ with vaft.imas.load("./equilibrium.nc") as entry:
     equilibrium = entry.get("equilibrium")
 ```
 
+
 ### Profile Fitting
 
 ```python
@@ -277,6 +469,7 @@ vaft.process.profile_fitting_thomson_scattering(
 )
 ```
 
+
 ### IMAS Conversion
 
 ```python
@@ -285,49 +478,8 @@ vaft.imas.save(ods, "./shot")
 vaft.imas.save(ods, "./shot.nc")
 ```
 
-## Library Modules
 
-```
-vaft/
-├── cli/               # Command-line workflow dispatch
-├── database/          # HSDS/SQL access and canonical FileDB layout
-├── machine_mapping/   # Native-to-IDS diagnostic conversion (70+ functions)
-├── formula/           # Physics formulas (equilibrium, stability, Green's functions)
-├── process/           # Signal processing, EM modeling, profile fitting
-├── plot/              # Visualization (time, 1D, 2D, top-view, analysis)
-├── omas/              # ODS utilities (shot metadata, sample data)
-├── imas/              # IMAS-Python (AL5) interoperability
-├── code/              # Code interfaces (EFIT, CHEASE, GPEC, TES, TokaMaker, Snakemake)
-└── data/              # Sample data, geometry assets, calibration tables
-```
-
-## Example Notebooks
-
-
-| Notebook                                                                                                                               | Description                                 |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| [initialize_external_fusion_codes](notebooks/initialize_external_fusion_codes.ipynb)                                                   | Configure and verify external code roots    |
-| [database_initialization_and_load](notebooks/database_initialization_and_load.ipynb)                                                   | Core data loading and framework basics      |
-| [plotting_sample_using_vaft_plot_module](notebooks/plotting_sample_using_vaft_plot_module.ipynb)                                       | Visualization examples with the plot module |
-| [profile_fitting_using_equilibrium_and_kinetic_diagnostics](notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Thomson/CES mapping and profile fitting     |
-| [read_and_convert_data_structure](notebooks/read_and_convert_data_structure.ipynb)                                                     | ODS/IMAS data structure conversion          |
-| [imas_omas_data_conversion](notebooks/imas_omas_data_conversion.ipynb)                                                                 | IMAS ↔ OMAS interoperability                |
-| [vest_experimental_data_list](notebooks/vest_experimental_data_list.ipynb)                                                             | Browse the VEST shot database               |
-| [confinement_time_scaling](notebooks/confinement_time_scaling.ipynb)                                                                   | Energy confinement time scaling analysis    |
-| [vest_daily_monitoring](notebooks/vest_daily_monitoring.ipynb)                                                                         | Daily experiment monitoring dashboard       |
-| [publication_figures](notebooks/publication_figures.ipynb)                                                                             | Reproduce figures from publications         |
-| [verify_exist_shot_and_load](notebooks/verify_exist_shot_and_load.ipynb)                                                               | Verify shot availability and load TS/CX data |
-| [tokamak_power_balance](notebooks/tokamak_power_balance.ipynb)                                                                         | Tokamak power balance and radiation decomposition |
-| [verification_and_validation](notebooks/verification_and_validation.ipynb)                                                             | Verification and validation examples        |
-| [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb)                                                               | Soft X-ray signal analysis                  |
-| [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb)                                             | Equilibrium refinement with CHEASE          |
-| [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb)                                                         | Forward equilibrium reconstruction with TES |
-| [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb)                                             | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) |
-| [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb)                             | Vessel eddy currents, wall modes, and quasi-static evolution with TokaMaker |
-| [free_boundary_pf_coil_scan](notebooks/free_boundary_pf_coil_scan.ipynb)                                                               | Free-boundary PF-coil scans and topology transitions with TokaMaker |
-| [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb)                                                                     | End-to-end kinetic-EFIT workflow            |
-
-## Parametric Equilibrium Analysis
+### Parametric Equilibrium Analysis
 
 `EquilibriumData` is VAFT's lightweight, single-slice, axisymmetric working
 model for numerical algorithms. It is not a persistence schema: GEQDSK, ODS,
@@ -388,86 +540,4 @@ are returned in `x_points` with `active=False` instead of being filtered by
 hard-coded geometry.
 
 
-## Related Resources
 
-- **Documentation**: [vest-tokamak.github.io/vaft](https://vest-tokamak.github.io/vaft/)
-- **Paper**: H.-S. Yun, S. Lee *et al*, "Developing an IMAS-compatible platform for the university-scale tokamak VEST and its application to operating characteristics analysis", *Plasma Phys. Control. Fusion* **67** 115021 (2025). [doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a)
-- **OMAS**: [gafusion.github.io/omas](https://gafusion.github.io/omas/) — Python API for IMAS data structures
-- **OMFIT**: [omfit.io](https://omfit.io/) — Integrated modeling and experimental data analysis framework for tokamak research
-- **HSDS**: [github.com/HDFGroup/hsds](https://github.com/HDFGroup/hsds) — HDF5 REST-based data service
-- **IMAS**: [github.com/iterorganization/IMAS-Data-Dictionary](https://github.com/iterorganization/IMAS-Data-Dictionary) — ITER Integrated Modelling & Analysis Suite
-
-## Contributing
-
-Contributions are welcome. Please open an [issue](https://github.com/VEST-Tokamak/vaft/issues) or submit a pull request.
-
-Notebook outputs are normalized by the repository's pre-commit hook. Install it
-with `pre-commit install`; the hook retains only static text and image results.
-To normalize notebooks manually, run:
-
-```bash
-python notebooks/_clean_outputs.py notebooks/*.ipynb
-```
-
-For database write access, contact [peppertonic18@snu.ac.kr, satelite2517@snu.ac.kr](mailto:peppertonic18@snu.ac.kr).
-
-## Acknowledgements
-
-The authors would like to thank O Meneghini and J McClenaghan at General Atomics for their technical advice. Some parts of the data processing were performed using the code API in the OMFIT integrated modeling framework [1]. This research was supported by the National Research Foundation of Korea (NRF) grant funded by the Korean Government (MSIT) (RS-2021-NR057187, RS-2023-00281276, RS-2024-00409564, and RS-2025-02304810).
-
-## Third-party Notices
-
-### OPEN-ADAS atomic routines
-
-Parts of VAFT's OPEN-ADAS ADF11 parsing, interpolation, default-file selection,
-and ionization-equilibrium logic are adapted from software distributed under
-the following license.
-
-> MIT License
->
-> Copyright (c) 2021 Francesco Sciortino
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
-
-### Attribution: OMFIT classes
-
-VAFT does not depend on, import, or require `omfit_classes`. Parts of VAFT's
-native EQDSK path in `vaft/data/eqdsk.py` were originally ported or adapted
-from it, so its copyright notice is reproduced here as its license requires.
-The original OMFIT classes software is distributed under the following license.
-
-> Copyright 2013-2021 the OMFIT contributors
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.

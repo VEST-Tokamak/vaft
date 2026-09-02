@@ -2,9 +2,23 @@
 
 ## Purpose
 
-This directory contains notebooks for documenting, testing, and organizing VAFT workflows. It now includes both existing exploratory notebooks and first-draft notebook shells for the incomplete Snakemake-based VAFT pipeline.
+These notebooks show what research VAFT supports, worked end to end on real
+VEST data. Where [`tutorial/`](../tutorial/README.md) teaches the workflow one
+session at a time, this collection is the reference: each notebook takes a
+scientific question and follows it from measurement to result.
 
-The pipeline notebooks define the intended structure of future reproducible workflows. The existing notebooks provide practical context for database access, OMAS/IMAS conversion, plotting, monitoring, profile fitting, confinement scaling, and publication figure preparation.
+The collection mixes mature workflows with first-draft shells for the
+Snakemake-based pipeline that is still being built. The shells define the
+intended structure of future reproducible workflows; the executable notebooks
+provide practical context for database access, OMAS/IMAS conversion, plotting,
+monitoring, profile fitting, confinement scaling, and publication figures.
+
+> **Index in transition.** The groups below are organized by pipeline stage.
+> Issue [#330](https://github.com/VEST-Tokamak/vaft/issues/330) reorganizes them
+> by research question — discharge formation, diagnostic interpretation,
+> equilibrium reconstruction, confinement, MHD and transient events, kinetic
+> profiles, database-scale analysis. Until that lands, treat the grouping as
+> structural rather than scientific.
 
 ## Relation to the Snakemake-Based VAFT Pipeline
 

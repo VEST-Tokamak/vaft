@@ -1,9 +1,22 @@
 # VAFT Introductory Tutorial Course
 
-This directory is the technical foundation for the six-session introductory
-VAFT course proposed in [issue #185](https://github.com/VEST-Tokamak/vaft/issues/185).
-It defines the course contract and contains structural notebook and slide
-scaffolds. Detailed teaching material will be completed one session at a time.
+A six-session introductory course that teaches VAFT through the scientific
+lifecycle it exists to support:
+
+```text
+VEST machine and experiment -> validated, analysis-ready data
+  -> visualization and interpretation -> physics analysis and modeling
+  -> reproducible scientific result
+```
+
+The sessions are executable research examples, not an API catalogue. Each one
+answers a question a VEST researcher actually has, and the infrastructure is
+introduced as it becomes needed rather than up front.
+
+This directory holds the course contract, the session notebooks, and their slide
+decks. Detailed teaching material is completed one session at a time; the
+structure was proposed in
+[issue #185](https://github.com/VEST-Tokamak/vaft/issues/185).
 
 ## Audience and prerequisites
 
