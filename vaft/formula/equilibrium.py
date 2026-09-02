@@ -915,7 +915,7 @@ def beta_toroidal_from_p_B0(p_average: float,
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.4 (definition of beta).
+           Ch. 3, Equilibrium (definition of beta).
     .. [2] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_tor``.
     """
     return 2 * MU0 * float(p_average) / float(B0) ** 2
@@ -952,7 +952,7 @@ def beta_poloidal_from_pressure_integral(pressure_integral: float,
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_pol``.
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.4 (definition of beta).
+           Ch. 3, Equilibrium (definition of beta).
     """
     return 4 * float(pressure_integral) / (float(R0) * MU0 * float(Ip) ** 2)
 
@@ -1016,7 +1016,7 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.4 (internal inductance).
+           Ch. 3, Equilibrium (internal inductance).
     """
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
 
