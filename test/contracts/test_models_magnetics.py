@@ -16,7 +16,8 @@ class MagneticsModelTests(unittest.TestCase):
         self.assertEqual(len(get_path(payload, "magnetics.flux_loop")), 11)
         self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 68)
         for probe in get_path(payload, "magnetics.b_field_pol_probe"):
-            self.assertAlmostEqual(probe["poloidal_angle"], math.pi / 2)
+            # DD: clockwise from +R, so a +Bz probe is 3*pi/2 (issue #288).
+            self.assertAlmostEqual(probe["poloidal_angle"], 3 * math.pi / 2)
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.r"), 0.592)
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.z"), 0.685)
         self.assertEqual(get_path(payload, "magnetics.b_field_pol_probe.0.position.r"), 0.089)

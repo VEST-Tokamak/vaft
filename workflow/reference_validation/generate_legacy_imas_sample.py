@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import math
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -19,6 +18,7 @@ from vaft.data.reference_samples import (
     sha256_file,
     verify_sample_artifacts,
 )
+from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
 from vaft.omas import compare_ods
 
 
@@ -100,7 +100,7 @@ def _normalized_source(repository: Path, manifest: dict):
     for index in range(len(ods.get("magnetics.b_field_pol_probe", []))):
         path = f"magnetics.b_field_pol_probe.{index}.poloidal_angle"
         if path in ods:
-            ods[path] = math.pi / 2
+            ods[path] = POLOIDAL_ANGLE
     return ods
 
 
@@ -156,7 +156,7 @@ def verify(repository: Path, manifest_path: Path) -> None:
     for index in range(len(via_omas.get("magnetics.b_field_pol_probe", []))):
         path = f"magnetics.b_field_pol_probe.{index}.poloidal_angle"
         if path in via_omas:
-            np.testing.assert_allclose(via_omas[path], math.pi / 2)
+            np.testing.assert_allclose(via_omas[path], POLOIDAL_ANGLE)
 
 
 def main() -> int:

@@ -99,7 +99,7 @@ def test_baseline_subtraction_matches_the_documented_algorithm(
     ip_shot = calibrated_ip - np.polyval(
         np.polyfit(time[x_base], calibrated_ip[x_base], 1), time
     )
-    ip_ref = raw_flux * 11.0 / 5.0e-4  # flux_gain / mutual_inductance (post-17455 era)
+    ip_ref = raw_flux * 11.0 / 5.0e-4  # flux_gain / effective_resistance_ohm (post-17455)
     ip_ref = ip_ref - np.polyval(np.polyfit(time[x_base], ip_ref[x_base], 1), time)
     expected = (ip_shot - ip_ref) * -1.0  # sign convention flips at shot 20259
 
@@ -188,7 +188,7 @@ def test_fl10_degenerate_offset_uses_the_documented_vaft_convention(tmp_path):
     time = np.arange(n, dtype=float) * dt
     ip_shot = np.zeros(n, dtype=float)
     reference_config = {
-        "mutual_inductance": 1.0,
+        "effective_resistance_ohm": 1.0,
         "fl10": {
             "field": FLUX_REFERENCE_FIELD,
             "time_offset_s": 0.0,

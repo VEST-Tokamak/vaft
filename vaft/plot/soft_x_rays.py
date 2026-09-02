@@ -7,6 +7,8 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from vaft.ods_access import path_count, path_value
 from scipy.signal import spectrogram as scipy_spectrogram
 
 _ARRAY_COLORS = {
@@ -24,24 +26,20 @@ def _as_array(value: Any) -> np.ndarray:
 
 
 def _soft_x_ray_channel_count(ods: Any) -> int:
-    try:
-        return len(ods["soft_x_rays.channel"])
-    except Exception as exc:
-        raise KeyError("ODS does not contain soft_x_rays.channel data.") from exc
+    count = path_count(ods, "soft_x_rays.channel")
+    if count == 0:
+        raise KeyError("ODS does not contain soft_x_rays.channel data.")
+    return count
 
 
 def _channel_name(ods: Any, index: int) -> str:
-    try:
-        return str(ods[f"soft_x_rays.channel.{index}.name"])
-    except Exception:
-        return f"SXR Ch {index + 1}"
+    name = path_value(ods, f"soft_x_rays.channel.{index}.name")
+    return f"SXR Ch {index + 1}" if name is None else str(name)
 
 
 def _channel_identifier(ods: Any, index: int) -> str:
-    try:
-        return str(ods[f"soft_x_rays.channel.{index}.identifier"])
-    except Exception:
-        return _channel_name(ods, index)
+    identifier = path_value(ods, f"soft_x_rays.channel.{index}.identifier")
+    return _channel_name(ods, index) if identifier is None else str(identifier)
 
 
 def _channel_array_and_number(ods: Any, index: int) -> tuple[str | None, int | None]:

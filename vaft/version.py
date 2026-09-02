@@ -11,7 +11,7 @@ __version__ = "0.6.0"
 # - raw-field-first diagnostics calibration with shot-era rules in vest.yaml
 #   (plasma current, PF currents, magnetics, Langmuir, interferometers, IMPA,
 #   fluctuation Mirnov, limiter shunts, SXR)
-# - corrected b_field_pol_probe poloidal_angle convention (pi/2)
+# - corrected b_field_pol_probe poloidal_angle convention (3*pi/2, DD-clockwise)
 # - DCON/RDCON/STRIDE adapters with source-verified mhd_linear/ntms mapping
 # - TokaMaker forward free-boundary adapter with vessel/eddy v2
 # - parametric equilibrium representations and derived descriptors

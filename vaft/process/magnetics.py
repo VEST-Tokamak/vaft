@@ -775,7 +775,8 @@ def rogowski_coil_ip(
     )
 
     # Convert flux loop signal to current reference
-    # For example: flux_ref = flux_corr * (flux_loop_gain / mutual_inductance)
+    # For example: flux_ref = flux_corr * (flux_loop_gain / effective_resistance)
+    # -- the divisor is in ohms, not henries; see issue #214.
     # We'll do the simplest version: flux_corr * flux_loop_gain
     flux_ref = flux_corr * flux_loop_gain
 

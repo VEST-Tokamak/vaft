@@ -478,6 +478,201 @@ def relative_spread(values: Iterable[float]) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Robust scale, trend and agreement
+# ---------------------------------------------------------------------------
+
+def median_absolute_deviation(values: np.ndarray | Iterable[float]) -> float:
+    """``median(|x - median(x)|)`` over the finite entries.
+
+    Statistical meaning
+        A scale estimator with a 50% breakdown point: half the samples may be
+        arbitrarily corrupted before it moves.  The standard deviation, by
+        contrast, has a breakdown point of zero -- one bad sample moves it
+        without limit.
+
+    Assumptions
+        None beyond the samples sharing a scale.  In particular no distribution
+        is assumed; the value returned is the raw median deviation, *not*
+        rescaled to a Gaussian-equivalent sigma.  :func:`robust_z_scores`
+        applies the 1.4826 consistency factor where that interpretation is
+        wanted, so the two uses cannot drift apart.
+
+    Interpretation
+        For a signal being screened for spikes or dropouts, this is the width
+        of the bulk of the samples -- the noise level the anomalies must be
+        measured against, rather than a noise level the anomalies have already
+        inflated.
+
+    Returns ``nan`` when no finite sample remains.
+    """
+    finite = _finite(values)
+    if not finite.size:
+        return float("nan")
+    return float(np.median(np.abs(finite - np.median(finite))))
+
+
+def robust_z_scores(values: np.ndarray | Iterable[float]) -> np.ndarray:
+    """Deviation from the median in robust sigma units, sample by sample.
+
+    ``z_i = (x_i - median(x)) / (1.4826 * MAD)``, where 1.4826 makes the
+    denominator a consistent estimator of the standard deviation for Gaussian
+    samples, so a threshold in these units carries its usual meaning.
+
+    Statistical meaning
+        A z-score built on estimators that the anomalies being looked for
+        cannot themselves corrupt.  A single large spike inflates the mean and
+        the standard deviation enough to hide itself from a conventional
+        z-score; it moves neither the median nor the MAD.
+
+    Assumptions
+        A unimodal bulk.  These scores are meaningless for a genuinely bimodal
+        sample, where the median falls between the modes and every sample scores
+        as an outlier.
+
+    Interpretation
+        Unlike the scalar reductions elsewhere in this module, the result is
+        positional: it has the shape of the input, with ``nan`` wherever the
+        input was non-finite, so a caller can locate *which* samples deviate and
+        not merely how many.
+
+        A zero MAD means the bulk of the samples are identical -- a perfectly
+        linear ramp differenced, or a flatlined channel.  Any departure from
+        that constant is then infinitely many sigmas out, and is reported as
+        signed ``inf`` rather than as ``nan``, because such a sample is the
+        clearest possible anomaly and not an undefined one.
+
+    Returns an all-``nan`` array when no finite sample remains.
+    """
+    array = np.asarray(values, dtype=float).ravel()
+    scores = np.full(array.shape, float("nan"))
+    finite = np.isfinite(array)
+    if not finite.any():
+        return scores
+    centre = float(np.median(array[finite]))
+    deviation = array[finite] - centre
+    scale = 1.4826 * float(np.median(np.abs(deviation)))
+    if scale == 0.0:
+        # `np.where` evaluates both branches, so `sign(0) * inf` would raise an
+        # invalid-value warning for every unremarkable sample.  `copysign` is
+        # total on the whole input and never does.
+        scores[finite] = np.where(deviation == 0.0, 0.0, np.copysign(np.inf, deviation))
+        return scores
+    scores[finite] = deviation / scale
+    return scores
+
+
+def linear_trend(
+    x: np.ndarray | Iterable[float], y: np.ndarray | Iterable[float]
+) -> float:
+    """Least-squares slope of ``y`` against ``x``, in units of y per unit x.
+
+    Statistical meaning
+        The first-order coefficient of an ordinary least-squares fit, over the
+        samples where both series are finite.
+
+    Assumptions
+        That a straight line is a meaningful summary.  It is the right question
+        for integrator drift or a slowly walking baseline, and the wrong one for
+        a signal whose shape is genuinely curved -- the slope will report
+        something in that case too, and it will not mean drift.
+
+    Interpretation
+        Signed, and in physical units, so it is compared against the signal's
+        own scale rather than against a universal number: a drift of
+        1e-4 T/s matters for a probe whose dynamic range is 1e-3 T and does not
+        for one spanning 1 T.  Unlike :func:`residual_bias` it is insensitive to
+        a constant offset, which is what separates "this channel is offset" from
+        "this channel is walking".
+
+    Returns ``nan`` when fewer than two paired finite samples remain, or when
+    every retained ``x`` is identical so no slope is determined.
+    """
+    x_array = np.asarray(x, dtype=float).ravel()
+    y_array = np.asarray(y, dtype=float).ravel()
+    if x_array.size != y_array.size:
+        raise ValueError(
+            f"x and y must have the same length, got {x_array.size} and {y_array.size}"
+        )
+    paired = np.isfinite(x_array) & np.isfinite(y_array)
+    if paired.sum() < 2:
+        return float("nan")
+    x_finite, y_finite = x_array[paired], y_array[paired]
+    if float(np.ptp(x_finite)) == 0.0:
+        return float("nan")
+    return float(np.polyfit(x_finite, y_finite, 1)[0])
+
+
+def pearson_correlation(
+    a: np.ndarray | Iterable[float], b: np.ndarray | Iterable[float]
+) -> float:
+    """Pearson correlation of two series over their pairwise-finite samples.
+
+    Statistical meaning
+        Covariance normalized by both standard deviations: the cosine of the
+        angle between the two mean-centred series, in ``[-1, 1]``.
+
+    Assumptions
+        A linear relationship.  Two series related by a strong but curved
+        mapping correlate poorly, and the low value says the relationship is
+        not linear rather than that it is absent.
+
+    Interpretation
+        For a measured signal against a forward model it separates *shape*
+        agreement from *amplitude* agreement, which an RMS residual conflates.
+        A correlation near 1 with a large residual says the model has the
+        dynamics right and the gain wrong -- a calibration question.  A small
+        correlation with a small residual says neither signal is doing much,
+        and the comparison is uninformative rather than successful.
+
+    Returns ``nan`` when fewer than two paired finite samples remain, or when
+    either retained series has zero variance.
+    """
+    a_array = np.asarray(a, dtype=float).ravel()
+    b_array = np.asarray(b, dtype=float).ravel()
+    if a_array.size != b_array.size:
+        raise ValueError(
+            f"series must have the same length, got {a_array.size} and {b_array.size}"
+        )
+    paired = np.isfinite(a_array) & np.isfinite(b_array)
+    if paired.sum() < 2:
+        return float("nan")
+    left, right = a_array[paired], b_array[paired]
+    if float(np.std(left)) == 0.0 or float(np.std(right)) == 0.0:
+        return float("nan")
+    return float(np.corrcoef(left, right)[0, 1])
+
+
+def dynamic_range(values: np.ndarray | Iterable[float]) -> float:
+    """``max - min`` over the finite entries -- the span the signal actually used.
+
+    Statistical meaning
+        The sample range, in the signal's own physical units.  Unlike
+        :func:`relative_spread` it is not normalized, so it stays meaningful for
+        a signal whose values straddle zero, where dividing by ``max|x|`` is
+        dominated by whichever excursion happened to be larger.
+
+    Assumptions
+        None, but note that the range is the least robust of the scale
+        estimators here: it is defined entirely by the two most extreme samples,
+        so one spike sets it.  Screen for spikes (see :func:`robust_z_scores`)
+        before reading it as the signal's working span.
+
+    Interpretation
+        The denominator that turns an absolute residual into a fraction of what
+        the channel was actually doing.  A 1 mT residual on a probe that swung
+        10 mT is a 10% model error; the same residual on a probe that swung
+        1 mT is a failure of the model.
+
+    Returns ``nan`` when no finite sample remains, and ``0.0`` for a constant
+    signal.
+    """
+    finite = _finite(values)
+    if not finite.size:
+        return float("nan")
+    return float(np.ptp(finite))
+
+
+# ---------------------------------------------------------------------------
 # Threshold crossing
 # ---------------------------------------------------------------------------
 
@@ -640,17 +835,22 @@ def log10_decay_rate(
 __all__ = [
     "bias_standard_error",
     "chi_squared",
+    "dynamic_range",
     "fractional_rms_improvement",
     "lag1_autocorrelation",
+    "linear_trend",
     "log10_decay_rate",
+    "median_absolute_deviation",
     "monotonic_fraction",
     "noise_band",
     "normalized_residual",
     "outlier_fraction",
+    "pearson_correlation",
     "reduced_chi_squared",
     "relative_spread",
     "residual_bias",
     "rms",
+    "robust_z_scores",
     "runs_test_z",
     "sigma_threshold_crossing",
     "sigma_unit_factor",

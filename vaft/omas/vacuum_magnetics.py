@@ -23,7 +23,7 @@ Both sides of every comparison carry the same physical quantity and unit:
   already returns as full poloidal flux in Wb -- no ``2*pi`` enters here;
 * B probes compare ``magnetics.b_field_pol_probe.*.field.data`` [T] against the
   field response projected onto the probe's own sensitive axis,
-  ``(cos(poloidal_angle), sin(poloidal_angle))`` in ``(R, Z)`` -- the IMAS
+  ``(cos(poloidal_angle), -sin(poloidal_angle))`` in ``(R, Z)`` -- the IMAS
   convention, read per channel from the ODS so a probe mounted differently from
   the rest projects differently (issue #169).  An ODS that stores no angle for a
   channel falls back to
@@ -37,10 +37,16 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from vaft.ods_access import path_count as _count, path_value
 from vaft.formula.statistics import (
     fractional_rms_improvement,
     rms,
     sigma_threshold_crossing,
+)
+from vaft.validation.imas import (
+    VALIDITY_VALID,
+    resolve_signal_time,
+    validity_mask,
 )
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
@@ -55,7 +61,9 @@ from vaft.machine_mapping.magnetics import (
 __all__ = [
     "VacuumChannel",
     "VacuumMagneticsError",
+    "channel_residual_metrics",
     "eddy_improvement",
+    "evaluation_mask",
     "plasma_onset_time",
     "probe_family",
     "residual_onset",
@@ -63,6 +71,7 @@ __all__ = [
     "select_vacuum_channels",
     "synthetic_vacuum_magnetics",
     "vacuum_magnetics_metrics",
+    "vacuum_residual_metrics",
 ]
 
 B_FIELD_POL_PROBE = "b_field_pol_probe"
@@ -98,6 +107,17 @@ class VacuumChannel:
     measured: np.ndarray
     coil: np.ndarray
     coil_eddy: np.ndarray
+    #: Which samples the diagnostics stage says are usable (issue #189).
+    #: ``None`` when the ODS carries no validity, which is not the same as
+    #: "none are usable" -- see :attr:`usable`.
+    valid: np.ndarray | None = None
+
+    @property
+    def usable(self) -> np.ndarray:
+        """The per-sample validity mask, all-True when the ODS declares none."""
+        if self.valid is None:
+            return np.ones(self.time.size, dtype=bool)
+        return np.asarray(self.valid, dtype=bool)
 
     @property
     def residual(self) -> np.ndarray:
@@ -184,31 +204,70 @@ def probe_family(kind: str, r: float, z: float) -> str:
 # ---------------------------------------------------------------------------
 
 def _signal(ods: Any, path: str) -> np.ndarray | None:
-    try:
-        values = ods[path]
-    except (KeyError, ValueError, IndexError):
+    """A 1-D waveform at ``path``, or ``None`` when the ODS carries none.
+
+    Through the shared non-mutating accessor (issue #118): an ODS creates paths
+    on access, so probing a channel that has no waveform would leave a malformed
+    leaf behind -- invisible to ``flat()`` and fatal to the next consistency
+    check.
+    """
+    values = path_value(ods, path)
+    if values is None:
         return None
-    array = np.asarray(values, dtype=float)
+    try:
+        array = np.asarray(values, dtype=float)
+    except (TypeError, ValueError):
+        return None
     if array.ndim != 1 or array.size < 2:
         return None
     return array
 
 
-def _channel_time(ods: Any, path: str, fallback: np.ndarray | None) -> np.ndarray | None:
-    """The channel's own time base, or the IDS's when it is homogeneous.
+def _usable_in_window(
+    ods: Any,
+    base: str,
+    time: np.ndarray,
+    window: tuple[float, float] | None,
+    min_validity: int,
+) -> bool:
+    """Whether the IDS says this channel has any usable sample in ``window``.
 
-    A round-tripped ODS written with ``homogeneous_time=1`` carries only
-    ``magnetics.time``; the per-node ``*.time`` the mapper wrote is not stored.
+    Step one of the three #189 asks a downstream consumer to take: consult the
+    validity the diagnostics stage established, *then* apply the consumer's own
+    preconditions.  Signal health is not rediscovered here -- an integrator
+    that railed at 0.31 s is the diagnostics stage's finding, and the eddy
+    stage only needs to know whether anything usable is left in the interval it
+    cares about.
+
+    An ODS carrying no validity accepts everything, so this changes nothing for
+    data produced before the quality layer existed.
     """
-    explicit = _signal(ods, path)
-    return fallback if explicit is None else explicit
+    accepted = validity_mask(ods, base, min_validity=min_validity)
+    if accepted.size != time.size:
+        return bool(accepted.all())
+    if window is not None:
+        inside = (time >= window[0]) & (time <= window[1])
+        if not inside.any():
+            return False
+        accepted = accepted[inside]
+    return bool(accepted.any())
 
 
-def _count(ods: Any, path: str) -> int:
+def _position(ods: Any, base: str) -> tuple[float, float] | None:
+    """A channel's ``(r, z)``, or ``None`` when the ODS does not carry one.
+
+    A channel with a waveform but no stored geometry cannot be forward-modelled,
+    so it is skipped rather than crashed on -- and probed through the shared
+    accessor, because a bare read would leave a ``position`` branch behind on
+    the way to that crash.
+    """
+    r, z = path_value(ods, f"{base}.r"), path_value(ods, f"{base}.z")
+    if r is None or z is None:
+        return None
     try:
-        return len(ods[path])
-    except (KeyError, ValueError, IndexError):
-        return 0
+        return float(r), float(z)
+    except (TypeError, ValueError):
+        return None
 
 
 def _poloidal_angle(ods: Any, base: str) -> float:
@@ -218,28 +277,40 @@ def _poloidal_angle(ods: Any, base: str) -> float:
     measured misalignment -- the IMPA Bz sensors write one -- projects onto the
     axis it declares.
     """
+    stored = path_value(ods, f"{base}.poloidal_angle")
+    if stored is None:
+        return POLOIDAL_ANGLE
     try:
-        angle = float(ods[f"{base}.poloidal_angle"])
-    except (LookupError, TypeError, ValueError):
+        angle = float(stored)
+    except (TypeError, ValueError):
         return POLOIDAL_ANGLE
     return angle if np.isfinite(angle) else POLOIDAL_ANGLE
 
 
-def _candidates(ods: Any) -> list[dict[str, Any]]:
+def _candidates(
+    ods: Any,
+    *,
+    window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    shared_time = _signal(ods, "magnetics.time")
     for index in range(_count(ods, f"magnetics.{B_FIELD_POL_PROBE}")):
         base = f"magnetics.{B_FIELD_POL_PROBE}.{index}"
         data = _signal(ods, f"{base}.field.data")
-        time = _channel_time(ods, f"{base}.field.time", shared_time)
+        time = resolve_signal_time(ods, f"{base}.field")
         if data is None or time is None or data.size != time.size:
             continue
-        # A flatlined channel is unwired, not quiet: it carries no information
-        # to validate against and yields undefined correlations.
+        if not _usable_in_window(ods, f"{base}.field", time, window, min_validity):
+            continue
+        # Then the eddy stage's own precondition, which is a different question
+        # from health: a flatlined channel may be perfectly valid data and
+        # still carry no information to correlate a forward model against.
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
             continue
-        r = float(ods[f"{base}.position.r"])
-        z = float(ods[f"{base}.position.z"])
+        position = _position(ods, f"{base}.position")
+        if position is None:
+            continue
+        r, z = position
         rows.append(
             {
                 "kind": B_FIELD_POL_PROBE,
@@ -257,13 +328,17 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
     for index in range(_count(ods, f"magnetics.{FLUX_LOOP}")):
         base = f"magnetics.{FLUX_LOOP}.{index}"
         data = _signal(ods, f"{base}.flux.data")
-        time = _channel_time(ods, f"{base}.flux.time", shared_time)
+        time = resolve_signal_time(ods, f"{base}.flux")
         if data is None or time is None or data.size != time.size:
+            continue
+        if not _usable_in_window(ods, f"{base}.flux", time, window, min_validity):
             continue
         if not np.isfinite(data).any() or float(np.nanstd(data)) == 0.0:
             continue
-        r = float(ods[f"{base}.position.0.r"])
-        z = float(ods[f"{base}.position.0.z"])
+        position = _position(ods, f"{base}.position.0")
+        if position is None:
+            continue
+        r, z = position
         rows.append(
             {
                 "kind": FLUX_LOOP,
@@ -283,17 +358,28 @@ def _candidates(ods: Any) -> list[dict[str, Any]]:
 def select_vacuum_channels(
     ods: Any,
     *,
-    per_family: int = DEFAULT_PER_FAMILY,
+    per_family: int | None = DEFAULT_PER_FAMILY,
     channels: Sequence[tuple[str, int]] | None = None,
+    window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
 ) -> list[dict[str, Any]]:
     """Choose the magnetic channels to validate, grouped by EFIT family.
 
     Without ``channels`` this keeps up to ``per_family`` live channels from each
     family, which gives the inboard/outboard B-probe and flux-loop coverage the
-    validation contract requires.  Pass ``channels`` as ``(kind, index)`` pairs
-    to select explicitly.
+    routine validation contract requires.  ``per_family=None`` keeps every
+    usable channel instead -- the compact subset is right for per-shot QA and
+    too small to qualify a machine model (issue #190).  Pass ``channels`` as
+    ``(kind, index)`` pairs to select explicitly.
+
+    ``window`` restricts the validity question to the interval the caller
+    actually validates over, so a channel that fails late in the discharge is
+    still selected for a pre-plasma comparison.  ``min_validity`` is the floor
+    on the Data Dictionary code; the default accepts flagged-but-valid channels,
+    because a threshold that has not been justified on a VEST population must
+    not silently remove data (#189, non-goals).
     """
-    rows = _candidates(ods)
+    rows = _candidates(ods, window=window, min_validity=min_validity)
     if channels is not None:
         wanted = {(str(kind), int(index)) for kind, index in channels}
         chosen = [row for row in rows if (row["kind"], row["index"]) in wanted]
@@ -341,8 +427,11 @@ def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 def synthetic_vacuum_magnetics(
     ods: Any,
     *,
-    per_family: int = DEFAULT_PER_FAMILY,
+    per_family: int | None = DEFAULT_PER_FAMILY,
     channels: Sequence[tuple[str, int]] | None = None,
+    window: tuple[float, float] | None = None,
+    validity_window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
 ) -> tuple[VacuumChannel, ...]:
     """Forward-model the coil and coil+eddy response at selected magnetics.
 
@@ -350,13 +439,27 @@ def synthetic_vacuum_magnetics(
     solve also writes ``pf_passive`` onto; measured signals are interpolated onto
     it and everything is clipped to the overlap of the two grids rather than
     extrapolated beyond where the diagnostics were mapped.
+
+    ``window`` narrows the grid further, to the interval the caller actually
+    evaluates over -- a benchmark's plasma-free stretch, say.  ``validity_window``
+    is a separate question: which interval's validity decides whether a channel
+    is *selected* at all.  They differ whenever a caller must model past the
+    interval it judges by, which the eddy stage does: it selects on pre-plasma
+    validity but needs post-onset samples for the residual to emerge into.
+    Unset, ``validity_window`` follows ``window``.
     """
     from vaft.omas.process_wrapper import compute_point_response_ods
 
     # Checked first: "the eddy solve has not run on this ODS" is the more
     # actionable diagnosis than "no usable channels" when both are true.
     time, coil_currents, loop_currents = _currents(ods)
-    rows = select_vacuum_channels(ods, per_family=per_family, channels=channels)
+    rows = select_vacuum_channels(
+        ods,
+        per_family=per_family,
+        channels=channels,
+        window=window if validity_window is None else validity_window,
+        min_validity=min_validity,
+    )
     if not rows:
         raise VacuumMagneticsError(
             "no magnetic channel carries usable measured data for vacuum validation"
@@ -366,9 +469,12 @@ def synthetic_vacuum_magnetics(
     measured_end = min(float(row["time"][-1]) for row in rows)
     measured_start = max(float(row["time"][0]) for row in rows)
     inside = (time >= measured_start) & (time <= measured_end)
+    if window is not None:
+        inside &= (time >= window[0]) & (time <= window[1])
     if inside.sum() < 2:
         raise VacuumMagneticsError(
             "the pf_active grid and the mapped magnetics do not overlap in time"
+            + ("" if window is None else f" within the requested window {window}")
         )
     time = time[inside]
     coil_currents = coil_currents[:, inside]
@@ -384,9 +490,15 @@ def synthetic_vacuum_magnetics(
             response = psi[position]
         else:
             angle = row["poloidal_angle"]
-            response = b_r[position] * np.cos(angle) + b_z[position] * np.sin(angle)
+            # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
+            # (cos, -sin) in (R, Z).  Projecting with (cos, +sin) inverts every
+            # probe; it did so here until issue #288, cancelling against a
+            # stored angle that was wrong the same way.
+            response = b_r[position] * np.cos(angle) - b_z[position] * np.sin(angle)
         coil = response[:n_coil] @ coil_currents
         eddy = response[n_coil : n_coil + n_loop] @ loop_currents
+        quantity = "flux" if row["kind"] == FLUX_LOOP else "field"
+        node = f"magnetics.{row['kind']}.{row['index']}.{quantity}"
         built.append(
             VacuumChannel(
                 name=row["name"],
@@ -400,6 +512,11 @@ def synthetic_vacuum_magnetics(
                 measured=np.interp(time, row["time"], row["data"]),
                 coil=coil,
                 coil_eddy=coil + eddy,
+                # Resampled onto the model grid by nearest sample: validity is a
+                # per-sample state, not something to interpolate between.
+                valid=validity_mask(
+                    ods, node, times=time, min_validity=min_validity
+                ),
             )
         )
     return tuple(built)
@@ -408,6 +525,188 @@ def synthetic_vacuum_magnetics(
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
+def evaluation_mask(
+    channel: VacuumChannel, window: tuple[float, float] | None
+) -> np.ndarray:
+    """Which samples of ``channel`` a comparison may actually use.
+
+    The interval the caller asked for, intersected with what the diagnostics
+    stage says is usable (issue #189).  Model agreement is only meaningful over
+    samples that are measurements, and an unusable stretch left in would be
+    charged to the model.
+
+    The interval is half-open, ``[start, end)``.  Both callers derive its upper
+    bound from a plasma-onset time, and that time is itself a grid sample --
+    the detector returns ``float(time[start_index])`` -- so an inclusive bound
+    would fold the plasma's own first sample into a nominally plasma-free
+    window, and would silently widen the pre-plasma statistics the eddy stage
+    has always reported over ``time < plasma_onset``.
+    """
+    inside = np.ones(channel.time.size, dtype=bool) if window is None else (
+        (channel.time >= window[0]) & (channel.time < window[1])
+    )
+    return inside & channel.usable
+
+
+def channel_residual_metrics(
+    channel: VacuumChannel,
+    *,
+    window: tuple[float, float] | None = None,
+    min_samples: int = 2,
+) -> dict[str, Any]:
+    """Measured-versus-model agreement for one channel over one interval.
+
+    This is a *comparison*, and says nothing about whether the measurement is
+    sound: a large residual is evidence about the model (issue #190), and must
+    never be written back into the channel's source validity (#253 §10).
+
+    Every quantity #190 asks for per channel, in the channel's own units except
+    where explicitly normalized:
+
+    ``residual_rms_coil`` / ``residual_rms_coil_eddy``
+        Agreement without and with the passive-wall response.  The pair is the
+        point: their ratio is what the eddy model is worth here.
+    ``improvement``
+        ``1 - RMS(coil+eddy) / RMS(coil)``.  1.0 is perfect, 0.0 means the wall
+        term added nothing, negative means it made agreement worse.
+    ``residual_bias`` / ``residual_trend``
+        A residual that is offset, or walking, is structured rather than noisy
+        and points at something the model does not represent.
+    ``normalized_residual``
+        Residual RMS as a fraction of what the channel actually swung, so a
+        quiet channel and a strongly driven one are comparable.
+    ``correlation``
+        Measured against coil+eddy.  Near 1 with a large residual means the
+        dynamics are right and the gain is wrong -- a calibration question, not
+        a wall-model one.
+
+    A channel with too few usable samples is reported ``excluded`` with a
+    reason rather than being counted as a model failure.
+    """
+    from vaft.formula.statistics import (
+        dynamic_range,
+        linear_trend,
+        pearson_correlation,
+        residual_bias,
+    )
+
+    mask = evaluation_mask(channel, window)
+    row: dict[str, Any] = {
+        "name": channel.name,
+        "kind": channel.kind,
+        "family": channel.family,
+        "index": channel.index,
+        "unit": channel.unit,
+        "r": channel.r,
+        "z": channel.z,
+        "samples": int(mask.sum()),
+        "window_start": float(channel.time[mask][0]) if mask.any() else float("nan"),
+        "window_end": float(channel.time[mask][-1]) if mask.any() else float("nan"),
+    }
+    if int(mask.sum()) < int(min_samples):
+        usable = int(channel.usable.sum())
+        row["status"] = "excluded"
+        row["reason"] = (
+            f"only {int(mask.sum())} usable sample(s) in the evaluation window; "
+            f"the channel declares {usable} usable of {channel.time.size}"
+        )
+        return row
+
+    measured = channel.measured[mask]
+    residual = channel.residual[mask]
+    span = dynamic_range(measured)
+    row.update(
+        {
+            "status": "evaluated",
+            "reason": "",
+            "measured_rms": rms(measured),
+            "measured_dynamic_range": span,
+            "residual_rms_coil": rms(channel.coil_residual[mask]),
+            "residual_rms_coil_eddy": rms(residual),
+            "improvement": eddy_improvement(channel.coil_residual, channel.residual, mask),
+            "residual_bias": residual_bias(residual),
+            "residual_trend": linear_trend(channel.time[mask], residual),
+            "normalized_residual": (
+                rms(residual) / span if span > 0 else float("nan")
+            ),
+            "correlation": pearson_correlation(measured, channel.coil_eddy[mask]),
+        }
+    )
+    return row
+
+
+def vacuum_residual_metrics(
+    channels: Iterable[VacuumChannel],
+    *,
+    window: tuple[float, float] | None = None,
+    min_samples: int = 2,
+) -> dict[str, Any]:
+    """Per-channel and per-family measured-versus-model agreement (issue #190).
+
+    The one residual kernel in VAFT: the routine eddy-stage QA
+    (:func:`vacuum_magnetics_metrics`) reports the same numbers over its
+    pre-plasma window, so a per-shot verdict and a machine-model benchmark
+    cannot drift apart in what they mean by "residual RMS".
+
+    Metrics only -- no thresholds, no verdict.  What counts as acceptable
+    depends on the study, and #190 is explicit that broad acceptance thresholds
+    must wait until the VEST benchmark distribution has been inspected.
+    """
+    rows = [
+        channel_residual_metrics(channel, window=window, min_samples=min_samples)
+        for channel in channels
+    ]
+    evaluated = [row for row in rows if row["status"] == "evaluated"]
+
+    def spread(key: str) -> dict[str, float]:
+        values = np.array(
+            [row[key] for row in evaluated if np.isfinite(row[key])], dtype=float
+        )
+        if values.size == 0:
+            return {"median": float("nan"), "min": float("nan"), "max": float("nan")}
+        return {
+            "median": float(np.median(values)),
+            "min": float(values.min()),
+            "max": float(values.max()),
+        }
+
+    families: dict[str, Any] = {}
+    for family in sorted({row["family"] for row in rows}):
+        members = [row for row in evaluated if row["family"] == family]
+        improvements = [
+            row["improvement"] for row in members if np.isfinite(row["improvement"])
+        ]
+        families[family] = {
+            "channels": sum(1 for row in rows if row["family"] == family),
+            "evaluated": len(members),
+            "median_improvement": (
+                float(np.median(improvements)) if improvements else float("nan")
+            ),
+        }
+
+    return {
+        "schema_version": 1,
+        "window": None if window is None else [float(window[0]), float(window[1])],
+        "channels": rows,
+        "families": families,
+        "summary": {
+            "channel_count": len(rows),
+            "evaluated": len(evaluated),
+            "excluded": len(rows) - len(evaluated),
+            "improvement": spread("improvement"),
+            "normalized_residual": spread("normalized_residual"),
+            "correlation": spread("correlation"),
+            "improved_fraction": (
+                float(
+                    np.mean([row["improvement"] > 0.0 for row in evaluated])
+                )
+                if evaluated
+                else float("nan")
+            ),
+        },
+    }
+
 
 def vacuum_magnetics_metrics(
     channels: Iterable[VacuumChannel],
@@ -448,33 +747,28 @@ def vacuum_magnetics_metrics(
     if not np.isfinite(current_onset):
         current_onset = float(plasma_onset)
 
-    rows: list[dict[str, Any]] = []
-    for channel in channels:
-        window = channel.time < plasma_onset
-        if window.sum() < 2:
+    # The residual statistics come from the shared kernel, so this per-shot
+    # verdict and the machine-model benchmark (#190) cannot disagree about what
+    # "residual RMS" means. What stays here is the onset analysis, which is
+    # specific to asking where the plasma signal emerges.
+    pre_plasma = (float("-inf"), float(plasma_onset))
+    rows = vacuum_residual_metrics(channels, window=pre_plasma)["channels"]
+    for channel, row in zip(channels, rows):
+        window = evaluation_mask(channel, pre_plasma)
+        if row["status"] != "evaluated":
+            # The eddy stage's own policy: for routine per-shot QA a channel it
+            # cannot validate is an actionable gap, not a row to skip. The
+            # benchmark's policy differs, which is why it lives with the caller
+            # rather than in the kernel.
             raise VacuumMagneticsError(
-                f"channel {channel.name!r} has no pre-plasma samples before "
+                f"channel {channel.name!r} has no usable pre-plasma samples before "
                 f"t={plasma_onset:.5f}s to validate against"
             )
         onset = residual_onset(channel.time, channel.residual, window, sigma=sigma)
-        rows.append(
-            {
-                "name": channel.name,
-                "kind": channel.kind,
-                "family": channel.family,
-                "index": channel.index,
-                "unit": channel.unit,
-                "pre_plasma_samples": int(window.sum()),
-                "residual_rms_coil": residual_rms(channel.coil_residual, window),
-                "residual_rms_coil_eddy": residual_rms(channel.residual, window),
-                "improvement": eddy_improvement(
-                    channel.coil_residual, channel.residual, window
-                ),
-                "residual_onset": onset,
-                "onset_delta": (
-                    float(onset - current_onset) if np.isfinite(onset) else float("nan")
-                ),
-            }
+        row["pre_plasma_samples"] = int(window.sum())
+        row["residual_onset"] = onset
+        row["onset_delta"] = (
+            float(onset - current_onset) if np.isfinite(onset) else float("nan")
         )
 
     onsets = np.array(
@@ -483,18 +777,28 @@ def vacuum_magnetics_metrics(
     improvements = np.array(
         [row["improvement"] for row in rows if np.isfinite(row["improvement"])]
     )
-    families: dict[str, Any] = {}
-    for family in sorted({row["family"] for row in rows}):
-        members = [row for row in rows if row["family"] == family]
-        family_improvements = [
-            row["improvement"] for row in members if np.isfinite(row["improvement"])
-        ]
-        families[family] = {
-            "channels": len(members),
+    families = {
+        family: {
+            "channels": sum(1 for row in rows if row["family"] == family),
             "median_improvement": (
-                float(np.median(family_improvements)) if family_improvements else float("nan")
+                float(
+                    np.median(
+                        [
+                            row["improvement"]
+                            for row in rows
+                            if row["family"] == family and np.isfinite(row["improvement"])
+                        ]
+                    )
+                )
+                if any(
+                    row["family"] == family and np.isfinite(row["improvement"])
+                    for row in rows
+                )
+                else float("nan")
             ),
         }
+        for family in sorted({row["family"] for row in rows})
+    }
 
     return {
         "schema_version": 1,

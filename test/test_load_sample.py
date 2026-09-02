@@ -80,7 +80,8 @@ def test_full_imas_samples_round_trip_through_both_adapters(shot):
     for index in range(len(via_omas["magnetics.b_field_pol_probe"])):
         probe = via_omas[f"magnetics.b_field_pol_probe.{index}"]
         if "poloidal_angle" in probe:
-            np.testing.assert_allclose(probe["poloidal_angle"], np.pi / 2)
+            # DD: clockwise from +R, so +Bz is 3*pi/2. See issue #288.
+            np.testing.assert_allclose(probe["poloidal_angle"], 3 * np.pi / 2)
     if shot in (41524, 41672):
         assert manifest["source"]["kind"] == "pipeline-until-efit"
         assert (
@@ -126,8 +127,11 @@ def test_reference_probe_metadata_describes_positive_bz():
     assert len(ods["magnetics.flux_loop"]) == 11
     for index in range(76):
         angle = ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"]
+        # The DD's poloidal_angle is clockwise from +R, so the sensitive axis is
+        # (cos, -sin).  This assertion used (cos, +sin), which is why a stored
+        # pi/2 looked like +Bz here while telling a DD reader -Bz (issue #288).
         np.testing.assert_allclose(
-            (np.cos(angle), np.sin(angle)), (0.0, 1.0), atol=1e-15
+            (np.cos(angle), -np.sin(angle)), (0.0, 1.0), atol=1e-15
         )
 
 
@@ -275,6 +279,19 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     )
     assert len(wheel_native["magnetics.b_field_pol_probe"]) == 76
     assert len(wheel_native["magnetics.flux_loop"]) == 11
+    # The wheel variant is substituted into every build, so a probe convention
+    # fixed only in vaft/data/samples would ship inverted (issue #288). Both
+    # representations must carry the DD-conformant angle, not just the checkout.
+    from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
+
+    for label, source in (("omas", wheel_ods), ("imas", wheel_native)):
+        angles = [
+            float(source[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"])
+            for index in range(len(source["magnetics.b_field_pol_probe"]))
+            if "poloidal_angle" in source[f"magnetics.b_field_pol_probe.{index}"]
+        ]
+        assert angles, label
+        np.testing.assert_allclose(angles, POLOIDAL_ANGLE, err_msg=label)
 
 
 def test_39915_sample_carries_the_complete_pf_active_machine_state():
