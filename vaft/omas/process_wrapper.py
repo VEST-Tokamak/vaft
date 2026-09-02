@@ -510,51 +510,6 @@ def compute_impedance_matrices_ods(
         logger.error(f"Missing required data in ODS: {e}")
         raise
 
-def wall_currents_from_active_coils(
-    ods: ODS,
-    plasma: List[Tuple[float, float]],
-    dt_sub: float = DT_SUB,
-) -> Tuple[ndarray, ndarray]:
-    """Solve passive-wall currents driven by the PF coils **alone** (issue #190).
-
-    The routine stage, :func:`compute_eddy_currents`, drives the RL circuit with
-    the measured plasma current alongside the coil currents. That is right for
-    the production product but wrong for a plasma-free benchmark: the measured
-    plasma waveform would then contaminate a model whose whole purpose is to be
-    judged over an interval where no plasma exists.
-
-    This solves the same circuit with the plasma sources held at zero, and
-    returns the result instead of writing it, so `pf_passive.loop[:].current`
-    from the routine stage is left untouched.
-
-    The plasma columns are *zeroed rather than dropped*: `L_mat` is built with
-    ``nbcoil + nbplas`` columns by `compute_impedance_matrices_ods`, so the
-    driving matrix has to keep that width.
-
-    Returns:
-        ``(time, loop_currents)`` with ``loop_currents`` shaped
-        ``(n_times, nbloop)`` -- the same orientation `solve_eddy_currents`
-        returns and `pf_passive.loop[:].current` is sliced from.
-    """
-    pf = ods["pf_active"]
-    nbcoil = len(pf["coil"])
-    nbplas = len(plasma)
-    time_arr = np.asarray(pf["time"], dtype=float)
-
-    R_mat, L_mat, M_mat = compute_impedance_matrices_ods(ods, plasma)
-
-    coil_currents = np.array(
-        [np.asarray(pf[f"coil.{i_coil}.current.data"], dtype=float) for i_coil in range(nbcoil)]
-    ).T
-    driving = np.zeros((time_arr.size, nbcoil + nbplas), dtype=float)
-    driving[:, :nbcoil] = coil_currents
-
-    loop_currents = solve_eddy_currents(
-        R_mat, L_mat, M_mat, driving, time_arr, dt_sub=dt_sub
-    )
-    return time_arr, loop_currents
-
-
 def compute_eddy_currents(
     ods: ODS,
     plasma: List[Tuple[float, float]],
