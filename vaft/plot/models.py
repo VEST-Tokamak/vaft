@@ -35,6 +35,7 @@ __all__ = [
     "ReferenceSlope",
     "Series",
     "Spectrogram",
+    "TextPanel",
     "ViewModel",
     "as_model_array",
 ]
@@ -652,6 +653,23 @@ class PowerSpectrum(ViewModel):
         """
         overrides.setdefault("y_label", f"PSD [{result.units}]" if getattr(result, "units", "") else "PSD")
         return cls(frequency=result.frequency, psd=result.psd, **overrides)
+
+
+@dataclass(frozen=True)
+class TextPanel(ViewModel):
+    """A panel of text lines -- global quantities beside a figure's plots.
+
+    Used inside :class:`Panels` for the values a slice summary states rather
+    than draws (issue #261 section 11).  Each line is already formatted by the
+    builder, unit included, so the renderer only places the text.
+    """
+
+    lines: tuple[str, ...]
+    title: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "lines", tuple(str(line) for line in self.lines))
+        object.__setattr__(self, "title", str(self.title))
 
 
 @dataclass(frozen=True)

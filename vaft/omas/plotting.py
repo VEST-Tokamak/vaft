@@ -1631,6 +1631,25 @@ def plot_magnetics_geometry_poloidal(
     )
 
 
+def plot_equilibrium_overview_histories(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Equilibrium global quantities against time: Ip, beta_p, li, q95.
+
+    This is the composite ``plot_equilibrium_overview`` drew before issue #261
+    made that name a one-slice summary.  Renders with
+    :func:`vaft.plot.equilibrium_overview_histories`.
+    """
+    return render(
+        "equilibrium_overview_histories", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_diagnostics_overview(
     source: Any,
     *,
@@ -2531,6 +2550,7 @@ __all__ = [
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
+    "plot_equilibrium_overview_histories",
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",

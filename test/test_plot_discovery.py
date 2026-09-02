@@ -262,10 +262,15 @@ def test_camera_overlays_are_read_from_the_registry():
     assert frame.overlays == ("efit_overlay", "field_line")
 
 
-def test_reserved_capability_fields_are_empty_until_issue_261(catalog):
+def test_capability_fields_are_filled_only_where_issue_261_defined_them(catalog):
+    # Sources and projection wait for their sub-phases; interaction is stated
+    # only by the plots that offer one (the static equilibrium slice summary).
     for record in catalog:
-        assert record.sources == {} and record.interaction == () and record.projection == {}
-    assert "sources:" not in str(catalog) and "interaction:" not in str(catalog)
+        assert record.sources == {} and record.projection == {}
+        if record.name != "equilibrium_overview":
+            assert record.interaction == (), record.name
+    assert catalog.find("equilibrium_overview").interaction == ("static",)
+    assert "sources:" not in str(catalog) and "projection:" not in str(catalog)
 
 
 def test_every_channel_plot_declares_layouts_and_nothing_else_does():
