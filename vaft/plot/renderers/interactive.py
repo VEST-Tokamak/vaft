@@ -11,6 +11,7 @@ pyplot.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Callable, Sequence
 
 import matplotlib.pyplot as plt
@@ -55,8 +56,12 @@ def render_slice_navigation(
     )
     history_axes = tuple(figure.add_subplot(grid[row, :]) for row in range(len(histories)))
     top = len(histories)
+    # The flux panel's colorbar gets a cell of its own beside the panel, made
+    # once: a redraw then touches no layout, so nothing grows or shrinks.
+    flux_cell = grid[top, 0].subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
+    colorbar_axes = figure.add_subplot(flux_cell[0, 1])
     slice_axes = np.array(
-        [[figure.add_subplot(grid[top, 0]), figure.add_subplot(grid[top, 1])],
+        [[figure.add_subplot(flux_cell[0, 0]), figure.add_subplot(grid[top, 1])],
          [figure.add_subplot(grid[top + 1, 0]), figure.add_subplot(grid[top + 1, 1])]],
         dtype=object,
     )
@@ -74,22 +79,29 @@ def render_slice_navigation(
         axis.set_xlabel("")
 
     def draw_slice(nav: SliceNavigator) -> None:
-        for axis in slice_axes.ravel():
+        # A redraw leaves the figure as it found it: the same axes, cleared and
+        # drawn again, with the flux panel's colorbar in its own fixed cell.
+        for axis in (*slice_axes.ravel(), colorbar_axes):
             axis.clear()
             axis.set_axis_on()
         model = build_slice(nav.selected)
+        styles = [dict(style) for style in (model.member_styles or ({},) * len(model.models))]
+        if styles:
+            styles[0]["colorbar_ax"] = colorbar_axes
+        model = replace(model, member_styles=tuple(styles))
         render_panels(model, ax=slice_axes, show=False)
         figure.suptitle(model.suptitle)
         for marker in markers:
             marker.set_xdata([nav.time, nav.time])
         figure.canvas.draw_idle()
 
-    draw_slice(navigator)
-    navigator.subscribe(draw_slice)
-
     widget = None
     if backend == "matplotlib":
         widget = _matplotlib_slider(figure, grid[top + 2, :], navigator)
+    draw_slice(navigator)
+    navigator.subscribe(draw_slice)
+    if backend == "matplotlib":
+        _follow_slider(widget, navigator)
     elif backend == "ipywidgets":
         widget = _ipywidgets_slider(navigator)
     if show:
@@ -109,13 +121,15 @@ def _matplotlib_slider(figure: Any, spec: Any, navigator: SliceNavigator) -> Any
         navigator.select_position(int(round(value)))
 
     slider.on_changed(on_slider)
+    return slider
 
+
+def _follow_slider(slider: Any, navigator: SliceNavigator) -> None:
     def follow(nav: SliceNavigator) -> None:
         if int(round(slider.val)) != nav.position:
             slider.set_val(nav.position)
 
     navigator.subscribe(follow)
-    return slider
 
 
 def _ipywidgets_slider(navigator: SliceNavigator) -> Any:

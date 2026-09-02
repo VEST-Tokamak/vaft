@@ -101,7 +101,7 @@ def render_geometry_layers(
         axes.grid(True, alpha=0.25)
     if legend and labelled:
         axes.legend(loc="best", fontsize="small")
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 def _geometry_renderer(*, domain: str, subject: str, quantity: str, description: str,
@@ -363,7 +363,7 @@ def render_geometry_3d_layers(
         axes.set_title(model.title)
     if legend and labelled:
         axes.legend(loc="best", fontsize="small")
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 @renderer(

@@ -71,7 +71,7 @@ def render_image_2d(
         axes.set_aspect("auto")
     if labelled:
         axes.legend(loc="best", fontsize="small")
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 def render_image_sequence(

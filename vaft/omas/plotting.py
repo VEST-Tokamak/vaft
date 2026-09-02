@@ -32,6 +32,7 @@ from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
 
+from .interactive import plot_equilibrium_interactive  # public entry point, issue #261
 from ._plot_recipes import (
     build_model,
     diagnoses_itself,
@@ -1580,9 +1581,6 @@ def plot_magnetics_geometry_poloidal(
     return render(
         "magnetics_geometry_poloidal", source, ax=ax, show=show, label=label, **options
     )
-
-
-from .interactive import plot_equilibrium_interactive  # noqa: E402  (public entry point, issue #261)
 
 
 def plot_camera_visible_image(

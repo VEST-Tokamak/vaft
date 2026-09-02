@@ -36,8 +36,15 @@ from ._plot_recipes import (
 
 __all__ = ["InteractiveEquilibrium", "plot_equilibrium_interactive", "BACKENDS"]
 
-#: The time histories drawn above the slice summary, with a shared time marker.
-_HISTORIES = ("equilibrium_time_plasma_current", "equilibrium_time_q95")
+#: The time histories drawn above the slice summary, with a shared time marker:
+#: the measured plasma-current waveform with the reconstruction's prediction
+#: at each slice (the G·1 overlay, section 15's "synthetic diagnostic values"),
+#: falling back to the equilibrium's own Ip when no magnetics is stored, and
+#: q95.  Each entry is (name, options, fallback name or None).
+_HISTORIES = (
+    ("plasma_current_time", {"synthetic": "equilibrium"}, "equilibrium_time_plasma_current"),
+    ("equilibrium_time_q95", {}, None),
+)
 
 
 @dataclass
@@ -97,10 +104,18 @@ def plot_equilibrium_interactive(
     navigator = SliceNavigator(times, usable=_usable_slices(ods), initial=initial)
 
     histories = []
-    for name in _HISTORIES:
-        try:
-            histories.append(build_model(name, entries, _panel_member=True))
-        except ValueError:
+    for name, history_options, fallback in _HISTORIES:
+        for candidate in (name, fallback):
+            if candidate is None:
+                continue
+            try:
+                histories.append(
+                    build_model(candidate, entries, _panel_member=True, **(history_options if candidate == name else {}))
+                )
+                break
+            except ValueError:
+                continue
+        else:
             histories.append(f"{name}\nnot available in this input")
 
     def build_slice(index: int):

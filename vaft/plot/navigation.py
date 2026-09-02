@@ -76,6 +76,8 @@ class SliceNavigator:
     # -- selection ------------------------------------------------------------
     def nearest(self, time: float) -> int:
         """The usable slice nearest ``time``; ties go to the earlier slice."""
+        if not np.isfinite(float(time)):
+            raise ValueError(f"time must be a finite number of seconds; got {time!r}")
         candidates = np.asarray(self._usable)
         distance = np.abs(self._times[candidates] - float(time))
         return int(candidates[int(np.argmin(distance))])
