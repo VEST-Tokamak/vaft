@@ -46,6 +46,34 @@ Writing into a namespace that does not exist fails with `MissingSourceError`
 naming exactly that command, rather than an opaque uploader exit code. Nothing
 in VAFT creates a top-level namespace, and no probe asks the server to.
 
+## HSDS replication
+
+Replication copies a finalized canonical product into a named source; FileDB
+stays authoritative. It is off by default (`hsds.replicate: true` in
+`config.yaml`) and requires `layout: filedb`.
+
+Each stage replicates on its own, carrying only the IDS subtree it owns, so a
+shot appears in a source with whatever it actually produced — a vacuum shot with
+diagnostics and eddy and no equilibrium, a shot whose EFIT never converged with
+everything upstream of it. Where a stage goes and what of it travels is
+`vaft.database.sources.STAGE_REPLICATION`; the workflow never decides either.
+
+Three states stay distinct, and none implies the next:
+
+```text
+local product completed  →  replicated to HSDS  →  round-trip validated
+```
+
+The second and third live in `omas/{stage}/{shot}/metadata/replication.json`,
+which is the replication rule's own Snakemake output. A product on disk therefore
+never implies it reached HSDS. Re-running is cheap: a record is reused only while
+its stored hash still matches the current product, so a rebuilt product is re-sent
+and an unchanged one is not — without replaying the solver stage behind it.
+
+```bash
+python replicate_to_hsds.py --shot 39915 --stage efit --filedb-root "$VAFT_FILEDB_DIR"
+```
+
 ## Legacy reference
 
 The legacy server remains a read-only reference. Audit a mounted or copied

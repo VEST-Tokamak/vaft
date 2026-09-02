@@ -105,12 +105,71 @@ def test_hyphenated_catalog_names_are_accepted():
     assert sources.resolve("chease-mhd-stability") == "chease-mhd-stability"
 
 
-def test_every_filedb_omas_stage_maps_to_a_source():
-    # A new stage must not silently publish nowhere.
+def test_every_filedb_omas_stage_has_an_explicit_replication_contract():
+    """A new stage must fail loudly rather than silently replicate nowhere."""
     for stage in OMASStage:
-        assert sources.source_for_stage(stage) in {
-            entry.name for entry in sources.known_sources()
-        }
+        entry = sources.replication_for_stage(stage)
+        if entry.source is None:
+            # Opting out is allowed, but only with a stated reason.
+            assert entry.note, stage
+            assert entry.ids == ()
+        else:
+            assert entry.source in {e.name for e in sources.known_sources()}
+            assert entry.ids, stage
+
+
+def test_static_is_not_shot_replicated_and_says_why():
+    entry = sources.replication_for_stage("static")
+
+    assert entry.source is None
+    assert entry.replicable is False
+    with pytest.raises(sources.HSDSSourceError, match="not replicated to HSDS"):
+        sources.source_for_stage("static")
+
+
+def test_eddy_owns_only_what_it_computes():
+    """The eddy product carries the diagnostics IDS through but does not own them.
+
+    `build_eddy_ods` starts from the finalized diagnostics ODS, so replicating
+    the whole product would have eddy overwrite what diagnostics wrote.
+    """
+    eddy = sources.replication_for_stage("eddy")
+    diagnostics = sources.replication_for_stage("diagnostics")
+
+    assert eddy.ids == ("pf_passive",)
+    assert set(eddy.ids).isdisjoint(diagnostics.ids)
+
+
+def test_the_two_equilibrium_owners_are_kept_apart_by_source():
+    efit = sources.replication_for_stage("efit")
+    chease = sources.replication_for_stage("chease")
+
+    assert efit.ids == chease.ids == ("equilibrium",)
+    assert efit.source != chease.source
+
+
+def test_the_two_mhd_linear_owners_are_kept_apart_by_occurrence():
+    stability = sources.replication_for_stage("mhd_linear")
+    ideal = sources.replication_for_stage("gpec_ideal")
+
+    assert "mhd_linear" in stability.ids and "mhd_linear" in ideal.ids
+    assert stability.source == ideal.source
+    assert stability.occurrence != ideal.occurrence
+
+
+def test_ideal_gpec_replication_is_still_deferred_to_its_own_issue():
+    ideal = sources.replication_for_stage("gpec_ideal")
+
+    assert ideal.deferred_to == "#95"
+    assert ideal.replicable is False
+    assert "gpec_ideal" not in sources.replicable_stages()
+
+
+def test_no_stage_is_replicated_into_the_read_only_legacy_source():
+    for stage in sources.replicable_stages():
+        assert sources.replication_for_stage(stage).source != LEGACY_SOURCE
+        # Every destination must survive a writability check.
+        sources.resolve(sources.source_for_stage(stage), writable=True)
 
 
 def test_stage_mapping_keeps_the_baseline_and_the_refinement_apart():

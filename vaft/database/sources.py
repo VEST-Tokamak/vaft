@@ -37,7 +37,11 @@ __all__ = [
     "is_writable",
     "resolve",
     "source_for_stage",
+    "StageReplication",
+    "STAGE_REPLICATION",
     "STAGE_SOURCE",
+    "replication_for_stage",
+    "replicable_stages",
 ]
 
 
@@ -245,38 +249,130 @@ def resolve(
 
 
 # --------------------------------------------------------------------------- #
-# FileDB bridge
+# FileDB stage -> HSDS replication
 # --------------------------------------------------------------------------- #
-# Which named source each canonical FileDB OMAS stage is published into.  The
-# publication path itself belongs to issue #94; this table is the contract it
-# and the incremental-synchronization work (#163) build against, so the mapping
-# is stated once here rather than rediscovered per workflow.
+
+
+@dataclass(frozen=True)
+class StageReplication:
+    """How one canonical FileDB OMAS stage reaches a remote backend.
+
+    ``ids`` is the stage's *owned* subtree, which is not the same as everything
+    its product happens to contain.  The eddy product, for instance, is built by
+    starting from the finalized diagnostics ODS, so it carries ``magnetics`` and
+    ``pf_active`` through -- but it computes only ``pf_passive``, and replicating
+    the rest would have eddy overwrite what diagnostics wrote.
+    """
+
+    source: str | None
+    ids: tuple[str, ...] = ()
+    occurrence: int = 0
+    note: str = ""
+    deferred_to: str | None = None
+
+    @property
+    def replicable(self) -> bool:
+        """Whether this stage has a destination and a wired rule today."""
+        return self.source is not None and self.deferred_to is None
+
+
+#: The one authority for where each stage goes and what of it travels.  A
+#: workflow must consume this rather than restate it, so a destination is never
+#: decided in two places (issues #94, #163).
+STAGE_REPLICATION: Mapping[str, StageReplication] = {
+    # Versioned by machine era, not by shot, so it has no per-shot destination.
+    # Its geometry already reaches HSDS inside the diagnostics product, which
+    # copies pf_active/tf/magnetics out of it.
+    "static": StageReplication(
+        source=None,
+        note="machine-era product with no shot; travels inside diagnostics",
+    ),
+    "diagnostics": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=(
+            "magnetics",
+            "pf_active",
+            "tf",
+            "barometry",
+            "spectrometer_uv",
+            "langmuir_probes",
+        ),
+    ),
+    "eddy": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("pf_passive",),
+        note="carries the diagnostics IDS through but computes only pf_passive",
+    ),
+    "efit": StageReplication(source=DEFAULT_SOURCE, ids=("equilibrium",)),
+    # Shares the `equilibrium` IDS with the EFIT baseline; the source split is
+    # what keeps the refinement from overwriting the baseline it refines.
+    "chease": StageReplication(
+        source="chease-mhd-stability", ids=("equilibrium",)
+    ),
+    # `ntms` carries RDCON/STRIDE's classical Delta-prime, which mhd_linear has
+    # no home for.
+    "mhd_linear": StageReplication(
+        source="chease-mhd-stability", ids=("mhd_linear", "ntms")
+    ),
+    # Collides with the stability branch on `mhd_linear`, so it is separated by
+    # occurrence. Note that lazy HSDS access reads occurrence 0 only, so this
+    # product is eager-read for now. Execution and replication remain #95.
+    "gpec_ideal": StageReplication(
+        source="chease-mhd-stability",
+        ids=("mhd_linear", "coils_non_axisymmetric"),
+        occurrence=1,
+        deferred_to="#95",
+    ),
+}
+
+#: Destination-only view of :data:`STAGE_REPLICATION`, for callers that only
+#: need to know where a stage goes.
 STAGE_SOURCE: Mapping[str, str] = {
-    "static": DEFAULT_SOURCE,
-    "diagnostics": DEFAULT_SOURCE,
-    "eddy": DEFAULT_SOURCE,
-    "efit": DEFAULT_SOURCE,
-    "chease": "chease-mhd-stability",
-    "mhd_linear": "chease-mhd-stability",
-    "gpec_ideal": "chease-mhd-stability",
+    stage: entry.source
+    for stage, entry in STAGE_REPLICATION.items()
+    if entry.source is not None
 }
 
 
-def source_for_stage(stage: Any) -> str:
-    """Return the HSDS source a canonical FileDB OMAS stage publishes into."""
+def _stage_key(stage: Any) -> str:
     from .filedb import OMASStage
 
     try:
-        key = OMASStage(stage).value
+        return OMASStage(stage).value
     except (TypeError, ValueError) as exc:
         choices = ", ".join(member.value for member in OMASStage)
         raise HSDSSourceError(
             f"Invalid OMAS stage {stage!r}; expected one of: {choices}"
         ) from exc
+
+
+def replication_for_stage(stage: Any) -> StageReplication:
+    """Return the replication contract for one canonical FileDB OMAS stage."""
+    key = _stage_key(stage)
     try:
-        return STAGE_SOURCE[key]
+        return STAGE_REPLICATION[key]
     except KeyError as exc:  # pragma: no cover - guarded by test_database_sources
         raise HSDSSourceError(
-            f"OMAS stage {key!r} has no HSDS source mapping; add one to "
-            "vaft.database.sources.STAGE_SOURCE."
+            f"OMAS stage {key!r} has no replication mapping; add one to "
+            "vaft.database.sources.STAGE_REPLICATION rather than choosing a "
+            "destination at the call site."
         ) from exc
+
+
+def source_for_stage(stage: Any) -> str:
+    """Return the HSDS source a canonical FileDB OMAS stage is replicated into."""
+    key = _stage_key(stage)
+    entry = replication_for_stage(key)
+    if entry.source is None:
+        raise HSDSSourceError(
+            f"OMAS stage {key!r} is not replicated to HSDS"
+            + (f" ({entry.note})" if entry.note else "")
+        )
+    return entry.source
+
+
+def replicable_stages() -> tuple[str, ...]:
+    """Return the stages with a destination and a wired replication rule."""
+    return tuple(
+        stage for stage, entry in STAGE_REPLICATION.items() if entry.replicable
+    )

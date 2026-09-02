@@ -38,6 +38,48 @@ def external_h5_links(master_path: Path) -> list[str]:
     return sorted(set(filenames))
 
 
+def merge_master_links(
+    current_master: Path,
+    previous_master: Path | None,
+    *,
+    present_files: Iterable[str],
+) -> tuple[str, ...]:
+    """Fold a previous master's IDS links back into a freshly written one.
+
+    A shot folder is written by several stages, each owning a different part of
+    the IMAS tree. Each write produces a ``master.h5`` describing only what that
+    stage wrote, and uploading it as-is would make every other stage's IDS
+    invisible: :func:`stage_imas_shot` resolves what a shot contains from the
+    master's external links, not from the folder listing.
+
+    So the master is merged rather than replaced. Links are carried over from
+    ``previous_master`` -- never fabricated -- so the internal target path of
+    each link stays whatever the IMAS writer chose. A carried link is kept only
+    while its file is still ``present_files``; the current master always wins a
+    name collision, because that stage just rewrote it.
+
+    Returns the link names added from the previous master.
+    """
+    if previous_master is None or not Path(previous_master).exists():
+        return ()
+    present = {Path(name).name for name in present_files}
+    added: list[str] = []
+    with h5py.File(current_master, "r+") as current:
+        existing = set(current)
+        with h5py.File(previous_master, "r") as previous:
+            for name in previous:
+                if name in existing:
+                    continue
+                link = previous.get(name, getlink=True)
+                if not isinstance(link, h5py.ExternalLink):
+                    continue
+                if Path(link.filename).name not in present:
+                    continue
+                current[name] = h5py.ExternalLink(link.filename, link.path)
+                added.append(name)
+    return tuple(sorted(added))
+
+
 def requested_ids_from_paths(paths: Iterable[Any] | None) -> tuple[str, ...] | None:
     """Infer requested top-level IDS names from OMAS/IMAS paths.
 

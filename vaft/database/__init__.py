@@ -26,6 +26,7 @@ __all__ = [
     "utils",
     "filedb",
     "sources",
+    "replication",
     "load",
     "open",
     "save",

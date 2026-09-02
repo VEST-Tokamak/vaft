@@ -310,3 +310,58 @@ def test_production_pipeline_resolves_every_path_through_filedb():
     assert "/srv/vest.filedb" not in rules
     assert "imas/baseline" not in rules
     assert "omas/baseline" not in rules
+
+
+def test_stage_product_names_come_from_the_resolver_not_the_caller():
+    """One authority for a stage product's file name (issue #137).
+
+    Three spellings of the EFIT product were in circulation: the issue text's
+    `{shot}_efit.json.gz`, pipeline 1's `efit.json`, and the retired
+    workflow/main's `{stage}.json.gz`. A caller that appends its own file name
+    is how a fourth appears.
+    """
+    db = FileDB("/srv/vest.filedb")
+
+    assert db.omas_product("efit", shot=39915) == Path(
+        "/srv/vest.filedb/omas/efit/39915/output/efit.json"
+    )
+    assert db.omas_product("mhd_linear", shot=39915) == Path(
+        "/srv/vest.filedb/omas/mhd_linear/39915/output/mhd_linear.json"
+    )
+    # static is versioned by machine era rather than by shot.
+    assert db.omas_product("static", machine_version="v3") == Path(
+        "/srv/vest.filedb/omas/static/v3/output/static.json"
+    )
+
+
+def test_manifest_and_replication_record_are_separate_artifacts():
+    """A finalized local product says nothing about whether it was replicated."""
+    db = FileDB("/srv/vest.filedb")
+
+    manifest = db.omas_manifest("chease", shot=39915)
+    replication = db.omas_replication_record("chease", shot=39915)
+
+    assert manifest.parent == replication.parent
+    assert manifest != replication
+    assert replication.name == "replication.json"
+
+
+def test_stage_product_rejects_a_stage_outside_the_canonical_grammar():
+    db = FileDB("/srv/vest.filedb")
+
+    with pytest.raises(FileDBPathError):
+        db.omas_product("not_a_stage", shot=39915)
+
+
+def test_pipeline_paths_do_not_rebuild_stage_product_names():
+    """PipelinePaths must ask the resolver rather than append a file name."""
+    workflow = (
+        Path(__file__).parents[1]
+        / "workflow"
+        / "automatic_pipeline_1_routine_data_processing"
+        / "paths.py"
+    )
+    text = workflow.read_text()
+
+    for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "gpec_ideal"):
+        assert f'"output") / "{stage}.json"' not in text, stage
