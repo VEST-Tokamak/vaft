@@ -232,8 +232,23 @@ def test_upper_probe_present_after_installation_shot():
         ods = {}
         lp.langmuir_probes(ods, UPPER_SHOT_POST_INSTALL, 0.0, 0.1, 1e-3)
     embedded = ods["langmuir_probes"]["embedded"]
-    assert len(embedded) > 1 and embedded[1] is not None
-    assert embedded[1]["name"] == "Upper triple Langmuir probe"
+    # The mid probe is absent from this fake loader, so the upper probe fills
+    # the first embedded slot: IMAS arrays of structures must stay contiguous.
+    assert len(embedded) == 1
+    assert embedded[0]["name"] == "Upper triple Langmuir probe"
+
+
+def test_upper_probe_alone_writes_a_contiguous_omas_embedded_array():
+    # Regression (release review): with the mid probe not operated, writing
+    # the upper probe to its nominal slot 1 left embedded.0 unfilled, which a
+    # real OMAS ODS rejects with an IndexError.
+    omas = pytest.importorskip("omas")
+    fake_load = _make_fake_loader(259, 260, vd3=64.0)
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load):
+        ods = omas.ODS()
+        lp.langmuir_probes(ods, UPPER_SHOT_POST_INSTALL, 0.0, 0.1, 1e-3)
+    assert len(ods["langmuir_probes.embedded"]) == 1
+    assert ods["langmuir_probes.embedded.0.name"] == "Upper triple Langmuir probe"
 
 
 def test_probe_not_operated_this_shot_is_silently_absent_not_an_error():

@@ -193,8 +193,12 @@ def vfit_langmuir_probes_dynamic(
 ) -> None:
     positions = {"mid_r": mid_r, "upper_r": upper_r}
 
+    # embedded[] is an IMAS array of structures and must be filled
+    # contiguously: a skipped assembly (not installed / not operated for this
+    # shot) must not leave a gap, so the slot comes from a running counter
+    # rather than the assembly's nominal position.
+    next_index = 0
     for assembly in ASSEMBLIES:
-        index = assembly["index"]
         config = resolve_langmuir_probe_config(assembly["key"], shot)
 
         first_shot = config.get("first_shot")
@@ -270,6 +274,8 @@ def vfit_langmuir_probes_dynamic(
             tip_length_m=float(era["tip_length_mm"]) * 1e-3,
         )
 
+        index = next_index
+        next_index += 1
         prefix = f"langmuir_probes.embedded.{index}"
         set_path(ods, f"{prefix}.identifier", f"langmuir_probes:{assembly['key']}")
         set_path(ods, f"{prefix}.name", assembly["name"])
