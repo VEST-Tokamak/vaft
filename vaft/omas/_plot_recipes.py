@@ -55,8 +55,10 @@ __all__ = [
     "RECIPES",
     "SpectrogramRecipe",
     "build_model",
+    "diagnoses_itself",
     "entry_supports",
     "extract_labels_from_odc",
+    "missing_required_path",
     "normalize_entries",
 ]
 
@@ -237,32 +239,93 @@ def _channel_label(ods: Any, template: str, index: int, fallback: str) -> str:
     return fallback if name in (None, "") else str(name)
 
 
-def entry_supports(ods: Any, name: str) -> bool:
-    """Whether ``ods`` holds the data the plot ``name`` needs."""
+def diagnoses_itself(name: str) -> bool:
+    """Whether plot ``name`` explains its own absent data.
+
+    A recipe that is a plain path read builds a model with no series in it when
+    the path is absent, and the renderer then draws an empty figure -- no lines,
+    no error, nothing to say why (issue #290). Those need
+    :func:`vaft.omas.plotting.render` to speak for them.
+
+    ``CallableRecipe`` builders and ``PanelRecipe`` do not: they raise their own,
+    more specific diagnoses ("only DCON writes energy_perturbed", "none of the
+    panels ... have data"), and speaking over those would make the error worse.
+
+    The recipe dataclasses are defined below this function, so the tuple is built
+    per call rather than at import.
+    """
+    path_driven = (
+        LineRecipe,
+        ProfileRecipe,
+        GeometryRecipe,
+        FieldRecipe,
+        SpectrogramRecipe,
+        PowerSpectrumRecipe,
+    )
+    return not isinstance(RECIPES.get(name), path_driven)
+
+
+def missing_required_path(ods: Any, name: str) -> str | None:
+    """The first required path of plot ``name`` that ``ods`` cannot supply.
+
+    ``None`` means the plot can be built. This is the single place that decides
+    availability, so :func:`available_plots` and the guard in
+    :func:`vaft.omas.plotting.render` cannot disagree about what an object holds.
+    """
     spec = get_spec(name)
     recipe = RECIPES.get(name)
     if isinstance(recipe, PanelRecipe):
         # A composite is only available when at least one of its panels is.
-        return any(entry_supports(ods, member) for member in recipe.members)
+        if any(entry_supports(ods, member) for member in recipe.members):
+            return None
+        return " or ".join(recipe.members)
     if not spec.required_paths:
-        return any(root in ods for root in spec.ids) if spec.ids else False
+        if spec.ids and any(root in ods for root in spec.ids):
+            return None
+        return " or ".join(spec.ids) if spec.ids else name
+    # A leaf a recipe knows an alternative spelling for is satisfied by either:
+    # `equilibrium_profile_pprime` reads `dpressure_dpsi` or `pprime`, and the
+    # spec lists only the first.
+    fallbacks = tuple(getattr(recipe, "fallback_y_paths", ()) or ())
     for template in spec.required_paths:
-        if "{" not in template:
-            if _get(ods, template) is None:
-                return False
+        alternatives = (template,) + fallbacks if fallbacks else (template,)
+        if any(_path_has_data(ods, option) for option in alternatives):
             continue
-        container = _container_of(template)
-        total = _count(ods, container)
-        if total == 0:
-            return False
-        # A present container is not enough: the leaf itself must exist for at
-        # least one index, otherwise the adapter would build an empty model.
-        if not any(
-            _get(ods, template.format(i=index, j=0)) is not None
-            for index in range(total)
-        ):
-            return False
-    return True
+        return template
+    return None
+
+
+class _ZeroIndices(dict):
+    """``str.format_map`` source that fills any placeholder it is asked for.
+
+    Required paths mostly index one array of structures, but the camera views
+    reach three deep (``channel.{i}.detector.{j}.frame.{k}``). Anything past
+    ``{i}`` is probed at 0 rather than enumerated.
+    """
+
+    def __missing__(self, key: str) -> int:
+        return 0
+
+
+def _path_has_data(ods: Any, template: str) -> bool:
+    """Whether ``template`` -- plain or index-templated -- resolves to a value."""
+    if "{" not in template:
+        return _get(ods, template) is not None
+    container = _container_of(template)
+    total = _count(ods, container)
+    if total == 0:
+        return False
+    # A present container is not enough: the leaf itself must exist for at
+    # least one index, otherwise the adapter would build an empty model.
+    return any(
+        _get(ods, template.format_map(_ZeroIndices(i=index))) is not None
+        for index in range(total)
+    )
+
+
+def entry_supports(ods: Any, name: str) -> bool:
+    """Whether ``ods`` holds the data the plot ``name`` needs."""
+    return missing_required_path(ods, name) is None
 
 
 # ---------------------------------------------------------------------------

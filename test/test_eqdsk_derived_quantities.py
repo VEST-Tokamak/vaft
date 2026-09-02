@@ -215,18 +215,22 @@ def test_boundary_helper_picks_up_the_native_shape_profiles():
 
 
 def test_r_at_z_extremum_beats_the_nearest_vertex():
-    """Triangularity is read at the true Z extremum, not the sampled one."""
-    from vaft.data.eqdsk import _r_at_z_extremum
+    """Triangularity is read at the true Z extremum, not the sampled one.
+
+    The helper now lives in ``vaft.process.equilibrium`` so the g-file surface
+    path and the ODS flux-surface engine share one implementation.
+    """
+    from vaft.process.equilibrium import r_at_z_extremum
 
     # A parabola peaking between two samples: Z is symmetric about the gap, so
     # the extremum sits half a vertex away from either neighbour.
     r = np.array([0.0, 1.0, 2.0, 3.0])
     z = np.array([0.0, 1.0, 1.0, 0.0])
 
-    assert _r_at_z_extremum(r, z, upper=True) == pytest.approx(1.5)
+    assert r_at_z_extremum(r, z, upper=True) == pytest.approx(1.5)
     # Degenerate input falls back to the sampled vertex rather than raising.
     flat = np.zeros(4)
-    assert _r_at_z_extremum(r, flat, upper=True) == pytest.approx(r[int(np.argmax(flat))])
+    assert r_at_z_extremum(r, flat, upper=True) == pytest.approx(r[int(np.argmax(flat))])
 
 
 @pytest.mark.parametrize(
