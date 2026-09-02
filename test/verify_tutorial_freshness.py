@@ -91,6 +91,13 @@ def pairing_failures(changed: set[str]) -> list[str]:
     for path in sorted(changed):
         if not path.startswith(TUTORIAL_PREFIX) or not path.endswith(".tex"):
             continue
+        # Decks live directly in tutorial/. Other .tex files under it are not
+        # decks and have no PDF to pair with -- the Quarto theme partials in
+        # tutorial/presentations/_extensions/ are LaTeX, but they are includes,
+        # not documents. Demanding a sibling PDF for them asks for a file that
+        # cannot exist and blocks the job before it renders anything.
+        if "/" in path[len(TUTORIAL_PREFIX):]:
+            continue
         pdf = f"{path[: -len('.tex')]}.pdf"
         if pdf not in changed:
             failures.append(

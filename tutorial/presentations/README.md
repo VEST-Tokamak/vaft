@@ -19,7 +19,7 @@ pilot has been reviewed.
 | --- | --- | --- |
 | teaching live | `01_….html` | presenter view (press **s**), responsive, links and video work |
 | distributing or archiving | `01_….pdf` | deterministic, printable, no browser needed |
-| preparing to teach | `01_….-presenter.pdf` | the same slides with the speaker notes as facing pages |
+| preparing to teach | `01_…-presenter.pdf` | the same slides with the speaker notes as facing pages |
 
 ## Building
 

@@ -125,6 +125,25 @@ def test_pairing_requires_a_rebuild_when_a_session_figure_changes():
     assert "03_equilibrium_and_kinetic_profiles.pdf" in failures[0]
 
 
+def test_pairing_ignores_tex_that_is_not_a_deck():
+    """Theme partials are LaTeX but they are includes, not documents.
+
+    The Quarto theme under tutorial/presentations/_extensions/ ships .tex files.
+    Demanding a sibling PDF for them asks for a file that cannot exist, and it
+    fails the tutorial job before it renders anything.
+    """
+    theme = "tutorial/presentations/_extensions/vaft/vaftslides/vaft-beamer.tex"
+    assert FRESHNESS.pairing_failures({theme}) == []
+
+
+def test_pairing_still_requires_a_rebuilt_pdf_for_a_real_deck():
+    """The exemption above must not let a genuine deck edit through."""
+    deck = "tutorial/02_operation_scenario_and_vacuum_fields.tex"
+    failures = FRESHNESS.pairing_failures({deck})
+    assert len(failures) == 1
+    assert "02_operation_scenario_and_vacuum_fields.pdf" in failures[0]
+
+
 def test_pairing_requires_every_deck_to_rebuild_for_a_shared_figure():
     failures = FRESHNESS.pairing_failures({"tutorial/figures/common/logo.pdf"})
     # Every deck that commits a PDF must rebuild. Sessions rendered from QMD

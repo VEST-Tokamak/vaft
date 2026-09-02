@@ -122,8 +122,13 @@ jobs:
       # Session 01's slides are a .qmd rendered to both backends. Nothing is
       # committed, so CI is what proves the source still builds, and the
       # artifacts are how a reviewer compares the two forms side by side.
+      # Pinned: under the end-state rule this job is the only producer of the
+      # decks, so an upstream Quarto release must not be able to break the build
+      # with no local signal.
       - name: Install Quarto
         uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.9.36"
 
       - name: Install the TeX packages Quarto's Beamer template needs
         run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended

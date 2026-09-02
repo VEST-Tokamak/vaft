@@ -35,10 +35,17 @@ QUARTO ?= quarto
 PILOT ?= 01_getting_started_with_vaft.qmd
 SHOW_NOTES := _extensions/vaft/vaftslides/show-notes.tex
 
-# Order matters: `--output` renames the render rather than adding a second
-# file, so the presenter build must run before the archival one or it would
-# leave only the presenter PDF behind.
+# Order matters twice over. `--output` renames the render rather than adding a
+# second file, so the presenter build must run before the archival one or it
+# would leave only the presenter PDF behind; and both Beamer targets write the
+# same intermediate .tex in the same directory, so they must not run at once.
+#
+# Order-only prerequisites (|) enforce both under `make -j` as well as serially.
+# Listing the targets in order is not enough: they are phony and independent, so
+# a parallel make is free to interleave them.
 presentations: presentations-html presentations-presenter presentations-pdf
+presentations-presenter: | presentations-html
+presentations-pdf: | presentations-presenter
 
 presentations-html:
 	cd $(PRESENTATIONS_DIR) && $(QUARTO) render $(PILOT) --to vaftslides-revealjs

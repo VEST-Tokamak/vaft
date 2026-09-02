@@ -129,8 +129,8 @@ is designed for the analysis sessions. Its headings are pinned separately in
 - **The plotting concepts are taught, not assumed.** Session 01 explains the
   `{subject}_{view}[_{quantity}]` naming grammar (issue #251) and the scientific
   display policy (issue #256) -- why an axis reads `kA` when the ODS stores
-  amperes, and what `yunit=` does. Two cells exist purely to demonstrate those
-  concepts and are exempt from the one-pattern rule.
+  amperes, and what `yunit=` does. One cell exists purely to demonstrate those
+  concepts and is exempt from the one-pattern rule.
 - **No tutorial machinery.** No exercise framework, no mode switching, no output
   directories, no repository discovery. Exercises are ordinary comment blocks a
   student edits, and nothing the notebook does depends on hidden validation.
@@ -183,13 +183,13 @@ Build all decks from the repository root with:
 make -C tutorial slides
 ```
 
-LaTeX intermediates are written to `tutorial/.build/`; only the six requested
+LaTeX intermediates are written to `tutorial/.build/`; only the five requested
 PDFs are copied into the tutorial directory and committed.
 
 Whenever you change a deck source or a figure it pulls in, rebuild that deck and
 commit the regenerated PDF in the same change. CI enforces this: it checks that
-every changed deck input ships a rebuilt PDF, then compiles all six decks from
-scratch and confirms the rebuild reproduces the committed page structure.
+every changed deck input ships a rebuilt PDF, then compiles all five Beamer
+decks from scratch and confirms the rebuild reproduces the committed page structure.
 
 The build pins `SOURCE_DATE_EPOCH` and `FORCE_SOURCE_DATE`, so rebuilding on one
 machine reproduces byte-identical PDFs. That does not hold across TeX Live

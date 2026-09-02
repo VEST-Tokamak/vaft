@@ -261,35 +261,72 @@ def _validate_notebook(
         )
 
 
-QMD_REQUIRED_FRAGMENTS = (
-    "vaftslides-revealjs",
-    "vaftslides-beamer",
-)
+QMD_REQUIRED_FORMATS = ("vaftslides-revealjs", "vaftslides-beamer")
+
+#: Quarto accepts several spellings of a notes div.
+_NOTES_DIV = re.compile(r"^:::+\s*\{?\s*\.?notes\b", re.M)
+
+
+def _front_matter(source: str) -> dict:
+    """Return the deck's YAML front matter, or {} when it has none."""
+    if not source.startswith("---"):
+        return {}
+    end = source.find("\n---", 3)
+    if end < 0:
+        return {}
+    try:
+        import yaml
+    except ModuleNotFoundError:  # pragma: no cover - yaml ships with the dev extra
+        return {}
+    try:
+        parsed = yaml.safe_load(source[3:end])
+    except yaml.YAMLError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _validate_qmd_deck(session: int, filename: str, failures: list[str]) -> None:
-    """A Quarto deck must declare both backends and carry speaker notes.
+    """A Quarto deck must render both backends and carry speaker notes.
 
-    The equivalent of the LaTeX fragment check below: it pins the properties
-    that make the source canonical for *both* outputs, so a deck cannot quietly
-    become HTML-only or lose the notes that only exist in this one source.
+    The counterpart to :func:`_validate_deck`. It parses the front matter rather
+    than grepping the file, because a substring check is satisfied by a mention
+    in prose -- a deck that had lost its ``format:`` block entirely would pass.
     """
     path = TUTORIAL / filename
     if not path.exists():
         failures.append(f"{filename}: missing Quarto deck source")
         return
     source = path.read_text(encoding="utf-8")
-    for fragment in QMD_REQUIRED_FRAGMENTS:
-        if fragment not in source:
-            failures.append(
-                f"{filename}: missing required format {fragment!r}; the QMD source "
-                "must render to both backends"
-            )
-    if "::: {.notes}" not in source:
+
+    declared = _front_matter(source).get("format")
+    if not isinstance(declared, dict):
+        failures.append(
+            f"{filename}: front matter declares no `format:` mapping; the source "
+            "must name both backends"
+        )
+    else:
+        for required in QMD_REQUIRED_FORMATS:
+            if required not in declared:
+                failures.append(
+                    f"{filename}: format {required!r} is not declared; the QMD "
+                    "source must render to both backends"
+                )
+
+    if not _NOTES_DIV.search(source):
         failures.append(
             f"{filename}: no speaker notes; they are authored once here and feed "
             "both the Reveal.js presenter view and the Beamer presenter build"
         )
+
+    # Figures are shared with the Beamer decks, so a QMD deck must reach for its
+    # own session's directory just as \graphicspath pins the .tex decks to theirs.
+    for referenced in re.findall(r"\.\./figures/(\d{2})/", source):
+        if int(referenced) != session:
+            failures.append(
+                f"{filename}: references figures/{referenced}/ but is session "
+                f"{session:02d}; decks use their own figure directory"
+            )
+
     extension = TUTORIAL / "presentations/_extensions/vaft/vaftslides/_extension.yml"
     if not extension.is_file():
         failures.append("presentations: the shared vaftslides theme is missing")
