@@ -146,7 +146,9 @@ def test_delta_prime_and_solver_status_reach_the_metrics_from_the_manifest(tmp_p
         shot=41234,
         stage_manifest=_manifest(tmp_path),
     )
-    assert [path.name for path in (tmp_path / "plot").iterdir()] == list(
+    # Directory order is unspecified (hash order on ext4, sorted on APFS), so
+    # compare the sets of names, not the order the filesystem hands them out.
+    assert sorted(path.name for path in (tmp_path / "plot").iterdir()) == sorted(
         stage_plot_filenames("mhd_linear")
     )
     metrics = manifest["metrics"]
