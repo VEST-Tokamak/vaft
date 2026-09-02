@@ -27,6 +27,7 @@ from vaft.validation.imas import (
 from vaft.validation.magnetics import (
     implausible_magnitude,
     population_peak_outliers,
+    population_peak_ratios,
     MagneticsQualityConfig,
     channel_node,
     constant_runs,
@@ -433,20 +434,29 @@ def test_the_significance_floor_keeps_a_smooth_signal_off_the_detector():
 # A channel the rest of the array contradicts
 # ---------------------------------------------------------------------------
 
-def _family(*scales: float, loops: bool = False) -> ODS:
-    waveforms = {index: _clean(scale, seed=index) for index, scale in enumerate(scales)}
-    return _ods(loops=waveforms) if loops else _ods(probes=waveforms)
+def _waveforms(*scales: float) -> dict[int, np.ndarray]:
+    return {index: _clean(scale, seed=index) for index, scale in enumerate(scales)}
+
+
+def _one_family(ods: ODS) -> ODS:
+    """Put every channel at one radius, so the whole array is one geometric
+    family and the population vote is about amplitude alone."""
+    for kind, prefix in (("b_field_pol_probe", "position"), ("flux_loop", "position.0")):
+        for index in range(len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0):
+            ods[f"magnetics.{kind}.{index}.{prefix}.r"] = 0.05 if kind == "b_field_pol_probe" else 0.10
+    return ods
 
 
 def test_a_channel_far_above_its_family_is_condemned_for_the_whole_record():
     """Four probes swinging 0.05 T and one swinging 0.5 T: the loud one is not
     louder physics, it is a fault, and no sample of it is trustworthy."""
-    report = validate_magnetics_signals(_family(0.05, 0.05, 0.05, 0.05, 0.5))
+    report = validate_magnetics_signals(_one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 0.5))))
     loud, quiet = report[4], report[:4]
     assert loud.validity == VALIDITY_INVALID
     assert loud.valid_fraction == 0.0
     assert "population_outlier" in _reasons(loud)
-    assert loud.metrics["peak_over_family_median"] == pytest.approx(10.0, rel=0.05)
+    assert loud.metrics["amplitude_over_family_median"] == pytest.approx(10.0, rel=0.05)
+    assert all(q.metrics["amplitude_over_family_median"] == pytest.approx(1.0, rel=0.05) for q in quiet)
     assert all("population_outlier" not in _reasons(q) for q in quiet)
     assert all(q.valid_fraction == 1.0 for q in quiet)
 
@@ -454,7 +464,7 @@ def test_a_channel_far_above_its_family_is_condemned_for_the_whole_record():
 def test_a_merely_loud_channel_is_left_alone():
     """2.5x the family median is inside the spread healthy VEST probes show
     (they top out at 2.6x); the factor sits above that on purpose."""
-    report = validate_magnetics_signals(_family(0.05, 0.05, 0.05, 0.05, 0.125))
+    report = validate_magnetics_signals(_one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 0.125))))
     assert all("population_outlier" not in _reasons(q) for q in report)
 
 
@@ -471,31 +481,71 @@ def test_the_physical_ceiling_needs_no_family():
 def test_flux_loops_vote_but_have_no_ceiling():
     """The tesla ceiling is a probe fact.  A loop is judged only against the
     other loops, so a lone 1.5 Wb loop is simply a loop."""
-    report = validate_magnetics_signals(_family(0.05, 0.05, 0.05, 0.05, 1.5, loops=True))
+    report = validate_magnetics_signals(_one_family(_ods(loops=_waveforms(0.05, 0.05, 0.05, 0.05, 1.5))))
     assert "population_outlier" in _reasons(report[4])
     assert "implausible_magnitude" not in _reasons(report[4])
     assert _only(_ods(loops={0: _clean(1.5)})).validity == VALIDITY_VALID
 
 
 def test_two_channels_cannot_form_a_population():
-    report = validate_magnetics_signals(_family(0.05, 0.5))
+    report = validate_magnetics_signals(_one_family(_ods(probes=_waveforms(0.05, 0.5))))
     assert all("population_outlier" not in _reasons(q) for q in report)
 
 
 def test_both_detectors_can_be_switched_off():
-    off = MagneticsQualityConfig(max_plausible_field=None, population_peak_factor=None)
-    report = validate_magnetics_signals(_family(0.05, 0.05, 0.05, 0.05, 2.0), config=off)
+    off = MagneticsQualityConfig(max_plausible_amplitude={}, population_peak_factor=None)
+    report = validate_magnetics_signals(_one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 2.0))), config=off)
     assert all(q.validity == VALIDITY_VALID for q in report)
 
 
 def test_the_pure_detectors_agree_with_their_definitions():
-    assert implausible_magnitude(np.array([0.1, -1.2, 0.3]), 1.0)
-    assert not implausible_magnitude(np.array([0.1, -0.9, np.nan]), 1.0)
-    assert not implausible_magnitude(np.array([5.0]), None)
-    peaks = {"a": 1.0, "b": 1.2, "c": 0.9, "d": 6.0}
-    assert population_peak_outliers(peaks, 4.0) == {"d"}
+    assert implausible_magnitude(1.2, 1.0)
+    assert not implausible_magnitude(0.9, 1.0)
+    assert not implausible_magnitude(float("nan"), 1.0)
+    assert not implausible_magnitude(5.0, None)
+    amplitudes = {"a": 1.0, "b": 1.2, "c": 0.9, "d": 6.0}
+    assert population_peak_ratios(amplitudes)["d"] == pytest.approx(6.0 / 1.1)
+    assert population_peak_outliers(amplitudes, 4.0) == {"d"}
     assert population_peak_outliers({"a": 1.0, "b": 9.0}, 4.0) == set()
-    assert population_peak_outliers(peaks, None) == set()
+    assert population_peak_outliers(amplitudes, None) == set()
+
+
+def test_a_dead_majority_cannot_condemn_the_living():
+    """Six flatlined loops at a DC offset and five healthy ones: the dead do
+    not vote, so the median is the healthy median and nobody is condemned."""
+    dead = {index: np.full(N_TIME, 1.0e-4) for index in range(6)}
+    alive = {index: _clean(0.03, seed=index) for index in range(6, 11)}
+    report = validate_magnetics_signals(_one_family(_ods(loops={**dead, **alive})))
+    assert all("population_outlier" not in _reasons(q) for q in report)
+    assert all(report[i].valid_fraction == 1.0 for i in range(6, 11))
+    assert all(report[i].valid_fraction == 0.0 for i in range(6))
+
+
+def test_one_glitch_sample_does_not_condemn_a_record():
+    """A single 6x sample is a spike -- reported, soft -- not a gain fault.
+    The amplitude the population judges is a 99th percentile, not a max."""
+    waveforms = _waveforms(0.05, 0.05, 0.05, 0.05, 0.05)
+    waveforms[4] = waveforms[4].copy()
+    waveforms[4][N_TIME // 2] = 0.3
+    report = validate_magnetics_signals(_one_family(_ods(probes=waveforms)))
+    assert "spike" in _reasons(report[4])
+    assert "population_outlier" not in _reasons(report[4])
+    assert report[4].validity == VALIDITY_VALID
+
+
+def test_a_generator_of_kinds_still_gets_the_population_review():
+    ods = _one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 0.5)))
+    report = validate_magnetics_signals(ods, kinds=(k for k in ("b_field_pol_probe",)))
+    assert "population_outlier" in _reasons(report[4])
+
+
+def test_both_causes_and_the_seed_are_all_named():
+    ods = _one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 2.0)))
+    ods["magnetics.b_field_pol_probe.4.voltage.validity"] = VALIDITY_INVALID
+    loud = validate_magnetics_signals(ods)[4]
+    assert "physical ceiling" in loud.reason
+    assert "median" in loud.reason
+    assert "seeded from an invalid raw voltage" in loud.reason
 
 
 @pytest.fixture(scope="module")
@@ -543,9 +593,22 @@ def test_the_one_probe_the_population_contradicts_is_rejected_outright(packaged)
     (probe,) = condemned
     assert probe.validity == VALIDITY_INVALID
     assert {"implausible_magnitude", "population_outlier"} <= _reasons(probe)
-    assert probe.metrics["peak_abs"] > 1.0
-    assert probe.metrics["peak_over_family_median"] > 20.0
+    assert probe.metrics["amplitude"] > 1.0
+    assert probe.metrics["amplitude_over_family_median"] > 20.0
     assert "physical ceiling" in probe.reason
+
+
+def test_the_population_margin_holds_on_the_packaged_shot(packaged):
+    """The justification for a hard threshold, kept under test: within every
+    geometric family the healthiest channel sits well below the factor and
+    the condemned one far above it."""
+    _ods_, report = packaged
+    factor = MagneticsQualityConfig().population_peak_factor
+    voters = [q for q in report if "amplitude_over_family_median" in q.metrics]
+    healthy = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction > 0.0]
+    condemned = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction == 0.0]
+    assert max(healthy) < 0.75 * factor
+    assert min(condemned) > 5.0 * factor
 
 
 def test_the_packaged_shot_stops_measuring_at_0_34_seconds(packaged):
@@ -647,7 +710,7 @@ def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
 
     try:
         path = vaft.data.sample(shot, "imas")
-    except Exception:  # repository-only artifact
+    except (ValueError, FileNotFoundError):  # repository-only artifact
         pytest.skip(f"sample {shot} is not available in this checkout")
     report = validate_magnetics_signals(vaft.omas.load(path))
     condemned = [
