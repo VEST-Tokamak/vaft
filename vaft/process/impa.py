@@ -105,6 +105,7 @@ optional ``reference`` argument.  It is never required by the single-shot path.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -135,6 +136,7 @@ __all__ = [
     "remove_bz_crosstalk",
     "remove_tf_pickup",
     "toroidal_field",
+    "grade_impa_quality",
     "validate_impa",
 ]
 
@@ -962,7 +964,7 @@ def _worst(*states: str) -> str:
     return max(states, key=lambda state: order[state])
 
 
-def validate_impa(
+def grade_impa_quality(
     time: np.ndarray,
     raw: np.ndarray,
     b_measured: np.ndarray,
@@ -982,7 +984,15 @@ def validate_impa(
     crosstalk: ImpaCrosstalkFit | None = None,
     min_crosstalk_r_squared: float = 0.8,
 ) -> ImpaQuality:
-    """Grade one processed IMPA shot as ``valid``/``warning``/``invalid``."""
+    """Grade one processed IMPA shot as ``valid``/``warning``/``invalid``.
+
+    Renamed from ``validate_impa`` (issue #337): ``vaft.process`` transforms and
+    infers, and does not reach verdicts.  This *is* a verdict -- source validity,
+    the same question :mod:`vaft.validation.magnetics` answers for magnetics --
+    so the rename is a holding action.  #339 moves the grading itself into
+    ``vaft.validation.impa`` and onto the shared status vocabulary; the fitting
+    and compensation kernels stay here, where they belong.
+    """
     checks: dict[str, str] = {}
     reasons: list[str] = list(window_reasons)
     time = np.asarray(time, dtype=float)
@@ -1140,6 +1150,18 @@ def validate_impa(
 # --------------------------------------------------------------------------
 # orchestration
 # --------------------------------------------------------------------------
+def validate_impa(*args: Any, **kwargs: Any) -> ImpaQuality:
+    """Deprecated compatibility wrapper for :func:`grade_impa_quality`."""
+    warnings.warn(
+        "vaft.process.validate_impa() is deprecated; use grade_impa_quality(). "
+        "vaft.process does not reach verdicts (issues #253, #337); the grading "
+        "itself moves to vaft.validation.impa under #339.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return grade_impa_quality(*args, **kwargs)
+
+
 def process_impa(
     time: np.ndarray,
     raw: np.ndarray,
@@ -1311,7 +1333,7 @@ def process_impa(
             )
             b_z_corrected = remove_bz_crosstalk(b_z_raw, b_measured, crosstalk)
 
-    quality = validate_impa(
+    quality = grade_impa_quality(
         time,
         raw,
         b_measured,

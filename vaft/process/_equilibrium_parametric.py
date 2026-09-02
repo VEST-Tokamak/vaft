@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import re
+import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
@@ -300,7 +301,20 @@ def as_equilibrium(
     return _from_ods(source, time_index, profile_index, convention)
 
 
-def validate_equilibrium(equilibrium: EquilibriumData, *, required_for: str = "general") -> ValidationReport:
+def check_equilibrium_requirements(
+    equilibrium: EquilibriumData, *, required_for: str = "general"
+) -> ValidationReport:
+    """Whether ``equilibrium`` carries what ``required_for`` needs to run.
+
+    A **precondition**, not a scientific verdict (issue #337): it answers "can
+    the global / Miller / edge / Solovev algorithms be applied to this input?",
+    which is why the answer depends on ``required_for`` -- the same equilibrium
+    is sufficient for one and not another.  Whether the equilibrium is
+    *credible* is a different question, asked by ``vaft.validation`` (#72).
+
+    Renamed from ``validate_equilibrium``, which read as the latter and is now
+    the name of the latter.
+    """
     issues: list[ValidationIssue] = []
     if equilibrium.psi is not None and equilibrium.r is not None and equilibrium.z is not None:
         expected = (equilibrium.r.size, equilibrium.z.size)
@@ -327,6 +341,20 @@ def validate_equilibrium(equilibrium: EquilibriumData, *, required_for: str = "g
             f"{equilibrium.convention.identified}; the declaration is being used as given",
         ))
     return ValidationReport(tuple(issues))
+
+
+def validate_equilibrium(
+    equilibrium: EquilibriumData, *, required_for: str = "general"
+) -> ValidationReport:
+    """Deprecated compatibility wrapper for :func:`check_equilibrium_requirements`."""
+    warnings.warn(
+        "vaft.process.validate_equilibrium() is deprecated; use "
+        "check_equilibrium_requirements(). The name now belongs to the scientific "
+        "equilibrium assessment in vaft.validation (issues #253, #337).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return check_equilibrium_requirements(equilibrium, required_for=required_for)
 
 
 def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> EquilibriumData:
@@ -476,7 +504,7 @@ def derive_global_descriptors(
     equilibrium: Any, *, rational_q: Sequence[float] = (1.0, 1.5, 2.0, 3.0),
 ) -> GlobalEquilibriumDescriptors:
     eq = as_equilibrium(equilibrium)
-    validation = validate_equilibrium(eq, required_for="global")
+    validation = check_equilibrium_requirements(eq, required_for="global")
     values: dict[str, DerivedValue] = {}
     direct = {
         "ip": (eq.ip, "A", "source plasma current", ("ip",)),
@@ -1460,5 +1488,6 @@ __all__ = [
     "as_equilibrium", "convert_cocos", "derive_boundary_representation",
     "derive_global_descriptors", "derive_radial_coordinates", "evaluate_miller",
     "evaluate_solovev", "fit_miller_sequence", "fit_miller_surface",
-    "solovev_to_equilibrium", "solve_solovev_constraints", "validate_equilibrium",
+    "solovev_to_equilibrium", "solve_solovev_constraints",
+    "check_equilibrium_requirements", "validate_equilibrium",
 ]

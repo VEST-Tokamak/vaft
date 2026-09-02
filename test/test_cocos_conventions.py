@@ -637,14 +637,14 @@ def test_a_declared_convention_the_data_contradicts_is_reported_not_trusted_sile
     """
     from vaft.data.eqdsk import read_geqdsk
     from vaft.data.resources import data_path, require_repository_sample
-    from vaft.process.equilibrium import as_equilibrium, validate_equilibrium
+    from vaft.process.equilibrium import as_equilibrium, check_equilibrium_requirements
 
     equilibrium = as_equilibrium(read_geqdsk(require_repository_sample(data_path("efit/g040330.00320"))))
     assert equilibrium.convention.cocos == 2
     assert equilibrium.convention.identified == (7, 8)
     assert equilibrium.convention.contradicted
 
-    issues = {item.code: item for item in validate_equilibrium(equilibrium).issues}
+    issues = {item.code: item for item in check_equilibrium_requirements(equilibrium).issues}
     assert "cocos_declared_conflicts_with_signs" in issues
     message = issues["cocos_declared_conflicts_with_signs"].message
     assert "COCOS 2 is declared" in message and "(7, 8)" in message
@@ -663,12 +663,12 @@ def test_an_explicit_convention_that_contradicts_the_file_is_also_reported():
 
 def test_a_consistent_declaration_is_not_flagged():
     from vaft.data.resources import sample_geqdsk
-    from vaft.process.equilibrium import as_equilibrium, validate_equilibrium
+    from vaft.process.equilibrium import as_equilibrium, check_equilibrium_requirements
 
     for cocos in (1, 2):
         equilibrium = as_equilibrium(sample_geqdsk(), convention=cocos)
         assert not equilibrium.convention.contradicted, cocos
-        codes = {item.code for item in validate_equilibrium(equilibrium).issues}
+        codes = {item.code for item in check_equilibrium_requirements(equilibrium).issues}
         assert "cocos_declared_conflicts_with_signs" not in codes, cocos
 
 

@@ -21,7 +21,7 @@ from vaft.process.impa import (
     process_impa,
     remove_tf_pickup,
     toroidal_field,
-    validate_impa,
+    grade_impa_quality,
 )
 
 MU0 = 4.0e-7 * np.pi
@@ -359,10 +359,10 @@ def test_missing_channels_are_reported_and_never_silently_zero_filled():
     assert any("unavailable" in reason for reason in result.quality.reasons)
 
 
-def test_validate_impa_escalates_a_dead_channel_to_invalid():
+def test_grade_impa_quality_escalates_a_dead_channel_to_invalid():
     time = _time(1_000)
     raw = np.ones((2, time.size))
-    quality = validate_impa(
+    quality = grade_impa_quality(
         time,
         raw,
         raw,
