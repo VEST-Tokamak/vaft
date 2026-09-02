@@ -66,3 +66,19 @@ def test_products_without_an_assessment_fall_back_to_the_amplitude_detector():
     ods = _array()
     assert MODULE._condemned_by_diagnostics_stage(ods) is None
     assert MODULE._resolve_broken(ods, [3], detect=True) == [3, 26]
+
+
+def test_condemned_flux_loops_are_listed_at_the_legacy_offset():
+    from vaft.validation.imas import write_validity
+
+    ods = _array(n=4)
+    for index in range(4):
+        write_validity(ods, f"magnetics.b_field_pol_probe.{index}.field", [0] * 2500, scalar=0)
+    time = np.linspace(0.26, 0.36, 2500)
+    for index in range(2):
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.zeros(2500)
+        ods[f"magnetics.flux_loop.{index}.flux.time"] = time
+    write_validity(ods, "magnetics.flux_loop.0.flux", [0] * 2500, scalar=0)
+    write_validity(ods, "magnetics.flux_loop.1.flux", [-2] * 2500, scalar=-2)
+    # flux loop 1 -> legacy index 1 + nbprobe(4) = 5, one-based 6
+    assert MODULE._condemned_by_diagnostics_stage(ods) == [6]

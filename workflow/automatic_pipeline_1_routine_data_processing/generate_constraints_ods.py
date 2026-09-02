@@ -73,30 +73,35 @@ def _detect_broken_bpol_probes(ods, *, threshold: float = 12.0) -> list[int]:
 
 
 def _condemned_by_diagnostics_stage(ods) -> list[int] | None:
-    """One-based probe indexes the diagnostics stage marked invalid, or ``None``
+    """One-based legacy indexes the diagnostics stage condemned, or ``None``
     when the magnetics carry no assessment at all.
 
     Since #189/#343 the diagnostics stage assesses every channel and projects
-    the verdict into ``field.validity``; ``vaft.code.efit.kfile`` folds those
-    channels into the legacy ``broken`` list on its own. When that projection
-    is present, the amplitude detector below is redundant and must not vote --
-    two detectors disagreeing on one channel is worse than one. It stays only
-    as a fallback for products that predate the assessment.
+    the verdict into the native validity nodes; ``vaft.code.efit.kfile`` folds
+    those channels into the legacy ``broken`` list on its own, flux loops at
+    ``index + nbprobe``. The list here comes from kfile's own rule so the log
+    names exactly what the writer will exclude. When an assessment is present
+    the amplitude detector below is redundant and must not vote -- two
+    detectors disagreeing on one channel is worse than one. It stays only as a
+    fallback for products that predate the assessment.
     """
-    from vaft.validation.imas import VALIDITY_VALID, read_validity
+    from vaft.code.efit.kfile import _condemned_channels
+    from vaft.validation.imas import read_validity
 
-    kind = "b_field_pol_probe"
-    count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
     assessed = False
-    condemned: list[int] = []
-    for index in range(count):
-        validity = read_validity(ods, f"magnetics.{kind}.{index}.field")
-        if validity is None:
-            continue
-        assessed = True
-        if int(validity) < VALIDITY_VALID:
-            condemned.append(index + 1)
-    return condemned if assessed else None
+    for kind, quantity in (("b_field_pol_probe", "field"), ("flux_loop", "flux")):
+        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
+        if any(
+            read_validity(ods, f"magnetics.{kind}.{index}.{quantity}") is not None
+            for index in range(count)
+        ):
+            assessed = True
+            break
+    if not assessed:
+        return None
+    nbprobe = len(ods["magnetics.b_field_pol_probe"]) if "magnetics.b_field_pol_probe" in ods else 0
+    # kfile works zero-based and converts the script's one-based list itself.
+    return sorted(index + 1 for index in _condemned_channels(ods, nbprobe))
 
 
 def _resolve_broken(ods, explicit: list[int], *, detect: bool) -> list[int]:
@@ -112,7 +117,8 @@ def _resolve_broken(ods, explicit: list[int], *, detect: bool) -> list[int]:
         if condemned is not None:
             LOGGER.info(
                 "magnetics carry a diagnostics-stage assessment; kfile folds its "
-                "condemned probes %s into broken -- amplitude detector not run",
+                "condemned channels %s (one-based, flux loops offset by the probe "
+                "count) into broken -- amplitude detector not run",
                 condemned,
             )
         else:
