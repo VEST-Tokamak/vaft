@@ -801,6 +801,10 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfac
     is available to the database summary under its own name, and #318 owns the
     sensitivity study of the two. Do not "fix" the leaf by matching OMFIT.
 
+    ``R_0`` comes from :func:`resolve_reference_major_radius`, not straight from
+    ``vacuum_toroidal_field.r0``: on the VEST database that leaf is corrupt and
+    would inflate ``beta_pol`` and ``li_3`` by 1.15-2.1x.
+
     ``B0`` is ``vacuum_toroidal_field.b0``, as the DD says. That does not
     reproduce the reference's ``beta_tor`` (ratio 1.041, and the field that would
     match is 0.1539 T against a stored 0.1509 T); OMFIT's reference field is
@@ -834,7 +838,7 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfac
             continue
         ts = frame["ts"]
 
-        r0 = _scalar_or_nan(ods, "equilibrium.vacuum_toroidal_field.r0")
+        r0 = resolve_reference_major_radius(ods)
         b0 = _time_indexed_scalar(ods, "equilibrium.vacuum_toroidal_field.b0", idx)
         ip = _scalar_or_nan(ts, "global_quantities.ip")
         if not np.isfinite(r0) or r0 <= 0.0 or not np.isfinite(b0) or b0 == 0.0:
@@ -976,6 +980,84 @@ def _surface_line_integrals(idx, frame, surfaces=None):
         logger.warning("bp_dl is not finite for time slice %s; skipping li_3.", idx)
         return None
     return float(np.asarray(surfaces["length_pol"], float)[-1]), bp_dl
+
+
+
+def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
+    """``R_0`` for the DD global quantities, cross-checked against the TF IDS.
+
+    ``beta_pol`` and ``li_3`` both divide by ``R_0``, which the DD takes from
+    ``equilibrium.vacuum_toroidal_field.r0``. On the VEST database that leaf is
+    not trustworthy: every shot sampled from HSDS stores an ``r0`` between 0.19
+    and 0.35 while ``tf.r0`` is 0.4, and the two disagree about the physics --
+    on shot 39915 the equilibrium's ``b0*r0`` is 0.0347 T.m against ``tf``'s
+    0.0601 T.m. ``b0`` alone (0.1498 T) matches ``tf``'s field at R = 0.4, so
+    ``r0`` is the corrupt half of the pair and the scalars come out 1.15-2.1x
+    too large.
+
+    ``b0 * r0`` is the physical invariant, so that product is what is compared:
+    when it disagrees with ``tf.b_field_tor_vacuum_r`` by more than a few percent
+    the equilibrium's ``r0`` is rejected in favour of ``tf.r0``, loudly. With no
+    ``tf`` to check against the equilibrium's own value stands -- this detects a
+    known corruption, it does not overrule a machine that genuinely has a
+    different reference radius.
+
+    Fixing the reader does not fix the database; the pipeline that writes
+    ``vacuum_toroidal_field`` is where that belongs, and issue #325 owns it.
+    """
+    equilibrium_r0 = _scalar_or_nan(ods, "equilibrium.vacuum_toroidal_field.r0")
+    tf_r0 = _scalar_or_nan(ods, "tf.r0")
+    if not np.isfinite(tf_r0) or tf_r0 <= 0.0:
+        return equilibrium_r0
+    if not np.isfinite(equilibrium_r0) or equilibrium_r0 <= 0.0:
+        logger.warning(
+            "equilibrium.vacuum_toroidal_field.r0 is unusable (%s); using tf.r0 = %.4f m.",
+            equilibrium_r0,
+            tf_r0,
+        )
+        return tf_r0
+
+    tf_field_radius = _finite_median(ods, "tf.b_field_tor_vacuum_r.data")
+    b0 = _finite_median(ods, "equilibrium.vacuum_toroidal_field.b0")
+    if not np.isfinite(tf_field_radius) or not np.isfinite(b0) or tf_field_radius == 0.0:
+        return equilibrium_r0
+
+    equilibrium_field_radius = b0 * equilibrium_r0
+    if abs(equilibrium_field_radius - tf_field_radius) <= _TF_CONSISTENCY_TOLERANCE * abs(
+        tf_field_radius
+    ):
+        return equilibrium_r0
+
+    logger.warning(
+        "equilibrium.vacuum_toroidal_field is inconsistent with tf: b0*r0 = %.5f T.m "
+        "(b0 = %.5f T, r0 = %.5f m) against tf's %.5f T.m. Using tf.r0 = %.4f m for R_0; "
+        "the stored r0 is the half that disagrees.",
+        equilibrium_field_radius,
+        b0,
+        equilibrium_r0,
+        tf_field_radius,
+        tf_r0,
+    )
+    return tf_r0
+
+
+#: How far ``b0*r0`` may sit from ``tf``'s ``B*R`` before the equilibrium's ``r0``
+#: is rejected. The corruption this catches is a factor of 1.15-2.1, so a few
+#: percent separates it from ordinary disagreement between two measurements of
+#: the same field.
+_TF_CONSISTENCY_TOLERANCE = 0.05
+
+
+def _finite_median(node, path) -> float:
+    """Median of the finite entries of a possibly time-dependent leaf."""
+    try:
+        values = np.asarray(node[path], float).reshape(-1)
+    except Exception:
+        return float("nan")
+    finite = values[np.isfinite(values)]
+    if not finite.size:
+        return float("nan")
+    return float(np.median(finite))
 
 
 def update_equilibrium_derived_profiles(ods, time_slice=None):

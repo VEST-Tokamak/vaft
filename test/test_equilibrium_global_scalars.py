@@ -257,3 +257,73 @@ def test_the_flux_surfaces_are_traced_once_not_twice():
     right = standalone["equilibrium.time_slice.0.global_quantities"]
     for leaf in ("beta_pol", "beta_tor", "beta_normal", "li_3", "length_pol"):
         assert float(left[leaf]) == float(right[leaf]), leaf
+
+
+# --- the reference major radius the DD scalars divide by ----------------------
+
+
+def _minimal_ods(equilibrium_r0, equilibrium_b0, tf_r0=None, tf_b_r=None):
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.vacuum_toroidal_field.r0"] = equilibrium_r0
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([equilibrium_b0])
+    if tf_r0 is not None:
+        ods["tf.r0"] = tf_r0
+    if tf_b_r is not None:
+        ods["tf.b_field_tor_vacuum_r.data"] = np.full(8, tf_b_r)
+    return ods
+
+
+def test_a_stored_r0_that_disagrees_with_tf_is_rejected(caplog):
+    """The VEST database stores an `equilibrium.vacuum_toroidal_field.r0` between
+    0.19 and 0.35 on every shot sampled, while `tf.r0` is 0.4 -- and the two
+    disagree about `B*R`, which is the physical invariant. `b0` alone matches
+    `tf`'s field at 0.4, so `r0` is the corrupt half. `beta_pol` and `li_3` both
+    divide by R_0, so trusting it inflates them by 1.15-2.1x.
+    """
+    from vaft.omas.update import resolve_reference_major_radius
+
+    # Shot 39915 as the database actually holds it.
+    ods = _minimal_ods(0.231317, 0.149799, tf_r0=0.4, tf_b_r=0.060704)
+    with caplog.at_level("WARNING", logger="vaft.omas.update"):
+        assert resolve_reference_major_radius(ods) == pytest.approx(0.4)
+    assert "inconsistent with tf" in caplog.text
+    assert "0.231" in caplog.text and "0.4" in caplog.text
+
+
+def test_a_consistent_stored_r0_is_kept(caplog):
+    """This detects one known corruption; it does not overrule a machine whose
+    reference radius genuinely differs from its TF geometry."""
+    from vaft.omas.update import resolve_reference_major_radius
+
+    # b0*r0 == tf's B*R, so nothing is wrong and the equilibrium's own value stands.
+    ods = _minimal_ods(0.6, 0.1, tf_r0=0.4, tf_b_r=0.06)
+    with caplog.at_level("WARNING", logger="vaft.omas.update"):
+        assert resolve_reference_major_radius(ods) == pytest.approx(0.6)
+    assert "inconsistent" not in caplog.text
+
+
+def test_without_tf_the_stored_r0_stands():
+    """No cross-check available is not evidence of corruption."""
+    from vaft.omas.update import resolve_reference_major_radius
+
+    assert resolve_reference_major_radius(
+        _minimal_ods(0.231317, 0.149799)
+    ) == pytest.approx(0.231317)
+
+
+def test_the_packaged_sample_is_unaffected_by_the_cross_check():
+    """Its r0 is already 0.4, so the guard must be a no-op there -- a fix for bad
+    data must not move good data."""
+    from vaft.omas.sample import sample_ods
+    from vaft.omas.update import resolve_reference_major_radius
+
+    try:
+        ods = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged
+        pytest.skip(f"39915 sample unavailable: {exc}")
+
+    stored = float(np.asarray(ods["equilibrium.vacuum_toroidal_field.r0"], float).ravel()[0])
+    assert stored == pytest.approx(0.4)
+    assert resolve_reference_major_radius(ods) == pytest.approx(stored)

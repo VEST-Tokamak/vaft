@@ -361,9 +361,15 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         )
         virial = _virial_values(virial_outputs, index)
         source_b0 = _value_at(b0_source, index)
+        # r0_source is the leaf the VEST database gets wrong, and rescaling a
+        # correct b0 by it lands vacuum_b0_T off by the same 1.15-2.1x that it
+        # cost beta_pol and li_3. Cross-check it against tf the same way.
+        reference_r0 = vaft.omas.resolve_reference_major_radius(ods)
+        if not np.isfinite(reference_r0):
+            reference_r0 = r0_source
         normalized_b0 = (
-            source_b0 * r0_source / VACUUM_REFERENCE_RADIUS_M
-            if np.isfinite(source_b0) and np.isfinite(r0_source)
+            source_b0 * reference_r0 / VACUUM_REFERENCE_RADIUS_M
+            if np.isfinite(source_b0) and np.isfinite(reference_r0)
             else np.nan
         )
         row = {
