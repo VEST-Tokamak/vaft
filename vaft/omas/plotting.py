@@ -25,7 +25,6 @@ from __future__ import annotations
 import warnings
 from typing import Any, Sequence
 
-from vaft.plot.registry import available_plots as _registry_available_plots
 from vaft.plot.models import Panels
 from vaft.plot.registry import get_spec, specs
 from vaft.plot.renderers.panels import render_panels
@@ -36,7 +35,6 @@ from vaft.plot._migration import (
 from ._plot_recipes import (
     build_model,
     diagnoses_itself,
-    entry_supports,
     extract_labels_from_odc,
     missing_required_path,
     normalize_entries,
@@ -164,21 +162,31 @@ def _refuse_when_unsupported(name: str, entries: Sequence[tuple[str, Any]]) -> N
     )
 
 
-def available_plots(source: Any = None, **filters: Any) -> tuple[dict[str, Any], ...]:
-    """Describe the plots available here, optionally filtered by an object.
+def available_plots(
+    source: Any = None,
+    *,
+    query: str | None = None,
+    detail: bool = False,
+    available_only: bool | None = None,
+    **filters: Any,
+):
+    """What can be plotted, as a semantic catalog (issue #262).
 
-    Without ``source`` this mirrors :func:`vaft.plot.available_plots`.  With an
-    ``ODS``, ``ODC`` or list, only the rows whose required data is actually
-    present are returned.
+    Without ``source`` this is :func:`vaft.plot.available_plots` plus what the
+    recipes declare: display units, layouts, analysis methods, overview
+    members.  With an ``ODS``, ``ODC`` or list, the catalog holds the plots
+    whose required data is actually present -- decided by the same test
+    :func:`render` applies -- and, for multi-channel plots, the channel counts,
+    regions and representatives the selection policy finds there.  Pass
+    ``available_only=False`` to keep the unavailable plots with their reasons.
+
+    The catalog prints as a tree; iterate it for records, which still answer
+    ``row["name"]`` like the flat rows they replace.
     """
-    rows = _registry_available_plots(**filters)
-    if source is None:
-        return rows
-    entries = normalize_entries(source, label="key")
-    return tuple(
-        row
-        for row in rows
-        if any(entry_supports(ods, row["name"]) for _, ods in entries)
+    from .discovery import describe
+
+    return describe(
+        source, query=query, detail=detail, available_only=available_only, **filters
     )
 
 
