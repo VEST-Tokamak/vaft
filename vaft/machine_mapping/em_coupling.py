@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import warnings
+
 import numpy as np
 from omas import ODS
 
@@ -118,6 +120,45 @@ def _resolve_reference(source: str | Path | None, options: dict | None) -> Path:
     return path
 
 
+#: Relative asymmetry max|M - M^T| / max|M| above which a passive-passive
+#: coupling matrix is reported. Reciprocity requires M_ij == M_ji exactly;
+#: float64 round-off in a stored matrix sits near 1e-15, so anything above
+#: this is a defect in the asset, not noise. The packaged asset reads 1.27e-3
+#: (issue #347), which is why loading it warns until it is regenerated.
+PASSIVE_COUPLING_ASYMMETRY_WARN = 1.0e-6
+#: Above this the matrix is not plausibly a mutual-inductance matrix at all,
+#: and averaging it into symmetry would manufacture physics; refuse instead.
+PASSIVE_COUPLING_ASYMMETRY_REJECT = 1.0e-1
+
+
+def _symmetrize_passive_coupling(mutual_pp: np.ndarray, *, source: str) -> tuple[np.ndarray, float]:
+    """Enforce reciprocity on the passive-passive coupling and report how far off it was.
+
+    Returns the symmetrized matrix and the measured relative asymmetry of the
+    input, so the caller can record the correction as provenance rather than
+    apply it silently.
+    """
+    scale = float(np.max(np.abs(mutual_pp))) if mutual_pp.size else 0.0
+    asymmetry = (
+        float(np.max(np.abs(mutual_pp - mutual_pp.T))) / scale if scale > 0.0 else 0.0
+    )
+    if asymmetry > PASSIVE_COUPLING_ASYMMETRY_REJECT:
+        raise ValueError(
+            f"{source}: mutual_passive_passive has relative asymmetry "
+            f"{asymmetry:.3g} (> {PASSIVE_COUPLING_ASYMMETRY_REJECT:g}); that is not a "
+            "mutual-inductance matrix and will not be symmetrized into one"
+        )
+    if asymmetry > PASSIVE_COUPLING_ASYMMETRY_WARN:
+        warnings.warn(
+            f"{source}: mutual_passive_passive violates reciprocity by "
+            f"{asymmetry:.3g} (max |M - M^T| / max |M|); symmetrized to (M + M^T)/2 "
+            "on load. See issue #347.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return (mutual_pp + mutual_pp.T) / 2.0, asymmetry
+
+
 def em_coupling(
     ods: Any,
     source: str | Path | None = None,
@@ -163,6 +204,15 @@ def em_coupling(
             "Reference mutual_passive_passive matrix has incompatible shape "
             f"{mutual_pp.shape}; expected ({n_passive}, {n_passive})"
         )
+    # Reciprocity is a property of the physics, not of the file the matrix came
+    # from, so it is enforced on whichever source won above (issue #347).
+    mutual_pp, passive_asymmetry = _symmetrize_passive_coupling(
+        mutual_pp,
+        source=(
+            "reference ODS" if "em_coupling.mutual_passive_passive" in reference
+            else str(DEFAULT_VERSIONED_COUPLING.name)
+        ),
+    )
     _validate_coordinate_order(
         ods,
         reference,
@@ -183,6 +233,14 @@ def em_coupling(
     ods["em_coupling.ids_properties.comment"] = (
         "VEST electromagnetic coupling for PF geometry "
         f"{geometry_version}; selected for shot {shot if shot is not None else 'unspecified'}"
+        "; mutual_passive_passive symmetrized to (M + M^T)/2 on load"
+        f" (input asymmetry {passive_asymmetry:.3g})"
+    )
+    # DD-sanctioned home for the numeric record, so a consumer can see how far
+    # the stored asset was from reciprocity without re-reading the asset.
+    ods["em_coupling.code.parameters"] = (
+        f"passive_passive_symmetrized=true\n"
+        f"passive_passive_input_asymmetry={passive_asymmetry:.6e}\n"
     )
     # em_coupling has no dynamic counterpart in VAFT, so per the DD's
     # `homogeneous_time` rule ("if only constant or static nodes are filled,
