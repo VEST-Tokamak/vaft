@@ -55,6 +55,11 @@ def axis_label(label: str, unit: str = "") -> str:
 #: cover the data it describes, so the axes states the count instead.
 LEGEND_MAX_ENTRIES = 8
 
+#: Matplotlib group ids marking what the legend policy itself placed, so a
+#: repeated draw into the same axes can replace them rather than pile up.
+_POLICY_LEGEND_GID = "vaft-legend"
+_COUNT_NOTE_GID = "vaft-legend-count"
+
 
 def trace_labels(series_list) -> tuple[list[str], str | None]:
     """Legend text for each trace, and a legend title, from structured identity.
@@ -67,17 +72,21 @@ def trace_labels(series_list) -> tuple[list[str], str | None]:
     """
     entries = {s.entry for s in series_list if s.entry}
     channels = {s.channel for s in series_list if s.channel}
+    # A channel may be stated once, as the legend title, only when every trace
+    # actually has that channel.  Deciding from the non-empty channels alone
+    # would let a trace with no channel of its own borrow another's.
+    one_shared_channel = len(channels) == 1 and all(s.channel for s in series_list)
     labels = []
     for s in series_list:
         if not (s.entry or s.channel):
             labels.append(s.label)
         elif len(entries) <= 1:
             labels.append(s.channel or s.label)
-        elif len(channels) <= 1:
+        elif one_shared_channel:
             labels.append(s.entry)
         else:
-            labels.append(f"{s.entry} \u00b7 {s.channel}")
-    title = next(iter(channels)) if len(entries) > 1 and len(channels) == 1 else None
+            labels.append(f"{s.entry} \u00b7 {s.channel}" if s.channel else s.entry)
+    title = next(iter(channels)) if len(entries) > 1 and one_shared_channel else None
     return labels, title
 
 
@@ -88,22 +97,33 @@ def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) ->
     up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
     trace count.  ``True`` forces a legend, ``False`` suppresses it.
     """
+    # Decide afresh from everything now on the axes.  A caller may draw into
+    # the same axes more than once, so whatever this policy placed last time --
+    # a legend or a count note -- is removed first; otherwise a second draw
+    # would stack a second note on the first, or leave a stale legend beside one.
+    for text in list(axes.texts):
+        if text.get_gid() == _COUNT_NOTE_GID:
+            text.remove()
+    existing = axes.get_legend()
+    if existing is not None and existing.get_gid() == _POLICY_LEGEND_GID:
+        existing.remove()
+
     handles, labels = axes.get_legend_handles_labels()
     count = len(handles)
     if legend is False or count == 0:
         return
     if legend is True:
-        axes.legend(loc="best", title=title, fontsize="small")
+        axes.legend(loc="best", title=title, fontsize="small").set_gid(_POLICY_LEGEND_GID)
         return
     if count <= 1:
         return
     if count > LEGEND_MAX_ENTRIES:
         axes.text(
             0.99, 0.97, f"{count} traces", transform=axes.transAxes,
-            ha="right", va="top", fontsize="small", alpha=0.7,
+            ha="right", va="top", fontsize="small", alpha=0.7, gid=_COUNT_NOTE_GID,
         )
         return
-    axes.legend(loc="best", title=title, fontsize="small")
+    axes.legend(loc="best", title=title, fontsize="small").set_gid(_POLICY_LEGEND_GID)
 
 
 def resolve_axes(

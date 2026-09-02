@@ -365,3 +365,42 @@ def test_empty_subject_and_quantity_are_never_rendered():
         assert "subject=" not in rendered and "quantity=" not in rendered
         assert "''" not in rendered and "None" not in rendered, (name, rendered)
         plt.close(figure)
+
+
+def test_drawing_into_the_same_axes_twice_replaces_the_legend_decision():
+    """A caller-supplied axes is the composable path; the policy must converge."""
+    from vaft.plot.style import LEGEND_MAX_ENTRIES
+
+    ods = _loops()
+    figure, axes = plt.subplots()
+    vaft.omas.plot_flux_loop_time_flux(ods, ax=axes, selection="inboard")   # 7 -> legend
+    assert axes.get_legend() is not None
+    vaft.omas.plot_flux_loop_time_flux(ods, ax=axes, selection="outboard")  # 11 -> note
+    assert axes.get_legend() is None, "the stale legend must go when the count passes the threshold"
+    notes = [t.get_text() for t in axes.texts if t.get_text().endswith("traces")]
+    assert notes == ["11 traces"], notes
+    vaft.omas.plot_flux_loop_time_flux(ods, ax=axes, selection="outboard")  # 15 -> one note, not two
+    notes = [t.get_text() for t in axes.texts if t.get_text().endswith("traces")]
+    assert notes == ["15 traces"], notes
+    assert len(axes.lines) > LEGEND_MAX_ENTRIES
+    plt.close(figure)
+
+
+def test_a_trace_without_a_channel_never_borrows_a_legend_title():
+    from vaft.plot.models import Series
+    from vaft.plot.style import trace_labels
+
+    x = np.arange(3.0)
+    with_channel = Series(x=x, y=x, entry="shot1", channel="[0] (1.0 cm, 2.0 cm)")
+    without = Series(x=x, y=x, entry="shot2", channel="")
+    labels, title = trace_labels([with_channel, without])
+    assert title is None, "no shared channel exists, so no legend title"
+    assert labels == ["shot1 · [0] (1.0 cm, 2.0 cm)", "shot2"]
+    # When every trace does share the one channel, the title is stated once.
+    shared = Series(x=x, y=x, entry="shot2", channel="[0] (1.0 cm, 2.0 cm)")
+    assert trace_labels([with_channel, shared]) == (["shot1", "shot2"], "[0] (1.0 cm, 2.0 cm)")
+
+
+def test_unit_markup_keeps_a_whole_decimal_exponent():
+    assert display.unit_markup("m^2.5") == "m$^{2.5}$"
+    assert display.unit_markup("10^18 m^-3") == "10$^{18}$ m$^{-3}$"

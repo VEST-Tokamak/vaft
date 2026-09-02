@@ -316,7 +316,9 @@ def channel_label(index: int, r: float | None = None, z: float | None = None) ->
     return f"[{index}] ({100 * r:.1f} cm, {100 * z:.1f} cm)"
 
 
-_EXPONENT = re.compile(r"\^(-?\d+)")
+# The whole exponent token, so "m^2.5" typesets as m$^{2.5}$ rather than
+# leaving ".5" stranded outside the superscript.
+_EXPONENT = re.compile(r"\^(-?\d+(?:\.\d+)?)")
 
 
 def unit_markup(unit: str) -> str:
