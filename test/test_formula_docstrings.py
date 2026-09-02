@@ -87,15 +87,6 @@ CONVENTION_SENSITIVE = frozenset({
     "cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta",
     "q_cyl_from_B_R_epsilon_kappa_I",
     "beta_t_from_n_T_B",
-    "beta_toroidal_from_p_B0",
-    "beta_poloidal_from_pressure_integral",
-    "beta_poloidal_from_circumference",
-    "beta_normal_from_beta_tor",
-    "li_3_from_Bp2_volume_integral",
-    # the clockwise poloidal_angle rule (#288): reading it the other way
-    # inverts every probe and leaves flux loops untouched
-    "probe_axis",
-    "project_poloidal_field",
     "ballooning_alpha_from_p_B_R",
     "greenwald_density",
     "greenwald_fraction",
