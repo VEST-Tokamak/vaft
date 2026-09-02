@@ -1,5 +1,11 @@
 const { defineConfig, devices } = require('@playwright/test');
 
+// The suite drives the stable track by default. `reuseExistingServer` is a
+// footgun once two tracks exist -- it will happily attach to whatever is
+// already on port 4000, including a server rendering the other baseurl -- so
+// it is allowed for local iteration only.
+const BASE_URL = process.env.VAFT_DOCS_URL || 'http://127.0.0.1:4000/vaft/';
+
 module.exports = defineConfig({
   testDir: './tests/visual',
   timeout: 30_000,
@@ -17,7 +23,7 @@ module.exports = defineConfig({
     },
   },
   use: {
-    baseURL: 'http://127.0.0.1:4000/vaft/',
+    baseURL: BASE_URL,
     colorScheme: 'light',
     locale: 'en-US',
     screenshot: 'only-on-failure',
@@ -25,8 +31,8 @@ module.exports = defineConfig({
   },
   webServer: {
     command: 'bundle exec jekyll serve --host 127.0.0.1 --port 4000 --no-watch',
-    url: 'http://127.0.0.1:4000/vaft/',
-    reuseExistingServer: true,
+    url: BASE_URL,
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   projects: [

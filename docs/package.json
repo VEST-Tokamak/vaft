@@ -2,12 +2,16 @@
   "name": "vaft-documentation",
   "private": true,
   "scripts": {
-    "docs:serve": "bundle exec jekyll serve --livereload",
-    "test:docs": "bundle exec jekyll build && ruby scripts/validate_docs.rb",
+    "data": "python build.py --regenerate-only",
+    "docs:serve": "npm run data && bundle exec jekyll serve --livereload",
+    "test:docs": "npm run data && bundle exec jekyll build && ruby scripts/validate_docs.rb",
+    "test:docs:develop": "npm run data && bundle exec jekyll build --config _config.yml,_config.develop.yml --baseurl /vaft/develop --destination _site-develop && VAFT_DOCS_BASEURL=/vaft/develop VAFT_DOCS_SITE=_site-develop ruby scripts/validate_docs.rb",
+    "build:site": "python build.py --output _site-composed",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots=all"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1"
-  }
+  },
+  "description": "Source of the VAFT documentation site; built and published by docs/build.py."
 }

@@ -9,8 +9,20 @@ require "uri"
 require "yaml"
 
 ROOT = Pathname(__dir__).parent
-SITE = ROOT / "_site"
-SOURCE_ROOT = Pathname(ENV.fetch("VAFT_NOTEBOOK_SOURCE", ROOT.parent / "vaft-issue60"))
+
+# The site is built twice from one source tree -- once for the stable track at
+# /vaft and once for the development track at /vaft/develop -- so neither the
+# baseurl nor the build destination can be hard-coded here.  Defaults match a
+# plain `bundle exec jekyll build` of the stable track.
+BASEURL = ENV.fetch("VAFT_DOCS_BASEURL", "/vaft").chomp("/")
+SITE = Pathname(ENV.fetch("VAFT_DOCS_SITE", (ROOT / "_site").to_s))
+
+# ROOT is the docs/ directory, so its parent is the checkout being documented.
+SOURCE_ROOT = Pathname(ENV.fetch("VAFT_NOTEBOOK_SOURCE", ROOT.parent.to_s))
+
+abort "VAFT_DOCS_BASEURL must start with '/' (got #{BASEURL.inspect})" unless BASEURL.start_with?("/")
+abort "no built site at #{SITE} -- run `bundle exec jekyll build` first" unless SITE.directory?
+
 errors = []
 
 def data(name)
@@ -18,7 +30,7 @@ def data(name)
 end
 
 def output_path(url)
-  path = url.sub(%r{\A/vaft}, "").sub(%r{\A/}, "")
+  path = url.sub(/\A#{Regexp.escape(BASEURL)}/, "").sub(%r{\A/}, "")
   candidate = SITE / path
   return candidate if candidate.file?
   return candidate / "index.html" if (candidate / "index.html").file?
@@ -36,6 +48,19 @@ end
 canonical_urls = items.map { |item| item.fetch("url") }.to_set
 canonical_urls.each do |url|
   errors << "canonical navigation target is not built: #{url}" unless output_path(url)
+end
+
+# generators.yml is what the branch says its documentation is generated from.
+# Each declared output is produced by docs/build.py; none of them is committed,
+# so a missing one means the site was built without regenerating its data.
+generators_path = ROOT / "generators.yml"
+declared_outputs = []
+if generators_path.file?
+  declared_outputs = (YAML.safe_load_file(generators_path)["generators"] || []).map { |g| g["output"] }
+  declared_outputs.each do |output|
+    next if (ROOT / output).file?
+    errors << "declared generator output is missing: #{output} (run `python docs/build.py`)"
+  end
 end
 
 diagnostic_snapshot = data("vest_diagnostics.yml")
@@ -64,34 +89,38 @@ if registry_source && !registry_source.empty?
   end
 end
 
-formula_snapshot = data("formula_catalog.yml")
-%w[schema_version generator source categories formulas].each do |field|
-  errors << "formula snapshot missing #{field}" unless formula_snapshot.key?(field)
-end
-formula_sources = formula_snapshot.fetch("source", [])
-errors << "formula snapshot has no sources" unless formula_sources.is_a?(Array) && !formula_sources.empty?
-formula_sources.each do |entry|
-  errors << "formula snapshot source checksum is invalid: #{entry['path']}" unless entry["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
-end
-formula_categories = formula_snapshot.fetch("categories", []).map { |item| item["name"] }
-formulas = formula_snapshot.fetch("formulas", [])
-errors << "formula snapshot has no formulas" unless formulas.is_a?(Array) && !formulas.empty?
-formula_ids = formulas.map { |item| item["id"] }
-errors << "formula snapshot has duplicate IDs" unless formula_ids.uniq.length == formula_ids.length
-formulas.each do |item|
-  %w[id name category signature summary parameters returns sections references empirical convention_sensitive].each do |field|
-    errors << "formula #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
+# vaft.formula.catalog reached develop after main, so the formula reference is
+# present on some branches and not others.  Validate it when the branch ships it.
+if (ROOT / "_data" / "formula_catalog.yml").file?
+  formula_snapshot = data("formula_catalog.yml")
+  %w[schema_version generator source categories formulas].each do |field|
+    errors << "formula snapshot missing #{field}" unless formula_snapshot.key?(field)
   end
-  errors << "formula #{item['id']} has unknown category #{item['category']}" unless formula_categories.include?(item["category"])
-end
-if registry_source && !registry_source.empty?
+  formula_sources = formula_snapshot.fetch("source", [])
+  errors << "formula snapshot has no sources" unless formula_sources.is_a?(Array) && !formula_sources.empty?
   formula_sources.each do |entry|
-    source_path = Pathname(registry_source) / entry.fetch("path")
-    if source_path.file?
-      actual = Digest::SHA256.file(source_path).hexdigest
-      errors << "formula snapshot does not match VAFT_REGISTRY_SOURCE: #{entry['path']}" unless actual == entry["sha256"]
-    else
-      errors << "VAFT_REGISTRY_SOURCE has no #{entry['path']}"
+    errors << "formula snapshot source checksum is invalid: #{entry['path']}" unless entry["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
+  end
+  formula_categories = formula_snapshot.fetch("categories", []).map { |item| item["name"] }
+  formulas = formula_snapshot.fetch("formulas", [])
+  errors << "formula snapshot has no formulas" unless formulas.is_a?(Array) && !formulas.empty?
+  formula_ids = formulas.map { |item| item["id"] }
+  errors << "formula snapshot has duplicate IDs" unless formula_ids.uniq.length == formula_ids.length
+  formulas.each do |item|
+    %w[id name category signature summary parameters returns sections references empirical convention_sensitive].each do |field|
+      errors << "formula #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
+    end
+    errors << "formula #{item['id']} has unknown category #{item['category']}" unless formula_categories.include?(item["category"])
+  end
+  if registry_source && !registry_source.empty?
+    formula_sources.each do |entry|
+      source_path = Pathname(registry_source) / entry.fetch("path")
+      if source_path.file?
+        actual = Digest::SHA256.file(source_path).hexdigest
+        errors << "formula snapshot does not match VAFT_REGISTRY_SOURCE: #{entry['path']}" unless actual == entry["sha256"]
+      else
+        errors << "VAFT_REGISTRY_SOURCE has no #{entry['path']}"
+      end
     end
   end
 end
@@ -120,7 +149,7 @@ migrations.each do |migration|
   end
   html = Nokogiri::HTML(built.read)
   canonical = html.at_css('link[rel="canonical"]')&.[]("href")
-  errors << "legacy URL lacks canonical target: #{legacy}" unless canonical&.end_with?("/vaft#{target}")
+  errors << "legacy URL lacks canonical target: #{legacy}" unless canonical&.end_with?("#{BASEURL}#{target}")
 end
 
 resources = data("resources.yml")
@@ -157,6 +186,18 @@ errors << "notebook inventory has missing paths: #{extra_inventory.join(', ')}" 
 
 provenance = data("notebook_outputs.yml")
 allow_pending = ENV["VAFT_ALLOW_PENDING_PROVENANCE"] == "1"
+
+# Outputs whose export cannot be reproduced (see the header of
+# _data/notebook_outputs.yml) waive their notebook checksum and their immutable
+# source URL, and nothing else. The waiver has to be written down: a reason and
+# an issue number, at the file level and again on each output that uses it.
+LEGACY = "legacy-unreproducible"
+legacy_file = provenance["provenance_status"] == LEGACY
+if legacy_file
+  %w[provenance_reason provenance_issue].each do |field|
+    errors << "legacy provenance requires #{field}" if provenance[field].to_s.strip.empty?
+  end
+end
 %w[source_repository source_commit baseline_commit branch export_command python_version vaft_version dependency_snapshot_sha256 timestamp outputs].each do |field|
   errors << "notebook provenance missing top-level #{field}" if provenance[field].to_s.strip.empty?
 end
@@ -168,16 +209,24 @@ required_output = %w[notebook_path notebook_sha256 source_url execution_mode dat
 provenance.fetch("outputs").each do |id, output|
   missing = required_output.reject { |field| output.key?(field) && !output[field].nil? }
   errors << "output #{id} missing fields: #{missing.join(', ')}" unless missing.empty?
+  legacy = output["verification"] == LEGACY
   notebook = SOURCE_ROOT / output.fetch("notebook_path", "")
-  if notebook.file?
+  if !notebook.file?
+    # Required of every output, legacy or not: the notebook it claims to come
+    # from has to exist in the checkout being documented.
+    errors << "output #{id} notebook path is missing: #{notebook}"
+  elsif legacy
+    errors << "output #{id} is marked #{LEGACY} but the file is not" unless legacy_file
+    %w[verification_reason verification_issue].each do |field|
+      errors << "output #{id} #{LEGACY} marker requires #{field}" if output[field].to_s.strip.empty?
+    end
+  else
     actual = Digest::SHA256.file(notebook).hexdigest
     errors << "output #{id} notebook SHA mismatch" unless actual == output["notebook_sha256"]
-  else
-    errors << "output #{id} notebook path is missing: #{notebook}"
+    expected_url = "https://github.com/VEST-Tokamak/vaft/blob/#{commit}/#{output['notebook_path']}"
+    pending_url = allow_pending && commit == "PENDING_COMPANION_COMMIT" && output["source_url"] == "PENDING_COMPANION_COMMIT"
+    errors << "output #{id} source URL is not immutable" unless output["source_url"] == expected_url || pending_url
   end
-  expected_url = "https://github.com/VEST-Tokamak/vaft/blob/#{commit}/#{output['notebook_path']}"
-  pending_url = allow_pending && commit == "PENDING_COMPANION_COMMIT" && output["source_url"] == "PENDING_COMPANION_COMMIT"
-  errors << "output #{id} source URL is not immutable" unless output["source_url"] == expected_url || pending_url
   Array(output["artifacts"]).each do |artifact|
     %w[path sha256 caption alt].each do |field|
       errors << "output #{id} artifact missing #{field}" if artifact[field].to_s.strip.empty?

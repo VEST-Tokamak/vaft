@@ -15,9 +15,6 @@ url:              'https://vest-tokamak.github.io'
 baseurl:          '/vaft'
 rss:              RSS
 
-# bootstrap: use the remote theme for the site itself
-remote_theme: sighingnow/jekyll-gitbook
-
 toc:
   enabled: true
   h_min:   2
@@ -48,14 +45,27 @@ permalink:                /:categories/:title
 # Disqus comments
 # disqushandler:            sighingnow
 
+# The site is built by docs/build.py and served as prebuilt HTML, so anything
+# that is tooling rather than content must not be copied into _site.
 exclude:
   - _drafts
   - _posts
   - _others
   - node_modules
+  - vendor
+  - .bundle
   - playwright-report
   - test-results
   - tests
+  - scripts
+  - build.py
+  - generators.yml
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - package-lock.json
+  - playwright.config.js
+  - README.md
 
 collections:
   guide:

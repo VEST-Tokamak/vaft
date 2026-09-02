@@ -9,7 +9,7 @@ guide:
   architecture: Executable examples and immutable provenance connecting develop source to published outputs.
   prerequisites: The pinned companion source, its documented environment, and optional public HSDS configuration.
   expected: A complete notebook inventory and verified artifact cards with hashes and execution context.
-  status: All nine allowlisted notebooks executed; immutable companion commit is pending commit authorization.
+  status: Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156).
 related:
   notebooks: [database-initialization, plotting-sample, fluctuation-diagnostics, kinetic-efit, chease-refinement, confinement-scaling, external-codes, pipeline-overview]
   api: [database, omas, imas, mapping, process, plot, code]
@@ -18,7 +18,7 @@ related:
 
 # Notebook Examples
 
-The companion source tree contains **31 notebooks**: all 30 notebooks present on the inspected `develop` baseline plus the generated pipeline overview. This page inventories every notebook and publishes only outputs produced by the guarded documentation allowlist.
+This branch contains **38 notebooks**. The page inventories every one of them; the output cards below are published separately and are described under [Verified notebook outputs](#verified-notebook-outputs).
 
 ![VAFT overview]({{ site.baseurl }}/assets/images/IMG_3873.jpg)
 
@@ -26,14 +26,14 @@ The companion source tree contains **31 notebooks**: all 30 notebooks present on
 
 The notebooks are at two different levels of maturity, and it saves a lot of time to know which is which before you open one:
 
-- **Runnable** — the notebook contains executable cells and a working data path. 20 notebooks (19 retained plus the new pipeline overview).
+- **Runnable** — the notebook contains executable cells and a working data path. 27 notebooks.
 - **Design shell** — the notebook is currently a structured markdown outline (objectives, expected inputs and outputs, planned sections) with **no code cells yet**. 11 notebooks. They are useful as specifications of where a pipeline stage is heading, but they will not execute anything.
 
 Design shells are marked *(design shell)* below.
 
 ## Verified notebook outputs
 
-The export runner sets `MPLBACKEND=Agg`, requires `VAFT_DOCS_READ_ONLY=1`, and rejects remote-save APIs before execution. External EFIT, CHEASE, DCON/RDCON, GPEC and TES binaries are optional: the published baseline records deterministic input preparation or readiness when a usable binary result is unavailable.
+The figures below were exported on 2026-08-21 with `MPLBACKEND=Agg` and `VAFT_DOCS_READ_ONLY=1`, from a commit and a branch that no longer exist, by an exporter that has since been removed from the repository. Every image still matches its recorded checksum, but none of them can be tied to the notebook that produced it, because the notebooks have moved on. They are kept as **legacy artifacts** and are labelled as such in `_data/notebook_outputs.yml`; regenerating them is tracked in [issue #156](https://github.com/VEST-Tokamak/vaft/issues/156). Treat them as illustrative, not as current output.
 
 {% assign verified_output_ids = "first-result,hsds-39915,imas-roundtrip,mirnov-spectrogram,kinetic-profile,equilibrium-inputs,external-readiness,confinement-scaling,pipeline-overview" | split: "," %}
 {% include notebook-outputs.html ids=verified_output_ids %}
@@ -137,6 +137,13 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 | --- | --- |
 | [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb) | Refine a GEQDSK with CHEASE: build `EXPEQ` and the namelist, resolve the binary, run, collect outputs. |
 | [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) | Forward (Grad-Shafranov) equilibrium solve with TES, driven straight from an ODS. |
+| [`forward_equilibrium_using_TokaMaker.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TokaMaker.ipynb) | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit), driven by measured PF coil currents. |
+| [`time_dependent_equilibrium_using_TokaMaker.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb) | Vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker. |
+| [`free_boundary_pf_coil_scan.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/free_boundary_pf_coil_scan.ipynb) | Free-boundary PF-coil-current scans: commanded against materialized currents, per-case topology classification, and resumable continuation. |
+| [`analytic_solovev_equilibrium.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/analytic_solovev_equilibrium.ipynb) | Constant-source analytic Solov'ev construction, verified against the gridded field. |
+| [`local_miller_equilibrium_fitting.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/local_miller_equilibrium_fitting.ipynb) | Local Miller fitting, its reconstruction errors, and where it stops working near the separatrix. |
+| [`parametric_equilibrium_descriptors.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/parametric_equilibrium_descriptors.ipynb) | Convention-aware global descriptors, and GEQDSK against ODS parity. |
+| [`edge_and_boundary_representation.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/edge_and_boundary_representation.ipynb) | Limiter and diverted topology, X-points, gaps, and separatrix balance. |
 | [`initialize_external_fusion_codes.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/initialize_external_fusion_codes.ipynb) | Read-only readiness checks for the `GPECHOME`, `CHEASEHOME`, `EFITHOME`, and `TESHOME` conventions. |
 | [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/electromagnetic_response_modeling_with_efund.ipynb) | *(design shell)* Planned EFUND response modeling over wall geometry, PF active and PF passive structures. |
 | [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) | *(design shell)* Planned PF-passive eddy-current ODE solve and tokamak startup / null analysis. |

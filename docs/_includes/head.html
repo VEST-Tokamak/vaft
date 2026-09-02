@@ -20,6 +20,15 @@
     <meta name="author" content="{{ site.author | escape }}">
 {%- endif -%}
 
+{%- comment -%}
+The development track sets noindex so that /vaft/develop/ never competes with
+the stable documentation in search results.  robots.txt cannot do this job:
+it is origin-scoped and vest-tokamak.github.io is shared across the org.
+{%- endcomment -%}
+{%- if site.noindex -%}
+    <meta name="robots" content="noindex, nofollow">
+{%- endif -%}
+
 <link rel="stylesheet" href="{{site.baseurl}}/assets/gitbook/style.css">
 <link rel="stylesheet" href="{{site.baseurl}}/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="{{site.baseurl}}/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">

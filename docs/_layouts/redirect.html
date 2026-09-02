@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    {%- if site.noindex %}<meta name="robots" content="noindex, nofollow">{% endif -%}
     <meta http-equiv="refresh" content="0; url={{ site.baseurl }}{{ page.redirect_to }}">
     <link rel="canonical" href="{{ site.url }}{{ site.baseurl }}{{ page.redirect_to }}">
     <title>Moved · {{ site.title | escape }}</title>
