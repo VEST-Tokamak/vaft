@@ -12,7 +12,7 @@ guide:
   expected: Limits, confinement metrics, statistical summaries, tables, and comparison plots.
 related:
   notebooks: [confinement-scaling, plotting-sample]
-  api: [formula, process, plot]
+  api: [process, plot]
   data_sources: [sample-ods, hsds-public]
   outputs: [confinement-scaling, hsds-39915]
 ---
@@ -54,7 +54,6 @@ from vaft.formula.equilibrium import q_from_phi         # explicit submodule
 
 Every public function documents its definition, units, convention, validity, limitations and
 references in one standardized layout; `vaft.formula.describe("greenwald_density")` prints it, and the
-[Formula reference]({{ site.baseurl }}/reference/formula/) renders the same text per submodule.
 
 Function names encode their inputs — `confinement_time_from_engineering_parameters`,
 `beta_N_from_beta_a_B0_Ip`, `rho_star_from_M_T_B_R_epsilon`. Where two conventions exist for the same
