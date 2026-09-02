@@ -151,3 +151,46 @@ def test_loop_voltage_is_correct_and_storage_invariant(gfile):
     _t2, v_legacy, _vi2, _vr2 = compute_voltage_consumption(legacy)
     v_legacy = np.asarray(v_legacy, float)
     np.testing.assert_allclose(v_legacy, v_loop, rtol=1e-9)
+
+
+def test_legacy_artifact_without_phi_is_detected_by_ampere_law():
+    """A phi-less legacy artifact must not be misread as Wb (release review).
+
+    The packaged 39915 reference sample carries q and psi but no
+    ``profiles_1d.phi``, so the dphi/dpsi slope test cannot run.  Falling
+    back to the DD convention there silently divided a genuine Wb/rad
+    artifact by 2*pi.  Ampere's law over the stored boundary settles it
+    from the file's own data: the loop integral of B_pol reproduces the
+    stored plasma current only under the correct convention.
+    """
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert "phi" not in ods["equilibrium.time_slice.0.profiles_1d"]
+
+    assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
+
+    stored_axis = float(ods["equilibrium.time_slice.0.global_quantities.psi_axis"])
+    recovered = from_omas(ods, 0)
+    simag = (recovered.data if hasattr(recovered, "data") else recovered)["SIMAG"]
+    assert float(simag) == pytest.approx(stored_axis, rel=1e-9)
+
+
+def test_ampere_law_fallback_still_reports_weber_for_dd_conformant_data():
+    """The fallback must not drag DD-conformant (Wb) artifacts backwards."""
+    import copy
+
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    weber = copy.deepcopy(ods)
+    ts = weber["equilibrium.time_slice.0"]
+    for path in (
+        "profiles_1d.psi",
+        "profiles_2d.0.psi",
+        "global_quantities.psi_axis",
+        "global_quantities.psi_boundary",
+    ):
+        ts[path] = np.asarray(ts[path], dtype=float) * 2.0 * np.pi
+
+    assert ods_psi_to_wb_per_radian_factor(weber, 0) == pytest.approx(1.0 / (2.0 * np.pi))

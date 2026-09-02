@@ -485,6 +485,73 @@ def _infer_source_shot(source: Optional[Path]) -> int:
 
 TWO_PI = 2.0 * np.pi
 
+_MU0 = 4.0e-7 * np.pi
+
+
+def _ampere_law_wb_per_radian_factor(ts: Any) -> Optional[float]:
+    """Secondary psi-convention test from Ampere's law around the LCFS.
+
+    Treats the stored 2-D ``psi`` as Wb/rad, evaluates the poloidal field
+    ``B_R = -(1/R) dpsi/dZ``, ``B_Z = (1/R) dpsi/dR`` and integrates it
+    along ``boundary.outline``. If psi really is in Wb/rad the loop integral
+    reproduces ``global_quantities.ip``; if psi is stored in Wb the estimate
+    comes out ``2*pi`` too large. Returns ``1.0`` (Wb/rad), ``1/(2*pi)``
+    (Wb), or ``None`` when the required data are absent or inconclusive.
+    """
+    try:
+        r = np.asarray(_path_get(ts, "profiles_2d.0.grid.dim1", []), dtype=float).reshape(-1)
+        z = np.asarray(_path_get(ts, "profiles_2d.0.grid.dim2", []), dtype=float).reshape(-1)
+        psi2 = np.asarray(_path_get(ts, "profiles_2d.0.psi", []), dtype=float)
+        br_r = np.asarray(_path_get(ts, "boundary.outline.r", []), dtype=float).reshape(-1)
+        br_z = np.asarray(_path_get(ts, "boundary.outline.z", []), dtype=float).reshape(-1)
+        ip = float(_path_get(ts, "global_quantities.ip", np.nan))
+    except (TypeError, ValueError):
+        return None
+    if (
+        r.size < 4
+        or z.size < 4
+        or br_r.size < 8
+        or br_r.size != br_z.size
+        or not np.isfinite(ip)
+        or abs(ip) < 1.0
+    ):
+        return None
+    if psi2.shape == (z.size, r.size) and psi2.shape != (r.size, z.size):
+        psi2 = psi2.T
+    if psi2.shape != (r.size, z.size) or not np.all(np.isfinite(psi2)):
+        return None
+    dpsi_dr, dpsi_dz = np.gradient(psi2, r, z)
+
+    def _bilinear(field: np.ndarray, rq: np.ndarray, zq: np.ndarray) -> np.ndarray:
+        i = np.clip(np.searchsorted(r, rq) - 1, 0, r.size - 2)
+        j = np.clip(np.searchsorted(z, zq) - 1, 0, z.size - 2)
+        tr = (rq - r[i]) / (r[i + 1] - r[i])
+        tz = (zq - z[j]) / (z[j + 1] - z[j])
+        return (
+            field[i, j] * (1 - tr) * (1 - tz)
+            + field[i + 1, j] * tr * (1 - tz)
+            + field[i, j + 1] * (1 - tr) * tz
+            + field[i + 1, j + 1] * tr * tz
+        )
+
+    # Closed midpoint-rule loop integral of B_pol . dl along the boundary.
+    rq = np.append(br_r, br_r[0])
+    zq = np.append(br_z, br_z[0])
+    rm = 0.5 * (rq[1:] + rq[:-1])
+    zm = 0.5 * (zq[1:] + zq[:-1])
+    inside = (rm > r[0]) & (rm < r[-1]) & (zm > z[0]) & (zm < z[-1]) & (rm > 0)
+    if np.count_nonzero(inside) < 8:
+        return None
+    b_r = -_bilinear(dpsi_dz, rm[inside], zm[inside]) / rm[inside]
+    b_z = _bilinear(dpsi_dr, rm[inside], zm[inside]) / rm[inside]
+    circulation = float(
+        np.sum(b_r * np.diff(rq)[inside] + b_z * np.diff(zq)[inside])
+    )
+    ratio = abs(circulation / (_MU0 * ip))
+    if not np.isfinite(ratio) or ratio < 0.3 or ratio > 3.0 * TWO_PI:
+        return None
+    return 1.0 if ratio < np.sqrt(TWO_PI) else 1.0 / TWO_PI
+
 
 def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     """Factor converting an ODS equilibrium's stored ``psi`` to Wb/rad.
@@ -499,8 +566,12 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
         dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad)
 
     because ``profiles_1d.phi`` is written in Wb by both producers. When the
-    slope test is unavailable (no phi/q/psi profiles) the DD convention (Wb)
-    is assumed. Returns ``1/(2*pi)`` for Wb storage, ``1.0`` for Wb/rad.
+    slope test is unavailable (no phi/q/psi profiles) a secondary
+    deterministic test integrates the boundary poloidal field via Ampere's
+    law against ``global_quantities.ip`` (legacy VAFT artifacts carry q and
+    psi but no phi, and would otherwise be misread). Only when both tests
+    are unavailable is the DD convention (Wb) assumed. Returns ``1/(2*pi)``
+    for Wb storage, ``1.0`` for Wb/rad.
     """
     ts = _path_get(ods, f"equilibrium.time_slice.{time_index}")
     if ts is None:
@@ -520,6 +591,9 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
                 if np.isfinite(ratio) and ratio > 0:
                     # ratio ~ 1 -> psi in Wb; ratio ~ 2*pi -> psi in Wb/rad.
                     return 1.0 / TWO_PI if ratio < np.sqrt(TWO_PI) else 1.0
+    ampere = _ampere_law_wb_per_radian_factor(ts)
+    if ampere is not None:
+        return ampere
     return 1.0 / TWO_PI
 
 
