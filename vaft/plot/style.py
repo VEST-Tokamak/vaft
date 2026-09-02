@@ -207,7 +207,12 @@ def finalize(
     show: bool = False,
     tight_layout: bool = True,
 ) -> tuple[Figure, Any]:
-    """Apply the shared closing steps and honor the ``show`` contract."""
+    """Apply the shared closing steps and honor the ``show`` contract.
+
+    ``tight_layout`` is for a figure the renderer created; a caller-supplied
+    ``ax=`` belongs to the caller's figure, whose layout is theirs (issue #260
+    section 8), so renderers pass ``tight_layout=ax is None``.
+    """
     if tight_layout:
         # Dense panel grids can be impossible to lay out tightly; that is a
         # cosmetic outcome, not a failure, so do not surface it to callers.

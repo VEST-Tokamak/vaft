@@ -152,3 +152,43 @@ def test_discovery_names_the_entry_point_as_an_interaction_mode(shot):
     assert "time-navigable: vaft.omas.plot_equilibrium_interactive()" in detailed
     # It is an interaction capability, not a view: no such canonical plot exists.
     assert "equilibrium_interactive" not in vaft.plot.canonical_names()
+
+
+# ---------------------------------------------------------------------------
+# Independent review of the interactive figure
+# ---------------------------------------------------------------------------
+
+def test_redrawing_leaves_the_figure_as_it_found_it(shot):
+    result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
+    count = len(result.figure.axes)
+    result.figure.canvas.draw()  # positions settle only once the figure is laid out
+    # The layout position: the drawn box also follows each slice's data extent
+    # through the panel's equal aspect, which is content, not layout.
+    width = result.axes[0, 0].get_position(original=True).width
+    for index in result.navigator.usable:
+        result.navigator.select_index(index)
+        result.figure.canvas.draw()
+        assert result.axes[0, 0].get_position(original=True).width == pytest.approx(width)
+    assert len(result.figure.axes) == count
+    plt.close(result.figure)
+    result = vaft.omas.plot_equilibrium_interactive(shot, backend="matplotlib")
+    count = len(result.figure.axes)
+    for position in range(len(result.navigator.usable)):
+        result.widget.set_val(position)
+    assert len(result.figure.axes) == count
+    plt.close(result.figure)
+
+
+def test_a_non_finite_time_is_refused():
+    nav = SliceNavigator([0.1, 0.2])
+    with pytest.raises(ValueError, match="finite"):
+        nav.select(float("nan"))
+
+
+def test_the_current_history_is_the_measured_waveform_with_the_reconstruction(shot):
+    result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
+    current = result.history_axes[0]
+    assert "Plasma Current" in current.get_title()
+    labels = [line.get_label() for line in current.lines if line.get_linestyle() != ":"]
+    assert labels[0] == "39915"  # the magnetics waveform, not the equilibrium's own Ip
+    plt.close(result.figure)

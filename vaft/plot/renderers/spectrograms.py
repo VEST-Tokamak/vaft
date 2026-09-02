@@ -50,7 +50,7 @@ def render_spectrogram(
         axes.set_title(model.title)
     if model.max_frequency is not None:
         axes.set_ylim(0.0, model.max_frequency)
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 @renderer(

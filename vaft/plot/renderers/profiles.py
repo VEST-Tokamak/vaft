@@ -79,7 +79,7 @@ def render_profile_1d(
     if grid:
         axes.grid(True, alpha=0.3)
     apply_legend(axes, legend=legend, title=legend_title)
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 def _profile_renderer(
