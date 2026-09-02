@@ -44,55 +44,7 @@ from ._plot_recipes import (
 #: Options consumed while building the view model.  Everything else a caller
 #: passes is forwarded to the renderer as styling, so an unsupported Matplotlib
 #: keyword fails loudly instead of being silently dropped.
-_EXTRACTION_OPTIONS = frozenset(
-    {
-        "channel",
-        "channels",
-        "contour_levels",
-        "coordinate",
-        "detector",
-        "detrend",
-        "dphi_deg",
-        "direction",
-        "fit_ranges",
-        "flux_surface_levels",
-        "frame_index",
-        "frame_indices",
-        "layout",
-        "log_y",
-        "marker_frequencies",
-        "ncols",
-        "max_frequency",
-        "max_length_m",
-        "noverlap",
-        "nperseg",
-        "per_family",
-        "phi0",
-        "quantity",
-        "selection",
-        "r0",
-        "reference_slopes",
-        "sample_rate",
-        "series_label",
-        "sigma",
-        "shot",
-        "show_lcfs",
-        "show_magnetic_axis",
-        "show_wall",
-        "time",
-        "time_range",
-        "time_resolution",
-        "time_slice",
-        "title",
-        "use_wall_boundary",
-        "window",
-        "window_size",
-        "x_limits",
-        "xunit",
-        "z0",
-        "yunit",
-    }
-)
+from ._plot_recipes import EXTRACTION_OPTIONS as _EXTRACTION_OPTIONS
 
 
 def render(

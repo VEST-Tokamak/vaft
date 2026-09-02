@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import re
 import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -2704,6 +2705,7 @@ def _build_line_traces(
                     entry=entry_label,
                     channel=channel,
                     position=(r_i, z_i) if has_position else None,
+                    index=index,
                 )
             )
         return traces
@@ -2726,6 +2728,165 @@ def _build_line_traces(
     ]
 
 
+#: Diagnostic time plots that an equilibrium reconstruction also predicts, and
+#: the constraint family that stores the prediction (issue #261 section 9).
+#: A scalar family has one node per slice; an array family has one node per
+#: channel, matched to the diagnostic channel by its ``source`` identifier.
+SYNTHETIC_CONSTRAINTS: dict[str, tuple[str, bool]] = {
+    "plasma_current_time": ("ip", False),
+    "diamagnetic_flux_time": ("diamagnetic_flux", False),
+    "flux_loop_time_flux": ("flux_loop", True),
+    "b_field_probe_time_field": ("bpol_probe", True),
+}
+
+SYNTHETIC_MODES = ("equilibrium", "both")
+
+
+def _synthetic_option(options: Mapping[str, Any], name: str) -> str | None:
+    """Validate ``synthetic=``: which prediction to overlay, if any."""
+    synthetic = options.get("synthetic")
+    if synthetic in (None, False):
+        return None
+    if synthetic is True:
+        synthetic = "equilibrium"
+    if synthetic not in SYNTHETIC_MODES:
+        raise ValueError(
+            f"synthetic must be one of {', '.join(SYNTHETIC_MODES)} or None; got {synthetic!r}"
+        )
+    if name not in SYNTHETIC_CONSTRAINTS:
+        supported = ", ".join(sorted(SYNTHETIC_CONSTRAINTS))
+        raise ValueError(
+            f"synthetic overlay is unsupported for {name!r}: no equilibrium "
+            f"constraint predicts it. Supported: {supported}"
+        )
+    return str(synthetic)
+
+
+def _constraint_slices(ods: Any) -> list[tuple[int, float]]:
+    """``(slice index, time)`` of every stored equilibrium slice with a time."""
+    total = _count(ods, "equilibrium.time_slice")
+    slices = []
+    for index in range(total):
+        time = _get(ods, f"equilibrium.time_slice.{index}.time")
+        if time is None:
+            continue
+        try:
+            slices.append((index, float(np.asarray(time, dtype=float).ravel()[0])))
+        except (IndexError, TypeError, ValueError):
+            continue
+    return slices
+
+
+def _finite_scalar(raw: Any) -> float | None:
+    if raw is None:
+        return None
+    try:
+        value = float(np.asarray(raw, dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    return value if np.isfinite(value) else None
+
+
+def _constraint_index(
+    ods: Any, family: str, per_channel: bool, leaf: str
+) -> dict[str | None, tuple[np.ndarray, np.ndarray]]:
+    """``{source: (times, values)}`` of ``leaf`` for one family, in one pass.
+
+    Every slice and every constraint node is visited exactly once, whatever
+    the number of channels that later ask for their values.  A per-channel
+    family is keyed by its ``source`` identifier rather than by position, so
+    a constraint table that lists channels in a different order from the
+    diagnostic still lands on the right trace; a scalar family is keyed by
+    ``None``.  Slices where the leaf is absent or non-finite contribute
+    nothing: a reconstruction exists only where the solver wrote one.
+    """
+    gathered: dict[str | None, tuple[list[float], list[float]]] = {}
+    ambiguous: set[str | None] = set()
+    for index, time in _constraint_slices(ods):
+        base = f"equilibrium.time_slice.{index}.constraints.{family}"
+        nodes = (
+            [(str(_get(ods, f"{base}.{j}.source", "")), f"{base}.{j}") for j in range(_count(ods, base))]
+            if per_channel
+            else [(None, base)]
+        )
+        seen: set[str | None] = set()
+        for source, node in nodes:
+            # Two constraints naming one source on one slice cannot be told
+            # apart by identifier; neither may claim a channel's trace.
+            if source in seen:
+                ambiguous.add(source)
+            seen.add(source)
+            value = _finite_scalar(_get(ods, f"{node}.{leaf}"))
+            if value is None:
+                continue
+            times, values = gathered.setdefault(source, ([], []))
+            times.append(time)
+            values.append(value)
+    return {
+        source: (np.asarray(times, dtype=float), np.asarray(values, dtype=float))
+        for source, (times, values) in gathered.items()
+        if source not in ambiguous
+    }
+
+
+def has_synthetic_values(ods: Any, name: str) -> bool:
+    """Whether any slice stores a finite reconstruction for plot ``name``."""
+    family, per_channel = SYNTHETIC_CONSTRAINTS[name]
+    return bool(_constraint_index(ods, family, per_channel, "reconstructed"))
+
+
+def _synthetic_traces(
+    ods: Any, name: str, recipe: LineRecipe, measured: Sequence[Series], mode: str
+) -> list[Series]:
+    """Marker-only traces of the equilibrium's prediction for each measured trace.
+
+    The waveform stays the primary signal; the reconstruction is drawn as a
+    marker at every slice that holds a finite value, in the same canonical
+    unit as the trace it belongs to (display scaling is applied later, to
+    both alike).  ``mode="both"`` adds the measured constraint value the
+    solver was given, which shows where the reconstruction's input differs
+    from the waveform itself.
+    """
+    family, per_channel = SYNTHETIC_CONSTRAINTS[name]
+    container = _container_of(recipe.y_path, "{i}") if per_channel else ""
+    identifiers = (
+        _channel_identifiers(ods, container, _count(ods, container)) if per_channel else []
+    )
+    leaves = (("reconstructed", "reconstruction", "o"),)
+    if mode == "both":
+        leaves += (("measured", "constraint", "x"),)
+    indexed = {leaf: _constraint_index(ods, family, per_channel, leaf) for leaf, _, _ in leaves}
+    extra: list[Series] = []
+    for trace in measured:
+        source = None
+        if per_channel:
+            # The trace knows its own channel index; the constraint that
+            # predicts it is the one whose source names that channel.
+            if trace.index is None or trace.index >= len(identifiers):
+                continue
+            source = identifiers[trace.index]
+            if not source:
+                continue
+        for leaf, role, marker in leaves:
+            times, values = indexed[leaf].get(source, (np.empty(0), np.empty(0)))
+            if values.size == 0:
+                continue
+            extra.append(
+                Series(
+                    x=times,
+                    y=values * recipe.scale,
+                    label=trace.label,
+                    style={"marker": marker, "linestyle": "none"},
+                    entry=trace.entry,
+                    channel=trace.channel,
+                    position=trace.position,
+                    index=trace.index,
+                    role=role,
+                )
+            )
+    return extra
+
+
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
@@ -2735,15 +2896,17 @@ def _build_line_series(
     # keeps the short recipe title that identifies it within the figure.
     panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
+    synthetic = _synthetic_option(options, spec.name if spec is not None else "")
     for entry_label, ods in entries:
-        traces.extend(
-            _build_line_traces(
-                ods,
-                recipe,
-                entry_label=entry_label,
-                selection=_selection_option(options),
-            )
+        measured = _build_line_traces(
+            ods,
+            recipe,
+            entry_label=entry_label,
+            selection=_selection_option(options),
         )
+        traces.extend(measured)
+        if synthetic:
+            traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
     x_display = _resolve_axis_display(
         recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
         series_values=[trace.x for trace in traces],
@@ -3240,13 +3403,25 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
+    # A member default is either an extraction option (it shapes the member's
+    # model: selection, synthetic, ...) or a renderer style (validity, ...).
+    # The former goes beneath the caller's options into build_model; the
+    # latter beneath the caller's style into the renderer (issue #260).
+    member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
+    member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
     members, placeholders = [], []
     for slot, name in enumerate(recipe.members):
         if not any(entry_supports(ods, name) for _, ods in entries):
             if recipe.keep_unavailable:
                 placeholders.append((slot, f"{name}\nnot available in this input"))
             continue
-        members.append(build_model(name, entries, _panel_member=True, **options))
+        merged = {**member_options, **options}
+        # An overlay applies to the members that can carry it: a composite
+        # asked for the equilibrium's prediction annotates its magnetics
+        # panels and leaves the PF-current panel alone (issue #261 section 9).
+        if merged.get("synthetic") and name not in SYNTHETIC_CONSTRAINTS:
+            merged.pop("synthetic")
+        members.append(build_model(name, entries, _panel_member=True, **merged))
     if not members:
         raise ValueError(
             "none of the panels "
@@ -3266,9 +3441,64 @@ def _build_panels(
         share_x=recipe.share_x,
         suptitle=suptitle,
         placeholders=tuple(placeholders),
-        member_styles=tuple(dict(recipe.member_defaults) for _ in members),
+        member_styles=tuple(dict(member_style) for _ in members),
     )
 
+
+#: Keyword arguments that shape the *model* -- what is extracted -- as opposed
+#: to the renderer keyword arguments that shape how it is drawn.  The adapter
+#: strips these before calling a renderer; a composite routes its members'
+#: defaults by the same split.
+EXTRACTION_OPTIONS = frozenset(
+    {
+        "channel",
+        "channels",
+        "contour_levels",
+        "coordinate",
+        "detector",
+        "detrend",
+        "dphi_deg",
+        "direction",
+        "fit_ranges",
+        "flux_surface_levels",
+        "frame_index",
+        "frame_indices",
+        "layout",
+        "log_y",
+        "marker_frequencies",
+        "ncols",
+        "max_frequency",
+        "max_length_m",
+        "noverlap",
+        "nperseg",
+        "per_family",
+        "phi0",
+        "quantity",
+        "selection",
+        "r0",
+        "reference_slopes",
+        "sample_rate",
+        "series_label",
+        "sigma",
+        "shot",
+        "show_lcfs",
+        "show_magnetic_axis",
+        "show_wall",
+        "synthetic",
+        "time",
+        "time_range",
+        "time_resolution",
+        "time_slice",
+        "title",
+        "use_wall_boundary",
+        "window",
+        "window_size",
+        "x_limits",
+        "xunit",
+        "z0",
+        "yunit",
+    }
+)
 
 LAYOUTS = ("overlay", "subplots", "grouped")
 

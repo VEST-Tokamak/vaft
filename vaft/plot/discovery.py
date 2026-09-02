@@ -96,6 +96,10 @@ class PlotCapability:
     overview_members: tuple[str, ...] = ()
     #: Sibling plots that overlay something onto this one (camera views).
     overlays: tuple[str, ...] = ()
+    #: A reconstruction's prediction that can be overlaid on this measurement
+    #: (issue #261 section 9): ``{"overlay": "equilibrium"}`` when supported,
+    #: plus ``"available"`` once an ODS says whether it holds finite values.
+    synthetic: Mapping[str, Any] = field(default_factory=dict)
     # -- instance-level (only with an ODS) ------------------------------------
     #: ``None`` without an ODS; otherwise whether the input can draw it, by the
     #: same test :func:`vaft.omas.plotting.render` applies.
@@ -502,6 +506,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append("overview: " + " · ".join(record.overview_members))
     if record.overlays:
         notes.append("overlays: " + ", ".join(record.overlays))
+    if record.synthetic:
+        notes.append(_synthetic_note(record.synthetic))
     flags = []
     if record.uncertainty.get("available"):
         flags.append("uncertainty")
@@ -511,6 +517,14 @@ def _compact_notes(record: PlotCapability) -> list[str]:
     if flags:
         notes.append("metadata: " + ", ".join(flags))
     return notes
+
+
+def _synthetic_note(synthetic: Mapping[str, Any]) -> str:
+    """``synthetic overlay: equilibrium``, qualified by the ODS when evaluated."""
+    note = f"synthetic overlay: {synthetic.get('overlay', '')}"
+    if synthetic.get("available") is False:
+        note += " (supported, unavailable in this ODS)"
+    return note
 
 
 def _detail_lines(record: PlotCapability) -> list[str]:
@@ -550,6 +564,8 @@ def _detail_lines(record: PlotCapability) -> list[str]:
         lines.append("includes: " + ", ".join(record.overview_members))
     if record.overlays:
         lines.append("overlays: " + ", ".join(record.overlays))
+    if record.synthetic:
+        lines.append(_synthetic_note(record.synthetic))
     for key in ("uncertainty", "validity"):
         block = getattr(record, key)
         if block:

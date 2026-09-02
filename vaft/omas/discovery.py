@@ -48,6 +48,7 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from ._plot_recipes import (
     RECIPES,
+    SYNTHETIC_CONSTRAINTS,
     LineRecipe,
     PanelRecipe,
     PowerSpectrumRecipe,
@@ -62,6 +63,7 @@ from ._plot_recipes import (
     _uncertainty_of,
     _validity_of,
     diagnoses_itself,
+    has_synthetic_values,
     missing_required_path,
     normalize_entries,
 )
@@ -151,6 +153,8 @@ def _declare(record: PlotCapability) -> PlotCapability:
             updates["analysis_methods"] = methods
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
+    if record.name in SYNTHETIC_CONSTRAINTS:
+        updates["synthetic"] = {"overlay": "equilibrium"}
     return with_capabilities(record, **updates) if updates else record
 
 
@@ -209,6 +213,11 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+        if record.synthetic:
+            updates["synthetic"] = {
+                **record.synthetic,
+                "available": has_synthetic_values(ods, record.name),
+            }
     return with_capabilities(record, **updates)
 
 
