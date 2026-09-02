@@ -267,8 +267,18 @@ QMD_REQUIRED_FORMATS = ("vaftslides-revealjs", "vaftslides-beamer")
 _NOTES_DIV = re.compile(r"^:::+\s*\{?\s*\.?notes\b", re.M)
 
 
+class _FrontMatterUnavailable(RuntimeError):
+    """PyYAML is missing, so the deck's front matter cannot be read."""
+
+
 def _front_matter(source: str) -> dict:
-    """Return the deck's YAML front matter, or {} when it has none."""
+    """Return the deck's YAML front matter, or {} when it has none.
+
+    Raises :class:`_FrontMatterUnavailable` when PyYAML is absent rather than
+    returning {}: an empty mapping is indistinguishable from a deck that has
+    lost its `format:` block, and reporting a missing dependency as a malformed
+    deck sends the reader to the wrong file.
+    """
     if not source.startswith("---"):
         return {}
     end = source.find("\n---", 3)
@@ -276,8 +286,11 @@ def _front_matter(source: str) -> dict:
         return {}
     try:
         import yaml
-    except ModuleNotFoundError:  # pragma: no cover - yaml ships with the dev extra
-        return {}
+    except ModuleNotFoundError as error:
+        raise _FrontMatterUnavailable(
+            "PyYAML is required to validate a Quarto deck's front matter; "
+            "install it with `python -m pip install pyyaml`"
+        ) from error
     try:
         parsed = yaml.safe_load(source[3:end])
     except yaml.YAMLError:
@@ -298,7 +311,11 @@ def _validate_qmd_deck(session: int, filename: str, failures: list[str]) -> None
         return
     source = path.read_text(encoding="utf-8")
 
-    declared = _front_matter(source).get("format")
+    try:
+        declared = _front_matter(source).get("format")
+    except _FrontMatterUnavailable as error:
+        failures.append(f"{filename}: {error}")
+        return
     if not isinstance(declared, dict):
         failures.append(
             f"{filename}: front matter declares no `format:` mapping; the source "

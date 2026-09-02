@@ -85,7 +85,9 @@ jobs:
 
       - name: Install tutorial validation and TeX dependencies
         run: |
-          python -m pip install nbformat
+          # nbformat validates the notebooks; PyYAML parses the Quarto deck's
+          # front matter in test/verify_tutorial.py.
+          python -m pip install nbformat pyyaml
           sudo apt-get update
           sudo apt-get install -y latexmk texlive-latex-recommended texlive-pictures
 
