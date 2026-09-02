@@ -217,13 +217,9 @@ def _overlays_for(spec: PlotSpec) -> tuple[str, ...]:
     it.  This is read from the registry, not declared, so a new overlay
     renderer is discovered the moment it registers.
     """
-    if spec.view != "image" or spec.quantity != "frame":
-        return ()
-    return tuple(
-        sibling.quantity
-        for sibling in specs(subject=spec.subject, view="image")
-        if sibling.quantity and sibling.quantity != "frame"
-    )
+    # The presets hang beneath the view's own entry point, which declares
+    # its overlays itself (vaft.omas.discovery): a preset advertises none.
+    return ()
 
 
 # ---------------------------------------------------------------------------
@@ -507,7 +503,9 @@ def _compact_notes(record: PlotCapability) -> list[str]:
     if record.overview_members:
         notes.append("overview: " + " · ".join(record.overview_members))
     if record.overlays:
-        notes.append("overlays: " + ", ".join(record.overlays))
+        notes.append("overlays: " + " | ".join(record.overlays))
+    if record.projection:
+        notes.append(_projection_note(record.projection))
     if record.synthetic:
         notes.append(_synthetic_note(record.synthetic))
     if record.interaction:
@@ -521,6 +519,16 @@ def _compact_notes(record: PlotCapability) -> list[str]:
     if flags:
         notes.append("metadata: " + ", ".join(flags))
     return notes
+
+
+def _projection_note(projection: Mapping[str, Any]) -> str:
+    """``projection: calibrated``, qualified by the ODS when evaluated."""
+    note = "projection: " + " | ".join(projection.get("methods", ()))
+    if projection.get("available") is True:
+        note += " — available"
+    elif projection.get("available") is False:
+        note += f" — unavailable ({projection.get('reason', '')})"
+    return note
 
 
 def _synthetic_note(synthetic: Mapping[str, Any]) -> str:
@@ -585,7 +593,7 @@ def _detail_lines(record: PlotCapability) -> list[str]:
         for mode, function in record.interaction_entry_points.items():
             lines.append(f"{mode}: vaft.omas.{function}")
     if record.projection:
-        lines.append("projection: " + ", ".join(f"{k}: {v}" for k, v in record.projection.items()))
+        lines.append(_projection_note(record.projection))
     lines.append(f"domain: {record.domain}")
     lines.append("ids: " + (", ".join(record.ids) or "—"))
     lines.append("required: " + (", ".join(record.required_paths) or "—"))
@@ -630,7 +638,15 @@ def render_tree(
                 out.append(f"{branch}{view}  {record.function}")
                 out.extend(_leaf_body(record, child_indent, detail))
                 continue
-            out.append(f"{branch}{view}")
+            # A quantity-less plot beside quantity'd ones is the view's own
+            # entry point (camera_visible / image); its presets hang beneath.
+            base = [r for r in members if not r.quantity]
+            members = [r for r in members if r.quantity]
+            if base:
+                out.append(f"{branch}{view}  {base[0].function}")
+                out.extend(_leaf_body(base[0], child_indent, detail))
+            else:
+                out.append(f"{branch}{view}")
             for q_index, record in enumerate(members):
                 last = q_index == len(members) - 1
                 q_branch = "└─ " if last else "├─ "

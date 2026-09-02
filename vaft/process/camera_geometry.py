@@ -18,7 +18,55 @@ convention: ``(X, Y, Z)_cm = (R_m * cos(theta), R_m * sin(theta), Z_m) * 100``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Any, Mapping
+
 import numpy as np
+
+
+@dataclass(frozen=True)
+class CameraProjection:
+    """How machine coordinates become camera pixels (issue #261 sections 20-21).
+
+    One calibrated pinhole model: intrinsics (``camera_matrix``, Brown-Conrady
+    ``dist_coeffs``), the camera pose for a shot (``rvec``, ``tvec``), the
+    ``method`` that produced it, and ``provenance`` -- where the numbers came
+    from and how well they reproject.  Overlays of any kind (wall, LCFS,
+    field line) go through :meth:`project`; nothing else in the plotting
+    path knows a focal length.
+    """
+
+    camera_matrix: np.ndarray
+    dist_coeffs: np.ndarray
+    rvec: np.ndarray
+    tvec: np.ndarray
+    method: str = "calibrated"
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "camera_matrix", np.asarray(self.camera_matrix, dtype=float).reshape(3, 3))
+        object.__setattr__(self, "dist_coeffs", np.asarray(self.dist_coeffs, dtype=float).reshape(-1))
+        object.__setattr__(self, "rvec", np.asarray(self.rvec, dtype=float).reshape(3))
+        object.__setattr__(self, "tvec", np.asarray(self.tvec, dtype=float).reshape(3))
+        object.__setattr__(self, "provenance", MappingProxyType(dict(self.provenance)))
+
+    def project(self, world_xyz_cm: np.ndarray, *, max_normalized_radius: float = 1.3) -> tuple[np.ndarray, np.ndarray]:
+        """``(pixel_uv, valid_mask)`` for 3-D world points in centimetres."""
+        return project_points(
+            world_xyz_cm, self.rvec, self.tvec, self.camera_matrix, self.dist_coeffs,
+            max_normalized_radius=max_normalized_radius,
+        )
+
+    def project_rz(self, r_m: np.ndarray, z_m: np.ndarray, theta_rad: np.ndarray) -> np.ndarray:
+        """Valid pixels of a poloidal (R, Z) curve swept toroidally over ``theta_rad``."""
+        pixel_uv, valid = self.project(sweep_toroidal(r_m, z_m, theta_rad))
+        return pixel_uv[valid]
+
+    def project_ring(self, r_m: float, z_m: float, theta_rad: np.ndarray) -> np.ndarray:
+        """Valid pixels of one toroidal ring at (R, Z)."""
+        pixel_uv, valid = self.project(toroidal_ring(r_m, z_m, theta_rad))
+        return pixel_uv[valid]
 
 
 def project_points(
@@ -118,6 +166,7 @@ def trajectory_world_points(r_m: np.ndarray, z_m: np.ndarray, phi_rad: np.ndarra
 
 
 __all__ = [
+    "CameraProjection",
     "project_points",
     "sweep_toroidal",
     "toroidal_ring",

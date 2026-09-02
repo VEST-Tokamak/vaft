@@ -257,9 +257,14 @@ def test_overviews_summarise_their_members():
     )
 
 
-def test_camera_overlays_are_read_from_the_registry():
-    frame = vaft.plot.available_plots(query="camera_visible").find("camera_visible_image_frame")
-    assert frame.overlays == ("efit_overlay", "field_line")
+def test_camera_overlays_belong_to_the_image_entry_point():
+    # The view's own entry point declares its overlays (#261 G·5); the
+    # presets beneath it advertise none.
+    image = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image")
+    assert image.overlays == ("wall", "equilibrium", "field_line")
+    assert image.projection == {"methods": ("calibrated",)}
+    frame = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image_frame")
+    assert frame.overlays == () and frame.projection == {}
 
 
 def test_capability_fields_are_filled_only_where_issue_261_defined_them(catalog):
