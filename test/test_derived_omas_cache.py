@@ -42,7 +42,7 @@ class _H5PYD:
         self.shot = {"master.h5": _Domain(), "equilibrium.h5": _Domain()}
         self.derived = {}
 
-    def Folder(self, path):
+    def Folder(self, path, mode=None):
         assert path == "/public/1/"
         return list(self.shot)
 

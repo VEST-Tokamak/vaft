@@ -291,11 +291,77 @@ def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
     assert symlink_collision.existing_target_kind == "symlink"
 
 
-def test_workflow_main_uses_only_the_canonical_resolver():
-    workflow = Path(__file__).parents[1] / "workflow/main/Snakefile"
+def test_production_pipeline_resolves_every_path_through_filedb():
+    """PR #121 folded workflow/main into pipeline 1, which is now the only
+    maintained production DAG. It must keep resolving paths through the
+    canonical resolver rather than reconstructing the legacy server's layout.
+    """
+    workflow = (
+        Path(__file__).parents[1]
+        / "workflow"
+        / "automatic_pipeline_1_routine_data_processing"
+    )
+    assert "from vaft.database.filedb import FileDB" in (workflow / "paths.py").read_text()
+
+    # The rules themselves must go through PipelinePaths. paths.py names the
+    # legacy root in its prose, so only the Snakefile is scanned for it.
+    rules = (workflow / "Snakefile").read_text()
+    assert "from paths import" in rules
+    assert "/srv/vest.filedb" not in rules
+    assert "imas/baseline" not in rules
+    assert "omas/baseline" not in rules
+
+
+def test_stage_product_names_come_from_the_resolver_not_the_caller():
+    """One authority for a stage product's file name (issue #137).
+
+    Three spellings of the EFIT product were in circulation: the issue text's
+    `{shot}_efit.json.gz`, pipeline 1's `efit.json`, and the retired
+    workflow/main's `{stage}.json.gz`. A caller that appends its own file name
+    is how a fourth appears.
+    """
+    db = FileDB("/srv/vest.filedb")
+
+    assert db.omas_product("efit", shot=39915) == Path(
+        "/srv/vest.filedb/omas/efit/39915/output/efit.json"
+    )
+    assert db.omas_product("mhd_linear", shot=39915) == Path(
+        "/srv/vest.filedb/omas/mhd_linear/39915/output/mhd_linear.json"
+    )
+    # static is versioned by machine era rather than by shot.
+    assert db.omas_product("static", machine_version="v3") == Path(
+        "/srv/vest.filedb/omas/static/v3/output/static.json"
+    )
+
+
+def test_manifest_and_replication_record_are_separate_artifacts():
+    """A finalized local product says nothing about whether it was replicated."""
+    db = FileDB("/srv/vest.filedb")
+
+    manifest = db.omas_manifest("chease", shot=39915)
+    replication = db.omas_replication_record("chease", shot=39915)
+
+    assert manifest.parent == replication.parent
+    assert manifest != replication
+    assert replication.name == "replication.json"
+
+
+def test_stage_product_rejects_a_stage_outside_the_canonical_grammar():
+    db = FileDB("/srv/vest.filedb")
+
+    with pytest.raises(FileDBPathError):
+        db.omas_product("not_a_stage", shot=39915)
+
+
+def test_pipeline_paths_do_not_rebuild_stage_product_names():
+    """PipelinePaths must ask the resolver rather than append a file name."""
+    workflow = (
+        Path(__file__).parents[1]
+        / "workflow"
+        / "automatic_pipeline_1_routine_data_processing"
+        / "paths.py"
+    )
     text = workflow.read_text()
 
-    assert "from vaft.database.filedb import FileDB" in text
-    assert "/srv/vest.filedb/public" not in text
-    assert "imas/baseline" not in text
-    assert "omas/baseline" not in text
+    for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "gpec_ideal"):
+        assert f'"output") / "{stage}.json"' not in text, stage

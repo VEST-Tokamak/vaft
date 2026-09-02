@@ -26,11 +26,8 @@ import pytest
 from omas import ODS
 
 import vaft.omas as vomas
-from vaft.validation import (
-    STAGE_PRECONDITIONS,
-    render_stage_plots,
-    stage_plot_filenames,
-)
+from vaft.database.production_qa import render_stage_plots, stage_plot_filenames
+from vaft.validation.stage_evidence import STAGE_PRECONDITIONS
 
 
 def _mhd_linear_ods(*, energies=None, times=(0.316, 0.317, 0.318)):
@@ -223,7 +220,7 @@ def test_run_coverage_plot_renders_when_the_ods_is_non_empty(tmp_path):
 
 
 def test_run_coverage_model_groups_by_module_and_status():
-    from vaft.validation import mhd_linear_run_coverage_model
+    from vaft.database.production_qa import mhd_linear_run_coverage_model
 
     manifest = json.loads(_manifest_payload(failed_cell=True))
     model = mhd_linear_run_coverage_model(manifest)
@@ -234,7 +231,7 @@ def test_run_coverage_model_groups_by_module_and_status():
 
 
 def test_run_coverage_model_raises_on_an_empty_manifest():
-    from vaft.validation import mhd_linear_run_coverage_model
+    from vaft.database.production_qa import mhd_linear_run_coverage_model
 
     with pytest.raises(ValueError, match="modules_modes"):
         mhd_linear_run_coverage_model({"modules_modes": {}})

@@ -17,7 +17,7 @@ from matplotlib.figure import Figure
 
 from ..models import Profile1D
 from ..registry import renderer
-from ..style import axis_label, draw_series, finalize, resolve_axes
+from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 __all__ = [
     "impa_profile_field",
@@ -47,7 +47,7 @@ def render_profile_1d(
     ax: Axes | None = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-    legend: bool = True,
+    legend: bool | None = None,
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
@@ -61,14 +61,12 @@ def render_profile_1d(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
-    labelled = False
-    for series in model.series:
+    labels, legend_title = trace_labels(model.series)
+    for series, label in zip(model.series, labels):
         options = {**style, **series.style}
-        if series.label:
-            options.setdefault("label", series.label)
-        labelled |= draw_series(
-            axes, series, uncertainty=uncertainty, validity=validity, **options
-        )
+        if label:
+            options.setdefault("label", label)
+        draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
     axes.set_xlabel(model.coordinate_label)
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
@@ -80,8 +78,7 @@ def render_profile_1d(
         axes.set_xlim(model.x_limits)
     if grid:
         axes.grid(True, alpha=0.3)
-    if legend and labelled:
-        axes.legend(loc="best")
+    apply_legend(axes, legend=legend, title=legend_title)
     return finalize(figure, axes, show=show)
 
 

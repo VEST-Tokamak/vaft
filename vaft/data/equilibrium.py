@@ -13,6 +13,12 @@ from typing import Any, Mapping
 
 import numpy as np
 
+# The findings model moved to the validation layer (issue #337): a report of
+# objections is an assessment, and `vaft.validation.model` is where the one
+# status vocabulary lives.  Re-exported here because this module and
+# `vaft.data` have always been where callers imported it from.
+from vaft.validation.model import ValidationIssue, ValidationReport
+
 
 class Topology(str, Enum):
     """How the last closed flux surface is bounded.
@@ -112,23 +118,6 @@ class DerivedValue:
     @property
     def available(self) -> bool:
         return self.value is not None and self.reason is None
-
-
-@dataclass(frozen=True)
-class ValidationIssue:
-    severity: str
-    code: str
-    field: str
-    message: str
-
-
-@dataclass(frozen=True)
-class ValidationReport:
-    issues: tuple[ValidationIssue, ...] = ()
-
-    @property
-    def valid(self) -> bool:
-        return not any(item.severity == "error" for item in self.issues)
 
 
 @dataclass(frozen=True)

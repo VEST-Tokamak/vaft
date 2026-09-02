@@ -33,6 +33,19 @@ from datetime import datetime
 import omas
 import h5py
 
+from vaft.database.sources import DEFAULT_SOURCE, LEGACY_SOURCE
+from vaft.database.sources import resolve as resolve_source
+from vaft.database.utils import processed_registry_uri, read_legacy_processed_registry
+
+# The named HSDS source this updater reads and writes. The legacy ``public``
+# namespace is a read-only reference now, so corrective results land in the
+# VAFT-native source alongside the baseline they correct. Resolved as writable:
+# this module opens the shot registry with raw h5pyd in append mode, which
+# would otherwise sail straight past the read-only guarantee.
+SOURCE = resolve_source(
+    os.environ.get("VAFT_HSDS_SOURCE") or DEFAULT_SOURCE, writable=True
+)
+
 _TOTAL_PRESSURE_LEAVES = (
     "pressure_thermal", "pressure", "pressure_ion_total",
     "pressure_ion_total_thermal", "pressure_parallel", "pressure_perpendicular",
@@ -89,7 +102,8 @@ def extract_shotnumber_of_thomson_scattering(fname: str):
 
     return None
 
-PROCESSED_H5_PATH = "hdf5://public/processed_shots.h5"
+# The registry lives beside the shots it describes, so it moves with SOURCE.
+PROCESSED_H5_PATH = processed_registry_uri(SOURCE, writable=True)
 
 # Registry groups inside processed_shots.h5. Each diagnostic owns its own group
 # so Thomson and charge_exchange records (both keyed by bare shot number) never
@@ -144,24 +158,47 @@ def save_processed_shot(shotnumber, mtime, status="core_profile", group=TS_REGIS
 
 
 def load_processed_shots(group=TS_REGISTRY_GROUP):
-    """Return dict {shotnumber: {'timestamp': ..., 'status': ...}} for one group."""
+    """Return dict {shotnumber: {'timestamp': ..., 'status': ...}} for one group.
+
+    The registry moved with the shots it describes, so a source that has just
+    been provisioned starts empty and every watched file would look unprocessed.
+    The read-only legacy registry seeds that first run.
+
+    The seed is a bootstrap, not a permanent merge: once this source's group
+    holds any record it is the whole answer. Re-reading legacy on every call
+    would make ``reset_processed_shots`` unable to clear a legacy-known shot,
+    because the next load would resurrect it.
+    """
     shots = {}
     try:
         with h5pyd.File(PROCESSED_H5_PATH, "r") as f:
-            if group not in f:
-                return shots
-            g = f[group]
-            for key in g.keys():
-                shots[int(key)] = {
-                    "timestamp": g[key]["timestamp"][()].decode()
-                    if isinstance(g[key]["timestamp"][()], bytes)
-                    else g[key]["timestamp"][()],
-                    "status": g[key]["status"][()].decode()
-                    if isinstance(g[key]["status"][()], bytes)
-                    else g[key]["status"][()],
-                }
+            if group in f:
+                g = f[group]
+                for key in g.keys():
+                    shots[int(key)] = {
+                        "timestamp": g[key]["timestamp"][()].decode()
+                        if isinstance(g[key]["timestamp"][()], bytes)
+                        else g[key]["timestamp"][()],
+                        "status": g[key]["status"][()].decode()
+                        if isinstance(g[key]["status"][()], bytes)
+                        else g[key]["status"][()],
+                    }
     except Exception:
-        print("[INFO] No processed_shots.h5 found, starting empty.")
+        print(f"[INFO] No processed_shots.h5 in '{SOURCE}' yet.")
+
+    if shots or SOURCE == LEGACY_SOURCE:
+        return shots
+
+    for key, record in read_legacy_processed_registry(group).items():
+        try:
+            shots[int(key)] = dict(record)
+        except (TypeError, ValueError):
+            continue
+    if shots:
+        print(
+            f"[INFO] Seeded {len(shots)} '{group}' record(s) from the legacy "
+            f"registry; new records are written to '{SOURCE}' only."
+        )
     return shots
 
 CHECK_INTERVAL = 10  
@@ -179,7 +216,7 @@ def update_thomson_auto(filepath):
     print(f"[INFO] Processing shot: {shotnumber}")
 
     try:
-        ods = database.load(shotnumber, source="public")
+        ods = database.load(shotnumber, source=SOURCE)
     except Exception as e:
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {e}")
         return None
@@ -191,7 +228,7 @@ def update_thomson_auto(filepath):
         print(f"[ERROR] Failed to update Thomson data for shot {shotnumber}: {e}")
         return None
     
-    database.save(ods, shotnumber)
+    database.save(ods, shotnumber, source=SOURCE)
     print(f"[SAVED] Updated ODS for shot {shotnumber}")
 
     return ods, shotnumber
@@ -240,7 +277,7 @@ def fit_thomson_profile_auto_all_times(ods, shotnumber):
                 continue
 
         strip_electron_only_pressure(ods)  # Thomson-only slices carry no total pressure
-        database.save(ods, shotnumber)
+        database.save(ods, shotnumber, source=SOURCE)
 
         if success_count > 0:
             print(f"[SAVED] Updated ODS with fitted profiles for shot {shotnumber}")
@@ -372,12 +409,12 @@ def reset_processed_shots(clear_entire_file=False):
         if "shots" in f:
             del f["shots"]
         for shot in list(f.keys()):
-            ods = database.load(shot, source="public")
+            ods = database.load(shot, source=SOURCE)
             if 'thomson_scattering' in ods:
                 ods['thomson_scattering'].clear()
             if 'core_profiles' in ods:
                 ods['core_profiles'].clear()
-            database.save(ods,shot,'public')
+            database.save(ods, shot, source=SOURCE)
         f.create_group("shots")
         print("[DONE] Reset /shots (all processed shot records cleared)")
 

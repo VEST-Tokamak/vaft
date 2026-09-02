@@ -44,8 +44,9 @@ SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
 from paths import FILEDB, PipelinePaths
 
+from vaft.database.sources import replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
-from vaft.validation import stage_plot_filenames
+from vaft.database.production_qa import stage_plot_filenames
 
 # Every product path comes from one helper so the legacy shot-first layout and
 # the canonical FileDB layout stay in sync. Select with `layout` in config.yaml.
@@ -102,6 +103,38 @@ MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOT
 # its manifest lists every declared figure as ``skipped`` and no PNG exists to
 # declare as a static Snakemake output.  Non-empty-only stages retain their
 # figure paths as direct outputs.
+# --------------------------------------------------------------------------- #
+# HSDS replication (issue #94)
+# --------------------------------------------------------------------------- #
+# Each stage replicates the IDS subtree it owns into the named source the
+# registry gives it, so a shot appears in `main` with whatever it actually
+# produced: a vacuum shot with diagnostics and eddy and no equilibrium, a shot
+# whose EFIT never converged with everything upstream of it. Where a stage goes
+# and what of it travels is vaft.database.sources.STAGE_REPLICATION -- restating
+# it here is how the two would drift apart.
+#
+# Replication needs a reachable HSDS and canonical products, so it is opt-in
+# (`hsds.replicate: true`) and refuses the shot-first tree outright.
+HSDS_CONFIG = config.get("hsds", {}) or {}
+REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False)) and PATHS.layout == FILEDB
+REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
+REPLICATION_RETRY_DELAY = HSDS_CONFIG.get("retry_delay", 5.0)
+if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
+    raise WorkflowError(
+        "hsds.replicate requires layout: filedb. The shot-first tree is a "
+        "read-only legacy reference and is never replicated (issues #89, #138)."
+    )
+REPLICATED_STAGES = tuple(replicable_stages()) if REPLICATION_ENABLED else ()
+
+
+def replication_records(shots):
+    return [
+        PATHS.replication_record(shot, stage)
+        for shot in shots
+        for stage in REPLICATED_STAGES
+    ]
+
+
 PLOTS_ENABLED = PATHS.layout == FILEDB
 EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}
 
@@ -198,9 +231,11 @@ def eligible_pipeline_outputs(wildcards):
         "efit_status",
         "efit_artifact_manifest",
         "efit_ods",
+        "efit_manifest",
         "chease_refined",
         "chease_status",
         "chease_ods",
+        "chease_manifest",
         "mhd_linear_ods",
         "mhd_linear_manifest",
     ]
@@ -214,6 +249,9 @@ def eligible_pipeline_outputs(wildcards):
         for mode in GPEC_MODES
     ]
     outputs += validation_plot_products(shots)
+    # Replication is a separate state from local completion: the record is its
+    # own output, so a product on disk never implies it reached HSDS.
+    outputs += replication_records(shots)
     return outputs
 
 
@@ -486,7 +524,8 @@ rule generate_efit_ods:
         kfiles=PATHS.shot_pattern("kfile_manifest"),
         artifacts=PATHS.shot_pattern("efit_artifact_manifest")
     output:
-        ods=PATHS.shot_pattern("efit_ods")
+        ods=PATHS.shot_pattern("efit_ods"),
+        manifest=PATHS.shot_pattern("efit_manifest")
     log:
         PATHS.shot_pattern("log", "generate_efit_ods")
     params:
@@ -504,6 +543,7 @@ rule generate_efit_ods:
             --kfile-manifest {input.kfiles} \
             --artifact-manifest {input.artifacts} \
             --output {output.ods} \
+            --metadata {output.manifest} \
             --run {params.run} \
             > {log} 2>&1
         """
@@ -672,7 +712,124 @@ if PLOTS_ENABLED:
 
 # rule convert2old:
 
-# rule save_hsds_db:
+############################################################
+# HSDS replication
+############################################################
+# One rule per stage rather than one for the shot: a failed CHEASE replication
+# cannot then invalidate an EFIT product that already reached `main`, and a
+# retry after a remote failure re-sends only what failed instead of replaying
+# the solver stage behind it.
+if REPLICATION_ENABLED:
+
+    rule replicate_diagnostics_to_hsds:
+        input:
+            ods=PATHS.shot_pattern("diagnostics_ods"),
+            manifest=PATHS.shot_pattern("diagnostics_manifest")
+        output:
+            record=PATHS.shot_pattern("replication_record", "diagnostics")
+        log:
+            PATHS.shot_pattern("log", "replicate_diagnostics_to_hsds")
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/replicate_to_hsds.py \
+                --shot {wildcards.shot} \
+                --stage diagnostics \
+                --filedb-root {BASE_DIR} \
+                --attempts {REPLICATION_ATTEMPTS} \
+                --retry-delay {REPLICATION_RETRY_DELAY} \
+                > {log} 2>&1
+            """
+
+    rule replicate_eddy_to_hsds:
+        input:
+            ods=PATHS.shot_pattern("eddy_ods"),
+            manifest=PATHS.shot_pattern("eddy_manifest")
+        output:
+            record=PATHS.shot_pattern("replication_record", "eddy")
+        log:
+            PATHS.shot_pattern("log", "replicate_eddy_to_hsds")
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/replicate_to_hsds.py \
+                --shot {wildcards.shot} \
+                --stage eddy \
+                --filedb-root {BASE_DIR} \
+                --attempts {REPLICATION_ATTEMPTS} \
+                --retry-delay {REPLICATION_RETRY_DELAY} \
+                > {log} 2>&1
+            """
+
+    rule replicate_efit_to_hsds:
+        input:
+            ods=PATHS.shot_pattern("efit_ods"),
+            manifest=PATHS.shot_pattern("efit_manifest")
+        output:
+            record=PATHS.shot_pattern("replication_record", "efit")
+        log:
+            PATHS.shot_pattern("log", "replicate_efit_to_hsds")
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/replicate_to_hsds.py \
+                --shot {wildcards.shot} \
+                --stage efit \
+                --filedb-root {BASE_DIR} \
+                --attempts {REPLICATION_ATTEMPTS} \
+                --retry-delay {REPLICATION_RETRY_DELAY} \
+                > {log} 2>&1
+            """
+
+    rule replicate_chease_to_hsds:
+        input:
+            ods=PATHS.shot_pattern("chease_ods"),
+            manifest=PATHS.shot_pattern("chease_manifest")
+        output:
+            record=PATHS.shot_pattern("replication_record", "chease")
+        log:
+            PATHS.shot_pattern("log", "replicate_chease_to_hsds")
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/replicate_to_hsds.py \
+                --shot {wildcards.shot} \
+                --stage chease \
+                --filedb-root {BASE_DIR} \
+                --attempts {REPLICATION_ATTEMPTS} \
+                --retry-delay {REPLICATION_RETRY_DELAY} \
+                > {log} 2>&1
+            """
+
+    rule replicate_mhd_linear_to_hsds:
+        input:
+            ods=PATHS.shot_pattern("mhd_linear_ods"),
+            manifest=PATHS.shot_pattern("mhd_linear_manifest")
+        output:
+            record=PATHS.shot_pattern("replication_record", "mhd_linear")
+        log:
+            PATHS.shot_pattern("log", "replicate_mhd_linear_to_hsds")
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/replicate_to_hsds.py \
+                --shot {wildcards.shot} \
+                --stage mhd_linear \
+                --filedb-root {BASE_DIR} \
+                --attempts {REPLICATION_ATTEMPTS} \
+                --retry-delay {REPLICATION_RETRY_DELAY} \
+                > {log} 2>&1
+            """
 
 
 if PLOTS_ENABLED:
@@ -764,7 +921,8 @@ rule generate_chease_ods:
         status=PATHS.shot_pattern("chease_status"),
         runs=PATHS.shot_pattern("chease_runs")
     output:
-        ods=PATHS.shot_pattern("chease_ods")
+        ods=PATHS.shot_pattern("chease_ods"),
+        manifest=PATHS.shot_pattern("chease_manifest")
     log:
         PATHS.shot_pattern("log", "generate_chease_ods")
     params:
@@ -780,6 +938,7 @@ rule generate_chease_ods:
             --status {input.status} \
             --runs-summary {input.runs} \
             --output {output.ods} \
+            --metadata {output.manifest} \
             --run {params.run} \
             > {log} 2>&1
         """

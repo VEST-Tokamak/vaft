@@ -1,9 +1,15 @@
 """Database access and storage infrastructure.
 
 The high-level :func:`load`, :func:`open`, and :func:`save` APIs operate on
-remote HSDS namespaces. Canonical local FileDB paths live in
-:mod:`vaft.database.filedb`; local OMAS/IMAS artifact loading remains exposed
-through :mod:`vaft.omas` and :mod:`vaft.imas`.
+named HSDS sources -- one namespace per analysis lineage, so an EFIT baseline
+and its CHEASE refinement of the same shot never overwrite each other. The
+catalog, the ``main`` default and the read-only rule for the legacy ``public``
+namespace all live in :mod:`vaft.database.sources`; ``directory=`` and
+``target=`` remain accepted as deprecated aliases of ``source=``.
+
+Canonical local FileDB paths live in :mod:`vaft.database.filedb`; local
+OMAS/IMAS artifact loading remains exposed through :mod:`vaft.omas` and
+:mod:`vaft.imas`.
 """
 
 from __future__ import annotations
@@ -19,6 +25,9 @@ __all__ = [
     "ids",
     "utils",
     "filedb",
+    "sources",
+    "replication",
+    "production_qa",
     "load",
     "open",
     "save",
@@ -26,17 +35,6 @@ __all__ = [
     "export_summary",
     "get_summary_preset",
 ]
-
-
-def _namespace(value: str, label: str) -> str:
-    if not isinstance(value, str) or not value or value.strip() != value:
-        raise ValueError(f"{label} must be a non-empty bare HSDS namespace")
-    if ":" in value or "/" in value or "\\" in value:
-        raise ValueError(
-            f"{label} must be a bare HSDS namespace such as 'public'; "
-            "the hdf5:// protocol is an internal detail."
-        )
-    return value
 
 
 def _paths(paths: str | list[str] | None) -> list[str] | None:
@@ -96,7 +94,7 @@ def _discover_native_ids(source: str, shot: int, version: str) -> list[str]:
     factory = imas.IDSFactory(version)
     names = sorted(
         name[:-3]
-        for name in utils.h5pyd.Folder(f"/{source}/{shot}/")
+        for name in utils.h5pyd.Folder(f"/{source}/{shot}/", mode="r")
         if name.endswith(".h5") and name not in {"master.h5", "dataset_description.h5"}
     )
     return [name for name in names if factory.exists(name)]
@@ -140,8 +138,9 @@ def _infer_remote_imas_version(
 
 def load(
     shot: int | list[int],
-    source: str = "public",
+    source: str | None = None,
     *,
+    directory: str | None = None,
     representation: Literal["omas", "imas"] = "omas",
     paths: str | list[str] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
@@ -149,8 +148,15 @@ def load(
     cache: str = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
 ):
-    """Materialize an OMAS ODS or native IMAS IDS from remote HSDS storage."""
-    source = _namespace(source, "source")
+    """Materialize an OMAS ODS or native IMAS IDS from remote HSDS storage.
+
+    ``source`` names the HSDS namespace and defaults to ``main``; pass
+    ``"public"`` to read the legacy reference. ``directory`` is a deprecated
+    alias for ``source``.
+    """
+    from .sources import resolve
+
+    source = resolve(source, directory=directory)
     selected_paths = _paths(paths)
     occurrences = _occurrence_map(occurrence)
     if representation == "omas":
@@ -172,7 +178,7 @@ def load(
         )
         return load_ods(
             shot,
-            directory=source,
+            source=source,
             occurrence=mapped,
             paths=selected_paths,
             imas_version=version,
@@ -196,7 +202,7 @@ def load(
     return load_ids(
         int(shot),
         names[0] if len(names) == 1 else names,
-        directory=source,
+        source=source,
         occurrence=occurrences,
         dd_version=version,
         cache=cache,
@@ -207,16 +213,23 @@ def load(
 def open(
     shot: int,
     *,
-    source: str = "public",
+    source: str | None = None,
+    directory: str | None = None,
     representation: Literal["omas", "imas"] = "omas",
     paths: str | list[str] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
 ):
-    """Open a read-only lazy OMAS ODS or native IMAS IDS adapter over HSDS."""
+    """Open a read-only lazy OMAS ODS or native IMAS IDS adapter over HSDS.
+
+    ``source`` names the HSDS namespace and defaults to ``main``; ``directory``
+    is a deprecated alias for it.
+    """
     if representation not in {"omas", "imas"}:
         raise ValueError("representation must be 'omas' or 'imas'")
-    source = _namespace(source, "source")
+    from .sources import resolve
+
+    source = resolve(source, directory=directory)
     selected_paths = _paths(paths)
     occurrences = _occurrence_map(occurrence)
     if any(value != 0 for value in occurrences.values()):
@@ -232,13 +245,13 @@ def open(
         from .lazy_imas import open_imas
 
         return open_imas(
-            int(shot), directory=source, ids=names, imas_version=stored_version
+            int(shot), source=source, ids=names, imas_version=stored_version
         )
     from .lazy_ods import open_ods
 
     return open_ods(
         int(shot),
-        directory=source,
+        source=source,
         ids=_root_ids(selected_paths),
         imas_version=_infer_remote_imas_version(
             source, int(shot), _root_ids(selected_paths), imas_version
@@ -250,14 +263,24 @@ def save(
     data,
     shot: int,
     *,
-    target: str = "public",
+    source: str | None = None,
+    target: str | None = None,
+    directory: str | None = None,
     representation: Literal["omas", "imas"] | None = None,
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
     derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
 ):
-    """Write an OMAS ODS or native IDS to remote HSDS storage."""
-    target = _namespace(target, "target")
+    """Write an OMAS ODS or native IDS to remote HSDS storage.
+
+    ``source`` names the HSDS namespace to publish into and defaults to
+    ``main``. The legacy ``public`` source is read-only and is refused here, so
+    a lineage cannot be overwritten by falling back to it. ``target`` and
+    ``directory`` are deprecated aliases for ``source``.
+    """
+    from .sources import resolve
+
+    source = resolve(source, directory=directory, target=target, writable=True)
     is_ids = _is_imas_ids(data)
     inferred = "imas" if is_ids else "omas"
     if representation is not None and representation != inferred:
@@ -270,7 +293,7 @@ def save(
         return save_ids(
             data,
             shot,
-            directory=target,
+            source=source,
             dd_version=imas_version,
             derived_cache=derived_cache,
         )
@@ -282,7 +305,7 @@ def save(
     return save_ods(
         data,
         shot,
-        directory=target,
+        source=source,
         occurrence=mapped,
         imas_version=imas_version,
         derived_cache=derived_cache,
@@ -297,11 +320,18 @@ def _is_imas_ids(obj) -> bool:
     return isinstance(obj, IDSToplevel)
 
 
-def summary(shot_range=None, *, preset="equilibrium_global", source="public"):
-    """Return a canonical preset summary for a range or all available shots."""
-    from ._summary import summary as _summary
+def summary(shot_range=None, *, preset="equilibrium_global", source=None, directory=None):
+    """Return a canonical preset summary for a range or all available shots.
 
-    return _summary(shot_range, preset=preset, source=source)
+    ``source`` names the HSDS namespace and defaults to ``main``; ``directory``
+    is a deprecated alias for it.
+    """
+    from ._summary import summary as _summary
+    from .sources import resolve
+
+    # Resolve here so a deprecated alias is reported against the caller's frame
+    # rather than this wrapper.
+    return _summary(shot_range, preset=preset, source=resolve(source, directory=directory))
 
 
 def get_summary_preset(name):

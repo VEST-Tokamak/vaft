@@ -11,6 +11,7 @@ from pathlib import Path
 from omas import ODS, load_omas_json, save_omas_json
 
 from vaft.code.efit import EFITConfig, collect_efit_outputs
+from vaft.omas.vest_upstream import write_manifest
 
 
 LOGGER = logging.getLogger("vaft.generate_efit_ods")
@@ -34,6 +35,7 @@ def main() -> int:
     parser.add_argument("--kfile-manifest", required=True, type=Path, help="Input kfile manifest.")
     parser.add_argument("--artifact-manifest", required=True, type=Path, help="Structured EFIT artifact manifest.")
     parser.add_argument("--output", required=True, type=Path, help="Output EFIT ODS JSON.")
+    parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest.")
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
     args = parser.parse_args()
 
@@ -71,6 +73,24 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     save_omas_json(ods, str(args.output))
+
+    # The stage manifest is what tells a consumer whether this product is a
+    # result or a placeholder. A run that collected nothing still leaves its
+    # ODS on disk for inspection, but says so here rather than letting a hollow
+    # equilibrium look like a reconstruction.
+    write_manifest(
+        {
+            "schema_version": 1,
+            "stage": "efit",
+            "shot": int(args.shot),
+            "run": int(args.run),
+            "status": "success" if result.ods is not None else "no_output",
+            "efit_status": status_text,
+            "slice_statuses": [status.to_dict() for status in result.slice_statuses],
+            "mapping_diagnostics": list(result.mapping_diagnostics),
+        },
+        args.metadata,
+    )
     LOGGER.info("EFIT ODS saved to %s", args.output)
     return 0
 

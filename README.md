@@ -190,6 +190,31 @@ its stable hash, VAFT version, provenance, and k-file checksums. Use
 `profile.kppcur` or `constraints.group_weights.bpol_probe` for deterministic
 convergence scans that do not require the EFIT binary.
 
+Every remote call names an HSDS *source* — one namespace per analysis lineage,
+so an EFIT baseline and its CHEASE refinement of the same shot never overwrite
+each other. `source` defaults to `main`, the VAFT-native pipeline's namespace.
+`public` is the pre-VAFT pipeline's output: still readable, never written.
+
+| Source | Purpose |
+| --- | --- |
+| `main` | Default. VAFT EFIT baseline. |
+| `chease-mhd-stability` | CHEASE-refined equilibrium plus DCON/RDCON/GPEC linear-MHD stability. |
+| `vfit-element` | VFIT element-fitting equilibrium. |
+| `vfit-gse` | VFIT Grad-Shafranov-equilibrium fitting result. |
+| `electron-efit` | Kinetic EFIT from Thomson scattering with an assumed Ti/Te ratio. |
+| `kinetic-efit` | Kinetic EFIT for shots with Thomson scattering and CES/ion-Doppler spectroscopy. |
+| `public` | **Read-only** legacy source from the previous pipeline. |
+
+`python -m vaft.cli summary sources` prints the same list. The historical
+`directory=`/`target=` keywords still work and warn. To use a namespace outside
+the catalog, list it in `VAFT_HSDS_EXTRA_SOURCES`.
+
+```python
+ods = vaft.database.load(39915)                       # reads main
+legacy = vaft.database.load(39915, source="public")   # legacy reference
+vaft.database.save(refined, 39915, source="chease-mhd-stability")
+```
+
 `load` is the eager path for complete ODS exports and workflows that need a
 local IMAS staging set. Without `paths` it stages the complete shot; with
 `paths=["equilibrium"]` it stages only that IDS plus `dataset_description` and
@@ -203,7 +228,7 @@ bypass derived images or `transport="h5image"` to require them. Direct lazy
 `open()` always keeps canonical selection-based access.
 
 ```python
-with vaft.database.open(39915, source="public", paths="equilibrium") as ods:
+with vaft.database.open(39915, paths="equilibrium") as ods:
     psi = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
 ```
 
@@ -212,7 +237,7 @@ explicit remote representation:
 
 ```python
 equilibrium = vaft.database.load(
-    39915, source="public", representation="imas", paths="equilibrium"
+    39915, representation="imas", paths="equilibrium"
 )
 ```
 
@@ -228,7 +253,7 @@ supports occurrence 0 and an exact stored IMAS DD version.
 
 ```python
 with vaft.database.open(
-    39915, source="public", representation="imas", paths="equilibrium"
+    39915, representation="imas", paths="equilibrium"
 ) as handle:
     psi = handle.get().time_slice[0].profiles_2d[0].psi
 ```

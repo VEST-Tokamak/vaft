@@ -115,11 +115,22 @@ is designed for the analysis sessions. Its headings are pinned separately in
 
 - **Two imports only**, `vaft` and `matplotlib.pyplot`, explained in prose
   rather than presented as boilerplate.
-- **One pattern, repeated.** Every plot is
-  `vaft.omas.plot_<something>(ods)` followed by `plt.show()`. No `savefig`, no
-  dynamic `getattr` dispatch, no plot-recipe introspection, and no
-  notebook-local helper functions -- tutorial code demonstrates VAFT rather than
-  reimplementing it.
+- **One pattern, repeated.** Every diagnostic plot is
+  `vaft.omas.plot_<subject>_<view>(ods)` followed by `plt.show()`. No `savefig`,
+  no dynamic `getattr` dispatch, and no notebook-local helper functions --
+  tutorial code demonstrates VAFT rather than reimplementing it.
+- **External links live in an appendix.** Session 01 ends with an *Additional
+  Resources* section collecting IMAS/OMAS tutorials, per-language API docs and
+  Data Dictionary references. They are deliberately kept out of the
+  introduction, where they would weigh down a beginner's first pass, and a test
+  enforces that separation. The appendix also records which Data Dictionary
+  version VAFT reads through OMAS, checked against the package rather than
+  restated in prose.
+- **The plotting concepts are taught, not assumed.** Session 01 explains the
+  `{subject}_{view}[_{quantity}]` naming grammar (issue #251) and the scientific
+  display policy (issue #256) -- why an axis reads `kA` when the ODS stores
+  amperes, and what `yunit=` does. Two cells exist purely to demonstrate those
+  concepts and are exempt from the one-pattern rule.
 - **No tutorial machinery.** No exercise framework, no mode switching, no output
   directories, no repository discovery. Exercises are ordinary comment blocks a
   student edits, and nothing the notebook does depends on hidden validation.
@@ -200,8 +211,15 @@ Develop sessions in numerical order. For each session:
 Session 01 is the first completed content milestone. It stays on the packaged
 shot 39915 throughout: IDS roots, the composed machine geometry, the magnetic,
 PF-coil, TF, spectrometer and barometry diagnostics, and the equilibrium flux
-map and profiles -- all through public `vaft.omas.plot_*` APIs. It needs no
-credentials and no repository-only data. The existing
+map and profiles -- all through public `vaft.omas.plot_*` APIs. It also teaches
+how those plots are named and how their axes are scaled, so a reader can find a
+plot they have not been shown. It needs no credentials and no repository-only
+data.
+
+When the plotting API changes, this session's explanations are part of the
+change: the canonical reference for plotting policy is
+[the plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb),
+and Session 01 must not contradict it. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
 

@@ -20,6 +20,7 @@ try:
 except ImportError:  # pragma: no cover - exercised through the public guard
     h5pyd = None
 
+from .sources import resolve as resolve_source
 from .lazy_common import decode_hdf5_value, discover_hsds_ids, normalize_ids
 from .utils import _require_h5pyd
 
@@ -48,8 +49,9 @@ class HSDSStore(dynamic_ODS):
     def __init__(
         self,
         shot: int,
-        directory: str = "public",
+        source: str | None = None,
         *,
+        directory: str | None = None,
         ids: str | Iterable[str] | None = None,
         h5pyd_module: Any = None,
     ) -> None:
@@ -58,7 +60,7 @@ class HSDSStore(dynamic_ODS):
             h5pyd_module = h5pyd
 
         self.shot = int(shot)
-        self.directory = directory.strip("/")
+        self.source = resolve_source(source, directory=directory)
         self._h5pyd = h5pyd_module
         self._requested_ids = normalize_ids(ids)
         self._available_ids_cache = self._requested_ids
@@ -81,7 +83,7 @@ class HSDSStore(dynamic_ODS):
         self.active = True
         self.kw = {
             "shot": self.shot,
-            "directory": self.directory,
+            "source": self.source,
             "ids": list(self._requested_ids) if self._requested_ids is not None else None,
         }
 
@@ -123,7 +125,7 @@ class HSDSStore(dynamic_ODS):
         if self.closed:
             raise LazyODSClosedError("Cannot discover IDS domains after the lazy ODS is closed")
         self._available_ids_cache = discover_hsds_ids(
-            self._h5pyd, self.directory, self.shot
+            self._h5pyd, self.source, self.shot
         )
         return self._available_ids_cache
 
@@ -137,7 +139,7 @@ class HSDSStore(dynamic_ODS):
         if ids_name not in self._available_ids():
             raise KeyError(f"IDS {ids_name!r} is not available for shot {self.shot}")
 
-        uri = f"hdf5://{self.directory}/{self.shot}/{ids_name}.h5"
+        uri = f"hdf5://{self.source}/{self.shot}/{ids_name}.h5"
         handle = self._h5pyd.File(uri, "r")
         self._metrics["ids_domain_open_count"] += 1
         self._handles[ids_name] = handle
@@ -359,8 +361,9 @@ class HSDSODS(omas.ODS):
 
 def open_ods(
     shot: int,
-    directory: str = "public",
+    source: str | None = None,
     *,
+    directory: str | None = None,
     ids: str | list[str] | None = None,
     imas_version: str | None = None,
     consistency_check: bool = True,
@@ -371,7 +374,7 @@ def open_ods(
     directory and never invokes ``hsget``. ``ids`` can restrict discovery to a
     known set of IDS domains and avoids even listing the remote shot folder.
     """
-    store = HSDSStore(shot, directory, ids=ids)
+    store = HSDSStore(shot, source, directory=directory, ids=ids)
     return HSDSODS(
         store=store,
         imas_version=imas_version,
