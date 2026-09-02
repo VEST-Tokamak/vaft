@@ -2305,9 +2305,17 @@ CAMERA_PROJECTIONS = ("calibrated",)
 def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
     """Normalise ``overlay=``: a name, a sequence of names, or nothing."""
     overlay = options.get("overlay", ())
-    if overlay in (None, "", False):
+    if overlay is None or overlay == "" or overlay is False:
         return ()
-    names = (overlay,) if isinstance(overlay, str) else tuple(overlay)
+    if isinstance(overlay, str):
+        names = (overlay,)
+    elif isinstance(overlay, (list, tuple, set, frozenset)) and all(isinstance(n, str) for n in overlay):
+        names = tuple(overlay)
+    else:
+        raise ValueError(
+            f"overlay must be a name or a sequence of names from {', '.join(CAMERA_OVERLAYS)}; "
+            f"got {overlay!r}"
+        )
     unknown = [name for name in names if name not in CAMERA_OVERLAYS]
     if unknown:
         raise ValueError(
@@ -2365,6 +2373,8 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     the caller's own.  Field-line tracing stays in the process layer; this
     only projects and draws its result.
     """
+    from vaft.process.camera_geometry import CameraProjection
+
     channel = int(options.get("channel", 0))
     detector = int(options.get("detector", 0))
     idx, resolved_time, _shape = _resolve_camera_visible_frame(
@@ -2384,6 +2394,11 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
         shot = options.get("shot")
         if shot in (None, ""):
             shot = _get(ods, "dataset_description.data_entry.pulse")
+        if shot in (None, "") and not isinstance(options.get("projection"), CameraProjection):
+            raise ValueError(
+                "an overlay needs the shot to look its camera pose up by: the ODS stores "
+                "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
+            )
         projection = _projection_option(options, shot)
         if "wall" in overlays or "equilibrium" in overlays:
             geometry = compute_camera_visible_efit_overlay(

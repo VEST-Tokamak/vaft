@@ -167,3 +167,22 @@ def test_plotting_does_not_grow_the_ods(shot):
     before = len(shot.flat())
     build_model("camera_visible_image", normalize_entries(shot), overlay=("wall", "equilibrium"))
     assert len(shot.flat()) == before
+
+
+# ---------------------------------------------------------------------------
+# Independent review of the image API
+# ---------------------------------------------------------------------------
+
+def test_a_bad_overlay_type_and_a_missing_shot_are_refused_by_name(shot):
+    with pytest.raises(ValueError, match="overlay must be a name or a sequence of names"):
+        build_model("camera_visible_image", normalize_entries(shot), overlay=True)
+    with pytest.raises(ValueError, match="overlay must be a name or a sequence of names"):
+        build_model("camera_visible_image", normalize_entries(shot), overlay=0)
+    import copy
+    nameless = copy.deepcopy(shot)
+    del nameless["dataset_description.data_entry.pulse"]
+    with pytest.raises(ValueError, match="no dataset_description.data_entry.pulse; pass shot="):
+        build_model("camera_visible_image", normalize_entries(nameless), overlay="wall")
+    # An explicit shot, or a projection of one's own, is enough.
+    assert build_model("camera_visible_image", normalize_entries(nameless), overlay="wall", shot=39915).overlays
+    assert build_model("camera_visible_image", normalize_entries(nameless)).overlays == ()
