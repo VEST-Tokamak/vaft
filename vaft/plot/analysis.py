@@ -4,6 +4,9 @@ import numpy as np
 
 from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
 
+# One shared non-mutating accessor for the whole repository (issue #118).
+from vaft.ods_access import path_value as _value
+
 from .selection import classify_regions
 import matplotlib.pyplot as plt
 import vaft
@@ -24,15 +27,6 @@ _STYLE = {
     "ytick.labelsize": 10,
     "legend.fontsize": 12,
 }
-
-def _value(ods, path, default=None):
-    try:
-        if path not in ods:
-            return default
-        return ods[path]
-    except (KeyError, TypeError, ValueError, IndexError):
-        return default
-
 
 def _plot_series(axis, time, data, *, label=None, scale=1.0):
     """Draw one signal, skipping it when the ODS does not carry the data."""

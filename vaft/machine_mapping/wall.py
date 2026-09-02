@@ -36,10 +36,11 @@ def wall(ods: ODS, source: str | Path | None = None) -> None:
 
     for description_index in range(len(ods["wall.description_2d"])):
         entry = ods[f"wall.description_2d.{description_index}"]
-        # Membership (`in`) is used instead of `path_exists()` here: querying
-        # a missing ODS branch by index auto-vivifies an empty placeholder as
-        # a side effect, which then fails a consistency-checked reload even
-        # though nothing was ever written to it.
+        # `in` rather than a read: probing a missing ODS branch by subscript
+        # materializes an empty placeholder, which then fails a
+        # consistency-checked reload even though nothing was written. That is
+        # now the shared contract rather than a local precaution -- see
+        # `vaft.ods_access` (issue #118).
         if "vessel" not in entry and "type" not in entry:
             # No vessel description is provided; only limiter geometry is filled.
             entry["type.index"] = 1

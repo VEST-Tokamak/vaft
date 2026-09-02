@@ -9,6 +9,8 @@ script directly). Moved verbatim out of the former monolithic ``efit.py``.
 from vaft.formula import green_br_bz, green_r, calculate_distance
 import numpy as np
 
+from vaft.ods_access import path_value
+
 import statistics
 import math
 from scipy.signal import savgol_filter
@@ -26,10 +28,17 @@ def min_gauss_fit4(coef, x, y):
 
 
 def _signal_matches_time(container, path, time) -> bool:
-    if path not in container:
+    """Whether ``path`` holds a waveform the length of ``time``.
+
+    Probed through the shared non-mutating accessor (issue #118): asking about
+    a channel with no raw data must not leave a placeholder behind, which is
+    what corrupted a constraints ODS here in the first place.
+    """
+    values = path_value(container, path)
+    if values is None:
         return False
     try:
-        values = np.asarray(container[path]).reshape(-1)
+        values = np.asarray(values).reshape(-1)
         time_values = np.asarray(time).reshape(-1)
     except Exception:
         return False

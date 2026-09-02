@@ -36,10 +36,23 @@ def _ordered_labels(ods: Any, path: str, count: int) -> list[str]:
     return labels
 
 
+# Fields excluded from the geometry fingerprint below. `current` is dynamic.
+# `resistance` is a derived material scalar, not geometry: it is a pure
+# function of the coil width/radius constants, the shot-era height profile and
+# `turns_with_sign` -- all of which the signature already covers or which are
+# identical by construction on both sides of the comparison. Including it made
+# the guard reject every packaged ODS whenever the resistance *formula*
+# changed, even though the coupling matrices were still valid (issue #117).
+_SIGNATURE_EXCLUDED_FIELDS = ("current", "resistance")
+
+
 def _static_signature(node: Any) -> tuple:
     signature = []
     for key, value in node.flat().items():
-        if key == "current" or key.startswith("current."):
+        if any(
+            key == field or key.startswith(f"{field}.")
+            for field in _SIGNATURE_EXCLUDED_FIELDS
+        ):
             continue
         array = np.asarray(value)
         signature.append((key, array.dtype.str, array.shape, array.tobytes()))

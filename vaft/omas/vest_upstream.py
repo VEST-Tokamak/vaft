@@ -681,13 +681,13 @@ def build_diagnostics_ods(
         extrapolating, so the realized axis -- not the requested one -- is what
         validation and the manifest must describe.
 
-        The IDS is checked against `ods.keys()` first: probing a path under an
-        absent IDS would auto-vivify empty nodes into the product, which is
-        exactly the leak the validator's own `present_ids` guard avoids.
+        The `ods.keys()` pre-guard this used to need is gone: `path_exists` no
+        longer materializes what it probes, so asking about a path under an
+        absent IDS is safe on its own (issue #118).
         """
         if statuses.get(component, {}).get("status", "unavailable") == "unavailable":
             return
-        if ids_name not in set(ods.keys()) or not path_exists(ods, path):
+        if not path_exists(ods, path):
             return
         grids[component] = np.asarray(get_path(ods, path), dtype=float).reshape(-1)
 
@@ -906,6 +906,26 @@ def build_diagnostics_ods(
         if statuses.get(name, {}).get("status", "unavailable") != "unavailable"
     }
     time_grid = _validate_diagnostics_time_coordinates(ods, grids, policies=policies)
+
+    # Magnetics signal quality (issue #189), projected into the native IDS
+    # validity nodes so every downstream stage reads one answer instead of
+    # rediscovering sensor health.  It runs here rather than in the mapper
+    # because mapping is a transformation layer and this is an assessment of
+    # what it produced (#253 §2).  Report-only: nothing is dropped or
+    # rewritten, and a channel with no waveform is left untouched rather than
+    # asserted invalid.
+    magnetics_quality: dict[str, Any] = {}
+    if "magnetics" in ods:
+        from vaft.validation.magnetics import (
+            magnetics_quality_metrics,
+            project_validity,
+            validate_magnetics_signals,
+        )
+
+        quality_report = validate_magnetics_signals(ods)
+        project_validity(ods, quality_report)
+        magnetics_quality = magnetics_quality_metrics(ods, quality_report)
+
     successes = sum(value["status"] == "success" for value in statuses.values())
     unavailable = sorted(
         name for name, value in statuses.items() if value["status"] == "unavailable"
@@ -936,6 +956,7 @@ def build_diagnostics_ods(
             "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
+        "magnetics_quality": magnetics_quality,
         "channel_status": statuses,
         "quality_summary": {
             "missing": sorted(unavailable + missing_channels),

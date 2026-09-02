@@ -62,7 +62,10 @@ def _plasma_current_provenance(shot: int) -> dict[str, Any]:
         },
         "reference": {
             "mode": str(reference.get("mode", "subtract")),
-            "mutual_inductance": float(reference["mutual_inductance"]),
+            # Renamed from `mutual_inductance` in issue #214: the divisor
+            # must be in ohms for V/X to be a current. The donor calls it a
+            # mutual inductance; see vest.yaml for that unresolved conflict.
+            "effective_resistance_ohm": float(reference["effective_resistance_ohm"]),
             "flux_gain": float(reference["flux_gain"]),
             "compensation_enabled": str(reference.get("mode", "subtract")) != "disabled",
             "revision": reference_prov,

@@ -18,7 +18,7 @@ representations:
     - imas
     - omas
     size: 27918897
-    sha256: e28678c827f1ac66ca170e13d7f11bef0f0332b83de36fcd61676d88a74db034
+    sha256: 84dfb42c54db55435a04ac7e2bea99d22f48af50725e0d65bee13c0e24a5fd50
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
@@ -30,7 +30,7 @@ generation:
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
   - materialize homogeneous barometry and equilibrium time coordinates
   - retain native-rate voltage and derived magnetic-field waveforms
-  - use +Bz poloidal probe metadata (poloidal_angle = pi/2)
+  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections, issue 288)
   related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
 pipeline:
   configuration: source/pipeline-config.yaml
@@ -82,3 +82,17 @@ acceptance:
 packaging_policy:
   manifest: wheel-and-sdist
   artifact: repository-only
+corrections:
+- issue: 288
+  field: magnetics.b_field_pol_probe.:.poloidal_angle
+  from: pi/2
+  to: 3*pi/2
+  reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
+    measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
+    reader. Applied in place rather than by rerunning the pipeline: the mapper writes
+    this leaf as a constant and no stage output depends on it. The reference
+    generators under workflow/reference_validation were hardcoding pi/2 on both
+    their generate and verify paths; they were corrected in the same change to
+    read POLOIDAL_ANGLE, so a regeneration now reproduces this value rather than
+    reverting it. The stage hashes above are therefore unchanged
+    and still describe the run that produced the rest of the artifact.'

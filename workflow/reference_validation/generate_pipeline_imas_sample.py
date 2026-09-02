@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import math
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +15,7 @@ from vaft.data.reference_samples import (
     sha256_file,
     verify_sample_artifacts,
 )
+from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
 from vaft.machine_mapping.utils import get_path, path_exists, set_path
 from vaft.omas import compare_ods
 
@@ -65,7 +65,7 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     for index in range(len(ods.get("magnetics.b_field_pol_probe", []))):
         _drop_empty_probe_signal(ods, f"magnetics.b_field_pol_probe.{index}.voltage")
         _drop_empty_probe_signal(ods, f"magnetics.b_field_pol_probe.{index}.field")
-        set_path(ods, f"magnetics.b_field_pol_probe.{index}.poloidal_angle", math.pi / 2)
+        set_path(ods, f"magnetics.b_field_pol_probe.{index}.poloidal_angle", POLOIDAL_ANGLE)
 
     if "barometry.gauge.0.pressure.time" in ods:
         set_path(ods, "barometry.time", ods["barometry.gauge.0.pressure.time"])
@@ -159,7 +159,7 @@ def verify(manifest_path: Path) -> None:
     for index in range(len(via_omas.get("magnetics.b_field_pol_probe", []))):
         path = f"magnetics.b_field_pol_probe.{index}.poloidal_angle"
         if path in via_omas:
-            np.testing.assert_allclose(via_omas[path], math.pi / 2)
+            np.testing.assert_allclose(via_omas[path], POLOIDAL_ANGLE)
 
 
 def main() -> int:

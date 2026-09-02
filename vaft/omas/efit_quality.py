@@ -71,6 +71,7 @@ from vaft.formula.statistics import (
     runs_test_z,
 )
 from vaft.formula.statistics import sigma_unit_factor as _sigma_unit_factor
+from vaft.ods_access import path_count as _count, path_value
 
 __all__ = [
     "CONSTRAINT_STATES",
@@ -138,25 +139,18 @@ EFIT_MINITE = 8
 # ---------------------------------------------------------------------------
 
 def _get(ods: Any, path: str, default: Any = None) -> Any:
-    """Read one leaf, treating an absent or container-valued path as absent.
+    """Read one leaf, treating a container-valued path as absent.
 
-    OMAS auto-vivifies parts of the ``code.parameters`` subtree on read, so a
-    missing leaf can come back as an empty container rather than raising.
+    :func:`~vaft.ods_access.path_value` already reports a missing path and an
+    empty branch as absent without materializing either (issue #118).  The extra
+    condition here is EFIT-specific: a populated container is not a leaf, and
+    reading one where a number was expected means the caller asked for the wrong
+    node rather than that the run omitted a value.
     """
-    try:
-        value = ods[path]
-    except (KeyError, ValueError, IndexError, TypeError):
-        return default
+    value = path_value(ods, path, default)
     if value is None or hasattr(value, "keys"):
         return default
     return value
-
-
-def _count(ods: Any, path: str) -> int:
-    try:
-        return len(ods[path])
-    except (KeyError, ValueError, IndexError, TypeError):
-        return 0
 
 
 def _scalar(value: Any, scale: float = 1.0) -> float:
