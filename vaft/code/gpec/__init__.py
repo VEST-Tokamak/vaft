@@ -305,13 +305,37 @@ def _run_module(
         }
         output_names = {path.name for path in outputs}
         if module == "gpec" and core_gpec_outputs.issubset(output_names):
+            # A process killed mid-write can leave the core files present but
+            # truncated, so the timeout carve-out must apply the same output
+            # verification as the normal completion path before reporting
+            # success (release review, 0.6.0).
+            ok, check_reason = (
+                solver.check_success(run_dir, mode)
+                if config.verify_outputs
+                else (True, "")
+            )
+            if ok:
+                return GPECModuleRun(
+                    module=module,
+                    mode=mode,
+                    workdir=run_dir,
+                    returncode=0,
+                    status="completed",
+                    reason=f"timeout after outputs materialized ({exc.timeout} seconds)",
+                    logs=tuple(logs),
+                    outputs=outputs,
+                    commands=tuple(commands),
+                )
             return GPECModuleRun(
                 module=module,
                 mode=mode,
                 workdir=run_dir,
-                returncode=0,
-                status="completed",
-                reason=f"timeout after outputs materialized ({exc.timeout} seconds)",
+                returncode=None,
+                status="failed",
+                reason=(
+                    f"timeout after {exc.timeout} seconds; outputs present but "
+                    f"failed verification: {check_reason}"
+                ),
                 logs=tuple(logs),
                 outputs=outputs,
                 commands=tuple(commands),

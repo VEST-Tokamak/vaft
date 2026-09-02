@@ -303,3 +303,64 @@ def test_runtime_module_dir_falls_back_to_geqdsk_only_when_time_ms_is_none(tmp_p
     run_dir = rt.module_dir(tmp_path, None, "dcon", 1, geqdsk=geqdsk)
 
     assert run_dir == tmp_path / "00325" / "dcon" / "nn=1"
+
+
+def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, tmp_path, case):
+    """A GPEC run killed mid-write must not be archived as a completed run.
+
+    GPEC is known to hang after its outputs materialize, so a timeout with
+    the three core netCDFs present is treated as success. But a process
+    killed *while* writing leaves those files present and truncated, so the
+    carve-out has to apply the same ``verify_outputs`` check the normal
+    completion path applies (release review, 0.6.0).
+    """
+    import subprocess
+
+    executable = tmp_path / "gpec/bin/gpec"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    executable.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), run_mode="auto", verify_outputs=True
+    )
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+
+    # ideal-GPEC consumes a completed same-mode DCON result; give it one so
+    # the run reaches the executable instead of skipping on the DCON gate.
+    dcon_dir = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
+    dcon_dir.mkdir(parents=True, exist_ok=True)
+    (dcon_dir / "euler.bin").write_bytes(b"")
+    (dcon_dir / "psi_in.bin").write_bytes(b"")
+    _write_valid_dcon_netcdf(dcon_dir, n=1)
+
+    # The three core outputs exist but hold no readable physics content.
+    for name in (
+        "gpec_control_output_n1.nc",
+        "gpec_profile_output_n1.nc",
+        "gpec_cylindrical_output_n1.nc",
+    ):
+        (run_dir / name).write_bytes(b"truncated")
+
+    def _timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="gpec", timeout=1)
+
+    monkeypatch.setattr(gpec.rt, "run_subprocess", _timeout)
+
+    result = gpec.run_gpec_suite_case(case, config)
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert "failed verification" in record.reason
+
+
+def _write_valid_dcon_netcdf(path, *, n):
+    import xarray as xr
+
+    xr.Dataset(
+        {"W_t_eigenvalue": (("mode", "i"), [[-0.3, 0.0]])},
+        coords={"i": [0, 1], "mode": [1]},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": n},
+    ).to_netcdf(path / f"dcon_output_n{n}.nc")
