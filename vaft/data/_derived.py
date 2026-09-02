@@ -137,10 +137,14 @@ def is_rho_pol_proxy(rho_tor_norm: Any, psi_norm: Any = None) -> bool:
     )
 
 
-#: How far ``q[0]`` may stand above its immediate neighbours before it is called
-#: an outlier. A physical q profile is smooth, so a factor of two against the
-#: points right beside it is a solver or discretization artifact rather than
-#: reversed shear -- the comparison is local, not against ``q_min``.
+#: How far ``q[0]`` may stand from its immediate neighbours, either way, before
+#: it is called an outlier. A physical q profile is smooth, so a factor of two
+#: against the points right beside it is a solver or discretization artifact
+#: rather than reversed shear -- the comparison is local, not against ``q_min``.
+#:
+#: The bound is two-sided on purpose: a spuriously *low* ``q0`` is as much an
+#: EFIT failure as a high one, and integrates into the toroidal flux just the
+#: same.
 AXIS_Q_OUTLIER_RATIO = 2.0
 
 
@@ -169,12 +173,15 @@ def _warn_on_axis_q_outlier(q: np.ndarray) -> None:
     if neighbourhood <= 0.0 or not np.isfinite(neighbourhood):
         return
     ratio = abs(float(q[0])) / float(neighbourhood)
-    if ratio <= AXIS_Q_OUTLIER_RATIO:
+    if 1.0 / AXIS_Q_OUTLIER_RATIO <= ratio <= AXIS_Q_OUTLIER_RATIO:
         return
+    direction = "above" if ratio > 1.0 else "below"
+    factor = ratio if ratio > 1.0 else 1.0 / ratio
     warnings.warn(
-        f"q on axis is {q[0]:.3g}, {ratio:.1f}x its immediate neighbours "
-        f"(median {neighbourhood:.3g}); the toroidal flux integral carries that "
-        f"into rho_tor_norm. The profile is used as given -- see issue #317.",
+        f"q on axis is {q[0]:.3g}, {factor:.1f}x {direction} its immediate "
+        f"neighbours (median {neighbourhood:.3g}); the toroidal flux integral "
+        f"carries that into rho_tor_norm. The profile is used as given -- see "
+        f"issue #317.",
         RuntimeWarning,
         stacklevel=3,
     )

@@ -322,6 +322,38 @@ def test_an_outlier_q_on_axis_is_reported_and_not_repaired():
     assert np.max(np.abs(repaired.rho_tor_norm - stored)) < 0.01
 
 
+def test_an_anomalously_small_q_on_axis_is_flagged_too():
+    """Review finding: the bound was one-sided, so a `q[0]` twenty times *below*
+    its neighbours passed silently. That is the same smoothness violation and the
+    same solver artifact, and it integrates into the toroidal flux the same way --
+    a spuriously low `q0` is a known EFIT failure, not a hypothetical."""
+    from vaft.data._derived import AXIS_Q_OUTLIER_RATIO, rho_tor_profile
+
+    psi = np.linspace(0.0, 0.02, 33)
+    neighbours = np.full(33, 1.9)
+
+    low = neighbours.copy()
+    low[0] = 1.9 / (20.0 * 1.0)
+    with pytest.warns(RuntimeWarning, match="below its immediate neighbours"):
+        rho_tor_profile(low, psi)
+
+    high = neighbours.copy()
+    high[0] = 1.9 * 20.0
+    with pytest.warns(RuntimeWarning, match="above its immediate neighbours"):
+        rho_tor_profile(high, psi)
+
+    # Inside the band, either way, is silence.
+    import warnings as _warnings
+
+    for factor in (1.0 / AXIS_Q_OUTLIER_RATIO * 1.05, 1.0, AXIS_Q_OUTLIER_RATIO * 0.95):
+        inside = neighbours.copy()
+        inside[0] = 1.9 * factor
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            rho_tor_profile(inside, psi)
+        assert not [w for w in caught if "q on axis" in str(w.message)], factor
+
+
 def test_a_smooth_q_profile_is_not_flagged():
     """The check has to stay quiet on ordinary data or it is worthless."""
     from vaft.data._derived import rho_tor_profile
