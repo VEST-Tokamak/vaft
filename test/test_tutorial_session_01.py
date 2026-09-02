@@ -245,8 +245,8 @@ def test_the_notebook_explains_the_display_policy(book):
     assert "except ValueError" in source, "the refusal is the point, not a footnote"
 
 
-def test_the_unit_override_really_rescales(executed):
-    """Pins the promise the prose makes, against the rendered figure."""
+def test_the_notebook_shows_the_unit_override_and_the_refusal(executed):
+    """The cell must actually print all three cases a reader is promised."""
     cell = next(c for c in _code_cells(executed) if c.id == "session01-axes-units")
     text = "\n".join(
         output.get("text", "")
@@ -256,6 +256,30 @@ def test_the_unit_override_really_rescales(executed):
     assert "default: Plasma Current [kA]" in text
     assert "yunit='A': Plasma Current [A]" in text
     assert "refused: unsupported display unit" in text
+
+
+def test_the_unit_override_really_rescales():
+    """The prose promises the numbers move with the label. Check the numbers.
+
+    An axis label is easy to change without touching the data, so asserting on
+    labels alone would pass for exactly the bug the display policy exists to
+    prevent (issue #256).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import numpy as np
+    import vaft
+
+    ods = vaft.omas.sample_ods()
+    _, in_kiloamps = vaft.omas.plot_plasma_current_time(ods, show=False)
+    _, in_amps = vaft.omas.plot_plasma_current_time(ods, yunit="A", show=False)
+
+    peak_kA = float(np.abs(in_kiloamps.get_lines()[0].get_ydata()).max())
+    peak_A = float(np.abs(in_amps.get_lines()[0].get_ydata()).max())
+    assert peak_A / peak_kA == pytest.approx(1000.0, rel=1e-6)
+    assert in_kiloamps.get_ylabel().endswith("[kA]")
+    assert in_amps.get_ylabel().endswith("[A]")
 
 
 def test_no_raw_machine_mapping_in_the_first_tutorial(book):
@@ -327,12 +351,14 @@ def test_external_links_are_kept_out_of_the_teaching_flow(book):
         if cell.cell_type == "markdown" and "## Additional Resources" in _source(cell)
     )
     before = "\n".join(_source(cell) for cell in cells[:appendix])
-    for host in ("imas-python.readthedocs.io", "gafusion.github.io",
-                 "imas-data-dictionary.readthedocs.io", "imas-matlab.readthedocs.io",
-                 "projecttorreypines.github.io", "iterorganization/IMAS-tutorial"):
-        assert host not in before, (
-            f"{host} appears before the appendix; it would weigh down the lesson"
-        )
+    # Match any external link, not a sample of hosts: the regression to catch is
+    # someone adding a *new* helpful link mid-lesson.
+    external = re.findall(r"\]\((https?://[^)]+)\)", before)
+    allowed = [url for url in external if "vest-tokamak.github.io/vaft" in url]
+    assert not [url for url in external if url not in allowed], (
+        f"external links appear before the appendix: {external}; "
+        "they belong in Additional Resources"
+    )
 
 
 def test_the_appendix_covers_each_documented_group(book):
@@ -354,9 +380,22 @@ def test_the_compatibility_note_names_the_version_vaft_actually_uses(book):
     text = _source(resources)
     assert DOCUMENTED_DD_VERSION in text
     assert "4.1.1" in text, "the latest DD is worth pointing at, clearly labelled"
-    assert str(vaft.omas.sample_ods().imas_version) == DOCUMENTED_DD_VERSION, (
-        "VAFT no longer reads the Data Dictionary version the tutorial documents"
+    # Ask OMAS what it supports, not the sample. vaft/omas/sample.py pins
+    # imas_version="3.41.0" explicitly, so comparing against sample_ods() would
+    # be one hard-coded string against another and could never go stale --
+    # which is precisely the drift this test exists to catch.
+    from omas import omas_utils
+
+    newest_supported = [
+        version
+        for version in omas_utils.imas_versions
+        if not version.startswith("develop")
+    ][-1]
+    assert newest_supported == DOCUMENTED_DD_VERSION, (
+        f"OMAS now supports Data Dictionary {newest_supported}, but the tutorial's "
+        f"compatibility note still says {DOCUMENTED_DD_VERSION}"
     )
+    assert str(vaft.omas.sample_ods().imas_version) == DOCUMENTED_DD_VERSION
 
 
 def test_the_appendix_shows_the_version_rather_than_only_asserting_it(executed):
