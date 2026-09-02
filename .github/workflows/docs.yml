@@ -60,17 +60,33 @@ jobs:
       - name: Install VAFT
         run: python -m pip install -e ".[dev]"
 
+      - name: Choose the ref each track is built from
+        # On a pull request the target branch's track must be built from the
+        # proposed merge, not from the branch as it stands: a pull request that
+        # adds or changes docs/ would otherwise be validated against a tree that
+        # does not contain its own change, which is exactly the drift this
+        # pipeline exists to prevent.
+        run: |
+          stable=origin/main
+          develop=origin/develop
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            target="${GITHUB_BASE_REF}"
+          else
+            target="${GITHUB_REF_NAME}"
+          fi
+          case "$target" in
+            main)    stable="${GITHUB_SHA}" ;;
+            develop) develop="${GITHUB_SHA}" ;;
+          esac
+          echo "STABLE_REF=$stable"   >> "$GITHUB_ENV"
+          echo "DEVELOP_REF=$develop" >> "$GITHUB_ENV"
+
       - name: Build and validate both documentation tracks
         run: |
           python docs/build.py \
             --stable-ref "${STABLE_REF}" \
             --develop-ref "${DEVELOP_REF}" \
             --output "${RUNNER_TEMP}/site"
-        env:
-          # On a push, that branch's track is built from the pushed commit, so
-          # the run documents exactly what triggered it.
-          STABLE_REF: ${{ github.ref == 'refs/heads/main' && github.sha || 'origin/main' }}
-          DEVELOP_REF: ${{ github.ref == 'refs/heads/develop' && github.sha || 'origin/develop' }}
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -124,6 +140,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Choose the ref each track is built from
+        # On a pull request the target branch's track must be built from the
+        # proposed merge, not from the branch as it stands: a pull request that
+        # adds or changes docs/ would otherwise be validated against a tree that
+        # does not contain its own change, which is exactly the drift this
+        # pipeline exists to prevent.
+        run: |
+          stable=origin/main
+          develop=origin/develop
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            target="${GITHUB_BASE_REF}"
+          else
+            target="${GITHUB_REF_NAME}"
+          fi
+          case "$target" in
+            main)    stable="${GITHUB_SHA}" ;;
+            develop) develop="${GITHUB_SHA}" ;;
+          esac
+          echo "STABLE_REF=$stable"   >> "$GITHUB_ENV"
+          echo "DEVELOP_REF=$develop" >> "$GITHUB_ENV"
+
       - name: Build, compose and publish the whole site
         run: |
           git config user.name "github-actions[bot]"
@@ -133,6 +170,4 @@ jobs:
             --develop-ref "${DEVELOP_REF}" \
             --publish
         env:
-          STABLE_REF: ${{ github.ref == 'refs/heads/main' && github.sha || 'origin/main' }}
-          DEVELOP_REF: ${{ github.ref == 'refs/heads/develop' && github.sha || 'origin/develop' }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
