@@ -1583,6 +1583,27 @@ def plot_magnetics_geometry_poloidal(
     )
 
 
+def plot_camera_visible_image(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One camera frame, optionally with overlays through one projection.
+
+    ``overlay=`` names what to draw over the frame -- ``"wall"``,
+    ``"equilibrium"`` (LCFS, magnetic axis, flux surfaces), ``"field_line"``
+    (needs ``field_line_start=(r0, z0[, phi0])``) or a tuple of them;
+    ``projection=`` is ``"calibrated"`` (the model packaged for the shot) or a
+    :class:`vaft.process.camera_geometry.CameraProjection`.  The
+    ``plot_camera_visible_image_*`` functions are presets of this one.
+    Renders with :func:`vaft.plot.camera_visible_image` (issue #261).
+    """
+    return render("camera_visible_image", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_equilibrium_overview_histories(
     source: Any,
     *,
@@ -2471,6 +2492,7 @@ __all__ = [
     "normalize_entries",
     "plot_barometry_time_pressure",
     "plot_camera_visible_animation_frames",
+    "plot_camera_visible_image",
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",

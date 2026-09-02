@@ -47,6 +47,8 @@ from vaft.plot.selection import (
 from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from ._plot_recipes import (
+    CAMERA_OVERLAYS,
+    CAMERA_PROJECTIONS,
     RECIPES,
     SYNTHETIC_CONSTRAINTS,
     LineRecipe,
@@ -59,6 +61,7 @@ from ._plot_recipes import (
     _channel_positions,
     _container_of,
     _count,
+    _get,
     _resolve_preset,
     _uncertainty_of,
     _validity_of,
@@ -174,6 +177,9 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["overview_members"] = OVERVIEW_CONTENTS[record.name]
     if record.name in SYNTHETIC_CONSTRAINTS:
         updates["synthetic"] = {"overlay": "equilibrium"}
+    if record.name == "camera_visible_image":
+        updates["overlays"] = CAMERA_OVERLAYS
+        updates["projection"] = {"methods": CAMERA_PROJECTIONS}
     if record.name in INTERACTION:
         updates["interaction"] = INTERACTION[record.name]
         updates["interaction_entry_points"] = {
@@ -243,7 +249,23 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
                 **record.synthetic,
                 "available": has_synthetic_values(ods, record.name),
             }
+        if record.projection:
+            updates["projection"] = {**record.projection, **_projection_state(ods)}
     return with_capabilities(record, **updates)
+
+
+def _projection_state(ods: Any) -> dict[str, Any]:
+    """Whether the calibrated projection is available for this shot, and why not."""
+    from .process_wrapper import camera_projection_for
+
+    shot = _get(ods, "dataset_description.data_entry.pulse")
+    if shot in (None, ""):
+        return {"available": False, "reason": "no pulse number to look a pose up by"}
+    try:
+        camera_projection_for(int(shot))
+    except (FileNotFoundError, TypeError, ValueError) as exc:
+        return {"available": False, "reason": str(exc).splitlines()[0]}
+    return {"available": True}
 
 
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:

@@ -2296,154 +2296,196 @@ def _efit_overlay_layers(
     return layers
 
 
-def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
+#: What may be drawn over a camera frame (issue #261 section 18), and the
+#: projection methods that map machine geometry into its pixels (section 20).
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line")
+CAMERA_PROJECTIONS = ("calibrated",)
+
+
+def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
+    """Normalise ``overlay=``: a name, a sequence of names, or nothing."""
+    overlay = options.get("overlay", ())
+    if overlay is None or overlay == "" or overlay is False:
+        return ()
+    if isinstance(overlay, str):
+        names = (overlay,)
+    elif isinstance(overlay, (list, tuple, set, frozenset)) and all(isinstance(n, str) for n in overlay):
+        names = tuple(overlay)
+    else:
+        raise ValueError(
+            f"overlay must be a name or a sequence of names from {', '.join(CAMERA_OVERLAYS)}; "
+            f"got {overlay!r}"
+        )
+    unknown = [name for name in names if name not in CAMERA_OVERLAYS]
+    if unknown:
+        raise ValueError(
+            f"unknown overlay {unknown[0]!r}; overlays are {', '.join(CAMERA_OVERLAYS)}"
+        )
+    return tuple(dict.fromkeys(names))
+
+
+def _projection_option(options: Mapping[str, Any], shot: Any):
+    """Resolve ``projection=``: a method name or a ``CameraProjection``."""
+    from vaft.omas.process_wrapper import camera_projection_for
+    from vaft.process.camera_geometry import CameraProjection
+
+    projection = options.get("projection", "calibrated")
+    if isinstance(projection, CameraProjection):
+        return projection
+    if projection not in CAMERA_PROJECTIONS:
+        raise ValueError(
+            f"projection must be one of {', '.join(CAMERA_PROJECTIONS)} or a "
+            f"CameraProjection; got {projection!r}"
+        )
+    try:
+        return camera_projection_for(
+            int(shot), pose_path=options.get("pose_path"), intrinsics_path=options.get("intrinsics_path")
+        )
+    except (FileNotFoundError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"no calibrated camera projection is available for shot {shot!r}: {exc}"
+        ) from exc
+
+
+def _field_line_seed(options: Mapping[str, Any]) -> tuple[float, float, float]:
+    """``(r0, z0, phi0)`` from ``field_line_start=`` or ``r0=``/``z0=``/``phi0=``."""
+    start = options.get("field_line_start")
+    if start is not None:
+        values = tuple(float(v) for v in start)
+        if len(values) not in (2, 3):
+            raise ValueError("field_line_start must be (r0, z0) or (r0, z0, phi0) in metres and radians")
+        return values[0], values[1], values[2] if len(values) == 3 else float(options.get("phi0", 0.0))
+    if options.get("r0") is None or options.get("z0") is None:
+        raise ValueError(
+            "overlay='field_line' needs a seed: pass field_line_start=(r0, z0[, phi0]) "
+            "or r0= and z0= in metres"
+        )
+    return float(options["r0"]), float(options["z0"]), float(options.get("phi0", 0.0))
+
+
+def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
+    """One camera frame with optional overlays through one projection (#261 §18-22).
+
+    ``overlay`` names what is drawn over the frame -- ``wall``, ``equilibrium``
+    (LCFS, magnetic axis, flux surfaces) and ``field_line`` (a traced line
+    from a seed) -- and ``projection`` how machine geometry becomes pixels:
+    the calibrated model packaged for the shot, or a ``CameraProjection`` of
+    the caller's own.  Field-line tracing stays in the process layer; this
+    only projects and draws its result.
+    """
+    from vaft.process.camera_geometry import CameraProjection
+
     channel = int(options.get("channel", 0))
     detector = int(options.get("detector", 0))
     idx, resolved_time, _shape = _resolve_camera_visible_frame(
         ods, channel=channel, detector=detector, options=options
     )
-    image = _camera_visible_frame_image(
-        ods, channel=channel, detector=detector, frame_index=idx
-    )
+    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
     channel_name = _camera_visible_channel_name(ods, channel)
-    title = options.get("title", f"{channel_name} frame {idx} @ t={resolved_time:.4f}s")
-    return Image2D(values=image, value_label="Digital levels", title=title)
+    overlays = _overlay_option(options)
+    layers: list[GeometryLayer] = []
+    notes: list[str] = []
+    if overlays:
+        from vaft.omas.process_wrapper import (
+            compute_camera_visible_efit_overlay,
+            compute_camera_visible_field_line_overlay,
+        )
+
+        shot = options.get("shot")
+        if shot in (None, ""):
+            shot = _get(ods, "dataset_description.data_entry.pulse")
+        if shot in (None, "") and not isinstance(options.get("projection"), CameraProjection):
+            raise ValueError(
+                "an overlay needs the shot to look its camera pose up by: the ODS stores "
+                "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
+            )
+        projection = _projection_option(options, shot)
+        if "wall" in overlays or "equilibrium" in overlays:
+            geometry = compute_camera_visible_efit_overlay(
+                ods, int(shot), channel=channel, detector=detector, frame_index=idx,
+                flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95)))
+                if "equilibrium" in overlays else (),
+                projection=projection,
+            )
+            # An explicit show_* flag refines within the overlay it belongs to.
+            layer_options = {
+                "show_wall": options.get("show_wall", "wall" in overlays) and "wall" in overlays,
+                "show_lcfs": options.get("show_lcfs", True) and "equilibrium" in overlays,
+                "show_magnetic_axis": options.get("show_magnetic_axis", True) and "equilibrium" in overlays,
+            }
+            layers.extend(_efit_overlay_layers(geometry, options=layer_options))
+            notes.append(" + ".join(name for name in ("wall", "equilibrium") if name in overlays))
+        if "field_line" in overlays:
+            r0, z0, phi0 = _field_line_seed(options)
+            result = compute_camera_visible_field_line_overlay(
+                ods, int(shot), r0=r0, z0=z0, phi0=phi0, channel=channel, detector=detector,
+                frame_index=idx, dphi_deg=float(options.get("dphi_deg", 1.0)),
+                max_length_m=float(options.get("max_length_m", 50.0)),
+                direction=options.get("direction", "forward"),
+                use_wall_boundary=options.get("use_wall_boundary", True),
+                projection=projection,
+            )
+            layers.extend(_field_line_layers(result["field_line_uv"]))
+            notes.append(f"field line R0={r0:.3f} m, Z0={z0:.3f} m, stop: {result['trace']['termination_reason']}")
+    title = options.get(
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
+        + (f" -- shot {shot}: {'; '.join(notes)}" if notes else ""),
+    )
+    return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
+
+
+def _field_line_layers(field_line_uv: np.ndarray) -> list[GeometryLayer]:
+    """The traced line and its end points, in pixel space."""
+    layers: list[GeometryLayer] = []
+    if field_line_uv.shape[0] >= 2:
+        layers.append(GeometryLayer(
+            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label="Field line",
+            style={"color": "red", "linewidth": 1.5},
+        ))
+    if field_line_uv.shape[0] >= 1:
+        layers.append(GeometryLayer(
+            r=field_line_uv[:1, 0], z=field_line_uv[:1, 1], kind="points", label="Start",
+            style={"marker": "o", "markersize": 8, "color": "lime"},
+        ))
+    if field_line_uv.shape[0] >= 2:
+        layers.append(GeometryLayer(
+            r=field_line_uv[-1:, 0], z=field_line_uv[-1:, 1], kind="points", label="End",
+            style={"marker": "o", "markersize": 8, "color": "blue"},
+        ))
+    return layers
+
+
+def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
+    """Preset of the image API: the bare frame."""
+    return _build_camera_visible_image(ods, **{**options, "overlay": ()})
+
+
+def _preset_overlays(options: Mapping[str, Any], *, field_line: bool) -> tuple[str, ...]:
+    """Overlay names the legacy ``show_*`` flags of a preset spell out."""
+    names: list[str] = []
+    if options.get("show_wall", not field_line):
+        names.append("wall")
+    if options.get("show_lcfs", not field_line) or options.get("show_magnetic_axis", not field_line) or (
+        field_line and options.get("flux_surface_levels")
+    ):
+        names.append("equilibrium")
+    if field_line:
+        names.append("field_line")
+    return tuple(names)
 
 
 def _build_camera_visible_image_efit_overlay(ods: Any, **options: Any) -> Image2D:
-    from vaft.omas.process_wrapper import compute_camera_visible_efit_overlay
-
-    shot = options["shot"]
-    channel = int(options.get("channel", 0))
-    detector = int(options.get("detector", 0))
-    idx, resolved_time, _shape = _resolve_camera_visible_frame(
-        ods, channel=channel, detector=detector, options=options
-    )
-    image = _camera_visible_frame_image(
-        ods, channel=channel, detector=detector, frame_index=idx
-    )
-
-    overlay = compute_camera_visible_efit_overlay(
-        ods,
-        shot,
-        channel=channel,
-        detector=detector,
-        frame_index=idx,
-        flux_surface_levels=tuple(
-            options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95))
-        ),
-    )
-    layers = _efit_overlay_layers(overlay, options=options)
-
-    channel_name = _camera_visible_channel_name(ods, channel)
-    title = options.get(
-        "title",
-        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} EFIT overlay",
-    )
-    return Image2D(
-        values=image, value_label="Digital levels", title=title, overlays=tuple(layers)
+    """Preset of the image API: the frame with wall and equilibrium overlays."""
+    return _build_camera_visible_image(
+        ods, **{**options, "overlay": _preset_overlays(options, field_line=False)}
     )
 
 
 def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
-    from vaft.omas.process_wrapper import (
-        compute_camera_visible_efit_overlay,
-        compute_camera_visible_field_line_overlay,
-    )
-
-    shot = options["shot"]
-    r0 = float(options["r0"])
-    z0 = float(options["z0"])
-    channel = int(options.get("channel", 0))
-    detector = int(options.get("detector", 0))
-    idx, resolved_time, _shape = _resolve_camera_visible_frame(
-        ods, channel=channel, detector=detector, options=options
-    )
-    image = _camera_visible_frame_image(
-        ods, channel=channel, detector=detector, frame_index=idx
-    )
-
-    result = compute_camera_visible_field_line_overlay(
-        ods,
-        shot,
-        r0=r0,
-        z0=z0,
-        phi0=float(options.get("phi0", 0.0)),
-        channel=channel,
-        detector=detector,
-        frame_index=idx,
-        dphi_deg=float(options.get("dphi_deg", 1.0)),
-        max_length_m=float(options.get("max_length_m", 50.0)),
-        direction=options.get("direction", "forward"),
-        use_wall_boundary=options.get("use_wall_boundary", True),
-    )
-
-    layers: list[GeometryLayer] = []
-    field_line_uv = result["field_line_uv"]
-    if field_line_uv.shape[0] >= 2:
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[:, 0],
-                z=field_line_uv[:, 1],
-                kind="polyline",
-                label="Field line",
-                style={"color": "red", "linewidth": 1.5},
-            )
-        )
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[:1, 0],
-                z=field_line_uv[:1, 1],
-                kind="points",
-                label="Start",
-                style={"marker": "o", "markersize": 8, "color": "lime"},
-            )
-        )
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[-1:, 0],
-                z=field_line_uv[-1:, 1],
-                kind="points",
-                label="End",
-                style={"marker": "o", "markersize": 8, "color": "blue"},
-            )
-        )
-    elif field_line_uv.shape[0] == 1:
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[:1, 0],
-                z=field_line_uv[:1, 1],
-                kind="points",
-                label="Start",
-                style={"marker": "o", "markersize": 8, "color": "lime"},
-            )
-        )
-
-    if (
-        options.get("show_wall")
-        or options.get("show_lcfs")
-        or options.get("show_magnetic_axis")
-        or options.get("flux_surface_levels")
-    ):
-        efit_overlay = compute_camera_visible_efit_overlay(
-            ods,
-            shot,
-            channel=channel,
-            detector=detector,
-            frame_index=idx,
-            flux_surface_levels=tuple(options.get("flux_surface_levels", ())),
-        )
-        layers.extend(_efit_overlay_layers(efit_overlay, options=options))
-
-    reason = result["trace"]["termination_reason"]
-    channel_name = _camera_visible_channel_name(ods, channel)
-    title = options.get(
-        "title",
-        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} field line\n"
-        f"R0={r0:.3f}m, Z0={z0:.3f}m, stop: {reason}",
-    )
-    return Image2D(
-        values=image, value_label="Digital levels", title=title, overlays=tuple(layers)
+    """Preset of the image API: the frame with a traced field line (plus what ``show_*`` asks)."""
+    return _build_camera_visible_image(
+        ods, **{**options, "overlay": _preset_overlays(options, field_line=True)}
     )
 
 
@@ -2474,6 +2516,10 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
     )
 
 
+RECIPES["camera_visible_image"] = CallableRecipe(
+    builder=_build_camera_visible_image,
+    description="One camera frame with optional overlays through one projection.",
+)
 RECIPES["camera_visible_image_frame"] = CallableRecipe(
     builder=_build_camera_visible_image_frame,
     description="One FAST-camera frame, selected by frame_index or nearest time.",
@@ -3458,33 +3504,38 @@ EXTRACTION_OPTIONS = frozenset(
         "coordinate",
         "detector",
         "detrend",
-        "dphi_deg",
         "direction",
+        "dphi_deg",
+        "field_line_start",
         "fit_ranges",
         "flux_surface_levels",
         "frame_index",
         "frame_indices",
+        "intrinsics_path",
         "layout",
         "log_y",
         "marker_frequencies",
-        "ncols",
         "max_frequency",
         "max_length_m",
+        "ncols",
         "noverlap",
         "nperseg",
+        "overlay",
         "per_family",
         "phi0",
+        "pose_path",
+        "projection",
         "quantity",
-        "selection",
         "r0",
         "reference_slopes",
         "sample_rate",
+        "selection",
         "series_label",
-        "sigma",
         "shot",
         "show_lcfs",
         "show_magnetic_axis",
         "show_wall",
+        "sigma",
         "synthetic",
         "time",
         "time_range",
@@ -3496,8 +3547,8 @@ EXTRACTION_OPTIONS = frozenset(
         "window_size",
         "x_limits",
         "xunit",
-        "z0",
         "yunit",
+        "z0",
     }
 )
 

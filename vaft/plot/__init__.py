@@ -219,6 +219,7 @@ from .renderers.geometry import (
 )
 from .renderers.images import (
     camera_visible_animation_frames,
+    camera_visible_image,
     camera_visible_image_efit_overlay,
     camera_visible_image_field_line,
     camera_visible_image_frame,
