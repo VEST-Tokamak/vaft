@@ -48,12 +48,15 @@ validate them would turn the benchmark into an underconstrained fit.
 from __future__ import annotations
 
 import copy
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, TYPE_CHECKING
 
 import numpy as np
 
 from vaft.formula.statistics import sigma_threshold_crossing
 from vaft.ods_access import path_value
+
+if TYPE_CHECKING:  # pragma: no cover
+    from vaft.machine_mapping.wall_resistance import WallResistanceCalibration
 
 __all__ = [
     "BenchmarkError",
@@ -250,6 +253,7 @@ def benchmark_wall_currents(
     ods: Any,
     *,
     resistance_scale: float = 1.0,
+    calibration: "WallResistanceCalibration | None" = None,
     dt_sub: float = 5.0e-5,
 ) -> Any:
     """Re-solve the passive-wall currents driven by measured PF currents alone.
@@ -270,6 +274,15 @@ def benchmark_wall_currents(
     It is deliberately a single scalar: fitting hundreds of loop resistances
     against the magnetic data used to validate them would make the benchmark an
     underconstrained fit rather than an independent qualification.
+
+    ``calibration`` replaces the shipped resistances with the nominal hoop
+    resistance times that vintage's 31 band factors
+    (:mod:`vaft.machine_mapping.wall_resistance`). ``None`` leaves the ODS's
+    own values in place -- byte-identical to before this seam existed -- and
+    the vintage the shipped asset was built from reproduces them exactly, so
+    passing it is a no-op that makes the wall's provenance explicit. This is
+    the seam a #308 calibration fit varies; ``resistance_scale`` still
+    multiplies on top.
     """
     from vaft.omas.process_wrapper import compute_eddy_currents
 
@@ -277,6 +290,11 @@ def benchmark_wall_currents(
     scale = float(resistance_scale)
     if scale <= 0.0:
         raise BenchmarkError(f"resistance_scale must be positive, got {scale}")
+    if calibration is not None:
+        from vaft.machine_mapping.wall_resistance import calibrated_resistance
+
+        for index, value in enumerate(calibrated_resistance(working, calibration)):
+            working[f"pf_passive.loop.{index}.resistance"] = float(value)
     if scale != 1.0:
         for index in range(len(working["pf_passive.loop"])):
             path = f"pf_passive.loop.{index}.resistance"
@@ -465,7 +483,14 @@ def _static_model(ods: Any) -> dict[str, Any]:
         ]
     )
     outline = _signal(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    from vaft.machine_mapping.wall_resistance import identify_calibration
+
+    try:
+        calibration = identify_calibration(ods)
+    except (KeyError, ValueError, TypeError) as reason:  # unbanded or foreign passive model
+        calibration = {"key": None, "error": str(reason)}
     return {
+        "wall_calibration": calibration,
         "passive_loop_count": int(resistances.size),
         "pf_coil_count": int(len(ods["pf_active.coil"])),
         "passive_resistance_sum": float(resistances.sum()),
@@ -485,6 +510,7 @@ def run_benchmark_case(
     window: tuple[float, float] | None = None,
     per_family: int | None = None,
     resistance_scale: float = 1.0,
+    calibration: "WallResistanceCalibration | None" = None,
     dt_sub: float = 5.0e-5,
     n_tau: float = DEFAULT_HISTORY_TIME_CONSTANTS,
     min_samples: int = 2,
@@ -540,7 +566,7 @@ def run_benchmark_case(
         )
 
     working = benchmark_wall_currents(
-        ods, resistance_scale=resistance_scale, dt_sub=dt_sub
+        ods, resistance_scale=resistance_scale, calibration=calibration, dt_sub=dt_sub
     )
     channels = synthetic_vacuum_magnetics(
         working,
@@ -568,8 +594,13 @@ def run_benchmark_case(
         "pf_excitation": _pf_excitation(ods),
         "coil_drive": coil_drive_check(ods, validation_window),
         "static_model": {
-            **_static_model(ods),
+            **_static_model(working),
             "resistance_scale": float(resistance_scale),
+            "applied_calibration": None if calibration is None else {
+                "key": calibration.key,
+                "digest": calibration.digest(),
+                "source": calibration.source,
+            },
             "wall_time_constants": {
                 "slowest": float(constants[0]),
                 "median": float(np.median(constants)),
