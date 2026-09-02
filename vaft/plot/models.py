@@ -109,6 +109,14 @@ class Series(ViewModel):
     #: every sample is valid, which is not the same as a channel whose
     #: ``validity`` flag is negative.
     valid_mask: np.ndarray | None = None
+    #: Structured identity, kept apart so a legend can say each thing once:
+    #: ``entry`` is the shot or collection key the trace came from, ``channel``
+    #: the canonical channel label (``[5] (9.1 cm, 4.0 cm)``), ``position`` the
+    #: stored (R, Z) in metres.  ``label`` remains the composed fallback for
+    #: hand-built models.
+    entry: str = ""
+    channel: str = ""
+    position: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -142,6 +150,11 @@ class Series(ViewModel):
             object.__setattr__(self, "valid_mask", mask)
         if self.validity is not None:
             object.__setattr__(self, "validity", int(self.validity))
+        if self.position is not None:
+            r, z = self.position
+            object.__setattr__(self, "position", (float(r), float(z)))
+        object.__setattr__(self, "entry", str(self.entry or ""))
+        object.__setattr__(self, "channel", str(self.channel or ""))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 

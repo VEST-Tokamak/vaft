@@ -315,21 +315,19 @@ def test_a_representative_is_one_member_of_its_region(loop_ods):
 def test_the_representative_is_the_regions_channel_nearest_the_midplane():
     ods = _sample()
     figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard_mid")
-    chosen = axes.lines[0].get_label()
+    chosen = axes.lines[0].get_label()  # canonical form: "[<index>] (R cm, Z cm)"
     matplotlib.pyplot.close(figure)
 
     regions = classify_regions(
         np.asarray(ods["magnetics.flux_loop.:.position.0.r"], float)
     )
     heights = {
-        str(ods[f"magnetics.flux_loop.{i}.name"]): abs(
-            float(ods[f"magnetics.flux_loop.{i}.position.0.z"])
-        )
+        i: abs(float(ods[f"magnetics.flux_loop.{i}.position.0.z"]))
         for i, name in enumerate(regions)
         if name == INBOARD
     }
     nearest = min(heights, key=heights.get)
-    assert nearest in chosen
+    assert chosen.startswith(f"[{nearest}] ")
 
 
 def test_the_representative_follows_the_geometry_not_a_remembered_index():
@@ -350,8 +348,10 @@ def test_the_representative_follows_the_geometry_not_a_remembered_index():
     second = vaft.omas.plot_flux_loop_time_flux(
         _ods([0.5, -0.5, 0.02, 0.7]), selection="outboard_mid"
     )[1]
-    assert "FL03" in first.lines[0].get_label()
-    assert "FL02" in second.lines[0].get_label()
+    # Legends carry the canonical "[index] (R cm, Z cm)" label, so the chosen
+    # channel is read from its index prefix.
+    assert first.lines[0].get_label().startswith("[3] ")
+    assert second.lines[0].get_label().startswith("[2] ")
     matplotlib.pyplot.close("all")
 
 
@@ -383,8 +383,8 @@ def test_a_channel_without_data_cannot_represent_its_region():
             ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
 
     figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
-    # FL02 sits nearest Z = 0 but is empty, so FL01 represents the region.
-    assert "FL01" in axes.lines[0].get_label()
+    # Channel 2 sits nearest Z = 0 but is empty, so channel 1 represents the region.
+    assert axes.lines[0].get_label().startswith("[1] ")
     matplotlib.pyplot.close(figure)
 
 
@@ -432,7 +432,7 @@ def test_a_single_sample_channel_still_counts_as_data():
         ods[f"magnetics.flux_loop.{index}.flux.data"] = data
 
     figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
-    assert "FL02" in axes.lines[0].get_label()
+    assert axes.lines[0].get_label().startswith("[2] ")
     matplotlib.pyplot.close(figure)
     # And the plot really can draw it, which is what makes the choice right.
     figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="FL02")
@@ -445,8 +445,7 @@ def test_the_old_and_new_midplane_apis_choose_the_same_channel():
     from vaft.plot.time import _find_flux_loop_inboard_midplane_indices
 
     ods = _sample()
-    legacy = _find_flux_loop_inboard_midplane_indices(ods)[0]
+    legacy = int(_find_flux_loop_inboard_midplane_indices(ods)[0][0])
     figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard_mid")
-    modern = str(ods[f"magnetics.flux_loop.{int(legacy[0])}.name"])
-    assert modern in axes.lines[0].get_label()
+    assert axes.lines[0].get_label().startswith(f"[{legacy}] ")
     matplotlib.pyplot.close(figure)
