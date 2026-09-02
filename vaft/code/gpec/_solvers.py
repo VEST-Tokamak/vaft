@@ -55,7 +55,9 @@ class Solver(Protocol):
         ...
 
 
-def _check_nc_variable(run_dir: Path, filename: str, variable: str) -> tuple[bool, str]:
+def _check_nc_variable(
+    run_dir: Path, filename: str, variable: str | None = None
+) -> tuple[bool, str]:
     """Check that ``filename`` really carries readable ``variable`` data.
 
     A solver killed mid-write leaves a file whose header is complete but
@@ -66,6 +68,11 @@ def _check_nc_variable(run_dir: Path, filename: str, variable: str) -> tuple[boo
     the file to be at least as large as its own header says its variables
     need. Compressed HDF5-based files are legitimately smaller than their
     logical size, so the size floor is applied only to classic files.
+
+    ``variable`` names a leaf whose presence is also required. Pass ``None``
+    to check integrity alone, for a file whose variable names VAFT does not
+    otherwise depend on -- naming a leaf GPEC might not write would turn a
+    healthy run into a spurious failure.
     """
     path = run_dir / filename
     if not path.exists():
@@ -75,10 +82,16 @@ def _check_nc_variable(run_dir: Path, filename: str, variable: str) -> tuple[boo
         import xarray as xr
 
         with xr.open_dataset(path) as ds:
-            if variable not in ds.variables:
+            if variable is not None and variable not in ds.variables:
                 return False, f"{filename} is missing expected variable {variable!r}"
-            # Materialize the values; HDF5-backed truncation raises here.
-            np.asarray(ds[variable].values)
+            # Materialize values; HDF5-backed truncation raises here. Read the
+            # named leaf when there is one, else the largest, so the check
+            # stays bounded rather than loading an entire grid needlessly.
+            if variable is not None:
+                np.asarray(ds[variable].values)
+            elif ds.variables:
+                largest = max(ds.variables, key=lambda name: int(np.prod(ds[name].shape)))
+                np.asarray(ds[largest].values)
 
             with open(path, "rb") as handle:
                 classic = handle.read(3) == b"CDF"
@@ -231,7 +244,21 @@ class IdealGPECSolver:
         missing = [name for name in core if not (run_dir / name).exists()]
         if missing:
             return False, f"missing outputs: {', '.join(missing)}"
-        return _check_nc_variable(run_dir, f"gpec_control_output_n{mode}.nc", "b_n")
+        # Every core file must be verified, not just the first: GPEC writes
+        # them in sequence, so a run killed mid-write leaves an intact
+        # control.nc beside a truncated profile or cylindrical one. `R` is the
+        # grid coordinate the cylindrical reader itself requires; the profile
+        # file is integrity-checked only, since VAFT reads no named leaf from
+        # it and inventing one could fail a healthy run.
+        for filename, variable in (
+            (f"gpec_control_output_n{mode}.nc", "b_n"),
+            (f"gpec_cylindrical_output_n{mode}.nc", "R"),
+            (f"gpec_profile_output_n{mode}.nc", None),
+        ):
+            ok, reason = _check_nc_variable(run_dir, filename, variable)
+            if not ok:
+                return False, reason
+        return True, ""
 
 
 SOLVERS: dict[str, Solver] = {

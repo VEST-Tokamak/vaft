@@ -397,3 +397,53 @@ def test_truncated_netcdf_does_not_pass_the_output_check(tmp_path):
             ok, reason = _check_nc_variable(tmp_path, name, "W_t_eigenvalue")
             assert not ok, f"{fmt} truncated to {fraction:.0%} passed the check"
             assert reason
+
+
+def test_a_truncated_profile_or_cylindrical_output_fails_the_check(tmp_path):
+    """Every core GPEC output must be verified, not just control.nc.
+
+    GPEC writes its three core files in sequence, so a run killed mid-write
+    leaves an intact control.nc beside a truncated profile or cylindrical
+    file. Checking only control.nc reported that as success and the missing
+    tail read back downstream as silent zeros (ultrareview, 0.6.0).
+    """
+    import numpy as np
+    import xarray as xr
+
+    from vaft.code.gpec._solvers import SOLVERS
+
+    def _build(truncate=None):
+        for name, ds in (
+            ("gpec_control_output_n1.nc", xr.Dataset({"b_n": (("i",), np.arange(5000, dtype=float))})),
+            ("gpec_profile_output_n1.nc", xr.Dataset({"xi_n": (("i",), np.arange(20000, dtype=float))})),
+            (
+                "gpec_cylindrical_output_n1.nc",
+                xr.Dataset(
+                    {
+                        "R": (("i",), np.arange(20000, dtype=float)),
+                        "z": (("i",), np.arange(20000, dtype=float)),
+                    }
+                ),
+            ),
+        ):
+            ds.to_netcdf(tmp_path / name, format="NETCDF3_CLASSIC")
+        if truncate is not None:
+            path = tmp_path / truncate
+            full = path.stat().st_size
+            with open(path, "r+b") as handle:
+                handle.truncate(int(full * 0.3))
+
+    solver = SOLVERS["gpec"]
+
+    _build()
+    assert solver.check_success(tmp_path, 1)[0]
+
+    for truncated in (
+        "gpec_control_output_n1.nc",
+        "gpec_profile_output_n1.nc",
+        "gpec_cylindrical_output_n1.nc",
+    ):
+        _build(truncate=truncated)
+        ok, reason = solver.check_success(tmp_path, 1)
+        assert not ok, f"a truncated {truncated} passed the check"
+        assert truncated in reason

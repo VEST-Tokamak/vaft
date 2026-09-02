@@ -51,8 +51,8 @@ ION_MASS_KG = {
 }
 
 ASSEMBLIES: tuple[dict[str, Any], ...] = (
-    {"index": 0, "key": "mid", "name": "Mid triple Langmuir probe", "z": MID_Z_M, "position_key": "mid_r"},
-    {"index": 1, "key": "upper", "name": "Upper triple Langmuir probe", "z": UPPER_Z_M, "position_key": "upper_r"},
+    {"key": "mid", "name": "Mid triple Langmuir probe", "z": MID_Z_M, "position_key": "mid_r"},
+    {"key": "upper", "name": "Upper triple Langmuir probe", "z": UPPER_Z_M, "position_key": "upper_r"},
 )
 
 
