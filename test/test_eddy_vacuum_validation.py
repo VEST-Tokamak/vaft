@@ -36,6 +36,7 @@ from vaft.omas.process_wrapper import (
 from vaft.omas.vacuum_magnetics import (
     evaluation_mask,
     plasma_free_residual,
+    quality_gate,
     B_FIELD_POL_PROBE,
     FLUX_LOOP,
     VacuumMagneticsError,
@@ -470,8 +471,10 @@ def test_plasma_free_residual_stacks_channels_for_a_fitter(vacuum_ods):
     ods, _, _ = vacuum_ods
     channels = synthetic_vacuum_magnetics(ods)
     window = (float(channels[0].time[0]), PLASMA_ONSET)
+    _, gate = quality_gate(ods, window=window)
+    assert gate.excluded == ()  # a clean synthetic array: the gate is a no-op
 
-    residual = plasma_free_residual(channels, window)
+    residual = plasma_free_residual(channels, window, gate=gate)
     expected = sum(int(np.count_nonzero(evaluation_mask(c, window))) for c in channels)
     assert residual.shape == (expected,)
 
@@ -480,7 +483,7 @@ def test_plasma_free_residual_stacks_channels_for_a_fitter(vacuum_ods):
 
     # Normalisation puts tesla and weber channels on a comparable footing
     # without changing how many samples are compared.
-    assert plasma_free_residual(channels, window, normalize=True).shape == (expected,)
+    assert plasma_free_residual(channels, window, gate=gate, normalize=True).shape == (expected,)
 
 
 def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
@@ -532,15 +535,19 @@ def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
     assert np.all(np.isfinite(pf_only))
 
     onset = plasma_onset_time(ods)
-    routine_channels = synthetic_vacuum_magnetics(ods)
-    window = (float(routine_channels[0].time[0]), onset)
-    pf_channels = synthetic_vacuum_magnetics(solved)
+    window = (float(np.asarray(ods["pf_active.time"])[0]), onset)
+    # Both channel sets come from the gated product, so the comparison below
+    # is between two models of the same assessed measurements.
+    gated, gate = quality_gate(ods, window=window)
+    routine_channels = synthetic_vacuum_magnetics(gated)
+    pf_channels = synthetic_vacuum_magnetics(benchmark_wall_currents(gated))
+    assert "MagneticFieldProbe_H3-08_Bz" in gate.excluded
 
     routine_rms = float(
-        np.sqrt(np.mean(plasma_free_residual(routine_channels, window, normalize=True) ** 2))
+        np.sqrt(np.mean(plasma_free_residual(routine_channels, window, gate=gate, normalize=True) ** 2))
     )
     pf_rms = float(
-        np.sqrt(np.mean(plasma_free_residual(pf_channels, window, normalize=True) ** 2))
+        np.sqrt(np.mean(plasma_free_residual(pf_channels, window, gate=gate, normalize=True) ** 2))
     )
     # Pre-onset the two drives are the same, so the residuals must be too.
     assert pf_rms == pytest.approx(routine_rms, rel=0.05)
