@@ -243,15 +243,43 @@ def rhoN_from_phi(phi: Union[np.ndarray, float],
 
 def toroidal_flux_from_q_psi(q: np.ndarray,
                              psi_wb: np.ndarray) -> np.ndarray:
-    r"""
-    # $\Phi(\psi) = \int_{\psi_a}^{\psi} q \, d\psi$   (ψ in weber)
-    # Φ(ψ) = ∫ q dψ
+    r"""Cumulative toroidal flux $\Phi(\psi)$ from the $q$ profile on a full-weber grid.
 
-    ``psi_wb`` is the poloidal flux **in weber**, which is what the IMAS DD
-    stores.  No 2π appears: ``dΦ/dψ_rad = 2π q`` and ``ψ_wb = 2π ψ_rad``, so the
-    two factors cancel.  Pass ``2*np.pi*psi_rad`` for a weber-per-radian profile.
+    $$\Phi(\psi) = \int_{\psi_a}^{\psi} q\,d\psi', \qquad \psi\ \text{in Wb}$$
 
-    Returns the cumulative flux on the same grid, starting at zero.
+    Parameters
+    ----------
+    q : np.ndarray
+        Safety factor on the flux grid [-].
+    psi_wb : np.ndarray
+        Poloidal flux of the same surfaces, monotonic, full weber [Wb].
+
+    Returns
+    -------
+    np.ndarray
+        Toroidal flux enclosed by each surface, starting at zero [Wb].
+
+    Convention
+    ----------
+    ``psi_wb`` is the IMAS Data Dictionary flux (COCOS 11-18).  No $2\pi$
+    appears because $d\Phi/d\psi_{rad} = 2\pi q$ and $\psi_{wb} = 2\pi
+    \psi_{rad}$ cancel; pass ``2*np.pi*psi_rad`` for an EFIT or VFIT
+    per-radian profile (:func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`
+    settles which family an ODS holds).  The orientation sign of $q$ and
+    $\psi$ is not applied: a COCOS with $\sigma_{\rho\theta\varphi} = -1$
+    gives a negative $\Phi$.
+
+    Numerical notes
+    ---------------
+    Cumulative trapezoidal rule (``scipy.integrate.cumulative_trapezoid`` via
+    :func:`vaft.compat.cumtrapz_compat`); second order in the grid spacing,
+    and the result is the running integral, so its first element is zero.
+
+    References
+    ----------
+    .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
+           Eq. (17) and Table I.
+    .. [2] IMAS Data Dictionary, ``equilibrium.time_slice[:].profiles_1d.phi``.
     """
     from vaft.compat import cumtrapz_compat
 
@@ -262,12 +290,39 @@ def toroidal_flux_from_q_psi(q: np.ndarray,
 
 def rho_tor_from_phi(phi: Union[np.ndarray, float],
                      B0: float) -> Union[np.ndarray, float]:
-    r"""
-    # $\rho_{tor} = \sqrt{\frac{|\Phi|}{\pi |B_0|}}$
-    # ρ_tor = √(|Φ| / (π|B₀|))
+    r"""Dimensional toroidal-flux radius $\rho_{tor} = \sqrt{|\Phi|/(\pi|B_0|)}$.
 
-    The dimensional toroidal-flux coordinate: the minor radius of a circle
-    carrying the same toroidal flux in a uniform field ``B0``.
+    $$\rho_{tor} = \sqrt{\frac{|\Phi|}{\pi\,|B_0|}}$$
+
+    Parameters
+    ----------
+    phi : float or np.ndarray
+        Toroidal flux enclosed by the surface [Wb].
+    B0 : float
+        Vacuum toroidal field at the reference major radius [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Toroidal-flux radius [m].
+
+    Convention
+    ----------
+    The IMAS ``rho_tor`` coordinate: the minor radius of the circle that
+    would carry the same toroidal flux in a uniform field $B_0$, with $B_0 =$
+    ``vacuum_toroidal_field.b0`` at ``r0``.  Absolute values are taken, so the
+    result is independent of the COCOS signs of $\Phi$ and $B_0$; divide by
+    the boundary value for :func:`rhoN_from_phi`'s ``rho_tor_norm``.
+
+    Physical interpretation
+    -----------------------
+    A length-like flux label that reduces to the geometric minor radius for a
+    circular, large-aspect-ratio plasma with uniform $B_0$.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].profiles_1d.rho_tor``.
+    .. [2] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239, Sec. II.B.
     """
     return np.sqrt(np.abs(phi) / (np.pi * abs(float(B0))))
 

@@ -70,6 +70,8 @@ CONVENTION_SENSITIVE = frozenset({
     "psi_from_RBtheta",
     "phi_from_Bphi",
     "rhoN_from_phi",
+    "rho_tor_from_phi",
+    "toroidal_flux_from_q_psi",
     "q_from_phi",
     "q_from_rhoN",
     "rhoN_from_qpsiN",
