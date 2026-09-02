@@ -574,7 +574,14 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     for Wb storage, ``1.0`` for Wb/rad.
     """
     ts = _path_get(ods, f"equilibrium.time_slice.{time_index}")
-    if ts is None:
+    # On an OMAS ODS a missing path returns an EMPTY auto-vivified branch
+    # rather than raising, so an `is None` guard does not detect a caller that
+    # passed a bare time slice -- and the empty branch then carries no psi/q,
+    # silently yielding the Weber default for a Wb/rad artifact. Fall back
+    # whenever the resolved branch has no psi of its own.
+    if ts is None or not len(
+        np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
+    ):
         ts = ods  # accept a bare equilibrium time slice as well
     phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
     q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)

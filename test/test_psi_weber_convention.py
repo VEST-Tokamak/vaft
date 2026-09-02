@@ -194,3 +194,41 @@ def test_ampere_law_fallback_still_reports_weber_for_dd_conformant_data():
         ts[path] = np.asarray(ts[path], dtype=float) * 2.0 * np.pi
 
     assert ods_psi_to_wb_per_radian_factor(weber, 0) == pytest.approx(1.0 / (2.0 * np.pi))
+
+
+def test_detector_accepts_a_bare_time_slice_as_its_docstring_promises():
+    """Callers that pass a time slice must get the same answer as the ODS.
+
+    On an OMAS ODS a missing path returns an empty auto-vivified branch
+    instead of raising, so the `is None` fallback never fired for a bare
+    slice: the empty branch carried no psi, and the detector returned the
+    Weber default for a Wb/rad artifact. Four production call sites pass a
+    slice (vaft/database/_summary.py, vaft/omas/process_wrapper.py x2,
+    vaft/omas/formula_wrapper.py), so this silently scaled B_R/B_Z, loop
+    voltage and the psi_axis_Wb summary column by 1/(2*pi).
+    """
+    import copy
+
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
+    assert ods_psi_to_wb_per_radian_factor(
+        ods["equilibrium.time_slice.0"]
+    ) == pytest.approx(1.0)
+
+    weber = copy.deepcopy(ods)
+    slice_ = weber["equilibrium.time_slice.0"]
+    for path in (
+        "profiles_1d.psi",
+        "profiles_2d.0.psi",
+        "global_quantities.psi_axis",
+        "global_quantities.psi_boundary",
+    ):
+        slice_[path] = np.asarray(slice_[path], dtype=float) * 2.0 * np.pi
+
+    expected = 1.0 / (2.0 * np.pi)
+    assert ods_psi_to_wb_per_radian_factor(weber, 0) == pytest.approx(expected)
+    assert ods_psi_to_wb_per_radian_factor(
+        weber["equilibrium.time_slice.0"]
+    ) == pytest.approx(expected)
