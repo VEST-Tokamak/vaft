@@ -67,6 +67,7 @@ _EXTRACTION_OPTIONS = frozenset(
         "per_family",
         "phi0",
         "quantity",
+        "selection",
         "r0",
         "reference_slopes",
         "sample_rate",
