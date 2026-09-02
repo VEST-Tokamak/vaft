@@ -126,20 +126,6 @@ jobs:
       - name: Install VAFT
         run: python -m pip install -e ".[dev]"
 
-      - name: Confirm the token may push
-        # An organisation policy can forbid write-scoped workflow tokens no
-        # matter what this workflow requests.  Say so here, with the remedy,
-        # rather than failing opaquely at the push.
-        run: |
-          if [ "$(gh api "repos/${GITHUB_REPOSITORY}" --jq .permissions.push)" != "true" ]; then
-            echo "::error::GITHUB_TOKEN cannot push to this repository. If the organisation"
-            echo "::error::forbids write-scoped workflow tokens, use the deploy-key fallback"
-            echo "::error::described in docs/README.md."
-            exit 1
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Choose the ref each track is built from
         # On a pull request the target branch's track must be built from the
         # proposed merge, not from the branch as it stands: a pull request that

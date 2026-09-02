@@ -552,6 +552,14 @@ def publish(
     )
     if pushed.returncode != 0:
         stderr = (pushed.stderr or "") + (pushed.stdout or "")
+        if re.search(r"\b403\b|permission|denied|not authorized|read-only", stderr, re.I):
+            raise BuildError(
+                f"pushing {branch} was refused for lack of permission:\n{stderr.strip()}\n\n"
+                "The publish job asks for `contents: write`.  If the organisation forbids "
+                "write-scoped workflow tokens, use the deploy-key fallback in docs/README.md: "
+                "add a write-enabled deploy key as a secret and point the remote at SSH before "
+                "running with --publish."
+            )
         if re.search(r"non-fast-forward|fetch first|rejected", stderr, re.I):
             raise PublishRace(
                 f"{branch} moved while this build was running.\n"
