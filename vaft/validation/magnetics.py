@@ -56,7 +56,7 @@ trustworthy field) but the processed assessment is its own.
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass, field as dataclass_field
+from dataclasses import asdict, dataclass, field as dataclass_field, replace
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
@@ -87,6 +87,8 @@ __all__ = [
     "QualityEvent",
     "QUANTITY_BY_KIND",
     "channel_node",
+    "implausible_magnitude",
+    "population_peak_outliers",
     "magnetics_quality_metrics",
     "project_validity",
     "unusable_channels_at",
@@ -147,6 +149,27 @@ class MagneticsQualityConfig:
     #: Fraction of the assessed channels that must share a jump instant before
     #: it is read as the machine rather than as a per-channel fault.
     coherent_jump_fraction: float = 0.3
+
+    #: Largest poloidal-field reading a VEST probe can physically report [T].
+    #: VEST runs Ip <~ 250 kA and every probe sits >~ 5 cm from any conductor,
+    #: so mu0*I/(2*pi*d) bounds a genuine reading at ~1 T even in the most
+    #: extreme geometry; healthy channels swing 0.03-0.2 T.  A record that
+    #: exceeds this anywhere is instrumentation -- a railed integrator, a
+    #: miswired channel, an unconverted unit -- and not a measurement anywhere,
+    #: because a probe's gain does not come and go within a shot.  Applies to
+    #: ``b_field_pol_probe`` only; ``None`` disables it.
+    max_plausible_field: float | None = 1.0
+
+    #: A record whose peak exceeds this multiple of the median peak of its own
+    #: family (same ``kind``, same shot) is a population outlier.  Justified on
+    #: the three packaged VEST samples rather than assumed: probe H3-08 peaks
+    #: at 68.5x, 21.4x and 22.8x the B-probe median on shots 39915, 41524 and
+    #: 41672, several outboard probes sit at 4.5-15.8x on the latter two, and
+    #: the healthiest channel in all three shots tops out at 2.6x.  The value
+    #: sits inside that gap.  Within-shot and relative, so it follows the
+    #: shot's own amplitude and never needs a tesla or a weber.  ``None``
+    #: disables it.
+    population_peak_factor: float | None = 4.0
 
 
 @dataclass(frozen=True)
@@ -359,6 +382,43 @@ def offset_jump_samples(
 # Per-channel assessment
 # ---------------------------------------------------------------------------
 
+def implausible_magnitude(data: np.ndarray, ceiling: float | None) -> bool:
+    """Whether a record exceeds an absolute physical ceiling anywhere.
+
+    A whole-record verdict, deliberately: the samples below the ceiling are not
+    trustworthy either, since whatever put the channel over it (gain, wiring,
+    units) was there for the whole shot.  ``False`` when no ceiling is set or
+    no finite sample exists.
+    """
+    if ceiling is None:
+        return False
+    finite = data[np.isfinite(data)]
+    return bool(finite.size) and bool(np.max(np.abs(finite)) > float(ceiling))
+
+
+def population_peak_outliers(
+    peaks: Mapping[Any, float], factor: float | None
+) -> set[Any]:
+    """The members of one family whose peak dwarfs the family's median peak.
+
+    Cross-channel, like :func:`_coherent_jump_times`, and in the direction that
+    is defensible: a channel *far* above every neighbour is a fault, whereas a
+    quiet channel is just a quiet channel.  The median is the reference because
+    it moves only once half the family is broken.  Empty when the family has
+    fewer than three members -- two channels cannot vote -- or when the median
+    peak is zero.
+    """
+    if factor is None or len(peaks) < 3:
+        return set()
+    finite = {key: float(peak) for key, peak in peaks.items() if np.isfinite(peak)}
+    if len(finite) < 3:
+        return set()
+    reference = float(np.median(list(finite.values())))
+    if reference <= 0.0:
+        return set()
+    return {key for key, peak in finite.items() if peak > float(factor) * reference}
+
+
 def _leading_slice(size: int, fraction: float) -> slice:
     count = max(2, int(round(size * float(fraction))))
     return slice(0, min(size, count))
@@ -434,13 +494,20 @@ class _Detections:
 
 
 def _detect(
-    time: np.ndarray, data: np.ndarray, *, config: MagneticsQualityConfig, seed: int
+    time: np.ndarray,
+    data: np.ndarray,
+    *,
+    config: MagneticsQualityConfig,
+    seed: int,
+    ceiling: float | None = None,
 ) -> _Detections:
     """Run every detector over one waveform and measure it."""
     finite = np.isfinite(data)
     hard: list[tuple[tuple[int, int], str]] = []
     for interval in _runs(~finite):
         hard.append((interval, "non_finite"))
+    if implausible_magnitude(data, ceiling):
+        hard.append(((0, data.size), "implausible_magnitude"))
 
     constant = constant_runs(data, config.min_constant_run)
     whole_record = bool(constant) and constant[0] == (0, data.size)
@@ -506,6 +573,7 @@ def _detect(
         "leading_drift_per_second": leading_drift,
         "drift_over_leading_window": drift_over_leading,
         "dynamic_range": dynamic_range(data),
+        "peak_abs": float(np.max(np.abs(data[finite]))) if finite.any() else float("nan"),
     }
     return _Detections(
         time=time,
@@ -680,6 +748,24 @@ def _unavailable(kind: str, index: int, name: str, quantity: str, unit: str) -> 
     )
 
 
+def _whole_record_reason(found: _Detections) -> str:
+    """Why a channel was condemned outright, when it was."""
+    whole = {reason for (start, stop), reason in found.hard if (start, stop) == (0, found.data.size)}
+    if "implausible_magnitude" in whole:
+        return (
+            f"peak |x| = {found.metrics['peak_abs']:.3g} exceeds the physical ceiling; "
+            "not a measurement anywhere in the record"
+        )
+    if "population_outlier" in whole:
+        return (
+            f"peak |x| = {found.metrics['peak_abs']:.3g} is "
+            f"{found.metrics['peak_over_family_median']:.1f}x the family's median peak"
+        )
+    if found.seed < VALIDITY_VALID:
+        return "seeded from an invalid raw voltage"
+    return ""
+
+
 def validate_magnetics_signals(
     source: Any,
     *,
@@ -721,10 +807,27 @@ def validate_magnetics_signals(
             voltage = read_validity(source, f"magnetics.{kind}.{index}.voltage")
             seed = VALIDITY_VALID if voltage is None else min(VALIDITY_VALID, int(voltage))
             detections[(kind, index)] = _detect(
-                *waveform, config=settings, seed=seed
+                *waveform,
+                config=settings,
+                seed=seed,
+                ceiling=settings.max_plausible_field if kind == "b_field_pol_probe" else None,
             )
 
     coherent = _coherent_jump_times(detections, settings)
+    for kind in kinds:
+        family = {
+            key: found.metrics["peak_abs"]
+            for key, found in detections.items()
+            if key[0] == kind
+        }
+        reference = float(np.median([v for v in family.values() if np.isfinite(v)])) if family else float("nan")
+        for key in population_peak_outliers(family, settings.population_peak_factor):
+            found = detections[key]
+            detections[key] = replace(
+                found,
+                hard=found.hard + (((0, found.data.size), "population_outlier"),),
+                metrics={**found.metrics, "peak_over_family_median": found.metrics["peak_abs"] / reference},
+            )
 
     report: list[ChannelQuality] = []
     for kind, index, name, quantity, unit in order:
@@ -748,11 +851,7 @@ def validate_magnetics_signals(
                 valid_fraction=float(metrics["valid_fraction"]),
                 metrics=metrics,
                 events=tuple(events),
-                reason=(
-                    "seeded from an invalid raw voltage"
-                    if found.seed < VALIDITY_VALID
-                    else ""
-                ),
+                reason=_whole_record_reason(found),
             )
         )
     return tuple(report)

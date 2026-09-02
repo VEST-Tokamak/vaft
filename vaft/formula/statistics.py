@@ -676,6 +676,36 @@ def dynamic_range(values: np.ndarray | Iterable[float]) -> float:
 # Threshold crossing
 # ---------------------------------------------------------------------------
 
+def percentile_scale(values: np.ndarray | Iterable[float], percentile: float = 90.0) -> float:
+    """A high percentile of ``|x|`` over the finite entries -- an amplitude scale
+    one anomalous sample cannot set.
+
+    Statistical meaning
+        An order statistic of the magnitudes.  At the 90th percentile, up to a
+        tenth of the samples may be arbitrarily large before the value moves,
+        whereas ``max|x|`` is defined entirely by the single largest one.
+
+    Assumptions
+        None.  It is not a noise estimator (see
+        :func:`median_absolute_deviation`); it answers "how big is this
+        signal, typically at its largest" and is meant as a normalisation.
+
+    Interpretation
+        The denominator for putting channels of one family on a common
+        footing.  Normalising a family by its ``max`` lets one saturated or
+        miswired channel rescale every other channel's residual -- on the
+        packaged VEST samples a single probe reading 2.7 T against a 0.04 T
+        population set the scale for all 63 probes, and every derived
+        residual statistic with it.  A percentile does not have that failure.
+
+    Returns ``nan`` when no finite sample remains.
+    """
+    finite = _finite(values)
+    if not finite.size:
+        return float("nan")
+    return float(np.percentile(np.abs(finite), float(percentile)))
+
+
 def noise_band(values: np.ndarray | Iterable[float]) -> tuple[float, float]:
     """``(mean, standard deviation)`` of the finite entries of a reference sample.
 
@@ -833,6 +863,7 @@ def log10_decay_rate(
 
 
 __all__ = [
+    "percentile_scale",
     "bias_standard_error",
     "chi_squared",
     "dynamic_range",
