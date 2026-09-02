@@ -152,20 +152,26 @@ def test_applying_the_shipped_vintage_leaves_the_real_wall_solve_byte_identical(
     assert case["static_model"]["wall_calibration"]["key"] == "2303"
     assert case["static_model"]["applied_calibration"]["key"] == "2303"
     assert case["static_model"]["applied_calibration"]["digest"] == LEGACY_CALIBRATIONS["2303"].digest()
+    # The record names the *input* wall even when the evaluation scales it:
+    # a sensitivity study must not read as an unidentified wall.
+    scaled = run_benchmark_case(ods, shot=39915, resistance_scale=2.0)
+    assert scaled["static_model"]["wall_calibration"]["key"] == "2303"
+    assert scaled["static_model"]["resistance_scale"] == 2.0
+    assert scaled["static_model"]["applied_calibration"] is None
 
 
 def test_a_foreign_passive_model_is_fingerprinted_unidentified_without_side_effects():
-    """A wall that is not the banded VEST model (the benchmark's synthetic
-    machine, say) must fingerprint as unidentified -- and reading it must not
-    materialize any missing OMAS path, which a bare read would."""
-    import sys
-    from pathlib import Path
+    """A wall that is not the banded VEST model must fingerprint as unidentified,
+    and reading it must not materialize any missing OMAS path, which a bare
+    read would."""
+    from omas import ODS
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_vacuum_benchmark import _machine
     from vaft.validation.vacuum_benchmark import _static_model
 
-    ods = _machine()
+    ods = ODS(consistency_check=False)
+    for i in range(2):
+        ods[f"pf_passive.loop.{i}.resistance"] = 1.0e-3
+    ods["pf_active.coil.0.name"] = "PF1"
     before = set(ods.flat().keys())
     fingerprint = _static_model(ods)
     assert fingerprint["wall_calibration"]["key"] is None

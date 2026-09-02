@@ -30,8 +30,9 @@ repaired, here.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -95,12 +96,7 @@ class WallResistanceCalibration:
         return hashlib.sha1(payload).hexdigest()[:12]
 
     def replace(self, **changes: Any) -> "WallResistanceCalibration":
-        data = {
-            "key": self.key, "outboard": self.outboard, "inboard": self.inboard,
-            "side": self.side, "source": self.source, "note": self.note,
-        }
-        data.update(changes)
-        return WallResistanceCalibration(**data)
+        return dataclasses.replace(self, **changes)
 
 
 #: The vintage the shipped static geometry was built from.  Values are the
@@ -191,15 +187,20 @@ def nominal_resistance(ods: Any) -> np.ndarray:
     return out
 
 
-def band_factors(ods: Any, calibration: WallResistanceCalibration) -> np.ndarray:
-    """Per-loop multiplier: the band's factor on fitted loops, 1 elsewhere."""
-    factors = np.ones(_loops(ods))
-    layout = band_layout(ods)
+def _factors_from_layout(
+    layout: Mapping[str, list[np.ndarray]], n: int, calibration: WallResistanceCalibration
+) -> np.ndarray:
+    factors = np.ones(n)
     for band, value in zip(layout[_OUTBOARD[0]], calibration.outboard):
         factors[band] = value
     for band, value in zip(layout[_INBOARD[0]], calibration.inboard):
         factors[band] = value
     return factors
+
+
+def band_factors(ods: Any, calibration: WallResistanceCalibration) -> np.ndarray:
+    """Per-loop multiplier: the band's factor on fitted loops, 1 elsewhere."""
+    return _factors_from_layout(band_layout(ods), _loops(ods), calibration)
 
 
 def calibrated_resistance(ods: Any, calibration: WallResistanceCalibration) -> np.ndarray:
@@ -231,7 +232,8 @@ def identify_calibration(ods: Any, *, rtol: float = 1e-12) -> dict[str, Any]:
     free = np.setdiff1d(np.arange(n), fitted)
     best_key, best_err = None, float("inf")
     for key, cal in LEGACY_CALIBRATIONS.items():
-        err = float(np.max(np.abs(calibrated_resistance(ods, cal) / shipped - 1.0)))
+        rebuilt = nominal * _factors_from_layout(layout, n, cal)
+        err = float(np.max(np.abs(rebuilt / shipped - 1.0)))
         if err < best_err:
             best_key, best_err = key, err
     matched = best_key if best_err <= rtol else None

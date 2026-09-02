@@ -594,7 +594,7 @@ def run_benchmark_case(
         "pf_excitation": _pf_excitation(ods),
         "coil_drive": coil_drive_check(ods, validation_window),
         "static_model": {
-            **_static_model(working),
+            **_static_model(ods),
             "resistance_scale": float(resistance_scale),
             "applied_calibration": None if calibration is None else {
                 "key": calibration.key,
