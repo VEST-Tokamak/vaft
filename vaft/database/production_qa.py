@@ -158,7 +158,11 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             filename="efit_convergence.png",
         ),
         ValidationPlot("equilibrium_overview_verification"),
-        ValidationPlot("equilibrium_overview", required=False),
+        # The stage's artifact keeps its content and name: the four time
+        # histories, which plot_equilibrium_overview no longer draws (#261).
+        ValidationPlot(
+            "equilibrium_overview_histories", filename="equilibrium_overview.png", required=False
+        ),
         ValidationPlot("equilibrium_field_psi", required=False),
     ),
     # Deliberately minimal: only `n_tor` and DCON's `energy_perturbed` reach the
