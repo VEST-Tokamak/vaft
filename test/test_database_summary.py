@@ -476,3 +476,37 @@ def test_equilibrium_summary_fills_the_shape_and_volume_columns():
     # The virial path read psi through a detector that assumed weber and got
     # beta_p = 30.5 on this Wb/rad sample (issue #278 follow-up).
     assert 0.0 < row["virial_beta"] < 10.0
+
+
+def test_the_equilibrium_preset_loads_tf_so_the_r0_cross_check_can_run():
+    """`beta_pol` and `li_3` divide by R_0, and the VEST database's
+    `equilibrium.vacuum_toroidal_field.r0` is corrupt (#325). The resolver
+    cross-checks it against `tf`, so a preset that does not load `tf` leaves the
+    check blind and the corrupt value is used with no warning -- the summary was
+    in exactly that state.
+    """
+    assert "tf" in summary_module.get_summary_preset("equilibrium_global").paths
+
+
+def test_vacuum_b0_is_rescaled_with_the_cross_checked_radius():
+    """`vacuum_b0_T` rescales `b0` by `r0/0.4`, so it inherits the bad `r0`
+    directly: on shot 39915 it reported 0.0866 T where `tf` says 0.150 T."""
+    import numpy as np
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.array([0.3])
+    ods["equilibrium.time_slice.0.time"] = 0.3
+    ods["equilibrium.time_slice.0.global_quantities.ip"] = 80_000.0
+    # The corruption as the database holds it: b0 is the field at R = 0.4, but
+    # r0 says 0.2313, so b0*r0 disagrees with tf's B*R by that ratio.
+    ods["equilibrium.vacuum_toroidal_field.r0"] = 0.231317
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.149799])
+    ods["tf.r0"] = 0.4
+    ods["tf.b_field_tor_vacuum_r.data"] = np.full(4, 0.149799 * 0.4)
+
+    row = summary_module.extract_equilibrium_global(ods, 39915)[0]
+    # Rescaled with R0 = 0.4, so b0 passes through unchanged rather than being
+    # shrunk by 0.2313/0.4.
+    assert row["vacuum_b0_T"] == pytest.approx(0.149799, rel=1e-6)
+    assert row["vacuum_r0_m"] == pytest.approx(0.4)

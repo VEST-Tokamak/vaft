@@ -82,6 +82,11 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     "equilibrium.time",
     "equilibrium.time_slice",
     "equilibrium.vacuum_toroidal_field",
+    # beta_pol and li_3 divide by R_0, and the VEST database's
+    # equilibrium.vacuum_toroidal_field.r0 is not trustworthy (#325). The
+    # resolver cross-checks it against tf, so tf has to be loaded or the check
+    # is blind and the corrupt value is used silently.
+    "tf",
 )
 
 VACUUM_REFERENCE_RADIUS_M = 0.4
