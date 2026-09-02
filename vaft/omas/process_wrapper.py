@@ -46,7 +46,6 @@ from vaft.omas.update import update_equilibrium_boundary
 from scipy.interpolate import interp1d
 import logging
 import vaft.process
-from matplotlib.path import Path
 
 
 # Configure logging

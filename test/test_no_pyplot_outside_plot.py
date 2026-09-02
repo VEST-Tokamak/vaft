@@ -69,8 +69,18 @@ def test_allowlist_entries_still_exist_and_still_need_the_exemption():
 
 
 def test_geometry_use_of_matplotlib_path_is_not_flagged():
-    # These modules use matplotlib.path.Path for point-in-polygon tests.
-    for relative in ("process/equilibrium.py", "omas/process_wrapper.py"):
-        path = PACKAGE_ROOT / relative
-        assert "matplotlib.path" in path.read_text(encoding="utf-8")
-        assert not _pyplot_imports(path)
+    # This module uses matplotlib.path.Path for point-in-polygon tests.
+    path = PACKAGE_ROOT / "process/equilibrium.py"
+    assert "matplotlib.path" in path.read_text(encoding="utf-8")
+    assert not _pyplot_imports(path)
+
+
+def test_process_wrapper_does_not_shadow_pathlib_with_matplotlib_path():
+    # process_wrapper.py takes filesystem paths (camera pose/intrinsics
+    # overrides) and does no point-in-polygon work, so a module-level
+    # `from matplotlib.path import Path` there shadows pathlib.Path and
+    # breaks those overrides. Geometry users import it locally instead.
+    path = PACKAGE_ROOT / "omas/process_wrapper.py"
+    source = path.read_text(encoding="utf-8")
+    assert "from matplotlib.path import Path" not in source
+    assert not _pyplot_imports(path)
