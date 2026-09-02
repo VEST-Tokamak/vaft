@@ -129,8 +129,8 @@ is designed for the analysis sessions. Its headings are pinned separately in
 - **The plotting concepts are taught, not assumed.** Session 01 explains the
   `{subject}_{view}[_{quantity}]` naming grammar (issue #251) and the scientific
   display policy (issue #256) -- why an axis reads `kA` when the ODS stores
-  amperes, and what `yunit=` does. Two cells exist purely to demonstrate those
-  concepts and are exempt from the one-pattern rule.
+  amperes, and what `yunit=` does. One cell exists purely to demonstrate those
+  concepts and is exempt from the one-pattern rule.
 - **No tutorial machinery.** No exercise framework, no mode switching, no output
   directories, no repository discovery. Exercises are ordinary comment blocks a
   student edits, and nothing the notebook does depends on hidden validation.
@@ -148,6 +148,22 @@ Completed and executed copies of the notebooks live in the private
 `vaft-tutorial-solution` repository. They are a review and teaching oracle, never
 a runtime dependency: the public test suite passes without any access to them,
 and nothing in public CI may reference them.
+
+## Presentation sources: two kinds, during the pilot
+
+Sessions 02-06 are hand-written Beamer `.tex` decks with committed PDFs, as
+described below. **Session 01 is different**: its slides are a Quarto `.qmd`
+source in [`presentations/`](presentations/README.md), rendered to Reveal.js
+HTML and Beamer PDF, with nothing committed.
+
+That is the pilot slice of [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322),
+which proposes QMD as the canonical presentation source repository-wide. It is
+deliberately one deck: the pilot exists so the two forms can be compared before
+the convention spreads. Do not migrate the remaining decks until that review has
+happened, and do not author a deck in both formats -- one source per deck is the
+whole point.
+
+The rest of this section governs the five Beamer decks.
 
 ## Slide and figure contract
 
@@ -167,13 +183,13 @@ Build all decks from the repository root with:
 make -C tutorial slides
 ```
 
-LaTeX intermediates are written to `tutorial/.build/`; only the six requested
+LaTeX intermediates are written to `tutorial/.build/`; only the five requested
 PDFs are copied into the tutorial directory and committed.
 
 Whenever you change a deck source or a figure it pulls in, rebuild that deck and
 commit the regenerated PDF in the same change. CI enforces this: it checks that
-every changed deck input ships a rebuilt PDF, then compiles all six decks from
-scratch and confirms the rebuild reproduces the committed page structure.
+every changed deck input ships a rebuilt PDF, then compiles all five Beamer
+decks from scratch and confirms the rebuild reproduces the committed page structure.
 
 The build pins `SOURCE_DATE_EPOCH` and `FORCE_SOURCE_DATE`, so rebuilding on one
 machine reproduces byte-identical PDFs. That does not hold across TeX Live
