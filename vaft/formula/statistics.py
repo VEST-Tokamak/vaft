@@ -1038,28 +1038,52 @@ def dynamic_range(values: np.ndarray | Iterable[float]) -> float:
 # ---------------------------------------------------------------------------
 
 def percentile_scale(values: np.ndarray | Iterable[float], percentile: float = 90.0) -> float:
-    """A high percentile of ``|x|`` over the finite entries -- an amplitude scale
-    one anomalous sample cannot set.
+    r"""A high percentile of $|x|$ over the finite entries.
 
-    Statistical meaning
-        An order statistic of the magnitudes.  At the 90th percentile, up to a
-        tenth of the samples may be arbitrarily large before the value moves,
-        whereas ``max|x|`` is defined entirely by the single largest one.
+    $$s = \mathrm{percentile}_q\big(|x_i|\big), \qquad q = 90 \ \text{by default}$$
+
+    Parameters
+    ----------
+    values : array-like
+        Sample; non-finite entries are ignored [any].
+    percentile : float, optional
+        Percentile of the magnitudes to take; default 90 [%].
+
+    Returns
+    -------
+    float
+        Amplitude scale in the unit of the sample; ``nan`` for an empty one [any].
+
+    Physical interpretation
+    -----------------------
+    An order statistic of the magnitudes, so it is an amplitude scale that one
+    anomalous sample cannot set. At the 90th percentile a tenth of the samples may
+    be arbitrarily large before the value moves, where ``max|x|`` is defined
+    entirely by the single largest.
 
     Assumptions
-        None.  It is not a noise estimator (see
-        :func:`median_absolute_deviation`); it answers "how big is this
-        signal, typically at its largest" and is meant as a normalisation.
+    -----------
+    None. It is not a noise estimator -- that is
+    :func:`median_absolute_deviation` -- it answers "how big is this signal,
+    typically at its largest", and is meant as a normalisation.
 
-    Interpretation
-        The denominator for putting channels of one family on a common
-        footing.  Normalising a family by its ``max`` lets one saturated or
-        miswired channel rescale every other channel's residual -- on the
-        packaged VEST samples a single probe reading 2.7 T against a 0.04 T
-        population set the scale for all 63 probes, and every derived
-        residual statistic with it.  A percentile does not have that failure.
-
+    Limitations
+    -----------
     Returns ``nan`` when no finite sample remains.
+
+    References
+    ----------
+    .. [1] NIST/SEMATECH *e-Handbook of Statistical Methods* (2012),
+           https://doi.org/10.18434/M32189, Sec. 1.3.5.6 (percentiles).
+
+    Notes
+    -----
+    The denominator for putting channels of one family on a common footing.
+    Normalising a family by its maximum lets one saturated or miswired channel
+    rescale every other channel's residual: on the packaged VEST samples a single
+    probe reading 2.7 T against a 0.04 T population set the scale for all 63
+    probes, and every derived residual statistic with it. A percentile does not
+    have that failure.
     """
     finite = _finite(values)
     if not finite.size:

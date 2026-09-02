@@ -57,11 +57,12 @@ def test_the_catalog_counts_the_known_public_surface():
     assert counts == {
         "constants": 0,
         "utils": 9,
-        "equilibrium": 91,
+        "equilibrium": 96,
         "stability": 19,
         "green": 16,
         "atomic": 3,
-        "statistics": 21,
+        "statistics": 22,
+        "magnetics": 2,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
