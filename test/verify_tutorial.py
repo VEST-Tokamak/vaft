@@ -24,10 +24,13 @@ SESSION_01_HEADINGS = [
     "Loading Data",
     "ODS Structure",
     "Geometry Overview",
+    "How VAFT Names Its Plots",
     "Diagnostics",
+    "Reading the Axes",
     "Equilibrium",
     "Exercise",
     "Summary",
+    "Additional Resources",
 ]
 
 SESSIONS = {
