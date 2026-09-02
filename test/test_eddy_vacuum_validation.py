@@ -376,7 +376,7 @@ def test_plasma_onset_is_reported_when_there_is_no_plasma_current():
 # --- the stage as the workflow runs it ---------------------------------------
 
 def test_eddy_stage_writes_both_figures_and_a_metrics_block(tmp_path, plasma_ods):
-    from vaft.validation import render_stage_plots, stage_plot_filenames
+    from vaft.database.production_qa import render_stage_plots, stage_plot_filenames
 
     ods, _time, _ = plasma_ods
     directory = tmp_path / "plot"

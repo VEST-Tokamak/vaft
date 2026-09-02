@@ -29,7 +29,7 @@ from vaft.omas.efit_quality import (
     run_test_z,
     sigma_unit_factor,
 )
-from vaft.validation import render_stage_plots, stage_plot_filenames
+from vaft.database.production_qa import render_stage_plots, stage_plot_filenames
 
 
 @pytest.fixture(scope="module")

@@ -61,33 +61,94 @@ def test_verification_is_a_validation_category_not_a_separate_namespace():
     assert importlib.util.find_spec("vaft.verification") is None
 
 
-def test_every_historical_import_site_still_resolves():
-    """The package migration must not break the workflow or its callers.
+#: Per-stage evidence: still owned by this package, resolved silently.
+EVIDENCE_NAMES = ("STAGE_METRICS", "STAGE_PRECONDITIONS", "_efit_metrics")
+#: The stage-QA artifact contract: moved to `vaft.database.production_qa` (#338),
+#: reachable here only through a deprecation warning.
+ARTIFACT_NAMES = (
+    "STAGE_VALIDATION_PLOTS",
+    "ValidationPlot",
+    "mhd_linear_run_coverage_model",
+    "raw_acquisition_qa_model",
+    "render_stage_plots",
+    "stage_plot_filenames",
+    "stages",
+    "validation_plots",
+)
 
-    `vaft/validation.py` became `vaft/validation/production_qa.py`; the Snakefile
-    and six test modules import these names from `vaft.validation` directly.
+
+def test_every_historical_import_site_still_resolves():
+    """The two package migrations must not break the workflow or its callers.
+
+    `vaft/validation.py` became a package, and then the artifact half of it moved
+    to `vaft.database.production_qa` (#338). Every name a caller ever imported
+    from `vaft.validation` still resolves -- but the moved ones say so.
     """
+    import importlib
+    import warnings
+
     from vaft import validation
 
-    for name in (
-        "STAGE_METRICS",
-        "STAGE_PRECONDITIONS",
-        "STAGE_VALIDATION_PLOTS",
-        "ValidationPlot",
-        "mhd_linear_run_coverage_model",
-        "raw_acquisition_qa_model",
-        "render_stage_plots",
-        "stage_plot_filenames",
-        "stages",
-        "validation_plots",
-        # Reached by name from test_efit_validation_semantics.py: the migration
-        # resolves anything production_qa defines, not only its `__all__`.
-        "_efit_metrics",
-    ):
-        assert getattr(validation, name) is not None
+    for name in EVIDENCE_NAMES:
+        module = importlib.import_module("vaft.validation")
+        module.__dict__.pop(name, None)  # defeat the getattr cache, so this test is order-independent
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert getattr(validation, name) is not None
+        assert not [w for w in caught if w.category is DeprecationWarning], name
+
+    for name in ARTIFACT_NAMES:
+        validation.__dict__.pop(name, None)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            value = getattr(validation, name)
+        deprecations = [w for w in caught if w.category is DeprecationWarning]
+        assert deprecations, f"{name} moved; reaching it via vaft.validation must warn"
+        assert "vaft.database.production_qa" in str(deprecations[0].message)
+        from vaft.database import production_qa
+
+        assert value is getattr(production_qa, name)
 
     with pytest.raises(AttributeError, match="has no attribute 'not_a_real_name'"):
         validation.not_a_real_name
+
+
+def test_the_artifact_executor_never_imports_machine_mapping():
+    """The cycle #338 exists to avoid, asserted on the one file that could close it.
+
+    `vaft.machine_mapping.magnetics` imports `vaft.database` at module scope. If
+    `vaft.database.production_qa` imported it back, the database layer would
+    depend on a layer that depends on the database layer. The plasma-onset
+    precondition that needs `machine_mapping` lives in
+    `vaft.validation.stage_evidence`, which this module consumes -- so the only
+    remaining path runs through the validation layer, in the designed direction.
+    """
+    import ast
+
+    from vaft.database import production_qa
+
+    tree = ast.parse(Path(production_qa.__file__).read_text(encoding="utf-8"))
+    offenders = [
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module and "machine_mapping" in node.module
+    ] + [
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if "machine_mapping" in alias.name
+    ]
+    assert offenders == [], offenders
+
+
+def test_stage_evidence_pulls_in_no_database_or_plotting():
+    """Evidence composes domain metrics; it must not know FileDB or matplotlib."""
+    leaked = _in_subprocess(
+        "import sys, vaft.validation.stage_evidence\n"
+        "print(','.join(sorted(m for m in sys.modules if m.startswith(('matplotlib', 'vaft.database')))))"
+    )
+    assert leaked == "", f"importing stage_evidence pulled in: {leaked}"
 
 
 def test_no_exported_name_is_shadowed_by_a_submodule():

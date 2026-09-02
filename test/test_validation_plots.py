@@ -17,8 +17,7 @@ import pytest
 
 from vaft.database.filedb import FileDB
 from vaft.plot.registry import canonical_names
-from vaft.validation import (
-    STAGE_PRECONDITIONS,
+from vaft.database.production_qa import (
     STAGE_VALIDATION_PLOTS,
     ValidationPlot,
     raw_acquisition_qa_model,
@@ -26,6 +25,7 @@ from vaft.validation import (
     stage_plot_filenames,
     stages,
 )
+from vaft.validation.stage_evidence import STAGE_PRECONDITIONS
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_DIR = REPO_ROOT / "workflow" / "automatic_pipeline_1_routine_data_processing"

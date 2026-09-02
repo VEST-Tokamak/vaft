@@ -46,7 +46,7 @@ from paths import FILEDB, PipelinePaths
 
 from vaft.database.sources import replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
-from vaft.validation import stage_plot_filenames
+from vaft.database.production_qa import stage_plot_filenames
 
 # Every product path comes from one helper so the legacy shot-first layout and
 # the canonical FileDB layout stay in sync. Select with `layout` in config.yaml.
