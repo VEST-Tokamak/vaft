@@ -99,6 +99,39 @@ presentations/
 └── 01_getting_started_with_vaft.qmd
 ```
 
+### Typography
+
+Both backends set the same text the same way, which is what makes them read as
+one course rather than two decks that happen to share a colour:
+
+| | Beamer | Reveal.js |
+| --- | --- | --- |
+| typeface | `helvet` (Nimbus Sans) | `Helvetica Neue, Helvetica, Arial, Nimbus Sans` |
+| title | 36 pt bold | 100 px bold |
+| frame title | 23 pt bold | 64 px bold |
+| body | 15 pt | 40 px |
+
+A 16:9 Beamer canvas is 90 mm tall and a Reveal slide is 700 logical px, so one
+px is `90/700/0.35278 = 0.3645 pt`. The Beamer sizes above are Quarto's Reveal
+defaults converted through that factor — which is why **`vaft.scss` deliberately
+does not override `$presentation-font-size-root`**. Changing it there shrinks one
+backend relative to the other while both still look individually reasonable.
+
+Reveal ships Source Sans Pro, and matching it exactly on the Beamer side would
+mean `sourcesanspro` from `texlive-fonts-extra` — roughly 1.2 GB on a CI job that
+exists to be fast. Both sides meet on a Helvetica-metric face instead:
+`helvet` is in `texlive-fonts-recommended`, which CI already installs, and
+Nimbus Sans and Liberation Sans are the usual metric-identical Linux
+substitutes. If the team would rather have Source Sans on both, the only change
+needed is that package plus the apt line.
+
+> **Do not add horizontal padding or margins to `.column` in `vaft.scss`.**
+> Quarto lays columns out as `inline-block` boxes at the `width=` you give them,
+> with `content-box` sizing, so two 50% columns already fill the line exactly.
+> Any extra padding pushes the pair past 100%, the second column wraps onto the
+> next line, and a two-column slide silently becomes a stacked one that
+> overflows the bottom of the slide.
+
 `_extensions/vaft/vaftslides/` is the architectural point. The six hand-written
 decks each carry a duplicated 13-line preamble, and `verify_tutorial.py` forbids
 factoring it out with `\input{}`. Here one definition of VAFT's slide identity —

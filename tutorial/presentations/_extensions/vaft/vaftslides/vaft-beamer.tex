@@ -1,23 +1,61 @@
 % VAFT Beamer theme.
 %
-% This is the shared preamble the six hand-written decks in tutorial/ each carry
-% a duplicated copy of. Centralising it here is the point of the QMD pipeline:
-% one place defines VAFT's slide identity for every deck and both backends.
+% This is the shared preamble the five hand-written decks in tutorial/ each
+% carry a duplicated copy of. Centralising it here is the point of the QMD
+% pipeline: one place defines VAFT's slide identity for every deck and both
+% backends.
 %
-% Keep this visually in step with vaft.scss, which does the same job for the
-% Reveal.js output.
+% Keep this in step with vaft.scss, which does the same job for the Reveal.js
+% output. The two are the same design expressed twice; the sizes below are the
+% point-equivalents of the Reveal defaults, so a slide looks the same in either.
 
-% VAFT brand colour, matching the .tex decks: \definecolor{vaftblue}{RGB}{25,76,127}
+% --- Typeface --------------------------------------------------------------
+%
+% Beamer's default is Latin Modern Sans, which has a noticeably smaller x-height
+% than the Source Sans Pro that Reveal.js ships. Setting both sides to a
+% Helvetica-metric face is what makes the two outputs actually look like the
+% same deck rather than merely sharing a colour.
+%
+% helvet (Nimbus Sans) is in texlive-fonts-recommended, which CI already
+% installs. Matching Reveal's bundled Source Sans Pro exactly would mean
+% sourcesanspro from texlive-fonts-extra -- about 1.2 GB on a job that exists to
+% be fast -- so both sides meet on Helvetica instead. See vaft.scss.
+\usepackage[scaled=0.95]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% --- Colour ----------------------------------------------------------------
+% Matches $vaft-blue in vaft.scss and \definecolor in the .tex decks.
 \definecolor{vaftblue}{RGB}{25,76,127}
 \setbeamercolor{structure}{fg=vaftblue}
 \setbeamercolor{title}{fg=vaftblue}
 \setbeamercolor{frametitle}{fg=vaftblue}
 
-% Lecture-projector type sizes, carried over from the .tex decks.
-\setbeamerfont{title}{size=\fontsize{40}{46}\selectfont}
-\setbeamerfont{subtitle}{size=\fontsize{20}{24}\selectfont}
-\setbeamerfont{frametitle}{size=\fontsize{26}{30}\selectfont}
-\setbeamerfont{normal text}{size=\fontsize{14}{18}\selectfont}
+% --- Type sizes ------------------------------------------------------------
+%
+% A 16:9 Beamer canvas is 90 mm tall; a Reveal slide is 700 logical px. One px
+% is therefore 90/700/0.35278 = 0.3645 pt, and these are the Reveal defaults
+% converted through it:
+%
+%   title 100px -> 36pt   frametitle 64px -> 23pt
+%   subtitle    40px -> 15pt   body       40px -> 15pt
+%
+% Headings are bold on both sides: vaft.scss sets
+% $presentation-heading-font-weight: 600, and Beamer's default series is
+% regular, which was the most visible remaining difference between the outputs.
+\setbeamerfont{title}{size=\fontsize{36}{42}\selectfont, series=\bfseries}
+\setbeamerfont{subtitle}{size=\fontsize{15}{19}\selectfont, series=\mdseries}
+\setbeamerfont{frametitle}{size=\fontsize{23}{27}\selectfont, series=\bfseries}
+\setbeamerfont{normal text}{size=\fontsize{15}{19}\selectfont}
+
+% The subtitle is subordinate to the title on both sides, not a second heading.
+% Matches rgba(26, 26, 26, 0.75) in vaft.scss.
+\definecolor{vaftsubtitle}{RGB}{70,70,70}
+\setbeamercolor{subtitle}{fg=vaftsubtitle}
+
+% Reveal.js draws round bullets; Beamer's default is a triangle. Matching
+% them removes the last obvious tell that these are two different decks.
+\setbeamertemplate{itemize item}{\textbullet}
+\setbeamertemplate{itemize subitem}{--}
 
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{footline}[frame number]
@@ -30,10 +68,9 @@
 }
 \AtBeginSection[]{\frame{\sectionpage}}
 
-% Speaker notes.
+% --- Speaker notes ---------------------------------------------------------
 %
 % Pandoc turns every ::: {.notes} block into \note{...}, and Beamer's default is
-% to hide those. That is what we want for the archival PDF. The presenter build
-% passes \setbeameroption{show notes} instead, which renders the same notes as
-% facing pages -- so the notes are authored once and both PDFs come from one
-% source. See tutorial/presentations/README.md.
+% to hide those. That is what the archival PDF wants. The presenter build passes
+% \setbeameroption{show notes} instead, so the same notes become facing pages --
+% authored once, in one source. See tutorial/presentations/README.md.
