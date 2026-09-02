@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from ..models import (
@@ -100,7 +101,12 @@ def render_panels(
     figsize: tuple[float, float] | None = None,
     **style: Any,
 ) -> tuple[Figure, np.ndarray]:
-    """Draw each model in a :class:`Panels` grid into its own axes."""
+    """Draw each model in a :class:`Panels` grid into its own axes.
+
+    A caller-supplied ``ax=`` is the grid: exactly one axes per panel, filled
+    in order.  Those axes are the caller's to configure, so ``model.share_x``
+    applies only to axes this renderer creates itself.
+    """
     if not isinstance(model, Panels):
         raise TypeError(
             f"expected a vaft.plot.models.Panels; got {type(model).__name__}. "
@@ -120,6 +126,11 @@ def render_panels(
                 f"this layout draws {occupied} panels but received {supplied.size} axes"
             )
         flat = supplied.ravel()
+        for item in flat:
+            if not isinstance(item, Axes):
+                raise TypeError(
+                    f"ax entries must be matplotlib Axes; got {type(item).__name__}"
+                )
         figure = flat[0].figure
         grid = supplied if supplied.ndim == 2 else supplied.reshape(-1, 1)
     else:

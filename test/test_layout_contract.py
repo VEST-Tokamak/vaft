@@ -246,3 +246,46 @@ def test_placeholders_keep_a_fixed_grid_and_name_the_missing_member():
     assert (panels.nrows, panels.ncols) == (1, 2)
     with pytest.raises(ValueError, match="outside the grid"):
         Panels(models=(LineSeries(series=(trace,)),), ncols=1, placeholders=((5, "x"),))
+
+
+# ---------------------------------------------------------------------------
+# Grouping classifies each entry against its own geometry (section 17)
+# ---------------------------------------------------------------------------
+
+def _probe_array(radii):
+    """A Mirnov array with the given major radii, one sample row per probe."""
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, radius in enumerate(radii):
+        ods[f"magnetics.b_field_pol_probe.{index}.name"] = f"MP{index}"
+        ods[f"magnetics.b_field_pol_probe.{index}.position.r"] = radius
+        ods[f"magnetics.b_field_pol_probe.{index}.position.z"] = 0.05 * index
+        ods[f"magnetics.b_field_pol_probe.{index}.voltage.data"] = np.ones(4) * (index + 1)
+    return ods
+
+
+def test_grouped_classifies_each_shot_against_its_own_divider():
+    # Shot A splits at 0.45 m; shot B's array was moved outward and splits at
+    # 0.775 m.  Judged by A's divider every B probe would be outboard.
+    shots = omas.ODC()
+    shots["A"] = _probe_array([0.1, 0.1, 0.8, 0.8])
+    shots["B"] = _probe_array([0.6, 0.6, 0.95, 0.95])
+    figure, axes = vaft.omas.plot_mirnov_time_voltage(shots, layout="grouped", label="key")
+    by_region = {panel.get_title(): len(panel.lines) for panel in axes.ravel()}
+    assert by_region == {"inboard": 4, "outboard": 4}
+    plt.close(figure)
+
+
+def test_grouped_refuses_an_entry_without_a_split_beside_one_that_has():
+    shots = omas.ODC()
+    shots["A"] = _probe_array([0.1, 0.1, 0.8, 0.8])
+    shots["C"] = _probe_array([0.796] * 4)
+    with pytest.raises(ValueError, match="grouped layout is unsupported .* in entry 'C'"):
+        vaft.omas.plot_mirnov_time_voltage(shots, layout="grouped", label="key")
+
+
+def test_supplied_axes_must_be_axes(shots):
+    with pytest.raises(TypeError, match="ax entries must be matplotlib Axes; got str"):
+        vaft.omas.plot_flux_loop_time_flux(
+            shots[39915], selection="inboard", layout="subplots", ax=["a"] * 7
+        )

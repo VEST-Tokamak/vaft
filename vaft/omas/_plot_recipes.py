@@ -2775,6 +2775,8 @@ def _build_line_series(
     layout = options.get("layout") or "overlay"
     if panel_member and layout != "overlay":
         raise ValueError("a composite's members cannot themselves take a layout")
+    if layout == "overlay":
+        return model
     return _lay_out(model, layout, entries=entries, recipe=recipe, options=options,
                     suptitle=options.get("title", _decorated_title(recipe.title, y_display.unit, entries)))
 
@@ -3264,7 +3266,7 @@ def _build_panels(
         share_x=recipe.share_x,
         suptitle=suptitle,
         placeholders=tuple(placeholders),
-        member_styles=tuple(dict(recipe.member_defaults) for _ in members) or None,
+        member_styles=tuple(dict(recipe.member_defaults) for _ in members),
     )
 
 
@@ -3338,18 +3340,28 @@ def _lay_out(
     from vaft.plot.selection import INBOARD, OUTBOARD, UNCLASSIFIED, classify_regions, radial_divider
 
     container = _container_of(recipe.y_path, "{i}")
-    ods = entries[0][1]
-    r_all, _ = _channel_positions(ods, container, _count(ods, container))
-    split = radial_divider(r_all)
-    if not split:
-        raise ValueError(
-            f"grouped layout is unsupported for {container}: its channels sit at one "
-            "radius, so there is no inboard/outboard to group by"
-        )
+    # A family infers its divider from its own geometry (vaft.plot.selection),
+    # and two shots need not share one, so each entry's traces are classified
+    # against that entry's split.  An entry with no split cannot be grouped,
+    # whatever another entry's geometry allows.
+    splits: dict[str, Any] = {}
+    for label, ods in entries:
+        r_all, _ = _channel_positions(ods, container, _count(ods, container))
+        split = radial_divider(r_all)
+        if not split:
+            which = f" in entry {label!r}" if len(entries) > 1 else ""
+            raise ValueError(
+                f"grouped layout is unsupported for {container}{which}: its channels "
+                "sit at one radius, so there is no inboard/outboard to group by"
+            )
+        splits[str(label)] = split
     groups: dict[str, list[Series]] = {INBOARD: [], OUTBOARD: [], UNCLASSIFIED: []}
     for trace in model.series:
+        split = splits.get(trace.entry)
+        if split is None and len(splits) == 1:
+            split = next(iter(splits.values()))
         region = (classify_regions([trace.position[0]], split=split)[0]
-                  if trace.position is not None else UNCLASSIFIED)
+                  if trace.position is not None and split is not None else UNCLASSIFIED)
         groups[region].append(trace)
     panels = [LineSeries(series=tuple(traces), title=region, **common)
               for region, traces in groups.items() if traces]
