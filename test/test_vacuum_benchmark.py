@@ -458,7 +458,10 @@ def test_the_packaged_shot_reproduces_its_plasma_free_magnetic_response(packaged
     """
     summary = packaged_case["metrics"]["summary"]
 
-    assert summary["evaluated"] == 74, "every usable B-probe and flux loop"
+    # 73, not 74: the packaged artifact now carries the quality layer's
+    # verdicts (#189), and H3-08 -- 2.7 T on a 0.04 T population -- is
+    # rejected by the IDS validity before the benchmark ever sees it.
+    assert summary["evaluated"] == 73, "every usable B-probe and flux loop"
     assert summary["excluded"] == 0
     assert summary["improvement"]["median"] > 0.8
     assert summary["improved_fraction"] > 0.9
@@ -475,7 +478,8 @@ def test_the_benchmark_evaluates_far_more_than_the_routine_qa_subset(packaged_ca
     compact = synthetic_vacuum_magnetics(benchmark_wall_currents(sample_ods()))
 
     assert len(compact) < 12
-    assert len(packaged_case["channels"]["selected"]) == 74
+    assert len(packaged_case["channels"]["selected"]) == 73
+    assert "MagneticFieldProbe_H3-08_Bz" not in packaged_case["channels"]["selected"]
 
 
 def test_the_packaged_case_records_the_model_revision_it_was_evaluated_against(
@@ -544,19 +548,26 @@ def test_the_nominal_wall_resistance_beats_a_doubled_one_on_real_data(packaged_c
 def test_the_packaged_case_surfaces_the_channels_the_wall_model_fails_on(packaged_case):
     """The benchmark's purpose: not a pass mark, but which channels to look at.
 
-    A negative improvement means adding the wall response made agreement worse,
-    and a negative correlation means the model moves opposite to the
-    measurement -- the signature of an orientation or calibration problem
-    rather than of a wall-model one.  Both exist on this shot, and #190 exists
-    to make them visible instead of averaging them away.
+    A negative improvement means adding the wall response made agreement
+    worse.  Two channels still show it on this shot -- an outboard probe and
+    an inboard flux loop -- and #190 exists to make them visible instead of
+    averaging them away.  What is no longer here is the anticorrelated
+    channel this test used to find: that was H3-08, a probe reading 2.7 T on
+    a 0.04 T population, and the quality layer (#189) now rejects it through
+    the artifact's own validity before the benchmark sees it.  A sensor
+    fault is not a wall-model finding, and the benchmark should not have to
+    rediscover one.
     """
     rows = [r for r in packaged_case["metrics"]["channels"] if r["status"] == "evaluated"]
+    names = {row["name"] for row in rows}
     worse = [row for row in rows if row["improvement"] < 0.0]
     anticorrelated = [row for row in rows if row["correlation"] < -0.5]
 
+    assert "MagneticFieldProbe_H3-08_Bz" not in names
     assert 0 < len(worse) <= 5, "a handful, not a systematic failure"
-    assert anticorrelated, "at least one channel opposes the model"
+    assert not anticorrelated, "nothing opposes the model once the broken sensor is out"
     assert packaged_case["metrics"]["summary"]["improvement"]["min"] < 0.0
+    assert all(row["correlation"] > 0.7 for row in rows)
 
 
 def test_the_evaluation_window_excludes_its_own_upper_bound(vacuum_shot):

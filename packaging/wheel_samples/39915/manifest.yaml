@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 9852213
-    sha256: f901bcc6f8f27af9dc422b953189ba7c404207b191398346d134bf3db21e0df4
+    size: 9918956
+    sha256: 62e4c00e103523f7b4462f5d23fc2f9f23514ef917730618b754254c75227c2d
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,22 +58,27 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11182674
-    sha256: 11ba8b37fa60c9c00eb0939b02c853c4ffc5cd23303a3cf22991293373d24b76
+    size: 11205113
+    sha256: 283e77a6334065e991d00fc309bb512177ad7b125eba0030dad85e6606b4ed14
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 426f8e7842e0fcc73dc5df910c797a5a40b5b460bb0165b7de292d9b48235ded
+  canonical_sha256: 4fe89f7ae795fa098582fe6eb50e1af6b370a05d1324fe360ea83d60b0a51d27
   canonical_policy: repository-only
   equilibrium_time_slices: 3
-  materialized_leaves: 15583
+  materialized_leaves: 15731
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
     from_direction: -Bz
     to_direction: +Bz
-    value_radians: 1.5707963267948966
+    value_radians: 4.71238898038469
+    superseded_by: 288
+    note: 'The +Bz intent recorded here still holds. The radian value does not: #169
+      wrote pi/2 on the reading that the IMAS projection is (cos, +sin), where the
+      DD defines poloidal_angle clockwise from +R, making +Bz 3*pi/2. Value updated
+      to match the artifact; see the corrections block below.'
   selectors:
   - dataset_description.*
   - wall.*
@@ -95,6 +100,23 @@ generation:
   - equilibrium.time
   - equilibrium.vacuum_toroidal_field.*
   - equilibrium.time_slice.*
+  signal_quality:
+    projected: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/189
+    configuration:
+      baseline_fraction: 0.2
+      min_constant_run: 16
+      significance_floor: 0.01
+      spike_sigma: 8.0
+      max_spike_samples: 3
+      offset_jump_sigma: 10.0
+      coherence_window: 0.0005
+      coherent_jump_fraction: 0.3
+      max_plausible_amplitude:
+        b_field_pol_probe: 1.0
+      population_peak_factor: 4.0
+    condemned:
+    - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
   distribution_variant: wheel
 semantic_comparison:
   paths:
@@ -147,12 +169,11 @@ corrections:
   from: pi/2
   to: 3*pi/2
   reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
-    measuring +Bz is 3*pi/2. This wheel variant carried pi/2, which declares -Bz to
-    a DD-conformant reader and, since setup.py substitutes these files into every
-    build, would have shipped an inverted probe response while the consumer
-    projection moved to (cos, -sin). Applied in place to match
-    vaft/data/samples/39915: the mapper writes this leaf as a constant, no stage
-    output depends on it, and the reference generators were corrected in the same
-    change to read POLOIDAL_ANGLE so a regeneration now reproduces this value. The
-    pipeline stage hashes are therefore unchanged and still describe the run that
-    produced the rest of the artifact.'
+    measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
+    reader. Applied in place rather than by rerunning the pipeline: the mapper writes
+    this leaf as a constant and no stage output depends on it. The reference generators
+    under workflow/reference_validation were hardcoding pi/2 on both their generate
+    and verify paths; they were corrected in the same change to read POLOIDAL_ANGLE,
+    so a regeneration now reproduces this value rather than reverting it. The stage
+    hashes above are therefore unchanged and still describe the run that produced
+    the rest of the artifact.'
