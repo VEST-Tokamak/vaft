@@ -72,6 +72,7 @@ __all__ = [
     "select_vacuum_channels",
     "synthetic_vacuum_magnetics",
     "vacuum_magnetics_metrics",
+    "vacuum_response",
     "vacuum_residual_metrics",
 ]
 
@@ -432,6 +433,39 @@ def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return time, coil, loop
 
 
+def vacuum_response(
+    ods: Any,
+    *,
+    per_family: int | None = DEFAULT_PER_FAMILY,
+    channels: Sequence[tuple[str, int]] | None = None,
+    window: tuple[float, float] | None = None,
+    validity_window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
+) -> tuple[list[dict[str, Any]], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Select channels and compute their geometry response, once.
+
+    Returns the selected rows and the ``(psi, b_z, b_r)`` Green's-function
+    triple for them. The triple is a function of geometry alone, so it can be
+    handed to :func:`synthetic_vacuum_magnetics` as ``response=`` for every
+    re-solve of the wall with different resistances (#308). Returning the rows
+    alongside it is what lets the consumer verify the two still agree.
+    """
+    from vaft.omas.process_wrapper import compute_point_response_ods
+
+    rows = select_vacuum_channels(
+        ods,
+        per_family=per_family,
+        channels=channels,
+        window=window if validity_window is None else validity_window,
+        min_validity=min_validity,
+    )
+    if not rows:
+        raise VacuumMagneticsError(
+            "no magnetic channel carries usable measured data for vacuum validation"
+        )
+    return rows, compute_point_response_ods(ods, [[row["r"], row["z"]] for row in rows])
+
+
 def synthetic_vacuum_magnetics(
     ods: Any,
     *,
@@ -440,6 +474,7 @@ def synthetic_vacuum_magnetics(
     window: tuple[float, float] | None = None,
     validity_window: tuple[float, float] | None = None,
     min_validity: int = VALIDITY_VALID,
+    response: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> tuple[VacuumChannel, ...]:
     """Forward-model the coil and coil+eddy response at selected magnetics.
 
@@ -460,6 +495,14 @@ def synthetic_vacuum_magnetics(
     benchmark pass the ODS from
     :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`, whose
     loops were solved from the PF coils alone (#190).
+
+    ``response`` is the ``(psi, b_z, b_r)`` triple from
+    :func:`vacuum_response` for the *same* channel selection. The geometry
+    Green's functions it holds depend only on coil/loop/sensor positions, not
+    on any current or resistance, so a calibration that re-solves the wall
+    many times (#308) computes them once and passes them back in: on the real
+    machine they are ~97% of this function's cost. Unset, they are computed
+    here. A mismatch in channel count is refused rather than contracted.
     """
     from vaft.omas.process_wrapper import compute_point_response_ods
 
@@ -493,9 +536,18 @@ def synthetic_vacuum_magnetics(
     coil_currents = coil_currents[:, inside]
     loop_currents = loop_currents[:, inside]
 
-    psi, b_z, b_r = compute_point_response_ods(
-        ods, [[row["r"], row["z"]] for row in rows]
-    )
+    if response is None:
+        psi, b_z, b_r = compute_point_response_ods(
+            ods, [[row["r"], row["z"]] for row in rows]
+        )
+    else:
+        psi, b_z, b_r = response
+        if len(psi) != len(rows) or len(b_z) != len(rows) or len(b_r) != len(rows):
+            raise VacuumMagneticsError(
+                f"precomputed response covers {len(psi)} positions but "
+                f"{len(rows)} channels were selected; it must come from "
+                "vacuum_response() on the same selection"
+            )
 
     built: list[VacuumChannel] = []
     for position, row in enumerate(rows):
