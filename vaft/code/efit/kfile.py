@@ -396,11 +396,11 @@ def generate_constraints_ods(
     nbprobe = efit_bpol_probe_count
     PM = ods["equilibrium.code.parameters"]
 
-    # Ad hoc diamaagnetic flux constraint sign change
-    EQ["time_slice.0.constraints.diamagnetic_flux.measured"] = abs(
-        EQ["time_slice.0.constraints.diamagnetic_flux.measured"]
-    )
-
+    # The diamagnetic flux keeps its sign (issue #385).  EFIT reads DFLUX as a
+    # signed quantity and fits it against cdflux = integral (B_t - B_tv) dA, so
+    # a diamagnetic plasma in VEST's positive toroidal field is a *negative*
+    # flux.  The donor code compared magnitudes with a magnitude-only
+    # reconstruction, which is not what EFIT does.
     # convert one-based index to zero-based index
     broken = [i - 1 for i in broken]
     # A channel the quality layer condemned for the whole record (#189: a
@@ -941,6 +941,7 @@ def generate_kfile(
         flux_scale = (
             1000.0 if constraint_config.diamagnetic_flux_input_units == "Wb" else 1.0
         )
+        # "imas" writes the stored, signed value: EFIT's convention (#385).
         VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale
         if constraint_config.diamagnetic_flux_sign == "absolute":
             VAL = abs(VAL)
