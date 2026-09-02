@@ -54,10 +54,16 @@ COMMON_FIGURES = "tutorial/figures/common/"
 
 
 def deck_stems() -> dict[str, str]:
-    """Map each two-digit session number to its deck stem."""
+    """Map each two-digit session number to its committed deck stem.
+
+    Only sessions with a hand-written Beamer source appear here. Session 01
+    pilots the QMD pipeline (issue #322): it renders in CI and commits no PDF,
+    so there is no artifact for the pairing rules below to demand.
+    """
     return {
         Path(entry["tex"]).stem[:2]: Path(entry["tex"]).stem
         for entry in VALIDATOR.SESSIONS.values()
+        if "tex" in entry
     }
 
 
@@ -74,12 +80,23 @@ def changed_paths(base: str, head: str) -> set[str]:
 
 
 def pairing_failures(changed: set[str]) -> list[str]:
-    """Require a rebuilt PDF beside every changed deck input."""
+    """Require a rebuilt PDF beside every changed deck input.
+
+    Sessions whose slides are rendered rather than committed are exempt, since
+    they have nothing to pair against -- see :func:`deck_stems`.
+    """
     stems = deck_stems()
     failures: list[str] = []
 
     for path in sorted(changed):
         if not path.startswith(TUTORIAL_PREFIX) or not path.endswith(".tex"):
+            continue
+        # Decks live directly in tutorial/. Other .tex files under it are not
+        # decks and have no PDF to pair with -- the Quarto theme partials in
+        # tutorial/presentations/_extensions/ are LaTeX, but they are includes,
+        # not documents. Demanding a sibling PDF for them asks for a file that
+        # cannot exist and blocks the job before it renders anything.
+        if "/" in path[len(TUTORIAL_PREFIX):]:
             continue
         pdf = f"{path[: -len('.tex')]}.pdf"
         if pdf not in changed:

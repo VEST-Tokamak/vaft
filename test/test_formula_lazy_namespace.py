@@ -32,6 +32,7 @@ _IMPORT_ORDER = (
     "green",
     "atomic",
     "statistics",
+    "magnetics",
 )
 
 
@@ -166,3 +167,12 @@ def test_dir_lists_the_public_surface():
 
     assert set(vaft.formula.__all__) <= set(listed)
     assert listed == sorted(listed)
+
+
+def test_importing_the_catalog_alone_loads_only_its_parser():
+    # The discovery layer (issue #248) is opt-in: reaching it must not drag a
+    # single physics submodule in until a formula is actually looked up.
+    assert _import_in_subprocess("import vaft.formula.catalog") == {
+        "vaft.formula.catalog",
+        "vaft.formula._docstring",
+    }

@@ -87,6 +87,27 @@ managed by this file. Decide explicitly whether to enable, retarget, or delete
 it — leaving a disabled ruleset next to an active one is how a repository ends
 up with protection nobody can account for.
 
+## Formula docstrings
+
+Every public function in `vaft/formula` documents itself in one layout, and
+`test/test_formula_docstrings.py` enforces it: a one-sentence summary, the
+definition (math in `$..$`), numpydoc `Parameters` / `Returns` whose description
+paragraph closes with a unit tag such as `[Wb/rad]` or `[-]`, and any of the
+sections `Convention`, `Physical interpretation`, `Assumptions`, `Validity`,
+`Limitations`, `Numerical notes`, `References` (`.. [1] Author, Journal vol
+(year) page, Eq. (n).`).  Empirical fits open `Validity` with the sentence
+`Empirical fit.`; convention-sensitive functions carry a `Convention` section;
+a known defect goes under `Limitations` as `Tracked in #NNN` rather than into
+the kernel.  The policy lists that decide which functions are definitional,
+convention-sensitive or empirical live in the test file.
+
+The docstring is the only source of truth: `vaft.formula.describe(name)`,
+`vaft.formula.search(text)` and `vaft.formula.list_formulas(category=...)` parse
+it on demand (the catalog is never imported by `import vaft.formula` or by a
+physics submodule -- `test/test_formula_catalog.py` pins that), and the site's
+reference pages are generated from the same text with
+`python -m vaft.formula.catalog --output <gh-pages checkout>/_data/formula_catalog.yml`.
+
 ## Running the tests
 
 ```bash
