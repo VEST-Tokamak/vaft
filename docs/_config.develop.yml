@@ -1,0 +1,13 @@
+# Overlay for the development documentation track.
+#
+#   bundle exec jekyll build --config _config.yml,_config.develop.yml
+#
+# docs/build.py applies it when building the tree that is published under
+# /vaft/develop/.  Only keys that differ from _config.yml belong here; the
+# build destination is passed on the command line, not set here, so this file
+# stays free of build-layout coupling.
+baseurl: '/vaft/develop'
+track: development
+track_label: Development
+noindex: true
+stable_url: '/vaft/'

@@ -1,0 +1,12 @@
+# What this branch's documentation is generated from.
+#
+# docs/build.py runs each of these against a source tree of this branch, and
+# scripts/validate_docs.rb requires every declared output to exist before it
+# will validate a build. The list differs between branches on purpose: a branch
+# can only generate documentation for the library it actually contains, which
+# is the whole reason each track is built from its own source.
+generators:
+  - module: vaft.machine_mapping.registry
+    output: _data/vest_diagnostics.yml
+  - module: vaft.formula.catalog
+    output: _data/formula_catalog.yml

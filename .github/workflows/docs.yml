@@ -1,0 +1,173 @@
+name: Docs
+
+# The documentation site is built from docs/ on the code branches: the root of
+# the site from main, /develop/ from develop.  Both tracks are rebuilt on every
+# run and published together as one commit on gh-pages, so the branch always
+# describes a complete site and either source branch can trigger a publish.
+#
+# Kept separate from Package CI so the release gate is unaffected by the
+# documentation toolchain, which needs Ruby as well as Python.
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'notebooks/**'
+      - 'vaft/formula/**'
+      - 'vaft/machine_mapping/**'
+      - '.github/workflows/docs.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'notebooks/**'
+      - 'vaft/formula/**'
+      - 'vaft/machine_mapping/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publisher at a time, and never cancel a queued one: a cancelled run
+# publishes nothing (the push is its last step), but a cancelled *queued* run
+# would silently skip a commit's documentation.
+concurrency:
+  group: docs-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # build.py resolves origin/main and origin/develop itself.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: docs
+
+      - name: Install VAFT
+        run: python -m pip install -e ".[dev]"
+
+      - name: Choose the ref each track is built from
+        # On a pull request the target branch's track must be built from the
+        # proposed merge, not from the branch as it stands: a pull request that
+        # adds or changes docs/ would otherwise be validated against a tree that
+        # does not contain its own change, which is exactly the drift this
+        # pipeline exists to prevent.
+        run: |
+          stable=origin/main
+          develop=origin/develop
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            target="${GITHUB_BASE_REF}"
+          else
+            target="${GITHUB_REF_NAME}"
+          fi
+          case "$target" in
+            main)    stable="${GITHUB_SHA}" ;;
+            develop) develop="${GITHUB_SHA}" ;;
+          esac
+          echo "STABLE_REF=$stable"   >> "$GITHUB_ENV"
+          echo "DEVELOP_REF=$develop" >> "$GITHUB_ENV"
+
+      - name: Build and validate both documentation tracks
+        run: |
+          python docs/build.py \
+            --stable-ref "${STABLE_REF}" \
+            --develop-ref "${DEVELOP_REF}" \
+            --output "${RUNNER_TEMP}/site"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: composed-site
+          path: ${{ runner.temp }}/site
+          retention-days: 7
+
+  publish:
+    name: publish
+    needs: build
+    # Pull requests build and validate with a read-only token; only a push to a
+    # source branch can publish.  Same split as release-pypi.yml, where the
+    # branch dispatch rehearses the handoff without being able to publish.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      # The repository default is read-only, so this is required rather than
+      # decorative.  Scoped to this job alone.
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: docs
+
+      - name: Install VAFT
+        run: python -m pip install -e ".[dev]"
+
+      - name: Confirm the token may push
+        # An organisation policy can forbid write-scoped workflow tokens no
+        # matter what this workflow requests.  Say so here, with the remedy,
+        # rather than failing opaquely at the push.
+        run: |
+          if [ "$(gh api "repos/${GITHUB_REPOSITORY}" --jq .permissions.push)" != "true" ]; then
+            echo "::error::GITHUB_TOKEN cannot push to this repository. If the organisation"
+            echo "::error::forbids write-scoped workflow tokens, use the deploy-key fallback"
+            echo "::error::described in docs/README.md."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Choose the ref each track is built from
+        # On a pull request the target branch's track must be built from the
+        # proposed merge, not from the branch as it stands: a pull request that
+        # adds or changes docs/ would otherwise be validated against a tree that
+        # does not contain its own change, which is exactly the drift this
+        # pipeline exists to prevent.
+        run: |
+          stable=origin/main
+          develop=origin/develop
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            target="${GITHUB_BASE_REF}"
+          else
+            target="${GITHUB_REF_NAME}"
+          fi
+          case "$target" in
+            main)    stable="${GITHUB_SHA}" ;;
+            develop) develop="${GITHUB_SHA}" ;;
+          esac
+          echo "STABLE_REF=$stable"   >> "$GITHUB_ENV"
+          echo "DEVELOP_REF=$develop" >> "$GITHUB_ENV"
+
+      - name: Build, compose and publish the whole site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python docs/build.py \
+            --stable-ref "${STABLE_REF}" \
+            --develop-ref "${DEVELOP_REF}" \
+            --publish
+        env:
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -13,7 +13,7 @@ time, and the docstrings they already carry are the only source of truth.
 >>> F.search("Sauter")                              # specs whose text mentions it
 >>> F.list_formulas(category="stability")           # imports only stability
 
-``python -m vaft.formula.catalog --output _data/formula_catalog.yml`` writes
+``python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml`` writes
 the deterministic YAML snapshot the documentation site renders, in the same
 spirit as ``python -m vaft.machine_mapping.registry``.
 """
@@ -26,6 +26,7 @@ import dataclasses
 import hashlib
 import inspect
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -60,7 +61,7 @@ __all__ = [
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
 SCHEMA_VERSION = 1
-_GENERATOR = "python -m vaft.formula.catalog --output _data/formula_catalog.yml"
+_GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 
 @dataclass(frozen=True)
@@ -432,9 +433,18 @@ def categories() -> list[CategoryDoc]:
     return result
 
 
-def documentation_snapshot(category: str | None = None) -> dict:
-    """Deterministic, site-ready representation of the whole catalog."""
-    return {
+def documentation_snapshot(
+    category: str | None = None,
+    provenance: Mapping[str, str] | None = None,
+) -> dict:
+    """Deterministic, site-ready representation of the whole catalog.
+
+    ``provenance`` records which source tree the snapshot describes -- the
+    commit and ref the documentation build extracted -- and is omitted entirely
+    when it is not supplied, so the default output stays byte-for-byte what it
+    has always been.
+    """
+    snapshot: dict = {
         "schema_version": SCHEMA_VERSION,
         "generator": _GENERATOR,
         "source": [
@@ -447,9 +457,16 @@ def documentation_snapshot(category: str | None = None) -> dict:
         "categories": [doc.as_dict() for doc in categories()],
         "formulas": [spec.as_dict() for spec in list_formulas(category)],
     }
+    if provenance:
+        snapshot["provenance"] = {key: provenance[key] for key in sorted(provenance)}
+    return snapshot
 
 
-def export_documentation_snapshot(output: str | Path, category: str | None = None) -> Path:
+def export_documentation_snapshot(
+    output: str | Path,
+    category: str | None = None,
+    provenance: Mapping[str, str] | None = None,
+) -> Path:
     """Write the YAML snapshot and return its path."""
     import yaml  # deferred: the catalog itself must stay stdlib-only
 
@@ -457,7 +474,7 @@ def export_documentation_snapshot(output: str | Path, category: str | None = Non
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
         yaml.safe_dump(
-            documentation_snapshot(category),
+            documentation_snapshot(category, provenance),
             allow_unicode=True,
             sort_keys=False,
             default_flow_style=False,
@@ -469,11 +486,27 @@ def export_documentation_snapshot(output: str | Path, category: str | None = Non
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Export the vaft.formula catalog for gh-pages.")
+    parser = argparse.ArgumentParser(
+        description="Export the vaft.formula catalog for the documentation site."
+    )
     parser.add_argument("--output", required=True, help="YAML destination for the snapshot")
     parser.add_argument("--category", choices=CATEGORIES, help="Restrict the formulas to one category")
+    parser.add_argument(
+        "--provenance-commit", help="Commit the source tree was taken from, recorded in the snapshot"
+    )
+    parser.add_argument(
+        "--provenance-ref", help="Ref that commit was resolved from, recorded in the snapshot"
+    )
     arguments = parser.parse_args(argv)
-    export_documentation_snapshot(arguments.output, arguments.category)
+    provenance = {
+        key: value
+        for key, value in (
+            ("commit", arguments.provenance_commit),
+            ("ref", arguments.provenance_ref),
+        )
+        if value
+    }
+    export_documentation_snapshot(arguments.output, arguments.category, provenance or None)
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised through the module CLI

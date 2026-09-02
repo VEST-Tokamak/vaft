@@ -96,8 +96,17 @@ def validate_diagnostic_registry(registry: Mapping[str, Mapping[str, Any]]) -> N
                 raise DiagnosticRegistryError(f"{context}: file source requires formats and patterns")
 
 
-def documentation_snapshot(path: str | Path | None = None) -> dict[str, Any]:
-    """Return the deterministic, gh-pages-ready representation of the registry."""
+def documentation_snapshot(
+    path: str | Path | None = None,
+    provenance: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return the deterministic, publishable representation of the registry.
+
+    ``provenance`` records which source tree the snapshot describes -- the
+    commit and ref the documentation build extracted -- and is omitted entirely
+    when it is not supplied, so the default output stays byte-for-byte what it
+    has always been.
+    """
     source = registry_path(path)
     registry = load_diagnostic_registry(source)
     diagnostics = []
@@ -112,7 +121,7 @@ def documentation_snapshot(path: str | Path | None = None) -> dict[str, Any]:
                 )},
             }
         )
-    return {
+    snapshot: dict[str, Any] = {
         "schema_version": 1,
         "source": {
             "path": "vaft/machine_mapping/vest.yaml",
@@ -120,27 +129,53 @@ def documentation_snapshot(path: str | Path | None = None) -> dict[str, Any]:
         },
         "diagnostics": diagnostics,
     }
+    if provenance:
+        snapshot["provenance"] = {key: provenance[key] for key in sorted(provenance)}
+    return snapshot
 
 
-def export_documentation_snapshot(output: str | Path, path: str | Path | None = None) -> Path:
+def export_documentation_snapshot(
+    output: str | Path,
+    path: str | Path | None = None,
+    provenance: Mapping[str, str] | None = None,
+) -> Path:
     """Write a normalized YAML documentation snapshot and return its path."""
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
         yaml.safe_dump(
-            documentation_snapshot(path), allow_unicode=True, sort_keys=False, default_flow_style=True
+            documentation_snapshot(path, provenance),
+            allow_unicode=True,
+            sort_keys=False,
+            default_flow_style=True,
         ),
         encoding="utf-8",
     )
     return destination
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Export the VEST diagnostic registry for gh-pages.")
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Export the VEST diagnostic registry for the documentation site."
+    )
     parser.add_argument("--output", required=True, help="YAML destination for the generated snapshot")
     parser.add_argument("--registry", help="Override the packaged vest.yaml path")
-    arguments = parser.parse_args()
-    export_documentation_snapshot(arguments.output, arguments.registry)
+    parser.add_argument(
+        "--provenance-commit", help="Commit the source tree was taken from, recorded in the snapshot"
+    )
+    parser.add_argument(
+        "--provenance-ref", help="Ref that commit was resolved from, recorded in the snapshot"
+    )
+    arguments = parser.parse_args(argv)
+    provenance = {
+        key: value
+        for key, value in (
+            ("commit", arguments.provenance_commit),
+            ("ref", arguments.provenance_ref),
+        )
+        if value
+    }
+    export_documentation_snapshot(arguments.output, arguments.registry, provenance or None)
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised through the module CLI

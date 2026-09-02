@@ -1,0 +1,14 @@
+node_modules/
+playwright-report/
+test-results/
+_site/
+_site-*/
+.jekyll-cache/
+# `bundle install` puts ~70 MB of gems here (see .bundle/config).
+vendor/
+.bundle/
+# Written by docs/build.py from the checkout it is building.
+_data/provenance.yml
+# Generated from the library by the generators declared in generators.yml.
+_data/vest_diagnostics.yml
+_data/formula_catalog.yml

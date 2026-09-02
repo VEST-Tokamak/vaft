@@ -33,6 +33,17 @@ secrets.
 
 6. Approve the `pypi` environment deployment in GitHub Actions. The workflow
    rebuilds, validates, and publishes the artifacts.
+7. Confirm the stable documentation republished. Merging into `main` triggers
+   the `Docs` workflow, which rebuilds both tracks and publishes one commit to
+   `gh-pages`; the site root should then name the release commit:
+
+   ```bash
+   curl -sS https://vest-tokamak.github.io/vaft/provenance.yml
+   ```
+
+   The release also carries `docs/` from `develop` to `main`, so anything the
+   development documentation gained since the last release becomes the stable
+   documentation here.
 
 PyPI versions are immutable. If publishing fails after upload, publish a new
 version rather than trying to overwrite `vX.Y.Z`.
