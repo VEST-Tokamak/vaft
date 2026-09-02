@@ -44,6 +44,27 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
+def _condemned_channels(ods, nbprobe: int) -> set[int]:
+    """Legacy-style broken indices for channels whose scalar validity is invalid.
+
+    Probes map to their own index, flux loops to ``index + nbprobe`` -- the
+    same offset the rest of this module uses for the ``broken`` list.
+    """
+    from vaft.validation.imas import VALIDITY_VALID, read_validity
+
+    condemned: set[int] = set()
+    for kind, quantity, offset in (
+        ("b_field_pol_probe", "field", 0),
+        ("flux_loop", "flux", nbprobe),
+    ):
+        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
+        for index in range(count):
+            validity = read_validity(ods, f"magnetics.{kind}.{index}.{quantity}")
+            if validity is not None and int(validity) < VALIDITY_VALID:
+                condemned.add(index + offset)
+    return condemned
+
+
 def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[str, int], list[int]]:
     """Zero the weight of every channel unusable at a given reconstruction time.
 
@@ -382,6 +403,11 @@ def generate_constraints_ods(
 
     # convert one-based index to zero-based index
     broken = [i - 1 for i in broken]
+    # A channel the quality layer condemned for the whole record (#189: a
+    # railed or miswired probe) must not be a point in the Gaussian fits
+    # below either -- zeroing its weight afterwards does not undo the pull it
+    # exerted on every neighbour's fitted value.  It joins the legacy list.
+    broken = sorted(set(broken) | _condemned_channels(ods, nbprobe))
 
     # Add weight and validity (not broken) to the constraints - [pf_coil, tf_coil, pf_passive, ip, dia_flux, inboard_bz, side_bz, outboard_bz, inboard_fl, outboard_fl]
     IPLIM = 45000

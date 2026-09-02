@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from vaft.formula.statistics import (
+    percentile_scale,
     bias_standard_error,
     chi_squared,
     dynamic_range,
@@ -403,3 +404,13 @@ def test_dynamic_range_guards_empty_and_constant_input():
     assert dynamic_range([4.0, 4.0, 4.0]) == 0.0
     assert math.isnan(dynamic_range([]))
     assert math.isnan(dynamic_range([np.nan]))
+
+
+def test_percentile_scale_is_not_set_by_one_sample():
+    """One saturated channel among a healthy family must not set the family's
+    normalisation -- the failure mode max() has on the packaged VEST samples."""
+    family = np.concatenate([np.full(99, 0.05), [2.7]])
+    assert percentile_scale(family) == pytest.approx(0.05)
+    assert np.max(np.abs(family)) == pytest.approx(2.7)
+    assert percentile_scale([-0.3, 0.1, np.nan], percentile=100.0) == pytest.approx(0.3)
+    assert math.isnan(percentile_scale([np.nan, np.inf]))
