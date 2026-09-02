@@ -30,9 +30,10 @@ def require_source_exists(source: str) -> None:
     unreadable namespace rather than a dead connection.
     """
     try:
-        # mode="r" matters: h5pyd.Folder() defaults to mode=None and issues a
-        # PUT, so probing for a namespace would be a request to create one.
-        # A missing source must fail, never quietly come into existence.
+        # mode="r" is explicit rather than load-bearing: h5pyd.Folder() already
+        # defaults to "r", and only w/w-/x reach its create branch. Note that a
+        # missing folder logs "folder put status_code: 404" on the way to
+        # raising -- h5pyd's message is misnamed, no PUT is issued.
         list(h5pyd.Folder("/" + source + "/", mode="r"))
     except Exception as exc:  # noqa: BLE001 - re-raised with the remedy
         raise MissingSourceError(source, str(exc)) from exc
