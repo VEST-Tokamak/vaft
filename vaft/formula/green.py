@@ -18,22 +18,59 @@ from vaft.compat import trapz_compat
 
 
 def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
-    """Local trapezoidal integral helper kept dependency-light for Green kernels."""
+    r"""Trapezoidal integral $\int y\,dx$, local copy for the Green kernels.
+
+    $$\int y\,dx \approx \sum_i \frac{y_i + y_{i+1}}{2}\,(x_{i+1} - x_i)$$
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Sample abscissae, monotonic [any].
+    y : np.ndarray
+        Integrand at the samples [any].
+
+    Returns
+    -------
+    float
+        Integral over the sampled range, in units of ``y`` times ``x`` [any].
+
+    Numerical notes
+    ---------------
+    Identical to :func:`vaft.formula.utils.trapz_integral` (``numpy.trapezoid``
+    via :func:`vaft.compat.trapz_compat`) but defined here so the Green's
+    function module does not import the sklearn-heavy utilities; this copy is
+    the one ``vaft.formula.trapz_integral`` resolves to.
+    """
     return float(trapz_compat(y, x=x))
 
 
 
 def calculate_distance(r1: Union[np.ndarray, float], r2: Union[np.ndarray, float], 
                       z1: Union[np.ndarray, float], z2: Union[np.ndarray, float]) -> Union[np.ndarray, float]:
-    """
-    Compute the Euclidean distance between two points (r1, z1) and (r2, z2).
-    Works with both scalar values and numpy arrays.
+    r"""Euclidean distance between $(r_1, z_1)$ and $(r_2, z_2)$ in the poloidal plane.
 
-    :param r1: Radius coordinate(s) of the first point(s)
-    :param r2: Radius coordinate(s) of the second point(s)
-    :param z1: Z coordinate(s) of the first point(s)
-    :param z2: Z coordinate(s) of the second point(s)
-    :return: Euclidean distance(s)
+    $$d = \sqrt{(r_2 - r_1)^2 + (z_2 - z_1)^2}$$
+
+    Parameters
+    ----------
+    r1 : float or np.ndarray
+        Radius of the first point(s) [m].
+    r2 : float or np.ndarray
+        Radius of the second point(s) [m].
+    z1 : float or np.ndarray
+        Height of the first point(s) [m].
+    z2 : float or np.ndarray
+        Height of the second point(s) [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Distance, broadcast over the inputs [m].
+
+    Notes
+    -----
+    A distance in the $(R, Z)$ half-plane, not the 3-D distance between points
+    on two current loops.
     """
     return np.sqrt((r2 - r1) ** 2 + (z2 - z1) ** 2)
 
@@ -43,35 +80,60 @@ def calculate_distance(r1: Union[np.ndarray, float], r2: Union[np.ndarray, float
 # ------------------------------------------------------------------
 
 def complete_elliptic_integral_k(m: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    """
-    Calculate complete elliptic integral of first kind K(m).
+    r"""Complete elliptic integral of the first kind $K(m)$.
+
+    $$K(m) = \int_0^{\pi/2}\frac{d\theta}{\sqrt{1 - m\sin^2\theta}}$$
 
     Parameters
     ----------
-    m : Union[float, np.ndarray]
-        Parameter m = k²
+    m : float or np.ndarray
+        Parameter $m = k^2$, in $[0, 1)$ [-].
 
     Returns
     -------
-    Union[float, np.ndarray]
-        Complete elliptic integral K(m)
+    float or np.ndarray
+        $K(m)$ [-].
+
+    Convention
+    ----------
+    Takes the *parameter* $m = k^2$, as ``scipy.special.ellipk`` does, not the
+    modulus $k$; $K \to \infty$ logarithmically as $m \to 1$.
+
+    References
+    ----------
+    .. [1] NIST Digital Library of Mathematical Functions, Sec. 19.2(ii),
+           https://dlmf.nist.gov/19.2.
+    .. [2] M. Abramowitz and I. A. Stegun, *Handbook of Mathematical Functions*,
+           Dover (1972), Sec. 17.3.
     """
     return ellipk(m)
 
 
 def complete_elliptic_integral_e(m: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    """
-    Calculate complete elliptic integral of second kind E(m).
+    r"""Complete elliptic integral of the second kind $E(m)$.
+
+    $$E(m) = \int_0^{\pi/2}\sqrt{1 - m\sin^2\theta}\,d\theta$$
 
     Parameters
     ----------
-    m : Union[float, np.ndarray]
-        Parameter m = k²
+    m : float or np.ndarray
+        Parameter $m = k^2$, in $[0, 1]$ [-].
 
     Returns
     -------
-    Union[float, np.ndarray]
-        Complete elliptic integral E(m)
+    float or np.ndarray
+        $E(m)$, from $\pi/2$ at $m = 0$ to 1 at $m = 1$ [-].
+
+    Convention
+    ----------
+    Takes the parameter $m = k^2$, as ``scipy.special.ellipe`` does.
+
+    References
+    ----------
+    .. [1] NIST Digital Library of Mathematical Functions, Sec. 19.2(ii),
+           https://dlmf.nist.gov/19.2.
+    .. [2] M. Abramowitz and I. A. Stegun, *Handbook of Mathematical Functions*,
+           Dover (1972), Sec. 17.3.
     """
     return ellipe(m)
 
@@ -84,24 +146,43 @@ def greens_function_2d(R: np.ndarray,
                       Z: np.ndarray,
                       R0: float,
                       Z0: float) -> np.ndarray:
-    """
-    Calculate 2D Green's function for axisymmetric geometry.
+    r"""Axisymmetric kernel $\sqrt{RR_0}\,K(m)$ between a field point and a ring source.
+
+    $$G_{2D} = \sqrt{R R_0}\;K(m), \qquad
+      m = \frac{4RR_0}{(R + R_0)^2 + (Z - Z_0)^2}$$
 
     Parameters
     ----------
     R : np.ndarray
-        Major radius values
+        Major radius of the field points [m].
     Z : np.ndarray
-        Vertical position values
+        Height of the field points [m].
     R0 : float
-        Source point major radius
+        Major radius of the ring source [m].
     Z0 : float
-        Source point vertical position
+        Height of the ring source [m].
 
     Returns
     -------
     np.ndarray
-        2D Green's function values
+        Kernel value at each field point [m].
+
+    Convention
+    ----------
+    This is the leading term of the ring-current flux function, *not* the flux
+    Green's function itself: the poloidal flux per unit current is
+    $\mu_0\sqrt{RR_0}\,[(2 - m)K(m) - 2E(m)]/\sqrt{m}$
+    (:func:`greens_function_exact`, :func:`green_psi_exact`).  Use those for
+    any physical field; this kernel is kept for the legacy integrals below.
+
+    Limitations
+    -----------
+    Diverges logarithmically at the source point; no guard.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5 (vector potential of a circular loop).
     """
     k2 = 4 * R * R0 / ((R + R0)**2 + (Z - Z0)**2)
     return np.sqrt(R * R0) * complete_elliptic_integral_k(k2)
@@ -113,28 +194,43 @@ def greens_function_3d(R: np.ndarray,
                       R0: float,
                       Z0: float,
                       phi0: float) -> np.ndarray:
-    """
-    Calculate 3D Green's function for toroidal geometry.
+    r"""Toroidal-angle-resolved variant of the $\sqrt{RR_0}\,K(m)$ kernel.
+
+    $$G_{3D} = \sqrt{R R_0}\;K(m), \qquad
+      m = \frac{4RR_0}{(R + R_0)^2 + (Z - Z_0)^2 + 4RR_0\sin^2\!\big(\tfrac{\varphi - \varphi_0}{2}\big)}$$
 
     Parameters
     ----------
     R : np.ndarray
-        Major radius values
+        Major radius of the field points [m].
     Z : np.ndarray
-        Vertical position values
+        Height of the field points [m].
     phi : np.ndarray
-        Toroidal angle values
+        Toroidal angle of the field points [rad].
     R0 : float
-        Source point major radius
+        Major radius of the source [m].
     Z0 : float
-        Source point vertical position
+        Height of the source [m].
     phi0 : float
-        Source point toroidal angle
+        Toroidal angle of the source [rad].
 
     Returns
     -------
     np.ndarray
-        3D Green's function values
+        Kernel value at each field point [m].
+
+    Limitations
+    -----------
+    The $\sin^2$ term augments the denominator with the 3-D chord between the
+    two toroidal angles, but the resulting expression is a heuristic
+    generalisation of :func:`greens_function_2d` without a recorded derivation
+    or source; it is not the Biot-Savart kernel of a point source.  Tracked in
+    #356.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5.
     """
     k2 = 4 * R * R0 / ((R + R0)**2 + (Z - Z0)**2 + 4 * R * R0 * np.sin((phi - phi0)/2)**2)
     return np.sqrt(R * R0) * complete_elliptic_integral_k(k2)
@@ -149,26 +245,36 @@ def greens_integral_2d(R: np.ndarray,
                       R0: float,
                       Z0: float,
                       f: np.ndarray) -> float:
-    """
-    Calculate 2D Green's function integral.
+    r"""Line integral along $R$ of the 2-D kernel times a source density.
+
+    $$I = \int G_{2D}(R, Z; R_0, Z_0)\,f(R)\,dR$$
 
     Parameters
     ----------
     R : np.ndarray
-        Major radius values
+        Major radius of the samples, monotonic [m].
     Z : np.ndarray
-        Vertical position values
+        Height of the samples [m].
     R0 : float
-        Source point major radius
+        Major radius of the source [m].
     Z0 : float
-        Source point vertical position
+        Height of the source [m].
     f : np.ndarray
-        Source function values
+        Source density at the samples [any].
 
     Returns
     -------
     float
-        Green's function integral value
+        Integral in units of ``f`` times m^2 [any].
+
+    Limitations
+    -----------
+    Integrates along the single supplied ``R`` array (a line, not an area) with
+    the kernel of :func:`greens_function_2d`; not a flux or field.
+
+    Numerical notes
+    ---------------
+    Trapezoidal rule.
     """
     G = greens_function_2d(R, Z, R0, Z0)
     return trapz_integral(R, G * f)
@@ -181,47 +287,90 @@ def greens_integral_3d(R: np.ndarray,
                       Z0: float,
                       phi0: float,
                       f: np.ndarray) -> float:
-    """
-    Calculate 3D Green's function integral.
+    r"""Line integral along $R$ of the 3-D kernel times a source density.
+
+    $$I = \int G_{3D}(R, Z, \varphi; R_0, Z_0, \varphi_0)\,f(R)\,dR$$
 
     Parameters
     ----------
     R : np.ndarray
-        Major radius values
+        Major radius of the samples, monotonic [m].
     Z : np.ndarray
-        Vertical position values
+        Height of the samples [m].
     phi : np.ndarray
-        Toroidal angle values
+        Toroidal angle of the samples [rad].
     R0 : float
-        Source point major radius
+        Major radius of the source [m].
     Z0 : float
-        Source point vertical position
+        Height of the source [m].
     phi0 : float
-        Source point toroidal angle
+        Toroidal angle of the source [rad].
     f : np.ndarray
-        Source function values
+        Source density at the samples [any].
 
     Returns
     -------
     float
-        Green's function integral value
+        Integral in units of ``f`` times m^2 [any].
+
+    Limitations
+    -----------
+    Same caveats as :func:`greens_integral_2d` and :func:`greens_function_3d`.
+
+    Numerical notes
+    ---------------
+    Trapezoidal rule along ``R`` only.
     """
     G = greens_function_3d(R, Z, phi, R0, Z0, phi0)
     return trapz_integral(R, G * f)
 
 
 def elliptic_integral(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) -> tuple:
-    """
-    Computes approximate complete elliptic integrals of the first/second kind.
-    Vectorized for observer points (r_obs, z_obs).
+    r"""Polynomial approximations of $K$ and $E$ for a ring source and observer points.
 
-    This approximation is used for the standard Green's function calculations.
+    $$m = \frac{4r_{obs}r_{src}}{(r_{obs} + r_{src})^2 + (z_{obs} - z_{src})^2}, \qquad
+      m_1 = 1 - m$$
 
-    :param r_obs: Array of radius coordinates for observation points
-    :param z_obs: Array of axial coordinates for observation points
-    :param r_src: Radius coordinate of the source point
-    :param z_src: Axial coordinate of the source point
-    :return: (ek, ee), arrays of approximate elliptic integrals of the first and second kind
+    then the Hastings polynomials
+    $K \approx \sum a_km_1^k + \ln(1/m_1)\sum b_km_1^k$ and
+    $E \approx \sum c_km_1^k + \ln(1/m_1)\sum d_km_1^k$ to fourth order.
+
+    Parameters
+    ----------
+    r_obs : np.ndarray
+        Radius of the observation points [m].
+    z_obs : np.ndarray
+        Height of the observation points [m].
+    r_src : float
+        Radius of the ring source [m].
+    z_src : float
+        Height of the ring source [m].
+
+    Returns
+    -------
+    ek : np.ndarray
+        Approximate $K(m)$ [-].
+    ee : np.ndarray
+        Approximate $E(m)$ [-].
+
+    Validity
+    --------
+    Abramowitz and Stegun 17.3.34 and 17.3.36, absolute error below
+    $2\times10^{-8}$ for $0 \le m < 1$; the legacy path of :func:`green_r` and
+    :func:`green_br_bz`, retained so their numbers do not change.
+
+    Limitations
+    -----------
+    $\ln(1/m_1)$ diverges at a coincident observer and source and a warning is
+    emitted with a bare ``print`` rather than ``warnings.warn`` (tracked in
+    #356); :func:`greens_function_exact` uses scipy's exact integrals instead.
+
+    References
+    ----------
+    .. [1] M. Abramowitz and I. A. Stegun, *Handbook of Mathematical Functions*,
+           Dover (1972), Eqs. 17.3.34 and 17.3.36.
+    .. [2] C. Hastings, *Approximations for Digital Computers*, Princeton
+           University Press (1955).
     """
     ak0 = 1.386294361120
     ak1 = 0.096663442590
@@ -317,14 +466,51 @@ def elliptic_integral(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src:
 
 
 def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) -> tuple:
-    """
-    Green's function for magnetic field (Br, Bz). Vectorized for observer points.
+    r"""Field of a unit-current ring, $(B_r, B_z)$ at observer points (legacy elliptic path).
 
-    :param r_obs: Array of radius coordinates at field calculation points
-    :param z_obs: Array of axial coordinates at field calculation points
-    :param r_src: Radius of current element (source)
-    :param z_src: Axial coordinate of current element (source)
-    :return: (Br, Bz) arrays at (r_obs, z_obs) due to unit current at (r_src, z_src)
+    $$B_r = \frac{\mu_0}{2\pi r}\,\frac{z - z_0}{\sqrt{(r + r_0)^2 + (z - z_0)^2}}
+      \left[\frac{r^2 + r_0^2 + (z - z_0)^2}{(r - r_0)^2 + (z - z_0)^2}E - K\right], \quad
+      B_z = \frac{\mu_0}{2\pi}\,\frac{1}{\sqrt{(r + r_0)^2 + (z - z_0)^2}}
+      \left[K - \frac{r^2 - r_0^2 + (z - z_0)^2}{(r - r_0)^2 + (z - z_0)^2}E\right]$$
+
+    Parameters
+    ----------
+    r_obs : np.ndarray
+        Radius of the observation points [m].
+    z_obs : np.ndarray
+        Height of the observation points [m].
+    r_src : float
+        Radius of the current ring [m].
+    z_src : float
+        Height of the current ring [m].
+
+    Returns
+    -------
+    br : np.ndarray
+        Radial field per ampere [T/A].
+    bz : np.ndarray
+        Vertical field per ampere [T/A].
+
+    Convention
+    ----------
+    Right-handed $(r, \varphi, z)$ with the current flowing in $+\varphi$; $B_z$
+    is positive inside the ring.  SI throughout; no $2\pi$ flux ambiguity
+    arises for fields.  Uses the approximate :func:`elliptic_integral`; the
+    exact, broadcasting counterpart is :func:`green_br_bz_exact`.
+
+    Limitations
+    -----------
+    Divides by $(r - r_0)^2 + (z - z_0)^2$ and by $r_{obs}$ without guards, so
+    a coincident point or an on-axis observer gives ``inf``/``nan`` (the
+    callers' shifted-evaluation scheme avoids exact coincidence).  Tracked in
+    #356.
+
+    References
+    ----------
+    .. [1] W. R. Smythe, *Static and Dynamic Electricity*, 3rd ed., McGraw-Hill
+           (1968), Sec. 7.10 (field of a circular loop).
+    .. [2] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5.
     """
     mu0 = 4.0 * np.pi * 1.0e-7 # Use np.pi
     z_diff = z_obs - z_src # array
@@ -388,32 +574,72 @@ _M_MAX = np.nextafter(1.0, 0.0)
 
 
 def greens_function_exact(r, z, r0, z0, mode: str = "psi"):
-    """Exact free-space axisymmetric Green's function and its derivatives.
+    r"""Exact free-space axisymmetric Green's function and its derivatives.
 
-    Dimensionless G (and dG/dr, dG/dz, d2G/drdz, d2G/dr2, or the raw
-    elliptic integrals K/E), evaluated with :func:`scipy.special.ellipk`
-    / :func:`ellipe`. All four coordinates broadcast against each other,
-    so observation and source arrays can be combined as e.g.
-    ``r[:, None]`` vs ``r0[None, :]``.
+    $$G(r, z; r_0, z_0) = \frac{\sqrt{rr_0}}{k}\left[(2 - k^2)K(k^2) - 2E(k^2)\right], \qquad
+      k^2 = m = \frac{4rr_0}{(r + r_0)^2 + (z - z_0)^2}$$
 
-    Points with ``r * r0 == 0`` (on-axis source or observer) return
-    their analytic limits: 0 for every mode except ``d2psi_dr2``, whose
-    on-axis limit is ``pi * r0**2 / (r0**2 + (z - z0)**2)**1.5``. The
-    elliptic parameter is clamped just below 1 so a coincident
-    observer/source point returns finite numbers instead of inf/NaN —
-    but those values are artifacts of the clamp, NOT physical limits
-    (the ideal-filament self term diverges): callers must handle
-    genuinely coincident pairs themselves, e.g. via
-    :func:`self_inductance` or a shifted-evaluation scheme such as
-    ``compute_br_bz_phi``. Reference algorithm: legacy VFIT
-    ``getGreenFunction.m`` (modes 1-7).
+    so that $\psi = \mu_0 I\,G$ is the poloidal flux of a ring current $I$;
+    ``mode`` selects $G$, $\partial G/\partial r$, $\partial G/\partial z$,
+    $\partial^2G/\partial r\partial z$, $\partial^2G/\partial r^2$, or the raw
+    $K$ and $E$.
 
-    :param r:  observation major radius [m]
-    :param z:  observation height [m]
-    :param r0: source major radius [m]
-    :param z0: source height [m]
-    :param mode: one of ``GREEN_EXACT_MODES``
-    :return: broadcast array of the requested quantity
+    Parameters
+    ----------
+    r : array-like
+        Observation major radius [m].
+    z : array-like
+        Observation height [m].
+    r0 : array-like
+        Source major radius [m].
+    z0 : array-like
+        Source height [m].
+    mode : str, optional
+        One of ``GREEN_EXACT_MODES``; default ``"psi"`` [str].
+
+    Returns
+    -------
+    np.ndarray
+        Requested quantity, broadcast over all four coordinates [any].
+        $G$ is in m, its derivatives in m per m, $K$ and $E$ dimensionless.
+
+    Raises
+    ------
+    ValueError
+        Unknown ``mode`` or coordinates giving $m$ outside $[0, 1]$.
+
+    Convention
+    ----------
+    Full weber: $\psi = \mu_0 G$ per ampere (same as :func:`green_r`), and
+    $B_z = +\mu_0/(2\pi r)\,\partial G/\partial r$, $B_r = -\mu_0/(2\pi r)\,
+    \partial G/\partial z$.  The equilibrium helpers assume flux per radian by
+    default, so divide by $2\pi$ (or pass ``cocos``) before feeding this flux to
+    :func:`vaft.formula.equilibrium.vertical_magnetic_field_from_psi`.
+
+    Limitations
+    -----------
+    Points with $rr_0 = 0$ return their analytic limits (0 for every mode except
+    ``d2psi_dr2``, whose on-axis limit is $\pi r_0^2/(r_0^2 + (z - z_0)^2)^{3/2}$).
+    The elliptic parameter is clamped just below 1, so a coincident observer and
+    source return finite numbers, but those are artifacts of the clamp, not
+    physical limits (the ideal-filament self term diverges): handle genuinely
+    coincident pairs yourself, e.g. with :func:`self_inductance` or a
+    shifted-evaluation scheme such as ``compute_br_bz_phi``.
+
+    Numerical notes
+    ---------------
+    ``scipy.special.ellipk``/``ellipe`` on the parameter $m$; every $1/k$,
+    $1/m$ and $1/r$ is guarded and overwritten on axis.  The ``d2psi_dr2``
+    branch corrects a sign error in the legacy VFIT ``getGreenFunction.m``
+    case 7 ($-2(r + r_0)A$, from $d(1/D)/dr = -D'/D^2$) and is validated
+    against finite differences of ``dpsi_dr``.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5, Eq. (5.37).
+    .. [2] Legacy VFIT ``getGreenFunction.m`` (modes 1-7), the reference
+           algorithm.
     """
     if mode not in GREEN_EXACT_MODES:
         raise ValueError(f"mode must be one of {GREEN_EXACT_MODES}, got {mode!r}")
@@ -506,21 +732,84 @@ def greens_function_exact(r, z, r0, z0, mode: str = "psi"):
 
 
 def green_psi_exact(r_obs, z_obs, r_src, z_src) -> np.ndarray:
-    """Poloidal flux psi [Wb] per unit source current, exact elliptic.
+    r"""Poloidal flux per unit ring current, exact elliptic integrals.
 
-    Same convention as :func:`green_r` (psi = mu0 * G, full Wb), but
-    computed with scipy's exact elliptic integrals and broadcastable
-    over both observation and source arrays.
+    $$\psi = \mu_0\,G(r, z; r_0, z_0)$$
+
+    with $G$ from :func:`greens_function_exact`.
+
+    Parameters
+    ----------
+    r_obs : array-like
+        Observation major radius [m].
+    z_obs : array-like
+        Observation height [m].
+    r_src : array-like
+        Source major radius [m].
+    z_src : array-like
+        Source height [m].
+
+    Returns
+    -------
+    np.ndarray
+        Flux per ampere, broadcast over observation and source arrays [Wb/A].
+
+    Convention
+    ----------
+    Full weber, the IMAS Data Dictionary storage (COCOS 11-18), same as
+    :func:`green_r`.  The per-radian flux of an EFIT g-file or of
+    :func:`vaft.formula.equilibrium.poloidal_field_factor` with ``cocos=None``
+    is this divided by $2\pi$; mixing the two silently mis-scales fields by
+    $2\pi$.  Tracked in #354.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5.
     """
     return MU0 * greens_function_exact(r_obs, z_obs, r_src, z_src, "psi")
 
 
 def green_br_bz_exact(r_obs, z_obs, r_src, z_src) -> Tuple[np.ndarray, np.ndarray]:
-    """(Br, Bz) [T] per unit source current, exact elliptic.
+    r"""$(B_r, B_z)$ per unit ring current, exact elliptic integrals, broadcasting.
 
-    Br = -mu0/(2 pi r) dG/dz,  Bz = +mu0/(2 pi r) dG/dr. Observation
-    points on the geometric axis (r_obs == 0) return the analytic
-    limits Br = 0 and Bz = mu0 r0^2 / (2 (r0^2 + (z - z0)^2)^{3/2}).
+    $$B_r = -\frac{\mu_0}{2\pi r}\,\frac{\partial G}{\partial z}, \qquad
+      B_z = +\frac{\mu_0}{2\pi r}\,\frac{\partial G}{\partial r}$$
+
+    Parameters
+    ----------
+    r_obs : array-like
+        Observation major radius [m].
+    z_obs : array-like
+        Observation height [m].
+    r_src : array-like
+        Source major radius [m].
+    z_src : array-like
+        Source height [m].
+
+    Returns
+    -------
+    br : np.ndarray
+        Radial field per ampere [T/A].
+    bz : np.ndarray
+        Vertical field per ampere [T/A].
+
+    Convention
+    ----------
+    Right-handed $(r, \varphi, z)$, current in $+\varphi$; consistent with
+    :func:`green_psi_exact` through $B_z = (1/r)\,\partial\psi/\partial r
+    \times 1/2\pi$ for a full-weber $\psi$.
+
+    Limitations
+    -----------
+    Observation points on the geometric axis ($r_{obs} = 0$) return the analytic
+    limits $B_r = 0$, $B_z = \mu_0 r_0^2/(2(r_0^2 + (z - z_0)^2)^{3/2})$; the
+    coincident-point caveat of :func:`greens_function_exact` applies.
+
+    References
+    ----------
+    .. [1] W. R. Smythe, *Static and Dynamic Electricity*, 3rd ed., McGraw-Hill
+           (1968), Sec. 7.10.
     """
     r_obs, z_obs, r_src, z_src = np.broadcast_arrays(
         np.asarray(r_obs, dtype=float),
@@ -589,16 +878,69 @@ def mutual_inductance(
     mu_r: float = 1.0,
     n_div: int = 5,
 ) -> float:
-    """Mutual inductance [H] between two rectangular cross-section coils.
+    r"""Mutual inductance between two rectangular-cross-section ring coils.
 
-    Midpoint-rule subdivision over both cross sections with toroidal
-    curvature correction (reference: legacy VFIT
-    ``getMutualInductanceCoil.m``). A coil with ``dr == 0`` or
-    ``dz == 0`` degenerates to a point filament. Pass ``mu_r`` (e.g.
-    1.04 for SUS304) explicitly instead of a material code — the legacy
-    material logic is intentionally not reproduced.
+    $$M = N_1N_2\,\mu_r\mu_0\,\big\langle G(r_i, z_i; r_j, z_j)\big\rangle_{i \in 1,\ j \in 2}$$
 
-    M = turns1 * turns2 * mu_r * mu0 * <G> averaged over filament pairs.
+    the Neumann formula evaluated as the mean flux linkage between midpoint
+    filaments laid over each cross-section.
+
+    Parameters
+    ----------
+    r1 : float
+        Centre radius of coil 1 [m].
+    z1 : float
+        Centre height of coil 1 [m].
+    dr1 : float
+        Radial width of coil 1; 0 degenerates to a filament [m].
+    dz1 : float
+        Height of coil 1; 0 degenerates to a filament [m].
+    r2 : float
+        Centre radius of coil 2 [m].
+    z2 : float
+        Centre height of coil 2 [m].
+    dr2 : float
+        Radial width of coil 2 [m].
+    dz2 : float
+        Height of coil 2 [m].
+    tilt1 : float, optional
+        Tilt of cross-section 1 about its centre; default 0 [rad].
+    tilt2 : float, optional
+        Tilt of cross-section 2; default 0 [rad].
+    turns1 : float, optional
+        Turns of coil 1; default 1 [-].
+    turns2 : float, optional
+        Turns of coil 2; default 1 [-].
+    mu_r : float, optional
+        Relative permeability of the medium, e.g. 1.04 for SUS304; default 1 [-].
+    n_div : int, optional
+        Subdivision refinement; default 5 [-].
+        The cell size is half the pair's characteristic scale over ``n_div``.
+
+    Returns
+    -------
+    float
+        Mutual inductance [H].
+
+    Assumptions
+    -----------
+    Axisymmetric coils with uniform current density over the cross-section;
+    the toroidal curvature correction $r \to r\,(1 + (\cos\theta\,\Delta r/r)^2/24)$
+    is applied to each cell.
+
+    Numerical notes
+    ---------------
+    Midpoint rule over both cross-sections (reference: legacy VFIT
+    ``getMutualInductanceCoil.m``).  The cell size uses the $z$-*separation*
+    $\sqrt{(r_1 + r_2)^2 + (z_1 - z_2)^2}$; the legacy code used $z_1 + z_2$,
+    which is not invariant under a rigid vertical translation.  Legacy
+    material codes are intentionally not reproduced: pass ``mu_r`` explicitly.
+
+    References
+    ----------
+    .. [1] W. R. Smythe, *Static and Dynamic Electricity*, 3rd ed., McGraw-Hill
+           (1968), Sec. 8.06 (mutual inductance of coaxial circles).
+    .. [2] Legacy VFIT ``getMutualInductanceCoil.m``.
     """
     # Subdivision cell size from the pair's characteristic scale. NOTE:
     # legacy getMutualInductanceCoil.m used hypot(r1+r2, z1+z2), which is
@@ -630,12 +972,59 @@ def self_inductance(
     mu_r: float = 1.0,
     n_div: int = 5,
 ) -> float:
-    """Self-inductance [H] of a rectangular cross-section ring coil.
+    r"""Self-inductance of a rectangular-cross-section ring coil.
 
-    Midpoint subdivision with the analytic self-cell term
-    ``mu0 * mu_r * r_p * (ln(8 r_p / s) - 1.75)``, s = sqrt(dr*dz/pi)
-    of the subdivision cell (reference: legacy VFIT
-    ``getSelfInductanceCoil.m``).
+    $$L = \frac{N^2}{n^2}\left[\sum_{i \ne j}\mu_r\mu_0\,G(r_i, z_i; r_j, z_j)
+      + \sum_i \mu_r\mu_0\,r_i\left(\ln\frac{8r_i}{s} - \frac{7}{4}\right)\right],
+      \qquad s = \sqrt{\Delta r\,\Delta z/\pi}$$
+
+    midpoint subdivision into $n$ cells with the analytic self-term of a
+    circular filament of equivalent radius $s$ on the diagonal.
+
+    Parameters
+    ----------
+    r : float
+        Centre radius, positive [m].
+    dr : float
+        Radial width, positive [m].
+    dz : float
+        Height, positive [m].
+    tilt : float, optional
+        Tilt of the cross-section; default 0 [rad].
+    turns : float, optional
+        Number of turns; default 1 [-].
+    mu_r : float, optional
+        Relative permeability; default 1 [-].
+    n_div : int, optional
+        Cells per centre radius; default 5 [-].
+
+    Returns
+    -------
+    float
+        Self-inductance [H].
+
+    Raises
+    ------
+    ValueError
+        For non-positive ``r``, ``dr`` or ``dz``.
+
+    Assumptions
+    -----------
+    Uniform current density; the self-cell term is the low-frequency
+    inductance of a thin ring of wire radius $s$ (internal inductance
+    included, hence $7/4$ rather than 2).
+
+    Numerical notes
+    ---------------
+    Reference: legacy VFIT ``getSelfInductanceCoil.m``; ``nz`` is forced even.
+    Convergence in ``n_div`` is first order because of the self-cell
+    approximation.
+
+    References
+    ----------
+    .. [1] W. R. Smythe, *Static and Dynamic Electricity*, 3rd ed., McGraw-Hill
+           (1968), Sec. 8.10 (self-inductance of a circular ring).
+    .. [2] Legacy VFIT ``getSelfInductanceCoil.m``.
     """
     if r <= 0.0 or dr <= 0.0 or dz <= 0.0:
         raise ValueError("self_inductance requires r, dr, dz > 0")
@@ -664,14 +1053,42 @@ def self_inductance(
 
 
 def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) -> np.ndarray:
-    """
-    Green's function for psi (poloidal flux). Vectorized for observer points.
+    r"""Poloidal flux per unit ring current at observer points (legacy elliptic path).
 
-    :param r_obs: Array of radius coordinates at field calculation points
-    :param z_obs: Array of axial coordinates at field calculation points
-    :param r_src: Radius of current element (source)
-    :param z_src: Axial coordinate of current element (source)
-    :return: Psi array at (r_obs, z_obs) due to unit current at (r_src, z_src)
+    $$\psi = 2\mu_0\,\frac{\sqrt{r r_0}}{k}\left[\left(1 - \frac{k^2}{2}\right)K - E\right],
+      \qquad k^2 = \frac{4rr_0}{(r + r_0)^2 + (z - z_0)^2}$$
+
+    Parameters
+    ----------
+    r_obs : np.ndarray
+        Radius of the observation points [m].
+    z_obs : np.ndarray
+        Height of the observation points [m].
+    r_src : float
+        Radius of the current ring [m].
+    z_src : float
+        Height of the current ring [m].
+
+    Returns
+    -------
+    np.ndarray
+        Flux per ampere at each observation point [Wb/A].
+
+    Convention
+    ----------
+    Full weber ($\psi = \mu_0 G$, identical to :func:`green_psi_exact` up to
+    the elliptic-integral approximation); divide by $2\pi$ before combining
+    with the per-radian equilibrium helpers.  Tracked in #354.
+
+    Limitations
+    -----------
+    Uses the Hastings polynomials of :func:`elliptic_integral`; returns 0 on
+    the axis ($r_{obs} = 0$ or $r_{src} = 0$) and clips $k^2$ into $[0, 1]$.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5, Eq. (5.37).
     """
     mu0 = 4.0 * np.pi * 1.0e-7 # Use np.pi
     z_diff = z_obs - z_src # array
