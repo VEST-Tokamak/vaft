@@ -26,7 +26,9 @@ import warnings
 from typing import Any, Sequence
 
 from vaft.plot.registry import available_plots as _registry_available_plots
+from vaft.plot.models import Panels
 from vaft.plot.registry import get_spec, specs
+from vaft.plot.renderers.panels import render_panels
 from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
@@ -58,8 +60,10 @@ _EXTRACTION_OPTIONS = frozenset(
         "flux_surface_levels",
         "frame_index",
         "frame_indices",
+        "layout",
         "log_y",
         "marker_frequencies",
+        "ncols",
         "max_frequency",
         "max_length_m",
         "noverlap",
@@ -111,10 +115,17 @@ def render(
     entries = normalize_entries(source, label=label)
     _refuse_when_unsupported(name, entries)
     model = build_model(name, entries, **options)
+    # A layout other than overlay arranges the same traces into a Panels model.
+    # The canonical renderer is typed to the single-axes model, so the panels
+    # renderer draws it instead; the return shape then follows the layout, as
+    # issue #260 requires, and no renderer needs to know about layouts.
+    renderer = spec.renderer
+    if isinstance(model, Panels) and not issubclass(spec.model, Panels):
+        renderer = render_panels
     style = {
         key: value for key, value in options.items() if key not in _EXTRACTION_OPTIONS
     }
-    return spec.renderer(model, ax=ax, show=show, **style)
+    return renderer(model, ax=ax, show=show, **style)
 
 
 def _refuse_when_unsupported(name: str, entries: Sequence[tuple[str, Any]]) -> None:
@@ -1611,6 +1622,23 @@ def plot_magnetics_geometry_poloidal(
     )
 
 
+def plot_diagnostics_overview(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Fixed-shape time overview across the diagnostic subjects.
+
+    Renders with :func:`vaft.plot.diagnostics_overview`.
+    """
+    return render(
+        "diagnostics_overview", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_magnetics_overview(
     source: Any,
     *,
@@ -2535,6 +2563,7 @@ __all__ = [
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
     "plot_b_field_probe_time_field",
+    "plot_diagnostics_overview",
     "plot_diamagnetic_flux_time",
     "plot_flux_loop_time_flux",
     "plot_flux_loop_time_voltage",

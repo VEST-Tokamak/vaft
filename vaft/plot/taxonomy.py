@@ -106,6 +106,7 @@ _SUBJECTS = (
     Subject("chease", "code"),
     # Purpose-driven composites
     Subject("current", "composite"),
+    Subject("diagnostics", "composite"),
     Subject("summary", "composite"),
 )
 
