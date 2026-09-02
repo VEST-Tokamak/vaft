@@ -409,7 +409,9 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     # The validation window is the pre-plasma stretch, so that is the interval
     # the channel selection asks about too (#189): a probe that fails after
     # breakdown is still a good witness before it.
-    channels = synthetic_vacuum_magnetics(source, window=(float("-inf"), onset))
+    channels = synthetic_vacuum_magnetics(
+        source, validity_window=(float("-inf"), onset)
+    )
     ip_time = source.get("magnetics.ip.0.time", None)
     ip_data = source.get("magnetics.ip.0.data", None)
     return vacuum_magnetics_metrics(
