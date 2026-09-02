@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 from omas import ODS
 
+from vaft.formula.magnetics import probe_axis
 from vaft.machine_mapping.impa import IMPA_POLOIDAL_ANGLE
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
@@ -114,7 +115,7 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
     # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
     # (cos, -sin).  The synthetic "measured" signal must be built with the same
     # projection the forward model uses, or the fixture tests the wrong sign.
-    direction_r, direction_z = math.cos(POLOIDAL_ANGLE), -math.sin(POLOIDAL_ANGLE)
+    direction_r, direction_z = probe_axis(POLOIDAL_ANGLE)
 
     # A plasma-like contribution switched on at PLASMA_ONSET, so the residual has
     # something physical to find.
@@ -496,20 +497,30 @@ def test_wall_authority_is_the_eddy_term_as_a_fraction_of_the_reading():
 def test_scored_improvement_summaries_skip_channels_the_wall_cannot_reach():
     """A channel whose wall term is a few percent of its reading has an
     improvement whose sign is noise; ask the summary to leave it out and it
-    must, while the unscored summary still counts everyone."""
+    must, while the unfloored summary still counts everyone."""
     from vaft.omas.vacuum_magnetics import vacuum_magnetics_metrics
 
     channels = (_channel("a", 0.05, index=0), _channel("b", 0.04, index=1), _channel("deaf", 0.0005, index=2))
     every = vacuum_magnetics_metrics(channels, plasma_onset=0.5)
     scored = vacuum_magnetics_metrics(channels, plasma_onset=0.5, min_wall_authority=0.1)
 
-    assert every["summary"]["scored_channel_count"] == 3
-    assert every["summary"]["median_improvement_scored"] == every["summary"]["median_improvement"]
-    assert scored["summary"]["scored_channel_count"] == 2
-    assert scored["summary"]["min_improvement_scored"] > 0.9
+    assert every["summary"]["scored"]["count"] == 3
+    assert every["summary"]["scored"]["improvement"]["median"] == every["summary"]["median_improvement"]
+    assert scored["summary"]["scored"]["count"] == 2
+    assert scored["summary"]["scored"]["improvement"]["min"] > 0.9
     assert scored["summary"]["min_improvement"] == every["summary"]["min_improvement"]
     assert all("wall_authority" in row for row in scored["channels"])
     assert scored["channels"][2]["wall_authority"] < 0.1
+    assert scored["summary"]["wall_authority"]["max"] > 0.1
+
+
+def test_an_excluded_channel_still_reports_its_wall_authority():
+    from vaft.omas.vacuum_magnetics import channel_residual_metrics
+
+    channel = _channel("short", 0.05)
+    row = channel_residual_metrics(channel, window=(0.0, 0.5), min_samples=10_000)
+    assert row["status"] == "excluded"
+    assert "wall_authority" in row
 
 
 def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
@@ -540,10 +551,12 @@ def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
     by_family = {}
     for row in metrics["channels"]:
         by_family.setdefault(row["family"], []).append(row["wall_authority"])
-    assert max(by_family["inboard_flux_loop"]) < 0.1
-    assert min(by_family["outboard_flux_loop"]) > 0.4
-    assert metrics["summary"]["scored_channel_count"] == metrics["summary"]["channel_count"] - 2
-    assert metrics["summary"]["min_improvement_scored"] > 0.5
+    # An order of magnitude apart, whichever representatives the selection picks.
+    assert max(by_family["inboard_flux_loop"]) * 5.0 < min(by_family["outboard_flux_loop"])
+    scored = metrics["summary"]["scored"]
+    assert scored["count"] == sum(1 for row in metrics["channels"] if row["wall_authority"] >= 0.1)
+    assert scored["count"] < metrics["summary"]["channel_count"]
+    assert scored["improvement"]["min"] > 0.5
 # --- issue #190: the wall must be driveable by the PF coils alone -----------
 
 

@@ -52,17 +52,28 @@ def test_the_consumer_projects_with_the_clockwise_axis():
     Fixing the stored angle while leaving the consumer on ``(cos, +sin)`` would
     invert every VAFT-internal result, which is the failure this pins.
     """
+    import ast
     import inspect
 
     from vaft.formula.magnetics import probe_axis, project_poloidal_field
     from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
     from vaft.omas import vacuum_magnetics
 
-    # The consumer no longer spells the projection out: it goes through the
-    # one shared helper, so the rule cannot be re-derived wrongly here ...
-    source = inspect.getsource(vacuum_magnetics)
-    assert "project_poloidal_field(" in source
-    assert "np.sin(angle)" not in source, "no private copy of the projection rule"
+    # The consumer no longer spells the projection out: the probe branch of
+    # synthetic_vacuum_magnetics CALLS the one shared helper (checked on the
+    # syntax tree, not on text), so the rule cannot be re-derived wrongly here ...
+    tree = ast.parse(inspect.getsource(vacuum_magnetics.synthetic_vacuum_magnetics))
+    calls = {
+        node.func.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "project_poloidal_field" in calls
+    assert vacuum_magnetics.project_poloidal_field is project_poloidal_field
+    assert not any(
+        isinstance(node, ast.Attribute) and node.attr in {"sin", "cos"}
+        for node in ast.walk(tree)
+    ), "no private trigonometry in the consumer"
     # ... and the helper is the clockwise reading: the stored +Bz angle
     # projects to +Bz, and a pure Bz field comes back with its own sign.
     c_r, c_z = probe_axis(POLOIDAL_ANGLE)

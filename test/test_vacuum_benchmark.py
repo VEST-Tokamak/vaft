@@ -20,6 +20,7 @@ import pytest
 from omas import ODS
 
 from vaft.formula import green_r
+from vaft.formula.magnetics import project_poloidal_field
 from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
 from vaft.process.electromagnetics import compute_mutual_passive_active
 from vaft.omas.process_wrapper import compute_point_response_ods
@@ -150,8 +151,7 @@ def _synthesize(ods: ODS, *, scale: float = 1.0) -> ODS:
             # it is testing two conventions against each other rather than the
             # forward chain.
             response = (
-                b_r[position] * np.cos(POLOIDAL_ANGLE)
-                - b_z[position] * np.sin(POLOIDAL_ANGLE)
+                project_poloidal_field(b_r[position], b_z[position], POLOIDAL_ANGLE)
             )
             node = f"magnetics.b_field_pol_probe.{position}.field"
         else:
@@ -588,7 +588,7 @@ def test_the_evaluation_window_excludes_its_own_upper_bound(vacuum_shot):
 # ---------------------------------------------------------------------------
 
 def test_a_window_without_coil_drive_is_reported_as_undriven():
-    from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION, _pf_excitation
+    from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION, coil_drive_check
 
     ods = ODS(consistency_check=False)
     time = np.linspace(0.0, 1.0, 101)
@@ -596,16 +596,43 @@ def test_a_window_without_coil_drive_is_reported_as_undriven():
     ods["pf_active.coil.0.name"] = "PF1"
     ods["pf_active.coil.0.current.data"] = np.where(time >= 0.5, 1000.0 * (time - 0.5), 0.0)
 
-    quiet = _pf_excitation(ods, window=(0.0, 0.5))
+    quiet = coil_drive_check(ods, (0.0, 0.5))
     assert quiet["coil_drive_fraction"] == pytest.approx(0.0)
     assert quiet["sufficiently_driven"] is False
     assert quiet["min_coil_drive_fraction"] == MIN_COIL_DRIVE_FRACTION
+    assert "ratio of noise" in quiet["reason"]
 
-    driven = _pf_excitation(ods, window=(0.5, 1.01))
+    driven = coil_drive_check(ods, (0.5, 1.01))
     assert driven["coil_drive_fraction"] == pytest.approx(1.0)
     assert driven["sufficiently_driven"] is True
+    assert driven["reason"] == ""
 
-    assert "coil_drive_fraction" not in _pf_excitation(ods)
+
+def test_a_coil_off_the_time_grid_is_listed_not_zeroed():
+    from vaft.validation.vacuum_benchmark import coil_drive_check
+
+    ods = ODS(consistency_check=False)
+    time = np.linspace(0.0, 1.0, 101)
+    ods["pf_active.time"] = time
+    ods["pf_active.coil.0.name"] = "PF1"
+    ods["pf_active.coil.0.current.data"] = 1000.0 * np.ones(101)
+    ods["pf_active.coil.1.name"] = "PF2"
+    ods["pf_active.coil.1.current.data"] = 5000.0 * np.ones(57)  # its own grid
+
+    report = coil_drive_check(ods, (0.0, 1.01))
+    assert report["skipped_coils"] == ["PF2"]
+    assert report["shot_peak_abs_current"] == pytest.approx(5000.0)
+    assert report["window_peak_abs_current"] == pytest.approx(1000.0)
+    assert "off the pf_active grid" in report["reason"]
+
+
+def test_a_missing_time_grid_still_reports_every_key():
+    from vaft.validation.vacuum_benchmark import coil_drive_check
+
+    report = coil_drive_check(ODS(consistency_check=False), (0.0, 1.0))
+    assert report["sufficiently_driven"] is False
+    assert report["coil_drive_fraction"] is None
+    assert "time grid" in report["reason"]
 
 
 def test_the_packaged_shot_was_driven_through_its_validation_window(packaged_case):
@@ -615,26 +642,52 @@ def test_the_packaged_shot_was_driven_through_its_validation_window(packaged_cas
     reaches once the plasma is up."""
     from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION
 
-    excitation = packaged_case["pf_excitation"]
-    assert excitation["window"] == packaged_case["validation_window"]
-    assert MIN_COIL_DRIVE_FRACTION < excitation["coil_drive_fraction"] < 0.5
-    assert excitation["sufficiently_driven"] is True
+    drive = packaged_case["coil_drive"]
+    assert drive["window"] == packaged_case["validation_window"]
+    assert MIN_COIL_DRIVE_FRACTION < drive["coil_drive_fraction"] < 0.5
+    assert drive["sufficiently_driven"] is True
 
 
 def test_a_shot_whose_solenoid_fires_after_breakdown_is_reported_undriven():
     """41524 is the case the precondition exists for: its solenoid fires about
     0.8 ms *after* the Ip detector triggers, so the nominal plasma-free window
     carries 0.3 % of the shot's coil drive and the eddy score there is a ratio
-    of two noise numbers.  The benchmark must say so rather than score it."""
+    of two noise numbers.  Checked on the plasma-free interval directly -- the
+    full benchmark run adds nothing to this question."""
     import vaft
     import vaft.omas
-    from vaft.validation.vacuum_benchmark import run_benchmark_case
+    from vaft.validation.vacuum_benchmark import coil_drive_check, plasma_free_interval
 
     try:
         path = vaft.data.sample(41524, "imas")
-    except Exception:  # repository-only artifact
+    except (ValueError, FileNotFoundError):  # repository-only artifact
         pytest.skip("sample 41524 is not available in this checkout")
-    case = run_benchmark_case(vaft.omas.load(path), shot=41524, machine_era="packaged")
-    excitation = case["pf_excitation"]
-    assert excitation["coil_drive_fraction"] < 0.02
-    assert excitation["sufficiently_driven"] is False
+    ods = vaft.omas.load(path)
+    interval = plasma_free_interval(ods)
+    drive = coil_drive_check(ods, (interval.start, interval.end))
+    assert drive["coil_drive_fraction"] < 0.02
+    assert drive["sufficiently_driven"] is False
+
+
+def test_the_aggregate_keeps_undriven_cases_out_of_its_spreads():
+    from vaft.validation.vacuum_benchmark import aggregate_benchmark
+
+    def case(shot, driven, improvement):
+        return {
+            "shot": shot,
+            "machine_era": "packaged",
+            "pf_excitation": {"active_coils": ["PF1"]},
+            "coil_drive": {"sufficiently_driven": driven},
+            "metrics": {"channels": [
+                {"status": "evaluated", "name": "Bp1", "kind": "b_field_pol_probe",
+                 "family": "inboard", "improvement": improvement,
+                 "normalized_residual": 0.1, "correlation": 0.9, "wall_authority": 0.5},
+            ]},
+        }
+
+    aggregate = aggregate_benchmark([case(1, True, 0.8), case(2, False, -12.0)])
+    assert aggregate["undriven_cases"] == ["2"]
+    assert aggregate["channel_rows"] == 2
+    assert aggregate["summary"]["driven_channel_rows"] == 1
+    assert aggregate["summary"]["median_improvement"] == pytest.approx(0.8)
+    assert aggregate["summary"]["median_wall_authority"] == pytest.approx(0.5)
