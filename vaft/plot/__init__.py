@@ -177,6 +177,7 @@ from .models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    TextPanel,
     ViewModel,
 )
 from .discovery import PlotCapability, PlotCatalog
@@ -271,6 +272,7 @@ from .renderers.panels import (
     equilibrium_overview_constraints,
     equilibrium_overview_convergence,
     equilibrium_overview_fit_quality,
+    equilibrium_overview_histories,
     equilibrium_overview_profiles,
     equilibrium_overview_residuals,
     equilibrium_overview_verification,
@@ -336,6 +338,7 @@ _SUPPORT_EXPORTS = (
     "ReferenceSlope",
     "Series",
     "Spectrogram",
+    "TextPanel",
     "ViewModel",
     "available_plots",
     "canonical_names",

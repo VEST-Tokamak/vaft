@@ -508,6 +508,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append("overlays: " + ", ".join(record.overlays))
     if record.synthetic:
         notes.append(_synthetic_note(record.synthetic))
+    if record.interaction:
+        notes.append("interaction: " + " | ".join(record.interaction))
     flags = []
     if record.uncertainty.get("available"):
         flags.append("uncertainty")

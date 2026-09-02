@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 from ..models import (
     Field2D,
@@ -21,6 +22,7 @@ from ..models import (
     Panels,
     Profile1D,
     Spectrogram,
+    TextPanel,
 )
 from ..registry import renderer
 from ..style import finalize, resolve_axes
@@ -36,6 +38,7 @@ __all__ = [
     "equilibrium_overview_constraints",
     "equilibrium_overview_convergence",
     "equilibrium_overview_fit_quality",
+    "equilibrium_overview_histories",
     "equilibrium_overview_residuals",
     "equilibrium_overview_verification",
     "equilibrium_time_beta",
@@ -87,10 +90,26 @@ def _panel_drawer(model: Any):
         (Field2D, render_field_2d),
         (GeometryLayers, render_geometry_layers),
         (Spectrogram, render_spectrogram),
+        (TextPanel, _draw_text_panel),
     ):
         if isinstance(model, model_type):
             return draw
     raise TypeError(f"no renderer registered for panel model {type(model).__name__}")
+
+
+def _draw_text_panel(
+    model: TextPanel, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, Any]:
+    """Place a :class:`TextPanel`'s lines in an axes with no frame."""
+    axis = ax if ax is not None else plt.subplots()[1]
+    axis.set_axis_off()
+    axis.text(
+        0.02, 0.98, "\n".join(model.lines), transform=axis.transAxes,
+        ha="left", va="top", family="monospace", fontsize="small", linespacing=1.4,
+    )
+    if model.title:
+        axis.set_title(model.title)
+    return axis.figure, axis
 
 
 def render_panels(
@@ -504,14 +523,31 @@ def magnetics_overview_plasma_residual(
 @_panel_renderer(
     domain="equilibrium", view="overview", quantity="analysis",
     subject="equilibrium",
-    description="Equilibrium analysis overview: global quantities plus poloidal geometry.",
+    description=(
+        "One equilibrium slice from one figure: poloidal flux with the LCFS "
+        "and axis, pressure and q profiles, and the slice's global quantities."
+    ),
     ids=("equilibrium",),
     required_paths=("equilibrium.time",),
 )
 def equilibrium_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
-    """Equilibrium analysis overview panels."""
+    """Static summary of one representative equilibrium slice (issue #261)."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium", view="overview", quantity="histories",
+    subject="equilibrium",
+    description="Equilibrium global quantities against time: Ip, beta_p, li, q95.",
+    ids=("equilibrium",),
+    required_paths=("equilibrium.time",),
+)
+def equilibrium_overview_histories(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """The four equilibrium time histories the slice summary replaced."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

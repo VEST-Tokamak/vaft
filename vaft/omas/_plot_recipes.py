@@ -41,6 +41,7 @@ from vaft.plot.models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    TextPanel,
 )
 from vaft.plot.display import channel_label, figure_title, resolve_display
 from vaft.plot.selection import INBOARD, OUTBOARD
@@ -1319,7 +1320,7 @@ RECIPES: dict[str, Any] = {
         share_x=False,
         suptitle="Shot Diagnostics Overview",
     ),
-    "equilibrium_overview": PanelRecipe(
+    "equilibrium_overview_histories": PanelRecipe(
         members=(
             "equilibrium_time_plasma_current",
             "equilibrium_time_beta_p",
@@ -1328,7 +1329,7 @@ RECIPES: dict[str, Any] = {
         ),
         ncols=2,
         share_x=False,
-        suptitle="Equilibrium Analysis Overview",
+        suptitle="Equilibrium Time Histories",
     ),
     "equilibrium_overview_profiles": PanelRecipe(
         members=(
@@ -3861,6 +3862,213 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
     panels.append(field)
     return Panels(models=tuple(panels), ncols=2, share_x=False, suptitle=title)
 
+
+# ---------------------------------------------------------------------------
+# One equilibrium slice from one figure (issue #261 sections 11-13)
+# ---------------------------------------------------------------------------
+
+
+def _usable_slices(ods: Any) -> list[int]:
+    """Slices a summary may stand on.
+
+    A finite time, a stored 2-D psi, and a reconstruction the solver did not
+    disown: IMAS stores that verdict per slice in ``equilibrium.code.
+    output_flag`` ("negative values mean the result shall not be used").
+    The flag is read where present and never computed here.
+    """
+    flags = _array(ods, "equilibrium.code.output_flag")
+    usable = []
+    for index, _ in _constraint_slices(ods):
+        if _array(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi") is None:
+            continue
+        if flags is not None and index < flags.size and np.isfinite(flags[index]) and flags[index] < 0:
+            continue
+        usable.append(index)
+    return usable
+
+
+def representative_slice(ods: Any) -> tuple[int, str]:
+    """The slice that best stands for the discharge, and why.
+
+    Among the usable slices, the one with the largest stored plasma volume: a
+    fully developed plasma is more interpretable than whatever sits in the
+    middle of the array.  When no slice stores a volume -- true of every
+    packaged sample -- the middle usable slice is taken (the later of the two
+    middles when their count is even), and the reason says so.
+    Deterministic: volume ties go to the earlier slice.
+    """
+    usable = _usable_slices(ods)
+    if not usable:
+        raise ValueError(
+            "no usable equilibrium slice: none stores both a time and a 2-D psi"
+        )
+    volumes = []
+    for index in usable:
+        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.volume")
+        try:
+            volumes.append(float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan)
+        except (IndexError, TypeError, ValueError):
+            volumes.append(np.nan)
+    volumes_array = np.asarray(volumes, dtype=float)
+    if np.isfinite(volumes_array).any():
+        best = int(np.nanargmax(volumes_array))
+        return usable[best], "largest plasma volume"
+    return usable[len(usable) // 2], "middle usable slice (no volume stored)"
+
+
+def resolve_time_slice(
+    ods: Any, *, time: float | None = None, time_slice: int | None = None
+) -> tuple[int, float, str]:
+    """``(index, stored time, reason)`` of the slice a request resolves to.
+
+    ``time_slice`` names a stored slice directly; ``time`` snaps to the
+    nearest usable slice, and the returned time is that slice's own -- never
+    an interpolated state presented as a reconstruction (issue #261 section
+    13); neither given, the representative slice.
+    """
+    if time is not None and time_slice is not None:
+        raise ValueError("pass either time= or time_slice=, not both")
+    usable = _usable_slices(ods)
+    if time_slice is not None:
+        if float(time_slice) != int(time_slice):
+            raise ValueError(
+                f"time_slice={time_slice!r} is not a slice index; pass time= for a time in seconds"
+            )
+        index = int(time_slice)
+        total = _count(ods, "equilibrium.time_slice")
+        if not 0 <= index < total:
+            raise ValueError(f"time_slice={index} is outside the {total} stored slices")
+        reason = "requested slice"
+    elif time is not None:
+        if not usable:
+            raise ValueError("no usable equilibrium slice to resolve time= against")
+        times = np.asarray(
+            [float(_get(ods, f"equilibrium.time_slice.{i}.time")) for i in usable], dtype=float
+        )
+        nearest = int(np.argmin(np.abs(times - float(time))))
+        index = usable[nearest]
+        reason = f"nearest stored slice to t = {float(time) * 1e3:.2f} ms"
+        if not times.min() <= float(time) <= times.max():
+            warnings.warn(
+                f"time={float(time):g} s lies outside the stored equilibrium slices "
+                f"({times.min():g}-{times.max():g} s); drawing the nearest, slice {index}. "
+                "Times are in seconds.",
+                UserWarning,
+                stacklevel=3,
+            )
+    else:
+        index, reason = representative_slice(ods)
+    stored = _get(ods, f"equilibrium.time_slice.{index}.time")
+    time_value = float(np.asarray(stored, dtype=float).ravel()[0]) if stored is not None else np.nan
+    return index, time_value, reason
+
+
+#: Global quantities a slice summary states, in order: label, IMAS leaf,
+#: canonical unit ("" for dimensionless), display subject.
+_SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
+    ("Ip", "ip", "A"),
+    ("beta_p", "beta_pol", ""),
+    ("beta_N", "beta_normal", ""),
+    ("li_3", "li_3", ""),
+    ("q_axis", "q_axis", ""),
+    ("q_95", "q_95", ""),
+    ("psi_axis", "psi_axis", "Wb"),
+    ("psi_boundary", "psi_boundary", "Wb"),
+    ("R_axis", "magnetic_axis.r", "m"),
+    ("Z_axis", "magnetic_axis.z", "m"),
+    ("B_tor at axis", "magnetic_axis.b_field_tor", "T"),
+    ("volume", "volume", "m^3"),
+)
+
+
+def _slice_global_lines(ods: Any, index: int) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy."""
+    from vaft.plot.display import resolve_display
+
+    lines = []
+    width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
+    for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
+        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
+        try:
+            value = float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
+        except (IndexError, TypeError, ValueError):
+            value = np.nan
+        if not np.isfinite(value):
+            lines.append(f"{label:<{width}}  not stored")
+            continue
+        shown_unit = unit
+        if unit:
+            try:
+                display = resolve_display(unit, subject="equilibrium")
+                value, shown_unit = value * display.scale, display.unit
+            except ValueError:
+                pass
+        lines.append(f"{label:<{width}}  {value:.4g} {shown_unit}".rstrip())
+    return lines
+
+
+def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
+    """Understand one equilibrium slice from one figure (issue #261 section 11).
+
+    Poloidal flux with the LCFS, axis and wall; pressure and q against the
+    normalised flux; and the slice's global quantities as text.  The slice is
+    the representative one unless ``time=`` (snapped to a stored slice) or
+    ``time_slice=`` says otherwise; the title states which slice was drawn
+    and why, so a reader never mistakes it for an interpolation.
+    """
+    index, time_value, reason = resolve_time_slice(
+        ods, time=options.get("time"), time_slice=options.get("time_slice")
+    )
+    total = _count(ods, "equilibrium.time_slice")
+    entries = [("", ods)]
+    field = _build_field_2d(ods, RECIPES["equilibrium_field_psi"], time_slice=index)
+    # One figure, one convention: psi in the display unit the text panel uses
+    # (mWb under the display policy), and the magnetic axis marked on the map.
+    from vaft.plot.display import resolve_display
+
+    flux_display = resolve_display("Wb", subject="equilibrium")
+    overlays = list(field.overlays)
+    axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r"))
+    axis_z = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.z"))
+    if axis_r is not None and axis_z is not None:
+        overlays.append(
+            GeometryLayer(
+                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
+                style={"marker": "+", "color": "k", "markersize": 10},
+            )
+        )
+    field = dataclasses.replace(
+        field,
+        title="Poloidal flux",
+        values=np.asarray(field.values) * flux_display.scale,
+        value_label=f"Poloidal Flux [{flux_display.unit}]",
+        overlays=tuple(overlays),
+    )
+    pressure = _build_profile_1d(
+        entries, RECIPES["equilibrium_profile_pressure"],
+        _plot_name="equilibrium_profile_pressure", _panel_member=True, time_slice=index,
+    )
+    q = _build_profile_1d(
+        entries, RECIPES["equilibrium_profile_q"],
+        _plot_name="equilibrium_profile_q", _panel_member=True, time_slice=index,
+    )
+    globals_panel = TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities")
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    shot = f" #{pulse}" if pulse not in (None, "") else ""
+    time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
+    suptitle = options.get(
+        "title",
+        f"Equilibrium slice{shot} — {time_text} (slice {index + 1} of {total}, {reason})",
+    )
+    return Panels(
+        models=(field, pressure, q, globals_panel), ncols=2, share_x=False, suptitle=suptitle
+    )
+
+
+RECIPES["equilibrium_overview"] = CallableRecipe(
+    builder=_build_equilibrium_slice_overview,
+    description="One equilibrium slice from one figure: psi, profiles, global quantities.",
+)
 
 RECIPES["equilibrium_overview_verification"] = CallableRecipe(
     builder=_build_equilibrium_verification,

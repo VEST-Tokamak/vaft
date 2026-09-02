@@ -70,6 +70,18 @@ from ._plot_recipes import (
 
 __all__ = ["describe"]
 
+#: Interaction modes a plot offers (issue #261 sections 14-17).  A static
+#: summary is the baseline; a time-navigable entry point appears beside it.
+INTERACTION: dict[str, tuple[str, ...]] = {
+    "equilibrium_overview": ("static",),
+}
+
+#: What a composite built by code (not a PanelRecipe) draws, for discovery's
+#: ``overview:`` note (issue #262 section 13).
+OVERVIEW_CONTENTS: dict[str, tuple[str, ...]] = {
+    "equilibrium_overview": ("poloidal flux", "pressure", "q", "global quantities"),
+}
+
 #: What the transformed views compute.  Spectrograms are short-time Fourier
 #: transforms (:func:`vaft.process.mirnov_spectrogram`); spectra are Welch
 #: power spectral densities (:func:`vaft.process.fluctuation.compute_psd`).
@@ -153,8 +165,12 @@ def _declare(record: PlotCapability) -> PlotCapability:
             updates["analysis_methods"] = methods
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
+    elif record.name in OVERVIEW_CONTENTS:
+        updates["overview_members"] = OVERVIEW_CONTENTS[record.name]
     if record.name in SYNTHETIC_CONSTRAINTS:
         updates["synthetic"] = {"overlay": "equilibrium"}
+    if record.name in INTERACTION:
+        updates["interaction"] = INTERACTION[record.name]
     return with_capabilities(record, **updates) if updates else record
 
 
