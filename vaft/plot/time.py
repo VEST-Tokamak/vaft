@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
+
+# `ods[path]` materializes a missing path rather than raising (issue #118).
+from vaft.ods_access import path_value as _value
 from vaft.omas import odc_or_ods_check
 from vaft.plot.utils import get_from_path, extract_labels_from_odc
 from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
@@ -783,14 +786,6 @@ def _find_flux_loop_all_indices(ods):
     # find the indices of all flux loop
     indices = np.arange(len(ods['magnetics.flux_loop']))
     return indices
-
-def _value(ods, path, default=None):
-    """Read ``path`` from ``ods``, returning ``default`` when it is absent."""
-    try:
-        return ods[path]
-    except (KeyError, TypeError, IndexError, ValueError):
-        return default
-
 
 def _region_indices(ods, r_path, region, z_path=None):
     """Indices of the channels this diagnostic family places in ``region``.
