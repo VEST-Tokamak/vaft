@@ -1,0 +1,18 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+git_source(:github) { |repo_name| "https://github.com/#{repo_name}" }
+gem "jekyll"
+gem 'jekyll-feed'
+gem 'jekyll-readme-index'
+gem 'jemoji'
+gem 'webrick'
+gem 'logger'
+gem 'csv'
+# scripts/validate_docs.rb requires nokogiri.  It resolves today only through
+# jemoji -> html-pipeline -> nokogiri, so the validator would break the day
+# jemoji drops that dependency.  Depend on it directly.
+gem 'nokogiri'
+
+# gem "rails"
