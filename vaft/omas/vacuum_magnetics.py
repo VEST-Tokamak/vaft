@@ -64,6 +64,7 @@ __all__ = [
     "channel_residual_metrics",
     "eddy_improvement",
     "evaluation_mask",
+    "plasma_free_residual",
     "plasma_onset_time",
     "probe_family",
     "residual_onset",
@@ -399,7 +400,18 @@ def select_vacuum_channels(
     return selected
 
 
-def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _currents(
+    ods: Any, loop_currents: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Coil and passive-loop currents on the `pf_active` grid.
+
+    ``loop_currents`` overrides the loops stored in the ODS, which is how a
+    plasma-free benchmark drives the wall from the PF coils alone (issue #190)
+    without disturbing the routine stage's product. Accepted either as
+    ``(n_loops, n_times)`` or as the ``(n_times, n_loops)`` that
+    `solve_eddy_currents` returns -- except when those coincide, since a square
+    array cannot be told apart and guessing would scramble the loops.
+    """
     coil_count = _count(ods, "pf_active.coil")
     loop_count = _count(ods, "pf_passive.loop")
     if coil_count == 0:
@@ -413,10 +425,38 @@ def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         [np.asarray(ods[f"pf_active.coil.{i}.current.data"], dtype=float)
          for i in range(coil_count)]
     )
-    loop = np.array(
-        [np.asarray(ods[f"pf_passive.loop.{i}.current"], dtype=float)
-         for i in range(loop_count)]
-    )
+    if loop_currents is None:
+        loop = np.array(
+            [np.asarray(ods[f"pf_passive.loop.{i}.current"], dtype=float)
+             for i in range(loop_count)]
+        )
+    else:
+        loop = np.asarray(loop_currents, dtype=float)
+        if loop.ndim != 2:
+            raise VacuumMagneticsError(
+                f"injected loop currents must be 2-D, got shape {loop.shape}"
+            )
+        # `solve_eddy_currents` returns (n_times, n_loops); this module works
+        # in (n_loops, n_times). Both are accepted, but a square array matches
+        # each equally and guessing would silently scramble the loops -- every
+        # loop's current replaced by another's. That is reachable on real data
+        # (950 passive loops, and a 950-sample plasma-free window is 38 ms on
+        # the 4e-5 grid), so refuse it instead.
+        native = (loop_count, time.size)
+        solver = (time.size, loop_count)
+        if loop.shape == native == solver:
+            raise VacuumMagneticsError(
+                f"injected loop currents are square ({loop.shape}), so "
+                f"(n_loops, n_times) and (n_times, n_loops) cannot be told "
+                "apart; pass them already shaped (n_loops, n_times)"
+            )
+        if loop.shape == solver:
+            loop = loop.T
+        elif loop.shape != native:
+            raise VacuumMagneticsError(
+                f"injected loop currents shaped {loop.shape} match neither "
+                f"{native} nor {solver}"
+            )
     if coil.shape[1] != time.size or loop.shape[1] != time.size:
         raise VacuumMagneticsError(
             "pf_active/pf_passive currents do not share the pf_active time grid"
@@ -432,6 +472,7 @@ def synthetic_vacuum_magnetics(
     window: tuple[float, float] | None = None,
     validity_window: tuple[float, float] | None = None,
     min_validity: int = VALIDITY_VALID,
+    loop_currents: np.ndarray | None = None,
 ) -> tuple[VacuumChannel, ...]:
     """Forward-model the coil and coil+eddy response at selected magnetics.
 
@@ -447,12 +488,18 @@ def synthetic_vacuum_magnetics(
     interval it judges by, which the eddy stage does: it selects on pre-plasma
     validity but needs post-onset samples for the residual to emerge into.
     Unset, ``validity_window`` follows ``window``.
+
+    ``loop_currents`` replaces the passive-loop currents read from the ODS. The
+    routine eddy stage solves those with the measured plasma current included,
+    so a plasma-free benchmark must inject its own PF-only solution here rather
+    than reuse them -- see
+    :func:`vaft.omas.process_wrapper.wall_currents_from_active_coils` (#190).
     """
     from vaft.omas.process_wrapper import compute_point_response_ods
 
     # Checked first: "the eddy solve has not run on this ODS" is the more
     # actionable diagnosis than "no usable channels" when both are true.
-    time, coil_currents, loop_currents = _currents(ods)
+    time, coil_currents, loop_currents = _currents(ods, loop_currents)
     rows = select_vacuum_channels(
         ods,
         per_family=per_family,
@@ -525,6 +572,48 @@ def synthetic_vacuum_magnetics(
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
+def plasma_free_residual(
+    channels: Sequence[VacuumChannel],
+    window: tuple[float, float] | None = None,
+    *,
+    normalize: bool = False,
+) -> np.ndarray:
+    """Stack ``measured - coil_eddy`` over the usable samples of every channel.
+
+    This is the objective a wall-resistance calibration minimises (issue #308):
+    with the model driven by the PF coils alone over a plasma-free interval,
+    what is left is the passive-wall response the resistances control.
+
+    Channels are concatenated in the order given, each restricted by
+    :func:`evaluation_mask`, so the result is a single 1-D vector suitable for
+    a least-squares fit. It is deliberately not reduced to a scalar: a fitter
+    wants residuals, and the summary statistics already live in
+    :func:`channel_residual_metrics`.
+
+    ``normalize`` divides each channel's block by the RMS of its own measured
+    signal over the same samples, which puts B-probes in tesla and flux loops
+    in webers on a comparable footing. Without it a fit is dominated by
+    whichever quantity happens to carry the larger numbers. Channels whose
+    measured RMS is zero are left unscaled rather than divided by zero.
+    """
+    blocks: list[np.ndarray] = []
+    for channel in channels:
+        mask = evaluation_mask(channel, window)
+        if not np.any(mask):
+            continue
+        residual = np.asarray(channel.measured, dtype=float)[mask] - np.asarray(
+            channel.coil_eddy, dtype=float
+        )[mask]
+        if normalize:
+            scale = float(np.sqrt(np.mean(np.asarray(channel.measured, dtype=float)[mask] ** 2)))
+            if scale > 0.0:
+                residual = residual / scale
+        blocks.append(residual)
+    if not blocks:
+        return np.zeros(0, dtype=float)
+    return np.concatenate(blocks)
+
 
 def evaluation_mask(
     channel: VacuumChannel, window: tuple[float, float] | None

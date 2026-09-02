@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from vaft.process import is_signal_active, signal_on_offset
 import matplotlib.pyplot as plt
 import numpy as np
+
+from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
 from vaft.omas import odc_or_ods_check
 from vaft.plot.utils import get_from_path, extract_labels_from_odc
 from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
@@ -672,6 +674,11 @@ def _plot_magnetics_time_subplot_generic(odc_or_ods, indices_param, label_param,
 
     layout_key = (ods_path_prefix, indices_param)
     nrows, ncols = MAGNETICS_PLOT_LAYOUT.get(layout_key, (len(item_indices), 1))
+    if nrows * ncols < len(item_indices):
+        # The tabulated grid was sized for one particular VEST geometry. Any
+        # selection larger than it used to silently vanish past the last cell.
+        ncols = max(int(ncols), 1)
+        nrows = -(-len(item_indices) // ncols)
     n_axes = nrows * ncols
     figsize = (2.5 * ncols, 1.8 * nrows)
     fig, axs = plt.subplots(nrows, ncols, figsize=figsize, sharex=True, squeeze=False)
@@ -777,15 +784,39 @@ def _find_flux_loop_all_indices(ods):
     indices = np.arange(len(ods['magnetics.flux_loop']))
     return indices
 
+def _region_indices(ods, r_path, region, z_path=None):
+    """Indices of the channels this diagnostic family places in ``region``.
+
+    The inboard/outboard divider is inferred from the family's own geometry by
+    :mod:`vaft.plot.selection`, the single definition plotting, selection and
+    validation share.  Hard-coded VEST radii used to be repeated here, in
+    ``vaft.plot.analysis`` and in ``machine_mapping``, and the copies disagreed
+    about which test won for a probe that is both inboard and high up.
+
+    ``z_path`` names the vertical position of a family that also has a "side"
+    selection.  Those channels are excluded here, so `inboard`, `side` and
+    `outboard` stay mutually exclusive the way callers have always relied on:
+    the side array sits at a radius the inferred divider calls inboard, so
+    classifying by radius alone would return each of them twice.
+    """
+    from .selection import classify_regions
+
+    radii = np.asarray(ods[r_path], dtype=float)
+    regions = classify_regions(radii)
+    chosen = [i for i, name in enumerate(regions) if name == region]
+    if z_path is not None:
+        heights = np.abs(np.asarray(ods[z_path], dtype=float))
+        chosen = [i for i in chosen if not heights[i] > SIDE_PROBE_MIN_ABS_Z]
+    return (np.array(chosen, dtype=int),)
+
+
 def _find_flux_loop_inboard_indices(ods):
     # find the indices of inboard flux loop in VEST
-    indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] < 0.15)
-    return indices
+    return _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'inboard')
 
 def _find_flux_loop_outboard_indices(ods):
     # find the indices of the flux loop outboard
-    indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] > 0.5)
-    return indices
+    return _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'outboard')
 
 def _find_flux_loop_all_indices(ods):
     # find the indices of all flux loop
@@ -793,8 +824,17 @@ def _find_flux_loop_all_indices(ods):
 
 def _find_flux_loop_inboard_midplane_indices(ods):
     # find the indices of the flux loop inboard midplane
-    indices = np.where(ods['magnetics.flux_loop.:.position.0.r'] == 0.091)
-    return indices
+    #
+    # This used to be `r == 0.091`, an exact float comparison against one
+    # channel's tabulated radius: a geometry revision moving that loop by a
+    # single ULP returned nothing at all.  The midplane loop is now whichever
+    # inboard loop actually sits nearest Z = 0.
+    from .selection import representative_index
+
+    inboard = _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'inboard')[0]
+    z = np.asarray(ods['magnetics.flux_loop.:.position.0.z'], dtype=float)
+    chosen = representative_index(z, list(inboard))
+    return (np.array([] if chosen is None else [chosen], dtype=int),)
 
 def time_magnetics_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit='s', yunit='Wb', xlim='plasma'):
     """
@@ -858,13 +898,13 @@ magnetics_time_flux_loop_voltage = time_magnetics_flux_loop_voltage
 
 def _find_bpol_probe_inboard_indices(ods):
     # find the indices of the bpol probe inboard
-    indices = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] < 0.09)
-    return indices
+    return _region_indices(ods, 'magnetics.b_field_pol_probe.:.position.r', 'inboard',
+                           z_path='magnetics.b_field_pol_probe.:.position.z')
 
 def _find_bpol_probe_outboard_indices(ods):
     # find the indices of the bpol probe outboard
-    indices = np.where(ods['magnetics.b_field_pol_probe.:.position.r'] > 0.795)
-    return indices
+    return _region_indices(ods, 'magnetics.b_field_pol_probe.:.position.r', 'outboard',
+                           z_path='magnetics.b_field_pol_probe.:.position.z')
 
 def _find_bpol_probe_side_indices(ods):
     # find the indices of the bpol probe side
