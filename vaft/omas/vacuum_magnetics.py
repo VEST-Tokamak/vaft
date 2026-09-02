@@ -409,7 +409,8 @@ def _currents(
     plasma-free benchmark drives the wall from the PF coils alone (issue #190)
     without disturbing the routine stage's product. Accepted either as
     ``(n_loops, n_times)`` or as the ``(n_times, n_loops)`` that
-    `solve_eddy_currents` returns.
+    `solve_eddy_currents` returns -- except when those coincide, since a square
+    array cannot be told apart and guessing would scramble the loops.
     """
     coil_count = _count(ods, "pf_active.coil")
     loop_count = _count(ods, "pf_passive.loop")
@@ -436,13 +437,25 @@ def _currents(
                 f"injected loop currents must be 2-D, got shape {loop.shape}"
             )
         # `solve_eddy_currents` returns (n_times, n_loops); this module works
-        # in (n_loops, n_times). Transpose only when that is unambiguous.
-        if loop.shape[0] == time.size and loop.shape[1] == loop_count:
+        # in (n_loops, n_times). Both are accepted, but a square array matches
+        # each equally and guessing would silently scramble the loops -- every
+        # loop's current replaced by another's. That is reachable on real data
+        # (950 passive loops, and a 950-sample plasma-free window is 38 ms on
+        # the 4e-5 grid), so refuse it instead.
+        native = (loop_count, time.size)
+        solver = (time.size, loop_count)
+        if loop.shape == native == solver:
+            raise VacuumMagneticsError(
+                f"injected loop currents are square ({loop.shape}), so "
+                f"(n_loops, n_times) and (n_times, n_loops) cannot be told "
+                "apart; pass them already shaped (n_loops, n_times)"
+            )
+        if loop.shape == solver:
             loop = loop.T
-        elif loop.shape != (loop_count, time.size):
+        elif loop.shape != native:
             raise VacuumMagneticsError(
                 f"injected loop currents shaped {loop.shape} match neither "
-                f"({loop_count}, {time.size}) nor ({time.size}, {loop_count})"
+                f"{native} nor {solver}"
             )
     if coil.shape[1] != time.size or loop.shape[1] != time.size:
         raise VacuumMagneticsError(

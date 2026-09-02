@@ -690,3 +690,43 @@ def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
     # gap #308 exists to close. If this ever falls near zero without a
     # calibration landing, the benchmark has stopped being informative.
     assert 0.01 < pf_rms < 1.0
+
+
+def test_square_loop_currents_are_refused_rather_than_guessed():
+    """A square array matches both orientations; guessing scrambles the loops.
+
+    Reachable on real data: VEST has 950 passive loops, and a 950-sample
+    plasma-free window is 38 ms on the 4e-5 grid. Silently transposing there
+    would replace each loop's current with another's, and a #308 fit would
+    converge on resistances derived from scrambled wall currents.
+    """
+    from vaft.omas.vacuum_magnetics import _currents
+
+    n = 4
+    ods = ODS(consistency_check=False)
+    ods["pf_active.time"] = np.linspace(0.0, 1.0, n)
+    ods["pf_active.coil.0.current.data"] = np.zeros(n)
+    for index in range(n):
+        ods[f"pf_passive.loop.{index}.current"] = np.zeros(n)
+
+    with pytest.raises(VacuumMagneticsError, match="square"):
+        _currents(ods, np.zeros((n, n)))
+
+
+def test_both_orientations_survive_when_they_are_distinguishable():
+    """Non-square input keeps its meaning whichever way round it arrives."""
+    from vaft.omas.vacuum_magnetics import _currents
+
+    n_loops, n_times = 3, 5
+    ods = ODS(consistency_check=False)
+    ods["pf_active.time"] = np.linspace(0.0, 1.0, n_times)
+    ods["pf_active.coil.0.current.data"] = np.zeros(n_times)
+    for index in range(n_loops):
+        ods[f"pf_passive.loop.{index}.current"] = np.zeros(n_times)
+
+    native = np.array([[float(index)] * n_times for index in range(n_loops)])
+    _, _, from_native = _currents(ods, native)
+    _, _, from_solver = _currents(ods, native.T)
+
+    np.testing.assert_array_equal(from_native, native)
+    np.testing.assert_array_equal(from_solver, native)
