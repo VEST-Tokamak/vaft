@@ -127,7 +127,7 @@ def render_power_spectrum(
         axes.set_title(model.title)
     if legend and axes.get_legend_handles_labels()[0]:
         axes.legend()
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 @renderer(

@@ -4019,6 +4019,9 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     index, time_value, reason = resolve_time_slice(
         ods, time=options.get("time"), time_slice=options.get("time_slice")
     )
+    # An interactive caller selects slices by index and says why in its own
+    # words ("selected"); a direct time_slice= stays "requested slice".
+    reason = options.get("_slice_reason") or reason
     total = _count(ods, "equilibrium.time_slice")
     entries = [("", ods)]
     field = _build_field_2d(ods, RECIPES["equilibrium_field_psi"], time_slice=index)

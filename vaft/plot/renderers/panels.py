@@ -124,7 +124,7 @@ def render_panels(
 
     A caller-supplied ``ax=`` is the grid: exactly one axes per panel, filled
     in order.  Those axes are the caller's to configure, so ``model.share_x``
-    applies only to axes this renderer creates itself.
+    and the tight layout apply only to a figure this renderer creates itself.
     """
     if not isinstance(model, Panels):
         raise TypeError(
@@ -186,7 +186,10 @@ def render_panels(
 
     if model.suptitle:
         figure.suptitle(model.suptitle)
-    return finalize(figure, grid, show=show)
+    # A figure the caller owns keeps the caller's layout: tight_layout is
+    # applied only to a figure this renderer created (issue #260 section 8;
+    # a figure that redraws its panels must not be re-laid-out each time).
+    return finalize(figure, grid, show=show, tight_layout=ax is None)
 
 
 def _panel_renderer(

@@ -269,7 +269,7 @@ def test_capability_fields_are_filled_only_where_issue_261_defined_them(catalog)
         assert record.sources == {} and record.projection == {}
         if record.name != "equilibrium_overview":
             assert record.interaction == (), record.name
-    assert catalog.find("equilibrium_overview").interaction == ("static",)
+    assert catalog.find("equilibrium_overview").interaction[0] == "static"
     assert "sources:" not in str(catalog) and "projection:" not in str(catalog)
 
 

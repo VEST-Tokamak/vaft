@@ -34,6 +34,11 @@ def render_field_2d(
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Field2D` as filled or line contours with its overlays."""
+    # A caller that owns a colorbar axes (a figure that redraws this panel,
+    # issue #261) keeps its layout fixed by passing it; otherwise Matplotlib
+    # takes the space from the panel as usual.  Taken out before the style
+    # reaches the contour call.
+    colorbar_axes = style.pop("colorbar_ax", None)
     if not isinstance(model, Field2D):
         raise TypeError(
             f"expected a vaft.plot.models.Field2D; got {type(model).__name__}. "
@@ -48,7 +53,10 @@ def render_field_2d(
     draw = axes.contourf if model.filled else axes.contour
     mappable = draw(model.r, model.z, model.values, **contour_kwargs)
     if colorbar:
-        figure.colorbar(mappable, ax=axes, label=model.value_label)
+        if colorbar_axes is not None:
+            figure.colorbar(mappable, cax=colorbar_axes, label=model.value_label)
+        else:
+            figure.colorbar(mappable, ax=axes, label=model.value_label)
 
     for layer in model.overlays:
         draw_geometry_layer(axes, layer)
@@ -59,7 +67,7 @@ def render_field_2d(
         axes.set_title(model.title)
     if model.aspect_equal:
         axes.set_aspect("equal", adjustable="box")
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 def _field_renderer(*, domain: str, subject: str, quantity: str, description: str,

@@ -181,6 +181,7 @@ from .models import (
     ViewModel,
 )
 from .discovery import PlotCapability, PlotCatalog
+from .navigation import SliceNavigator
 from .registry import PlotSpec, available_plots, canonical_names, get_spec
 from .renderers.fields import render_field_2d
 from .renderers.geometry import render_geometry_3d_layers, render_geometry_layers
@@ -337,6 +338,7 @@ _SUPPORT_EXPORTS = (
     "Profile1D",
     "ReferenceSlope",
     "Series",
+    "SliceNavigator",
     "Spectrogram",
     "TextPanel",
     "ViewModel",

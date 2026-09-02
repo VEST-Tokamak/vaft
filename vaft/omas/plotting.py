@@ -32,6 +32,7 @@ from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
 
+from .interactive import plot_equilibrium_interactive  # public entry point, issue #261
 from ._plot_recipes import (
     build_model,
     diagnoses_itself,
@@ -2501,6 +2502,7 @@ __all__ = [
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
+    "plot_equilibrium_interactive",
     "plot_equilibrium_overview_histories",
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",
