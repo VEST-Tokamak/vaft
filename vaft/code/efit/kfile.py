@@ -45,12 +45,18 @@ _EFIT_CONSTRAINT_FAMILY = {
 
 
 def _condemned_channels(ods, nbprobe: int) -> set[int]:
-    """Legacy-style broken indices for channels whose scalar validity is invalid.
+    """Legacy-style broken indices for channels with no usable sample at all.
 
-    Probes map to their own index, flux loops to ``index + nbprobe`` -- the
-    same offset the rest of this module uses for the ``broken`` list.
+    Judged on the time-resolved validity, never on the scalar: the scalar is
+    "worst state reached", so a channel that merely holds its last value after
+    the diagnostics window (every probe on the packaged shot) reads ``-2``
+    there while being a perfectly good witness before it.  Only a record the
+    quality layer rejected in its entirety -- a physical-ceiling or
+    population verdict (#189) -- is broken in the k-file sense.  Probes map to
+    their own index, flux loops to ``index + nbprobe``, the offset the rest of
+    this module uses for the ``broken`` list.
     """
-    from vaft.validation.imas import VALIDITY_VALID, read_validity
+    from vaft.validation.imas import validity_codes, valid_fraction
 
     condemned: set[int] = set()
     for kind, quantity, offset in (
@@ -59,8 +65,10 @@ def _condemned_channels(ods, nbprobe: int) -> set[int]:
     ):
         count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
         for index in range(count):
-            validity = read_validity(ods, f"magnetics.{kind}.{index}.{quantity}")
-            if validity is not None and int(validity) < VALIDITY_VALID:
+            base = f"magnetics.{kind}.{index}.{quantity}"
+            if validity_codes(ods, base) is None:
+                continue  # nothing has assessed this datum
+            if valid_fraction(ods, base) == 0.0:
                 condemned.add(index + offset)
     return condemned
 

@@ -721,3 +721,15 @@ def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
     assert "MagneticFieldProbe_H3-08_Bz" in {q.name for q in condemned}
     assert all(q.kind == "b_field_pol_probe" for q in condemned)
     assert 1 <= len(condemned) <= 8
+
+
+def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
+    """The scalar validity is "worst state reached", so every probe on the
+    packaged shot reads -2 there because of its held tail; the k-file writer
+    must judge the time-resolved validity and condemn only the record the
+    quality layer rejected outright."""
+    from vaft.code.efit.kfile import _condemned_channels
+
+    ods, report = packaged
+    project_validity(ods, report)
+    assert _condemned_channels(ods, nbprobe=76) == {25}

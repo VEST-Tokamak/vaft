@@ -45,6 +45,43 @@ def _drop_empty_probe_signal(ods, base: str) -> None:
             del ods[base]
 
 
+def _project_signal_quality(ods, manifest: dict) -> None:
+    """Carry the quality layer's verdicts into the artifact's validity nodes.
+
+    The canonical pipeline product predates the diagnostics-stage signal
+    validation (issue #189), so it carries validity on the raw voltages only.
+    A verdict is a property of the processed waveform, which the canonical
+    stores unchanged, so projecting it at generation is the same result the
+    diagnostics stage now writes -- and it is what lets a consumer that reads
+    ``field.validity`` / ``flux.validity`` (the eddy channel selection, the
+    k-file writer) see the condemned channels without re-running the layer.
+    The configuration that produced the verdict is recorded in the manifest.
+    """
+    from dataclasses import asdict
+
+    from vaft.validation.magnetics import (
+        MagneticsQualityConfig,
+        project_validity,
+        validate_magnetics_signals,
+    )
+    from vaft.validation.model import ValidationStatus
+
+    config = MagneticsQualityConfig()
+    report = validate_magnetics_signals(ods, config=config)
+    project_validity(ods, report)
+    manifest.setdefault("generation", {})["signal_quality"] = {
+        "projected": True,
+        "issue": "https://github.com/VEST-Tokamak/vaft/issues/189",
+        "configuration": asdict(config),
+        "condemned": sorted(
+            f"{quality.kind}[{quality.index}] {quality.name}"
+            for quality in report
+            if quality.status is not ValidationStatus.NOT_AVAILABLE
+            and quality.valid_fraction == 0.0
+        ),
+    }
+
+
 def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     """Return the pipeline ODS in the portable DD 3.41 representation."""
     version = str(manifest["imas_dd_version"])
@@ -72,6 +109,7 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
         set_path(ods, "barometry.ids_properties.homogeneous_time", 1)
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
+    _project_signal_quality(ods, manifest)
     return ods
 
 

@@ -17,21 +17,44 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 31498902
-    sha256: f51827f717605e1ae865f3539bac250aeecc358660d8ce56ac8f9e0a6f2b7095
+    size: 31520211
+    sha256: 984411746ba95c8ef0c6c853707a24caed9bf13cf24be72e209271990cd35089
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 8535f6fd311200ec8e80c8d4b3f0215b2eabf3e4f4e8ae41d6e374f0c725ffb2
-  materialized_leaves: 26839
+  canonical_sha256: a1f4f3b88fa02ac3173bde5e08b3996585501946de0a58a7dc9ee2fefe09a2c0
+  materialized_leaves: 26987
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
   - materialize homogeneous barometry and equilibrium time coordinates
   - retain native-rate voltage and derived magnetic-field waveforms
-  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections, issue 288)
+  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections,
+    issue 288)
   related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+  signal_quality:
+    projected: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/189
+    configuration:
+      baseline_fraction: 0.2
+      min_constant_run: 16
+      significance_floor: 0.01
+      spike_sigma: 8.0
+      max_spike_samples: 3
+      offset_jump_sigma: 10.0
+      coherence_window: 0.0005
+      coherent_jump_fraction: 0.3
+      max_plausible_amplitude:
+        b_field_pol_probe: 1.0
+      population_peak_factor: 4.0
+    condemned:
+    - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+    - b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz
+    - b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz
+    - b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz
+    - b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz
+    - b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz
 pipeline:
   configuration: source/pipeline-config.yaml
   configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
@@ -103,9 +126,9 @@ corrections:
   reason: 'The IMAS DD defines poloidal_angle as a clockwise angle from +R, so a probe
     measuring +Bz is 3*pi/2. The pipeline wrote pi/2, which declares -Bz to a DD-conformant
     reader. Applied in place rather than by rerunning the pipeline: the mapper writes
-    this leaf as a constant and no stage output depends on it. The reference
-    generators under workflow/reference_validation were hardcoding pi/2 on both
-    their generate and verify paths; they were corrected in the same change to
-    read POLOIDAL_ANGLE, so a regeneration now reproduces this value rather than
-    reverting it. The stage hashes above are therefore unchanged
-    and still describe the run that produced the rest of the artifact.'
+    this leaf as a constant and no stage output depends on it. The reference generators
+    under workflow/reference_validation were hardcoding pi/2 on both their generate
+    and verify paths; they were corrected in the same change to read POLOIDAL_ANGLE,
+    so a regeneration now reproduces this value rather than reverting it. The stage
+    hashes above are therefore unchanged and still describe the run that produced
+    the rest of the artifact.'
