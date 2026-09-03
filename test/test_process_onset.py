@@ -188,9 +188,32 @@ def test_a_pulse_at_the_noise_floor_is_refused_and_a_clear_one_accepted():
 
 
 def test_an_onset_inside_the_reference_is_flagged_not_hidden():
+    """A step 5 ms in, with the reference the leading 20 % (20 ms): whatever
+    the detector answers, it must say the reference was contaminated."""
     y = np.where(T >= 0.005, 1.0, 0.0) + 0.001 * RNG.standard_normal(T.size)
     record = sustained_excess_onset(T, y, reference_fraction=0.2)
-    assert "reference_contaminated" in record.flags or "reference_flat" in record.flags or not record.found
+    assert "reference_contaminated" in record.flags
+
+
+def test_a_noise_dip_during_the_rise_does_not_delay_the_onset():
+    y = np.zeros_like(T)
+    on = T >= ONSET
+    y[on] = np.clip((T[on] - ONSET) / 0.004, 0.0, 1.0)
+    y += 0.001 * RNG.standard_normal(T.size)
+    clean = sustained_excess_onset(T, y)
+    dipped = y.copy()
+    dipped[clean.index + 3] = 0.0
+    assert sustained_excess_onset(T, dipped).index == clean.index
+    assert principal_pulse_onset(T, dipped).index == principal_pulse_onset(T, y).index
+    # and a real gap longer than the bridge still splits
+    gapped = y.copy()
+    gapped[clean.index + 3 : clean.index + 9] = 0.0
+    assert sustained_excess_onset(T, gapped).index > clean.index
+
+
+def test_a_record_too_short_for_the_filter_says_so():
+    with pytest.raises(ValueError, match="needs more than"):
+        principal_pulse_onset(T[:12], np.ones(12), cutoff_hz=2000.0, fs=FS)
 
 
 def test_a_flat_reference_is_flagged():

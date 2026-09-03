@@ -209,6 +209,12 @@ def zero_phase_lowpass(values, cutoff_hz: float, fs: float, order: int = 4) -> n
     +0.1 to +0.9 ms on VEST records; this one by less than a sample.
     """
     y = _fill_non_finite(np.asarray(values, dtype=float).reshape(-1))
+    padlen = 3 * (int(order) + 1)  # filtfilt's default for a b/a filter of this order
+    if y.size <= padlen:
+        raise ValueError(
+            f"a zero-phase low-pass of order {order} needs more than {padlen} samples; "
+            f"the record has {y.size}"
+        )
     return np.asarray(butterworth_lowpass(y, float(cutoff_hz), float(fs), int(order), zero_phase=True))
 
 
@@ -247,6 +253,33 @@ def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
     """Maximal ``[start, stop)`` index intervals where ``mask`` is True."""
     edges = np.diff(np.r_[0, mask.astype(int), 0])
     return list(zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)))
+
+
+def _bridged(mask: np.ndarray, bridge_samples: int) -> np.ndarray:
+    """``mask`` with False gaps of at most ``bridge_samples`` filled in.
+
+    A single noise sample below the threshold during a rise must not split
+    the run: the fragment before it would fail persistence and the onset
+    would move past the dip.
+    """
+    if bridge_samples <= 0:
+        return mask
+    out = mask.copy()
+    for start, stop in _runs(~mask):
+        if stop - start <= bridge_samples and start > 0 and stop < mask.size:
+            out[start:stop] = True
+    return out
+
+
+def _brief_run(t: np.ndarray, y: np.ndarray, baseline: float, start: int, stop: int) -> RunFeatures:
+    """Features of a run that failed persistence: cheap, prominence not evaluated."""
+    seg = y[start:stop] - baseline
+    dt = float(np.median(np.diff(t)))
+    i_max = start + int(np.argmax(seg))
+    return RunFeatures(start_time=float(t[start]), end_time=float(t[stop - 1]),
+                       width_s=float((stop - start) * dt), samples=int(stop - start),
+                       peak=float(seg.max()), peak_time=float(t[i_max]),
+                       prominence=float("nan"), integral=float(np.sum(seg) * dt))
 
 
 def run_features(time, values, baseline: float, start: int, stop: int) -> RunFeatures:
@@ -312,7 +345,25 @@ def _reference(t: np.ndarray, reference_mask, reference_fraction: float) -> np.n
     return mask
 
 
-def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask) -> OnsetRecord | None:
+def _reference_shifted(y: np.ndarray, ref_mask: np.ndarray, spread: float, sigma: float) -> bool:
+    """Whether the reference stretch itself changes level.
+
+    Compares the medians of its first and last quarters: a step inside the
+    reference makes the baseline the wrong level *and* hides the peak, so the
+    threshold is meaningless even though every number is finite.
+    """
+    ref = y[ref_mask]
+    ref = ref[np.isfinite(ref)]
+    if ref.size < 8:
+        return False
+    quarter = ref.size // 4
+    first, last = float(np.median(ref[:quarter])), float(np.median(ref[-quarter:]))
+    if not np.isfinite(spread) or spread <= 0.0:
+        return first != last
+    return abs(last - first) > float(sigma) * spread
+
+
+def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask, sigma) -> OnsetRecord | None:
     """The cases where thresholding would be meaningless, as flagged records."""
     flags: list[str] = []
     if int(np.count_nonzero(ref_mask)) < 2:
@@ -323,6 +374,8 @@ def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask) -> On
         flags.append("reference_flat")
     if not np.isfinite(peak):
         flags.append("no_finite_samples")
+    if not flags and _reference_shifted(y, ref_mask, spread, sigma):
+        flags.append("reference_contaminated")
     if not flags:
         return None
     return OnsetRecord(
@@ -346,6 +399,7 @@ def sustained_excess_onset(
     reference_fraction: float = 0.2,
     search_mask=None,
     prefilter_samples: int = 1,
+    bridge_samples: int = 2,
 ) -> OnsetRecord:
     """First run above the threshold that persists and has the right shape.
 
@@ -357,6 +411,7 @@ def sustained_excess_onset(
 
     ``prefilter_samples`` applies :func:`median_smooth` first, which is how an
     optical channel's isolated spikes are removed before they are counted.
+    Gaps of at most ``bridge_samples`` below the threshold do not split a run.
     The returned time is the first sample of the accepted run.
     """
     t, raw = _as_arrays(time, values)
@@ -366,12 +421,12 @@ def sustained_excess_onset(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
     method = "sustained_excess"
-    degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref)
+    degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
     if degenerate is not None:
         return degenerate
     dt = float(np.median(np.diff(t)))
     hold = max(1, int(round(float(hold_s) / dt)))
-    above = y > threshold
+    above = _bridged(y > threshold, int(bridge_samples))
     if search_mask is not None:
         above &= np.asarray(search_mask, dtype=bool).reshape(-1)
     total = float(np.sum(np.clip(y - baseline, 0.0, None)) * dt)
@@ -382,13 +437,18 @@ def sustained_excess_onset(
         "fraction": float(fraction), "sigma": float(sigma), "hold_samples": hold,
         "min_width_s": float(min_width_s), "min_prominence_sigma": float(min_prominence_sigma),
         "min_integral_fraction": float(min_integral_fraction), "prefilter_samples": int(prefilter_samples),
+        "bridge_samples": int(bridge_samples),
     }
     for start, stop in _runs(above):
-        feats = run_features(t, y, baseline, start, stop)
         why = None
         if stop - start < hold:
+            # persistence needs no shape features; the prominence they carry is
+            # an O(n) evaluation per run and most runs on a noisy record end here
             why = "persistence"
-        elif feats.width_s < float(min_width_s):
+            feats = _brief_run(t, y, baseline, start, stop)
+        else:
+            feats = run_features(t, y, baseline, start, stop)
+        if why is None and feats.width_s < float(min_width_s):
             why = "width"
         elif spread > 0 and feats.prominence < float(min_prominence_sigma) * spread:
             why = "prominence"
@@ -432,6 +492,7 @@ def principal_pulse_onset(
     order: int = 4,
     pickup_floor: float = 3.0,
     impulse_max_s: float = 2.0e-3,
+    bridge_samples: int = 2,
 ) -> OnsetRecord:
     """Onset of the pulse that contains the global maximum.
 
@@ -455,7 +516,7 @@ def principal_pulse_onset(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
     method = "principal_pulse"
-    degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref)
+    degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
     if degenerate is not None:
         return degenerate
     evidence: dict[str, Any] = {
@@ -467,13 +528,21 @@ def principal_pulse_onset(
         evidence["pickup_scale"] = pickup_scale(y, baseline, spread, dt, impulse_max_s=impulse_max_s)
         return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
                            flags=("no_onset", "peak_below_noise"))
-    region = y if search_mask is None else np.where(np.asarray(search_mask, dtype=bool).reshape(-1), y, -np.inf)
+    if search_mask is not None:
+        sel = np.asarray(search_mask, dtype=bool).reshape(-1)
+        if not sel.any():
+            return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
+                               flags=("no_onset", "search_mask_empty"))
+        region = np.where(sel, y, -np.inf)
+    else:
+        region = y
     i_peak = int(np.argmax(region))
+    above = _bridged(y > threshold, int(bridge_samples))
     start = i_peak
-    while start > 0 and y[start - 1] > threshold:
+    while start > 0 and above[start - 1]:
         start -= 1
     stop = i_peak + 1
-    while stop < y.size and y[stop] > threshold:
+    while stop < y.size and above[stop]:
         stop += 1
     feats = run_features(t, y, baseline, start, stop)
     # A pulse is never as brief as a pickup impulse: a principal run narrower
