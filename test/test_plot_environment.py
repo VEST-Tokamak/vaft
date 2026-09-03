@@ -99,7 +99,13 @@ def test_a_jupyter_kernel_gets_a_slider_that_redraws_the_figure(tmp_path):
     import os
 
     pytest.importorskip("nbformat")
+    pytest.importorskip("ipykernel")
+    pytest.importorskip("ipywidgets")
     import nbformat
+
+    kernels = subprocess.run(["jupyter", "kernelspec", "list"], capture_output=True, text=True, timeout=120)
+    if "python3" not in kernels.stdout:
+        pytest.skip("no python3 Jupyter kernel installed here")
 
     nb = nbformat.v4.new_notebook()
     nb.cells = [nbformat.v4.new_code_cell(
@@ -118,12 +124,17 @@ def test_a_jupyter_kernel_gets_a_slider_that_redraws_the_figure(tmp_path):
     )]
     path = tmp_path / "kernel.ipynb"
     nbformat.write(nb, path)
-    subprocess.run(
+    completed = subprocess.run(
         ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--allow-errors", str(path),
          "--output", "out.ipynb", "--output-dir", str(tmp_path), "--ExecutePreprocessor.timeout=600"],
         capture_output=True, text=True, timeout=900,
         env={**os.environ, "PYTHONPATH": str(Path(vaft.__file__).resolve().parents[1])},
     )
+    if not (tmp_path / "out.ipynb").exists():
+        tail = completed.stderr[-1500:]
+        if "No such kernel" in tail or "kernel" in tail.lower() and "not found" in tail.lower():
+            pytest.skip(f"the Jupyter kernel could not start here: {tail}")
+        pytest.fail(f"nbconvert produced no notebook (exit {completed.returncode}):\n{tail}")
     executed = nbformat.read(tmp_path / "out.ipynb", as_version=4)
     streams = [o["text"] for o in executed.cells[0]["outputs"] if o.get("output_type") == "stream"]
     errors = [o for o in executed.cells[0]["outputs"] if o.get("output_type") == "error"]
