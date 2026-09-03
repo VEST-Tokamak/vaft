@@ -17,13 +17,13 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 27945945
-    sha256: c10d7f619675e78a96b0afa744dd5c6ac66f7235c4745f616750bb4aebaef063
+    size: 27945962
+    sha256: 2772efa9fa93e793def67d6c3a1fc369fe06c8c808078d749c4aabcdc1ff8716
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 0454c4d7000ba1ffb6a01ab9d5de6b7ac7d28b3fde71902b1a3c3c33ef514143
+  canonical_sha256: 600e5b0dd20fd2aefe7376103b36bf75877502658fb2997001626c06165922a9
   materialized_leaves: 18634
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
@@ -116,16 +116,3 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
-known_divergences:
-- issue: 425
-  field: spectrometer_uv.channel.2.processed_line.:.intensity.data
-  reason: 'The versatile filterscope is on the fast DAQ at 250 kHz while this grid is
-    25 kHz. The values stored here were produced before the mapper anti-aliased that
-    10x decimation, so they carry content folded down from above 12.5 kHz. Recorded
-    rather than corrected: the generators under workflow/reference_validation select
-    from a frozen pipeline product and never call the mapper, so no regeneration this
-    artifact supports would change these values, and no test compares them against a
-    recomputed mapper output. The next full pipeline re-run from the raw dump will
-    change them. The slow-DAQ lines on channels 0 and 1 -- the ones the compact
-    reference fixture and the shot summary read -- are unaffected and remain
-    bit-for-bit identical.'

@@ -303,3 +303,147 @@ def test_runtime_module_dir_falls_back_to_geqdsk_only_when_time_ms_is_none(tmp_p
     run_dir = rt.module_dir(tmp_path, None, "dcon", 1, geqdsk=geqdsk)
 
     assert run_dir == tmp_path / "00325" / "dcon" / "nn=1"
+
+
+def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, tmp_path, case):
+    """A GPEC run killed mid-write must not be archived as a completed run.
+
+    GPEC is known to hang after its outputs materialize, so a timeout with
+    the three core netCDFs present is treated as success. But a process
+    killed *while* writing leaves those files present and truncated, so the
+    carve-out has to apply the same ``verify_outputs`` check the normal
+    completion path applies (release review, 0.6.0).
+    """
+    import subprocess
+
+    executable = tmp_path / "gpec/bin/gpec"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    executable.chmod(0o755)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    # verify_outputs stays at its shipped default (False): a timed-out run
+    # must not be called successful regardless of that flag.
+    config = gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+
+    # ideal-GPEC consumes a completed same-mode DCON result; give it one so
+    # the run reaches the executable instead of skipping on the DCON gate.
+    dcon_dir = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
+    dcon_dir.mkdir(parents=True, exist_ok=True)
+    (dcon_dir / "euler.bin").write_bytes(b"")
+    (dcon_dir / "psi_in.bin").write_bytes(b"")
+    _write_valid_dcon_netcdf(dcon_dir, n=1)
+
+    # The three core outputs exist but hold no readable physics content.
+    for name in (
+        "gpec_control_output_n1.nc",
+        "gpec_profile_output_n1.nc",
+        "gpec_cylindrical_output_n1.nc",
+    ):
+        (run_dir / name).write_bytes(b"truncated")
+
+    def _timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="gpec", timeout=1)
+
+    monkeypatch.setattr(gpec.rt, "run_subprocess", _timeout)
+
+    result = gpec.run_gpec_suite_case(case, config)
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert "failed verification" in record.reason
+
+
+def _write_valid_dcon_netcdf(path, *, n):
+    import xarray as xr
+
+    xr.Dataset(
+        {"W_t_eigenvalue": (("mode", "i"), [[-0.3, 0.0]])},
+        coords={"i": [0, 1], "mode": [1]},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": n},
+    ).to_netcdf(path / f"dcon_output_n{n}.nc")
+
+
+def test_truncated_netcdf_does_not_pass_the_output_check(tmp_path):
+    """Header-only checking let a truncated classic netCDF read as success.
+
+    xarray opens lazily and a truncated classic file returns silent zeros
+    for its missing tail, so the check must force a read and hold the file
+    to the size its own header declares.
+    """
+    import numpy as np
+    import xarray as xr
+
+    from vaft.code.gpec._solvers import _check_nc_variable
+
+    name = "dcon_output_n1.nc"
+
+    def _write(fmt):
+        xr.Dataset(
+            {"W_t_eigenvalue": (("m",), np.arange(20000, dtype=float))}
+        ).to_netcdf(tmp_path / name, format=fmt)
+
+    for fmt in ("NETCDF3_CLASSIC", "NETCDF4"):
+        _write(fmt)
+        assert _check_nc_variable(tmp_path, name, "W_t_eigenvalue")[0], fmt
+        full = (tmp_path / name).stat().st_size
+
+        for fraction in (0.3, 0.95):
+            _write(fmt)
+            with open(tmp_path / name, "r+b") as handle:
+                handle.truncate(int(full * fraction))
+            ok, reason = _check_nc_variable(tmp_path, name, "W_t_eigenvalue")
+            assert not ok, f"{fmt} truncated to {fraction:.0%} passed the check"
+            assert reason
+
+
+def test_a_truncated_profile_or_cylindrical_output_fails_the_check(tmp_path):
+    """Every core GPEC output must be verified, not just control.nc.
+
+    GPEC writes its three core files in sequence, so a run killed mid-write
+    leaves an intact control.nc beside a truncated profile or cylindrical
+    file. Checking only control.nc reported that as success and the missing
+    tail read back downstream as silent zeros (ultrareview, 0.6.0).
+    """
+    import numpy as np
+    import xarray as xr
+
+    from vaft.code.gpec._solvers import SOLVERS
+
+    def _build(truncate=None):
+        for name, ds in (
+            ("gpec_control_output_n1.nc", xr.Dataset({"b_n": (("i",), np.arange(5000, dtype=float))})),
+            ("gpec_profile_output_n1.nc", xr.Dataset({"xi_n": (("i",), np.arange(20000, dtype=float))})),
+            (
+                "gpec_cylindrical_output_n1.nc",
+                xr.Dataset(
+                    {
+                        "R": (("i",), np.arange(20000, dtype=float)),
+                        "z": (("i",), np.arange(20000, dtype=float)),
+                    }
+                ),
+            ),
+        ):
+            ds.to_netcdf(tmp_path / name, format="NETCDF3_CLASSIC")
+        if truncate is not None:
+            path = tmp_path / truncate
+            full = path.stat().st_size
+            with open(path, "r+b") as handle:
+                handle.truncate(int(full * 0.3))
+
+    solver = SOLVERS["gpec"]
+
+    _build()
+    assert solver.check_success(tmp_path, 1)[0]
+
+    for truncated in (
+        "gpec_control_output_n1.nc",
+        "gpec_profile_output_n1.nc",
+        "gpec_cylindrical_output_n1.nc",
+    ):
+        _build(truncate=truncated)
+        ok, reason = solver.check_success(tmp_path, 1)
+        assert not ok, f"a truncated {truncated} passed the check"
+        assert truncated in reason

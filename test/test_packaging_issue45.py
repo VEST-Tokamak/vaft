@@ -152,3 +152,41 @@ def test_empty_equilibrium_workflow_placeholder_was_removed():
         / "update_equilibrium.py"
     )
     assert not path.exists()
+
+
+def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
+    """The swapped-in wheel sample must not drift from the mapping code.
+
+    ``setup.py`` replaces ``vaft/data/samples/39915`` with the compact
+    ``packaging/wheel_samples/39915`` in every build, so that copy -- not the
+    checkout one -- is what users install. Regenerating the checkout sample
+    without regenerating the wheel variant therefore ships conventions the
+    library itself no longer writes: v0.6.0 published an IMPA
+    ``b_field_tor_probe`` ``toroidal_angle`` of 0.0 (a radial sensor) while
+    the mapper wrote pi/2.
+    """
+    import gzip
+    import json
+
+    from vaft.machine_mapping.impa import IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE
+    from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
+
+    wheel_sample = ROOT / "packaging" / "wheel_samples" / "39915" / "omas.json.gz"
+    with gzip.open(wheel_sample, "rt") as handle:
+        ods = json.load(handle)
+
+    magnetics = ods["magnetics"]
+
+    poloidal = {
+        round(float(probe["poloidal_angle"]), 9)
+        for probe in magnetics["b_field_pol_probe"]
+        if "poloidal_angle" in probe
+    }
+    assert poloidal == {round(float(POLOIDAL_ANGLE), 9)}
+
+    toroidal = {
+        round(float(probe["toroidal_angle"]), 9)
+        for probe in magnetics.get("b_field_tor_probe", [])
+        if "toroidal_angle" in probe
+    }
+    assert toroidal == {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}

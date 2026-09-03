@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 9918956
-    sha256: 62e4c00e103523f7b4462f5d23fc2f9f23514ef917730618b754254c75227c2d
+    size: 9919051
+    sha256: 53e27fe9e5774fa317529050a18e1cce5c6185e59902562a8345bb10043a6a27
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,13 +58,13 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11205113
-    sha256: 283e77a6334065e991d00fc309bb512177ad7b125eba0030dad85e6606b4ed14
+    size: 11205129
+    sha256: 0118e524049e01a84236ba0c907646d6c8dab53257adb26771b7078b7edd679a
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 4fe89f7ae795fa098582fe6eb50e1af6b370a05d1324fe360ea83d60b0a51d27
+  canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
   canonical_policy: repository-only
   equilibrium_time_slices: 3
   materialized_leaves: 15731
@@ -177,16 +177,3 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
-known_divergences:
-- issue: 425
-  field: spectrometer_uv.channel.2.processed_line.:.intensity.data
-  reason: 'The versatile filterscope is on the fast DAQ at 250 kHz while this grid is
-    25 kHz. The values stored here were produced before the mapper anti-aliased that
-    10x decimation, so they carry content folded down from above 12.5 kHz. Recorded
-    rather than corrected: the generators under workflow/reference_validation select
-    from a frozen pipeline product and never call the mapper, so no regeneration this
-    artifact supports would change these values, and no test compares them against a
-    recomputed mapper output. The next full pipeline re-run from the raw dump will
-    change them. The slow-DAQ lines on channels 0 and 1 -- the ones the compact
-    reference fixture and the shot summary read -- are unaffected and remain
-    bit-for-bit identical.'
