@@ -6,6 +6,7 @@ import numpy as np
 from scipy.signal import medfilt
 
 from vaft.database import raw as raw_db
+from vaft.process.signal_processing import resample_to_time
 
 from .utils import (
     build_window_time_axis,
@@ -65,9 +66,12 @@ def vfit_barometry_dynamic(
     )
 
     pressure_torr = calibrate_vest_signal(source_data, config["calibration"])
+    # medfilt is a de-spiker for the gauge's digitiser glitches, not an
+    # anti-alias filter -- it has no defined stopband.  The rate change below is
+    # handled separately.
     pressure_torr = medfilt(pressure_torr, kernel_size=int(processing["median_kernel"]))
     pressure_pa = pressure_torr * float(processing["unit_conversion"]["factor"])
-    data = np.interp(time, source_time, pressure_pa)
+    data = resample_to_time(source_time, pressure_pa, time)
 
     set_path(ods, "barometry.gauge.0.pressure.time", time)
     set_path(ods, "barometry.gauge.0.pressure.data", data)

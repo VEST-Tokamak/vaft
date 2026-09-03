@@ -13,6 +13,7 @@ from vaft.machine_mapping.magnetics import (
     fluctuation_mirnov_channel_definitions,
     fluctuation_mirnov_gain_by_identifier,
 )
+from vaft.process.signal_processing import resample_to_time
 from vaft.process.magnetics import (
     mirnov_preprocess_signal,
     mirnov_spectrogram as compute_mirnov_spectrogram,
@@ -274,7 +275,7 @@ def _common_timebase(
     common_time = time_a[mask]
     if common_time.size == 0:
         raise ValueError("Mirnov channels do not overlap in the requested time range.")
-    return common_time, data_a[mask], np.interp(common_time, time_b, data_b)
+    return common_time, data_a[mask], resample_to_time(time_b, data_b, common_time)
 
 
 def _common_timebase_many(
@@ -298,7 +299,7 @@ def _common_timebase_many(
         raise ValueError("Mirnov channels do not overlap in the requested time range.")
     stacked = [data[0][mask]]
     for time, values in zip(times[1:], data[1:]):
-        stacked.append(np.interp(common_time, time, values))
+        stacked.append(resample_to_time(time, values, common_time))
     return common_time, np.vstack(stacked)
 
 

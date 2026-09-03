@@ -95,6 +95,8 @@ def _coerce_signal_to_reference(
 ) -> np.ndarray:
     if signal_time.size == reference_time.size and np.allclose(signal_time, reference_time):
         return signal_values
+    # anti-alias: alignment of one PF channel onto a sibling channel's grid at
+    # the same rate; the guard above makes the matching case a no-op.
     return np.interp(reference_time, signal_time, signal_values)
 
 
@@ -257,6 +259,8 @@ def vfit_pf_active_dynamic(
     set_path(ods, "pf_active.time", time_axis)
 
     for coil_index in range(PF_COIL_COUNT):
+        # anti-alias: _legacy_pf_filter has already run a firwin low-pass (with
+        # filtfilt) on the source grid, so this projection is band-limited.
         current = np.interp(time_axis, waveform_time, pf_data[coil_index])
         set_path(ods, f"pf_active.coil.{coil_index}.current.time", time_axis)
         set_path(ods, f"pf_active.coil.{coil_index}.current.data", current)

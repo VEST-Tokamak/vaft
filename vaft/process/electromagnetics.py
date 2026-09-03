@@ -568,6 +568,10 @@ def solve_eddy_currents(
     if n_active_sources > 0:
         if n_times_original > 1:
             for i_src in range(n_active_sources):
+                # anti-alias: substepping grid for the integrator.  dt_sub is
+                # meant to be finer than the input grid; issue #425 tracks the
+                # shipped default (5e-5) being coarser than the 4e-5 diagnostics
+                # grid, which makes this a mild rate reduction.
                 coil_plasma_currents_fine[:, i_src] = np.interp(t_fine, time, coil_plasma_currents[:, i_src])
         elif n_times_original == 1 and n_fine_steps > 0: 
             for i_src in range(n_active_sources):
@@ -616,6 +620,8 @@ def solve_eddy_currents(
                 if time.size > 1 and np.isclose(t_fine[0], t_fine[-1]) and t_fine.size > 1:
                     I_loop_final[:,i_l] = i_loop_fine_out[0,i_l]
                 else:
+                    # anti-alias: return leg of the substepping above; the
+                    # solved loop current is smooth on t_fine by construction.
                     I_loop_final[:, i_l] = np.interp(time, t_fine, i_loop_fine_out[:, i_l])
     
     # print("EVD method (Optimized) finished.")

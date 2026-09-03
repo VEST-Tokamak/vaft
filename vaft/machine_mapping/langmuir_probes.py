@@ -18,6 +18,7 @@ import numpy as np
 
 from vaft.database import raw as raw_db
 from vaft.process.langmuir import probe_surface_area, process_triple_probe
+from vaft.process.signal_processing import resample_to_time
 
 from .utils import (
     _deep_merge,
@@ -257,9 +258,14 @@ def vfit_langmuir_probes_dynamic(
             if target_time is not None
             else _build_target_time(result["time"], tstart, tend, dt)
         )
-        n_e_data = np.interp(time, result["time"], result["n_e"])
-        te_data = np.interp(time, result["time"], result["te"])
-        validity_fraction = np.interp(time, result["time"], result["solver_ok"].astype(float))
+        n_e_data = resample_to_time(result["time"], result["n_e"], time)
+        te_data = resample_to_time(result["time"], result["te"], time)
+        # solver_ok is a logical mask, not a bandlimited waveform: low-passing it
+        # would blur the "any contributing sample failed" rule the threshold
+        # below encodes, so the anti-alias stage is opted out of explicitly.
+        validity_fraction = resample_to_time(
+            result["time"], result["solver_ok"].astype(float), time, anti_alias=False
+        )
         # IMAS validity convention: 0 = valid. Any sample whose interpolation
         # touches a failed/nonphysical solve is marked invalid (-1) rather
         # than silently presented as a plausible value.
