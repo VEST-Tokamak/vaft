@@ -296,10 +296,91 @@ def _beta_pol_circumference(eq_slice) -> float:
     return float(beta_poloidal_from_circumference(p_average, ip, length_pol))
 
 
+def _normalize_vacuum_field(ods, shot: int) -> None:
+    """Rebuild ``b0`` from ``profiles_1d.f``, which the database gets right.
+
+    The stored ``b0`` drifts by up to 101% within a shot while ``f`` at the
+    boundary -- the vacuum ``R*B_phi``, since no poloidal current flows outside
+    the plasma -- holds flat to under 1% (issue #325). ``beta_tor`` and
+    ``beta_normal`` are computed from ``b0`` per time slice and ``vacuum_b0_T``
+    reports it, so all three inherit that drift.
+
+    #325 fixes the producer, but only for data ingested after it. The shots
+    already in HSDS keep their corrupt ``b0``, and re-ingesting them is not in
+    scope, so the history sheet normalizes on the way past. This is a
+    legacy-data repair, not the fix.
+
+    ``r0`` comes from :func:`resolve_reference_major_radius`, so the pair ends
+    up referenced to the machine's real major radius rather than the
+    back-solved value the database stores.
+    """
+    edges: list[float] = []
+    slices = ods["equilibrium.time_slice"]
+    for index in range(len(slices)):
+        try:
+            f = np.asarray(slices[index]["profiles_1d.f"], float).reshape(-1)
+        except Exception:
+            edges.append(np.nan)
+            continue
+        edges.append(abs(float(f[-1])) if f.size and np.isfinite(f[-1]) else np.nan)
+    if not any(np.isfinite(edge) and edge != 0.0 for edge in edges):
+        return
+
+    r0 = _as_float(vaft.omas.resolve_reference_major_radius(ods))
+    if not np.isfinite(r0) or r0 <= 0.0:
+        r0 = _as_float(_safe_get(ods, "equilibrium.vacuum_toroidal_field.r0"))
+    if not np.isfinite(r0) or r0 <= 0.0:
+        return
+
+    stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
+    # Keep whatever sign the file used; f and b0 follow different COCOS on VEST
+    # and flipping it here would show up as a sign change in the sheet.
+    sign = 1.0
+    try:
+        first = np.asarray(stored, float).reshape(-1)
+        finite = first[np.isfinite(first)]
+        if finite.size and finite[0] < 0:
+            sign = -1.0
+    except Exception:
+        pass
+
+    corrected = np.array(
+        [sign * edge / r0 if np.isfinite(edge) and edge != 0.0 else np.nan for edge in edges],
+        dtype=float,
+    )
+    previous = np.full(corrected.size, np.nan)
+    try:
+        raw = np.asarray(stored, float).reshape(-1)
+        previous[: min(raw.size, corrected.size)] = raw[: corrected.size]
+    except Exception:
+        pass
+
+    ods["equilibrium.vacuum_toroidal_field.r0"] = float(r0)
+    ods["equilibrium.vacuum_toroidal_field.b0"] = corrected
+
+    both = np.isfinite(previous) & np.isfinite(corrected) & (corrected != 0.0)
+    if both.any():
+        worst = float(np.max(np.abs(previous[both] / corrected[both] - 1.0)))
+        if worst > 0.01:
+            logger.info(
+                "Shot %s: rebuilt vacuum_toroidal_field.b0 from profiles_1d.f "
+                "(worst slice moved %.0f%%, r0 = %.4f m); see issue #325.",
+                shot,
+                100.0 * worst,
+                r0,
+            )
+
+
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     """Extract the legacy equilibrium-global history schema from one lazy ODS."""
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
+
+    # Before anything reads b0: the stored one drifts, profiles_1d.f does not.
+    try:
+        _normalize_vacuum_field(ods, shot)
+    except Exception as exc:
+        logger.debug("Shot %s: vacuum field normalization failed: %s", shot, exc)
 
     # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
     # profiles_1d.volume/area, and without them the volume, area and
