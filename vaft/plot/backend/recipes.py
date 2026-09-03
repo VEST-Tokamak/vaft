@@ -454,7 +454,7 @@ class _ZeroIndices(dict):
 def _path_has_data(ods: Any, template: str) -> bool:
     """Whether ``template`` -- plain or index-templated -- resolves to a value."""
     if "{" not in template:
-        return _get(ods, template) is not None
+        return _holds_data(_get(ods, template))
     container = _container_of(template)
     total = _count(ods, container)
     if total == 0:
@@ -462,9 +462,26 @@ def _path_has_data(ods: Any, template: str) -> bool:
     # A present container is not enough: the leaf itself must exist for at
     # least one index, otherwise the adapter would build an empty model.
     return any(
-        _get(ods, template.format_map(_ZeroIndices(i=index))) is not None
+        _holds_data(_get(ods, template.format_map(_ZeroIndices(i=index))))
         for index in range(total)
     )
+
+
+def _holds_data(value: Any) -> bool:
+    """Whether a read value is data, not absence.
+
+    An empty array is absence: OMAS keeps ``[]`` for a channel that was never
+    filled where a native IDS reports no value at all, and a plot built on it
+    would draw nothing -- the very case the availability check exists to
+    refuse (issue #290).  Both representations therefore answer alike.
+    """
+    if value is None:
+        return False
+    if isinstance(value, (str, bytes)):
+        return True
+    if isinstance(value, (np.ndarray, list, tuple)):
+        return len(value) > 0
+    return True
 
 
 def entry_supports(ods: Any, name: str) -> bool:
@@ -1790,10 +1807,34 @@ def _build_machine_topview(
     )
 
 
+def _isolated_copy(ods: Any, roots: Sequence[str]) -> Any:
+    """A private ODS holding deep copies of ``roots`` from ``ods``.
+
+    Some builders hand the object to functions written with plain ``ods[...]``
+    reads, which OMAS materialises (issue #118): the caller's ODS would come
+    back with nodes it never had, and a later availability check would see
+    them.  Working on a copy of the IDS the plot declares keeps the input as
+    it was -- which is also exactly what a converted native IMAS entry is,
+    so the two paths agree.
+    """
+    import copy
+
+    from omas import ODS
+
+    private = ODS(consistency_check=False)
+    for root in roots:
+        if _has(ods, root):
+            private[root] = copy.deepcopy(ods[root])
+    return private
+
+
 def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field2D:
     """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper."""
     from vaft.omas import compute_null_ods, find_breakdown_onset
 
+    # The null-field helper reads with plain subscripts; give it a private copy
+    # of what this plot declares so the caller's ODS is left untouched.
+    ods = _isolated_copy(ods, required_ids("equilibrium_field_psi_vacuum") + ("dataset_description",))
     if time is None:
         time = find_breakdown_onset(ods)
     psi, r_grid, z_grid = compute_null_ods(ods, time)
@@ -5243,5 +5284,25 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if isinstance(recipe, PowerSpectrumRecipe):
         return _build_power_spectrum(entries[0][1], recipe, **options)
     if isinstance(recipe, CallableRecipe):
-        return recipe.builder(entries[0][1], **options)
+        return recipe.builder(_ods_for_callable(entries[0][1], name), **options)
     raise TypeError(f"unsupported recipe type {type(recipe).__name__} for {name!r}")
+
+
+def _ods_for_callable(obj: Any, name: str) -> Any:
+    """The object a code-backed builder receives.
+
+    Those builders call functions written for an OMAS ODS.  An entry of
+    another data model that can convert itself (``as_ods_for``, as
+    ``vaft.imas.IDSEntry`` does) is asked for an ODS holding only the IDS the
+    plot declares, plus the data entry that names the shot; anything else is
+    handed over as it is.  Path-driven recipes never come this way.
+    """
+    convert = getattr(obj, "as_ods_for", None)
+    if convert is None:
+        return obj
+    return convert(required_ids(name) + ("dataset_description",))
+
+
+def converts_for_builder(obj: Any, name: str) -> bool:
+    """Whether plot ``name`` would convert ``obj`` before building (for discovery)."""
+    return isinstance(RECIPES.get(name), CallableRecipe) and hasattr(obj, "as_ods_for")

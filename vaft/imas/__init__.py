@@ -1,7 +1,12 @@
-"""Local IMAS importer and writer.
+"""Local IMAS importer and writer, and the native-IMAS plotting adapters.
 
 Low-level OMAS--IMAS conversion machinery intentionally stays private in
 ``omas_imas``.  The public API detects local source formats automatically.
+
+Plotting adapters (``plot_<canonical-stem>``, ``available_plots``,
+``normalize_entries``, ``IDSEntry``) live in ``.plotting`` / ``.access`` and
+are resolved lazily, so importing ``vaft.imas`` does not pull in Matplotlib
+(issue #63).
 """
 
 from pathlib import Path
@@ -10,6 +15,46 @@ from ..database._local import IMASHandle
 from .omas_imas import IMAS_DD_VERSION_CONVERSION
 
 __all__ = ["IMASHandle", "load", "save", "to_equilibrium", "IMAS_DD_VERSION_CONVERSION"]
+
+_PLOTTING_NAMES = frozenset({"available_plots", "normalize_entries", "render_plot", "plotting"})
+_ACCESS_NAMES = frozenset({"IDSEntry"})
+_PLOTTING_EXPORTS: frozenset | None = None
+
+
+def _plotting_exports() -> frozenset:
+    global _PLOTTING_EXPORTS
+    if _PLOTTING_EXPORTS is None:
+        from importlib import import_module
+
+        _PLOTTING_EXPORTS = frozenset(import_module(".plotting", __name__).__all__)
+    return _PLOTTING_EXPORTS
+
+
+def __getattr__(name):
+    # import_module rather than ``from . import``: the latter probes the
+    # package attribute first, which would re-enter this hook.
+    from importlib import import_module
+
+    if name in _ACCESS_NAMES:
+        value = getattr(import_module(".access", __name__), name)
+    elif name in _PLOTTING_NAMES or name.startswith("plot_"):
+        plotting = import_module(".plotting", __name__)
+        if name == "plotting":
+            value = plotting
+        elif name == "render_plot":
+            value = plotting.render
+        elif name in _plotting_exports() or name in _PLOTTING_NAMES:
+            value = getattr(plotting, name)
+        else:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__) | _ACCESS_NAMES | _PLOTTING_NAMES | _plotting_exports())
 
 
 def load(source, *, imas_version=None):

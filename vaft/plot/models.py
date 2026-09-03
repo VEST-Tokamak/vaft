@@ -52,6 +52,10 @@ _REJECTED_TYPE_NAMES = frozenset(
         "IDSToplevel",
         "IDSStructure",
         "IDSStructArray",
+        "IDSPrimitive",
+        "IDSEntry",
+        "IMASHandle",
+        "HSDSIMASHandle",
     }
 )
 
@@ -64,7 +68,8 @@ def _reject_data_objects(value: Any, *, where: str) -> None:
                 f"{where} received a {type(value).__name__} object. Canonical "
                 "vaft.plot renderers accept view models only; build one with the "
                 "matching adapter (for example vaft.omas.plot_* for ODS/ODC "
-                "inputs) instead of passing the data object directly."
+                "inputs, vaft.imas.plot_* for IDS/DBEntry inputs) instead of "
+                "passing the data object directly."
             )
 
 

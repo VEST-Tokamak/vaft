@@ -919,6 +919,61 @@ def _iter_al5_primitive_values(ids_toplevel, root):
     yield from walk(ids_toplevel, [root])
 
 
+
+def _write_toplevel(ods, native, ds, *, requested_paths=None, skip_uncertainties=False):
+    """Write one native toplevel's filled leaves into ``ods`` under IDS ``ds``."""
+    values = {}
+    for path, value in _iter_al5_primitive_values(native, ds):
+        if path[-2:] == ["ids_properties", "occurrence"]:
+            continue
+        if not _path_is_requested(path, requested_paths):
+            continue
+        if isinstance(value, list):
+            value = numpy.asarray(value)
+        if isinstance(value, numpy.ndarray) and value.ndim == 0:
+            value = value.item()
+        values[l2i(path)] = (path, value)
+    joined = set(values)
+    with omas_environment(ods, dynamic_path_creation="dynamic_array_structures"):
+        for joined_path, (path, value) in values.items():
+            if path[-1].endswith(("_error_upper", "_error_lower", "_error_index")):
+                continue
+            if not skip_uncertainties:
+                error_path = l2i(path[:-1] + [path[-1] + "_error_upper"])
+                if error_path in joined:
+                    try:
+                        value = uarray(value, values[error_path][1])
+                    except uncertainties.core.NegativeStdDev as exc:
+                        printe(
+                            "Error loading uncertainty for %s: %s"
+                            % (joined_path, repr(exc))
+                        )
+            if isinstance(value, numpy.ndarray) and value.ndim == 0:
+                value = value.item()
+            ods.setraw(path, value)
+
+
+@codeparams_xml_load
+def ods_from_toplevels(toplevels, *, imas_version=None, skip_uncertainties=False, consistency_check=True):
+    """An ODS holding the given native toplevels, keyed by IDS name.
+
+    The same walk :func:`load_omas_imas` performs per IDS, for toplevels the
+    caller already holds -- no backend, no file.  ``code.parameters`` XML
+    becomes a parameter tree as it does on load.  This is what the plotting
+    adapters use for the code-backed plots that need an ODS (issue #63).
+    """
+    ods = ODS(imas_version=imas_version, consistency_check=False)
+    for ds, native in toplevels.items():
+        _write_toplevel(ods, native, ds, skip_uncertainties=skip_uncertainties)
+        if "ids_properties" in ods[ds]:
+            ods[ds]["ids_properties.occurrence"] = 0
+    try:
+        ods.consistency_check = consistency_check
+    except LookupError as exc:
+        printe(repr(exc))
+    return ods
+
+
 def _load_al5_ods(
     ids,
     *,
@@ -956,37 +1011,7 @@ def _load_al5_ods(
                 )
             continue
 
-        values = {}
-        for path, value in _iter_al5_primitive_values(native, ds):
-            if path[-2:] == ["ids_properties", "occurrence"]:
-                continue
-            if not _path_is_requested(path, requested_paths):
-                continue
-            if isinstance(value, list):
-                value = numpy.asarray(value)
-            if isinstance(value, numpy.ndarray) and value.ndim == 0:
-                value = value.item()
-            values[l2i(path)] = (path, value)
-
-        joined = set(values)
-        with omas_environment(ods, dynamic_path_creation="dynamic_array_structures"):
-            for joined_path, (path, value) in values.items():
-                if path[-1].endswith(("_error_upper", "_error_lower", "_error_index")):
-                    continue
-                if not skip_uncertainties:
-                    error_path = l2i(path[:-1] + [path[-1] + "_error_upper"])
-                    if error_path in joined:
-                        try:
-                            value = uarray(value, values[error_path][1])
-                        except uncertainties.core.NegativeStdDev as exc:
-                            printe(
-                                "Error loading uncertainty for %s: %s"
-                                % (joined_path, repr(exc))
-                            )
-                if isinstance(value, numpy.ndarray) and value.ndim == 0:
-                    value = value.item()
-                ods.setraw(path, value)
-
+        _write_toplevel(ods, native, ds, requested_paths=requested_paths, skip_uncertainties=skip_uncertainties)
     for ds in ods:
         if "ids_properties" in ods[ds]:
             ods[ds]["ids_properties.occurrence"] = _occurrence_for(occurrence, ds)

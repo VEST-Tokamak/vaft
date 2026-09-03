@@ -66,6 +66,7 @@ from .recipes import (
     _resolve_preset,
     _uncertainty_of,
     _validity_of,
+    converts_for_builder,
     diagnoses_itself,
     has_synthetic_values,
     missing_required_path,
@@ -232,6 +233,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         )
     elif diagnoses_itself(record.name):
         reason = "checked at render time"
+        if any(converts_for_builder(obj, record.name) for _, obj in entries):
+            reason = "checked at render time; converted per IDS for this input"
     updates: dict[str, Any] = {
         "available": available,
         "reason": reason,
