@@ -13,6 +13,8 @@ asserted exactly, not approximately.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -339,3 +341,78 @@ class TestAntiAliasFilterDirectly:
             stopband_hz=12_500.0,
         )
         assert np.abs(filtered).max() < 1e-3
+
+
+class TestReviewFindings:
+    """Regressions for the defects the code review of #425 turned up."""
+
+    def test_unsorted_target_does_not_destroy_in_band_signal(self):
+        # np.interp evaluates at arbitrary instants, so a scattered target is
+        # legal.  Measuring its median spacing in shuffled order reported
+        # dt = 9.6e-4 instead of 4e-5, placing the cutoff at ~417 Hz and
+        # annihilating a 2 kHz tone (peak 2.6e-8 instead of ~1.0).
+        source_time = _fast_grid()
+        signal = _tone(source_time, 2_000.0)
+        target_time = _slow_grid()
+        shuffled = target_time.copy()
+        np.random.default_rng(1).shuffle(shuffled)
+        out = resample_to_time(source_time, signal, shuffled)
+        order = np.argsort(shuffled)
+        assert _amplitude_at(out[order][400:-400], 2_000.0, FS_SLOW) == pytest.approx(
+            1.0, rel=1e-2
+        )
+
+    def test_unsorted_target_still_rejects_the_alias(self):
+        source_time = _fast_grid()
+        target_time = _slow_grid()
+        shuffled = target_time.copy()
+        np.random.default_rng(2).shuffle(shuffled)
+        out = resample_to_time(source_time, _tone(source_time, 40_000.0), shuffled)
+        assert np.abs(out).max() < 1e-2
+
+    def test_extrapolate_error_sees_an_out_of_range_point_anywhere(self):
+        # The guard compared targets[0]/targets[-1], so an out-of-range instant
+        # in the middle of an unsorted target was silently clamped.
+        source_time = _slow_grid()
+        with pytest.raises(ResamplingError, match="fabricate"):
+            resample_to_time(
+                source_time,
+                _tone(source_time, 1e3),
+                np.array([0.05, 2.0, 0.06]),
+                extrapolate="error",
+            )
+
+    def test_irregular_source_is_refused_rather_than_mis_filtered(self):
+        # firwin/filtfilt assume even spacing; filtering a jittered grid at its
+        # median rate left a 40 kHz tone at 0.73 with no warning at all.
+        rng = np.random.default_rng(0)
+        source_time = np.sort(rng.uniform(0.0, SPAN, 25_000))
+        signal = _tone(source_time, 40_000.0)
+        with pytest.raises(ResamplingError, match="not uniformly sampled"):
+            resample_to_time(source_time, signal, _slow_grid())
+
+    def test_irregular_source_is_fine_when_no_rate_reduction_is_asked_for(self):
+        rng = np.random.default_rng(0)
+        source_time = np.sort(rng.uniform(0.0, SPAN, 25_000))
+        signal = _tone(source_time, 1_000.0)
+        target_time = _slow_grid()
+        assert np.array_equal(
+            resample_to_time(source_time, signal, target_time, anti_alias=False),
+            np.interp(target_time, source_time, signal),
+        )
+
+    def test_cutoff_above_the_target_nyquist_still_filters(self):
+        # stopband = max(target_nyquist, cutoff * 1.0000001) collapsed the
+        # transition band to cutoff/1000, asking for 41 251 taps on a 25 001
+        # sample record and silently falling through to no filtering.
+        source_time = _fast_grid()
+        target_time = _slow_grid()
+        # 90 kHz sits above the widened cutoff and would fold to
+        # |90 - 4 * 25| = 10 kHz; 2 kHz is in band either way.
+        signal = _tone(source_time, 90_000.0) + _tone(source_time, 2_000.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = resample_to_time(source_time, signal, target_time, cutoff_hz=60_000.0)
+        interior = out[400:-400]
+        assert _amplitude_at(interior, 10_000.0, FS_SLOW) < 1e-2
+        assert _amplitude_at(interior, 2_000.0, FS_SLOW) == pytest.approx(1.0, rel=5e-2)

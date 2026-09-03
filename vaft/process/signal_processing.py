@@ -491,7 +491,6 @@ def anti_alias_filter(
         raise ResamplingError("anti-alias filtering requires finite samples (nan_policy='error')")
 
     taps = scipy_signal.firwin(taps_count, cutoff, pass_zero="lowpass", fs=rate)
-    out = moved.copy()
 
     if nan_policy == "ignore" or finite.all():
         if length < minimum:
@@ -504,6 +503,7 @@ def anti_alias_filter(
             return data
         return np.moveaxis(scipy_signal.filtfilt(taps, 1.0, moved, axis=-1), -1, axis)
 
+    out = moved.copy()
     flat = out.reshape(-1, length)
     flat_finite = finite.reshape(-1, length)
     warned = False
@@ -650,9 +650,12 @@ def resample_to_time(
         moved = moved[..., keep]
         source_grid = describe_time_grid(times)
 
-    if extrapolate == "error" and (targets[0] < times[0] or targets[-1] > times[-1]):
+    target_sorted = bool(targets.size < 2 or np.all(np.diff(targets) >= 0.0))
+    target_low = float(targets[0] if target_sorted else targets.min())
+    target_high = float(targets[-1] if target_sorted else targets.max())
+    if extrapolate == "error" and (target_low < times[0] or target_high > times[-1]):
         raise ResamplingError(
-            f"target_time spans [{targets[0]:g}, {targets[-1]:g}] s, outside the source's "
+            f"target_time spans [{target_low:g}, {target_high:g}] s, outside the source's "
             f"[{times[0]:g}, {times[-1]:g}] s; np.interp would clamp and fabricate a "
             "constant tail (extrapolate='error')"
         )
@@ -661,7 +664,11 @@ def resample_to_time(
         filled = np.repeat(moved, targets.size, axis=-1)
         return np.moveaxis(filled, -1, axis) if data.ndim > 1 else filled.reshape(-1)
 
-    target_grid = describe_time_grid(targets)
+    # np.interp evaluates at arbitrary instants, so target_time is allowed to be
+    # unsorted -- but the *spacing* statistics that place the cutoff are only
+    # meaningful in time order.  Measuring the shuffled array would report a
+    # median dt tens of times too large and design a filter that eats the signal.
+    target_grid = describe_time_grid(targets if target_sorted else np.sort(targets))
     should_filter = bool(anti_alias is True)
     if anti_alias == "auto":
         if targets.size < 2:
@@ -675,6 +682,20 @@ def resample_to_time(
             ratio = target_grid.dt / source_grid.dt
             should_filter = bool(np.isfinite(ratio) and ratio > float(min_ratio))
 
+    if should_filter and not source_grid.uniform:
+        # firwin/filtfilt assume evenly spaced samples.  On an irregular grid the
+        # design rate is a fiction and the filter neither rejects what it should
+        # nor preserves what it should, so say so rather than return a number
+        # that looks filtered.  Resample onto a uniform grid first, or pass
+        # anti_alias=False to accept a bare interpolation knowingly.
+        raise ResamplingError(
+            f"source_time is not uniformly sampled (spacing varies by "
+            f"{source_grid.max_relative_jitter:.3g} of the median), so a "
+            "linear-phase FIR designed at a single rate cannot anti-alias it. "
+            "Resample onto a uniform grid first, or pass anti_alias=False to "
+            "interpolate without the guarantee."
+        )
+
     if should_filter:
         if cutoff_hz is not None:
             cutoff = float(cutoff_hz)
@@ -685,12 +706,17 @@ def resample_to_time(
             )
         else:
             cutoff = float(cutoff_fraction) * (0.5 / target_grid.dt)
+        # The stopband has to start at the target Nyquist: that is the frequency
+        # above which content folds instead of being discarded.  An explicit
+        # cutoff_hz above that Nyquist is a deliberate choice to keep more band,
+        # and it gets anti_alias_filter's own 1.25x transition instead -- forcing
+        # the stopband below the cutoff would collapse the transition band to
+        # nothing and silently price the filter out of the record's length.
         stopband = None
         if targets.size >= 2 and np.isfinite(target_grid.dt):
-            # The stopband has to start at the target Nyquist: that is the
-            # frequency above which content folds instead of being discarded.
-            stopband = min(0.5 / abs(target_grid.dt), 0.5 * source_grid.sample_rate)
-            stopband = max(stopband, cutoff * 1.0000001)
+            target_nyquist = 0.5 / abs(target_grid.dt)
+            if cutoff < target_nyquist:
+                stopband = min(target_nyquist, 0.5 * source_grid.sample_rate)
         moved = anti_alias_filter(
             moved,
             source_rate=source_grid.sample_rate,

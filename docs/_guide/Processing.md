@@ -140,6 +140,15 @@ Where filtering would be wrong — a validity mask is logical, not bandlimited �
 `anti_alias=False`. That is also exactly `np.interp`, so the decision shows up in the diff rather than
 hiding in a numerical difference.
 
+Two things it refuses rather than guesses at. A source grid that is not uniformly sampled raises
+`ResamplingError` when a rate reduction is asked for: `firwin`/`filtfilt` assume even spacing, so on a
+jittered grid the design rate is a fiction and the filter neither rejects what it should nor preserves
+what it should. Resample onto a uniform grid first, or pass `anti_alias=False` to accept a bare
+interpolation knowingly. And a source timebase that is not strictly increasing raises too, because
+`np.interp` returns silent nonsense for an unsorted `x` — in this codebase that means the loader is
+broken. (An unsorted *target* is fine: evaluating at scattered instants is exactly what interpolation
+is for.)
+
 ### Audit
 
 Every time-domain rate change in `vaft.machine_mapping` and `vaft.process`, classified. Ratio is
