@@ -289,3 +289,49 @@ def test_cadence_error_names_the_loaded_fields_not_the_requested_ones(tmp_path):
     assert "field 109: dt=4e-05" in message
     # The missing field must not be attributed a cadence it never had.
     assert "field 100: dt" not in message
+
+
+def test_an_archive_is_parsed_once_however_many_fields_are_asked_for(tmp_path, monkeypatch):
+    """One archive read per file, not per field (issue #444).
+
+    `_safe_vest_load_cached` memoises on the field code, so before this was
+    fixed a build that wanted every magnetics channel re-decoded the whole
+    archive once per field: 114 full parses of a 13 MB dump for a single
+    magnetics build, 96.5 s where 1.7 s was the real work.
+    """
+    raw._parse_sample_archive.cache_clear()
+    path = tmp_path / "dump.json.gz"
+    _write_raw_dump(path, 12345, {code: [1.0, 2.0, 3.0] for code in range(10, 30)})
+
+    parses = []
+    real_open = gzip.open
+
+    def counting_open(*args, **kwargs):
+        parses.append(args[0] if args else kwargs.get("filename"))
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(gzip, "open", counting_open)
+    for code in range(10, 30):
+        raw._load_from_sample_file(12345, [code], str(path))
+
+    assert len(parses) == 1, f"archive re-parsed {len(parses)} times for 20 fields"
+
+
+def test_a_rewritten_archive_is_not_served_from_cache(tmp_path):
+    """The cache key carries mtime and size, so editing a dump in place is seen.
+
+    A path-only key would hand back the previous contents here -- the failure
+    mode that makes caching a correctness question rather than a speed one.
+    """
+    raw._parse_sample_archive.cache_clear()
+    path = tmp_path / "dump.json.gz"
+
+    _write_raw_dump(path, 777, {13: [1.0, 2.0, 3.0]})
+    first = raw._load_from_sample_file(777, [13], str(path))
+    assert first is not None
+    np.testing.assert_allclose(first[1], [1.0, 2.0, 3.0])
+
+    _write_raw_dump(path, 777, {13: [9.0, 9.0, 9.0, 9.0]})
+    second = raw._load_from_sample_file(777, [13], str(path))
+    assert second is not None
+    np.testing.assert_allclose(second[1], [9.0, 9.0, 9.0, 9.0])

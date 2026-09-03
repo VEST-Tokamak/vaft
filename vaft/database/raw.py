@@ -15,6 +15,7 @@ import os
 import re
 import time
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
 
@@ -506,6 +507,28 @@ def _require_consistent_cadence(
         )
 
 
+@lru_cache(maxsize=4)
+def _parse_sample_archive(json_path: str, mtime_ns: int, size: int) -> dict:
+    """One archived raw dump, parsed once.
+
+    Callers ask for a handful of field codes at a time, so a build that needs
+    every magnetics channel used to re-read and re-decode the whole file once
+    per field -- 114 full parses of a 13 MB archive for a single magnetics
+    build, 96.5 s of which ~95 s was redundant (issue #444).  The memoisation
+    one level up (`_safe_vest_load_cached`) is keyed on the field, so it never
+    collapsed those reads.
+
+    `mtime_ns` and `size` are part of the key, not decoration: an archive
+    rewritten in place is a different file and must not be served from cache.
+    The bound is small because each parsed dump is tens of megabytes.
+
+    The result is shared between callers, so treat it as read-only.
+    `_load_from_sample_file` only reads from it and builds fresh arrays.
+    """
+    with gzip.open(json_path, "rt", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def _load_from_sample_file(
     shot: int,
     fields: List[int],
@@ -529,8 +552,8 @@ def _load_from_sample_file(
             logger.error(f"Sample JSON file not found: {json_path}")
             return None
 
-        with gzip.open(json_path, "rt", encoding="utf-8") as f:
-            shot_json = json.load(f)
+        stat = os.stat(json_path)
+        shot_json = _parse_sample_archive(json_path, stat.st_mtime_ns, stat.st_size)
 
         file_shot = shot_json.get("shot")
         if file_shot is not None and file_shot != shot:
