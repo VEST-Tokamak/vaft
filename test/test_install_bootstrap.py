@@ -460,6 +460,31 @@ def test_powershell_script_parses(name):
     )
 
 
+def test_windows_recreate_contract_is_scoped_and_detects_python_mismatch():
+    text = (INSTALL / "windows_native.ps1").read_text(encoding="utf-8")
+    assert "[switch] $Recreate" in text
+    assert "conda env remove --name $EnvironmentName --yes" in text
+    assert "Get-PinnedPython" in text
+    assert "Get-EnvironmentPython" in text
+    assert "$pinned -ne $current" in text
+    assert "windows_native.ps1 -Recreate" in text
+
+
+def test_windows_bootstrap_initializes_native_status_and_reports_progress():
+    text = (INSTALL / "windows_native.ps1").read_text(encoding="utf-8")
+    assert "$global:LASTEXITCODE = 0" in text
+    assert "function Write-Step" in text
+    for step in ("Creating", "Updating", "Installing", "Registering", "Verifying"):
+        assert f'Write-Step "{step}' in text or f"Write-Step '{step}" in text
+
+
+def test_windows_recreate_is_documented():
+    text = (INSTALL / "README.md").read_text(encoding="utf-8")
+    assert "windows_native.ps1 -Recreate" in text
+    assert "removes and recreates the `vaft` Conda environment only" in text
+    assert "cannot be combined with `-CheckOnly`" in text
+
+
 def test_checker_help_runs_without_side_effects():
     completed = subprocess.run(
         [sys.executable, str(CHECKER), "--help"],

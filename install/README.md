@@ -26,6 +26,18 @@ Fortran codes later.
 Every script accepts `--check-only` (`-CheckOnly` in PowerShell), which runs the
 environment checker and changes nothing.
 
+On native Windows, if an existing `vaft` environment uses a different Python
+minor version than `environment.yml`, the bootstrap stops before Conda enters a
+long in-place solve. Rebuild only that environment with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\windows_native.ps1 -Recreate
+```
+
+`-Recreate` removes and recreates the `vaft` Conda environment only. It does not
+touch other environments or checkout files; record any extra packages you added
+to `vaft` before using it. `-Recreate` cannot be combined with `-CheckOnly`.
+
 To undo an installation, see [Uninstalling](#uninstalling).
 
 ### Apple silicon only on macOS
