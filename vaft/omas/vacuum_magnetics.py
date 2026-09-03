@@ -498,7 +498,7 @@ def vacuum_response(
     re-solve of the wall with different resistances (#308). Returning the rows
     alongside it is what lets the consumer verify the two still agree.
     """
-    from vaft.omas.process_wrapper import compute_point_response_ods
+    from vaft.omas.process_wrapper import compute_point_response_matrices_ods
 
     rows = select_vacuum_channels(
         ods,
@@ -512,7 +512,15 @@ def vacuum_response(
             "no magnetic channel carries usable measured data for vacuum validation"
         )
     positions = np.array([[row["r"], row["z"]] for row in rows], dtype=float)
-    psi, b_z, b_r = compute_point_response_ods(ods, positions.tolist())
+    # The vectorized, exact-elliptic path (issue #239 item 1). Against the
+    # legacy per-point loop it agrees to ~1e-8 relative on the packaged shot
+    # and is ~100x faster (74 sensors: 5 s -> 0.05 s), which was most of a
+    # benchmark case's cost. It also puts this forward model on the same
+    # Green's functions a consumer's plasma term uses, so the two no longer
+    # differ across the subtraction that defines the residual.
+    psi, b_z, b_r = compute_point_response_matrices_ods(
+        ods, positions, components=("psi", "bz", "br")
+    )
     return rows, (psi, b_z, b_r, positions)
 
 

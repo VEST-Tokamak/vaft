@@ -30,6 +30,7 @@ from vaft.machine_mapping.magnetics import (
     SIDE_PROBE_MIN_ABS_Z,
 )
 from vaft.omas.process_wrapper import (
+    compute_point_response_matrices_ods,
     compute_point_response_ods,
     compute_point_vacuum_fields_ods,
 )
@@ -112,7 +113,12 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
     rng = np.random.default_rng(NOISE_SEED)
 
     positions = [(r, z) for _, r, z in PROBES] + [(r, z) for _, r, z in LOOPS]
-    psi, b_z, b_r = compute_point_response_ods(ods, [[r, z] for r, z in positions])
+    # The same response path the forward model takes (issue #239): a fixture
+    # built on the other implementation would test the ~1e-7 gap between two
+    # Green's-function paths rather than the model.
+    psi, b_z, b_r = compute_point_response_matrices_ods(
+        ods, [[r, z] for r, z in positions], components=("psi", "bz", "br")
+    )
     # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
     # (cos, -sin).  The synthetic "measured" signal must be built with the same
     # projection the forward model uses, or the fixture tests the wrong sign.
