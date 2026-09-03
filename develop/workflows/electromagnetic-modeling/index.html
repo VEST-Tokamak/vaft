@@ -210,7 +210,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>9a3c8aa</code>. What is described
+  <code>599e5ae</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -344,6 +344,167 @@ they are applied in order (crop → resample → Butterworth <code class="langua
 The sampling rate is derived as $1/(t_1-t_0)$, so the filter branch assumes a uniformly spaced time
 base — resample first if it is not. Cutoffs are validated against Nyquist and raise <code class="language-plaintext highlighter-rouge">ValueError</code> when
 out of range.</p>
+
+<p>Two things about the order are worth being explicit about. The resample step goes through
+<code class="language-plaintext highlighter-rouge">resample_to_time</code> (below), so reducing the sample rate anti-aliases on the <em>input</em> grid first. The
+<code class="language-plaintext highlighter-rouge">filter_params</code> step that follows is a <strong>shaping</strong> filter, not an anti-alias filter, and its <code class="language-plaintext highlighter-rouge">cutoff</code>
+is interpreted against the <strong>output</strong> grid’s rate.</p>
+
+<h2 id="rate-changes-and-anti-aliasing">Rate changes and anti-aliasing</h2>
+
+<p>VEST acquires on two DAQ rates — <code class="language-plaintext highlighter-rouge">FAST_DT = 4e-6</code> (250 kHz) and <code class="language-plaintext highlighter-rouge">SLOW_DT = 4e-5</code> (25 kHz), defined in
+<code class="language-plaintext highlighter-rouge">vaft/database/raw.py</code> — while <strong>every</strong> processed time grid declared in
+<code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> is <code class="language-plaintext highlighter-rouge">dt = 4.0e-5</code>. A fast-DAQ channel written onto a policy grid is
+therefore a 10× decimation.</p>
+
+<p>This is the distinction the layer cares about:</p>
+
+<ul>
+  <li><strong>Interpolation</strong> evaluates a signal at new instants. Always fine.</li>
+  <li><strong>Downsampling</strong> <em>reduces the sample rate</em>. Content above the new Nyquist frequency does not
+disappear — it folds back into the band, where nothing downstream can tell it from real signal.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">np.interp</code> performs both and announces neither. Use <code class="language-plaintext highlighter-rouge">resample_to_time</code> instead anywhere a diagnostic
+is written onto a common time grid:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">resample_to_time</span>
+
+<span class="n">intensity</span> <span class="o">=</span> <span class="nf">resample_to_time</span><span class="p">(</span><span class="n">source_time</span><span class="p">,</span> <span class="n">source_data</span><span class="p">,</span> <span class="n">target_time</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">resample_to_time</code> measures both grids. When <code class="language-plaintext highlighter-rouge">dt_target / dt_source</code> is at or below <code class="language-plaintext highlighter-rouge">min_ratio</code>
+(1.05) — alignment, an upsample, or a rate change too small to matter — it designs no filter and the
+result is <strong>bit-for-bit</strong> <code class="language-plaintext highlighter-rouge">np.interp</code>. Above it, a zero-phase FIR low-pass runs on the source grid
+before interpolating, with the passband edge at 0.8 × the target Nyquist by default (10 kHz for a
+25 kHz grid): <code class="language-plaintext highlighter-rouge">firwin</code> sits at −6 dB at its cutoff and needs a transition band, so a passband edge
+below Nyquist puts everything that can fold into the stopband.</p>
+
+<p><code class="language-plaintext highlighter-rouge">firwin</code> + <code class="language-plaintext highlighter-rouge">filtfilt</code> rather than <code class="language-plaintext highlighter-rouge">resample_poly</code> or <code class="language-plaintext highlighter-rouge">decimate</code>, for reasons specific to VEST.
+<code class="language-plaintext highlighter-rouge">resample_poly</code> needs an exactly uniform source and an integer rational ratio; shots after 42190 store
+<code class="language-plaintext highlighter-rouge">linspace(0, span, n)</code>, so a nominally 4 µs grid is really 4.00016 µs, and the filterscope’s target
+grid carries a legacy 0.24/0.26 s offset. Zero phase matters because filterscope intensity feeds onset
+detection — a causal <code class="language-plaintext highlighter-rouge">lfilter</code> of the same design would move the onset by its group delay, about
+0.66 ms or 16 target samples.</p>
+
+<p>Where filtering would be wrong — a validity mask is logical, not bandlimited — pass
+<code class="language-plaintext highlighter-rouge">anti_alias=False</code>. That is also exactly <code class="language-plaintext highlighter-rouge">np.interp</code>, so the decision shows up in the diff rather than
+hiding in a numerical difference.</p>
+
+<p>Two things it refuses rather than guesses at. A source grid that is not uniformly sampled raises
+<code class="language-plaintext highlighter-rouge">ResamplingError</code> when a rate reduction is asked for: <code class="language-plaintext highlighter-rouge">firwin</code>/<code class="language-plaintext highlighter-rouge">filtfilt</code> assume even spacing, so on a
+jittered grid the design rate is a fiction and the filter neither rejects what it should nor preserves
+what it should. Resample onto a uniform grid first, or pass <code class="language-plaintext highlighter-rouge">anti_alias=False</code> to accept a bare
+interpolation knowingly. And a source timebase that is not strictly increasing raises too, because
+<code class="language-plaintext highlighter-rouge">np.interp</code> returns silent nonsense for an unsorted <code class="language-plaintext highlighter-rouge">x</code> — in this codebase that means the loader is
+broken. (An unsorted <em>target</em> is fine: evaluating at scattered instants is exactly what interpolation
+is for.)</p>
+
+<h3 id="audit">Audit</h3>
+
+<p>Every time-domain rate change in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code> and <code class="language-plaintext highlighter-rouge">vaft.process</code>, classified. Ratio is
+<code class="language-plaintext highlighter-rouge">dt_target / dt_source</code>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Site</th>
+      <th>Source → target</th>
+      <th>Ratio</th>
+      <th>Classification</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/spectrometer_uv.py</code></td>
+      <td>fields 138–144 fast 250 kHz → <code class="language-plaintext highlighter-rouge">analysis</code> 25 kHz</td>
+      <td>10×</td>
+      <td>Was unfiltered; now <code class="language-plaintext highlighter-rouge">resample_to_time</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/spectrometer_uv.py</code></td>
+      <td>fields 101, 214 slow 25 kHz → 25 kHz</td>
+      <td>1×</td>
+      <td>Pure alignment; unchanged output</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">process/signal_processing.py</code> (<code class="language-plaintext highlighter-rouge">process_signal</code>)</td>
+      <td>arbitrary → <code class="language-plaintext highlighter-rouge">dt</code></td>
+      <td>any</td>
+      <td>Was resample-then-filter; now anti-aliased</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/langmuir_probes.py</code></td>
+      <td>triple-probe solve → 25 kHz</td>
+      <td>≤10×</td>
+      <td><code class="language-plaintext highlighter-rouge">n_e</code>/<code class="language-plaintext highlighter-rouge">te</code> anti-aliased; <code class="language-plaintext highlighter-rouge">solver_ok</code> opts out (logical mask)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/barometry.py</code></td>
+      <td>gauge slow → <code class="language-plaintext highlighter-rouge">full_discharge</code> 25 kHz</td>
+      <td>1×</td>
+      <td><code class="language-plaintext highlighter-rouge">medfilt</code> is a de-spiker, not an anti-alias filter; routed through the primitive defensively</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plot/mirnov.py</code> (<code class="language-plaintext highlighter-rouge">_common_timebase</code>)</td>
+      <td>channel B → channel A’s grid</td>
+      <td>≈1×</td>
+      <td>Routed through the primitive ahead of spectrogram/coherence</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/tf.py</code></td>
+      <td>TF raw → <code class="language-plaintext highlighter-rouge">full_discharge</code></td>
+      <td>10×</td>
+      <td>Already safe: <code class="language-plaintext highlighter-rouge">firwin</code> low-pass on the source grid</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/pf_active.py</code></td>
+      <td>PF raw → policy grid</td>
+      <td>10×</td>
+      <td>Already safe: <code class="language-plaintext highlighter-rouge">firwin</code> + <code class="language-plaintext highlighter-rouge">filtfilt</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">process/magnetics.py</code></td>
+      <td>probes/loops → 25 kHz</td>
+      <td>10×</td>
+      <td>Already safe: <code class="language-plaintext highlighter-rouge">firwin</code> at 2.5 kHz on the 250 kHz grid</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/magnetics.py</code> (FL10)</td>
+      <td>250 kHz → decimated</td>
+      <td>10×</td>
+      <td>Already safe: <code class="language-plaintext highlighter-rouge">scipy.signal.decimate</code>, order-8 Chebyshev I</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_mapping/impa.py</code></td>
+      <td>IMPA raw → 25 kHz</td>
+      <td>≤10×</td>
+      <td><code class="language-plaintext highlighter-rouge">impa_lowpass</code> filters first, but the configured <code class="language-plaintext highlighter-rouge">sample_rate</code> may not match the channels (<a href="https://github.com/VEST-Tokamak/vaft/issues/425">#425</a>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">process/electromagnetics.py</code></td>
+      <td>EVD substepping</td>
+      <td>1.25×</td>
+      <td><code class="language-plaintext highlighter-rouge">dt_sub</code> ships coarser than the diagnostics grid — a solver-parameter bug, tracked separately</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">code/efit/legacy.py</code></td>
+      <td>4e-5 data on a 1e-4 <code class="language-plaintext highlighter-rouge">ave_time</code> step</td>
+      <td>—</td>
+      <td>Pseudo-average, tracked separately</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">process/profile.py</code>, <code class="language-plaintext highlighter-rouge">process/equilibrium.py</code>, <code class="language-plaintext highlighter-rouge">omas/update.py</code>, <code class="language-plaintext highlighter-rouge">omas/process_wrapper.py</code>, <code class="language-plaintext highlighter-rouge">code/*</code>, <code class="language-plaintext highlighter-rouge">formula/*</code></td>
+      <td>ψ, ρ, R–Z grids; scalar sampling at one instant</td>
+      <td>—</td>
+      <td>Not time-domain rate changes; no action</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This table will rot. <code class="language-plaintext highlighter-rouge">test/test_no_bare_downsample.py</code> will not: it walks the AST of
+<code class="language-plaintext highlighter-rouge">vaft/machine_mapping</code> and <code class="language-plaintext highlighter-rouge">vaft/process</code> and fails on any interpolation that neither goes through
+<code class="language-plaintext highlighter-rouge">resample_to_time</code> nor carries an <code class="language-plaintext highlighter-rouge"># anti-alias:</code> comment recording which row above it belongs to.</p>
 
 <h2 id="baselines">Baselines</h2>
 
@@ -1122,7 +1283,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#smoothing-and-de-spiking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Smoothing and de-spiking</a></li><li class="page-toc-item page-toc-level-2"><a href="#crop-resample-filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Crop, resample, filter</a></li><li class="page-toc-item page-toc-level-2"><a href="#baselines" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Baselines</a></li><li class="page-toc-item page-toc-level-2"><a href="#pulse-window-and-channel-liveness" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pulse window and channel liveness</a></li><li class="page-toc-item page-toc-level-2"><a href="#deprecated-aliases" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Deprecated aliases</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-filament" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single filament</a></li><li class="page-toc-item page-toc-level-2"><a href="#response-at-sensors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Response at sensors</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#coupling-matrices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coupling matrices</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-circuit-equation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The circuit equation</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods-1" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#vacuum-fields-loop-voltage-decay-index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vacuum fields, loop voltage, decay index</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-breakdown-null" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The breakdown null</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-legacy-vest-chain" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The legacy VEST chain</a></li><li class="page-toc-item page-toc-level-2"><a href="#standalone-processing-chains" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Standalone processing chains</a></li><li class="page-toc-item page-toc-level-2"><a href="#mirnov-fluctuations-and-toroidal-mode-numbers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Mirnov fluctuations and toroidal mode numbers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#smoothing-and-de-spiking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Smoothing and de-spiking</a></li><li class="page-toc-item page-toc-level-2"><a href="#crop-resample-filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Crop, resample, filter</a></li><li class="page-toc-item page-toc-level-2"><a href="#rate-changes-and-anti-aliasing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Rate changes and anti-aliasing</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#audit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Audit</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#baselines" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Baselines</a></li><li class="page-toc-item page-toc-level-2"><a href="#pulse-window-and-channel-liveness" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pulse window and channel liveness</a></li><li class="page-toc-item page-toc-level-2"><a href="#deprecated-aliases" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Deprecated aliases</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-filament" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single filament</a></li><li class="page-toc-item page-toc-level-2"><a href="#response-at-sensors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Response at sensors</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#coupling-matrices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coupling matrices</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-circuit-equation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The circuit equation</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-an-ods-1" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From an ODS</a></li><li class="page-toc-item page-toc-level-2"><a href="#vacuum-fields-loop-voltage-decay-index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vacuum fields, loop voltage, decay index</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-breakdown-null" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The breakdown null</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-legacy-vest-chain" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The legacy VEST chain</a></li><li class="page-toc-item page-toc-level-2"><a href="#standalone-processing-chains" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Standalone processing chains</a></li><li class="page-toc-item page-toc-level-2"><a href="#mirnov-fluctuations-and-toroidal-mode-numbers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Mirnov fluctuations and toroidal mode numbers</a></li></ul>
     </nav>
 </aside>
 
@@ -1240,7 +1401,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-03 04:37:15 +0000"
+        "time": "2026-09-03 04:41:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
