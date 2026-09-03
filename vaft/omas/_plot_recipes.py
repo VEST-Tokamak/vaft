@@ -13,6 +13,8 @@ from __future__ import annotations
 from vaft.plot.backend import recipes as _recipes
 from vaft.omas.entries import extract_labels_from_odc, normalize_entries
 
+# Order is load-bearing: the backend's names are copied in below, and the two
+# OMAS-specific names above must survive it -- the backend defines neither.
 globals().update({
     name: value for name, value in vars(_recipes).items()
     if not (name.startswith("__") and name.endswith("__"))

@@ -3759,6 +3759,9 @@ class _LazyStates:
     def __eq__(self, other):
         return _efit_quality().CONSTRAINT_STATES == other
 
+    def __hash__(self):
+        return hash(_efit_quality().CONSTRAINT_STATES)
+
 
 CONSTRAINT_STATES = _LazyStates()
 ConstraintTable = "vaft.omas.efit_quality.ConstraintTable"  # annotation-only alias
