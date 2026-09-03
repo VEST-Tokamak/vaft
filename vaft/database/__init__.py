@@ -369,7 +369,10 @@ def __getattr__(name: str):
     # pulls in neither the plotting stack nor Matplotlib.
     if name.startswith("plot_") or name == "available_plots":
         plotting = import_module(".plotting", __name__)
-        value = getattr(plotting, name)
+        try:
+            value = getattr(plotting, name)
+        except AttributeError:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
         globals()[name] = value
         return value
     # Preserve utility access patterns used by shipped notebooks and workflows.
@@ -388,6 +391,8 @@ def __getattr__(name: str):
 
 
 def __dir__():
+    # Listing the adapters needs the registry, which brings the plotting
+    # stack in; a plain import never does -- only dir() pays for completion.
     names = set(globals()) | set(__all__)
     try:
         names |= set(dir(import_module(".plotting", __name__)))

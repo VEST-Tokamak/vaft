@@ -85,6 +85,15 @@ def _open_all(
     return objects
 
 
+def _asks_for_another_occurrence(occurrence: Any) -> bool:
+    """Whether ``occurrence`` names anything but occurrence 0."""
+    if occurrence is None:
+        return False
+    if isinstance(occurrence, dict):
+        return any(int(value) != 0 for value in occurrence.values())
+    return int(occurrence) != 0
+
+
 def render(
     name: str,
     shot: Any,
@@ -98,7 +107,7 @@ def render(
     **options: Any,
 ) -> tuple[Any, Any]:
     """Open what plot ``name`` needs of ``shot`` in ``source`` and render it."""
-    if lazy and occurrence not in (None, 0):
+    if lazy and _asks_for_another_occurrence(occurrence):
         raise ValueError(
             "occurrence is available with lazy=False only: every source stores one "
             "occurrence per IDS, so the lazy path reads occurrence 0 by construction"

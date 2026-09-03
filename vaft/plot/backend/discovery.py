@@ -186,8 +186,14 @@ def missing_required_ids(present: set[str], name: str) -> str | None:
             return None
         return " or ".join(m for m in members if m) or None
     spec = get_spec(name)
-    roots = list(dict.fromkeys(path.split(".")[0] for path in spec.required_paths)) or list(spec.ids)
-    for root in roots:
+    if not spec.required_paths:
+        # The same rule missing_required_path applies to a plot that declares
+        # IDS but no paths: its builder treats them as what it may draw, and
+        # any one present is enough.
+        if not spec.ids or any(root in present for root in spec.ids):
+            return None
+        return " or ".join(spec.ids)
+    for root in dict.fromkeys(path.split(".")[0] for path in spec.required_paths):
         if root not in present:
             return root
     return None

@@ -184,3 +184,37 @@ def test_the_module_keeps_the_layering():
     code = "import sys, vaft.database.plotting; print('matplotlib.pyplot' in sys.modules, 'vaft.machine_mapping' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.split() == ["False", "False"], out.stdout
+
+
+# ---------------------------------------------------------------------------
+# Independent review of the database adapters
+# ---------------------------------------------------------------------------
+
+def test_ids_level_availability_agrees_with_the_leaf_rule_where_ids_are_all_it_has(sample_ods):
+    """A code-backed plot declaring IDS but no paths needs any one of them,
+    at IDS level exactly as at leaf level (machine geometry overviews)."""
+    from vaft.plot.backend.discovery import describe_by_ids, missing_required_ids
+    from vaft.plot.backend.recipes import entry_supports
+    present = set(sample_ods.keys())
+    catalog = describe_by_ids(sorted(present), source="#39915 (main)", available_only=False)
+    for name in ("machine_geometry_poloidal", "machine_geometry_topview"):
+        assert catalog.find(name).available == entry_supports(sample_ods, name) is True, name
+    assert missing_required_ids({"pf_active"}, "machine_geometry_poloidal") is None
+    assert "thomson_scattering" in missing_required_ids(set(), "machine_geometry_poloidal")
+
+
+def test_an_all_zero_occurrence_is_the_lazy_default(sample_ods):
+    open_ods = Mock(return_value=sample_ods)
+    with patch.dict("sys.modules", {"vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None)}):
+        figure, _ = database.plot_plasma_current_time(39915, occurrence={"magnetics": 0})
+        plt.close(figure)
+        figure, _ = database.plot_plasma_current_time(39915, occurrence={})
+        plt.close(figure)
+        with pytest.raises(ValueError, match="lazy=False only"):
+            database.plot_plasma_current_time(39915, occurrence={"magnetics": 1})
+    assert open_ods.call_count == 2
+
+
+def test_an_unknown_adapter_names_the_package():
+    with pytest.raises(AttributeError, match="module 'vaft.database' has no attribute 'plot_nonexistent'"):
+        database.plot_nonexistent
