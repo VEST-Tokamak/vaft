@@ -124,10 +124,15 @@ def full_record_diagnostics(tmp_path_factory):
     """One 25 000-sample build, shared by the tests that assert on it.
 
     Two tests below need exactly this product and differ only in what they
-    inspect -- one reads `ods`, the other reads `manifest`. Building it twice
-    cost 127 s of the suite's 841 s. Module-scoped because the build is pure:
-    given the same synthetic dump and static ODS it is deterministic, and
-    neither consumer mutates what it receives.
+    inspect -- one reads `ods`, the other reads `manifest`. Two builds cost
+    127 s where one costs 76 s, so sharing takes ~50 s off the suite.
+
+    Module-scoped, and therefore handed out without copying: consumers must
+    treat both values as read-only. That holds today -- one consumer passes
+    `ods` to `write_stage_product`, which serializes it and shallow-copies the
+    manifest before adding its own key, mutating neither. A consumer that does
+    mutate would leak into whichever test runs next, so give it its own build
+    rather than adding to this fixture.
     """
     tmp_path = tmp_path_factory.mktemp("full-record")
     raw = tmp_path / "raw.json.gz"
