@@ -231,8 +231,9 @@ def test_the_diagnostics_overview_excludes_flagged_channels_by_default(shots):
     figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915])
     assert not any(line.get_linestyle() == "--" for line in _traces(axes))
     plt.close(figure)
-    # The caller's own choice still wins over the overview's default.
-    figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915], validity="show")
+    # The caller's own choice still wins over the overview's default: every
+    # channel drawn (selection="all"), the flagged ones shown demoted.
+    figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915], validity="show", selection="all")
     assert any(line.get_linestyle() == "--" for line in _traces(axes))
     plt.close(figure)
 
