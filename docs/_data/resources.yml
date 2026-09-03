@@ -64,6 +64,9 @@ api:
   process:
     title: vaft.process
     url: /reference/api/#vaftprocess-and-vaftformula
+  formula:
+    title: vaft.formula
+    url: /reference/formula/
   plot:
     title: vaft.plot
     url: /reference/api/#vaftplot
