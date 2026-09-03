@@ -151,9 +151,10 @@ def test_a_plot_needs_no_more_than_its_declared_ids(shot):
     offered = [row.name for row in vaft.omas.available_plots(shot)]
     entries_full = vaft.omas.normalize_entries(shot)
     checked = 0
-    for name in offered:
-        if recipes.diagnoses_itself(name) and not isinstance(recipes.RECIPES.get(name), recipes.PanelRecipe):
-            continue  # code-backed plots are covered by their own suites
+    for name in offered + [n for n in canonical_names() if n not in offered and recipes.diagnoses_itself(n)]:
+        # Code-backed plots are included when the full sample can build them:
+        # their builders read whatever they like, and the declared IDS must
+        # cover it, or a selectively loaded shot will build something else.
         roots = ("dataset_description", *recipes.required_ids(name))
         pruned = _pruned(shot, roots)
         try:
@@ -163,4 +164,4 @@ def test_a_plot_needs_no_more_than_its_declared_ids(shot):
         partial = recipes.build_model(name, vaft.omas.normalize_entries(pruned))
         _assert_models_equal(full, partial, name)
         checked += 1
-    assert checked >= 30, checked
+    assert checked >= 40, checked
