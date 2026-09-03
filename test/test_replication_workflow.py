@@ -105,3 +105,19 @@ def test_efit_and_chease_publish_a_stage_manifest():
         script = (WORKFLOW / f"generate_{stage}_ods.py").read_text()
         assert "write_manifest(" in script, stage
         assert '"--metadata"' in script, stage
+
+
+def test_replication_is_throttled_independently_of_compute_cores(snakefile):
+    """Uploads are bounded by the HSDS deployment, not by local cores.
+
+    30 parallel uploads against a 4-node server produced transient failures on
+    almost every shot. The `hsds` resource caps concurrent replication while the
+    compute stages still use every core.
+    """
+    from vaft.database.sources import replicable_stages
+
+    assert "hsds=1" in snakefile.replace(" ", "").replace("\n", "")
+    for stage in replicable_stages():
+        block = snakefile.split(f"rule replicate_{stage}_to_hsds:")[1].split("rule ")[0]
+        assert "resources:" in block and "hsds=1" in block.replace(" ", ""), stage
+    assert 'HSDS_CONFIG.get("concurrency"' in snakefile

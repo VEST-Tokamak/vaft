@@ -17,6 +17,7 @@ import numpy as np
 from omas import ODS
 
 from vaft.database import raw as raw_db
+from vaft.process.signal_processing import SignalRepairError
 from vaft.database._local import load_ods
 from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
@@ -701,7 +702,16 @@ def build_diagnostics_ods(
         component = ODS(consistency_check=False)
         try:
             mapper(component)
-        except (raw_db.RawSignalUnavailableError, FileNotFoundError) as error:
+        except (
+            raw_db.RawSignalUnavailableError,
+            FileNotFoundError,
+            SignalRepairError,
+        ) as error:
+            # A fully saturated waveform is a property of the shot, not a fault
+            # in the run: refusing to reconstruct one is correct, but it makes
+            # that component unavailable rather than the whole stage. Letting it
+            # escape cost 88 shots their entire diagnostics product for one
+            # clipped diamagnetic-flux signal.
             statuses[name] = {"status": "unavailable", "reason": str(error), **details}
             return
         _copy_ids(ods, component, ids_names)

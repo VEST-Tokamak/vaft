@@ -34,6 +34,7 @@ from typing import Any
 
 from . import sources as _sources
 from .filedb import FileDB, OMASStage
+from .sources import MissingSourceError
 
 
 logger = logging.getLogger(__name__)
@@ -437,10 +438,6 @@ def replicate_stage(
 
     from ..omas import load as load_local
     from . import save as save_remote
-    from .utils import require_source_exists
-
-    # Fail on a namespace nobody has provisioned rather than creating one.
-    require_source_exists(source)
 
     ods = load_local(product)
     projected, present = _project(ods, entry.ids)
@@ -463,9 +460,16 @@ def replicate_stage(
         previous_master = _fetch_remote_master(
             source, shot, Path(workdir) / "master.previous.h5"
         )
+        from .utils import require_source_exists
+
         for attempt in range(1, max(1, attempts) + 1):
             made = attempt
             try:
+                # Inside the loop: a genuinely missing namespace still fails
+                # fast and unretried (MissingSourceError is not transient), but
+                # a server too busy to answer the probe is retried like any
+                # other transient remote failure.
+                require_source_exists(source)
                 save_remote(
                     projected,
                     shot,
@@ -475,6 +479,9 @@ def replicate_stage(
                 merge_remote_master(source, shot, previous_master)
                 last_error = None
                 break
+            except MissingSourceError:
+                # Provisioning is an operator action; retrying cannot fix it.
+                raise
             except Exception as exc:  # noqa: BLE001 - retried, then recorded
                 last_error = exc
                 logger.warning(
