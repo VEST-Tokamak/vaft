@@ -45,7 +45,14 @@ def _ordered_labels(ods: Any, path: str, count: int) -> list[str]:
 # identical by construction on both sides of the comparison. Including it made
 # the guard reject every packaged ODS whenever the resistance *formula*
 # changed, even though the coupling matrices were still valid (issue #117).
-_SIGNATURE_EXCLUDED_FIELDS = ("current", "resistance")
+_SIGNATURE_EXCLUDED_FIELDS = (
+    "current",
+    "resistance",
+    # Electrical, not geometric: the coupling rows depend on outlines and
+    # areas alone. resistivity is the nominal material value since #388 and
+    # older products still carry the inherited vector.
+    "resistivity",
+)
 
 
 def _static_signature(node: Any) -> tuple:

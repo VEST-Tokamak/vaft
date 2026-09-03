@@ -41,6 +41,7 @@ import numpy as np
 __all__ = [
     "LEGACY_CALIBRATIONS",
     "NOMINAL_RESISTIVITY",
+    "RESISTIVITY_MARKER",
     "WallResistanceCalibration",
     "band_factors",
     "band_layout",
@@ -162,15 +163,35 @@ def band_layout(ods: Any) -> dict[str, list[np.ndarray]]:
     return layout
 
 
+RESISTIVITY_MARKER = "resistivity=nominal_material"
+
+
+def _declares_nominal_resistivity(ods: Any) -> bool:
+    """Whether the product says its ``resistivity`` is the material value.
+
+    Products from before #388 carry the field too, holding an inherited vector
+    that is *not* the material value, so presence alone cannot be trusted; the
+    asset written by #388 declares the meaning in ``pf_passive.code.parameters``.
+    """
+    if "pf_passive.code.parameters" not in ods:
+        return False
+    return RESISTIVITY_MARKER in str(ods["pf_passive.code.parameters"])
+
+
 def nominal_resistance(ods: Any) -> np.ndarray:
     """``rho * 2*pi*R / A`` per loop, with ``R`` the mean outline radius.
 
     This is the value nine of eleven regions already carry; for the two fitted
-    regions it is what the band factors multiply. The operation order is the
-    one that reproduces the shipped asset bitwise.
+    regions it is what the band factors multiply. ``rho`` is the loop's own
+    ``resistivity`` when the product declares it to be the material value
+    (:data:`RESISTIVITY_MARKER` in ``pf_passive.code.parameters``, written by
+    #388); otherwise :data:`NOMINAL_RESISTIVITY`, because older products carry
+    the field with an inherited vector that is not the material value. The
+    operation order is the one that reproduces the shipped asset bitwise.
     """
     n = _loops(ods)
     out = np.empty(n)
+    declared = _declares_nominal_resistivity(ods)
     for i in range(n):
         loop = ods[f"pf_passive.loop.{i}"]
         # Membership first: reading a missing OMAS path materializes it.
@@ -179,8 +200,10 @@ def nominal_resistance(ods: Any) -> np.ndarray:
                 raise ValueError(
                     f"pf_passive.loop.{i} lacks {leaf}; the nominal hoop resistance needs it"
                 )
-        material = _REGION_MATERIAL.get(str(loop["name"]), "stainless")
-        rho = NOMINAL_RESISTIVITY[material]
+        if declared and "resistivity" in loop:
+            rho = float(loop["resistivity"])
+        else:
+            rho = NOMINAL_RESISTIVITY[_REGION_MATERIAL.get(str(loop["name"]), "stainless")]
         r_mean = float(np.mean(np.asarray(loop["element.0.geometry.outline.r"], dtype=float)))
         area = float(loop["element.0.area"])
         out[i] = rho * (2.0 * np.pi * r_mean) / area
