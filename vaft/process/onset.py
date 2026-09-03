@@ -160,6 +160,8 @@ def _fill_non_finite(y: np.ndarray) -> np.ndarray:
     if good.size == 0:
         out[:] = 0.0
         return out
+    # anti-alias: not a resample -- the same grid in and out; this only fills
+    # the non-finite samples from their finite neighbours.
     out[bad] = np.interp(np.flatnonzero(bad), good, y[good])
     return out
 
