@@ -87,6 +87,46 @@ managed by this file. Decide explicitly whether to enable, retarget, or delete
 it — leaving a disabled ruleset next to an active one is how a repository ends
 up with protection nobody can account for.
 
+## Formula docstrings
+
+Every public function in `vaft/formula` documents itself in one layout, and
+`test/test_formula_docstrings.py` enforces it: a one-sentence summary, the
+definition (math in `$..$`), numpydoc `Parameters` / `Returns` whose description
+paragraph closes with a unit tag such as `[Wb/rad]` or `[-]`, and any of the
+sections `Convention`, `Physical interpretation`, `Assumptions`, `Validity`,
+`Limitations`, `Numerical notes`, `References` (`.. [1] Author, Journal vol
+(year) page, Eq. (n).`).  Empirical fits open `Validity` with the sentence
+`Empirical fit.`; convention-sensitive functions carry a `Convention` section;
+a known defect goes under `Limitations` as `Tracked in #NNN` rather than into
+the kernel.  The policy lists that decide which functions are definitional,
+convention-sensitive or empirical live in the test file.
+
+The docstring is the only source of truth: `vaft.formula.describe(name)`,
+`vaft.formula.search(text)` and `vaft.formula.list_formulas(category=...)` parse
+it on demand (the catalog is never imported by `import vaft.formula` or by a
+physics submodule -- `test/test_formula_catalog.py` pins that), and the site's
+reference pages under `/reference/formula/` are generated from the same text by
+`python -m vaft.formula.catalog`, which `docs/build.py` runs for you.
+
+## Documentation
+
+The site published at <https://vest-tokamak.github.io/vaft/> is built from
+`docs/` on the code branches: the root from `main`, `/develop/` from `develop`.
+Both are composed and published as one commit on `gh-pages`, which holds
+generated output only and must never be edited by hand.
+
+```bash
+cd docs && bundle install
+python build.py                 # dry run: both tracks, composed and validated
+npm run docs:serve              # local preview of this branch's pages
+npm run test:docs               # build and validate the stable track
+```
+
+A push to `main` or `develop` rebuilds both tracks and republishes the whole
+site through `.github/workflows/docs.yml`. A page belongs to the branch whose
+library it documents, so a fix wanted on both tracks travels from `develop` to
+`main` like any other change. `docs/README.md` has the details.
+
 ## Running the tests
 
 ```bash

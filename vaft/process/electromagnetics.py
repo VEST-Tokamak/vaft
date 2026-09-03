@@ -432,13 +432,78 @@ def compute_impedance_matrices(
 
 # _solve_eddy_currents_original = solve_eddy_currents # Keep a reference to the original, just in case
 
+#: Relative tolerance for treating M_mat as symmetric. A matrix that came
+#: through `em_coupling()` is symmetric to float64 round-off; one written by
+#: hand (test fixtures, legacy ODSs) may not be, and must keep the general path.
+_SYMMETRIC_RTOL = 1.0e-10
+
+
+def wall_propagator(
+    R_mat: np.ndarray,
+    M_mat: np.ndarray,
+    dt_sub: float,
+    *,
+    method: str = "auto",
+) -> np.ndarray:
+    """The one-substep propagator ``expm(-M^-1 R dt)`` of the passive circuit.
+
+    ``solve_eddy_currents`` consumes nothing from its eigendecomposition except
+    this matrix, so it is the whole seam for a faster decomposition.
+
+    ``method="eigh"`` uses the symmetric-definite pencil: with ``R`` diagonal
+    and positive and ``M`` symmetric, the substitution ``I = R^-1/2 y`` gives
+    ``S = R^-1/2 M R^-1/2`` symmetric, so ``eigh`` applies and the eigenvector
+    inverse is a transpose. On the real 950-loop machine that is ~11x faster
+    than ``eig`` on the nonsymmetric ``-M^-1 R`` and agrees to ~1e-14 (#308).
+    It is only valid when ``M`` is symmetric, which the loader now guarantees
+    for the packaged asset (#347) but nothing guarantees for a caller-built
+    matrix -- so ``"auto"`` checks and otherwise keeps the general ``eig``
+    path unchanged.
+    """
+    if method not in ("auto", "eig", "eigh"):
+        raise ValueError(f"method must be 'auto', 'eig' or 'eigh', got {method!r}")
+    if method == "auto":
+        symmetric = np.allclose(M_mat, M_mat.T, rtol=_SYMMETRIC_RTOL, atol=0.0)
+        # The pencil form takes R's diagonal; a coupled R must keep the general path.
+        diagonal = np.count_nonzero(R_mat - np.diag(np.diag(R_mat))) == 0
+        method = "eigh" if (symmetric and diagonal) else "eig"
+
+    if method == "eigh":
+        if np.count_nonzero(R_mat - np.diag(np.diag(R_mat))):
+            raise ValueError("eigh propagator requires a diagonal R_mat")
+        r = np.diag(R_mat)
+        if not np.all(r > 0.0):
+            raise ValueError("eigh propagator requires a diagonal positive R_mat")
+        s = 1.0 / np.sqrt(r)
+        S = (M_mat * s[:, None]) * s[None, :]
+        S = (S + S.T) / 2.0  # remove residual round-off asymmetry before eigh
+        lam, Q = np.linalg.eigh(S)
+        # dy/dt = -S^-1 y  =>  expm over one substep in y-space, then map back.
+        E = Q @ np.diag(np.exp(-dt_sub / lam)) @ Q.T
+        # y = R^1/2 I evolves by E, so I(t+dt) = R^-1/2 E R^1/2 I(t):
+        # row-scale by s = R^-1/2, column-scale by 1/s = R^1/2.
+        return (E * s[:, None]) * (1.0 / s)[None, :]
+    # general path -- what solve_eddy_currents did before, pinv fallback included
+    try:
+        B_inv_M = np.linalg.inv(M_mat)
+    except np.linalg.LinAlgError:
+        B_inv_M = np.linalg.pinv(M_mat)
+    A_sys = -B_inv_M @ R_mat
+    w, E_vec = np.linalg.eig(A_sys)
+    E_inv = np.linalg.inv(E_vec)
+    RLR = E_vec @ np.diag(np.exp(w * dt_sub)) @ E_inv
+    return np.real(RLR) if np.isrealobj(A_sys) and not np.isrealobj(RLR) else RLR
+
+
 def solve_eddy_currents(
     R_mat: np.ndarray,    # (nbloop, nbloop)
     L_mat: np.ndarray,    # (nbloop, nbcoil+nbplas)
     M_mat: np.ndarray,    # (nbloop, nbloop)
     coil_plasma_currents: np.ndarray,  # (n_times, nbcoil+nbplas)
     time: np.ndarray,     # (n_times,)
-    dt_sub: float = 5e-5
+    dt_sub: float = 5e-5,
+    *,
+    method: str = "auto",
     ) -> np.ndarray:
     """
     Solve the RL circuit equation for vacuum vessel using EVD method.
@@ -454,19 +519,8 @@ def solve_eddy_currents(
     if n_times_original == 0:
         return np.zeros((0, nbloop))
 
-    # Matrix setup (similar to vfit_eddy, using direct inv with pseudo-inverse fallback)
-    try:
-        B_inv_M = np.linalg.inv(M_mat)
-    except np.linalg.LinAlgError:
-        # print(f"Error inverting M_mat: {e}. Using pseudo-inverse as fallback.")
-        try:
-            B_inv_M = np.linalg.pinv(M_mat)
-        except np.linalg.LinAlgError as e_pinv:
-            print(f"Pseudo-inverse of M_mat also failed: {e_pinv}. Aborting.")
-            return np.full((n_times_original, nbloop), np.nan)
-
-    A_sys = -B_inv_M @ R_mat
-
+    # M_mat is inverted (or decomposed) inside wall_propagator; only R_mat's
+    # inverse is needed here, for the particular solution.
     try:
         C_R_inv = np.linalg.inv(R_mat)
     except np.linalg.LinAlgError:
@@ -477,29 +531,18 @@ def solve_eddy_currents(
             print(f"Pseudo-inverse of R_mat also failed: {e_pinv}. Aborting.")
             return np.full((n_times_original, nbloop), np.nan)
             
-    if np.any(np.isnan(B_inv_M)) or np.any(np.isinf(B_inv_M)) or \
-       np.any(np.isnan(C_R_inv)) or np.any(np.isinf(C_R_inv)):
-        print("Error: Inverse of M_mat or R_mat contains NaN/Inf after fallback. Aborting.")
+    if np.any(np.isnan(C_R_inv)) or np.any(np.isinf(C_R_inv)):
+        print("Error: Inverse of R_mat contains NaN/Inf after fallback. Aborting.")
         return np.full((n_times_original, nbloop), np.nan)
 
-    # Eigenvalue decomposition of A_sys
-    # print("Performing eigenvalue decomposition of A_sys...")
+    # One-substep propagator expm(-M^-1 R dt). The symmetric-pencil path is used
+    # automatically when M_mat is symmetric (the loader guarantees that for the
+    # packaged asset, #347); a hand-built asymmetric M keeps the general path.
     try:
-        eigenvalues_w, E_vec = np.linalg.eig(A_sys)
-        E_inv = np.linalg.inv(E_vec)
-    except np.linalg.LinAlgError as e:
-        print(f"Error during eigenvalue decomposition or E_vec inversion: {e}. Aborting.")
+        RLR_mat = wall_propagator(R_mat, M_mat, dt_sub, method=method)
+    except (np.linalg.LinAlgError, ValueError) as e:
+        print(f"Error building the wall propagator: {e}. Aborting.")
         return np.full((n_times_original, nbloop), np.nan)
-    # print("Eigenvalue decomposition and E_vec inversion successful.")
-
-    # Calculate RLR = E @ diag(exp(w*dt)) @ Einv (state transition matrix)
-    F_diag_exp = np.diag(np.exp(eigenvalues_w * dt_sub))
-    RLR_mat = E_vec @ F_diag_exp @ E_inv
-    
-    if np.isrealobj(A_sys) and not np.isrealobj(RLR_mat):
-        # print("RLR_mat was complex, taking real part. Max imaginary part: ", np.max(np.abs(np.imag(RLR_mat))))
-        RLR_mat = np.real(RLR_mat)
-
     if np.any(np.isnan(RLR_mat)) or np.any(np.isinf(RLR_mat)):
         print("Error: RLR_mat contains NaN/Inf. Aborting.")
         return np.full((n_times_original, nbloop), np.nan)

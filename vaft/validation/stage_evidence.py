@@ -233,6 +233,7 @@ def _mhd_linear_metrics(source: Any, **context: Any) -> dict[str, Any]:
 def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     """Quantitative QA behind the eddy stage's two validation figures."""
     from vaft.omas.vacuum_magnetics import (
+        DEFAULT_MIN_WALL_AUTHORITY,
         plasma_onset_time,
         synthetic_vacuum_magnetics,
         vacuum_magnetics_metrics,
@@ -259,6 +260,9 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
         plasma_current=(
             None if ip_time is None or ip_data is None else (ip_time, ip_data)
         ),
+        # The scored block leaves out channels the wall barely reaches (VEST's
+        # inboard flux loops), whose improvement sign is noise.
+        min_wall_authority=DEFAULT_MIN_WALL_AUTHORITY,
     )
 
 

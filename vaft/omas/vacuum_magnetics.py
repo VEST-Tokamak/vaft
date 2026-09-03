@@ -33,10 +33,11 @@ Both sides of every comparison carry the same physical quantity and unit:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from vaft.formula.magnetics import project_poloidal_field
 from vaft.ods_access import path_count as _count, path_value
 from vaft.formula.statistics import (
     fractional_rms_improvement,
@@ -65,6 +66,8 @@ __all__ = [
     "eddy_improvement",
     "evaluation_mask",
     "plasma_free_residual",
+    "QualityGate",
+    "quality_gate",
     "plasma_onset_time",
     "probe_family",
     "residual_onset",
@@ -72,7 +75,10 @@ __all__ = [
     "select_vacuum_channels",
     "synthetic_vacuum_magnetics",
     "vacuum_magnetics_metrics",
+    "vacuum_response",
     "vacuum_residual_metrics",
+    "wall_authority",
+    "DEFAULT_MIN_WALL_AUTHORITY",
 ]
 
 B_FIELD_POL_PROBE = "b_field_pol_probe"
@@ -130,11 +136,54 @@ class VacuumChannel:
         """Measured minus the coil-only synthetic, the eddy term's baseline."""
         return self.measured - self.coil
 
+    @property
+    def eddy_term(self) -> np.ndarray:
+        """What the passive wall adds to the coil-only forward model."""
+        return self.coil_eddy - self.coil
+
+    def wall_authority(self, mask: np.ndarray | None = None) -> float:
+        """See :func:`wall_authority`; ``mask`` is expected to be an
+        :func:`evaluation_mask` (validity already applied)."""
+        return wall_authority(self.eddy_term, self.measured, self.usable if mask is None else mask)
+
 
 # ---------------------------------------------------------------------------
 # Scalar QA helpers.  Pure array functions, so the physics tests can drive them
 # directly with synthetic signals.
 # ---------------------------------------------------------------------------
+
+def wall_authority(eddy_term: np.ndarray, measured: np.ndarray, window: np.ndarray) -> float:
+    """``rms(eddy term) / rms(measured)`` over ``window`` -- how much of what a
+    sensor reads the passive-wall term can account for at all.
+
+    A conditioning number, not a verdict.  Where it is small the eddy model's
+    *improvement* is undefined in practice: the term being judged is
+    comparable to the model's own error, so the sign of the improvement is a
+    coin flip.  On VEST the inboard flux loops (r ~ 0.09-0.14 m) sit at
+    0.02-0.05 because vessel currents flow at larger R and their flux nearly
+    cancels through a small inboard loop; the outboard loops sit at 0.45-0.85.
+    Comparing the two families' improvements as if they were the same
+    measurement is what this number exists to prevent.  ``measured`` is the
+    raw reading, so a channel carrying a large DC offset reports a deflated
+    authority; ``nan`` when the window is empty or the reading is identically
+    zero.
+    """
+    window = np.asarray(window, dtype=bool)
+    if not window.any():
+        return float("nan")
+    denominator = rms(np.asarray(measured, dtype=float)[window])
+    if not denominator > 0.0:
+        return float("nan")
+    return float(rms(np.asarray(eddy_term, dtype=float)[window]) / denominator)
+
+
+#: Wall authority below which a channel's improvement is not scored by the
+#: routine QA (:func:`vacuum_magnetics_metrics`) and the production stage:
+#: the wall term is then under a tenth of the reading, i.e. comparable to
+#: the model's own error, and on VEST this selects exactly the inboard flux
+#: loops (0.02-0.05).  A conditioning floor, not an acceptance threshold.
+DEFAULT_MIN_WALL_AUTHORITY = 0.10
+
 
 def residual_rms(residual: np.ndarray, window: np.ndarray) -> float:
     """RMS of ``residual`` over the boolean ``window``."""
@@ -432,6 +481,41 @@ def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return time, coil, loop
 
 
+def vacuum_response(
+    ods: Any,
+    *,
+    per_family: int | None = DEFAULT_PER_FAMILY,
+    channels: Sequence[tuple[str, int]] | None = None,
+    window: tuple[float, float] | None = None,
+    validity_window: tuple[float, float] | None = None,
+    min_validity: int = VALIDITY_VALID,
+) -> tuple[list[dict[str, Any]], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Select channels and compute their geometry response, once.
+
+    Returns the selected rows and the ``(psi, b_z, b_r)`` Green's-function
+    triple for them. The triple is a function of geometry alone, so it can be
+    handed to :func:`synthetic_vacuum_magnetics` as ``response=`` for every
+    re-solve of the wall with different resistances (#308). Returning the rows
+    alongside it is what lets the consumer verify the two still agree.
+    """
+    from vaft.omas.process_wrapper import compute_point_response_ods
+
+    rows = select_vacuum_channels(
+        ods,
+        per_family=per_family,
+        channels=channels,
+        window=window if validity_window is None else validity_window,
+        min_validity=min_validity,
+    )
+    if not rows:
+        raise VacuumMagneticsError(
+            "no magnetic channel carries usable measured data for vacuum validation"
+        )
+    positions = np.array([[row["r"], row["z"]] for row in rows], dtype=float)
+    psi, b_z, b_r = compute_point_response_ods(ods, positions.tolist())
+    return rows, (psi, b_z, b_r, positions)
+
+
 def synthetic_vacuum_magnetics(
     ods: Any,
     *,
@@ -440,6 +524,7 @@ def synthetic_vacuum_magnetics(
     window: tuple[float, float] | None = None,
     validity_window: tuple[float, float] | None = None,
     min_validity: int = VALIDITY_VALID,
+    response: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> tuple[VacuumChannel, ...]:
     """Forward-model the coil and coil+eddy response at selected magnetics.
 
@@ -460,22 +545,49 @@ def synthetic_vacuum_magnetics(
     benchmark pass the ODS from
     :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`, whose
     loops were solved from the PF coils alone (#190).
-    """
-    from vaft.omas.process_wrapper import compute_point_response_ods
 
+    ``response`` is the bundle from :func:`vacuum_response`. The geometry
+    Green's functions it holds depend only on coil/loop/sensor positions, not
+    on any current or resistance, so a calibration that re-solves the wall
+    many times (#308) computes them once and passes them back in: on the real
+    machine they are ~97% of this function's cost. Unset, they are computed
+    here through the same function, so the two paths select identically by
+    construction. The bundle carries the positions it was computed for, and
+    they are compared to the selection -- not merely counted -- because two
+    selections of equal size but different channels contract silently and
+    wrongly otherwise (an 81% error was measured on the real machine).
+    """
     # Checked first: "the eddy solve has not run on this ODS" is the more
     # actionable diagnosis than "no usable channels" when both are true.
     time, coil_currents, loop_currents = _currents(ods)
-    rows = select_vacuum_channels(
-        ods,
-        per_family=per_family,
-        channels=channels,
-        window=window if validity_window is None else validity_window,
-        min_validity=min_validity,
-    )
-    if not rows:
+    if response is None:
+        rows, response = vacuum_response(
+            ods,
+            per_family=per_family,
+            channels=channels,
+            window=window,
+            validity_window=validity_window,
+            min_validity=min_validity,
+        )
+    else:
+        rows = select_vacuum_channels(
+            ods,
+            per_family=per_family,
+            channels=channels,
+            window=window if validity_window is None else validity_window,
+            min_validity=min_validity,
+        )
+        if not rows:
+            raise VacuumMagneticsError(
+                "no magnetic channel carries usable measured data for vacuum validation"
+            )
+    psi, b_z, b_r, positions = response
+    selected = np.array([[row["r"], row["z"]] for row in rows], dtype=float)
+    if positions.shape != selected.shape or not np.array_equal(positions, selected):
         raise VacuumMagneticsError(
-            "no magnetic channel carries usable measured data for vacuum validation"
+            f"precomputed response was built for {len(positions)} positions that do "
+            f"not match the {len(rows)} channels selected here; it must come from "
+            "vacuum_response() on the same selection"
         )
     n_coil, n_loop = coil_currents.shape[0], loop_currents.shape[0]
 
@@ -493,21 +605,14 @@ def synthetic_vacuum_magnetics(
     coil_currents = coil_currents[:, inside]
     loop_currents = loop_currents[:, inside]
 
-    psi, b_z, b_r = compute_point_response_ods(
-        ods, [[row["r"], row["z"]] for row in rows]
-    )
-
     built: list[VacuumChannel] = []
     for position, row in enumerate(rows):
         if row["kind"] == FLUX_LOOP:
             response = psi[position]
         else:
-            angle = row["poloidal_angle"]
-            # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
-            # (cos, -sin) in (R, Z).  Projecting with (cos, +sin) inverts every
-            # probe; it did so here until issue #288, cancelling against a
-            # stored angle that was wrong the same way.
-            response = b_r[position] * np.cos(angle) - b_z[position] * np.sin(angle)
+            # The one shared reading of the stored angle (issue #288): see
+            # vaft.formula.magnetics for why (cos, +sin) would be wrong.
+            response = project_poloidal_field(b_r[position], b_z[position], row["poloidal_angle"])
         coil = response[:n_coil] @ coil_currents
         eddy = response[n_coil : n_coil + n_loop] @ loop_currents
         quantity = "flux" if row["kind"] == FLUX_LOOP else "field"
@@ -539,13 +644,168 @@ def synthetic_vacuum_magnetics(
 # Metrics
 # ---------------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class QualityGate:
+    """What the diagnostics-stage assessment excluded before a fit saw the data.
+
+    A fit record needs this next to its residual: which channels were refused
+    outright in the fit window, which were partially masked, why, and under
+    which thresholds. The residual function takes the gate as a *required*
+    input and refuses channels the gate excluded, so a residual cannot be
+    built from ungated data by accident -- the failure #308 must not have,
+    since a single implausible probe (H3-08 on 39915, 40x its family median)
+    moved the normalized residual by 11%.
+    """
+
+    assessed: int
+    window: tuple[float, float] | None
+    excluded: tuple[str, ...]
+    partially_masked: tuple[str, ...]
+    reasons: Mapping[str, tuple[str, ...]]
+    config: Mapping[str, Any]
+    validity_source: str
+
+    def check(
+        self, channels: Sequence[VacuumChannel], window: tuple[float, float] | None = None
+    ) -> None:
+        """Refuse a channel set that still carries what the gate excluded.
+
+        Exclusion is window-dependent, so a gate built for one window must not
+        vouch for an evaluation over another.
+        """
+        if self.window is not None and window is not None:
+            same = np.isclose(self.window[0], window[0]) and np.isclose(self.window[1], window[1])
+            if not same:
+                raise VacuumMagneticsError(
+                    f"the quality gate was built for window {self.window}, not "
+                    f"{tuple(float(w) for w in window)}; rebuild it for this window"
+                )
+        leaked = [c.name for c in channels if c.name in self.excluded]
+        if leaked:
+            raise VacuumMagneticsError(
+                "channels excluded by the quality gate are present in the residual "
+                f"input: {leaked}; build the channels from the gated ODS"
+            )
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "assessed_channels": int(self.assessed),
+            "window": None if self.window is None else [float(w) for w in self.window],
+            "excluded": [
+                {"channel": name, "reasons": list(self.reasons.get(name, ()))}
+                for name in self.excluded
+            ],
+            "partially_masked": [
+                {"channel": name, "reasons": list(self.reasons.get(name, ()))}
+                for name in self.partially_masked
+            ],
+            "thresholds": dict(self.config),
+            "validity_source": self.validity_source,
+        }
+
+
+def quality_gate(
+    ods: Any,
+    *,
+    window: tuple[float, float] | None = None,
+    report: Sequence[Any] | None = None,
+    config: Any | None = None,
+    min_validity: int = VALIDITY_VALID,
+) -> tuple[Any, QualityGate]:
+    """Assess the magnetics, project the verdict, and say what it excluded.
+
+    Returns a **copy** of ``ods`` with the assessment's validity projected into
+    the native nodes (the one direction #253 permits), plus the
+    :class:`QualityGate` describing the consequence for ``window``. The source
+    is never written.
+
+    The assessment is re-run here unless a ``report`` from
+    :func:`vaft.validation.magnetics.validate_magnetics_signals` is passed,
+    because a product carries no marker saying whether it was ever assessed:
+    "all valid" and "never looked at" are the same bytes. Re-running is
+    deterministic and costs under two seconds on a full shot.
+    """
+    import copy as _copy
+    import dataclasses as _dc
+
+    from vaft.validation.magnetics import (
+        MagneticsQualityConfig,
+        project_validity,
+        unusable_channels_at,
+        validate_magnetics_signals,
+    )
+
+    settings = config if config is not None else MagneticsQualityConfig()
+    source = "report supplied by caller" if report is not None else "re-assessed here"
+    entries = tuple(report) if report is not None else validate_magnetics_signals(ods, config=settings)
+    gated = _copy.deepcopy(ods)
+    project_validity(gated, entries)
+
+    reasons: dict[str, tuple[str, ...]] = {}
+    names: dict[tuple[str, int], str] = {}
+    for quality in entries:
+        names[(quality.kind, quality.index)] = quality.name
+        seen = tuple(dict.fromkeys(event.reason for event in quality.events))
+        if not seen and quality.reason and quality.validity < min_validity:
+            seen = (str(quality.reason),)  # verdict inherited from an earlier stage
+        if seen:
+            reasons[quality.name] = seen
+
+    grid = _time_grid(gated, window)
+    if not grid.size:
+        raise VacuumMagneticsError(
+            "the magnetics carry no samples"
+            + ("" if window is None else f" inside the window {window}")
+            + "; a gate over nothing would report a clean array"
+        )
+    unusable = unusable_channels_at(gated, grid, min_validity=min_validity)
+    excluded: list[str] = []
+    partial: list[str] = []
+    for key, mask in unusable.items():
+        name = names.get(key, f"{key[0]}[{key[1]}]")
+        (excluded if bool(np.all(mask)) else partial).append(name)
+    gate = QualityGate(
+        assessed=len(entries),
+        window=None if window is None else (float(window[0]), float(window[1])),
+        excluded=tuple(sorted(excluded)),
+        partially_masked=tuple(sorted(partial)),
+        reasons=reasons,
+        config=_dc.asdict(settings) if _dc.is_dataclass(settings) else dict(settings),
+        validity_source=source,
+    )
+    return gated, gate
+
+
+def _time_grid(ods: Any, window: tuple[float, float] | None) -> np.ndarray:
+    """The magnetics sample instants inside ``window``."""
+    for path in (
+        "magnetics.time",
+        "magnetics.b_field_pol_probe.0.field.time",
+        "magnetics.flux_loop.0.flux.time",
+    ):
+        if path in ods:
+            grid = np.asarray(ods[path], dtype=float).reshape(-1)
+            break
+    else:
+        return np.zeros(0)
+    if window is None:
+        return grid
+    return grid[(grid >= window[0]) & (grid < window[1])]
+
+
 def plasma_free_residual(
     channels: Sequence[VacuumChannel],
     window: tuple[float, float] | None = None,
     *,
+    gate: QualityGate,
     normalize: bool = False,
 ) -> np.ndarray:
     """Stack ``measured - coil_eddy`` over the usable samples of every channel.
+
+    ``gate`` is required: the :class:`QualityGate` from :func:`quality_gate`
+    for the ODS the channels were built from. Its check refuses a channel
+    set that still contains what the gate excluded, so a fit cannot run on
+    unassessed data by omission.
 
     This is the objective a wall-resistance calibration minimises (issue #308):
     with the model driven by the PF coils alone over a plasma-free interval,
@@ -563,6 +823,7 @@ def plasma_free_residual(
     whichever quantity happens to carry the larger numbers. Channels whose
     measured RMS is zero are left unscaled rather than divided by zero.
     """
+    gate.check(channels, window)
     blocks: list[np.ndarray] = []
     for channel in channels:
         mask = evaluation_mask(channel, window)
@@ -635,6 +896,12 @@ def channel_residual_metrics(
         Measured against coil+eddy.  Near 1 with a large residual means the
         dynamics are right and the gain is wrong -- a calibration question, not
         a wall-model one.
+    ``wall_authority``
+        ``rms(eddy term) / rms(measured)`` -- see
+        :meth:`VacuumChannel.wall_authority`.  Read ``improvement`` in its
+        light: where the wall term is a few percent of the reading, a
+        negative improvement is a rounding of the model's error, not a
+        finding about the wall.
 
     A channel with too few usable samples is reported ``excluded`` with a
     reason rather than being counted as a model failure.
@@ -659,6 +926,7 @@ def channel_residual_metrics(
         "window_start": float(channel.time[mask][0]) if mask.any() else float("nan"),
         "window_end": float(channel.time[mask][-1]) if mask.any() else float("nan"),
     }
+    row["wall_authority"] = channel.wall_authority(mask)
     if int(mask.sum()) < int(min_samples):
         usable = int(channel.usable.sum())
         row["status"] = "excluded"
@@ -696,6 +964,7 @@ def vacuum_residual_metrics(
     *,
     window: tuple[float, float] | None = None,
     min_samples: int = 2,
+    min_wall_authority: float = 0.0,
 ) -> dict[str, Any]:
     """Per-channel and per-family measured-versus-model agreement (issue #190).
 
@@ -707,16 +976,27 @@ def vacuum_residual_metrics(
     Metrics only -- no thresholds, no verdict.  What counts as acceptable
     depends on the study, and #190 is explicit that broad acceptance thresholds
     must wait until the VEST benchmark distribution has been inspected.
+
+    ``min_wall_authority`` is a *conditioning* floor, not an acceptance one:
+    the ``summary["scored"]`` block repeats the improvement spread over the
+    channels whose wall term is at least that fraction of their reading
+    (:func:`wall_authority`), so a family the wall barely reaches cannot set
+    the minimum.  The unfloored spreads are always reported too; at the
+    default ``0.0`` the two differ only by channels whose authority is
+    undefined (an identically zero reading).
     """
     rows = [
         channel_residual_metrics(channel, window=window, min_samples=min_samples)
         for channel in channels
     ]
     evaluated = [row for row in rows if row["status"] == "evaluated"]
+    scored_rows = [
+        row for row in evaluated if row["wall_authority"] >= float(min_wall_authority)
+    ]
 
-    def spread(key: str) -> dict[str, float]:
+    def spread(key: str, over: list[dict[str, Any]] = evaluated) -> dict[str, float]:
         values = np.array(
-            [row[key] for row in evaluated if np.isfinite(row[key])], dtype=float
+            [row[key] for row in over if np.isfinite(row[key])], dtype=float
         )
         if values.size == 0:
             return {"median": float("nan"), "min": float("nan"), "max": float("nan")}
@@ -752,6 +1032,12 @@ def vacuum_residual_metrics(
             "improvement": spread("improvement"),
             "normalized_residual": spread("normalized_residual"),
             "correlation": spread("correlation"),
+            "wall_authority": spread("wall_authority"),
+            "scored": {
+                "min_wall_authority": float(min_wall_authority),
+                "count": len(scored_rows),
+                "improvement": spread("improvement", scored_rows),
+            },
             "improved_fraction": (
                 float(
                     np.mean([row["improvement"] > 0.0 for row in evaluated])
@@ -769,8 +1055,15 @@ def vacuum_magnetics_metrics(
     plasma_onset: float,
     plasma_current: tuple[np.ndarray, np.ndarray] | None = None,
     sigma: float = ONSET_SIGMA,
+    min_wall_authority: float = 0.0,
 ) -> dict[str, Any]:
     """Quantitative QA for one shot's vacuum-magnetics validation.
+
+    ``min_wall_authority`` is handed to the shared kernel: ``summary["scored"]``
+    repeats the improvement spread over the channels whose wall term is at
+    least that fraction of what they read (:func:`wall_authority`).  The
+    unfloored ``median_improvement`` / ``min_improvement`` are always over
+    every channel.
 
     Everything issue #139 asks the eddy stage to record: the pre-plasma residual
     RMS with and without the eddy response, the improvement from adding it, the
@@ -807,7 +1100,10 @@ def vacuum_magnetics_metrics(
     # "residual RMS" means. What stays here is the onset analysis, which is
     # specific to asking where the plasma signal emerges.
     pre_plasma = (float("-inf"), float(plasma_onset))
-    rows = vacuum_residual_metrics(channels, window=pre_plasma)["channels"]
+    kernel = vacuum_residual_metrics(
+        channels, window=pre_plasma, min_wall_authority=min_wall_authority
+    )
+    rows = kernel["channels"]
     for channel, row in zip(channels, rows):
         window = evaluation_mask(channel, pre_plasma)
         if row["status"] != "evaluated":
@@ -880,5 +1176,7 @@ def vacuum_magnetics_metrics(
             "channels_without_onset": sum(
                 1 for row in rows if not np.isfinite(row["residual_onset"])
             ),
+            "wall_authority": kernel["summary"]["wall_authority"],
+            "scored": kernel["summary"]["scored"],
         },
     }

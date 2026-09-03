@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import re
 import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -40,6 +41,7 @@ from vaft.plot.models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    TextPanel,
 )
 from vaft.plot.display import channel_label, figure_title, resolve_display
 from vaft.plot.selection import INBOARD, OUTBOARD
@@ -666,12 +668,20 @@ class CallableRecipe:
 
 @dataclass(frozen=True)
 class PanelRecipe:
-    """A composite built from other canonical plots, one per panel."""
+    """A composite built from other canonical plots, one per panel.
+
+    ``member_defaults`` are renderer keyword arguments applied to every member
+    beneath whatever the caller passes.  ``keep_unavailable`` renders a member
+    the input cannot support as a labelled empty panel instead of dropping it,
+    so the composite keeps one shape on every shot (issue #260).
+    """
 
     members: tuple[str, ...]
     ncols: int = 1
     share_x: bool = True
     suptitle: str = ""
+    member_defaults: Mapping[str, Any] = field(default_factory=dict)
+    keep_unavailable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1310,7 +1320,7 @@ RECIPES: dict[str, Any] = {
         share_x=False,
         suptitle="Shot Diagnostics Overview",
     ),
-    "equilibrium_overview": PanelRecipe(
+    "equilibrium_overview_histories": PanelRecipe(
         members=(
             "equilibrium_time_plasma_current",
             "equilibrium_time_beta_p",
@@ -1319,7 +1329,7 @@ RECIPES: dict[str, Any] = {
         ),
         ncols=2,
         share_x=False,
-        suptitle="Equilibrium Analysis Overview",
+        suptitle="Equilibrium Time Histories",
     ),
     "equilibrium_overview_profiles": PanelRecipe(
         members=(
@@ -1352,6 +1362,27 @@ RECIPES: dict[str, Any] = {
         members=("soft_x_rays_time_power", "soft_x_rays_geometry_lines_of_sight"),
         share_x=False,
         suptitle="Soft X-ray Overview",
+    ),
+    "diagnostics_overview": PanelRecipe(
+        members=(
+            "flux_loop_time_flux",
+            "b_field_probe_time_field",
+            "mirnov_time_voltage",
+            "impa_time_field",
+            "soft_x_rays_time_power",
+            "interferometer_time_n_e_line",
+            "thomson_scattering_time_electron_density",
+            "charge_exchange_time_ion_temperature",
+            "spectrometer_uv_time_intensity",
+            "barometry_time_pressure",
+        ),
+        ncols=2,
+        share_x=False,
+        suptitle="Diagnostics Overview",
+        # An overview compares the trustworthy signals; flagged channels would
+        # only obscure them, so they are excluded here and only here.
+        member_defaults={"validity": "mask"},
+        keep_unavailable=True,
     ),
     "interferometer_overview": PanelRecipe(
         members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
@@ -2265,154 +2296,196 @@ def _efit_overlay_layers(
     return layers
 
 
-def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
+#: What may be drawn over a camera frame (issue #261 section 18), and the
+#: projection methods that map machine geometry into its pixels (section 20).
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line")
+CAMERA_PROJECTIONS = ("calibrated",)
+
+
+def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
+    """Normalise ``overlay=``: a name, a sequence of names, or nothing."""
+    overlay = options.get("overlay", ())
+    if overlay is None or overlay == "" or overlay is False:
+        return ()
+    if isinstance(overlay, str):
+        names = (overlay,)
+    elif isinstance(overlay, (list, tuple, set, frozenset)) and all(isinstance(n, str) for n in overlay):
+        names = tuple(overlay)
+    else:
+        raise ValueError(
+            f"overlay must be a name or a sequence of names from {', '.join(CAMERA_OVERLAYS)}; "
+            f"got {overlay!r}"
+        )
+    unknown = [name for name in names if name not in CAMERA_OVERLAYS]
+    if unknown:
+        raise ValueError(
+            f"unknown overlay {unknown[0]!r}; overlays are {', '.join(CAMERA_OVERLAYS)}"
+        )
+    return tuple(dict.fromkeys(names))
+
+
+def _projection_option(options: Mapping[str, Any], shot: Any):
+    """Resolve ``projection=``: a method name or a ``CameraProjection``."""
+    from vaft.omas.process_wrapper import camera_projection_for
+    from vaft.process.camera_geometry import CameraProjection
+
+    projection = options.get("projection", "calibrated")
+    if isinstance(projection, CameraProjection):
+        return projection
+    if projection not in CAMERA_PROJECTIONS:
+        raise ValueError(
+            f"projection must be one of {', '.join(CAMERA_PROJECTIONS)} or a "
+            f"CameraProjection; got {projection!r}"
+        )
+    try:
+        return camera_projection_for(
+            int(shot), pose_path=options.get("pose_path"), intrinsics_path=options.get("intrinsics_path")
+        )
+    except (FileNotFoundError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"no calibrated camera projection is available for shot {shot!r}: {exc}"
+        ) from exc
+
+
+def _field_line_seed(options: Mapping[str, Any]) -> tuple[float, float, float]:
+    """``(r0, z0, phi0)`` from ``field_line_start=`` or ``r0=``/``z0=``/``phi0=``."""
+    start = options.get("field_line_start")
+    if start is not None:
+        values = tuple(float(v) for v in start)
+        if len(values) not in (2, 3):
+            raise ValueError("field_line_start must be (r0, z0) or (r0, z0, phi0) in metres and radians")
+        return values[0], values[1], values[2] if len(values) == 3 else float(options.get("phi0", 0.0))
+    if options.get("r0") is None or options.get("z0") is None:
+        raise ValueError(
+            "overlay='field_line' needs a seed: pass field_line_start=(r0, z0[, phi0]) "
+            "or r0= and z0= in metres"
+        )
+    return float(options["r0"]), float(options["z0"]), float(options.get("phi0", 0.0))
+
+
+def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
+    """One camera frame with optional overlays through one projection (#261 §18-22).
+
+    ``overlay`` names what is drawn over the frame -- ``wall``, ``equilibrium``
+    (LCFS, magnetic axis, flux surfaces) and ``field_line`` (a traced line
+    from a seed) -- and ``projection`` how machine geometry becomes pixels:
+    the calibrated model packaged for the shot, or a ``CameraProjection`` of
+    the caller's own.  Field-line tracing stays in the process layer; this
+    only projects and draws its result.
+    """
+    from vaft.process.camera_geometry import CameraProjection
+
     channel = int(options.get("channel", 0))
     detector = int(options.get("detector", 0))
     idx, resolved_time, _shape = _resolve_camera_visible_frame(
         ods, channel=channel, detector=detector, options=options
     )
-    image = _camera_visible_frame_image(
-        ods, channel=channel, detector=detector, frame_index=idx
-    )
+    image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
     channel_name = _camera_visible_channel_name(ods, channel)
-    title = options.get("title", f"{channel_name} frame {idx} @ t={resolved_time:.4f}s")
-    return Image2D(values=image, value_label="Digital levels", title=title)
+    overlays = _overlay_option(options)
+    layers: list[GeometryLayer] = []
+    notes: list[str] = []
+    if overlays:
+        from vaft.omas.process_wrapper import (
+            compute_camera_visible_efit_overlay,
+            compute_camera_visible_field_line_overlay,
+        )
+
+        shot = options.get("shot")
+        if shot in (None, ""):
+            shot = _get(ods, "dataset_description.data_entry.pulse")
+        if shot in (None, "") and not isinstance(options.get("projection"), CameraProjection):
+            raise ValueError(
+                "an overlay needs the shot to look its camera pose up by: the ODS stores "
+                "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
+            )
+        projection = _projection_option(options, shot)
+        if "wall" in overlays or "equilibrium" in overlays:
+            geometry = compute_camera_visible_efit_overlay(
+                ods, int(shot), channel=channel, detector=detector, frame_index=idx,
+                flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95)))
+                if "equilibrium" in overlays else (),
+                projection=projection,
+            )
+            # An explicit show_* flag refines within the overlay it belongs to.
+            layer_options = {
+                "show_wall": options.get("show_wall", "wall" in overlays) and "wall" in overlays,
+                "show_lcfs": options.get("show_lcfs", True) and "equilibrium" in overlays,
+                "show_magnetic_axis": options.get("show_magnetic_axis", True) and "equilibrium" in overlays,
+            }
+            layers.extend(_efit_overlay_layers(geometry, options=layer_options))
+            notes.append(" + ".join(name for name in ("wall", "equilibrium") if name in overlays))
+        if "field_line" in overlays:
+            r0, z0, phi0 = _field_line_seed(options)
+            result = compute_camera_visible_field_line_overlay(
+                ods, int(shot), r0=r0, z0=z0, phi0=phi0, channel=channel, detector=detector,
+                frame_index=idx, dphi_deg=float(options.get("dphi_deg", 1.0)),
+                max_length_m=float(options.get("max_length_m", 50.0)),
+                direction=options.get("direction", "forward"),
+                use_wall_boundary=options.get("use_wall_boundary", True),
+                projection=projection,
+            )
+            layers.extend(_field_line_layers(result["field_line_uv"]))
+            notes.append(f"field line R0={r0:.3f} m, Z0={z0:.3f} m, stop: {result['trace']['termination_reason']}")
+    title = options.get(
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
+        + (f" -- shot {shot}: {'; '.join(notes)}" if notes else ""),
+    )
+    return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
+
+
+def _field_line_layers(field_line_uv: np.ndarray) -> list[GeometryLayer]:
+    """The traced line and its end points, in pixel space."""
+    layers: list[GeometryLayer] = []
+    if field_line_uv.shape[0] >= 2:
+        layers.append(GeometryLayer(
+            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label="Field line",
+            style={"color": "red", "linewidth": 1.5},
+        ))
+    if field_line_uv.shape[0] >= 1:
+        layers.append(GeometryLayer(
+            r=field_line_uv[:1, 0], z=field_line_uv[:1, 1], kind="points", label="Start",
+            style={"marker": "o", "markersize": 8, "color": "lime"},
+        ))
+    if field_line_uv.shape[0] >= 2:
+        layers.append(GeometryLayer(
+            r=field_line_uv[-1:, 0], z=field_line_uv[-1:, 1], kind="points", label="End",
+            style={"marker": "o", "markersize": 8, "color": "blue"},
+        ))
+    return layers
+
+
+def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
+    """Preset of the image API: the bare frame."""
+    return _build_camera_visible_image(ods, **{**options, "overlay": ()})
+
+
+def _preset_overlays(options: Mapping[str, Any], *, field_line: bool) -> tuple[str, ...]:
+    """Overlay names the legacy ``show_*`` flags of a preset spell out."""
+    names: list[str] = []
+    if options.get("show_wall", not field_line):
+        names.append("wall")
+    if options.get("show_lcfs", not field_line) or options.get("show_magnetic_axis", not field_line) or (
+        field_line and options.get("flux_surface_levels")
+    ):
+        names.append("equilibrium")
+    if field_line:
+        names.append("field_line")
+    return tuple(names)
 
 
 def _build_camera_visible_image_efit_overlay(ods: Any, **options: Any) -> Image2D:
-    from vaft.omas.process_wrapper import compute_camera_visible_efit_overlay
-
-    shot = options["shot"]
-    channel = int(options.get("channel", 0))
-    detector = int(options.get("detector", 0))
-    idx, resolved_time, _shape = _resolve_camera_visible_frame(
-        ods, channel=channel, detector=detector, options=options
-    )
-    image = _camera_visible_frame_image(
-        ods, channel=channel, detector=detector, frame_index=idx
-    )
-
-    overlay = compute_camera_visible_efit_overlay(
-        ods,
-        shot,
-        channel=channel,
-        detector=detector,
-        frame_index=idx,
-        flux_surface_levels=tuple(
-            options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95))
-        ),
-    )
-    layers = _efit_overlay_layers(overlay, options=options)
-
-    channel_name = _camera_visible_channel_name(ods, channel)
-    title = options.get(
-        "title",
-        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} EFIT overlay",
-    )
-    return Image2D(
-        values=image, value_label="Digital levels", title=title, overlays=tuple(layers)
+    """Preset of the image API: the frame with wall and equilibrium overlays."""
+    return _build_camera_visible_image(
+        ods, **{**options, "overlay": _preset_overlays(options, field_line=False)}
     )
 
 
 def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
-    from vaft.omas.process_wrapper import (
-        compute_camera_visible_efit_overlay,
-        compute_camera_visible_field_line_overlay,
-    )
-
-    shot = options["shot"]
-    r0 = float(options["r0"])
-    z0 = float(options["z0"])
-    channel = int(options.get("channel", 0))
-    detector = int(options.get("detector", 0))
-    idx, resolved_time, _shape = _resolve_camera_visible_frame(
-        ods, channel=channel, detector=detector, options=options
-    )
-    image = _camera_visible_frame_image(
-        ods, channel=channel, detector=detector, frame_index=idx
-    )
-
-    result = compute_camera_visible_field_line_overlay(
-        ods,
-        shot,
-        r0=r0,
-        z0=z0,
-        phi0=float(options.get("phi0", 0.0)),
-        channel=channel,
-        detector=detector,
-        frame_index=idx,
-        dphi_deg=float(options.get("dphi_deg", 1.0)),
-        max_length_m=float(options.get("max_length_m", 50.0)),
-        direction=options.get("direction", "forward"),
-        use_wall_boundary=options.get("use_wall_boundary", True),
-    )
-
-    layers: list[GeometryLayer] = []
-    field_line_uv = result["field_line_uv"]
-    if field_line_uv.shape[0] >= 2:
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[:, 0],
-                z=field_line_uv[:, 1],
-                kind="polyline",
-                label="Field line",
-                style={"color": "red", "linewidth": 1.5},
-            )
-        )
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[:1, 0],
-                z=field_line_uv[:1, 1],
-                kind="points",
-                label="Start",
-                style={"marker": "o", "markersize": 8, "color": "lime"},
-            )
-        )
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[-1:, 0],
-                z=field_line_uv[-1:, 1],
-                kind="points",
-                label="End",
-                style={"marker": "o", "markersize": 8, "color": "blue"},
-            )
-        )
-    elif field_line_uv.shape[0] == 1:
-        layers.append(
-            GeometryLayer(
-                r=field_line_uv[:1, 0],
-                z=field_line_uv[:1, 1],
-                kind="points",
-                label="Start",
-                style={"marker": "o", "markersize": 8, "color": "lime"},
-            )
-        )
-
-    if (
-        options.get("show_wall")
-        or options.get("show_lcfs")
-        or options.get("show_magnetic_axis")
-        or options.get("flux_surface_levels")
-    ):
-        efit_overlay = compute_camera_visible_efit_overlay(
-            ods,
-            shot,
-            channel=channel,
-            detector=detector,
-            frame_index=idx,
-            flux_surface_levels=tuple(options.get("flux_surface_levels", ())),
-        )
-        layers.extend(_efit_overlay_layers(efit_overlay, options=options))
-
-    reason = result["trace"]["termination_reason"]
-    channel_name = _camera_visible_channel_name(ods, channel)
-    title = options.get(
-        "title",
-        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s -- shot {shot} field line\n"
-        f"R0={r0:.3f}m, Z0={z0:.3f}m, stop: {reason}",
-    )
-    return Image2D(
-        values=image, value_label="Digital levels", title=title, overlays=tuple(layers)
+    """Preset of the image API: the frame with a traced field line (plus what ``show_*`` asks)."""
+    return _build_camera_visible_image(
+        ods, **{**options, "overlay": _preset_overlays(options, field_line=True)}
     )
 
 
@@ -2443,6 +2516,10 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
     )
 
 
+RECIPES["camera_visible_image"] = CallableRecipe(
+    builder=_build_camera_visible_image,
+    description="One camera frame with optional overlays through one projection.",
+)
 RECIPES["camera_visible_image_frame"] = CallableRecipe(
     builder=_build_camera_visible_image_frame,
     description="One FAST-camera frame, selected by frame_index or nearest time.",
@@ -2675,6 +2752,7 @@ def _build_line_traces(
                     entry=entry_label,
                     channel=channel,
                     position=(r_i, z_i) if has_position else None,
+                    index=index,
                 )
             )
         return traces
@@ -2697,6 +2775,165 @@ def _build_line_traces(
     ]
 
 
+#: Diagnostic time plots that an equilibrium reconstruction also predicts, and
+#: the constraint family that stores the prediction (issue #261 section 9).
+#: A scalar family has one node per slice; an array family has one node per
+#: channel, matched to the diagnostic channel by its ``source`` identifier.
+SYNTHETIC_CONSTRAINTS: dict[str, tuple[str, bool]] = {
+    "plasma_current_time": ("ip", False),
+    "diamagnetic_flux_time": ("diamagnetic_flux", False),
+    "flux_loop_time_flux": ("flux_loop", True),
+    "b_field_probe_time_field": ("bpol_probe", True),
+}
+
+SYNTHETIC_MODES = ("equilibrium", "both")
+
+
+def _synthetic_option(options: Mapping[str, Any], name: str) -> str | None:
+    """Validate ``synthetic=``: which prediction to overlay, if any."""
+    synthetic = options.get("synthetic")
+    if synthetic in (None, False):
+        return None
+    if synthetic is True:
+        synthetic = "equilibrium"
+    if synthetic not in SYNTHETIC_MODES:
+        raise ValueError(
+            f"synthetic must be one of {', '.join(SYNTHETIC_MODES)} or None; got {synthetic!r}"
+        )
+    if name not in SYNTHETIC_CONSTRAINTS:
+        supported = ", ".join(sorted(SYNTHETIC_CONSTRAINTS))
+        raise ValueError(
+            f"synthetic overlay is unsupported for {name!r}: no equilibrium "
+            f"constraint predicts it. Supported: {supported}"
+        )
+    return str(synthetic)
+
+
+def _constraint_slices(ods: Any) -> list[tuple[int, float]]:
+    """``(slice index, time)`` of every stored equilibrium slice with a time."""
+    total = _count(ods, "equilibrium.time_slice")
+    slices = []
+    for index in range(total):
+        time = _get(ods, f"equilibrium.time_slice.{index}.time")
+        if time is None:
+            continue
+        try:
+            slices.append((index, float(np.asarray(time, dtype=float).ravel()[0])))
+        except (IndexError, TypeError, ValueError):
+            continue
+    return slices
+
+
+def _finite_scalar(raw: Any) -> float | None:
+    if raw is None:
+        return None
+    try:
+        value = float(np.asarray(raw, dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    return value if np.isfinite(value) else None
+
+
+def _constraint_index(
+    ods: Any, family: str, per_channel: bool, leaf: str
+) -> dict[str | None, tuple[np.ndarray, np.ndarray]]:
+    """``{source: (times, values)}`` of ``leaf`` for one family, in one pass.
+
+    Every slice and every constraint node is visited exactly once, whatever
+    the number of channels that later ask for their values.  A per-channel
+    family is keyed by its ``source`` identifier rather than by position, so
+    a constraint table that lists channels in a different order from the
+    diagnostic still lands on the right trace; a scalar family is keyed by
+    ``None``.  Slices where the leaf is absent or non-finite contribute
+    nothing: a reconstruction exists only where the solver wrote one.
+    """
+    gathered: dict[str | None, tuple[list[float], list[float]]] = {}
+    ambiguous: set[str | None] = set()
+    for index, time in _constraint_slices(ods):
+        base = f"equilibrium.time_slice.{index}.constraints.{family}"
+        nodes = (
+            [(str(_get(ods, f"{base}.{j}.source", "")), f"{base}.{j}") for j in range(_count(ods, base))]
+            if per_channel
+            else [(None, base)]
+        )
+        seen: set[str | None] = set()
+        for source, node in nodes:
+            # Two constraints naming one source on one slice cannot be told
+            # apart by identifier; neither may claim a channel's trace.
+            if source in seen:
+                ambiguous.add(source)
+            seen.add(source)
+            value = _finite_scalar(_get(ods, f"{node}.{leaf}"))
+            if value is None:
+                continue
+            times, values = gathered.setdefault(source, ([], []))
+            times.append(time)
+            values.append(value)
+    return {
+        source: (np.asarray(times, dtype=float), np.asarray(values, dtype=float))
+        for source, (times, values) in gathered.items()
+        if source not in ambiguous
+    }
+
+
+def has_synthetic_values(ods: Any, name: str) -> bool:
+    """Whether any slice stores a finite reconstruction for plot ``name``."""
+    family, per_channel = SYNTHETIC_CONSTRAINTS[name]
+    return bool(_constraint_index(ods, family, per_channel, "reconstructed"))
+
+
+def _synthetic_traces(
+    ods: Any, name: str, recipe: LineRecipe, measured: Sequence[Series], mode: str
+) -> list[Series]:
+    """Marker-only traces of the equilibrium's prediction for each measured trace.
+
+    The waveform stays the primary signal; the reconstruction is drawn as a
+    marker at every slice that holds a finite value, in the same canonical
+    unit as the trace it belongs to (display scaling is applied later, to
+    both alike).  ``mode="both"`` adds the measured constraint value the
+    solver was given, which shows where the reconstruction's input differs
+    from the waveform itself.
+    """
+    family, per_channel = SYNTHETIC_CONSTRAINTS[name]
+    container = _container_of(recipe.y_path, "{i}") if per_channel else ""
+    identifiers = (
+        _channel_identifiers(ods, container, _count(ods, container)) if per_channel else []
+    )
+    leaves = (("reconstructed", "reconstruction", "o"),)
+    if mode == "both":
+        leaves += (("measured", "constraint", "x"),)
+    indexed = {leaf: _constraint_index(ods, family, per_channel, leaf) for leaf, _, _ in leaves}
+    extra: list[Series] = []
+    for trace in measured:
+        source = None
+        if per_channel:
+            # The trace knows its own channel index; the constraint that
+            # predicts it is the one whose source names that channel.
+            if trace.index is None or trace.index >= len(identifiers):
+                continue
+            source = identifiers[trace.index]
+            if not source:
+                continue
+        for leaf, role, marker in leaves:
+            times, values = indexed[leaf].get(source, (np.empty(0), np.empty(0)))
+            if values.size == 0:
+                continue
+            extra.append(
+                Series(
+                    x=times,
+                    y=values * recipe.scale,
+                    label=trace.label,
+                    style={"marker": marker, "linestyle": "none"},
+                    entry=trace.entry,
+                    channel=trace.channel,
+                    position=trace.position,
+                    index=trace.index,
+                    role=role,
+                )
+            )
+    return extra
+
+
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
@@ -2706,15 +2943,17 @@ def _build_line_series(
     # keeps the short recipe title that identifies it within the figure.
     panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
+    synthetic = _synthetic_option(options, spec.name if spec is not None else "")
     for entry_label, ods in entries:
-        traces.extend(
-            _build_line_traces(
-                ods,
-                recipe,
-                entry_label=entry_label,
-                selection=_selection_option(options),
-            )
+        measured = _build_line_traces(
+            ods,
+            recipe,
+            entry_label=entry_label,
+            selection=_selection_option(options),
         )
+        traces.extend(measured)
+        if synthetic:
+            traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
     x_display = _resolve_axis_display(
         recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
         series_values=[trace.x for trace in traces],
@@ -2732,7 +2971,7 @@ def _build_line_series(
         default_title = recipe.title
     else:
         default_title = _decorated_title(recipe.title, y_display.unit, entries)
-    return LineSeries(
+    model = LineSeries(
         series=scaled,
         x_label=recipe.x_label,
         x_unit=x_display.unit,
@@ -2743,6 +2982,13 @@ def _build_line_series(
         log_y=bool(options.get("log_y", False)),
         display=y_display,
     )
+    layout = options.get("layout") or "overlay"
+    if panel_member and layout != "overlay":
+        raise ValueError("a composite's members cannot themselves take a layout")
+    if layout == "overlay":
+        return model
+    return _lay_out(model, layout, entries=entries, recipe=recipe, options=options,
+                    suptitle=options.get("title", _decorated_title(recipe.title, y_display.unit, entries)))
 
 
 _COORDINATE_LABELS = {
@@ -3204,11 +3450,25 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
-    members = []
-    for name in recipe.members:
+    # A member default is either an extraction option (it shapes the member's
+    # model: selection, synthetic, ...) or a renderer style (validity, ...).
+    # The former goes beneath the caller's options into build_model; the
+    # latter beneath the caller's style into the renderer (issue #260).
+    member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
+    member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
+    members, placeholders = [], []
+    for slot, name in enumerate(recipe.members):
         if not any(entry_supports(ods, name) for _, ods in entries):
+            if recipe.keep_unavailable:
+                placeholders.append((slot, f"{name}\nnot available in this input"))
             continue
-        members.append(build_model(name, entries, _panel_member=True, **options))
+        merged = {**member_options, **options}
+        # An overlay applies to the members that can carry it: a composite
+        # asked for the equilibrium's prediction annotates its magnetics
+        # panels and leaves the PF-current panel alone (issue #261 section 9).
+        if merged.get("synthetic") and name not in SYNTHETIC_CONSTRAINTS:
+            merged.pop("synthetic")
+        members.append(build_model(name, entries, _panel_member=True, **merged))
     if not members:
         raise ValueError(
             "none of the panels "
@@ -3227,7 +3487,168 @@ def _build_panels(
         ncols=recipe.ncols,
         share_x=recipe.share_x,
         suptitle=suptitle,
+        placeholders=tuple(placeholders),
+        member_styles=tuple(dict(member_style) for _ in members),
     )
+
+
+#: Keyword arguments that shape the *model* -- what is extracted -- as opposed
+#: to the renderer keyword arguments that shape how it is drawn.  The adapter
+#: strips these before calling a renderer; a composite routes its members'
+#: defaults by the same split.
+EXTRACTION_OPTIONS = frozenset(
+    {
+        "channel",
+        "channels",
+        "contour_levels",
+        "coordinate",
+        "detector",
+        "detrend",
+        "direction",
+        "dphi_deg",
+        "field_line_start",
+        "fit_ranges",
+        "flux_surface_levels",
+        "frame_index",
+        "frame_indices",
+        "intrinsics_path",
+        "layout",
+        "log_y",
+        "marker_frequencies",
+        "max_frequency",
+        "max_length_m",
+        "ncols",
+        "noverlap",
+        "nperseg",
+        "overlay",
+        "per_family",
+        "phi0",
+        "pose_path",
+        "projection",
+        "quantity",
+        "r0",
+        "reference_slopes",
+        "sample_rate",
+        "selection",
+        "series_label",
+        "shot",
+        "show_lcfs",
+        "show_magnetic_axis",
+        "show_wall",
+        "sigma",
+        "synthetic",
+        "time",
+        "time_range",
+        "time_resolution",
+        "time_slice",
+        "title",
+        "use_wall_boundary",
+        "window",
+        "window_size",
+        "x_limits",
+        "xunit",
+        "yunit",
+        "z0",
+    }
+)
+
+LAYOUTS = ("overlay", "subplots", "grouped")
+
+
+def _layout_columns(count: int, requested: Any = None) -> int:
+    """Columns for a subplots grid: a function of the panel count alone.
+
+    Deterministic in the resolved selection (issue #260 section 6): one column
+    up to six panels, two up to sixteen, three up to thirty-six, four beyond.
+    ``ncols=`` overrides.
+    """
+    if requested is not None:
+        return max(1, int(requested))
+    return 1 if count <= 6 else 2 if count <= 16 else 3 if count <= 36 else 4
+
+
+def _share_x_for(models: Sequence[LineSeries]) -> bool:
+    """Share x only when every panel's time range overlaps the others.
+
+    Sharing across a mixed array -- Mirnov coils sampled over 0.26-0.34 s beside
+    IMPA probes sampled over 0-1 s -- stretches every panel to the widest base
+    and hides the signal, so x is shared only when each panel keeps at least
+    half of its own range inside the common window.
+    """
+    ranges = []
+    for model in models:
+        xs = [s.x for s in model.series if s.x.size]
+        if xs:
+            ranges.append((min(float(x.min()) for x in xs), max(float(x.max()) for x in xs)))
+    if len(ranges) < 2:
+        return True
+    low, high = max(r[0] for r in ranges), min(r[1] for r in ranges)
+    if high <= low:
+        return False
+    return all((high - low) >= 0.5 * (hi - lo) for lo, hi in ranges if hi > lo)
+
+
+def _lay_out(
+    model: LineSeries, layout: str, *, entries, recipe: LineRecipe, options: dict,
+    suptitle: str,
+) -> LineSeries | Panels:
+    """Arrange an already-resolved set of traces (issue #260).
+
+    Layout never changes which channels were selected; it only decides how the
+    same traces are presented, and the figure's structure follows from the
+    layout and the resolved selection alone.
+    """
+    if layout not in LAYOUTS:
+        raise ValueError(f"layout must be one of {', '.join(LAYOUTS)}; got {layout!r}")
+    if layout == "overlay":
+        return model
+    common = dict(x_label=model.x_label, x_unit=model.x_unit, y_label=model.y_label,
+                  y_unit=model.y_unit, display=model.display)
+
+    if layout == "subplots":
+        # One panel per channel, in resolved order; several shots of one channel
+        # share that channel's panel (section 17).
+        by_channel: dict[str, list[Series]] = {}
+        for trace in model.series:
+            by_channel.setdefault(trace.channel or trace.label, []).append(trace)
+        panels = [LineSeries(series=tuple(traces), title=key, **common)
+                  for key, traces in by_channel.items()]
+        return Panels(models=tuple(panels), ncols=_layout_columns(len(panels), options.get("ncols")),
+                      share_x=_share_x_for(panels), suptitle=suptitle)
+
+    # grouped: one panel per canonical region of this family, canonical order.
+    if recipe.index != "channel":
+        raise ValueError("grouped layout applies to multi-channel plots only")
+    from vaft.plot.selection import INBOARD, OUTBOARD, UNCLASSIFIED, classify_regions, radial_divider
+
+    container = _container_of(recipe.y_path, "{i}")
+    # A family infers its divider from its own geometry (vaft.plot.selection),
+    # and two shots need not share one, so each entry's traces are classified
+    # against that entry's split.  An entry with no split cannot be grouped,
+    # whatever another entry's geometry allows.
+    splits: dict[str, Any] = {}
+    for label, ods in entries:
+        r_all, _ = _channel_positions(ods, container, _count(ods, container))
+        split = radial_divider(r_all)
+        if not split:
+            which = f" in entry {label!r}" if len(entries) > 1 else ""
+            raise ValueError(
+                f"grouped layout is unsupported for {container}{which}: its channels "
+                "sit at one radius, so there is no inboard/outboard to group by"
+            )
+        splits[str(label)] = split
+    groups: dict[str, list[Series]] = {INBOARD: [], OUTBOARD: [], UNCLASSIFIED: []}
+    for trace in model.series:
+        split = splits.get(trace.entry)
+        if split is None and len(splits) == 1:
+            split = next(iter(splits.values()))
+        region = (classify_regions([trace.position[0]], split=split)[0]
+                  if trace.position is not None and split is not None else UNCLASSIFIED)
+        groups[region].append(trace)
+    panels = [LineSeries(series=tuple(traces), title=region, **common)
+              for region, traces in groups.items() if traces]
+    return Panels(models=tuple(panels), ncols=_layout_columns(len(panels), options.get("ncols")),
+                  share_x=_share_x_for(panels), suptitle=suptitle)
 
 
 def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
@@ -3492,6 +3913,216 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
     panels.append(field)
     return Panels(models=tuple(panels), ncols=2, share_x=False, suptitle=title)
 
+
+# ---------------------------------------------------------------------------
+# One equilibrium slice from one figure (issue #261 sections 11-13)
+# ---------------------------------------------------------------------------
+
+
+def _usable_slices(ods: Any) -> list[int]:
+    """Slices a summary may stand on.
+
+    A finite time, a stored 2-D psi, and a reconstruction the solver did not
+    disown: IMAS stores that verdict per slice in ``equilibrium.code.
+    output_flag`` ("negative values mean the result shall not be used").
+    The flag is read where present and never computed here.
+    """
+    flags = _array(ods, "equilibrium.code.output_flag")
+    usable = []
+    for index, _ in _constraint_slices(ods):
+        if _array(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi") is None:
+            continue
+        if flags is not None and index < flags.size and np.isfinite(flags[index]) and flags[index] < 0:
+            continue
+        usable.append(index)
+    return usable
+
+
+def representative_slice(ods: Any) -> tuple[int, str]:
+    """The slice that best stands for the discharge, and why.
+
+    Among the usable slices, the one with the largest stored plasma volume: a
+    fully developed plasma is more interpretable than whatever sits in the
+    middle of the array.  When no slice stores a volume -- true of every
+    packaged sample -- the middle usable slice is taken (the later of the two
+    middles when their count is even), and the reason says so.
+    Deterministic: volume ties go to the earlier slice.
+    """
+    usable = _usable_slices(ods)
+    if not usable:
+        raise ValueError(
+            "no usable equilibrium slice: none stores both a time and a 2-D psi"
+        )
+    volumes = []
+    for index in usable:
+        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.volume")
+        try:
+            volumes.append(float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan)
+        except (IndexError, TypeError, ValueError):
+            volumes.append(np.nan)
+    volumes_array = np.asarray(volumes, dtype=float)
+    if np.isfinite(volumes_array).any():
+        best = int(np.nanargmax(volumes_array))
+        return usable[best], "largest plasma volume"
+    return usable[len(usable) // 2], "middle usable slice (no volume stored)"
+
+
+def resolve_time_slice(
+    ods: Any, *, time: float | None = None, time_slice: int | None = None
+) -> tuple[int, float, str]:
+    """``(index, stored time, reason)`` of the slice a request resolves to.
+
+    ``time_slice`` names a stored slice directly; ``time`` snaps to the
+    nearest usable slice, and the returned time is that slice's own -- never
+    an interpolated state presented as a reconstruction (issue #261 section
+    13); neither given, the representative slice.
+    """
+    if time is not None and time_slice is not None:
+        raise ValueError("pass either time= or time_slice=, not both")
+    usable = _usable_slices(ods)
+    if time_slice is not None:
+        if float(time_slice) != int(time_slice):
+            raise ValueError(
+                f"time_slice={time_slice!r} is not a slice index; pass time= for a time in seconds"
+            )
+        index = int(time_slice)
+        total = _count(ods, "equilibrium.time_slice")
+        if not 0 <= index < total:
+            raise ValueError(f"time_slice={index} is outside the {total} stored slices")
+        reason = "requested slice"
+    elif time is not None:
+        if not usable:
+            raise ValueError("no usable equilibrium slice to resolve time= against")
+        times = np.asarray(
+            [float(_get(ods, f"equilibrium.time_slice.{i}.time")) for i in usable], dtype=float
+        )
+        nearest = int(np.argmin(np.abs(times - float(time))))
+        index = usable[nearest]
+        reason = f"nearest stored slice to t = {float(time) * 1e3:.2f} ms"
+        if not times.min() <= float(time) <= times.max():
+            warnings.warn(
+                f"time={float(time):g} s lies outside the stored equilibrium slices "
+                f"({times.min():g}-{times.max():g} s); drawing the nearest, slice {index}. "
+                "Times are in seconds.",
+                UserWarning,
+                stacklevel=3,
+            )
+    else:
+        index, reason = representative_slice(ods)
+    stored = _get(ods, f"equilibrium.time_slice.{index}.time")
+    time_value = float(np.asarray(stored, dtype=float).ravel()[0]) if stored is not None else np.nan
+    return index, time_value, reason
+
+
+#: Global quantities a slice summary states, in order: label, IMAS leaf,
+#: canonical unit ("" for dimensionless), display subject.
+_SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
+    ("Ip", "ip", "A"),
+    ("beta_p", "beta_pol", ""),
+    ("beta_N", "beta_normal", ""),
+    ("li_3", "li_3", ""),
+    ("q_axis", "q_axis", ""),
+    ("q_95", "q_95", ""),
+    ("psi_axis", "psi_axis", "Wb"),
+    ("psi_boundary", "psi_boundary", "Wb"),
+    ("R_axis", "magnetic_axis.r", "m"),
+    ("Z_axis", "magnetic_axis.z", "m"),
+    ("B_tor at axis", "magnetic_axis.b_field_tor", "T"),
+    ("volume", "volume", "m^3"),
+)
+
+
+def _slice_global_lines(ods: Any, index: int) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy."""
+    from vaft.plot.display import resolve_display
+
+    lines = []
+    width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
+    for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
+        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
+        try:
+            value = float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
+        except (IndexError, TypeError, ValueError):
+            value = np.nan
+        if not np.isfinite(value):
+            lines.append(f"{label:<{width}}  not stored")
+            continue
+        shown_unit = unit
+        if unit:
+            try:
+                display = resolve_display(unit, subject="equilibrium")
+                value, shown_unit = value * display.scale, display.unit
+            except ValueError:
+                pass
+        lines.append(f"{label:<{width}}  {value:.4g} {shown_unit}".rstrip())
+    return lines
+
+
+def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
+    """Understand one equilibrium slice from one figure (issue #261 section 11).
+
+    Poloidal flux with the LCFS, axis and wall; pressure and q against the
+    normalised flux; and the slice's global quantities as text.  The slice is
+    the representative one unless ``time=`` (snapped to a stored slice) or
+    ``time_slice=`` says otherwise; the title states which slice was drawn
+    and why, so a reader never mistakes it for an interpolation.
+    """
+    index, time_value, reason = resolve_time_slice(
+        ods, time=options.get("time"), time_slice=options.get("time_slice")
+    )
+    # An interactive caller selects slices by index and says why in its own
+    # words ("selected"); a direct time_slice= stays "requested slice".
+    reason = options.get("_slice_reason") or reason
+    total = _count(ods, "equilibrium.time_slice")
+    entries = [("", ods)]
+    field = _build_field_2d(ods, RECIPES["equilibrium_field_psi"], time_slice=index)
+    # One figure, one convention: psi in the display unit the text panel uses
+    # (mWb under the display policy), and the magnetic axis marked on the map.
+    from vaft.plot.display import resolve_display
+
+    flux_display = resolve_display("Wb", subject="equilibrium")
+    overlays = list(field.overlays)
+    axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r"))
+    axis_z = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.z"))
+    if axis_r is not None and axis_z is not None:
+        overlays.append(
+            GeometryLayer(
+                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
+                style={"marker": "+", "color": "k", "markersize": 10},
+            )
+        )
+    field = dataclasses.replace(
+        field,
+        title="Poloidal flux",
+        values=np.asarray(field.values) * flux_display.scale,
+        value_label=f"Poloidal Flux [{flux_display.unit}]",
+        overlays=tuple(overlays),
+    )
+    pressure = _build_profile_1d(
+        entries, RECIPES["equilibrium_profile_pressure"],
+        _plot_name="equilibrium_profile_pressure", _panel_member=True, time_slice=index,
+    )
+    q = _build_profile_1d(
+        entries, RECIPES["equilibrium_profile_q"],
+        _plot_name="equilibrium_profile_q", _panel_member=True, time_slice=index,
+    )
+    globals_panel = TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities")
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    shot = f" #{pulse}" if pulse not in (None, "") else ""
+    time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
+    suptitle = options.get(
+        "title",
+        f"Equilibrium slice{shot} — {time_text} (slice {index + 1} of {total}, {reason})",
+    )
+    return Panels(
+        models=(field, pressure, q, globals_panel), ncols=2, share_x=False, suptitle=suptitle
+    )
+
+
+RECIPES["equilibrium_overview"] = CallableRecipe(
+    builder=_build_equilibrium_slice_overview,
+    description="One equilibrium slice from one figure: psi, profiles, global quantities.",
+)
 
 RECIPES["equilibrium_overview_verification"] = CallableRecipe(
     builder=_build_equilibrium_verification,
@@ -4226,6 +4857,7 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
     from vaft.omas.vacuum_magnetics import (
         plasma_onset_time,
         synthetic_vacuum_magnetics,
+        DEFAULT_MIN_WALL_AUTHORITY,
         vacuum_magnetics_metrics,
     )
 
@@ -4246,6 +4878,9 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         # The same threshold the residual figure draws its band at, so the
         # markers and the Delta-t annotations describe the band the reader sees.
         sigma=float(options.get("sigma", 5.0)),
+        min_wall_authority=float(
+            options.get("min_wall_authority", DEFAULT_MIN_WALL_AUTHORITY)
+        ),
     )
     return channels, metrics
 
@@ -4253,10 +4888,13 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
 def _vacuum_suptitle(ods: Any, metrics: Mapping[str, Any], headline: str) -> str:
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     summary = metrics["summary"]
+    scored = summary["scored"]
     return (
         f"{headline} — shot {pulse}\n"
         f"{summary['channel_count']} channels, median eddy improvement "
-        f"{summary['median_improvement']:.2f} (worst {summary['min_improvement']:.2f})"
+        f"{summary['median_improvement']:.2f} (worst {summary['min_improvement']:.2f}); "
+        f"worst where the wall reaches {scored['improvement']['min']:.2f} "
+        f"({scored['count']} channels, authority ≥ {scored['min_wall_authority']:.2f})"
     )
 
 

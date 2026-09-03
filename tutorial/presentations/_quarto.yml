@@ -1,0 +1,7 @@
+project:
+  title: "VAFT presentations"
+
+# The decks are rendered one file at a time by tutorial/Makefile, which writes
+# each output beside its source. Nothing rendered here is committed -- see
+# README.md for the output policy and the CI artifacts.
+bibliography: assets/bibliography/vaft.bib

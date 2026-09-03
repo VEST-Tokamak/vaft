@@ -94,16 +94,21 @@ Discovery
 
 ::
 
+    print(vaft.plot.available_plots(query="ip"))      # a subject / view / quantity tree
     for row in vaft.plot.available_plots(domain="magnetics"):
         print(row["name"], row["model"], row["required_paths"])
 
-Each row carries the canonical ``name``, its ``domain``/``view``/``quantity``,
-the ``model`` the renderer consumes, the ``ids`` roots and ``required_paths`` an
-adapter must supply, and a short ``description``.  :func:`available_plots`,
-``__all__`` and ``dir()`` report the same canonical set because all three derive
-from :mod:`vaft.plot.registry`.  The ``ids`` and ``required_paths`` fields are
-what will let a database adapter fetch only the data a plot needs once selective
-loading (issue #51) lands.
+:func:`available_plots` returns a :class:`~vaft.plot.discovery.PlotCatalog`: it
+prints as a tree organised by the taxonomy's ``subject / view / [quantity]``
+identity, and iterates as :class:`~vaft.plot.discovery.PlotCapability` records
+that still answer the flat-row keys -- the canonical ``name``, its
+``domain``/``view``/``quantity``, the ``model`` the renderer consumes, the
+``ids`` roots and ``required_paths`` an adapter must supply, and a short
+``description`` (issue #262).  ``query=`` resolves strictly through the alias
+registry.  :func:`available_plots`, ``__all__`` and ``dir()`` report the same
+canonical set because all three derive from :mod:`vaft.plot.registry`.  The
+``ids`` and ``required_paths`` fields are what will let a database adapter
+fetch only the data a plot needs once selective loading (issue #51) lands.
 
 Adding a renderer means adding a ``@renderer(...)``-decorated function; the
 decorator registers it and returns it unchanged, so the name stays a real
@@ -172,8 +177,11 @@ from .models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    TextPanel,
     ViewModel,
 )
+from .discovery import PlotCapability, PlotCatalog
+from .navigation import SliceNavigator
 from .registry import PlotSpec, available_plots, canonical_names, get_spec
 from .renderers.fields import render_field_2d
 from .renderers.geometry import render_geometry_3d_layers, render_geometry_layers
@@ -211,6 +219,7 @@ from .renderers.geometry import (
 )
 from .renderers.images import (
     camera_visible_animation_frames,
+    camera_visible_image,
     camera_visible_image_efit_overlay,
     camera_visible_image_field_line,
     camera_visible_image_frame,
@@ -259,11 +268,13 @@ from .renderers.panels import (
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
+    diagnostics_overview,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
     equilibrium_overview_convergence,
     equilibrium_overview_fit_quality,
+    equilibrium_overview_histories,
     equilibrium_overview_profiles,
     equilibrium_overview_residuals,
     equilibrium_overview_verification,
@@ -321,12 +332,16 @@ _SUPPORT_EXPORTS = (
     "ImageSequence",
     "LineSeries",
     "Panels",
+    "PlotCapability",
+    "PlotCatalog",
     "PlotSpec",
     "PowerSpectrum",
     "Profile1D",
     "ReferenceSlope",
     "Series",
+    "SliceNavigator",
     "Spectrogram",
+    "TextPanel",
     "ViewModel",
     "available_plots",
     "canonical_names",

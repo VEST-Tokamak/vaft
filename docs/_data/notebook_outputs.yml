@@ -1,0 +1,199 @@
+---
+source_repository: https://github.com/VEST-Tokamak/vaft
+source_commit: 4f7c48341a222ca8055a681ccd3667d39a930b13
+baseline_commit: f6be2cf20d1c360c8bcfaefd635bdf627325f41b
+branch: codex/issue-60-notebook-provenance
+export_command: MPLBACKEND=Agg VAFT_DOCS_READ_ONLY=1 python scripts/export_documentation_outputs.py --output <output-directory>
+python_version: 3.12.9
+vaft_version: 0.5.0
+dependency_snapshot_sha256: 61a49a1606bbd3be6df14564542e0fc804eddc9aa8b7c0a0f0254e09660b57f7
+timestamp: '2026-08-21T21:40:52+09:00'
+
+# These artifacts cannot be regenerated from the command recorded above.
+# `source_commit` 4f7c483 and branch codex/issue-60-notebook-provenance are both
+# unreachable, and scripts/export_documentation_outputs.py was removed from the
+# repository by PR #114, so nothing in any branch can reproduce the export.
+#
+# The images themselves are intact -- every artifact checksum below still
+# verifies -- but they can no longer be tied to the notebooks that produced
+# them, because those notebooks have changed since. Each affected output is
+# marked `verification: legacy-unreproducible` and the validator waives its
+# notebook checksum and its immutable source URL, and only those two. Artifact
+# checksums, captions, alt text and guide references stay enforced, so a newly
+# added output must still be genuinely reproducible.
+#
+# Regenerating them is tracked in issue #156.
+provenance_status: legacy-unreproducible
+provenance_reason: >-
+  Exported on 2026-08-21 from commit 4f7c483 of branch
+  codex/issue-60-notebook-provenance. Both the commit and the branch are
+  unreachable, and the exporter named in export_command was deleted by PR #114,
+  so the recorded command cannot be re-run.
+provenance_issue: 156
+
+outputs:
+  first-result:
+    title: Offline first result
+    notebook_path: notebooks/database_initialization_and_load.ipynb
+    notebook_sha256: f7c97ecf5f92a355e870cc0d77b0006cf4fa437f5e49e638db856dd5be53df3f
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: offline-packaged-data
+    data_source: Packaged OMAS sample for VEST shot 39915
+    shot: 39915
+    time_slice: 0.300–0.330 s
+    artifacts:
+    - path: assets/notebook-outputs/first-result/first-result.png
+      sha256: 9301167e833591d9591c6463b60269be75f22c0e1e8d47008d9f167216cd828e
+      caption: Plasma current from the packaged offline sample.
+      alt: Line plot of VEST shot 39915 plasma current from 300 to 330 milliseconds.
+  hsds-39915:
+    title: Public HSDS shot 39915 metadata
+    notebook_path: notebooks/database_initialization_and_load.ipynb
+    notebook_sha256: f7c97ecf5f92a355e870cc0d77b0006cf4fa437f5e49e638db856dd5be53df3f
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: read-only-public-hsds
+    data_source: public/39915/equilibrium
+    shot: 39915
+    time_slice: 0.316–0.327 s
+    artifacts:
+    - path: assets/notebook-outputs/hsds-39915/hsds-39915.txt
+      sha256: b638972489ba5c784ec52851a624be8d9f6d09706cb91d93b2a9d94cb72f65a6
+      caption: Lazy-ODS metadata returned by a live read-only HSDS request.
+      alt: Text summary reporting eight equilibrium time slices for public VEST shot 39915.
+  imas-roundtrip:
+    title: OMAS and IMAS-path round trip
+    notebook_path: notebooks/read_and_convert_data_structure.ipynb
+    notebook_sha256: ab0bdecbfe70ed117ccac0611f8dcd994d1feaee889645f0236365c3fd5a95bc
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: offline-temporary-directory
+    data_source: Packaged OMAS sample
+    shot: 39915
+    time_slice: not-applicable
+    artifacts:
+    - path: assets/notebook-outputs/imas-roundtrip/imas-roundtrip.txt
+      sha256: 5e0522ddb6c3c459d38c96a5261350b45ca84fa58d61f69c9094609c4f1505b2
+      caption: Root-IDS comparison before and after a local compressed-JSON round trip.
+      alt: Text summary confirming that all ten root IDS names survived the round trip.
+  mirnov-spectrogram:
+    title: Archived-shot Mirnov spectrogram
+    notebook_path: notebooks/fluctuation_diagnostics_analysis.ipynb
+    notebook_sha256: a41968189104e0047c9867e1e0b772ca2f1519da270bd384cdf1fd89ea11e21a
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/fluctuation_diagnostics_analysis.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: offline-archived-shot
+    data_source: vaft/data/legacy/shot_44740.json.gz
+    shot: 44740
+    time_slice: 0.304–0.330 s
+    artifacts:
+    - path: assets/notebook-outputs/mirnov-spectrogram/mirnov-spectrogram.png
+      sha256: 17c631ea70e35f0383f66c53b6adec638df27f7cedee9edd4c302fb22ec899f1
+      caption: Inboard and outboard Mirnov power spectra from archived shot 44740.
+      alt: Two stacked spectrograms showing Mirnov fluctuation magnitude up to 80 kilohertz.
+  kinetic-profile:
+    title: Paired kinetic-profile result
+    notebook_path: notebooks/kinetic_efit_end_to_end.ipynb
+    notebook_sha256: 789fdf1591de3f8d87777e9bcb6f8c549a6f43f0bcf535900735782c2f3915f2
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/kinetic_efit_end_to_end.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: offline-paired-diagnostics
+    data_source: Repository GEQDSK, Thomson and ion-Doppler files
+    shot: 48224
+    time_slice: 0.300 s
+    artifacts:
+    - path: assets/notebook-outputs/kinetic-profile/kinetic-profile.png
+      sha256: a90e3861a2c18382e478a24526b8a5354d769266e679744d56362215028a7453
+      caption: Electron temperature and density profiles generated on a 129-point normalized-flux grid.
+      alt: Side-by-side electron temperature and density profiles for VEST shot 48224 at 300 milliseconds.
+  equilibrium-inputs:
+    title: Equilibrium input preparation
+    notebook_path: notebooks/equilibrium_refinement_using_chease.ipynb
+    notebook_sha256: 9e2b221eab484bbba055e0aed1a9690c831233c4f4a7df2bf5fc05f26ff0de8c
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: deterministic-input-preparation
+    data_source: vaft/data/efit/g039915.00319
+    shot: 39915
+    time_slice: 0.319 s
+    artifacts:
+    - path: assets/notebook-outputs/equilibrium-inputs/equilibrium-inputs.png
+      sha256: 680abc32c64b5e9ba8b296cec3468e1e128a9fef2d35b3c9de094fa4ed28e0c7
+      caption: EFIT profiles, flux contours and boundary used to prepare CHEASE inputs.
+      alt: Six-panel equilibrium input figure with profiles, normalized-flux contours, boundary and limiter.
+    - path: assets/notebook-outputs/equilibrium-inputs/equilibrium-readiness.txt
+      sha256: 14b3d14bb3ab6776adb80e7e4078499a9211d4bff0f3de9907055e112882f3bc
+      caption: Prepared-file and executable-readiness report.
+      alt: Text report listing the deterministic CHEASE input files and execution mode.
+  external-readiness:
+    title: External-code readiness
+    notebook_path: notebooks/initialize_external_fusion_codes.ipynb
+    notebook_sha256: a7169d5ceb351ee781d059ba8189e46b7ab696e67a39723484cac25d29ebbdaf
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/initialize_external_fusion_codes.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: read-only-environment-inspection
+    data_source: GPECHOME, CHEASEHOME, EFITHOME and TESHOME
+    shot: not-applicable
+    time_slice: not-applicable
+    artifacts:
+    - path: assets/notebook-outputs/external-readiness/external-code-readiness.txt
+      sha256: 5412b49b5173c00f81d994d25e585d0b2e0c28cfef8df5cb1ccbb34b7b665708
+      caption: Optional external-code configuration status without credential or secret values.
+      alt: Text readiness report for GPEC, CHEASE, EFIT and TES installation roots.
+  confinement-scaling:
+    title: Confinement-scaling result
+    notebook_path: notebooks/confinement_time_scaling.ipynb
+    notebook_sha256: 02f602010db261dd6eb71cbba5334ad2854e325c14907bfb325c56d85979f812
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: deterministic-offline-analysis
+    data_source: Pinned synthetic operations-analysis fixture
+    shot: not-applicable
+    time_slice: 0.290–0.345 s
+    artifacts:
+    - path: assets/notebook-outputs/confinement-scaling/confinement-scaling.png
+      sha256: d589ce0aa5c2a8669532a7832f1a7464854d204da5b11d479bef4bd81ebb705d
+      caption: Experimental and empirical confinement times with the IPB89 H factor.
+      alt: Two-panel plot comparing confinement-time estimates and the IPB89 H factor.
+    - path: assets/notebook-outputs/confinement-scaling/confinement-scaling.txt
+      sha256: 0e0a93ed6eb137150fe0a0991db52306bd14fb5caffd8386789bd02c2d04c393
+      caption: Row count and mean confinement metrics.
+      alt: Text summary of twelve confinement-scaling rows and their mean values.
+  pipeline-overview:
+    title: Snakemake pipeline stage summary
+    notebook_path: notebooks/automated_pipeline_overview.ipynb
+    notebook_sha256: a04dd9ff3b1c8b9a6a4b888374977a041b1236e7644a1d8ae71d99904657250f
+    source_url: https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/automated_pipeline_overview.ipynb
+    verification: legacy-unreproducible
+    verification_reason: the notebook has changed since the recorded export
+    verification_issue: 156
+    execution_mode: deterministic-offline-diagram
+    data_source: Pinned workflow-stage definition
+    shot: not-applicable
+    time_slice: not-applicable
+    artifacts:
+    - path: assets/notebook-outputs/pipeline-overview/pipeline-overview.png
+      sha256: 8c78973028a647a5a398cfb816ebdc9c040ee621d5f8ff04921550eeee778165
+      caption: Routine, corrective and summary products in the VAFT Snakemake workflow.
+      alt: Horizontal diagram from raw DAQ through diagnostics, equilibrium, profiles and MHD products to history tables.
+    - path: assets/notebook-outputs/pipeline-overview/pipeline-overview.txt
+      sha256: 193e1ba7806cc3ebb3d41f53391264780a48cf0197d03cd55c9bb2e3a83b06ad
+      caption: Machine-readable workflow stage and output summary.
+      alt: Text list of six Snakemake stages, workflow types and products.

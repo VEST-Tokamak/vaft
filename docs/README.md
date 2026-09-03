@@ -1,0 +1,146 @@
+# VAFT documentation source
+
+This directory is the source of the documentation site published at
+<https://vest-tokamak.github.io/vaft/>. It is a Jekyll site using the GitBook
+look of [`sighingnow/jekyll-gitbook`](https://github.com/sighingnow/jekyll-gitbook),
+whose layouts and includes are vendored here and locally modified.
+
+## Two tracks, one published branch
+
+The site has two tracks, and each is built from the branch it documents:
+
+| URL | Built from | Purpose |
+| --- | --- | --- |
+| `/vaft/` | `main/docs/` | stable documentation |
+| `/vaft/develop/` | `develop/docs/` | development documentation, with a banner and `noindex` |
+
+Both are composed into one tree and published as a single commit on the
+**`gh-pages`** branch. That branch is generated output only: every file on it is
+rewritten on each publish, so an edit made there survives until the next build
+and reaches nobody's review. Change documentation here, on the branch it belongs
+to.
+
+Building each track from its own branch is the point rather than a detail. The
+generated reference pages -- `/reference/vest-diagnostics/`, and
+`/reference/formula/` on branches that ship `vaft.formula.catalog` -- are built
+by introspecting the library, so they are only correct for the exact tree they
+were generated from.
+
+## Building
+
+Use a current Ruby rather than the macOS system Ruby. On Apple Silicon, once:
+
+```bash
+brew install ruby
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+gem install bundler -v 2.5.16
+```
+
+Then:
+
+```bash
+cd docs
+bundle install
+python build.py                      # dry run: both tracks, composed and validated
+python build.py --output /tmp/site   # ...and keep the result to look at
+```
+
+`build.py` extracts `main` and `develop` with `git archive` into a temporary
+directory, runs each branch's declared generators against its own tree, builds
+both with Jekyll, composes them, validates the result, and only then publishes.
+It never reads or writes your checkout, and the branch you are standing on makes
+no difference to the output. If any step fails, `gh-pages` is left exactly as it
+was.
+
+Publishing normally happens in CI, on a push to `main` or `develop`:
+
+```bash
+python build.py --publish
+```
+
+## Working on a page
+
+```bash
+cd docs
+npm run data          # regenerate _data from this checkout
+npm run docs:serve    # http://localhost:4000/vaft/ with live reload
+npm run test:docs     # build and validate the stable track
+npm run test:docs:develop
+```
+
+`_data/vest_diagnostics.yml`, `_data/formula_catalog.yml` and
+`_data/provenance.yml` are generated and are not committed. `generators.yml`
+declares which generators this branch has, which is why that file differs
+between `main` and `develop`.
+
+Visual regression tests are run by hand, not by the publish workflow:
+
+```bash
+npm install && npx playwright install chromium webkit
+npm run test:visual          # npm run test:visual:update after an intended change
+```
+
+The committed screenshots were captured on arm64 macOS and will not match a
+Linux renderer.
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| `_config.yml` | site config; `_config.develop.yml` overlays the development track |
+| `_data/navigation.yml` | sidebar titles, ids, order and canonical URLs |
+| `_data/resources.yml` | notebook, API and data-source ids referenced by page front matter |
+| `_data/page_migrations.yml` | retired URLs and where they now point |
+| `_data/notebook_outputs.yml` | published figure cards and their provenance |
+| `_guide/` | the canonical pages, plus hidden redirect stubs |
+| `_pages/` | the `pages` collection (About, Contact) |
+| `_includes/`, `_layouts/` | vendored theme partials, locally modified |
+| `assets/` | images and theme assets |
+| `scripts/validate_docs.rb` | the validator that `build.py` and `npm run test:docs` run |
+| `build.py`, `generators.yml` | the build and publish pipeline |
+
+Sidebar order and canonical URLs come only from `_data/navigation.yml`; page
+dates do not control navigation. Cross-link canonical routes with
+`{{ site.baseurl }}`. Every retired URL needs a redirect document and an entry in
+`_data/page_migrations.yml`.
+
+New guide page:
+
+```yaml
+---
+title: Human readable title
+author: VEST team
+date: 2026-07-01 10:20
+category: guide
+layout: post
+---
+```
+
+Add `mermaid: true` only if the page contains a mermaid fence. Content is
+kramdown with GFM: fenced code blocks, `$...$` math via MathJax, and images
+referenced as `![alt]({{ site.baseurl }}/assets/images/...)`.
+
+The vendored `_layouts/` and `_includes/` are **not** upstream copies. They carry
+the per-page table of contents, the navigation built from `navigation.yml`, the
+notebook-output cards and the related-resources block, all of which the test
+suite asserts on. Change them deliberately; they affect every page.
+
+## Rolling back a publish
+
+Each publish is one ordinary commit on `gh-pages`, so the previous site is the
+previous commit:
+
+```bash
+git push origin <previous-tip>:refs/heads/gh-pages --force-with-lease
+```
+
+That is the only place a force push is legitimate here.
+
+## If the workflow cannot push
+
+The publish job needs a write-scoped `GITHUB_TOKEN`. The repository's default
+workflow permission is read, which the workflow overrides explicitly, but an
+organisation policy can still forbid it; the job checks for this and says so
+rather than failing at the push. The fallback is a deploy key with write access,
+stored as a repository secret, with the remote switched to SSH before
+`build.py --publish` runs.

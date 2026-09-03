@@ -36,7 +36,11 @@ SESSION_01_HEADINGS = [
 SESSIONS = {
     1: {
         "notebook": "01_getting_started_with_vaft.ipynb",
-        "tex": "01_getting_started_with_vaft.tex",
+        # Session 01 pilots the QMD presentation pipeline (issue #322): one
+        # source renders to Reveal.js and to Beamer, so it has no committed
+        # .tex and no committed .pdf. Sessions 02-06 remain hand-written Beamer
+        # until the pilot is reviewed.
+        "qmd": "presentations/01_getting_started_with_vaft.qmd",
         "headings": SESSION_01_HEADINGS,
         # Session 01 runs entirely from packaged data; it has no lab branch.
         "modes": ["offline"],
@@ -80,7 +84,9 @@ DEFAULT_HEADINGS = [
 MACHINE_PATH = re.compile(
     r"(?:/(?:Users|home|srv|Volumes)/|(?<![A-Za-z0-9+.-])[A-Za-z]:[\\/])"
 )
-RUNTIME_DIRECTORIES = {".build", "outputs"}
+#: Build products, not sources. Quarto writes its render cache and output
+#: under these; nothing in them is committed.
+RUNTIME_DIRECTORIES = {".build", "outputs", "_output", "_freeze", ".quarto"}
 FORBIDDEN_DATA_SUFFIXES = {
     ".csv",
     ".h5",
@@ -142,8 +148,9 @@ def _source_text(cell: nbformat.NotebookNode) -> str:
 
 def _validate_inventory(failures: list[str]) -> None:
     expected_notebooks = {entry["notebook"] for entry in SESSIONS.values()}
-    expected_tex = {entry["tex"] for entry in SESSIONS.values()}
+    expected_tex = {entry["tex"] for entry in SESSIONS.values() if "tex" in entry}
     expected_pdfs = {Path(name).with_suffix(".pdf").name for name in expected_tex}
+    expected_qmd = {entry["qmd"] for entry in SESSIONS.values() if "qmd" in entry}
 
     def artifact_names(pattern: str) -> set[str]:
         return {
@@ -156,6 +163,17 @@ def _validate_inventory(failures: list[str]) -> None:
         ("notebook", expected_notebooks, artifact_names("*.ipynb")),
         ("TeX source", expected_tex, artifact_names("*.tex")),
         ("PDF", expected_pdfs, artifact_names("*.pdf")),
+        # Quarto sources are addressed relative to tutorial/, so compare the
+        # declared paths against what the presentations tree actually holds.
+        (
+            "Quarto source",
+            expected_qmd,
+            {
+                str(path.relative_to(TUTORIAL))
+                for path in TUTORIAL.glob("presentations/*.qmd")
+                if not path.name.startswith("._")
+            },
+        ),
     )
     for label, expected, actual in inventories:
         if actual != expected:
@@ -243,6 +261,94 @@ def _validate_notebook(
         )
 
 
+QMD_REQUIRED_FORMATS = ("vaftslides-revealjs", "vaftslides-beamer")
+
+#: Quarto accepts several spellings of a notes div.
+_NOTES_DIV = re.compile(r"^:::+\s*\{?\s*\.?notes\b", re.M)
+
+
+class _FrontMatterUnavailable(RuntimeError):
+    """PyYAML is missing, so the deck's front matter cannot be read."""
+
+
+def _front_matter(source: str) -> dict:
+    """Return the deck's YAML front matter, or {} when it has none.
+
+    Raises :class:`_FrontMatterUnavailable` when PyYAML is absent rather than
+    returning {}: an empty mapping is indistinguishable from a deck that has
+    lost its `format:` block, and reporting a missing dependency as a malformed
+    deck sends the reader to the wrong file.
+    """
+    if not source.startswith("---"):
+        return {}
+    end = source.find("\n---", 3)
+    if end < 0:
+        return {}
+    try:
+        import yaml
+    except ModuleNotFoundError as error:
+        raise _FrontMatterUnavailable(
+            "PyYAML is required to validate a Quarto deck's front matter; "
+            "install it with `python -m pip install pyyaml`"
+        ) from error
+    try:
+        parsed = yaml.safe_load(source[3:end])
+    except yaml.YAMLError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _validate_qmd_deck(session: int, filename: str, failures: list[str]) -> None:
+    """A Quarto deck must render both backends and carry speaker notes.
+
+    The counterpart to :func:`_validate_deck`. It parses the front matter rather
+    than grepping the file, because a substring check is satisfied by a mention
+    in prose -- a deck that had lost its ``format:`` block entirely would pass.
+    """
+    path = TUTORIAL / filename
+    if not path.exists():
+        failures.append(f"{filename}: missing Quarto deck source")
+        return
+    source = path.read_text(encoding="utf-8")
+
+    try:
+        declared = _front_matter(source).get("format")
+    except _FrontMatterUnavailable as error:
+        failures.append(f"{filename}: {error}")
+        return
+    if not isinstance(declared, dict):
+        failures.append(
+            f"{filename}: front matter declares no `format:` mapping; the source "
+            "must name both backends"
+        )
+    else:
+        for required in QMD_REQUIRED_FORMATS:
+            if required not in declared:
+                failures.append(
+                    f"{filename}: format {required!r} is not declared; the QMD "
+                    "source must render to both backends"
+                )
+
+    if not _NOTES_DIV.search(source):
+        failures.append(
+            f"{filename}: no speaker notes; they are authored once here and feed "
+            "both the Reveal.js presenter view and the Beamer presenter build"
+        )
+
+    # Figures are shared with the Beamer decks, so a QMD deck must reach for its
+    # own session's directory just as \graphicspath pins the .tex decks to theirs.
+    for referenced in re.findall(r"\.\./figures/(\d{2})/", source):
+        if int(referenced) != session:
+            failures.append(
+                f"{filename}: references figures/{referenced}/ but is session "
+                f"{session:02d}; decks use their own figure directory"
+            )
+
+    extension = TUTORIAL / "presentations/_extensions/vaft/vaftslides/_extension.yml"
+    if not extension.is_file():
+        failures.append("presentations: the shared vaftslides theme is missing")
+
+
 def _validate_deck(session: int, filename: str, failures: list[str]) -> None:
     path = TUTORIAL / filename
     if not path.exists():
@@ -280,7 +386,10 @@ def validate() -> list[str]:
             entry.get("headings"),
             entry.get("modes"),
         )
-        _validate_deck(session, entry["tex"], failures)
+        if "tex" in entry:
+            _validate_deck(session, entry["tex"], failures)
+        if "qmd" in entry:
+            _validate_qmd_deck(session, entry["qmd"], failures)
     return failures
 
 
@@ -291,7 +400,12 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print("Tutorial validation passed: 6 clean notebooks and 6 standalone slide decks.")
+    beamer = sum(1 for entry in SESSIONS.values() if "tex" in entry)
+    quarto = sum(1 for entry in SESSIONS.values() if "qmd" in entry)
+    print(
+        f"Tutorial validation passed: {len(SESSIONS)} clean notebooks, "
+        f"{beamer} standalone Beamer decks and {quarto} Quarto deck(s)."
+    )
     return 0
 
 

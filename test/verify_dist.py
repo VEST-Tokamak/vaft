@@ -94,6 +94,16 @@ def _verify_distribution(path: Path) -> None:
             f"{path.name}: source distribution must not include repository tests"
         )
 
+    # ``_allowed_data_file`` only inspects names under ``vaft/data/``, so a
+    # documentation path would pass every other check while counting against
+    # the wheel size budget.
+    documentation = sorted(name for name in names if name.startswith("docs/"))
+    if documentation:
+        raise ValueError(
+            f"{path.name}: must not include the documentation site: "
+            f"{', '.join(documentation[:5])}"
+        )
+
     print(f"verified {path.name} ({len(names)} files)")
 
 

@@ -47,7 +47,7 @@ def render_line_series(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
-    labels, legend_title = trace_labels(model.series)
+    labels, legend_title = trace_labels(model.series, panel_title=model.title)
     for series, label in zip(model.series, labels):
         options = {**style, **series.style}
         if label:
@@ -69,7 +69,7 @@ def render_line_series(
     if grid:
         axes.grid(True, alpha=0.3)
     apply_legend(axes, legend=legend, title=legend_title)
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 

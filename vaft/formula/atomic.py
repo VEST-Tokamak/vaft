@@ -58,25 +58,65 @@ def interpolate_adf11(
     *,
     multiply_density: bool = False,
 ) -> np.ndarray:
-    r"""Interpolate every charge-state block of an ADF11 table.
+    r"""Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
 
-    ADF11 stores :math:`\log_{10} C_z` on rectangular grids of
-    :math:`\log_{10} n_e[\mathrm{cm}^{-3}]` and
-    :math:`\log_{10} T_e[\mathrm{eV}]`.  VAFT evaluates
+    $$C_z(n_e, T_e) = 10^{\,\mathcal{I}_2[\log_{10}C_z]}$$
 
-    .. math::
+    where $\mathcal{I}_2$ is bilinear interpolation on the table's rectangular
+    grid of $\log_{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$.
 
-        C_z(n_e,T_e) = 10^{\mathcal{I}_2[\log_{10} C_z]},
+    Parameters
+    ----------
+    table : ADF11Data
+        Parsed ADF11 table (``acd``, ``scd``, ``plt``, ...) [n/a].
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    multiply_density : bool, optional
+        Multiply by $n_e$ in cm^-3 to turn coefficients into rates; default ``False`` [bool].
 
-    where :math:`\mathcal{I}_2` is bilinear interpolation in the two log
-    coordinates.  Linear extrapolation is retained outside the tabulated grid
-    to match the established ADF11 calculation path.
+    Returns
+    -------
+    np.ndarray
+        Coefficients in the table's own unit, or rates with ``multiply_density`` [any].
+        Shape ``broadcast(ne_m3, te_eV).shape + (n_blocks,)``; cm^3/s for
+        ACD/SCD and W cm^3 for PLT, s^-1 when multiplied by density.
 
-    ``ne_m3`` (m^-3) and ``te_eV`` (eV) are broadcast together; the result has
-    shape ``broadcast(ne_m3, te_eV).shape + (n_blocks,)``.  ``multiply_density``
-    scales by :math:`n_e[\mathrm{cm}^{-3}]`, converting ACD/SCD coefficients
-    from cm^3/s to transition rates in s^-1.  Empty, non-finite or non-positive
-    profiles raise ``ValueError``.
+    Raises
+    ------
+    ValueError
+        Empty, non-finite or non-positive profiles.
+
+    Convention
+    ----------
+    ADF11 stores densities in cm^-3 and rate coefficients in cm^3 s^-1; the SI
+    input is converted to cm^-3 internally and the output is *not* converted
+    back, so callers multiply by $10^{-6}$ for m^3 s^-1 (as
+    :func:`line_cooling_coefficient` does for W m^3).
+
+    Validity
+    --------
+    Inside the tabulated grid (typically $10^{8}$-$10^{15}$ cm^-3 and
+    1 eV-10 keV for iso-nuclear ADF11 files).
+
+    Limitations
+    -----------
+    Linear extrapolation in log space is retained outside the grid to match the
+    established ADF11 calculation path; extrapolated coefficients are not
+    physical and are not flagged.
+
+    Numerical notes
+    ---------------
+    ``scipy.interpolate.RegularGridInterpolator`` with ``bounds_error=False``,
+    ``fill_value=None``, one interpolator per charge-state block.
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004),
+           https://www.adas.ac.uk/manual.php, ADF11 format.
+    .. [2] F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001
+           (Aurora; the calculation path this follows).
     """
 
     ne, te, shape = _validated_profiles(ne_m3, te_eV)
@@ -105,29 +145,61 @@ def fractional_abundances(
     acd: ADF11Source,
     scd: ADF11Source,
 ) -> np.ndarray:
-    r"""Calculate ionization-equilibrium fractional abundances.
+    r"""Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
 
-    For adjacent charge states, steady-state balance gives
+    $$\frac{f_{z+1}}{f_z} = \frac{S_z(n_e, T_e)}{\alpha_{z+1}(n_e, T_e)}, \qquad
+      \tilde f_0 = 1, \quad \tilde f_z = \prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}}, \quad
+      f_z = \frac{\tilde f_z}{\sum_k\tilde f_k}$$
 
-    .. math::
+    with $S_z$ the SCD effective ionisation and $\alpha_{z+1}$ the ACD effective
+    recombination coefficients.
 
-        \frac{f_{z+1}}{f_z} = \frac{S_z(n_e,T_e)}{\alpha_{z+1}(n_e,T_e)},
+    Parameters
+    ----------
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    acd : ADF11Data or path-like
+        Effective recombination table [n/a].
+    scd : ADF11Data or path-like
+        Effective ionisation table [n/a].
 
-    where :math:`S_z` is the SCD effective ionization coefficient and
-    :math:`\alpha_{z+1}` is the ACD effective recombination coefficient.  The
-    relative populations are constructed as
+    Returns
+    -------
+    np.ndarray
+        Fractional abundances, summing to one over the last axis [-].
+        That axis has ``n_rate_blocks + 1`` charge states, neutral to fully
+        stripped.
 
-    .. math::
+    Raises
+    ------
+    ValueError
+        Mismatched charge-state counts, wrong table class, or non-finite rates.
 
-        \tilde f_0=1,\qquad
-        \tilde f_z=\prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}},\qquad
-        f_z=\frac{\tilde f_z}{\sum_k\tilde f_k}.
+    Convention
+    ----------
+    Effective (collisional-radiative, density-dependent) coefficients in the
+    ADAS sense, evaluated in cm^-3 internally; the density cancels in the
+    ratio, so the result is dimensionless.
 
-    ``ne_m3`` is in m^-3 and ``te_eV`` in eV; ``acd``/``scd`` are effective
-    recombination and ionization tables (``ADF11Data`` or path-like).  The
-    returned final axis has ``n_rate_blocks + 1`` entries, running from neutral
-    to fully stripped and summing to one.  Incompatible charge-state counts or
-    invalid interpolated rates raise ``ValueError``.
+    Assumptions
+    -----------
+    Steady state, no transport: the local balance of ionisation and
+    recombination alone sets the charge-state distribution.
+
+    Limitations
+    -----------
+    Transport in a real edge or start-up plasma shifts the distribution toward
+    lower charge states than coronal equilibrium predicts (the effect Aurora
+    models with an impurity transport solve).
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), Sec. on
+           ADF11 (ionisation balance).
+    .. [2] F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001,
+           Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
     """
 
     acd_table = _as_adf11(acd, "acd")
@@ -175,30 +247,59 @@ def line_cooling_coefficient(
     plt: ADF11Source | None = None,
     cache_dir: str | PathLike[str] | None = None,
 ) -> np.ndarray:
-    r"""Calculate the equilibrium line-radiation cooling coefficient.
+    r"""Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
 
-    The charge-state-resolved PLT coefficients are weighted by the equilibrium
-    abundance calculated from ACD and SCD data:
+    $$L_{\mathrm{line}}(n_e, T_e) = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e, T_e)\,
+      P^{\mathrm{PLT}}_q(n_e, T_e)$$
 
-    .. math::
+    the PLT coefficients weighted by the coronal abundances of
+    :func:`fractional_abundances`; the fully stripped state has no line
+    radiation and is omitted.
 
-        L_{z,\mathrm{line}}(n_e,T_e)
-        = 10^{-6}\sum_{q=0}^{Z-1}
-          f_q(n_e,T_e)P^{\mathrm{PLT}}_q(n_e,T_e).
+    Parameters
+    ----------
+    species : str
+        Atomic symbol with configured default ADF11 files, e.g. ``"C"`` [str].
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    acd : ADF11Data or path-like or None, optional
+        Recombination table; ``None`` resolves the configured file [n/a].
+    scd : ADF11Data or path-like or None, optional
+        Ionisation table; ``None`` resolves the configured file [n/a].
+    plt : ADF11Data or path-like or None, optional
+        Line-power table; ``None`` resolves the configured file [n/a].
+    cache_dir : str or path-like or None, optional
+        OPEN-ADAS cache directory; downloads on a miss [n/a].
 
-    ADF11 PLT coefficients are stored in W cm^3, hence the factor
-    :math:`10^{-6}` converts the result to W m^3. The fully stripped state has
-    no line-radiation block and is omitted from the sum.
+    Returns
+    -------
+    np.ndarray
+        Cooling coefficient with the broadcast input shape [W m^3].
+        Multiply by $n_e n_Z$ for a power density.
 
-    ``species`` is an atomic symbol with configured default ADF11 files (for
-    example ``C``), ``ne_m3`` is in m^-3 and ``te_eV`` in eV.  Any of ``acd``,
-    ``scd`` and ``plt`` left as ``None`` is resolved through the VAFT OPEN-ADAS
-    cache (``cache_dir``, downloading on a cache miss).  The result is a
-    non-negative coefficient in W m^3 with the broadcast input shape.
+    Raises
+    ------
+    KeyError
+        Unconfigured species.
+    ADASDataError
+        Lookup, download or parsing failure.
+    ValueError
+        Invalid inputs or mismatched charge-state dimensions.
 
-    Raises ``KeyError`` for an unconfigured species, ``ADASDataError`` when
-    lookup, download or parsing fails, and ``ValueError`` for invalid inputs or
-    mismatched charge-state dimensions.
+    Convention
+    ----------
+    ADF11 PLT is stored in W cm^3; the factor $10^{-6}$ converts to W m^3.
+    Coronal equilibrium, no transport, no recombination/bremsstrahlung
+    continuum (that is the separate PRB class).
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), ADF11
+           PLT class.
+    .. [2] D. E. Post et al., At. Data Nucl. Data Tables 20 (1977) 397
+           (coronal cooling curves).
     """
 
     filenames = default_adf11_files(species)
