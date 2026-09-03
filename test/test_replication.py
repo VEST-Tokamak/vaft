@@ -697,3 +697,83 @@ def test_a_data_dictionary_mismatch_still_fails(monkeypatch):
 
     with pytest.raises(replication.RoundTripValidationError, match="data_dictionary"):
         _round_trip_against(monkeypatch, replica, sent_stamps={"data_dictionary": "3.41.0"})
+
+
+# --------------------------------------------------------------------------- #
+# an unavailable channel is empty locally and absent remotely
+# --------------------------------------------------------------------------- #
+
+
+def _entry(kind, path="magnetics.b_field_pol_probe.0.field.data", reference_shape=None):
+    from vaft.omas.comparison import ComparisonEntry, DifferenceKind, ParityClassification
+
+    return ComparisonEntry(
+        path=path,
+        classification=ParityClassification.REGRESSION,
+        kind=kind,
+        message="",
+        reference_shape=reference_shape,
+        candidate_shape=None,
+        reference_type="ndarray",
+        candidate_type=None,
+        rtol=None,
+        atol=None,
+        max_abs_error=None,
+        max_rel_error=None,
+        policy_rule=None,
+        policy_note=None,
+    )
+
+
+def test_an_empty_local_array_absent_from_the_replica_is_not_a_regression():
+    """A disabled coil or unrecorded field code arrives as a zero-length array.
+
+    IMAS stores no node for one, so the replica lacks the path. Both sides say
+    "no data"; only the representation differs.
+    """
+    from vaft.omas.comparison import DifferenceKind
+
+    assert replication._is_empty_left_unwritten(
+        _entry(DifferenceKind.MISSING_CANDIDATE, reference_shape=(0,))
+    )
+
+
+def test_real_data_missing_from_the_replica_still_fails():
+    """The narrowness is the point: a populated path that did not arrive is
+    data loss, which is exactly what this check exists to catch."""
+    from vaft.omas.comparison import DifferenceKind
+
+    assert not replication._is_empty_left_unwritten(
+        _entry(DifferenceKind.MISSING_CANDIDATE, reference_shape=(4096,))
+    )
+    # A value difference is never explained away by emptiness.
+    assert not replication._is_empty_left_unwritten(
+        _entry(DifferenceKind.NUMERICAL, reference_shape=(0,))
+    )
+    # No shape information means no grounds to excuse it.
+    assert not replication._is_empty_left_unwritten(
+        _entry(DifferenceKind.MISSING_CANDIDATE, reference_shape=None)
+    )
+
+
+def test_a_replica_missing_only_empty_channels_validates(monkeypatch):
+    """End to end: the local product carries an unavailable channel, the
+    replica does not, and the round trip still passes."""
+    import numpy as np
+
+    replica = ODS(consistency_check=False)
+    replica["pf_passive.ids_properties.comment"] = "eddy currents"
+    replica["pf_passive.loop.0.name"] = "PF1"
+
+    monkeypatch.setattr("vaft.database.load", lambda *a, **k: replica)
+    sent = ODS(consistency_check=False)
+    sent["pf_passive.ids_properties.comment"] = "eddy currents"
+    sent["pf_passive.loop.0.name"] = "PF1"
+    sent["pf_passive.loop.0.current.data"] = np.array([])  # unavailable channel
+
+    summary = replication._round_trip(
+        sent, shot=39915, source="main", ids=("pf_passive",), occurrence=0
+    )
+
+    assert summary["passed"] is True
+    assert summary["empty_arrays_unwritten"] >= 1
