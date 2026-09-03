@@ -236,6 +236,56 @@ hsds:
 credentials as in step 1. There is no source name to configure: each stage's
 destination comes from `vaft.database.sources.STAGE_REPLICATION`.
 
+### Environment the pipeline needs, and why
+
+Four settings that are not obvious and each of which fails in a way that does not
+name itself:
+
+| Setting | Why |
+| --- | --- |
+| `PATH=~/.local/bin:$PATH` | The replicator shells out to `hsload`/`hsget`. A non-interactive SSH shell excludes `~/.local/bin`, and the failure surfaces as a replication error, not a missing-tool error. |
+| `--scheduler greedy` | snakemake 7.32.4 calls `pulp.list_solvers`, which **no released pulp version exposes** — they all have `listSolvers`. The call sits in a `try/except ImportError`, so it works only when pulp is *absent*; installing pulp turns a caught error into an uncaught `AttributeError`. The greedy scheduler avoids the ILP path entirely. |
+| `conda: null` | `config.yaml` sets `conda: vaft`, and snakemake's job bookkeeping shells out to `conda env export`. In a non-interactive shell conda is not on `PATH`, so the job succeeds and then the run dies during bookkeeping. |
+| `--unlock` after an interruption | A killed run leaves a snakemake directory lock. The next run refuses to start until it is cleared. |
+
+### External codes
+
+| Code | Location | Build |
+| --- | --- | --- |
+| EFIT | `~/git/efit/build-linux/efit/efit` | `cmake -S . -B build-linux -DCMAKE_BUILD_TYPE=Release -DCMAKE_Fortran_STANDARD_LIBRARIES="-llapack -lblas"` — the BLAS reference must be *appended*, since `CMAKE_EXE_LINKER_FLAGS` places flags before the libraries and cannot resolve `liblapack`'s `dscal_`. |
+| CHEASE | `~/work/chease_1/chease` | prebuilt |
+| GPEC | `~/git/GPEC/bin/` | see below |
+
+```bash
+FC=gfortran LAPACKHOME=/usr \
+NETCDF_FORTRAN_HOME=/usr/lib/x86_64-linux-gnu NETCDFINC=/usr/include \
+FFLAGS="-fallow-argument-mismatch -O2" \
+OMPFLAG=-fopenmp RECURSFLAG=-frecursive LDFLAGS=-fopenmp make all
+```
+
+Three things have to be true and each fails opaquely:
+`-fallow-argument-mismatch` (gfortran 10+ makes argument mismatches fatal, so
+`dcon_interface.mod` is never produced and every dependent package cascades);
+`NETCDF_FORTRAN_HOME` rather than `NETCDFHOME` (the makefile reads only the
+former, and Debian puts `libnetcdff` in the multiarch path); and no stale
+zero-length binaries from a previous failed link, which `make` treats as up to
+date and silently skips.
+
+### ideal-GPEC is not part of a routine run
+
+`gpec.modules` defaults to `[dcon, rdcon, stride, gpec]`. The fourth is
+ideal-GPEC, which costs **~2 hours per shot** and which `build_mhd_linear` waits
+on, because it depends on every configured (code, mode). It is issue #95 scope
+and is **not replicated** — `STAGE_REPLICATION` marks `gpec_ideal` as
+`deferred_to: "#95"` — so including it gates the whole stability branch behind
+work that never reaches HSDS. Over a 5000-shot range that is the difference
+between weeks and years.
+
+```yaml
+gpec:
+  modules: [dcon, rdcon, stride]
+```
+
 ```bash
 # shot_first must be refused before the DAG is built
 snakemake --snakefile Snakefile \
@@ -363,11 +413,21 @@ PY
 | Provenance | `"source": "main"`, `"remote_uri": "hdf5://main/39915/"`, a `product_sha256` |
 | Manifest | unchanged — it describes production, not replication |
 
-> **Settle the open assumption here.** If this fails with a 404 or 500 on the
-> *domain* write, HSDS did not auto-create `/main/39915/`. Create it once and
-> retry with `hstouch -o "$OWNER" /main/39915/`. If that is what happened, the
-> pipeline needs a per-shot folder before each shot's first replication, and this
-> document needs a step saying so. Record the outcome either way.
+> **Per-shot folders must be provisioned. This is settled, not open.** HSDS does
+> not auto-create them: `hsload` fails with
+> `Domain: hdf5://main/39915/dataset_description.h5 not found` until the folder
+> exists. Provision one shot with `hstouch -o "$OWNER" /main/39915/`, or a whole
+> range with the script below. It is idempotent — `hstouch` opens with `mode='x'`
+> and refuses an existing folder, which the script counts rather than treats as
+> an error.
+>
+> ```bash
+> ./provision_hsds_shots.sh main 39000 45000
+> ./provision_hsds_shots.sh chease-mhd-stability 39000 45000
+> ```
+>
+> A shot needs a folder in **every** source it replicates into, so a full
+> backfill is one call per source.
 
 ### Then prove the merge preserves what was already there
 
