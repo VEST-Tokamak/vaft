@@ -530,7 +530,7 @@ def magnetics_overview_plasma_residual(
         "One equilibrium slice from one figure: poloidal flux with the LCFS "
         "and axis, pressure and q profiles, and the slice's global quantities."
     ),
-    ids=("equilibrium",),
+    ids=("equilibrium", "wall"),
     required_paths=("equilibrium.time",),
 )
 def equilibrium_overview(
@@ -706,7 +706,7 @@ def equilibrium_overview_convergence(
         "EFIT verification overview: measured and reconstructed constraints "
         "beside the reconstructed poloidal-flux map."
     ),
-    ids=("equilibrium",),
+    ids=("equilibrium", "wall"),
     required_paths=(
         "equilibrium.time_slice.{i}.profiles_2d.0.psi",
         "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
@@ -737,7 +737,7 @@ def equilibrium_overview_verification(
     view="overview",
     quantity="channels",
     description="Soft X-ray overview: lines of sight, signals and channel pattern.",
-    ids=("soft_x_rays",),
+    ids=("soft_x_rays", "wall"),
     required_paths=("soft_x_rays.channel.{i}.brightness.data",),
     optional_paths=("soft_x_rays.channel.{i}.power.data",),
 )
