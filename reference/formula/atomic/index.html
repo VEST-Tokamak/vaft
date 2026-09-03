@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Contacts · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/reference/vest-tokamak-physics/" />
+            <link rel="prev" href="/vaft/reference/formula/green/" />
         
 
         
-            <link rel="next" href="/vaft/reference/references/" />
+            <link rel="next" href="/vaft/reference/formula/statistics/" />
         
     </head>
     <body>
@@ -175,7 +175,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
                     
                         <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
                     </li>
@@ -196,7 +196,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Contacts</a>
+                            <a href="." >Formula reference: atomic</a>
                         
                     </h1>
                 </div>
@@ -209,145 +209,268 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/contact">Contacts</h1>
+                        <h1 id="/reference/formula/Formula_reference_atomic">Formula reference: atomic</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Human support boundary for data access, contribution, and issue reporting.</dd>
-    <dt>Prerequisites / inputs</dt><dd>A reproducible example and environment details when reporting a defect.</dd>
-    <dt>Expected result</dt><dd>The correct public-access path, issue tracker, or maintainer contact route.</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.atomic, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p>VAFT is developed and maintained by the VEST team at Seoul National University. This is the
-canonical route for human support: public data access, privileged writes, library maintenance, and
-VEST technical-system enquiries.</p>
 
-<h2 id="reading-the-vest-database">Reading the VEST database</h2>
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
+3 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/reference/formula/">formula reference index</a>.</p>
 
-<p><strong>Read access is public.</strong> You do not need to negotiate credentials with anyone — the shot database
-ships with a read-only account. Install the HSDS client, then run <code class="language-plaintext highlighter-rouge">hsconfigure</code> (a console script
-provided by <code class="language-plaintext highlighter-rouge">h5pyd</code>, which writes <code class="language-plaintext highlighter-rouge">~/.hscfg</code>):</p>
+<h2 id="overview">Overview</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">--no-deps</span> <span class="nv">h5pyd</span><span class="o">==</span>0.20.0
-hsconfigure
-</code></pre></div></div>
+<p>The equilibrium construction follows MIT-licensed work, Copyright (c) 2021
+Francesco Sciortino. See the third-party notices in the project README.</p>
 
-<p>Answer the prompts with the public reader account:</p>
+<p>This module is the numerical layer of VAFT’s atomic package.  It accepts SI
+electron densities, evaluates native ADF11 tables in log10 space, and returns
+charge-state fractions or cooling coefficients without depending on OMAS.</p>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Server endpoint []: http://147.46.36.244:5101
-Username []: reader
-Password []: test
-API Key [None]:
-Testing connection...
-connection ok
-</code></pre></div></div>
+<h2 id="functions">Functions</h2>
 
-<p>Confirm from Python:</p>
+<ul class="formula-index">
+  <li><a href="#fractional_abundances"><code>fractional_abundances</code></a> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+</li>
+  <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
+</li>
+  <li><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
+</li>
+</ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<h3 id="fractional_abundances"><code class="language-plaintext highlighter-rouge">fractional_abundances</code></h3>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>      <span class="c1"># -&gt; True
-</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>
-</code></pre></div></div>
+<p class="formula-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></p>
 
-<p>The full procedure, including environment setup, is in the
-<a href="/vaft/guide/Quick_start_guide/">Quick start guide</a> and
-<a href="/vaft/guide/Installation/">Installation</a> guides.</p>
+<p><strong>Convention-sensitive.</strong> </p>
 
-<h2 id="database-write-access-and-data-policy">Database write access and data policy</h2>
+<p>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.</p>
 
-<p>Saving to the shared database — uploading shots, writing into a directory of your own — is
-restricted to authorized users. To request write credentials, contact:</p>
+\[\frac{f_{z+1}}{f_z} = \frac{S_z(n_e, T_e)}{\alpha_{z+1}(n_e, T_e)}, \qquad
+  \tilde f_0 = 1, \quad \tilde f_z = \prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}}, \quad
+  f_z = \frac{\tilde f_z}{\sum_k\tilde f_k}\]
 
-<p><strong><a href="mailto:peppertonic18@snu.ac.kr">peppertonic18@snu.ac.kr</a></strong></p>
+<p>with $S_z$ the SCD effective ionisation and $\alpha_{z+1}$ the ACD effective
+recombination coefficients.</p>
 
-<p>Please say who you are, which institution you are with, and what you intend to write. Until write
-access is granted you can still run the entire analysis chain locally: load a shot with the reader
-account (or use the sample data packaged in <code class="language-plaintext highlighter-rouge">vaft.data</code>), process it, and save the result to a
-local file.</p>
-
-<h2 id="vaft-maintenance-bugs-and-features">VAFT maintenance, bugs, and features</h2>
-
-<p>For a library-maintenance question, contact
-<strong><a href="mailto:satelite2517@snu.ac.kr">satelite2517@snu.ac.kr</a></strong>. File bugs, feature requests, and patches
-on the issue tracker — that way the discussion stays with the code:</p>
-
-<p><strong><a href="https://github.com/VEST-Tokamak/vaft/issues">github.com/VEST-Tokamak/vaft/issues</a></strong></p>
-
-<p>A useful report states the VAFT commit or version, your Python version, the shot number (if the
-problem is data-dependent), the call you made, and the full traceback. Pull requests are welcome on
-the same repository.</p>
-
-<h2 id="diagnostic-and-heating-system-enquiries">Diagnostic and heating-system enquiries</h2>
-
-<p>The <a href="/vaft/reference/vest-diagnostics/">VEST diagnostics and data availability</a> page names the manager recorded
-for each diagnostic, control, or heating/current-drive system. Individual technical email addresses
-are not published there. Email the VAFT maintainer for routing, naming the system and shot number
-where applicable.</p>
-
-<h2 id="contact-routes">Contact routes</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Purpose</th>
-      <th>Contact</th>
-    </tr>
-  </thead>
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-    <tr>
-      <td>Library maintainer, general questions</td>
-      <td><a href="mailto:satelite2517@snu.ac.kr">satelite2517@snu.ac.kr</a></td>
-    </tr>
-    <tr>
-      <td>Database write access, VEST data policy</td>
-      <td><a href="mailto:peppertonic18@snu.ac.kr">peppertonic18@snu.ac.kr</a></td>
-    </tr>
-    <tr>
-      <td>Diagnostic or heating-system technical enquiry</td>
-      <td><a href="/vaft/reference/vest-diagnostics/">VEST diagnostics and data availability</a> → <a href="mailto:satelite2517@snu.ac.kr">satelite2517@snu.ac.kr</a></td>
-    </tr>
-    <tr>
-      <td>Bugs, feature requests, patches</td>
-      <td><a href="https://github.com/VEST-Tokamak/vaft/issues">GitHub issues</a></td>
-    </tr>
+  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+</td></tr>
+  <tr><td><code>acd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective recombination table.</p>
+</td></tr>
+  <tr><td><code>scd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective ionisation table.</p>
+</td></tr>
   </tbody>
 </table>
 
-<h2 id="the-lab">The lab</h2>
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Fractional abundances, summing to one over the last axis. That axis has <code class="language-plaintext highlighter-rouge">n_rate_blocks + 1</code> charge states, neutral to fully stripped.</p>
+</td></tr>
+  </tbody>
+</table>
 
-<p>VAFT comes out of the <strong>Nuplex</strong> laboratory at Seoul National University, which operates the VEST
-spherical torus. For the device, the research programme, and the people behind it:</p>
+<p><strong>Raises.</strong></p>
 
-<p><strong><a href="http://nuplex.snu.ac.kr">nuplex.snu.ac.kr</a></strong></p>
+<p>ValueError
+    Mismatched charge-state counts, wrong table class, or non-finite rates.</p>
 
-<p>Background on the framework itself, including how to cite it, is on the
-<a href="/vaft/pages/about/">About</a> page.</p>
+<p><strong>Convention.</strong></p>
+
+<p>Effective (collisional-radiative, density-dependent) coefficients in the
+ADAS sense, evaluated in cm^-3 internally; the density cancels in the
+ratio, so the result is dimensionless.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Steady state, no transport: the local balance of ionisation and
+recombination alone sets the charge-state distribution.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Transport in a real edge or start-up plasma shifts the distribution toward
+lower charge states than coronal equilibrium predicts (the effect Aurora
+models with an impurity transport solve).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), Sec. on ADF11 (ionisation balance).
+</li>
+  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001, Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
+</li>
+</ol>
+
+<h3 id="interpolate_adf11"><code class="language-plaintext highlighter-rouge">interpolate_adf11</code></h3>
+
+<p class="formula-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.</p>
+
+\[C_z(n_e, T_e) = 10^{\,\mathcal{I}_2[\log_{10}C_z]}\]
+
+<p>where $\mathcal{I}<em>2$ is bilinear interpolation on the table’s rectangular
+grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>table</code></td><td>ADF11Data</td><td>n/a</td><td><p>Parsed ADF11 table (<code class="language-plaintext highlighter-rouge">acd</code>, <code class="language-plaintext highlighter-rouge">scd</code>, <code class="language-plaintext highlighter-rouge">plt</code>, …).</p>
+</td></tr>
+  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+</td></tr>
+  <tr><td><code>multiply_density</code></td><td>bool, optional</td><td>bool</td><td><p>Multiply by $n_e$ in cm^-3 to turn coefficients into rates; default <code class="language-plaintext highlighter-rouge">False</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Coefficients in the table’s own unit, or rates with <code class="language-plaintext highlighter-rouge">multiply_density</code>. Shape <code class="language-plaintext highlighter-rouge">broadcast(ne_m3, te_eV).shape + (n_blocks,)</code>; cm^3/s for ACD/SCD and W cm^3 for PLT, s^-1 when multiplied by density.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Empty, non-finite or non-positive profiles.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>ADF11 stores densities in cm^-3 and rate coefficients in cm^3 s^-1; the SI
+input is converted to cm^-3 internally and the output is <em>not</em> converted
+back, so callers multiply by $10^{-6}$ for m^3 s^-1 (as
+<code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> does for W m^3).</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Inside the tabulated grid (typically $10^{8}$-$10^{15}$ cm^-3 and
+1 eV-10 keV for iso-nuclear ADF11 files).</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Linear extrapolation in log space is retained outside the grid to match the
+established ADF11 calculation path; extrapolated coefficients are not
+physical and are not flagged.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">scipy.interpolate.RegularGridInterpolator</code> with <code class="language-plaintext highlighter-rouge">bounds_error=False</code>,
+<code class="language-plaintext highlighter-rouge">fill_value=None</code>, one interpolator per charge-state block.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), https://www.adas.ac.uk/manual.php, ADF11 format.
+</li>
+  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001 (Aurora; the calculation path this follows).
+</li>
+</ol>
+
+<h3 id="line_cooling_coefficient"><code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code></h3>
+
+<p class="formula-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.</p>
+
+\[L_{\mathrm{line}}(n_e, T_e) = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e, T_e)\,
+  P^{\mathrm{PLT}}_q(n_e, T_e)\]
+
+<p>the PLT coefficients weighted by the coronal abundances of
+<code class="language-plaintext highlighter-rouge">fractional_abundances</code>; the fully stripped state has no line
+radiation and is omitted.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>species</code></td><td>str</td><td>str</td><td><p>Atomic symbol with configured default ADF11 files, e.g. <code class="language-plaintext highlighter-rouge">"C"</code>.</p>
+</td></tr>
+  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+</td></tr>
+  <tr><td><code>acd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Recombination table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
+</td></tr>
+  <tr><td><code>scd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Ionisation table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
+</td></tr>
+  <tr><td><code>plt</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Line-power table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
+</td></tr>
+  <tr><td><code>cache_dir</code></td><td>str or path-like or None, optional</td><td>n/a</td><td><p>OPEN-ADAS cache directory; downloads on a miss.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>W m^3</td><td><p>Cooling coefficient with the broadcast input shape. Multiply by $n_e n_Z$ for a power density.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>KeyError
+    Unconfigured species.
+ADASDataError
+    Lookup, download or parsing failure.
+ValueError
+    Invalid inputs or mismatched charge-state dimensions.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>ADF11 PLT is stored in W cm^3; the factor $10^{-6}$ converts to W m^3.
+Coronal equilibrium, no transport, no recombination/bremsstrahlung
+continuum (that is the separate PRB class).</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11 PLT class.
+</li>
+  <li>D. E. Post et al., At. Data Nucl. Data Tables 20 (1977) 397 (coronal cooling curves).
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
   <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="database-initialization">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
     
     
     <div class="related-resource-group" data-resource-kind="api">
@@ -355,32 +478,12 @@ spherical torus. For the device, the research programme, and the people behind i
       <ul>
         
           
-          <li data-resource-id="database"><a href="/vaft/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
         
       </ul>
     </div>
     
     
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="outputs">
-      <h3>Verified outputs</h3>
-      <ul>
-        
-          
-          <li data-resource-id="hsds-39915"><a href="/vaft/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
-        
-      </ul>
-    </div>
     
   </div>
 </section>
@@ -441,13 +544,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/reference/vest-tokamak-physics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VEST and tokamak physics background">
+                        <a href="/vaft/reference/formula/green/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: green">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/reference/references/" class="navigation navigation-next navigation-unique" aria-label="Next page: References">
+                        <a href="/vaft/reference/formula/statistics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: statistics">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -463,7 +566,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#reading-the-vest-database" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading the VEST database</a></li><li class="page-toc-item page-toc-level-2"><a href="#database-write-access-and-data-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Database write access and data policy</a></li><li class="page-toc-item page-toc-level-2"><a href="#vaft-maintenance-bugs-and-features" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">VAFT maintenance, bugs, and features</a></li><li class="page-toc-item page-toc-level-2"><a href="#diagnostic-and-heating-system-enquiries" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Diagnostic and heating-system enquiries</a></li><li class="page-toc-item page-toc-level-2"><a href="#contact-routes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Contact routes</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-lab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The lab</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -479,11 +582,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "References",
+            "title": "Formula reference: statistics",
             "level": "1.2",
             "depth": 1,
-            "path": "_pages/references.md",
-            "ref": "_pages/references.md",
+            "path": "_guide/Formula_reference_statistics.md",
+            "ref": "_guide/Formula_reference_statistics.md",
             "articles": []
         },
         
@@ -575,8 +678,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_pages/contact.md",
-        "mtime": "2026-07-01 12:10:00 +0000",
+        "path": "_guide/Formula_reference_atomic.md",
+        "mtime": "2026-09-02 10:14:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
