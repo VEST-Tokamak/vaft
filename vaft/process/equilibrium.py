@@ -8,6 +8,55 @@ from scipy.interpolate import interp1d
 from vaft.formula.constants import MU0
 
 
+#: The parametric API re-exported at the bottom of this module from
+#: ``._equilibrium_parametric``, which keeps this module as its stable public
+#: import location.  Listed explicitly so ``__all__`` stays readable and so a
+#: name cannot join the public surface just by being imported here.
+_PARAMETRIC_EXPORTS = (
+    "as_equilibrium",
+    "check_equilibrium_requirements",
+    "convert_cocos",
+    "derive_boundary_representation",
+    "derive_global_descriptors",
+    "derive_radial_coordinates",
+    "evaluate_miller",
+    "evaluate_solovev",
+    "fit_miller_sequence",
+    "fit_miller_surface",
+    "solovev_to_equilibrium",
+    "solve_solovev_constraints",
+    "validate_equilibrium",
+)
+
+__all__ = [
+    "FLUX_SURFACE_QUANTITIES",
+    "MIN_FLUX_SURFACE_POINTS",
+    "calculate_average_boundary_poloidal_field",
+    "calculate_diamagnetism",
+    "calculate_reconstructed_diamagnetic_flux",
+    "computed_diamagnetism_from_phi",
+    "contour_shape_parameters",
+    "efit_virial_volume_integrals",
+    "extract_flux_surface_contours",
+    "flux_surface_quantities",
+    "fractional_cell_weights_from_boundary",
+    "make_equilibrium_field_interpolator",
+    "poloidal_field_at_boundary",
+    "prepare_boundary_for_shafranov",
+    "psi_to_RZ",
+    "psi_to_radial",
+    "psi_to_rho",
+    "psi_to_rz",
+    "r_at_z_extremum",
+    "radial_to_psi",
+    "rho_to_psi",
+    "shafranov_integrals",
+    "trace_field_line",
+    "volume_average",
+    *_PARAMETRIC_EXPORTS,
+]
+
+
 def radial_to_psi(r, psi_R, psi_Z, psi):
     """Convert radial coordinate R to poloidal flux ψ using interpolation at Z=0.
     

@@ -2,6 +2,9 @@ import numpy as np
 from typing import Union
 
 
+__all__ = ["time_derivative"]
+
+
 def time_derivative(time: np.ndarray, data: np.ndarray) -> np.ndarray:
     """
     Compute weighted derivative for non-uniform time-data arrays.
