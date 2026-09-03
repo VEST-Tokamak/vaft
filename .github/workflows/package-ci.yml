@@ -68,7 +68,16 @@ jobs:
         #
         # pytest-xdist stays in [dev] for local iteration; it is not the
         # canonical mode. See #413 for what a future optimization must show.
-        run: python -m pytest -q
+        #
+        # main is the release gate and runs everything. develop deselects
+        # `slow` -- notebook-execution checks, which are release-confidence
+        # rather than per-PR feedback. Nothing is skipped anywhere: `slow` tests
+        # move to the main gate, they do not stop running.
+        #
+        # Both halves of the condition are needed. `base_ref` is set only on
+        # pull requests, so a push to main -- which is how a release lands --
+        # would otherwise run the reduced develop selection.
+        run: python -m pytest -q ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && ' ' || '-m "not slow"' }}
 
   tutorial:
     runs-on: ubuntu-latest
