@@ -777,3 +777,85 @@ def test_a_replica_missing_only_empty_channels_validates(monkeypatch):
 
     assert summary["passed"] is True
     assert summary["empty_arrays_unwritten"] >= 1
+
+
+# --------------------------------------------------------------------------- #
+# a busy server is not a missing namespace
+# --------------------------------------------------------------------------- #
+
+
+def test_a_genuine_404_is_reported_as_a_missing_namespace(monkeypatch):
+    from vaft.database import utils
+    from vaft.database.sources import MissingSourceError
+
+    def absent(path, mode=None):
+        raise OSError(404, "Not Found")
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", absent)
+    with pytest.raises(MissingSourceError, match="hstouch"):
+        utils.require_source_exists("main")
+
+
+def test_a_transient_failure_is_raised_as_itself(monkeypatch):
+    """Under concurrent load HSDS answers some probes with anything but 404.
+
+    Reporting those as "the namespace does not exist" sends an operator to
+    provision a folder that is already there -- which happened across 1298
+    replications -- and, because a missing namespace is not retryable, it also
+    killed each shot outright instead of retrying a blip.
+    """
+    from vaft.database import utils
+    from vaft.database.sources import MissingSourceError
+
+    def busy(path, mode=None):
+        raise OSError(503, "Service Unavailable")
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", busy)
+    with pytest.raises(OSError) as excinfo:
+        utils.require_source_exists("main")
+    assert not isinstance(excinfo.value, MissingSourceError)
+    assert excinfo.value.args[0] == 503
+
+
+def test_a_transient_probe_failure_is_retried(staged, monkeypatch):
+    from vaft.database import replication as R
+
+    calls = []
+
+    def flaky(source):
+        calls.append(source)
+        if len(calls) == 1:
+            raise OSError(503, "Service Unavailable")
+
+    monkeypatch.setattr("vaft.database.utils.require_source_exists", flaky)
+    monkeypatch.setattr(R, "_fetch_remote_master", lambda *a, **k: None)
+    monkeypatch.setattr(R, "merge_remote_master", lambda *a, **k: ())
+    monkeypatch.setattr(R, "_round_trip", lambda ods, **kw: {"passed": True})
+    monkeypatch.setattr("vaft.database.save", lambda *a, **k: "uri")
+
+    record = replicate_stage(
+        "diagnostics", 39915, filedb=staged, attempts=3, retry_delay=0
+    )
+
+    assert len(calls) == 2
+    assert record.validated
+
+
+def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
+    """Provisioning is an operator action; three attempts cannot fix it."""
+    from vaft.database import replication as R
+    from vaft.database.sources import MissingSourceError
+
+    calls = []
+
+    def absent(source):
+        calls.append(source)
+        raise MissingSourceError(source, "domain not found")
+
+    monkeypatch.setattr("vaft.database.utils.require_source_exists", absent)
+    monkeypatch.setattr("vaft.database.save", lambda *a, **k: "uri")
+
+    with pytest.raises(MissingSourceError):
+        replicate_stage("diagnostics", 39915, filedb=staged, attempts=3, retry_delay=0)
+
+    assert len(calls) == 1

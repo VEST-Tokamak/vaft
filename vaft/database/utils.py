@@ -26,8 +26,13 @@ def require_source_exists(source: str) -> None:
 
     ``hsload`` does not create a missing top-level folder, so publishing into a
     source nobody has provisioned otherwise surfaces as an opaque CLI exit code.
-    Callers check :func:`is_connect` first, so a failure here is a missing or
-    unreadable namespace rather than a dead connection.
+
+    Only a genuine 404/410 means the namespace is absent. Anything else -- a
+    timeout, a refused connection, a server too busy to answer -- is transient,
+    and must be raised as itself so the caller can retry it. Reporting a blip
+    under concurrent load as "the namespace does not exist" sends an operator to
+    run `hstouch` on a folder that is already there; that happened across 1298
+    replications before this distinction existed.
     """
     try:
         # mode="r" is explicit rather than load-bearing: h5pyd.Folder() already
@@ -35,8 +40,11 @@ def require_source_exists(source: str) -> None:
         # missing folder logs "folder put status_code: 404" on the way to
         # raising -- h5pyd's message is misnamed, no PUT is issued.
         list(h5pyd.Folder("/" + source + "/", mode="r"))
-    except Exception as exc:  # noqa: BLE001 - re-raised with the remedy
-        raise MissingSourceError(source, str(exc)) from exc
+    except OSError as exc:
+        status = exc.args[0] if exc.args else None
+        if status in (404, 410):
+            raise MissingSourceError(source, str(exc)) from exc
+        raise
 
 
 def processed_registry_uri(

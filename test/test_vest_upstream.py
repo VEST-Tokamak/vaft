@@ -747,3 +747,24 @@ def test_build_mhd_linear_ods_pads_a_shot_no_solver_produced_anything_for(tmp_pa
     # `ntms` has no requested grid to pad against, so it stays absent entirely.
     assert "ntms" not in ods
     assert "padding only" in STAGE_PRECONDITIONS["mhd_linear"](ods)
+
+
+def test_a_fully_saturated_component_is_unavailable_not_a_stage_failure():
+    """Refusing to reconstruct a clipped waveform is correct; losing the shot's
+    whole diagnostics product over it is not.
+
+    88 shots in the 39000-45000 range produced nothing at all because one
+    diamagnetic-flux signal was saturated end to end.
+    """
+    import inspect
+
+    from vaft.omas import vest_upstream
+    from vaft.process.signal_processing import SignalRepairError
+
+    source = inspect.getsource(vest_upstream.build_diagnostics_ods)
+    assert "SignalRepairError" in source
+    # It must be handled where components are isolated, beside the other
+    # "this component has no usable data" conditions.
+    handler = source.split("except (")[1].split(")")[0]
+    assert "SignalRepairError" in handler
+    assert "RawSignalUnavailableError" in handler

@@ -119,6 +119,13 @@ HSDS_CONFIG = config.get("hsds", {}) or {}
 REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False)) and PATHS.layout == FILEDB
 REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
 REPLICATION_RETRY_DELAY = HSDS_CONFIG.get("retry_delay", 5.0)
+# Uploads are bounded by the HSDS deployment, not by local cores. Every
+# replication rule takes one `hsds` resource, so `--resources hsds=N` caps
+# concurrent uploads while the compute stages still use every core. Without a
+# cap, 30 parallel uploads against a 4-node server produced transient failures
+# on almost every shot.
+REPLICATION_CONCURRENCY = HSDS_CONFIG.get("concurrency", 4)
+workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
     raise WorkflowError(
         "hsds.replicate requires layout: filedb. The shot-first tree is a "
@@ -729,6 +736,8 @@ if REPLICATION_ENABLED:
             record=PATHS.shot_pattern("replication_record", "diagnostics")
         log:
             PATHS.shot_pattern("log", "replicate_diagnostics_to_hsds")
+        resources:
+            hsds=1
         conda:
             CONDA if CONDA else None
         shell:
@@ -751,6 +760,8 @@ if REPLICATION_ENABLED:
             record=PATHS.shot_pattern("replication_record", "eddy")
         log:
             PATHS.shot_pattern("log", "replicate_eddy_to_hsds")
+        resources:
+            hsds=1
         conda:
             CONDA if CONDA else None
         shell:
@@ -773,6 +784,8 @@ if REPLICATION_ENABLED:
             record=PATHS.shot_pattern("replication_record", "efit")
         log:
             PATHS.shot_pattern("log", "replicate_efit_to_hsds")
+        resources:
+            hsds=1
         conda:
             CONDA if CONDA else None
         shell:
@@ -795,6 +808,8 @@ if REPLICATION_ENABLED:
             record=PATHS.shot_pattern("replication_record", "chease")
         log:
             PATHS.shot_pattern("log", "replicate_chease_to_hsds")
+        resources:
+            hsds=1
         conda:
             CONDA if CONDA else None
         shell:
@@ -817,6 +832,8 @@ if REPLICATION_ENABLED:
             record=PATHS.shot_pattern("replication_record", "mhd_linear")
         log:
             PATHS.shot_pattern("log", "replicate_mhd_linear_to_hsds")
+        resources:
+            hsds=1
         conda:
             CONDA if CONDA else None
         shell:
