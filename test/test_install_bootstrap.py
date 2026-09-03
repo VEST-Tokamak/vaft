@@ -25,8 +25,12 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install"
 CHECKER = INSTALL / "check_vaft_environment.py"
 
-POSIX_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "_common.sh")
+POSIX_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh")
 PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps1")
+# Removal is identical on every POSIX platform, so it needs one entry point,
+# not one per platform.
+UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
+POWERSHELL_SCRIPTS = ("windows_native.ps1", "uninstall_windows_native.ps1")
 
 
 def _load_checker() -> ModuleType:
@@ -49,7 +53,14 @@ checker = _load_checker()
 def test_install_directory_is_flat_and_complete():
     """Issue #225 requires a flat install/ with one entry point per platform."""
     assert INSTALL.is_dir()
-    for name in (*PLATFORM_SCRIPTS, "_common.sh", "README.md", "check_vaft_environment.py"):
+    expected = (
+        *PLATFORM_SCRIPTS,
+        *UNINSTALL_SCRIPTS,
+        "_common.sh",
+        "README.md",
+        "check_vaft_environment.py",
+    )
+    for name in expected:
         assert (INSTALL / name).is_file(), f"install/{name} is missing"
     subdirectories = [
         child.name
@@ -63,10 +74,16 @@ def test_install_directory_is_flat_and_complete():
 
 def test_platform_wrappers_are_thin():
     """Shared logic belongs in _common.sh, not copied into each wrapper."""
-    for name in ("linux.sh", "macos.sh", "windows_wsl.sh"):
+    entry_points = {
+        "linux.sh": "vaft_bootstrap_main",
+        "macos.sh": "vaft_bootstrap_main",
+        "windows_wsl.sh": "vaft_bootstrap_main",
+        "uninstall.sh": "vaft_uninstall_main",
+    }
+    for name, entry_point in entry_points.items():
         text = (INSTALL / name).read_text(encoding="utf-8")
         assert "_common.sh" in text, f"install/{name} must source install/_common.sh"
-        assert "vaft_bootstrap_main" in text
+        assert entry_point in text
         code_lines = [
             line
             for line in text.splitlines()
@@ -310,15 +327,16 @@ def test_powershell_helper_is_always_called_with_an_argument_array():
     being run, so `Invoke-InVaft python -m pip install -e .` fails with an
     ambiguous-parameter error. Every call must pass one array literal.
     """
-    text = (INSTALL / "windows_native.ps1").read_text(encoding="utf-8")
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("Invoke-InVaft") and "= Invoke-InVaft" not in stripped:
-            continue
-        call = stripped.split("Invoke-InVaft", 1)[1].strip()
-        assert call.startswith("@("), (
-            f"pass an argument array, not bare flags: {stripped}"
-        )
+    for name in POWERSHELL_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("Invoke-InVaft") and "= Invoke-InVaft" not in stripped:
+                continue
+            call = stripped.split("Invoke-InVaft", 1)[1].strip()
+            assert call.startswith("@("), (
+                f"install/{name}: pass an argument array, not bare flags: {stripped}"
+            )
 
 
 def test_readme_documents_the_update_path():
@@ -427,8 +445,9 @@ def test_posix_scripts_parse(name):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell parsing is checked on Windows")
-def test_powershell_script_parses():
-    script = INSTALL / "windows_native.ps1"
+@pytest.mark.parametrize("name", POWERSHELL_SCRIPTS)
+def test_powershell_script_parses(name):
+    script = INSTALL / name
     subprocess.run(
         [
             "powershell",
@@ -470,7 +489,16 @@ import sys
 from pathlib import Path
 
 log = Path(os.environ["FAKE_CONDA_LOG"])
-existing = [name for name in os.environ.get("FAKE_CONDA_ENVS", "").split(",") if name]
+# Removals persist in a sidecar file rather than in this process, so a later
+# `env list` -- in the same run or in a second one -- really does see the
+# environment gone. That is what makes an uninstall/reinstall cycle testable.
+removed_record = log.with_suffix(".removed")
+removed = removed_record.read_text(encoding="utf-8").split() if removed_record.exists() else []
+existing = [
+    name
+    for name in os.environ.get("FAKE_CONDA_ENVS", "").split(",")
+    if name and name not in removed
+]
 arguments = sys.argv[1:]
 with log.open("a", encoding="utf-8") as handle:
     handle.write(" ".join(arguments) + "\n")
@@ -487,6 +515,14 @@ if arguments[:2] == ["env", "list"]:
     raise SystemExit(0)
 
 if arguments[:2] in (["env", "create"], ["env", "update"]):
+    raise SystemExit(0)
+
+if arguments[:2] == ["env", "remove"]:
+    name = arguments[arguments.index("--name") + 1] if "--name" in arguments else None
+    if name not in existing:
+        raise SystemExit(f"conda: environment {name} does not exist")
+    with removed_record.open("a", encoding="utf-8") as handle:
+        handle.write(name + "\n")
     raise SystemExit(0)
 
 if arguments[:1] == ["run"]:
@@ -532,15 +568,45 @@ def fake_conda(tmp_path, monkeypatch):
     return log
 
 
-def _run_bootstrap(script: str = "linux.sh", *arguments: str):
+def _run_script(script: str, *arguments: str, root: Path = ROOT):
     completed = subprocess.run(
-        ["bash", str(INSTALL / script), *arguments],
+        ["bash", str(root / "install" / script), *arguments],
         capture_output=True,
         text=True,
-        cwd=str(ROOT),
+        cwd=str(root),
         timeout=300,
     )
     return completed
+
+
+def _run_bootstrap(script: str = "linux.sh", *arguments: str):
+    return _run_script(script, *arguments)
+
+
+def _removal_commands(log: Path) -> list[str]:
+    """Every logged conda invocation that would destroy something."""
+    return [
+        line
+        for line in log.read_text(encoding="utf-8").splitlines()
+        if line.startswith("env remove")
+    ]
+
+
+@pytest.fixture
+def sandboxed_home(tmp_path, monkeypatch):
+    """Point every user-level Jupyter path at tmp_path.
+
+    The uninstaller sweeps the user kernelspec directories as a fallback. A test
+    must never be able to reach the real one -- least of all while a developer
+    has an actual `vaft` kernel registered.
+    """
+    home = tmp_path / "home"
+    kernels = home / ".local" / "share" / "jupyter" / "kernels"
+    kernels.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / ".local" / "share"))
+    monkeypatch.setenv("JUPYTER_DATA_DIR", str(home / ".local" / "share" / "jupyter"))
+    return kernels
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
@@ -703,3 +769,235 @@ def test_bootstrap_reports_missing_conda_with_guidance(tmp_path, monkeypatch):
     assert "Install Miniconda first" in completed.stderr
     assert "does not install Conda for you" in completed.stderr
     assert "env create" not in completed.stdout, "nothing may be built without Conda"
+
+
+# ---------------------------------------------------------------------------
+# Uninstall
+# ---------------------------------------------------------------------------
+#
+# The uninstaller exists so the *installer* can be tested. On a machine that
+# already has VAFT, a rerun of the bootstrap only ever takes the update branch;
+# the create-from-nothing path is reachable again only after a removal. These
+# tests therefore care about two things above all: that removal is scoped to
+# exactly what the bootstrap created, and that it is safe to repeat.
+
+
+@pytest.fixture
+def fake_checkout(tmp_path):
+    """A throwaway repository root, so artifact deletion never touches ours.
+
+    ``VAFT_REPOSITORY_ROOT`` is derived from the script's own location, so
+    copying the two scripts elsewhere is what relocates it.
+    """
+    root = tmp_path / "checkout"
+    (root / "install").mkdir(parents=True)
+    for name in ("_common.sh", "uninstall.sh"):
+        shutil.copy2(INSTALL / name, root / "install" / name)
+    return root
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_dry_run_removes_nothing(fake_conda, sandboxed_home, monkeypatch):
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    (sandboxed_home / "vaft").mkdir()
+
+    completed = _run_script("uninstall.sh", "--dry-run")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Dry run: nothing was removed." in completed.stdout
+    assert _removal_commands(fake_conda) == []
+    assert (sandboxed_home / "vaft").is_dir(), "a dry run must not touch the kernelspec"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_refuses_to_guess_when_there_is_no_terminal(
+    fake_conda, sandboxed_home, monkeypatch
+):
+    """No TTY and no --yes means stop, not remove, and not hang on a read."""
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    (sandboxed_home / "vaft").mkdir()
+
+    completed = _run_script("uninstall.sh")
+
+    assert completed.returncode == 1
+    assert "without confirmation" in completed.stderr
+    assert "--yes" in completed.stderr
+    assert _removal_commands(fake_conda) == []
+    assert (sandboxed_home / "vaft").is_dir()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_removes_the_kernel_before_the_environment(
+    fake_conda, sandboxed_home, monkeypatch
+):
+    """`jupyter kernelspec remove` runs through the environment it is deleting.
+
+    Reverse the order and the command has no interpreter left to run in, which
+    would leave the kernelspec pointing at an environment that no longer exists.
+    """
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    (sandboxed_home / "vaft").mkdir()
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert completed.returncode == 0, completed.stderr
+    log = fake_conda.read_text(encoding="utf-8")
+    assert "kernelspec remove" in log
+    assert "env remove --name vaft" in log
+    assert log.index("kernelspec remove") < log.index("env remove")
+    assert not (sandboxed_home / "vaft").exists()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_never_names_another_environment(fake_conda, sandboxed_home, monkeypatch):
+    """`vaft-np2-test` is somebody's work, and its name merely starts with vaft."""
+    monkeypatch.setenv(
+        "FAKE_CONDA_ENVS", "vaft,vaft-np2-test,vaftlike,someone_elses_project"
+    )
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert completed.returncode == 0, completed.stderr
+    assert _removal_commands(fake_conda) == ["env remove --name vaft --yes"]
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_with_nothing_installed_succeeds_quietly(
+    fake_conda, sandboxed_home, monkeypatch
+):
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "")
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "[SKIP] vaft environment" in completed.stdout
+    assert "[SKIP] Python (vaft) kernel" in completed.stdout
+    assert _removal_commands(fake_conda) == []
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_a_second_uninstall_is_a_no_op(fake_conda, sandboxed_home, monkeypatch):
+    """Idempotency in the removal direction: the cycle has to survive repeats."""
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    (sandboxed_home / "vaft").mkdir()
+
+    first = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+    second = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0, second.stderr
+    assert "[PASS] vaft environment" in first.stdout
+    assert "[SKIP] vaft environment" in second.stdout
+    assert _removal_commands(fake_conda) == ["env remove --name vaft --yes"]
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_clears_build_artifacts_from_the_checkout(
+    fake_conda, sandboxed_home, fake_checkout, monkeypatch
+):
+    """An editable install leaves these behind, and the next one inherits them."""
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "")
+    for name in ("vaft.egg-info", "build", "dist"):
+        (fake_checkout / name).mkdir()
+    keeper = fake_checkout / "vaft"
+    keeper.mkdir()
+
+    completed = _run_script("uninstall.sh", "--yes", root=fake_checkout)
+
+    assert completed.returncode == 0, completed.stderr
+    for name in ("vaft.egg-info", "build", "dist"):
+        assert not (fake_checkout / name).exists(), f"{name} survived the uninstall"
+    assert keeper.is_dir(), "only build artifacts may be removed, not source"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_keep_build_artifacts_leaves_them_alone(
+    fake_conda, sandboxed_home, fake_checkout, monkeypatch
+):
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "")
+    (fake_checkout / "vaft.egg-info").mkdir()
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts", root=fake_checkout)
+
+    assert completed.returncode == 0, completed.stderr
+    assert (fake_checkout / "vaft.egg-info").is_dir()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_never_removes_the_hsds_configuration(
+    fake_conda, sandboxed_home, monkeypatch, tmp_path
+):
+    """`~/.hscfg` holds credentials and the bootstrap never wrote it."""
+    configuration = tmp_path / "home" / ".hscfg"
+    configuration.write_text("hs_endpoint = http://example.invalid\n", encoding="utf-8")
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert completed.returncode == 0, completed.stderr
+    assert configuration.is_file(), "the uninstaller deleted HSDS credentials"
+    assert ".hscfg" in completed.stdout, "say that credentials were preserved"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_leaves_the_checkout_clean(fake_conda, sandboxed_home, monkeypatch):
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    before = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(ROOT), capture_output=True, text=True, timeout=60,
+    ).stdout
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    after = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(ROOT), capture_output=True, text=True, timeout=60,
+    ).stdout
+    assert completed.returncode == 0, completed.stderr
+    assert before == after
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_rejects_an_unknown_option(fake_conda, sandboxed_home, monkeypatch):
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+
+    completed = _run_script("uninstall.sh", "--purge-everything")
+
+    assert completed.returncode == 1
+    assert "Unknown option" in completed.stderr
+    assert _removal_commands(fake_conda) == []
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_help_documents_every_flag(fake_conda, sandboxed_home, monkeypatch):
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+
+    completed = _run_script("uninstall.sh", "--help")
+
+    assert completed.returncode == 0, completed.stderr
+    for flag in ("--yes", "--dry-run", "--keep-build-artifacts"):
+        assert flag in completed.stdout
+    assert _removal_commands(fake_conda) == []
+
+
+def test_readme_documents_uninstalling():
+    """The removal contract is pinned here, the way every other one is."""
+    text = (INSTALL / "README.md").read_text(encoding="utf-8")
+    assert "## Uninstalling" in text
+    for name in UNINSTALL_SCRIPTS:
+        assert name in text, f"install/README.md does not mention {name}"
+    for fragment in ("--dry-run", "--keep-build-artifacts", "conda env remove --name vaft"):
+        assert fragment in text
+    # The two promises that make the script safe to hand to a student.
+    assert "~/.hscfg" in text
+    assert "never in scope" in text
+
+
+def test_uninstall_reverses_exactly_what_the_bootstrap_creates():
+    """The two directions must not drift apart in what they name."""
+    text = (INSTALL / "_common.sh").read_text(encoding="utf-8")
+    for created, removed in (
+        ("conda env create", "conda env remove"),
+        ("ipykernel install", "kernelspec remove"),
+    ):
+        assert created in text and removed in text, f"{created} has no counterpart"
