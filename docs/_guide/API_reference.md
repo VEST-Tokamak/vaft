@@ -56,7 +56,7 @@ flowchart TD
 | `vaft.database` | Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
 | `vaft.omas` | The ODS-aware API: `find_*`, `compute_*`, `update_*`, sample data | this page |
 | `vaft.process` | Array-in / array-out signal processing, EM response, magnetics chains | [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) |
-| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Physics formulas]({{ site.baseurl }}/workflows/operations-statistical-analysis/) |
+| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
 | `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
 | `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES) | this page |
@@ -264,7 +264,7 @@ physics layer. Neither one touches an ODS. Modules at a glance:
 
 Both are documented in full on the
 [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) and
-[Physics formulas]({{ site.baseurl }}/workflows/operations-statistical-analysis/) pages; the latter is generated per function from the standardized docstrings.
+[Formula reference]({{ site.baseurl }}/reference/formula/) pages; the latter is generated per function from the standardized docstrings.
 
 # `vaft.machine_mapping`
 
@@ -478,6 +478,6 @@ Browse the package on GitHub: [`vaft/`](https://github.com/VEST-Tokamak/vaft/tre
 * [Quick start guide]({{ site.baseurl }}/guide/Quick_start_guide/) — install, connect, load a shot.
 * [Data structures]({{ site.baseurl }}/guide/Data_structures/) — ODS, IDS and the IMAS data model.
 * [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) — `vaft.process` in depth.
-* [Physics formulas]({{ site.baseurl }}/workflows/operations-statistical-analysis/) — every `vaft.formula` function with definition, units, conventions and references.
+* [Formula reference]({{ site.baseurl }}/reference/formula/) — every `vaft.formula` function with definition, units, conventions and references.
 * [Magnetics]({{ site.baseurl }}/guide/Magnetics/) — plotting the magnetics IDS.
 * [Examples]({{ site.baseurl }}/guide/examples/) — the notebook index.
