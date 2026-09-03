@@ -26,6 +26,8 @@ Fortran codes later.
 Every script accepts `--check-only` (`-CheckOnly` in PowerShell), which runs the
 environment checker and changes nothing.
 
+To undo an installation, see [Uninstalling](#uninstalling).
+
 ### Apple silicon only on macOS
 
 VAFT depends on `imas_core`, which publishes wheels for Apple silicon macOS,
@@ -264,6 +266,90 @@ Please inspect `git status` and the conflicted files, preserve my local tutorial
 integrate the upstream changes safely, and do not discard or overwrite my work.
 ```
 
+## Uninstalling
+
+Removing VAFT is the exact inverse of the bootstrap, and it exists so the
+installation can be tested honestly. On a machine that already has VAFT, a
+rerun of the bootstrap only ever takes the *update* path; the only way to
+exercise a real first installation again is to remove what the last one left
+behind.
+
+| Platform | Command (from the repository root) |
+| --- | --- |
+| Linux, macOS, Windows inside WSL2 | `bash install/uninstall.sh` |
+| Windows, native | `powershell -ExecutionPolicy Bypass -File install\uninstall_windows_native.ps1` |
+
+One POSIX entry point covers three platforms because removal is identical on
+all of them; there is no per-platform difference to write down.
+
+```bash
+bash install/uninstall.sh --dry-run   # print the plan, change nothing
+bash install/uninstall.sh             # list what will go, then confirm
+bash install/uninstall.sh --yes       # skip the confirmation, for scripting
+```
+
+The PowerShell script takes `-DryRun`, `-Yes` and `-KeepBuildArtifacts`.
+
+### What it removes
+
+Exactly the artifacts listed in
+[What the bootstrap changes](#what-the-bootstrap-changes-on-your-machine), in
+the one order that works:
+
+1. **The user-level `vaft` kernelspec** — first, because it is removed through
+   `conda run -n vaft`, and once the environment is gone there is no
+   interpreter left to run that command. If the environment is already absent
+   or its Jupyter is broken, the script falls back to deleting the kernelspec
+   directory so the spec can never be orphaned.
+2. **The `vaft` Conda environment** — `conda env remove --name vaft`. The
+   editable installation lives inside it and goes with it.
+3. **The `vaft.egg-info/` directory** the editable install leaves in your
+   checkout — the one leftover a reinstall would otherwise inherit. Pass
+   `--keep-build-artifacts` (`-KeepBuildArtifacts`) to leave it.
+
+`build/` and `dist/` are deliberately *not* touched. The bootstrap never
+creates them; `python -m build` does, when a maintainer cuts a release. Deleting
+someone's release artifacts is not this script's job.
+
+If the `vaft` environment is active in your shell, the script stops before
+removing anything and asks you to `conda deactivate` first. Conda refuses to
+delete an environment you are standing in, and since the kernelspec has to go
+first, a refusal part-way would leave you with a working environment and no
+kernel.
+
+### What it never removes
+
+- **`~/.hscfg`.** The bootstrap never wrote it — `hsconfigure` did, when you
+  ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
+  make you type them again.
+- **Any Conda environment whose name is not exactly `vaft`.** The removal is
+  pinned to `--name vaft`, with no prefix or pattern match, so an environment
+  you named `vaft-experiment` is never in scope. This is enforced by a test,
+  not left to convention.
+- **Your repository checkout**, beyond that one directory. Like the bootstrap,
+  the uninstaller runs no destructive Git command: the artifact is deleted by
+  explicit path, never with `git clean`.
+- **Conda or Git themselves.** The bootstrap refuses to install them, so the
+  uninstaller has no business removing them.
+
+### Testing that an installation is repeatable
+
+Running the uninstaller twice is a no-op: with nothing installed every step
+reports `SKIP` and the script exits 0. That makes the following loop the
+supported way to re-verify a machine end to end:
+
+```bash
+bash install/macos.sh
+bash install/uninstall.sh --yes
+bash install/macos.sh
+bash install/uninstall.sh --yes
+```
+
+The second installation is the one that matters. If it does not behave like the
+first — same environment created from scratch, same kernel registered, same
+checker verdict — then the uninstaller left state behind. CI runs exactly this
+cycle on Linux, macOS and native Windows.
+
 ## Troubleshooting
 
 **`conda: command not found`** — Conda is installed but not on `PATH`. Reopen
@@ -307,7 +393,7 @@ into your question.
 
 | Path | How it is verified |
 | --- | --- |
-| Linux | Automated in CI (`.github/workflows/bootstrap-ci.yml`), run twice for idempotency |
-| macOS | Automated in CI, run twice for idempotency |
-| Windows native | Automated in CI, run twice for idempotency |
+| Linux | Automated in CI (`.github/workflows/bootstrap-ci.yml`): install → uninstall → install → uninstall |
+| macOS | Automated in CI, same install/uninstall cycle |
+| Windows native | Automated in CI, same install/uninstall cycle |
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
