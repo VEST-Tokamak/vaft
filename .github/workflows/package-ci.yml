@@ -6,30 +6,18 @@ on:
     branches: [develop, main]
   workflow_dispatch:
 
+# A second push to a PR should supersede the first run rather than race it:
+# this workflow bills ~25 minutes, and every other workflow here already does
+# this. Pushes to develop/main still run to completion, so the history of what
+# passed on an integration branch stays intact.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
-  equilibrium:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install VAFT and notebook test dependencies
-        run: python -m pip install -e ".[dev]"
-
-      - name: Test parametric equilibrium APIs and offline notebooks
-        env:
-          MPLBACKEND: Agg
-          NO_PROXY: "*"
-        run: |
-          python -m pytest -q test/test_parametric_equilibrium.py
-          python -m pytest -q test/test_notebook_reliability.py -k "parametric_equilibrium_notebooks or all_notebooks"
-
   package:
     runs-on: ubuntu-latest
     steps:
@@ -69,7 +57,17 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Run test suite
-        run: python -m pytest -q
+        # --dist loadfile keeps a file's tests on one worker. Several modules
+        # warm an expensive module-level cache in their first test; splitting
+        # them across workers would make each worker pay that cost again.
+        run: python -m pytest -q -n auto --dist loadfile -m "not perf"
+
+      - name: Run performance budgets
+        # `perf` tests assert wall-clock ratios, which are only meaningful on an
+        # uncontended machine: with four xdist workers on a four-core runner,
+        # test_substantially_faster_than_legacy measured 4.59x against its 5x
+        # budget and failed. Five tests, ~6 s serially -- cheap to keep honest.
+        run: python -m pytest -q -m perf
 
   tutorial:
     runs-on: ubuntu-latest

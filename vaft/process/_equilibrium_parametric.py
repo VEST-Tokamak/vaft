@@ -180,7 +180,13 @@ def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
     case = str(data.get("CASE", ""))
     match = re.search(r"COCOS\s*[=_-]?\s*(\d{1,2})", case, re.IGNORECASE)
     explicit = convention if convention is not None else (int(match.group(1)) if match else None)
-    bt0, ip = _scalar(data.get("BCENTR")), _scalar(data.get("CURRENT"))
+    # Same source as to_omas: a g-file states its vacuum field twice and the
+    # FPOL half is the one the solution used (issue #325). Taking BCENTR here
+    # while to_omas takes FPOL would put the two paths a few 1e-9 apart on a
+    # merely round-off-inconsistent file, and much further apart on a corrupt one.
+    from vaft.data.eqdsk import _vacuum_b0
+
+    bt0, ip = _vacuum_b0(data), _scalar(data.get("CURRENT"))
     conv = _detect_convention(
         explicit=explicit, bt0=bt0, ip=ip, q=q, psi_1d=psi_1d,
         source="argument" if convention is not None else ("GEQDSK header" if match else "GEQDSK signs"),

@@ -1012,18 +1012,24 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
     ``beta_pol`` and ``li_3`` both divide by ``R_0``, which the DD takes from
     ``equilibrium.vacuum_toroidal_field.r0``. On the VEST database that leaf is
     not trustworthy: every shot sampled from HSDS stores an ``r0`` between 0.19
-    and 0.35 while ``tf.r0`` is 0.4, and the two disagree about the physics --
-    on shot 39915 the equilibrium's ``b0*r0`` is 0.0347 T.m against ``tf``'s
-    0.0601 T.m. ``b0`` alone (0.1498 T) matches ``tf``'s field at R = 0.4, so
-    ``r0`` is the corrupt half of the pair and the scalars come out 1.15-2.1x
-    too large.
+    and 0.35 while ``tf.r0`` is 0.4, leaving the scalars 1.15-2.1x too large.
 
-    ``b0 * r0`` is the physical invariant, so that product is what is compared:
-    when it disagrees with ``tf.b_field_tor_vacuum_r`` by more than a few percent
-    the equilibrium's ``r0`` is rejected in favour of ``tf.r0``, loudly. With no
-    ``tf`` to check against the equilibrium's own value stands -- this detects a
-    known corruption, it does not overrule a machine that genuinely has a
-    different reference radius.
+    An earlier reading of this blamed ``r0`` for the whole disagreement, on the
+    grounds that ``b0`` matched ``tf``'s field at R = 0.4. That was true only of
+    the *first* time slice. ``b0`` drifts by up to 101% over a shot, and 41672
+    stores the correct ``r0 = 0.4`` while its ``b0`` still swings, so both
+    members of the pair are unreliable (issue #325).
+
+    ``b0 * r0`` remains what is compared against ``tf.b_field_tor_vacuum_r``,
+    and deliberately so. ``profiles_1d.f`` at the boundary is the more
+    trustworthy *field* -- it is the vacuum ``B*R`` and holds flat to under 1%
+    -- but for exactly that reason it agrees with ``tf`` however wrong ``r0``
+    is, so it cannot be the test here. Only the product carries ``r0`` into the
+    comparison. When they disagree by more than a few percent the equilibrium's
+    ``r0`` is rejected in favour of ``tf.r0``, loudly. With no ``tf`` to check
+    against the equilibrium's own value stands -- this detects a known
+    corruption, it does not overrule a machine that genuinely has a different
+    reference radius.
 
     Fixing the reader does not fix the database; the pipeline that writes
     ``vacuum_toroidal_field`` is where that belongs, and issue #325 owns it.
@@ -1040,21 +1046,28 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
         )
         return tf_r0
 
-    tf_field_radius = _finite_median(ods, "tf.b_field_tor_vacuum_r.data")
+    # Magnitudes: tf and the equilibrium disagree about the sign of the
+    # toroidal field on VEST (tf is positive, f is negative), which is a COCOS
+    # difference between two IDSs and not the corruption being looked for.
+    tf_field_radius = abs(_finite_median(ods, "tf.b_field_tor_vacuum_r.data"))
     b0 = _finite_median(ods, "equilibrium.vacuum_toroidal_field.b0")
     if not np.isfinite(tf_field_radius) or not np.isfinite(b0) or tf_field_radius == 0.0:
         return equilibrium_r0
 
-    equilibrium_field_radius = b0 * equilibrium_r0
-    if abs(equilibrium_field_radius - tf_field_radius) <= _TF_CONSISTENCY_TOLERANCE * abs(
-        tf_field_radius
+    # b0*r0 is deliberately the thing compared, not profiles_1d.f. f is the
+    # vacuum B*R whichever reference radius the file names, so it agrees with tf
+    # even when r0 is nonsense -- it validates the field, not the radius. The
+    # product is what carries r0 into the comparison.
+    equilibrium_field_radius = abs(b0 * equilibrium_r0)
+    if (
+        abs(equilibrium_field_radius - tf_field_radius)
+        <= _TF_CONSISTENCY_TOLERANCE * tf_field_radius
     ):
         return equilibrium_r0
 
     logger.warning(
         "equilibrium.vacuum_toroidal_field is inconsistent with tf: b0*r0 = %.5f T.m "
-        "(b0 = %.5f T, r0 = %.5f m) against tf's %.5f T.m. Using tf.r0 = %.4f m for R_0; "
-        "the stored r0 is the half that disagrees.",
+        "(b0 = %.5f T, r0 = %.5f m) against tf's %.5f T.m. Using tf.r0 = %.4f m for R_0.",
         equilibrium_field_radius,
         b0,
         equilibrium_r0,
