@@ -122,7 +122,7 @@ def equilibrium_field_psi_vacuum(
     domain="core_profiles", quantity="",
     subject="electron_temperature",
     description="Electron temperature mapped onto the poloidal plane.",
-    ids=("core_profiles", "equilibrium"),
+    ids=("core_profiles", "equilibrium", "wall"),
     required_paths=(
         "core_profiles.profiles_1d.{i}.electrons.temperature",
         "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
@@ -140,7 +140,7 @@ def electron_temperature_field(
     domain="core_profiles", quantity="",
     subject="electron_density",
     description="Electron density mapped onto the poloidal plane.",
-    ids=("core_profiles", "equilibrium"),
+    ids=("core_profiles", "equilibrium", "wall"),
     required_paths=(
         "core_profiles.profiles_1d.{i}.electrons.density",
         "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",

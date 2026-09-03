@@ -171,6 +171,14 @@ def _resolve(source: Any, path: str) -> Any:
     change cannot quietly reintroduce the very side effect this module exists to
     prevent.
     """
+    if type(source).__module__.partition(".")[0] == "imas":
+        # A native IMAS node does not answer dotted paths; it would raise
+        # ValueError, which the absence net below would swallow, and every
+        # read would come back "absent" while the data sits there.
+        raise TypeError(
+            f"vaft.ods_access reads OMAS ODS/mapping paths; a native IMAS "
+            f"{type(source).__name__} is read by vaft.imas (plot it with vaft.imas.plot_*)"
+        )
     if isinstance(source, dict):
         try:
             return _get_nested_mapping_value(source, path)

@@ -25,27 +25,16 @@ from __future__ import annotations
 import warnings
 from typing import Any, Sequence
 
-from vaft.plot.models import Panels
+from vaft.plot.backend.render import render_entries
 from vaft.plot.registry import get_spec, specs
-from vaft.plot.renderers.panels import render_panels
 from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
 
 from .interactive import plot_equilibrium_interactive  # public entry point, issue #261
-from ._plot_recipes import (
-    build_model,
-    diagnoses_itself,
-    extract_labels_from_odc,
-    missing_required_path,
-    normalize_entries,
-)
+from .entries import extract_labels_from_odc, normalize_entries
 
 
-#: Options consumed while building the view model.  Everything else a caller
-#: passes is forwarded to the renderer as styling, so an unsupported Matplotlib
-#: keyword fails loudly instead of being silently dropped.
-from ._plot_recipes import EXTRACTION_OPTIONS as _EXTRACTION_OPTIONS
 
 
 def render(
@@ -60,58 +49,13 @@ def render(
     """Build the view model for ``name`` from ``source`` and render it.
 
     This is the shared body behind every ``plot_*`` adapter below, and the entry
-    point for rendering a canonical plot chosen at runtime.
+    point for rendering a canonical plot chosen at runtime.  Input handling is
+    this namespace's (:func:`normalize_entries`); everything after that is the
+    backend-neutral :func:`vaft.plot.backend.render.render_entries`.
     """
-    spec = get_spec(name)
-    entries = normalize_entries(source, label=label)
-    _refuse_when_unsupported(name, entries)
-    model = build_model(name, entries, **options)
-    # A layout other than overlay arranges the same traces into a Panels model.
-    # The canonical renderer is typed to the single-axes model, so the panels
-    # renderer draws it instead; the return shape then follows the layout, as
-    # issue #260 requires, and no renderer needs to know about layouts.
-    renderer = spec.renderer
-    if isinstance(model, Panels) and not issubclass(spec.model, Panels):
-        renderer = render_panels
-    style = {
-        key: value for key, value in options.items() if key not in _EXTRACTION_OPTIONS
-    }
-    return renderer(model, ax=ax, show=show, **style)
-
-
-def _refuse_when_unsupported(name: str, entries: Sequence[tuple[str, Any]]) -> None:
-    """Raise rather than render a figure with nothing in it.
-
-    A path-driven adapter whose leaf is absent used to return an empty figure --
-    no lines, no error, nothing to say why. That is worse than failing: it is
-    also why a plot could be missing from ``available_plots(obj)`` while the
-    function itself still "succeeded" (issue #290).
-
-    The guard asks the same question :func:`available_plots` asks, so the two
-    agree by construction. It covers only the plain path reads: composites drop
-    unsupported panels on purpose and then raise about the ones that remain, and
-    the recipes that run real code raise something more specific than a missing
-    path. Speaking over either would replace a good diagnosis with a worse one.
-    """
-    if not entries or diagnoses_itself(name):
-        return
-    missing = [missing_required_path(ods, name) for _, ods in entries]
-    if any(path is None for path in missing):
-        return
-    wanted = missing[0]
-    # The equilibrium hint is only offered where it applies: pointing someone at
-    # an equilibrium updater because a Thomson channel is missing is worse than
-    # saying nothing.
-    remedy = (
-        "Equilibrium profiles an EFIT g-file does not store are derived by "
-        "vaft.omas.update_equilibrium_derived_profiles(ods); "
-        if wanted.startswith("equilibrium.")
-        else ""
-    )
-    raise ValueError(
-        f"{name!r} requires {wanted}, which is not available in this input. "
-        f"{remedy}"
-        "vaft.omas.available_plots(ods) lists what this object can already plot."
+    return render_entries(
+        name, normalize_entries(source, label=label), ax=ax, show=show,
+        namespace="vaft.omas", subject="ods", **options,
     )
 
 
