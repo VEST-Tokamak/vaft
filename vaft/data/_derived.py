@@ -16,7 +16,12 @@ from typing import Any, NamedTuple, Optional
 
 import numpy as np
 
-__all__ = ["RhoTorProfile", "is_rho_pol_proxy", "rho_tor_profile"]
+__all__ = [
+    "AXIS_Q_OUTLIER_RATIO",
+    "RhoTorProfile",
+    "is_rho_pol_proxy",
+    "rho_tor_profile",
+]
 
 
 class RhoTorProfile(NamedTuple):
@@ -66,6 +71,7 @@ def rho_tor_profile(q: Any, psi_wb: Any, b0: Any = None) -> Optional[RhoTorProfi
         return None
     if not np.all(np.isfinite(q)) or not np.all(np.isfinite(psi_wb)):
         return None
+    _warn_on_axis_q_outlier(q)
 
     phi = toroidal_flux_from_q_psi(q, psi_wb)
     edge = float(phi[-1])
@@ -128,4 +134,54 @@ def is_rho_pol_proxy(rho_tor_norm: Any, psi_norm: Any = None) -> bool:
     return bool(
         np.max(np.abs(rho - np.sqrt(np.clip(reference, 0.0, None))))
         < RHO_POL_PROXY_TOLERANCE
+    )
+
+
+#: How far ``q[0]`` may stand from its immediate neighbours, either way, before
+#: it is called an outlier. A physical q profile is smooth, so a factor of two
+#: against the points right beside it is a solver or discretization artifact
+#: rather than reversed shear -- the comparison is local, not against ``q_min``.
+#:
+#: The bound is two-sided on purpose: a spuriously *low* ``q0`` is as much an
+#: EFIT failure as a high one, and integrates into the toroidal flux just the
+#: same.
+AXIS_Q_OUTLIER_RATIO = 2.0
+
+
+def _warn_on_axis_q_outlier(q: np.ndarray) -> None:
+    """Warn when ``q`` on axis contradicts the profile it belongs to.
+
+    EFIT's ``q[0]`` is often unreliable, and ``Phi = integral(q dpsi)`` carries it
+    into ``rho_tor``, ``rho_tor_norm`` and every kinetic profile mapped onto that
+    grid. On the packaged kineticEfit reference ``q[0] = 8.07`` against a
+    neighbourhood of 1.89 -- 4.3x -- and it moves ``rho_tor_norm`` by up to 0.043
+    near the axis and 0.0045 at mid-radius.
+
+    It is **not** repaired here. Extrapolating ``q[0]`` from its neighbours does
+    bring the coordinate 5.8x closer to what that reference stores (0.0369 to
+    0.0064), which is good evidence that the outlier is what the two disagree
+    about -- and is exactly why silently repairing it would be wrong. That would
+    replace a measurement with a guess, and hide a solver problem behind a
+    coordinate that looks fine. Issue #317 records the finding; the caller is
+    told, and decides.
+    """
+    import warnings
+
+    if q.size < 4:
+        return
+    neighbourhood = np.median(np.abs(q[1:5]))
+    if neighbourhood <= 0.0 or not np.isfinite(neighbourhood):
+        return
+    ratio = abs(float(q[0])) / float(neighbourhood)
+    if 1.0 / AXIS_Q_OUTLIER_RATIO <= ratio <= AXIS_Q_OUTLIER_RATIO:
+        return
+    direction = "above" if ratio > 1.0 else "below"
+    factor = ratio if ratio > 1.0 else 1.0 / ratio
+    warnings.warn(
+        f"q on axis is {q[0]:.3g}, {factor:.1f}x {direction} its immediate "
+        f"neighbours (median {neighbourhood:.3g}); the toroidal flux integral "
+        f"carries that into rho_tor_norm. The profile is used as given -- see "
+        f"issue #317.",
+        RuntimeWarning,
+        stacklevel=3,
     )
