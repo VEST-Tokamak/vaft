@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -55,6 +58,34 @@ class CompatRuntimeTests(unittest.TestCase):
         text = magnetics_source.read_text(encoding="utf-8")
         self.assertNotIn("integrate.cumtrapz(", text)
         self.assertIn("cumtrapz_compat(", text)
+
+    def test_home_is_exported_when_windows_leaves_it_unset(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("HOME", None)
+            with patch.object(compat, "IS_WINDOWS", True):
+                resolved = compat.ensure_home_environment()
+            self.assertEqual(resolved, str(Path.home()))
+            self.assertEqual(os.environ["HOME"], str(Path.home()))
+
+    def test_existing_home_is_never_overwritten(self):
+        with patch.dict(os.environ, {"HOME": ""}, clear=False):
+            with patch.object(compat, "IS_WINDOWS", True):
+                self.assertEqual(compat.ensure_home_environment(), "")
+            self.assertEqual(os.environ["HOME"], "")
+
+    @unittest.skipUnless(os.name == "nt", "native Windows import regression")
+    def test_omas_import_succeeds_without_home_on_windows(self):
+        environment = os.environ.copy()
+        environment.pop("HOME", None)
+        result = subprocess.run(
+            [sys.executable, "-c", "import vaft.imas.omas_imas; assert __import__('os').environ['HOME']"],
+            cwd=Path(__file__).resolve().parents[1],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
