@@ -897,17 +897,23 @@ def test_uninstall_clears_build_artifacts_from_the_checkout(
 ):
     """An editable install leaves these behind, and the next one inherits them."""
     monkeypatch.setenv("FAKE_CONDA_ENVS", "")
-    for name in ("vaft.egg-info", "build", "dist"):
-        (fake_checkout / name).mkdir()
+    (fake_checkout / "vaft.egg-info").mkdir()
+    # `python -m build` writes these (RELEASING.md); the bootstrap never does,
+    # so they are somebody's release artifacts, not an install leftover.
+    for release_output in ("build", "dist"):
+        (fake_checkout / release_output).mkdir()
     keeper = fake_checkout / "vaft"
     keeper.mkdir()
 
     completed = _run_script("uninstall.sh", "--yes", root=fake_checkout)
 
     assert completed.returncode == 0, completed.stderr
-    for name in ("vaft.egg-info", "build", "dist"):
-        assert not (fake_checkout / name).exists(), f"{name} survived the uninstall"
-    assert keeper.is_dir(), "only build artifacts may be removed, not source"
+    assert not (fake_checkout / "vaft.egg-info").exists(), "egg-info survived"
+    for release_output in ("build", "dist"):
+        assert (fake_checkout / release_output).is_dir(), (
+            f"{release_output}/ is a release artifact and must not be removed"
+        )
+    assert keeper.is_dir(), "only the install leftover may be removed, not source"
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
@@ -980,6 +986,52 @@ def test_uninstall_help_documents_every_flag(fake_conda, sandboxed_home, monkeyp
     assert _removal_commands(fake_conda) == []
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_uninstall_stops_when_the_environment_is_active(
+    fake_conda, sandboxed_home, monkeypatch
+):
+    """Conda will not delete the environment you are standing in.
+
+    Since the kernelspec has to be removed first -- it needs that environment's
+    interpreter -- a refusal part-way would strand a working environment with no
+    kernel. Refusing up front leaves the machine exactly as it was.
+    """
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "vaft")
+    (sandboxed_home / "vaft").mkdir()
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert completed.returncode == 1
+    assert "conda deactivate" in completed.stderr
+    assert _removal_commands(fake_conda) == []
+    assert (sandboxed_home / "vaft").is_dir(), "the kernelspec must survive"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_another_active_environment_does_not_block_the_uninstall(
+    fake_conda, sandboxed_home, monkeypatch
+):
+    """The guard is about `vaft` specifically, not about being in any env."""
+    monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "base")
+
+    completed = _run_script("uninstall.sh", "--yes", "--keep-build-artifacts")
+
+    assert completed.returncode == 0, completed.stderr
+    assert _removal_commands(fake_conda) == ["env remove --name vaft --yes"]
+
+
+def test_uninstall_leaves_release_artifacts_alone():
+    """`build/` and `dist/` come from `python -m build`, not from the bootstrap."""
+    text = (INSTALL / "_common.sh").read_text(encoding="utf-8")
+    assert 'vaft_build_artifacts=("vaft.egg-info")' in text, (
+        "only the editable install's own leftover is the uninstaller's business"
+    )
+    powershell = (INSTALL / "uninstall_windows_native.ps1").read_text(encoding="utf-8")
+    assert "$BuildArtifacts = @('vaft.egg-info')" in powershell
+
+
 def test_readme_documents_uninstalling():
     """The removal contract is pinned here, the way every other one is."""
     text = (INSTALL / "README.md").read_text(encoding="utf-8")
@@ -988,6 +1040,9 @@ def test_readme_documents_uninstalling():
         assert name in text, f"install/README.md does not mention {name}"
     for fragment in ("--dry-run", "--keep-build-artifacts", "conda env remove --name vaft"):
         assert fragment in text
+    # The two hazards a reader has to be told about.
+    assert "conda deactivate" in text
+    assert "release artifacts" in text
     # The two promises that make the script safe to hand to a student.
     assert "~/.hscfg" in text
     assert "never in scope" in text

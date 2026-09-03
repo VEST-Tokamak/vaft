@@ -200,10 +200,14 @@ vaft_dry_run=0
 vaft_assume_yes=0
 vaft_keep_build_artifacts=0
 
-# Gitignored leftovers an editable install drops in the checkout. Explicit
-# paths, never `git clean`: the tooling in install/ promises it runs no
-# destructive Git command, and that promise still applies here.
-vaft_build_artifacts=("vaft.egg-info" "build" "dist")
+# What the editable install leaves in the checkout, and the only thing here a
+# reinstall would inherit. Deliberately *not* `build/` or `dist/`: the
+# bootstrap never creates those -- `python -m build` does, per RELEASING.md --
+# and deleting a maintainer's release artifacts is not this script's business.
+#
+# Explicit paths, never `git clean`: the tooling in install/ promises it runs
+# no destructive Git command, and that promise still applies here.
+vaft_build_artifacts=("vaft.egg-info")
 
 vaft_kernelspec_candidates() {
     # Where Jupyter keeps user-level kernelspecs, without needing Jupyter to
@@ -232,6 +236,28 @@ vaft_kernel_is_present() {
         fi
     done
     return 1
+}
+
+vaft_assert_environment_is_not_active() {
+    # Removal is ordered kernel-first, because the kernelspec can only be
+    # removed through the environment's own interpreter. That ordering means a
+    # `conda env remove` which refuses part-way would leave a working
+    # environment with no kernel -- strictly worse than not having started.
+    #
+    # Conda refuses to remove the environment the current shell has activated
+    # ("You must deactivate the existing environment before you can remove
+    # it"), and that is the one case we can see coming. Stop before touching
+    # anything.
+    local active="${CONDA_DEFAULT_ENV:-}"
+    if [ -z "${active}" ] && [ -n "${CONDA_PREFIX:-}" ]; then
+        active="$(basename "${CONDA_PREFIX}")"
+    fi
+    if [ "${active}" = "${VAFT_ENV_NAME}" ]; then
+        vaft_die "The \`${VAFT_ENV_NAME}\` environment is active in this shell, and Conda
+refuses to remove an environment you are standing in.
+Run \`conda deactivate\` first, then rerun this script.
+Nothing has been removed."
+    fi
 }
 
 vaft_remove_kernel() {
@@ -383,7 +409,7 @@ Usage: uninstall script [--yes] [--dry-run] [--keep-build-artifacts]
   (no arguments)          list what would be removed, then ask for confirmation
   --yes, -y               skip the confirmation (for CI and scripting)
   --dry-run               print the plan and change nothing
-  --keep-build-artifacts  leave vaft.egg-info/, build/ and dist/ in place
+  --keep-build-artifacts  leave vaft.egg-info/ in place
 
 Removes the `vaft` Conda environment, the editable VAFT installation inside
 it, and the user-level "Python (vaft)" Jupyter kernelspec. Never removes
@@ -399,6 +425,7 @@ USAGE
         "${VAFT_PLATFORM_LABEL}" "${VAFT_REPOSITORY_ROOT}"
 
     vaft_detect_conda
+    vaft_assert_environment_is_not_active
     vaft_print_removal_plan
 
     if [ "${vaft_dry_run}" -eq 1 ]; then

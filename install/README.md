@@ -303,9 +303,19 @@ the one order that works:
    directory so the spec can never be orphaned.
 2. **The `vaft` Conda environment** — `conda env remove --name vaft`. The
    editable installation lives inside it and goes with it.
-3. **Gitignored build artifacts in your checkout** — `vaft.egg-info/`,
-   `build/`, `dist/`. Pass `--keep-build-artifacts` (`-KeepBuildArtifacts`) to
-   leave them.
+3. **The `vaft.egg-info/` directory** the editable install leaves in your
+   checkout — the one leftover a reinstall would otherwise inherit. Pass
+   `--keep-build-artifacts` (`-KeepBuildArtifacts`) to leave it.
+
+`build/` and `dist/` are deliberately *not* touched. The bootstrap never
+creates them; `python -m build` does, when a maintainer cuts a release. Deleting
+someone's release artifacts is not this script's job.
+
+If the `vaft` environment is active in your shell, the script stops before
+removing anything and asks you to `conda deactivate` first. Conda refuses to
+delete an environment you are standing in, and since the kernelspec has to go
+first, a refusal part-way would leave you with a working environment and no
+kernel.
 
 ### What it never removes
 
@@ -316,9 +326,9 @@ the one order that works:
   pinned to `--name vaft`, with no prefix or pattern match, so an environment
   you named `vaft-experiment` is never in scope. This is enforced by a test,
   not left to convention.
-- **Your repository checkout**, beyond the three build directories above. Like
-  the bootstrap, the uninstaller runs no destructive Git command: artifacts are
-  deleted by explicit path, never with `git clean`.
+- **Your repository checkout**, beyond that one directory. Like the bootstrap,
+  the uninstaller runs no destructive Git command: the artifact is deleted by
+  explicit path, never with `git clean`.
 - **Conda or Git themselves.** The bootstrap refuses to install them, so the
   uninstaller has no business removing them.
 

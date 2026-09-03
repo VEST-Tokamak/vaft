@@ -25,7 +25,7 @@
     Print what would be removed and change nothing.
 
 .PARAMETER KeepBuildArtifacts
-    Leave vaft.egg-info\, build\ and dist\ in the checkout.
+    Leave vaft.egg-info\ in the checkout.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File install\uninstall_windows_native.ps1
@@ -52,10 +52,14 @@ $KernelDisplayName = 'Python (vaft)'
 $PlatformLabel = 'Windows (native)'
 $RepositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 
-# Gitignored leftovers an editable install drops in the checkout. Explicit
-# names, never `git clean`: the tooling in install\ promises it runs no
-# destructive Git command, and that promise still applies here.
-$BuildArtifacts = @('vaft.egg-info', 'build', 'dist')
+# What the editable install leaves in the checkout, and the only thing here a
+# reinstall would inherit. Deliberately not `build\` or `dist\`: the bootstrap
+# never creates those -- `python -m build` does, per RELEASING.md -- and
+# deleting a maintainer's release artifacts is not this script's business.
+#
+# Explicit names, never `git clean`: the tooling in install\ promises it runs
+# no destructive Git command, and that promise still applies here.
+$BuildArtifacts = @('vaft.egg-info')
 
 $script:SummaryLines = New-Object System.Collections.Generic.List[string]
 $script:Failed = $false
@@ -119,6 +123,28 @@ function Test-VaftKernel {
         if (Test-Path -LiteralPath (Join-Path $root $KernelName)) { return $true }
     }
     return $false
+}
+
+function Assert-EnvironmentIsNotActive {
+    # Removal is ordered kernel-first, because the kernelspec can only be
+    # removed through the environment's own interpreter. That ordering means a
+    # `conda env remove` which refuses part-way would leave a working
+    # environment with no kernel -- strictly worse than not having started.
+    #
+    # Conda refuses to remove the environment the current shell has activated,
+    # and that is the one case we can see coming. Stop before touching anything.
+    $active = $env:CONDA_DEFAULT_ENV
+    if (-not $active -and $env:CONDA_PREFIX) {
+        $active = Split-Path -Leaf $env:CONDA_PREFIX
+    }
+    if ($active -eq $EnvironmentName) {
+        Stop-WithGuidance @"
+The '$EnvironmentName' environment is active in this shell, and Conda refuses to
+remove an environment you are standing in.
+
+Run ``conda deactivate`` first, then rerun this script. Nothing has been removed.
+"@
+    }
 }
 
 function Remove-VaftKernel {
@@ -262,6 +288,7 @@ Write-Host "Repository: $RepositoryRoot"
 Write-Host ''
 
 Assert-Conda
+Assert-EnvironmentIsNotActive
 Write-RemovalPlan
 
 if ($DryRun) {

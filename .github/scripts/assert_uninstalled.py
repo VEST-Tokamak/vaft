@@ -14,20 +14,29 @@ the platform's real first-install path was never exercised.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ENVIRONMENT_NAME = "vaft"
 KERNEL_NAME = "vaft"
-BUILD_ARTIFACTS = ("vaft.egg-info", "build", "dist")
+# Only what the bootstrap itself creates. `build/` and `dist/` come from
+# `python -m build`, which the bootstrap never runs.
+BUILD_ARTIFACTS = ("vaft.egg-info",)
 
 failures: list[str] = []
 
 
 def conda_environment_names() -> list[str]:
+    # Resolved rather than invoked by bare name: on Windows conda is usually
+    # `condabin\conda.bat`, and CreateProcess appends only `.exe` when it
+    # searches PATH -- it never consults PATHEXT. shutil.which does.
+    conda = shutil.which("conda")
+    if conda is None:
+        sys.exit("[FAIL] conda is not on PATH, so the environment cannot be checked")
     listing = subprocess.run(
-        ["conda", "env", "list"], capture_output=True, text=True, check=True
+        [conda, "env", "list"], capture_output=True, text=True, check=True
     ).stdout
     names = []
     for line in listing.splitlines():
