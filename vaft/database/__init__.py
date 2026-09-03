@@ -28,6 +28,7 @@ __all__ = [
     "sources",
     "replication",
     "production_qa",
+    "plotting",
     "load",
     "open",
     "save",
@@ -364,6 +365,13 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
+    # Plot adapters (issue #63): resolved lazily so importing vaft.database
+    # pulls in neither the plotting stack nor Matplotlib.
+    if name.startswith("plot_") or name == "available_plots":
+        plotting = import_module(".plotting", __name__)
+        value = getattr(plotting, name)
+        globals()[name] = value
+        return value
     # Preserve utility access patterns used by shipped notebooks and workflows.
     # High-level remote I/O still belongs to load/open/save above; these
     # compatibility attributes are deprecated at their implementation sites.
@@ -380,4 +388,9 @@ def __getattr__(name: str):
 
 
 def __dir__():
-    return sorted(list(globals().keys()) + __all__)
+    names = set(globals()) | set(__all__)
+    try:
+        names |= set(dir(import_module(".plotting", __name__)))
+    except Exception:  # pragma: no cover - the plotting stack is optional at dir() time
+        pass
+    return sorted(n for n in names if not n.startswith("_"))
