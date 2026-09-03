@@ -22,6 +22,7 @@ SPEC.loader.exec_module(MODULE)
 def test_detects_gross_integrator_drift_without_flagging_peer_variation():
     ods = ODS(consistency_check=False)
     time = np.linspace(0.26, 0.36, 2500)
+    ods["magnetics.time"] = time
     for index in range(64):
         amplitude = 0.05 * (1.0 + 0.1 * np.sin(index))
         values = amplitude * np.sin(2 * np.pi * 20 * time)
@@ -30,6 +31,23 @@ def test_detects_gross_integrator_drift_without_flagging_peer_variation():
         ods[f"magnetics.b_field_pol_probe.{index}.field.data"] = values
 
     assert MODULE._detect_broken_bpol_probes(ods) == [26]
+
+
+def test_the_fallback_is_the_shared_detector():
+    """One rule for one fault, with or without a projected assessment: what
+    the fallback names on the packaged shot is what the quality layer
+    condemns there."""
+    from vaft.omas.sample import sample_ods
+    from vaft.validation.magnetics import validate_magnetics_signals
+    from vaft.validation.model import ValidationStatus
+
+    ods = sample_ods()
+    condemned = sorted(
+        q.index + 1
+        for q in validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
+        if q.status is not ValidationStatus.NOT_AVAILABLE and q.valid_fraction == 0.0
+    )
+    assert MODULE._detect_broken_bpol_probes(ods) == condemned == [26]
 
 
 def _array(n: int = 64, bad: int = 25) -> ODS:
