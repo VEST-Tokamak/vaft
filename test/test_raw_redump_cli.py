@@ -3,6 +3,8 @@ from __future__ import annotations
 import gzip
 import json
 
+import pytest
+
 from vaft.cli import raw_redump
 
 
@@ -70,3 +72,27 @@ def test_raw_redump_uses_the_fixed_default_range_and_allows_an_override():
     assert raw_redump._selected_shots(None, None) == list(range(29350, 48824))
     assert raw_redump._selected_shots(None, [48223, 48224]) == [48223, 48224]
     assert raw_redump._selected_shots([48224, 48223, 48224], None) == [48224, 48223]
+
+
+def test_raw_redump_lock_backend_is_importable_on_this_platform():
+    assert callable(raw_redump._lock_file_nonblocking)
+    assert callable(raw_redump._unlock_file)
+
+
+def test_raw_redump_lock_rejects_a_contending_holder(tmp_path):
+    root = tmp_path / "FileDB/raw"
+
+    with raw_redump._exclusive_lock(root):
+        with pytest.raises(raw_redump.RedumpAlreadyRunningError):
+            with raw_redump._exclusive_lock(root):
+                pass
+
+
+def test_raw_redump_lock_can_be_reacquired_after_release(tmp_path):
+    root = tmp_path / "FileDB/raw"
+
+    with raw_redump._exclusive_lock(root):
+        pass
+    with raw_redump._exclusive_lock(root):
+        pass
+    assert (root / ".redump.lock").read_text(encoding="utf-8").startswith("pid=")
