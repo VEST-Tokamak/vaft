@@ -97,3 +97,24 @@ def test_a_scalar_family_does_not_repeat_its_own_waveform_as_a_constraint(sample
     assert [trace.role for trace in model.series] == [""]
     model = build_model("plasma_current_time", entries, synthetic="both")
     assert "constraint" not in {trace.role for trace in model.series}
+
+
+def test_a_channel_indexed_profile_applies_the_same_presets():
+    """Thomson channels are points of one spatial profile; the presets still apply."""
+    ods = omas.ODS(consistency_check=False)
+    for index, (values, validity) in enumerate((
+        (np.array([100.0, 110.0]), 0),   # valid, carries a signal
+        (np.zeros(2), 0),                # valid, reads nothing
+        (np.array([150.0, 160.0]), -1),  # flagged invalid
+    )):
+        base = f"thomson_scattering.channel.{index}"
+        ods[f"{base}.position.r"] = 0.3 + 0.1 * index
+        ods[f"{base}.t_e.data"] = values
+        ods[f"{base}.t_e.validity"] = validity
+    ods["thomson_scattering.time"] = np.array([0.0, 0.1])
+    entries = normalize_entries(ods)
+    name = "thomson_scattering_profile_electron_temperature"
+    points = {sel: build_model(name, entries, selection=sel, time_slice=0).series[0].x.size
+              for sel in (None, ACTIVE, VALID, ALL)}
+    assert points == {None: 1, ACTIVE: 1, VALID: 2, ALL: 3}
+    assert build_model(name, entries, selection=[2], time_slice=0).series[0].x.size == 1

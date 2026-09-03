@@ -219,6 +219,22 @@ def _resolve_selection(
     return list(dict.fromkeys(indices))
 
 
+def _channel_passes_signal_preset(
+    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any
+) -> bool:
+    """The :func:`_keep_by_signal` rule for one channel read directly."""
+    preset = ACTIVE if selection is None else selection
+    if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
+        return True
+    code, mask = _validity_of(ods, y_path, index)
+    if code is not None and int(code) < 0 and (mask is None or not np.asarray(mask, dtype=bool).any()):
+        return False
+    if preset == ACTIVE:
+        finite = values[np.isfinite(values)]
+        return finite.size > 0 and bool(np.any(finite != 0.0))
+    return True
+
+
 def _keep_by_signal(traces: list, selection: Any) -> list:
     """Apply a signal preset to built traces (``vaft.plot.selection``).
 
@@ -3349,15 +3365,20 @@ def _build_profile_1d(
     resolved_per_entry: list[str] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
-            indices = _resolve_selection(ods, recipe.y_path, _selection_option(options))
+            selection = _selection_option(options)
+            indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
             for index in indices:
                 x = _get(ods, _profile_coordinate(recipe, coordinate).format(i=index))
                 y = _get(ods, recipe.y_path.format(i=index))
                 if x is None or y is None:
                     continue
-                x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 y_flat = np.asarray(y, dtype=float).ravel()
+                # A channel is one point of the profile; the signal presets
+                # apply to it as they do to a trace (vaft.plot.selection).
+                if not _channel_passes_signal_preset(ods, recipe.y_path, index, y_flat, selection):
+                    continue
+                x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
             if x_values:
