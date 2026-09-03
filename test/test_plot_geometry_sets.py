@@ -157,3 +157,15 @@ def test_magnetic_sensors_are_annotated_with_their_index(sample):
     assert len(notes) == with_position
     first = next(layer for layer in notes if layer.label == "0")
     assert np.isclose(first.r[0], float(loops[0]["position.0.r"]))
+
+
+def test_index_annotations_follow_the_points_through_a_position_gap():
+    ods = omas.ODS(consistency_check=False)
+    for index, (r, z) in enumerate(((1.0, 0.1), (1.1, None), (1.2, 0.3))):
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = r
+        if z is not None:
+            ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+    model = build_model("magnetics_geometry_poloidal", normalize_entries(ods))
+    points = next(layer for layer in model.layers if layer.kind == "points")
+    notes = {layer.label: (float(layer.r[0]), float(layer.z[0])) for layer in model.layers if layer.kind == "text"}
+    assert points.r.size == 2 and notes == {"0": (1.0, 0.1), "2": (1.2, 0.3)}

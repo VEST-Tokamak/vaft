@@ -341,7 +341,7 @@ def _condemned(code, mask) -> bool:
 
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
     """Channel, layout and metadata facts for one line-series plot."""
-    facts: dict[str, Any] = {}
+    facts: dict[str, Any] = {"orientation": _orientation_block(recipe)}
     if recipe.index != "channel":
         code, mask = _validity_of(ods, recipe.y_path)
         facts["validity"] = _validity_block(present=code is not None, flagged=int(_condemned(code, mask)))
@@ -402,6 +402,13 @@ def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:
     if not present:
         return {}
     return {"available": True, "flagged": flagged, "modes": VALIDITY_MODES}
+
+
+def _orientation_block(recipe: LineRecipe) -> dict[str, Any]:
+    """The display sign policy a line plot applies by default (issue #307)."""
+    from vaft.plot.backend.recipes import ORIENTATIONS
+
+    return {"default": recipe.orientation, "options": list(ORIENTATIONS)}
 
 
 def _uncertainty_block(present: bool) -> dict[str, Any]:

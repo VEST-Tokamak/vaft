@@ -151,9 +151,10 @@ def _with_slice_markers(model: Any, navigator: SliceNavigator) -> Any:
     if measured is None or measured.x.size < 2:
         return model
     times = navigator.times[list(navigator.usable)]
+    order = np.argsort(measured.x)  # np.interp needs a monotonic abscissa
     marker = Series(
         x=times,
-        y=np.interp(times, measured.x, measured.y),
+        y=np.interp(times, measured.x[order], measured.y[order]),
         label="equilibrium slices",
         style={"marker": "o", "linestyle": "none", "markerfacecolor": "none",
                "markeredgecolor": "0.25", "markersize": 5},

@@ -3217,19 +3217,31 @@ def _orient(traces: tuple, orientation: str) -> tuple[tuple, bool]:
         return traces, False
     from vaft.process.signal_processing import infer_signal_orientation
 
-    verdicts = [
-        infer_signal_orientation(trace.y, mask=trace.valid_mask)
-        for trace in traces if not trace.role
-    ]
-    resolved = [v for v in verdicts if v.resolved]
-    if not resolved:
+    # One multiplier per entry: a shot is oriented by its own convention, so
+    # two shots of opposite polarity each come out positive.  Within an
+    # entry the measured trace with the strongest dominant response decides,
+    # so a weak channel cannot flip a strong one; synthetic traces follow.
+    multipliers: dict[str, int] = {}
+    for entry in dict.fromkeys(trace.entry for trace in traces):
+        verdicts = [
+            infer_signal_orientation(trace.y, mask=trace.valid_mask)
+            for trace in traces if trace.entry == entry and not trace.role
+        ]
+        resolved = [v for v in verdicts if v.resolved]
+        multipliers[entry] = max(resolved, key=lambda v: abs(v.statistic)).multiplier if resolved else 1
+    if all(m > 0 for m in multipliers.values()):
         return traces, False
-    # One multiplier for the whole figure: the trace with the strongest
-    # dominant response decides, so a weak channel cannot flip a strong one.
-    multiplier = max(resolved, key=lambda v: abs(v.statistic)).multiplier
-    if multiplier > 0:
-        return traces, False
-    return tuple(dataclasses.replace(trace, y=np.asarray(trace.y) * -1.0) for trace in traces), True
+    oriented = []
+    for trace in traces:
+        if multipliers.get(trace.entry, 1) > 0:
+            oriented.append(trace)
+            continue
+        yerr = trace.yerr
+        if yerr is not None and np.ndim(yerr) == 2:
+            # Lower and upper distances change places with the sign.
+            yerr = np.asarray(yerr)[::-1]
+        oriented.append(dataclasses.replace(trace, y=np.asarray(trace.y) * -1.0, yerr=yerr))
+    return tuple(oriented), True
 
 
 def _build_line_series(
@@ -3527,7 +3539,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
         else:
             indices = list(range(_count(ods, container)))
         if kind == "points":
-            r_values, z_values = [], []
+            r_values, z_values, placed = [], [], []
             for index in indices:
                 r = _get(ods, r_template.format(i=index))
                 z = _get(ods, z_template.format(i=index))
@@ -3535,6 +3547,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                     continue
                 r_values.append(float(np.asarray(r, dtype=float).ravel()[0]))
                 z_values.append(float(np.asarray(z, dtype=float).ravel()[0]))
+                placed.append(index)
             if r_values:
                 layers.append(
                     GeometryLayer(
@@ -3546,10 +3559,9 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                     )
                 )
                 if recipe.annotate_indices:
+                    # The same channels the points loop placed, in the same order.
                     color = style.get("color", "0.3")
-                    for index, r_value, z_value in zip(
-                        [i for i in indices if _get(ods, r_template.format(i=i)) is not None], r_values, z_values
-                    ):
+                    for index, r_value, z_value in zip(placed, r_values, z_values):
                         layers.append(GeometryLayer(
                             r=[r_value], z=[z_value], kind="text", label=str(index),
                             style={"color": color, "fontsize": 5, "ha": "left", "va": "bottom",

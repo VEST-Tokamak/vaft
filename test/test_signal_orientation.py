@@ -140,3 +140,37 @@ def test_no_plotting_path_rectifies_with_abs():
             if "np.abs(" in line and "sign" in line and "orientation" not in line:
                 offenders.append(f"{path.name}:{number}")
     assert not offenders, offenders
+
+
+def test_each_shot_is_oriented_by_its_own_convention():
+    entries = normalize_entries(_magnetics(-1), label="key") + normalize_entries(_magnetics(+1), label="key")
+    entries = [("neg", entries[0][1]), ("pos", entries[1][1])]
+    model = build_model("plasma_current_time", entries)
+    by_entry = {trace.entry: trace for trace in model.series}
+    canonical = build_model("plasma_current_time", entries, orientation="canonical")
+    stored = {trace.entry: trace for trace in canonical.series}
+    assert np.allclose(by_entry["neg"].y, -stored["neg"].y)  # flipped by its own convention
+    assert np.allclose(by_entry["pos"].y, stored["pos"].y)   # left alone by its own
+    assert model.title.endswith("(sign flipped)")
+
+
+def test_asymmetric_error_bars_change_places_with_the_sign():
+    ods = _magnetics(-1)
+    n = ods["magnetics.ip.0.data"].size
+    ods["magnetics.ip.0.data_error_lower"] = np.full(n, 1e3)
+    ods["magnetics.ip.0.data_error_upper"] = np.full(n, 5e3)
+    canonical = build_model("plasma_current_time", normalize_entries(ods), orientation="canonical").series[0]
+    flipped = build_model("plasma_current_time", normalize_entries(ods)).series[0]
+    assert np.allclose(flipped.yerr[0], canonical.yerr[1]) and np.allclose(flipped.yerr[1], canonical.yerr[0])
+
+
+def test_the_detector_wants_a_one_dimensional_signal():
+    with pytest.raises(ValueError, match="one-dimensional"):
+        infer_signal_orientation(np.ones((2, 3)))
+
+
+def test_discovery_advertises_the_sign_policy(sample):
+    record = vaft.omas.available_plots(sample, query="diamagnetic").find("diamagnetic_flux_time")
+    assert record.orientation == {"default": "intuitive", "options": ["canonical", "intuitive"]}
+    assert "orientation: intuitive by default" in str(vaft.omas.available_plots(sample, query="diamagnetic"))
+    assert vaft.omas.available_plots(sample, query="barometry").find("barometry_time_pressure").orientation["default"] == "canonical"

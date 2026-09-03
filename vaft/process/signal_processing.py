@@ -1023,7 +1023,10 @@ def infer_signal_orientation(
     multiplier is ``+1`` (canonical), never a guess.  ``abs`` is never
     applied to the data and no sample is flipped on its own.
     """
-    values = np.asarray(signal, dtype=float).ravel()
+    values = np.asarray(signal, dtype=float)
+    if values.ndim > 1:
+        raise ValueError(f"signal must be one-dimensional; got shape {values.shape}")
+    values = values.ravel()
     finite = np.isfinite(values)
     if mask is not None:
         region = finite & np.asarray(mask, dtype=bool).ravel()

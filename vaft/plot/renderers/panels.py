@@ -211,6 +211,10 @@ def render_panels(
             for axis in column_axes[:-1]:
                 axis.tick_params(labelbottom=False)
                 axis.set_xlabel("")
+            if column_axes:
+                # A shared-x grid labels ticks on its structural last row only;
+                # a column that ends earlier needs them switched on by hand.
+                column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is

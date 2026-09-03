@@ -304,4 +304,8 @@ def test_panels_sharing_a_time_base_label_it_once_per_column(shots):
         if axis.get_visible():
             columns.setdefault(round(axis.get_position().x0, 3), []).append(axis.get_xlabel())
     assert all(labels[-1] == "Time [s]" and not any(labels[:-1]) for labels in columns.values())
+    # The shorter column's last panel shows its tick numbers too.
+    figure.canvas.draw()
+    bottoms = [axis for axis in axes.ravel() if axis.get_visible() and axis.get_xlabel() == "Time [s]"]
+    assert len(bottoms) == 2 and all(any(t.get_text() for t in axis.get_xticklabels()) for axis in bottoms)
     plt.close(figure)
