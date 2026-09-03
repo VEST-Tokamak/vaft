@@ -13,19 +13,25 @@ import numpy as np
 import pytest
 
 from vaft.formula.statistics import (
+    percentile_scale,
     bias_standard_error,
     chi_squared,
+    dynamic_range,
     fractional_rms_improvement,
     lag1_autocorrelation,
+    linear_trend,
     log10_decay_rate,
+    median_absolute_deviation,
     monotonic_fraction,
     noise_band,
     normalized_residual,
     outlier_fraction,
+    pearson_correlation,
     reduced_chi_squared,
     relative_spread,
     residual_bias,
     rms,
+    robust_z_scores,
     runs_test_z,
     sigma_threshold_crossing,
     sigma_unit_factor,
@@ -287,3 +293,124 @@ def test_log10_decay_rate_guards_short_and_non_positive_histories():
     assert math.isnan(log10_decay_rate(np.zeros(6)))
     assert math.isnan(log10_decay_rate([1.0, -1.0, 0.0, 1e-3]))
     assert math.isnan(log10_decay_rate(10.0 ** -np.arange(6.0), tail=0))
+
+
+# ---------------------------------------------------------------------------
+# Robust scale, trend and agreement
+# ---------------------------------------------------------------------------
+
+def test_median_absolute_deviation_is_unmoved_by_a_corrupted_minority():
+    """The property the standard deviation lacks: half the sample may be
+    arbitrarily bad before the estimate moves at all.
+    """
+    clean = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    corrupted = np.array([1.0, 2.0, 3.0, 4.0, 1.0e6])
+
+    assert median_absolute_deviation(clean) == pytest.approx(1.0)
+    assert median_absolute_deviation(corrupted) == pytest.approx(1.0)
+    assert np.std(corrupted) > 1.0e5
+
+
+def test_median_absolute_deviation_is_zero_for_a_repeated_majority():
+    assert median_absolute_deviation([1.0, 1.0, 1.0, 5.0]) == 0.0
+    assert math.isnan(median_absolute_deviation([]))
+    assert math.isnan(median_absolute_deviation([np.nan, np.nan]))
+
+
+def test_robust_z_scores_expose_a_spike_a_plain_z_score_would_hide():
+    values = np.concatenate([np.zeros(40), [50.0], np.zeros(40)])
+
+    robust = robust_z_scores(values)
+    plain = (values - values.mean()) / values.std()
+
+    assert np.isinf(robust[40])
+    # The spike is 9 sigma out on its own inflated scale -- large, but the same
+    # scale it created, so a fixed threshold in those units drifts with the
+    # anomaly it is meant to catch.
+    assert plain[40] == pytest.approx(math.sqrt(80), rel=0.05)
+
+
+def test_robust_z_scores_keep_their_position_and_mark_non_finite_samples():
+    scores = robust_z_scores([1.0, 2.0, 3.0, 100.0, np.nan])
+
+    assert scores.shape == (5,)
+    assert math.isnan(scores[4])
+    assert scores[3] > 10.0
+    assert abs(scores[1]) < 1.0
+
+
+def test_robust_z_scores_report_infinity_rather_than_nan_for_a_zero_scale():
+    """A perfectly linear ramp differenced has zero MAD, yet a single step out
+    of it is the clearest possible anomaly -- not an undefined one.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        scores = robust_z_scores(np.diff([0.0, 1.0, 2.0, 3.0, 9.0, 10.0]))
+
+    assert scores.tolist() == [0.0, 0.0, 0.0, math.inf, 0.0]
+    assert np.isnan(robust_z_scores([np.nan, np.nan])).all()
+
+
+def test_linear_trend_recovers_a_known_slope_and_ignores_offset():
+    time = np.linspace(0.0, 2.0, 21)
+
+    assert linear_trend(time, 3.0 * time + 7.0) == pytest.approx(3.0)
+    assert linear_trend(time, 3.0 * time - 1000.0) == pytest.approx(3.0)
+    # Unlike a mean, a pure offset is invisible to it: "offset" and "walking"
+    # are different faults and need different statistics.
+    assert linear_trend(time, np.full_like(time, 5.0)) == pytest.approx(0.0)
+
+
+def test_linear_trend_guards_degenerate_and_mismatched_inputs():
+    assert math.isnan(linear_trend([1.0, 1.0, 1.0], [1.0, 2.0, 3.0]))
+    assert math.isnan(linear_trend([1.0], [2.0]))
+    assert math.isnan(linear_trend([1.0, np.nan], [np.nan, 2.0]))
+    with pytest.raises(ValueError, match="same length"):
+        linear_trend([1.0, 2.0], [1.0])
+
+
+def test_pearson_correlation_separates_shape_from_amplitude():
+    """A model with the right dynamics and the wrong gain correlates perfectly
+    while leaving a large residual -- the distinction an RMS alone hides.
+    """
+    time = np.linspace(0.0, 1.0, 50)
+    measured = np.sin(2.0 * np.pi * time)
+
+    assert pearson_correlation(measured, 4.0 * measured) == pytest.approx(1.0)
+    assert pearson_correlation(measured, -measured) == pytest.approx(-1.0)
+    assert rms(measured - 4.0 * measured) > rms(measured)
+
+
+def test_pearson_correlation_guards_zero_variance_and_short_inputs():
+    assert math.isnan(pearson_correlation([1.0, 1.0, 1.0], [1.0, 2.0, 3.0]))
+    assert math.isnan(pearson_correlation([1.0], [2.0]))
+    with pytest.raises(ValueError, match="same length"):
+        pearson_correlation([1.0, 2.0], [1.0])
+
+
+def test_dynamic_range_stays_meaningful_for_a_signal_that_straddles_zero():
+    """`relative_spread` divides by `max|x|`, which a symmetric swing collapses;
+    the raw span is what a residual is compared against.
+    """
+    swing = np.array([-1.0, 0.0, 1.0])
+
+    assert dynamic_range(swing) == pytest.approx(2.0)
+    assert relative_spread(swing) == pytest.approx(2.0)
+    assert dynamic_range(np.array([9.0, 10.0])) == pytest.approx(1.0)
+    assert relative_spread(np.array([9.0, 10.0])) == pytest.approx(0.1)
+
+
+def test_dynamic_range_guards_empty_and_constant_input():
+    assert dynamic_range([4.0, 4.0, 4.0]) == 0.0
+    assert math.isnan(dynamic_range([]))
+    assert math.isnan(dynamic_range([np.nan]))
+
+
+def test_percentile_scale_is_not_set_by_one_sample():
+    """One saturated channel among a healthy family must not set the family's
+    normalisation -- the failure mode max() has on the packaged VEST samples."""
+    family = np.concatenate([np.full(99, 0.05), [2.7]])
+    assert percentile_scale(family) == pytest.approx(0.05)
+    assert np.max(np.abs(family)) == pytest.approx(2.7)
+    assert percentile_scale([-0.3, 0.1, np.nan], percentile=100.0) == pytest.approx(0.3)
+    assert math.isnan(percentile_scale([np.nan, np.inf]))

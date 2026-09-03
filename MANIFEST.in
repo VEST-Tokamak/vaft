@@ -28,6 +28,6 @@ include vaft/data/legacy/sxr_te_ratio_be_al.csv
 include vaft/data/samples/*/manifest.yaml
 include vaft/data/samples/39915/omas.json.gz
 include vaft/data/samples/39915/imas.nc
-include packaging/wheel_samples/39915/manifest.yaml
-include packaging/wheel_samples/39915/omas.json.gz
-include packaging/wheel_samples/39915/imas.nc
+include vaft/data/wheel_samples/39915/manifest.yaml
+include vaft/data/wheel_samples/39915/omas.json.gz
+include vaft/data/wheel_samples/39915/imas.nc

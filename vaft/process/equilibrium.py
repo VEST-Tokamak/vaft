@@ -8,6 +8,55 @@ from scipy.interpolate import interp1d
 from vaft.formula.constants import MU0
 
 
+#: The parametric API re-exported at the bottom of this module from
+#: ``._equilibrium_parametric``, which keeps this module as its stable public
+#: import location.  Listed explicitly so ``__all__`` stays readable and so a
+#: name cannot join the public surface just by being imported here.
+_PARAMETRIC_EXPORTS = (
+    "as_equilibrium",
+    "check_equilibrium_requirements",
+    "convert_cocos",
+    "derive_boundary_representation",
+    "derive_global_descriptors",
+    "derive_radial_coordinates",
+    "evaluate_miller",
+    "evaluate_solovev",
+    "fit_miller_sequence",
+    "fit_miller_surface",
+    "solovev_to_equilibrium",
+    "solve_solovev_constraints",
+    "validate_equilibrium",
+)
+
+__all__ = [
+    "FLUX_SURFACE_QUANTITIES",
+    "MIN_FLUX_SURFACE_POINTS",
+    "calculate_average_boundary_poloidal_field",
+    "calculate_diamagnetism",
+    "calculate_reconstructed_diamagnetic_flux",
+    "computed_diamagnetism_from_phi",
+    "contour_shape_parameters",
+    "efit_virial_volume_integrals",
+    "extract_flux_surface_contours",
+    "flux_surface_quantities",
+    "fractional_cell_weights_from_boundary",
+    "make_equilibrium_field_interpolator",
+    "poloidal_field_at_boundary",
+    "prepare_boundary_for_shafranov",
+    "psi_to_RZ",
+    "psi_to_radial",
+    "psi_to_rho",
+    "psi_to_rz",
+    "r_at_z_extremum",
+    "radial_to_psi",
+    "rho_to_psi",
+    "shafranov_integrals",
+    "trace_field_line",
+    "volume_average",
+    *_PARAMETRIC_EXPORTS,
+]
+
+
 def radial_to_psi(r, psi_R, psi_Z, psi):
     """Convert radial coordinate R to poloidal flux ψ using interpolation at Z=0.
     
@@ -976,6 +1025,337 @@ def extract_flux_surface_contours(
         contours[level] = [_index_to_rz(contour) for contour in raw_contours]
 
     return contours
+
+
+#: Below this many vertices a marching-squares contour describes grid artifact
+#: rather than geometry.  16 is deliberately permissive: on a 129x129 VEST map
+#: the innermost resolved surface carries ~21 vertices, and dropping it costs
+#: more than keeping it -- measured against the OMFIT reference, raising the
+#: threshold to 24 moves the worst `elongation` error from 1.8e-3 to 2.3e-2.
+MIN_FLUX_SURFACE_POINTS = 16
+
+
+def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
+    """Shape parameters of one closed flux-surface contour.
+
+    Returns ``volume``, ``area``, ``surface``, ``elongation``,
+    ``triangularity_upper``, ``triangularity_lower``, ``r_inboard`` and
+    ``r_outboard``. Volume revolves the contour with the exact
+    ``V = pi * closed_integral(R^2 dZ)``; area is the shoelace formula; surface
+    is ``closed_integral 2*pi*R dl``.
+
+    Raises ``ValueError`` on a degenerate contour (zero minor radius).
+    """
+    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
+
+    r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
+    z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
+    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
+    z_min, z_max = float(np.min(z_seg)), float(np.max(z_seg))
+    minor = 0.5 * (r_max - r_min)
+    r_geo = 0.5 * (r_max + r_min)
+    if minor <= 0.0:
+        raise ValueError("degenerate contour")
+    r_closed = np.r_[r_seg, r_seg[0]]
+    z_closed = np.r_[z_seg, z_seg[0]]
+    segment_length = np.hypot(np.diff(r_closed), np.diff(z_closed))
+    r_mid = 0.5 * (r_closed[1:] + r_closed[:-1])
+    return {
+        "volume": exact_volume_from_RZ_contour(r_seg, z_seg),
+        # Poloidal cross-section area, by the shoelace formula.
+        "area": 0.5
+        * abs(
+            float(np.dot(r_seg, np.roll(z_seg, 1)) - np.dot(z_seg, np.roll(r_seg, 1)))
+        ),
+        "surface": 2.0 * np.pi * float(np.sum(r_mid * segment_length)),
+        "elongation": (z_max - z_min) / (2.0 * minor),
+        "triangularity_upper": (r_geo - r_at_z_extremum(r_seg, z_seg, upper=True)) / minor,
+        "triangularity_lower": (r_geo - r_at_z_extremum(r_seg, z_seg, upper=False)) / minor,
+        "r_inboard": r_min,
+        "r_outboard": r_max,
+    }
+
+
+def r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
+    """R where the contour reaches its highest (or lowest) point.
+
+    Taking R at the sampled vertex of extreme Z is off by several percent in
+    triangularity, because the true extremum falls between vertices. Fitting a
+    parabola to Z over the three points around it locates the extremum to
+    sub-vertex resolution, and R is interpolated there.
+    """
+    r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
+    z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
+    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
+    size = z_seg.size
+    if size < 3:
+        return float(r_seg[index])
+    prev, nxt = (index - 1) % size, (index + 1) % size
+    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
+    denominator = z_prev - 2.0 * z_here + z_next
+    if denominator == 0.0:
+        return float(r_seg[index])
+    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
+    shift = 0.5 * (z_prev - z_next) / denominator
+    if not np.isfinite(shift) or abs(shift) > 1.0:
+        return float(r_seg[index])
+    r_here = float(r_seg[index])
+    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
+    return r_here + abs(shift) * (neighbour - r_here)
+
+
+def _closed_contour(r_seg: np.ndarray, z_seg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Append the first vertex when the segment is not already closed."""
+    if (r_seg[0] - r_seg[-1]) ** 2 + (z_seg[0] - z_seg[-1]) ** 2 > 1e-18:
+        return np.r_[r_seg, r_seg[0]], np.r_[z_seg, z_seg[0]]
+    return r_seg, z_seg
+
+
+def _enclosing_segment(
+    segments: list[tuple[np.ndarray, np.ndarray]],
+    axis_rz: tuple[float, float] | None,
+    min_points: int,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """The contour segment that is actually the flux surface, or ``None``.
+
+    A level can return several disconnected segments -- the confined surface,
+    private-flux lobes, scrape-off branches clipped by the grid. Longest-wins
+    picks the wrong one often enough to matter (up to every level on a limited
+    VEST slice), so the segment enclosing the magnetic axis wins outright and
+    length only breaks ties among those.
+
+    ``min_points`` is applied *after* that choice, never before it. Screening on
+    size first lets a large scrape-off branch outlive the small contour that is
+    actually the flux surface: doing so moved the derived plasma current 4-6% off
+    ``global_quantities.ip`` on the later, smaller slices of the packaged VEST
+    sample. An enclosing contour too coarse to use is reported as unresolved
+    (``None``, so the caller interpolates the gap) rather than replaced.
+    """
+    if not segments:
+        return None
+    candidates = segments
+    if axis_rz is not None:
+        from matplotlib.path import Path as _MplPath
+
+        enclosing = []
+        for r_seg, z_seg in segments:
+            r_closed, z_closed = _closed_contour(r_seg, z_seg)
+            if _MplPath(np.column_stack([r_closed, z_closed])).contains_point(axis_rz):
+                enclosing.append((r_seg, z_seg))
+        if enclosing:
+            candidates = enclosing
+    chosen = max(candidates, key=lambda segment: segment[0].size)
+    return chosen if chosen[0].size >= min_points else None
+
+
+#: Every profile :func:`flux_surface_quantities` returns.
+FLUX_SURFACE_QUANTITIES = (
+    "gm1",
+    "gm5",
+    "gm8",
+    "gm9",
+    "dvolume_dpsi",
+    "darea_dpsi",
+    "volume",
+    "area",
+    "surface",
+    "elongation",
+    "triangularity_upper",
+    "triangularity_lower",
+    "r_inboard",
+    "r_outboard",
+    "b_field_max",
+    "b_field_min",
+    "bp_dl",
+    "length_pol",
+)
+
+
+def flux_surface_quantities(
+    psi_grid: np.ndarray,
+    R: np.ndarray,
+    Z: np.ndarray,
+    psi_axis: float,
+    psi_boundary: float,
+    levels_norm: Any,
+    *,
+    f_profile: Any = None,
+    axis_rz: tuple[float, float] | None = None,
+    boundary: tuple[np.ndarray, np.ndarray] | None = None,
+    min_points: int = MIN_FLUX_SURFACE_POINTS,
+) -> dict[str, np.ndarray]:
+    r"""Flux-surface averages and shape, on each normalized-psi level.
+
+    ``psi_grid`` must be in **weber per radian** and shaped ``(len(R), len(Z))``,
+    matching :func:`extract_flux_surface_contours`. ``psi_axis`` and
+    ``psi_boundary`` are in the same unit as ``psi_grid`` only insofar as they
+    normalize it -- the normalization is scale-free, but the ``|grad psi|`` that
+    weights the averages is not, which is why the per-radian contract matters.
+
+    The flux-surface average weights by the volume element,
+    ``<X> = closed_integral(X R dl / |grad psi|) / closed_integral(R dl / |grad psi|)``,
+    ``bp_dl`` is ``closed_integral(B_p dl)`` and ``length_pol`` the poloidal
+    perimeter; the first is what ``int(B_p^2 dV)`` needs, since the volume
+    element cancels one power of ``B_p``.
+
+    so ``gm1 = <1/R^2>``, ``gm8 = <R>``, ``gm9 = <1/R>`` and, when ``f_profile``
+    supplies ``F = R B_phi`` on the same levels, ``gm5 = <B^2>`` with
+    ``|B|^2 = (|grad psi|^2 + F^2) / R^2``. ``dvolume_dpsi`` and ``darea_dpsi``
+    are per radian; a caller storing them against a weber psi divides by 2*pi.
+
+    ``axis_rz`` selects the confined segment when a level returns several (see
+    :func:`_enclosing_segment`); ``boundary`` replaces the traced contour at
+    ``levels_norm == 1``, which is both exact and cheaper when the ODS already
+    carries ``boundary.outline``.
+
+    End points. Levels whose contour is missing or below ``min_points`` come back
+    as NaN and are then filled by interpolation against ``sqrt(psi_N)``, the
+    coordinate in which near-axis geometry is linear. At ``levels_norm == 0`` the
+    surface is a point: ``volume``, ``area`` and ``surface`` are exactly 0,
+    ``gm1 -> 1/R_axis^2``, ``gm8 -> R_axis``, ``gm9 -> 1/R_axis`` and
+    ``r_inboard = r_outboard = R_axis``; the shape parameters and the two
+    derivatives are undefined there and are extrapolated from the innermost
+    resolved surface.
+
+    The innermost one or two levels are the least accurate everywhere, because
+    ``|grad psi|`` is small and varies fastest there. That is a property of the
+    map, not of this routine: on the packaged OMFIT reference the *stored*
+    ``dvolume_dpsi`` runs 8.53, 22.85, 29.59, 29.05, 28.85 from the axis out --
+    a ramp that cannot be physical, since ``dV/dpsi`` approaches a finite limit
+    -- while the trace here gives a smooth 30.8, 29.3, 29.3. Compare against a
+    reference only outside ``psi_N ~ 0.05``, and check the near-axis values
+    against ``int dV/dpsi = V`` instead.
+
+    Returns a dict over :data:`FLUX_SURFACE_QUANTITIES`, each an array as long as
+    ``levels_norm``.
+    """
+    psi_grid = np.asarray(psi_grid, dtype=float)
+    R = np.asarray(R, dtype=float).reshape(-1)
+    Z = np.asarray(Z, dtype=float).reshape(-1)
+    levels = np.asarray(levels_norm, dtype=float).reshape(-1)
+    if psi_grid.shape != (R.size, Z.size):
+        raise ValueError(
+            f"psi_grid shape {psi_grid.shape} must equal (len(R), len(Z)) = {(R.size, Z.size)}."
+        )
+    if psi_boundary == psi_axis:
+        raise ValueError("psi_boundary must differ from psi_axis to normalize.")
+
+    f_values = None
+    if f_profile is not None:
+        f_values = np.asarray(f_profile, dtype=float).reshape(-1)
+        if f_values.size != levels.size:
+            raise ValueError("f_profile must have one value per level")
+
+    out = {name: np.full(levels.size, np.nan) for name in FLUX_SURFACE_QUANTITIES}
+    spline = RectBivariateSpline(R, Z, psi_grid)
+
+    # A supplied boundary replaces the traced edge contour only when it is at
+    # least as well resolved as an interior level would have to be.  A coarse
+    # EFIT outline -- `update_equilibrium_boundary` passes anything with 3 points
+    # -- would otherwise set the edge, and the edge anchors the gap fill inward.
+    edge_from_boundary = boundary is not None and (
+        np.asarray(boundary[0], dtype=float).reshape(-1).size >= min_points
+    )
+    # The axis level has no contour and the boundary level may come from the
+    # stored outline, so only the rest need tracing.
+    traced = [
+        float(level)
+        for level in levels
+        if level != 0.0 and not (edge_from_boundary and level == 1.0)
+    ]
+    contours = (
+        extract_flux_surface_contours(psi_grid, R, Z, psi_axis, psi_boundary, traced)
+        if traced
+        else {}
+    )
+
+    for index, level in enumerate(levels):
+        if level == 0.0:
+            if axis_rz is not None:
+                r_axis = float(axis_rz[0])
+                out["gm1"][index] = 1.0 / r_axis**2
+                out["gm8"][index] = r_axis
+                out["gm9"][index] = 1.0 / r_axis
+                out["r_inboard"][index] = r_axis
+                out["r_outboard"][index] = r_axis
+            out["volume"][index] = 0.0
+            out["area"][index] = 0.0
+            out["surface"][index] = 0.0
+            out["bp_dl"][index] = 0.0
+            out["length_pol"][index] = 0.0
+            continue
+
+        if edge_from_boundary and level == 1.0:
+            segment = (
+                np.asarray(boundary[0], dtype=float).reshape(-1),
+                np.asarray(boundary[1], dtype=float).reshape(-1),
+            )
+        else:
+            segment = _enclosing_segment(
+                contours.get(float(level), []), axis_rz, min_points
+            )
+        if segment is None:
+            continue
+
+        r_seg, z_seg = segment
+        try:
+            shape = contour_shape_parameters(r_seg, z_seg)
+        except ValueError:
+            continue
+        for name, value in shape.items():
+            out[name][index] = value
+
+        r_closed, z_closed = _closed_contour(r_seg, z_seg)
+        r_mid = 0.5 * (r_closed[1:] + r_closed[:-1])
+        z_mid = 0.5 * (z_closed[1:] + z_closed[:-1])
+        length = np.hypot(np.diff(r_closed), np.diff(z_closed))
+        grad = np.hypot(
+            spline.ev(r_mid, z_mid, dx=1, dy=0), spline.ev(r_mid, z_mid, dx=0, dy=1)
+        )
+        finite = np.isfinite(grad) & (grad > 0)
+        if np.count_nonzero(finite) < 3:
+            continue
+        r_mid, length, grad = r_mid[finite], length[finite], grad[finite]
+        weight = r_mid * length / grad
+        total = float(np.sum(weight))
+        if not np.isfinite(total) or total <= 0:
+            continue
+        # closed_integral(B_p dl), with B_p = |grad psi|/R.  This is all that
+        # int(B_p^2 dV) needs: dV = 2*pi*R dl dpsi/|grad psi| cancels one power
+        # of B_p exactly, leaving int B_p^2 dV = 2*pi * sum_k (oint B_p dl)_k
+        # dpsi_k.  Per radian, like the two derivatives.
+        out["bp_dl"][index] = float(np.sum((grad / r_mid) * length))
+        out["length_pol"][index] = float(np.sum(length))
+        out["gm1"][index] = float(np.sum(weight / r_mid**2) / total)
+        out["gm8"][index] = float(np.sum(weight * r_mid) / total)
+        out["gm9"][index] = float(np.sum(weight / r_mid) / total)
+        out["dvolume_dpsi"][index] = 2.0 * np.pi * total
+        out["darea_dpsi"][index] = float(np.sum(length / grad))
+        if f_values is not None and np.isfinite(f_values[index]):
+            b_mod = np.hypot(grad / r_mid, f_values[index] / r_mid)
+            out["gm5"][index] = float(np.sum(weight * b_mod**2) / total)
+            out["b_field_max"][index] = float(np.max(b_mod))
+            out["b_field_min"][index] = float(np.min(b_mod))
+
+    # Gaps are filled against sqrt(psi_N), not psi_N: near the axis a flux
+    # surface's linear size goes as sqrt(psi_N), so every quantity that vanishes
+    # there is linear in sqrt and badly curved in psi_N.  Interpolating a dropped
+    # innermost level in psi_N underestimates `surface` by a third.
+    #
+    # `np.interp` requires an increasing `xp` and returns nonsense rather than
+    # raising when it does not get one, so the levels are sorted here instead of
+    # assumed: a psi profile stored boundary-first is a real input, and it
+    # corrupted only the quantities that happened to need a gap filled.
+    coordinate = np.sqrt(np.clip(levels, 0.0, None))
+    order = np.argsort(coordinate, kind="stable")
+    for name, values in out.items():
+        missing = ~np.isfinite(values)
+        if missing.any() and not missing.all():
+            good_sorted = order[np.isfinite(values[order])]
+            values[missing] = np.interp(
+                coordinate[missing], coordinate[good_sorted], values[good_sorted]
+            )
+    return out
 
 
 def make_equilibrium_field_interpolator(

@@ -32,6 +32,12 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "q_95",
     "q_min",
     "beta_pol",
+    # The EFIT/OMFIT convention, kept alongside the DD-normative beta_pol above
+    # for continuity with the CHEASE history summaries. These are *different
+    # definitions* of a quantity that shares a name, not two estimates of one:
+    # they differ by the exact geometric factor R0*L_pol^2/(2V) -- 26% on the
+    # packaged reference. See issue #318.
+    "beta_pol_circumference",
     "beta_tor",
     "beta_normal",
     "li_3",
@@ -76,6 +82,11 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     "equilibrium.time",
     "equilibrium.time_slice",
     "equilibrium.vacuum_toroidal_field",
+    # beta_pol and li_3 divide by R_0, and the VEST database's
+    # equilibrium.vacuum_toroidal_field.r0 is not trustworthy (#325). The
+    # resolver cross-checks it against tf, so tf has to be loaded or the check
+    # is blind and the corrupt value is used silently.
+    "tf",
 )
 
 VACUUM_REFERENCE_RADIUS_M = 0.4
@@ -253,21 +264,156 @@ def _value_at(value, index: int) -> float:
         return np.nan
 
 
+
+def _beta_pol_circumference(eq_slice) -> float:
+    """The EFIT/OMFIT poloidal beta, for continuity with the old summaries.
+
+    ``2 mu0 <p>_V / (mu0 Ip / L_pol)^2`` -- not the DD's ``beta_pol``, and not an
+    estimate of it. It reproduces what OMFIT reported to 0.1% where the DD form
+    is 26% away, because the two normalize by different fields. The DD leaf keeps
+    the DD definition; this column keeps the number the CHEASE history carried.
+    """
+    import numpy as np
+
+    from vaft.compat import trapz_compat
+    from vaft.formula.equilibrium import beta_poloidal_from_circumference
+
+    try:
+        pressure = np.asarray(eq_slice["profiles_1d.pressure"], float).reshape(-1)
+        volume = np.asarray(eq_slice["profiles_1d.volume"], float).reshape(-1)
+        length_pol = float(eq_slice["global_quantities.length_pol"])
+        ip = float(eq_slice["global_quantities.ip"])
+    except Exception:
+        return float("nan")
+    if pressure.size != volume.size or pressure.size < 2:
+        return float("nan")
+    plasma_volume = float(volume[-1])
+    if not np.isfinite(plasma_volume) or plasma_volume <= 0.0:
+        return float("nan")
+    if not np.isfinite(length_pol) or length_pol <= 0.0 or not np.isfinite(ip) or ip == 0.0:
+        return float("nan")
+    p_average = float(trapz_compat(pressure, x=volume)) / plasma_volume
+    return float(beta_poloidal_from_circumference(p_average, ip, length_pol))
+
+
+def _normalize_vacuum_field(ods, shot: int) -> None:
+    """Rebuild ``b0`` from ``profiles_1d.f``, which the database gets right.
+
+    The stored ``b0`` drifts by up to 101% within a shot while ``f`` at the
+    boundary -- the vacuum ``R*B_phi``, since no poloidal current flows outside
+    the plasma -- holds flat to under 1% (issue #325). ``beta_tor`` and
+    ``beta_normal`` are computed from ``b0`` per time slice and ``vacuum_b0_T``
+    reports it, so all three inherit that drift.
+
+    #325 fixes the producer, but only for data ingested after it. The shots
+    already in HSDS keep their corrupt ``b0``, and re-ingesting them is not in
+    scope, so the history sheet normalizes on the way past. This is a
+    legacy-data repair, not the fix.
+
+    ``r0`` comes from :func:`resolve_reference_major_radius`, so the pair ends
+    up referenced to the machine's real major radius rather than the
+    back-solved value the database stores.
+    """
+    edges: list[float] = []
+    slices = ods["equilibrium.time_slice"]
+    for index in range(len(slices)):
+        try:
+            f = np.asarray(slices[index]["profiles_1d.f"], float).reshape(-1)
+        except Exception:
+            edges.append(np.nan)
+            continue
+        edges.append(abs(float(f[-1])) if f.size and np.isfinite(f[-1]) else np.nan)
+    if not any(np.isfinite(edge) and edge != 0.0 for edge in edges):
+        return
+
+    r0 = _as_float(vaft.omas.resolve_reference_major_radius(ods))
+    if not np.isfinite(r0) or r0 <= 0.0:
+        r0 = _as_float(_safe_get(ods, "equilibrium.vacuum_toroidal_field.r0"))
+    if not np.isfinite(r0) or r0 <= 0.0:
+        return
+
+    stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
+    # Keep whatever sign the file used; f and b0 follow different COCOS on VEST
+    # and flipping it here would show up as a sign change in the sheet.
+    sign = 1.0
+    try:
+        first = np.asarray(stored, float).reshape(-1)
+        finite = first[np.isfinite(first)]
+        if finite.size and finite[0] < 0:
+            sign = -1.0
+    except Exception:
+        pass
+
+    corrected = np.array(
+        [sign * edge / r0 if np.isfinite(edge) and edge != 0.0 else np.nan for edge in edges],
+        dtype=float,
+    )
+    previous = np.full(corrected.size, np.nan)
+    try:
+        raw = np.asarray(stored, float).reshape(-1)
+        previous[: min(raw.size, corrected.size)] = raw[: corrected.size]
+    except Exception:
+        pass
+
+    ods["equilibrium.vacuum_toroidal_field.r0"] = float(r0)
+    ods["equilibrium.vacuum_toroidal_field.b0"] = corrected
+
+    both = np.isfinite(previous) & np.isfinite(corrected) & (corrected != 0.0)
+    if both.any():
+        worst = float(np.max(np.abs(previous[both] / corrected[both] - 1.0)))
+        if worst > 0.01:
+            logger.info(
+                "Shot %s: rebuilt vacuum_toroidal_field.b0 from profiles_1d.f "
+                "(worst slice moved %.0f%%, r0 = %.4f m); see issue #325.",
+                shot,
+                100.0 * worst,
+                r0,
+            )
+
+
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     """Extract the legacy equilibrium-global history schema from one lazy ODS."""
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
 
+    # Before anything reads b0: the stored one drifts, profiles_1d.f does not.
+    try:
+        _normalize_vacuum_field(ods, shot)
+    except Exception as exc:
+        logger.debug("Shot %s: vacuum field normalization failed: %s", shot, exc)
+
+    # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
+    # profiles_1d.volume/area, and without them the volume, area and
+    # stored-energy columns below are empty no matter what runs after. Its trace
+    # is the expensive step and is handed to the beta updater rather than repeated
+    # -- over a shot range that doubling is the whole equilibrium cost.
+    surfaces = None
+    try:
+        surfaces = vaft.omas.update_equilibrium_profiles_1d_geometry(
+            ods, time_slice=None, return_surfaces=True
+        )
+    except Exception as exc:
+        logger.debug("Shot %s: flux-surface geometry failed: %s", shot, exc)
+
     for updater in (
         vaft.omas.update_equilibrium_boundary,
         vaft.omas.update_equilibrium_global_quantities_q_min,
         vaft.omas.update_equilibrium_global_quantities_volume,
+        vaft.omas.update_equilibrium_global_quantities_area,
         vaft.omas.update_equilibrium_stored_energy,
     ):
         try:
             updater(ods, time_slice=None)
         except Exception as exc:
             logger.debug("Shot %s: %s failed: %s", shot, updater.__name__, exc)
+
+    # beta_normal reads boundary.minor_radius, so this follows the boundary updater.
+    try:
+        vaft.omas.update_equilibrium_global_quantities_beta_li(
+            ods, time_slice=None, surfaces=surfaces
+        )
+    except Exception as exc:
+        logger.debug("Shot %s: global betas failed: %s", shot, exc)
 
     try:
         vaft.omas.update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None)
@@ -301,9 +447,15 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         )
         virial = _virial_values(virial_outputs, index)
         source_b0 = _value_at(b0_source, index)
+        # r0_source is the leaf the VEST database gets wrong, and rescaling a
+        # correct b0 by it lands vacuum_b0_T off by the same 1.15-2.1x that it
+        # cost beta_pol and li_3. Cross-check it against tf the same way.
+        reference_r0 = vaft.omas.resolve_reference_major_radius(ods)
+        if not np.isfinite(reference_r0):
+            reference_r0 = r0_source
         normalized_b0 = (
-            source_b0 * r0_source / VACUUM_REFERENCE_RADIUS_M
-            if np.isfinite(source_b0) and np.isfinite(r0_source)
+            source_b0 * reference_r0 / VACUUM_REFERENCE_RADIUS_M
+            if np.isfinite(source_b0) and np.isfinite(reference_r0)
             else np.nan
         )
         row = {
@@ -319,6 +471,7 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             "q_95": _as_float(_safe_get(eq_slice, "global_quantities.q_95")),
             "q_min": _extract_q_min(eq_slice),
             "beta_pol": _as_float(_safe_get(eq_slice, "global_quantities.beta_pol")),
+            "beta_pol_circumference": _beta_pol_circumference(eq_slice),
             "beta_tor": _as_float(_safe_get(eq_slice, "global_quantities.beta_tor")),
             "beta_normal": _as_float(
                 _safe_get(eq_slice, "global_quantities.beta_normal")
@@ -878,17 +1031,18 @@ def summary(
     shot_range: tuple[int, int] | None = None,
     *,
     preset: str = "equilibrium_global",
-    source: str = "public",
+    source: str | None = None,
+    directory: str | None = None,
 ) -> pd.DataFrame:
     """Return a canonical preset summary for a range or every available shot."""
     definition = get_summary_preset(preset)
-    from . import _namespace
+    from .sources import resolve
 
-    source = _namespace(source, "source")
+    source = resolve(source, directory=directory)
     if shot_range is None:
         from .utils import exist_shot
 
-        discovered = exist_shot(username=source, sort=1) or []
+        discovered = exist_shot(source=source, sort=1) or []
         shots = sorted({int(value) for value in discovered if str(value).isdigit()})
     else:
         if (

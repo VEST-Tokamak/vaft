@@ -1,0 +1,242 @@
+---
+title: "Getting Started with VAFT"
+subtitle: "VAFT Introductory Tutorial | Session 01"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# What VAFT is
+
+## A shot, and what we do with it
+
+**VEST** is the spherical tokamak at Seoul National University. One **shot** is
+one discharge: a few hundred milliseconds in which coil currents ramp, a plasma
+forms, and every diagnostic records a signal.
+
+**VAFT** is a standardized, verifiable and interoperable scientific
+infrastructure for machine-agnostic tokamak research [@yun2025vaft]. VEST is its
+full reference implementation.
+
+Today you meet the part you touch first: it loads a discharge, gives you its
+measurements in a standard structure, and plots them.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Set the scene before any code. The audience needs to know that a shot is a few
+hundred milliseconds, not a steady state — everything downstream depends on that.
+
+Say "infrastructure" once and move on. The word matters for where this is going,
+but nobody learns it from a definition — they learn it from the next fifty
+minutes.
+
+WARN:
+Do not call VAFT a file format, and do not call it a plotting library. It is an
+interface over OMAS *and* a versioned pipeline, a FAIR database and a research
+archive; today's session only exercises the first of those.
+
+Do not say VAFT is VEST-only. VEST is the reference implementation, not the
+scope.
+
+TRANSITION:
+From what a shot is, to how its data is organised.
+:::
+
+## The workflow
+
+![The VAFT workflow](../figures/01/vaft-workflow.svg){#fig-workflow width="95%"}
+
+Every session in this course follows @fig-workflow.
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+This diagram is the spine of the whole tutorial. Point at each box and say which
+notebook section covers it.
+:::
+
+# The data model
+
+## ODS, IDS, and where things live
+
+:::: {.columns}
+
+::: {.column width="50%"}
+**ODS** is how the data is held in memory — a dictionary whose keys are dotted
+paths:
+
+```python
+ods["magnetics.ip.0.data"]
+```
+
+**IDS** is the vocabulary those paths use, from IMAS [@imbeaux2015imas], through
+OMAS [@omas].
+:::
+
+::: {.column width="50%"}
+Each top-level name is one IDS:
+
+- `magnetics`
+- `pf_active`
+- `equilibrium`
+- `wall`
+
+A diagnostic that did not run is simply **absent**.
+:::
+
+::::
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Stress the two-column split: the left is syntax, the right is vocabulary.
+
+WARN:
+Students reliably assume every shot has every IDS. It does not, and checking the
+keys first is the habit to build.
+:::
+
+## Subject is not storage
+
+Plot functions are named for **what the data physically is**, not where it sits:
+
+```python
+vaft.omas.plot_plasma_current_time(ods)   # reads the `magnetics` IDS
+vaft.omas.plot_pf_coil_time_current(ods)  # reads the `pf_active` IDS
+```
+
+The canonical grammar is
+
+$$\texttt{plot\_\{subject\}\_\{view\}[\_\{quantity\}]}$$
+
+::: {.notes}
+[2 min]
+
+WARN:
+This is the single most common misconception. The name is *not* the IDS. Say it
+twice.
+:::
+
+# Reading the data
+
+## One pattern, repeated
+
+```python
+import vaft
+import matplotlib.pyplot as plt
+
+ods = vaft.omas.sample_ods()
+vaft.omas.plot_plasma_current_time(ods)
+plt.show()
+```
+
+That is the whole interface: a canonical name, the ODS, and `plt.show()`.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Type this live if the room allows it. The point is how little there is to
+memorise.
+
+TRANSITION:
+Hand over to the notebook for the remaining diagnostics.
+:::
+
+## Units are chosen, and they are honest
+
+A discharge reads as $84.1\ \mathrm{kA}$, not $8.41\times10^{4}\ \mathrm{A}$.
+
+The stored value never changes — `ods["magnetics.ip.0.data"]` is in amperes. What
+changes is the display, and the rule is:
+
+> Unit and scaling always move together. A label saying `kA` is a promise that
+> the numbers beside it were divided by 1000.
+
+An unsupported unit is refused rather than silently relabelling correct numbers.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The refusal is the interesting part — demonstrate `yunit="furlongs"` in the
+notebook if there is time.
+:::
+
+# Going further
+
+## Tutorials and API documentation
+
+:::: {.columns}
+
+::: {.column width="52%"}
+**Hands-on, beyond VAFT**
+
+- [IMAS Tutorial](https://github.com/iterorganization/IMAS-tutorial)
+- [IMAS-Python 101](https://imas-python.readthedocs.io/en/stable/courses/basic_user_training.html)
+- [Advanced IMAS-Python](https://imas-python.readthedocs.io/en/stable/courses/advanced_user_training.html)
+- [OMAS Examples Gallery](https://gafusion.github.io/omas/auto_examples/index.html)
+:::
+
+::: {.column width="48%"}
+**API documentation**
+
+*Python* — [OMAS](https://gafusion.github.io/omas/) ·
+[IMAS-Python](https://imas-python.readthedocs.io/en/stable/) ·
+[API reference](https://imas-python.readthedocs.io/en/stable/api.html)
+
+*MATLAB* — [IMAS-MATLAB](https://imas-matlab.readthedocs.io/)
+
+*Julia* — [IMASdd.jl](https://projecttorreypines.github.io/IMASdd.jl/)
+:::
+
+::::
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+Do not read these out. Say they exist, say they are optional, and move on --
+the same list is in the Session 01 notebook's Additional Resources appendix,
+which is where people will actually click them.
+
+WARN:
+Nobody needs any of this to finish the session. Say so, or half the room will
+think they are behind.
+:::
+
+## The Data Dictionary is the reference {.smaller}
+
+For the real IDS hierarchy — node names, coordinates, units, conventions — read
+the Data Dictionary rather than inferring it from examples.
+
+- [OMAS schema browser (DD 3.41.0)](https://gafusion.github.io/omas/schema.html)
+- [Official IMAS Data Dictionary 3.41.0](https://imas-data-dictionary.readthedocs.io/en/3.41.0-doc/)
+- [Official IMAS Data Dictionary 4.1.1 (latest)](https://imas-data-dictionary.readthedocs.io/en/4.1.1/)
+
+**Which version applies.** VAFT works in the version OMAS supports — currently
+**3.41.0** — and every path in this session follows it. 4.1.1 is the current
+reference, not what this course describes.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+This slide is the one worth pausing on. Students guess paths from examples and
+then wonder why they fail.
+
+WARN:
+Node names and coordinates do move between major DD versions. If someone copies
+a path out of 4.1.1 documentation it may simply not exist in what VAFT reads.
+Tell them to check which version a document refers to before trusting a path.
+:::
+
+## References
+
+::: {#refs}
+:::

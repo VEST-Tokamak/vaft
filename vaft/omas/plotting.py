@@ -25,69 +25,16 @@ from __future__ import annotations
 import warnings
 from typing import Any, Sequence
 
-from vaft.plot.registry import available_plots as _registry_available_plots
+from vaft.plot.backend.render import render_entries
 from vaft.plot.registry import get_spec, specs
 from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
 
-from ._plot_recipes import (
-    build_model,
-    entry_supports,
-    extract_labels_from_odc,
-    normalize_entries,
-)
+from .interactive import plot_equilibrium_interactive  # public entry point, issue #261
+from .entries import extract_labels_from_odc, normalize_entries
 
 
-#: Options consumed while building the view model.  Everything else a caller
-#: passes is forwarded to the renderer as styling, so an unsupported Matplotlib
-#: keyword fails loudly instead of being silently dropped.
-_EXTRACTION_OPTIONS = frozenset(
-    {
-        "channel",
-        "channels",
-        "contour_levels",
-        "coordinate",
-        "detector",
-        "detrend",
-        "dphi_deg",
-        "direction",
-        "fit_ranges",
-        "flux_surface_levels",
-        "frame_index",
-        "frame_indices",
-        "log_y",
-        "marker_frequencies",
-        "max_frequency",
-        "max_length_m",
-        "noverlap",
-        "nperseg",
-        "per_family",
-        "phi0",
-        "quantity",
-        "r0",
-        "reference_slopes",
-        "sample_rate",
-        "series_label",
-        "sigma",
-        "shot",
-        "show_lcfs",
-        "show_magnetic_axis",
-        "show_wall",
-        "time",
-        "time_range",
-        "time_resolution",
-        "time_slice",
-        "title",
-        "use_wall_boundary",
-        "window",
-        "window_size",
-        "x_limits",
-        "xunit",
-        "z0",
-        "yunit",
-    }
-)
 
 
 def render(
@@ -102,32 +49,41 @@ def render(
     """Build the view model for ``name`` from ``source`` and render it.
 
     This is the shared body behind every ``plot_*`` adapter below, and the entry
-    point for rendering a canonical plot chosen at runtime.
+    point for rendering a canonical plot chosen at runtime.  Input handling is
+    this namespace's (:func:`normalize_entries`); everything after that is the
+    backend-neutral :func:`vaft.plot.backend.render.render_entries`.
     """
-    spec = get_spec(name)
-    entries = normalize_entries(source, label=label)
-    model = build_model(name, entries, **options)
-    style = {
-        key: value for key, value in options.items() if key not in _EXTRACTION_OPTIONS
-    }
-    return spec.renderer(model, ax=ax, show=show, **style)
+    return render_entries(
+        name, normalize_entries(source, label=label), ax=ax, show=show,
+        namespace="vaft.omas", subject="ods", **options,
+    )
 
 
-def available_plots(source: Any = None, **filters: Any) -> tuple[dict[str, Any], ...]:
-    """Describe the plots available here, optionally filtered by an object.
+def available_plots(
+    source: Any = None,
+    *,
+    query: str | None = None,
+    detail: bool = False,
+    available_only: bool | None = None,
+    **filters: Any,
+):
+    """What can be plotted, as a semantic catalog (issue #262).
 
-    Without ``source`` this mirrors :func:`vaft.plot.available_plots`.  With an
-    ``ODS``, ``ODC`` or list, only the rows whose required data is actually
-    present are returned.
+    Without ``source`` this is :func:`vaft.plot.available_plots` plus what the
+    recipes declare: display units, layouts, analysis methods, overview
+    members.  With an ``ODS``, ``ODC`` or list, the catalog holds the plots
+    whose required data is actually present -- decided by the same test
+    :func:`render` applies -- and, for multi-channel plots, the channel counts,
+    regions and representatives the selection policy finds there.  Pass
+    ``available_only=False`` to keep the unavailable plots with their reasons.
+
+    The catalog prints as a tree; iterate it for records, which still answer
+    ``row["name"]`` like the flat rows they replace.
     """
-    rows = _registry_available_plots(**filters)
-    if source is None:
-        return rows
-    entries = normalize_entries(source, label="key")
-    return tuple(
-        row
-        for row in rows
-        if any(entry_supports(ods, row["name"]) for _, ods in entries)
+    from .discovery import describe
+
+    return describe(
+        source, query=query, detail=detail, available_only=available_only, **filters
     )
 
 
@@ -1571,6 +1527,63 @@ def plot_magnetics_geometry_poloidal(
     )
 
 
+def plot_camera_visible_image(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One camera frame, optionally with overlays through one projection.
+
+    ``overlay=`` names what to draw over the frame -- ``"wall"``,
+    ``"equilibrium"`` (LCFS, magnetic axis, flux surfaces), ``"field_line"``
+    (needs ``field_line_start=(r0, z0[, phi0])``) or a tuple of them;
+    ``projection=`` is ``"calibrated"`` (the model packaged for the shot) or a
+    :class:`vaft.process.camera_geometry.CameraProjection`.  The
+    ``plot_camera_visible_image_*`` functions are presets of this one.
+    Renders with :func:`vaft.plot.camera_visible_image` (issue #261).
+    """
+    return render("camera_visible_image", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_equilibrium_overview_histories(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Equilibrium global quantities against time: Ip, beta_p, li, q95.
+
+    This is the composite ``plot_equilibrium_overview`` drew before issue #261
+    made that name a one-slice summary.  Renders with
+    :func:`vaft.plot.equilibrium_overview_histories`.
+    """
+    return render(
+        "equilibrium_overview_histories", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_diagnostics_overview(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Fixed-shape time overview across the diagnostic subjects.
+
+    Renders with :func:`vaft.plot.diagnostics_overview`.
+    """
+    return render(
+        "diagnostics_overview", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_magnetics_overview(
     source: Any,
     *,
@@ -2423,6 +2436,7 @@ __all__ = [
     "normalize_entries",
     "plot_barometry_time_pressure",
     "plot_camera_visible_animation_frames",
+    "plot_camera_visible_image",
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
@@ -2454,6 +2468,8 @@ __all__ = [
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
+    "plot_equilibrium_interactive",
+    "plot_equilibrium_overview_histories",
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",
@@ -2495,6 +2511,7 @@ __all__ = [
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
     "plot_b_field_probe_time_field",
+    "plot_diagnostics_overview",
     "plot_diamagnetic_flux_time",
     "plot_flux_loop_time_flux",
     "plot_flux_loop_time_voltage",

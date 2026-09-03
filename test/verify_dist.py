@@ -29,6 +29,17 @@ _ALLOWED_DATA_FILES = {
     "samples/41524/manifest.yaml",
     "samples/41672/manifest.yaml",
 }
+
+# The compact variant setup.py swaps in for ``samples/39915``. The sdist must
+# carry it because the build hook reads it from there; the wheel must not, or
+# the same sample ships twice against the size budget. Kept out of
+# ``_ALLOWED_DATA_FILES`` because that set is also what every distribution is
+# *required* to contain.
+_SDIST_ONLY_DATA_FILES = {
+    "wheel_samples/39915/manifest.yaml",
+    "wheel_samples/39915/omas.json.gz",
+    "wheel_samples/39915/imas.nc",
+}
 _ALLOWED_DATA_SUFFIXES = {
     "geometry/": (".yaml", ".csv"),
     "gpec/": (".in", ".dat"),
@@ -69,7 +80,7 @@ def _allowed_data_file(name: str) -> bool:
     relative = name.removeprefix("vaft/data/")
     if "/" not in relative:
         return relative.endswith(".py")
-    if relative in _ALLOWED_DATA_FILES:
+    if relative in _ALLOWED_DATA_FILES or relative in _SDIST_ONLY_DATA_FILES:
         return True
     for category, suffixes in _ALLOWED_DATA_SUFFIXES.items():
         if relative.startswith(category):
@@ -88,6 +99,22 @@ def _verify_distribution(path: Path) -> None:
         raise ValueError(
             f"{path.name}: contains repository-only data: {', '.join(forbidden_data)}"
         )
+
+    sdist_only = {f"vaft/data/{name}" for name in _SDIST_ONLY_DATA_FILES}
+    if path.suffix == ".whl":
+        duplicated = sorted(name for name in names if name in sdist_only)
+        if duplicated:
+            raise ValueError(
+                f"{path.name}: ships the compact wheel sample as well as the copy "
+                f"setup.py swaps into samples/: {', '.join(duplicated)}"
+            )
+    else:
+        absent = sorted(sdist_only - names)
+        if absent:
+            raise ValueError(
+                f"{path.name}: missing the compact sample the build hook reads: "
+                f"{', '.join(absent)}"
+            )
 
     if path.suffix != ".whl" and any(name.startswith("test/") for name in names):
         raise ValueError(

@@ -18,7 +18,7 @@ from matplotlib.figure import Figure
 
 from ..models import LineSeries
 from ..registry import renderer
-from ..style import axis_label, finalize, resolve_axes
+from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
@@ -29,8 +29,10 @@ def render_line_series(
     ax: Axes | None = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-    legend: bool = True,
+    legend: bool | None = None,
     grid: bool = True,
+    uncertainty: str = "auto",
+    validity: str = "show",
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
@@ -45,16 +47,12 @@ def render_line_series(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
-    labelled = False
-    for series in model.series:
+    labels, legend_title = trace_labels(model.series, panel_title=model.title)
+    for series, label in zip(model.series, labels):
         options = {**style, **series.style}
-        if series.label:
-            options.setdefault("label", series.label)
-            labelled = True
-        if series.yerr is not None:
-            axes.errorbar(series.x, series.y, yerr=series.yerr, **options)
-        else:
-            axes.plot(series.x, series.y, **options)
+        if label:
+            options.setdefault("label", label)
+        draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
     axes.set_xlabel(axis_label(model.x_label, model.x_unit))
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
@@ -70,9 +68,8 @@ def render_line_series(
         axes.set_ylim(model.y_limits)
     if grid:
         axes.grid(True, alpha=0.3)
-    if legend and labelled:
-        axes.legend(loc="best")
-    return finalize(figure, axes, show=show)
+    apply_legend(axes, legend=legend, title=legend_title)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 

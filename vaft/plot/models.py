@@ -35,6 +35,7 @@ __all__ = [
     "ReferenceSlope",
     "Series",
     "Spectrogram",
+    "TextPanel",
     "ViewModel",
     "as_model_array",
 ]
@@ -51,6 +52,10 @@ _REJECTED_TYPE_NAMES = frozenset(
         "IDSToplevel",
         "IDSStructure",
         "IDSStructArray",
+        "IDSPrimitive",
+        "IDSEntry",
+        "IMASHandle",
+        "HSDSIMASHandle",
     }
 )
 
@@ -63,7 +68,8 @@ def _reject_data_objects(value: Any, *, where: str) -> None:
                 f"{where} received a {type(value).__name__} object. Canonical "
                 "vaft.plot renderers accept view models only; build one with the "
                 "matching adapter (for example vaft.omas.plot_* for ODS/ODC "
-                "inputs) instead of passing the data object directly."
+                "inputs, vaft.imas.plot_* for IDS/DBEntry inputs) instead of "
+                "passing the data object directly."
             )
 
 
@@ -100,6 +106,31 @@ class Series(ViewModel):
     label: str = ""
     yerr: np.ndarray | None = None
     style: Mapping[str, Any] = field(default_factory=dict)
+    #: IMAS channel validity code for the whole trace: ``0`` (or ``None``)
+    #: means valid, any negative value means the data provider or an automatic
+    #: check flagged this channel invalid.  Plotting renders that flag; it
+    #: never computes it.
+    validity: int | None = None
+    #: Per-sample validity: ``True`` where the sample is usable.  ``None`` means
+    #: every sample is valid, which is not the same as a channel whose
+    #: ``validity`` flag is negative.
+    valid_mask: np.ndarray | None = None
+    #: Structured identity, kept apart so a legend can say each thing once:
+    #: ``entry`` is the shot or collection key the trace came from, ``channel``
+    #: the canonical channel label (``[5] (9.1 cm, 4.0 cm)``), ``position`` the
+    #: stored (R, Z) in metres.  ``label`` remains the composed fallback for
+    #: hand-built models.
+    entry: str = ""
+    channel: str = ""
+    position: tuple[float, float] | None = None
+    #: What this trace is relative to its channel: ``""`` for the measurement
+    #: itself, ``"reconstruction"`` for an equilibrium's prediction of it,
+    #: ``"constraint"`` for the value the solver was given (issue #261).  A
+    #: role shares its channel's panel and is named beside it in the legend.
+    role: str = ""
+    #: The channel's index in its diagnostic array, when the trace is one
+    #: channel of an array; identity that survives whatever the label says.
+    index: int | None = None
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -122,8 +153,45 @@ class Series(ViewModel):
                     f"got {yerr.shape} for y of length {y.size}"
                 )
             object.__setattr__(self, "yerr", yerr)
+        if self.valid_mask is not None:
+            mask = np.asarray(self.valid_mask, dtype=bool)
+            if mask.shape != y.shape:
+                raise ValueError(
+                    "Series.valid_mask must match y's shape; "
+                    f"got {mask.shape} for y of length {y.size}"
+                )
+            mask.setflags(write=False)
+            object.__setattr__(self, "valid_mask", mask)
+        if self.validity is not None:
+            object.__setattr__(self, "validity", int(self.validity))
+        if self.position is not None:
+            r, z = self.position
+            object.__setattr__(self, "position", (float(r), float(z)))
+        object.__setattr__(self, "entry", str(self.entry or ""))
+        object.__setattr__(self, "channel", str(self.channel or ""))
+        object.__setattr__(self, "role", str(self.role or ""))
+        if self.index is not None:
+            object.__setattr__(self, "index", int(self.index))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+
+    @property
+    def is_invalid_channel(self) -> bool:
+        """Whether the whole trace is flagged invalid.
+
+        The IMAS scalar ``validity`` is "worst state reached": a channel that
+        merely holds its last value after the diagnostics window reads ``-2``
+        there while every plotted sample before it is a measurement.  So a
+        negative scalar condemns the trace only when no per-sample validity
+        is stored, or when the stored mask leaves no usable sample; a trace
+        with usable samples is drawn with its mask instead of being labelled
+        invalid outright.
+        """
+        if self.validity is None or self.validity >= 0:
+            return False
+        if self.valid_mask is None:
+            return True
+        return not bool(self.valid_mask.any())
 
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:
@@ -611,6 +679,23 @@ class PowerSpectrum(ViewModel):
 
 
 @dataclass(frozen=True)
+class TextPanel(ViewModel):
+    """A panel of text lines -- global quantities beside a figure's plots.
+
+    Used inside :class:`Panels` for the values a slice summary states rather
+    than draws (issue #261 section 11).  Each line is already formatted by the
+    builder, unit included, so the renderer only places the text.
+    """
+
+    lines: tuple[str, ...]
+    title: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "lines", tuple(str(line) for line in self.lines))
+        object.__setattr__(self, "title", str(self.title))
+
+
+@dataclass(frozen=True)
 class Panels(ViewModel):
     """A grid of view models rendered into one figure.
 
@@ -625,11 +710,29 @@ class Panels(ViewModel):
     share_y: bool = False
     suptitle: str = ""
     squeeze: bool = False
+    #: Grid slots that hold a note instead of a model, as ``(slot, text)``.  A
+    #: composite with a fixed member list keeps its shape on every input by
+    #: rendering an unavailable member as a labelled empty panel rather than
+    #: dropping it (issue #260).
+    placeholders: tuple[tuple[int, str], ...] = ()
+    #: Per-model renderer defaults, one mapping per model, applied beneath the
+    #: caller's own keyword arguments -- how an overview asks its members for
+    #: ``validity="mask"`` without forcing that on every individual plot.
+    member_styles: tuple[Mapping[str, Any], ...] | None = None
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
         models = tuple(self.models)
-        if not models:
+        placeholders = tuple((int(slot), str(text)) for slot, text in self.placeholders)
+        object.__setattr__(self, "placeholders", placeholders)
+        if self.member_styles is not None:
+            styles = tuple(_frozen_style(s) for s in self.member_styles)
+            if len(styles) != len(models):
+                raise ValueError(
+                    f"Panels.member_styles has {len(styles)} entries for {len(models)} models"
+                )
+            object.__setattr__(self, "member_styles", styles)
+        if not models and not placeholders:
             raise ValueError("Panels.models must contain at least one view model")
         for model in models:
             if not isinstance(model, ViewModel) or isinstance(model, Panels):
@@ -639,11 +742,14 @@ class Panels(ViewModel):
                 )
         object.__setattr__(self, "models", models)
         ncols = max(1, int(self.ncols))
+        occupied = len(models) + len(placeholders)
         nrows = self.nrows
-        nrows = -(-len(models) // ncols) if nrows is None else max(1, int(nrows))
-        if nrows * ncols < len(models):
+        nrows = -(-occupied // ncols) if nrows is None else max(1, int(nrows))
+        if nrows * ncols < occupied:
             raise ValueError(
-                f"Panels grid {nrows}x{ncols} cannot hold {len(models)} models"
+                f"Panels grid {nrows}x{ncols} cannot hold {occupied} panels"
             )
+        if any(slot >= nrows * ncols for slot, _ in placeholders):
+            raise ValueError("Panels.placeholders names a slot outside the grid")
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)

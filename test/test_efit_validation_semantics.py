@@ -151,7 +151,7 @@ def test_prescribed_family_reports_a_zero_residual_rms_not_nan():
 def test_validation_and_fit_quality_agree_family_by_family():
     """The point of the unification: one number per family, not two."""
     from test_efit_fit_quality import _complete_efit_quality_ods
-    from vaft.validation import _efit_metrics
+    from vaft.validation.stage_evidence import _efit_metrics
 
     ods = _complete_efit_quality_ods()
     report = _efit_metrics(ods)

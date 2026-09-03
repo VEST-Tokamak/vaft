@@ -10,6 +10,11 @@ has.  Reading ``__all__`` is what pulls the whole subtree in: the module-level
 ``__getattr__`` below is consulted for ``__all__`` itself (PEP 562), so the star
 import triggers the full load at the moment it actually needs it, and nothing
 before then does.
+
+The discovery layer -- ``describe``, ``search``, ``list_formulas``,
+``categories`` and the ``catalog`` submodule they live in -- is resolved the
+same way, on first access, and is never part of ``__all__``: the star import
+does not touch it, and neither does importing a physics submodule.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ _SUBMODULES = {
     "green": ".green",
     "atomic": ".atomic",
     "statistics": ".statistics",
+    "magnetics": ".magnetics",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -41,6 +47,14 @@ _IMPORT_ORDER = (
     "green",
     "atomic",
     "statistics",
+    "magnetics",
+)
+
+#: Names served by ``.catalog`` on first access.  Deliberately not in
+#: ``_SUBMODULES``: joining that map would put ``catalog`` into ``__all__`` and
+#: make the star import load it, which is exactly what issue #248 forbids.
+_CATALOG_NAMES = frozenset(
+    {"catalog", "FormulaSpec", "describe", "search", "list_formulas", "categories"}
 )
 
 _MODULES: dict[str, object] = {}
@@ -79,6 +93,12 @@ def __getattr__(name: str):
     if name in _SUBMODULES:
         return _submodule(name)
 
+    if name in _CATALOG_NAMES:
+        module = import_module(".catalog", __name__)
+        value = module if name == "catalog" else getattr(module, name)
+        globals()[name] = value
+        return value
+
     if name == "__all__":
         # Not swallowed: a submodule that cannot import used to break the star
         # import outright, and it still should.  What changed is that plain
@@ -102,4 +122,4 @@ def __getattr__(name: str):
 
 def __dir__():
     names = globals().get("__all__") or _public_names()
-    return sorted(set(globals()) | set(names))
+    return sorted(set(globals()) | set(names) | _CATALOG_NAMES)

@@ -12,6 +12,8 @@ from pathlib import Path
 from scipy import optimize
 from omas import ODS, save_omas_json
 
+from vaft.ods_access import path_value
+
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
     INBOARD_PROBE_MAX_R,
@@ -27,8 +29,90 @@ from .legacy import (
     vfit_equilibrium_form_constraints,
     vfit_pf_active_efit26,
 )
+from vaft.validation.magnetics import unusable_channels_at
+
 from .magnetic import EFITConfig
 from .config import EFITScientificConfig, EFITProfileConfig
+
+
+#: How a magnetics channel family is named in the EFIT constraint tree. The
+#: mapping is EFIT's own vocabulary, so it lives here rather than in the
+#: validation layer, which knows only about magnetics channels.
+_EFIT_CONSTRAINT_FAMILY = {
+    "b_field_pol_probe": "bpol_probe",
+    "flux_loop": "flux_loop",
+}
+
+
+def _condemned_channels(ods, nbprobe: int) -> set[int]:
+    """Legacy-style broken indices for channels with no usable sample at all.
+
+    Judged on the time-resolved validity, never on the scalar: the scalar is
+    "worst state reached", so a channel that merely holds its last value after
+    the diagnostics window (every probe on the packaged shot) reads ``-2``
+    there while being a perfectly good witness before it.  Only a record the
+    quality layer rejected in its entirety -- a physical-ceiling or
+    population verdict (#189) -- is broken in the k-file sense.  Probes map to
+    their own index, flux loops to ``index + nbprobe``, the offset the rest of
+    this module uses for the ``broken`` list.
+    """
+    from vaft.validation.imas import validity_codes, valid_fraction
+
+    condemned: set[int] = set()
+    for kind, quantity, offset in (
+        ("b_field_pol_probe", "field", 0),
+        ("flux_loop", "flux", nbprobe),
+    ):
+        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
+        for index in range(count):
+            base = f"magnetics.{kind}.{index}.{quantity}"
+            if validity_codes(ods, base) is None:
+                continue  # nothing has assessed this datum
+            if valid_fraction(ods, base) == 0.0:
+                condemned.add(index + offset)
+    return condemned
+
+
+def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[str, int], list[int]]:
+    """Zero the weight of every channel unusable at a given reconstruction time.
+
+    Signal quality is time-resolved (issue #189): an integrator that rails at
+    0.31 s leaves every earlier slice perfectly constrained, so the exclusion
+    is per (slice, channel) rather than per channel.
+
+    This reuses the "weight = 0 means excluded from the fit" contract the
+    legacy ``broken`` list and the missing-channel placeholder (#145) already
+    rely on, rather than introducing a second exclusion mechanism.  It must run
+    *after* the weighting loop, which reassigns every family's nominal weight
+    unconditionally and would otherwise overwrite this.
+
+    Only channels the diagnostics stage marked **unusable** gate here.  A
+    channel merely flagged with a warning keeps its weight, because those
+    thresholds are not yet justified across a representative VEST population
+    and must not silently remove data from a reconstruction.
+
+    An ODS carrying no validity excludes nothing, so this is a no-op on data
+    produced before the quality layer existed.  Returns the excluded slice
+    indices per channel, for reporting.
+    """
+    excluded: dict[tuple[str, int], list[int]] = {}
+    # Only the kinds EFIT actually submits are asked about. The validation
+    # layer's model is deliberately open to more of them -- native-rate Mirnov
+    # voltage, for one -- and adding one there must not make this raise on a
+    # family the constraint tree has no name for.
+    for (kind, channel), unusable in unusable_channels_at(
+        ods, EQ["time"], min_validity=min_validity, kinds=tuple(_EFIT_CONSTRAINT_FAMILY)
+    ).items():
+        family = _EFIT_CONSTRAINT_FAMILY[kind]
+        for i in np.flatnonzero(unusable):
+            # A channel outside the submitted families has no constraint entry
+            # to weight, and creating one here would invent a constraint EFIT
+            # never saw.
+            if f"time_slice.{i}.constraints.{family}.{channel}.measured" not in EQ:
+                continue
+            EQ[f"time_slice.{i}.constraints.{family}.{channel}.weight"] = 0.0
+            excluded.setdefault((kind, channel), []).append(int(i))
+    return excluded
 
 
 def _efit_bpol_probe_count(magnetics) -> int:
@@ -51,11 +135,12 @@ def _efit_bpol_probe_count(magnetics) -> int:
 
 def _has_matching_signal(magnetics, path: str) -> bool:
     """Whether a diagnostic leaf is finite-length and aligned to magnetics.time."""
-    if path not in magnetics or "time" not in magnetics:
+    data, time = path_value(magnetics, path), path_value(magnetics, "time")
+    if data is None or time is None:
         return False
     try:
-        data = np.asarray(magnetics[path]).reshape(-1)
-        time = np.asarray(magnetics["time"]).reshape(-1)
+        data = np.asarray(data).reshape(-1)
+        time = np.asarray(time).reshape(-1)
     except Exception:
         return False
     return bool(data.size and data.size == time.size)
@@ -319,13 +404,18 @@ def generate_constraints_ods(
     nbprobe = efit_bpol_probe_count
     PM = ods["equilibrium.code.parameters"]
 
-    # Ad hoc diamaagnetic flux constraint sign change
-    EQ["time_slice.0.constraints.diamagnetic_flux.measured"] = abs(
-        EQ["time_slice.0.constraints.diamagnetic_flux.measured"]
-    )
-
+    # The diamagnetic flux keeps its sign (issue #385).  EFIT reads DFLUX as a
+    # signed quantity and fits it against cdflux = integral (B_t - B_tv) dA, so
+    # a diamagnetic plasma in VEST's positive toroidal field is a *negative*
+    # flux.  The donor code compared magnitudes with a magnitude-only
+    # reconstruction, which is not what EFIT does.
     # convert one-based index to zero-based index
     broken = [i - 1 for i in broken]
+    # A channel the quality layer condemned for the whole record (#189: a
+    # railed or miswired probe) must not be a point in the Gaussian fits
+    # below either -- zeroing its weight afterwards does not undo the pull it
+    # exerted on every neighbour's fitted value.  It joins the legacy list.
+    broken = sorted(set(broken) | _condemned_channels(ods, nbprobe))
 
     # Add weight and validity (not broken) to the constraints - [pf_coil, tf_coil, pf_passive, ip, dia_flux, inboard_bz, side_bz, outboard_bz, inboard_fl, outboard_fl]
     IPLIM = 45000
@@ -583,6 +673,8 @@ def generate_constraints_ods(
         #     plt.close(fig2)
 
     #    make_gif(os.path.join(save_dir, 'plots'), f'{shotnumber}_gfit')
+
+    apply_validity_exclusions(ods, EQ)
 
     # add namelist parameters in the k-file
     for i in range(len(EQ["time"])):
@@ -857,6 +949,7 @@ def generate_kfile(
         flux_scale = (
             1000.0 if constraint_config.diamagnetic_flux_input_units == "Wb" else 1.0
         )
+        # "imas" writes the stored, signed value: EFIT's convention (#385).
         VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale
         if constraint_config.diamagnetic_flux_sign == "absolute":
             VAL = abs(VAL)

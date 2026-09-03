@@ -153,6 +153,99 @@ def test_loop_voltage_is_correct_and_storage_invariant(gfile):
     np.testing.assert_allclose(v_legacy, v_loop, rtol=1e-9)
 
 
+def _strip_phi(ods):
+    """Drop ``profiles_1d.phi`` from every slice, as the EFIT pipeline once did."""
+    for index in range(len(ods["equilibrium.time_slice"])):
+        ts = ods[f"equilibrium.time_slice.{index}"]
+        if "profiles_1d.phi" in ts:
+            del ts["profiles_1d.phi"]
+    return ods
+
+
+def test_storage_family_is_detected_without_phi():
+    """The slope test needs ``profiles_1d.phi``; the EFIT-pipeline ODS written
+    before issue #236 holds Wb/rad and carries none, so the DD default used to
+    rescale it by 2*pi. Ampere's law round the LCFS answers without phi."""
+    import copy
+
+    gfile = sample_geqdsk("efit/g039915.00319")
+    legacy = _strip_phi(_legacy_style(gfile.to_omas()))
+    assert ods_psi_to_wb_per_radian_factor(legacy) == pytest.approx(1.0)
+
+    weber = _strip_phi(copy.deepcopy(gfile.to_omas()))
+    assert ods_psi_to_wb_per_radian_factor(weber) == pytest.approx(1.0 / TWO_PI)
+
+
+def test_storage_family_survives_a_degenerate_slice():
+    """The convention is a property of the file. A slice EFIT failed on --
+    psi_axis == psi_boundary, no boundary outline, which the packaged samples do
+    contain -- must not drag the whole ODS onto the default."""
+    import copy
+
+    gfile = sample_geqdsk("efit/g039915.00319")
+    ods = _strip_phi(_legacy_style(gfile.to_omas()))
+    ods["equilibrium.time_slice.1"] = copy.deepcopy(ods["equilibrium.time_slice.0"])
+    broken = ods["equilibrium.time_slice.1"]
+    broken["global_quantities.psi_boundary"] = float(broken["global_quantities.psi_axis"])
+    del broken["boundary.outline.r"]
+    del broken["boundary.outline.z"]
+    del broken["profiles_1d.q"]
+
+    assert ods_psi_to_wb_per_radian_factor(ods, 1) == pytest.approx(1.0)
+
+
+def test_virial_quantities_are_physical_on_the_packaged_sample():
+    """Regression for the issue #278 default: on sample 39915 (Wb/rad, no phi)
+    the virial path returned B_pa 2*pi too small and beta_p = 30.5."""
+    from vaft.omas.sample import sample_ods
+
+    try:
+        ods = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged in this build
+        pytest.skip(f"39915 sample unavailable: {exc}")
+
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+
+    virial = compute_virial_equilibrium_quantities_ods(ods, time_slice=0)[0]
+    assert 0.01 < float(virial["B_pa"]) < 0.5
+    assert 0.0 < float(virial["beta_p"]) < 10.0
+
+
+def test_an_inconsistent_phi_abstains_instead_of_overriding_ampere():
+    """Review finding: the slope rung classified every finite ratio, so a phi
+    that disagrees with q pre-empted the physically decisive Ampere test and
+    produced a 2*pi error. A ratio near neither 1 nor 2*pi is evidence the input
+    is broken, not evidence of a convention."""
+    import copy
+
+    from vaft.data.eqdsk import _ampere_flux_exponent, _slope_flux_exponent
+
+    ods = sample_geqdsk("efit/g039915.00319").to_omas()  # weber family
+    broken = copy.deepcopy(ods)
+    ts = broken["equilibrium.time_slice.0"]
+    ts["profiles_1d.phi"] = np.asarray(ts["profiles_1d.phi"], float) * 3.0
+
+    assert _slope_flux_exponent(ts) is None, "a ratio of ~3 must abstain"
+    assert _ampere_flux_exponent(ts) == 1, "Ampere's law still knows the family"
+    assert ods_psi_to_wb_per_radian_factor(broken) == pytest.approx(1.0 / TWO_PI)
+
+    # The healthy file still answers from the slope, without needing Ampere.
+    assert _slope_flux_exponent(ods["equilibrium.time_slice.0"]) == 1
+
+
+def test_an_out_of_range_time_index_still_consults_the_other_slices():
+    """Review finding: a missing index made the walk yield the whole ODS as if it
+    were a bare time slice and stop, so a file that could answer fell back to the
+    DD default."""
+    legacy = _strip_phi(_legacy_style(sample_geqdsk("efit/g039915.00319").to_omas()))
+
+    assert ods_psi_to_wb_per_radian_factor(legacy, 0) == pytest.approx(1.0)
+    assert ods_psi_to_wb_per_radian_factor(legacy, 7) == pytest.approx(1.0)
+
+    # A caller handing over a bare time slice is still served.
+    assert ods_psi_to_wb_per_radian_factor(
+        legacy["equilibrium.time_slice.0"]
+    ) == pytest.approx(1.0)
 def test_legacy_artifact_without_phi_is_detected_by_ampere_law():
     """A phi-less legacy artifact must not be misread as Wb (release review).
 

@@ -26,7 +26,7 @@ from vaft.process.equilibrium import (
     fit_miller_sequence,
     fit_miller_surface,
     solve_solovev_constraints,
-    validate_equilibrium,
+    check_equilibrium_requirements,
 )
 
 
@@ -72,7 +72,7 @@ def _analytic_equilibrium(kind: str = "limited") -> EquilibriumData:
 def test_models_validate_shapes_and_missing_fields_are_actionable():
     with pytest.raises(ValueError, match="equal length"):
         Contour([1, 2], [0])
-    report = validate_equilibrium(EquilibriumData(), required_for="global")
+    report = check_equilibrium_requirements(EquilibriumData(), required_for="global")
     assert not report.valid
     assert {item.code for item in report.issues} >= {"missing_grid", "missing_flux_bounds", "missing_lcfs"}
 

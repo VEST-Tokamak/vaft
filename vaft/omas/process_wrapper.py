@@ -2158,6 +2158,37 @@ def _resolve_equilibrium_time_slice(ods: Any, time: float) -> tuple[int, float, 
     return equilibrium_time_index, equilibrium_time, time_slice
 
 
+def camera_projection_for(
+    shot: int,
+    *,
+    pose_path: str | Path | None = None,
+    intrinsics_path: str | Path | None = None,
+) -> "CameraProjection":
+    """The calibrated FAST-camera projection packaged for ``shot``.
+
+    One place loads intrinsics and pose and records where they came from, so
+    every overlay -- wall, LCFS, flux surfaces, field lines -- projects
+    through the same model (issue #261 sections 20-21).  Raises the loaders'
+    ``FileNotFoundError`` naming the shot when no pose is packaged.
+    """
+    from vaft.process.camera_geometry import CameraProjection
+
+    intrinsics = _load_camera_intrinsics(intrinsics_path)
+    pose = _load_camera_pose(shot, pose_path)
+    provenance = {
+        "shot": int(shot),
+        "intrinsics": str(intrinsics_path) if intrinsics_path else "packaged camera_visible/intrinsics.json",
+        "pose": str(pose_path) if pose_path else f"packaged camera_visible/pose_{int(shot)}.json",
+    }
+    for key in ("reproj_mean_px", "reproj_max_px", "created", "convention"):
+        if key in pose:
+            provenance[key] = pose[key]
+    return CameraProjection(
+        camera_matrix=intrinsics["camera_matrix"], dist_coeffs=intrinsics["dist_coeffs"],
+        rvec=pose["rvec"], tvec=pose["tvec"], method="calibrated", provenance=provenance,
+    )
+
+
 def compute_camera_visible_efit_overlay(
     ods: Any,
     shot: int,
@@ -2171,6 +2202,7 @@ def compute_camera_visible_efit_overlay(
     flux_surface_levels: tuple[float, ...] = _DEFAULT_FLUX_SURFACE_LEVELS,
     pose_path: str | Path | None = None,
     intrinsics_path: str | Path | None = None,
+    projection: "CameraProjection | None" = None,
 ) -> dict[str, Any]:
     """Project equilibrium/wall geometry into FAST-camera pixel space for one frame.
 
@@ -2186,12 +2218,8 @@ def compute_camera_visible_efit_overlay(
     ``flux_surface_levels`` (not the LCFS-only ``boundary.outline``, which is
     used directly as the LCFS overlay).
     """
-    intrinsics = _load_camera_intrinsics(intrinsics_path)
-    pose = _load_camera_pose(shot, pose_path)
-    camera_matrix = intrinsics["camera_matrix"]
-    dist_coeffs = intrinsics["dist_coeffs"]
-    rvec = pose["rvec"]
-    tvec = pose["tvec"]
+    if projection is None:
+        projection = camera_projection_for(shot, pose_path=pose_path, intrinsics_path=intrinsics_path)
 
     resolved_frame_index, resolved_frame_time, image_shape = _resolve_camera_frame(
         ods, channel=channel, detector=detector, frame_index=frame_index, frame_time=frame_time
@@ -2204,7 +2232,9 @@ def compute_camera_visible_efit_overlay(
 
     def _project_rz(r_m: np.ndarray, z_m: np.ndarray) -> np.ndarray:
         world_cm = sweep_toroidal(r_m, z_m, theta_rad)
-        pixel_uv, valid_mask = project_points(world_cm, rvec, tvec, camera_matrix, dist_coeffs)
+        pixel_uv, valid_mask = project_points(
+            world_cm, projection.rvec, projection.tvec, projection.camera_matrix, projection.dist_coeffs
+        )
         return pixel_uv[valid_mask]
 
     wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
@@ -2217,9 +2247,9 @@ def compute_camera_visible_efit_overlay(
 
     mag_r = float(time_slice["global_quantities.magnetic_axis.r"])
     mag_z = float(time_slice["global_quantities.magnetic_axis.z"])
-    mag_axis_world_cm = toroidal_ring(mag_r, mag_z, theta_rad)
     mag_axis_uv_all, mag_axis_valid = project_points(
-        mag_axis_world_cm, rvec, tvec, camera_matrix, dist_coeffs
+        toroidal_ring(mag_r, mag_z, theta_rad),
+        projection.rvec, projection.tvec, projection.camera_matrix, projection.dist_coeffs,
     )
     magnetic_axis_uv = mag_axis_uv_all[mag_axis_valid]
 
@@ -2396,6 +2426,7 @@ def compute_camera_visible_field_line_overlay(
     use_wall_boundary: bool = True,
     pose_path: str | Path | None = None,
     intrinsics_path: str | Path | None = None,
+    projection: "CameraProjection | None" = None,
 ) -> dict[str, Any]:
     """Project a traced magnetic field line into FAST-camera pixel space for one frame.
 
@@ -2404,8 +2435,8 @@ def compute_camera_visible_field_line_overlay(
     used by :func:`compute_camera_visible_efit_overlay`. Nothing is written
     back into ``ods``.
     """
-    intrinsics = _load_camera_intrinsics(intrinsics_path)
-    pose = _load_camera_pose(shot, pose_path)
+    if projection is None:
+        projection = camera_projection_for(shot, pose_path=pose_path, intrinsics_path=intrinsics_path)
 
     resolved_frame_index, resolved_frame_time, image_shape = _resolve_camera_frame(
         ods, channel=channel, detector=detector, frame_index=frame_index, frame_time=frame_time
@@ -2419,7 +2450,7 @@ def compute_camera_visible_field_line_overlay(
 
     world_cm = trajectory_world_points(trace["R"], trace["Z"], trace["phi"])
     pixel_uv, valid_mask = project_points(
-        world_cm, pose["rvec"], pose["tvec"], intrinsics["camera_matrix"], intrinsics["dist_coeffs"]
+        world_cm, projection.rvec, projection.tvec, projection.camera_matrix, projection.dist_coeffs
     )
     # Compacting with pixel_uv[valid_mask] would discard invalid samples'
     # positions in the trajectory, so a renderer drawing the remaining points

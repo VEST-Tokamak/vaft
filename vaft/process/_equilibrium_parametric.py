@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 import re
+import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
-from matplotlib.path import Path as MplPath
 from scipy.constants import mu_0 as MU0
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import least_squares, root
@@ -38,6 +38,19 @@ from vaft.data.equilibrium import (
     ValidationReport,
     XPoint,
 )
+
+
+def _mpl_path(points):
+    """``matplotlib.path.Path``, imported on first use.
+
+    Five call sites here want one point-in-polygon test.  Importing Matplotlib
+    at module scope for it made every consumer of ``vaft.process.equilibrium``
+    pay for the whole plotting stack (issue #249).
+    """
+    from matplotlib.path import Path as MplPath
+
+    return MplPath(points)
+
 
 
 def _path_get(item: Any, path: str, default: Any = None) -> Any:
@@ -179,7 +192,13 @@ def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
     case = str(data.get("CASE", ""))
     match = re.search(r"COCOS\s*[=_-]?\s*(\d{1,2})", case, re.IGNORECASE)
     explicit = convention if convention is not None else (int(match.group(1)) if match else None)
-    bt0, ip = _scalar(data.get("BCENTR")), _scalar(data.get("CURRENT"))
+    # Same source as to_omas: a g-file states its vacuum field twice and the
+    # FPOL half is the one the solution used (issue #325). Taking BCENTR here
+    # while to_omas takes FPOL would put the two paths a few 1e-9 apart on a
+    # merely round-off-inconsistent file, and much further apart on a corrupt one.
+    from vaft.data.eqdsk import _vacuum_b0
+
+    bt0, ip = _vacuum_b0(data), _scalar(data.get("CURRENT"))
     conv = _detect_convention(
         explicit=explicit, bt0=bt0, ip=ip, q=q, psi_1d=psi_1d,
         source="argument" if convention is not None else ("GEQDSK header" if match else "GEQDSK signs"),
@@ -300,7 +319,20 @@ def as_equilibrium(
     return _from_ods(source, time_index, profile_index, convention)
 
 
-def validate_equilibrium(equilibrium: EquilibriumData, *, required_for: str = "general") -> ValidationReport:
+def check_equilibrium_requirements(
+    equilibrium: EquilibriumData, *, required_for: str = "general"
+) -> ValidationReport:
+    """Whether ``equilibrium`` carries what ``required_for`` needs to run.
+
+    A **precondition**, not a scientific verdict (issue #337): it answers "can
+    the global / Miller / edge / Solovev algorithms be applied to this input?",
+    which is why the answer depends on ``required_for`` -- the same equilibrium
+    is sufficient for one and not another.  Whether the equilibrium is
+    *credible* is a different question, asked by ``vaft.validation`` (#72).
+
+    Renamed from ``validate_equilibrium``, which read as the latter and is now
+    the name of the latter.
+    """
     issues: list[ValidationIssue] = []
     if equilibrium.psi is not None and equilibrium.r is not None and equilibrium.z is not None:
         expected = (equilibrium.r.size, equilibrium.z.size)
@@ -327,6 +359,20 @@ def validate_equilibrium(equilibrium: EquilibriumData, *, required_for: str = "g
             f"{equilibrium.convention.identified}; the declaration is being used as given",
         ))
     return ValidationReport(tuple(issues))
+
+
+def validate_equilibrium(
+    equilibrium: EquilibriumData, *, required_for: str = "general"
+) -> ValidationReport:
+    """Deprecated compatibility wrapper for :func:`check_equilibrium_requirements`."""
+    warnings.warn(
+        "vaft.process.validate_equilibrium() is deprecated; use "
+        "check_equilibrium_requirements(). The name now belongs to the scientific "
+        "equilibrium assessment in vaft.validation (issues #253, #337).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return check_equilibrium_requirements(equilibrium, required_for=required_for)
 
 
 def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> EquilibriumData:
@@ -476,7 +522,7 @@ def derive_global_descriptors(
     equilibrium: Any, *, rational_q: Sequence[float] = (1.0, 1.5, 2.0, 3.0),
 ) -> GlobalEquilibriumDescriptors:
     eq = as_equilibrium(equilibrium)
-    validation = validate_equilibrium(eq, required_for="global")
+    validation = check_equilibrium_requirements(eq, required_for="global")
     values: dict[str, DerivedValue] = {}
     direct = {
         "ip": (eq.ip, "A", "source plasma current", ("ip",)),
@@ -550,7 +596,7 @@ def derive_global_descriptors(
             psi_n_1d = (eq.psi_1d - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
             order = np.argsort(psi_n_1d)
             p_grid = np.interp(psi_n_grid, psi_n_1d[order], eq.pressure[order], left=eq.pressure[order][0], right=eq.pressure[order][-1])
-            mask = MplPath(eq.lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
+            mask = _mpl_path(eq.lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
             dr = np.gradient(eq.r)[:, None]; dz = np.gradient(eq.z)[None, :]
             dv = 2 * np.pi * rm * dr * dz * mask
             pressure_integral = float(np.nansum(p_grid * dv))
@@ -726,7 +772,7 @@ def _contour_at_level(eq: EquilibriumData, level: float) -> Contour | None:
     candidates = []
     for r, z in raw:
         contour = Contour(r, z, bool(np.hypot(r[0]-r[-1], z[0]-z[-1]) < 3*max(np.mean(np.diff(eq.r)), np.mean(np.diff(eq.z)))))
-        contains = bool(axis and MplPath(contour.points).contains_point(axis))
+        contains = bool(axis and _mpl_path(contour.points).contains_point(axis))
         candidates.append((contains, contour.r.size, contour))
     return max(candidates, key=lambda value: (value[0], value[1]))[2]
 
@@ -937,7 +983,7 @@ def _closed_boundary_contour(
         if (
             contour is not None
             and contour.closed
-            and MplPath(contour.points).contains_point(axis)
+            and _mpl_path(contour.points).contains_point(axis)
         ):
             return contour, level
     return None, None
@@ -976,7 +1022,7 @@ def solovev_to_equilibrium(
     psi_1d = np.linspace(psi_axis, model.psi_boundary, max(65, min(r.size, z.size)))
     pressure = model.pressure_boundary + model.pprime*(psi_1d-model.psi_boundary)
     f = model.f_sign*np.sqrt(np.clip(model.f_boundary**2+2*model.ffprime*(psi_1d-model.psi_boundary), 0, None))
-    mask = MplPath(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
+    mask = _mpl_path(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
     ip = float(np.sum(values["j_phi"]*np.gradient(r)[:, None]*np.gradient(z)[None, :]*mask))
     if convention not in range(1, 19):
         raise ValueError("convention must be a COCOS index in the range 1..18")
@@ -1107,7 +1153,7 @@ def _confined_contour(eq: EquilibriumData, level: float) -> tuple[Contour | None
         return None, f"no flux surface could be extracted at psi_n={level:.4g}"
     if not contour.closed:
         return None, f"the flux surface at psi_n={level:.4g} is clipped by the grid boundary"
-    if eq.magnetic_axis is not None and not MplPath(contour.points).contains_point(eq.magnetic_axis):
+    if eq.magnetic_axis is not None and not _mpl_path(contour.points).contains_point(eq.magnetic_axis):
         return None, f"the flux surface at psi_n={level:.4g} does not enclose the magnetic axis"
     return contour, None
 
@@ -1460,5 +1506,6 @@ __all__ = [
     "as_equilibrium", "convert_cocos", "derive_boundary_representation",
     "derive_global_descriptors", "derive_radial_coordinates", "evaluate_miller",
     "evaluate_solovev", "fit_miller_sequence", "fit_miller_surface",
-    "solovev_to_equilibrium", "solve_solovev_constraints", "validate_equilibrium",
+    "solovev_to_equilibrium", "solve_solovev_constraints",
+    "check_equilibrium_requirements", "validate_equilibrium",
 ]

@@ -174,7 +174,6 @@ def test_no_tutorial_specific_machinery(book):
         "find_repository_root",
         "savefig",
         "getattr(vaft",
-        "available_plots",
         "load_diagnostic_registry",
         "os.environ",
     ):
@@ -193,6 +192,15 @@ def test_no_notebook_local_helper_functions(book):
         assert not re.search(r"(?m)^\s*class\s", source), f"{cell.id} defines a class"
 
 
+#: The cell that teaches the display policy deliberately calls the same plot
+#: three ways to show unit, override and refusal; it is not a diagnostic cell.
+_CONCEPT_CELLS = {"session01-axes-units"}
+
+#: The Data Dictionary version the tutorial documents, and the one VAFT reads
+#: through OMAS. Pinned so the compatibility note cannot quietly go stale.
+DOCUMENTED_DD_VERSION = "3.41.0"
+
+
 def test_plotting_cells_use_the_one_documented_pattern(book):
     """vaft.omas.plot_<something>(ods) then plt.show(), and nothing else."""
     pattern = re.compile(
@@ -201,13 +209,77 @@ def test_plotting_cells_use_the_one_documented_pattern(book):
     plotting = [
         cell
         for cell in _code_cells(book)
-        if "vaft.omas.plot_" in _source(cell) and not _source(cell).lstrip().startswith("#")
+        if "vaft.omas.plot_" in _source(cell)
+        and cell.id not in _CONCEPT_CELLS
+        and not _source(cell).lstrip().startswith("#")
     ]
     assert len(plotting) >= 10
     for cell in plotting:
         assert pattern.match(_source(cell).strip()), (
             f"{cell.id} deviates from the documented pattern:\n{_source(cell)}"
         )
+
+
+def test_the_notebook_teaches_the_current_naming_grammar(book):
+    """The names are subject-centred since #251; the prose must say so."""
+    markdown = "\n".join(
+        _source(cell) for cell in book.cells if cell.cell_type == "markdown"
+    )
+    assert "{subject}_{view}" in markdown
+    # The claim this replaced -- that a plot name names its IDS -- is now wrong.
+    assert "name says which IDS" not in markdown
+    assert "plasma_current_time` reads the `magnetics` IDS" in markdown
+
+
+def test_the_notebook_explains_the_display_policy(book):
+    """A reader meets kA on the first plot; #256 is why."""
+    markdown = "\n".join(
+        _source(cell) for cell in book.cells if cell.cell_type == "markdown"
+    )
+    assert "Unit and scaling always move together" in markdown
+    assert "yunit=" in markdown
+
+    units = next(cell for cell in _code_cells(book) if cell.id == "session01-axes-units")
+    source = _source(units)
+    assert 'yunit="A"' in source
+    assert "except ValueError" in source, "the refusal is the point, not a footnote"
+
+
+def test_the_notebook_shows_the_unit_override_and_the_refusal(executed):
+    """The cell must actually print all three cases a reader is promised."""
+    cell = next(c for c in _code_cells(executed) if c.id == "session01-axes-units")
+    text = "\n".join(
+        output.get("text", "")
+        for output in cell.get("outputs", [])
+        if output.output_type == "stream"
+    )
+    assert "default: Plasma Current [kA]" in text
+    assert "yunit='A': Plasma Current [A]" in text
+    assert "refused: unsupported display unit" in text
+
+
+def test_the_unit_override_really_rescales():
+    """The prose promises the numbers move with the label. Check the numbers.
+
+    An axis label is easy to change without touching the data, so asserting on
+    labels alone would pass for exactly the bug the display policy exists to
+    prevent (issue #256).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import numpy as np
+    import vaft
+
+    ods = vaft.omas.sample_ods()
+    _, in_kiloamps = vaft.omas.plot_plasma_current_time(ods, show=False)
+    _, in_amps = vaft.omas.plot_plasma_current_time(ods, yunit="A", show=False)
+
+    peak_kA = float(np.abs(in_kiloamps.get_lines()[0].get_ydata()).max())
+    peak_A = float(np.abs(in_amps.get_lines()[0].get_ydata()).max())
+    assert peak_A / peak_kA == pytest.approx(1000.0, rel=1e-6)
+    assert in_kiloamps.get_ylabel().endswith("[kA]")
+    assert in_amps.get_ylabel().endswith("[A]")
 
 
 def test_no_raw_machine_mapping_in_the_first_tutorial(book):
@@ -263,3 +335,73 @@ def test_the_summary_recaps_the_workflow(book):
     text = _source(summary)
     for step in ("sample_ods", "keys()", "plot_machine_geometry_poloidal", "plot_"):
         assert step in text
+
+
+# ---------------------------------------------------------------------------
+# Additional Resources appendix
+# ---------------------------------------------------------------------------
+
+
+def test_external_links_are_kept_out_of_the_teaching_flow(book):
+    """Reference material belongs in the appendix, not in the introduction."""
+    cells = list(book.cells)
+    appendix = next(
+        index
+        for index, cell in enumerate(cells)
+        if cell.cell_type == "markdown" and "## Additional Resources" in _source(cell)
+    )
+    before = "\n".join(_source(cell) for cell in cells[:appendix])
+    # Match any external link, not a sample of hosts: the regression to catch is
+    # someone adding a *new* helpful link mid-lesson.
+    external = re.findall(r"\]\((https?://[^)]+)\)", before)
+    allowed = [url for url in external if "vest-tokamak.github.io/vaft" in url]
+    assert not [url for url in external if url not in allowed], (
+        f"external links appear before the appendix: {external}; "
+        "they belong in Additional Resources"
+    )
+
+
+def test_the_appendix_covers_each_documented_group(book):
+    resources = next(cell for cell in book.cells if cell.get("id") == "session01-resources")
+    text = _source(resources)
+    for heading in ("### Tutorials and hands-on examples",
+                    "### API documentation by language",
+                    "### IMAS Data Dictionary and schema references"):
+        assert heading in text
+    for language in ("**Python**", "**MATLAB**", "**Julia**"):
+        assert language in text
+
+
+def test_the_compatibility_note_names_the_version_vaft_actually_uses(book):
+    """The note is a factual claim about this package, so pin it to the package."""
+    import vaft
+
+    resources = next(cell for cell in book.cells if cell.get("id") == "session01-resources")
+    text = _source(resources)
+    assert DOCUMENTED_DD_VERSION in text
+    assert "4.1.1" in text, "the latest DD is worth pointing at, clearly labelled"
+    # Ask OMAS what it supports, not the sample. vaft/omas/sample.py pins
+    # imas_version="3.41.0" explicitly, so comparing against sample_ods() would
+    # be one hard-coded string against another and could never go stale --
+    # which is precisely the drift this test exists to catch.
+    from omas import omas_utils
+
+    newest_supported = [
+        version
+        for version in omas_utils.imas_versions
+        if not version.startswith("develop")
+    ][-1]
+    assert newest_supported == DOCUMENTED_DD_VERSION, (
+        f"OMAS now supports Data Dictionary {newest_supported}, but the tutorial's "
+        f"compatibility note still says {DOCUMENTED_DD_VERSION}"
+    )
+    assert str(vaft.omas.sample_ods().imas_version) == DOCUMENTED_DD_VERSION
+
+
+def test_the_appendix_shows_the_version_rather_than_only_asserting_it(executed):
+    cell = next(c for c in _code_cells(executed) if c.id == "session01-dd-version")
+    rendered = "\n".join(
+        str(output.get("data", {}).get("text/plain", ""))
+        for output in cell.get("outputs", [])
+    )
+    assert DOCUMENTED_DD_VERSION in rendered

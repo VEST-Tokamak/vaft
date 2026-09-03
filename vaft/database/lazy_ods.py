@@ -20,6 +20,7 @@ try:
 except ImportError:  # pragma: no cover - exercised through the public guard
     h5pyd = None
 
+from .sources import resolve as resolve_source
 from .lazy_common import decode_hdf5_value, discover_hsds_ids, normalize_ids
 from .utils import _require_h5pyd
 
@@ -48,8 +49,9 @@ class HSDSStore(dynamic_ODS):
     def __init__(
         self,
         shot: int,
-        directory: str = "public",
+        source: str | None = None,
         *,
+        directory: str | None = None,
         ids: str | Iterable[str] | None = None,
         h5pyd_module: Any = None,
     ) -> None:
@@ -58,7 +60,7 @@ class HSDSStore(dynamic_ODS):
             h5pyd_module = h5pyd
 
         self.shot = int(shot)
-        self.directory = directory.strip("/")
+        self.source = resolve_source(source, directory=directory)
         self._h5pyd = h5pyd_module
         self._requested_ids = normalize_ids(ids)
         self._available_ids_cache = self._requested_ids
@@ -81,7 +83,7 @@ class HSDSStore(dynamic_ODS):
         self.active = True
         self.kw = {
             "shot": self.shot,
-            "directory": self.directory,
+            "source": self.source,
             "ids": list(self._requested_ids) if self._requested_ids is not None else None,
         }
 
@@ -123,7 +125,7 @@ class HSDSStore(dynamic_ODS):
         if self.closed:
             raise LazyODSClosedError("Cannot discover IDS domains after the lazy ODS is closed")
         self._available_ids_cache = discover_hsds_ids(
-            self._h5pyd, self.directory, self.shot
+            self._h5pyd, self.source, self.shot
         )
         return self._available_ids_cache
 
@@ -137,7 +139,7 @@ class HSDSStore(dynamic_ODS):
         if ids_name not in self._available_ids():
             raise KeyError(f"IDS {ids_name!r} is not available for shot {self.shot}")
 
-        uri = f"hdf5://{self.directory}/{self.shot}/{ids_name}.h5"
+        uri = f"hdf5://{self.source}/{self.shot}/{ids_name}.h5"
         handle = self._h5pyd.File(uri, "r")
         self._metrics["ids_domain_open_count"] += 1
         self._handles[ids_name] = handle
@@ -326,6 +328,30 @@ class HSDSODS(omas.ODS):
             return self.store.keys(self.location)
         return super().keys(dynamic=dynamic)
 
+    def _is_cached(self, requested: list[Any]) -> bool:
+        """Whether ``requested`` already resolves locally, without touching HSDS.
+
+        The fetch below overwrites whatever is in memory, so anything already
+        here -- fetched earlier, or *written by the caller* -- has to short it
+        out. Without this the ODS is silently read-only for every leaf the store
+        happens to hold: an assignment appears to succeed and the next read
+        hands back the stored value again (issue #329).
+
+        ``keys(dynamic=0)`` is what keeps this local; the dynamic form would ask
+        the store and defeat the purpose.
+        """
+        node: Any = self
+        for part in requested:
+            if not isinstance(node, omas.ODS):
+                return False
+            try:
+                if part not in node.keys(dynamic=0):
+                    return False
+                node = node.getraw(part)
+            except Exception:
+                return False
+        return True
+
     def __getitem__(self, key: Any, cocos_and_coords: bool | None = True) -> Any:
         requested = _path_parts(key)
         location = _path_parts(self.location)
@@ -333,7 +359,9 @@ class HSDSODS(omas.ODS):
         # Fetch exact leaves in one backend operation. Besides saving several
         # metadata round trips, this lets lazy access work when callers disable
         # OMAS schema consistency (OMAS otherwise cannot infer AOS containers).
-        if full_path and self.store.__contains__(full_path):
+        # Only on a miss: the class fetches leaves that are *missing*, and
+        # re-fetching a present one would discard the caller's own writes.
+        if full_path and not self._is_cached(requested) and self.store.__contains__(full_path):
             value = self.store.__getitem__(full_path)
             # OMAS does not permit assigning index N to an empty AOS when N>0.
             # Materialize only the lightweight intermediate ODS nodes needed to
@@ -359,8 +387,9 @@ class HSDSODS(omas.ODS):
 
 def open_ods(
     shot: int,
-    directory: str = "public",
+    source: str | None = None,
     *,
+    directory: str | None = None,
     ids: str | list[str] | None = None,
     imas_version: str | None = None,
     consistency_check: bool = True,
@@ -371,7 +400,7 @@ def open_ods(
     directory and never invokes ``hsget``. ``ids`` can restrict discovery to a
     known set of IDS domains and avoids even listing the remote shot folder.
     """
-    store = HSDSStore(shot, directory, ids=ids)
+    store = HSDSStore(shot, source, directory=directory, ids=ids)
     return HSDSODS(
         store=store,
         imas_version=imas_version,

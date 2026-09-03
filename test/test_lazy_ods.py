@@ -44,7 +44,7 @@ class FakeH5pyd:
         self.opened.append(uri)
         return self.files[uri]
 
-    def Folder(self, path):
+    def Folder(self, path, mode=None):
         self.folder_calls.append(path)
         shot = path.strip("/").split("/")[-1]
         return [name.rsplit("/", 1)[-1] for name in self.files if f"/{shot}/" in name]
@@ -75,8 +75,8 @@ def fake_hsds():
     other = FakeFile("core_profiles", FakeGroup({"time": other_signal}))
     module = FakeH5pyd(
         {
-            "hdf5://public/39915/equilibrium.h5": equilibrium,
-            "hdf5://public/39915/core_profiles.h5": other,
+            "hdf5://main/39915/equilibrium.h5": equilibrium,
+            "hdf5://main/39915/core_profiles.h5": other,
         }
     )
     return module, datasets, equilibrium, other, other_signal
@@ -97,7 +97,7 @@ def test_metadata_trie_opens_only_visited_ids_and_does_not_read_leaf(fake_hsds):
     assert "equilibrium.time_slice.0.profiles_2d.0.psi" in ods
     assert store.opened_ids == ("equilibrium",)
     assert datasets["time_slice[]&profiles_2d[]&psi"].reads == []
-    assert "hdf5://public/39915/core_profiles.h5" not in module.opened
+    assert "hdf5://main/39915/core_profiles.h5" not in module.opened
 
 
 def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
@@ -108,9 +108,27 @@ def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
     metrics = store.metrics
     assert metrics["ids_domain_open_count"] == 1
     assert metrics["metadata_dataset_count"] > 0
+    # One selection for two reads is the guarantee that matters: the payload is
+    # not re-read. Since issue #329 the second read is served by the ODS and
+    # never reaches the store, so the store's own `leaf_cache_hits` no longer
+    # fires through this path -- it is checked directly below instead.
     assert metrics["payload_selection_count"] == 1
-    assert metrics["leaf_cache_hits"] >= 1
     assert metrics["returned_logical_bytes"] == value.nbytes
+
+
+def test_the_store_still_caches_for_a_caller_that_bypasses_the_ods(fake_hsds):
+    """`leaf_cache_hits` is shadowed by the ODS-level cache added for #329, so it
+    is exercised here at the level where it still applies: a caller holding the
+    store directly."""
+    _ods, store = make_ods(fake_hsds, ids="equilibrium")
+    path = ["equilibrium", "time_slice", 0, "profiles_2d", 0, "psi"]
+
+    first = store[path]
+    assert store.metrics["leaf_cache_hits"] == 0
+    second = store[path]
+    assert store.metrics["leaf_cache_hits"] >= 1
+    assert store.metrics["payload_selection_count"] == 1
+    np.testing.assert_array_equal(np.asarray(first), np.asarray(second))
 
 
 def test_leaf_selection_shape_slicing_and_value_conversion(fake_hsds):
@@ -180,7 +198,7 @@ def test_discovered_ids_and_cached_leaf_remain_usable_after_close(fake_hsds):
     assert ods["equilibrium.time"] is not None
     ods.close()
     np.testing.assert_array_equal(ods["equilibrium.time"], [0.1, 0.2])
-    assert module.folder_calls == ["/public/39915/"]
+    assert module.folder_calls == ["/main/39915/"]
 
 
 def test_public_open_ods_uses_direct_h5pyd_without_folder_when_ids_given(
@@ -199,3 +217,69 @@ def test_store_rejects_empty_ids(fake_hsds):
     module, *_ = fake_hsds
     with pytest.raises(ValueError, match="at least one"):
         HSDSStore(39915, ids=[], h5pyd_module=module)
+
+
+def test_a_write_to_a_stored_leaf_is_kept_not_clobbered(fake_hsds):
+    """Issue #329. ``__getitem__`` re-fetched on every read of a path the store
+    holds, so an assignment appeared to succeed and the next read handed back the
+    stored value again -- silently. That made every in-place updater a no-op on
+    HSDS-backed data for any leaf the database already had, while writes to
+    leaves it lacked did persist: the same column of the same sheet could mix
+    VAFT-derived and database-stored values with no marker.
+
+    The class fetches leaves that are *missing*; a present one is the caller's.
+    """
+    ods, store = make_ods(fake_hsds, ids="equilibrium")
+
+    assert float(ods["equilibrium.time_slice.0.global_quantities.ip"]) == 10.0
+    ods["equilibrium.time_slice.0.global_quantities.ip"] = 1234.5
+    assert float(ods["equilibrium.time_slice.0.global_quantities.ip"]) == 1234.5
+    # Still there on a third read -- the fetch does not creep back.
+    assert float(ods["equilibrium.time_slice.0.global_quantities.ip"]) == 1234.5
+    # And the sibling slice is untouched, so the override is not global.
+    assert float(ods["equilibrium.time_slice.1.global_quantities.ip"]) == 20.0
+
+
+def test_a_write_before_any_read_is_also_kept(fake_hsds):
+    """The clobber did not need a prior read: the fetch ran on the write's own
+    read-back."""
+    ods, _store = make_ods(fake_hsds, ids="equilibrium")
+    ods["equilibrium.time_slice.0.global_quantities.ip"] = 7.5
+    assert float(ods["equilibrium.time_slice.0.global_quantities.ip"]) == 7.5
+
+
+def test_an_array_leaf_can_be_replaced(fake_hsds):
+    """Profiles are what the equilibrium updaters actually rewrite."""
+    ods, _store = make_ods(fake_hsds, ids="equilibrium")
+    original = np.asarray(ods["equilibrium.time_slice.0.profiles_2d.0.psi"])
+    assert original.size
+
+    replacement = np.zeros_like(original) + 3.0
+    ods["equilibrium.time_slice.0.profiles_2d.0.psi"] = replacement
+    np.testing.assert_array_equal(
+        np.asarray(ods["equilibrium.time_slice.0.profiles_2d.0.psi"]), replacement
+    )
+
+
+def test_a_cached_leaf_is_not_fetched_twice(fake_hsds):
+    """The same change makes the cache actually a cache: the second read must not
+    go back to the store."""
+    _module, datasets, *_ = fake_hsds
+    ods, _store = make_ods(fake_hsds, ids="equilibrium")
+    dataset = datasets["time_slice[]&profiles_2d[]&psi"]
+
+    _ = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
+    reads_after_first = len(dataset.reads)
+    _ = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
+    assert len(dataset.reads) == reads_after_first
+
+
+def test_lazy_fetching_still_works_for_leaves_never_written(fake_hsds):
+    """The fix must not turn lazy loading off."""
+    module, datasets, *_ = fake_hsds
+    ods, store = make_ods(fake_hsds, ids="equilibrium")
+
+    assert datasets["time_slice[]&global_quantities&ip"].reads == []
+    assert float(ods["equilibrium.time_slice.1.global_quantities.ip"]) == 20.0
+    assert datasets["time_slice[]&global_quantities&ip"].reads
+    np.testing.assert_array_equal(ods["equilibrium.time"], [0.1, 0.2])

@@ -3,15 +3,17 @@ name: Bootstrap CI
 # Exercises the student-facing installation path from install/ on every
 # supported platform. Kept separate from Package CI so the release gate is
 # unaffected by changes to the course bootstrap.
+#
+# "Contract tests" is a required check on main, and a required check has to
+# *report* on every pull request or the pull request can never merge. A
+# `paths:` filter on the trigger does the opposite: on an unrelated pull
+# request the workflow never starts, nothing reports, and the check sits as
+# "expected" forever. So the workflow runs on every pull request, decides for
+# itself whether the change touches anything it cares about, and on an
+# unrelated one reports "not applicable" as a success instead of not at all.
 
 on:
   pull_request:
-    paths:
-      - "install/**"
-      - "environment.yml"
-      - "pyproject.toml"
-      - "test/test_install_bootstrap.py"
-      - ".github/workflows/bootstrap-ci.yml"
   push:
     branches: [develop, main]
   workflow_dispatch:
@@ -24,34 +26,95 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Does this change touch the bootstrap at all? The path list that used to
+  # live on the trigger lives here instead, where a "no" is still an answer.
+  applicability:
+    name: Applicability
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.detect.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The comparison below needs the pull request's base and head.
+          fetch-depth: 0
+
+      - name: Decide whether the bootstrap is affected
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # A push or a manual run has no base to compare against: run everything.
+          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "not a pull request: everything applies"
+            exit 0
+          fi
+          base="$(git merge-base "${BASE_SHA}" "${HEAD_SHA}")"
+          relevant=false
+          while IFS= read -r path; do
+            case "$path" in
+              install/*|environment.yml|pyproject.toml|test/test_install_bootstrap.py|.github/workflows/bootstrap-ci.yml|.github/scripts/assert_uninstalled.py)
+                relevant=true
+                echo "affects the bootstrap: $path"
+                ;;
+            esac
+          done < <(git diff --name-only "$base" "${HEAD_SHA}")
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+          if [ "$relevant" = "false" ]; then
+            echo "no bootstrap-related file changed"
+          fi
+
   # Fast, credential-free contract tests: checker unit tests, the
   # non-destructive-Git guarantees, and the environment.yml/pyproject.toml
   # consistency rules.
+  #
+  # This job always runs and always reports, because it is the required check.
+  # When the change does not touch the bootstrap it does no work and succeeds
+  # with a notice, so the requirement is satisfied honestly rather than left
+  # unreported.
   contract:
     name: Contract tests
+    needs: applicability
     runs-on: ubuntu-latest
     steps:
+      - name: Not applicable to this change
+        if: needs.applicability.outputs.relevant != 'true'
+        run: |
+          echo "::notice title=Contract tests::Not applicable: this change touches nothing the bootstrap depends on."
+          echo "Reporting success so the required check is satisfied without pretending to have run."
+
       - uses: actions/checkout@v4
+        if: needs.applicability.outputs.relevant == 'true'
 
       - uses: actions/setup-python@v5
+        if: needs.applicability.outputs.relevant == 'true'
         with:
           python-version: "3.12"
 
       - name: Install test dependencies
+        if: needs.applicability.outputs.relevant == 'true'
         run: python -m pip install pytest pyyaml
 
       - name: Run the bootstrap contract tests
+        if: needs.applicability.outputs.relevant == 'true'
         run: python -m pytest test/test_install_bootstrap.py -q
 
       - name: Lint the shell entry points
+        if: needs.applicability.outputs.relevant == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
           shellcheck --severity=warning install/*.sh
 
-  # The real thing: create the environment from a clean runner, twice.
+  # The real thing: install and uninstall on a clean runner, twice round.
+  # These are not required checks, so on an unrelated change they are simply
+  # skipped rather than reported.
   bootstrap:
     name: ${{ matrix.label }}
+    needs: applicability
+    if: needs.applicability.outputs.relevant == 'true'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -62,15 +125,18 @@ jobs:
         include:
           - os: ubuntu-latest
             label: Linux
-            script: bash install/linux.sh
+            install: bash install/linux.sh
+            uninstall: bash install/uninstall.sh --yes
             shell: bash -el {0}
           - os: macos-latest
             label: macOS
-            script: bash install/macos.sh
+            install: bash install/macos.sh
+            uninstall: bash install/uninstall.sh --yes
             shell: bash -el {0}
           - os: windows-latest
             label: Windows (native)
-            script: powershell -ExecutionPolicy Bypass -File install\windows_native.ps1
+            install: powershell -ExecutionPolicy Bypass -File install\windows_native.ps1
+            uninstall: powershell -ExecutionPolicy Bypass -File install\uninstall_windows_native.ps1 -Yes
             shell: pwsh
     steps:
       - uses: actions/checkout@v4
@@ -82,28 +148,55 @@ jobs:
           auto-activate-base: true
           activate-environment: ""
 
-      # The bootstrap must be safe to repeat: the first run creates the
-      # environment, the second must update it in place without duplicating the
-      # Jupyter kernel or recreating a working environment.
-      - name: Bootstrap (first run)
-        run: ${{ matrix.script }}
-
-      - name: Bootstrap (second run, idempotency)
-        run: ${{ matrix.script }}
+      # Two runs of the bootstrap is not an idempotency test: the second one
+      # takes the `conda env update` branch, because the environment it would
+      # otherwise create already exists. Only a removal in between puts the
+      # machine back where the first run found it, so the second install
+      # exercises the same create-from-nothing path a student hits.
+      - name: Install (first run)
+        run: ${{ matrix.install }}
 
       # Offline only. CI never has HSDS credentials and must never need them.
-      - name: Environment check (offline)
+      - name: Environment check after the first install
         run: conda run -n vaft python install/check_vaft_environment.py
 
-      # Jupyter keys kernelspecs by name and the bootstrap always registers with
-      # a fixed `--name vaft`, so two runs cannot leave two kernels behind. What
-      # is worth asserting after the second run is that the kernel is still there.
-      - name: The Python (vaft) kernel survives a repeated bootstrap
+      - name: The Python (vaft) kernel is registered
         run: conda run -n vaft python -c "import json, subprocess, sys; payload = subprocess.run([sys.executable, '-m', 'jupyter', 'kernelspec', 'list', '--json'], capture_output=True, text=True, check=True).stdout; specs = json.loads(payload)['kernelspecs']; print(sorted(specs)); sys.exit(0 if specs.get('vaft', {}).get('spec', {}).get('display_name') == 'Python (vaft)' else 1)"
 
-      # The bootstrap must never dirty the student's checkout.
+      - name: Uninstall (first run)
+        run: ${{ matrix.uninstall }}
+
+      # Runs on the ambient interpreter on purpose: the `vaft` environment is
+      # supposed to be gone, so `conda run -n vaft` could not report on it.
+      - name: Nothing survives the first uninstall
+        run: python .github/scripts/assert_uninstalled.py
+
+      - name: Install (second run, from a clean machine again)
+        run: ${{ matrix.install }}
+
+      - name: Environment check after the second install
+        run: conda run -n vaft python install/check_vaft_environment.py
+
+      - name: The Python (vaft) kernel is registered again
+        run: conda run -n vaft python -c "import json, subprocess, sys; payload = subprocess.run([sys.executable, '-m', 'jupyter', 'kernelspec', 'list', '--json'], capture_output=True, text=True, check=True).stdout; specs = json.loads(payload)['kernelspecs']; print(sorted(specs)); sys.exit(0 if specs.get('vaft', {}).get('spec', {}).get('display_name') == 'Python (vaft)' else 1)"
+
+      - name: Uninstall (second run)
+        run: ${{ matrix.uninstall }}
+
+      - name: Nothing survives the second uninstall
+        run: python .github/scripts/assert_uninstalled.py
+
+      # A second uninstall on an already-clean machine must be a no-op, not an
+      # error: students rerun scripts.
+      - name: A third uninstall changes nothing
+        run: ${{ matrix.uninstall }}
+
+      - name: Still nothing to remove
+        run: python .github/scripts/assert_uninstalled.py
+
+      # Neither direction may ever dirty the student's checkout.
       - name: The checkout is left clean
         run: git diff --exit-code
 
-      - name: No stray files were created in the checkout
-        run: conda run -n vaft python -c "import subprocess, sys; dirty = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=all'], capture_output=True, text=True, check=True).stdout; print(dirty or '(clean)'); sys.exit(1 if dirty.strip() else 0)"
+      - name: No stray files were left in the checkout
+        run: python -c "import subprocess, sys; dirty = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=all'], capture_output=True, text=True, check=True).stdout; print(dirty or '(clean)'); sys.exit(1 if dirty.strip() else 0)"

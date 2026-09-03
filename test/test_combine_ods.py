@@ -1,4 +1,3 @@
-import time
 import warnings
 
 import numpy as np
@@ -90,39 +89,6 @@ def test_combine_ods_prunes_every_invalid_leaf_in_one_merge_attempt():
         call_counts[n_invalid] = spy.call_count
 
     assert call_counts[1] == call_counts[16]
-
-
-def _eddy_like_ods(n_loops, n_bad):
-    """A synthetic stand-in for the contaminated eddy artifact from #82:
-    many valid pf_passive loops plus several invalid top-level matrices
-    (R_mat/L_mat/M_mat-shaped)."""
-    ods = ODS(consistency_check=False)
-    ods["dataset_description.data_entry.pulse"] = 39915
-    for index in range(n_loops):
-        ods[f"pf_passive.loop.{index}.name"] = f"loop{index}"
-        ods[f"pf_passive.loop.{index}.element.0.geometry.outline.r"] = np.random.rand(4)
-        ods[f"pf_passive.loop.{index}.element.0.geometry.outline.z"] = np.random.rand(4)
-    for index in range(n_bad):
-        ods[f"pf_passive.bad_field_{index}"] = np.random.rand(n_loops, n_loops)
-    return ods
-
-
-def _time_combine(ods):
-    start = time.time()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        combine_ods([ods])
-    return time.time() - start
-
-
-def test_combine_ods_stays_within_a_ci_safe_time_budget_for_a_large_contaminated_input():
-    # A benchmark-style regression with an explicit wall-clock target for a
-    # payload sized like the #82 report (roughly 950 pf_passive loops plus
-    # several invalid top-level matrices), with generous headroom for a slow
-    # CI runner.
-    elapsed = _time_combine(_eddy_like_ods(n_loops=950, n_bad=40))
-
-    assert elapsed < 10.0, f"combine_ods took {elapsed:.2f}s, expected under 10s"
 
 
 def test_combine_ods_keeps_array_indexed_valid_leaves():

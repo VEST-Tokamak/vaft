@@ -95,6 +95,8 @@ def vfit_tf_dynamic(
     btor = bt_r / reference_radius
 
     set_path(ods, "tf.b_field_tor_vacuum_r.time", target_time)
+    # anti-alias: vfit_tf_current low-passes the TF waveform with a firwin
+    # filter on the source grid before either projection below.
     set_path(ods, "tf.b_field_tor_vacuum_r.data", np.interp(target_time, source_time, btor) * reference_radius)
     set_path(ods, "tf.coil.0.current.time", target_time)
     set_path(ods, "tf.coil.0.current.data", np.interp(target_time, source_time, tf_current))

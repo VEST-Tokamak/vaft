@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from vaft.database import raw as raw_db
+from vaft.process.signal_processing import resample_to_time
 
 from .utils import set_path
 
@@ -101,7 +102,12 @@ def vfit_filterscope(
 
         if source_time[-1] < 0.1:
             source_time = source_time + shift
-        set_path(ods, intensity_key, -np.interp(time, source_time, source_data))
+        # The versatile filterscope (channel 2) is on the fast DAQ at 250 kHz
+        # while every policy grid is 25 kHz, so this is a 10x decimation and a
+        # bare np.interp would fold the filterscope's broadband noise into the
+        # stored band.  resample_to_time low-passes first where the rate really
+        # drops and is bit-for-bit np.interp for the slow-DAQ channels.
+        set_path(ods, intensity_key, -resample_to_time(source_time, source_data, time))
 
     set_path(ods, "spectrometer_uv.time", time)
 

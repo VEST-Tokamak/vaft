@@ -18,6 +18,7 @@ from .geometry import draw_geometry_layer
 
 __all__ = [
     "camera_visible_animation_frames",
+    "camera_visible_image",
     "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line",
     "camera_visible_image_frame",
@@ -70,7 +71,7 @@ def render_image_2d(
         axes.set_aspect("auto")
     if labelled:
         axes.legend(loc="best", fontsize="small")
-    return finalize(figure, axes, show=show)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
 def render_image_sequence(
@@ -157,6 +158,26 @@ def _image_renderer(*, domain: str, subject: str, quantity: str, description: st
         model=Image2D, description=description, ids=ids,
         required_paths=required_paths, optional_paths=optional_paths,
     )
+
+
+@_image_renderer(
+    domain="camera_visible", quantity="",
+    subject="camera_visible",
+    description=(
+        "One camera frame with optional overlays -- wall, equilibrium, field "
+        "line -- through one projection (issue #261)."
+    ),
+    ids=("camera_visible",),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+    ),
+)
+def camera_visible_image(
+    model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Camera frame with optional overlays; the ``_frame``/``_efit_overlay``/``_field_line`` renderers are its presets."""
+    return render_image_2d(model, ax=ax, show=show, **style)
 
 
 @_image_renderer(

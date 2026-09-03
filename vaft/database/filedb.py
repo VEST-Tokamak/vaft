@@ -67,6 +67,16 @@ class ArtifactClass(str, Enum):
     METADATA = "metadata"
 
 
+#: Extension every finalized OMAS stage product carries. One constant so a
+#: future move to compressed products is a single edit rather than a search.
+OMAS_PRODUCT_SUFFIX = ".json"
+
+#: Stage manifest: what ran, which components succeeded, why any were skipped.
+OMAS_MANIFEST_NAME = "manifest.json"
+
+#: Remote-replication record, kept apart from the manifest on purpose.
+OMAS_REPLICATION_NAME = "replication.json"
+
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _LEGACY_MODE_COMPONENT = re.compile(r"^n{1,2}=[1-9]\d*$")
 _ENV_REFERENCE = re.compile(
@@ -363,6 +373,54 @@ class FileDB:
         artifact: str | ArtifactClass | None = None,
     ) -> Path:
         return self.resolve("gpec", code=code, shot=shot, mode=mode, artifact=artifact)
+
+    def omas_product(
+        self,
+        stage: str | OMASStage,
+        *,
+        shot: int | str | None = None,
+        machine_version: str | None = None,
+    ) -> Path:
+        """Return the finalized ODS file one OMAS stage writes.
+
+        The stage name is the file name, so a caller never has to know whether
+        this stage spells its product ``efit.json`` or ``{shot}_efit.json.gz``.
+        """
+        name = _enum_value(stage, OMASStage, "OMAS subdomain")
+        directory = self.omas(
+            stage, shot=shot, machine_version=machine_version, artifact="output"
+        )
+        return directory / f"{name}{OMAS_PRODUCT_SUFFIX}"
+
+    def omas_manifest(
+        self,
+        stage: str | OMASStage,
+        *,
+        shot: int | str | None = None,
+        machine_version: str | None = None,
+    ) -> Path:
+        """Return the stage manifest recording how the product was produced."""
+        directory = self.omas(
+            stage, shot=shot, machine_version=machine_version, artifact="metadata"
+        )
+        return directory / OMAS_MANIFEST_NAME
+
+    def omas_replication_record(
+        self,
+        stage: str | OMASStage,
+        *,
+        shot: int | str | None = None,
+        machine_version: str | None = None,
+    ) -> Path:
+        """Return the record of whether this product reached a remote backend.
+
+        Kept beside the manifest and deliberately separate from it: a finalized
+        local product says nothing about whether it was replicated anywhere.
+        """
+        directory = self.omas(
+            stage, shot=shot, machine_version=machine_version, artifact="metadata"
+        )
+        return directory / OMAS_REPLICATION_NAME
 
     def pipeline(
         self, product: str, *, artifact: str | ArtifactClass | None = None

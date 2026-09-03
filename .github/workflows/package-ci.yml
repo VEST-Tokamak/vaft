@@ -6,30 +6,18 @@ on:
     branches: [develop, main]
   workflow_dispatch:
 
+# A second push to a PR should supersede the first run rather than race it:
+# this workflow bills ~25 minutes, and every other workflow here already does
+# this. Pushes to develop/main still run to completion, so the history of what
+# passed on an integration branch stays intact.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
-  equilibrium:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install VAFT and notebook test dependencies
-        run: python -m pip install -e ".[dev]"
-
-      - name: Test parametric equilibrium APIs and offline notebooks
-        env:
-          MPLBACKEND: Agg
-          NO_PROXY: "*"
-        run: |
-          python -m pytest -q test/test_parametric_equilibrium.py
-          python -m pytest -q test/test_notebook_reliability.py -k "parametric_equilibrium_notebooks or all_notebooks"
-
   package:
     runs-on: ubuntu-latest
     steps:
@@ -69,7 +57,17 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Run test suite
-        run: python -m pytest -q
+        # --dist loadfile keeps a file's tests on one worker. Several modules
+        # warm an expensive module-level cache in their first test; splitting
+        # them across workers would make each worker pay that cost again.
+        run: python -m pytest -q -n auto --dist loadfile -m "not perf"
+
+      - name: Run performance budgets
+        # `perf` tests assert wall-clock ratios, which are only meaningful on an
+        # uncontended machine: with four xdist workers on a four-core runner,
+        # test_substantially_faster_than_legacy measured 4.59x against its 5x
+        # budget and failed. Five tests, ~6 s serially -- cheap to keep honest.
+        run: python -m pytest -q -m perf
 
   tutorial:
     runs-on: ubuntu-latest
@@ -85,7 +83,9 @@ jobs:
 
       - name: Install tutorial validation and TeX dependencies
         run: |
-          python -m pip install nbformat
+          # nbformat validates the notebooks; PyYAML parses the Quarto deck's
+          # front matter in test/verify_tutorial.py.
+          python -m pip install nbformat pyyaml
           sudo apt-get update
           sudo apt-get install -y latexmk texlive-latex-recommended texlive-pictures
 
@@ -117,3 +117,35 @@ jobs:
           python test/verify_tutorial_freshness.py compare \
             --committed "${RUNNER_TEMP}/committed-decks" \
             --rebuilt tutorial
+
+      # --- Quarto presentation pilot (issue #322) --------------------------
+      # Session 01's slides are a .qmd rendered to both backends. Nothing is
+      # committed, so CI is what proves the source still builds, and the
+      # artifacts are how a reviewer compares the two forms side by side.
+      # Pinned: under the end-state rule this job is the only producer of the
+      # decks, so an upstream Quarto release must not be able to break the build
+      # with no local signal.
+      - name: Install Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.9.36"
+
+      # librsvg2-bin supplies rsvg-convert. LaTeX cannot embed an SVG directly,
+      # so Quarto shells out to convert figures for the Beamer output; without
+      # it the render dies on the first SVG. It is present on most developer
+      # machines by accident, which is exactly why CI has to install it.
+      - name: Install the TeX packages and SVG converter Quarto's Beamer output needs
+        run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended librsvg2-bin
+
+      - name: Render the presentation pilot to both backends
+        run: make -C tutorial presentations
+
+      - name: Upload the rendered decks for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: presentation-pilot
+          if-no-files-found: error
+          path: |
+            tutorial/presentations/*.html
+            tutorial/presentations/*.pdf
+            tutorial/presentations/*_files/

@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 10469341
-    sha256: fea89357f30743d0eeceb794f443b3495c1a39e7fcf0aea67b5bdc588617eda0
+    size: 10484739
+    sha256: 236bc1d7ed167690b4eefe7bd291872bc07e9e0aaa87cdc28141f83b8fdc25d2
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,8 +58,8 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11899554
-    sha256: 8847ed91234512780dcd4b0547b8a1a0356426b1d1259a3c0285ddba84ea9dd0
+    size: 11922516
+    sha256: e166c909ebf4e197c007b1e0749118e5d456a4e9b2d7806d15a720eee120c2b6
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -67,7 +67,7 @@ generation:
   canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
   canonical_policy: repository-only
   equilibrium_time_slices: 0
-  materialized_leaves: 19428
+  materialized_leaves: 19576
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -100,6 +100,23 @@ generation:
   - equilibrium.time
   - equilibrium.vacuum_toroidal_field.*
   - equilibrium.time_slice.*
+  signal_quality:
+    projected: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/189
+    configuration:
+      baseline_fraction: 0.2
+      min_constant_run: 16
+      significance_floor: 0.01
+      spike_sigma: 8.0
+      max_spike_samples: 3
+      offset_jump_sigma: 10.0
+      coherence_window: 0.0005
+      coherent_jump_fraction: 0.3
+      max_plausible_amplitude:
+        b_field_pol_probe: 1.0
+      population_peak_factor: 4.0
+    condemned:
+    - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
 semantic_comparison:
   paths:
   - wall.*

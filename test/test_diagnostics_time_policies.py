@@ -41,6 +41,7 @@ from vaft.omas.vest_upstream import (
 
 SHOT = 43017
 SLOW_DT = 4e-5
+FULL_RECORD_SAMPLES = 25_000
 
 
 def test_configured_policy_splits_analysis_from_full_discharge():
@@ -118,6 +119,30 @@ def _static_ods(tmp_path):
     return path
 
 
+@pytest.fixture(scope="module")
+def full_record_diagnostics(tmp_path_factory):
+    """One 25 000-sample build, shared by the tests that assert on it.
+
+    Two tests below need exactly this product and differ only in what they
+    inspect -- one reads `ods`, the other reads `manifest`. Two builds cost
+    127 s where one costs 76 s, so sharing takes ~50 s off the suite.
+
+    Module-scoped, and therefore handed out without copying: consumers must
+    treat both values as read-only. That holds today -- one consumer passes
+    `ods` to `write_stage_product`, which serializes it and shallow-copies the
+    manifest before adding its own key, mutating neither. A consumer that does
+    mutate would leak into whichever test runs next, so give it its own build
+    rather than adding to this fixture.
+    """
+    tmp_path = tmp_path_factory.mktemp("full-record")
+    raw = tmp_path / "raw.json.gz"
+    # A full slow-DAQ record: 25 000 samples at 4e-5 s, spanning 0-1 s.
+    _write_raw_dump(raw, FULL_RECORD_SAMPLES)
+    return build_diagnostics_ods(
+        shot=SHOT, raw_source=raw, static_ods=_static_ods(tmp_path)
+    )
+
+
 def _magnetics_field_codes() -> list[int]:
     codes = {
         int(entry["field_code"])
@@ -149,16 +174,12 @@ def _write_raw_dump(path, samples, *, include_magnetics=True):
         json.dump({"shot": SHOT, "fields": fields}, handle)
 
 
-def test_full_and_short_windows_coexist_in_one_diagnostics_ods(tmp_path):
+def test_full_and_short_windows_coexist_in_one_diagnostics_ods(
+    full_record_diagnostics, tmp_path
+):
     """The acceptance criterion: no truncation, no unintended resampling."""
-    raw = tmp_path / "raw.json.gz"
-    # A full slow-DAQ record: 25 000 samples at 4e-5 s, spanning 0-1 s.
-    samples = 25_000
-    _write_raw_dump(raw, samples)
-
-    ods, manifest = build_diagnostics_ods(
-        shot=SHOT, raw_source=raw, static_ods=_static_ods(tmp_path)
-    )
+    samples = FULL_RECORD_SAMPLES
+    ods, manifest = full_record_diagnostics
 
     tf_time = np.asarray(ods["tf.time"], dtype=float)
     pressure_time = np.asarray(
@@ -326,14 +347,9 @@ def test_a_default_naming_an_unconfigured_window_is_rejected():
             )
 
 
-def test_every_mapped_component_reports_its_coverage(tmp_path):
+def test_every_mapped_component_reports_its_coverage(full_record_diagnostics):
     """Review finding: langmuir_probes was mapped but left out of the record."""
-    raw = tmp_path / "raw.json.gz"
-    _write_raw_dump(raw, 25_000)
-
-    _, manifest = build_diagnostics_ods(
-        shot=SHOT, raw_source=raw, static_ods=_static_ods(tmp_path)
-    )
+    _, manifest = full_record_diagnostics
 
     mapped = {
         name

@@ -1,0 +1,3363 @@
+{
+  "count": 336,
+  "description": "Every name reachable as vaft.process.<name> before issue #249 made the namespace lazy, captured by importing the eager package on develop and reading its __dict__.\n'defined_by' names the process submodules whose own source binds the name; 'owned' is true when at least one does. A name with owned=false reached this namespace by accident: six submodules (profile, equilibrium, electromagnetics, numerical, magnetics, statistical_analysis) declare no __all__, so their star-import surface is everything they import, and vaft/process/profile.py does 'from omas import *'.\ntest/test_process_lazy_namespace.py reads this file: every name here must either still resolve on vaft.process or appear in its REMOVED map naming the module that really provides it.",
+  "leaked_count": 164,
+  "names": {
+    "Any": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics",
+        "equilibrium"
+      ],
+      "kind": "_AnyMeta",
+      "origin": "typing",
+      "owned": false
+    },
+    "Callable": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "_CallableType",
+      "origin": "typing",
+      "owned": false
+    },
+    "CameraProjection": {
+      "defined_by": [
+        "camera_geometry"
+      ],
+      "exported_by": [
+        "camera_geometry"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.camera_geometry",
+      "owned": true
+    },
+    "CodeParameters": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "type",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "DEFAULT_IMPURITY_FRACTIONS": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "dict",
+      "origin": null,
+      "owned": true
+    },
+    "DEFAULT_LINE_RADIATION_SPECIES": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "tuple",
+      "origin": null,
+      "owned": true
+    },
+    "DEFAULT_VEST_MAGNETICS_PROCESSING": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "VestMagneticsProcessingConfig",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "Dict": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics",
+        "statistical_analysis"
+      ],
+      "kind": "_SpecialGenericAlias",
+      "origin": "typing",
+      "owned": false
+    },
+    "FLUX_SURFACE_QUANTITIES": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "tuple",
+      "origin": null,
+      "owned": true
+    },
+    "FluctuationSpectrogram": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "FluctuationSpectrum": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "IMPA_CHANNEL_COUNT": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "int",
+      "origin": null,
+      "owned": true
+    },
+    "ImpaCouplingFit": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "ImpaCrosstalkFit": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "ImpaGeometryFit": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "ImpaProcessingConfig": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "ImpaQuality": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "ImpaResult": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "IntSlider": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "MetaHasTraits",
+      "origin": "ipywidgets.widgets.widget_int",
+      "owned": false
+    },
+    "List": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics",
+        "statistical_analysis"
+      ],
+      "kind": "_SpecialGenericAlias",
+      "origin": "typing",
+      "owned": false
+    },
+    "MIN_FLUX_SURFACE_POINTS": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "int",
+      "origin": null,
+      "owned": true
+    },
+    "MU0": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "float",
+      "origin": null,
+      "owned": false
+    },
+    "MirnovSpectrogramResult": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "NE_DYNAMIC_RANGE_MAX": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "float",
+      "origin": null,
+      "owned": true
+    },
+    "NUMBA_AVAILABLE": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "bool",
+      "origin": null,
+      "owned": false
+    },
+    "ODC": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "ABCMeta",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "ODS": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "ABCMeta",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "ODX": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "ABCMeta",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "OmasDynamicException": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "type",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "Optional": {
+      "defined_by": [],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "_SpecialForm",
+      "origin": "typing",
+      "owned": false
+    },
+    "PHYSICAL_PSIN_MAX": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "float",
+      "origin": null,
+      "owned": true
+    },
+    "RectBivariateSpline": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "type",
+      "origin": "scipy.interpolate._fitpack2",
+      "owned": false
+    },
+    "RegressionResults": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "RegularGridInterpolator": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "type",
+      "origin": "scipy.interpolate._rgi",
+      "owned": false
+    },
+    "SXRBandResult": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "SXRTemperatureResult": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "Sequence": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "_SpecialGenericAlias",
+      "origin": "typing",
+      "owned": false
+    },
+    "SignalRepairError": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "SpectralBreak": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "SpectralFit": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "TE_POSITIVE_PSIN_MAX": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "float",
+      "origin": null,
+      "owned": true
+    },
+    "TI_TE_RATIO_VEST": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "float",
+      "origin": null,
+      "owned": true
+    },
+    "TI_TE_RATIO_VEST_SIGMA": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "float",
+      "origin": null,
+      "owned": true
+    },
+    "TfCalibrationWindow": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "TfWindowCriteria": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "ToroidalModeCandidate": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "ToroidalModeResult": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "ToroidalPhaseFitResult": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "ToroidalPhaseModeFit": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "Tuple": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics",
+        "statistical_analysis"
+      ],
+      "kind": "_TupleType",
+      "origin": "typing",
+      "owned": false
+    },
+    "Union": {
+      "defined_by": [],
+      "exported_by": [
+        "numerical",
+        "statistical_analysis"
+      ],
+      "kind": "_SpecialForm",
+      "origin": "typing",
+      "owned": false
+    },
+    "UnsupportedMagneticsDaqModeError": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "VEST_CoilCurrentNoiseReduction": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "VestEquilibriumMagneticsResult": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "VestMagneticsProcessingConfig": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "type",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "analyze_fluctuation_spectrum": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "analyze_significance": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "as_equilibrium": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "atomic": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.atomic",
+      "owned": false
+    },
+    "b_field_pol_probe_field": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "browse_imas": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_imas",
+      "owned": false
+    },
+    "butterworth_bandpass": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "butterworth_lowpass": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "calc_grid": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "calculate_average_boundary_poloidal_field": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "calculate_diamagnetism": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "calculate_distance": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.green",
+      "owned": false
+    },
+    "calculate_reconstructed_diamagnetic_flux": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "calibrate_current": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "calibrate_voltage": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "camera_geometry": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.camera_geometry",
+      "owned": false
+    },
+    "check_equilibrium_requirements": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "cocos_transform": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "codeparams_xml_load": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "codeparams_xml_save": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "coherence": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "scipy.signal._spectral_py",
+      "owned": false
+    },
+    "compute_band_power": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "compute_br_bz_phi": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "compute_impedance_matrices": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "compute_line_radiation_power_series": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.atomic",
+      "owned": true
+    },
+    "compute_metrics": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "compute_mutual_passive_active": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "compute_point_response_matrices": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "compute_psd": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "compute_response_matrix": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "compute_response_vector": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "compute_spectrogram": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "compute_time_match_atol": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.atomic",
+      "owned": true
+    },
+    "compute_vacuum_fields_1d": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "computed_diamagnetism_from_phi": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "confinement_time_histogram": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "contour_shape_parameters": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "convert_cocos": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "core_profiles": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "core_profiles_from_eq": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "core_profiles_from_eq_ratio": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "csd": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "scipy.signal._spectral_py",
+      "owned": false
+    },
+    "cumtrapz_compat": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.compat",
+      "owned": false
+    },
+    "dataclass": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "dataclasses",
+      "owned": false
+    },
+    "define_baseline": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "magnetics",
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "define_cocos": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "del_omas_s3": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_s3",
+      "owned": false
+    },
+    "derive_boundary_representation": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "derive_global_descriptors": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "derive_radial_coordinates": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "detect_active_window": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "detect_clipped_samples": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "detrend_moving_average": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "different_ods": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_utils",
+      "owned": false
+    },
+    "efit_virial_volume_integrals": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "electromagnetics": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.electromagnetics",
+      "owned": false
+    },
+    "electron_density": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "equilibrium": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.equilibrium",
+      "owned": false
+    },
+    "equilibrium_mapping_charge_exchange": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "equilibrium_mapping_thomson_scattering": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "evaluate_miller": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "evaluate_solovev": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "exp_baseline": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "export_electron_profile_txt": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "extract_flux_surface_contours": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "filter_dataframe": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "find_peaks": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "scipy.signal._peak_finding",
+      "owned": false
+    },
+    "find_spectral_break": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "find_tf_calibration_window": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "find_time_match_index": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.atomic",
+      "owned": true
+    },
+    "fit_impa_crosstalk": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "fit_impa_geometry": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "fit_impa_tf_coupling": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "fit_miller_sequence": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "fit_miller_surface": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "fit_power_law_spectrum": {
+      "defined_by": [
+        "fluctuation"
+      ],
+      "exported_by": [
+        "fluctuation"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.fluctuation",
+      "owned": true
+    },
+    "fit_profile": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.utils",
+      "owned": false
+    },
+    "fit_ti_te_ratio": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "fluctuation": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.fluctuation",
+      "owned": false
+    },
+    "flux_loop_flux": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "flux_surface_quantities": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "fractional_cell_weights_from_boundary": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "generate_core_profiles_history_dataframe": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "get_actor_io_ids": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_utils",
+      "owned": false
+    },
+    "get_correlation_matrix": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "get_individual_correlations": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "get_plot_scale_and_unit": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "get_residuals": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "grade_impa_quality": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "green_br_bz": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.green",
+      "owned": false
+    },
+    "green_br_bz_exact": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.green",
+      "owned": false
+    },
+    "green_psi_exact": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.green",
+      "owned": false
+    },
+    "green_r": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.green",
+      "owned": false
+    },
+    "hilbert_instantaneous_phase": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "identify_cocos": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "imas_versions": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "IMAS_versions",
+      "origin": "omas.omas_setup",
+      "owned": false
+    },
+    "impa": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.impa",
+      "owned": false
+    },
+    "impa_calibrate_signals": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "impa_lowpass": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "integrate_emissivity_profile": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.atomic",
+      "owned": true
+    },
+    "interact": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "_InteractFactory",
+      "origin": "ipywidgets.widgets.interaction",
+      "owned": false
+    },
+    "interp1d": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "type",
+      "origin": "scipy.interpolate._interpolate",
+      "owned": false
+    },
+    "is_signal_active": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "langmuir": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.langmuir",
+      "owned": false
+    },
+    "latest_imas_version": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "str",
+      "origin": null,
+      "owned": false
+    },
+    "latexit": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "PhysicsSymbols",
+      "origin": "omas.omas_symbols",
+      "owned": false
+    },
+    "legacy_impa_compensation": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "legacy_impa_position": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "line_average_density": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "linear_baseline": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "list_omas_s3": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_s3",
+      "owned": false
+    },
+    "load_data_from_excel": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "load_omas_ascii": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ascii",
+      "owned": false
+    },
+    "load_omas_ds": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "load_omas_dx": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "load_omas_h5": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_h5",
+      "owned": false
+    },
+    "load_omas_hdc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_hdc",
+      "owned": false
+    },
+    "load_omas_imas": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_imas",
+      "owned": false
+    },
+    "load_omas_iter_scenario": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_imas",
+      "owned": false
+    },
+    "load_omas_json": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_json",
+      "owned": false
+    },
+    "load_omas_machine": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_machine",
+      "owned": false
+    },
+    "load_omas_mongo": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_mongo",
+      "owned": false
+    },
+    "load_omas_nc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_nc",
+      "owned": false
+    },
+    "load_omas_pkl": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "load_omas_s3": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_s3",
+      "owned": false
+    },
+    "load_te_ratio_calibration": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "loadmat": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "scipy.io.matlab._mio",
+      "owned": false
+    },
+    "log_transform": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "logger": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "Logger",
+      "origin": "logging",
+      "owned": true
+    },
+    "logging": {
+      "defined_by": [],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "module",
+      "origin": "logging",
+      "owned": false
+    },
+    "machine_expression_types": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "list",
+      "origin": null,
+      "owned": false
+    },
+    "machine_mapping_function": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.utilities.machine_mapping_decorator",
+      "owned": false
+    },
+    "machine_mappings": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_machine",
+      "owned": false
+    },
+    "machines": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_machine",
+      "owned": false
+    },
+    "magnetics": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.magnetics",
+      "owned": false
+    },
+    "make_equilibrium_field_interpolator": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "math": {
+      "defined_by": [],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "module",
+      "origin": "math",
+      "owned": false
+    },
+    "mdstree": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "type",
+      "origin": "omas.utilities.omas_mds",
+      "owned": false
+    },
+    "mdsvalue": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "type",
+      "origin": "omas.utilities.omas_mds",
+      "owned": false
+    },
+    "median_filter_signal": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "mirnov_preprocess_signal": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "mirnov_spectrogram": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "ndarray": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "type",
+      "origin": "numpy",
+      "owned": false
+    },
+    "normalize_atomic_symbol": {
+      "defined_by": [
+        "atomic"
+      ],
+      "exported_by": [
+        "atomic"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.atomic",
+      "owned": true
+    },
+    "np": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics",
+        "equilibrium",
+        "magnetics",
+        "numerical",
+        "profile",
+        "statistical_analysis"
+      ],
+      "kind": "module",
+      "origin": "numpy",
+      "owned": false
+    },
+    "numba": {
+      "defined_by": [],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "module",
+      "origin": "numba",
+      "owned": false
+    },
+    "numerical": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.numerical",
+      "owned": false
+    },
+    "ods_2_odx": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "ods_sample": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_sample",
+      "owned": false
+    },
+    "odx_2_ods": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "omas_ascii": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_ascii",
+      "owned": false
+    },
+    "omas_core": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "omas_cython": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_cython",
+      "owned": false
+    },
+    "omas_dir": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "str",
+      "origin": null,
+      "owned": false
+    },
+    "omas_ds": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "omas_environment": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "omas_h5": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_h5",
+      "owned": false
+    },
+    "omas_hdc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_hdc",
+      "owned": false
+    },
+    "omas_imas": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_imas",
+      "owned": false
+    },
+    "omas_info": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_utils",
+      "owned": false
+    },
+    "omas_info_node": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_utils",
+      "owned": false
+    },
+    "omas_json": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_json",
+      "owned": false
+    },
+    "omas_machine": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_machine",
+      "owned": false
+    },
+    "omas_mongo": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_mongo",
+      "owned": false
+    },
+    "omas_nc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_nc",
+      "owned": false
+    },
+    "omas_physics": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "omas_plot": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_plot",
+      "owned": false
+    },
+    "omas_rcparams": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "OMAS_rc_params",
+      "origin": "omas.omas_setup",
+      "owned": false
+    },
+    "omas_s3": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_s3",
+      "owned": false
+    },
+    "omas_sample": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_sample",
+      "owned": false
+    },
+    "omas_setup": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_setup",
+      "owned": false
+    },
+    "omas_structure": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_structure",
+      "owned": false
+    },
+    "omas_symbols": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_symbols",
+      "owned": false
+    },
+    "omas_testdir": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_setup",
+      "owned": false
+    },
+    "omas_uda": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_uda",
+      "owned": false
+    },
+    "omas_utils": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.omas_utils",
+      "owned": false
+    },
+    "os": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "os",
+      "owned": false
+    },
+    "pd": {
+      "defined_by": [],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "module",
+      "origin": "pandas",
+      "owned": false
+    },
+    "pearsonr": {
+      "defined_by": [],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "scipy.stats._stats_py",
+      "owned": false
+    },
+    "perform_ols_regression": {
+      "defined_by": [
+        "statistical_analysis"
+      ],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": true
+    },
+    "poloidal_field_at_boundary": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "prepare_boundary_for_shafranov": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "probe_endpoints": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "probe_surface_area": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "process_impa": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "process_signal": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "process_triple_probe": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "profile": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.profile",
+      "owned": false
+    },
+    "profile_fitting_charge_exchange": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "profile_fitting_thomson_scattering": {
+      "defined_by": [
+        "profile"
+      ],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.profile",
+      "owned": true
+    },
+    "project_points": {
+      "defined_by": [
+        "camera_geometry"
+      ],
+      "exported_by": [
+        "camera_geometry"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.camera_geometry",
+      "owned": true
+    },
+    "psi_to_RZ": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "psi_to_radial": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "psi_to_rho": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "psi_to_rz": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "quadratic_baseline": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "r_at_z_extremum": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "radial_to_psi": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "rank_toroidal_mode_numbers": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "raw_db": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "module",
+      "origin": "vaft.database.raw",
+      "owned": false
+    },
+    "rcparams_environment": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_setup",
+      "owned": false
+    },
+    "remove_bz_crosstalk": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "remove_offset": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "remove_tf_pickup": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "repair_clipped_interval": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "rho_to_psi": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "rms": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.formula.statistics",
+      "owned": false
+    },
+    "rogowski_coil_ip": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "save_omas_ascii": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ascii",
+      "owned": false
+    },
+    "save_omas_ds": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "save_omas_dx": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "save_omas_h5": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_h5",
+      "owned": false
+    },
+    "save_omas_hdc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_hdc",
+      "owned": false
+    },
+    "save_omas_imas": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "save_omas_json": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_json",
+      "owned": false
+    },
+    "save_omas_mongo": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_mongo",
+      "owned": false
+    },
+    "save_omas_nc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_nc",
+      "owned": false
+    },
+    "save_omas_pkl": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "save_omas_s3": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_s3",
+      "owned": false
+    },
+    "savgol_filter": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "scipy.signal._savitzky_golay",
+      "owned": false
+    },
+    "search_in_array_structure": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "search_ion": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "shafranov_integrals": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "signal": {
+      "defined_by": [],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "module",
+      "origin": "scipy.signal",
+      "owned": false
+    },
+    "signal_on_offset": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "signal_onoffset": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "signal_processing": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.signal_processing",
+      "owned": false
+    },
+    "sm": {
+      "defined_by": [],
+      "exported_by": [
+        "statistical_analysis"
+      ],
+      "kind": "module",
+      "origin": "statsmodels.api",
+      "owned": false
+    },
+    "smooth": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "soft_x_rays": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": false
+    },
+    "solovev_to_equilibrium": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "solve_eddy_currents": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    },
+    "solve_electron_temperature": {
+      "defined_by": [
+        "langmuir"
+      ],
+      "exported_by": [
+        "langmuir"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.langmuir",
+      "owned": true
+    },
+    "solve_solovev_constraints": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "statistical_analysis": {
+      "defined_by": [],
+      "exported_by": [],
+      "kind": "module",
+      "origin": "vaft.process.statistical_analysis",
+      "owned": false
+    },
+    "subtract_baseline": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "magnetics",
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "sweep_toroidal": {
+      "defined_by": [
+        "camera_geometry"
+      ],
+      "exported_by": [
+        "camera_geometry"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.camera_geometry",
+      "owned": true
+    },
+    "sxr_band_signals": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "sxr_baseline_correction": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "sxr_cwt_spectrogram": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "sxr_electron_temperature": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "sxr_subtract_vacuum_reference": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "sxr_te_pairs_from_ods": {
+      "defined_by": [
+        "soft_x_rays"
+      ],
+      "exported_by": [
+        "soft_x_rays"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.soft_x_rays",
+      "owned": true
+    },
+    "test_machine_mapping_functions": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_machine",
+      "owned": false
+    },
+    "through_omas_ascii": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ascii",
+      "owned": false
+    },
+    "through_omas_ds": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "through_omas_dx": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_ds",
+      "owned": false
+    },
+    "through_omas_h5": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_h5",
+      "owned": false
+    },
+    "through_omas_hdc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_hdc",
+      "owned": false
+    },
+    "through_omas_imas": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_imas",
+      "owned": false
+    },
+    "through_omas_json": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_json",
+      "owned": false
+    },
+    "through_omas_mongo": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_mongo",
+      "owned": false
+    },
+    "through_omas_nc": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_nc",
+      "owned": false
+    },
+    "through_omas_pkl": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_core",
+      "owned": false
+    },
+    "through_omas_s3": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_s3",
+      "owned": false
+    },
+    "time_derivative": {
+      "defined_by": [
+        "numerical"
+      ],
+      "exported_by": [
+        "numerical"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.numerical",
+      "owned": true
+    },
+    "toroidal_field": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "toroidal_mode_analysis": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "toroidal_phase_fit_at_time": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "toroidal_ring": {
+      "defined_by": [
+        "camera_geometry"
+      ],
+      "exported_by": [
+        "camera_geometry"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.camera_geometry",
+      "owned": true
+    },
+    "trace_field_line": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "trajectory_world_points": {
+      "defined_by": [
+        "camera_geometry"
+      ],
+      "exported_by": [
+        "camera_geometry"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.camera_geometry",
+      "owned": true
+    },
+    "transform_current": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "function",
+      "origin": "omas.omas_physics",
+      "owned": false
+    },
+    "unumpy": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "uncertainties.unumpy",
+      "owned": false
+    },
+    "utilities": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "omas.utilities",
+      "owned": false
+    },
+    "vaft": {
+      "defined_by": [],
+      "exported_by": [
+        "profile"
+      ],
+      "kind": "module",
+      "origin": "vaft",
+      "owned": false
+    },
+    "validate_equilibrium": {
+      "defined_by": [],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process._equilibrium_parametric",
+      "owned": false
+    },
+    "validate_impa": {
+      "defined_by": [
+        "impa"
+      ],
+      "exported_by": [
+        "impa"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.impa",
+      "owned": true
+    },
+    "vest_b_field_pol_probe_legacy": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_coil_current_noise_reduction": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "vest_equilibrium_magnetics_detailed": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_equilibrium_magnetics_signals": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_flux_loop_flux_from_voltage": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_flux_loop_legacy": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_flux_loop_voltage": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_magnetics_time_window": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vest_md_signals": {
+      "defined_by": [
+        "magnetics"
+      ],
+      "exported_by": [
+        "magnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.magnetics",
+      "owned": true
+    },
+    "vfit_signal_start_end": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "vfit_signal_startend": {
+      "defined_by": [
+        "signal_processing"
+      ],
+      "exported_by": [
+        "signal_processing"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.signal_processing",
+      "owned": true
+    },
+    "volume_average": {
+      "defined_by": [
+        "equilibrium"
+      ],
+      "exported_by": [
+        "equilibrium"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.equilibrium",
+      "owned": true
+    },
+    "wall_propagator": {
+      "defined_by": [
+        "electromagnetics"
+      ],
+      "exported_by": [
+        "electromagnetics"
+      ],
+      "kind": "function",
+      "origin": "vaft.process.electromagnetics",
+      "owned": true
+    }
+  },
+  "owned_count": 172,
+  "schema_version": 1
+}

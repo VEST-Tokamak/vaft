@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="200" viewBox="0 0 880 200"
+     font-family="Helvetica, Arial, sans-serif" role="img"
+     aria-label="The VAFT workflow: load an ODS, inspect IDS roots, look at the geometry, plot diagnostics, inspect the equilibrium.">
+  <title>The VAFT workflow</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#194c7f"/>
+    </marker>
+  </defs>
+
+  <g fill="#ffffff" stroke="#194c7f" stroke-width="2">
+    <rect x="10"  y="60" width="140" height="70" rx="8"/>
+    <rect x="190" y="60" width="140" height="70" rx="8"/>
+    <rect x="370" y="60" width="140" height="70" rx="8"/>
+    <rect x="550" y="60" width="140" height="70" rx="8"/>
+    <rect x="730" y="60" width="140" height="70" rx="8"/>
+  </g>
+
+  <g fill="#1a1a1a" font-size="17" text-anchor="middle">
+    <text x="80"  y="88">load an</text><text x="80"  y="110">ODS</text>
+    <text x="260" y="88">inspect</text><text x="260" y="110">IDS roots</text>
+    <text x="440" y="88">look at the</text><text x="440" y="110">geometry</text>
+    <text x="620" y="88">plot</text><text x="620" y="110">diagnostics</text>
+    <text x="800" y="88">inspect the</text><text x="800" y="110">equilibrium</text>
+  </g>
+
+  <g stroke="#194c7f" stroke-width="2" marker-end="url(#arrow)">
+    <line x1="152" y1="95" x2="186" y2="95"/>
+    <line x1="332" y1="95" x2="366" y2="95"/>
+    <line x1="512" y1="95" x2="546" y2="95"/>
+    <line x1="692" y1="95" x2="726" y2="95"/>
+  </g>
+
+  <text x="440" y="175" font-size="15" fill="#5a5a5a" text-anchor="middle">
+    One ODS, five steps — every VAFT session follows this shape.
+  </text>
+</svg>

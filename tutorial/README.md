@@ -1,9 +1,22 @@
 # VAFT Introductory Tutorial Course
 
-This directory is the technical foundation for the six-session introductory
-VAFT course proposed in [issue #185](https://github.com/VEST-Tokamak/vaft/issues/185).
-It defines the course contract and contains structural notebook and slide
-scaffolds. Detailed teaching material will be completed one session at a time.
+A six-session introductory course that teaches VAFT through the scientific
+lifecycle it exists to support:
+
+```text
+VEST machine and experiment -> validated, analysis-ready data
+  -> visualization and interpretation -> physics analysis and modeling
+  -> reproducible scientific result
+```
+
+The sessions are executable research examples, not an API catalogue. Each one
+answers a question a VEST researcher actually has, and the infrastructure is
+introduced as it becomes needed rather than up front.
+
+This directory holds the course contract, the session notebooks, and their slide
+decks. Detailed teaching material is completed one session at a time; the
+structure was proposed in
+[issue #185](https://github.com/VEST-Tokamak/vaft/issues/185).
 
 ## Audience and prerequisites
 
@@ -115,11 +128,22 @@ is designed for the analysis sessions. Its headings are pinned separately in
 
 - **Two imports only**, `vaft` and `matplotlib.pyplot`, explained in prose
   rather than presented as boilerplate.
-- **One pattern, repeated.** Every plot is
-  `vaft.omas.plot_<something>(ods)` followed by `plt.show()`. No `savefig`, no
-  dynamic `getattr` dispatch, no plot-recipe introspection, and no
-  notebook-local helper functions -- tutorial code demonstrates VAFT rather than
-  reimplementing it.
+- **One pattern, repeated.** Every diagnostic plot is
+  `vaft.omas.plot_<subject>_<view>(ods)` followed by `plt.show()`. No `savefig`,
+  no dynamic `getattr` dispatch, and no notebook-local helper functions --
+  tutorial code demonstrates VAFT rather than reimplementing it.
+- **External links live in an appendix.** Session 01 ends with an *Additional
+  Resources* section collecting IMAS/OMAS tutorials, per-language API docs and
+  Data Dictionary references. They are deliberately kept out of the
+  introduction, where they would weigh down a beginner's first pass, and a test
+  enforces that separation. The appendix also records which Data Dictionary
+  version VAFT reads through OMAS, checked against the package rather than
+  restated in prose.
+- **The plotting concepts are taught, not assumed.** Session 01 explains the
+  `{subject}_{view}[_{quantity}]` naming grammar (issue #251) and the scientific
+  display policy (issue #256) -- why an axis reads `kA` when the ODS stores
+  amperes, and what `yunit=` does. One cell exists purely to demonstrate those
+  concepts and is exempt from the one-pattern rule.
 - **No tutorial machinery.** No exercise framework, no mode switching, no output
   directories, no repository discovery. Exercises are ordinary comment blocks a
   student edits, and nothing the notebook does depends on hidden validation.
@@ -137,6 +161,22 @@ Completed and executed copies of the notebooks live in the private
 `vaft-tutorial-solution` repository. They are a review and teaching oracle, never
 a runtime dependency: the public test suite passes without any access to them,
 and nothing in public CI may reference them.
+
+## Presentation sources: two kinds, during the pilot
+
+Sessions 02-06 are hand-written Beamer `.tex` decks with committed PDFs, as
+described below. **Session 01 is different**: its slides are a Quarto `.qmd`
+source in [`presentations/`](presentations/README.md), rendered to Reveal.js
+HTML and Beamer PDF, with nothing committed.
+
+That is the pilot slice of [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322),
+which proposes QMD as the canonical presentation source repository-wide. It is
+deliberately one deck: the pilot exists so the two forms can be compared before
+the convention spreads. Do not migrate the remaining decks until that review has
+happened, and do not author a deck in both formats -- one source per deck is the
+whole point.
+
+The rest of this section governs the five Beamer decks.
 
 ## Slide and figure contract
 
@@ -156,13 +196,13 @@ Build all decks from the repository root with:
 make -C tutorial slides
 ```
 
-LaTeX intermediates are written to `tutorial/.build/`; only the six requested
+LaTeX intermediates are written to `tutorial/.build/`; only the five requested
 PDFs are copied into the tutorial directory and committed.
 
 Whenever you change a deck source or a figure it pulls in, rebuild that deck and
 commit the regenerated PDF in the same change. CI enforces this: it checks that
-every changed deck input ships a rebuilt PDF, then compiles all six decks from
-scratch and confirms the rebuild reproduces the committed page structure.
+every changed deck input ships a rebuilt PDF, then compiles all five Beamer
+decks from scratch and confirms the rebuild reproduces the committed page structure.
 
 The build pins `SOURCE_DATE_EPOCH` and `FORCE_SOURCE_DATE`, so rebuilding on one
 machine reproduces byte-identical PDFs. That does not hold across TeX Live
@@ -200,8 +240,15 @@ Develop sessions in numerical order. For each session:
 Session 01 is the first completed content milestone. It stays on the packaged
 shot 39915 throughout: IDS roots, the composed machine geometry, the magnetic,
 PF-coil, TF, spectrometer and barometry diagnostics, and the equilibrium flux
-map and profiles -- all through public `vaft.omas.plot_*` APIs. It needs no
-credentials and no repository-only data. The existing
+map and profiles -- all through public `vaft.omas.plot_*` APIs. It also teaches
+how those plots are named and how their axes are scaled, so a reader can find a
+plot they have not been shown. It needs no credentials and no repository-only
+data.
+
+When the plotting API changes, this session's explanations are part of the
+change: the canonical reference for plotting policy is
+[the plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb),
+and Session 01 must not contradict it. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
 

@@ -48,7 +48,7 @@ def discover_hsds_ids(h5pyd_module: Any, directory: str, shot: int) -> tuple[str
     return tuple(
         sorted(
             name[:-3]
-            for name in h5pyd_module.Folder(f"/{directory}/{shot}/")
+            for name in h5pyd_module.Folder(f"/{directory}/{shot}/", mode="r")
             if name.endswith(".h5")
             and name != "master.h5"
             and not name.endswith(".h5image.h5")

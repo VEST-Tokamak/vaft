@@ -17,14 +17,14 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 31498919
-    sha256: ace51302537d20d8b82d163752d58c49e1c86fe3ad316ddafe2ce7efed930b56
+    size: 31520228
+    sha256: 98bac116ed191d9a003252c9dcf2c4081d926a4083cd64b04df639198f24b96c
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
   canonical_sha256: fbdc476145cf472a6b522f50bffae0d06117c1dc90be44692bb6a5deff6e22db
-  materialized_leaves: 26839
+  materialized_leaves: 26987
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
@@ -33,6 +33,28 @@ generation:
   - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections,
     issue 288)
   related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
+  signal_quality:
+    projected: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/189
+    configuration:
+      baseline_fraction: 0.2
+      min_constant_run: 16
+      significance_floor: 0.01
+      spike_sigma: 8.0
+      max_spike_samples: 3
+      offset_jump_sigma: 10.0
+      coherence_window: 0.0005
+      coherent_jump_fraction: 0.3
+      max_plausible_amplitude:
+        b_field_pol_probe: 1.0
+      population_peak_factor: 4.0
+    condemned:
+    - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+    - b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz
+    - b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz
+    - b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz
+    - b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz
+    - b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz
 pipeline:
   configuration: source/pipeline-config.yaml
   configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a

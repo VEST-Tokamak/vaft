@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 from omas import ODS
 
+from vaft.formula.magnetics import probe_axis
 from vaft.machine_mapping.impa import IMPA_POLOIDAL_ANGLE
 from vaft.machine_mapping.magnetics import (
     INBOARD_FLUX_LOOP_MAX_R,
@@ -29,10 +30,14 @@ from vaft.machine_mapping.magnetics import (
     SIDE_PROBE_MIN_ABS_Z,
 )
 from vaft.omas.process_wrapper import (
+    compute_point_response_matrices_ods,
     compute_point_response_ods,
     compute_point_vacuum_fields_ods,
 )
 from vaft.omas.vacuum_magnetics import (
+    evaluation_mask,
+    plasma_free_residual,
+    quality_gate,
     B_FIELD_POL_PROBE,
     FLUX_LOOP,
     VacuumMagneticsError,
@@ -108,11 +113,16 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
     rng = np.random.default_rng(NOISE_SEED)
 
     positions = [(r, z) for _, r, z in PROBES] + [(r, z) for _, r, z in LOOPS]
-    psi, b_z, b_r = compute_point_response_ods(ods, [[r, z] for r, z in positions])
+    # The same response path the forward model takes (issue #239): a fixture
+    # built on the other implementation would test the ~1e-7 gap between two
+    # Green's-function paths rather than the model.
+    psi, b_z, b_r = compute_point_response_matrices_ods(
+        ods, [[r, z] for r, z in positions], components=("psi", "bz", "br")
+    )
     # DD: poloidal_angle is clockwise from +R, so the sensitive axis is
     # (cos, -sin).  The synthetic "measured" signal must be built with the same
     # projection the forward model uses, or the fixture tests the wrong sign.
-    direction_r, direction_z = math.cos(POLOIDAL_ANGLE), -math.sin(POLOIDAL_ANGLE)
+    direction_r, direction_z = probe_axis(POLOIDAL_ANGLE)
 
     # A plasma-like contribution switched on at PLASMA_ONSET, so the residual has
     # something physical to find.
@@ -359,7 +369,9 @@ def test_metrics_record_every_quantity_the_stage_owes(plasma_ods):
 def test_metrics_need_a_pre_plasma_window(plasma_ods):
     ods, time, _ = plasma_ods
     channels = synthetic_vacuum_magnetics(ods)
-    with pytest.raises(VacuumMagneticsError, match="no pre-plasma samples"):
+    # "usable", not merely "present": the window is now intersected with the
+    # validity the diagnostics stage established (issue #189).
+    with pytest.raises(VacuumMagneticsError, match="no usable pre-plasma samples"):
         vacuum_magnetics_metrics(channels, plasma_onset=float(time[0]))
 
 
@@ -372,7 +384,7 @@ def test_plasma_onset_is_reported_when_there_is_no_plasma_current():
 # --- the stage as the workflow runs it ---------------------------------------
 
 def test_eddy_stage_writes_both_figures_and_a_metrics_block(tmp_path, plasma_ods):
-    from vaft.validation import render_stage_plots, stage_plot_filenames
+    from vaft.database.production_qa import render_stage_plots, stage_plot_filenames
 
     ods, _time, _ = plasma_ods
     directory = tmp_path / "plot"
@@ -458,3 +470,189 @@ def test_the_residual_band_and_the_onset_markers_use_the_same_sigma(plasma_ods):
         for text in ax.get_legend().get_texts()
     }
     assert any("±2σ" in label for label in labels)
+
+
+def test_plasma_free_residual_stacks_channels_for_a_fitter(vacuum_ods):
+    """#308 minimises this vector, so its length and content must be predictable."""
+    ods, _, _ = vacuum_ods
+    channels = synthetic_vacuum_magnetics(ods)
+    window = (float(channels[0].time[0]), PLASMA_ONSET)
+    _, gate = quality_gate(ods, window=window)
+    assert gate.excluded == ()  # a clean synthetic array: the gate is a no-op
+
+    residual = plasma_free_residual(channels, window, gate=gate)
+    expected = sum(int(np.count_nonzero(evaluation_mask(c, window))) for c in channels)
+    assert residual.shape == (expected,)
+
+    # This fixture's measurement is exactly coil + eddy before onset.
+    assert np.max(np.abs(residual)) < 1e-9
+
+    # Normalisation puts tesla and weber channels on a comparable footing
+    # without changing how many samples are compared.
+    assert plasma_free_residual(channels, window, gate=gate, normalize=True).shape == (expected,)
+
+
+def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
+    """End-to-end on the packaged shot #190 cites as its working regression.
+
+    This is the check the synthetic fixtures cannot make: 950 real passive
+    loops, the real coupling matrices, and a real PF programme. #308 will call
+    `benchmark_wall_currents` inside a fit loop, so this is also its cost.
+
+    Before plasma onset the PF-only and routine drives coincide, so the
+    residual must agree between them; that it does is what makes the PF-only
+    solve a drop-in objective for the calibration.
+    """
+    import gzip
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from omas import load_omas_json
+
+    from vaft.data import resources
+    from vaft.validation.vacuum_benchmark import benchmark_wall_currents
+
+    try:
+        source = resources.data_path("samples/39915/source/pipeline-until-efit.json.gz")
+    except Exception:  # pragma: no cover - packaging-dependent
+        pytest.skip("packaged 39915 pipeline sample is unavailable")
+    if not Path(source).is_file():
+        pytest.skip("packaged 39915 pipeline sample is repository-only")
+
+    with gzip.open(source, "rt") as handle, tempfile.NamedTemporaryFile(
+        "w", suffix=".json", delete=False
+    ) as plain:
+        shutil.copyfileobj(handle, plain)
+        plain_path = plain.name
+    try:
+        ods = load_omas_json(plain_path, consistency_check=False)
+    finally:
+        Path(plain_path).unlink(missing_ok=True)
+
+    n_loop = len(ods["pf_passive.loop"])
+    assert n_loop == 950
+
+    solved = benchmark_wall_currents(ods)
+    pf_only = np.array(
+        [np.asarray(solved[f"pf_passive.loop.{i}.current"], dtype=float) for i in range(n_loop)]
+    )
+    assert pf_only.shape[0] == n_loop
+    assert np.all(np.isfinite(pf_only))
+
+    onset = plasma_onset_time(ods)
+    window = (float(np.asarray(ods["pf_active.time"])[0]), onset)
+    # Both channel sets come from the gated product, so the comparison below
+    # is between two models of the same assessed measurements.
+    gated, gate = quality_gate(ods, window=window)
+    routine_channels = synthetic_vacuum_magnetics(gated)
+    pf_channels = synthetic_vacuum_magnetics(benchmark_wall_currents(gated))
+    assert "MagneticFieldProbe_H3-08_Bz" in gate.excluded
+
+    routine_rms = float(
+        np.sqrt(np.mean(plasma_free_residual(routine_channels, window, gate=gate, normalize=True) ** 2))
+    )
+    pf_rms = float(
+        np.sqrt(np.mean(plasma_free_residual(pf_channels, window, gate=gate, normalize=True) ** 2))
+    )
+    # Pre-onset the two drives are the same, so the residuals must be too.
+    assert pf_rms == pytest.approx(routine_rms, rel=0.05)
+    # And the model does not yet explain the wall response -- which is the
+    # gap #308 exists to close. If this ever falls near zero without a
+    # calibration landing, the benchmark has stopped being informative.
+    assert 0.01 < pf_rms < 1.0
+
+
+# ---------------------------------------------------------------------------
+# Wall authority: how much of a reading the wall term can explain at all
+# ---------------------------------------------------------------------------
+
+def _authority_channel(name, eddy_scale, *, kind="flux_loop", family="outboard_flux_loop", index=0):
+    from vaft.omas.vacuum_magnetics import VacuumChannel
+
+    time = np.linspace(0.0, 1.0, 400)
+    rng = np.random.default_rng(index + 7)
+    coil = 0.10 * np.sin(2.0 * np.pi * time)
+    eddy = eddy_scale * np.cos(2.0 * np.pi * time)
+    measured = coil + eddy + 1.0e-4 * rng.standard_normal(time.size)
+    measured[time >= 0.5] += 0.05  # a "plasma" after onset
+    return VacuumChannel(
+        name=name, kind=kind, family=family, index=index, r=0.6, z=0.0, unit="Wb",
+        time=time, measured=measured, coil=coil, coil_eddy=coil + eddy,
+    )
+
+
+def test_wall_authority_is_the_eddy_term_as_a_fraction_of_the_reading():
+    from vaft.formula.statistics import rms
+
+    channel = _authority_channel("loud", 0.05)
+    mask = channel.time < 0.5
+    expected = rms(channel.eddy_term[mask]) / rms(channel.measured[mask])
+    assert channel.wall_authority(mask) == pytest.approx(expected)
+    assert _authority_channel("deaf", 0.0).wall_authority(mask) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_scored_improvement_summaries_skip_channels_the_wall_cannot_reach():
+    """A channel whose wall term is a few percent of its reading has an
+    improvement whose sign is noise; ask the summary to leave it out and it
+    must, while the unfloored summary still counts everyone."""
+    from vaft.omas.vacuum_magnetics import vacuum_magnetics_metrics
+
+    channels = (_authority_channel("a", 0.05, index=0), _authority_channel("b", 0.04, index=1), _authority_channel("deaf", 0.0005, index=2))
+    every = vacuum_magnetics_metrics(channels, plasma_onset=0.5)
+    scored = vacuum_magnetics_metrics(channels, plasma_onset=0.5, min_wall_authority=0.1)
+
+    assert every["summary"]["scored"]["count"] == 3
+    assert every["summary"]["scored"]["improvement"]["median"] == every["summary"]["median_improvement"]
+    assert scored["summary"]["scored"]["count"] == 2
+    assert scored["summary"]["scored"]["improvement"]["min"] > 0.9
+    assert scored["summary"]["min_improvement"] == every["summary"]["min_improvement"]
+    assert all("wall_authority" in row for row in scored["channels"])
+    assert scored["channels"][2]["wall_authority"] < 0.1
+    assert scored["summary"]["wall_authority"]["max"] > 0.1
+
+
+def test_an_excluded_channel_still_reports_its_wall_authority():
+    from vaft.omas.vacuum_magnetics import channel_residual_metrics
+
+    channel = _authority_channel("short", 0.05)
+    row = channel_residual_metrics(channel, window=(0.0, 0.5), min_samples=10_000)
+    assert row["status"] == "excluded"
+    assert "wall_authority" in row
+
+
+def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
+    """The physics behind the scoring floor: vessel currents flow at larger R
+    and their flux nearly cancels through a small inboard loop, so on the
+    packaged shot the inboard loops sit an order of magnitude below the
+    outboard ones."""
+    import vaft
+    import vaft.omas
+    from vaft.omas.vacuum_magnetics import (
+        plasma_onset_time,
+        synthetic_vacuum_magnetics,
+        vacuum_magnetics_metrics,
+    )
+
+    # The full IMAS artifact carries solved pf_passive currents; the compact
+    # wheel sample does not, and this is a statement about the machine's
+    # geometry, not about any one eddy solve.
+    try:
+        path = vaft.data.sample(41672, "imas")
+    except Exception:  # repository-only artifact
+        pytest.skip("sample 41672 is not available in this checkout")
+    ods = vaft.omas.load(path)
+    onset = plasma_onset_time(ods)
+    metrics = vacuum_magnetics_metrics(
+        synthetic_vacuum_magnetics(ods, per_family=2), plasma_onset=onset, min_wall_authority=0.1
+    )
+    by_family = {}
+    for row in metrics["channels"]:
+        by_family.setdefault(row["family"], []).append(row["wall_authority"])
+    # An order of magnitude apart, whichever representatives the selection picks.
+    assert max(by_family["inboard_flux_loop"]) * 5.0 < min(by_family["outboard_flux_loop"])
+    scored = metrics["summary"]["scored"]
+    assert scored["count"] == sum(1 for row in metrics["channels"] if row["wall_authority"] >= 0.1)
+    assert scored["count"] < metrics["summary"]["channel_count"]
+    assert scored["improvement"]["min"] > 0.5
+# --- issue #190: the wall must be driveable by the PF coils alone -----------

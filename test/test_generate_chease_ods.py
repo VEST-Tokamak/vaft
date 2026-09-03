@@ -63,6 +63,7 @@ def test_runs_summary_is_embedded_onto_equilibrium_code_parameters(tmp_path):
             "--status", str(status),
             "--runs-summary", str(runs),
             "--output", str(output),
+            "--metadata", str(tmp_path / "manifest.json"),
         ]
     )
     assert result.returncode == 0, result.stderr
@@ -105,6 +106,7 @@ def test_records_summary_survives_the_all_failed_minimal_ods(tmp_path):
             "--status", str(status),
             "--runs-summary", str(runs),
             "--output", str(output),
+            "--metadata", str(tmp_path / "manifest.json"),
         ]
     )
     assert result.returncode == 0, result.stderr
@@ -132,6 +134,7 @@ def test_missing_runs_summary_is_tolerated(tmp_path):
             "--refined-gfile-manifest", str(manifest),
             "--status", str(status),
             "--output", str(output),
+            "--metadata", str(tmp_path / "manifest.json"),
         ]
     )
     assert result.returncode == 0, result.stderr
@@ -139,3 +142,38 @@ def test_missing_runs_summary_is_tolerated(tmp_path):
     ods = load_omas_json(str(output), consistency_check=False)
     parameters = json.loads(ods["equilibrium.code.parameters"])
     assert parameters == {"comparison_metrics": {}, "records_summary": []}
+
+
+def test_a_refinement_that_parsed_nothing_says_so_in_its_manifest(tmp_path):
+    """The placeholder ODS stays on disk; the manifest is what refuses it.
+
+    Without this, a hollow equilibrium is indistinguishable from a refined one
+    to anything downstream -- including HSDS replication.
+    """
+    import json
+
+    manifest = tmp_path / "refined_gfiles_generated.txt"
+    manifest.write_text("", encoding="utf-8")
+    status = tmp_path / "chease_status.txt"
+    status.write_text("failed", encoding="utf-8")
+    output = tmp_path / "chease.json"
+    metadata = tmp_path / "manifest.json"
+
+    result = _run(
+        [
+            "--shot", "39915",
+            "--refined-gfile-manifest", str(manifest),
+            "--status", str(status),
+            "--output", str(output),
+            "--metadata", str(metadata),
+        ]
+    )
+
+    assert result.returncode == 0, result.stderr
+    recorded = json.loads(metadata.read_text(encoding="utf-8"))
+    assert recorded["stage"] == "chease"
+    assert recorded["status"] == "no_output"
+
+    from vaft.database.replication import REPLICABLE_STATUSES
+
+    assert recorded["status"] not in REPLICABLE_STATUSES

@@ -120,9 +120,12 @@ def test_equilibrium_extractor_preserves_canonical_schema(monkeypatch):
         "equilibrium.vacuum_toroidal_field.r0": 0.2,
     }
     for name in (
+        "update_equilibrium_profiles_1d_geometry",
+        "update_equilibrium_global_quantities_beta_li",
         "update_equilibrium_boundary",
         "update_equilibrium_global_quantities_q_min",
         "update_equilibrium_global_quantities_volume",
+        "update_equilibrium_global_quantities_area",
         "update_equilibrium_stored_energy",
         "update_equilibrium_constraints_diamagnetic_flux",
     ):
@@ -328,6 +331,8 @@ def test_efit_reliability_skips_nonfinite_and_malformed_fits():
 
 
 def test_split_reliability_summary_injects_database_source(monkeypatch):
+    # An experiment namespace outside the catalog, opted into explicitly.
+    monkeypatch.setenv("VAFT_HSDS_EXTRA_SOURCES", "private")
     monkeypatch.setattr(
         database,
         "open",
@@ -441,3 +446,69 @@ def test_export_validates_upsert_contract(tmp_path):
         )
     with pytest.raises(ValueError, match=r"\.csv or \.xlsx"):
         database.export_summary(frame, tmp_path / "out.json")
+
+
+def test_equilibrium_summary_fills_the_shape_and_volume_columns():
+    """Regression for issue #290's wider half: eleven of the forty-four columns
+    were empty on the packaged sample because an EFIT-sourced ODS stores no
+    flux-surface geometry, not because nothing could compute it.
+
+    Four of them -- the betas and li_3 -- outlived that fix because they needed a
+    normative definition chosen first, and #238 chose it. Nothing is empty now.
+    """
+    import numpy as np
+
+    from vaft.omas.sample import sample_ods
+
+    try:
+        ods = sample_ods()
+    except Exception as exc:  # pragma: no cover - sample not packaged
+        pytest.skip(f"39915 sample unavailable: {exc}")
+
+    row = summary_module.extract_equilibrium_global(ods, 39915)[0]
+    empty = {
+        name
+        for name, value in row.items()
+        if value is None or (isinstance(value, float) and not np.isfinite(value))
+    }
+    assert not empty, f"summary columns still empty: {sorted(empty)}"
+    assert row["volume_m3"] > 0.0
+    assert row["area_m2"] > 0.0
+    assert row["energy_mhd_J"] > 0.0
+    # The virial path read psi through a detector that assumed weber and got
+    # beta_p = 30.5 on this Wb/rad sample (issue #278 follow-up).
+    assert 0.0 < row["virial_beta"] < 10.0
+
+
+def test_the_equilibrium_preset_loads_tf_so_the_r0_cross_check_can_run():
+    """`beta_pol` and `li_3` divide by R_0, and the VEST database's
+    `equilibrium.vacuum_toroidal_field.r0` is corrupt (#325). The resolver
+    cross-checks it against `tf`, so a preset that does not load `tf` leaves the
+    check blind and the corrupt value is used with no warning -- the summary was
+    in exactly that state.
+    """
+    assert "tf" in summary_module.get_summary_preset("equilibrium_global").paths
+
+
+def test_vacuum_b0_is_rescaled_with_the_cross_checked_radius():
+    """`vacuum_b0_T` rescales `b0` by `r0/0.4`, so it inherits the bad `r0`
+    directly: on shot 39915 it reported 0.0866 T where `tf` says 0.150 T."""
+    import numpy as np
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.array([0.3])
+    ods["equilibrium.time_slice.0.time"] = 0.3
+    ods["equilibrium.time_slice.0.global_quantities.ip"] = 80_000.0
+    # The corruption as the database holds it: b0 is the field at R = 0.4, but
+    # r0 says 0.2313, so b0*r0 disagrees with tf's B*R by that ratio.
+    ods["equilibrium.vacuum_toroidal_field.r0"] = 0.231317
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.149799])
+    ods["tf.r0"] = 0.4
+    ods["tf.b_field_tor_vacuum_r.data"] = np.full(4, 0.149799 * 0.4)
+
+    row = summary_module.extract_equilibrium_global(ods, 39915)[0]
+    # Rescaled with R0 = 0.4, so b0 passes through unchanged rather than being
+    # shrunk by 0.2313/0.4.
+    assert row["vacuum_b0_T"] == pytest.approx(0.149799, rel=1e-6)
+    assert row["vacuum_r0_m"] == pytest.approx(0.4)

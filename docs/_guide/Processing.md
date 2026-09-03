@@ -95,6 +95,88 @@ The sampling rate is derived as $1/(t_1-t_0)$, so the filter branch assumes a un
 base — resample first if it is not. Cutoffs are validated against Nyquist and raise `ValueError` when
 out of range.
 
+Two things about the order are worth being explicit about. The resample step goes through
+`resample_to_time` (below), so reducing the sample rate anti-aliases on the *input* grid first. The
+`filter_params` step that follows is a **shaping** filter, not an anti-alias filter, and its `cutoff`
+is interpreted against the **output** grid's rate.
+
+## Rate changes and anti-aliasing
+
+VEST acquires on two DAQ rates — `FAST_DT = 4e-6` (250 kHz) and `SLOW_DT = 4e-5` (25 kHz), defined in
+`vaft/database/raw.py` — while **every** processed time grid declared in
+`vaft/machine_mapping/vest.yaml` is `dt = 4.0e-5`. A fast-DAQ channel written onto a policy grid is
+therefore a 10× decimation.
+
+This is the distinction the layer cares about:
+
+- **Interpolation** evaluates a signal at new instants. Always fine.
+- **Downsampling** *reduces the sample rate*. Content above the new Nyquist frequency does not
+  disappear — it folds back into the band, where nothing downstream can tell it from real signal.
+
+`np.interp` performs both and announces neither. Use `resample_to_time` instead anywhere a diagnostic
+is written onto a common time grid:
+
+```python
+from vaft.process import resample_to_time
+
+intensity = resample_to_time(source_time, source_data, target_time)
+```
+
+`resample_to_time` measures both grids. When `dt_target / dt_source` is at or below `min_ratio`
+(1.05) — alignment, an upsample, or a rate change too small to matter — it designs no filter and the
+result is **bit-for-bit** `np.interp`. Above it, a zero-phase FIR low-pass runs on the source grid
+before interpolating, with the passband edge at 0.8 × the target Nyquist by default (10 kHz for a
+25 kHz grid): `firwin` sits at −6 dB at its cutoff and needs a transition band, so a passband edge
+below Nyquist puts everything that can fold into the stopband.
+
+`firwin` + `filtfilt` rather than `resample_poly` or `decimate`, for reasons specific to VEST.
+`resample_poly` needs an exactly uniform source and an integer rational ratio; shots after 42190 store
+`linspace(0, span, n)`, so a nominally 4 µs grid is really 4.00016 µs, and the filterscope's target
+grid carries a legacy 0.24/0.26 s offset. Zero phase matters because filterscope intensity feeds onset
+detection — a causal `lfilter` of the same design would move the onset by its group delay, about
+0.66 ms or 16 target samples.
+
+Where filtering would be wrong — a validity mask is logical, not bandlimited — pass
+`anti_alias=False`. That is also exactly `np.interp`, so the decision shows up in the diff rather than
+hiding in a numerical difference.
+
+Two things it refuses rather than guesses at. A source grid that is not uniformly sampled raises
+`ResamplingError` when a rate reduction is asked for: `firwin`/`filtfilt` assume even spacing, so on a
+jittered grid the design rate is a fiction and the filter neither rejects what it should nor preserves
+what it should. Resample onto a uniform grid first, or pass `anti_alias=False` to accept a bare
+interpolation knowingly. And a source timebase that is not strictly increasing raises too, because
+`np.interp` returns silent nonsense for an unsorted `x` — in this codebase that means the loader is
+broken. (An unsorted *target* is fine: evaluating at scattered instants is exactly what interpolation
+is for.)
+
+### Audit
+
+Every time-domain rate change in `vaft.machine_mapping` and `vaft.process`, classified. Ratio is
+`dt_target / dt_source`.
+
+| Site | Source → target | Ratio | Classification |
+| --- | --- | --- | --- |
+| `machine_mapping/spectrometer_uv.py` | fields 138–144 fast 250 kHz → `analysis` 25 kHz | 10× | Was unfiltered; now `resample_to_time` |
+| `machine_mapping/spectrometer_uv.py` | fields 101, 214 slow 25 kHz → 25 kHz | 1× | Pure alignment; unchanged output |
+| `process/signal_processing.py` (`process_signal`) | arbitrary → `dt` | any | Was resample-then-filter; now anti-aliased |
+| `machine_mapping/langmuir_probes.py` | triple-probe solve → 25 kHz | ≤10× | `n_e`/`te` anti-aliased; `solver_ok` opts out (logical mask) |
+| `machine_mapping/barometry.py` | gauge slow → `full_discharge` 25 kHz | 1× | `medfilt` is a de-spiker, not an anti-alias filter; routed through the primitive defensively |
+| `plot/mirnov.py` (`_common_timebase`) | channel B → channel A's grid | ≈1× | Routed through the primitive ahead of spectrogram/coherence |
+| `machine_mapping/tf.py` | TF raw → `full_discharge` | 10× | Already safe: `firwin` low-pass on the source grid |
+| `machine_mapping/pf_active.py` | PF raw → policy grid | 10× | Already safe: `firwin` + `filtfilt` |
+| `process/magnetics.py` | probes/loops → 25 kHz | 10× | Already safe: `firwin` at 2.5 kHz on the 250 kHz grid |
+| `machine_mapping/magnetics.py` (FL10) | 250 kHz → decimated | 10× | Already safe: `scipy.signal.decimate`, order-8 Chebyshev I |
+| `machine_mapping/impa.py` | IMPA raw → 25 kHz | ≤10× | `impa_lowpass` filters first, but the configured `sample_rate` may not match the channels ([#425]) |
+| `process/electromagnetics.py` | EVD substepping | 1.25× | `dt_sub` ships coarser than the diagnostics grid — a solver-parameter bug, tracked separately |
+| `code/efit/legacy.py` | 4e-5 data on a 1e-4 `ave_time` step | — | Pseudo-average, tracked separately |
+| `process/profile.py`, `process/equilibrium.py`, `omas/update.py`, `omas/process_wrapper.py`, `code/*`, `formula/*` | ψ, ρ, R–Z grids; scalar sampling at one instant | — | Not time-domain rate changes; no action |
+
+This table will rot. `test/test_no_bare_downsample.py` will not: it walks the AST of
+`vaft/machine_mapping` and `vaft/process` and fails on any interpolation that neither goes through
+`resample_to_time` nor carries an `# anti-alias:` comment recording which row above it belongs to.
+
+[#425]: https://github.com/VEST-Tokamak/vaft/issues/425
+
 ## Baselines
 
 Baseline handling is a two-step API: build the index set of the "quiet" region, then fit and subtract a

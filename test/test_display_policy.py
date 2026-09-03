@@ -99,13 +99,16 @@ def test_titles_and_channel_labels_follow_the_grammar():
         display.figure_title("Flux loop", "mWb", shot=39915, coordinates=True)
         == "Flux loop [mWb] #39915 — (R [m], Z [m])"
     )
+    # Exponent units are typeset in titles too; the ASCII input is unchanged.
     assert (
         display.figure_title("Electron density", "10^18 m^-3", shot=39915, time_s=0.3)
-        == "Electron density [10^18 m^-3] #39915 @ 0.3 s"
+        == "Electron density [10$^{18}$ m$^{-3}$] #39915 @ 0.3 s"
     )
     assert display.subject_display_name("b_field_probe") == "B field probe"
-    assert display.channel_label(0, 0.08, 0.42) == "[0] (0.08, 0.42)"
+    # Positions are stored in metres and shown in centimetres, inline.
+    assert display.channel_label(0, 0.08, 0.42) == "[0] (8.0 cm, 42.0 cm)"
     assert display.channel_label(3) == "[3]"
+    assert display.channel_label(3, float("nan"), 0.1) == "[3]"
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +174,7 @@ def test_interferometer_scaled_axis_comes_from_the_table():
     ods["interferometer.channel.0.n_e_line.data"] = np.array([1.0e18, 2.0e18])
     figure, axes = vaft.omas.plot_interferometer_time_n_e_line(ods)
     np.testing.assert_allclose(axes.lines[0].get_ydata(), [1.0, 2.0])
-    assert "[10^18 m^-2]" in axes.get_ylabel()
+    assert "[10$^{18}$ m$^{-2}$]" in axes.get_ylabel()
     plt.close(figure)
 
 
@@ -233,3 +236,171 @@ def test_an_ods_without_a_pulse_names_no_shot():
     assert axes.get_title() == "Plasma Current [kA]"
     assert "#" not in axes.get_title()
     plt.close(figure)
+
+
+# ---------------------------------------------------------------------------
+# Legend and channel-label policy (issue #256 sections 8 and 9, visual review)
+# ---------------------------------------------------------------------------
+
+def _loops():
+    from vaft.data import sample
+
+    return vaft.omas.load(sample(39915, "omas"))
+
+
+def test_a_lone_trace_draws_no_legend(ip_ods):
+    """The title already says what the one trace is."""
+    figure, axes = vaft.omas.plot_plasma_current_time(ip_ods)
+    assert axes.get_legend() is None
+    plt.close(figure)
+
+
+def test_a_single_entry_labels_channels_without_the_shot():
+    """The shot is in the title, so repeating it on every entry says nothing."""
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(_loops(), selection=[0, 5])
+    labels = [line.get_label() for line in axes.lines]
+    assert labels == ["[0] (59.2 cm, 68.5 cm)", "[5] (9.1 cm, 4.0 cm)"]
+    assert not any("39915" in label for label in labels)
+    plt.close(figure)
+
+
+def test_several_entries_of_one_channel_put_the_shot_in_the_entry():
+    ods = _loops()
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(
+        [ods, ods], label=["39915", "39916"], selection=[5]
+    )
+    assert [line.get_label() for line in axes.lines] == ["39915", "39916"]
+    # The channel is stated once, as the legend title, not on every entry.
+    assert axes.get_legend().get_title().get_text() == "[5] (9.1 cm, 4.0 cm)"
+    plt.close(figure)
+
+
+def test_several_entries_of_several_channels_spell_both():
+    ods = _loops()
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(
+        [ods, ods], label=["39915", "39916"], selection=[0, 5]
+    )
+    assert axes.lines[0].get_label() == "39915 · [0] (59.2 cm, 68.5 cm)"
+    assert axes.lines[-1].get_label() == "39916 · [5] (9.1 cm, 4.0 cm)"
+    plt.close(figure)
+
+
+def test_a_legend_past_the_threshold_becomes_a_count():
+    from vaft.plot.style import LEGEND_MAX_ENTRIES
+
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(_loops())  # 11 loops
+    assert len(axes.lines) > LEGEND_MAX_ENTRIES
+    assert axes.get_legend() is None
+    assert any(text.get_text().endswith("traces") for text in axes.texts)
+    plt.close(figure)
+    # At or below the threshold the legend is drawn.
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(_loops(), selection="inboard")
+    assert len(axes.lines) == 7 and axes.get_legend() is not None
+    plt.close(figure)
+
+
+def test_legend_overrides_beat_the_policy(ip_ods):
+    figure, axes = vaft.omas.plot_plasma_current_time(ip_ods, legend=True)
+    assert axes.get_legend() is not None
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(_loops(), selection="inboard", legend=False)
+    assert axes.get_legend() is None
+    plt.close(figure)
+
+
+def test_a_channel_without_geometry_keeps_its_identifier():
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index in range(2):
+        ods[f"magnetics.flux_loop.{index}.name"] = f"FL0{index}"
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods)
+    assert [line.get_label() for line in axes.lines] == ["FL00", "FL01"]
+    plt.close(figure)
+
+
+def test_a_single_sample_series_is_visible():
+    """A one-slice ODS used to draw a line through one point: nothing."""
+    ods = omas.ODS()
+    ods["equilibrium.time"] = np.array([0.3])
+    ods["equilibrium.time_slice.0.global_quantities.beta_pol"] = 0.8
+    figure, axes = vaft.omas.plot_equilibrium_time_beta_p(ods)
+    assert len(axes.lines[0].get_xdata()) == 1
+    assert axes.lines[0].get_marker() not in ("None", "", None)
+    plt.close(figure)
+
+
+def test_unit_markup_is_presentation_only():
+    # The ASCII spelling stays the key and the accepted input...
+    assert display.resolve_display("m^-3").unit == "10^18 m^-3"
+    assert display.resolve_display("A/m^2", unit="MA/m^2").unit == "MA/m^2"
+    # ...and only the rendered label carries mathtext.
+    assert display.unit_markup("10^18 m^-3") == "10$^{18}$ m$^{-3}$"
+    assert display.unit_markup("A/m^2") == "A/m$^{2}$"
+    assert display.unit_markup("kA") == "kA"
+    from vaft.plot.style import axis_label
+    assert axis_label("n_e", "10^18 m^-3") == "n_e [10$^{18}$ m$^{-3}$]"
+
+
+def test_normalized_coordinates_are_typeset():
+    ods = _loops()
+    figure, axes = vaft.omas.plot_equilibrium_profile_pressure(ods, coordinate="rho_tor_norm")
+    assert r"$\rho_N$" in axes.get_xlabel()
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_equilibrium_profile_pressure(ods, coordinate="psi_norm")
+    assert r"$\psi_N$" in axes.get_xlabel()
+    plt.close(figure)
+
+
+def test_empty_subject_and_quantity_are_never_rendered():
+    """Titles and labels come from recipe text; registry fields never leak."""
+    from vaft.plot import registry
+
+    ods = _loops()
+    for name in ("plasma_current_time", "flux_loop_time_flux", "equilibrium_profile_q"):
+        spec = registry.get_spec(name)
+        figure, axes = getattr(vaft.omas, f"plot_{name}")(ods)
+        rendered = " ".join([axes.get_title(), axes.get_xlabel(), axes.get_ylabel()]
+                            + [line.get_label() for line in axes.lines])
+        assert "subject=" not in rendered and "quantity=" not in rendered
+        assert "''" not in rendered and "None" not in rendered, (name, rendered)
+        plt.close(figure)
+
+
+def test_drawing_into_the_same_axes_twice_replaces_the_legend_decision():
+    """A caller-supplied axes is the composable path; the policy must converge."""
+    from vaft.plot.style import LEGEND_MAX_ENTRIES
+
+    ods = _loops()
+    figure, axes = plt.subplots()
+    vaft.omas.plot_flux_loop_time_flux(ods, ax=axes, selection="inboard")   # 7 -> legend
+    assert axes.get_legend() is not None
+    vaft.omas.plot_flux_loop_time_flux(ods, ax=axes, selection="outboard")  # 11 -> note
+    assert axes.get_legend() is None, "the stale legend must go when the count passes the threshold"
+    notes = [t.get_text() for t in axes.texts if t.get_text().endswith("traces")]
+    assert notes == ["11 traces"], notes
+    vaft.omas.plot_flux_loop_time_flux(ods, ax=axes, selection="outboard")  # 15 -> one note, not two
+    notes = [t.get_text() for t in axes.texts if t.get_text().endswith("traces")]
+    assert notes == ["15 traces"], notes
+    assert len(axes.lines) > LEGEND_MAX_ENTRIES
+    plt.close(figure)
+
+
+def test_a_trace_without_a_channel_never_borrows_a_legend_title():
+    from vaft.plot.models import Series
+    from vaft.plot.style import trace_labels
+
+    x = np.arange(3.0)
+    with_channel = Series(x=x, y=x, entry="shot1", channel="[0] (1.0 cm, 2.0 cm)")
+    without = Series(x=x, y=x, entry="shot2", channel="")
+    labels, title = trace_labels([with_channel, without])
+    assert title is None, "no shared channel exists, so no legend title"
+    assert labels == ["shot1 · [0] (1.0 cm, 2.0 cm)", "shot2"]
+    # When every trace does share the one channel, the title is stated once.
+    shared = Series(x=x, y=x, entry="shot2", channel="[0] (1.0 cm, 2.0 cm)")
+    assert trace_labels([with_channel, shared]) == (["shot1", "shot2"], "[0] (1.0 cm, 2.0 cm)")
+
+
+def test_unit_markup_keeps_a_whole_decimal_exponent():
+    assert display.unit_markup("m^2.5") == "m$^{2.5}$"
+    assert display.unit_markup("10^18 m^-3") == "10$^{18}$ m$^{-3}$"

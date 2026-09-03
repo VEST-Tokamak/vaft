@@ -6,8 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, MutableMapping, Optional
 import re
+import warnings
 
 import numpy as np
+
+from vaft.data._derived import rho_tor_profile
 
 
 _STANDARD_KEYS = (
@@ -485,72 +488,175 @@ def _infer_source_shot(source: Optional[Path]) -> int:
 
 TWO_PI = 2.0 * np.pi
 
-_MU0 = 4.0e-7 * np.pi
+# A g-file records its vacuum toroidal field twice: as ``BCENTR`` at ``RCENTR``,
+# and as ``FPOL`` at the boundary, where ``f = R*B_phi`` has stopped varying
+# because no poloidal current flows outside the plasma.  The two are the same
+# number, so a g-file where they disagree is inconsistent with itself.  On the
+# VEST database they disagree badly -- ``BCENTR`` drifts by up to 101% within a
+# single shot while ``FPOL`` holds flat to under 1% -- and ``FPOL`` is the half
+# the Grad-Shafranov solution actually used (issue #325).
+BCENTR_FPOL_RTOL = 1e-3
 
 
-def _ampere_law_wb_per_radian_factor(ts: Any) -> Optional[float]:
-    """Secondary psi-convention test from Ampere's law around the LCFS.
+def _vacuum_b0(data: Mapping[str, Any]) -> float:
+    """The vacuum ``B0`` at ``RCENTR``, from ``FPOL`` in preference to ``BCENTR``.
 
-    Treats the stored 2-D ``psi`` as Wb/rad, evaluates the poloidal field
-    ``B_R = -(1/R) dpsi/dZ``, ``B_Z = (1/R) dpsi/dR`` and integrates it
-    along ``boundary.outline``. If psi really is in Wb/rad the loop integral
-    reproduces ``global_quantities.ip``; if psi is stored in Wb the estimate
-    comes out ``2*pi`` too large. Returns ``1.0`` (Wb/rad), ``1/(2*pi)``
-    (Wb), or ``None`` when the required data are absent or inconclusive.
+    Falls back to ``BCENTR`` whenever ``FPOL`` cannot answer, and warns rather
+    than silently repairing when the two disagree: a file that contradicts
+    itself is reporting a defect upstream, and quietly papering over it is how
+    that defect becomes permanent.
+
+    Note this fixes the *drift*, not the reference radius.  ``B0`` is returned
+    at ``RCENTR``, so ``b0 * r0 == FPOL[-1]`` holds however wrong ``RCENTR``
+    itself may be -- nothing inside a g-file can validate that.  Downstream,
+    ``resolve_reference_major_radius`` cross-checks ``r0`` against ``tf``.
+    """
+    bcentr = _scalar(data.get("BCENTR"), 0.0)
+    rcentr = _scalar(data.get("RCENTR"), 0.0)
+    fpol = np.asarray(data.get("FPOL", ()), dtype=float).reshape(-1)
+    if fpol.size == 0 or not np.isfinite(fpol[-1]) or fpol[-1] == 0.0:
+        return bcentr
+    if not np.isfinite(rcentr) or rcentr == 0.0:
+        return bcentr
+    derived = float(fpol[-1]) / rcentr
+    if not np.isfinite(derived):
+        return bcentr
+    stated = np.isfinite(bcentr) and bcentr != 0.0
+    if stated and not np.isclose(derived, bcentr, rtol=BCENTR_FPOL_RTOL, atol=0.0):
+        warnings.warn(
+            f"g-file BCENTR={bcentr:.6g} T disagrees with FPOL[-1]/RCENTR="
+            f"{derived:.6g} T (FPOL[-1]={fpol[-1]:.6g} T.m, RCENTR={rcentr:.6g} m); "
+            "using the FPOL value, which is the field the equilibrium was solved "
+            "with (issue #325)",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return derived
+
+
+def _slope_flux_exponent(ts: Any) -> Optional[int]:
+    """``e_Bp`` from the ``dphi/dpsi``-vs-``q`` slope, or ``None`` if it cannot answer.
+
+    ``profiles_1d.phi`` is written in Wb by both producers, and ``q`` is
+    ``dPhi/dPsi`` with both fluxes in Wb, so
+
+        dphi/dpsi_stored = q      (psi stored in Wb,     e_Bp = 1)
+        dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad, e_Bp = 0)
+
+    The two answers are 2*pi apart, so the test is decisive when it applies -- but
+    a ratio near neither is evidence that ``phi`` and ``q`` disagree (a stale phi
+    against a rescaled q, say), not evidence of a convention. Abstain there and
+    let :func:`_ampere_flux_exponent` answer from the field instead, the same
+    bargain :func:`vaft.process.cocos.identify_flux_exponent` makes.
+    """
+    phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
+    q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
+    psi = np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
+    if phi.size < 3 or phi.size != q.size or phi.size != psi.size:
+        return None
+    if not np.all(np.isfinite(phi)):
+        return None
+    dpsi = np.diff(psi)
+    good = np.abs(dpsi) > 0
+    if np.count_nonzero(good) < 2:
+        return None
+    slope = np.diff(phi)[good] / dpsi[good]
+    q_mid = 0.5 * (q[1:] + q[:-1])[good]
+    finite = np.isfinite(slope) & np.isfinite(q_mid) & (np.abs(q_mid) > 1e-12)
+    if np.count_nonzero(finite) < 2:
+        return None
+    ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
+    if not np.isfinite(ratio) or ratio <= 0:
+        return None
+    from vaft.process.cocos import FLUX_EXPONENT_TOLERANCE
+
+    for exponent, expected in ((1, 1.0), (0, TWO_PI)):
+        if abs(ratio - expected) <= FLUX_EXPONENT_TOLERANCE * expected:
+            return exponent
+    return None
+
+
+def _ampere_flux_exponent(ts: Any) -> Optional[int]:
+    """``e_Bp`` from Ampere's law round the LCFS, or ``None`` if it cannot answer.
+
+    This is :func:`vaft.process.cocos.identify_flux_exponent`, which needs only
+    the psi map, the boundary outline and ``Ip`` -- no ``phi``. It is the rung
+    that answers for artifacts the slope test cannot reach: an EFIT-pipeline ODS
+    written before issue #236 holds Wb/rad and carries no ``profiles_1d.phi``, so
+    without this the DD default below would silently rescale it by 2*pi.
+
+    ``EquilibriumData`` is built here field by field rather than through
+    :func:`vaft.process.equilibrium.as_equilibrium`, which calls this module back
+    when its own sign-based identification leaves the family open.
     """
     try:
-        r = np.asarray(_path_get(ts, "profiles_2d.0.grid.dim1", []), dtype=float).reshape(-1)
-        z = np.asarray(_path_get(ts, "profiles_2d.0.grid.dim2", []), dtype=float).reshape(-1)
-        psi2 = np.asarray(_path_get(ts, "profiles_2d.0.psi", []), dtype=float)
-        br_r = np.asarray(_path_get(ts, "boundary.outline.r", []), dtype=float).reshape(-1)
-        br_z = np.asarray(_path_get(ts, "boundary.outline.z", []), dtype=float).reshape(-1)
-        ip = float(_path_get(ts, "global_quantities.ip", np.nan))
-    except (TypeError, ValueError):
+        from vaft.data.equilibrium import Contour, EquilibriumData
+        from vaft.process.cocos import identify_flux_exponent
+    except Exception:
         return None
-    if (
-        r.size < 4
-        or z.size < 4
-        or br_r.size < 8
-        or br_r.size != br_z.size
-        or not np.isfinite(ip)
-        or abs(ip) < 1.0
-    ):
-        return None
-    if psi2.shape == (z.size, r.size) and psi2.shape != (r.size, z.size):
-        psi2 = psi2.T
-    if psi2.shape != (r.size, z.size) or not np.all(np.isfinite(psi2)):
-        return None
-    dpsi_dr, dpsi_dz = np.gradient(psi2, r, z)
 
-    def _bilinear(field: np.ndarray, rq: np.ndarray, zq: np.ndarray) -> np.ndarray:
-        i = np.clip(np.searchsorted(r, rq) - 1, 0, r.size - 2)
-        j = np.clip(np.searchsorted(z, zq) - 1, 0, z.size - 2)
-        tr = (rq - r[i]) / (r[i + 1] - r[i])
-        tz = (zq - z[j]) / (z[j + 1] - z[j])
-        return (
-            field[i, j] * (1 - tr) * (1 - tz)
-            + field[i + 1, j] * tr * (1 - tz)
-            + field[i, j + 1] * (1 - tr) * tz
-            + field[i + 1, j + 1] * tr * tz
+    def _grid(path: str) -> Optional[np.ndarray]:
+        value = _path_get(ts, path)
+        if value is None:
+            return None
+        array = np.asarray(value, dtype=float)
+        return array if array.size else None
+
+    r = _grid("profiles_2d.0.grid.dim1")
+    z = _grid("profiles_2d.0.grid.dim2")
+    psi = _grid("profiles_2d.0.psi")
+    boundary_r = _grid("boundary.outline.r")
+    boundary_z = _grid("boundary.outline.z")
+    ip = _path_get(ts, "global_quantities.ip")
+    if r is None or z is None or psi is None or boundary_r is None or boundary_z is None:
+        return None
+    r, z = r.reshape(-1), z.reshape(-1)
+    boundary_r, boundary_z = boundary_r.reshape(-1), boundary_z.reshape(-1)
+    if psi.shape == (z.size, r.size) and psi.shape != (r.size, z.size):
+        psi = psi.T
+    try:
+        ip = float(np.asarray(ip, dtype=float).reshape(-1)[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    if not np.isfinite(ip) or ip == 0.0:
+        return None
+    try:
+        equilibrium = EquilibriumData(
+            r=r, z=z, psi=psi, ip=ip,
+            lcfs=Contour(boundary_r, boundary_z, True),
         )
+        exponent, _ratio = identify_flux_exponent(equilibrium)
+    except Exception:
+        return None
+    return exponent
 
-    # Closed midpoint-rule loop integral of B_pol . dl along the boundary.
-    rq = np.append(br_r, br_r[0])
-    zq = np.append(br_z, br_z[0])
-    rm = 0.5 * (rq[1:] + rq[:-1])
-    zm = 0.5 * (zq[1:] + zq[:-1])
-    inside = (rm > r[0]) & (rm < r[-1]) & (zm > z[0]) & (zm < z[-1]) & (rm > 0)
-    if np.count_nonzero(inside) < 8:
-        return None
-    b_r = -_bilinear(dpsi_dz, rm[inside], zm[inside]) / rm[inside]
-    b_z = _bilinear(dpsi_dr, rm[inside], zm[inside]) / rm[inside]
-    circulation = float(
-        np.sum(b_r * np.diff(rq)[inside] + b_z * np.diff(zq)[inside])
-    )
-    ratio = abs(circulation / (_MU0 * ip))
-    if not np.isfinite(ratio) or ratio < 0.3 or ratio > 3.0 * TWO_PI:
-        return None
-    return 1.0 if ratio < np.sqrt(TWO_PI) else 1.0 / TWO_PI
+
+def _flux_exponent_candidates(ods: Any, time_index: int) -> Iterable[Any]:
+    """The time slices to consult, the requested one first.
+
+    The storage convention is a property of the file, not of a slice, so a slice
+    that cannot answer -- a degenerate EFIT solution with ``psi_axis ==
+    psi_boundary`` and no boundary outline, which the packaged VEST samples do
+    contain -- must not force the whole ODS onto the default.
+    """
+    slices = _path_get(ods, "equilibrium.time_slice")
+    try:
+        total = len(slices)
+    except TypeError:
+        total = 0
+    if not total:
+        # No time_slice container at all: the caller handed us a bare slice.
+        yield ods
+        return
+    requested = _path_get(ods, f"equilibrium.time_slice.{time_index}")
+    if requested is not None:
+        yield requested
+    for index in range(total):
+        if index == time_index:
+            continue
+        other = _path_get(ods, f"equilibrium.time_slice.{index}")
+        if other is not None:
+            yield other
 
 
 def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
@@ -559,48 +665,25 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     The IMAS Data Dictionary defines ``equilibrium.*.psi`` as the full
     poloidal flux in Wb (issue #236); ``to_omas`` writes that since the fix,
     and OMFIT-produced ODSs always did. Legacy VAFT-native artifacts instead
-    hold the g-file's Wb/rad verbatim. The two families are told apart
-    deterministically from data the file itself carries:
+    hold the g-file's Wb/rad verbatim. The two families are told apart from
+    data the file itself carries, strongest evidence first:
 
-        dphi/dpsi_stored = q      (psi stored in Wb)
-        dphi/dpsi_stored = 2*pi*q (psi stored in Wb/rad)
+    1. :func:`_slope_flux_exponent` -- ``dphi/dpsi`` against ``q``, exact when
+       ``profiles_1d.phi`` is stored;
+    2. :func:`_ampere_flux_exponent` -- the loop integral of ``B_pol`` round the
+       LCFS against ``mu0*|Ip|``, which needs no ``phi``.
 
-    because ``profiles_1d.phi`` is written in Wb by both producers. When the
-    slope test is unavailable (no phi/q/psi profiles) a secondary
-    deterministic test integrates the boundary poloidal field via Ampere's
-    law against ``global_quantities.ip`` (legacy VAFT artifacts carry q and
-    psi but no phi, and would otherwise be misread). Only when both tests
-    are unavailable is the DD convention (Wb) assumed. Returns ``1/(2*pi)``
-    for Wb storage, ``1.0`` for Wb/rad.
+    Both are decisive because their two outcomes are 2*pi apart, and both abstain
+    rather than guess -- a ratio near neither outcome says the input is
+    inconsistent, not which family it belongs to. Only when every slice abstains
+    is the DD convention (Wb) assumed. Returns ``1/(2*pi)`` for Wb storage,
+    ``1.0`` for Wb/rad.
     """
-    ts = _path_get(ods, f"equilibrium.time_slice.{time_index}")
-    # On an OMAS ODS a missing path returns an EMPTY auto-vivified branch
-    # rather than raising, so an `is None` guard does not detect a caller that
-    # passed a bare time slice -- and the empty branch then carries no psi/q,
-    # silently yielding the Weber default for a Wb/rad artifact. Fall back
-    # whenever the resolved branch has no psi of its own.
-    if ts is None or not len(
-        np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
-    ):
-        ts = ods  # accept a bare equilibrium time slice as well
-    phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
-    q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
-    psi = np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
-    if phi.size >= 3 and phi.size == q.size == psi.size and np.all(np.isfinite(phi)):
-        dpsi = np.diff(psi)
-        good = np.abs(dpsi) > 0
-        if np.count_nonzero(good) >= 2:
-            slope = np.diff(phi)[good] / dpsi[good]
-            q_mid = 0.5 * (q[1:] + q[:-1])[good]
-            finite = np.isfinite(slope) & np.isfinite(q_mid) & (np.abs(q_mid) > 1e-12)
-            if np.count_nonzero(finite) >= 2:
-                ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
-                if np.isfinite(ratio) and ratio > 0:
-                    # ratio ~ 1 -> psi in Wb; ratio ~ 2*pi -> psi in Wb/rad.
-                    return 1.0 / TWO_PI if ratio < np.sqrt(TWO_PI) else 1.0
-    ampere = _ampere_law_wb_per_radian_factor(ts)
-    if ampere is not None:
-        return ampere
+    for ts in _flux_exponent_candidates(ods, time_index):
+        for probe in (_slope_flux_exponent, _ampere_flux_exponent):
+            exponent = probe(ts)
+            if exponent is not None:
+                return 1.0 if exponent == 0 else 1.0 / TWO_PI
     return 1.0 / TWO_PI
 
 
@@ -672,93 +755,28 @@ def from_omas(
 #: Minimum marching-squares vertex count for a traced flux surface to be
 #: trusted for a volume; below this the polygon is grid resolution, not
 #: plasma geometry.
-_MIN_CONTOUR_POINTS = 24
+def _min_contour_points() -> int:
+    """The vertex floor for a usable contour, shared with the ODS surface path.
 
-
-def _rho_tor_profile(
-    qpsi: Any, psi_1d: np.ndarray, b0: Any
-) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Integrate ``q`` into toroidal flux and the rho_tor coordinate.
-
-    EFIT writes ``psi`` in Wb/rad, so ``dPhi/dpsi = 2*pi*q`` and
-
-        Phi(psi) = 2*pi * cumulative_trapezoid(q, psi)
-        rho_tor  = sqrt(|Phi| / (pi * |B0|))
-
-    This is the same coordinate OMFIT's ``fluxSurfaces`` produces -- they agree
-    to within 1.5e-3 in normalized units on VEST g-files. The ``sqrt(psi_N)``
-    proxy VAFT wrote before is not: it is off by percent-level amounts, and
-    every kinetic profile is mapped onto this grid.
-
-    Returns ``(phi, rho_tor, rho_tor_norm)``, or ``None`` when the profile is
-    degenerate (flat psi, zero field, no toroidal flux) and the caller should
-    fall back to the proxy.
+    Imported lazily because :mod:`vaft.process.equilibrium` reaches back into
+    :mod:`vaft.data` at import time.
     """
-    from vaft.compat import cumtrapz_compat
+    from vaft.process.equilibrium import MIN_FLUX_SURFACE_POINTS
 
-    qpsi = np.asarray(qpsi, dtype=float).reshape(-1)
-    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
-    b0 = abs(float(b0))
-    if qpsi.size != psi_1d.size or qpsi.size < 2 or b0 == 0.0:
-        return None
-    if not np.all(np.isfinite(qpsi)) or not np.all(np.isfinite(psi_1d)):
-        return None
-
-    phi = 2.0 * np.pi * np.asarray(cumtrapz_compat(qpsi, x=psi_1d), dtype=float)
-    rho_tor = np.sqrt(np.abs(phi) / (np.pi * b0))
-    edge = float(rho_tor[-1])
-    if not np.isfinite(edge) or edge <= 0.0:
-        return None
-    return phi, rho_tor, rho_tor / edge
+    return MIN_FLUX_SURFACE_POINTS
 
 
 def _contour_geometry(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
-    """Shape parameters of one closed flux-surface contour."""
-    from vaft.formula.equilibrium import exact_volume_from_RZ_contour
+    """Shape parameters of one closed flux-surface contour.
 
-    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
-    z_min, z_max = float(np.min(z_seg)), float(np.max(z_seg))
-    minor = 0.5 * (r_max - r_min)
-    r_geo = 0.5 * (r_max + r_min)
-    if minor <= 0.0:
-        raise ValueError("degenerate contour")
-    return {
-        "volume": exact_volume_from_RZ_contour(r_seg, z_seg),
-        # Poloidal cross-section area, by the shoelace formula.
-        "area": 0.5
-        * abs(
-            float(np.dot(r_seg, np.roll(z_seg, 1)) - np.dot(z_seg, np.roll(r_seg, 1)))
-        ),
-        "elongation": (z_max - z_min) / (2.0 * minor),
-        "triangularity_upper": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=True)) / minor,
-        "triangularity_lower": (r_geo - _r_at_z_extremum(r_seg, z_seg, upper=False)) / minor,
-    }
-
-
-def _r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
-    """R where the contour reaches its highest (or lowest) point.
-
-    Taking R at the sampled vertex of extreme Z is off by several percent in
-    triangularity, because the true extremum falls between vertices. Fitting a
-    parabola to Z over the three points around it locates the extremum to
-    sub-vertex resolution, and R is interpolated there.
+    A thin wrapper over :func:`vaft.process.equilibrium.contour_shape_parameters`,
+    which the ODS-side flux-surface engine uses too, so the g-file path and the
+    ODS path cannot drift apart. Only the keys this module writes are kept.
     """
-    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
-    size = z_seg.size
-    if size < 3:
-        return float(r_seg[index])
-    prev, nxt = (index - 1) % size, (index + 1) % size
-    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
-    denominator = z_prev - 2.0 * z_here + z_next
-    if denominator == 0.0:
-        return float(r_seg[index])
-    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
-    shift = 0.5 * (z_prev - z_next) / denominator
-    if not np.isfinite(shift) or abs(shift) > 1.0:
-        return float(r_seg[index])
-    r_here = float(r_seg[index])
-    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
-    return r_here + abs(shift) * (neighbour - r_here)
+    from vaft.process.equilibrium import contour_shape_parameters
+
+    shape = contour_shape_parameters(r_seg, z_seg)
+    return {name: shape[name] for name in _SURFACE_QUANTITIES}
 
 
 #: Flux-surface quantities ``_surface_geometry`` returns, in the order they are
@@ -796,6 +814,7 @@ def _surface_geometry(
     """
     from vaft.process.equilibrium import extract_flux_surface_contours
 
+    min_points = _min_contour_points()
     psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
     if psi_norm.size < 3:
         return None
@@ -839,7 +858,7 @@ def _surface_geometry(
             # surfaces, where the flux surface is only a few cells across; what
             # those polygons describe is grid artifact, not geometry. Drop them
             # and let the fill below interpolate.
-            segments = [seg for seg in segments if seg[0].size >= _MIN_CONTOUR_POINTS]
+            segments = [seg for seg in segments if seg[0].size >= min_points]
             if not segments:
                 continue
             r_seg, z_seg = max(segments, key=lambda segment: segment[0].size)
@@ -904,10 +923,11 @@ def to_omas(
     eqt["global_quantities.psi_boundary"] = float(data["SIBRY"]) * TWO_PI
     eqt["global_quantities.ip"] = float(data["CURRENT"])
     ods["equilibrium.vacuum_toroidal_field.r0"] = float(data["RCENTR"])
+    b0 = _vacuum_b0(data)
     try:
-        ods.set_time_array("equilibrium.vacuum_toroidal_field.b0", time_index, float(data["BCENTR"]))
+        ods.set_time_array("equilibrium.vacuum_toroidal_field.b0", time_index, b0)
     except Exception:
-        ods[f"equilibrium.vacuum_toroidal_field.b0.{time_index}"] = float(data["BCENTR"])
+        ods[f"equilibrium.vacuum_toroidal_field.b0.{time_index}"] = b0
 
     eqt["profiles_1d.psi"] = psi_1d * TWO_PI
     eqt["profiles_1d.f"] = np.asarray(data["FPOL"], dtype=float)
@@ -916,14 +936,19 @@ def to_omas(
     eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float) / TWO_PI
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
 
-    rho_tor_terms = _rho_tor_profile(data["QPSI"], psi_1d, data["BCENTR"])
+    # psi_1d is the g-file's weber-per-radian; the shared routine takes weber.
+    rho_tor_terms = rho_tor_profile(data["QPSI"], psi_1d * TWO_PI, b0)
     if rho_tor_terms is None:
-        eqt["profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+        # No toroidal coordinate is derivable, so write the poloidal one the DD
+        # does define -- equilibrium profiles_1d has psi_norm but no
+        # rho_pol_norm -- and leave rho_tor_norm unset for the reader to notice.
+        # Filling it with sqrt(psi_N) is what issue #276 is about.
+        eqt["profiles_1d.psi_norm"] = np.clip(psi_norm, 0.0, 1.0)
     else:
-        phi, rho_tor, rho_tor_norm = rho_tor_terms
-        eqt["profiles_1d.phi"] = phi
-        eqt["profiles_1d.rho_tor"] = rho_tor
-        eqt["profiles_1d.rho_tor_norm"] = rho_tor_norm
+        eqt["profiles_1d.phi"] = rho_tor_terms.phi
+        if rho_tor_terms.rho_tor is not None:
+            eqt["profiles_1d.rho_tor"] = rho_tor_terms.rho_tor
+        eqt["profiles_1d.rho_tor_norm"] = rho_tor_terms.rho_tor_norm
 
     prof2d = eqt[f"profiles_2d.{profile_index}"]
     prof2d["grid_type.index"] = 1
@@ -932,13 +957,18 @@ def to_omas(
     prof2d["psi"] = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh) * TWO_PI
 
     if allow_derived_data and float(data["CURRENT"]) != 0.0:
-        eqt["global_quantities.magnetic_axis.b_field_tor"] = float(data["BCENTR"]) * float(data["RCENTR"]) / float(data["RMAXIS"])
+        # b0 * RCENTR is FPOL[-1], the vacuum R*B_phi, so this is that field
+        # carried to the magnetic axis.
+        eqt["global_quantities.magnetic_axis.b_field_tor"] = b0 * float(data["RCENTR"]) / float(data["RMAXIS"])
         eqt["global_quantities.q_axis"] = float(np.asarray(data["QPSI"])[0])
         eqt["global_quantities.q_95"] = float(np.interp(0.95, np.linspace(0.0, 1.0, nw), np.asarray(data["QPSI"], dtype=float)))
         qpsi = np.asarray(data["QPSI"], dtype=float)
         qmin_idx = int(np.argmin(np.abs(qpsi)))
         eqt["global_quantities.q_min.value"] = float(qpsi[qmin_idx])
-        eqt["global_quantities.q_min.rho_tor_norm"] = float(eqt["profiles_1d.rho_tor_norm"][qmin_idx])
+        if "profiles_1d.rho_tor_norm" in eqt:
+            eqt["global_quantities.q_min.rho_tor_norm"] = float(
+                eqt["profiles_1d.rho_tor_norm"][qmin_idx]
+            )
 
     if float(data["CURRENT"]) != 0.0:
         eqt["boundary.outline.r"] = np.asarray(data.get("RBBBS", []), dtype=float)

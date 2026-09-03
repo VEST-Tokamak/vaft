@@ -1,0 +1,451 @@
+"""Semantic channel selection and the shared region classifier (issue #259).
+
+The inboard/outboard divider is inferred per diagnostic family from that
+family's own geometry, so it cannot be moved by how densely one side is
+instrumented, by an outlying channel, or by a hard-coded machine radius.  Every
+plotting consumer resolves through the same definition.  Policy:
+``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
+"""
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import numpy as np
+import omas
+import pytest
+
+import vaft.omas
+from vaft.plot.selection import (
+    INBOARD,
+    OUTBOARD,
+    UNCLASSIFIED,
+    classify_regions,
+    radial_divider,
+    representative_index,
+)
+
+
+# ---------------------------------------------------------------------------
+# The divider rule
+# ---------------------------------------------------------------------------
+
+def test_channel_density_cannot_move_the_divider():
+    """Twenty inboard sensors against two outboard must split in the same place.
+
+    A mean-based rule fails this: it would sit at 0.17 and call every outboard
+    channel inboard.
+    """
+    dense = radial_divider([0.1] * 20 + [0.9] * 2)
+    sparse = radial_divider([0.1] * 2 + [0.9] * 20)
+    balanced = radial_divider([0.1] * 5 + [0.9] * 5)
+    assert dense.divider == pytest.approx(0.5)
+    assert sparse.divider == pytest.approx(0.5)
+    assert balanced.divider == pytest.approx(0.5)
+
+
+def test_an_outlying_channel_does_not_drag_the_divider():
+    """VEST's probe array carries an IMPA scan out to R = 1.26 m.
+
+    The extent midpoint would be dragged from 0.44 to 0.67 by those eight
+    channels; the widest gap ignores them.
+    """
+    probes = [0.089] * 27 + [0.1377] * 16 + [0.796] * 25
+    with_impa = probes + [0.91, 0.96, 1.01, 1.06, 1.11, 1.16, 1.21, 1.26]
+    assert radial_divider(probes).divider == pytest.approx(
+        radial_divider(with_impa).divider
+    )
+    # And the IMPA channels themselves still read as outboard.
+    assert classify_regions(with_impa)[-1] == OUTBOARD
+
+
+def test_families_are_classified_independently():
+    """Flux loops are split against flux loops, probes against probes."""
+    loops = [0.091, 0.106, 0.130, 0.138, 0.592, 0.792]
+    probes = [0.089, 0.1377, 0.796, 1.26]
+    assert radial_divider(loops).divider != pytest.approx(
+        radial_divider(probes).divider
+    )
+    # Pooling them would produce a single divider that serves neither.
+    pooled = radial_divider(loops + probes).divider
+    assert pooled != pytest.approx(radial_divider(loops).divider)
+
+
+def test_a_family_without_a_gap_gets_no_split():
+    """Every fluctuation Mirnov sits at one radius; there is no inboard there."""
+    assert not radial_divider([0.796] * 12)
+    assert classify_regions([0.796] * 12) == [UNCLASSIFIED] * 12
+    # A single loose cluster is not two sides either.
+    assert not radial_divider([0.50, 0.51, 0.52, 0.53])
+
+
+def test_a_channel_on_the_divider_is_left_unclassified():
+    """Classified against the family's divider, a borderline channel abstains.
+
+    The split is passed in rather than re-inferred, because a channel sitting
+    mid-gap is a third cluster and would legitimately move an inferred divider.
+    """
+    split = radial_divider([0.1, 0.9])
+    regions = classify_regions([0.1, split.divider, 0.9], split=split)
+    assert regions == [INBOARD, UNCLASSIFIED, OUTBOARD]
+    # Just outside the tolerance it is assigned a side again.
+    outside = split.divider + 10 * split.tolerance
+    assert classify_regions([outside], split=split) == [OUTBOARD]
+
+
+def test_classification_survives_a_floating_point_perturbation():
+    """No channel may be identified by exact coordinate equality."""
+    loops = np.array([0.091, 0.106, 0.130, 0.138, 0.592, 0.792])
+    nudged = np.nextafter(loops, loops + 1.0)
+    assert classify_regions(loops) == classify_regions(nudged)
+
+
+def test_the_representative_is_the_channel_nearest_the_midplane():
+    z = [0.685, 0.46, -0.46, -0.685, -0.805, 0.04]
+    assert representative_index(z, [4, 5]) == 5
+    # Ties resolve to the lowest index, so the answer is reproducible.
+    assert representative_index([0.5, -0.5, 0.5], [0, 1, 2]) == 0
+    assert representative_index([0.1], []) is None
+
+
+# ---------------------------------------------------------------------------
+# The public selection contract
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def loop_ods():
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, (name, r, z) in enumerate(
+        (("FL01", 0.091, 0.04), ("FL02", 0.138, 0.805), ("FL03", 0.792, 0.46))
+    ):
+        ods[f"magnetics.flux_loop.{index}.name"] = name
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = r
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4) * (index + 1)
+    return ods
+
+
+def test_selection_accepts_all_indices_and_identifiers(loop_ods):
+    for request, expected in (
+        (None, 3),
+        ("all", 3),
+        (1, 1),
+        ([0, 2], 2),
+        ("FL02", 1),
+        (["FL01", "FL03"], 2),
+    ):
+        figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=request)
+        assert len(axes.lines) == expected, request
+        matplotlib.pyplot.close(figure)
+
+
+def test_an_unknown_selection_raises_and_names_what_exists(loop_ods):
+    with pytest.raises(ValueError, match="unknown selection"):
+        vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="FL99")
+    # The message lists the real identifiers rather than guessing at a match.
+    with pytest.raises(ValueError, match="FL01"):
+        vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="fl01")
+
+
+def test_channels_is_deprecated_in_favour_of_selection(loop_ods):
+    with pytest.warns(DeprecationWarning, match="selection="):
+        figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, channels=[0, 1])
+    assert len(axes.lines) == 2
+    matplotlib.pyplot.close(figure)
+
+    with pytest.raises(TypeError, match="not both"):
+        vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=[0], channels=[1])
+
+
+# ---------------------------------------------------------------------------
+# One definition, every consumer
+# ---------------------------------------------------------------------------
+
+def _sample():
+    from vaft.data import sample
+
+    return vaft.omas.load(sample(39915, "omas"))
+
+
+def test_the_packaged_shot_classifies_as_the_machine_is_built():
+    ods = _sample()
+    loops = classify_regions(np.asarray(ods["magnetics.flux_loop.:.position.0.r"], float))
+    assert loops.count(INBOARD) == 7
+    assert loops.count(OUTBOARD) == 4
+
+
+def test_legacy_selectors_agree_with_the_shared_classifier():
+    """plot.time, plot.analysis and the new selector share one definition."""
+    from vaft.plot.time import (
+        _find_flux_loop_inboard_indices,
+        _find_flux_loop_outboard_indices,
+    )
+
+    ods = _sample()
+    regions = classify_regions(
+        np.asarray(ods["magnetics.flux_loop.:.position.0.r"], float)
+    )
+    expected_in = [i for i, name in enumerate(regions) if name == INBOARD]
+    expected_out = [i for i, name in enumerate(regions) if name == OUTBOARD]
+
+    assert sorted(_find_flux_loop_inboard_indices(ods)[0].tolist()) == expected_in
+    assert sorted(_find_flux_loop_outboard_indices(ods)[0].tolist()) == expected_out
+
+
+def test_the_midplane_loop_is_found_by_geometry_not_by_a_literal():
+    from vaft.plot.time import _find_flux_loop_inboard_midplane_indices
+
+    ods = _sample()
+    chosen = _find_flux_loop_inboard_midplane_indices(ods)[0]
+    assert len(chosen) == 1
+    z = float(ods[f"magnetics.flux_loop.{int(chosen[0])}.position.0.z"])
+    inboard_z = [
+        abs(float(ods[f"magnetics.flux_loop.{i}.position.0.z"]))
+        for i, name in enumerate(
+            classify_regions(np.asarray(ods["magnetics.flux_loop.:.position.0.r"], float))
+        )
+        if name == INBOARD
+    ]
+    assert abs(z) == pytest.approx(min(inboard_z))
+
+
+def test_legacy_probe_regions_stay_mutually_exclusive():
+    """inboard, side and outboard must partition the probes, not overlap.
+
+    The side array sits at a radius the inferred divider calls inboard, so
+    classifying by radius alone returned each of those channels twice -- the
+    precedence bug this shared classifier exists to remove.
+    """
+    from vaft.plot.time import (
+        _find_bpol_probe_inboard_indices,
+        _find_bpol_probe_outboard_indices,
+        _find_bpol_probe_side_indices,
+    )
+
+    ods = _sample()
+    inboard = set(_find_bpol_probe_inboard_indices(ods)[0].tolist())
+    outboard = set(_find_bpol_probe_outboard_indices(ods)[0].tolist())
+    side = set(_find_bpol_probe_side_indices(ods)[0].tolist())
+    assert inboard and outboard and side
+    assert not inboard & side
+    assert not outboard & side
+    assert not inboard & outboard
+
+
+def test_region_presets_select_through_the_shared_classifier(loop_ods):
+    """`selection="inboard"` is the capability the whole rule exists for."""
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="inboard")
+    assert len(axes.lines) == 2  # FL01 and FL02 sit inboard of the divider
+    matplotlib.pyplot.close(figure)
+
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="outboard")
+    assert len(axes.lines) == 1
+    matplotlib.pyplot.close(figure)
+
+
+def test_the_packaged_shot_resolves_its_presets(loop_ods):
+    ods = _sample()
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard")
+    assert len(axes.lines) == 7
+    matplotlib.pyplot.close(figure)
+
+
+def test_selection_keeps_the_callers_order(loop_ods):
+    """Identifiers order the traces as asked, exactly as indices already did."""
+    by_index = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=[2, 0])[1]
+    by_name = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=["FL03", "FL01"])[1]
+    assert [line.get_label() for line in by_index.lines] == [
+        line.get_label() for line in by_name.lines
+    ]
+    matplotlib.pyplot.close("all")
+
+
+def test_a_duplicated_identifier_is_refused_rather_than_shadowed():
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index in range(2):
+        ods[f"magnetics.flux_loop.{index}.name"] = "FL01"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 + index
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = 0.0
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+    with pytest.raises(ValueError, match="more than one channel"):
+        vaft.omas.plot_flux_loop_time_flux(ods, selection="FL01")
+
+
+def test_a_boolean_is_not_an_index(loop_ods):
+    with pytest.raises(TypeError, match="indices, identifiers or a preset"):
+        vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=True)
+
+
+def test_numerically_indistinguishable_radii_are_not_two_sides():
+    assert not radial_divider([0.5, 0.5 + 1e-9])
+    assert radial_divider([0.1, 0.9])
+
+
+def test_every_advertised_preset_resolves_to_something(loop_ods):
+    """No preset may draw an empty figure and present it as the answer.
+
+    `inboard_mid` used to do exactly that: the vocabulary advertised it while
+    nothing resolved it, so it selected no channels and said nothing.
+    """
+    from vaft.plot.selection import PRESETS
+
+    for preset in PRESETS:
+        figure, axes = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection=preset)
+        assert axes.lines, preset
+        matplotlib.pyplot.close(figure)
+
+
+# ---------------------------------------------------------------------------
+# Representative channels (issue #259 sections 7 and 8)
+# ---------------------------------------------------------------------------
+
+def test_a_representative_is_one_member_of_its_region(loop_ods):
+    """selection, representative and aggregate stay distinct: a representative
+    is one of the real channels the region selects, not a derived signal."""
+    region = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="inboard")[1]
+    one = vaft.omas.plot_flux_loop_time_flux(loop_ods, selection="inboard_mid")[1]
+    assert len(one.lines) == 1
+    assert len(region.lines) > 1
+    assert one.lines[0].get_label() in [line.get_label() for line in region.lines]
+    matplotlib.pyplot.close("all")
+
+
+def test_the_representative_is_the_regions_channel_nearest_the_midplane():
+    ods = _sample()
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard_mid")
+    chosen = axes.lines[0].get_label()  # canonical form: "[<index>] (R cm, Z cm)"
+    matplotlib.pyplot.close(figure)
+
+    regions = classify_regions(
+        np.asarray(ods["magnetics.flux_loop.:.position.0.r"], float)
+    )
+    heights = {
+        i: abs(float(ods[f"magnetics.flux_loop.{i}.position.0.z"]))
+        for i, name in enumerate(regions)
+        if name == INBOARD
+    }
+    nearest = min(heights, key=heights.get)
+    assert chosen.startswith(f"[{nearest}] ")
+
+
+def test_the_representative_follows_the_geometry_not_a_remembered_index():
+    """`outboard_mid` is whichever channel represents it in *this* ODS."""
+    def _ods(z_values):
+        ods = omas.ODS()
+        ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+        for index, z in enumerate(z_values):
+            ods[f"magnetics.flux_loop.{index}.name"] = f"FL{index:02d}"
+            ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 if index < 2 else 0.9
+            ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+            ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+        return ods
+
+    first = vaft.omas.plot_flux_loop_time_flux(
+        _ods([0.5, -0.5, 0.6, 0.05]), selection="outboard_mid"
+    )[1]
+    second = vaft.omas.plot_flux_loop_time_flux(
+        _ods([0.5, -0.5, 0.02, 0.7]), selection="outboard_mid"
+    )[1]
+    # Legends carry the canonical "[index] (R cm, Z cm)" label, so the chosen
+    # channel is read from its index prefix.
+    assert first.lines[0].get_label().startswith("[3] ")
+    assert second.lines[0].get_label().startswith("[2] ")
+    matplotlib.pyplot.close("all")
+
+
+def test_ties_resolve_the_same_way_every_time():
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, z in enumerate((0.4, -0.4, 0.4)):
+        ods[f"magnetics.flux_loop.{index}.name"] = f"FL{index:02d}"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 if index == 0 else 0.9
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+    labels = set()
+    for _ in range(3):
+        figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
+        labels.add(axes.lines[0].get_label())
+        matplotlib.pyplot.close(figure)
+    assert len(labels) == 1, "an equidistant pair must not swap between runs"
+
+
+def test_a_channel_without_data_cannot_represent_its_region():
+    """The nearest channel to the midplane is no use if it recorded nothing."""
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, (z, has_data) in enumerate(((0.5, True), (0.9, True), (0.01, False))):
+        ods[f"magnetics.flux_loop.{index}.name"] = f"FL{index:02d}"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 if index == 0 else 0.9
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+        if has_data:
+            ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
+    # Channel 2 sits nearest Z = 0 but is empty, so channel 1 represents the region.
+    assert axes.lines[0].get_label().startswith("[1] ")
+    matplotlib.pyplot.close(figure)
+
+
+def test_a_subject_without_a_radial_split_refuses_the_presets():
+    """Every fluctuation Mirnov sits at one radius; it has no inboard."""
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index in range(4):
+        ods[f"magnetics.b_field_pol_probe.{index}.name"] = f"MP{index:02d}"
+        ods[f"magnetics.b_field_pol_probe.{index}.position.r"] = 0.796
+        ods[f"magnetics.b_field_pol_probe.{index}.position.z"] = 0.1 * index
+        ods[f"magnetics.b_field_pol_probe.{index}.voltage.data"] = np.ones(4)
+    for preset in ("inboard", "outboard", "outboard_mid"):
+        with pytest.raises(ValueError, match="no inboard/outboard split"):
+            vaft.omas.plot_mirnov_time_voltage(ods, selection=preset)
+
+
+def test_an_empty_region_says_so_rather_than_drawing_nothing():
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, r in enumerate((0.1, 0.9)):
+        ods[f"magnetics.flux_loop.{index}.name"] = f"FL{index:02d}"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = r
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = 0.0
+        if index == 0:
+            ods[f"magnetics.flux_loop.{index}.flux.data"] = np.ones(4)
+    with pytest.raises(ValueError, match="carries no data"):
+        vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
+
+
+def test_a_single_sample_channel_still_counts_as_data():
+    """The representative filter must judge a channel the way the renderer does.
+
+    A channel holding one real sample draws a real point, so passing it over
+    would hand back a different channel than the plot itself would use.
+    """
+    ods = omas.ODS()
+    ods["magnetics.time"] = np.linspace(0.0, 0.1, 4)
+    for index, (z, data) in enumerate(
+        ((0.5, np.ones(4)), (0.9, np.ones(4)), (0.01, np.array([3.5])))
+    ):
+        ods[f"magnetics.flux_loop.{index}.name"] = f"FL{index:02d}"
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.1 if index == 0 else 0.9
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = z
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = data
+
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard_mid")
+    assert axes.lines[0].get_label().startswith("[2] ")
+    matplotlib.pyplot.close(figure)
+    # And the plot really can draw it, which is what makes the choice right.
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="FL02")
+    assert len(axes.lines[0].get_ydata()) == 1
+    matplotlib.pyplot.close(figure)
+
+
+def test_the_old_and_new_midplane_apis_choose_the_same_channel():
+    """One definition of "the inboard midplane loop", not two."""
+    from vaft.plot.time import _find_flux_loop_inboard_midplane_indices
+
+    ods = _sample()
+    legacy = int(_find_flux_loop_inboard_midplane_indices(ods)[0][0])
+    figure, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="inboard_mid")
+    assert axes.lines[0].get_label().startswith(f"[{legacy}] ")
+    matplotlib.pyplot.close(figure)

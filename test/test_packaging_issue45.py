@@ -107,9 +107,9 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/samples/*/manifest.yaml" in manifest
     assert "include vaft/data/samples/39915/omas.json.gz" in manifest
     assert "include vaft/data/samples/39915/imas.nc" in manifest
-    assert "include packaging/wheel_samples/39915/manifest.yaml" in manifest
-    assert "include packaging/wheel_samples/39915/omas.json.gz" in manifest
-    assert "include packaging/wheel_samples/39915/imas.nc" in manifest
+    assert "include vaft/data/wheel_samples/39915/manifest.yaml" in manifest
+    assert "include vaft/data/wheel_samples/39915/omas.json.gz" in manifest
+    assert "include vaft/data/wheel_samples/39915/imas.nc" in manifest
     assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 
@@ -158,7 +158,7 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     """The swapped-in wheel sample must not drift from the mapping code.
 
     ``setup.py`` replaces ``vaft/data/samples/39915`` with the compact
-    ``packaging/wheel_samples/39915`` in every build, so that copy -- not the
+    ``vaft/data/wheel_samples/39915`` in every build, so that copy -- not the
     checkout one -- is what users install. Regenerating the checkout sample
     without regenerating the wheel variant therefore ships conventions the
     library itself no longer writes: v0.6.0 published an IMPA
@@ -171,7 +171,7 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     from vaft.machine_mapping.impa import IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE
     from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
 
-    wheel_sample = ROOT / "packaging" / "wheel_samples" / "39915" / "omas.json.gz"
+    wheel_sample = ROOT / "vaft" / "data" / "wheel_samples" / "39915" / "omas.json.gz"
     with gzip.open(wheel_sample, "rt") as handle:
         ods = json.load(handle)
 

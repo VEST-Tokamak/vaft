@@ -70,6 +70,10 @@ _LOG_OWNER = {
     "run_gpec_suite": ("omas", "mhd_linear"),
     "build_mhd_linear": ("omas", "mhd_linear"),
     "build_gpec_ideal": ("omas", "gpec_ideal"),
+    **{
+        f"replicate_{stage}_to_hsds": ("omas", stage)
+        for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear")
+    },
 }
 
 
@@ -120,41 +124,39 @@ class PipelinePaths:
             return str(
                 Path(self.base_dir) / "static" / str(machine_version) / "static.json"
             )
-        directory = self._filedb.omas(
-            "static", machine_version=str(machine_version), artifact="output"
+        return str(
+            self._filedb.omas_product("static", machine_version=str(machine_version))
         )
-        return str(directory / "static.json")
 
     def static_manifest(self, machine_version) -> str:
         if self.layout == SHOT_FIRST:
             return str(
                 Path(self.base_dir) / "static" / str(machine_version) / "manifest.json"
             )
-        directory = self._filedb.omas(
-            "static", machine_version=str(machine_version), artifact="metadata"
+        return str(
+            self._filedb.omas_manifest("static", machine_version=str(machine_version))
         )
-        return str(directory / "manifest.json")
 
     # -- OMAS stage products ----------------------------------------------
     def diagnostics_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_diagnostics.json")
-        return str(self._omas("diagnostics", shot, "output") / "diagnostics.json")
+        return str(self._filedb.omas_product("diagnostics", shot=shot))
 
     def diagnostics_manifest(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "metadata") / "diagnostics_manifest.json")
-        return str(self._omas("diagnostics", shot, "metadata") / "manifest.json")
+        return str(self._filedb.omas_manifest("diagnostics", shot=shot))
 
     def eddy_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_eddy.json")
-        return str(self._omas("eddy", shot, "output") / "eddy.json")
+        return str(self._filedb.omas_product("eddy", shot=shot))
 
     def eddy_manifest(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "metadata") / "eddy_manifest.json")
-        return str(self._omas("eddy", shot, "metadata") / "manifest.json")
+        return str(self._filedb.omas_manifest("eddy", shot=shot))
 
     def constraints_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
@@ -165,12 +167,24 @@ class PipelinePaths:
     def efit_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_efit.json")
-        return str(self._omas("efit", shot, "output") / "efit.json")
+        return str(self._filedb.omas_product("efit", shot=shot))
+
+    def efit_manifest(self, shot) -> str:
+        """The EFIT stage manifest: what the collection produced, and whether."""
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "metadata") / "efit_manifest.json")
+        return str(self._filedb.omas_manifest("efit", shot=shot))
+
+    def chease_manifest(self, shot) -> str:
+        """The CHEASE stage manifest, distinguishing a refinement from a stub."""
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "metadata") / "chease_manifest.json")
+        return str(self._filedb.omas_manifest("chease", shot=shot))
 
     def chease_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_chease.json")
-        return str(self._omas("chease", shot, "output") / "chease.json")
+        return str(self._filedb.omas_product("chease", shot=shot))
 
     # -- external code artifacts -------------------------------------------
     def kfile_manifest(self, shot) -> str:
@@ -259,26 +273,26 @@ class PipelinePaths:
     def mhd_linear_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
-        return str(self._omas("mhd_linear", shot, "output") / "mhd_linear.json")
+        return str(self._filedb.omas_product("mhd_linear", shot=shot))
 
     def mhd_linear_manifest(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(
                 self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json"
             )
-        return str(self._omas("mhd_linear", shot, "metadata") / "manifest.json")
+        return str(self._filedb.omas_manifest("mhd_linear", shot=shot))
 
     def gpec_ideal_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "linear_stability") / "gpec_ideal.json")
-        return str(self._omas("gpec_ideal", shot, "output") / "gpec_ideal.json")
+        return str(self._filedb.omas_product("gpec_ideal", shot=shot))
 
     def gpec_ideal_manifest(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(
                 self._shot_dir(shot, "linear_stability") / "gpec_ideal_manifest.json"
             )
-        return str(self._omas("gpec_ideal", shot, "metadata") / "manifest.json")
+        return str(self._filedb.omas_manifest("gpec_ideal", shot=shot))
 
     # -- validation plots ---------------------------------------------------
     # Validation plots are a canonical FileDB artifact class (issue #139) and
@@ -388,6 +402,19 @@ class PipelinePaths:
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "excluded_shots.json")
 
     # -- Snakemake wildcard patterns ----------------------------------------
+    def replication_record(self, shot, stage: str) -> str:
+        """Where a stage records whether its product reached HSDS.
+
+        Only the canonical layout has a home for it: the record describes a
+        canonical product, and a shot-first tree is not one (issues #89, #138).
+        """
+        if self.layout == SHOT_FIRST:
+            raise ValueError(
+                "HSDS replication requires layout: filedb. The shot-first tree is a "
+                "read-only legacy reference and is not replicated."
+            )
+        return str(self._filedb.omas_replication_record(stage, shot=shot))
+
     def shot_pattern(self, product: str, *args) -> str:
         """Return ``product`` with the shot replaced by a ``{shot}`` wildcard."""
         resolved = getattr(self, product)(_SHOT_SENTINEL, *args)
