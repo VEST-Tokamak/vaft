@@ -2,14 +2,45 @@ from dataclasses import dataclass
 from typing import Callable, Sequence
 
 import numpy as np
-from ipywidgets import IntSlider, interact
 from scipy import signal
 from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
-from vaft.database import raw as raw_db
-from vaft.process import define_baseline, subtract_baseline
+from .signal_processing import define_baseline, subtract_baseline
+
+# ``ipywidgets`` and ``vaft.database`` are imported inside the two functions
+# that need them, not here.  Both are heavy -- ipywidgets brings IPython and
+# prompt_toolkit, and vaft.database.raw imports Matplotlib at module scope as
+# an availability probe -- and neither is needed to process a waveform.  Every
+# consumer of vaft.process used to pay for both (issue #249; the Matplotlib
+# chain is the one described in #268).
+
+__all__ = [
+    "DEFAULT_VEST_MAGNETICS_PROCESSING",
+    "MirnovSpectrogramResult",
+    "ToroidalModeResult",
+    "ToroidalPhaseFitResult",
+    "ToroidalPhaseModeFit",
+    "UnsupportedMagneticsDaqModeError",
+    "VestEquilibriumMagneticsResult",
+    "VestMagneticsProcessingConfig",
+    "b_field_pol_probe_field",
+    "flux_loop_flux",
+    "mirnov_preprocess_signal",
+    "mirnov_spectrogram",
+    "rogowski_coil_ip",
+    "toroidal_mode_analysis",
+    "toroidal_phase_fit_at_time",
+    "vest_b_field_pol_probe_legacy",
+    "vest_equilibrium_magnetics_detailed",
+    "vest_equilibrium_magnetics_signals",
+    "vest_flux_loop_flux_from_voltage",
+    "vest_flux_loop_legacy",
+    "vest_flux_loop_voltage",
+    "vest_magnetics_time_window",
+    "vest_md_signals",
+]
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
 
@@ -321,6 +352,8 @@ def vest_equilibrium_magnetics_detailed(
     allow_missing: bool = False,
 ) -> VestEquilibriumMagneticsResult:
     """Process VEST MD channels, retaining the pre-integration flux-loop voltage."""
+    from vaft.database import raw as raw_db
+
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     _validate_daq_mode(cfg)
     channel_rows = list(channels)
@@ -866,6 +899,8 @@ def b_field_pol_probe_field(
                 ),
             )
 
+        from ipywidgets import IntSlider, interact
+
         interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 
     return raw, filtered_raw, integrated_flux, field, baselines
@@ -965,6 +1000,8 @@ def flux_loop_flux(
                     ("Baseline-Corrected Signal", processed_data[:, index]),
                 ),
             )
+
+        from ipywidgets import IntSlider, interact
 
         interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 

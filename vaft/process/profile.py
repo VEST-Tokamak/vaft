@@ -4,8 +4,25 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.io import loadmat
 from uncertainties import unumpy
-from omas import *
 from vaft.formula import fit_profile
+
+
+__all__ = [
+    "NE_DYNAMIC_RANGE_MAX",
+    "PHYSICAL_PSIN_MAX",
+    "TE_POSITIVE_PSIN_MAX",
+    "TI_TE_RATIO_VEST",
+    "TI_TE_RATIO_VEST_SIGMA",
+    "core_profiles",
+    "core_profiles_from_eq",
+    "core_profiles_from_eq_ratio",
+    "equilibrium_mapping_charge_exchange",
+    "equilibrium_mapping_thomson_scattering",
+    "export_electron_profile_txt",
+    "fit_ti_te_ratio",
+    "profile_fitting_charge_exchange",
+    "profile_fitting_thomson_scattering",
+]
 
 
 # Statistical Ti/Te coefficient for VEST slices WITHOUT an ion-temperature

@@ -12,7 +12,6 @@ import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
-from matplotlib.path import Path as MplPath
 from scipy.constants import mu_0 as MU0
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import least_squares, root
@@ -39,6 +38,19 @@ from vaft.data.equilibrium import (
     ValidationReport,
     XPoint,
 )
+
+
+def _mpl_path(points):
+    """``matplotlib.path.Path``, imported on first use.
+
+    Five call sites here want one point-in-polygon test.  Importing Matplotlib
+    at module scope for it made every consumer of ``vaft.process.equilibrium``
+    pay for the whole plotting stack (issue #249).
+    """
+    from matplotlib.path import Path as MplPath
+
+    return MplPath(points)
+
 
 
 def _path_get(item: Any, path: str, default: Any = None) -> Any:
@@ -584,7 +596,7 @@ def derive_global_descriptors(
             psi_n_1d = (eq.psi_1d - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
             order = np.argsort(psi_n_1d)
             p_grid = np.interp(psi_n_grid, psi_n_1d[order], eq.pressure[order], left=eq.pressure[order][0], right=eq.pressure[order][-1])
-            mask = MplPath(eq.lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
+            mask = _mpl_path(eq.lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
             dr = np.gradient(eq.r)[:, None]; dz = np.gradient(eq.z)[None, :]
             dv = 2 * np.pi * rm * dr * dz * mask
             pressure_integral = float(np.nansum(p_grid * dv))
@@ -760,7 +772,7 @@ def _contour_at_level(eq: EquilibriumData, level: float) -> Contour | None:
     candidates = []
     for r, z in raw:
         contour = Contour(r, z, bool(np.hypot(r[0]-r[-1], z[0]-z[-1]) < 3*max(np.mean(np.diff(eq.r)), np.mean(np.diff(eq.z)))))
-        contains = bool(axis and MplPath(contour.points).contains_point(axis))
+        contains = bool(axis and _mpl_path(contour.points).contains_point(axis))
         candidates.append((contains, contour.r.size, contour))
     return max(candidates, key=lambda value: (value[0], value[1]))[2]
 
@@ -971,7 +983,7 @@ def _closed_boundary_contour(
         if (
             contour is not None
             and contour.closed
-            and MplPath(contour.points).contains_point(axis)
+            and _mpl_path(contour.points).contains_point(axis)
         ):
             return contour, level
     return None, None
@@ -1010,7 +1022,7 @@ def solovev_to_equilibrium(
     psi_1d = np.linspace(psi_axis, model.psi_boundary, max(65, min(r.size, z.size)))
     pressure = model.pressure_boundary + model.pprime*(psi_1d-model.psi_boundary)
     f = model.f_sign*np.sqrt(np.clip(model.f_boundary**2+2*model.ffprime*(psi_1d-model.psi_boundary), 0, None))
-    mask = MplPath(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
+    mask = _mpl_path(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
     ip = float(np.sum(values["j_phi"]*np.gradient(r)[:, None]*np.gradient(z)[None, :]*mask))
     if convention not in range(1, 19):
         raise ValueError("convention must be a COCOS index in the range 1..18")
@@ -1141,7 +1153,7 @@ def _confined_contour(eq: EquilibriumData, level: float) -> tuple[Contour | None
         return None, f"no flux surface could be extracted at psi_n={level:.4g}"
     if not contour.closed:
         return None, f"the flux surface at psi_n={level:.4g} is clipped by the grid boundary"
-    if eq.magnetic_axis is not None and not MplPath(contour.points).contains_point(eq.magnetic_axis):
+    if eq.magnetic_axis is not None and not _mpl_path(contour.points).contains_point(eq.magnetic_axis):
         return None, f"the flux surface at psi_n={level:.4g} does not enclose the magnetic axis"
     return contour, None
 

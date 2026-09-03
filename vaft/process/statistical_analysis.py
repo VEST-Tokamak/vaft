@@ -7,11 +7,26 @@ scaling data, including log transformation, OLS regression, and significance tes
 
 import pandas as pd
 import numpy as np
-import statsmodels.api as sm
 from scipy.stats import pearsonr
 from typing import Dict, List, Tuple, Optional, Union
 import logging
 import math
+
+
+__all__ = [
+    "RegressionResults",
+    "analyze_significance",
+    "compute_metrics",
+    "confinement_time_histogram",
+    "filter_dataframe",
+    "generate_core_profiles_history_dataframe",
+    "get_correlation_matrix",
+    "get_individual_correlations",
+    "get_residuals",
+    "load_data_from_excel",
+    "log_transform",
+    "perform_ols_regression",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +196,10 @@ def perform_ols_regression(df: pd.DataFrame,
     Returns:
         RegressionResults object with regression analysis results
     """
+    # statsmodels is imported here, not at module scope: it is the heaviest
+    # dependency in vaft.process and only this one regression needs it (#249).
+    import statsmodels.api as sm
+
     # Log transform
     log_df = log_transform(df, eng_params, target_param)
     
