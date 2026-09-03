@@ -207,6 +207,10 @@ def _resample(reference_time: np.ndarray, time: np.ndarray, values: np.ndarray) 
     values = np.asarray(values, dtype=float)
     if time.size == reference_time.size and np.allclose(time, reference_time):
         return values
+    # anti-alias: channel alignment onto the first-loaded channel's grid, which
+    # is the same DAQ rate; the allclose guard above makes the common case a
+    # no-op.  See issue #425 for the open question of whether IMPA's configured
+    # sample_rate matches its channels.
     return np.interp(reference_time, time, values)
 
 
@@ -601,6 +605,8 @@ def impa(
             values = np.asarray(measurement[offset], dtype=float)
             finite = np.isfinite(values)
             if finite.any():
+                # anti-alias: impa_lowpass (process/impa.py) band-limits the field
+                # on the source grid before this projection.
                 set_path(ods, f"{prefix}.field.time", target_time)
                 set_path(
                     ods,
@@ -690,6 +696,8 @@ def impa(
                 values = np.asarray(result.b_z_corrected[offset], dtype=float)
                 finite = np.isfinite(values)
                 if finite.any():
+                    # anti-alias: as above -- impa_lowpass has already band-limited
+                    # this field on the source grid.
                     set_path(ods, f"{prefix}.field.time", target_time)
                     set_path(
                         ods,

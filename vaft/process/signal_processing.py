@@ -1,5 +1,7 @@
+import math
 import warnings
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.signal as scipy_signal
@@ -8,9 +10,13 @@ from scipy.optimize import curve_fit
 
 
 __all__ = [
+    "ResamplingError",
     "SignalRepairError",
+    "TimeGrid",
+    "anti_alias_filter",
     "butterworth_bandpass",
     "butterworth_lowpass",
+    "describe_time_grid",
     "detect_active_window",
     "detect_clipped_samples",
     "detrend_moving_average",
@@ -22,6 +28,7 @@ __all__ = [
     "process_signal",
     "quadratic_baseline",
     "repair_clipped_interval",
+    "resample_to_time",
     "signal_on_offset",
     "smooth",
     "subtract_baseline",
@@ -319,8 +326,420 @@ def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, f
     return detect_active_window(time, data, threshold=threshold)
 
 
+# ---------------------------------------------------------------------------
+# Rate changes: interpolation versus downsampling
+# ---------------------------------------------------------------------------
+#
+# VEST acquires on two DAQ rates -- ``FAST_DT = 4e-6`` (250 kHz) and
+# ``SLOW_DT = 4e-5`` (25 kHz), see :mod:`vaft.database.raw` -- while every
+# processed time grid declared in ``vaft/machine_mapping/vest.yaml`` is 4e-5.
+# A fast channel written onto a policy grid is therefore a 10x decimation, and
+# ``np.interp`` alone folds everything above the 12.5 kHz target Nyquist back
+# into the stored band.  ``resample_to_time`` exists so that the safe thing is
+# what you get by default and the unsafe thing has to be asked for by name.
+
+
+class ResamplingError(ValueError):
+    """Raised when a rate change cannot be performed without fabricating signal.
+
+    Separate from a plain ``ValueError`` because the recoveries differ: an
+    unsorted source timebase means the loader is broken, not that the caller
+    passed a bad option.
+    """
+
+
+@dataclass(frozen=True)
+class TimeGrid:
+    """Description of a timebase, as measured rather than as declared.
+
+    ``dt`` is the *median* spacing, which is robust to the single ragged
+    interval a concatenated acquisition can leave behind.  ``dt`` and
+    ``sample_rate`` are ``nan`` for a single-sample grid, where neither is
+    defined.
+    """
+
+    n: int
+    t0: float
+    dt: float
+    sample_rate: float
+    uniform: bool
+    strictly_increasing: bool
+    max_relative_jitter: float
+
+
+def describe_time_grid(time, *, rtol: float = 1e-3) -> TimeGrid:
+    """Measure a timebase's spacing, uniformity and monotonicity.
+
+    ``rtol`` is deliberately loose (0.1%).  VEST shots after 42190 store their
+    timebase as ``linspace(0, span, n)``, so a nominally 4e-6 grid is really
+    ``span / (n - 1)`` = 4.00016e-6; that is uniform for every purpose here and
+    a tight tolerance would only reject it.
+    """
+    values = np.asarray(time, dtype=float).reshape(-1)
+    n = int(values.size)
+    if n == 0:
+        return TimeGrid(0, float("nan"), float("nan"), float("nan"), False, False, float("nan"))
+    t0 = float(values[0])
+    if n == 1:
+        return TimeGrid(1, t0, float("nan"), float("nan"), True, True, float("nan"))
+
+    steps = np.diff(values)
+    dt = float(np.median(steps))
+    strictly_increasing = bool(np.all(steps > 0.0))
+    if dt == 0.0 or not np.isfinite(dt):
+        return TimeGrid(n, t0, dt, float("nan"), False, strictly_increasing, float("inf"))
+    jitter = float(np.max(np.abs(steps - dt)) / abs(dt))
+    return TimeGrid(
+        n=n,
+        t0=t0,
+        dt=dt,
+        sample_rate=1.0 / dt,
+        uniform=bool(jitter <= float(rtol)),
+        strictly_increasing=strictly_increasing,
+        max_relative_jitter=jitter,
+    )
+
+
+def _anti_alias_numtaps(source_rate: float, cutoff_hz: float, stopband_hz: float) -> int:
+    """Hamming-window tap estimate for the transition band ``cutoff -> stopband``.
+
+    ``numtaps ~ 3.3 * fs / transition`` is the standard Hamming rule.  The
+    transition must be measured against the frequency the stopband has to start
+    at -- the *target* Nyquist -- not against the source Nyquist, which is ten
+    times higher for a VEST fast channel and would size the filter at nine taps
+    instead of the three hundred the job needs.  Forced odd so the FIR is Type I
+    with an integer group delay, which keeps the ``filtfilt`` result symmetric.
+    """
+    transition = max(float(stopband_hz) - float(cutoff_hz), float(cutoff_hz) * 1e-3)
+    numtaps = int(math.ceil(3.3 * float(source_rate) / transition))
+    return max(numtaps + 1 - (numtaps % 2), 3)
+
+
+def _filtfilt_min_length(numtaps: int) -> int:
+    """Shortest record ``scipy.signal.filtfilt`` accepts for an FIR of this length."""
+    return 3 * (int(numtaps) - 1) + 1
+
+
+def _finite_runs(mask: np.ndarray) -> list[tuple[int, int]]:
+    """Half-open ``[start, stop)`` spans of consecutive ``True`` in ``mask``."""
+    if not mask.any():
+        return []
+    padded = np.concatenate(([False], mask, [False]))
+    edges = np.flatnonzero(padded[1:] != padded[:-1])
+    return list(zip(edges[0::2].tolist(), edges[1::2].tolist()))
+
+
+def anti_alias_filter(
+    values,
+    *,
+    source_rate: float,
+    cutoff_hz: float,
+    stopband_hz: float | None = None,
+    numtaps: int | None = None,
+    axis: int = -1,
+    nan_policy: str = "segment",
+) -> np.ndarray:
+    """Zero-phase FIR low-pass applied on the *source* grid, ahead of a rate cut.
+
+    This is the half of a downsample that ``np.interp`` cannot do for you.
+    Filtering after the rate has already been reduced is too late: whatever
+    folded is now indistinguishable from real in-band signal.
+
+    ``firwin`` + ``filtfilt`` rather than a Butterworth or ``decimate``'s
+    Chebyshev.  It is the idiom the VEST mappers already use
+    (``machine_mapping/tf.py``, ``machine_mapping/pf_active.py``,
+    ``process/magnetics.py``), and zero phase is load-bearing here -- filterscope
+    intensity feeds onset detection, where a causal ``lfilter`` would move the
+    onset by the filter's group delay.
+
+    ``nan_policy="segment"`` filters each maximal finite run independently;
+    ``filtfilt`` would otherwise smear a single NaN across the whole record.
+    Runs too short for the filter are passed through with a ``RuntimeWarning``.
+
+    ``stopband_hz`` is the frequency by which the response must be down -- for a
+    downsample, the target Nyquist.  It sets the transition band and so the tap
+    count; it defaults to ``1.25 * cutoff_hz``, the value consistent with
+    :func:`resample_to_time`'s default 0.8-of-Nyquist cutoff.
+    """
+    data = np.asarray(values, dtype=float)
+    rate = float(source_rate)
+    cutoff = float(cutoff_hz)
+    nyquist = 0.5 * rate
+    if not 0.0 < cutoff < nyquist:
+        raise ResamplingError(
+            f"anti-alias cutoff must lie in (0, {nyquist:g}) Hz for a "
+            f"{rate:g} Hz source; got {cutoff!r}"
+        )
+    stopband = float(stopband_hz) if stopband_hz is not None else 1.25 * cutoff
+    if not cutoff < stopband <= nyquist:
+        raise ResamplingError(
+            f"anti-alias stopband must lie in ({cutoff:g}, {nyquist:g}] Hz; got {stopband!r}"
+        )
+    taps_count = int(numtaps) if numtaps is not None else _anti_alias_numtaps(rate, cutoff, stopband)
+    if taps_count % 2 == 0:
+        taps_count += 1
+
+    if nan_policy not in ("segment", "error", "ignore"):
+        raise ValueError(f"nan_policy must be 'segment', 'error' or 'ignore'; got {nan_policy!r}")
+
+    moved = np.moveaxis(data, axis, -1)
+    length = moved.shape[-1]
+    minimum = _filtfilt_min_length(taps_count)
+
+    finite = np.isfinite(moved)
+    if nan_policy == "error" and not finite.all():
+        raise ResamplingError("anti-alias filtering requires finite samples (nan_policy='error')")
+
+    taps = scipy_signal.firwin(taps_count, cutoff, pass_zero="lowpass", fs=rate)
+
+    if nan_policy == "ignore" or finite.all():
+        if length < minimum:
+            warnings.warn(
+                f"record of {length} samples is shorter than the {minimum} required to "
+                f"anti-alias filter with {taps_count} taps; leaving it unfiltered",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            return data
+        return np.moveaxis(scipy_signal.filtfilt(taps, 1.0, moved, axis=-1), -1, axis)
+
+    out = moved.copy()
+    flat = out.reshape(-1, length)
+    flat_finite = finite.reshape(-1, length)
+    warned = False
+    for row, row_finite in zip(flat, flat_finite):
+        for start, stop in _finite_runs(row_finite):
+            if stop - start < minimum:
+                if not warned:
+                    warnings.warn(
+                        f"a finite run of {stop - start} samples is shorter than the "
+                        f"{minimum} required to anti-alias filter with {taps_count} taps; "
+                        "leaving it unfiltered",
+                        RuntimeWarning,
+                        stacklevel=3,
+                    )
+                    warned = True
+                continue
+            row[start:stop] = scipy_signal.filtfilt(taps, 1.0, row[start:stop])
+    return np.moveaxis(flat.reshape(moved.shape), -1, axis)
+
+
+def _interp_along_last_axis(target_time, source_time, values, *, extrapolate):
+    """``np.interp`` broadcast over the leading axes, with an end-fill policy."""
+    length = values.shape[-1]
+    flat = values.reshape(-1, length)
+    out = np.empty((flat.shape[0], target_time.size), dtype=float)
+    left = right = None
+    if extrapolate == "nan":
+        left = right = float("nan")
+    for index, row in enumerate(flat):
+        out[index] = np.interp(target_time, source_time, row, left=left, right=right)
+    return out.reshape(values.shape[:-1] + (target_time.size,))
+
+
+def resample_to_time(
+    source_time,
+    values,
+    target_time,
+    *,
+    anti_alias: bool | str = "auto",
+    cutoff_fraction: float = 0.8,
+    cutoff_hz: float | None = None,
+    numtaps: int | None = None,
+    min_ratio: float = 1.05,
+    extrapolate: str = "clamp",
+    nan_policy: str = "segment",
+    on_unsorted: str = "error",
+    axis: int = -1,
+) -> np.ndarray:
+    """Project a signal onto ``target_time``, low-passing first if that is a rate cut.
+
+    Use this instead of a bare ``np.interp`` anywhere a diagnostic is written
+    onto a common time grid.  Interpolation and downsampling look identical in
+    source but are not the same operation: evaluating a signal at new instants
+    is always fine, whereas *reducing* the sample rate discards the information
+    needed to distinguish a high frequency from its alias, so the content above
+    the new Nyquist has to be removed while it still can be.
+
+    The default, ``anti_alias="auto"``, measures both grids and decides:
+
+    * ``dt_target / dt_source <= min_ratio`` -- alignment, an upsample, or a
+      rate change too small to matter.  No filter is designed and the result is
+      **bit-for-bit** ``np.interp``.  This exactness is deliberate: it is what
+      lets equal-rate call sites adopt the primitive without moving a single
+      stored value.
+    * otherwise -- a genuine rate reduction.  A zero-phase FIR low-pass runs on
+      the source grid before interpolating.
+
+    ``anti_alias=True`` demands the filter regardless of the measured ratio, and
+    ``anti_alias=False`` is the escape hatch for the cases where filtering is
+    wrong -- a validity mask, say, which is logical rather than bandlimited.
+    Opting out is exact ``np.interp`` too, so the choice is visible in the diff
+    rather than hidden in a numerical difference.
+
+    Parameters
+    ----------
+    source_time, values, target_time
+        ``values`` may carry leading axes; the time axis is ``axis``.
+    cutoff_fraction
+        Anti-alias cutoff as a fraction of the *target* Nyquist (default 0.8).
+        ``firwin`` sits at -6 dB at its cutoff and needs a transition band, so
+        a passband edge below Nyquist puts everything that can fold into the
+        stopband.  ``cutoff_hz`` overrides this outright.
+    min_ratio
+        Rate ratio below which ``"auto"`` performs no filtering at all.
+    extrapolate
+        ``"clamp"`` (default, matching ``np.interp``), ``"nan"``, or ``"error"``
+        for target samples outside the source's span.
+    nan_policy
+        Passed to :func:`anti_alias_filter`.
+    on_unsorted
+        ``"error"`` (default) or ``"sort"``.  ``np.interp`` returns silent
+        nonsense for an unsorted ``x``, so this is checked rather than assumed.
+
+    Raises
+    ------
+    ResamplingError
+        Empty source, unsorted or duplicated source times under the default
+        policy, a target outside the source span under ``extrapolate="error"``,
+        or a forced filter whose cutoff exceeds the source Nyquist.
+    """
+    if anti_alias not in (True, False, "auto"):
+        raise ValueError(f"anti_alias must be True, False or 'auto'; got {anti_alias!r}")
+    if extrapolate not in ("clamp", "nan", "error"):
+        raise ValueError(f"extrapolate must be 'clamp', 'nan' or 'error'; got {extrapolate!r}")
+    if on_unsorted not in ("error", "sort"):
+        raise ValueError(f"on_unsorted must be 'error' or 'sort'; got {on_unsorted!r}")
+
+    times = np.asarray(source_time, dtype=float).reshape(-1)
+    targets = np.asarray(target_time, dtype=float).reshape(-1)
+    data = np.asarray(values, dtype=float)
+
+    if times.size == 0:
+        raise ResamplingError("cannot resample from an empty source timebase")
+    moved = np.moveaxis(data, axis, -1) if data.ndim > 1 else data.reshape(-1)
+    moved = np.atleast_1d(moved)
+    if moved.shape[-1] != times.size:
+        raise ResamplingError(
+            f"source_time has {times.size} samples but values has {moved.shape[-1]} "
+            "along the time axis"
+        )
+
+    if targets.size == 0:
+        empty = np.empty(moved.shape[:-1] + (0,), dtype=float)
+        return np.moveaxis(empty, -1, axis) if data.ndim > 1 else empty.reshape(0)
+
+    source_grid = describe_time_grid(times)
+    if not source_grid.strictly_increasing:
+        if on_unsorted == "error":
+            raise ResamplingError(
+                "source_time must be strictly increasing; np.interp returns silent "
+                "nonsense otherwise. Pass on_unsorted='sort' to sort and collapse "
+                "duplicates instead."
+            )
+        warnings.warn(
+            "source_time was not strictly increasing; sorting and collapsing duplicates",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        order = np.argsort(times, kind="stable")
+        times = times[order]
+        moved = moved[..., order]
+        keep = np.concatenate(([True], np.diff(times) > 0.0))
+        times = times[keep]
+        moved = moved[..., keep]
+        source_grid = describe_time_grid(times)
+
+    target_sorted = bool(targets.size < 2 or np.all(np.diff(targets) >= 0.0))
+    target_low = float(targets[0] if target_sorted else targets.min())
+    target_high = float(targets[-1] if target_sorted else targets.max())
+    if extrapolate == "error" and (target_low < times[0] or target_high > times[-1]):
+        raise ResamplingError(
+            f"target_time spans [{target_low:g}, {target_high:g}] s, outside the source's "
+            f"[{times[0]:g}, {times[-1]:g}] s; np.interp would clamp and fabricate a "
+            "constant tail (extrapolate='error')"
+        )
+
+    if times.size == 1:
+        filled = np.repeat(moved, targets.size, axis=-1)
+        return np.moveaxis(filled, -1, axis) if data.ndim > 1 else filled.reshape(-1)
+
+    # np.interp evaluates at arbitrary instants, so target_time is allowed to be
+    # unsorted -- but the *spacing* statistics that place the cutoff are only
+    # meaningful in time order.  Measuring the shuffled array would report a
+    # median dt tens of times too large and design a filter that eats the signal.
+    target_grid = describe_time_grid(targets if target_sorted else np.sort(targets))
+    should_filter = bool(anti_alias is True)
+    if anti_alias == "auto":
+        if targets.size < 2:
+            warnings.warn(
+                "target_time has a single sample, so no target Nyquist is defined; "
+                "interpolating without an anti-alias filter",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        else:
+            ratio = target_grid.dt / source_grid.dt
+            should_filter = bool(np.isfinite(ratio) and ratio > float(min_ratio))
+
+    if should_filter and not source_grid.uniform:
+        # firwin/filtfilt assume evenly spaced samples.  On an irregular grid the
+        # design rate is a fiction and the filter neither rejects what it should
+        # nor preserves what it should, so say so rather than return a number
+        # that looks filtered.  Resample onto a uniform grid first, or pass
+        # anti_alias=False to accept a bare interpolation knowingly.
+        raise ResamplingError(
+            f"source_time is not uniformly sampled (spacing varies by "
+            f"{source_grid.max_relative_jitter:.3g} of the median), so a "
+            "linear-phase FIR designed at a single rate cannot anti-alias it. "
+            "Resample onto a uniform grid first, or pass anti_alias=False to "
+            "interpolate without the guarantee."
+        )
+
+    if should_filter:
+        if cutoff_hz is not None:
+            cutoff = float(cutoff_hz)
+        elif targets.size < 2 or not np.isfinite(target_grid.dt):
+            raise ResamplingError(
+                "anti_alias=True needs a target Nyquist to place the cutoff, but "
+                "target_time has fewer than two samples; pass cutoff_hz explicitly"
+            )
+        else:
+            cutoff = float(cutoff_fraction) * (0.5 / target_grid.dt)
+        # The stopband has to start at the target Nyquist: that is the frequency
+        # above which content folds instead of being discarded.  An explicit
+        # cutoff_hz above that Nyquist is a deliberate choice to keep more band,
+        # and it gets anti_alias_filter's own 1.25x transition instead -- forcing
+        # the stopband below the cutoff would collapse the transition band to
+        # nothing and silently price the filter out of the record's length.
+        stopband = None
+        if targets.size >= 2 and np.isfinite(target_grid.dt):
+            target_nyquist = 0.5 / abs(target_grid.dt)
+            if cutoff < target_nyquist:
+                stopband = min(target_nyquist, 0.5 * source_grid.sample_rate)
+        moved = anti_alias_filter(
+            moved,
+            source_rate=source_grid.sample_rate,
+            cutoff_hz=cutoff,
+            stopband_hz=stopband,
+            numtaps=numtaps,
+            axis=-1,
+            nan_policy=nan_policy,
+        )
+
+    out = _interp_along_last_axis(targets, times, moved, extrapolate=extrapolate)
+    return np.moveaxis(out, -1, axis) if data.ndim > 1 else out.reshape(-1)
+
+
 def process_signal(time, data, options=None):
-    """Legacy conditioning wrapper kept in the process layer."""
+    """Legacy conditioning wrapper kept in the process layer.
+
+    Order of operations is crop, resample, filter.  The resample goes through
+    :func:`resample_to_time`, so reducing the sample rate anti-aliases on the
+    input grid first; the ``filter_params`` stage that follows is a *shaping*
+    filter and its ``cutoff`` is interpreted against the **output** grid's
+    sample rate, not the input's.
+    """
     if options is None:
         options = {}
 
@@ -338,7 +757,7 @@ def process_signal(time, data, options=None):
         if time.size == 0:
             return time, data
         new_time = np.arange(time[0], time[-1], dt)
-        data = np.interp(new_time, time, data)
+        data = resample_to_time(time, data, new_time)
         time = new_time
 
     if "filter_params" in options:

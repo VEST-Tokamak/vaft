@@ -132,3 +132,16 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
+known_divergences:
+- issue: 425
+  field: spectrometer_uv.channel.2.processed_line.:.intensity.data
+  reason: 'The versatile filterscope is on the fast DAQ at 250 kHz while this grid is
+    25 kHz. The values stored here were produced before the mapper anti-aliased that
+    10x decimation, so they carry content folded down from above 12.5 kHz. Recorded
+    rather than corrected: the generators under workflow/reference_validation select
+    from a frozen pipeline product and never call the mapper, so no regeneration this
+    artifact supports would change these values, and no test compares them against a
+    recomputed mapper output. The next full pipeline re-run from the raw dump will
+    change them. The slow-DAQ lines on channels 0 and 1 -- the ones the compact
+    reference fixture and the shot summary read -- are unaffected and remain
+    bit-for-bit identical.'

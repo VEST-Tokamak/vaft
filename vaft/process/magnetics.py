@@ -397,6 +397,8 @@ def vest_equilibrium_magnetics_detailed(
 
         if kind == "b_field_pol_probe":
             processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
+            # anti-alias: vest_b_field_pol_probe_legacy low-passes at 2.5 kHz on
+            # the 250 kHz source grid, below the 25 kHz target's Nyquist.
             data_probes.append(np.interp(magnetics_time, source_time, processed_full))
             continue
 
@@ -409,6 +411,8 @@ def vest_equilibrium_magnetics_detailed(
             flux_loop_number=flux_loop_counter,
             config=cfg,
         )
+        # anti-alias: the flux is the integral of an already low-passed loop
+        # voltage, so it is band-limited on the source grid.
         data_flux_loops.append(np.interp(magnetics_time, source_time, processed_full))
         flux_loop_voltage_time.append(source_time)
         flux_loop_voltage.append(voltage)

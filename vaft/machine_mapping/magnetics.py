@@ -535,6 +535,9 @@ def _prepare_magnetics_context(
 def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
     if source_time.size <= 1 or values.size <= 1:
         raise ValueError("Cannot interpolate a signal with fewer than two samples")
+    # anti-alias: callers pass signals already low-passed at 2.5 kHz on the
+    # 250 kHz source grid by vest_b_field_pol_probe_legacy, well below the
+    # 12.5 kHz Nyquist of the 25 kHz target.
     return np.interp(target_time, source_time, values)
 
 
@@ -702,6 +705,8 @@ def _apply_fl10_windowed_compensation(
 
     # Donor uses `interp1(..., 'linear', 0)`: zero outside the FL10 record,
     # not edge-clamped as numpy would default to.
+    # anti-alias: ip_ref is already on the decimated grid -- signal.decimate
+    # above applied the Chebyshev low-pass -- so this only re-times it.
     ip_ref_interp = np.interp(time, decimated_time, ip_ref, left=0.0, right=0.0)
 
     window_start, window_end = (float(bound) for bound in fl10_config["subtract_window"])
@@ -782,6 +787,9 @@ def vfit_plasma_current(
             signal_name="plasma-current flux compensation",
         )
         if flux_time.size != time.size or not np.allclose(flux_time, time):
+            # anti-alias: cross-channel alignment between two Rogowski/flux-loop
+            # records on the same DAQ; no rate change, and the guard above makes
+            # the matching case a no-op.
             raw_flux = np.interp(time, flux_time, raw_flux)
 
         # `raw_flux` is FL10's loop VOLTAGE, deliberately not integrated:
@@ -813,6 +821,8 @@ def vfit_plasma_current(
         signal_name="plasma-current Rogowski coil",
     )
     if reference_time.size != time.size or not np.allclose(reference_time, time):
+        # anti-alias: alignment of the reference shot's Rogowski onto this
+        # shot's grid, same DAQ and rate.
         reference_values = np.interp(time, reference_time, reference_values)
 
     comparison = config["processing"]["reference_comparison"]
@@ -1123,6 +1133,8 @@ def vest_diamagnetic_flux_detailed(
             }
         return temp_time, empty, report
 
+    # anti-alias: gap-bridging on the record's own timebase -- the target grid
+    # IS temp_time, so there is no rate change.
     ref_signal = np.interp(
         temp_time,
         np.concatenate((temp_time[: start_index + 1], temp_time[end_index:])),
