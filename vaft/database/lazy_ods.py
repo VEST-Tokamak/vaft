@@ -328,6 +328,30 @@ class HSDSODS(omas.ODS):
             return self.store.keys(self.location)
         return super().keys(dynamic=dynamic)
 
+    def _is_cached(self, requested: list[Any]) -> bool:
+        """Whether ``requested`` already resolves locally, without touching HSDS.
+
+        The fetch below overwrites whatever is in memory, so anything already
+        here -- fetched earlier, or *written by the caller* -- has to short it
+        out. Without this the ODS is silently read-only for every leaf the store
+        happens to hold: an assignment appears to succeed and the next read
+        hands back the stored value again (issue #329).
+
+        ``keys(dynamic=0)`` is what keeps this local; the dynamic form would ask
+        the store and defeat the purpose.
+        """
+        node: Any = self
+        for part in requested:
+            if not isinstance(node, omas.ODS):
+                return False
+            try:
+                if part not in node.keys(dynamic=0):
+                    return False
+                node = node.getraw(part)
+            except Exception:
+                return False
+        return True
+
     def __getitem__(self, key: Any, cocos_and_coords: bool | None = True) -> Any:
         requested = _path_parts(key)
         location = _path_parts(self.location)
@@ -335,7 +359,9 @@ class HSDSODS(omas.ODS):
         # Fetch exact leaves in one backend operation. Besides saving several
         # metadata round trips, this lets lazy access work when callers disable
         # OMAS schema consistency (OMAS otherwise cannot infer AOS containers).
-        if full_path and self.store.__contains__(full_path):
+        # Only on a miss: the class fetches leaves that are *missing*, and
+        # re-fetching a present one would discard the caller's own writes.
+        if full_path and not self._is_cached(requested) and self.store.__contains__(full_path):
             value = self.store.__getitem__(full_path)
             # OMAS does not permit assigning index N to an empty AOS when N>0.
             # Materialize only the lightweight intermediate ODS nodes needed to
