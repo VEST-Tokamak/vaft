@@ -127,6 +127,47 @@ site through `.github/workflows/docs.yml`. A page belongs to the branch whose
 library it documents, so a fix wanted on both tracks travels from `develop` to
 `main` like any other change. `docs/README.md` has the details.
 
+## Documentation surfaces
+
+The section above covers how the site is built.
+This one covers what belongs where. Each surface has one job, and adding
+material to the wrong one is how the README became a manual, a history, and an
+architecture document at once. Adding material to the wrong one is how
+the README became a manual, a history, and an architecture document at once.
+
+| Surface | Job | Not this |
+| --- | --- | --- |
+| `README.md` / `README.ko.md` | Landing page: what VAFT is, what you can do with it, how to start, where to go next | Reference material, extended history, API detail |
+| `tutorial/` | Taught course, offline-first, one session at a time | Research procedures, narrow techniques |
+| `notebooks/` + `notebooks/README.md` | Research workflows indexed by scientific question | Teaching scaffolding |
+| `docs/` -> [the site](https://vest-tokamak.github.io/vaft/) | Long-form workflows, API reference, machine and research archive | Anything that must ship with the source |
+| `THIRD_PARTY_NOTICES.md` | Licence reproduction — a distribution obligation, so it ships with the source | Prose about dependencies |
+
+Three rules:
+
+1. **Keep the two READMEs semantically synchronized.** `README.ko.md` is not
+   optional and not a lagging translation. `test/test_readme_consistency.py`
+   pins the identity narrative, the four infrastructure concepts and their
+   order, and every relative link.
+2. **Do not present planned capability as shipped.** Semantic knowledge graphs,
+   machine-actionable provenance, digital-twin integration and autonomous
+   research agents are long-term direction. Label them, or the test fails.
+3. **Use the shared vocabulary** (issue #330): *scientific infrastructure* rather
+   than only "Python library"; *VEST reference implementation* without implying
+   VAFT is VEST-only; *validated / analysis-ready data*; *traceable and
+   reproducible*; *machine-agnostic tokamak research*. VAFT **interoperates
+   with** community physics codes — it does not own or embed them.
+
+## Notebooks
+
+Notebook outputs are normalized by the repository's pre-commit hook. Install it
+with `pre-commit install`; the hook retains only static text and image results.
+To normalize notebooks manually, run:
+
+```bash
+python notebooks/_clean_outputs.py notebooks/*.ipynb
+```
+
 ## Running the tests
 
 ```bash
