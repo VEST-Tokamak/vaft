@@ -72,7 +72,7 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["describe_entries", "INTERACTION", "INTERACTION_ENTRY_POINTS", "OVERVIEW_CONTENTS", "ANALYSIS_METHODS"]
+__all__ = ["describe_by_ids", "describe_entries", "INTERACTION", "INTERACTION_ENTRY_POINTS", "OVERVIEW_CONTENTS", "ANALYSIS_METHODS"]
 
 #: Interaction modes a plot offers (issue #261 sections 14-17).  A static
 #: summary is the baseline; a time-navigable entry point appears beside it.
@@ -143,6 +143,60 @@ def describe_entries(
         detail=detail,
         available_only=False,
     )
+
+
+def describe_by_ids(
+    present: Sequence[str],
+    source: str,
+    *,
+    query: str | None = None,
+    detail: bool = False,
+    available_only: bool | None = None,
+    **filters: Any,
+) -> PlotCatalog:
+    """The catalog judged at IDS level: which IDS a shot holds, nothing read.
+
+    A plot is available when every IDS it needs is among ``present`` -- a
+    composite when any member's are -- and the reason names the missing IDS.
+    This is what a database shot answers before anything is downloaded; it
+    is deliberately optimistic about leaves (an IDS may exist with the leaf a
+    plot wants empty), and it reports no channel facts, which need a loaded
+    object.
+    """
+    base = _core.catalog(query=query, detail=detail, **filters)
+    present_set = set(present)
+    records = []
+    for record in base:
+        record = _declare(record)
+        missing = missing_required_ids(present_set, record.name)
+        available = missing is None
+        reason = "" if available else f"requires IDS {missing}"
+        records.append(with_capabilities(record, available=available, reason=reason))
+    if available_only is None or available_only:
+        records = [record for record in records if record.available]
+    return PlotCatalog(records, source=source, query=query, detail=detail, available_only=False)
+
+
+def missing_required_ids(present: set[str], name: str) -> str | None:
+    """The first IDS plot ``name`` needs that ``present`` lacks, or ``None``."""
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, PanelRecipe):
+        members = [missing_required_ids(present, member) for member in recipe.members]
+        if any(missing is None for missing in members):
+            return None
+        return " or ".join(m for m in members if m) or None
+    spec = get_spec(name)
+    if not spec.required_paths:
+        # The same rule missing_required_path applies to a plot that declares
+        # IDS but no paths: its builder treats them as what it may draw, and
+        # any one present is enough.
+        if not spec.ids or any(root in present for root in spec.ids):
+            return None
+        return " or ".join(spec.ids)
+    for root in dict.fromkeys(path.split(".")[0] for path in spec.required_paths):
+        if root not in present:
+            return root
+    return None
 
 
 def _source_label(shots: Sequence[str]) -> str:
