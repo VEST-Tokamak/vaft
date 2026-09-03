@@ -306,6 +306,33 @@ def _is_write_provenance(path: str) -> bool:
     )
 
 
+def _is_empty_left_unwritten(entry) -> bool:
+    """Whether a difference is just an empty local array the AL did not store.
+
+    A diagnostic channel that was unavailable for a shot -- a disabled PF coil,
+    a field code the DAQ never recorded -- reaches the product as a zero-length
+    array. IMAS stores no such node, so the replica simply lacks the path. Both
+    sides say "no data here"; only the representation differs, and reporting it
+    as a regression would leave almost every shot unvalidated, since some
+    channel is unavailable on most of them.
+
+    Deliberately narrow: it fires only when the local side is genuinely empty.
+    A path missing from the replica while the local product has values is real
+    data loss and still fails.
+    """
+    from ..omas.comparison import DifferenceKind
+
+    if entry.kind is not DifferenceKind.MISSING_CANDIDATE:
+        return False
+    shape = entry.reference_shape
+    if shape is None:
+        return False
+    try:
+        return any(int(dim) == 0 for dim in shape)
+    except (TypeError, ValueError):
+        return False
+
+
 def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrence: int) -> dict[str, Any]:
     """Read the replica back and compare it against what was sent."""
     from ..omas.comparison import ParityClassification, compare_ods
@@ -335,13 +362,22 @@ def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrenc
         for entry in comparison.entries
         if entry.classification is ParityClassification.REGRESSION
         and not _is_write_provenance(entry.path)
+        and not _is_empty_left_unwritten(entry)
     ]
     excluded = sum(
         1
         for entry in comparison.entries
         if _is_write_provenance(entry.path)
     )
-    summary = {**summary, "passed": not regressions, "write_provenance_excluded": excluded}
+    empty_unwritten = sum(
+        1 for entry in comparison.entries if _is_empty_left_unwritten(entry)
+    )
+    summary = {
+        **summary,
+        "passed": not regressions,
+        "write_provenance_excluded": excluded,
+        "empty_arrays_unwritten": empty_unwritten,
+    }
     if regressions:
         paths = ", ".join(entry.path for entry in regressions[:5])
         raise RoundTripValidationError(
