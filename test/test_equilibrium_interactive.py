@@ -81,7 +81,7 @@ def test_observers_run_once_per_change_and_can_leave():
 def test_the_interactive_figure_shares_one_selected_slice(shot):
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
     figure, axes, nav = result
-    assert axes.shape == (2, 2) and len(result.history_axes) == 2 and result.widget is None
+    assert axes.shape == (7,) and len(result.history_axes) == 2 and result.widget is None
     assert nav.selected == 4  # the representative slice, as the static overview
     assert "t = 320.00 ms (slice 5 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == nav.time for m in _markers(result))
@@ -90,7 +90,8 @@ def test_the_interactive_figure_shares_one_selected_slice(shot):
     assert "t = 325.00 ms (slice 7 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == 0.325 for m in _markers(result))
     assert [panel.get_title() for panel in axes.ravel()] == [
-        "Poloidal flux", "Pressure", "Safety Factor q", "Global quantities"
+        "Poloidal flux", "Pressure", "Safety Factor q", "",
+        "dp/dpsi", "F dF/dpsi", "Global quantities",
     ]
     plt.close(figure)
 
@@ -164,11 +165,11 @@ def test_redrawing_leaves_the_figure_as_it_found_it(shot):
     result.figure.canvas.draw()  # positions settle only once the figure is laid out
     # The layout position: the drawn box also follows each slice's data extent
     # through the panel's equal aspect, which is content, not layout.
-    width = result.axes[0, 0].get_position(original=True).width
+    width = result.axes[0].get_position(original=True).width
     for index in result.navigator.usable:
         result.navigator.select_index(index)
         result.figure.canvas.draw()
-        assert result.axes[0, 0].get_position(original=True).width == pytest.approx(width)
+        assert result.axes[0].get_position(original=True).width == pytest.approx(width)
     assert len(result.figure.axes) == count
     plt.close(result.figure)
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="matplotlib")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from typing import Any
 
 from matplotlib.axes import Axes
@@ -50,9 +52,17 @@ def render_field_2d(
     contour_kwargs = {"cmap": cmap, **style}
     if levels is not None:
         contour_kwargs["levels"] = levels
+    if model.secondary_levels:
+        axes.contour(
+            model.r, model.z, model.values, levels=list(model.secondary_levels),
+            colors="0.6", linewidths=0.5, linestyles="--",
+        )
     draw = axes.contourf if model.filled else axes.contour
-    mappable = draw(model.r, model.z, model.values, **contour_kwargs)
-    if colorbar:
+    values = model.values
+    if model.region is not None:
+        values = np.where(model.region, values, np.nan)
+    mappable = draw(model.r, model.z, values, **contour_kwargs)
+    if colorbar and model.colorbar:
         if colorbar_axes is not None:
             figure.colorbar(mappable, cax=colorbar_axes, label=model.value_label)
         else:

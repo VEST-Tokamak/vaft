@@ -50,9 +50,18 @@ def draw_geometry_layer(
     ``defaults`` are applied to every layer; the layer's own ``style`` wins.
     """
     options = {**defaults, **layer.style}
+    r, z = layer.r, layer.z
+    if layer.kind == "text":
+        # An annotation names what is drawn beside it; legend keys are for
+        # layers, so ``label`` is the text and never a legend entry.
+        options = {k: v for k, v in options.items() if k not in ("label", "lw", "linewidth", "marker")}
+        options.setdefault("fontsize", "x-small")
+        options.setdefault("ha", "center")
+        options.setdefault("va", "center")
+        axes.annotate(layer.label, (float(r[0]), float(z[0])), **options)
+        return
     if layer.label:
         options.setdefault("label", layer.label)
-    r, z = layer.r, layer.z
     if layer.kind == "points":
         options.setdefault("linestyle", "none")
         options.setdefault("marker", "o")
@@ -89,7 +98,7 @@ def render_geometry_layers(
     labelled = False
     for layer in model.layers:
         draw_geometry_layer(axes, layer, **style)
-        labelled = labelled or bool(layer.label)
+        labelled = labelled or bool(layer.label and layer.kind != "text")
 
     axes.set_xlabel(model.x_label)
     axes.set_ylabel(model.y_label)
@@ -117,11 +126,13 @@ def _geometry_renderer(*, domain: str, subject: str, quantity: str, description:
 @_geometry_renderer(
     domain="pf_active", quantity="poloidal",
     subject="pf_coil",
-    description="PF coil outlines in the poloidal plane.",
+    description="PF coil cross-sections in the poloidal plane: every element "
+                "of every coil, as the rectangle or outline the IDS stores.",
     ids=("pf_active",),
-    required_paths=("pf_active.coil.{i}.element.{j}.geometry.outline.r",
-                    "pf_active.coil.{i}.element.{j}.geometry.outline.z"),
-    optional_paths=("pf_active.coil.{i}.name",),
+    required_paths=("pf_active.coil.{i}.element.{j}.geometry.geometry_type",),
+    optional_paths=("pf_active.coil.{i}.name",
+                    "pf_active.coil.{i}.element.{j}.geometry.rectangle.r",
+                    "pf_active.coil.{i}.element.{j}.geometry.outline.r"),
 )
 def pf_coil_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -133,11 +144,13 @@ def pf_coil_geometry_poloidal(
 @_geometry_renderer(
     domain="pf_passive", quantity="poloidal",
     subject="passive_structure",
-    description="Passive conducting-structure loop outlines in the poloidal plane.",
+    description="Passive conducting structure in the poloidal plane: every loop "
+                "element, drawn as one structure rather than one object per loop.",
     ids=("pf_passive",),
-    required_paths=("pf_passive.loop.{i}.element.{j}.geometry.outline.r",
-                    "pf_passive.loop.{i}.element.{j}.geometry.outline.z"),
-    optional_paths=("pf_passive.loop.{i}.name",),
+    required_paths=("pf_passive.loop.{i}.element.{j}.geometry.geometry_type",),
+    optional_paths=("pf_passive.loop.{i}.name",
+                    "pf_passive.loop.{i}.element.{j}.geometry.rectangle.r",
+                    "pf_passive.loop.{i}.element.{j}.geometry.outline.r"),
 )
 def passive_structure_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -253,8 +266,8 @@ def charge_exchange_geometry_poloidal(
          "charge_exchange", "soft_x_rays"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
-                    "pf_active.coil.{i}.element.{j}.geometry.outline.r",
-                    "pf_passive.loop.{i}.element.{j}.geometry.outline.r"),
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_passive.loop.{i}.element.{j}.geometry.geometry_type"),
 )
 def machine_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -280,15 +293,23 @@ def equilibrium_geometry_topview(
 @_geometry_renderer(
     domain="machine", quantity="topview",
     subject="machine",
-    description="Composed machine top view: machine-boundary and plasma extent "
-                "plus launcher, antenna and pellet-injector geometry.",
-    ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets"),
+    description="Composed machine top view: machine-boundary and plasma extent, "
+                "launcher, antenna and pellet-injector geometry, and the toroidal "
+                "position of every diagnostic channel that stores one.",
+    ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets",
+         "magnetics", "thomson_scattering", "charge_exchange", "langmuir_probes",
+         "barometry", "interferometer", "soft_x_rays", "bolometer", "spectrometer_uv"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
                     "equilibrium.time_slice.{i}.boundary.outline.r",
                     "lh_antennas.antenna.{i}.position.r",
                     "ec_launchers.beam.{i}.launching_position.r",
-                    "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r"),
+                    "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r",
+                    "magnetics.b_field_pol_probe.{i}.position.phi",
+                    "magnetics.b_field_tor_probe.{i}.position.phi",
+                    "magnetics.flux_loop.{i}.position.{j}.phi",
+                    "thomson_scattering.channel.{i}.position.phi",
+                    "soft_x_rays.channel.{i}.line_of_sight.first_point.phi"),
 )
 def machine_geometry_topview(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any

@@ -11,20 +11,43 @@ pyplot.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import replace
 from typing import Any, Callable, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from ..environment import default_interaction_backend, detect_environment
 from ..models import LineSeries, Panels
 from ..navigation import SliceNavigator
 from .lines import render_line_series
-from .panels import render_panels
+from .panels import render_panels, slice_grid_axes
 
-__all__ = ["BACKENDS", "render_slice_navigation"]
+__all__ = ["BACKENDS", "render_slice_navigation", "resolve_backend"]
 
-BACKENDS = ("matplotlib", "ipywidgets", "none")
+#: ``auto`` picks by environment (:mod:`vaft.plot.environment`);
+#: ``matplotlib`` is the slider on a live canvas; ``ipywidgets`` a notebook
+#: slider that redraws a static figure into its own output; ``none`` draws
+#: the figure once and leaves the navigator to code.
+BACKENDS = ("auto", "matplotlib", "ipywidgets", "none")
+
+
+def resolve_backend(backend: str) -> str:
+    """Turn the public ``backend=`` into the concrete one, validating it."""
+    if backend not in BACKENDS:
+        raise ValueError(f"backend must be one of {', '.join(BACKENDS)}; got {backend!r}")
+    if backend == "auto":
+        return default_interaction_backend()
+    if backend == "matplotlib" and not detect_environment().live_figures:
+        warnings.warn(
+            "backend='matplotlib' draws a slider on a canvas that does not update in "
+            "place under the current Matplotlib backend; the slider will be inert. "
+            "backend='auto' picks a control that works here.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return backend
 
 
 def render_slice_navigation(
@@ -32,7 +55,7 @@ def render_slice_navigation(
     histories: Sequence[LineSeries | str],
     build_slice: Callable[[int], Panels],
     *,
-    backend: str = "matplotlib",
+    backend: str = "auto",
     show: bool = False,
     figsize: tuple[float, float] | None = None,
 ) -> tuple[Any, np.ndarray, tuple[Any, ...], Any]:
@@ -40,31 +63,36 @@ def render_slice_navigation(
 
     ``histories`` are the time-history models drawn above the slice grid, or
     a text placeholder for one that is unavailable; ``build_slice(index)``
-    returns the :class:`Panels` for a slice (four panels, drawn into the
-    2 x 2 grid).  The navigator's observers are wired here: a change moves the
-    time marker on every history and redraws the slice panels.
+    returns the :class:`Panels` for a slice, whose own rows, columns and
+    spans shape the grid.  The navigator's observers are wired here: a change
+    moves the time marker on every history and redraws the slice panels.
+    ``backend`` is one of :data:`BACKENDS`; ``"auto"`` resolves through
+    :func:`vaft.plot.environment.default_interaction_backend`.
     """
-    if backend not in BACKENDS:
-        raise ValueError(f"backend must be one of {', '.join(BACKENDS)}; got {backend!r}")
+    backend = resolve_backend(backend)
+    # The slice summary decides its own shape (rows, columns, spans); the
+    # navigator only puts the histories above it and a slider strip below.
+    first = build_slice(navigator.selected)
     if figsize is None:
-        figsize = (11.0, 9.5)
-    figure = plt.figure(figsize=figsize)
+        figsize = (4.0 * first.ncols, 2.2 * len(histories) + 2.6 * first.nrows)
+    if backend == "ipywidgets":
+        # A static figure redrawn into a widget's output area: built outside
+        # pyplot so the inline backend never displays it a second time.
+        from matplotlib.figure import Figure
+
+        figure = Figure(figsize=figsize)
+    else:
+        figure = plt.figure(figsize=figsize)
     slider_rows = 1 if backend == "matplotlib" else 0
     grid = figure.add_gridspec(
-        len(histories) + 2 + slider_rows, 2,
-        height_ratios=[1] * len(histories) + [2.2, 2.2] + ([0.25] * slider_rows),
+        len(histories) + first.nrows + slider_rows, first.ncols,
+        height_ratios=[1] * len(histories) + [1.6] * first.nrows + ([0.25] * slider_rows),
     )
     history_axes = tuple(figure.add_subplot(grid[row, :]) for row in range(len(histories)))
     top = len(histories)
     # The flux panel's colorbar gets a cell of its own beside the panel, made
     # once: a redraw then touches no layout, so nothing grows or shrinks.
-    flux_cell = grid[top, 0].subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
-    colorbar_axes = figure.add_subplot(flux_cell[0, 1])
-    slice_axes = np.array(
-        [[figure.add_subplot(flux_cell[0, 0]), figure.add_subplot(grid[top, 1])],
-         [figure.add_subplot(grid[top + 1, 0]), figure.add_subplot(grid[top + 1, 1])]],
-        dtype=object,
-    )
+    slice_axes, colorbar_axes = slice_grid_axes(figure, grid, first, top=top, colorbar_slot=0)
 
     markers = []
     for axis, model in zip(history_axes, histories):
@@ -78,13 +106,15 @@ def render_slice_navigation(
         axis.tick_params(labelbottom=False)
         axis.set_xlabel("")
 
+    prebuilt = {navigator.selected: first}
+
     def draw_slice(nav: SliceNavigator) -> None:
         # A redraw leaves the figure as it found it: the same axes, cleared and
         # drawn again, with the flux panel's colorbar in its own fixed cell.
         for axis in (*slice_axes.ravel(), colorbar_axes):
             axis.clear()
             axis.set_axis_on()
-        model = build_slice(nav.selected)
+        model = prebuilt.pop(nav.selected, None) or build_slice(nav.selected)
         styles = [dict(style) for style in (model.member_styles or ({},) * len(model.models))]
         if styles:
             styles[0]["colorbar_ax"] = colorbar_axes
@@ -97,14 +127,16 @@ def render_slice_navigation(
 
     widget = None
     if backend == "matplotlib":
-        widget = _matplotlib_slider(figure, grid[top + 2, :], navigator)
+        widget = _matplotlib_slider(figure, grid[top + first.nrows, :], navigator)
     draw_slice(navigator)
+    # Laid out once, after the first draw: later redraws reuse these axes.
+    figure.tight_layout(rect=(0, 0, 1, 0.97))
     navigator.subscribe(draw_slice)
     if backend == "matplotlib":
         _follow_slider(widget, navigator)
     elif backend == "ipywidgets":
-        widget = _ipywidgets_slider(navigator)
-    if show:
+        widget = _ipywidgets_slider(figure, navigator, live=detect_environment().live_figures)
+    if show and backend != "ipywidgets":
         plt.show()
     return figure, slice_axes, history_axes, widget
 
@@ -132,14 +164,34 @@ def _follow_slider(slider: Any, navigator: SliceNavigator) -> None:
     navigator.subscribe(follow)
 
 
-def _ipywidgets_slider(navigator: SliceNavigator) -> Any:
-    from ipywidgets import IntSlider
-    from IPython.display import display
+def _ipywidgets_slider(figure: Any, navigator: SliceNavigator, *, live: bool) -> Any:
+    """An ipywidgets slider over the navigator, with the figure beneath it.
+
+    Under a static figure backend (inline) the figure is a picture: every
+    change redraws it into the widget's own output area, which is what makes
+    the control work in Jupyter Notebook, JupyterLab and VS Code alike.  Under
+    a live canvas (``ipympl``) the canvas updates itself and only the slider
+    is shown.
+    """
+    import io
+
+    from ipywidgets import IntSlider, Output, VBox
+    from IPython.display import Image, clear_output, display
 
     slider = IntSlider(
         value=navigator.position, min=0, max=len(navigator.usable) - 1, step=1,
         description="slice", continuous_update=False,
     )
+    output = Output()
+
+    def refresh(_: SliceNavigator | None = None) -> None:
+        # Rendered to PNG here rather than handed to the front end's figure
+        # formatter, which is registered only for pyplot-managed figures.
+        buffer = io.BytesIO()
+        figure.savefig(buffer, format="png", dpi=figure.dpi)
+        with output:
+            clear_output(wait=True)
+            display(Image(data=buffer.getvalue()))
 
     def on_change(change: dict) -> None:
         if change.get("name") == "value":
@@ -152,5 +204,11 @@ def _ipywidgets_slider(navigator: SliceNavigator) -> Any:
             slider.value = nav.position
 
     navigator.subscribe(follow)
-    display(slider)
+    if live:
+        display(slider)
+    else:
+        navigator.subscribe(refresh)
+        refresh()
+        display(VBox([slider, output]))
+    slider.vaft_output = output
     return slider

@@ -10,9 +10,11 @@ slice, and snaps to a stored slice on the way (§15, §16).
 The scientific contract lives in :class:`vaft.plot.navigation.SliceNavigator`
 and the Matplotlib side in :func:`vaft.plot.renderers.interactive.
 render_slice_navigation`; this module only builds models from the ODS.
-Backends (``"matplotlib"`` slider, the default; ``"ipywidgets"``; ``"none"``
-to drive the navigator yourself) are chosen here and imported only by the
-renderer, only when asked for.
+Backends: ``"auto"`` (the default) picks the control that works where the
+figure is shown -- a Matplotlib slider on a live canvas (a GUI window,
+``ipympl``), an ipywidgets slider that redraws a static figure under Jupyter
+or VS Code, and none at all in a script; ``"matplotlib"``, ``"ipywidgets"``
+and ``"none"`` force one.  See :mod:`vaft.plot.environment`.
 """
 
 from __future__ import annotations
@@ -51,8 +53,8 @@ _HISTORIES = (
 class InteractiveEquilibrium:
     """What :func:`plot_equilibrium_interactive` returns.
 
-    ``figure`` and ``axes`` follow the renderer contract (``axes`` is the 2 x 2
-    grid of the slice summary); ``navigator`` is the shared selection;
+    ``figure`` and ``axes`` follow the renderer contract (``axes`` are the
+    slice summary's panels in slot order); ``navigator`` is the shared selection;
     ``history_axes`` carry the time marker; ``widget`` is the backend's
     control, or ``None`` for ``backend="none"``.
     """
@@ -75,7 +77,7 @@ def plot_equilibrium_interactive(
     *,
     time: float | None = None,
     time_slice: int | None = None,
-    backend: str = "matplotlib",
+    backend: str = "auto",
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     **options: Any,
@@ -84,8 +86,10 @@ def plot_equilibrium_interactive(
 
     Same slice policy as the static overview: the representative slice unless
     ``time=`` (snapped to a stored slice) or ``time_slice=`` says otherwise.
-    ``options`` reach the slice summary (``title=`` and the like).  A single
-    ODS only: a navigator has one set of slices.
+    ``options`` reach the slice summary (``title=``, ``style=`` for the flux
+    map, and the like).  A single ODS only: a navigator has one set of
+    slices.  ``backend`` is one of :data:`BACKENDS`; the default ``"auto"``
+    chooses by where the figure is shown.
     """
     if backend not in BACKENDS:
         raise ValueError(f"backend must be one of {', '.join(BACKENDS)}; got {backend!r}")

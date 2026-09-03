@@ -101,7 +101,7 @@ def test_code_backed_plots_convert_only_the_ids_they_declare(entry):
     assert set(ods.keys()) <= {"equilibrium", "wall", "dataset_description"}
     assert bundle.as_ods_for(("wall", "equilibrium", "dataset_description")) is ods  # cached per name set
     figure, axes = vaft.imas.plot_equilibrium_overview(entry)
-    assert axes.shape == (2, 2)
+    assert axes.shape == (7,)
     plt.close(figure)
     detail = str(vaft.imas.available_plots(entry, query="equilibrium", view="overview", detail=True))
     assert "converted per IDS" in detail

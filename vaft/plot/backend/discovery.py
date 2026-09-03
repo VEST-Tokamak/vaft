@@ -57,6 +57,7 @@ from .recipes import (
     PowerSpectrumRecipe,
     ProfileRecipe,
     SpectrogramRecipe,
+    _channel_carries_signal,
     _channel_has_data,
     _channel_identifiers,
     _channel_positions,
@@ -362,12 +363,15 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
     }
     r_values, z_values = _channel_positions(ods, container, total)
     # The divider is the whole family's (that is what grouped infers it from);
-    # the counts are of the channels that carry data, because those are the
-    # traces grouped actually places -- an empty channel builds no trace.
+    # the counts are of the channels the default selection draws -- flagged
+    # valid and carrying a signal -- because those are the traces grouped
+    # actually places (``active`` in vaft.plot.selection).
+    active = [i for i in with_data if i not in flagged and _channel_carries_signal(ods, candidates, i)]
+    channels["active"] = len(active)
     split = radial_divider(r_values)
     layouts: tuple[str, ...] = ("overlay", "subplots")
     if split:
-        regions = classify_regions(r_values[with_data], split=split)
+        regions = classify_regions(r_values[active], split=split)
         counts = {name: regions.count(name) for name in (INBOARD, OUTBOARD, UNCLASSIFIED)}
         channels["regions"] = {name: count for name, count in counts.items() if count}
         representatives: dict[str, int | None] = {}
