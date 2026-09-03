@@ -37,39 +37,29 @@ def _table_dir(text: str) -> str:
     return text if text.endswith("/") else text + "/"
 
 
-def _detect_broken_bpol_probes(ods, *, threshold: float = 12.0) -> list[int]:
-    """Return one-based probe indexes with robustly anomalous amplitudes.
+def _detect_broken_bpol_probes(ods) -> list[int]:
+    """One-based indexes of Bpol probes the shared quality layer condemns outright.
 
-    Compare probes only within the three VEST geometry banks.  A high MAD
-    threshold intentionally catches gross integrator drift/saturation without
-    classifying legitimate spatial variation as a broken channel.
+    The fallback for products that carry no projected assessment (see
+    :func:`_condemned_by_diagnostics_stage`).  It used to be a detector of its
+    own -- a 99th-percentile amplitude against a 12-MAD band inside three
+    hard-coded index banks -- which flagged the same probe as
+    :mod:`vaft.validation.magnetics` by a different rule, so a product
+    assessed before and after regeneration could disagree about one channel.
+    It now runs the same detectors the diagnostics stage projects (physical
+    ceiling, geometric-family population vote), on the fly, and returns the
+    probes they reject for the whole record.
     """
-    groups = ((0, 27), (27, 48), (48, 64))
-    broken: list[int] = []
-    for start, stop in groups:
-        amplitudes = []
-        for index in range(start, stop):
-            try:
-                values = np.asarray(
-                    ods[f"magnetics.b_field_pol_probe.{index}.field.data"],
-                    dtype=float,
-                )
-            except Exception:
-                values = np.asarray([], dtype=float)
-            finite = np.abs(values[np.isfinite(values)])
-            amplitudes.append(
-                float(np.percentile(finite, 99)) if finite.size else np.nan
-            )
-        amplitudes = np.asarray(amplitudes, dtype=float)
-        median = float(np.nanmedian(amplitudes))
-        mad = float(np.nanmedian(np.abs(amplitudes - median)))
-        scale = 1.4826 * mad
-        if not np.isfinite(scale) or scale <= 0.0:
-            continue
-        for offset, amplitude in enumerate(amplitudes):
-            if np.isfinite(amplitude) and amplitude > median + threshold * scale:
-                broken.append(start + offset + 1)
-    return broken
+    from vaft.validation.magnetics import validate_magnetics_signals
+    from vaft.validation.model import ValidationStatus
+
+    report = validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
+    return sorted(
+        quality.index + 1
+        for quality in report
+        if quality.status is not ValidationStatus.NOT_AVAILABLE
+        and quality.valid_fraction == 0.0
+    )
 
 
 def _condemned_by_diagnostics_stage(ods) -> list[int] | None:
