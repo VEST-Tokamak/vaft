@@ -203,6 +203,14 @@ def render_panels(
     for slot in slots[len(model.models) :]:
         flat[slot].set_visible(False)
 
+    if ax is None and model.spans is None and model.share_x and model.nrows > 1:
+        # Panels sharing a time base share its label: only the lowest drawn
+        # panel of each column keeps the x label and tick labels.
+        for column in range(model.ncols):
+            column_axes = [grid[row, column] for row in range(model.nrows) if grid[row, column].get_visible()]
+            for axis in column_axes[:-1]:
+                axis.tick_params(labelbottom=False)
+                axis.set_xlabel("")
     if model.suptitle:
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is

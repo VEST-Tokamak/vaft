@@ -38,14 +38,15 @@ from ._plot_recipes import (
 
 __all__ = ["InteractiveEquilibrium", "plot_equilibrium_interactive", "BACKENDS"]
 
-#: The time histories drawn above the slice summary, with a shared time marker:
+#: The time history drawn above the slice summary, with a shared time marker:
 #: the measured plasma-current waveform with the reconstruction's prediction
 #: at each slice (the G·1 overlay, section 15's "synthetic diagnostic values"),
-#: falling back to the equilibrium's own Ip when no magnetics is stored, and
-#: q95.  Each entry is (name, options, fallback name or None).
+#: falling back to the equilibrium's own Ip when no magnetics is stored.  The
+#: stored equilibrium slices are marked on it, so the reader sees where a
+#: reconstruction exists before moving the selection.  Each entry is (name,
+#: options, fallback name or None).
 _HISTORIES = (
     ("plasma_current_time", {"synthetic": "equilibrium"}, "equilibrium_time_plasma_current"),
-    ("equilibrium_time_q95", {}, None),
 )
 
 
@@ -113,9 +114,8 @@ def plot_equilibrium_interactive(
             if candidate is None:
                 continue
             try:
-                histories.append(
-                    build_model(candidate, entries, _panel_member=True, **(history_options if candidate == name else {}))
-                )
+                model = build_model(candidate, entries, _panel_member=True, **(history_options if candidate == name else {}))
+                histories.append(_with_slice_markers(model, navigator))
                 break
             except ValueError:
                 continue
@@ -133,6 +133,34 @@ def plot_equilibrium_interactive(
     return InteractiveEquilibrium(
         figure=figure, axes=slice_axes, navigator=navigator, history_axes=history_axes, widget=widget
     )
+
+
+def _with_slice_markers(model: Any, navigator: SliceNavigator) -> Any:
+    """Mark the usable equilibrium slices on a history's first measured trace.
+
+    The marker sits on the waveform at each stored slice time (the value is
+    read off the waveform, never invented), carries the ``slices`` role so
+    it is styled as an overlay rather than a channel, and is drawn only when
+    the history has a measured trace to sit on.
+    """
+    import dataclasses
+
+    from vaft.plot.models import Series
+
+    measured = next((trace for trace in model.series if not trace.role), None)
+    if measured is None or measured.x.size < 2:
+        return model
+    times = navigator.times[list(navigator.usable)]
+    marker = Series(
+        x=times,
+        y=np.interp(times, measured.x, measured.y),
+        label="equilibrium slices",
+        style={"marker": "o", "linestyle": "none", "markerfacecolor": "none",
+               "markeredgecolor": "0.25", "markersize": 5},
+        entry=measured.entry,
+        role="slices",
+    )
+    return dataclasses.replace(model, series=(*model.series, marker))
 
 
 def _scalar(raw: Any) -> float:

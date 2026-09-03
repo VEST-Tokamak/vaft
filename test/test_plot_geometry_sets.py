@@ -58,14 +58,15 @@ def test_pf_coils_stored_as_rectangles_are_drawn_from_every_element(sample):
 def test_the_passive_structure_is_one_legend_entry(sample):
     model = build_model("passive_structure_geometry_poloidal", normalize_entries(sample))
     assert len(model.layers) == len(sample["pf_passive.loop"])
-    assert [layer.label for layer in model.layers if layer.label] == ["Passive structure (pf_passive)"]
+    assert [layer.label for layer in model.layers if layer.label] == ["Passive structure"]
 
 
 def test_the_machine_view_names_sets_not_loops(sample):
     figure, axes = vaft.omas.plot_machine_geometry_poloidal(sample, show=False)
     legend = [text.get_text() for text in axes.get_legend().get_texts()]
-    assert legend == ["Passive structure (pf_passive)", "PF coils (pf_active)", "Flux Loops", "B-field Probes"]
-    assert sorted({text.get_text() for text in axes.texts}) == sorted(f"PF{i + 1}" for i in range(10))
+    assert legend == ["Passive structure", "PF coils", "Flux Loops", "B-field Probes"]
+    notes = {text.get_text() for text in axes.texts}
+    assert {f"PF{i + 1}" for i in range(10)} <= notes  # coil names, beside the sensor indices
     plt.close(figure)
 
 
@@ -132,3 +133,27 @@ def test_the_top_view_does_not_invent_a_toroidal_angle():
     assert np.isclose(np.hypot(ring.r, ring.z).max(), 0.8)
     model = build_model("machine_geometry_topview", normalize_entries(ods))
     assert any(layer.label == "Soft X-ray LOS" for layer in model.layers)
+
+
+def test_the_standalone_coil_view_names_coils_beside_them_and_drops_the_legend(sample):
+    figure, axes = vaft.omas.plot_pf_coil_geometry_poloidal(sample, show=False)
+    assert axes.get_legend() is None and sorted({t.get_text() for t in axes.texts}) == sorted(f"PF{i + 1}" for i in range(10))
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_machine_geometry_poloidal(sample, show=False)
+    assert axes.get_legend() is not None
+    assert not any("(" in t.get_text() for t in axes.get_legend().get_texts())
+    low, high = axes.get_ylim()
+    assert low < -1.4 and high > 1.4  # padded beyond the outermost coil at |Z| = 1.25
+    plt.close(figure)
+
+
+def test_magnetic_sensors_are_annotated_with_their_index(sample):
+    model = build_model("magnetics_geometry_poloidal", normalize_entries(sample))
+    notes = [layer for layer in model.layers if layer.kind == "text"]
+    probes = sample["magnetics.b_field_pol_probe"]
+    loops = sample["magnetics.flux_loop"]
+    with_position = sum(1 for i in range(len(probes)) if "position.r" in probes[i]) + \
+        sum(1 for i in range(len(loops)) if "position.0.r" in loops[i])
+    assert len(notes) == with_position
+    first = next(layer for layer in notes if layer.label == "0")
+    assert np.isclose(first.r[0], float(loops[0]["position.0.r"]))

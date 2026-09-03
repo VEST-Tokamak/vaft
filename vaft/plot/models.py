@@ -363,6 +363,9 @@ class GeometryLayers(ViewModel):
     y_label: str = "Z [m]"
     title: str = ""
     aspect_equal: bool = True
+    #: Whether the labelled layers deserve a legend; a view whose parts are
+    #: named where they are drawn (annotated coils) does without.
+    legend: bool = True
 
     def __post_init__(self) -> None:
         if isinstance(self.layers, GeometryLayer):

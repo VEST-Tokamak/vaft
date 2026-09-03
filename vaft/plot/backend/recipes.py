@@ -599,6 +599,13 @@ class LineRecipe:
     #: Missing or zero divides by 1.0 rather than raising or producing inf/nan.
     divide_by_path: str = ""
     title: str = ""
+    #: Display sign policy (issue #307): ``canonical`` draws the stored sign
+    #: exactly; ``intuitive`` multiplies the whole plotted object by one
+    #: ``+1``/``-1`` so its dominant response is positive, and says so in the
+    #: title when it flipped.  Set on quantities whose sign is a convention
+    #: (plasma current, diamagnetic flux, toroidal field), never on an
+    #: intrinsically positive one.
+    orientation: str = "canonical"
 
 
 @dataclass(frozen=True)
@@ -625,6 +632,9 @@ class GeometryRecipe:
     x_label: str = "R [m]"
     y_label: str = "Z [m]"
     title: str = ""
+    #: Annotate each point of a ``points`` layer with its channel index, so a
+    #: sensor in the view can be named in ``selection=`` without a lookup.
+    annotate_indices: bool = False
 
 
 @dataclass(frozen=True)
@@ -709,6 +719,7 @@ RECIPES: dict[str, Any] = {
         y_label="Plasma Current",
         y_unit="A",
         title="Plasma Current",
+        orientation="intuitive",
     ),
     "diamagnetic_flux_time": LineRecipe(
         y_path="magnetics.diamagnetic_flux.0.data",
@@ -716,6 +727,7 @@ RECIPES: dict[str, Any] = {
         y_label="Diamagnetic Flux",
         y_unit="Wb",
         title="Diamagnetic Flux",
+        orientation="intuitive",
     ),
     "flux_loop_time_flux": LineRecipe(
         y_path="magnetics.flux_loop.{i}.flux.data",
@@ -793,6 +805,7 @@ RECIPES: dict[str, Any] = {
         y_label="Plasma Current",
         y_unit="A",
         title="Equilibrium Plasma Current",
+        orientation="intuitive",
     ),
     "equilibrium_time_li": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.li_3",
@@ -893,6 +906,7 @@ RECIPES: dict[str, Any] = {
         # tf.b_field_tor_vacuum_r.data is B_t * R [T*m]; divide by the reference
         # radius to recover the field itself, matching the legacy renderer.
         divide_by_path="tf.r0",
+        orientation="intuitive",
     ),
     "tf_coil_time_b_t_vacuum_r": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
@@ -900,6 +914,7 @@ RECIPES: dict[str, Any] = {
         y_label="B_t * R",
         y_unit="T m",
         title="Vacuum B_t * R",
+        orientation="intuitive",
     ),
     "tf_coil_time_current": LineRecipe(
         y_path="tf.coil.{i}.current.data",
@@ -1162,6 +1177,7 @@ RECIPES: dict[str, Any] = {
             ),
         ),
         title="Magnetic Diagnostics",
+        annotate_indices=True,
     ),
     "equilibrium_geometry_boundary": GeometryRecipe(
         layers=(
@@ -1758,7 +1774,7 @@ def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: An
         color = "#d62728" if collective else f"C{index % 10}"
         for position, (r, z) in enumerate(outlines):
             if collective:
-                label = "" if labelled_set else "PF coils (pf_active)"
+                label = "" if labelled_set else "PF coils"
                 labelled_set = True
             else:
                 label = name if position == 0 else ""
@@ -1777,7 +1793,8 @@ def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: An
         raise ValueError(
             "pf_active stores no coil element geometry (neither rectangle nor outline)"
         )
-    return GeometryLayers(layers=tuple(layers), title=options.get("title", "PF Coils"))
+    # Standing alone, every coil is named beside itself: no legend needed.
+    return GeometryLayers(layers=tuple(layers), title=options.get("title", "PF Coils"), legend=collective)
 
 
 def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayers:
@@ -1793,7 +1810,7 @@ def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayer
         for r, z in _element_outlines(ods, f"pf_passive.loop.{index}"):
             layers.append(GeometryLayer(
                 r=r, z=z, kind="polygon",
-                label="" if layers else "Passive structure (pf_passive)",
+                label="" if layers else "Passive structure",
                 style={"color": "0.55", "lw": 0.5},
             ))
     if not layers:
@@ -3181,6 +3198,40 @@ def _synthetic_traces(
     return extra
 
 
+ORIENTATIONS = ("canonical", "intuitive")
+
+
+def _orient(traces: tuple, orientation: str) -> tuple[tuple, bool]:
+    """Apply the display sign policy of issue #307 to a set of traces.
+
+    ``intuitive`` asks the processing layer for the dominant sign of the
+    measured traces (:func:`vaft.process.signal_processing.
+    infer_signal_orientation`) and multiplies every trace -- measured and
+    synthetic alike, so they stay comparable -- by that one ``+1``/``-1``.
+    Unresolved falls back to canonical.  Returns the traces and whether a
+    flip happened; nothing here touches the data object.
+    """
+    if orientation not in ORIENTATIONS:
+        raise ValueError(f"orientation must be one of {', '.join(ORIENTATIONS)}; got {orientation!r}")
+    if orientation == "canonical" or not traces:
+        return traces, False
+    from vaft.process.signal_processing import infer_signal_orientation
+
+    verdicts = [
+        infer_signal_orientation(trace.y, mask=trace.valid_mask)
+        for trace in traces if not trace.role
+    ]
+    resolved = [v for v in verdicts if v.resolved]
+    if not resolved:
+        return traces, False
+    # One multiplier for the whole figure: the trace with the strongest
+    # dominant response decides, so a weak channel cannot flip a strong one.
+    multiplier = max(resolved, key=lambda v: abs(v.statistic)).multiplier
+    if multiplier > 0:
+        return traces, False
+    return tuple(dataclasses.replace(trace, y=np.asarray(trace.y) * -1.0) for trace in traces), True
+
+
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
@@ -3214,10 +3265,13 @@ def _build_line_series(
         _apply_display(trace, x_scale=x_display.scale, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.title
     else:
         default_title = _decorated_title(recipe.title, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
     model = LineSeries(
         series=scaled,
         x_label=recipe.x_label,
@@ -3491,6 +3545,16 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                         style=style,
                     )
                 )
+                if recipe.annotate_indices:
+                    color = style.get("color", "0.3")
+                    for index, r_value, z_value in zip(
+                        [i for i in indices if _get(ods, r_template.format(i=i)) is not None], r_values, z_values
+                    ):
+                        layers.append(GeometryLayer(
+                            r=[r_value], z=[z_value], kind="text", label=str(index),
+                            style={"color": color, "fontsize": 5, "ha": "left", "va": "bottom",
+                                   "xytext": (2, 1), "textcoords": "offset points"},
+                        ))
             continue
         for index in indices:
             r = _array(ods, r_template.format(i=index))
@@ -3879,6 +3943,7 @@ EXTRACTION_OPTIONS = frozenset(
         "field_line_start",
         "fit_ranges",
         "flux_surface_levels",
+        "orientation",
         "style",
         "frame_index",
         "frame_indices",

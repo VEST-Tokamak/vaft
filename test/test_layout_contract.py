@@ -290,3 +290,18 @@ def test_supplied_axes_must_be_axes(shots):
         vaft.omas.plot_flux_loop_time_flux(
             shots[39915], selection="inboard", layout="subplots", ax=["a"] * 7
         )
+
+
+def test_panels_sharing_a_time_base_label_it_once_per_column(shots):
+    figure, axes = vaft.omas.plot_pf_coil_time_current_turns(shots[39915], layout="subplots")
+    labels = [axis.get_xlabel() for axis in axes.ravel() if axis.get_visible()]
+    assert labels[:-1] == [""] * (len(labels) - 1) and labels[-1] == "Time [s]"
+    assert all(axis.get_ylabel() == "Coil Ampere-turns [kA-turns]" for axis in axes.ravel() if axis.get_visible())
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_pf_coil_time_current_turns(shots[39915], layout="subplots", ncols=2)
+    columns = {}
+    for axis in axes.ravel():
+        if axis.get_visible():
+            columns.setdefault(round(axis.get_position().x0, 3), []).append(axis.get_xlabel())
+    assert all(labels[-1] == "Time [s]" and not any(labels[:-1]) for labels in columns.values())
+    plt.close(figure)

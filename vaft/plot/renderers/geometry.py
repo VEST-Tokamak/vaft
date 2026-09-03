@@ -108,7 +108,12 @@ def render_geometry_layers(
         axes.set_aspect("equal", adjustable="box")
     if grid:
         axes.grid(True, alpha=0.25)
-    if legend and labelled:
+    # Room above and below what is drawn, so the outermost parts and their
+    # annotations do not sit on the frame.
+    low, high = axes.get_ylim()
+    pad = 0.06 * (high - low)
+    axes.set_ylim(low - pad, high + pad)
+    if legend and model.legend and labelled:
         axes.legend(loc="best", fontsize="small")
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
