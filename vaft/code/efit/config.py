@@ -140,7 +140,14 @@ class EFITConstraintConfig:
     legacy_vbit: float = 10.0
     legacy_weight_scale: float = 10_000.0
     use_diamagnetic_flux: bool = True
-    diamagnetic_flux_sign: str = "absolute"
+    #: How the measured diamagnetic flux is written to DFLUX.  ``"imas"`` (the
+    #: default since issue #385) writes the stored, signed value, which is what
+    #: EFIT expects: it fits DFLUX against ``cdflux = integral (B_t - B_tv) dA``
+    #: signed with B_t, so a diamagnetic plasma in a positive field is negative.
+    #: ``"absolute"`` and ``"negative"`` force a sign and exist for controlled
+    #: comparisons only; ``"absolute"`` was the historical default, inherited
+    #: from a donor fitter that compared magnitudes.
+    diamagnetic_flux_sign: str = "imas"
     diamagnetic_flux_input_units: str = "Wb"
     wall_current_mode: str = "measured"
     passive_structure_mode: str = "fixed_currents"
