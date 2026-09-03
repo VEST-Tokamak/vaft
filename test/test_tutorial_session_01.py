@@ -20,12 +20,10 @@ from nbclient import NotebookClient
 import pytest
 
 
+# Executes notebooks end to end: release-confidence, not per-PR feedback.
+# Deselected on the develop gate by `-m "not slow"` and run in full on the main
+# gate. Nothing here is skipped -- it moves, it does not disappear.
 pytestmark = pytest.mark.slow
-"""Executes notebooks end to end: release-confidence, not per-PR feedback.
-
-Deselected on the develop gate by `-m "not slow"` and run in full on the
-main gate. Nothing here is skipped -- it moves, it does not disappear.
-"""
 
 ROOT = Path(__file__).resolve().parents[1]
 TUTORIAL = ROOT / "tutorial"
