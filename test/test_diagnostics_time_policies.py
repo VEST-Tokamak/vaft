@@ -11,6 +11,7 @@ from configuration -- and that both coverages coexist in one ODS.
 
 from __future__ import annotations
 
+import copy
 import gzip
 import json
 
@@ -120,19 +121,19 @@ def _static_ods(tmp_path):
 
 
 @pytest.fixture(scope="module")
-def full_record_diagnostics(tmp_path_factory):
-    """One 25 000-sample build, shared by the tests that assert on it.
+def _full_record_build(tmp_path_factory):
+    """One 25 000-sample build, cached for the tests that assert on it.
 
     Two tests below need exactly this product and differ only in what they
-    inspect -- one reads `ods`, the other reads `manifest`. Two builds cost
-    127 s where one costs 76 s, so sharing takes ~50 s off the suite.
+    inspect -- one reads `ods`, the other reads `manifest`.
 
-    Module-scoped, and therefore handed out without copying: consumers must
-    treat both values as read-only. That holds today -- one consumer passes
-    `ods` to `write_stage_product`, which serializes it and shallow-copies the
-    manifest before adding its own key, mutating neither. A consumer that does
-    mutate would leak into whichever test runs next, so give it its own build
-    rather than adding to this fixture.
+    The saving is real but modest, ~17 s of a ~143 s file. Building twice is
+    not twice the cost: the second build runs with `machine_mapping`'s
+    lru_caches already warm (68.5 s cold, 58.9 s warm), so what sharing removes
+    is a warm build, not a cold one.
+
+    Nothing consumes this directly: `full_record_diagnostics` hands each test a
+    private copy (~0.05 s), so the saving does not come out of test isolation.
     """
     tmp_path = tmp_path_factory.mktemp("full-record")
     raw = tmp_path / "raw.json.gz"
@@ -141,6 +142,21 @@ def full_record_diagnostics(tmp_path_factory):
     return build_diagnostics_ods(
         shot=SHOT, raw_source=raw, static_ods=_static_ods(tmp_path)
     )
+
+
+@pytest.fixture
+def full_record_diagnostics(_full_record_build):
+    """A private copy of the cached build, one per test.
+
+    Function-scoped and deep-copied, so a consumer may mutate what it is given
+    exactly as if it had built its own: nothing it does reaches the cached
+    object or the next test. `ODS.copy()` is `copy.deepcopy`, and omas's
+    `ODS.__deepcopy__` rebuilds through `same_init_ods()` -- carrying
+    `imas_version`, `consistency_check` and the COCOS settings -- then re-parents
+    the children, so the copy reports the same locations as the original.
+    """
+    ods, manifest = _full_record_build
+    return ods.copy(), copy.deepcopy(manifest)
 
 
 def _magnetics_field_codes() -> list[int]:
@@ -172,6 +188,38 @@ def _write_raw_dump(path, samples, *, include_magnetics=True):
     }
     with gzip.open(path, "wt", encoding="utf-8") as handle:
         json.dump({"shot": SHOT, "fields": fields}, handle)
+
+
+def test_the_shared_build_hands_each_test_a_private_copy(
+    _full_record_build, full_record_diagnostics
+):
+    """The 25 000-sample build is cached; what each test gets is not shared.
+
+    Two tests below read the same expensive product, so it is built once. That
+    is only safe if a test cannot reach the cached object -- otherwise the
+    saving would be paid for in isolation, and a mutation in one test would
+    surface as a failure in whichever test happened to run next.
+    """
+    cached_ods, cached_manifest = _full_record_build
+    ods, manifest = full_record_diagnostics
+
+    assert ods is not cached_ods
+    assert manifest is not cached_manifest
+
+    # A leaf write does not reach the cached ODS.
+    original = np.asarray(cached_ods["tf.time"], dtype=float).copy()
+    ods["tf.time"] = np.zeros_like(original)
+    np.testing.assert_allclose(
+        np.asarray(cached_ods["tf.time"], dtype=float), original
+    )
+
+    # ...and neither does a write nested inside the manifest, which a shallow
+    # copy would have shared.
+    cached_policy = cached_manifest["time_grid"]["components"]["tf"]["policy"]
+    manifest["time_grid"]["components"]["tf"]["policy"] = "mutated"
+    assert (
+        cached_manifest["time_grid"]["components"]["tf"]["policy"] == cached_policy
+    )
 
 
 def test_full_and_short_windows_coexist_in_one_diagnostics_ods(
