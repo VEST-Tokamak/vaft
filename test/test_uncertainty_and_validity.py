@@ -277,3 +277,18 @@ def test_profiles_read_validity_and_uncertainty_too():
     figure, axes = vaft.omas.plot_equilibrium_profile_pressure(ods, coordinate="psi_norm")
     assert axes.collections, "a profile with stored uncertainty shades a band"
     plt.close(figure)
+
+
+def test_a_negative_scalar_with_usable_samples_is_not_an_invalid_channel():
+    """The scalar validity is "worst state reached" (a held tail after the
+    diagnostics window reads -2 on every packaged channel); the per-sample
+    mask decides whether anything is left to draw."""
+    from vaft.plot.models import Series
+
+    x = np.arange(4.0)
+    partly = Series(x=x, y=x, validity=-2, valid_mask=np.array([True, True, False, False]))
+    nothing = Series(x=x, y=x, validity=-2, valid_mask=np.zeros(4, dtype=bool))
+    bare = Series(x=x, y=x, validity=-2)
+    assert not partly.is_invalid_channel
+    assert nothing.is_invalid_channel
+    assert bare.is_invalid_channel

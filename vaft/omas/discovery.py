@@ -268,12 +268,27 @@ def _projection_state(ods: Any) -> dict[str, Any]:
     return {"available": True}
 
 
+def _condemned(code, mask) -> bool:
+    """Whether a channel has nothing usable to draw.
+
+    The IMAS scalar ``validity`` is "worst state reached", so a channel that
+    holds its last value after the diagnostics window reads ``-2`` there while
+    every earlier sample is a measurement.  A negative scalar counts as
+    unusable only when no per-sample validity is stored or the stored mask
+    leaves no usable sample -- the same reading ``Series.is_invalid_channel``
+    applies when the trace is drawn.
+    """
+    if code is None or int(code) >= 0:
+        return False
+    return mask is None or not bool(np.asarray(mask, dtype=bool).any())
+
+
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
     """Channel, layout and metadata facts for one line-series plot."""
     facts: dict[str, Any] = {}
     if recipe.index != "channel":
-        code, _ = _validity_of(ods, recipe.y_path)
-        facts["validity"] = _validity_block(present=code is not None, flagged=int(code is not None and code < 0))
+        code, mask = _validity_of(ods, recipe.y_path)
+        facts["validity"] = _validity_block(present=code is not None, flagged=int(_condemned(code, mask)))
         facts["uncertainty"] = _uncertainty_block(_uncertainty_of(ods, recipe.y_path) is not None)
         return facts
 
@@ -281,8 +296,9 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
     total = _count(ods, container)
     candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
     with_data = [i for i in range(total) if _channel_has_data(ods, candidates, i)]
-    codes = {i: _validity_of(ods, recipe.y_path, i)[0] for i in with_data}
-    flagged = [i for i, code in codes.items() if code is not None and code < 0]
+    verdicts = {i: _validity_of(ods, recipe.y_path, i) for i in with_data}
+    codes = {i: code for i, (code, _mask) in verdicts.items()}
+    flagged = [i for i, (code, mask) in verdicts.items() if _condemned(code, mask)]
     channels: dict[str, Any] = {
         "total": total,
         "with_data": len(with_data),

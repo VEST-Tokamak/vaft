@@ -172,8 +172,21 @@ class Series(ViewModel):
 
     @property
     def is_invalid_channel(self) -> bool:
-        """Whether the whole trace is flagged invalid (IMAS: a negative code)."""
-        return self.validity is not None and self.validity < 0
+        """Whether the whole trace is flagged invalid.
+
+        The IMAS scalar ``validity`` is "worst state reached": a channel that
+        merely holds its last value after the diagnostics window reads ``-2``
+        there while every plotted sample before it is a measurement.  So a
+        negative scalar condemns the trace only when no per-sample validity
+        is stored, or when the stored mask leaves no usable sample; a trace
+        with usable samples is drawn with its mask instead of being labelled
+        invalid outright.
+        """
+        if self.validity is None or self.validity >= 0:
+            return False
+        if self.valid_mask is None:
+            return True
+        return not bool(self.valid_mask.any())
 
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:
