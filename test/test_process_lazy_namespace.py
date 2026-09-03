@@ -267,7 +267,7 @@ def test_a_scipy_only_kernel_costs_nothing_heavier_than_scipy():
 @pytest.mark.parametrize(
     "submodule",
     ["camera_geometry", "cocos", "fluctuation", "impa", "langmuir",
-     "magnetics", "numerical", "signal_processing"],
+     "magnetics", "numerical", "onset", "signal_processing"],
 )
 def test_submodules_that_need_no_heavy_dependency_do_not_load_one(submodule):
     _, heavy = _import_in_subprocess(f"import vaft.process.{submodule}")

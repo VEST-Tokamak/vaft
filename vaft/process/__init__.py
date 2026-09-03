@@ -37,6 +37,7 @@ _SUBMODULES = {
     "langmuir": ".langmuir",
     "magnetics": ".magnetics",
     "numerical": ".numerical",
+    "onset": ".onset",
     "profile": ".profile",
     "signal_processing": ".signal_processing",
     "soft_x_rays": ".soft_x_rays",
@@ -68,6 +69,8 @@ _IMPORT_ORDER = (
     "atomic",
     "langmuir",
     "impa",
+    # Added after the lazy loader; nothing it exports collides with a sibling.
+    "onset",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
