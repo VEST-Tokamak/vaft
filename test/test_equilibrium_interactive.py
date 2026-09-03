@@ -90,7 +90,7 @@ def test_the_interactive_figure_shares_one_selected_slice(shot):
     assert "t = 325.00 ms (slice 7 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == 0.325 for m in _markers(result))
     assert [panel.get_title() for panel in axes.ravel()] == [
-        "Poloidal flux", "Pressure", "Safety Factor q", "",
+        "Poloidal flux", "Pressure", "Safety Factor q", "Toroidal Current Density (derived)",
         "dp/dpsi", "F dF/dpsi", "Global quantities",
     ]
     plt.close(figure)

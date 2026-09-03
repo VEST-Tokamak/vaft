@@ -53,7 +53,7 @@ from vaft.plot.models import (
     Spectrogram,
     TextPanel,
 )
-from vaft.plot.display import channel_label, figure_title, resolve_display
+from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, VALID
 from vaft.plot.registry import get_spec
 
@@ -3495,16 +3495,6 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
     )
 
 
-#: How a poloidal-flux map is drawn (issue: equilibrium psi styles).
-#:
-#: ``surfaces`` (default) -- line contours at fixed steps of normalised flux
-#: from the magnetic axis to the boundary, so the axis, the nested internal
-#: surfaces and the last closed surface are each identifiable; the flux
-#: outside the plasma continues at the same spacing as thin grey lines.
-#: ``normalized`` -- the same reading as a filled map of psi_N in [0, 1].
-#: ``filled`` -- the raw psi field filled over its full range, the map that
-#: shows the coils' flux; inside the plasma it is a single colour.
-PSI_STYLES = ("surfaces", "normalized", "filled")
 
 #: Normalised-flux steps of the ``surfaces`` style: nine internal surfaces.
 _PSI_SURFACE_STEPS = np.linspace(0.1, 0.9, 9)
@@ -4485,24 +4475,33 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     # factor, flux-surface-averaged toroidal current density.  Column 3: what
     # the solver actually fitted -- the two Grad-Shafranov source terms p' and
     # FF' whose combination is that current density -- and the slice's global
-    # quantities.  A profile the reconstruction did not store keeps its slot
-    # as a labelled placeholder so the figure has one shape on every input.
+    # quantities.  An EFIT g-file stores no j_tor; it is derived for this
+    # slice on a private copy (the caller's ODS is never written), and the
+    # panel says so.  A profile that is neither stored nor derivable keeps
+    # its slot as a labelled placeholder so the figure has one shape on
+    # every input.
+    derived, derived_entries = _derived_profiles_for(ods, index)
     slots: list[Any] = [field]
     placeholders: list[tuple[int, str]] = []
     for member in _OVERVIEW_PROFILES:
         profile = None
-        if entry_supports(ods, member):
+        source, source_entries = (ods, entries)
+        if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
+            source, source_entries = (derived, derived_entries)
+        if entry_supports(source, member):
             try:
                 profile = _build_profile_1d(
-                    entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
+                    source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
                 )
             except ValueError:
                 profile = None
         if profile is None or not profile.series:
             leaf = RECIPES[member].y_path.rsplit(".", 1)[-1]
-            placeholders.append((len(slots), f"profiles_1d.{leaf}\nnot stored in this reconstruction"))
+            placeholders.append((len(slots), f"profiles_1d.{leaf}\nneither stored nor derivable"))
             slots.append(None)
         else:
+            if source is derived:
+                profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
             slots.append(profile)
     slots.append(TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities"))
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
@@ -4518,6 +4517,24 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
         nrows=3, ncols=3, share_x=False, suptitle=suptitle,
         spans=_OVERVIEW_SPANS,
     )
+
+
+def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
+    """A private copy of the equilibrium with the derivable profiles of one slice.
+
+    ``vaft.omas.update_equilibrium_derived_profiles`` fills what an EFIT
+    export omits (j_tor, volume, the gm* averages) from what it stores.  It
+    runs on an isolated copy so the caller's object comes back as it was;
+    ``(None, [])`` when nothing could be derived.
+    """
+    try:
+        from vaft.omas import update_equilibrium_derived_profiles
+
+        private = _isolated_copy(ods, ("equilibrium", "wall"))
+        update_equilibrium_derived_profiles(private, time_slice=index)
+    except Exception:  # noqa: BLE001 - a failed derivation leaves a placeholder, not an error
+        return None, []
+    return private, [("", private)]
 
 
 #: The 1-D members of the slice overview, in slot order after the flux map:

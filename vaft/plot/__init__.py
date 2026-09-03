@@ -181,6 +181,7 @@ from .models import (
     ViewModel,
 )
 from .discovery import PlotCapability, PlotCatalog
+from .display import PSI_STYLES
 from .navigation import SliceNavigator
 from .registry import PlotSpec, available_plots, canonical_names, get_spec
 from .renderers.fields import render_field_2d
@@ -324,6 +325,7 @@ from .parameter_history import plot_parameter_history
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
     "Field2D",
+    "PSI_STYLES",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",

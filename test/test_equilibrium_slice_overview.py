@@ -103,13 +103,12 @@ def test_the_overview_has_the_same_shape_on_every_shot(shots):
         figure, axes = vaft.omas.plot_equilibrium_overview(ods)
         # Three columns: the flux map, the plasma profiles, the fitted source
         # terms and the global quantities.  No packaged reconstruction stores
-        # j_tor, so its slot is a labelled placeholder (no title).
+        # j_tor; it is derived for the slice and the panel says so.
         assert axes.shape == (7,)
         assert [panel.get_title() for panel in axes.ravel()] == [
-            "Poloidal flux", "Pressure", "Safety Factor q", "",
+            "Poloidal flux", "Pressure", "Safety Factor q", "Toroidal Current Density (derived)",
             "dp/dpsi", "F dF/dpsi", "Global quantities",
         ]
-        assert "profiles_1d.j_tor" in axes[3].texts[0].get_text()
         assert figure._suptitle.get_text().startswith(f"Equilibrium slice #{shot} — t = ")
         assert "middle usable slice (no volume stored)" in figure._suptitle.get_text()
         plt.close(figure)
@@ -118,11 +117,12 @@ def test_the_overview_has_the_same_shape_on_every_shot(shots):
 def test_the_model_composes_canonical_members_for_one_slice(shots):
     model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=2)
     assert isinstance(model, Panels)
-    field, pressure, q, pprime, ffprime, text = model.models
+    field, pressure, q, j_tor, pprime, ffprime, text = model.models
     assert isinstance(field, Field2D) and isinstance(pressure, Profile1D) and isinstance(q, Profile1D)
+    assert isinstance(j_tor, Profile1D) and j_tor.title.endswith("(derived)") and j_tor.series
     assert isinstance(pprime, Profile1D) and isinstance(ffprime, Profile1D)
     assert isinstance(text, TextPanel)
-    assert model.placeholders == ((3, "profiles_1d.j_tor\nnot stored in this reconstruction"),)
+    assert model.placeholders == () and "j_tor" not in shots[39915]["equilibrium.time_slice.2.profiles_1d"]
     assert model.nrows == 3 and model.ncols == 3 and model.spans[0] == (0, 0, 3, 1)
     # The 2-D panel is the same one plot_equilibrium_field_psi draws for that slice.
     same = build_model("equilibrium_field_psi", normalize_entries(shots[39915]), time_slice=2)
@@ -210,3 +210,18 @@ def test_the_efit_qa_stage_keeps_its_history_artifact():
     efit = {plot.plot: plot for plot in STAGE_VALIDATION_PLOTS["efit"]}
     assert "equilibrium_overview" not in efit
     assert efit["equilibrium_overview_histories"].filename == "equilibrium_overview.png"
+
+
+def test_a_profile_that_cannot_be_derived_keeps_its_slot(shots, monkeypatch):
+    import vaft.omas
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError("no derivation here")
+
+    monkeypatch.setattr(vaft.omas, "update_equilibrium_derived_profiles", refuse)
+    model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=2)
+    assert len(model.models) == 6
+    assert model.placeholders == ((3, "profiles_1d.j_tor\nneither stored nor derivable"),)
+    figure, axes = vaft.omas.plot_equilibrium_overview(shots[39915], time_slice=2)
+    assert axes[3].get_title() == "" and "j_tor" in axes[3].texts[0].get_text()
+    plt.close(figure)
