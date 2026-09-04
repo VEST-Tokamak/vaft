@@ -79,8 +79,8 @@ def _subset(rule: dict, func) -> dict:
 
 def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: PlasmaTimingPolicy | None = None, timing=None) -> Path:
     policy = policy or resolve_plasma_timing_policy()
-    window = (policy.window.tstart - policy.reference_lead_s, policy.window.tend)
-    reference_end = policy.window.tstart
+    window = (policy.baseline_start, policy.window.tend)
+    baseline_end = policy.window.tstart
     panels = 3 if timing is not None else 2
     fig, axes = plt.subplots(panels, 1, figsize=(11, 3.5 * panels), sharex=True)
     for ax, key, label, kind in ((axes[0], "ip", "plasma current [kA]", "ip"), (axes[1], "ha", "H-alpha [a.u.]", "ha")):
@@ -90,7 +90,7 @@ def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: Plasma
         if t.size < 10:
             ax.set_title(f"{label}: no samples in window")
             continue
-        ref = t < reference_end
+        ref = t < baseline_end  # the baseline stretch, the detectors' reference_mask
         rule = policy.ip if kind == "ip" else policy.h_alpha
         threshold_label = f"threshold max({100 * rule.get('fraction', 0.02):g} % peak, {rule.get('sigma', 5.0):g}σ)"
         scale = 1e3 if kind == "ip" else 1.0
