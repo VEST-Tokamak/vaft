@@ -1820,6 +1820,106 @@ def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayer
     return GeometryLayers(layers=tuple(layers), title=options.get("title", "Passive Structure"))
 
 
+def _diverging_rgba(value: float) -> tuple[float, float, float, float]:
+    """Blue (-1) through white (0) to red (+1); no Matplotlib in the backend."""
+    v = max(-1.0, min(1.0, float(value)))
+    if v >= 0.0:
+        return (1.0, 1.0 - 0.85 * v, 1.0 - 0.85 * v, 1.0)
+    return (1.0 + 0.85 * v, 1.0 + 0.85 * v, 1.0, 1.0)
+
+
+def _wall_mode_basis(ods: Any, options: Mapping[str, Any]):
+    basis = options.get("basis")
+    if basis is None:
+        from vaft.omas.process_wrapper import compute_wall_mode_basis_ods
+
+        basis = compute_wall_mode_basis_ods(
+            ods, remap_em_coupling=bool(options.get("remap_em_coupling", False))
+        )
+    return basis
+
+
+def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
+    """One segment-local wall eigenmode drawn on the passive structure.
+
+    ``segment`` (default: the first) and ``mode`` (default 0, the slowest of
+    that segment) pick the mode; ``basis`` accepts a precomputed
+    ``WallModeBasis`` so a survey of many modes builds it once.  Loops of the
+    chosen segment are coloured by their signed current relative to the
+    segment's largest, every other loop is grey, and the title carries the
+    mode's decay time.
+    """
+    basis = _wall_mode_basis(ods, options)
+    segment_id = options.get("segment") or basis.segments[0].id
+    segment = basis.segment(str(segment_id))
+    mode = int(options.get("mode", 0))
+    if not 0 <= mode < segment.size:
+        raise ValueError(f"segment {segment.id!r} has {segment.size} modes; mode {mode} does not exist")
+    amplitude = segment.V[:, mode]
+    amplitude = amplitude / np.max(np.abs(amplitude))
+    members = {int(i): float(a) for i, a in zip(segment.index, amplitude)}
+
+    layers: list[GeometryLayer] = []
+    labelled_other = False
+    labelled_segment = False
+    for index in range(_count(ods, "pf_passive.loop")):
+        for r, z in _element_outlines(ods, f"pf_passive.loop.{index}"):
+            if index in members:
+                layers.append(GeometryLayer(
+                    r=r, z=z, kind="polygon",
+                    label="" if labelled_segment else f"{segment.id} mode {mode}",
+                    style={"color": _diverging_rgba(members[index]), "lw": 1.2},
+                ))
+                labelled_segment = True
+            else:
+                layers.append(GeometryLayer(
+                    r=r, z=z, kind="polygon",
+                    label="" if labelled_other else "other segments",
+                    style={"color": "0.75", "lw": 0.4},
+                ))
+                labelled_other = True
+    if not layers:
+        raise ValueError("pf_passive stores no loop element geometry")
+    title = options.get(
+        "title", f"{segment.id} mode {mode}: tau = {segment.tau[mode] * 1e3:.2f} ms"
+    )
+    return GeometryLayers(layers=tuple(layers), title=title)
+
+
+def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
+    """Decay times of every segment's modes, slowest first, per segment.
+
+    The whole wall's global spectrum (the full-rank reduced system's) is
+    drawn alongside so the reader sees how the local modes relate to it.
+    """
+    from vaft.omas.process_wrapper import compute_impedance_matrices_ods
+    from vaft.process.wall_modes import global_time_constants
+
+    basis = _wall_mode_basis(ods, options)
+    max_modes = int(options.get("max_modes", 0)) or None
+    series: list[Series] = []
+    for segment in basis.segments:
+        tau = segment.tau if max_modes is None else segment.tau[:max_modes]
+        series.append(Series(
+            x=np.arange(1, tau.size + 1, dtype=float), y=tau, label=segment.id,
+            style={"marker": "o", "markersize": 3, "lw": 0.8},
+        ))
+    if options.get("whole_wall", True):
+        _r, _l, inductance = compute_impedance_matrices_ods(ods, [])
+        global_tau = global_time_constants(basis, inductance)
+        if max_modes is not None:
+            global_tau = global_tau[:max_modes]
+        series.append(Series(
+            x=np.arange(1, global_tau.size + 1, dtype=float), y=global_tau,
+            label="whole wall", style={"color": "k", "lw": 1.5, "ls": "--"},
+        ))
+    panel = LineSeries(
+        series=tuple(series), x_label="mode number within segment", y_label="decay time",
+        y_unit="s", log_y=True, title=options.get("title", "Passive-wall eigenmode decay times"),
+    )
+    return Panels(models=(panel,), ncols=1, suptitle="")
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
@@ -2275,6 +2375,14 @@ RECIPES["pf_coil_geometry_poloidal"] = CallableRecipe(
 RECIPES["passive_structure_geometry_poloidal"] = CallableRecipe(
     builder=_build_passive_structure_geometry,
     description="The passive conducting structure drawn as one structure.",
+)
+RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
+    builder=_build_wall_mode_shape,
+    description="One segment-local wall eigenmode coloured onto the passive structure.",
+)
+RECIPES["passive_structure_spectrum_wall_time"] = CallableRecipe(
+    builder=_build_wall_mode_spectrum,
+    description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
@@ -3970,6 +4078,13 @@ EXTRACTION_OPTIONS = frozenset(
         "nperseg",
         "overlay",
         "per_family",
+        # wall eigenmode views (vaft #473)
+        "basis",
+        "segment",
+        "mode",
+        "max_modes",
+        "whole_wall",
+        "remap_em_coupling",
         "phi0",
         "pose_path",
         "projection",

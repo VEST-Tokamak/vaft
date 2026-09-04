@@ -28,6 +28,7 @@ from ..registry import renderer
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "passive_structure_spectrum_wall_time",
     "chease_overview_profile_validity",
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
@@ -274,6 +275,27 @@ def _panel_renderer(
         required_paths=required_paths,
         optional_paths=optional_paths,
     )
+
+
+@_panel_renderer(
+    domain="machine",
+    subject="passive_structure",
+    view="spectrum",
+    quantity="wall_time",
+    description=(
+        "Decay-time spectrum of the passive wall's segment-wise eigenmodes: "
+        "one series per conductor segment, slowest mode first, with the "
+        "whole wall's global spectrum for reference (vaft #473)."
+    ),
+    ids=("pf_passive", "em_coupling"),
+    required_paths=("pf_passive.loop.{i}.resistance",),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_spectrum_wall_time(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Wall-mode decay times per segment."""
+    return render_panels(model, ax=ax, show=show, **style)
 
 
 @_panel_renderer(
