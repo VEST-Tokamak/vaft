@@ -165,10 +165,10 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ),
         ValidationPlot("equilibrium_field_psi", required=False),
     ),
-    # Deliberately minimal: only `n_tor` and DCON's `energy_perturbed` reach the
-    # IDS today. RDCON/STRIDE's Delta-prime has no IDS slot and survives only in
-    # the stage manifest, so it is recorded as a metric rather than invented into
-    # a figure.
+    # DCON's eigenfunction now reaches the IDS as well as `n_tor` and
+    # `energy_perturbed`, so it gets a figure. RDCON/STRIDE's Delta-prime still
+    # has no `mhd_linear` slot and survives only in the stage manifest, so it
+    # stays a recorded metric rather than being invented into a figure.
     "mhd_linear": (
         ValidationPlot(
             plot="mhd_linear_time_energy_perturbed",
@@ -183,6 +183,15 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             plot="mhd_linear_run_coverage",
             filename="stability_run_coverage.png",
             kind="raw",
+            required=False,
+        ),
+        # The eigenfunction reaches the IDS only when DCON's companion `match`
+        # ran (it is what writes solutions.bin), which is a legitimate thing for
+        # an installation not to have -- so this is optional, and its absence is
+        # recorded as a skip rather than failing the stage.
+        ValidationPlot(
+            plot="mhd_linear_overview_eigenfunction",
+            filename="stability_eigenfunction.png",
             required=False,
         ),
     ),

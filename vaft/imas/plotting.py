@@ -1255,6 +1255,51 @@ def plot_mhd_linear_time_energy_perturbed(
     return render("mhd_linear_time_energy_perturbed", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_mhd_linear_profile_displacement(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """DCON displacement eigenfunction against normalized flux, one trace per poloidal harmonic; amplitudes are normalized to the peak because DCON's eigenvector normalization is arbitrary.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_displacement` from native IMAS input.
+    """
+    return render("mhd_linear_profile_displacement", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_b_field_perturbed(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Normal perturbed field per poloidal harmonic against normalized flux, derived from the DCON eigenfunction as i(m - nq) xi.grad(psi).
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_b_field_perturbed` from native IMAS input.
+    """
+    return render("mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_overview_eigenfunction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The DCON eigenfunction of the least-stable mapped mode: displacement and normal perturbed field per poloidal harmonic.
+
+    Renders with :func:`vaft.plot.mhd_linear_overview_eigenfunction` from native IMAS input.
+    """
+    return render("mhd_linear_overview_eigenfunction", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_mirnov_spectrogram(
     source: Any,
     *,
@@ -1793,6 +1838,9 @@ __all__ += [
     "plot_magnetics_overview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
+    "plot_mhd_linear_overview_eigenfunction",
+    "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_displacement",
     "plot_mhd_linear_time_energy_perturbed",
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",

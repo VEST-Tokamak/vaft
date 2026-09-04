@@ -4072,7 +4072,9 @@ EXTRACTION_OPTIONS = frozenset(
         "log_y",
         "marker_frequencies",
         "max_frequency",
+        "max_harmonics",
         "max_length_m",
+        "n_tor",
         "ncols",
         "noverlap",
         "nperseg",
@@ -5496,6 +5498,184 @@ def _build_mhd_linear_energy_perturbed(ods: Any, **options: Any) -> LineSeries:
 RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
     builder=_build_mhd_linear_energy_perturbed,
     description="DCON perturbed potential energy against time, per toroidal mode.",
+)
+
+
+def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
+    """Locate the ``(time_slice, toroidal_mode)`` cell whose eigenfunction to draw.
+
+    A profile is one radial curve set, but a shot carries one eigenfunction per
+    time slice and toroidal mode.  The default picks the *least stable* cell --
+    the most negative ``energy_perturbed`` -- because that is the case a reader
+    opens this figure to look at; ``time_slice`` and ``n_tor`` name one
+    explicitly.  Cells with no perturbed energy sort last rather than being
+    dropped, so a run that mapped an eigenfunction but no eigenvalue is still
+    drawable.
+    """
+    count = _count(ods, "mhd_linear.time_slice")
+    if count == 0:
+        raise ValueError("mhd_linear ODS carries no time slices")
+    requested_time = options.get("time_slice")
+    requested_n_tor = options.get("n_tor")
+
+    candidates: list[tuple[float, int, int, str, int]] = []
+    for index in range(count):
+        if requested_time is not None and index != int(requested_time):
+            continue
+        root = f"mhd_linear.time_slice.{index}.toroidal_mode"
+        for position in range(_count(ods, root)):
+            base = f"{root}.{position}"
+            n_tor = _get(ods, f"{base}.n_tor")
+            if n_tor is None:
+                continue
+            if requested_n_tor is not None and int(n_tor) != int(requested_n_tor):
+                continue
+            grid = _array(ods, f"{base}.plasma.grid.dim1")
+            harmonics = _array(ods, f"{base}.plasma.grid.dim2")
+            if grid is None or harmonics is None or grid.size == 0 or harmonics.size == 0:
+                continue
+            energy = _get(ods, f"{base}.energy_perturbed")
+            rank = _scalar(energy) if energy is not None else float("nan")
+            if not np.isfinite(rank):
+                rank = float("inf")
+            candidates.append((rank, index, int(n_tor), base, position))
+    if not candidates:
+        raise ValueError(
+            "mhd_linear ODS carries no eigenfunction: only DCON runs that also ran "
+            "the companion `match` produce solutions.bin, and none was mapped here"
+        )
+
+    rank, time_index, n_tor, base, _position = min(candidates, key=lambda item: item[:3])
+    return {
+        "base": base,
+        "time_slice": time_index,
+        "n_tor": n_tor,
+        "energy_perturbed": None if not np.isfinite(rank) else rank,
+        "psi_n": np.asarray(_array(ods, f"{base}.plasma.grid.dim1"), dtype=float),
+        "m": np.asarray(_array(ods, f"{base}.plasma.grid.dim2"), dtype=float),
+        "m_pol_dominant": _get(ods, f"{base}.m_pol_dominant"),
+    }
+
+
+def _mhd_linear_radial_stride(ods: Any) -> int | None:
+    """The radial stride the mapper recorded, when every cell agrees on one.
+
+    What reaches the IDS is a strided view of `solutions.bin`, so a reader who
+    is not told that will mistake the drawn resolution for DCON's own.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    strides = {int(value) for value in re.findall(r'radial_stride="(\d+)"', str(parameters))}
+    return strides.pop() if len(strides) == 1 else None
+
+
+def _build_mhd_linear_eigenfunction_profile(
+    ods: Any, *, field: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One trace per poloidal harmonic of a mapped eigenfunction quantity.
+
+    Amplitudes are normalized to the peak across the drawn harmonics, and the
+    axis label says so: DCON's eigenvector normalization is arbitrary
+    (`match/ideal.f:318-325`), so an absolute axis would put a number on the
+    figure that means nothing, while the shape and the relative harmonic
+    content -- which the normalization cannot change -- are the physics.
+    """
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.{field}.real")
+    imaginary = _array(ods, f"{base}.plasma.{field}.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(
+            f"mhd_linear ODS carries a grid but no {field} for "
+            f"time slice {cell['time_slice']}, n={cell['n_tor']}"
+        )
+    amplitude = np.hypot(np.asarray(real, dtype=float), np.asarray(imaginary, dtype=float))
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if amplitude.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"{field} has shape {amplitude.shape}, but the declared (psi, m) grid is "
+            f"{(psi_n.size, harmonics.size)}"
+        )
+
+    peaks = np.nanmax(np.where(np.isfinite(amplitude), amplitude, -np.inf), axis=0)
+    if not np.isfinite(peaks).any() or float(np.nanmax(peaks)) <= 0.0:
+        raise ValueError(f"mhd_linear ODS carries no finite {field} amplitude to plot")
+    normalization = float(np.nanmax(peaks))
+
+    order = [index for index in np.argsort(peaks)[::-1] if np.isfinite(peaks[index])]
+    limit = int(options.get("max_harmonics", 12) or len(order))
+    drawn = sorted(order[:limit], key=lambda index: harmonics[index])
+    omitted = len(order) - len(drawn)
+
+    series = tuple(
+        Series(
+            x=psi_n,
+            y=amplitude[:, index] / normalization,
+            label=f"m={int(harmonics[index])}",
+        )
+        for index in drawn
+    )
+
+    dominant = cell["m_pol_dominant"]
+    title = f"{description} — n={cell['n_tor']}"
+    if cell["energy_perturbed"] is not None:
+        title += rf", $\delta W$={cell['energy_perturbed']:.3g}"
+    if dominant is not None:
+        title += f", dominant m={int(_scalar(dominant))}"
+    notes = []
+    if omitted > 0:
+        notes.append(f"{omitted} weaker harmonics omitted")
+    stride = _mhd_linear_radial_stride(ods)
+    if stride is not None and stride > 1:
+        notes.append(f"every {stride}th radial sample")
+    if notes:
+        title += f" ({'; '.join(notes)})"
+
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=title,
+    )
+
+
+def _build_mhd_linear_profile_displacement(ods: Any, **options: Any) -> Profile1D:
+    return _build_mhd_linear_eigenfunction_profile(
+        ods,
+        field="displacement_perpendicular",
+        y_label=r"$|\xi\cdot\nabla\psi|$ / peak",
+        description="Displacement eigenfunction",
+        **options,
+    )
+
+
+def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Profile1D:
+    return _build_mhd_linear_eigenfunction_profile(
+        ods,
+        field="b_field_perturbed.coordinate1",
+        y_label=r"$|b_\psi|$ / peak",
+        description="Normal perturbed field",
+        **options,
+    )
+
+
+RECIPES["mhd_linear_profile_displacement"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_displacement,
+    description="DCON displacement eigenfunction per poloidal harmonic against psi_n.",
+)
+
+RECIPES["mhd_linear_profile_b_field_perturbed"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_b_field_perturbed,
+    description="DCON normal perturbed field per poloidal harmonic against psi_n.",
+)
+
+RECIPES["mhd_linear_overview_eigenfunction"] = PanelRecipe(
+    members=(
+        "mhd_linear_profile_displacement",
+        "mhd_linear_profile_b_field_perturbed",
+    ),
+    ncols=2,
+    share_x=True,
+    suptitle="DCON eigenfunction",
 )
 
 
