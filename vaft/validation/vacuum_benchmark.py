@@ -61,7 +61,9 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "BenchmarkError",
     "DEFAULT_HISTORY_TIME_CONSTANTS",
+    "BENCHMARK_CASE_SCHEMA",
     "MIN_COIL_DRIVE_FRACTION",
+    "PLASMA_FREE_EVIDENCE_SCHEMA",
     "coil_drive_check",
     "PlasmaFreeInterval",
     "aggregate_benchmark",
@@ -80,12 +82,14 @@ DEFAULT_HISTORY_TIME_CONSTANTS = 3.0
 
 #: Smallest fraction of the shot's peak PF current that must appear inside the
 #: validation window for a plasma-free eddy score to mean anything (see
-#: :func:`coil_drive_check`).  Measured through the benchmark's own validation
-#: windows on the packaged samples: 39915 reaches 0.34 of its shot peak (the
-#: peak itself comes during the plasma phase), while 41524 reaches 0.003 --
-#: its solenoid fires ~0.8 ms *after* the Ip detector triggers, so its nominal
-#: plasma-free window carries no drive at all and no model can pass or fail
-#: on it.  Over the full pre-onset stretch the driven shots sit at 0.99-1.00.
+#: :func:`coil_drive_check`).  The gate is independent of how the interval was
+#: found, and it earned its place on 41524: the legacy Ip discharge detector
+#: fired on PF pickup ~0.8 ms *before* the solenoid, so the nominal plasma-free
+#: window carried 0.003 of the shot's drive and the eddy score there was a
+#: ratio of two noise numbers.  With the interval ending at the plasma onset
+#: of the shared timing policy (#409) the packaged shots 39915, 41524 and
+#: 41672 all reach 1.00 of their shot peak inside the window; the gate stays,
+#: for the shot whose coils genuinely fire late.
 MIN_COIL_DRIVE_FRACTION = 0.10
 
 #: Sigma above the early-record noise band at which the plasma current is
@@ -95,6 +99,14 @@ ONSET_SIGMA = 5.0
 
 #: Fraction of the record used as the reference noise band for that detector.
 ONSET_REFERENCE_FRACTION = 0.2
+
+#: Schema of ``plasma_free_evidence`` (#409): the boundary comes from the shared
+#: plasma-timing policy and its provenance is recorded; the two retired
+#: detectors are reported under ``legacy`` until this reaches 3.
+PLASMA_FREE_EVIDENCE_SCHEMA = 2
+
+#: Schema of a :func:`run_benchmark_case` record; follows the evidence schema.
+BENCHMARK_CASE_SCHEMA = 2
 
 
 class BenchmarkError(ValueError):
@@ -144,6 +156,8 @@ def _signal(ods: Any, path: str) -> np.ndarray | None:
     return array if array.size >= 2 else None
 
 
+
+
 def plasma_free_interval(
     ods: Any,
     *,
@@ -157,20 +171,26 @@ def plasma_free_interval(
     and #190 treats as the cleanest case there is.  A shot that does form one
     contributes the stretch before it.
 
-    Two independent detectors bound that stretch and the **earlier** wins:
+    The boundary is the plasma-free boundary of the shared timing policy
+    (:func:`vaft.omas.plasma_timing.plasma_timing`, issue #409): the plasma
+    window's onset -- the slow H-alpha line when it is usable, optical, so the
+    coil-firing pickup every magnetic diagnostic carries cannot trigger it --
+    or the plasma-current principal pulse when that starts earlier, since a
+    plasma-*free* stretch wants the earliest evidence of plasma from any
+    source.  The interval is half-open, ``[start, boundary)``, on every grid.
 
-    * the pipeline's own Ip-based discharge detector,
-      :func:`vaft.machine_mapping.magnetics.vfit_plasma_mgods_startend`, which
-      is deliberately conservative;
-    * the first time the measured current leaves the noise band of the leading
-      part of the record, by the same sigma rule the residual-onset analysis
-      uses.
-
-    Taking the earlier is what keeps plasma out of a nominally plasma-free
-    interval, and it establishes the boundary from the signals rather than from
-    a fixed clock time.
+    A shot is a vacuum case only on evidence: no plasma current recorded at
+    all, or a current whose principal pulse the detector examined and found
+    absent.  A current the product marks unusable, or one the policy cannot
+    read, cannot certify a plasma-free interval and raises
+    :class:`BenchmarkError`.  The two detectors this replaced -- the legacy
+    Ip discharge detector and a sigma crossing of the current, both of which
+    fired on PF pickup -- are reported under ``legacy`` until the evidence
+    schema reaches 3.  ``sigma`` feeds only that block.
     """
-    from vaft.machine_mapping.magnetics import vfit_plasma_mgods_startend
+    from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
+    from vaft.omas.vacuum_magnetics import plasma_free_boundary
+    from vaft.validation.imas import resolve_signal_time
 
     time = _signal(ods, "pf_active.time")
     if time is None:
@@ -179,35 +199,51 @@ def plasma_free_interval(
         )
     record = (float(time[0]), float(time[-1]))
 
-    ip_time = _signal(ods, "magnetics.ip.0.time")
     ip_data = _signal(ods, "magnetics.ip.0.data")
+    ip_time = resolve_signal_time(ods, "magnetics.ip.0") if ip_data is not None else None
+    has_ip = ip_time is not None and ip_data is not None and ip_time.size == ip_data.size
     evidence: dict[str, Any] = {
-        "method": "earliest of the pipeline Ip discharge detector and a "
-        f"{sigma:g}-sigma crossing of the leading-record noise band",
+        "schema_version": PLASMA_FREE_EVIDENCE_SCHEMA,
+        "method": "plasma-free boundary of the shared timing policy: the plasma "
+        "window's onset (H-alpha by label, validated fast line, plasma-current "
+        "principal pulse) or the current's principal pulse when it starts earlier",
         "record": list(record),
     }
 
-    coarse = float("nan")
-    if ip_time is not None and ip_data is not None and ip_time.size == ip_data.size:
+    boundary = float("nan")
+    if not has_ip:
+        evidence["reason"] = "no usable magnetics.ip waveform"
+    else:
+        try:
+            timing = plasma_timing(ods)
+        except (PlasmaTimingError, ValueError, TypeError) as exc:
+            raise BenchmarkError(
+                f"the plasma current cannot certify a plasma-free interval: {exc}"
+            ) from exc
+        evidence["plasma_timing"] = timing.summary()
+        if timing.found:
+            boundary, source = plasma_free_boundary(timing)
+            evidence.update({"boundary": boundary, "boundary_source": source})
+        elif "ip_unusable" in timing.flags or timing.ip is None:
+            raise BenchmarkError(
+                "the plasma current is marked unusable, so no plasma-free interval can be "
+                f"certified ({timing.fallback_reason})"
+            )
+        else:
+            evidence["reason"] = f"no source shows a plasma ({timing.fallback_reason})"
+
+        from vaft.machine_mapping.magnetics import vfit_plasma_mgods_startend
+
         start, end = vfit_plasma_mgods_startend(ods)
-        if start >= 0 and end > start:
-            coarse = float(start)
         span = float(ip_time[-1] - ip_time[0])
         reference = ip_time < ip_time[0] + reference_fraction * span
         fine = sigma_threshold_crossing(ip_time, ip_data, reference, sigma=sigma)
-        evidence.update(
-            {
-                "discharge_detector_onset": coarse,
-                "sigma_crossing_onset": float(fine),
-            }
-        )
-        onsets = [value for value in (coarse, float(fine)) if np.isfinite(value)]
-        onset = min(onsets) if onsets else float("nan")
-    else:
-        evidence["reason"] = "no usable magnetics.ip waveform"
-        onset = float("nan")
+        evidence["legacy"] = {
+            "discharge_detector_onset": float(start) if start >= 0 and end > start else float("nan"),
+            "sigma_crossing_onset": float(fine),
+        }
 
-    if not np.isfinite(onset) or onset <= record[0]:
+    if not np.isfinite(boundary) or boundary <= record[0]:
         interval = PlasmaFreeInterval(
             start=record[0],
             end=record[1],
@@ -215,17 +251,20 @@ def plasma_free_interval(
             plasma_free_evidence=evidence,
         )
     else:
+        # The boundary itself: the half-open evaluation window then excludes
+        # every sample at or after it on whichever grid a consumer reads.
+        evidence["boundary_on_pf_grid"] = bool(np.any(np.isclose(time, boundary, rtol=0.0, atol=1e-9)))
         interval = PlasmaFreeInterval(
             start=record[0],
-            end=float(onset),
+            end=min(boundary, record[1]),
             case_type="pre_plasma",
             plasma_free_evidence=evidence,
         )
 
-    if ip_time is not None and ip_data is not None and ip_time.size == ip_data.size:
+    if has_ip:
         from vaft.formula.statistics import noise_band
 
-        inside = (ip_time >= interval.start) & (ip_time <= interval.end)
+        inside = (ip_time >= interval.start) & (ip_time < interval.end)
         span = float(ip_time[-1] - ip_time[0])
         reference = ip_time < ip_time[0] + reference_fraction * span
         centre, width = noise_band(ip_data[reference])
@@ -592,7 +631,7 @@ def run_benchmark_case(
         if row["status"] != "evaluated"
     ]
     return {
-        "schema_version": 1,
+        "schema_version": BENCHMARK_CASE_SCHEMA,
         "shot": None if shot is None else int(shot),
         "machine_era": machine_era,
         "case_type": interval.case_type,

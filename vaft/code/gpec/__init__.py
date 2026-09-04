@@ -27,7 +27,15 @@ from ._coil_input import (
     stage_coil_data,
     write_coil_in,
 )
-from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
+from ._dcon_output import (
+    DconCoordinates,
+    DconEdgeScan,
+    DconEigenfunction,
+    DconEquilibrium,
+    DconOutput,
+    read_dcon_output,
+    read_solutions_bin,
+)
 from ._gpec_output import (
     GpecControlOutput,
     GpecCylindricalOutput,
@@ -35,7 +43,13 @@ from ._gpec_output import (
     read_gpec_netcdf,
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
-from ._solvers import SOLVERS, SolverContext, _check_nc_variable
+from ._solvers import (
+    SOLVERS,
+    SolverContext,
+    _check_nc_variable,
+    missing_companion_outputs,
+    required_outputs,
+)
 from ._types import (
     DEFAULT_MODES,
     DEFAULT_MODULES,
@@ -92,6 +106,20 @@ def collect_gpec_suite_outputs(workdir: Path | str) -> dict[str, tuple[Path, ...
             if path.is_file():
                 outputs[module].append(path)
     return {key: tuple(value) for key, value in outputs.items()}
+
+
+def _completion_reason(base: str, missing_optional: tuple[str, ...]) -> str:
+    """Name absent companion output on an otherwise successful run.
+
+    The run really did succeed, so this is not a `reason` for failure -- it is
+    the record of what the cell will not have, which is otherwise invisible
+    until something downstream looks for a file that was never going to exist.
+    """
+    if not missing_optional:
+        return base
+    listed = ", ".join(missing_optional)
+    suffix = f"missing optional outputs: {listed} (the companion did not produce them)"
+    return f"{base}; {suffix}" if base else suffix
 
 
 def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
@@ -243,19 +271,38 @@ def _run_module(
     # because another time slice in the same code/mode cell failed.  A full
     # solver output set is immutable input for the downstream IDS builder.
     existing_outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
-    if len(existing_outputs) == len(solver.output_patterns(mode)):
+    missing_optional = missing_companion_outputs(solver, run_dir, mode)
+    # Completeness is judged on what this solver itself owes, so an installation
+    # without `match` (or `rmatch`) stops re-solving every already-finished cell
+    # on every pipeline invocation for files that can never appear.
+    #
+    # "Can never appear" is the whole justification, so it is tested rather than
+    # assumed: where the companion *is* installed, its missing output means a
+    # step that failed and can succeed on a retry, and skipping that retry would
+    # strand the cell without an eigenfunction just as permanently.
+    required = required_outputs(solver, mode)
+    companion_can_still_run = bool(missing_optional) and any(
+        (candidate := rt.optional_executable(config, name)) is not None
+        and is_executable(candidate)
+        for name in solver.companion_executables()
+    )
+    if all((run_dir / pattern).exists() for pattern in required) and not companion_can_still_run:
         if config.verify_outputs:
             ok, reason = solver.check_success(run_dir, mode)
             if not ok:
-                return GPECModuleRun(module, mode, run_dir, status="failed", reason=reason, outputs=existing_outputs)
+                return GPECModuleRun(
+                    module, mode, run_dir, status="failed", reason=reason,
+                    outputs=existing_outputs, missing_optional_outputs=missing_optional,
+                )
         return GPECModuleRun(
             module,
             mode,
             run_dir,
             returncode=0,
             status="completed",
-            reason="reused existing solver outputs",
+            reason=_completion_reason("reused existing solver outputs", missing_optional),
             outputs=existing_outputs,
+            missing_optional_outputs=missing_optional,
         )
 
     commands: list[str] = [str(executable)]
@@ -285,6 +332,9 @@ def _run_module(
                 status = "failed"
                 reason = check_reason
         outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
+        missing_optional = missing_companion_outputs(solver, run_dir, mode)
+        if status == "completed":
+            reason = _completion_reason(reason, missing_optional)
         return GPECModuleRun(
             module=module,
             mode=mode,
@@ -295,6 +345,7 @@ def _run_module(
             logs=tuple(logs),
             outputs=outputs,
             commands=tuple(commands),
+            missing_optional_outputs=missing_optional,
         )
     except subprocess.TimeoutExpired as exc:
         outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
@@ -421,7 +472,10 @@ __all__ = [
     "read_coil_in",
     "run_gpec_suite_case",
     "validate_dcon_result",
+    "DconCoordinates",
+    "DconEdgeScan",
     "DconEigenfunction",
+    "DconEquilibrium",
     "DconOutput",
     "GpecControlOutput",
     "GpecCylindricalOutput",

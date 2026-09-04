@@ -540,7 +540,8 @@ class PlasmaTiming:
             return None
         return (float(self.onset), float(self.offset))
 
-    def record(self) -> dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
+        """What a metrics record or a manifest carries: the verdict and its provenance."""
         return {
             "onset": self.onset,
             "offset": self.offset,
@@ -550,6 +551,13 @@ class PlasmaTiming:
             "offset_delta_s": self.offset_delta_s,
             "fallback_reason": self.fallback_reason,
             "flags": list(self.flags),
+            "ip_window": None if self.ip is None or not self.ip.found else [self.ip.start, self.ip.end],
+        }
+
+    def record(self) -> dict[str, Any]:
+        """Everything, including both detector windows and every candidate's usability."""
+        return {
+            **{key: value for key, value in self.summary().items() if key != "ip_window"},
             "span": self.span.record(),
             "optical_source": None if self.optical_source is None else self.optical_source.record(),
             "optical": None if self.optical is None else self.optical.as_dict(),

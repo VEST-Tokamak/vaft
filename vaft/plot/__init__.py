@@ -202,6 +202,7 @@ from .renderers.fields import (
     electron_temperature_field,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
+    passive_structure_field_wall_reduction,
 )
 from .renderers.geometry import (
     charge_exchange_geometry_poloidal,
@@ -286,6 +287,7 @@ from .renderers.panels import (
     impa_overview,
     magnetics_overview_plasma_residual,
     magnetics_overview_vacuum,
+    mhd_linear_overview_eigenfunction,
     limiter_current_time,
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
@@ -294,6 +296,7 @@ from .renderers.panels import (
     summary_time_power_balance,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
+    passive_structure_overview_wall_reduction,
 )
 from .renderers.profiles import (
     charge_exchange_profile_ion_temperature,
@@ -308,6 +311,8 @@ from .renderers.profiles import (
     equilibrium_profile_pprime,
     equilibrium_profile_pressure,
     equilibrium_profile_q,
+    mhd_linear_profile_b_field_perturbed,
+    mhd_linear_profile_displacement,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,

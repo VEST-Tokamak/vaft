@@ -128,6 +128,10 @@ def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
     assert record.status == "completed"
     assert record.returncode == 0
     assert record.commands == (str(dcon),)
+    # Still completed -- but the cell now says what it will never have, instead
+    # of leaving that to be rediscovered by whatever looks for the file later.
+    assert record.missing_optional_outputs == ("match.out", "solutions.bin")
+    assert "solutions.bin" in record.reason
 
 
 def test_run_reuses_a_completed_solver_cell_without_rerunning(monkeypatch, tmp_path, case):
@@ -147,6 +151,7 @@ def test_run_reuses_a_completed_solver_cell_without_rerunning(monkeypatch, tmp_p
     (record,) = result.records
     assert record.status == "completed"
     assert record.reason == "reused existing solver outputs"
+    assert record.missing_optional_outputs == ()
 
 
 def test_prepare_writes_rdcon_and_rmatch_without_a_gpec_installation(no_gpec_env, case):
@@ -430,12 +435,121 @@ def test_a_truncated_profile_or_cylindrical_output_fails_the_check(tmp_path):
         assert truncated in reason
 
 
+# ---------------------------------------------------------------------------
+# Companion outputs are optional by construction, and must not be treated as
+# evidence that a finished cell is unfinished.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("module", "companion_file"),
+    [("dcon", "solutions.bin"), ("rdcon", "globalsol.bin")],
+)
+def test_a_cell_missing_only_companion_output_is_not_solved_again(
+    monkeypatch, tmp_path, case, module, companion_file
+):
+    """An installation without `match`/`rmatch` must not re-solve every cell forever.
+
+    The companion writes files the solver itself never will (match/ideal.f:378
+    for solutions.bin, rmatch/match.f:1372 for globalsol.bin), so judging
+    completeness on the full `output_patterns` makes those cells permanently
+    incomplete: they are re-run on every pipeline invocation, at full solver
+    cost, and produce the same directory again.
+
+    The stub here exits 99, so reaching it at all fails the test rather than
+    merely slowing it down.
+    """
+    solver = gpec._solvers.SOLVERS[module]
+    executable = write_launchable_stub(tmp_path / f"gpec/bin/{module}", exit_code=99)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    run_dir = case.workdir / "00325" / module / "nn=1"
+    run_dir.mkdir(parents=True)
+    for filename in gpec._solvers.required_outputs(solver, 1):
+        (run_dir / filename).write_text("existing", encoding="utf-8")
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=(module,), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.commands == ()  # the stub was never reached
+    assert companion_file in record.missing_optional_outputs
+    assert companion_file in record.reason
+
+
+def test_a_companion_that_can_still_run_is_given_the_chance_to(monkeypatch, tmp_path, case):
+    """A missing companion output is only permanent when the companion is missing.
+
+    If `match` is installed and its step failed -- it ran out of memory, the disk
+    filled -- the cell can be completed by trying again. Treating "the file is
+    absent" as "it can never appear" would strand that cell without an
+    eigenfunction exactly as permanently as the re-solve loop this change fixes,
+    and the run would report success without ever retrying.
+    """
+    bindir = tmp_path / "gpec" / "bin"
+    bindir.mkdir(parents=True)
+    # The helper returns the path it actually created, which carries a suffix on
+    # Windows; the assertion below compares against what VAFT recorded.
+    stubs = {name: write_launchable_stub(bindir / name) for name in ("dcon", "match")}
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    run_dir = case.workdir / "00325" / "dcon" / "nn=1"
+    run_dir.mkdir(parents=True)
+    for filename in gpec._solvers.required_outputs(gpec._solvers.SOLVERS["dcon"], 1):
+        (run_dir / filename).write_text("existing", encoding="utf-8")
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.commands == (str(stubs["dcon"]), str(stubs["match"]))
+    assert "reused existing solver outputs" not in record.reason
+
+
+def test_required_outputs_is_derived_from_output_patterns(tmp_path):
+    """The two lists cannot drift: one is the other minus the companion's share."""
+    for module, solver in gpec._solvers.SOLVERS.items():
+        required = set(gpec._solvers.required_outputs(solver, 1))
+        companion = set(solver.companion_outputs(1))
+        assert required | companion == set(solver.output_patterns(1)), module
+        assert not (required & companion), module
+        # A solver that chains nothing owes every file it declares.
+        if not solver.companion_executables():
+            assert companion == set(), module
+
+
+def test_a_netcdf_whose_variable_holds_no_finite_value_is_not_success(tmp_path):
+    """Defining the outputs and then failing before filling them is not a result.
+
+    The file is exactly as long as its header says, so neither the truncation
+    check nor the variable-name check sees anything wrong with it.
+    """
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {"W_t_eigenvalue": (("mode", "i"), np.full((3, 2), np.nan))},
+        coords={"i": [0, 1], "mode": [1, 2, 3]},
+    ).to_netcdf(tmp_path / "dcon_output_n1.nc")
+
+    ok, reason = gpec._solvers.SOLVERS["dcon"].check_success(tmp_path, 1)
+
+    assert not ok
+    assert "no finite value" in reason
+
+
 def test_a_solver_the_system_refuses_to_start_is_a_failed_module(monkeypatch, tmp_path, case):
     """A POSIX build in a Windows installation must not abort the whole suite.
 
     The file resolves and passes the executability probe, and the operating
     system still refuses it -- WinError 193 on Windows, ENOEXEC on POSIX. That
-    is one module's failure, named, not a traceback out of `run_gpec_suite_case`.
+    is one failed module, named, rather than a traceback out of
+    `run_gpec_suite_case` that says nothing about which one.
     """
     dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
@@ -458,6 +572,7 @@ def test_a_solver_the_system_refuses_to_start_is_a_failed_module(monkeypatch, tm
 
 
 def test_strict_mode_still_raises_when_a_solver_cannot_be_started(monkeypatch, tmp_path, case):
+    """Strict mode means every problem is the caller's to see, this one included."""
     write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
