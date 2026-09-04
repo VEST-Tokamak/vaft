@@ -43,8 +43,23 @@ jobs:
           cd /tmp
           /tmp/vaft-wheel-test/bin/python -c "import vaft; print(vaft.__version__)"
 
-  test:
-    runs-on: ubuntu-latest
+  test-matrix:
+    name: test (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # A platform-specific failure should report on its own rather than hide
+      # behind whichever leg happened to fail first.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: Linux
+          # install/README.md calls native Windows a first-class VAFT path.
+          # Until 0.6.2 nothing enforced that: the suite had never run on
+          # Windows, where 25 tests failed and two defects stopped collection
+          # outright. This leg is what keeps the claim honest.
+          - os: windows-latest
+            label: Windows
     steps:
       - uses: actions/checkout@v7
 
@@ -67,7 +82,29 @@ jobs:
         # uncontended machine: with four xdist workers on a four-core runner,
         # test_substantially_faster_than_legacy measured 4.59x against its 5x
         # budget and failed. Five tests, ~6 s serially -- cheap to keep honest.
+        #
+        # Linux only. The budgets are calibrated against this runner class, and
+        # a ratio measured on a different OS is a different measurement, not a
+        # stricter one: the same test scored 3.13x on Windows under load and
+        # passed in isolation. Gating a required check on that would make it
+        # intermittently red without telling anyone anything about VAFT.
+        if: matrix.os == 'ubuntu-latest'
         run: python -m pytest -q -m perf
+
+  # `test` is a required status check (.github/rulesets/develop.json), and a
+  # matrix renames its contexts to "test (Linux)" / "test (Windows)". This job
+  # keeps the required name pointing at a single verdict that is green only
+  # when every leg is, so adding a platform never silently drops the gate.
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: test-matrix
+    if: always()
+    steps:
+      - name: Every test leg must have passed
+        run: |
+          echo "test-matrix result: ${{ needs.test-matrix.result }}"
+          test "${{ needs.test-matrix.result }}" = "success"
 
   tutorial:
     runs-on: ubuntu-latest

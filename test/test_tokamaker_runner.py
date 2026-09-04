@@ -87,7 +87,7 @@ def test_failed_solve_reports_error_and_still_resets(tmp_path, monkeypatch):
     assert not result.ok
     assert result.returncode == 1
     assert "boom: no convergence" in result.error
-    sidecar = json.loads((tmp_path / "tokamaker_result.json").read_text())
+    sidecar = json.loads((tmp_path / "tokamaker_result.json").read_text(encoding="utf-8"))
     assert sidecar["converged"] is False
     assert "boom" in sidecar["error"]
 

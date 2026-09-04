@@ -2,3 +2,14 @@
 *.ipynb diff=jupyter
 vaft/data/efit_table/**/*.ddd filter=lfs diff=lfs merge=lfs -text
 vaft/data/efit/*.ddd filter=lfs diff=lfs merge=lfs -text
+
+# Content-addressed fixtures: a manifest pins their sha256, so a CRLF checkout
+# changes the hash and offline verification fails on Windows. `text=auto` lets
+# Git leave detected binaries (.json.gz, .nc, .h5) untouched.
+test/data/vest_reference/** text=auto eol=lf
+docs/assets/notebook-outputs/** text=auto eol=lf
+vaft/data/samples/** text=auto eol=lf
+vaft/data/wheel_samples/** text=auto eol=lf
+
+# POSIX shell scripts must keep LF even in a Windows checkout.
+*.sh text eol=lf

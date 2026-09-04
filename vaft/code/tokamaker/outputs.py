@@ -62,7 +62,7 @@ def parse_stats_sidecar(path: Path) -> dict[str, Any]:
     ``stats`` entries listed in ``_STATS_KEYS`` are promoted to top-level keys;
     the coil currents, targets, and run metadata are kept under their own keys.
     """
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     scalars: dict[str, Any] = {}
     stats = payload.get("stats") or {}
     for key in _STATS_KEYS:
@@ -169,7 +169,7 @@ def collect_tokamaker_evolution_outputs(
     vacuum = False
     if sidecar_file is not None:
         try:
-            payload = json.loads(sidecar_file.read_text())
+            payload = json.loads(sidecar_file.read_text(encoding="utf-8"))
             times = tuple(float(t) for t in payload.get("times", ()))
             vacuum = bool(payload.get("vacuum", False))
             for entry in payload.get("steps", ()):
@@ -227,7 +227,7 @@ def collect_tokamaker_stability_outputs(
     scalars: dict[str, Any] = {}
     if stats_file is not None:
         try:
-            payload = json.loads(stats_file.read_text())
+            payload = json.loads(stats_file.read_text(encoding="utf-8"))
             wall = payload.get("wall", {})
             vertical = payload.get("vertical", {})
             tau_wall = tuple(float(t) for t in wall.get("tau_wall_s", ()))

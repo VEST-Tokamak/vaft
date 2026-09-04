@@ -256,7 +256,7 @@ class TestElectronTemperature:
 
     def test_calibration_table_requires_te_and_ratio_columns(self, tmp_path):
         bad = tmp_path / "bad.csv"
-        bad.write_text("a,b\n1,2\n3,4\n")
+        bad.write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
         with pytest.raises(ValueError, match="'te' and 'ratio'"):
             load_te_ratio_calibration(bad)
 

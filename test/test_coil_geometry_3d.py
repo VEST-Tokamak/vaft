@@ -93,8 +93,8 @@ def test_loader_rejects_truncated_file(tmp_path):
     (root / "gpec").mkdir(parents=True)
     for spec in VEST_3D_COIL_SETS.values():
         shutil.copy2(data_path(spec.dat_file), root / spec.dat_file)
-    truncated = (root / "gpec/vest_MID.dat").read_text().splitlines()[:-10]
-    (root / "gpec/vest_MID.dat").write_text("\n".join(truncated) + "\n")
+    truncated = (root / "gpec/vest_MID.dat").read_text(encoding="utf-8").splitlines()[:-10]
+    (root / "gpec/vest_MID.dat").write_text("\n".join(truncated) + "\n", encoding="utf-8")
     with pytest.raises(VestConfigurationError, match="coordinate rows"):
         load_vest_3d_coil_config(root)
 

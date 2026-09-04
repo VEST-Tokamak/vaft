@@ -7,7 +7,6 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-import tempfile
 import time as wall_time
 from datetime import datetime, timezone
 from typing import Literal, Optional, Union
@@ -16,6 +15,7 @@ import omas
 import numpy as np
 import h5pyd
 
+from ..compat import reopenable_temporary_file, temporary_directory
 from ..imas.omas_imas import load_omas_imas, save_omas_imas
 from .transport import run_hsget, run_hsload, verify_uploaded_image
 from .h5image import is_derived_filename, publish_image
@@ -98,13 +98,16 @@ def _load_derived_omas_cache(
             expected = manifest.get("checksum")
             if expected != hashlib.sha256(payload.tobytes()).hexdigest():
                 return None
-        with tempfile.NamedTemporaryFile(
+        # `ODS.load` opens the path itself, which a still-open
+        # NamedTemporaryFile forbids on Windows. Without this the load raises
+        # PermissionError, the blanket `except Exception` below swallows it,
+        # and the cache silently never hits.
+        with reopenable_temporary_file(
             prefix="vaft-derived-omas-", suffix=".h5"
-        ) as temporary:
-            temporary.write(payload.tobytes())
-            temporary.flush()
+        ) as staging:
+            staging.write_bytes(payload.tobytes())
             result = omas.ODS(consistency_check=consistency_check)
-            result.load(temporary.name, consistency_check=consistency_check)
+            result.load(str(staging), consistency_check=consistency_check)
             return result
     except Exception:
         return None
@@ -129,12 +132,12 @@ def _publish_derived_omas_cache(
     if settle_seconds:
         wall_time.sleep(settle_seconds)
     revision, source_domains = _source_revision(directory, shot)
-    with tempfile.NamedTemporaryFile(
+    # `ODS.save` opens the path itself; see the note in the reader above.
+    with reopenable_temporary_file(
         prefix="vaft-derived-omas-", suffix=".h5"
-    ) as temporary:
-        ods.save(temporary.name)
-        temporary.flush()
-        payload = np.frombuffer(Path(temporary.name).read_bytes(), dtype=np.uint8)
+    ) as staging:
+        ods.save(str(staging))
+        payload = np.frombuffer(staging.read_bytes(), dtype=np.uint8)
     manifest = {
         "schema_version": _DERIVED_CACHE_SCHEMA,
         "source_revision": revision,
@@ -367,7 +370,7 @@ def _load_one_shot(
             return derived
 
     staging_ctx = (
-        tempfile.TemporaryDirectory(prefix="hsds_imas_ods_")
+        temporary_directory(prefix="hsds_imas_ods_")
         if local_dir is None
         else nullcontext(str(local_dir))
     )
@@ -525,7 +528,7 @@ def save_ods(
     # back exactly as it was given to us.
     with (
         _recorded_source(ods, source),
-        tempfile.TemporaryDirectory(prefix="hsds_imas_ods_") as staging_base,
+        temporary_directory(prefix="hsds_imas_ods_") as staging_base,
     ):
         shot_dir = Path(staging_base) / str(shot)
         shot_dir.mkdir(parents=True, exist_ok=True)

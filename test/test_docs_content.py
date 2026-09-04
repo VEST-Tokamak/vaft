@@ -129,7 +129,7 @@ def test_notebook_inventory_matches_this_branch():
     This drifted by seven notebooks before the site moved into the repository,
     because the check could only run against a checkout that was not there.
     """
-    listed = set(re.findall(r"[A-Za-z0-9_]+\.ipynb", (DOCS / "_guide/Examples.md").read_text()))
+    listed = set(re.findall(r"[A-Za-z0-9_]+\.ipynb", (DOCS / "_guide/Examples.md").read_text(encoding="utf-8")))
     actual = {p.name for p in (ROOT / "notebooks").glob("*.ipynb")}
     assert sorted(actual - listed) == [], "notebooks missing from the inventory"
     assert sorted(listed - actual) == [], "inventory names notebooks that do not exist"
@@ -241,7 +241,7 @@ def test_the_inert_remote_theme_is_gone():
 def test_generators_declare_modules_this_branch_has():
     import importlib.util
 
-    generators = yaml.safe_load((DOCS / "generators.yml").read_text())["generators"]
+    generators = yaml.safe_load((DOCS / "generators.yml").read_text(encoding="utf-8"))["generators"]
     assert generators, "generators.yml declares nothing"
     for generator in generators:
         assert importlib.util.find_spec(generator["module"]), (
@@ -260,7 +260,7 @@ def test_generated_data_is_not_committed():
     ).stdout.split()
     generated = {
         "docs/" + g["output"]
-        for g in yaml.safe_load((DOCS / "generators.yml").read_text())["generators"]
+        for g in yaml.safe_load((DOCS / "generators.yml").read_text(encoding="utf-8"))["generators"]
     } | {"docs/_data/provenance.yml"}
     committed = sorted(generated.intersection(tracked))
     assert not committed, f"generated data is committed: {committed}"

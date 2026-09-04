@@ -8,7 +8,6 @@ a copied namelist template, and run a subprocess with a timeout.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import subprocess
@@ -122,13 +121,29 @@ def module_dir(
     return workdir / time_label(time_ms, geqdsk) / module / f"nn={mode}"
 
 
+def _quote_namelist_string(value: str) -> str:
+    r"""Quote ``value`` the way Fortran list-directed input expects.
+
+    Deliberately not ``json.dumps``: JSON escapes a backslash as ``\\``, and a
+    Fortran namelist has no escape sequences at all, so the reader takes the
+    doubled separators literally. That is invisible on POSIX -- where a path
+    holds no backslashes -- and silently corrupts every Windows path.
+
+    Fortran's only in-string metacharacter is the delimiter itself, escaped by
+    doubling it. The double quote is kept as that delimiter because it is what
+    the packaged template and the committed shot-48226 reference already use,
+    so only the escaping changes here, never the file's style.
+    """
+    return '"' + value.replace('"', '""') + '"'
+
+
 def _format_value(value: Any) -> str:
     if isinstance(value, bool):
         return "t" if value else "f"
     if isinstance(value, str):
-        return json.dumps(value)
+        return _quote_namelist_string(value)
     if isinstance(value, Path):
-        return json.dumps(str(value))
+        return _quote_namelist_string(str(value))
     return str(value)
 
 

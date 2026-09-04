@@ -528,7 +528,7 @@ def benchmark_load_paths(
     }
     completed_iterations = 0
     if checkpoint_path is not None and checkpoint_path.exists():
-        checkpoint = json.loads(checkpoint_path.read_text())
+        checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
         expected = {
             "schema_version": 1,
             "directory": directory,
@@ -644,7 +644,7 @@ def benchmark_load_paths(
             )
             temporary_checkpoint.write_text(
                 json.dumps(checkpoint, indent=2, sort_keys=True) + "\n"
-            )
+            , encoding="utf-8")
             temporary_checkpoint.replace(checkpoint_path)
 
     methods: dict[str, Any] = {}
@@ -750,7 +750,7 @@ def test_hsds_load_path_benchmark(request: pytest.FixtureRequest) -> None:
         checkpoint_path=checkpoint_path,
     )
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     checkpoint_path.unlink(missing_ok=True)
     print(json.dumps(report, indent=2, sort_keys=True))
     print(f"wrote benchmark report: {report_path}")

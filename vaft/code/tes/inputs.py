@@ -415,7 +415,7 @@ def write_tes_cinput(path: Path, P: dict) -> Path:
         w(_chunked(md["MPT"], "%13.6le "))
         w("")
 
-    path.write_text("\n".join(L) + "\n")
+    path.write_text("\n".join(L) + "\n", encoding="utf-8")
     return path
 
 
@@ -461,7 +461,7 @@ def write_tes_namelist(path: Path, P: dict) -> Path:
     w("  ALPHA_F_A        = %g" % P["alpha_f_a"])
     w("  ALPHA_F_B        = %g" % P["alpha_f_b"])
     w("/")
-    path.write_text("\n".join(L) + "\n")
+    path.write_text("\n".join(L) + "\n", encoding="utf-8")
     return path
 
 

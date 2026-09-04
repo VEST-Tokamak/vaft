@@ -180,7 +180,7 @@ def test_fft_boundary_returns_nf_points_on_circle():
 
 def test_resolve_executable_honors_CHEASE_env(tmp_path, monkeypatch):
     exe = tmp_path / "chease"
-    exe.write_text("#!/bin/sh\n")
+    exe.write_text("#!/bin/sh\n", encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.delenv("CHEASEHOME", raising=False)
     monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
@@ -191,7 +191,7 @@ def test_resolve_executable_honors_CHEASE_env(tmp_path, monkeypatch):
 
 def test_resolve_executable_CHEASE_dir(tmp_path, monkeypatch):
     exe = tmp_path / "chease"
-    exe.write_text("#!/bin/sh\n")
+    exe.write_text("#!/bin/sh\n", encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.delenv("CHEASEHOME", raising=False)
     monkeypatch.delenv("CHEASE_EXEC_DIR", raising=False)
@@ -202,7 +202,7 @@ def test_resolve_executable_CHEASE_dir(tmp_path, monkeypatch):
 
 def test_resolve_executable_config_env_precedence(tmp_path, monkeypatch):
     exe = tmp_path / "chease"
-    exe.write_text("#!/bin/sh\n")
+    exe.write_text("#!/bin/sh\n", encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.delenv("CHEASEHOME", raising=False)
     monkeypatch.delenv("CHEASE", raising=False)
