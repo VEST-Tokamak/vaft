@@ -210,3 +210,40 @@ def test_default_prepare_is_unchanged_without_coil_specs(no_gpec_env, case):
     assert "coil_num=3" in text
     assert 'coil_name(1)="UP"' in text
     assert not (run_dir / "coil").exists()
+
+
+def test_namelist_strings_are_not_json_escaped(tmp_path):
+    r"""A Fortran namelist has no escape sequences, so a path must survive verbatim.
+
+    ``json.dumps`` would render ``C:\gpec\coil`` as ``"C:\gpec\coil"``; GPEC
+    reads that literally and resolves a directory that does not exist. Invisible
+    on POSIX, where a path carries no backslashes at all.
+    """
+    from vaft.code.gpec._runtime import write_template
+
+    template = tmp_path / "coil.in"
+    template.write_text(
+        '&COIL_CONTROL\n data_dir=""\n machine="y"\n/\n', encoding="utf-8"
+    )
+    target = tmp_path / "out.in"
+
+    write_template(
+        template,
+        target,
+        {"data_dir": Path(r"C:\vaft data\39915\gpec\nn=1\coil"), "machine": "vest"},
+    )
+    rendered = target.read_text(encoding="utf-8")
+
+    assert r'"C:\vaft data\39915\gpec\nn=1\coil"' in rendered
+    assert "\\\\" not in rendered, "namelist values must not be backslash-escaped"
+    assert '"vest"' in rendered
+
+
+def test_namelist_quoting_keeps_the_repository_delimiter():
+    """The packaged template and the 48226 reference both use double quotes."""
+    from vaft.code.gpec._runtime import _quote_namelist_string
+
+    assert _quote_namelist_string("/srv/vest/coil") == '"/srv/vest/coil"'
+    assert _quote_namelist_string(r"C:\vaft\coil") == r'"C:\vaft\coil"'
+    # The delimiter is the only in-string metacharacter Fortran recognises.
+    assert _quote_namelist_string('say "hi"') == '"say ""hi"""'
