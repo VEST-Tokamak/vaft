@@ -454,13 +454,10 @@ def replicate_stage(
     made = 0
 
     with tempfile.TemporaryDirectory(prefix="vaft-replicate-") as workdir:
-        # Captured once, before any write: a write leaves behind a master
-        # describing only this stage, so a retry that re-read it would merge
-        # against its own first attempt and lose the other stages for good.
-        previous_master = _fetch_remote_master(
-            source, shot, Path(workdir) / "master.previous.h5"
-        )
         from .utils import require_source_exists
+
+        previous_master: Path | None = None
+        captured = False
 
         for attempt in range(1, max(1, attempts) + 1):
             made = attempt
@@ -470,6 +467,17 @@ def replicate_stage(
                 # a server too busy to answer the probe is retried like any
                 # other transient remote failure.
                 require_source_exists(source)
+                if not captured:
+                    # Captured once, before any write: a write leaves behind a
+                    # master describing only this stage, so a retry that
+                    # re-read it would merge against its own first attempt and
+                    # lose the other stages for good. Behind the probe so an
+                    # unprovisioned namespace costs no remote fetch; a fetch
+                    # that fails is retried, having written nothing.
+                    previous_master = _fetch_remote_master(
+                        source, shot, Path(workdir) / "master.previous.h5"
+                    )
+                    captured = True
                 save_remote(
                     projected,
                     shot,
