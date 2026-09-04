@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Start here · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Reduced-wall order study · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,9 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/" />
+            <link rel="prev" href="/vaft/develop/reference/wall-modes/" />
         
 
-        
-            <link rel="next" href="/vaft/develop/guide/Quick_start_guide/" />
         
     </head>
     <body>
@@ -81,7 +79,7 @@
                 <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
                     
                         <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
                     </li>
@@ -157,7 +155,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    <li class="chapter active" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
                     
                         <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
                     </li>
@@ -220,7 +218,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Start here</a>
+                            <a href="." >Reduced-wall order study</a>
                         
                     </h1>
                 </div>
@@ -246,189 +244,219 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/workflows/Installation">Start here</h1>
+                        <h1 id="/reference/Wall_reduction">Reduced-wall order study</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Entry point from installation to an offline ODS and optional public data.</dd>
-    <dt>Prerequisites / inputs</dt><dd>Python 3.10–3.13, Git, and a fresh virtual environment.</dd>
-    <dt>Expected result</dt><dd>A local plasma-current plot, followed optionally by read-only shot 39915 metadata.</dd>
-    <dt>Status</dt><dd>Verified offline and against public HSDS.</dd>
+    <dt>Architecture position</dt><dd>How many wall modes the VEST vessel needs, decided by response fidelity rather than by decay time, and checked against measured magnetics.</dd>
+    <dt>Prerequisites / inputs</dt><dd>The wall eigenmode basis (see Wall eigenmodes) and a loaded ODS with pf_active waveforms, pf_passive, em_coupling, magnetics and the limiter outline.</dd>
+    <dt>Expected result</dt><dd>How to run the full-versus-reduced convergence study, read off a representation order, compare full and reduced walls with the data, and find plasma-free shots.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p>This path gets a new user from a clean Python environment to a visible result without requiring
-database credentials or an external fusion code. Public VEST data access is the optional second step.</p>
+<h1 id="reduced-wall-order-study">Reduced-wall order study</h1>
 
-<h2 id="1-install-vaft-from-source">1. Install VAFT from source</h2>
+<p>The wall eigenmode basis (<a href="/reference/wall-modes/">Wall eigenmodes</a>,
+<a href="https://github.com/VEST-Tokamak/vaft/issues/473">#473</a>) can represent the
+vessel current in any number of modes. This page is about <em>how many, and
+which</em> — the representation order <code class="language-plaintext highlighter-rouge">M_repr = (M_1, …, M_G)</code> that
+<a href="https://github.com/VEST-Tokamak/vfit/issues/10">VEST-Tokamak/vfit#10</a> asks
+for, implemented in <code class="language-plaintext highlighter-rouge">vaft.validation.wall_reduction</code>
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/494">#494</a>).</p>
 
-<p>VAFT supports Python 3.10–3.13. Use a virtual environment and install the repository source:</p>
+<p>Three layers, kept apart on purpose:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/VEST-Tokamak/vaft.git
-<span class="nb">cd </span>vaft
-python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="nb">.</span>
+<table>
+  <thead>
+    <tr>
+      <th>layer</th>
+      <th>question</th>
+      <th>function</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>full ↔ reduced</td>
+      <td>how much of the wall’s own response does a truncated basis miss?</td>
+      <td><code class="language-plaintext highlighter-rouge">order_convergence</code></td>
+    </tr>
+    <tr>
+      <td>representation order</td>
+      <td>which is the smallest order within the tolerances an application sets?</td>
+      <td><code class="language-plaintext highlighter-rouge">representation_order</code></td>
+    </tr>
+    <tr>
+      <td>measurement ↔ model</td>
+      <td>do full and reduced walls disagree with the data alike (vessel-model error) or differently (reduction error)?</td>
+      <td><code class="language-plaintext highlighter-rouge">experimental_comparison</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Metrics only, no verdicts: tolerances are the study’s and are reported with
+the result.</p>
+
+<h2 id="the-reduced-circuit">The reduced circuit</h2>
+
+<p>With the projected operators of the basis the reduced wall obeys</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>L_r da/dt + R_r a = -M_r dI_coil/dt,        I_w = V a
 </code></pre></div></div>
 
-<p>The declared dependencies include OMAS, IMAS-Python, plotting tools, Snakemake and <code class="language-plaintext highlighter-rouge">h5pyd</code>. NumPy 2
-is the default numerical stack. The older PyPI package is retained for compatibility but is not the
-recommended installation route.</p>
+<p>integrated by the same routine as the full wall
+(<code class="language-plaintext highlighter-rouge">vaft.process.electromagnetics.solve_eddy_currents</code>), so the only difference
+between the two solutions is the retained subspace. Keeping every mode
+reproduces the 950-loop solve to 1e-12; the error of any truncation is the
+basis span, not the closure.</p>
 
-<h3 id="development-tooling">Development tooling</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">wall_modes</span> <span class="k">as</span> <span class="n">wm</span>
+<span class="kn">from</span> <span class="n">vaft.validation</span> <span class="kn">import</span> <span class="n">wall_reduction</span> <span class="k">as</span> <span class="n">wr</span>
 
-<p><code class="language-plaintext highlighter-rouge">dev</code> is the only optional-dependency group defined by the project:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[dev]"</span>
+<span class="n">system</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">wall_system</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                <span class="c1"># R, L, source coupling, basis, PF drive
+</span><span class="n">keep</span> <span class="o">=</span> <span class="n">wm</span><span class="p">.</span><span class="nf">select_by_score</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="n">wm</span><span class="p">.</span><span class="nf">mode_scores</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">],</span>
+                          <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">M_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">L_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">drive</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">drive</span><span class="sh">"</span><span class="p">],</span>
+                          <span class="n">time</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">])[</span><span class="sh">"</span><span class="s">output_weight</span><span class="sh">"</span><span class="p">],</span> <span class="mi">76</span><span class="p">)</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">wm</span><span class="p">.</span><span class="nf">reduced_operators</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">M_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">L_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">keep</span><span class="p">)</span>
+<span class="n">a</span><span class="p">,</span> <span class="n">I_w</span> <span class="o">=</span> <span class="n">wm</span><span class="p">.</span><span class="nf">solve_reduced_eddy</span><span class="p">(</span><span class="n">ops</span><span class="p">,</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">drive</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">],</span> <span class="n">V</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">].</span><span class="nc">V</span><span class="p">(</span><span class="n">keep</span><span class="p">))</span>
 </code></pre></div></div>
 
-<h2 id="2-produce-the-first-offline-result">2. Produce the first offline result</h2>
+<h2 id="which-modes-rankings-not-the-spectrum">Which modes: rankings, not the spectrum</h2>
 
-<p>The packaged sample follows the same OMAS/IMAS paths as a VEST shot:</p>
+<p><code class="language-plaintext highlighter-rouge">mode_scores</code> returns one value per mode under four rankings — <code class="language-plaintext highlighter-rouge">tau</code> (the
+decay time), <code class="language-plaintext highlighter-rouge">drive_gain</code> (quasi-static amplitude a unit source ramp excites,
+times observability; needs no drive), <code class="language-plaintext highlighter-rouge">response_energy</code> (rms projected
+amplitude under a drive) and <code class="language-plaintext highlighter-rouge">output_weight</code> (energy times observability).
+<code class="language-plaintext highlighter-rouge">select_by_score</code> keeps the top <code class="language-plaintext highlighter-rouge">M</code> across segments; <code class="language-plaintext highlighter-rouge">allocate_per_segment</code>
+grows a per-segment allocation greedily until a dissipation or output
+tolerance is met, adding modes where the remaining error is largest.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">import</span> <span class="n">vaft</span>
+<p>On the packaged wall (shot 39915, its PF programme, 62 probes and 11 flux
+loops), relative error of the wall term at the probes:</p>
 
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="nf">print</span><span class="p">(</span><span class="nf">sorted</span><span class="p">(</span><span class="n">ods</span><span class="p">.</span><span class="nf">keys</span><span class="p">()))</span>
+<table>
+  <thead>
+    <tr>
+      <th>retained</th>
+      <th>slowest (<code class="language-plaintext highlighter-rouge">tau</code>)</th>
+      <th>one per segment</th>
+      <th><code class="language-plaintext highlighter-rouge">output_weight</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>19</td>
+      <td>28 %</td>
+      <td>15 %</td>
+      <td>7.4 %</td>
+    </tr>
+    <tr>
+      <td>76</td>
+      <td>24 %</td>
+      <td>6.1 %</td>
+      <td>1.2 %</td>
+    </tr>
+    <tr>
+      <td>152</td>
+      <td>5.6 %</td>
+      <td>3.4 %</td>
+      <td>0.26 %</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+<p>Decay time alone is a poor guide: the driven response is not sparse in eigen
+coordinates, and a whole-wall eigenbasis behaves the same as the segment-wise
+one, so the penalty is intrinsic to eigen coordinates rather than to the
+segmentation.</p>
+
+<h2 id="moment-patterns-the-enrichment-the-contract-does-not-yet-include">Moment patterns: the enrichment the contract does not yet include</h2>
+
+<p>The response to the coils lives in the block Krylov space
+<code class="language-plaintext highlighter-rouge">span{R⁻¹M, (R⁻¹L)R⁻¹M, …}</code> — the coil-controllable subspace — and
+<code class="language-plaintext highlighter-rouge">moment_patterns</code> returns an R-orthonormal basis of it, block by block, built
+as a block Arnoldi iteration in the R inner product. The first block is the
+resistive limit, the wall current a constant ramp settles into; each further
+block is the next inductive correction (the transfer function’s moments at
+zero frequency).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>patterns</th>
+      <th>probe error, PF programme</th>
+      <th>probe error, step drive</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>10 (resistive limit)</td>
+      <td>1.7 %</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>19</td>
+      <td>0.9 %</td>
+      <td>25 %</td>
+    </tr>
+    <tr>
+      <td>76</td>
+      <td>1e-4</td>
+      <td>0.6 %</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Ten drive-independent vectors do what 76 eigenmodes do, and 76 do what no
+eigen truncation reaches. These patterns are global, not segment-tagged, so
+they are outside the reduced-wall contract (vfit #8); the study reports them
+as the alternative the downstream EFIT issues can decide on.
+<code class="language-plaintext highlighter-rouge">combined_operators</code> projects the wall onto any R-orthonormal basis, eigen
+or not.</p>
+
+<h2 id="running-the-study">Running the study</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">observation</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">observation_set</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">n_coils</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">n_coils</span><span class="sh">"</span><span class="p">])</span>   <span class="c1"># probes, loops, boundary ring, grid
+</span><span class="n">rows</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">order_convergence</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">observation</span><span class="o">=</span><span class="n">observation</span><span class="p">)</span>        <span class="c1"># every (rule, order, drive)
+</span><span class="n">order</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">representation_order</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">probe</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="sh">"</span><span class="s">flux_loop</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="sh">"</span><span class="s">grid_psi</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">})</span>
 </code></pre></div></div>
 
-<p>Seeing the plasma-current trace completes the credential-free first workflow. Continue with
-<a href="/vaft/develop/workflows/experimental-interpretation/">experimental interpretation</a> or configure
-the public database below.</p>
+<p><code class="language-plaintext highlighter-rouge">order_convergence</code> scores the drive-dependent rankings on the PF programme
+and then tests every selection on three drives — the programme, the loudest
+coil alone, and a step on it — so a row for <code class="language-plaintext highlighter-rouge">step</code> says how a selection made
+for the programme transfers to a transient it never saw. Rows carry the
+Euclidean and dissipation-weighted current error, the error per segment, the
+relative error at each observation class, the probe peak error and the cost.</p>
 
-<h2 id="3-configure-read-only-public-hsds-access">3. Configure read-only public HSDS access</h2>
+<p>Two plots draw the rows: <code class="language-plaintext highlighter-rouge">plot_passive_structure_overview_wall_reduction</code>
+(error against retained order, one panel per metric) and
+<code class="language-plaintext highlighter-rouge">plot_passive_structure_field_wall_reduction</code> (the wall’s flux on the
+equilibrium region — full, reduced or their difference).</p>
 
-<p>Run <code class="language-plaintext highlighter-rouge">hsconfigure</code> and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
-in the user configuration and must never be committed to a notebook or documentation asset.</p>
+<h2 id="against-the-measurements">Against the measurements</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;</span> hsconfigure
-Enter new values or accept defaults <span class="k">in </span>brackets with Enter.
-
-Server endpoint <span class="o">[]</span>: http://147.46.36.244:5101
-Username <span class="o">[]</span>: <span class="o">[</span>assigned_username]
-Password <span class="o">[]</span>: <span class="o">[</span>assigned_password]
-API Key <span class="o">[</span>None]: 
-Testing connection...
-connection ok
-Quit? <span class="o">(</span>Y/N<span class="o">)</span>Y
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">result</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">experimental_comparison</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">tau_19</span><span class="sh">"</span><span class="p">:</span> <span class="n">wm</span><span class="p">.</span><span class="nf">select_slowest</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="mi">19</span><span class="p">),</span>
+                                          <span class="sh">"</span><span class="s">moments_30</span><span class="sh">"</span><span class="p">:</span> <span class="n">wm</span><span class="p">.</span><span class="nf">moment_patterns</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">],</span>
+                                                        <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">M_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">L_mat</span><span class="sh">"</span><span class="p">],</span> <span class="mi">3</span><span class="p">)})</span>
 </code></pre></div></div>
 
-<p>A successful read uses the public namespace and does not modify the database:</p>
+<p>This runs the <a href="https://github.com/VEST-Tokamak/vaft/issues/190">#190</a>
+plasma-free benchmark for the full PF-only wall and for each reduced wall
+over the same window, and reports two blocks per model: <code class="language-plaintext highlighter-rouge">measurement</code>
+(residual against the data) and <code class="language-plaintext highlighter-rouge">reduction</code> (distance from the full model
+at the same channels). On shot 39915 the full wall improves the coil-only
+residual by a median 91 %, and every reduced wall — even the nineteen
+slowest modes, 6 % from the full wall term at the probes — improves it by
+the same 91 % to within a point: the residual that remains is the vessel
+model’s, not the truncation’s.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<p><code class="language-plaintext highlighter-rouge">find_plasma_free_shots</code> classifies database shots as <code class="language-plaintext highlighter-rouge">plasma_free</code>,
+<code class="language-plaintext highlighter-rouge">plasma</code>, <code class="language-plaintext highlighter-rouge">undriven</code> or <code class="language-plaintext highlighter-rouge">daq_missing</code> from their plasma-current and coil
+peaks, with the evidence, so dedicated vacuum shots can be brought into the
+comparison; the plasma-free interval of a mapped shot is judged by
+<code class="language-plaintext highlighter-rouge">vaft.validation.vacuum_benchmark.plasma_free_interval</code> as for any other case.</p>
 
-<span class="k">with</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">ods</span><span class="p">:</span>
-    <span class="nf">print</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">])</span>
-</code></pre></div></div>
-
-<p>Use <code class="language-plaintext highlighter-rouge">vaft.database.open()</code> for lazy exploratory reads and <code class="language-plaintext highlighter-rouge">vaft.database.load()</code> when a workflow needs
-a staged eager object. Remote saving is restricted to authorized operators; this workflow never calls
-<code class="language-plaintext highlighter-rouge">vaft.database.save()</code>.</p>
-
-<h2 id="4-optional-external-fusion-codes">4. Optional external fusion codes</h2>
-
-<p>VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON and TES. Configure only the codes
-you have installed:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">EFITHOME</span><span class="o">=</span>/path/to/efit
-<span class="nb">export </span><span class="nv">CHEASEHOME</span><span class="o">=</span>/path/to/chease
-<span class="nb">export </span><span class="nv">GPECHOME</span><span class="o">=</span>/path/to/gpec
-<span class="nb">export </span><span class="nv">TESHOME</span><span class="o">=</span>/path/to/tes
-</code></pre></div></div>
-
-<p>Each executable belongs under its root’s <code class="language-plaintext highlighter-rouge">bin/</code> directory. The workflow guides degrade to deterministic
-input preparation when a binary is absent.</p>
-
-<h2 id="expected-outputs">Expected outputs</h2>
-
-<ul>
-  <li>Offline: a plasma-current plot from the packaged sample ODS.</li>
-  <li>HSDS: readable metadata or IDS paths for public shot 39915.</li>
-  <li>External codes: an explicit readiness report before any solver is launched.</li>
-</ul>
-
-
-<section class="related-resources" aria-labelledby="related-resources-title">
-  <h2 id="related-resources-title">Related resources</h2>
-  <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="database-initialization">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-          
-          <li data-resource-id="plotting-sample">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb">Plotting sample data</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="api">
-      <h3>API</h3>
-      <ul>
-        
-          
-          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
-        
-          
-          <li data-resource-id="database"><a href="/vaft/develop/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
-        
-          
-          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
-        
-          
-          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="outputs">
-      <h3>Verified outputs</h3>
-      <ul>
-        
-          
-          <li data-resource-id="first-result"><a href="/vaft/develop/reference/notebooks/#output-title-first-result">Offline first result</a></li>
-        
-          
-          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
-        
-      </ul>
-    </div>
-    
-  </div>
-</section>
 
 </section>
             </div><div class="search-results">
@@ -486,15 +514,11 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VAFT">
+                        <a href="/vaft/develop/reference/wall-modes/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Wall eigenmodes">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
-                    
-                        <a href="/vaft/develop/guide/Quick_start_guide/" class="navigation navigation-next navigation-unique" aria-label="Next page: Quick start guide">
-                            <i class="fa fa-angle-right"></i>
-                        </a>
                     
                 </div>
             </div>
@@ -508,7 +532,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-install-vaft-from-source" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Install VAFT from source</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#development-tooling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Development tooling</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#2-produce-the-first-offline-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Produce the first offline result</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-configure-read-only-public-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Configure read-only public HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-optional-external-fusion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Optional external fusion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#expected-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expected outputs</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-reduced-circuit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The reduced circuit</a></li><li class="page-toc-item page-toc-level-2"><a href="#which-modes-rankings-not-the-spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which modes: rankings, not the spectrum</a></li><li class="page-toc-item page-toc-level-2"><a href="#moment-patterns-the-enrichment-the-contract-does-not-yet-include" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Moment patterns: the enrichment the contract does not yet include</a></li><li class="page-toc-item page-toc-level-2"><a href="#running-the-study" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running the study</a></li><li class="page-toc-item page-toc-level-2"><a href="#against-the-measurements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Against the measurements</a></li></ul>
     </nav>
 </aside>
 
@@ -522,15 +546,6 @@ window.MathJax = {
         "title": "Introduction",
         "level": "1.1",
         "depth": 1,
-        
-        "next": {
-            "title": "Quick start guide",
-            "level": "1.2",
-            "depth": 1,
-            "path": "_guide/Quick_start_guide.md",
-            "ref": "_guide/Quick_start_guide.md",
-            "articles": []
-        },
         
         "dir": "ltr"
     },    "config": {
@@ -620,8 +635,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Installation.md",
-        "mtime": "2026-07-01 09:00:00 +0000",
+        "path": "_guide/Wall_reduction.md",
+        "mtime": "2026-09-04 09:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
