@@ -224,7 +224,10 @@ function Invoke-Msys2 {
             if ($directory -and -not (Test-Path -LiteralPath $directory)) {
                 New-Item -ItemType Directory -Path $directory -Force | Out-Null
             }
-            $Command | & $bash -l -s 2>&1 | Tee-Object -FilePath $LogPath -Append
+            # Tee-Object passes what it writes on down the pipeline, so it needs a
+            # terminating Write-Host: without one the caller's Out-Null swallows
+            # every line of a build that runs for minutes.
+            $Command | & $bash -l -s 2>&1 | Tee-Object -FilePath $LogPath -Append | Write-Host
         }
         else {
             $Command | & $bash -l -s 2>&1 | Write-Host
@@ -540,6 +543,11 @@ function Test-ExecutableLoads {
             $info.RedirectStandardError = $true
             $info.EnvironmentVariables['PATH'] = $system32
             $process = [System.Diagnostics.Process]::Start($info)
+            # Drain both pipes while it runs. A solver that greets the console
+            # with more than one buffer's worth would otherwise block on a full
+            # pipe and be reported as a timeout rather than as loading cleanly.
+            $null = $process.StandardOutput.ReadToEndAsync()
+            $null = $process.StandardError.ReadToEndAsync()
             if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
                 try { $process.Kill() } catch { }
                 # Not a load failure: it started and kept running.
