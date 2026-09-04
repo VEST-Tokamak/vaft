@@ -316,13 +316,17 @@ def test_a_plasma_shot_contributes_the_stretch_before_breakdown(plasma_shot):
     assert interval.case_type == "pre_plasma"
     assert interval.end < 0.301
     evidence = interval["plasma_free_evidence"]
-    # Two independent detectors bound it and the earlier wins, so a late
-    # detection cannot leak plasma into a nominally plasma-free interval.
-    assert np.isfinite(evidence["discharge_detector_onset"])
-    assert np.isfinite(evidence["sigma_crossing_onset"])
-    assert interval.end == pytest.approx(
-        min(evidence["discharge_detector_onset"], evidence["sigma_crossing_onset"])
-    )
+    # The boundary is the plasma onset of the shared timing policy; this
+    # fixture carries no filterscope, so the current's principal pulse answers,
+    # and the interval ends at the first pf_active sample at or after it.
+    assert evidence["onset_source"] == "ip_principal"
+    assert evidence["onset"] == pytest.approx(0.300, abs=1e-3)
+    assert interval.end >= evidence["onset"]
+    assert 0.0 <= evidence["interval_end_snapped"] < float(TIME[1] - TIME[0])
+    assert interval.end in TIME
+    # The retired detectors are still reported, for one release.
+    assert np.isfinite(evidence["legacy"]["discharge_detector_onset"])
+    assert np.isfinite(evidence["legacy"]["sigma_crossing_onset"])
     # And essentially no plasma current is left inside the accepted interval.
     assert evidence["max_abs_ip_in_interval"] < 5.0 * evidence["ip_reference_std"]
 
@@ -468,9 +472,13 @@ def test_the_packaged_shot_reproduces_its_plasma_free_magnetic_response(packaged
     # rejected by the IDS validity before the benchmark ever sees it.
     assert summary["evaluated"] == 73, "every usable B-probe and flux loop"
     assert summary["excluded"] == 0
-    assert summary["improvement"]["median"] > 0.8
+    # The window now runs to the plasma onset of the light (0.3063 s), not to
+    # the PF-pickup crossing 14 ms earlier (#409), so it covers the strongly
+    # driven stretch the old window left out: median improvement 0.78 and
+    # median correlation 0.977 over it (0.8+ / 0.99+ over the short window).
+    assert summary["improvement"]["median"] > 0.75
     assert summary["improved_fraction"] > 0.9
-    assert summary["correlation"]["median"] > 0.99
+    assert summary["correlation"]["median"] > 0.97
 
 
 def test_the_benchmark_evaluates_far_more_than_the_routine_qa_subset(packaged_case):
@@ -504,13 +512,20 @@ def test_the_packaged_case_needs_no_plasma_and_declares_its_evidence(packaged_ca
     assert packaged_case["case_type"] == "pre_plasma"
     evidence = packaged_case["plasma_free_evidence"]
 
-    # The conservative of the two detectors bounds the interval, and the
-    # residual current left inside it is reported against the noise band the
-    # detector called it consistent with -- evidence, not a bare verdict.
-    assert evidence["sigma_crossing_onset"] < evidence["discharge_detector_onset"]
+    # The light bounds the interval (39915: 0.3063 s, the slow H-alpha line,
+    # consistent with the current), the interval ends on the pf_active grid,
+    # and the residual current left inside it is reported against the noise
+    # band the detector called it consistent with -- evidence, not a verdict.
+    assert evidence["schema_version"] == 2
+    assert evidence["onset_source"] == "h_alpha_primary"
+    assert evidence["agreement"] == "consistent"
+    assert evidence["onset"] == pytest.approx(0.3063, abs=5e-4)
     assert packaged_case["solver_input_window"][1] == pytest.approx(
-        evidence["sigma_crossing_onset"]
+        evidence["onset"] + evidence["interval_end_snapped"]
     )
+    # Both retired detectors fired on PF pickup, 5.5 and 14 ms before the light.
+    legacy = evidence["legacy"]
+    assert legacy["sigma_crossing_onset"] < legacy["discharge_detector_onset"] < evidence["onset"]
     assert evidence["max_abs_ip_in_interval"] < 20.0 * evidence["ip_reference_std"]
 
 
@@ -572,7 +587,12 @@ def test_the_packaged_case_surfaces_the_channels_the_wall_model_fails_on(package
     assert 0 < len(worse) <= 5, "a handful, not a systematic failure"
     assert not anticorrelated, "nothing opposes the model once the broken sensor is out"
     assert packaged_case["metrics"]["summary"]["improvement"]["min"] < 0.0
-    assert all(row["correlation"] > 0.7 for row in rows)
+    # Over the window to the light's onset one side probe, C4-04, whose wall
+    # term is a third of what it reads, is the one channel the model does not
+    # track (correlation -0.44); every other channel is above 0.85.  A finding
+    # to keep visible, not a bound to tune away.
+    below = sorted(row["name"] for row in rows if row["correlation"] <= 0.7)
+    assert below == ["MagneticFieldProbe_C4-04"], below
 
 
 def test_the_evaluation_window_excludes_its_own_upper_bound(vacuum_shot):
@@ -653,26 +673,31 @@ def test_a_missing_time_grid_still_reports_every_key():
 
 def test_the_packaged_shot_was_driven_through_its_validation_window(packaged_case):
     """39915's benchmark window opens after the solver-history requirement and
-    closes at plasma onset; the coils reach a third of their shot peak inside
-    it -- comfortably driven, though far from the peak, which the shot only
-    reaches once the plasma is up."""
+    closes at the plasma onset of the light; the coils reach their shot peak
+    inside it (the window to the PF-pickup crossing used to see a third)."""
     from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION
 
     drive = packaged_case["coil_drive"]
     assert drive["window"] == packaged_case["validation_window"]
-    assert MIN_COIL_DRIVE_FRACTION < drive["coil_drive_fraction"] < 0.5
+    assert MIN_COIL_DRIVE_FRACTION < drive["coil_drive_fraction"] <= 1.0
+    assert drive["coil_drive_fraction"] > 0.9
     assert drive["sufficiently_driven"] is True
 
 
-def test_a_shot_whose_solenoid_fires_after_breakdown_is_reported_undriven():
-    """41524 is the case the precondition exists for: its solenoid fires about
-    0.8 ms *after* the Ip detector triggers, so the nominal plasma-free window
-    carries 0.3 % of the shot's coil drive and the eddy score there is a ratio
-    of two noise numbers.  Checked on the plasma-free interval directly -- the
-    full benchmark run adds nothing to this question."""
+def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
+    """41524 is the shot the drive gate was written for: the legacy Ip
+    discharge detector fired on PF pickup ~0.8 ms *before* the solenoid, so
+    the nominal plasma-free window carried 0.3 % of the shot's coil drive.
+    With the interval ending at the light's onset (#409) the window holds the
+    whole PF ramp and the retired detector's cut is visible in the evidence.
+    The undriven branch itself is kept alive by the synthetic case above."""
     import vaft
     import vaft.omas
-    from vaft.validation.vacuum_benchmark import coil_drive_check, plasma_free_interval
+    from vaft.validation.vacuum_benchmark import (
+        MIN_COIL_DRIVE_FRACTION,
+        coil_drive_check,
+        plasma_free_interval,
+    )
 
     try:
         path = vaft.data.sample(41524, "imas")
@@ -680,9 +705,13 @@ def test_a_shot_whose_solenoid_fires_after_breakdown_is_reported_undriven():
         pytest.skip("sample 41524 is not available in this checkout")
     ods = vaft.omas.load(path)
     interval = plasma_free_interval(ods)
+    evidence = interval["plasma_free_evidence"]
+    assert evidence["onset_source"] == "h_alpha_primary"
+    assert evidence["onset"] == pytest.approx(0.3146, abs=5e-4)
+    assert evidence["legacy"]["discharge_detector_onset"] < evidence["onset"] - 0.015
     drive = coil_drive_check(ods, (interval.start, interval.end))
-    assert drive["coil_drive_fraction"] < 0.02
-    assert drive["sufficiently_driven"] is False
+    assert drive["coil_drive_fraction"] > MIN_COIL_DRIVE_FRACTION
+    assert drive["sufficiently_driven"] is True
 
 
 def test_the_aggregate_keeps_undriven_cases_out_of_its_spreads():

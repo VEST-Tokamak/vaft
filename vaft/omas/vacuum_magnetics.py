@@ -56,8 +56,8 @@ from vaft.machine_mapping.magnetics import (
     OUTBOARD_PROBE_MIN_R,
     POLOIDAL_ANGLE,
     SIDE_PROBE_MIN_ABS_Z,
-    vfit_plasma_mgods_startend,
 )
+from vaft.omas.plasma_timing import PlasmaTiming, PlasmaTimingError, plasma_timing
 
 __all__ = [
     "VacuumChannel",
@@ -69,6 +69,8 @@ __all__ = [
     "QualityGate",
     "quality_gate",
     "plasma_onset_time",
+    "plasma_timing_summary",
+    "plasma_window",
     "probe_family",
     "residual_onset",
     "residual_rms",
@@ -221,15 +223,47 @@ def residual_onset(
     return sigma_threshold_crossing(time, residual, window, sigma=sigma)
 
 
-def plasma_onset_time(ods: Any) -> float:
-    """The stage's own plasma-current onset, from ``magnetics.ip``."""
-    start, end = vfit_plasma_mgods_startend(ods)
-    if start < 0 or end <= start:
+def plasma_window(ods: Any) -> PlasmaTiming:
+    """The plasma window the eddy stage validates against, with its provenance.
+
+    :func:`vaft.omas.plasma_timing.plasma_timing` under the shared policy
+    (issue #409): the slow H-alpha line when usable, the validated fast line,
+    else the plasma-current principal pulse -- never a raw magnetic crossing,
+    which the coil-firing pickup triggers.  A product without a plasma current
+    or without any plasma window raises :class:`VacuumMagneticsError`: the
+    stage has no plasma phase to separate from the vacuum response.
+    """
+    try:
+        timing = plasma_timing(ods)
+    except PlasmaTimingError as exc:
         raise VacuumMagneticsError(
-            "cannot locate the plasma-current onset from magnetics.ip.0; "
-            "the eddy ODS carries no usable plasma current"
+            f"cannot locate the plasma onset: {exc}; the eddy ODS carries no usable plasma current"
+        ) from exc
+    if not timing.found:
+        raise VacuumMagneticsError(
+            "cannot locate the plasma onset: no source shows a plasma "
+            f"({timing.fallback_reason}); the eddy ODS carries no plasma phase"
         )
-    return float(start)
+    return timing
+
+
+def plasma_onset_time(ods: Any) -> float:
+    """The plasma onset the eddy stage validates before, from :func:`plasma_window`."""
+    return float(plasma_window(ods).onset)
+
+
+def plasma_timing_summary(timing: PlasmaTiming) -> dict[str, Any]:
+    """The part of a :class:`PlasmaTiming` a metrics record carries."""
+    return {
+        "onset": timing.onset,
+        "offset": timing.offset,
+        "source": timing.source,
+        "agreement": timing.agreement,
+        "onset_delta_s": timing.onset_delta_s,
+        "offset_delta_s": timing.offset_delta_s,
+        "flags": list(timing.flags),
+        "fallback_reason": timing.fallback_reason,
+    }
 
 
 def probe_family(kind: str, r: float, z: float) -> str:
@@ -1064,6 +1098,7 @@ def vacuum_magnetics_metrics(
     plasma_current: tuple[np.ndarray, np.ndarray] | None = None,
     sigma: float = ONSET_SIGMA,
     min_wall_authority: float = 0.0,
+    timing: PlasmaTiming | None = None,
 ) -> dict[str, Any]:
     """Quantitative QA for one shot's vacuum-magnetics validation.
 
@@ -1078,8 +1113,9 @@ def vacuum_magnetics_metrics(
     residual and plasma-current onsets and their difference, and how coherently
     the residual onset appears across channels.
 
-    ``plasma_onset`` bounds the pre-plasma validation window and comes from the
-    pipeline's own Ip-based detector, which is deliberately conservative.  The
+    ``plasma_onset`` bounds the pre-plasma validation window and comes from
+    :func:`plasma_window` -- the light when it is usable, the current
+    otherwise; ``timing`` carries that provenance into the record.  The
     onset *comparison* uses ``plasma_current`` -- the measured ``(time, Ip)`` --
     put through the same 5-sigma-above-window-noise rule as every residual, so
     ``onset_delta`` compares like with like instead of two different detectors.
@@ -1163,6 +1199,7 @@ def vacuum_magnetics_metrics(
         "schema_version": 1,
         "plasma_onset": float(plasma_onset),
         "plasma_current_onset": float(current_onset),
+        "plasma_timing": None if timing is None else plasma_timing_summary(timing),
         "channels": rows,
         "families": families,
         "summary": {

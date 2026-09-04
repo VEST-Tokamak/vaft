@@ -377,7 +377,7 @@ def test_metrics_need_a_pre_plasma_window(plasma_ods):
 
 def test_plasma_onset_is_reported_when_there_is_no_plasma_current():
     empty = ODS(consistency_check=False)
-    with pytest.raises(VacuumMagneticsError, match="plasma-current onset"):
+    with pytest.raises(VacuumMagneticsError, match="plasma onset"):
         plasma_onset_time(empty)
 
 
@@ -656,3 +656,30 @@ def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
     assert scored["count"] < metrics["summary"]["channel_count"]
     assert scored["improvement"]["min"] > 0.5
 # --- issue #190: the wall must be driveable by the PF coils alone -----------
+
+
+def test_the_eddy_window_comes_from_the_shared_timing_policy_with_provenance():
+    """#409: the pre-plasma window ends at the light's onset, not at a raw
+    magnetic crossing, and the metrics say which source answered."""
+    from vaft.omas.vacuum_magnetics import plasma_window, plasma_timing_summary
+    from vaft.validation.stage_evidence import _no_plasma_onset
+
+    import vaft
+    import vaft.omas
+
+    manifest = vaft.data.sample_manifest(39915)
+    sample_root = vaft.data.sample(39915, "omas").parent
+    ods = vaft.omas.load(sample_root / manifest["generation"]["canonical_source"])
+    timing = plasma_window(ods)
+    assert timing.source == "h_alpha_primary"
+    assert timing.onset == pytest.approx(0.3063, abs=5e-4)
+    assert plasma_onset_time(ods) == pytest.approx(timing.onset)
+    assert _no_plasma_onset(ods) is None
+
+    summary = plasma_timing_summary(timing)
+    assert summary["source"] == "h_alpha_primary" and summary["agreement"] == "consistent"
+    assert summary["offset"] > summary["onset"]
+
+    empty = ODS(consistency_check=False)
+    reason = _no_plasma_onset(empty)
+    assert reason is not None and "no plasma onset" in reason

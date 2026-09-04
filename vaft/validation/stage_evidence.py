@@ -49,19 +49,22 @@ def _no_plasma_onset(source: Any) -> str | None:
     """A discharge that never formed a plasma has no residual onset to validate.
 
     The eddy figures are about where the plasma signal emerges from the vacuum
-    response. Without a plasma current there is no such time, and that is a
-    property of the shot rather than a fault in the reconstruction.
+    response. Without a plasma window there is no such time, and that is a
+    property of the shot rather than a fault in the reconstruction.  The
+    window comes from the shared plasma-timing policy (#409): the light when
+    usable, the current otherwise, never a raw magnetic crossing.
     """
-    from vaft.machine_mapping.magnetics import vfit_plasma_mgods_startend
+    from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
 
     try:
-        start, end = vfit_plasma_mgods_startend(source)
-    except Exception:
-        return "magnetics.ip is unreadable, so no plasma-current onset can be located"
-    if start < 0 or end <= start:
+        timing = plasma_timing(source)
+    except PlasmaTimingError as exc:
+        return f"magnetics.ip is unreadable, so no plasma onset can be located ({exc})"
+    if not timing.found:
         return (
-            "no plasma-current onset can be located in magnetics.ip; this shot "
-            "carries no plasma phase to separate from the vacuum response"
+            "no plasma window can be located "
+            f"({timing.fallback_reason}); this shot carries no plasma phase to "
+            "separate from the vacuum response"
         )
     return None
 
@@ -234,7 +237,7 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     """Quantitative QA behind the eddy stage's two validation figures."""
     from vaft.omas.vacuum_magnetics import (
         DEFAULT_MIN_WALL_AUTHORITY,
-        plasma_onset_time,
+        plasma_window,
         synthetic_vacuum_magnetics,
         vacuum_magnetics_metrics,
     )
@@ -245,7 +248,8 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     if reason is not None:
         return {"schema_version": 1, "status": "unavailable", "reason": reason}
 
-    onset = plasma_onset_time(source)
+    timing = plasma_window(source)
+    onset = float(timing.onset)
     # The validation window is the pre-plasma stretch, so that is the interval
     # the channel selection asks about too (#189): a probe that fails after
     # breakdown is still a good witness before it.
@@ -263,6 +267,7 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
         # The scored block leaves out channels the wall barely reaches (VEST's
         # inboard flux loops), whose improvement sign is noise.
         min_wall_authority=DEFAULT_MIN_WALL_AUTHORITY,
+        timing=timing,
     )
 
 
