@@ -288,10 +288,10 @@ def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
     """Determine the classification of a shot based on pressure and H-alpha signals."""
     try:
         data_pres = ods['barometry.gauge.0.pressure.data']
-        if not vaft.process.is_signal_active(data_pres, threshold=pressure_threshold):
+        if not vaft.process.is_signal_active(data_pres, var_ratio_thresh=pressure_threshold):
             return 'Vacuum'
         data_alpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
-        if not vaft.process.is_signal_active(data_alpha, threshold=halpha_threshold):
+        if not vaft.process.is_signal_active(data_alpha, var_ratio_thresh=halpha_threshold):
             return 'BD failure'
         try:
             ip = ods['magnetics.ip.0.data']
