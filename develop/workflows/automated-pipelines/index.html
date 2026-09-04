@@ -216,7 +216,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>060bf55</code>. What is described
+  <code>2c1e5c2</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -367,6 +367,16 @@ partial: refined_gfiles=8; failed=2
       <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.dataset_description</code>, <code class="language-plaintext highlighter-rouge">pf_active</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv</code>, <code class="language-plaintext highlighter-rouge">barometry</code>, <code class="language-plaintext highlighter-rouge">tf</code>, <code class="language-plaintext highlighter-rouge">magnetics</code></td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">select_impa_shots</code> (checkpoint)</td>
+      <td><code class="language-plaintext highlighter-rouge">select_impa_shots.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.impa.impa_expected_fields</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">generate_impa_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">generate_impa_ods.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.vest_upstream.build_impa_ods</code> → <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.impa.impa</code></td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">generate_eddy_ods</code></td>
       <td><code class="language-plaintext highlighter-rouge">generate_eddy_ods.py</code></td>
       <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.pf_passive</code>, <code class="language-plaintext highlighter-rouge">em_coupling</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_eddy_currents</code></td>
@@ -410,6 +420,16 @@ partial: refined_gfiles=8; failed=2
 </table>
 
 <p>Note the one rule whose name differs from its script: rule <code class="language-plaintext highlighter-rouge">run_chease</code> runs <code class="language-plaintext highlighter-rouge">run_chease_refinement.py</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">generate_impa_ods</code> is the one optional branch. IMPA is an insertable,
+campaign-dependent diagnostic, so it is off by default (<code class="language-plaintext highlighter-rouge">impa.enable: false</code>),
+it is never an input to a baseline stage, and it records a failure in its own
+manifest instead of raising one – a broken IMPA branch cannot change the exit
+state of a run whose baseline stages succeeded. Its product is published into
+the sparse <code class="language-plaintext highlighter-rouge">impa</code> HSDS source rather than into <code class="language-plaintext highlighter-rouge">main</code>, and a shot missing from
+that source means only that no IMPA product was published for it (issue #305).
+Analysis that wants the array alongside the baseline composes the two
+explicitly with <code class="language-plaintext highlighter-rouge">vaft.database.compose(shot)</code>.</p>
 
 <h3 id="the-library-calls-verbatim">The library calls, verbatim</h3>
 
@@ -1109,7 +1129,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-04 11:53:52 +0000"
+        "time": "2026-09-04 12:13:26 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
