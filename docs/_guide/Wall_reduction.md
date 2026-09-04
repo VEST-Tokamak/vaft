@@ -1,7 +1,7 @@
 ---
 title: Reduced-wall order study
 author: VEST team
-date: 2026-09-04 18:00
+date: 2026-09-04 09:00
 category: guide
 layout: post
 mermaid: false
