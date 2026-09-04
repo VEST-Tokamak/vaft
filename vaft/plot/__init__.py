@@ -214,6 +214,7 @@ from .renderers.geometry import (
     magnetics_geometry_poloidal,
     pf_coil_geometry_poloidal,
     passive_structure_geometry_poloidal,
+    passive_structure_geometry_wall_mode,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
     wall_geometry_poloidal,
@@ -292,6 +293,7 @@ from .renderers.panels import (
     summary_time_energy,
     summary_time_power_balance,
     summary_time_voltage_consumption,
+    passive_structure_overview_wall_time,
 )
 from .renderers.profiles import (
     charge_exchange_profile_ion_temperature,

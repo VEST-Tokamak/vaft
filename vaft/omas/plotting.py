@@ -1969,6 +1969,45 @@ def plot_passive_structure_geometry_poloidal(
     )
 
 
+def plot_passive_structure_geometry_wall_mode(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One segment-local wall eigenmode coloured onto the passive structure.
+
+    Options: ``segment`` (id, default the first), ``mode`` (index within the
+    segment, default 0), ``basis`` (a precomputed ``WallModeBasis``),
+    ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_geometry_wall_mode`.
+    """
+    return render(
+        "passive_structure_geometry_wall_mode", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_overview_wall_time(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Decay-time spectrum of the passive wall's segment-wise eigenmodes.
+
+    Options: ``max_modes`` per segment, ``whole_wall`` (draw the whole-wall
+    spectrum, default True), ``basis``, ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_overview_wall_time`.
+    """
+    return render(
+        "passive_structure_overview_wall_time", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_soft_x_rays_geometry_lines_of_sight(
     source: Any,
     *,
@@ -2522,6 +2561,8 @@ __all__ = [
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",
     "plot_passive_structure_geometry_poloidal",
+    "plot_passive_structure_geometry_wall_mode",
+    "plot_passive_structure_overview_wall_time",
     "plot_soft_x_rays_geometry_lines_of_sight",
     "plot_soft_x_rays_overview",
     "plot_soft_x_rays_spectrogram",

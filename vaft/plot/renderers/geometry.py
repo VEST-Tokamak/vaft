@@ -31,6 +31,7 @@ __all__ = [
     "machine_geometry_topview",
     "magnetics_geometry_poloidal",
     "passive_structure_geometry_poloidal",
+    "passive_structure_geometry_wall_mode",
     "pf_coil_geometry_poloidal",
     "render_geometry_3d_layers",
     "render_geometry_layers",
@@ -161,6 +162,26 @@ def passive_structure_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Passive conducting-structure loop outlines in the poloidal plane."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="machine", quantity="wall_mode",
+    subject="passive_structure",
+    description="One eigenmode of the passive wall: every loop of the chosen "
+                "segment coloured by its signed relative current, the rest grey "
+                "(vaft #473; the reduced-wall contract, vfit #8).",
+    ids=("pf_active", "pf_passive", "em_coupling"),
+    required_paths=("pf_passive.loop.{i}.element.{j}.geometry.geometry_type",
+                    "pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type"),
+    optional_paths=("pf_passive.loop.{i}.name",
+                    "em_coupling.mutual_passive_passive"),
+)
+def passive_structure_geometry_wall_mode(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """A wall eigenmode's current pattern on the passive structure."""
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 
