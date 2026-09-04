@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VEST and tokamak physics background · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Wall eigenmodes · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,9 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/" />
+            <link rel="prev" href="/vaft/develop/reference/vest-systems/" />
         
 
-        
-            <link rel="next" href="/vaft/develop/reference/contacts/" />
         
     </head>
     <body>
@@ -151,7 +149,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    <li class="chapter active" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
                     
                         <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
                     </li>
@@ -169,7 +167,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
                     
                         <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
                     </li>
@@ -214,7 +212,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >VEST and tokamak physics background</a>
+                            <a href="." >Wall eigenmodes</a>
                         
                     </h1>
                 </div>
@@ -240,218 +238,125 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/about">VEST and tokamak physics background</h1>
+                        <h1 id="/reference/Wall_modes">Wall eigenmodes</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Scientific and platform context for the workflows and library reference.</dd>
-    <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>A concise understanding of VEST, VAFT, IMAS/OMAS/HSDS, and how to cite the platform.</dd>
+    <dt>Architecture position</dt><dd>The segment-wise eigenbasis of the VEST passive wall, and the reduced operators built from it.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A loaded ODS with pf_passive geometry and em_coupling (the packaged samples work offline).</dd>
+    <dt>Expected result</dt><dd>How to build, inspect, project onto and reduce with the wall-mode basis; what it guarantees and what it refuses.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p><strong>VAFT</strong> — the <em>Versatile Analytical Framework for Tokamak</em> — is an open-source Python library
-developed by the VEST team at <strong>Seoul National University</strong>. It serves two purposes at once:</p>
+<h1 id="wall-eigenmodes">Wall eigenmodes</h1>
 
-<ol>
-  <li>a dedicated <strong>data platform</strong> for the VEST tokamak, and</li>
-  <li>a machine- and code-generic <strong>data analysis framework</strong> built on the IMAS data model.</li>
-</ol>
+<p>The reduced vessel-wall contract is owned by VFIT
+(<a href="https://github.com/VEST-Tokamak/vfit/issues/8">VEST-Tokamak/vfit#8</a>); this
+page describes the VAFT implementation
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/473">#473</a>). The principle in one
+line: <strong>local eigenbasis, global electromagnetic dynamics</strong>.</p>
 
-<p>Everything the framework exposes — remote shot loading, diagnostic mapping, physics formulas,
-equilibrium and stability code interfaces, profile fitting and visualization — is organized around
-standard IMAS data structures, so an analysis written against VEST data is, in principle, portable
-to any IMAS-described machine.</p>
+<h2 id="what-it-is">What it is</h2>
 
-<p><img src="/vaft/develop/assets/images/IMG_3873.jpg" alt="VEST" /></p>
+<p>The passive wall is ~950 filament loops. They are grouped into physical
+segments — by loop name, split where a structure has a genuine gap in Z — and
+each segment gets its own L/R eigenbasis. The bases are block-assembled into
+<code class="language-plaintext highlighter-rouge">V_seg</code>, and every reduced operator is then a projection of the <strong>full</strong>
+matrices, so the mutual inductance between segments survives in the
+off-diagonal blocks of the reduced inductance.</p>
 
-<h2 id="the-vest-device">The VEST device</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">vaft.omas.process_wrapper</span> <span class="kn">import</span> <span class="n">compute_impedance_matrices_ods</span><span class="p">,</span> <span class="n">compute_wall_mode_basis_ods</span>
+<span class="kn">from</span> <span class="n">vaft.process.wall_modes</span> <span class="kn">import</span> <span class="n">reduced_operators</span><span class="p">,</span> <span class="n">reduce_response</span><span class="p">,</span> <span class="n">select_slowest</span><span class="p">,</span> <span class="n">check_wall_mode_basis</span>
 
-<p>VEST (<strong>Versatile Experiment Spherical Torus</strong>) is a university-scale spherical torus operated at
-Seoul National University. Its experimental campaigns produce the shot database that VAFT reads,
-maps and post-processes: magnetics, TF and PF coil currents, barometry, UV spectrometry, Thomson
-scattering and charge exchange, together with the modelled quantities derived from them
-(wall and passive-structure models, equilibrium reconstructions, core profiles, linear MHD).</p>
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="n">sample</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>          <span class="c1"># the packaged 39915 machine
+</span><span class="n">basis</span> <span class="o">=</span> <span class="nf">compute_wall_mode_basis_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># 19 segments, 950 modes, ~0.15 s
+</span>
+<span class="n">basis</span><span class="p">.</span><span class="nf">n_modes</span><span class="p">()</span>                               <span class="c1"># (240, 10, 10, 8, 8, 23, 23, 230, ...)
+</span><span class="n">basis</span><span class="p">.</span><span class="nf">labels</span><span class="p">()[:</span><span class="mi">3</span><span class="p">]</span>                            <span class="c1"># (('W1', 0), ('W1', 1), ('W1', 2))
+</span><span class="n">basis</span><span class="p">.</span><span class="nf">segment</span><span class="p">(</span><span class="sh">"</span><span class="s">W1</span><span class="sh">"</span><span class="p">).</span><span class="n">tau</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>                   <span class="c1"># slowest local decay times [s]
+</span>
+<span class="n">R_mat</span><span class="p">,</span> <span class="n">L_mat</span><span class="p">,</span> <span class="n">M_mat</span> <span class="o">=</span> <span class="nf">compute_impedance_matrices_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">[])</span>   <span class="c1"># code naming: M_mat is the inductance
+</span><span class="n">keep</span> <span class="o">=</span> <span class="nf">select_slowest</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="mi">40</span><span class="p">)</span>              <span class="c1"># forty slowest modes, wherever they live
+</span><span class="n">ops</span> <span class="o">=</span> <span class="nf">reduced_operators</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">,</span> <span class="n">L_mat</span><span class="p">,</span> <span class="n">keep</span><span class="p">)</span>
+<span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">ops</span><span class="p">.</span><span class="n">R_r</span>                        <span class="c1"># (40, 40), identity
+</span><span class="n">G_red</span> <span class="o">=</span> <span class="nf">reduce_response</span><span class="p">(</span><span class="n">G_full</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">keep</span><span class="p">)</span>  <span class="c1"># any (n_obs, 950) response -&gt; (n_obs, 40)
+</span><span class="nf">check_wall_mode_basis</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">)[</span><span class="sh">"</span><span class="s">coupling</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">W9_L-W8_L</span><span class="sh">"</span><span class="p">]</span>   <span class="c1"># 0.91: strongly coupled halves
+</span></code></pre></div></div>
 
-<p>A per-shot walkthrough of the raw signals and their IMAS counterparts is in the
-<a href="/vaft/develop/guide/Magnetics/">Magnetics</a> and
-<a href="/vaft/develop/guide/Machine_mapping/">Machine mapping</a> guides.</p>
-
-<h2 id="foundations-imas-omas-and-hsds">Foundations: IMAS, OMAS and HSDS</h2>
-
-<p>VAFT does not invent a data model. It composes three existing ones:</p>
+<h2 id="conventions">Conventions</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Layer</th>
-      <th>Role in VAFT</th>
+      <th>item</th>
+      <th>rule</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="https://github.com/iterorganization/IMAS-Data-Dictionary">IMAS</a></td>
-      <td>The ITER Integrated Modelling &amp; Analysis Suite data dictionary — the schema every VEST quantity is mapped into (<code class="language-plaintext highlighter-rouge">magnetics</code>, <code class="language-plaintext highlighter-rouge">pf_active</code>, <code class="language-plaintext highlighter-rouge">equilibrium</code>, <code class="language-plaintext highlighter-rouge">core_profiles</code>, …).</td>
+      <td>segmentation</td>
+      <td>by <code class="language-plaintext highlighter-rouge">pf_passive.loop.*.name</code>, split at Z gaps &gt; 1.5 × median loop height (<code class="language-plaintext highlighter-rouge">vest-name-zgap-1.5-v1</code>); ordered by first element index; W11 included</td>
     </tr>
     <tr>
-      <td><a href="https://gafusion.github.io/omas/">OMAS</a></td>
-      <td>The Python interface library. A VEST shot is handed to you as an OMAS <code class="language-plaintext highlighter-rouge">ODS</code>, so the whole OMAS/OMFIT ecosystem applies unchanged.</td>
+      <td>eigenproblem</td>
+      <td>per segment, <code class="language-plaintext highlighter-rouge">S_g = R^{-1/2} L R^{-1/2}</code>, <code class="language-plaintext highlighter-rouge">eigh</code>; eigenvalues are the decay times, descending</td>
     </tr>
     <tr>
-      <td><a href="https://github.com/HDFGroup/hsds">HSDS</a></td>
-      <td>The HDF5 REST service hosting the VEST database. Shots live as per-IDS HDF5 images on the server and are fetched over HTTP.</td>
+      <td>normalization</td>
+      <td>R-orthonormal: <code class="language-plaintext highlighter-rouge">vᵀ R v = 1</code>, <code class="language-plaintext highlighter-rouge">vᵀ L v = τ</code>; amplitudes in √W (<code class="language-plaintext highlighter-rouge">aᵀa</code> is the ohmic dissipation)</td>
+    </tr>
+    <tr>
+      <td>sign</td>
+      <td>largest-magnitude component positive</td>
+    </tr>
+    <tr>
+      <td>projection</td>
+      <td><code class="language-plaintext highlighter-rouge">a = V_segᵀ R I_w</code> — exact in the retained subspace; <strong>not</strong> <code class="language-plaintext highlighter-rouge">V_segᵀ I_w</code></td>
+    </tr>
+    <tr>
+      <td>reduced operators</td>
+      <td><code class="language-plaintext highlighter-rouge">R_r = I</code> (computed and checked), <code class="language-plaintext highlighter-rouge">L_r = V_segᵀ L V_seg</code>, <code class="language-plaintext highlighter-rouge">M_r = V_segᵀ M_src</code>, <code class="language-plaintext highlighter-rouge">G_red = G V_seg</code></td>
+    </tr>
+    <tr>
+      <td>indexing</td>
+      <td><code class="language-plaintext highlighter-rouge">(segment_id, k)</code>, segment-major; per-segment orders <code class="language-plaintext highlighter-rouge">M_repr = (M_1, …, M_G)</code></td>
     </tr>
   </tbody>
 </table>
 
-<p>In practice that means one call gets you a fully IMAS-structured shot:</p>
+<p>The basis chooses no reduced order; <code class="language-plaintext highlighter-rouge">select_slowest</code> and <code class="language-plaintext highlighter-rouge">select_tau_range</code>
+exist for the study that will (vfit #10).</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<h2 id="what-it-refuses">What it refuses</h2>
 
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>
-<span class="n">time</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.time</span><span class="sh">'</span><span class="p">]</span>
-<span class="n">ip</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">]</span>
-</code></pre></div></div>
+<p>A non-diagonal or non-positive resistance, an inductance block that is not
+positive definite, a condition number above 1e12, an inductance asymmetric by
+more than 1e-6 (relative), and a near-degenerate pair of decay times inside a
+segment (relative gap below 1e-6; pass <code class="language-plaintext highlighter-rouge">on_cluster="warn"</code> to record instead).
+The packaged coupling asset is asymmetric by 1.27e-3 (#347); the mapper
+symmetrizes it on read, and an artifact materialized before that must be
+re-mapped: <code class="language-plaintext highlighter-rouge">compute_wall_mode_basis_ods(ods, remap_em_coupling=True)</code>.</p>
 
-<p>See <a href="/vaft/develop/guide/Quick_start_guide/">Quick start guide</a> to configure the connection,
-and <a href="/vaft/develop/guide/Database/">Database</a> for the storage model behind it.</p>
+<h2 id="provenance">Provenance</h2>
 
-<h2 id="what-the-library-contains">What the library contains</h2>
+<p><code class="language-plaintext highlighter-rouge">basis.provenance</code> records the segmentation version and digest, the resistance
+calibration in force (#308), the input asymmetry, the normalization, sign rule
+and mode order; <code class="language-plaintext highlighter-rouge">basis.digest()</code> fingerprints the modes. With
+<code class="language-plaintext highlighter-rouge">record=True</code> the identity is appended to <code class="language-plaintext highlighter-rouge">em_coupling.code.parameters</code> as
+<code class="language-plaintext highlighter-rouge">wall_mode_*</code> lines — never under <code class="language-plaintext highlighter-rouge">pf_passive</code>, whose loops are compared
+bitwise against the reference geometry. The basis is computed on demand, not
+shipped; <code class="language-plaintext highlighter-rouge">to_npz</code> / <code class="language-plaintext highlighter-rouge">from_npz</code> exist for export.</p>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft/
-├── database/          # Remote database access (HSDS, raw SQL)
-├── machine_mapping/   # Native VEST signals → IMAS IDS conversion
-├── formula/           # Physics formulas (equilibrium, stability, Green's functions)
-├── process/           # Signal processing, EM modelling, profile fitting
-├── plot/              # Visualization (time, 1D, 2D, top-view, analysis)
-├── omas/              # ODS utilities (shot metadata, sample data)
-├── imas/              # IMAS-Python (AL5) interoperability
-├── code/              # Code interfaces (EFIT, CHEASE, GPEC, Snakemake)
-└── data/              # Sample data, geometry assets, calibration tables
-</code></pre></div></div>
+<h2 id="related">Related</h2>
 
-<p>Around the library sits the wider VEST data analysis platform: an automated <strong>Snakemake</strong> pipeline
-carrying each shot from experiment through post-processing to simulation, and the IMAS database
-itself. Both are described in <a href="/vaft/develop/guide/Pipelines/">Pipelines</a>; the per-module
-surface is catalogued in the <a href="/vaft/develop/guide/API_reference/">API reference</a>.</p>
+<p><code class="language-plaintext highlighter-rouge">wall_time_constants</code> in the plasma-free benchmark now reads the same pencil
+at full rank, so the QA and the basis cannot report two different walls.
+TokaMaker’s <code class="language-plaintext highlighter-rouge">eig_wall</code> (#232) remains an independent global reference on its
+own mesh (6.88 ms vs 7.19 ms here; W11 excluded there).</p>
 
-<h2 id="citation">Citation</h2>
-
-<p>If VAFT or the VEST database contributes to your work, please cite:</p>
-
-<blockquote>
-  <p>H.-S. Yun, S. Lee <em>et al</em>, “Developing an IMAS-compatible platform for the university-scale
-tokamak VEST and its application to operating characteristics analysis”,
-<em>Plasma Physics and Controlled Fusion</em> <strong>67</strong> 115021 (2025).
-<a href="https://doi.org/10.1088/1361-6587/ae1b6a">doi:10.1088/1361-6587/ae1b6a</a></p>
-</blockquote>
-
-<h2 id="acknowledgements">Acknowledgements</h2>
-
-<p>The authors would like to thank O Meneghini at Proxima Fusion and J McClenaghan at General Atomics,
-O Hoenen at ITER Organization for their technical advice. Some parts of the data processing were
-performed using the code API in the <a href="https://omfit.io/">OMFIT</a> integrated modeling framework.</p>
-
-<p>This research was supported by the National Research Foundation of Korea (NRF) grant funded by the
-Korean Government (MSIT) (RS-2023-00281276, RS-202400409564, and RS-2025-02304810).</p>
-
-<h2 id="license">License</h2>
-
-<p>VAFT is distributed under the <a href="https://github.com/VEST-Tokamak/vaft/blob/main/LICENSE">Apache License 2.0</a>,
-as declared by the package classifier (<code class="language-plaintext highlighter-rouge">License :: OSI Approved :: Apache Software License</code>) in
-<code class="language-plaintext highlighter-rouge">pyproject.toml</code>.</p>
-
-<h2 id="getting-in-touch">Getting in touch</h2>
-
-<p>Read access to the VEST database is open to everyone; write access, bug reports and collaboration
-enquiries are covered on the <a href="/vaft/develop/pages/contact/">Contact</a> page.</p>
-
-<ul>
-  <li>Source: <a href="https://github.com/VEST-Tokamak/vaft">github.com/VEST-Tokamak/vaft</a></li>
-  <li>Example notebooks: <a href="/vaft/develop/guide/examples/">Examples</a></li>
-</ul>
-
-
-<section class="related-resources" aria-labelledby="related-resources-title">
-  <h2 id="related-resources-title">Related resources</h2>
-  <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="plotting-sample">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb">Plotting sample data</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-          
-          <li data-resource-id="confinement-scaling">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb">Confinement-time scaling</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="api">
-      <h3>API</h3>
-      <ul>
-        
-          
-          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
-        
-          
-          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
-        
-          
-          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
-        
-          
-          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="outputs">
-      <h3>Verified outputs</h3>
-      <ul>
-        
-          
-          <li data-resource-id="first-result"><a href="/vaft/develop/reference/notebooks/#output-title-first-result">Offline first result</a></li>
-        
-          
-          <li data-resource-id="confinement-scaling"><a href="/vaft/develop/reference/notebooks/#output-title-confinement-scaling">Confinement-scaling result</a></li>
-        
-      </ul>
-    </div>
-    
-  </div>
-</section>
 
 </section>
             </div><div class="search-results">
@@ -509,15 +414,11 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VAFT">
+                        <a href="/vaft/develop/reference/vest-systems/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Vest_systems">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
-                    
-                        <a href="/vaft/develop/reference/contacts/" class="navigation navigation-next navigation-unique" aria-label="Next page: Contacts">
-                            <i class="fa fa-angle-right"></i>
-                        </a>
                     
                 </div>
             </div>
@@ -531,7 +432,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-vest-device" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VEST device</a></li><li class="page-toc-item page-toc-level-2"><a href="#foundations-imas-omas-and-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Foundations: IMAS, OMAS and HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-the-library-contains" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What the library contains</a></li><li class="page-toc-item page-toc-level-2"><a href="#citation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Citation</a></li><li class="page-toc-item page-toc-level-2"><a href="#acknowledgements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Acknowledgements</a></li><li class="page-toc-item page-toc-level-2"><a href="#license" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">License</a></li><li class="page-toc-item page-toc-level-2"><a href="#getting-in-touch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Getting in touch</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#what-it-is" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What it is</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-it-refuses" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What it refuses</a></li><li class="page-toc-item page-toc-level-2"><a href="#provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
     </nav>
 </aside>
 
@@ -545,15 +446,6 @@ window.MathJax = {
         "title": "Introduction",
         "level": "1.1",
         "depth": 1,
-        
-        "next": {
-            "title": "Contacts",
-            "level": "1.2",
-            "depth": 1,
-            "path": "_pages/contact.md",
-            "ref": "_pages/contact.md",
-            "articles": []
-        },
         
         "dir": "ltr"
     },    "config": {
@@ -643,8 +535,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_pages/about.md",
-        "mtime": "2026-07-01 12:00:00 +0000",
+        "path": "_guide/Wall_modes.md",
+        "mtime": "2026-09-03 10:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
