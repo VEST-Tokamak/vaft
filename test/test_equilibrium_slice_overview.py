@@ -135,11 +135,33 @@ def test_global_quantities_follow_the_display_policy_and_say_what_is_missing(sho
     lines = dict(line.split(None, 1) for line in model.models[-1].lines)
     assert lines["Ip"].endswith(" kA") and lines["psi_axis"].endswith(" mWb")
     assert lines["B_tor"].startswith("at axis") or "B_tor at axis" in "\n".join(model.models[-1].lines)
-    assert lines["beta_p"] == "not stored" and lines["volume"] == "not stored"
+    # Quantities the g-file does not store are derived on the private copy
+    # (issue #475) and shown like any stored value; nothing here reads
+    # "not stored" because everything in the table is derivable from 39915.
+    derived = {"beta_p": "", "beta_N": "", "li_3": "", "volume": " m^3", "area": " m^2"}
+    for label, unit in derived.items():
+        assert lines[label] != "not stored" and lines[label].endswith(unit), (label, lines[label])
+        float(lines[label].split()[0])
+    assert lines["W_mhd"].endswith((" J", " kJ")) and float(lines["W_mhd"].split()[0]) > 0
+    assert abs(float(lines["volume"].split()[0]) - 0.5377) < 1e-3
+    assert "not stored" not in "\n".join(model.models[-1].lines)
+    # A stored value wins over a derived one.
     ods = _with_volumes(_load("samples/39915/omas.json.gz"), [0.0] * 4 + [0.25] + [0.0] * 4)
     model = build_model("equilibrium_overview", normalize_entries(ods))
     assert "largest plasma volume" in model.suptitle
     assert any(line.startswith("volume") and "0.25 m^3" in line for line in model.models[-1].lines)
+
+
+def test_derivation_never_writes_the_callers_ods():
+    ods = _load("samples/39915/omas.json.gz")
+    before = len(ods.flat())
+    model = build_model("equilibrium_overview", normalize_entries(ods))  # representative slice: 4
+    assert "beta_pol" not in ods["equilibrium.time_slice.4.global_quantities"]
+    assert len(ods.flat()) == before
+    # The representative slice is still chosen from what the input stores.
+    index, _, reason = resolve_time_slice(ods)
+    assert index == 4 and reason == "middle usable slice (no volume stored)"
+    assert "no volume stored" in model.suptitle
 
 
 def test_explicit_time_shows_the_resolved_time_in_the_title(shots):
@@ -222,6 +244,10 @@ def test_a_profile_that_cannot_be_derived_keeps_its_slot(shots, monkeypatch):
     model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=2)
     assert len(model.models) == 6
     assert model.placeholders == ((3, "profiles_1d.j_tor\nneither stored nor derivable"),)
+    # Without a derivation, every derivable quantity reads "not stored" again.
+    lines = dict(line.split(None, 1) for line in model.models[-1].lines)
+    assert all(lines[label] == "not stored" for label in ("beta_p", "beta_N", "li_3", "volume", "area", "W_mhd"))
+    assert lines["Ip"].endswith(" kA")
     figure, axes = vaft.omas.plot_equilibrium_overview(shots[39915], time_slice=2)
     assert axes[3].get_title() == "" and "j_tor" in axes[3].texts[0].get_text()
     plt.close(figure)

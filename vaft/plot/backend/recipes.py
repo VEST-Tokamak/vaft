@@ -4874,21 +4874,37 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("Z_axis", "magnetic_axis.z", "m"),
     ("B_tor at axis", "magnetic_axis.b_field_tor", "T"),
     ("volume", "volume", "m^3"),
+    ("area", "area", "m^2"),
+    ("W_mhd", "energy_mhd", "J"),
 )
 
 
-def _slice_global_lines(ods: Any, index: int) -> list[str]:
-    """Formatted global-quantity lines for one slice, per the display policy."""
+def _global_scalar(ods: Any, index: int, leaf: str) -> float:
+    """One slice's stored global quantity as a float, ``nan`` when absent."""
+    raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
+    try:
+        return float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
+    except (IndexError, TypeError, ValueError):
+        return np.nan
+
+
+def _slice_global_lines(ods: Any, index: int, derived: Any = None) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy.
+
+    A quantity the slice stores is read from ``ods``; one it does not store is
+    read from ``derived`` -- the private copy on which
+    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475) --
+    and shown like any other value.  "not stored" is left for what is neither
+    stored nor derivable.
+    """
     from vaft.plot.display import resolve_display
 
     lines = []
     width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
-        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
-        try:
-            value = float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
-        except (IndexError, TypeError, ValueError):
-            value = np.nan
+        value = _global_scalar(ods, index, leaf)
+        if not np.isfinite(value) and derived is not None:
+            value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
             lines.append(f"{label:<{width}}  not stored")
             continue
@@ -4959,7 +4975,10 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
             if source is derived:
                 profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
             slots.append(profile)
-    slots.append(TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities"))
+    # The text panel reads the derived copy too; the representative-slice
+    # choice above read the caller's ODS, so a derived volume never changes
+    # which slice was picked or the reason stated in the title.
+    slots.append(TextPanel(lines=tuple(_slice_global_lines(ods, index, derived)), title="Global quantities"))
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     shot = f" #{pulse}" if pulse not in (None, "") else ""
     time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
