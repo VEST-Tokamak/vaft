@@ -9,6 +9,7 @@ reconstructed by hand.
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -288,9 +289,31 @@ def test_gpec_module_status_round_trips_every_artifact_class_without_materializa
         assert filedb.gpec(GPECCode.DCON, SHOT, 1, artifact=artifact)
 
 
+@pytest.mark.skipif(
+    os.name != "nt",
+    reason=r"only Windows reads C:\... as a path; on POSIX a backslash is an "
+    "ordinary filename character and is deliberately left alone",
+)
 @pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
 def test_windows_base_is_serialized_for_snakemake(layout):
     paths = MODULE.PipelinePaths(r"C:\vaft data\filedb", layout)
 
     assert paths.raw_dump(SHOT).startswith("C:/vaft data/filedb/")
     assert "\\" not in paths.shot_pattern("diagnostics_ods")
+
+
+def test_a_posix_root_keeps_a_backslash_that_is_part_of_a_name():
+    """The separator rewrite must not touch a legal POSIX filename.
+
+    A backslash is an ordinary character on Linux, which is where this
+    pipeline actually runs, so folding it into a separator there would
+    silently retarget the whole tree.
+    """
+    paths = MODULE.PipelinePaths("/srv/vest.filedb/archive\\2026", MODULE.SHOT_FIRST)
+    expected = (
+        "/srv/vest.filedb/archive/2026"
+        if os.name == "nt"
+        else "/srv/vest.filedb/archive\\2026"
+    )
+
+    assert paths.raw_dump(SHOT).startswith(expected)
