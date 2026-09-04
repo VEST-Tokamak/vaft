@@ -522,9 +522,10 @@ def revert(manifest_path: Path, *, execute_changes: bool) -> int:
             if not target.exists():
                 continue
             source.parent.mkdir(parents=True, exist_ok=True)
-            os.rename(target, source) if _same_device(target, source.parent) else shutil.move(
-                str(target), str(source)
-            )
+            if _same_device(target, source.parent):
+                os.rename(target, source)
+            else:
+                shutil.move(str(target), str(source))
             undone += 1
         elif kind == "write_file":
             path = Path(record["target"])
