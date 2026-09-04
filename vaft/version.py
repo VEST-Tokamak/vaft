@@ -1,10 +1,36 @@
 # Version information
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# 0.6.2
+# - Windows portability hotfix. install/README.md calls native Windows a
+#   first-class path, but the Linux-only CI had never exercised it: a full
+#   suite run on Windows failed 25 of 3082 tests, and two defects stopped the
+#   suite being collected at all. Linux and macOS are unaffected.
+# - `import fcntl` at module scope made `vaft raw-redump`/`raw-upgrade`
+#   unimportable on Windows and aborted pytest collection for the whole
+#   repository; file locking now uses msvcrt there
+# - `omas.omas_imas` reads os.environ["HOME"] in a default argument, so it
+#   raised KeyError at import time on a stock Windows install; vaft.compat now
+#   establishes HOME from USERPROFILE before any optional dependency loads
+# - four NamedTemporaryFile sites handed a still-open path to omas.ODS.load /
+#   ODS.save, which Windows refuses with PermissionError; this broke
+#   vaft.omas.save to .json.gz and silently disabled the derived-ODS cache
+# - imas_core keeps IDS files over ~10 MB open after DBEntry.close(), so
+#   scratch cleanup failed work that had already succeeded; cleanup is now
+#   best-effort on Windows and still strict on POSIX
+# - GPEC namelists were quoted with json.dumps, which escapes a backslash and
+#   so doubled every separator in a Windows path GPEC then failed to resolve
+# - pipeline rule paths are serialized in Snakemake's slash grammar rather
+#   than the host's native separator
+# - `os.access(X_OK)` is meaningless on Windows, so external-code guards could
+#   not reject a non-executable; replaced by a real probe
+# - content-addressed fixtures are pinned to LF: a CRLF checkout changed their
+#   sha256 and failed their own offline verification
+# - Package CI gains a windows-latest leg so none of this regresses silently
 # 0.6.1
 # - regenerate the packaged wheel sample so the bundled 39915 reference
 #   carries the IMPA b_field_tor_probe toroidal_angle the mapper writes
