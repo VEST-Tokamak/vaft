@@ -621,6 +621,22 @@ def test_an_excluded_channel_still_reports_its_wall_authority():
     assert "wall_authority" in row
 
 
+def test_usable_in_window_excludes_the_held_tail():
+    """The eddy stage asks about *its* window (#189, #424): a channel whose
+    only unusable samples are the held tail after the diagnostics window is
+    usable over the plasma-free stretch and unusable over the tail alone."""
+    from vaft.omas.sample import sample_ods
+    from vaft.omas.vacuum_magnetics import _usable_in_window
+    from vaft.validation.magnetics import project_validity, validate_magnetics_signals
+
+    ods = sample_ods()
+    project_validity(ods, validate_magnetics_signals(ods))
+    base = "magnetics.flux_loop.0.flux"
+    time = np.asarray(ods["magnetics.time"], dtype=float)
+    assert _usable_in_window(ods, base, time, (0.28, 0.33), 0)
+    assert not _usable_in_window(ods, base, time, (0.35, 0.40), 0)
+
+
 def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
     """The physics behind the scoring floor: vessel currents flow at larger R
     and their flux nearly cancels through a small inboard loop, so on the

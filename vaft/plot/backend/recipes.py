@@ -58,6 +58,7 @@ from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, 
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
+from vaft.validation.validity import VALIDITY_VALID, is_condemned, record_from_mask
 
 __all__ = [
     "CallableRecipe",
@@ -227,7 +228,7 @@ def _channel_passes_signal_preset(
     if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
         return True
     code, mask = _validity_of(ods, y_path, index)
-    if code is not None and int(code) < 0 and (mask is None or not np.asarray(mask, dtype=bool).any()):
+    if is_condemned(record_from_mask(code, mask)):
         return False
     if preset == ACTIVE:
         finite = values[np.isfinite(values)]
@@ -2889,7 +2890,7 @@ def _validity_of(ods: Any, y_path: str, index: int | None = None):
         return None, None
     code = _get(ods, f"{base}.validity".format(i=index))
     timed = _array(ods, f"{base}.validity_timed".format(i=index))
-    mask = None if timed is None else np.asarray(timed) >= 0
+    mask = None if timed is None else np.asarray(timed) >= VALIDITY_VALID
     return (None if code is None else int(code)), mask
 
 

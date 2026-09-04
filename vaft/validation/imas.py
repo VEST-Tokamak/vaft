@@ -16,7 +16,12 @@ constraint ``chi_squared``   a fit metric, not a status at all
 This module owns the *schema coupling* -- it is the only place in the
 validation layer that knows an IDS path.  Validation results themselves never
 carry one (#253 §9), so a Data Dictionary change lands here instead of leaking
-through every result object.
+through every result object.  What the nodes *mean* is not decided here
+either: :func:`read_validity_record` extracts them into a
+:class:`~vaft.validation.validity.ValidityRecord`, and every reader below is a
+one-liner over :mod:`vaft.validation.validity`, the access-free interpretation
+layer (#424).  A native-IMAS accessor builds the same record from an IDS
+handle and cannot disagree with this one about what it means.
 
 Path access here goes through :mod:`vaft.ods_access` (issue #118) rather than a
 bare read: probing a channel that carries no ``validity`` would otherwise
@@ -53,6 +58,21 @@ import numpy as np
 
 from vaft.ods_access import path_value as _lookup
 
+from vaft.validation.validity import (
+    VALIDITY_CERTIFIED,
+    VALIDITY_INVALID,
+    VALIDITY_MEANINGS,
+    VALIDITY_SUSPECT,
+    VALIDITY_VALID,
+    ValidityRecord,
+    aggregate_validity,
+    codes_at,
+    is_condemned,
+    is_usable,
+    usable_fraction,
+    usable_mask,
+)
+
 __all__ = [
     "VALIDITY_CERTIFIED",
     "VALIDITY_INVALID",
@@ -60,9 +80,12 @@ __all__ = [
     "VALIDITY_SUSPECT",
     "VALIDITY_VALID",
     "aggregate_validity",
+    "is_condemned_channel",
+    "is_usable_channel",
     "read_convergence_result",
     "read_output_flag",
     "read_validity",
+    "read_validity_record",
     "read_validity_timed",
     "resolve_signal_time",
     "valid_fraction",
@@ -70,23 +93,6 @@ __all__ = [
     "validity_mask",
     "write_validity",
 ]
-
-#: Data Dictionary validity codes, in descending order of confidence.  The
-#: codes are severity-monotone, which is what makes ``min()`` the natural
-#: "worst state wins" aggregation in :func:`aggregate_validity`.
-VALIDITY_CERTIFIED = 1
-VALIDITY_VALID = 0
-VALIDITY_SUSPECT = -1
-VALIDITY_INVALID = -2
-
-#: Human-readable meanings, for manifests and error messages.  Codes below -2
-#: are code-specific by the DD's own definition and are reported verbatim.
-VALIDITY_MEANINGS: Mapping[int, str] = {
-    VALIDITY_CERTIFIED: "valid and certified",
-    VALIDITY_VALID: "valid from automated processing",
-    VALIDITY_SUSPECT: "problem identified in processing; verification requested",
-    VALIDITY_INVALID: "invalid; should not be used",
-}
 
 
 def _array(value: Any, dtype: Any) -> np.ndarray | None:
@@ -140,25 +146,20 @@ def read_validity_timed(source: Any, base: str) -> np.ndarray | None:
     return _array(_lookup(source, f"{base}.validity_timed"), int)
 
 
-def aggregate_validity(timed: Iterable[int]) -> int:
-    """The scalar validity summarizing a time-resolved one: **worst state wins**.
+def read_validity_record(source: Any, base: str) -> ValidityRecord:
+    """The validity nodes of ``base``, extracted and uninterpreted.
 
-    The Data Dictionary codes descend monotonically in confidence
-    (1 > 0 > -1 > -2), so the minimum is the most severe state the channel
-    reached.  A channel that saturates halfway through therefore reads
-    ``-2`` at the scalar level even though it was good earlier -- which is why
-    ``validity_timed`` stays authoritative for consumers that work slice by
-    slice, and why this scalar must never be used to discard a whole channel
-    when the timed field is available.
-
-    An empty input aggregates to :data:`VALIDITY_INVALID`: a waveform with no
-    samples carries no usable datum.  That is distinct from an *absent*
-    ``validity_timed``, which :func:`read_validity_timed` reports as ``None``.
+    The one accessor the interpretation layer needs: ``validity``,
+    ``validity_timed`` and the grid the latter is coordinated on
+    (:func:`resolve_signal_time`).  The grid is resolved even when the timed
+    node is absent, because a scalar broadcast over the record must know how
+    long the record is.
     """
-    values = np.asarray(list(timed), dtype=int).reshape(-1)
-    if values.size == 0:
-        return VALIDITY_INVALID
-    return int(values.min())
+    return ValidityRecord(
+        scalar=read_validity(source, base),
+        timed=read_validity_timed(source, base),
+        time=resolve_signal_time(source, base),
+    )
 
 
 def validity_codes(
@@ -176,31 +177,9 @@ def validity_codes(
 
     ``validity_timed`` wins wherever it exists; otherwise the scalar
     ``validity`` is broadcast.  ``None`` when the node declares neither.
+    See :func:`vaft.validation.validity.codes_at`.
     """
-    timed = read_validity_timed(source, base)
-    if timed is None:
-        scalar = read_validity(source, base)
-        if scalar is None:
-            return None
-        if times is None:
-            grid = resolve_signal_time(source, base)
-            size = 1 if grid is None else grid.size
-            return np.full(size, scalar, dtype=int)
-        return np.full(np.asarray(times, dtype=float).reshape(-1).size, scalar, dtype=int)
-
-    if times is None:
-        return timed
-    grid = resolve_signal_time(source, base)
-    query = np.asarray(times, dtype=float).reshape(-1)
-    if grid is None or grid.size != timed.size:
-        # Without a usable coordinate the timed field cannot be placed in time.
-        # Falling back to its own aggregate is honest: it says what the channel
-        # was at its worst rather than pretending to a per-slice answer.
-        return np.full(query.size, aggregate_validity(timed), dtype=int)
-    index = np.clip(np.searchsorted(grid, query), 0, grid.size - 1)
-    left = np.clip(index - 1, 0, grid.size - 1)
-    take_left = np.abs(grid[left] - query) <= np.abs(grid[index] - query)
-    return timed[np.where(take_left, left, index)]
+    return codes_at(read_validity_record(source, base), times=times)
 
 
 def validity_mask(
@@ -220,17 +199,14 @@ def validity_mask(
     ``default`` decides what an ODS carrying *no* validity information means.
     It is ``True`` deliberately: absence of an assessment is not a rejection,
     and it keeps every consumer byte-identical on data produced before the
-    quality layer existed.
+    quality layer existed.  See :func:`vaft.validation.validity.usable_mask`.
     """
-    codes = validity_codes(source, base, times=times)
-    if codes is None:
-        if times is not None:
-            size = np.asarray(times, dtype=float).reshape(-1).size
-        else:
-            grid = resolve_signal_time(source, base)
-            size = 1 if grid is None else grid.size
-        return np.full(size, bool(default))
-    return codes >= int(min_validity)
+    return usable_mask(
+        read_validity_record(source, base),
+        times=times,
+        min_validity=min_validity,
+        default=default,
+    )
 
 
 def valid_fraction(
@@ -248,21 +224,53 @@ def valid_fraction(
     ``min_validity``, and the consumer decides what fraction it requires.  That
     threshold is policy and belongs to the consumer, not here (#253 §7).
 
-    ``nan`` when the window selects no samples.
+    ``nan`` when the window selects no samples.  See
+    :func:`vaft.validation.validity.usable_fraction`.
     """
-    mask = validity_mask(
-        source, base, times=times, min_validity=min_validity, default=default
+    try:
+        return usable_fraction(
+            read_validity_record(source, base),
+            times=times,
+            window=window,
+            min_validity=min_validity,
+            default=default,
+        )
+    except ValueError as exc:
+        raise ValueError(str(exc).replace("the record", repr(base))) from None
+
+
+def is_usable_channel(
+    source: Any,
+    base: str,
+    *,
+    times: np.ndarray | None = None,
+    min_validity: int = VALIDITY_VALID,
+    default: bool = True,
+) -> bool:
+    """Whether ``base`` has any usable sample at all, or any of ``times``.
+
+    The timed field wins; a scalar alone is broadcast; an unassessed node is
+    ``default``.  See :func:`vaft.validation.validity.is_usable`.
+    """
+    return is_usable(
+        read_validity_record(source, base),
+        times=times,
+        min_validity=min_validity,
+        default=default,
     )
-    if window is not None:
-        selector = np.asarray(window, dtype=bool).reshape(-1)
-        if selector.size != mask.size:
-            raise ValueError(
-                f"window has {selector.size} samples but {base!r} has {mask.size}"
-            )
-        mask = mask[selector]
-    if mask.size == 0:
-        return float("nan")
-    return float(mask.mean())
+
+
+def is_condemned_channel(
+    source: Any, base: str, *, min_validity: int = VALIDITY_VALID
+) -> bool:
+    """Whether ``base`` was assessed and has no usable sample anywhere.
+
+    The sanctioned whole-channel reading: never the scalar below the floor,
+    which would condemn every channel that was good early and bad late.
+    ``False`` for a node nothing has assessed.  See
+    :func:`vaft.validation.validity.is_condemned`.
+    """
+    return is_condemned(read_validity_record(source, base), min_validity=min_validity)
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +298,10 @@ def write_validity(
 
     Only call this for an assessment whose subject is the datum at ``base``
     itself.  Model-agreement failures must not reach here.
+
+    The scalar written here is a summary, not a verdict on the channel.  The
+    one sanctioned whole-channel reading of it is
+    :func:`is_condemned_channel`, which judges the timed field it summarizes.
     """
     values = np.asarray(list(timed), dtype=int).reshape(-1)
     grid = resolve_signal_time(source, base)

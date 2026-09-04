@@ -151,6 +151,21 @@ def test_stage_evidence_pulls_in_no_database_or_plotting():
     assert leaked == "", f"importing stage_evidence pulled in: {leaked}"
 
 
+def test_the_validity_interpretation_layer_reads_no_data_model():
+    """`vaft.validation.validity` states what the validity nodes mean (#424).
+
+    It must import nothing that can read an ODS or an IDS, so that a native
+    IMAS accessor and the OMAS one cannot disagree about the meaning: they
+    both hand a record to the same functions.
+    """
+    leaked = _in_subprocess(
+        "import sys, vaft.validation.validity\n"
+        "print(','.join(sorted(m for m in sys.modules if m.startswith("
+        "('omas', 'imas', 'vaft.omas', 'vaft.imas', 'vaft.ods_access', 'vaft.database', 'matplotlib')))))"
+    )
+    assert leaked == "", f"importing vaft.validation.validity pulled in: {leaked}"
+
+
 def test_no_exported_name_is_shadowed_by_a_submodule():
     """A submodule silently wins over a same-named lazy export, import-order
     dependent -- the hazard `test_api_layer_boundaries` guards for

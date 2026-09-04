@@ -59,6 +59,7 @@ from vaft.machine_mapping.utils import (
     resolve_diagnostics_time_policies,
 )
 from vaft.omas import save
+from vaft.validation.imas import is_condemned_channel
 from vaft.omas.process_wrapper import compute_eddy_currents
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
@@ -476,14 +477,8 @@ def _validate_diagnostics_time_coordinates(
             # can expose the corresponding unset time leaf as its scalar
             # default, so decide whether a native coordinate exists from the
             # waveform first rather than validating that placeholder.
-            validity_path = f"{base}.validity"
-            validity = (
-                int(get_path(ods, validity_path))
-                if path_exists(ods, validity_path)
-                else 0
-            )
             voltage_data = np.asarray(get_path(ods, data_path)).reshape(-1)
-            if validity < 0 or voltage_data.size == 0:
+            if is_condemned_channel(ods, base) or voltage_data.size == 0:
                 continue
             voltage_time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
             if voltage_time.size == 0:
