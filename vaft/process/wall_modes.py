@@ -40,7 +40,12 @@ wall current.  Conversions -- Euclidean-normalized modes have ``a_E = a
 
 This module chooses no reduced order.  It returns every mode of every segment
 and offers selection helpers; which modes to keep is the validation study's
-question (vfit #10), not the basis's.
+question (vfit #10, vaft #494), and the tools for that question live here too:
+the reduced circuit solve (:func:`solve_reduced_eddy`), rankings of the modes
+by response rather than by decay time (:func:`mode_scores`), a greedy
+segment-wise allocation to a tolerance (:func:`allocate_per_segment`), and the
+drive-independent moment patterns (:func:`moment_patterns`) that the study
+compares the eigenbasis against.
 
 Nothing here reads an ODS; :func:`vaft.omas.process_wrapper.compute_wall_mode_basis_ods`
 does the mapping.
@@ -63,10 +68,15 @@ __all__ = [
     "SegmentModes",
     "WallModeBasis",
     "WallModeError",
+    "allocate_per_segment",
     "build_wall_mode_basis",
     "canonical_sign",
     "check_wall_mode_basis",
+    "combined_operators",
     "global_time_constants",
+    "mode_scores",
+    "moment_patterns",
+    "orthonormalize_r",
     "project",
     "reconstruct",
     "reconstruction_error",
@@ -74,8 +84,10 @@ __all__ = [
     "reduced_operators",
     "segment_eigenmodes",
     "select_all",
+    "select_by_score",
     "select_slowest",
     "select_tau_range",
+    "solve_reduced_eddy",
     "subspace_angles_r",
     "symmetrize_inductance",
 ]
@@ -649,3 +661,300 @@ def subspace_angles_r(V_a: np.ndarray, V_b: np.ndarray, R_mat: np.ndarray) -> np
     r = _diagonal_resistance(R_mat, where="R_mat")
     w = np.sqrt(r)[:, None]
     return subspace_angles(w * np.asarray(V_a, dtype=float), w * np.asarray(V_b, dtype=float))
+
+
+# ---------------------------------------------------------------------------
+# Reduced dynamics and response-ranked selection (vaft #494, vfit #10)
+# ---------------------------------------------------------------------------
+
+def solve_reduced_eddy(
+    reduced: ReducedWall,
+    drive: np.ndarray,
+    time: np.ndarray,
+    *,
+    V: np.ndarray | None = None,
+    dt_sub: float = 5.0e-5,
+    method: str = "auto",
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Integrate the reduced circuit ``L_r da/dt + R_r a = -M_r dI_src/dt``.
+
+    The same integrator as the full wall
+    (:func:`vaft.process.electromagnetics.solve_eddy_currents`), fed the
+    projected operators, so the only difference between the two solutions is
+    the retained subspace: with every mode kept they agree to rounding.
+    ``drive`` is ``(n_times, n_src)`` on ``time``.  Returns the amplitudes
+    ``a`` ``(n_times, M_tot)`` [sqrt(W)] and, when the retained ``V`` is
+    given, the reconstructed wall current ``I_w = V a`` ``(n_times, N)`` [A].
+    """
+    from vaft.process.electromagnetics import solve_eddy_currents
+
+    if reduced.M_r is None:
+        raise WallModeError("solve_reduced_eddy needs the projected source coupling M_r")
+    a = solve_eddy_currents(
+        reduced.R_r, reduced.M_r, reduced.L_r,
+        np.asarray(drive, dtype=float), np.asarray(time, dtype=float),
+        dt_sub=dt_sub, method=method,
+    )
+    I_w = None if V is None else a @ np.asarray(V, dtype=float).T
+    return a, I_w
+
+
+def mode_scores(
+    basis: WallModeBasis,
+    R_mat: np.ndarray,
+    M_mat: np.ndarray,
+    L_mat: np.ndarray,
+    *,
+    G: np.ndarray | None = None,
+    drive: np.ndarray | None = None,
+    time: np.ndarray | None = None,
+    keep: Sequence[np.ndarray] | None = None,
+    dt_sub: float = 5.0e-5,
+) -> dict[str, np.ndarray]:
+    """Rankings of the retained modes, one value per coefficient of ``labels(keep)``.
+
+    Rankings, not verdicts: each is a different answer to "which modes carry
+    the wall's response", and the order study (vfit #10) compares them.
+
+    ``tau``
+        the decay time -- what the spectrum alone would rank by;
+    ``drive_gain``
+        ``tau_k ||M_r[k, :]|| ||G_red[:, k]||`` -- the quasi-static amplitude a
+        unit source ramp excites in mode ``k`` times how visible the mode is
+        at the observation points (all ones without ``G``); needs no drive;
+    ``response_energy``
+        the rms of the projected full response ``a = V^T R I_w(t)`` under
+        ``drive`` -- how much dissipation each mode actually carried;
+    ``output_weight``
+        ``response_energy`` times the observability, the ranking that
+        minimizes the diagnostic-space error fastest on the packaged wall.
+
+    The last two need ``drive`` ``(n_times, n_src)`` and ``time`` and cost
+    one full wall solve.
+    """
+    ops = reduced_operators(basis, R_mat, M_mat, L_mat, keep)
+    tau = basis.tau(keep)
+    if G is not None:
+        observability = np.linalg.norm(reduce_response(G, basis, keep), axis=0)
+    else:
+        observability = np.ones(tau.size)
+    scores: dict[str, np.ndarray] = {
+        "tau": tau,
+        "drive_gain": tau * np.linalg.norm(ops.M_r, axis=1) * observability,
+    }
+    if drive is not None:
+        if time is None:
+            raise WallModeError("mode_scores needs `time` with `drive`")
+        from vaft.process.electromagnetics import solve_eddy_currents
+
+        I_full = solve_eddy_currents(
+            np.asarray(R_mat, dtype=float), np.asarray(L_mat, dtype=float),
+            np.asarray(M_mat, dtype=float), np.asarray(drive, dtype=float),
+            np.asarray(time, dtype=float), dt_sub=dt_sub,
+        )
+        a = project(basis, I_full, R_mat, keep)
+        energy = np.sqrt(np.mean(a**2, axis=0))
+        scores["response_energy"] = energy
+        scores["output_weight"] = energy * observability
+    return scores
+
+
+def select_by_score(
+    basis: WallModeBasis, score: np.ndarray, M: int, keep: Sequence[np.ndarray] | None = None
+) -> tuple[np.ndarray, ...]:
+    """Keep the ``M`` highest-scoring modes across segments.
+
+    ``score`` is aligned with ``basis.labels(keep)`` (one entry per coefficient
+    of the candidate selection, every mode by default); ties resolve toward
+    the earlier label so the selection is deterministic.
+    """
+    labels = basis.labels(keep)
+    score = np.asarray(score, dtype=float).reshape(-1)
+    if score.size != len(labels):
+        raise WallModeError(f"score has {score.size} entries for {len(labels)} candidate modes")
+    order = np.argsort(-score, kind="stable")[: max(int(M), 0)]
+    chosen = set(labels[i] for i in order)
+    return tuple(
+        np.array(sorted(k for (seg_id, k) in chosen if seg_id == seg.id), dtype=np.int64)
+        for seg in basis.segments
+    )
+
+
+def allocate_per_segment(
+    basis: WallModeBasis,
+    R_mat: np.ndarray,
+    M_mat: np.ndarray,
+    L_mat: np.ndarray,
+    drive: np.ndarray,
+    time: np.ndarray,
+    *,
+    tolerance: float,
+    metric: str = "dissipation",
+    G: np.ndarray | None = None,
+    score: np.ndarray | None = None,
+    step: int = 1,
+    max_modes: int | None = None,
+    dt_sub: float = 5.0e-5,
+) -> tuple[tuple[np.ndarray, ...], list[dict[str, Any]]]:
+    """Greedy segment-wise allocation ``M_repr = (M_1, ..., M_G)`` to a tolerance.
+
+    Starting from no modes, each round re-solves the reduced wall under
+    ``drive`` and adds ``step`` modes to the segment carrying the largest
+    remaining error, taken in the order of ``score`` within that segment
+    (the ``output_weight`` ranking of :func:`mode_scores` by default, which
+    needs no more than the full solve already made here).  It stops when the
+    global ``metric`` drops to ``tolerance`` or every candidate is used.
+
+    ``metric="dissipation"`` is the relative R-energy error of the wall
+    current, the norm this basis is built in; ``metric="output"`` is the
+    relative error of ``G I_w`` and needs ``G``.  The per-segment error is
+    the segment's share of the global squared error in the same norm, so a
+    segment that the drive barely reaches never attracts modes.
+
+    Returns the selection and the history: one row per round with the
+    running ``M_repr``, its total, and the metric.  A global allocation for
+    a *given* total is simply :func:`select_by_score`; this routine answers
+    the other question, the smallest total that meets a response tolerance.
+    """
+    from vaft.process.electromagnetics import solve_eddy_currents
+
+    if metric not in ("dissipation", "output"):
+        raise WallModeError("metric must be 'dissipation' or 'output'")
+    if metric == "output" and G is None:
+        raise WallModeError("metric='output' needs the response G")
+    r = _diagonal_resistance(R_mat, where="R_mat")
+    drive = np.asarray(drive, dtype=float)
+    time = np.asarray(time, dtype=float)
+    I_full = solve_eddy_currents(r[:, None] * np.eye(r.size), np.asarray(L_mat, dtype=float),
+                                 np.asarray(M_mat, dtype=float), drive, time, dt_sub=dt_sub)
+    if score is None:
+        a_full = project(basis, I_full, R_mat)
+        observability = np.ones(basis.n_elements) if G is None else np.linalg.norm(reduce_response(G, basis), axis=0)
+        score = np.sqrt(np.mean(a_full**2, axis=0)) * observability
+    score = np.asarray(score, dtype=float).reshape(-1)
+    if score.size != basis.n_elements:
+        raise WallModeError(f"score has {score.size} entries for {basis.n_elements} modes")
+
+    offsets = np.cumsum([0] + [seg.size for seg in basis.segments])
+    ranked = [np.argsort(-score[offsets[i]:offsets[i + 1]], kind="stable") for i in range(len(basis.segments))]
+    counts = [0] * len(basis.segments)
+    limit = basis.n_elements if max_modes is None else min(int(max_modes), basis.n_elements)
+    y_full = None if G is None else I_full @ np.asarray(G, dtype=float).T
+    history: list[dict[str, Any]] = []
+
+    def _evaluate(keep: tuple[np.ndarray, ...]) -> tuple[float, np.ndarray]:
+        total = sum(int(k.size) for k in keep)
+        if total == 0:
+            I_red = np.zeros_like(I_full)
+        else:
+            ops = reduced_operators(basis, R_mat, M_mat, L_mat, keep)
+            _, I_red = solve_reduced_eddy(ops, drive, time, V=basis.V(keep), dt_sub=dt_sub)
+        err = I_red - I_full
+        if metric == "dissipation":
+            ref = np.sum(r[None, :] * I_full**2)
+            per_segment = np.array([np.sum(r[None, seg.index] * err[:, seg.index]**2) for seg in basis.segments])
+            return float(np.sqrt(per_segment.sum() / max(ref, 1e-300))), per_segment / max(ref, 1e-300)
+        y_err = err @ np.asarray(G, dtype=float).T
+        ref = np.sum(y_full**2)
+        # a segment's share of the output error: the output of its own error current
+        per_segment = np.array([
+            np.sum((err[:, seg.index] @ np.asarray(G, dtype=float)[:, seg.index].T)**2) for seg in basis.segments
+        ])
+        return float(np.sqrt(np.sum(y_err**2) / max(ref, 1e-300))), per_segment / max(ref, 1e-300)
+
+    while True:
+        keep = tuple(np.sort(ranked[i][:counts[i]]).astype(np.int64) for i in range(len(basis.segments)))
+        value, per_segment = _evaluate(keep)
+        total = sum(counts)
+        history.append({"M_repr": tuple(counts), "M_total": total, metric: value,
+                        "by_segment": {seg.id: float(v) for seg, v in zip(basis.segments, per_segment)}})
+        if value <= tolerance or total >= limit:
+            return keep, history
+        open_segments = [i for i, seg in enumerate(basis.segments) if counts[i] < seg.size]
+        target = max(open_segments, key=lambda i: per_segment[i])
+        counts[target] = min(counts[target] + max(int(step), 1), basis.segments[target].size)
+
+
+def orthonormalize_r(X: np.ndarray, R_mat: np.ndarray, *, rtol: float = 1e-10) -> np.ndarray:
+    """An R-orthonormal basis of ``span(X)``, canonical in sign.
+
+    QR of ``R^{1/2} X`` with the dependent columns (diagonal of the triangular
+    factor below ``rtol`` times its largest entry) dropped, so a set of
+    patterns that repeats a direction does not return a singular basis.
+    """
+    r = _diagonal_resistance(R_mat, where="R_mat")
+    X = np.asarray(X, dtype=float)
+    if X.ndim != 2 or X.shape[0] != r.size:
+        raise WallModeError(f"patterns have shape {X.shape}; expected ({r.size}, m)")
+    w = np.sqrt(r)[:, None]
+    Q, T = np.linalg.qr(w * X)
+    diag = np.abs(np.diag(T))
+    independent = diag > rtol * max(diag.max() if diag.size else 0.0, 1e-300)
+    return canonical_sign(Q[:, independent] / w)
+
+
+def moment_patterns(R_mat: np.ndarray, M_mat: np.ndarray, L_mat: np.ndarray, order: int = 1) -> np.ndarray:
+    """Drive-independent wall patterns from the source coupling: an R-orthonormal
+    basis of the block Krylov space ``span{R^{-1} M, (R^{-1} L) R^{-1} M, ...}``
+    up to ``order`` blocks.
+
+    The first block is the resistive limit -- the wall current a constant
+    source ramp settles into, ``I_w = -R^{-1} M dI_src/dt`` -- and each
+    further block is the next inductive correction of the slowly driven
+    response (the Laplace-domain moments of the wall's transfer function,
+    matched at zero frequency).  Built as a block Arnoldi iteration in the R
+    inner product, so the blocks stay independent where the raw powers would
+    collapse onto the slowest mode; a block that adds no new direction ends
+    the iteration early and the basis is narrower than ``order * n_src``.
+
+    On the packaged VEST wall ten resistive patterns reproduce the probe
+    response of a real PF drive to ~1 % where 150 eigenmodes are needed for
+    the same; fast transients remain the eigenmodes' territory.  ``L`` is the
+    physics inductance (code ``M_mat``), ``M`` the source coupling (code
+    ``L_mat``), matching the module convention.
+    """
+    if int(order) < 1:
+        raise WallModeError("order must be at least 1")
+    r = _diagonal_resistance(R_mat, where="R_mat")
+    L = np.asarray(M_mat, dtype=float)
+    Q = orthonormalize_r(np.asarray(L_mat, dtype=float) / r[:, None], R_mat)
+    blocks = [Q]
+    for _ in range(int(order) - 1):
+        X = (L @ blocks[-1]) / r[:, None]
+        V = np.hstack(blocks)
+        X = X - V @ (V.T @ (r[:, None] * X))          # R-orthogonal to everything so far
+        X = X - V @ (V.T @ (r[:, None] * X))          # twice, for the usual reason
+        Q = orthonormalize_r(X, R_mat, rtol=1e-8)
+        if Q.shape[1] == 0:
+            break
+        blocks.append(Q)
+    return canonical_sign(np.hstack(blocks))
+
+
+def combined_operators(
+    V: np.ndarray,
+    R_mat: np.ndarray,
+    M_mat: np.ndarray,
+    L_mat: np.ndarray | None = None,
+    *,
+    label: str = "pattern",
+) -> ReducedWall:
+    """Reduced operators for an arbitrary R-orthonormal basis ``V`` ``(N, m)``.
+
+    The same projections as :func:`reduced_operators`, for a basis that is
+    not (only) segment eigenmodes -- an enrichment by
+    :func:`moment_patterns`, say, or a POD basis; coefficients are labelled
+    ``(label, k)``.  ``R_r`` is computed, not assumed.
+    """
+    V = np.asarray(V, dtype=float)
+    r = _diagonal_resistance(R_mat, where="R_mat")
+    if V.ndim != 2 or V.shape[0] != r.size:
+        raise WallModeError(f"basis has shape {V.shape}; expected ({r.size}, m)")
+    L = np.asarray(M_mat, dtype=float)
+    return ReducedWall(
+        L_r=V.T @ L @ V,
+        R_r=V.T @ (r[:, None] * V),
+        M_r=None if L_mat is None else V.T @ np.asarray(L_mat, dtype=float),
+        labels=tuple((str(label), k) for k in range(V.shape[1])),
+        keep=(np.arange(V.shape[1], dtype=np.int64),),
+    )
