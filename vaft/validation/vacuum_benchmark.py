@@ -309,24 +309,32 @@ def wall_time_constants(ods: Any) -> np.ndarray:
     """The passive structure's L/R decay times, slowest first.
 
     The eddy solve integrates ``M dI/dt = -R I - L dI_active/dt``, so the
-    homogeneous decay is governed by the eigenvalues of ``-M^-1 R`` and the
-    slowest of them sets how long the solver's assumed initial state persists.
-    Reading them from the same matrices the solver builds means the history
-    requirement below is derived from the wall model actually in use, not from
-    a guessed number.
+    homogeneous decay is governed by the generalized eigenvalues of the
+    ``(R, L)`` pencil, and the slowest of them sets how long the solver's
+    assumed initial state persists.  They are read from the same
+    segment-wise wall eigenbasis the reduced-wall work builds (vaft #473):
+    at full rank the reduced inductance ``L_r = V^T L V`` with ``R_r = I``
+    has exactly the global spectrum, so the QA and the basis cannot report
+    two different walls.
     """
-    from vaft.omas.process_wrapper import compute_impedance_matrices_ods
+    from vaft.omas.process_wrapper import compute_wall_mode_basis_ods, compute_impedance_matrices_ods
+    from vaft.process.wall_modes import WallModeError, global_time_constants
 
-    resistance, _coupling, inductance = compute_impedance_matrices_ods(ods, [])
-    eigenvalues = np.linalg.eigvals(-np.linalg.solve(inductance, resistance))
-    rates = np.abs(eigenvalues.real)
-    rates = rates[rates > 0.0]
-    if rates.size == 0:
+    try:
+        basis = compute_wall_mode_basis_ods(ods)
+        _resistance, _coupling, inductance = compute_impedance_matrices_ods(ods, [])
+        taus = global_time_constants(basis, inductance)
+    except WallModeError as exc:
+        raise BenchmarkError(
+            "the passive structure has no well-posed decaying modes: " + str(exc)
+        ) from exc
+    taus = taus[np.isfinite(taus) & (taus > 0.0)]
+    if taus.size == 0:
         raise BenchmarkError(
             "the passive structure has no decaying mode; its resistance or "
             "inductance matrix is degenerate"
         )
-    return np.sort(1.0 / rates)[::-1]
+    return np.sort(taus)[::-1]
 
 
 def solver_history_check(
