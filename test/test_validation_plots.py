@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import subprocess
 import sys
 
@@ -37,6 +37,12 @@ BASE_DIR = "/srv/vest.filedb/public"
 SHOT = 41234
 MACHINE_VERSION = "vest-45967-plus-pf2507"
 REQUIRED_RAW_FIELDS = (1, 12, 25, 59, 109)
+
+
+def _rule_filedb(root: str) -> FileDB:
+    filedb = FileDB(root)
+    filedb.root = PurePosixPath(filedb.root.as_posix())
+    return filedb
 
 
 @pytest.fixture(scope="module")
@@ -108,7 +114,7 @@ def test_unknown_kind_and_empty_plot_name_are_refused():
 
 def test_plot_paths_resolve_to_the_canonical_plot_artifact():
     paths = PipelinePaths(BASE_DIR, FILEDB)
-    filedb = FileDB(BASE_DIR)
+    filedb = _rule_filedb(BASE_DIR)
 
     assert paths.stage_plot(SHOT, "diagnostics", "magnetics_overview.png") == str(
         filedb.omas("diagnostics", shot=SHOT, artifact="plot") / "magnetics_overview.png"

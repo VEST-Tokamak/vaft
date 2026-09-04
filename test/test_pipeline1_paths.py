@@ -9,7 +9,7 @@ reconstructed by hand.
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -30,6 +30,13 @@ SPEC.loader.exec_module(MODULE)
 BASE_DIR = "/srv/vest.filedb/public"
 SHOT = 48226
 VERSION = "vest-43017-45957-pf1906"
+
+
+def _rule_filedb(root: str) -> FileDB:
+    """Return FileDB expectations serialized in Snakemake's slash grammar."""
+    filedb = FileDB(root)
+    filedb.root = PurePosixPath(filedb.root.as_posix())
+    return filedb
 
 
 def test_shot_first_reproduces_the_legacy_literal_paths():
@@ -83,7 +90,7 @@ def test_shot_first_reproduces_the_legacy_literal_paths():
 
 
 def test_filedb_layout_matches_the_canonical_resolver():
-    filedb = FileDB(BASE_DIR)
+    filedb = _rule_filedb(BASE_DIR)
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
 
     assert paths.raw_dump(SHOT) == str(
@@ -170,7 +177,7 @@ def test_version_pattern_produces_a_snakemake_wildcard(layout):
 
 
 def test_filedb_gpec_workdir_is_one_canonical_cell_per_code_and_mode():
-    filedb = FileDB(BASE_DIR)
+    filedb = _rule_filedb(BASE_DIR)
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
 
     assert paths.gpec_workdir(SHOT, "dcon", 1) == str(
@@ -215,7 +222,7 @@ def test_gpec_module_paths_are_shot_first_literals():
 
 
 def test_gpec_module_paths_match_filedb_for_every_code_and_several_modes():
-    filedb = FileDB(BASE_DIR)
+    filedb = _rule_filedb(BASE_DIR)
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
 
     for code in GPECCode:
@@ -231,7 +238,7 @@ def test_gpec_module_paths_match_filedb_for_every_code_and_several_modes():
 def test_gpec_module_path_translates_the_ideal_gpec_alias():
     """`vaft.code.gpec`'s module key "gpec" maps onto FileDB's `GPECCode.IDEAL_GPEC`
     ("ideal-gpec"), not a literal `GPECCode("gpec")`, which does not exist."""
-    filedb = FileDB(BASE_DIR)
+    filedb = _rule_filedb(BASE_DIR)
     paths = MODULE.PipelinePaths(BASE_DIR, MODULE.FILEDB)
 
     assert paths.gpec_module_status(SHOT, "gpec", 1) == str(
@@ -273,9 +280,17 @@ def test_gpec_module_pattern_does_not_corrupt_an_unrelated_dcon_substring():
 
 
 def test_gpec_module_status_round_trips_every_artifact_class_without_materialization():
-    filedb = FileDB(BASE_DIR)
+    filedb = _rule_filedb(BASE_DIR)
     for artifact in ArtifactClass:
         # Just confirm FileDB itself accepts every artifact class for gpec --
         # paths.py only ever asks for "metadata"/"output", this locks in that
         # the underlying resolver supports the full set pipeline.py could use.
         assert filedb.gpec(GPECCode.DCON, SHOT, 1, artifact=artifact)
+
+
+@pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
+def test_windows_base_is_serialized_for_snakemake(layout):
+    paths = MODULE.PipelinePaths(r"C:\vaft data\filedb", layout)
+
+    assert paths.raw_dump(SHOT).startswith("C:/vaft data/filedb/")
+    assert "\\" not in paths.shot_pattern("diagnostics_ods")
