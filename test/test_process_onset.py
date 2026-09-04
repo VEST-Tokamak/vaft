@@ -401,3 +401,16 @@ def test_a_record_too_short_for_the_filter_is_no_evidence_not_an_error():
     assert not record.found and "record_too_short" in record.flags
     # without a filter the same twelve samples are judged (and found wanting) normally
     assert "record_too_short" not in active_window(short, pulse()[:12]).flags
+
+
+def test_a_grid_that_cannot_carry_the_cutoff_skips_the_filter_and_says_so():
+    """A 2 kHz rule on a 2.85 kHz grid: nothing to remove, nothing to design."""
+    from vaft.process.onset import active_window
+
+    coarse = np.linspace(0.0, 0.14, 400)
+    y = np.where(coarse >= 0.06, 1.0, 0.0) + 0.01 * RNG.standard_normal(coarse.size)
+    window = active_window(coarse, y, cutoff_hz=2000.0, principal_only=True)
+    assert window.found
+    assert "lowpass_skipped" in window.flags
+    fine = active_window(T, pulse(), cutoff_hz=2000.0, principal_only=True)
+    assert "lowpass_skipped" not in fine.flags

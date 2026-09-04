@@ -416,6 +416,22 @@ def pickup_scale(values, baseline: float, robust_sigma: float, dt: float,
 # ---------------------------------------------------------------------------
 
 
+def _lowpassed(y: np.ndarray, cutoff_hz, fs, dt: float, order: int) -> tuple[np.ndarray, tuple[str, ...]]:
+    """Apply the zero-phase low-pass when the grid can carry it.
+
+    A rule tuned on a fast grid names a cutoff in hertz; on a grid whose
+    Nyquist frequency is at or below that cutoff the filter has nothing to
+    remove and cannot be designed, so the record is used as it is and the
+    detector says ``lowpass_skipped``.
+    """
+    if cutoff_hz is None:
+        return y, ()
+    rate = float(fs) if fs else 1.0 / dt
+    if float(cutoff_hz) >= 0.5 * rate:
+        return y, ("lowpass_skipped",)
+    return zero_phase_lowpass(y, float(cutoff_hz), rate, order), ()
+
+
 def _too_short(t: np.ndarray, cutoff_hz, order: int) -> bool:
     """Whether a record has too few samples to be judged at all.
 
@@ -620,9 +636,9 @@ def principal_pulse_onset(
                            evidence={"n_samples": int(t.size)}, flags=("no_onset", "record_too_short"))
     y = _fill_non_finite(raw)
     dt = float(np.median(np.diff(t)))
-    if cutoff_hz is not None:
-        y = zero_phase_lowpass(y, float(cutoff_hz), float(fs) if fs else 1.0 / dt, order)
+    y, filter_flags = _lowpassed(y, cutoff_hz, fs, dt, order)
     ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
+    ref_flags = ref_flags + filter_flags
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
@@ -764,9 +780,9 @@ def active_window(
         return PulseWindow(onset=none, offset=none, flags=none.flags, evidence=none.evidence)
     y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
     dt = float(np.median(np.diff(t)))
-    if cutoff_hz is not None:
-        y = zero_phase_lowpass(y, float(cutoff_hz), float(fs) if fs else 1.0 / dt, order)
+    y, filter_flags = _lowpassed(y, cutoff_hz, fs, dt, order)
     ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
+    ref_flags = ref_flags + filter_flags
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
