@@ -204,6 +204,31 @@ def _tree_snapshot(root: Path) -> list[tuple[str, str, bytes | None]]:
     return result
 
 
+def _symlinks_are_permitted() -> bool:
+    """Whether this process may create a symlink.
+
+    Windows requires Developer Mode or elevation, and refuses with
+    WinError 1314 otherwise -- so these cases pass on a developer's machine and
+    fail on a default install. Probe once rather than assuming either way.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as scratch:
+        link = Path(scratch) / "probe-link"
+        try:
+            link.symlink_to(Path(scratch))
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+requires_symlinks = pytest.mark.skipif(
+    not _symlinks_are_permitted(),
+    reason="creating a symlink needs Developer Mode or elevation on Windows",
+)
+
+
+@requires_symlinks
 def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     legacy_root = tmp_path / "public"
     target_root = tmp_path / "new-FileDB"
@@ -260,6 +285,7 @@ def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     )
 
 
+@requires_symlinks
 def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
     legacy_root = tmp_path / "public"
     target_root = tmp_path / "new-FileDB"

@@ -49,10 +49,12 @@ def _pyplot_imports(path: Path) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    "path", list(_python_files()), ids=lambda p: str(p.relative_to(PACKAGE_ROOT))
+    "path", list(_python_files()), ids=lambda p: p.relative_to(PACKAGE_ROOT).as_posix()
 )
 def test_module_does_not_import_pyplot(path):
-    relative = str(path.relative_to(PACKAGE_ROOT))
+    # ALLOWLIST is keyed by POSIX path, so compare in that grammar --
+    # str() yields "data\vfit.py" on Windows and never matches.
+    relative = path.relative_to(PACKAGE_ROOT).as_posix()
     offenders = _pyplot_imports(path)
     if relative in ALLOWLIST:
         pytest.skip(f"{relative} is an allowlisted in-flight shim")

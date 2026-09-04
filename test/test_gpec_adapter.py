@@ -6,11 +6,23 @@ installation and must say so clearly instead of silently pointing at a path that
 only exists on the author's laptop.
 """
 
+import os
 from pathlib import Path
 
 import pytest
 
 from vaft.code import gpec
+
+# These cases fabricate a solver by writing a `#!/bin/sh` script and marking it
+# executable, then assert that VAFT ran it. Windows CreateProcess cannot launch
+# a shebang script at all (WinError 193), and native-Windows external codes are
+# documented as experimental in install/README.md, so the gap being skipped here
+# is the fixture's, not VAFT's. Everything that does not actually execute a
+# solver still runs on Windows.
+runs_a_stub_solver = pytest.mark.skipif(
+    os.name == "nt",
+    reason="stub solvers are POSIX shell scripts; CreateProcess cannot run them",
+)
 
 
 GFILE_TEXT = "  EFITD   01/01/2024   #  39915  325ms        3  65  65\n 1.0 2.0 3.0\n"
@@ -112,6 +124,7 @@ def test_run_without_installation_raises_in_strict_mode(no_gpec_env, case):
         )
 
 
+@runs_a_stub_solver
 def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
     monkeypatch,
     tmp_path,
@@ -203,6 +216,7 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
 
 
+@runs_a_stub_solver
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):
     rdcon = tmp_path / "gpec/bin/rdcon"
     rmatch = tmp_path / "gpec/bin/rmatch"
@@ -223,6 +237,7 @@ def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tm
     assert record.commands == (str(rdcon), str(rmatch))
 
 
+@runs_a_stub_solver
 def test_run_if_available_fails_when_rmatch_exits_nonzero(monkeypatch, tmp_path, case):
     rdcon = tmp_path / "gpec/bin/rdcon"
     rmatch = tmp_path / "gpec/bin/rmatch"
@@ -254,6 +269,7 @@ def test_run_if_available_skips_stride_cleanly_when_missing(no_gpec_env, case):
     assert record.status == "skipped"
 
 
+@runs_a_stub_solver
 def test_verify_outputs_fails_a_completed_run_missing_the_expected_variable(monkeypatch, tmp_path, case):
     """``verify_outputs`` catches a solver that exits 0 without writing real physics content."""
     dcon = tmp_path / "gpec/bin/dcon"
