@@ -4,9 +4,10 @@ This directory is the single entry point for setting up VAFT on a new machine,
 verifying that the setup works, and keeping an existing checkout current during
 a course.
 
-It covers the **VAFT / Python / HSDS / JupyterLab environment only**. Building
-the external Fortran codes (CHEASE, DCON, GPEC) is a separate topic tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226).
+The platform scripts below cover the **VAFT / Python / HSDS / JupyterLab
+environment**. Building the external Fortran codes is optional and independent,
+and has its own entry points: see
+[External fusion codes](#external-fusion-codes-chease-and-dcongpec).
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -19,9 +20,9 @@ Budget about 15–20 minutes from a nearly clean machine.
 | Windows, native | `powershell -ExecutionPolicy Bypass -File install\windows_native.ps1` |
 | Windows, inside WSL2 | `bash install/windows_wsl.sh` |
 
-**Native Windows is a first-class VAFT path. WSL2 is never required.** Choose
-the WSL2 path only if you prefer a Linux shell or intend to build the external
-Fortran codes later.
+**Native Windows is a first-class VAFT path. WSL2 is never required.** CHEASE
+and the DCON/GPEC suite build natively too; choose the WSL2 path only if you
+prefer a Linux shell.
 
 Every script accepts `--check-only` (`-CheckOnly` in PowerShell), which runs the
 environment checker and changes nothing.
@@ -278,6 +279,188 @@ Please inspect `git status` and the conflicted files, preserve my local tutorial
 integrate the upstream changes safely, and do not discard or overwrite my work.
 ```
 
+## External fusion codes (CHEASE and DCON/GPEC)
+
+The bootstrap above gives you VAFT, Python and JupyterLab. The external Fortran
+codes are optional and independent: you only need this section if you want VAFT
+to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
+
+```text
+Need VAFT only?            -> the platform script above; you are done
+Need CHEASE?               -> obtain CHEASE, then install\install_chease_windows.ps1
+Need DCON/GPEC?            -> obtain GPEC,   then install\install_gpec_windows.ps1
+A native build blocks you? -> see Troubleshooting, then fall back to WSL2
+```
+
+**You obtain the source yourself.** The installers take the path to a checkout
+you already have and never clone, fetch, pull, change a revision, or initialise
+a submodule. Which revision was built is a fact you state and the installer
+records, not one it infers — with more than one checkout on a machine, that is
+the difference between reproducible provenance and a guess.
+
+```powershell
+git clone https://github.com/PrincetonUniversity/GPEC.git C:\git\GPEC
+git -c core.symlinks=true clone https://gitlab.epfl.ch/spc/chease.git C:\git\CHEASE
+```
+
+CHEASE is cloned with `core.symlinks=true` on purpose. It commits several
+sources as symbolic links, one of which is compiled into the plain `chease`
+target, and without symlink support Git for Windows writes a short text file
+naming the target instead. The build then fails with a Fortran syntax error
+that says nothing about the cause. Creating symbolic links needs Developer Mode
+or an elevated prompt; if you already have a checkout without them, the
+installer's `-MaterializeSymlinks` copies each target over its placeholder
+instead, which rewrites those tracked files in your CHEASE tree.
+
+### Installing
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\install_chease_windows.ps1 C:\git\CHEASE
+powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -BuildNetcdf
+```
+
+Both build with the MinGW-w64 gfortran toolchain from MSYS2, which produces
+ordinary Windows executables — no WSL2, no emulation layer at run time.
+
+Add `-InstallToolchain` to let the installer set MSYS2 up for you with `winget`
+and `pacman`. Without it, a machine with no toolchain stops with the exact
+commands to run yourself. That follows the same rule as the rest of this
+directory: Git, Conda and now a Fortran compiler are things you decide to
+install, not things a script installs behind you.
+
+| Switch | Effect |
+| --- | --- |
+| `-InstallToolchain` | Install MSYS2 and the compiler packages. The only switch that changes anything outside the prefix. |
+| `-Prefix <path>` | Install somewhere other than `%LOCALAPPDATA%\vaft\external\<code>`. |
+| `-BuildNetcdf` | GPEC only. Compile a netCDF without S3 support into the prefix; see below for why this is not optional in practice. |
+| `-MaterializeSymlinks` | CHEASE only. Replace symbolic-link placeholders with copies of their targets. |
+| `-NoEnvironmentWiring` | Do not set `CHEASEHOME` / `GPECHOME`; print the command instead. |
+| `-CheckOnly` | Run the checker and change nothing. |
+| `-Uninstall` | Remove the prefix and the environment variable. Your source tree is untouched. |
+
+### What gets installed, and where
+
+Everything lands in one self-contained prefix outside every checkout:
+
+```text
+%LOCALAPPDATA%\vaft\external\gpec\
+    bin\   dcon.exe rdcon.exe stride.exe gpec.exe match.exe rmatch.exe
+           + the runtime libraries those need
+    deps\  the netCDF built for them, when -BuildNetcdf was used
+    logs\  the full build output
+    vaft-external-install.json
+```
+
+The runtime libraries are **copied next to the executables** rather than reached
+through `PATH`. Windows searches an executable's own directory first, so the
+prefix works from a plain terminal, from `conda run`, and from a Jupyter kernel
+started by a server in a different environment, with no `PATH` change anywhere.
+Putting MSYS2's `bin` on `PATH` instead would place a second `libcrypto`,
+`libssl` and `zlib` ahead of Anaconda's for every process in that session, which
+breaks unrelated things in ways that are hard to trace back here.
+
+`vaft-external-install.json` records the source path and revision, the toolchain,
+the exact make command and every installed file. It is what `-Uninstall` reads,
+and what the checker compares your checkout against.
+
+### How VAFT finds them
+
+The installer sets `CHEASEHOME` or `GPECHOME` as a **user** environment
+variable. The registered "Python (vaft)" kernel starts the environment's
+`python.exe` directly rather than through Conda activation, so an `activate.d`
+script would never reach a notebook; a user variable reaches every newly started
+process. Nothing machine-wide is changed.
+
+Open a new terminal, or restart JupyterLab, before expecting it to take effect.
+
+To set it yourself instead:
+
+```powershell
+[Environment]::SetEnvironmentVariable('GPECHOME', "$env:LOCALAPPDATA\vaft\external\gpec", 'User')
+$env:GPECHOME = "$env:LOCALAPPDATA\vaft\external\gpec"
+```
+
+VAFT resolves `$GPECHOME/bin/dcon` and `$CHEASEHOME/bin/chease` — the documented
+POSIX names — and finds the native `.exe` beside them automatically.
+
+### Verifying
+
+```powershell
+conda run -n vaft python install/check_chease.py --source C:\git\CHEASE
+conda run -n vaft python install/check_gpec.py   --source C:\git\GPEC
+```
+
+Each checker reports one line per layer, so a failure names what broke rather
+than handing you compiler output: toolchain, source checkout, revision, build
+record, executables, whether they load with a bare `PATH`, whether VAFT's own
+resolution finds them, a real run, the products, and whether the numbers are
+sound. The GPEC checker runs upstream's own Solov'ev regression case and
+exercises the real DCON → GPEC handoff rather than starting two binaries
+separately.
+
+### What a native Windows build does differently
+
+Two differences from a Linux build are real, and both are reported rather than
+papered over.
+
+**The DCON/GPEC suite is serial.** LSODE and ZVODE mark a COMMON block
+`!$OMP THREADPRIVATE`, and gfortran expresses that with an assembler directive
+the PE object format has no equivalent for, so an OpenMP build cannot assemble
+at all. The installer builds without OpenMP. Results are unaffected; long runs
+take longer than the same case on Linux.
+
+**netCDF has to come from `-BuildNetcdf`.** MSYS2's netCDF package links the AWS
+S3 SDK, whose shutdown deadlocks on Windows. A program built against it writes
+every output correctly, prints its normal-termination message, and then never
+exits — and the process cannot be killed. Six lines of Fortran reproduce it:
+
+```fortran
+program probe
+  use netcdf
+  integer :: ncid, ierr
+  ierr = nf90_create("probe.nc", NF90_CLOBBER, ncid)
+  ierr = nf90_close(ncid)
+end program probe
+```
+
+`-BuildNetcdf` compiles netCDF-C and netCDF-Fortran without S3 into the prefix,
+which is what makes the suite usable. The checker fails with a named reason if
+it finds the AWS libraries beside the executables.
+
+### What the build leaves in your source tree
+
+The upstream Makefiles write their objects and binaries inside the checkout you
+pointed at. GPEC ignores its own `*.o`, `*.mod` and `bin/`, but not the
+`<module>/<name>.exe` files a Windows build produces, so `git status` in your
+GPEC tree will show a few untracked executables. CHEASE ignores `chease` but not
+`chease.exe`, for the same reason. Neither installer changes a tracked file
+unless you pass `-MaterializeSymlinks`.
+
+`-Uninstall` removes the prefix and the environment variable. It never touches
+your source tree, MSYS2, or anything `pacman` installed.
+
+### Linux and macOS
+
+Not yet automated — tracked in
+[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). Build by hand
+with the recipe in
+`workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`, then set
+`CHEASEHOME` / `GPECHOME` the same way. `install/check_chease.py` and
+`install/check_gpec.py` run on every platform, so the verification half is
+available today.
+
+### Tested toolchain
+
+| Component | Version used for the Windows verification |
+| --- | --- |
+| MSYS2 | 20260611 (UCRT64 environment) |
+| gcc / gfortran | 16.2.0 |
+| GNU make | 4.4.1 |
+| OpenBLAS | 0.3.34 |
+| netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built without S3 |
+| CHEASE | `fb46366` |
+| GPEC | `e68d7ac2` (v1.5.7-611) |
+
 ## Uninstalling
 
 Removing VAFT is the exact inverse of the bootstrap, and it exists so the
@@ -409,3 +592,6 @@ into your question.
 | macOS | Automated in CI, same install/uninstall cycle |
 | Windows native | Automated in CI, same install/uninstall cycle |
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
+| CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
+| DCON/GPEC, Windows native | Verified **manually**, same reason. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
+| CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |
