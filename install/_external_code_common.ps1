@@ -944,22 +944,45 @@ function Copy-RuntimeDependencies {
 
 
 
-    # Ask ldd for the dependency *names* and look each one up in the MinGW
-    # bin directory, rather than trusting the path ldd resolved it to. Two
-    # things make the resolved path unreliable: once a library has been
-    # copied beside the executable ldd finds it there, so a second run would
-    # report that nothing is needed; and a process started under a packaged
-    # app sees its own virtualised view of AppData. The name plus the
-    # toolchain root is the same answer in every case.
+    # Walk the import tables to a closure, statically.
     #
-    # The directory crosses into the shell through the environment and is
-    # converted with cygpath there, for the same reason the build steps do
-    # it that way: a path this side computes can disagree with the one the
-    # shell sees, and a glob that matches nothing fails silently.
-    $command = 'bin="$(cygpath -u "$VAFT_BIN")"; for e in "$bin"/*.exe; do ldd "$e"; done 2>/dev/null | awk "{print \$1}" | sort -u'
+    # objdump reads the PE header; ldd runs the program to find out. That
+    # difference decides the job: the moment this is most needed is when the
+    # executable cannot start yet, which is exactly when ldd has nothing to
+    # say. A breadth-first walk is needed because the interesting libraries
+    # are not direct imports -- the netCDF an executable names pulls in HDF5,
+    # curl and the rest behind it.
+    #
+    # Both directories cross into the shell through the environment and are
+    # converted with cygpath there. A path computed on this side can disagree
+    # with the one the shell sees, and a glob that matches nothing fails
+    # silently rather than loudly.
+    $toolchainBin = Join-Path $Msys2Root ($MinGWEnvironment + '\bin')
+    $command = @'
+set -u
+bin="$(cygpath -u "$VAFT_BIN")"
+tc="$(cygpath -u "$VAFT_TOOLCHAIN")"
+queue=$(ls "$bin"/*.exe 2>/dev/null)
+seen=""
+while [ -n "$queue" ]; do
+  next=""
+  for f in $queue; do
+    for d in $(objdump -p "$f" 2>/dev/null | sed -n "s/^[[:space:]]*DLL Name:[[:space:]]*//p"); do
+      case " $seen " in *" $d "*) continue;; esac
+      seen="$seen $d"
+      if [ -f "$tc/$d" ]; then echo "$d"; next="$next $tc/$d"; fi
+    done
+  done
+  queue="$next"
+done
+'@
 
     $bash = Join-Path $Msys2Root 'usr\bin\bash.exe'
-    $assignments = @{ MSYSTEM = $MinGWEnvironment.ToUpper(); VAFT_BIN = $BinDirectory }
+    $assignments = @{
+        MSYSTEM        = $MinGWEnvironment.ToUpper()
+        VAFT_BIN       = $BinDirectory
+        VAFT_TOOLCHAIN = $toolchainBin
+    }
     $saved = @{}
     foreach ($key in @($assignments.Keys)) {
         $saved[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
@@ -976,8 +999,6 @@ function Copy-RuntimeDependencies {
             [Environment]::SetEnvironmentVariable($key, $saved[$key], 'Process')
         }
     }
-
-    $toolchainBin = Join-Path $Msys2Root ($MinGWEnvironment + '\bin')
 
     # Every executable gfortran produces needs these, and they are the ones a
     # missing-library failure is nearly always about. They are copied whether
