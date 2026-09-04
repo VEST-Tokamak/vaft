@@ -150,7 +150,7 @@ def _write_json_atomic(path: Path, payload: Mapping[str, Any]) -> Path:
     text = json.dumps(_json_safe(dict(payload)), indent=2, sort_keys=True)
     fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
     try:
-        with os.fdopen(fd, "w") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(text)
         os.replace(tmp_name, path)
     except Exception:
@@ -398,7 +398,7 @@ class FreeBoundaryScan:
             status = CaseStatus.PENDING
             if manifest.is_file():
                 try:
-                    status = CaseStatus(json.loads(manifest.read_text())["status"])
+                    status = CaseStatus(json.loads(manifest.read_text(encoding="utf-8"))["status"])
                 except Exception:
                     status = CaseStatus.PENDING
             else:
@@ -433,7 +433,7 @@ class FreeBoundaryScan:
         if not manifest.is_file():
             return None
         try:
-            payload = json.loads(manifest.read_text())
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
         except Exception:
             return None
         if payload.get("status") != CaseStatus.SUCCEEDED.value:
@@ -592,7 +592,7 @@ class FreeBoundaryScan:
 
         if changed and reloaded.manifest is not None:
             try:
-                payload = json.loads(reloaded.manifest.read_text())
+                payload = json.loads(reloaded.manifest.read_text(encoding="utf-8"))
             except Exception:  # pragma: no cover - manifest was readable just now
                 return
             payload["topology"] = reloaded.topology

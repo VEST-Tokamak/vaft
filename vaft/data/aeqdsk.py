@@ -230,7 +230,7 @@ def _parse_header(source: Path, header: str) -> tuple:
 def read_aeqdsk(path: str | Path) -> AEQDSK:
     """Read a formatted EFIT a-file into the fields ``write_a.f90`` writes."""
     source = Path(path).expanduser()
-    lines = source.read_text(errors="replace").splitlines()
+    lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
     if len(lines) < 5:
         raise AEQDSKError(f"{source} is too short to be an EFIT a-file")
 

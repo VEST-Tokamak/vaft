@@ -1306,7 +1306,7 @@ def export_electron_profile_txt(
     n_e_rho = n_e_function(rho_eval)
     T_e_rho = T_e_function(rho_eval)
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write('psi_N, T_e [eV], n_e [m-3]\n')
         for rho, T_e, n_e in zip(rho_eval, T_e_rho, n_e_rho):
             f.write(f'{rho}, {T_e}, {n_e}\n')

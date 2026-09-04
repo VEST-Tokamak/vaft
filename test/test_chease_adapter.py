@@ -71,8 +71,8 @@ def test_prepare_chease_inputs_from_path_geqdsk_and_ods(tmp_path):
         assert inputs.expeq and inputs.expeq.exists()
         assert inputs.namelist and inputs.namelist.exists()
         assert (workdir / "chease_cocos_transform.json").exists()
-        assert "COCOS_IN = 2" in inputs.namelist.read_text()
-        assert inputs.expeq.read_text().splitlines()[0]
+        assert "COCOS_IN = 2" in inputs.namelist.read_text(encoding="utf-8")
+        assert inputs.expeq.read_text(encoding="utf-8").splitlines()[0]
 
 
 def test_collect_chease_outputs_parses_refined_copy(tmp_path):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import shutil
+import os
 import subprocess
 import sys
 import warnings
@@ -85,25 +85,44 @@ def test_the_widget_backend_redraws_a_figure_pyplot_never_sees(shot):
     assert slider.value == result.navigator.position
 
 
-@pytest.mark.skipif(shutil.which("ipython") is None, reason="IPython terminal not installed")
 def test_an_ipython_terminal_is_detected_as_such():
+    """Launched through `sys.executable -m`, never by bare name.
+
+    `shutil.which("ipython")` answers with whatever console script happens to
+    come first on PATH, which is not necessarily the interpreter running the
+    tests. On a conda host it resolves to the *base* environment's
+    ipython.EXE; that interpreter cannot import the checkout under test and
+    dies with an access violation (0xC0000005) before writing a byte, so the
+    assertion below used to fail as an IndexError on empty output. Going
+    through `sys.executable` pins the interpreter on every platform.
+    """
+    pytest.importorskip("IPython")
     code = ("from vaft.plot.environment import detect_environment; "
             "print(detect_environment().kind)")
-    out = subprocess.run(["ipython", "--no-banner", "-c", code], capture_output=True, text=True,
-                         env={**__import__('os').environ, "MPLBACKEND": "agg"}, timeout=300)
+    out = subprocess.run(
+        [sys.executable, "-m", "IPython", "--no-banner", "-c", code],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        env={**os.environ, "MPLBACKEND": "agg"}, timeout=300,
+    )
+    # Checked before indexing: an empty stdout is the interesting failure, and
+    # reporting it as IndexError hides the stderr that explains why.
+    assert out.returncode == 0, out.stderr[-500:]
+    assert out.stdout.strip(), out.stderr[-500:]
     assert out.stdout.strip().splitlines()[-1] == "ipython", out.stderr[-500:]
 
 
-@pytest.mark.skipif(shutil.which("jupyter") is None, reason="Jupyter not installed")
 def test_a_jupyter_kernel_gets_a_slider_that_redraws_the_figure(tmp_path):
-    import os
-
     pytest.importorskip("nbformat")
     pytest.importorskip("ipykernel")
     pytest.importorskip("ipywidgets")
+    pytest.importorskip("jupyter_client")
     import nbformat
 
-    kernels = subprocess.run(["jupyter", "kernelspec", "list"], capture_output=True, text=True, timeout=120)
+    # `sys.executable -m jupyter`, for the reason given above.
+    kernels = subprocess.run(
+        [sys.executable, "-m", "jupyter", "kernelspec", "list"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+    )
     if "python3" not in kernels.stdout:
         pytest.skip("no python3 Jupyter kernel installed here")
 
@@ -125,9 +144,10 @@ def test_a_jupyter_kernel_gets_a_slider_that_redraws_the_figure(tmp_path):
     path = tmp_path / "kernel.ipynb"
     nbformat.write(nb, path)
     completed = subprocess.run(
-        ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--allow-errors", str(path),
+        [sys.executable, "-m", "jupyter", "nbconvert",
+         "--to", "notebook", "--execute", "--allow-errors", str(path),
          "--output", "out.ipynb", "--output-dir", str(tmp_path), "--ExecutePreprocessor.timeout=600"],
-        capture_output=True, text=True, timeout=900,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
         env={**os.environ, "PYTHONPATH": str(Path(vaft.__file__).resolve().parents[1])},
     )
     if not (tmp_path / "out.ipynb").exists():

@@ -21,14 +21,28 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 
+#: Resolved once, and used instead of the bare name everywhere below. See the
+#: note in _jekyll_available().
+BUNDLE = shutil.which("bundle")
+
 
 def _jekyll_available() -> bool:
-    if not DOCS.is_dir() or shutil.which("bundle") is None or shutil.which("ruby") is None:
+    if not DOCS.is_dir() or shutil.which("ruby") is None or BUNDLE is None:
         return False
-    probe = subprocess.run(
-        ["bundle", "exec", "jekyll", "--version"],
-        cwd=str(DOCS), capture_output=True, text=True,
-    )
+    try:
+        # The resolved path, not the bare name. `shutil.which` searches the
+        # whole of PATHEXT and finds `bundle.bat`, but CreateProcess only ever
+        # appends `.exe` -- which is why a bare "git" works on Windows and a
+        # bare "bundle" raises WinError 2 instead of reporting a non-zero exit.
+        probe = subprocess.run(
+            [BUNDLE, "exec", "jekyll", "--version"],
+            cwd=str(DOCS), capture_output=True, text=True,
+        )
+    except OSError:
+        # This runs at import time to decide a skipif, so whatever is wrong
+        # with the toolchain it has to answer False rather than fail
+        # collection for the whole module.
+        return False
     return probe.returncode == 0
 
 
@@ -54,7 +68,7 @@ def site(tmp_path_factory):
 
     import yaml
 
-    generators = yaml.safe_load((source / "generators.yml").read_text())["generators"]
+    generators = yaml.safe_load((source / "generators.yml").read_text(encoding="utf-8"))["generators"]
     environment = dict(os.environ, PYTHONPATH=str(ROOT))
     for generator in generators:
         subprocess.run(
@@ -70,7 +84,7 @@ def site(tmp_path_factory):
         destination = workspace / f"site-{track}"
         subprocess.run(
             [
-                "bundle", "exec", "jekyll", "build",
+                BUNDLE, "exec", "jekyll", "build",
                 "--source", str(source),
                 "--config", ",".join(str(source / c) for c in configs.split(",")),
                 "--baseurl", baseurl,

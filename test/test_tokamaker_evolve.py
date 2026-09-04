@@ -66,7 +66,7 @@ def test_plasma_loop_contract(tmp_path, monkeypatch):
     assert all(rec.converged for rec in result.steps)
     # vessel current integrated over the fake conductor region W1 (reg_id 5)
     assert result.steps[0].vessel_currents_A == {"W1": pytest.approx(500.0)}
-    payload = json.loads(result.sidecar_file.read_text())
+    payload = json.loads(result.sidecar_file.read_text(encoding="utf-8"))
     assert [step["converged"] for step in payload["steps"]] == [True, True, True]
     # fake g-files cannot be parsed, so the IDS merge fails best-effort
     assert "_merge_error" in result.scalars

@@ -232,8 +232,23 @@ def test_upper_probe_present_after_installation_shot():
         ods = {}
         lp.langmuir_probes(ods, UPPER_SHOT_POST_INSTALL, 0.0, 0.1, 1e-3)
     embedded = ods["langmuir_probes"]["embedded"]
-    assert len(embedded) > 1 and embedded[1] is not None
-    assert embedded[1]["name"] == "Upper triple Langmuir probe"
+    # The mid probe is absent from this fake loader, so the upper probe fills
+    # the first embedded slot: IMAS arrays of structures must stay contiguous.
+    assert len(embedded) == 1
+    assert embedded[0]["name"] == "Upper triple Langmuir probe"
+
+
+def test_upper_probe_alone_writes_a_contiguous_omas_embedded_array():
+    # Regression (release review): with the mid probe not operated, writing
+    # the upper probe to its nominal slot 1 left embedded.0 unfilled, which a
+    # real OMAS ODS rejects with an IndexError.
+    omas = pytest.importorskip("omas")
+    fake_load = _make_fake_loader(259, 260, vd3=64.0)
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load):
+        ods = omas.ODS()
+        lp.langmuir_probes(ods, UPPER_SHOT_POST_INSTALL, 0.0, 0.1, 1e-3)
+    assert len(ods["langmuir_probes.embedded"]) == 1
+    assert ods["langmuir_probes.embedded.0.name"] == "Upper triple Langmuir probe"
 
 
 def test_probe_not_operated_this_shot_is_silently_absent_not_an_error():
@@ -360,7 +375,7 @@ def _write_position_csv(tmp_path):
         "shot,mid TP position[m],upper TP position[m]\n"
         f"{MID_SHOT_EARLY},0.70,0.55\n"
         f"{UPPER_SHOT_POST_INSTALL},0.71,0.56\n"
-    )
+    , encoding="utf-8")
     return csv_path
 
 
@@ -404,3 +419,62 @@ def test_apply_measured_positions_missing_csv_does_not_raise(caplog, tmp_path):
 def test_apply_measured_positions_no_csv_path_does_not_raise():
     # Non-blocking by design even with no csv_path at all.
     lp.apply_langmuir_probe_measured_positions({}, MID_SHOT_EARLY, csv_path=None)
+
+
+def test_measured_positions_follow_probe_identity_not_slot_number():
+    """A skipped assembly must not shift another probe's measured radius.
+
+    embedded[] is filled contiguously, so when the mid probe is not
+    operated the upper probe occupies embedded[0]. Keying the measured
+    position CSV off the slot number then wrote the *mid* probe's radius
+    onto the upper probe (release review, 0.6.0): shot 42699 records
+    mid=0.79 m, upper=0.59 m.
+    """
+    omas = pytest.importorskip("omas")
+
+    shot = 42699
+    fake_load = _make_fake_loader(259, 260, vd3=64.0)  # upper only; mid absent
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.0, 0.1, 1e-3)
+
+    lp.apply_langmuir_probe_measured_positions(ods, shot)
+
+    assert len(ods["langmuir_probes.embedded"]) == 1
+    assert ods["langmuir_probes.embedded.0.identifier"] == "langmuir_probes:upper"
+    assert float(ods["langmuir_probes.embedded.0.position.r"]) == pytest.approx(0.59)
+
+
+def test_measured_positions_are_correct_when_both_probes_are_present():
+    omas = pytest.importorskip("omas")
+
+    shot = 42699
+    t = np.linspace(0.0, 0.1, 2000)
+    vd2 = np.full(2000, _synthetic_vd2(48.0, 5.0) / 22.0)
+    current = np.full(2000, 0.02 / 100.0)
+    vd2[:500] = 0.0
+    current[:500] = 0.0
+
+    def fake_load(_shot, field, sample_opt=False):
+        if field in (99, 259):
+            return t, vd2
+        if field in (100, 260):
+            return t, current
+        return None
+
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.0, 0.1, 1e-3)
+
+    lp.apply_langmuir_probe_measured_positions(ods, shot)
+
+    by_identifier = {
+        ods[f"langmuir_probes.embedded.{index}.identifier"]: float(
+            ods[f"langmuir_probes.embedded.{index}.position.r"]
+        )
+        for index in range(len(ods["langmuir_probes.embedded"]))
+    }
+    assert by_identifier == {
+        "langmuir_probes:mid": pytest.approx(0.79),
+        "langmuir_probes:upper": pytest.approx(0.59),
+    }

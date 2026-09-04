@@ -160,7 +160,7 @@ def test_runtime_root_precedence_and_expansion(tmp_path):
 def test_legacy_resolution_is_explicit_and_read_only(tmp_path):
     artifact = tmp_path / "39915/omas/39915_efit.json"
     artifact.parent.mkdir(parents=True)
-    artifact.write_text("reference")
+    artifact.write_text("reference", encoding="utf-8")
     db = FileDB(tmp_path)
 
     resolved = db.resolve_legacy_readonly(
@@ -204,6 +204,31 @@ def _tree_snapshot(root: Path) -> list[tuple[str, str, bytes | None]]:
     return result
 
 
+def _symlinks_are_permitted() -> bool:
+    """Whether this process may create a symlink.
+
+    Windows requires Developer Mode or elevation, and refuses with
+    WinError 1314 otherwise -- so these cases pass on a developer's machine and
+    fail on a default install. Probe once rather than assuming either way.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as scratch:
+        link = Path(scratch) / "probe-link"
+        try:
+            link.symlink_to(Path(scratch))
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+requires_symlinks = pytest.mark.skipif(
+    not _symlinks_are_permitted(),
+    reason="creating a symlink needs Developer Mode or elevation on Windows",
+)
+
+
+@requires_symlinks
 def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     legacy_root = tmp_path / "public"
     target_root = tmp_path / "new-FileDB"
@@ -215,10 +240,10 @@ def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     (shot / "linear_stability/0.319/dcon/nn=1").mkdir(parents=True)
     (shot / "diagnostics/vest_39915_daq_raw.json.gz").write_bytes(b"same")
     (shot / "omas/39915_diagnostics.json").write_bytes(b"same")
-    (shot / "omas/39915_combined.json").write_text("obsolete")
-    (shot / "efit/gfile/g039915.00319").write_text("collision-a")
-    (shot / "efit/output/g039915.00319").write_text("collision-b")
-    (shot / "linear_stability/0.319/dcon/nn=1/result.dat").write_text("stable")
+    (shot / "omas/39915_combined.json").write_text("obsolete", encoding="utf-8")
+    (shot / "efit/gfile/g039915.00319").write_text("collision-a", encoding="utf-8")
+    (shot / "efit/output/g039915.00319").write_text("collision-b", encoding="utf-8")
+    (shot / "linear_stability/0.319/dcon/nn=1/result.dat").write_text("stable", encoding="utf-8")
     (shot / "diagnostics/raw-link").symlink_to(
         shot / "diagnostics/vest_39915_daq_raw.json.gz"
     )
@@ -260,17 +285,18 @@ def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     )
 
 
+@requires_symlinks
 def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
     legacy_root = tmp_path / "public"
     target_root = tmp_path / "new-FileDB"
     source_omas = legacy_root / "39915/omas"
     source_omas.mkdir(parents=True)
-    (source_omas / "39915_efit.json").write_text("new efit")
-    (source_omas / "39915_eddy.json").write_text("new eddy")
+    (source_omas / "39915_efit.json").write_text("new efit", encoding="utf-8")
+    (source_omas / "39915_eddy.json").write_text("new eddy", encoding="utf-8")
 
     existing_file = target_root / "omas/efit/39915/output/39915_efit.json"
     existing_file.parent.mkdir(parents=True)
-    existing_file.write_text("existing efit")
+    existing_file.write_text("existing efit", encoding="utf-8")
     broken_symlink = target_root / "omas/eddy/39915/output/39915_eddy.json"
     broken_symlink.parent.mkdir(parents=True)
     broken_symlink.symlink_to(target_root / "missing-eddy.json")
@@ -301,11 +327,11 @@ def test_production_pipeline_resolves_every_path_through_filedb():
         / "workflow"
         / "automatic_pipeline_1_routine_data_processing"
     )
-    assert "from vaft.database.filedb import FileDB" in (workflow / "paths.py").read_text()
+    assert "from vaft.database.filedb import FileDB" in (workflow / "paths.py").read_text(encoding="utf-8")
 
     # The rules themselves must go through PipelinePaths. paths.py names the
     # legacy root in its prose, so only the Snakefile is scanned for it.
-    rules = (workflow / "Snakefile").read_text()
+    rules = (workflow / "Snakefile").read_text(encoding="utf-8")
     assert "from paths import" in rules
     assert "/srv/vest.filedb" not in rules
     assert "imas/baseline" not in rules
@@ -361,7 +387,7 @@ def test_pipeline_paths_do_not_rebuild_stage_product_names():
         / "automatic_pipeline_1_routine_data_processing"
         / "paths.py"
     )
-    text = workflow.read_text()
+    text = workflow.read_text(encoding="utf-8")
 
     for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "gpec_ideal"):
         assert f'"output") / "{stage}.json"' not in text, stage

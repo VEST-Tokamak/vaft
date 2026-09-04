@@ -267,7 +267,7 @@ def _label_cocos(geqdsk: GEQDSK, ods: Any) -> int | None:
 def read_geqdsk(path: str | Path) -> GEQDSK:
     """Read an EFIT GEQDSK/g-file using VAFT's standalone parser."""
     source = Path(path).expanduser()
-    lines = source.read_text().splitlines()
+    lines = source.read_text(encoding="utf-8").splitlines()
     if not lines:
         raise ValueError(f"Empty GEQDSK file: {source}")
 
@@ -401,7 +401,7 @@ def write_geqdsk(geqdsk: GEQDSK | Mapping[str, Any], path: str | Path) -> Path:
         lines.extend(_format_floats(_pairs(rbbbs[:nbbbs], zbbbs[:nbbbs])))
     if limitr:
         lines.extend(_format_floats(_pairs(rlim[:limitr], zlim[:limitr])))
-    target.write_text("\n".join(lines) + "\n")
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return target
 
 

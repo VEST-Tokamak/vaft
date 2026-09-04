@@ -523,7 +523,7 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     edge_pressure = MU0 * float(np.asarray(geqdsk["PRES"], dtype=float).reshape(-1)[-1]) / (b0exp**2)
     current = abs(MU0 * float(geqdsk["CURRENT"]) / rcen / b0exp)
 
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         f.write(f"{aspct:.12g}\n")
         f.write(f"{zcen:.12g}\n")
         f.write(f"{edge_pressure:.12g}\n")
@@ -651,7 +651,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
 
 
 def _write_namelist(path: Path, config: CHEASEConfig, params: Mapping[str, float]) -> None:
-    path.write_text("".join(_namelist_lines(config, params)))
+    path.write_text("".join(_namelist_lines(config, params)), encoding="utf-8")
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> Path:
@@ -989,7 +989,7 @@ def _create_comparison_plot(original: Any, refined: Any, target: Path) -> Path:
 
 def _read_optional(path: Path) -> str:
     try:
-        return path.read_text(errors="replace")
+        return path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return ""
 

@@ -739,7 +739,7 @@ def audit_legacy_filedb(
                     LegacyMissingProduct(
                         shot=shot,
                         product=product,
-                        expected_source=str(expected.relative_to(source_root)),
+                        expected_source=expected.relative_to(source_root).as_posix(),
                     )
                 )
 

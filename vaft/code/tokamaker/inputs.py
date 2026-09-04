@@ -234,7 +234,7 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     mesh_file, mesh_exists = resolve_mesh_file(geometry, config)
 
     geometry_file = workdir / "geometry.json"
-    geometry_file.write_text(json.dumps(geometry, indent=2, sort_keys=True))
+    geometry_file.write_text(json.dumps(geometry, indent=2, sort_keys=True), encoding="utf-8")
 
     return TokaMakerInputs(
         workdir=workdir,

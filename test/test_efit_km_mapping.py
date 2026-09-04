@@ -101,7 +101,7 @@ def test_collection_merges_constraints_kfile_and_nc_mfile_with_mfile_precedence(
         data_path("efit/g039915.00319").read_text(encoding="utf-8"), encoding="utf-8"
     )
     kfile = tmp_path / "kfile" / "k039915.00319"
-    kfile.write_text("&IN1\n PLASMA=70000., FWTCUR=1.0, DFLUX=7.0, FWTDLC=1.0\n/\n")
+    kfile.write_text("&IN1\n PLASMA=70000., FWTCUR=1.0, DFLUX=7.0, FWTDLC=1.0\n/\n", encoding="utf-8")
     _write_current_efit_mfile(tmp_path / "mfile" / "m039915.00319.nc")
 
     constraints = ODS()

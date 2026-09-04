@@ -706,7 +706,7 @@ def _parse_chi2(logs: Sequence[Path]) -> Optional[float]:
     pat = re.compile(r"totalchi\^2 =\s*([0-9.Ee+-]+)")
     for lg in logs:
         try:
-            text = Path(lg).read_text(errors="ignore")
+            text = Path(lg).read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
         m = pat.search(text)
@@ -884,14 +884,14 @@ def prepare_kinetic_efit_inputs(
         # Patch a supplied base magnetic kfile (e.g. from the VEST filedb). The
         # profile-only ODS carries no magnetics, so generate_kfile cannot build one.
         base_kfile = Path(config.base_kfile).expanduser()
-        base_text = base_kfile.read_text()
+        base_text = base_kfile.read_text(encoding="utf-8")
         kfiles = (base_kfile,)
     else:
         # Base magnetic kfile via generate_kfile (needs magnetics in the ODS).
         generate_kfile(ods, shot, 2, 2, save_dir=str(workdir))
         kfiles = _find_outputs(workdir, "k", shot)
         base_kfile = _select_kfile(kfiles, config.time_ms)
-        base_text = Path(base_kfile).read_text() if base_kfile is not None else ""
+        base_text = Path(base_kfile).read_text(encoding="utf-8") if base_kfile is not None else ""
 
     points = kinetic_pressure_points(
         ods, config.time_ms, geq, encoding=config.encoding,
@@ -969,7 +969,7 @@ def run_kinetic_efit(
         scale_dir = workdir / f"s{int(round(scale * 100))}"
         scale_dir.mkdir(parents=True, exist_ok=True)
         kpath = scale_dir / kname
-        kpath.write_text(patched)
+        kpath.write_text(patched, encoding="utf-8")
 
         efit_config = EFITConfig(
             executable=str(exe),

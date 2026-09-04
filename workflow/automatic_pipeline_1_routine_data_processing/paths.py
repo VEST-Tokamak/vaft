@@ -17,8 +17,9 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import PurePosixPath
 
+from vaft.compat import IS_WINDOWS
 from vaft.database.filedb import FileDB, GPECCode
 
 
@@ -31,6 +32,17 @@ LAYOUTS = (SHOT_FIRST, FILEDB)
 # it unambiguous next to "gpec" the whole-suite package. Translated here, at
 # the workflow-script boundary, rather than renaming either side.
 _GPEC_CODE_ALIASES = {"gpec": GPECCode.IDEAL_GPEC}
+
+
+class _SnakemakeFileDB(FileDB):
+    """Resolve FileDB paths in Snakemake's portable slash grammar."""
+
+    def __init__(self, root: str) -> None:
+        super().__init__(root)
+        # FileDB intentionally returns native Paths.  Pipeline rule strings are
+        # a different boundary: Snakemake persists and compares them as
+        # slash-delimited identifiers on every host, including Windows.
+        self.root = PurePosixPath(self.root.as_posix())
 
 
 def _gpec_code(code: str):
@@ -85,19 +97,26 @@ class PipelinePaths:
             raise ValueError(
                 f"Unknown layout {layout!r}; expected one of: {', '.join(LAYOUTS)}"
             )
-        self.base_dir = str(base_dir).rstrip("/")
+        # Fold separators only on Windows: a backslash is a legal filename
+        # character on POSIX, and this pipeline runs on a Linux data server,
+        # so an unconditional rewrite would silently retarget a root whose
+        # name happens to contain one.
+        root = str(base_dir)
+        if IS_WINDOWS:
+            root = root.replace("\\", "/")
+        self.base_dir = root.rstrip("/")
         self.layout = layout
-        self._filedb = FileDB(self.base_dir) if layout == FILEDB else None
+        self._filedb = _SnakemakeFileDB(self.base_dir) if layout == FILEDB else None
 
     @classmethod
     def from_config(cls, config) -> "PipelinePaths":
         return cls(config["base_dir"], config.get("layout", SHOT_FIRST))
 
     # -- internal ---------------------------------------------------------
-    def _shot_dir(self, shot, area: str) -> Path:
-        return Path(self.base_dir) / str(shot) / area
+    def _shot_dir(self, shot, area: str) -> PurePosixPath:
+        return PurePosixPath(self.base_dir) / str(shot) / area
 
-    def _omas(self, stage: str, shot, artifact: str) -> Path:
+    def _omas(self, stage: str, shot, artifact: str) -> PurePosixPath:
         return self._filedb.omas(stage, shot=shot, artifact=artifact)
 
     # -- raw --------------------------------------------------------------
@@ -122,7 +141,7 @@ class PipelinePaths:
         if self.layout == SHOT_FIRST:
             # Mirrors the legacy `static_file_dir`, one directory per era.
             return str(
-                Path(self.base_dir) / "static" / str(machine_version) / "static.json"
+                PurePosixPath(self.base_dir) / "static" / str(machine_version) / "static.json"
             )
         return str(
             self._filedb.omas_product("static", machine_version=str(machine_version))
@@ -131,7 +150,7 @@ class PipelinePaths:
     def static_manifest(self, machine_version) -> str:
         if self.layout == SHOT_FIRST:
             return str(
-                Path(self.base_dir) / "static" / str(machine_version) / "manifest.json"
+                PurePosixPath(self.base_dir) / "static" / str(machine_version) / "manifest.json"
             )
         return str(
             self._filedb.omas_manifest("static", machine_version=str(machine_version))
@@ -384,7 +403,7 @@ class PipelinePaths:
     def static_log(self, machine_version, name: str) -> str:
         if self.layout == SHOT_FIRST:
             return str(
-                Path(self.base_dir) / "static" / str(machine_version) / f"{name}.log"
+                PurePosixPath(self.base_dir) / "static" / str(machine_version) / f"{name}.log"
             )
         directory = self._filedb.omas(
             "static", machine_version=str(machine_version), artifact="log"
@@ -393,12 +412,12 @@ class PipelinePaths:
 
     def preflight_eligible(self) -> str:
         if self.layout == SHOT_FIRST:
-            return str(Path(self.base_dir) / "preflight" / "eligible_shots.json")
+            return str(PurePosixPath(self.base_dir) / "preflight" / "eligible_shots.json")
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json")
 
     def preflight_excluded(self) -> str:
         if self.layout == SHOT_FIRST:
-            return str(Path(self.base_dir) / "preflight" / "excluded_shots.json")
+            return str(PurePosixPath(self.base_dir) / "preflight" / "excluded_shots.json")
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "excluded_shots.json")
 
     # -- Snakemake wildcard patterns ----------------------------------------
@@ -438,9 +457,9 @@ class PipelinePaths:
         # to other text), so only swap segments that match it exactly.
         segments = [
             "{code}" if segment == _CODE_SENTINEL else segment
-            for segment in Path(resolved).parts
+            for segment in PurePosixPath(resolved).parts
         ]
-        return str(Path(*segments))
+        return str(PurePosixPath(*segments))
 
 
 __all__ = ["FILEDB", "LAYOUTS", "SHOT_FIRST", "PipelinePaths"]

@@ -24,6 +24,7 @@ from .utils import (
     _deep_merge,
     _normalize_shot_key,
     _resolve_info_file_path,
+    get_path,
     load_yaml,
     path_exists,
     resolve_data_root,
@@ -51,8 +52,8 @@ ION_MASS_KG = {
 }
 
 ASSEMBLIES: tuple[dict[str, Any], ...] = (
-    {"index": 0, "key": "mid", "name": "Mid triple Langmuir probe", "z": MID_Z_M, "position_key": "mid_r"},
-    {"index": 1, "key": "upper", "name": "Upper triple Langmuir probe", "z": UPPER_Z_M, "position_key": "upper_r"},
+    {"key": "mid", "name": "Mid triple Langmuir probe", "z": MID_Z_M, "position_key": "mid_r"},
+    {"key": "upper", "name": "Upper triple Langmuir probe", "z": UPPER_Z_M, "position_key": "upper_r"},
 )
 
 
@@ -194,8 +195,12 @@ def vfit_langmuir_probes_dynamic(
 ) -> None:
     positions = {"mid_r": mid_r, "upper_r": upper_r}
 
+    # embedded[] is an IMAS array of structures and must be filled
+    # contiguously: a skipped assembly (not installed / not operated for this
+    # shot) must not leave a gap, so the slot comes from a running counter
+    # rather than the assembly's nominal position.
+    next_index = 0
     for assembly in ASSEMBLIES:
-        index = assembly["index"]
         config = resolve_langmuir_probe_config(assembly["key"], shot)
 
         first_shot = config.get("first_shot")
@@ -276,6 +281,8 @@ def vfit_langmuir_probes_dynamic(
             tip_length_m=float(era["tip_length_mm"]) * 1e-3,
         )
 
+        index = next_index
+        next_index += 1
         prefix = f"langmuir_probes.embedded.{index}"
         set_path(ods, f"{prefix}.identifier", f"langmuir_probes:{assembly['key']}")
         set_path(ods, f"{prefix}.name", assembly["name"])
@@ -365,6 +372,29 @@ def _read_measured_position_row(csv_path: str | Path, shot: int) -> tuple[float 
     return None
 
 
+def _embedded_index_of(ods: object, assembly_key: str) -> int | None:
+    """Return the ``langmuir_probes.embedded`` slot holding ``assembly_key``.
+
+    The array is filled contiguously over the assemblies operated for a shot,
+    so the slot number is not the assembly's nominal position; the identifier
+    written alongside the data is what names the probe.
+    """
+    identifier = f"langmuir_probes:{assembly_key}"
+    for index in range(len(ASSEMBLIES)):
+        base = f"langmuir_probes.embedded.{index}"
+        if not path_exists(ods, f"{base}.time"):
+            continue
+        if not path_exists(ods, f"{base}.identifier"):
+            continue
+        try:
+            stored = str(get_path(ods, f"{base}.identifier"))
+        except Exception:  # pragma: no cover - defensive against backend errors
+            continue
+        if stored == identifier:
+            return index
+    return None
+
+
 def apply_langmuir_probe_measured_positions(
     ods: object,
     shot: int,
@@ -397,10 +427,18 @@ def apply_langmuir_probe_measured_positions(
         return
 
     mid_r, upper_r = row
-    if mid_r is not None and path_exists(ods, "langmuir_probes.embedded.0.time"):
-        set_path(ods, "langmuir_probes.embedded.0.position.r", float(mid_r))
-    if upper_r is not None and path_exists(ods, "langmuir_probes.embedded.1.time"):
-        set_path(ods, "langmuir_probes.embedded.1.position.r", float(upper_r))
+    # embedded[] is filled contiguously over the assemblies actually operated,
+    # so a slot number does not identify a probe: when the mid probe is absent
+    # the upper probe occupies embedded[0]. Resolve each assembly by the
+    # identifier the mapper wrote, or the measured radii get swapped onto the
+    # wrong probe.
+    for assembly_key, radius in (("mid", mid_r), ("upper", upper_r)):
+        if radius is None:
+            continue
+        index = _embedded_index_of(ods, assembly_key)
+        if index is None:
+            continue
+        set_path(ods, f"langmuir_probes.embedded.{index}.position.r", float(radius))
 
 
 __all__ = [

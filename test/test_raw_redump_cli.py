@@ -3,6 +3,8 @@ from __future__ import annotations
 import gzip
 import json
 
+import pytest
+
 from vaft.cli import raw_redump
 
 
@@ -42,7 +44,7 @@ def test_raw_redump_writes_flat_serial_filedb_products(tmp_path, monkeypatch):
         manifest = directory / f"vest_{shot}_daq_manifest.json"
         assert dump.is_file()
         assert manifest.is_file()
-        assert json.loads(manifest.read_text())["output"]["name"] == dump.name
+        assert json.loads(manifest.read_text(encoding="utf-8"))["output"]["name"] == dump.name
         assert not (directory / "output").exists()
         assert not (directory / "metadata").exists()
 
@@ -63,10 +65,34 @@ def test_raw_redump_adds_a_manifest_to_a_valid_existing_dump(tmp_path, monkeypat
         ["--filedb-root", str(root), "--shots", "48223", "--inter-shot-delay", "0"]
     ) == 0
     manifest = root / "raw/48223/vest_48223_daq_manifest.json"
-    assert json.loads(manifest.read_text())["source"]["kind"] == "existing-filedb"
+    assert json.loads(manifest.read_text(encoding="utf-8"))["source"]["kind"] == "existing-filedb"
 
 
 def test_raw_redump_uses_the_fixed_default_range_and_allows_an_override():
     assert raw_redump._selected_shots(None, None) == list(range(29350, 48824))
     assert raw_redump._selected_shots(None, [48223, 48224]) == [48223, 48224]
     assert raw_redump._selected_shots([48224, 48223, 48224], None) == [48224, 48223]
+
+
+def test_raw_redump_lock_backend_is_importable_on_this_platform():
+    assert callable(raw_redump._lock_file_nonblocking)
+    assert callable(raw_redump._unlock_file)
+
+
+def test_raw_redump_lock_rejects_a_contending_holder(tmp_path):
+    root = tmp_path / "FileDB/raw"
+
+    with raw_redump._exclusive_lock(root):
+        with pytest.raises(raw_redump.RedumpAlreadyRunningError):
+            with raw_redump._exclusive_lock(root):
+                pass
+
+
+def test_raw_redump_lock_can_be_reacquired_after_release(tmp_path):
+    root = tmp_path / "FileDB/raw"
+
+    with raw_redump._exclusive_lock(root):
+        pass
+    with raw_redump._exclusive_lock(root):
+        pass
+    assert (root / ".redump.lock").read_text(encoding="utf-8").startswith("pid=")

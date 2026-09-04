@@ -102,19 +102,19 @@ def composed(build, tracks, tmp_path):
 def test_compose_puts_the_stable_track_at_the_root_and_develop_beneath_it(composed):
     assert (composed / "index.html").is_file()
     assert (composed / "develop" / "index.html").is_file()
-    assert "Stable" in (composed / "index.html").read_text()
-    assert "Development" in (composed / "develop" / "index.html").read_text()
+    assert "Stable" in (composed / "index.html").read_text(encoding="utf-8")
+    assert "Development" in (composed / "develop" / "index.html").read_text(encoding="utf-8")
 
 
 def test_compose_writes_the_files_that_make_the_branch_publishable(composed):
     assert (composed / ".nojekyll").is_file(), "without it Pages would try to build the output"
     assert (composed / "provenance.yml").is_file()
-    readme = (composed / "README.md").read_text()
+    readme = (composed / "README.md").read_text(encoding="utf-8")
     assert "generated output" in readme and "docs/" in readme
 
 
 def test_provenance_names_both_tracks_and_their_commits(composed, tracks):
-    recorded = yaml.safe_load((composed / "provenance.yml").read_text())["tracks"]
+    recorded = yaml.safe_load((composed / "provenance.yml").read_text(encoding="utf-8"))["tracks"]
     assert recorded["stable"]["commit"] == "a" * 40
     assert recorded["development"]["commit"] == "b" * 40
     assert recorded["stable"]["prefix"] == "/"
@@ -155,39 +155,39 @@ def test_a_missing_nojekyll_is_caught(build, composed, tracks):
 
 
 def test_provenance_that_disagrees_with_the_build_is_caught(build, composed, tracks):
-    data = yaml.safe_load((composed / "provenance.yml").read_text())
+    data = yaml.safe_load((composed / "provenance.yml").read_text(encoding="utf-8"))
     data["tracks"]["development"]["commit"] = "f" * 40
-    (composed / "provenance.yml").write_text(yaml.safe_dump(data))
+    (composed / "provenance.yml").write_text(yaml.safe_dump(data), encoding="utf-8")
     _expect_failure(build, composed, tracks, "provenance.yml records")
 
 
 def test_a_dangling_absolute_link_is_caught(build, composed, tracks):
     page = composed / "index.html"
-    page.write_text(page.read_text().replace("/vaft/guide/", "/vaft/gone/"))
+    page.write_text(page.read_text(encoding="utf-8").replace("/vaft/guide/", "/vaft/gone/"), encoding="utf-8")
     _expect_failure(build, composed, tracks, "unresolved link")
 
 
 def test_a_development_page_without_noindex_is_caught(build, composed, tracks):
     page = composed / "develop" / "index.html"
-    page.write_text(page.read_text().replace('<meta name="robots" content="noindex, nofollow">', ""))
+    page.write_text(page.read_text(encoding="utf-8").replace('<meta name="robots" content="noindex, nofollow">', ""), encoding="utf-8")
     _expect_failure(build, composed, tracks, "development page without noindex")
 
 
 def test_a_stable_page_carrying_noindex_is_caught(build, composed, tracks):
     page = composed / "index.html"
-    page.write_text(page.read_text().replace("<head>", '<head><meta name="robots" content="noindex">'))
+    page.write_text(page.read_text(encoding="utf-8").replace("<head>", '<head><meta name="robots" content="noindex">'), encoding="utf-8")
     _expect_failure(build, composed, tracks, "stable page carries noindex")
 
 
 def test_a_stable_page_linking_into_the_development_track_is_caught(build, composed, tracks):
     page = composed / "index.html"
-    page.write_text(page.read_text().replace('href="/vaft/guide/"', 'href="/vaft/develop/guide/"'))
+    page.write_text(page.read_text(encoding="utf-8").replace('href="/vaft/guide/"', 'href="/vaft/develop/guide/"'), encoding="utf-8")
     _expect_failure(build, composed, tracks, "links into the development track")
 
 
 @pytest.mark.parametrize("leaked", ["Gemfile", "package.json", "build.py", "generators.yml"])
 def test_leaked_tooling_is_caught(build, composed, tracks, leaked):
-    (composed / leaked).write_text("x")
+    (composed / leaked).write_text("x", encoding="utf-8")
     _expect_failure(build, composed, tracks, "tooling leaked")
 
 
@@ -262,7 +262,7 @@ def sandbox(tmp_path, monkeypatch):
         return subprocess.run(["git", *args], cwd=str(cwd), check=check,
                               capture_output=True, text=True)
 
-    (work / "seed.txt").write_text("seed\n")
+    (work / "seed.txt").write_text("seed\n", encoding="utf-8")
     git("add", "seed.txt")
     git("commit", "-m", "seed")
     git("remote", "add", "origin", str(origin))
@@ -299,7 +299,7 @@ def test_a_concurrent_publish_is_reported_and_nothing_is_overwritten(build, sand
     stale = build.remote_tip(work, "origin", "gh-pages")
 
     # someone else publishes while our build is running
-    (work / "other.txt").write_text("other\n")
+    (work / "other.txt").write_text("other\n", encoding="utf-8")
     git("add", "other.txt")
     git("commit", "-m", "another publish")
     git("push", "-q", "origin", "HEAD:refs/heads/gh-pages")

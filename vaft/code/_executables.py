@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 
 
 def executable_from_home(
@@ -44,9 +44,19 @@ def missing_home_message(
 ) -> str:
     """Return an actionable message for an unconfigured external code."""
 
+    # Rendered POSIX-style on every platform. Callers pass a mix of Path
+    # constants and brace-glob strings, so without this the same guidance reads
+    # "bin/{dcon,...}" for GPEC but "bin\efit" for EFIT on Windows. The message
+    # already spells the variable "$EFITHOME" rather than "%EFITHOME%", so one
+    # documentation-style separator is the consistent choice.
+    shown = (
+        relative_path.as_posix()
+        if isinstance(relative_path, PurePath)
+        else str(relative_path)
+    )
     message = (
         f"{code_name} installation is not configured: set ${home_variable} "
-        f"to its installation root containing {relative_path}."
+        f"to its installation root containing {shown}."
     )
     if compatibility_variables:
         names = ", ".join(f"${name}" for name in compatibility_variables)

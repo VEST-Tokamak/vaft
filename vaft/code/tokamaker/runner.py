@@ -46,7 +46,7 @@ def _json_safe(value: Any) -> Any:
 
 def _write_sidecar(workdir: Path, payload: dict[str, Any]) -> Path:
     path = workdir / SIDECAR_NAME
-    path.write_text(json.dumps(_json_safe(payload), indent=2, sort_keys=True))
+    path.write_text(json.dumps(_json_safe(payload), indent=2, sort_keys=True), encoding="utf-8")
     return path
 
 

@@ -33,7 +33,7 @@ RESULT_TEXT = """\
 @pytest.fixture()
 def result_file(tmp_path):
     path = tmp_path / "vest.RESULT"
-    path.write_text(RESULT_TEXT)
+    path.write_text(RESULT_TEXT, encoding="utf-8")
     return path
 
 
@@ -71,7 +71,7 @@ def test_parse_scalars_stops_at_bracketed_list_block(tmp_path):
         " IP[kA]     125.300\n"
         " [ISO-FLUX POINTS]\n"
         " AFTERBLOCK    9.999\n"
-    )
+    , encoding="utf-8")
 
     scalars = parse_result_scalars(path)
 
@@ -105,7 +105,7 @@ def test_parse_coils_without_indentation(tmp_path):
         "[  1]    97.0 -->   99.5 :    2.5\n"
         "[  2]    26.0 -->   25.1 :   -0.9\n"
         "\n"
-    )
+    , encoding="utf-8")
 
     coils = parse_result_coils(path)
 
@@ -115,16 +115,16 @@ def test_parse_coils_without_indentation(tmp_path):
 
 def test_parse_coils_absent_block_returns_empty(tmp_path):
     path = tmp_path / "nocoils.RESULT"
-    path.write_text(" IP[kA]  125.3\n")
+    path.write_text(" IP[kA]  125.3\n", encoding="utf-8")
 
     assert parse_result_coils(path) == []
 
 
 def test_collect_prefers_shot_time_gfile_over_bare_candidate(tmp_path):
-    (tmp_path / "g012345.00500").write_text("not a real geqdsk")
-    (tmp_path / "g999").write_text("also not a geqdsk")
-    (tmp_path / "a012345.00500").write_text("not a real aeqdsk")
-    (tmp_path / "vest.RESULT").write_text(RESULT_TEXT)
+    (tmp_path / "g012345.00500").write_text("not a real geqdsk", encoding="utf-8")
+    (tmp_path / "g999").write_text("also not a geqdsk", encoding="utf-8")
+    (tmp_path / "a012345.00500").write_text("not a real aeqdsk", encoding="utf-8")
+    (tmp_path / "vest.RESULT").write_text(RESULT_TEXT, encoding="utf-8")
 
     result = collect_tes_outputs(tmp_path)
 
@@ -137,9 +137,9 @@ def test_collect_prefers_shot_time_gfile_over_bare_candidate(tmp_path):
 def test_collect_ignores_unrelated_gpec_outputs(tmp_path):
     # A reused workdir holding GPEC outputs but no EFIT g-file/a-file: the broad
     # ``g*``/``a*`` fallbacks used to match these.
-    (tmp_path / "gpec_control_output_n1.nc").write_text("gpec")
-    (tmp_path / "gpec_profile_output_n1.nc").write_text("gpec")
-    (tmp_path / "ahg2msc.out").write_text("vacuum")
+    (tmp_path / "gpec_control_output_n1.nc").write_text("gpec", encoding="utf-8")
+    (tmp_path / "gpec_profile_output_n1.nc").write_text("gpec", encoding="utf-8")
+    (tmp_path / "ahg2msc.out").write_text("vacuum", encoding="utf-8")
 
     result = collect_tes_outputs(tmp_path)
 
@@ -150,7 +150,7 @@ def test_collect_ignores_unrelated_gpec_outputs(tmp_path):
 
 
 def test_collect_records_unparsable_gfile_instead_of_raising(tmp_path):
-    (tmp_path / "g012345.00500").write_text("this is not a geqdsk")
+    (tmp_path / "g012345.00500").write_text("this is not a geqdsk", encoding="utf-8")
 
     result = collect_tes_outputs(tmp_path)
 

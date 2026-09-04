@@ -18,6 +18,8 @@ import warnings
 
 import h5py
 
+from ..compat import remove_directory, reopenable_temporary_file
+
 
 _FALLBACK_DD = "3.41.0"
 
@@ -125,33 +127,41 @@ def _native_image(path: Path) -> bool:
         return False
 
 
-def _make_partial_entry(
-    images: Iterable[Path],
-) -> tuple[tempfile.TemporaryDirectory[str], Path]:
-    """Create an isolated IMAS HDF5 entry for IDS image files without master."""
-    temp = tempfile.TemporaryDirectory(prefix="vaft-local-imas-")
-    root = Path(temp.name)
-    copied: list[Path] = []
-    for image in images:
-        if image.name == "master.h5" or image.suffix != ".h5":
-            continue
-        destination = root / image.name
-        shutil.copy2(image, destination)
-        copied.append(destination)
-    if not copied:
-        temp.cleanup()
-        raise ValueError(
-            "No IMAS IDS HDF5 images were available to build a partial entry"
-        )
-    with h5py.File(root / "master.h5", "w") as master:
-        # IMAS AL5 identifies an HDF5 entry through these root attributes.
-        # Copy them from an image before adding the synthetic external links.
-        with h5py.File(copied[0], "r") as first_image:
-            for name, value in first_image.attrs.items():
-                master.attrs[name] = value
-        for image in copied:
-            master[image.stem] = h5py.ExternalLink(image.name, f"/{image.stem}")
-    return temp, root
+def _make_partial_entry(images: Iterable[Path]) -> tuple[Path, Path]:
+    """Create an isolated IMAS HDF5 entry for IDS image files without master.
+
+    Returns ``(scratch_root, entry_root)``. The scratch root is a plain path,
+    not a TemporaryDirectory: the caller removes it through
+    :func:`vaft.compat.remove_directory`, which tolerates the Windows sharing
+    violation an IMAS backend can leave behind.
+    """
+    root = Path(tempfile.mkdtemp(prefix="vaft-local-imas-"))
+    # mkdtemp has no finalizer, so every failure path from here on has to
+    # reclaim the tree itself or it survives for the life of the machine.
+    try:
+        copied: list[Path] = []
+        for image in images:
+            if image.name == "master.h5" or image.suffix != ".h5":
+                continue
+            destination = root / image.name
+            shutil.copy2(image, destination)
+            copied.append(destination)
+        if not copied:
+            raise ValueError(
+                "No IMAS IDS HDF5 images were available to build a partial entry"
+            )
+        with h5py.File(root / "master.h5", "w") as master:
+            # IMAS AL5 identifies an HDF5 entry through these root attributes.
+            # Copy them from an image before adding the synthetic external links.
+            with h5py.File(copied[0], "r") as first_image:
+                for name, value in first_image.attrs.items():
+                    master.attrs[name] = value
+            for image in copied:
+                master[image.stem] = h5py.ExternalLink(image.name, f"/{image.stem}")
+    except BaseException:
+        remove_directory(root)
+        raise
+    return root, root
 
 
 def _detect(source: str | Path | Sequence[str | Path]) -> _Descriptor:
@@ -243,16 +253,20 @@ def load_ods(
         ods = ODS(consistency_check=False)
         source_path = descriptor.paths[0]
         if source_path.suffixes[-2:] == [".json", ".gz"]:
-            with tempfile.NamedTemporaryFile(suffix=".json") as plain:
+            # `ODS.load` opens the path itself, which a still-open
+            # NamedTemporaryFile forbids on Windows -- and this is the path
+            # `sample_ods()` takes, so it breaks the packaged sample and every
+            # tutorial that starts from it.
+            with reopenable_temporary_file(suffix=".json") as plain_path:
                 with gzip.open(source_path, "rb") as compressed:
-                    shutil.copyfileobj(compressed, plain)
-                plain.flush()
-                ods.load(plain.name, consistency_check=False)
+                    with plain_path.open("wb") as plain:
+                        shutil.copyfileobj(compressed, plain)
+                ods.load(str(plain_path), consistency_check=False)
         else:
             ods.load(str(source_path), consistency_check=False)
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
 
-    temporary: tempfile.TemporaryDirectory[str] | None = None
+    temporary: Path | None = None
     try:
         if descriptor.format == "imas_images":
             temporary, entry_root = _make_partial_entry(descriptor.paths)
@@ -271,7 +285,7 @@ def load_ods(
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
     finally:
         if temporary is not None:
-            temporary.cleanup()
+            remove_directory(temporary)
 
 
 class IMASHandle(AbstractContextManager["IMASHandle"]):
@@ -285,7 +299,10 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
     ):
         self._descriptor = _detect(source)
         self._version, fallback = _resolved_version(self._descriptor, imas_version)
-        self._temporary: tempfile.TemporaryDirectory[str] | None = None
+        # A plain path, not a TemporaryDirectory: that object's GC finalizer
+        # re-raises the Windows sharing violation described in close(), long
+        # after the handle has served its purpose.
+        self._temporary: Path | None = None
         self._entry: Any = None
         self._ids: tuple[str, ...] = ()
         self.info = SourceInfo(
@@ -303,6 +320,16 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
     def open(self) -> "IMASHandle":
         if self._entry is not None:
             return self
+        try:
+            return self._open()
+        except BaseException:
+            # `__enter__` raising means `__exit__` never runs, and the scratch
+            # tree below has no finalizer of its own, so it would survive for
+            # the life of the machine. Release what was already acquired.
+            self.close()
+            raise
+
+    def _open(self) -> "IMASHandle":
         descriptor = self._descriptor
         ids_hint: tuple[str, ...] = ()
         if descriptor.format == "imas_hdf5":
@@ -319,8 +346,8 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
         else:
             ods, _ = load_ods(descriptor.paths, imas_version=self._version)
             ids_hint = tuple(sorted(ods.keys()))
-            self._temporary = tempfile.TemporaryDirectory(prefix="vaft-imas-handle-")
-            root = Path(self._temporary.name)
+            self._temporary = Path(tempfile.mkdtemp(prefix="vaft-imas-handle-"))
+            root = self._temporary
             from ..imas.omas_imas import save_omas_imas
 
             save_omas_imas(
@@ -350,7 +377,7 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
         assert self._entry is not None
         # Reuse the detector-backed reader for a stable, complete conversion.
         if self._temporary is not None:
-            source: Path = Path(self._temporary.name)
+            source: Path = self._temporary
         elif self._descriptor.entry_path is not None:
             source = self._descriptor.entry_path
         else:  # pragma: no cover - defensive
@@ -363,7 +390,11 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
             self._entry.__exit__(None, None, None)
             self._entry = None
         if self._temporary is not None:
-            self._temporary.cleanup()
+            # Not TemporaryDirectory.cleanup(): imas_core's HDF5 backend keeps
+            # large IDS files open after DBEntry.close() returns, and Windows
+            # refuses to unlink an open file. Closing the handle is what this
+            # method promises; reclaiming the scratch space is best-effort.
+            remove_directory(self._temporary)
             self._temporary = None
 
     def __enter__(self) -> "IMASHandle":

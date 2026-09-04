@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-import fcntl
+import errno
 import gzip
 import json
 import os
@@ -12,7 +12,12 @@ from pathlib import Path
 import sys
 import tempfile
 import time
-from typing import Iterable, Iterator
+from typing import IO, Iterable, Iterator
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from vaft.database import raw as raw_db
 from vaft.database.filedb import FileDB
@@ -25,6 +30,32 @@ class RedumpAlreadyRunningError(RuntimeError):
 
 DEFAULT_FIRST_RAW_SHOT = 29350
 DEFAULT_LAST_RAW_SHOT = 48823
+
+
+def _lock_file_nonblocking(lock_file: IO[str]) -> None:
+    """Acquire one byte of ``lock_file`` exclusively without waiting."""
+    lock_file.seek(0)
+    if os.name == "nt":
+        # ``msvcrt.locking`` locks bytes from the current file position and an
+        # empty file cannot be locked.  Keep a byte present before acquiring;
+        # the PID written by the caller replaces it once the lock is held.
+        if not lock_file.read(1):
+            lock_file.seek(0)
+            lock_file.write("\0")
+            lock_file.flush()
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_file(lock_file: IO[str]) -> None:
+    """Release the platform-specific lock held by ``lock_file``."""
+    if os.name == "nt":
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _existing_dump(path: Path, shot: int) -> dict | None:
@@ -75,8 +106,10 @@ def _exclusive_lock(root: Path) -> Iterator[None]:
     lock_path = root / ".redump.lock"
     with lock_path.open("a+", encoding="utf-8") as lock_file:
         try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as error:
+            _lock_file_nonblocking(lock_file)
+        except OSError as error:
+            if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                raise
             raise RedumpAlreadyRunningError(
                 f"Another raw redump is running for {root} ({lock_path})."
             ) from error
@@ -87,7 +120,7 @@ def _exclusive_lock(root: Path) -> Iterator[None]:
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            _unlock_file(lock_file)
 
 
 def _export_one(

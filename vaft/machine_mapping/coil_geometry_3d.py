@@ -137,7 +137,7 @@ def parse_gpec_coil_dat(path: str | Path) -> tuple[int, int, int, float, np.ndar
     ``(ncoil, npts, 3)`` in Cartesian metres.
     """
     path = Path(path)
-    raw = path.read_text().split()
+    raw = path.read_text(encoding="utf-8").split()
     if len(raw) < 4:
         raise VestConfigurationError(f"GPEC coil file too short: {path}")
     try:

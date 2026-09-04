@@ -240,7 +240,7 @@ def test_constraints_and_kfile_survive_missing_channels(
     generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
     kfiles = sorted((kfile_dir / "kfile").glob("*"))
     assert kfiles, "generate_kfile produced no k-file"
-    text = kfiles[0].read_text()
+    text = kfiles[0].read_text(encoding="utf-8")
 
     expmp2 = _extract_array(text, "EXPMP2", "BITMPI")
     fwtmp2 = _extract_array(text, "FWTMP2", "PLASMA")
@@ -296,7 +296,7 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, 
     generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
     kfiles = sorted((kfile_dir / "kfile").glob("*"))
     assert kfiles, "generate_kfile produced no k-file"
-    text = kfiles[0].read_text()
+    text = kfiles[0].read_text(encoding="utf-8")
 
     expmp2 = _extract_array(text, "EXPMP2", "BITMPI")
     fwtmp2 = _extract_array(text, "FWTMP2", "PLASMA")

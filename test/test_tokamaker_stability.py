@@ -39,7 +39,7 @@ def test_wall_eigenmodes_need_no_equilibrium(tmp_path, monkeypatch):
     assert saved["eig_vecs"].shape[0] == 4
     assert saved["mesh_r"].shape[1] == 3
 
-    payload = json.loads(result.stats_file.read_text())
+    payload = json.loads(result.stats_file.read_text(encoding="utf-8"))
     assert payload["wall"]["tau_wall_max_s"] == pytest.approx(0.01)
 
 
@@ -79,7 +79,7 @@ def test_vertical_stability_solves_then_eigensolves(tmp_path, monkeypatch):
     assert result.gamma_s == pytest.approx(50.0)
     assert result.scalars["stable"] is False
     assert result.gfile is not None and result.gfile.name == "g039915.00325"
-    payload = json.loads(result.stats_file.read_text())
+    payload = json.loads(result.stats_file.read_text(encoding="utf-8"))
     assert payload["vertical"]["gamma_s"] == pytest.approx(50.0)
     assert payload["vertical"]["vsc_coil"] == "PF9"
 
@@ -112,7 +112,7 @@ def test_stability_sidecar_sections_merge(tmp_path, monkeypatch):
     run_tokamaker_wall_eigenmodes(make_inputs(tmp_path), config)
     result = run_tokamaker_vertical_stability(make_inputs(tmp_path), config)
 
-    payload = json.loads(result.stats_file.read_text())
+    payload = json.loads(result.stats_file.read_text(encoding="utf-8"))
     assert "wall" in payload and "vertical" in payload   # sections coexist
 
 

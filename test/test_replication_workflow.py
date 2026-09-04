@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def snakefile() -> str:
-    return (WORKFLOW / "Snakefile").read_text()
+    return (WORKFLOW / "Snakefile").read_text(encoding="utf-8")
 
 
 def test_every_replicable_stage_has_a_rule(snakefile):
@@ -57,7 +57,7 @@ def test_the_workflow_does_not_restate_where_a_stage_goes(snakefile):
 
 def test_replication_is_opt_in(snakefile):
     assert 'HSDS_CONFIG.get("replicate", False)' in snakefile
-    config = (WORKFLOW / "config.yaml").read_text()
+    config = (WORKFLOW / "config.yaml").read_text(encoding="utf-8")
     assert re.search(r"^hsds:\s*$", config, re.MULTILINE)
     assert re.search(r"^\s+replicate:\s*false\s*$", config, re.MULTILINE)
 
@@ -102,7 +102,7 @@ def test_efit_and_chease_publish_a_stage_manifest():
     """Replication reads the manifest to decide eligibility, so the two stages
     that had none now write one (absorbed from #137)."""
     for stage in ("efit", "chease"):
-        script = (WORKFLOW / f"generate_{stage}_ods.py").read_text()
+        script = (WORKFLOW / f"generate_{stage}_ods.py").read_text(encoding="utf-8")
         assert "write_manifest(" in script, stage
         assert '"--metadata"' in script, stage
 

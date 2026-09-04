@@ -79,11 +79,11 @@ def _update_sidecar(workdir: Path, key: str, payload: dict[str, Any]) -> Path:
     existing: dict[str, Any] = {}
     if path.is_file():
         try:
-            existing = json.loads(path.read_text())
+            existing = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             existing = {}
     existing[key] = _json_safe(payload)
-    path.write_text(json.dumps(existing, indent=2, sort_keys=True))
+    path.write_text(json.dumps(existing, indent=2, sort_keys=True), encoding="utf-8")
     return path
 
 

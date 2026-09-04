@@ -15,7 +15,7 @@ class build_py(_build_py):
     def run(self) -> None:
         super().run()
         project_root = Path(__file__).parent
-        wheel_variant = project_root / "packaging" / "wheel_samples" / "39915"
+        wheel_variant = project_root / "vaft" / "data" / "wheel_samples" / "39915"
         destination = Path(self.build_lib) / "vaft" / "data" / "samples" / "39915"
         destination.mkdir(parents=True, exist_ok=True)
         for filename in ("manifest.yaml", "omas.json.gz", "imas.nc"):

@@ -112,7 +112,7 @@ class SecureConfigManager:
                 "database": database,
             }
 
-            with open(CONFIG_FILE, "w") as file:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as file:
                 yaml.dump(config_data, file)
                 logger.info(f"Configuration saved to {CONFIG_FILE}")
         except Exception as e:
@@ -128,7 +128,13 @@ class SecureConfigManager:
         """
         try:
             if os.path.exists(CONFIG_FILE):
-                with open(CONFIG_FILE, "r") as file:
+                # `errors="replace"` covers the upgrade path: a config written
+                # by an earlier VAFT used the locale's encoding, so a non-ASCII
+                # hostname or password saved on a cp949/cp1252 host is not valid
+                # UTF-8. A mangled value fails authentication with a message the
+                # user can act on; a decode traceback from inside the loader
+                # does not.
+                with open(CONFIG_FILE, "r", encoding="utf-8", errors="replace") as file:
                     config_data = yaml.safe_load(file)
 
                     return (

@@ -101,7 +101,7 @@ def test_write_json_sidecar(tmp_path):
     result = read_gpec_netcdf(tmp_path)
 
     sidecar = result.write_json(tmp_path / "gpec_ideal_n1.json")
-    payload = json.loads(sidecar.read_text())
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
     assert payload["control"]["n_tor"] == 1
     np.testing.assert_allclose(
         payload["control"]["b_n"]["real"], control_data["b_n"].real
@@ -143,7 +143,7 @@ GFILE_TEXT = "  EFITD   01/01/2024   #  48226  300ms        3  65  65\n 1.0 2.0 
 def _stub_installation(tmp_path):
     executable = tmp_path / "gpec/bin/gpec"
     executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh\nexit 0\n")
+    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     executable.chmod(0o755)
     return tmp_path / "gpec"
 
@@ -151,7 +151,7 @@ def _stub_installation(tmp_path):
 @pytest.fixture()
 def case(tmp_path):
     geqdsk = tmp_path / "g048226.00300"
-    geqdsk.write_text(GFILE_TEXT)
+    geqdsk.write_text(GFILE_TEXT, encoding="utf-8")
     return gpec.GPECCaseInputs(
         shot=48226, time_ms=300, geqdsk=geqdsk, workdir=tmp_path / "run"
     )
