@@ -3,11 +3,12 @@
 DCON solves the ideal-MHD marginal-stability (delta-W) problem for a single
 toroidal mode number. Several of its core outputs have no home in the IMAS
 ``mhd_linear`` IDS at all (the plasma/vacuum/total energy decomposition,
-Mercier diagnostics, mode-range provenance, and the Fourier-space
-eigenfunction reconstructed from ``solutions.bin``), so :class:`DconOutput`
-is where those quantities live losslessly instead of being force-fit into
-IMAS fields that don't mean the same thing (see
-``vaft.machine_mapping.mhd_linear``, issue #170).
+Mercier diagnostics, mode-range provenance), and the Fourier-space
+eigenfunction reconstructed from ``solutions.bin`` has only a closest-fit one
+-- so :class:`DconOutput` is where all of it lives losslessly and at full
+radial resolution, while ``vaft.machine_mapping.mhd_linear`` writes a strided
+view of the eigenfunction into the IDS with its unit and normalization
+mismatches recorded explicitly (issue #170).
 
 This is DCON's own schema, not a cross-solver abstraction: RDCON/STRIDE's
 native output (:mod:`vaft.code.gpec._matching_output`) has a genuinely
@@ -168,6 +169,27 @@ class DconEigenfunction:
     xi_psi_imag: np.ndarray
     v4_real: np.ndarray
     v4_imag: np.ndarray
+
+    @property
+    def amplitude(self) -> np.ndarray:
+        """``|xi . grad(psi)|`` per (harmonic, step), preserving the NaN padding."""
+        return np.hypot(self.xi_psi_real, self.xi_psi_imag)
+
+    def b_normal(self, n_tor: int) -> np.ndarray:
+        """Normal perturbed field per (harmonic, step), complex.
+
+        ``b = i (m - n q) xi.grad(psi)`` -- exactly ``match/ideal.f:372``'s
+        ``b(:,istep)=ifac*singfac*v(:,1,istep)`` with ``singfac = m - n*q``,
+        recomputed here because ``match`` forms it internally and never writes
+        it out.  Everything it needs is already in ``solutions.bin``: ``q`` is
+        the third column and ``m`` comes from the run's own ``mlow``.
+
+        Carries the same arbitrary eigenvector normalization as ``xi``, so only
+        its shape and relative harmonic content are meaningful.
+        """
+        xi = self.xi_psi_real + 1j * self.xi_psi_imag
+        singular_factor = self.m[:, np.newaxis] - int(n_tor) * self.q
+        return 1j * singular_factor * xi
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -490,6 +512,28 @@ class DconOutput:
         """Least-stable total-energy eigenvalue -- ``dcon/free.f``'s ``total1``, the
         ``W_t_eigenvalue`` entry labelled by mode 1."""
         return self._least_stable(self.W_t_eigenvalue)
+
+    @property
+    def m_pol_dominant(self) -> Optional[int]:
+        """The poloidal mode number carrying the largest peak ``|xi . grad(psi)|``.
+
+        ``None`` without an eigenfunction (no ``solutions.bin``, i.e. no
+        ``match``), and ``None`` if every harmonic is entirely NaN.
+
+        Reportable despite the eigenfunction's arbitrary normalization: that
+        normalization (``match/ideal.f:318-325``, plus DCON's ``ucrit``
+        re-scaling during integration) is a single global factor multiplying
+        every harmonic alike, so which harmonic is largest does not depend on
+        it -- unlike the amplitudes themselves, which do.
+        """
+        if self.eigenfunction is None or self.eigenfunction.m.size == 0:
+            return None
+        amplitude = self.eigenfunction.amplitude
+        usable = np.isfinite(amplitude)
+        if not usable.any():
+            return None
+        peaks = np.where(usable, amplitude, -np.inf).max(axis=1)
+        return int(self.eigenfunction.m[int(np.argmax(peaks))])
 
     @property
     def stable_free_boundary(self) -> Optional[bool]:

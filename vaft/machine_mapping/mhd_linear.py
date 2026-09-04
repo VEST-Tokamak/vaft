@@ -17,15 +17,29 @@ the ODS:
   `ntms` for that value; `ballooning_type="Tearing"` stays a separate,
   correct mode-type tag in `mhd_linear` and is never treated as if it also
   carried the Delta-prime value.
+- The Fourier-space eigenfunction from `solutions.bin` reaches
+  `plasma.displacement_perpendicular` (and, as the field DCON itself derives
+  from it, `plasma.b_field_perturbed.coordinate1`) on an explicitly declared
+  `(psi, m)` grid, with `m_pol_dominant` alongside. These are *closest-fit*
+  mappings, not exact ones, and each carries a structured caveat in
+  `code.parameters` in the same shape as `energy_perturbed`'s: `xi.grad(psi)`
+  is a contravariant flux component rather than a perpendicular displacement
+  in metres, and its amplitude is an arbitrary eigenvector normalization.
+  `grid_type` uses the private (negative) index the IMAS identifier reserves
+  for exactly this case -- the schema does enumerate Fourier-in-poloidal-angle
+  grids (14/24/34/44), but only for the straight-field-line, equal-arc and
+  polar angles, and DCON runs in Hamada coordinates. What the IDS carries is a
+  radially strided view; the full-resolution arrays stay in the
+  `vaft.code.gpec` container, persisted as JSON next to the solver output.
+  `m_pol_dominant` alone needs no caveat: it is dimensionless and invariant
+  under the normalization.
 - Everything else that has no IMAS home (mode-range provenance, the full
-  PEST3 matching matrices, the Fourier-space eigenfunction from
-  `solutions.bin`) goes into `mhd_linear.code.parameters` when it is
+  PEST3 matching matrices, `solutions.bin`'s uninterpreted fourth
+  Euler-Lagrange component) goes into `mhd_linear.code.parameters` when it is
   solver-configuration metadata, or stays exclusively in the `vaft.code.gpec`
-  output container (persisted as JSON next to the solver output) when it is
-  a physics result with no IMAS field at all. Nothing is force-fit into a
-  structurally-convenient-but-wrong field (e.g. `displacement_perpendicular`
-  is deliberately never populated here -- see the module docstrings in
-  `vaft.code.gpec._dcon_output` for why).
+  output container. A closest-fit mapping is made only where the
+  correspondence is meaningful and the mismatch can be stated precisely;
+  nothing is written whose meaning cannot be recorded.
 
 Schema reference: https://gafusion.github.io/omas/schema.html
 """
@@ -170,6 +184,117 @@ def _set_output_flag(ods: ODS, ids: str, time_slice: int, flag: int) -> None:
     ods[f"{ids}.code.output_flag"] = np.asarray(values, dtype=int)
 
 
+#: Radial samples kept when the Fourier-space eigenfunction is written into the
+#: IDS.  DCON integrates on thousands of steps, and at a realistic ``mpert`` the
+#: full-resolution arrays make the stage product roughly an order of magnitude
+#: larger than an entire packaged sample shot.  The IDS therefore carries a
+#: strided *view* -- exact values, every harmonic, fewer radial samples -- while
+#: the ``dcon_native_n<mode>.json`` sidecar keeps the full-resolution data.
+#: Striding rather than interpolating so that every number in the IDS is one
+#: DCON actually computed.
+MAX_RADIAL_POINTS = 256
+
+#: `grid_type.index` for DCON's Fourier-space output.  The IMAS identifier does
+#: enumerate Fourier-in-poloidal-angle grids (14/24/34/44), but only for the
+#: straight-field-line, equal-arc and polar angles, and DCON runs in Hamada
+#: coordinates (`vaft/data/gpec/equil.in`'s `jac_type`).  The schema's own
+#: escape hatch for exactly this case is a negative index: "Private identifier
+#: values must be indicated by a negative index."
+_HAMADA_FOURIER_GRID_INDEX = -1
+
+
+def _shared_radial_grid(result: DconOutput) -> Optional[np.ndarray]:
+    """The one ``psi`` grid every harmonic block shares, or ``None`` if they differ.
+
+    ``solutions.bin`` writes ``psi`` per record, so each harmonic block carries
+    its own copy, and :func:`read_solutions_bin` pads short blocks with NaN.  A
+    single ``grid.dim1`` is only meaningful if those copies agree; when they do
+    not, the IDS has no honest radial axis to offer and the subtree is skipped
+    rather than written against whichever block happened to be first.
+    """
+    eigenfunction = result.eigenfunction
+    if eigenfunction is None or eigenfunction.psi.size == 0:
+        return None
+    psi = np.asarray(eigenfunction.psi, dtype=float)
+    finite = np.isfinite(psi)
+    if not finite.any() or not (finite == finite[0]).all():
+        return None
+    grid = psi[0][finite[0]]
+    if not np.allclose(psi[:, finite[0]], grid, equal_nan=False):
+        return None
+    return grid
+
+
+def _write_eigenfunction(
+    ods: ODS, time_slice: int, position: int, result: DconOutput
+) -> Optional[dict[str, Any]]:
+    """Write the Fourier-space eigenfunction onto a declared ``(psi, m)`` grid.
+
+    Returns the provenance the caller records in ``code.parameters``, or ``None``
+    when there is nothing to write.  Both quantities keep DCON's arbitrary
+    eigenvector normalization, which is why every write here is accompanied by a
+    structured caveat rather than left to be read as the IMAS field's documented
+    units.
+    """
+    eigenfunction = result.eigenfunction
+    if eigenfunction is None or eigenfunction.m.size == 0:
+        return None
+    grid = _shared_radial_grid(result)
+    if grid is None:
+        warnings.warn(
+            f"dcon n={result.n_tor}: solutions.bin's harmonic blocks do not share one "
+            "psi grid, so the eigenfunction has no single radial axis to write against; "
+            "it stays in the native sidecar only",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return None
+
+    stride = max(1, int(np.ceil(grid.size / MAX_RADIAL_POINTS)))
+    columns = np.flatnonzero(np.isfinite(np.asarray(eigenfunction.psi, dtype=float)[0]))[::stride]
+    psi_n = grid[::stride]
+    m = np.asarray(eigenfunction.m, dtype=float)
+
+    # IMAS stores these as FLT_2D on [grid.dim1, grid.dim2] -- (psi, m) -- while
+    # the container is (harmonic, step), so every array is transposed on the way in.
+    xi = eigenfunction.xi_psi_real[:, columns].T, eigenfunction.xi_psi_imag[:, columns].T
+    b_normal = eigenfunction.b_normal(result.n_tor)[:, columns].T
+
+    plasma = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]["plasma"]
+    plasma["grid_type"]["index"] = _HAMADA_FOURIER_GRID_INDEX
+    plasma["grid_type"]["name"] = "inverse_psi_hamada_fourier"
+    jacobian = (result.coordinates.jacobian if getattr(result, "coordinates", None) else "") or "hamada"
+    plasma["grid_type"]["description"] = (
+        f"Normalized poloidal flux as the radial label (dim1) and Fourier modes in the "
+        f"{jacobian} poloidal angle (dim2). Private index because the IMAS identifier's "
+        f"Fourier grid types (14/24/34/44) name the straight-field-line, equal-arc and "
+        f"polar angles only, and DCON solved this case in {jacobian} coordinates."
+    )
+    plasma["grid"]["dim1"] = psi_n
+    plasma["grid"]["dim2"] = m
+
+    expected = (psi_n.size, m.size)
+    for path, values in (
+        ("displacement_perpendicular", xi),
+        ("b_field_perturbed.coordinate1", (np.real(b_normal), np.imag(b_normal))),
+    ):
+        for part, array in zip(("real", "imaginary"), values):
+            # OMAS accepts an array that does not match its declared coordinates,
+            # so the grid/array agreement this IDS depends on is only guaranteed
+            # if it is checked here.
+            if array.shape != expected:
+                raise ValueError(
+                    f"eigenfunction array for {path}.{part} has shape {array.shape}, "
+                    f"but the declared (dim1, dim2) grid is {expected}"
+                )
+            node = plasma
+            for key in path.split("."):
+                node = node[key]
+            node[part] = np.ascontiguousarray(array, dtype=float)
+
+    return {"radial_stride": stride, "radial_points": int(psi_n.size), "harmonics": int(m.size)}
+
+
 def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput) -> None:
     # `position` is this mode's slot in the dense n_tor grid, not an append
     # cursor; `n_tor` is (re)written here so the entry is self-describing even
@@ -183,16 +308,58 @@ def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutp
         # code.parameters below rather than left for a future reader to guess.
         mode_entry["energy_perturbed"] = float(result.W_t_eigenvalue[0].real)
 
+    # The dominant poloidal harmonic is the one eigenfunction quantity that needs
+    # no caveat: it is an exact fit for `m_pol_dominant`, dimensionless, and
+    # invariant under the eigenvector's arbitrary normalization (see
+    # `DconOutput.m_pol_dominant`). The DD stores it as FLT_0D even though m is
+    # integral.
+    m_pol_dominant = result.m_pol_dominant
+    if m_pol_dominant is not None:
+        mode_entry["m_pol_dominant"] = float(m_pol_dominant)
+
+    eigenfunction_provenance = _write_eigenfunction(ods, time_slice, position, result)
+
     # The units element is structured, not prose: a consumer checking whether
     # `energy_perturbed` is really in the Joules its IMAS documentation
     # promises can test `units != "J"` (or read `normalization`) instead of
-    # having to parse an English sentence.
+    # having to parse an English sentence.  The eigenfunction elements say the
+    # same thing about the same kind of mismatch: both arrays are written to the
+    # closest appropriate IMAS field, and neither is in that field's documented
+    # units, so the discrepancy is recorded where a consumer can test it rather
+    # than left to be inferred from the field name.
+    eigenfunction_xml = ""
+    if eigenfunction_provenance is not None:
+        eigenfunction_xml = (
+            '<displacement_perpendicular units="1"'
+            ' normalization="dcon_eigenvector_arbitrary" imas_documented_units="m"'
+            ' quantity="xi.grad(psi)"'
+            ' note="contravariant flux component of the displacement, not the'
+            ' perpendicular displacement in metres"'
+            ' source_file="solutions.bin" source="match/ideal.f:378-389"/>'
+            '<b_field_perturbed_coordinate1 units="1"'
+            ' normalization="dcon_eigenvector_arbitrary" imas_documented_units="T"'
+            ' derived_by="vaft" definition="i*(m - n*q)*xi.grad(psi)"'
+            ' source="match/ideal.f:372"/>'
+            f'<eigenfunction_grid index="{_HAMADA_FOURIER_GRID_INDEX}"'
+            f' radial_stride="{eigenfunction_provenance["radial_stride"]}"'
+            f' radial_points="{eigenfunction_provenance["radial_points"]}"'
+            f' harmonics="{eigenfunction_provenance["harmonics"]}"'
+            ' note="radially strided view of solutions.bin; the full-resolution'
+            ' arrays stay in the dcon_native_n&lt;mode&gt;.json sidecar"/>'
+        )
+    if m_pol_dominant is not None:
+        eigenfunction_xml += (
+            '<m_pol_dominant source_file="solutions.bin"'
+            ' definition="argmax_m of max_psi |xi.grad(psi)|"/>'
+        )
+
     fragment = (
         f'<solver name="dcon" n_tor="{result.n_tor}">'
         f"<mlow>{result.mlow}</mlow><mhigh>{result.mhigh}</mhigh>"
         f"<mpert>{result.mpert}</mpert><mband>{result.mband}</mband>"
         '<energy_perturbed units="1" normalization="dcon_normalized"'
         ' imas_documented_units="J" source_variable="W_t_eigenvalue"/>'
+        f"{eigenfunction_xml}"
         "</solver>"
     )
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="DCON")
