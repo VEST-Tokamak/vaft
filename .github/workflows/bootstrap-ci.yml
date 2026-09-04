@@ -4,13 +4,15 @@ name: Bootstrap CI
 # supported platform. Kept separate from Package CI so the release gate is
 # unaffected by changes to the course bootstrap.
 #
-# "Contract tests" is a required check on main, and a required check has to
-# *report* on every pull request or the pull request can never merge. A
-# `paths:` filter on the trigger does the opposite: on an unrelated pull
-# request the workflow never starts, nothing reports, and the check sits as
-# "expected" forever. So the workflow runs on every pull request, decides for
-# itself whether the change touches anything it cares about, and on an
-# unrelated one reports "not applicable" as a success instead of not at all.
+# "Contract tests" is built to be requirable: a required check has to *report*
+# on every pull request or the pull request can never merge. A `paths:` filter
+# on the trigger does the opposite: on an unrelated pull request the workflow
+# never starts, nothing reports, and the check sits as "expected" forever. So
+# the workflow runs on every pull request, decides for itself whether the
+# change touches anything it cares about, and on an unrelated one reports "not
+# applicable" as a success instead of not at all. It is not in either branch's
+# required set today (see .github/rulesets/), but keeping it honest here means
+# adding it costs nothing but the ruleset edit.
 
 on:
   pull_request:
