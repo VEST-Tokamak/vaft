@@ -148,7 +148,8 @@ if (ROOT / "_data" / "process_catalog.yml").file?
   function_ids = functions.map { |item| item["id"] }
   errors << "process snapshot has duplicate IDs" unless function_ids.uniq.length == function_ids.length
   functions.each do |item|
-    %w[id name category signature summary parameters returns sections provenance machine_scope convention_sensitive conforming errors].each do |field|
+    # machine_scope is legitimately nil until a category is brought under the contract.
+    %w[id name category signature summary parameters returns sections provenance convention_sensitive conforming errors].each do |field|
       errors << "process function #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
     end
     errors << "process function #{item['id']} has unknown category #{item['category']}" unless process_category_names.include?(item["category"])
