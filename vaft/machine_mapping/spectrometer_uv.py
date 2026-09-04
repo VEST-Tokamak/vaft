@@ -17,6 +17,15 @@ CHANNEL_NAMES: dict[int, str] = {
     2: "Versatile Filterscope",
 }
 
+#: Native digitizer rate per channel: channels 0 and 1 are on the slow DAQ,
+#: the versatile filterscope (channel 2) on the fast DAQ.  Every policy grid
+#: is 25 kHz, so channel 2 is resampled (see :func:`vfit_filterscope`).
+CHANNEL_CADENCE_HZ: dict[int, float] = {
+    0: 25e3,
+    1: 25e3,
+    2: 250e3,
+}
+
 SIGNALS: list[tuple[int, int, int, str, float]] = [
     (101, 0, 0, "H-alpha_6563", 656.3e-9),
     (214, 1, 0, "OI_7770", 777.0e-9),
@@ -55,6 +64,16 @@ def _needs_legacy_time_shift(shot: int) -> bool:
     return (41446 <= shot <= 41451) or (shot >= 41660)
 
 
+def legacy_time_shift_s(shot: int) -> float:
+    """The offset added to a fast-DAQ filterscope record's own time axis.
+
+    Fast records start at zero on their own clock; the mapper adds this to
+    place them on the discharge clock.  It applies only to records whose axis
+    ends before 0.1 s (the fast channel), never to the slow-DAQ channels.
+    """
+    return 0.26 if _needs_legacy_time_shift(shot) else 0.24
+
+
 def vfit_filterscope(
     ods: object,
     shot: int,
@@ -84,7 +103,7 @@ def vfit_filterscope(
         if target_time is not None
         else _build_time_axis(t_start, t_end, dt)
     )
-    shift = 0.26 if _needs_legacy_time_shift(shot) else 0.24
+    shift = legacy_time_shift_s(shot)
 
     loaded_signals = {
         field: raw_db.require_signal(
@@ -140,4 +159,11 @@ def filterscope_from_raw_database(
     spectrometer_uv(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
-__all__ = ["filterscope_from_raw_database", "spectrometer_uv", "vfit_filterscope"]
+__all__ = [
+    "CHANNEL_CADENCE_HZ",
+    "SIGNALS",
+    "filterscope_from_raw_database",
+    "legacy_time_shift_s",
+    "spectrometer_uv",
+    "vfit_filterscope",
+]

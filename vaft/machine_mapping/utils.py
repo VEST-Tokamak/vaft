@@ -473,6 +473,154 @@ def resolve_diagnostics_time_policies(
     return table
 
 
+PLASMA_TIMING_KEY = "plasma_timing"
+
+#: The rule blocks of ``plasma_timing`` whose keys are keyword arguments of
+#: :func:`vaft.process.onset.active_window`.
+_PLASMA_TIMING_RULE_BLOCKS = ("h_alpha", "ip")
+
+
+@dataclass(frozen=True)
+class PlasmaTimingPolicy:
+    """The configured plasma-timing policy (issue #409).
+
+    ``window`` is the shared plasma-analysis range every consumer searches
+    inside; ``reference_lead_s`` the stretch before it that serves as the
+    baseline reference.  ``h_alpha``, ``ip`` and each ``lines[label]`` entry
+    are keyword arguments of :func:`vaft.process.onset.active_window`, keyed
+    by the signal they were tuned on; ``usability`` and ``agreement`` are the
+    channel checks and cross-check tolerances ``vaft.omas.plasma_timing``
+    applies.  The generic detectors carry none of these numbers.
+    """
+
+    window: DiagnosticsTimePolicy
+    reference_lead_s: float
+    h_alpha: Mapping[str, Any]
+    lines: Mapping[str, Mapping[str, Any]]
+    ip: Mapping[str, Any]
+    usability: Mapping[str, float]
+    agreement: Mapping[str, float]
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "window": self.window.as_dict(),
+            "reference_lead_s": self.reference_lead_s,
+            "h_alpha": dict(self.h_alpha),
+            "lines": {label: dict(rule) for label, rule in self.lines.items()},
+            "ip": dict(self.ip),
+            "usability": dict(self.usability),
+            "agreement": dict(self.agreement),
+        }
+
+
+def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against ``active_window``'s keyword parameters."""
+    import inspect
+
+    from vaft.process.onset import active_window
+
+    if not isinstance(rule, Mapping) or not rule:
+        raise VestConfigurationError(f"{context}: must be a non-empty mapping")
+    parameters = inspect.signature(active_window).parameters
+    allowed = {
+        name for name, p in parameters.items() if p.kind is inspect.Parameter.KEYWORD_ONLY
+    }
+    unknown = sorted(set(rule) - allowed)
+    if unknown:
+        raise VestConfigurationError(
+            f"{context}: {', '.join(repr(k) for k in unknown)} "
+            f"{'is' if len(unknown) == 1 else 'are'} not a keyword argument of "
+            f"vaft.process.onset.active_window"
+        )
+    out: Dict[str, Any] = {}
+    for key, value in rule.items():
+        if isinstance(value, bool) or value is None:
+            out[key] = value
+        else:
+            number = _required_number(rule, key, context=context)
+            if not np.isfinite(number):
+                raise VestConfigurationError(f"{context}: parameter {key!r} must be finite")
+            out[key] = int(number) if key in ("prefilter_samples", "order") else number
+    return out
+
+
+def _number_block(block: Any, keys: Sequence[str], *, context: str) -> Dict[str, float]:
+    if not isinstance(block, Mapping):
+        raise VestConfigurationError(f"{context}: must be a mapping")
+    out = {key: _required_number(block, key, context=context) for key in keys}
+    for key, value in out.items():
+        if not np.isfinite(value) or value < 0.0:
+            raise VestConfigurationError(f"{context}: parameter {key!r} must be finite and >= 0")
+    return out
+
+
+PLASMA_TIMING_USABILITY_KEYS = (
+    "min_samples",
+    "min_finite_fraction",
+    "rail_level",
+    "rail_fraction",
+    "max_railed_fraction",
+    "min_baseline_mad",
+    "min_valid_fraction",
+)
+PLASMA_TIMING_AGREEMENT_KEYS = ("onset_tolerance_s", "lag_tolerance_s", "offset_tolerance_s")
+
+
+def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimingPolicy:
+    """Return the configured plasma-timing policy (issue #409).
+
+    ``window`` names one of the ``diagnostics_time_policies`` windows -- the
+    shared plasma-analysis range -- and is resolved without any analysis
+    override, so the stage's ``tstart``/``tend`` arguments never move it.
+    Every rule block is checked against ``active_window``'s signature here,
+    so a misspelled parameter is a configuration error at load time rather
+    than a ``TypeError`` inside a detector.
+    """
+    content = load_yaml(_resolve_info_file_path(info_file))
+    document = content.get(PLASMA_TIMING_KEY)
+    context = PLASMA_TIMING_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {PLASMA_TIMING_KEY!r} section"
+        )
+    window_name = document.get("window")
+    windows = resolve_diagnostics_time_policies(info_file=info_file).windows
+    if not isinstance(window_name, str) or window_name not in windows:
+        raise VestConfigurationError(
+            f"{context}: 'window' must name a configured diagnostics time window; "
+            f"configured windows: {', '.join(sorted(windows))}"
+        )
+    lead = _required_number(document, "reference_lead_s", context=context)
+    if not np.isfinite(lead) or lead < 0.0:
+        raise VestConfigurationError(f"{context}: 'reference_lead_s' must be finite and >= 0")
+    rules = {
+        name: _active_window_rule(document.get(name), context=f"{context}: {name}")
+        for name in _PLASMA_TIMING_RULE_BLOCKS
+    }
+    raw_lines = document.get("lines", {})
+    if raw_lines is None:
+        raw_lines = {}
+    if not isinstance(raw_lines, Mapping):
+        raise VestConfigurationError(f"{context}: 'lines' must be a mapping of label -> rule")
+    lines = {
+        str(label): _active_window_rule(rule, context=f"{context}: lines[{label!r}]")
+        for label, rule in raw_lines.items()
+    }
+    return PlasmaTimingPolicy(
+        window=windows[window_name],
+        reference_lead_s=lead,
+        h_alpha=rules["h_alpha"],
+        lines=lines,
+        ip=rules["ip"],
+        usability=_number_block(
+            document.get("usability"), PLASMA_TIMING_USABILITY_KEYS, context=f"{context}: usability"
+        ),
+        agreement=_number_block(
+            document.get("agreement"), PLASMA_TIMING_AGREEMENT_KEYS, context=f"{context}: agreement"
+        ),
+    )
+
+
 def build_window_time_axis(
     source_time: Any,
     tstart: float,
