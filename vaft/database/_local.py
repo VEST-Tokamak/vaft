@@ -18,6 +18,8 @@ import warnings
 
 import h5py
 
+from ..compat import reopenable_temporary_file
+
 
 _FALLBACK_DD = "3.41.0"
 
@@ -243,11 +245,15 @@ def load_ods(
         ods = ODS(consistency_check=False)
         source_path = descriptor.paths[0]
         if source_path.suffixes[-2:] == [".json", ".gz"]:
-            with tempfile.NamedTemporaryFile(suffix=".json") as plain:
+            # `ODS.load` opens the path itself, which a still-open
+            # NamedTemporaryFile forbids on Windows -- and this is the path
+            # `sample_ods()` takes, so it breaks the packaged sample and every
+            # tutorial that starts from it.
+            with reopenable_temporary_file(suffix=".json") as plain_path:
                 with gzip.open(source_path, "rb") as compressed:
-                    shutil.copyfileobj(compressed, plain)
-                plain.flush()
-                ods.load(plain.name, consistency_check=False)
+                    with plain_path.open("wb") as plain:
+                        shutil.copyfileobj(compressed, plain)
+                ods.load(str(plain_path), consistency_check=False)
         else:
             ods.load(str(source_path), consistency_check=False)
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
