@@ -134,6 +134,16 @@ def render_slice_navigation(
 
     holder = SliceAxes(*slice_axes_for(first, grid[top, 0].subgridspec(first.nrows, first.ncols)))
     shape = (len(first.models), first.spans, first.nrows, first.ncols)
+    # Every redraw puts a new colorbar into the same cell, and Matplotlib 3.11
+    # makes each one wrap the cell's remove hook so that removing the axes
+    # removes the colorbar too.  Redraws would chain every stale colorbar
+    # onto that hook, and a rebuild would then tear down mappables that were
+    # cleared long ago.  The hook is put back after each draw, so a rebuild
+    # removes plain axes.
+    plain_remove = holder.colorbar._remove_method
+
+    def restore_remove_hook() -> None:
+        holder.colorbar._remove_method = plain_remove
 
     markers = []
     for axis, model in zip(history_axes, histories):
@@ -150,7 +160,7 @@ def render_slice_navigation(
     prebuilt = {navigator.selected: first}
 
     def draw_slice(nav: SliceNavigator) -> None:
-        nonlocal shape
+        nonlocal shape, plain_remove
         model = prebuilt.pop(nav.selected, None) or build_slice(nav.selected)
         rebuilt = None
         if (len(model.models), model.spans, model.nrows, model.ncols) != shape:
@@ -169,6 +179,7 @@ def render_slice_navigation(
                 left=box.x0, right=box.x1, bottom=box.y0, top=box.y1,
             )
             holder.axes, holder.colorbar = slice_axes_for(model, rebuilt)
+            plain_remove = holder.colorbar._remove_method
             shape = (len(model.models), model.spans, model.nrows, model.ncols)
         else:
             # A redraw leaves the figure as it found it: the same axes, cleared
@@ -181,6 +192,7 @@ def render_slice_navigation(
             styles[0]["colorbar_ax"] = holder.colorbar
         model = replace(model, member_styles=tuple(styles))
         render_panels(model, ax=holder.axes, show=False)
+        restore_remove_hook()
         if rebuilt is not None:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
