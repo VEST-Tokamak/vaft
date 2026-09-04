@@ -125,6 +125,59 @@ if (ROOT / "_data" / "formula_catalog.yml").file?
   end
 end
 
+if (ROOT / "_data" / "process_catalog.yml").file?
+  process_snapshot = data("process_catalog.yml")
+  %w[schema_version generator source categories functions].each do |field|
+    errors << "process snapshot missing #{field}" unless process_snapshot.key?(field)
+  end
+  process_sources = process_snapshot.fetch("source", [])
+  errors << "process snapshot has no sources" unless process_sources.is_a?(Array) && !process_sources.empty?
+  process_sources.each do |entry|
+    errors << "process snapshot source checksum is invalid: #{entry['path']}" unless entry["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
+  end
+  process_categories = process_snapshot.fetch("categories", [])
+  process_category_names = process_categories.map { |item| item["name"] }
+  process_categories.each do |item|
+    %w[name module count documented conforming].each do |field|
+      errors << "process category #{item['name'] || '(unknown)'} missing #{field}" if item[field].nil?
+    end
+    errors << "process category #{item['name']} claims conforming with #{item['documented']}/#{item['count']}" if item["conforming"] && item["documented"] != item["count"]
+  end
+  functions = process_snapshot.fetch("functions", [])
+  errors << "process snapshot has no functions" unless functions.is_a?(Array) && !functions.empty?
+  function_ids = functions.map { |item| item["id"] }
+  errors << "process snapshot has duplicate IDs" unless function_ids.uniq.length == function_ids.length
+  functions.each do |item|
+    # machine_scope is legitimately nil until a category is brought under the contract.
+    %w[id name category signature summary parameters returns sections provenance convention_sensitive conforming errors].each do |field|
+      errors << "process function #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
+    end
+    errors << "process function #{item['id']} has unknown category #{item['category']}" unless process_category_names.include?(item["category"])
+    errors << "process function #{item['id']} has unknown machine_scope #{item['machine_scope']}" unless [nil, "independent", "vest"].include?(item["machine_scope"])
+    errors << "process function #{item['id']} is conforming but lists errors" if item["conforming"] && !item["errors"].empty?
+  end
+  # Every conforming category must have its reference page, and no pending one may.
+  process_categories.each do |item|
+    page = ROOT / "_guide" / "Process_reference_#{item['name']}.md"
+    if item["conforming"]
+      errors << "conforming process category #{item['name']} has no reference page" unless page.file?
+    elsif page.file?
+      errors << "pending process category #{item['name']} has a reference page it cannot fill"
+    end
+  end
+  if registry_source && !registry_source.empty?
+    process_sources.each do |entry|
+      source_path = Pathname(registry_source) / entry.fetch("path")
+      if source_path.file?
+        actual = Digest::SHA256.file(source_path).hexdigest
+        errors << "process snapshot does not match VAFT_REGISTRY_SOURCE: #{entry['path']}" unless actual == entry["sha256"]
+      else
+        errors << "VAFT_REGISTRY_SOURCE has no #{entry['path']}"
+      end
+    end
+  end
+end
+
 migrations = data("page_migrations.yml")
 legacy_urls = migrations.map { |item| item.fetch("legacy_url") }
 errors << "duplicate legacy URL in page_migrations.yml" unless legacy_urls.uniq.length == legacy_urls.length
