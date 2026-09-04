@@ -15,6 +15,7 @@ from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
 __all__ = [
+    "passive_structure_field_wall_reduction",
     "electron_density_field",
     "electron_temperature_field",
     "equilibrium_field_psi",
@@ -125,6 +126,26 @@ def equilibrium_field_psi_vacuum(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Vacuum poloidal flux from the PF coils alone, without plasma."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="machine", quantity="wall_reduction",
+    subject="passive_structure",
+    description="The passive wall's poloidal flux on the equilibrium region -- "
+                "full, reduced, or their difference -- at one instant of the "
+                "shot's PF programme (vaft #494, vfit #10).",
+    ids=("pf_active", "pf_passive", "em_coupling", "wall"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_active.coil.{i}.current.data",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_field_wall_reduction(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Full, reduced or difference wall flux map on the equilibrium region."""
     return render_field_2d(model, ax=ax, show=show, **style)
 
 

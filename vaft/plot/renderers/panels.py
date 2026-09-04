@@ -28,6 +28,7 @@ from ..registry import renderer
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "passive_structure_overview_wall_reduction",
     "passive_structure_overview_wall_time",
     "chease_overview_profile_validity",
     "chease_overview_refinement_summary",
@@ -296,6 +297,30 @@ def passive_structure_overview_wall_time(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Wall-mode decay times per segment."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="machine",
+    subject="passive_structure",
+    view="overview",
+    quantity="wall_reduction",
+    description=(
+        "Reduced-wall response error against retained order, one panel per "
+        "metric and one series per selection rule: how much of the wall's own "
+        "contribution a truncated basis misses (vaft #494, vfit #10)."
+    ),
+    ids=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_active.coil.{i}.current.data",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_overview_wall_reduction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Reduced-wall convergence per metric and selection rule."""
     return render_panels(model, ax=ax, show=show, **style)
 
 
