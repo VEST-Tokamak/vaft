@@ -19,7 +19,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from ...compat import is_executable
 from . import _runtime as rt
 from ._coil_input import (
     CoilInputSpec,
@@ -221,7 +220,7 @@ def _run_module(
         if policy == "strict":
             raise FileNotFoundError(rt.unconfigured_reason())
         return GPECModuleRun(module, mode, run_dir, status="skipped", reason=rt.unconfigured_reason())
-    if not is_executable(executable):
+    if not executable.is_file() or not os.access(executable, os.X_OK):
         reason = f"missing or non-executable {program}: {executable}"
         if policy == "strict":
             raise FileNotFoundError(reason)
@@ -269,7 +268,7 @@ def _run_module(
         if returncode == 0:
             for companion in solver.companion_executables():
                 companion_exec = rt.optional_executable(config, companion)
-                if companion_exec is not None and is_executable(companion_exec):
+                if companion_exec is not None and companion_exec.is_file() and os.access(companion_exec, os.X_OK):
                     companion_rc, companion_log = rt.run_subprocess(
                         companion_exec, run_dir, run_dir / f"{companion}.log", config=config
                     )

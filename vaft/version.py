@@ -26,10 +26,15 @@ __version__ = "0.6.2"
 #   so doubled every separator in a Windows path GPEC then failed to resolve
 # - pipeline rule paths are serialized in Snakemake's slash grammar rather
 #   than the host's native separator
-# - `os.access(X_OK)` is meaningless on Windows, so external-code guards could
-#   not reject a non-executable; replaced by a real probe
+# - repository files are read and written as UTF-8 rather than at the locale's
+#   encoding, which raised UnicodeDecodeError on a cp949 host
 # - content-addressed fixtures are pinned to LF: a CRLF checkout changed their
 #   sha256 and failed their own offline verification
+# - known limitation: `os.access(X_OK)` is meaningless on Windows, so an
+#   external-code executable that cannot actually be launched is reported as
+#   an opaque WinError 193 rather than a named error. Left alone here because
+#   a real probe costs the platform-independent resolution-precedence tests
+#   their Windows coverage; to be fixed with issue #226.
 # - Package CI gains a windows-latest leg so none of this regresses silently
 # 0.6.1
 # - regenerate the packaged wheel sample so the bundled 39915 reference

@@ -15,7 +15,6 @@ import numpy as np
 
 from vaft.formula.statistics import rms
 
-from ..compat import is_executable
 from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
@@ -671,7 +670,7 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
     candidates = []
     if config.executable:
         candidate = Path(config.executable).expanduser()
-        return candidate if is_executable(candidate) else None
+        return candidate if candidate.exists() and os.access(candidate, os.X_OK) else None
     environment = {**os.environ, **dict(config.env)}
     home_executable = executable_from_home(
         environment.get(CHEASE_HOME_ENV),
@@ -690,7 +689,7 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
         env_candidate = Path(env_path).expanduser()
         candidates.append(env_candidate / "chease" if env_candidate.is_dir() else env_candidate)
     for candidate in candidates:
-        if is_executable(candidate):
+        if candidate.exists() and os.access(candidate, os.X_OK):
             return candidate
     return None
 

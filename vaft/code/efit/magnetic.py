@@ -18,7 +18,6 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
-from ...compat import is_executable
 from .._executables import executable_from_home, missing_home_message
 from .status import (
     EFITSliceStatus,
@@ -350,7 +349,7 @@ def _efit_unconfigured_reason() -> str:
 def find_efit_executable(config: EFITConfig | None = None) -> Path | None:
     """Return EFIT resolved from explicit config, ``$EFITHOME``, or ``$EFIT``."""
     exe = _resolve_efit_executable(config or EFITConfig())
-    if exe is not None and is_executable(exe):
+    if exe is not None and exe.exists() and os.access(exe, os.X_OK):
         return exe
     return None
 
@@ -429,7 +428,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
             config,
             reason=_efit_unconfigured_reason(),
         )
-    if not is_executable(executable):
+    if not (executable.exists() and os.access(executable, os.X_OK)):
         reason = f"missing executable: {executable}"
         return _skipped_efit_result(
             inputs,
