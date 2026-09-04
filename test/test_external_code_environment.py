@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -11,6 +10,8 @@ import pytest
 from vaft.code import chease, efit, gpec
 from vaft.code.tes import runner as tes_runner
 from vaft.code.tes.config import TESConfig
+
+from external_code_stubs import write_launchable_stub, write_unlaunchable_file
 
 
 _EXTERNAL_ENVIRONMENT = (
@@ -37,11 +38,7 @@ def clear_external_code_environment(monkeypatch):
 
 
 def _executable(root: Path, relative_path: str) -> Path:
-    path = root / relative_path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("#!/bin/sh\n", encoding="utf-8")
-    path.chmod(0o755)
-    return path
+    return write_launchable_stub(root / relative_path)
 
 
 def test_canonical_home_layouts_resolve_expected_executables(monkeypatch, tmp_path):
@@ -106,12 +103,11 @@ def test_each_adapter_reports_missing_home_executable(
     assert "Compile or install" in message
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows does not expose POSIX execute bits")
 def test_non_executable_home_binary_has_actionable_error(monkeypatch, tmp_path):
-    binary = tmp_path / "chease/bin/chease"
-    binary.parent.mkdir(parents=True)
-    binary.write_text("not executable", encoding="utf-8")
-    binary.chmod(0o644)
+    # Runs on Windows too. The file has no launchable suffix and no PE
+    # header, which is what `is_executable` reads there -- so the platform
+    # that used to be exempt from this assertion is now covered by it.
+    binary = write_unlaunchable_file(tmp_path / "chease/bin/chease")
     monkeypatch.setenv("CHEASEHOME", str(tmp_path / "chease"))
 
     with pytest.raises(PermissionError) as error:

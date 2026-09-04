@@ -14,11 +14,11 @@ module wires the two together into the suite-level ``prepare``/``run`` API.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
 
+from ...compat import is_executable
 from . import _runtime as rt
 from ._coil_input import (
     CoilInputSpec,
@@ -220,7 +220,7 @@ def _run_module(
         if policy == "strict":
             raise FileNotFoundError(rt.unconfigured_reason())
         return GPECModuleRun(module, mode, run_dir, status="skipped", reason=rt.unconfigured_reason())
-    if not executable.is_file() or not os.access(executable, os.X_OK):
+    if not is_executable(executable):
         reason = f"missing or non-executable {program}: {executable}"
         if policy == "strict":
             raise FileNotFoundError(reason)
@@ -268,7 +268,7 @@ def _run_module(
         if returncode == 0:
             for companion in solver.companion_executables():
                 companion_exec = rt.optional_executable(config, companion)
-                if companion_exec is not None and companion_exec.is_file() and os.access(companion_exec, os.X_OK):
+                if companion_exec is not None and is_executable(companion_exec):
                     companion_rc, companion_log = rt.run_subprocess(
                         companion_exec, run_dir, run_dir / f"{companion}.log", config=config
                     )
@@ -345,6 +345,25 @@ def _run_module(
             returncode=None,
             status="failed",
             reason=f"timeout after {exc.timeout} seconds",
+            logs=tuple(logs),
+            outputs=outputs,
+            commands=tuple(commands),
+        )
+    except rt.ExecutableNotLaunchable as error:
+        # The file resolved and passed the executability probe, and the
+        # operating system still refused to start it. In strict mode that is a
+        # configuration error like any other; otherwise it is one module's
+        # failure, named, rather than an opaque traceback out of the suite.
+        if policy == "strict":
+            raise
+        outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
+        return GPECModuleRun(
+            module=module,
+            mode=mode,
+            workdir=run_dir,
+            returncode=None,
+            status="failed",
+            reason=str(error),
             logs=tuple(logs),
             outputs=outputs,
             commands=tuple(commands),

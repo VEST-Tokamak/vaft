@@ -6,23 +6,13 @@ installation and must say so clearly instead of silently pointing at a path that
 only exists on the author's laptop.
 """
 
-import os
 from pathlib import Path
 
 import pytest
 
 from vaft.code import gpec
 
-# These cases fabricate a solver by writing a `#!/bin/sh` script and marking it
-# executable, then assert that VAFT ran it. Windows CreateProcess cannot launch
-# a shebang script at all (WinError 193), and native-Windows external codes are
-# documented as experimental in install/README.md, so the gap being skipped here
-# is the fixture's, not VAFT's. Everything that does not actually execute a
-# solver still runs on Windows.
-runs_a_stub_solver = pytest.mark.skipif(
-    os.name == "nt",
-    reason="stub solvers are POSIX shell scripts; CreateProcess cannot run them",
-)
+from external_code_stubs import write_launchable_stub
 
 
 GFILE_TEXT = "  EFITD   01/01/2024   #  39915  325ms        3  65  65\n 1.0 2.0 3.0\n"
@@ -46,10 +36,7 @@ def case(tmp_path):
 
 
 def test_gpec_home_falls_back_to_environment(monkeypatch, tmp_path):
-    executable = tmp_path / "gpec/bin/dcon"
-    executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
     config = gpec.GPECSuiteConfig()
 
@@ -124,16 +111,12 @@ def test_run_without_installation_raises_in_strict_mode(no_gpec_env, case):
         )
 
 
-@runs_a_stub_solver
 def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
     monkeypatch,
     tmp_path,
     case,
 ):
-    dcon = tmp_path / "gpec/bin/dcon"
-    dcon.parent.mkdir(parents=True)
-    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    dcon.chmod(0o755)
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -148,10 +131,7 @@ def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
 
 
 def test_run_reuses_a_completed_solver_cell_without_rerunning(monkeypatch, tmp_path, case):
-    dcon = tmp_path / "gpec/bin/dcon"
-    dcon.parent.mkdir(parents=True)
-    dcon.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
-    dcon.chmod(0o755)
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon", exit_code=99)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     run_dir = case.workdir / "00325" / "dcon" / "nn=1"
@@ -216,15 +196,11 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
 
 
-@runs_a_stub_solver
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):
     rdcon = tmp_path / "gpec/bin/rdcon"
     rmatch = tmp_path / "gpec/bin/rmatch"
-    rdcon.parent.mkdir(parents=True)
-    rdcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    rdcon.chmod(0o755)
-    rmatch.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    rmatch.chmod(0o755)
+    rdcon = write_launchable_stub(rdcon)
+    rmatch = write_launchable_stub(rmatch)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -237,15 +213,11 @@ def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tm
     assert record.commands == (str(rdcon), str(rmatch))
 
 
-@runs_a_stub_solver
 def test_run_if_available_fails_when_rmatch_exits_nonzero(monkeypatch, tmp_path, case):
     rdcon = tmp_path / "gpec/bin/rdcon"
     rmatch = tmp_path / "gpec/bin/rmatch"
-    rdcon.parent.mkdir(parents=True)
-    rdcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    rdcon.chmod(0o755)
-    rmatch.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-    rmatch.chmod(0o755)
+    rdcon = write_launchable_stub(rdcon)
+    rmatch = write_launchable_stub(rmatch, exit_code=1)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -269,13 +241,9 @@ def test_run_if_available_skips_stride_cleanly_when_missing(no_gpec_env, case):
     assert record.status == "skipped"
 
 
-@runs_a_stub_solver
 def test_verify_outputs_fails_a_completed_run_missing_the_expected_variable(monkeypatch, tmp_path, case):
     """``verify_outputs`` catches a solver that exits 0 without writing real physics content."""
-    dcon = tmp_path / "gpec/bin/dcon"
-    dcon.parent.mkdir(parents=True)
-    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    dcon.chmod(0o755)
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -332,10 +300,7 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     """
     import subprocess
 
-    executable = tmp_path / "gpec/bin/gpec"
-    executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "gpec/bin/gpec")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     # verify_outputs stays at its shipped default (False): a timed-out run
@@ -463,3 +428,46 @@ def test_a_truncated_profile_or_cylindrical_output_fails_the_check(tmp_path):
         ok, reason = solver.check_success(tmp_path, 1)
         assert not ok, f"a truncated {truncated} passed the check"
         assert truncated in reason
+
+
+def test_a_solver_the_system_refuses_to_start_is_a_failed_module(monkeypatch, tmp_path, case):
+    """A POSIX build in a Windows installation must not abort the whole suite.
+
+    The file resolves and passes the executability probe, and the operating
+    system still refuses it -- WinError 193 on Windows, ENOEXEC on POSIX. That
+    is one module's failure, named, not a traceback out of `run_gpec_suite_case`.
+    """
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(gpec._runtime.subprocess, "run", refuse)
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert str(dcon) in record.reason
+    assert "Exec format error" in record.reason
+
+
+def test_strict_mode_still_raises_when_a_solver_cannot_be_started(monkeypatch, tmp_path, case):
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(gpec._runtime.subprocess, "run", refuse)
+
+    with pytest.raises(gpec._runtime.ExecutableNotLaunchable):
+        gpec.run_gpec_suite_case(
+            case,
+            gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="strict"),
+        )

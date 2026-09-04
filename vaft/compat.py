@@ -30,6 +30,10 @@ __all__ = [
     "apply_runtime_compat_patches",
     "ensure_home_environment",
     "user_home",
+    "executable_suffixes",
+    "executable_candidates",
+    "resolve_executable",
+    "is_executable",
     "reopenable_temporary_file",
     "remove_directory",
     "temporary_directory",
@@ -99,6 +103,84 @@ def ensure_home_environment() -> str | None:
     home = str(user_home())
     os.environ["HOME"] = home
     return home
+
+
+#: Filename suffixes Windows will start directly, most preferred first.
+#:
+#: Deliberately *not* ``PATHEXT``. The stock value on a Windows host also lists
+#: ``.VBS``, ``.JS``, ``.WSH`` and ``.MSC``; resolving ``$GPECHOME/bin/dcon.vbs``
+#: as a stability solver is both nonsense and an attack surface. ``PATHEXT`` is
+#: also process-mutable, which would make external-code resolution depend on the
+#: caller's environment rather than on what is installed.
+_WINDOWS_EXECUTABLE_SUFFIXES = (".exe", ".bat", ".cmd")
+
+
+def executable_suffixes() -> tuple[str, ...]:
+    """Return the suffixes this platform appends when launching a program.
+
+    Empty on POSIX, where a program is whatever the execute bit says it is.
+
+    ``IS_WINDOWS`` is read here rather than captured at import time so that the
+    Windows resolution path can be exercised from a POSIX test run, which is the
+    only way the CI Linux leg can cover it at all.
+    """
+    return _WINDOWS_EXECUTABLE_SUFFIXES if IS_WINDOWS else ()
+
+
+def executable_candidates(path: str | Path) -> tuple[Path, ...]:
+    """Return the filenames that could satisfy a request for ``path``.
+
+    VAFT records external-code executables by their POSIX names -- ``bin/dcon``,
+    ``bin/chease`` -- because that is what the upstream projects, the notebooks
+    and the workflow configuration all say. A native Windows build of the same
+    code is ``bin\\dcon.exe``, so the documented name has to resolve to it.
+
+    The bare name comes *last*: a tree holding both ``dcon`` and ``dcon.exe`` is
+    a cross-build, and the native executable is the one Windows can start.
+
+    Suffixes are appended with ``with_name``, never ``with_suffix``. An operator
+    who pins ``CHEASEConfig(executable="chease-3.1")`` means that file;
+    ``with_suffix`` would silently rewrite it to ``chease.exe``.
+    """
+    base = Path(path)
+    suffixes = executable_suffixes()
+    if not suffixes or base.suffix.lower() in suffixes:
+        return (base,)
+    return (*(base.with_name(base.name + suffix) for suffix in suffixes), base)
+
+
+def resolve_executable(path: str | Path) -> Path | None:
+    """Return the file that satisfies ``path`` on this platform, or ``None``."""
+    for candidate in executable_candidates(path):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def is_executable(path: str | Path) -> bool:
+    """Report whether this platform can start ``path`` as a program.
+
+    On POSIX this is the execute bit, unchanged.
+
+    On Windows ``os.access(path, os.X_OK)`` answers a question nobody asked: it
+    is true for *every* readable file, so a POSIX build dropped into a Windows
+    installation passes every check VAFT makes and then fails inside
+    ``CreateProcess`` as an opaque ``WinError 193``. Windows decides what is
+    executable by the filename suffix, with the PE ``MZ`` header as the fallback
+    for a file whose suffix says nothing.
+    """
+    candidate = Path(path)
+    if not candidate.is_file():
+        return False
+    if not IS_WINDOWS:
+        return os.access(candidate, os.X_OK)
+    if candidate.suffix.lower() in executable_suffixes():
+        return True
+    try:
+        with candidate.open("rb") as handle:
+            return handle.read(2) == b"MZ"
+    except OSError:
+        return False
 
 
 @contextmanager
