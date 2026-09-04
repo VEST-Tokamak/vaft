@@ -103,7 +103,7 @@ partial: refined_gfiles=8; failed=2
 | `select_impa_shots` (checkpoint) | `select_impa_shots.py` | `vaft.machine_mapping.impa.impa_expected_fields` |
 | `generate_impa_ods` | `generate_impa_ods.py` | `vaft.omas.vest_upstream.build_impa_ods` → `vaft.machine_mapping.impa.impa` |
 | `generate_eddy_ods` | `generate_eddy_ods.py` | `vaft.machine_mapping.pf_passive`, `em_coupling`, `vaft.omas.process_wrapper.compute_eddy_currents` |
-| `generate_constraints_ods` | `generate_constraints_ods.py` | `vaft.code.efit.correct_flux_loop`, `vaft.code.efit.generate_constraints_ods` |
+| `generate_constraints_ods` | `generate_constraints_ods.py` | `vaft.omas.plasma_timing.plasma_timing`, `vaft.code.efit.correct_flux_loop`, `vaft.code.efit.generate_constraints_ods` |
 | `generate_kfile` | `generate_kfile.py` | `vaft.code.efit.generate_kfile` |
 | `run_efit_reconstruction` | `run_efit_reconstruction.py` | `vaft.code.efit.run_efit` with `EFITInputs` / `EFITConfig` |
 | `generate_efit_ods` | `generate_efit_ods.py` | `vaft.code.efit.collect_efit_outputs` |
@@ -174,14 +174,20 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   developer's home directory, while `base_dir` points at the Linux data server. Repoint them before running.
 * **Dead keys.** `cores`, `raw.offline_only` and `gpec.coil.source` appear in `config.yaml` but are never read
   by the `Snakefile`.
-* **`constraints.detect_broken` is accepted and then ignored** — the script logs a warning and uses only the
-  explicit `constraints.broken` list of 1-based channel indices.
+* **`constraints.detect_broken: true` excludes the channels the diagnostics stage condemned** (their
+  projected validity), on top of the explicit `constraints.broken` list of 1-based channel indices; a
+  product that carries no assessment falls back to the 12-MAD amplitude detector.
 
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
-obvious. The base window is $[\max(0.28,\ t_0),\ \min(0.38,\ t_{-1})]$ seconds; within it the script keeps
-only samples where $I_p > 20\ \mathrm{kA}$, falling back to the full window and then to all times if that
-selection is empty. Start and end are snapped to the `tstep` grid. With `timeset: manual` you get exactly
-`np.arange(tstart, tend, tstep)` and both bounds become mandatory.
+obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
+in `vest.yaml`, 0.28–0.36 s — and intersects it with the plasma window `vaft.omas.plasma_timing` detects on
+the product: the slow H-alpha line found by label, else the validated fast line, else the plasma-current
+principal pulse (see [Plasma timing policy]({{ site.baseurl }}/guide/Machine_mapping/#plasma-timing-policy)).
+When no source shows a plasma the whole range is used and the run is flagged `analysis_range_fallback`,
+with the reason, in the stage log and in `equilibrium.ids_properties.comment`, which always names the
+window and its source. Start and end are clamped to `tstart`/`tend` when given and snapped to the `tstep`
+grid, and the end instant is included. With `timeset: manual` you get exactly `np.arange(tstart, tend, tstep)`
+and both bounds become mandatory.
 
 ### Failure semantics — a green run does not mean everything ran
 
