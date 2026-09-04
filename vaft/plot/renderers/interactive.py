@@ -160,7 +160,9 @@ def render_slice_navigation(
             from matplotlib.gridspec import GridSpec
 
             box = grid[top, 0].get_position(figure)
-            for axis in (*holder.axes.ravel(), holder.colorbar):
+            # The colorbar goes first: tearing it down consults the axes its
+            # mappable was drawn on, which must still exist (Matplotlib 3.11).
+            for axis in (holder.colorbar, *holder.axes.ravel()):
                 axis.remove()
             rebuilt = GridSpec(
                 model.nrows, model.ncols, figure=figure,
