@@ -931,6 +931,10 @@ def _impa_realized_grid(ods: ODS) -> np.ndarray | None:
     product's coordinate and manifest must describe.
     """
     for node in ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe"):
+        # Guarded: asking `impa_probe_indices` about an absent node would
+        # materialize it, and this ODS is the product that gets written.
+        if not path_exists(ods, node):
+            continue
         for index in impa_probe_indices(ods, node):
             path = f"{node}.{index}.field.time"
             if path_exists(ods, path):
@@ -1069,6 +1073,12 @@ def build_impa_ods(
         ods["magnetics.time"] = grid
         ods["magnetics.ids_properties.homogeneous_time"] = 1
         manifest["time_grid"] = {"impa": _realized_window(grid)}
+    else:
+        # No channel produced a waveform, so the product carries geometry and
+        # validity only. Per the DD's homogeneous_time rule an IDS with no
+        # `.time` node is 2, not unset -- the same statement `build_static_ods`
+        # makes for the static product.
+        ods["magnetics.ids_properties.homogeneous_time"] = 2
 
     calibration_status = status.get("status")
     manifest["calibration"] = {

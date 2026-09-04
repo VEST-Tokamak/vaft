@@ -17,6 +17,7 @@ from __future__ import annotations
 import copy
 from typing import Any, Iterable, Mapping, Sequence
 
+from ..machine_mapping.utils import path_exists
 from . import sources as _sources
 
 
@@ -68,7 +69,6 @@ def compose(
             f"it; got {names}."
         )
 
-    read: dict[str, Any] = {}
     base_name = names[0]
     base = load_source(
         shot, source=base_name, paths=list(paths) if paths else None, occurrence=occurrence
@@ -85,9 +85,10 @@ def compose(
         extra = load_source(
             shot, source=name, paths=list(paths) if paths else None, occurrence=occurrence
         )
-        read[name] = extra
         contributed = 0
         for node in _PROBE_NODES:
+            if not path_exists(extra, node):
+                continue
             for source_index in impa_channels(extra, node):
                 index = _probe_count(base, node)
                 base[f"{node}.{index}"] = copy.deepcopy(extra[f"{node}.{source_index}"])

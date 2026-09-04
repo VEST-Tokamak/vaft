@@ -20,6 +20,7 @@ from pathlib import Path
 import tempfile
 from typing import Any, Iterable
 
+from ..machine_mapping.utils import path_exists
 from . import sources as _sources
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,11 @@ def inspect_impa_residue(ods: Any) -> ImpaResidue:
     nodes: dict[str, list[int]] = {}
     refusals: list[str] = []
     for node in _PROBE_NODES:
+        # Guarded: asking about an absent node would materialize it, and with
+        # ``apply`` this ODS is written straight back to the source -- a repair
+        # must not add an empty probe array to a published shot.
+        if not path_exists(ods, node):
+            continue
         indices = impa_probe_indices(ods, node)
         if not indices:
             continue

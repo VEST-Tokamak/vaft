@@ -83,6 +83,37 @@ def test_every_packaged_shot_yields_a_verdict_rather_than_an_exception(shot):
     assert manifest["status"] in {"success", "partial", "rejected", "unavailable"}
 
 
+def test_a_product_with_no_waveform_still_declares_its_time_mode(rejected_product):
+    """The DD rule: an IDS with no `.time` node is homogeneous_time 2, not unset.
+
+    Left unset, a publishable `partial` product would reach IMAS with no time
+    mode to honour.
+    """
+    ods, _ = rejected_product
+    assert "time" not in ods["magnetics"]
+    assert ods["magnetics.ids_properties.homogeneous_time"] == 2
+
+
+def test_asking_where_the_axis_is_does_not_invent_a_probe_array(monkeypatch):
+    """Probing an absent node in OMAS materializes it, and this ODS is written."""
+    import numpy as np
+
+    monkeypatch.setattr(
+        vest_upstream, "_archived_field_codes", lambda path: set(range(114, 122))
+    )
+
+    def hall_only(ods, shot, tstart, tend, dt, **kwargs):
+        # No `field.time` anywhere, so the search falls through to the
+        # vertical-field node -- which this era does not wire.
+        ods["magnetics.b_field_tor_probe.0.identifier"] = "impa:IMPA 01"
+        return {"status": "invalid", "checks": {}, "reasons": [], "provenance": {}}
+
+    monkeypatch.setattr(vest_upstream, "impa_mapper", hall_only)
+    ods, _ = build_impa_ods(shot=39915, raw_source=_raw(39915))
+
+    assert "b_field_pol_probe" not in ods["magnetics"]
+
+
 def test_the_product_records_the_machine_description_it_was_built_from(rejected_product):
     """No static product travels beside a sparse source, so it says so itself."""
     _, manifest = rejected_product

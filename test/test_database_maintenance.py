@@ -44,6 +44,24 @@ def test_an_interleaved_block_is_refused_with_the_reason():
     assert "would move a surviving index" in residue["refusals"][0]
 
 
+def test_inspecting_a_shot_does_not_invent_the_probe_array_it_lacks():
+    """Probing an absent node materializes it, and `--apply` saves this ODS.
+
+    A pre-split `main` shot with only poloidal probes would otherwise gain an
+    empty `b_field_tor_probe` from being repaired.
+    """
+    ods = _published()
+    del ods["magnetics.b_field_tor_probe"]
+
+    residue = inspect_impa_residue(ods)
+    assert "b_field_tor_probe" not in ods["magnetics"]
+
+    from vaft.database.maintenance import _strip
+
+    _strip(ods, residue)
+    assert sorted(ods["magnetics"].keys()) == ["b_field_pol_probe"]
+
+
 def test_a_clean_product_reports_nothing_to_do():
     ods = ODS(consistency_check=False)
     ods["magnetics.b_field_pol_probe.0.identifier"] = "MD_A"
