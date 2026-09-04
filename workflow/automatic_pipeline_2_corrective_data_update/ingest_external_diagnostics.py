@@ -147,8 +147,22 @@ def load_registry(path: Path) -> dict[str, Any]:
 
 
 def save_registry(path: Path, registry: dict[str, Any]) -> None:
+    """Merge this run's records into whatever is on disk, then replace it.
+
+    Two runs over different trees are a normal thing to want -- soft X-ray
+    ingest takes hours, and there is no reason to wait for it before starting
+    the camera. Rewriting a registry held in memory since startup would make
+    the second run erase the first one's records, so the file is re-read and
+    merged immediately before every write. The window between that read and
+    the rename is small but not zero; two runs over the *same* tree would
+    still race, and there is no reason to do that.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(registry, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    merged = load_registry(path)
+    merged.update(registry)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 def ingest(
@@ -170,11 +184,13 @@ def ingest(
     """
     from vaft.omas.vest_upstream import write_stage_product
 
-    registry_path = root / "ods" / REGISTRY_NAME
-    registry = load_registry(registry_path)
     summary: dict[str, Any] = {"succeeded": 0, "failed": 0, "skipped": 0, "failures": []}
 
     for tree in trees:
+        # One registry per tree, so a camera run and a soft X-ray run touch
+        # different files rather than the same one.
+        registry_path = root / "ods" / tree / REGISTRY_NAME
+        registry = load_registry(registry_path)
         available = discover_shots(root, tree)
         if shots is not None:
             wanted = set(shots)
