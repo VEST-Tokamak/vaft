@@ -51,6 +51,7 @@ __all__ = [
     "magnetics_overview",
     "magnetics_overview_plasma_residual",
     "magnetics_overview_vacuum",
+    "mhd_linear_overview_eigenfunction",
     "render_panels",
     "soft_x_rays_overview",
     "spectrometer_uv_time_impurity",
@@ -673,6 +674,20 @@ def equilibrium_overview_profiles(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Pressure, current density and safety factor in one figure."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="mhd_linear", subject="mhd_linear", view="overview", quantity="eigenfunction",
+    description="The DCON eigenfunction of the least-stable mapped mode: displacement "
+                "and normal perturbed field per poloidal harmonic.",
+    ids=("mhd_linear",),
+    required_paths=("mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",),
+)
+def mhd_linear_overview_eigenfunction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Displacement and normal perturbed field of the least-stable mode."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

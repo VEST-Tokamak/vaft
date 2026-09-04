@@ -1033,6 +1033,69 @@ def plot_mhd_linear_time_energy_perturbed(
     )
 
 
+def plot_mhd_linear_profile_displacement(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: DCON displacement eigenfunction per poloidal harmonic.
+
+    One trace per poloidal mode number against normalized flux, for the
+    least-stable mapped ``(time_slice, n_tor)`` cell unless ``time_slice`` or
+    ``n_tor`` names one.  Amplitudes are normalized to the peak: DCON's
+    eigenvector normalization is arbitrary, so only the shape and the relative
+    harmonic content are meaningful.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_displacement`.
+    """
+    return render(
+        "mhd_linear_profile_displacement", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_profile_b_field_perturbed(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: normal perturbed field per poloidal harmonic.
+
+    The field DCON derives from its own eigenfunction as ``i(m - nq) xi``, so it
+    vanishes on each resonant surface and carries the same arbitrary
+    normalization as the displacement.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_b_field_perturbed`.
+    """
+    return render(
+        "mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_overview_eigenfunction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: the least-stable mode's eigenfunction in one figure.
+
+    Displacement beside normal perturbed field, sharing a flux axis.
+
+    Renders with :func:`vaft.plot.mhd_linear_overview_eigenfunction`.
+    """
+    return render(
+        "mhd_linear_overview_eigenfunction", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_overview_verification(
     source: Any,
     *,
@@ -2581,6 +2644,9 @@ __all__ = [
     "plot_impa_overview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
+    "plot_mhd_linear_overview_eigenfunction",
+    "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_displacement",
     "plot_mhd_linear_time_energy_perturbed",
     "plot_impa_profile_field",
     "plot_impa_time_field",
