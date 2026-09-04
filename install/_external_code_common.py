@@ -22,7 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 
 INSTALL_DIR = Path(__file__).resolve().parent
@@ -420,33 +420,8 @@ def check_executables_load(
 
 
 # ---------------------------------------------------------------------------
-# Layer: numerical agreement
+# Reporting helpers
 # ---------------------------------------------------------------------------
-
-
-def compare_scalars(
-    actual: Mapping[str, float],
-    expected: Mapping[str, float],
-    tolerances: Mapping[str, float],
-    *,
-    default_tolerance: float = 1e-6,
-) -> list[str]:
-    """Return one message per quantity that falls outside its tolerance."""
-    problems: list[str] = []
-    for key, reference in expected.items():
-        if key not in actual:
-            problems.append(f"{key} was not produced")
-            continue
-        tolerance = float(tolerances.get(key, default_tolerance))
-        value = float(actual[key])
-        scale = max(abs(float(reference)), 1e-30)
-        deviation = abs(value - float(reference)) / scale
-        if deviation > tolerance:
-            problems.append(
-                f"{key}={value:.6g} differs from {float(reference):.6g} "
-                f"by {deviation:.3g}, tolerance {tolerance:.3g}"
-            )
-    return problems
 
 
 def first_error_line(text: str, *, limit: int = 200) -> str:

@@ -31,7 +31,6 @@ from _external_code_common import (  # noqa: E402
     check_source_checkout,
     check_source_revision,
     check_toolchain,
-    compare_scalars,
     default_prefix,
     emit,
     first_error_line,
