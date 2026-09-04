@@ -202,6 +202,7 @@ from .renderers.fields import (
     electron_temperature_field,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
+    passive_structure_field_wall_reduction,
 )
 from .renderers.geometry import (
     charge_exchange_geometry_poloidal,
@@ -294,6 +295,7 @@ from .renderers.panels import (
     summary_time_power_balance,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
+    passive_structure_overview_wall_reduction,
 )
 from .renderers.profiles import (
     charge_exchange_profile_ion_temperature,

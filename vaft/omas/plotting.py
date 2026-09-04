@@ -1989,6 +1989,44 @@ def plot_passive_structure_geometry_wall_mode(
     )
 
 
+def plot_passive_structure_overview_wall_reduction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Reduced-wall response error against retained order (vaft #494).
+
+    Options: ``rows`` (precomputed convergence rows), ``drive``, ``rules``,
+    ``orders``, ``metrics``, ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_overview_wall_reduction`.
+    """
+    return render(
+        "passive_structure_overview_wall_reduction", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_field_wall_reduction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Full, reduced or difference wall flux map on the equilibrium region.
+
+    Options: ``which`` (``full``/``reduced``/``difference``), ``selection`` or
+    ``rule``+``M``, ``time``, ``grid_shape``, ``remap_em_coupling``.  Renders
+    with :func:`vaft.plot.passive_structure_field_wall_reduction`.
+    """
+    return render(
+        "passive_structure_field_wall_reduction", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_passive_structure_overview_wall_time(
     source: Any,
     *,
@@ -2561,7 +2599,9 @@ __all__ = [
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",
     "plot_passive_structure_geometry_poloidal",
+    "plot_passive_structure_field_wall_reduction",
     "plot_passive_structure_geometry_wall_mode",
+    "plot_passive_structure_overview_wall_reduction",
     "plot_passive_structure_overview_wall_time",
     "plot_soft_x_rays_geometry_lines_of_sight",
     "plot_soft_x_rays_overview",

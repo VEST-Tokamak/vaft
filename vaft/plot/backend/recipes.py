@@ -1920,6 +1920,149 @@ def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
     return Panels(models=(panel,), ncols=1, suptitle="")
 
 
+def _wall_reduction_rows(ods: Any, options: Mapping[str, Any]) -> list:
+    """The convergence rows to draw: the caller's, or a fresh study on this ODS."""
+    rows = options.get("rows")
+    if rows is not None:
+        return list(rows)
+    from vaft.validation.wall_reduction import (
+        DEFAULT_ORDERS,
+        DEFAULT_RULES,
+        observation_set,
+        order_convergence,
+        wall_system,
+    )
+
+    system = wall_system(ods, remap_em_coupling=bool(options.get("remap_em_coupling", False)))
+    observation = observation_set(ods, n_coils=system["n_coils"])
+    return order_convergence(
+        system,
+        observation=observation,
+        rules=tuple(options.get("rules", DEFAULT_RULES)),
+        orders=tuple(options.get("orders", DEFAULT_ORDERS)),
+        drives=(str(options.get("drive", "shot")),),
+    )
+
+
+_WALL_REDUCTION_METRIC_LABELS = {
+    "probe": "probe field error",
+    "flux_loop": "flux-loop error",
+    "boundary_psi": "boundary psi error",
+    "boundary_b": "boundary B error",
+    "grid_psi": "grid psi error",
+    "current_l2": "current error (L2)",
+    "current_dissipation": "current error (dissipation)",
+}
+
+
+def _build_wall_reduction_convergence(ods: Any, **options: Any) -> Panels:
+    """Reduced-wall response error against retained order, one panel per metric.
+
+    Every series is one selection rule (vaft #494); the errors are relative to
+    the full wall's own contribution, so a panel reads "how much of the wall
+    term the reduced model misses".  Rows come from
+    :func:`vaft.validation.wall_reduction.order_convergence`, passed in as
+    ``rows`` or computed here for ``drive`` (default the shot's PF programme).
+    """
+    rows = _wall_reduction_rows(ods, options)
+    drive = str(options.get("drive", "shot"))
+    metrics = tuple(options.get("metrics", ("probe", "flux_loop", "grid_psi", "current_dissipation")))
+    rules: list[str] = []
+    for row in rows:
+        if row.get("drive") == drive and row.get("rule") != "full" and row["rule"] not in rules:
+            rules.append(str(row["rule"]))
+    if not rules:
+        raise ValueError(f"no reduced-wall rows for drive {drive!r}")
+    panels: list[LineSeries] = []
+    for metric in metrics:
+        series: list[Series] = []
+        for rule in rules:
+            entries = sorted(
+                (row for row in rows if row.get("drive") == drive and row.get("rule") == rule and metric in row),
+                key=lambda row: int(row["M_total"]),
+            )
+            if not entries:
+                continue
+            series.append(Series(
+                x=np.array([float(row["M_total"]) for row in entries]),
+                y=np.array([float(row[metric]) for row in entries]),
+                label=rule, style={"marker": "o", "markersize": 3, "lw": 1.0},
+            ))
+        panels.append(LineSeries(
+            series=tuple(series), x_label="retained modes", y_label=_WALL_REDUCTION_METRIC_LABELS.get(metric, metric),
+            y_unit="1", log_y=True, title=_WALL_REDUCTION_METRIC_LABELS.get(metric, metric),
+        ))
+    return Panels(
+        models=tuple(panels), ncols=int(options.get("ncols", 2)), share_x=True,
+        suptitle=options.get("title", f"Reduced-wall convergence ({drive} drive)"),
+    )
+
+
+def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
+    """The wall's poloidal flux on the equilibrium region: full, reduced, or their difference.
+
+    ``which`` is ``"full"``, ``"reduced"`` or ``"difference"`` (default); the
+    reduced wall is ``selection`` (a ``keep`` tuple or an R-orthonormal
+    matrix) or else the ``rule``/``M`` pair (default ``output_weight`` at 76
+    modes); ``time`` picks the instant, default the sample of largest wall
+    dissipation under the shot's PF programme.  The title carries the relative
+    error over the region so the map and the number travel together.
+    """
+    from vaft.omas.process_wrapper import compute_point_response_matrices_ods
+    from vaft.process import wall_modes as wm
+    from vaft.process.electromagnetics import solve_eddy_currents
+    from vaft.validation.wall_reduction import _inside, wall_system
+
+    which = str(options.get("which", "difference"))
+    if which not in ("full", "reduced", "difference"):
+        raise ValueError("which must be 'full', 'reduced' or 'difference'")
+    system = wall_system(ods, remap_em_coupling=bool(options.get("remap_em_coupling", False)))
+    basis, R_mat, M_mat, L_mat = system["basis"], system["R_mat"], system["M_mat"], system["L_mat"]
+    time, drive, n_coils = system["time"], system["drive"], system["n_coils"]
+    selection = options.get("selection")
+    if selection is None:
+        rule, M = str(options.get("rule", "output_weight")), int(options.get("M", 76))
+        if rule == "moments":
+            V = wm.moment_patterns(R_mat, M_mat, L_mat, max(1, int(np.ceil(M / n_coils))))[:, :M]
+            label = f"{V.shape[1]} moment patterns"
+        else:
+            scores = wm.mode_scores(basis, R_mat, M_mat, L_mat, drive=drive, time=time)
+            keep = wm.select_by_score(basis, scores[rule], M)
+            V, label = basis.V(keep), f"{sum(k.size for k in keep)} modes ({rule})"
+    elif isinstance(selection, np.ndarray):
+        V, label = selection, f"{selection.shape[1]} patterns"
+    else:
+        V, label = basis.V(selection), f"{sum(np.asarray(k).size for k in selection)} modes"
+    I_full = solve_eddy_currents(R_mat, L_mat, M_mat, drive, time)
+    _, I_red = wm.solve_reduced_eddy(wm.combined_operators(V, R_mat, M_mat, L_mat), drive, time, V=V)
+    r = np.diag(R_mat)
+    if options.get("time") is None:
+        index = int(np.argmax(np.sum(r[None, :] * I_full**2, axis=1)))
+    else:
+        index = int(np.argmin(np.abs(time - float(options["time"]))))
+
+    outline_r = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    outline_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
+    nr, nz = tuple(options.get("grid_shape", (33, 49)))
+    r_axis = np.linspace(float(outline_r.min()), float(outline_r.max()), int(nr))
+    z_axis = np.linspace(float(outline_z.min()), float(outline_z.max()), int(nz))
+    gz, gr = np.meshgrid(z_axis, r_axis, indexing="ij")
+    (psi,) = compute_point_response_matrices_ods(ods, np.column_stack([gr.ravel(), gz.ravel()]), components=("psi",))
+    G = psi[:, n_coils:]
+    inside = _inside(gr.ravel(), gz.ravel(), outline_r, outline_z)
+    full = G @ I_full[index]
+    reduced = G @ I_red[index]
+    error = float(np.linalg.norm((reduced - full)[inside]) / max(np.linalg.norm(full[inside]), 1e-300))
+    values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
+    field = np.where(inside, values, np.nan).reshape(gz.shape)
+    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "k", "lw": 0.8})
+    return Field2D(
+        r=r_axis, z=z_axis, values=field, value_label="wall psi [Wb]",
+        title=options.get("title", f"wall psi ({which}, {label}) at t={time[index]:.4f} s; region error {error:.2e}"),
+        contour_levels=int(options.get("contour_levels", 15)), overlays=(overlay,),
+    )
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
@@ -2383,6 +2526,14 @@ RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
 RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
     builder=_build_wall_mode_spectrum,
     description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
+)
+RECIPES["passive_structure_overview_wall_reduction"] = CallableRecipe(
+    builder=_build_wall_reduction_convergence,
+    description="Reduced-wall response error against retained order, per selection rule.",
+)
+RECIPES["passive_structure_field_wall_reduction"] = CallableRecipe(
+    builder=_build_wall_reduction_map,
+    description="The wall's poloidal flux on the equilibrium region: full, reduced or their difference.",
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
@@ -4085,6 +4236,16 @@ EXTRACTION_OPTIONS = frozenset(
         "max_modes",
         "whole_wall",
         "remap_em_coupling",
+        "rows",
+        "rules",
+        "orders",
+        "drive",
+        "metrics",
+        "which",
+        "selection",
+        "rule",
+        "M",
+        "grid_shape",
         "phi0",
         "pose_path",
         "projection",
