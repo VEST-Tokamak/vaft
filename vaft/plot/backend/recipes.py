@@ -53,8 +53,8 @@ from vaft.plot.models import (
     Spectrogram,
     TextPanel,
 )
-from vaft.plot.display import channel_label, figure_title, resolve_display
-from vaft.plot.selection import INBOARD, OUTBOARD
+from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
+from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, VALID
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -160,7 +160,9 @@ def _resolve_selection(
     """
     container = _container_of(template, marker)
     count = _count(ods, container)
-    if selection is None or (isinstance(selection, str) and selection == "all"):
+    if selection is None or (isinstance(selection, str) and selection in SIGNAL_PRESETS):
+        # A signal preset names every channel here; which of them carry a
+        # usable signal is decided once the traces exist (_keep_by_signal).
         return list(range(count))
     if isinstance(selection, (int, np.integer)) and not isinstance(selection, bool):
         return [int(selection)]
@@ -217,6 +219,59 @@ def _resolve_selection(
     return list(dict.fromkeys(indices))
 
 
+def _channel_passes_signal_preset(
+    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any
+) -> bool:
+    """The :func:`_keep_by_signal` rule for one channel read directly."""
+    preset = ACTIVE if selection is None else selection
+    if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
+        return True
+    code, mask = _validity_of(ods, y_path, index)
+    if code is not None and int(code) < 0 and (mask is None or not np.asarray(mask, dtype=bool).any()):
+        return False
+    if preset == ACTIVE:
+        finite = values[np.isfinite(values)]
+        return finite.size > 0 and bool(np.any(finite != 0.0))
+    return True
+
+
+def _keep_by_signal(traces: list, selection: Any) -> list:
+    """Apply a signal preset to built traces (``vaft.plot.selection``).
+
+    The default, ``active``, keeps channels flagged valid whose trace carries a
+    non-zero finite sample; ``valid`` keeps flagged-valid channels whatever
+    they read; ``all`` keeps everything.  An explicit selection -- indices,
+    identifiers, a region preset -- is what the caller named and is returned
+    untouched, invalid channels included, for the renderer to mark.
+    """
+    preset = ACTIVE if selection is None else selection
+    if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
+        return traces
+    kept = []
+    for trace in traces:
+        if trace.is_invalid_channel:
+            continue
+        if preset == ACTIVE:
+            y = np.asarray(trace.y, dtype=float)
+            finite = y[np.isfinite(y)]
+            if finite.size == 0 or not np.any(finite != 0.0):
+                continue
+        kept.append(trace)
+    return kept
+
+
+def _channel_carries_signal(ods: Any, candidates: Sequence[str], index: int) -> bool:
+    """Whether a channel's trace has a finite non-zero sample -- what ``active`` keeps."""
+    try:
+        array = _first_array(ods, tuple(candidates), i=index)
+    except ValueError:
+        return False
+    if array is None or array.ndim != 1:
+        return False
+    finite = array[np.isfinite(array)]
+    return finite.size > 0 and bool(np.any(finite != 0.0))
+
+
 def _channel_has_data(ods: Any, candidates: Sequence[str], index: int) -> bool:
     """Whether this channel actually carries the signal being plotted.
 
@@ -255,7 +310,7 @@ def _resolve_preset(
         representative_index,
     )
 
-    if term not in PRESETS:
+    if term not in PRESETS or term in SIGNAL_PRESETS:
         return None
     r_values, z_values = _channel_positions(ods, container, count)
     split = radial_divider(r_values)
@@ -544,6 +599,13 @@ class LineRecipe:
     #: Missing or zero divides by 1.0 rather than raising or producing inf/nan.
     divide_by_path: str = ""
     title: str = ""
+    #: Display sign policy (issue #307): ``canonical`` draws the stored sign
+    #: exactly; ``intuitive`` multiplies the whole plotted object by one
+    #: ``+1``/``-1`` so its dominant response is positive, and says so in the
+    #: title when it flipped.  Set on quantities whose sign is a convention
+    #: (plasma current, diamagnetic flux, toroidal field), never on an
+    #: intrinsically positive one.
+    orientation: str = "canonical"
 
 
 @dataclass(frozen=True)
@@ -570,6 +632,9 @@ class GeometryRecipe:
     x_label: str = "R [m]"
     y_label: str = "Z [m]"
     title: str = ""
+    #: Annotate each point of a ``points`` layer with its channel index, so a
+    #: sensor in the view can be named in ``selection=`` without a lookup.
+    annotate_indices: bool = False
 
 
 @dataclass(frozen=True)
@@ -654,6 +719,7 @@ RECIPES: dict[str, Any] = {
         y_label="Plasma Current",
         y_unit="A",
         title="Plasma Current",
+        orientation="intuitive",
     ),
     "diamagnetic_flux_time": LineRecipe(
         y_path="magnetics.diamagnetic_flux.0.data",
@@ -661,6 +727,7 @@ RECIPES: dict[str, Any] = {
         y_label="Diamagnetic Flux",
         y_unit="Wb",
         title="Diamagnetic Flux",
+        orientation="intuitive",
     ),
     "flux_loop_time_flux": LineRecipe(
         y_path="magnetics.flux_loop.{i}.flux.data",
@@ -738,6 +805,7 @@ RECIPES: dict[str, Any] = {
         y_label="Plasma Current",
         y_unit="A",
         title="Equilibrium Plasma Current",
+        orientation="intuitive",
     ),
     "equilibrium_time_li": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.li_3",
@@ -838,6 +906,7 @@ RECIPES: dict[str, Any] = {
         # tf.b_field_tor_vacuum_r.data is B_t * R [T*m]; divide by the reference
         # radius to recover the field itself, matching the legacy renderer.
         divide_by_path="tf.r0",
+        orientation="intuitive",
     ),
     "tf_coil_time_b_t_vacuum_r": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
@@ -845,6 +914,7 @@ RECIPES: dict[str, Any] = {
         y_label="B_t * R",
         y_unit="T m",
         title="Vacuum B_t * R",
+        orientation="intuitive",
     ),
     "tf_coil_time_current": LineRecipe(
         y_path="tf.coil.{i}.current.data",
@@ -1074,32 +1144,6 @@ RECIPES: dict[str, Any] = {
         values_order="rz",
     ),
     # --- geometry ------------------------------------------------------------
-    "pf_coil_geometry_poloidal": GeometryRecipe(
-        layers=(
-            (
-                "polygon",
-                "pf_active.coil.{i}.element.0.geometry.outline.r",
-                "pf_active.coil.{i}.element.0.geometry.outline.z",
-                "pf_active.coil",
-                "pf_active.coil.{i}.name",
-                {},
-            ),
-        ),
-        title="PF Coils",
-    ),
-    "passive_structure_geometry_poloidal": GeometryRecipe(
-        layers=(
-            (
-                "polygon",
-                "pf_passive.loop.{i}.element.0.geometry.outline.r",
-                "pf_passive.loop.{i}.element.0.geometry.outline.z",
-                "pf_passive.loop",
-                "pf_passive.loop.{i}.name",
-                {},
-            ),
-        ),
-        title="Passive Structure",
-    ),
     "wall_geometry_poloidal": GeometryRecipe(
         layers=(
             (
@@ -1133,6 +1177,7 @@ RECIPES: dict[str, Any] = {
             ),
         ),
         title="Magnetic Diagnostics",
+        annotate_indices=True,
     ),
     "equilibrium_geometry_boundary": GeometryRecipe(
         layers=(
@@ -1647,12 +1692,144 @@ def _wall_radii(ods: Any) -> tuple[list[float], str]:
     return radii, "Vessel"
 
 
+def _element_outlines(ods: Any, base: str) -> list[tuple[np.ndarray, np.ndarray]]:
+    """The poloidal cross-section of every element under ``base`` (a coil or loop).
+
+    IMAS describes a conductor element either as an explicit ``outline`` or as
+    a ``rectangle`` (centre, width, height); VEST stores every PF coil turn as
+    a rectangle, so reading outlines alone finds no coil at all.  Both forms
+    are read, for every element rather than the first, and a form is accepted
+    on presence rather than on the ``geometry_type`` code so a description
+    that stores the shape but not the code still draws.
+    """
+    outlines = []
+    for index in range(_count(ods, f"{base}.element")):
+        geometry = f"{base}.element.{index}.geometry"
+        r = _array(ods, f"{geometry}.outline.r")
+        z = _array(ods, f"{geometry}.outline.z")
+        if r is not None and z is not None and r.size == z.size and r.size >= 3:
+            outlines.append((r, z))
+            continue
+        centre_r = _get(ods, f"{geometry}.rectangle.r")
+        centre_z = _get(ods, f"{geometry}.rectangle.z")
+        width = _get(ods, f"{geometry}.rectangle.width")
+        height = _get(ods, f"{geometry}.rectangle.height")
+        if None in (centre_r, centre_z, width, height):
+            continue
+        r0, z0, w, h = (float(np.asarray(v, dtype=float).ravel()[0]) for v in (centre_r, centre_z, width, height))
+        outlines.append((
+            np.array([r0 - w / 2, r0 + w / 2, r0 + w / 2, r0 - w / 2]),
+            np.array([z0 - h / 2, z0 - h / 2, z0 + h / 2, z0 + h / 2]),
+        ))
+    return outlines
+
+
+def _element_groups(
+    outlines: Sequence[tuple[np.ndarray, np.ndarray]]
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Split a coil's elements into spatially separate groups.
+
+    Elements are chained by proximity: two belong together when their centres
+    are within a few element sizes of each other.  Returns the concatenated
+    ``(r, z)`` of each group.
+    """
+    centres = np.array([[r.mean(), z.mean()] for r, z in outlines], dtype=float)
+    sizes = np.array([max(np.ptp(r), np.ptp(z)) for r, z in outlines], dtype=float)
+    reach = max(3.0 * float(np.median(sizes)) if sizes.size else 0.0, 0.05)
+    remaining = list(range(len(outlines)))
+    groups = []
+    while remaining:
+        members = [remaining.pop(0)]
+        frontier = list(members)
+        while frontier:
+            current = frontier.pop()
+            near = [i for i in remaining
+                    if np.hypot(*(centres[i] - centres[current])) <= reach]
+            for i in near:
+                remaining.remove(i)
+            members.extend(near)
+            frontier.extend(near)
+        groups.append((
+            np.concatenate([outlines[i][0] for i in members]),
+            np.concatenate([outlines[i][1] for i in members]),
+        ))
+    return groups
+
+
+def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: Any) -> GeometryLayers:
+    """Every PF coil's cross-section, one colour and one legend entry per coil.
+
+    A coil is drawn as all of its elements (VEST's PF1 alone has 158 turns) in
+    one colour, with its name annotated at the centroid of what it draws.
+    ``collective=True`` -- the composed machine view -- keeps one legend entry
+    for the whole ``pf_active`` set and lets the annotations name the coils.
+    """
+    layers: list[GeometryLayer] = []
+    labelled_set = False
+    for index in range(_count(ods, "pf_active.coil")):
+        outlines = _element_outlines(ods, f"pf_active.coil.{index}")
+        if not outlines:
+            continue
+        name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
+        color = "#d62728" if collective else f"C{index % 10}"
+        for position, (r, z) in enumerate(outlines):
+            if collective:
+                label = "" if labelled_set else "PF coils"
+                labelled_set = True
+            else:
+                label = name if position == 0 else ""
+            layers.append(GeometryLayer(r=r, z=z, kind="polygon", label=label,
+                                        style={"color": color, "lw": 0.8}))
+        # A coil is annotated once per group of elements it draws: VEST stores
+        # an up/down pair as one coil, and one label at the centroid of both
+        # halves would sit on the midplane naming nothing.
+        for r_group, z_group in _element_groups(outlines):
+            layers.append(GeometryLayer(
+                r=[float(r_group.max())], z=[float(z_group.mean())], kind="text", label=name,
+                style={"color": color, "fontsize": "x-small", "ha": "left",
+                       "xytext": (3, 0), "textcoords": "offset points"},
+            ))
+    if not layers:
+        raise ValueError(
+            "pf_active stores no coil element geometry (neither rectangle nor outline)"
+        )
+    # Standing alone, every coil is named beside itself: no legend needed.
+    return GeometryLayers(layers=tuple(layers), title=options.get("title", "PF Coils"), legend=collective)
+
+
+def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayers:
+    """The passive conducting structure as one structure.
+
+    ``pf_passive`` breaks the structure into loops for the circuit model -- 950
+    of them on VEST, named only by the vessel segment they belong to -- so one
+    legend entry per loop would list the same eleven names ninety times over.
+    Every loop element is drawn in one colour under a single legend entry.
+    """
+    layers: list[GeometryLayer] = []
+    for index in range(_count(ods, "pf_passive.loop")):
+        for r, z in _element_outlines(ods, f"pf_passive.loop.{index}"):
+            layers.append(GeometryLayer(
+                r=r, z=z, kind="polygon",
+                label="" if layers else "Passive structure",
+                style={"color": "0.55", "lw": 0.5},
+            ))
+    if not layers:
+        raise ValueError(
+            "pf_passive stores no loop element geometry (neither rectangle nor outline)"
+        )
+    return GeometryLayers(layers=tuple(layers), title=options.get("title", "Passive Structure"))
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
+    # Coils and passive structure are drawn as sets: the composed view names
+    # the machine's parts, not 950 loops and 400 coil turns one by one.
+    if entry_supports(ods, "passive_structure_geometry_poloidal"):
+        layers.extend(_build_passive_structure_geometry(ods).layers)
+    if entry_supports(ods, "pf_coil_geometry_poloidal"):
+        layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
     for member in (
-        "pf_coil_geometry_poloidal",
-        "passive_structure_geometry_poloidal",
         "magnetics_geometry_poloidal",
         "thomson_scattering_geometry_poloidal",
         "charge_exchange_geometry_poloidal",
@@ -1729,6 +1906,101 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
     return positions
 
 
+#: Diagnostics whose channels may store a toroidal position, and how each is
+#: drawn in the top view: (container, legend label, kind, style).  ``kind``
+#: is ``points`` for a channel with a position, ``segments`` for one with a
+#: line of sight (first and second point projected onto the midplane), and
+#: ``rings`` for a toroidal loop (drawn as the circle at its radius).
+_TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
+    ("magnetics.flux_loop", "Flux loops", "rings",
+     {"color": "#377eb8", "lw": 0.6, "linestyle": ":"}),
+    ("magnetics.b_field_pol_probe", "B-pol probes", "points",
+     {"marker": "x", "markersize": 4, "color": "#ff7f00"}),
+    ("magnetics.b_field_tor_probe", "B-tor probes", "points",
+     {"marker": "+", "markersize": 5, "color": "#984ea3"}),
+    ("thomson_scattering.channel", "Thomson scattering", "points",
+     {"marker": "o", "markersize": 3, "color": "#4daf4a"}),
+    ("charge_exchange.channel", "Charge exchange", "points",
+     {"marker": "d", "markersize": 3, "color": "#a65628"}),
+    ("langmuir_probes.embedded", "Langmuir probes", "points",
+     {"marker": "v", "markersize": 3, "color": "#f781bf"}),
+    ("barometry.gauge", "Pressure gauges", "points",
+     {"marker": "p", "markersize": 4, "color": "#999999"}),
+    ("interferometer.channel", "Interferometer", "segments",
+     {"color": "#377eb8", "lw": 0.8}),
+    ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
+     {"color": "#e6ab02", "lw": 0.6}),
+    ("bolometer.channel", "Bolometer LOS", "segments",
+     {"color": "#e41a1c", "lw": 0.6}),
+    ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
+     {"color": "#66a61e", "lw": 0.8}),
+)
+
+
+def _toroidal_position(ods: Any, base: str) -> tuple[float, float] | None:
+    """``(r, phi)`` stored under ``base`` as a single or a first list point."""
+    for prefix in (base, f"{base}.0"):
+        radius = _get(ods, f"{prefix}.r")
+        phi = _get(ods, f"{prefix}.phi")
+        if radius is None or phi is None:
+            continue
+        try:
+            return (float(np.asarray(radius, dtype=float).ravel()[0]),
+                    float(np.asarray(phi, dtype=float).ravel()[0]))
+        except (IndexError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
+    """Diagnostic channels with a stored toroidal position, projected to (x, y).
+
+    Only what the ODS states: a channel whose position has no ``phi`` is not
+    placed at an invented angle.  Each family is one legend entry.
+    """
+    layers: list[GeometryLayer] = []
+    for container, label, kind, style in _TOPVIEW_DIAGNOSTICS:
+        count = _count(ods, container)
+        if not count:
+            continue
+        if kind == "segments":
+            first_label = True
+            for index in range(count):
+                base = f"{container}.{index}.line_of_sight"
+                first = _toroidal_position(ods, f"{base}.first_point")
+                second = _toroidal_position(ods, f"{base}.second_point")
+                if first is None or second is None:
+                    continue
+                layers.append(GeometryLayer(
+                    r=[first[0] * np.cos(first[1]), second[0] * np.cos(second[1])],
+                    z=[first[0] * np.sin(first[1]), second[0] * np.sin(second[1])],
+                    kind="polyline", label=label if first_label else "", style=style,
+                ))
+                first_label = False
+            continue
+        if kind == "rings":
+            first_label = True
+            for index in range(count):
+                position = _toroidal_position(ods, f"{container}.{index}.position")
+                if position is None:
+                    continue
+                x, y = _ring(position[0])
+                layers.append(GeometryLayer(r=x, z=y, kind="polyline",
+                                            label=label if first_label else "", style=style))
+                first_label = False
+            continue
+        xs, ys = [], []
+        for index in range(count):
+            position = _toroidal_position(ods, f"{container}.{index}.position")
+            if position is None:
+                continue
+            xs.append(position[0] * np.cos(position[1]))
+            ys.append(position[0] * np.sin(position[1]))
+        if xs:
+            layers.append(GeometryLayer(r=xs, z=ys, kind="points", label=label, style=style))
+    return layers
+
+
 def _build_machine_topview(
     ods: Any, *, time_slice: int = 0, **_: Any
 ) -> GeometryLayers:
@@ -1784,6 +2056,7 @@ def _build_machine_topview(
                     style=style,
                 )
             )
+    layers.extend(_topview_diagnostic_layers(ods))
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
             GeometryLayer(
@@ -1797,7 +2070,8 @@ def _build_machine_topview(
     if not layers:
         raise ValueError(
             "none of the top-view IDS (wall, equilibrium, lh_antennas, "
-            "ec_launchers, pellets) are present"
+            "ec_launchers, pellets, or a diagnostic storing a toroidal position) "
+            "are present"
         )
     return GeometryLayers(
         layers=tuple(layers),
@@ -1993,6 +2267,14 @@ RECIPES["coil_3d_geometry3d"] = CallableRecipe(
 RECIPES["coil_3d_geometry_topview"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_topview,
     description="Non-axisymmetric coil filaments projected into the machine top view.",
+)
+RECIPES["pf_coil_geometry_poloidal"] = CallableRecipe(
+    builder=_build_pf_coil_geometry,
+    description="Every PF coil's elements (rectangle or outline), one colour per coil.",
+)
+RECIPES["passive_structure_geometry_poloidal"] = CallableRecipe(
+    builder=_build_passive_structure_geometry,
+    description="The passive conducting structure drawn as one structure.",
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
@@ -2734,7 +3016,7 @@ def _build_line_traces(
                     index=index,
                 )
             )
-        return traces
+        return _keep_by_signal(traces, selection)
 
     y = _array(ods, recipe.y_path)
     if y is None:
@@ -2871,7 +3153,10 @@ def _synthetic_traces(
     unit as the trace it belongs to (display scaling is applied later, to
     both alike).  ``mode="both"`` adds the measured constraint value the
     solver was given, which shows where the reconstruction's input differs
-    from the waveform itself.
+    from the waveform itself -- a per-channel family only: a scalar family's
+    constraint (plasma current, diamagnetic flux) *is* the drawn waveform
+    sampled at the slices, and drawing it again as a second quantity says
+    nothing the waveform does not.
     """
     family, per_channel = SYNTHETIC_CONSTRAINTS[name]
     container = _container_of(recipe.y_path, "{i}") if per_channel else ""
@@ -2879,7 +3164,7 @@ def _synthetic_traces(
         _channel_identifiers(ods, container, _count(ods, container)) if per_channel else []
     )
     leaves = (("reconstructed", "reconstruction", "o"),)
-    if mode == "both":
+    if mode == "both" and per_channel:
         leaves += (("measured", "constraint", "x"),)
     indexed = {leaf: _constraint_index(ods, family, per_channel, leaf) for leaf, _, _ in leaves}
     extra: list[Series] = []
@@ -2911,6 +3196,52 @@ def _synthetic_traces(
                 )
             )
     return extra
+
+
+ORIENTATIONS = ("canonical", "intuitive")
+
+
+def _orient(traces: tuple, orientation: str) -> tuple[tuple, bool]:
+    """Apply the display sign policy of issue #307 to a set of traces.
+
+    ``intuitive`` asks the processing layer for the dominant sign of the
+    measured traces (:func:`vaft.process.signal_processing.
+    infer_signal_orientation`) and multiplies every trace -- measured and
+    synthetic alike, so they stay comparable -- by that one ``+1``/``-1``.
+    Unresolved falls back to canonical.  Returns the traces and whether a
+    flip happened; nothing here touches the data object.
+    """
+    if orientation not in ORIENTATIONS:
+        raise ValueError(f"orientation must be one of {', '.join(ORIENTATIONS)}; got {orientation!r}")
+    if orientation == "canonical" or not traces:
+        return traces, False
+    from vaft.process.signal_processing import infer_signal_orientation
+
+    # One multiplier per entry: a shot is oriented by its own convention, so
+    # two shots of opposite polarity each come out positive.  Within an
+    # entry the measured trace with the strongest dominant response decides,
+    # so a weak channel cannot flip a strong one; synthetic traces follow.
+    multipliers: dict[str, int] = {}
+    for entry in dict.fromkeys(trace.entry for trace in traces):
+        verdicts = [
+            infer_signal_orientation(trace.y, mask=trace.valid_mask)
+            for trace in traces if trace.entry == entry and not trace.role
+        ]
+        resolved = [v for v in verdicts if v.resolved]
+        multipliers[entry] = max(resolved, key=lambda v: abs(v.statistic)).multiplier if resolved else 1
+    if all(m > 0 for m in multipliers.values()):
+        return traces, False
+    oriented = []
+    for trace in traces:
+        if multipliers.get(trace.entry, 1) > 0:
+            oriented.append(trace)
+            continue
+        yerr = trace.yerr
+        if yerr is not None and np.ndim(yerr) == 2:
+            # Lower and upper distances change places with the sign.
+            yerr = np.asarray(yerr)[::-1]
+        oriented.append(dataclasses.replace(trace, y=np.asarray(trace.y) * -1.0, yerr=yerr))
+    return tuple(oriented), True
 
 
 def _build_line_series(
@@ -2946,10 +3277,13 @@ def _build_line_series(
         _apply_display(trace, x_scale=x_display.scale, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.title
     else:
         default_title = _decorated_title(recipe.title, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
     model = LineSeries(
         series=scaled,
         x_label=recipe.x_label,
@@ -3097,15 +3431,20 @@ def _build_profile_1d(
     resolved_per_entry: list[str] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
-            indices = _resolve_selection(ods, recipe.y_path, _selection_option(options))
+            selection = _selection_option(options)
+            indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
             for index in indices:
                 x = _get(ods, _profile_coordinate(recipe, coordinate).format(i=index))
                 y = _get(ods, recipe.y_path.format(i=index))
                 if x is None or y is None:
                     continue
-                x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 y_flat = np.asarray(y, dtype=float).ravel()
+                # A channel is one point of the profile; the signal presets
+                # apply to it as they do to a trace (vaft.plot.selection).
+                if not _channel_passes_signal_preset(ods, recipe.y_path, index, y_flat, selection):
+                    continue
+                x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
             if x_values:
@@ -3200,7 +3539,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
         else:
             indices = list(range(_count(ods, container)))
         if kind == "points":
-            r_values, z_values = [], []
+            r_values, z_values, placed = [], [], []
             for index in indices:
                 r = _get(ods, r_template.format(i=index))
                 z = _get(ods, z_template.format(i=index))
@@ -3208,6 +3547,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                     continue
                 r_values.append(float(np.asarray(r, dtype=float).ravel()[0]))
                 z_values.append(float(np.asarray(z, dtype=float).ravel()[0]))
+                placed.append(index)
             if r_values:
                 layers.append(
                     GeometryLayer(
@@ -3218,6 +3558,15 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                         style=style,
                     )
                 )
+                if recipe.annotate_indices:
+                    # The same channels the points loop placed, in the same order.
+                    color = style.get("color", "0.3")
+                    for index, r_value, z_value in zip(placed, r_values, z_values):
+                        layers.append(GeometryLayer(
+                            r=[r_value], z=[z_value], kind="text", label=str(index),
+                            style={"color": color, "fontsize": 5, "ha": "left", "va": "bottom",
+                                   "xytext": (2, 1), "textcoords": "offset points"},
+                        ))
             continue
         for index in indices:
             r = _array(ods, r_template.format(i=index))
@@ -3240,6 +3589,117 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
         x_label=recipe.x_label,
         y_label=recipe.y_label,
         title=options.get("title", recipe.title),
+    )
+
+
+
+#: Normalised-flux steps of the ``surfaces`` style: nine internal surfaces.
+_PSI_SURFACE_STEPS = np.linspace(0.1, 0.9, 9)
+
+
+def _psi_axis_boundary(ods: Any, time_slice: int) -> tuple[float, float] | None:
+    """``(psi_axis, psi_boundary)`` of a slice, as stored, else from profiles_1d."""
+    base = f"equilibrium.time_slice.{time_slice}"
+    axis = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_axis"))
+    boundary = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_boundary"))
+    if axis is None or boundary is None:
+        psi = _array(ods, f"{base}.profiles_1d.psi")
+        if psi is None or psi.size < 2:
+            return None
+        axis, boundary = float(psi[0]), float(psi[-1])
+    if axis == boundary:
+        return None
+    return axis, boundary
+
+
+def _inside_polygon(r: np.ndarray, z: np.ndarray, outline_r: np.ndarray, outline_z: np.ndarray) -> np.ndarray:
+    """Boolean ``(len(z), len(r))`` grid of points inside a closed outline (ray casting)."""
+    rr, zz = np.meshgrid(np.asarray(r, dtype=float), np.asarray(z, dtype=float))
+    inside = np.zeros(rr.shape, dtype=bool)
+    xs, ys = np.asarray(outline_r, dtype=float), np.asarray(outline_z, dtype=float)
+    n = xs.size
+    for i in range(n):
+        x0, y0, x1, y1 = xs[i], ys[i], xs[(i + 1) % n], ys[(i + 1) % n]
+        if y0 == y1:
+            continue
+        crosses = (zz > min(y0, y1)) & (zz <= max(y0, y1))
+        x_at = x0 + (zz - y0) * (x1 - x0) / (y1 - y0)
+        inside ^= crosses & (rr < x_at)
+    return inside
+
+
+def _style_psi_field(
+    ods: Any, field: Field2D, time_slice: int, style: str, *, requested: bool = True, **options: Any
+) -> Field2D:
+    """Apply a :data:`PSI_STYLES` entry to a raw psi :class:`Field2D`.
+
+    Whatever the style, psi is shown in the display unit of the equilibrium
+    subject (mWb) so the map and the slice's stated psi_axis/psi_boundary
+    read alike.  A slice that stores no usable axis-to-boundary span (a
+    degenerate reconstruction) cannot show surfaces: the default degrades to
+    the filled map, a style the caller asked for by name raises.
+    """
+    if style not in PSI_STYLES:
+        raise ValueError(f"style must be one of {', '.join(PSI_STYLES)}; got {style!r}")
+    flux_display = resolve_display("Wb", subject="equilibrium")
+    field = dataclasses.replace(
+        field,
+        values=np.asarray(field.values, dtype=float) * flux_display.scale,
+        value_label=f"Poloidal Flux [{flux_display.unit}]",
+    )
+    overlays = list(field.overlays)
+    base = f"equilibrium.time_slice.{time_slice}"
+    axis_r = _finite_scalar(_get(ods, f"{base}.global_quantities.magnetic_axis.r"))
+    axis_z = _finite_scalar(_get(ods, f"{base}.global_quantities.magnetic_axis.z"))
+    if axis_r is not None and axis_z is not None and not any(o.label == "Magnetic axis" for o in overlays):
+        overlays.append(GeometryLayer(
+            r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
+            style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
+        ))
+    if style == "filled":
+        return dataclasses.replace(field, overlays=tuple(overlays))
+    span = _psi_axis_boundary(ods, time_slice)
+    if span is None:
+        if not requested:
+            return dataclasses.replace(field, overlays=tuple(overlays))
+        raise ValueError(
+            f"style={style!r} needs psi_axis and psi_boundary (or profiles_1d.psi) "
+            f"for slice {time_slice}; only style='filled' can draw this slice"
+        )
+    psi_axis, psi_boundary = (v * flux_display.scale for v in span)
+    values = np.asarray(field.values, dtype=float)
+    # The plasma's own psi values recur beside the coils, so the plasma levels
+    # are confined to the stored boundary when there is one.
+    boundary = next((o for o in overlays if o.label == "Boundary"), None)
+    region = _inside_polygon(field.r, field.z, boundary.r, boundary.z) if boundary is not None else None
+    if style == "normalized":
+        normalized = (values - psi_axis) / (psi_boundary - psi_axis)
+        return dataclasses.replace(
+            field,
+            values=normalized,
+            value_label=r"Normalized Poloidal Flux $\psi_N$",
+            contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 11)),
+            filled=True,
+            overlays=tuple(overlays),
+            region=region,
+        )
+    # surfaces: levels at fixed psi_N steps inside, continued outside in grey.
+    step = psi_boundary - psi_axis
+    internal = psi_axis + step * _PSI_SURFACE_STEPS
+    finite = values[np.isfinite(values)]
+    outer_limit = float(finite.max() if step > 0 else finite.min()) if finite.size else psi_boundary
+    outside = psi_boundary + step * np.arange(1.0, 40.0) * (_PSI_SURFACE_STEPS[1] - _PSI_SURFACE_STEPS[0]) * 5
+    outside = outside[(outside <= outer_limit) if step > 0 else (outside >= outer_limit)]
+    if boundary is None:
+        # No stored outline: the boundary is the psi_boundary contour itself.
+        internal = np.append(internal, psi_boundary)
+    return dataclasses.replace(
+        field,
+        contour_levels=options.get("contour_levels", np.sort(internal)),
+        secondary_levels=outside if outside.size else None,
+        filled=False,
+        overlays=tuple(overlays),
+        region=region,
     )
 
 
@@ -3270,7 +3730,7 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
                     style={"color": "#e41a1c"},
                 )
             )
-    return Field2D(
+    field = Field2D(
         r=r,
         z=z,
         values=values,
@@ -3279,6 +3739,13 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
         overlays=tuple(overlays),
         title=options.get("title", recipe.title),
     )
+    if recipe is RECIPES.get("equilibrium_field_psi"):
+        extra = {k: v for k, v in options.items() if k not in ("time_slice", "style")}
+        style = options.get("style")
+        field = _style_psi_field(
+            ods, field, time_slice, style or PSI_STYLES[0], requested=style is not None, **extra
+        )
+    return field
 
 
 def _first_channel_with_signal(
@@ -3488,6 +3955,8 @@ EXTRACTION_OPTIONS = frozenset(
         "field_line_start",
         "fit_ranges",
         "flux_surface_levels",
+        "orientation",
+        "style",
         "frame_index",
         "frame_indices",
         "intrinsics_path",
@@ -4093,38 +4562,46 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     reason = options.get("_slice_reason") or reason
     total = _count(ods, "equilibrium.time_slice")
     entries = [("", ods)]
-    field = _build_field_2d(ods, RECIPES["equilibrium_field_psi"], time_slice=index)
-    # One figure, one convention: psi in the display unit the text panel uses
-    # (mWb under the display policy), and the magnetic axis marked on the map.
-    from vaft.plot.display import resolve_display
-
-    flux_display = resolve_display("Wb", subject="equilibrium")
-    overlays = list(field.overlays)
-    axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r"))
-    axis_z = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.z"))
-    if axis_r is not None and axis_z is not None:
-        overlays.append(
-            GeometryLayer(
-                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
-                style={"marker": "+", "color": "k", "markersize": 10},
-            )
-        )
-    field = dataclasses.replace(
-        field,
-        title="Poloidal flux",
-        values=np.asarray(field.values) * flux_display.scale,
-        value_label=f"Poloidal Flux [{flux_display.unit}]",
-        overlays=tuple(overlays),
+    # The map is drawn in the requested psi style (flux surfaces by default),
+    # in the display unit the text panel uses, with the axis marked.
+    field = _build_field_2d(
+        ods, RECIPES["equilibrium_field_psi"], time_slice=index,
+        **({"style": options["style"]} if options.get("style") else {}),
     )
-    pressure = _build_profile_1d(
-        entries, RECIPES["equilibrium_profile_pressure"],
-        _plot_name="equilibrium_profile_pressure", _panel_member=True, time_slice=index,
-    )
-    q = _build_profile_1d(
-        entries, RECIPES["equilibrium_profile_q"],
-        _plot_name="equilibrium_profile_q", _panel_member=True, time_slice=index,
-    )
-    globals_panel = TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities")
+    field = dataclasses.replace(field, title="Poloidal flux")
+    # Column 2: the profiles that describe the plasma -- pressure, safety
+    # factor, flux-surface-averaged toroidal current density.  Column 3: what
+    # the solver actually fitted -- the two Grad-Shafranov source terms p' and
+    # FF' whose combination is that current density -- and the slice's global
+    # quantities.  An EFIT g-file stores no j_tor; it is derived for this
+    # slice on a private copy (the caller's ODS is never written), and the
+    # panel says so.  A profile that is neither stored nor derivable keeps
+    # its slot as a labelled placeholder so the figure has one shape on
+    # every input.
+    derived, derived_entries = _derived_profiles_for(ods, index)
+    slots: list[Any] = [field]
+    placeholders: list[tuple[int, str]] = []
+    for member in _OVERVIEW_PROFILES:
+        profile = None
+        source, source_entries = (ods, entries)
+        if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
+            source, source_entries = (derived, derived_entries)
+        if entry_supports(source, member):
+            try:
+                profile = _build_profile_1d(
+                    source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
+                )
+            except ValueError:
+                profile = None
+        if profile is None or not profile.series:
+            leaf = RECIPES[member].y_path.rsplit(".", 1)[-1]
+            placeholders.append((len(slots), f"profiles_1d.{leaf}\nneither stored nor derivable"))
+            slots.append(None)
+        else:
+            if source is derived:
+                profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
+            slots.append(profile)
+    slots.append(TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities"))
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     shot = f" #{pulse}" if pulse not in (None, "") else ""
     time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
@@ -4133,8 +4610,48 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
         f"Equilibrium slice{shot} — {time_text} (slice {index + 1} of {total}, {reason})",
     )
     return Panels(
-        models=(field, pressure, q, globals_panel), ncols=2, share_x=False, suptitle=suptitle
+        models=tuple(model for model in slots if model is not None),
+        placeholders=tuple(placeholders),
+        nrows=3, ncols=3, share_x=False, suptitle=suptitle,
+        spans=_OVERVIEW_SPANS,
     )
+
+
+def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
+    """A private copy of the equilibrium with the derivable profiles of one slice.
+
+    ``vaft.omas.update_equilibrium_derived_profiles`` fills what an EFIT
+    export omits (j_tor, volume, the gm* averages) from what it stores.  It
+    runs on an isolated copy so the caller's object comes back as it was;
+    ``(None, [])`` when nothing could be derived.
+    """
+    try:
+        from vaft.omas import update_equilibrium_derived_profiles
+
+        private = _isolated_copy(ods, ("equilibrium", "wall"))
+        update_equilibrium_derived_profiles(private, time_slice=index)
+    except Exception:  # noqa: BLE001 - a failed derivation leaves a placeholder, not an error
+        return None, []
+    return private, [("", private)]
+
+
+#: The 1-D members of the slice overview, in slot order after the flux map:
+#: column 2 top to bottom, then column 3 top to bottom (the text panel last).
+_OVERVIEW_PROFILES = (
+    "equilibrium_profile_pressure",
+    "equilibrium_profile_q",
+    "equilibrium_profile_j_tor",
+    "equilibrium_profile_pprime",
+    "equilibrium_profile_ffprime",
+)
+
+#: Slot geometry of the slice overview: the flux map spans the three rows of
+#: column 1; columns 2 and 3 stack three panels each.
+_OVERVIEW_SPANS = (
+    (0, 0, 3, 1),
+    (0, 1, 1, 1), (1, 1, 1, 1), (2, 1, 1, 1),
+    (0, 2, 1, 1), (1, 2, 1, 1), (2, 2, 1, 1),
+)
 
 
 RECIPES["equilibrium_overview"] = CallableRecipe(

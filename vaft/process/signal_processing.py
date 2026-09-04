@@ -3,6 +3,8 @@ import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import dataclasses
+
 import numpy as np
 import scipy.signal as scipy_signal
 from scipy.interpolate import CubicSpline, UnivariateSpline
@@ -11,6 +13,7 @@ from scipy.optimize import curve_fit
 
 __all__ = [
     "ResamplingError",
+    "SignalOrientation",
     "SignalRepairError",
     "TimeGrid",
     "anti_alias_filter",
@@ -18,6 +21,7 @@ __all__ = [
     "butterworth_lowpass",
     "describe_time_grid",
     "detect_active_window",
+    "infer_signal_orientation",
     "detect_clipped_samples",
     "detrend_moving_average",
     "define_baseline",
@@ -980,3 +984,65 @@ def is_signal_active(
     if var_ratio < var_ratio_thresh and change_ratio < change_ratio_thresh:
         return False
     return True
+
+
+@dataclasses.dataclass(frozen=True)
+class SignalOrientation:
+    """The dominant sign of a signal over its representative region (#307).
+
+    ``multiplier`` is ``+1`` or ``-1`` when ``resolved``, else ``+1`` with
+    ``reason`` saying why nothing could be decided: a caller that wants an
+    intuitive display multiplies the *whole* signal by it once and never
+    rectifies samples.  ``statistic`` is the median of the region and
+    ``count`` how many samples it held.
+    """
+
+    multiplier: int
+    statistic: float
+    count: int
+    resolved: bool
+    reason: str = ""
+
+
+def infer_signal_orientation(
+    signal,
+    *,
+    mask=None,
+    active_fraction: float = 0.1,
+    min_samples: int = 8,
+    agreement: float = 0.6,
+) -> SignalOrientation:
+    """Infer the dominant sign of ``signal`` from its active region.
+
+    The region is ``mask`` when given, otherwise the samples whose magnitude
+    reaches ``active_fraction`` of the signal's peak magnitude -- so the long
+    zero stretches before and after a discharge do not vote.  The verdict is
+    the sign of the region's median, resolved only when at least
+    ``agreement`` of the region shares it and the region holds at least
+    ``min_samples`` finite samples; otherwise it is unresolved and the
+    multiplier is ``+1`` (canonical), never a guess.  ``abs`` is never
+    applied to the data and no sample is flipped on its own.
+    """
+    values = np.asarray(signal, dtype=float)
+    if values.ndim > 1:
+        raise ValueError(f"signal must be one-dimensional; got shape {values.shape}")
+    values = values.ravel()
+    finite = np.isfinite(values)
+    if mask is not None:
+        region = finite & np.asarray(mask, dtype=bool).ravel()
+    else:
+        peak = float(np.max(np.abs(values[finite]))) if finite.any() else 0.0
+        region = finite & (np.abs(values) >= active_fraction * peak) if peak > 0 else finite & False
+    chosen = values[region]
+    if chosen.size < min_samples:
+        return SignalOrientation(1, float("nan"), int(chosen.size), False,
+                                 f"only {chosen.size} active samples (need {min_samples})")
+    statistic = float(np.median(chosen))
+    if statistic == 0.0:
+        return SignalOrientation(1, statistic, int(chosen.size), False, "median is zero")
+    sign = 1 if statistic > 0 else -1
+    share = float(np.mean(np.sign(chosen) == sign))
+    if share < agreement:
+        return SignalOrientation(1, statistic, int(chosen.size), False,
+                                 f"only {share:.0%} of the active samples share the median's sign")
+    return SignalOrientation(sign, statistic, int(chosen.size), True)

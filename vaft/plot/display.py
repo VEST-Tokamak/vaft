@@ -33,6 +33,7 @@ from typing import Any, Mapping
 import numpy as np
 
 __all__ = [
+    "PSI_STYLES",
     "DisplaySpec",
     "QUANTITIES",
     "QuantityDisplay",
@@ -45,6 +46,19 @@ __all__ = [
     "subject_display_name",
     "unit_markup",
 ]
+
+#: How a poloidal-flux map is drawn (``style=`` of ``plot_equilibrium_field_psi``
+#: and the slice overview).
+#:
+#: ``surfaces`` (default) -- line contours at fixed steps of normalised flux
+#: from the magnetic axis to the boundary, so the axis, the nested internal
+#: surfaces and the last closed surface are each identifiable; the flux
+#: outside the plasma continues at the same spacing as thin grey lines.
+#: ``normalized`` -- the same reading as a filled map of psi_N in [0, 1].
+#: ``filled`` -- the raw psi field filled over its full range, the map that
+#: shows the coils' flux; inside the plasma it is a single colour.
+PSI_STYLES = ("surfaces", "normalized", "filled")
+
 
 NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
 

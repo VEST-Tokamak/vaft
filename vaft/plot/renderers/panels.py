@@ -152,6 +152,23 @@ def render_panels(
                 )
         figure = flat[0].figure
         grid = supplied if supplied.ndim == 2 else supplied.reshape(-1, 1)
+    elif model.spans is not None:
+        # Unequal panels: one axes per span on a gridspec.  The result is the
+        # slot-ordered axes, one dimension, since no rectangular grid exists.
+        if figsize is None:
+            figsize = (
+                _DEFAULT_PANEL_WIDTH * model.ncols,
+                _DEFAULT_PANEL_HEIGHT * model.nrows,
+            )
+        figure = resolve_axes(None, figsize=figsize)[0]
+        for axis in list(figure.axes):
+            axis.remove()
+        gridspec = figure.add_gridspec(model.nrows, model.ncols)
+        flat = np.array(
+            [figure.add_subplot(gridspec[r:r + rs, c:c + cs]) for r, c, rs, cs in model.spans],
+            dtype=object,
+        )
+        grid = flat
     else:
         if figsize is None:
             figsize = (
@@ -171,6 +188,8 @@ def render_panels(
         flat = grid.ravel()
     placeholders = dict(model.placeholders)
     slots = [slot for slot in range(flat.size) if slot not in placeholders]
+    if model.spans is not None and ax is None:
+        _mark_spanned_slots_for_layout(flat)
     for index, panel_model in enumerate(model.models):
         axis = flat[slots[index]]
         member_style = dict(model.member_styles[index]) if model.member_styles else {}
@@ -184,12 +203,53 @@ def render_panels(
     for slot in slots[len(model.models) :]:
         flat[slot].set_visible(False)
 
+    if ax is None and model.spans is None and model.share_x and model.nrows > 1:
+        # Panels sharing a time base share its label: only the lowest drawn
+        # panel of each column keeps the x label and tick labels.
+        for column in range(model.ncols):
+            column_axes = [grid[row, column] for row in range(model.nrows) if grid[row, column].get_visible()]
+            for axis in column_axes[:-1]:
+                axis.tick_params(labelbottom=False)
+                axis.set_xlabel("")
+            if column_axes:
+                # A shared-x grid labels ticks on its structural last row only;
+                # a column that ends earlier needs them switched on by hand.
+                column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
     # a figure that redraws its panels must not be re-laid-out each time).
     return finalize(figure, grid, show=show, tight_layout=ax is None)
+
+
+def _mark_spanned_slots_for_layout(flat: np.ndarray) -> None:
+    """Nothing to mark today; tight_layout handles gridspec spans itself."""
+
+
+def slice_grid_axes(figure: Any, grid: Any, model: Panels, *, top: int = 0, colorbar_slot: int | None = None):
+    """Axes for ``model``'s slots on ``grid`` (a gridspec), rows offset by ``top``.
+
+    Shared by the panel renderer and the slice-navigation figure, so an
+    overview drawn on its own and inside the navigator have the same shape.
+    Returns ``(axes, colorbar_axes)``; ``colorbar_slot`` reserves a narrow
+    cell beside that slot's panel for a colorbar the caller redraws into.
+    """
+    spans = model.spans or tuple(
+        (slot // model.ncols, slot % model.ncols, 1, 1)
+        for slot in range(len(model.models) + len(model.placeholders))
+    )
+    axes = []
+    colorbar_axes = None
+    for slot, (r, c, rs, cs) in enumerate(spans):
+        cell = grid[top + r:top + r + rs, c:c + cs]
+        if slot == colorbar_slot:
+            sub = cell.subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
+            axes.append(figure.add_subplot(sub[0, 0]))
+            colorbar_axes = figure.add_subplot(sub[0, 1])
+        else:
+            axes.append(figure.add_subplot(cell))
+    return np.array(axes, dtype=object), colorbar_axes
 
 
 def _panel_renderer(

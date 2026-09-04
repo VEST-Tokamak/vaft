@@ -57,6 +57,7 @@ from .recipes import (
     PowerSpectrumRecipe,
     ProfileRecipe,
     SpectrogramRecipe,
+    _channel_carries_signal,
     _channel_has_data,
     _channel_identifiers,
     _channel_positions,
@@ -340,7 +341,7 @@ def _condemned(code, mask) -> bool:
 
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
     """Channel, layout and metadata facts for one line-series plot."""
-    facts: dict[str, Any] = {}
+    facts: dict[str, Any] = {"orientation": _orientation_block(recipe)}
     if recipe.index != "channel":
         code, mask = _validity_of(ods, recipe.y_path)
         facts["validity"] = _validity_block(present=code is not None, flagged=int(_condemned(code, mask)))
@@ -362,12 +363,15 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
     }
     r_values, z_values = _channel_positions(ods, container, total)
     # The divider is the whole family's (that is what grouped infers it from);
-    # the counts are of the channels that carry data, because those are the
-    # traces grouped actually places -- an empty channel builds no trace.
+    # the counts are of the channels the default selection draws -- flagged
+    # valid and carrying a signal -- because those are the traces grouped
+    # actually places (``active`` in vaft.plot.selection).
+    active = [i for i in with_data if i not in flagged and _channel_carries_signal(ods, candidates, i)]
+    channels["active"] = len(active)
     split = radial_divider(r_values)
     layouts: tuple[str, ...] = ("overlay", "subplots")
     if split:
-        regions = classify_regions(r_values[with_data], split=split)
+        regions = classify_regions(r_values[active], split=split)
         counts = {name: regions.count(name) for name in (INBOARD, OUTBOARD, UNCLASSIFIED)}
         channels["regions"] = {name: count for name, count in counts.items() if count}
         representatives: dict[str, int | None] = {}
@@ -398,6 +402,13 @@ def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:
     if not present:
         return {}
     return {"available": True, "flagged": flagged, "modes": VALIDITY_MODES}
+
+
+def _orientation_block(recipe: LineRecipe) -> dict[str, Any]:
+    """The display sign policy a line plot applies by default (issue #307)."""
+    from vaft.plot.backend.recipes import ORIENTATIONS
+
+    return {"default": recipe.orientation, "options": list(ORIENTATIONS)}
 
 
 def _uncertainty_block(present: bool) -> dict[str, Any]:

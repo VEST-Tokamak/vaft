@@ -231,8 +231,9 @@ def test_the_diagnostics_overview_excludes_flagged_channels_by_default(shots):
     figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915])
     assert not any(line.get_linestyle() == "--" for line in _traces(axes))
     plt.close(figure)
-    # The caller's own choice still wins over the overview's default.
-    figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915], validity="show")
+    # The caller's own choice still wins over the overview's default: every
+    # channel drawn (selection="all"), the flagged ones shown demoted.
+    figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915], validity="show", selection="all")
     assert any(line.get_linestyle() == "--" for line in _traces(axes))
     plt.close(figure)
 
@@ -289,3 +290,22 @@ def test_supplied_axes_must_be_axes(shots):
         vaft.omas.plot_flux_loop_time_flux(
             shots[39915], selection="inboard", layout="subplots", ax=["a"] * 7
         )
+
+
+def test_panels_sharing_a_time_base_label_it_once_per_column(shots):
+    figure, axes = vaft.omas.plot_pf_coil_time_current_turns(shots[39915], layout="subplots")
+    labels = [axis.get_xlabel() for axis in axes.ravel() if axis.get_visible()]
+    assert labels[:-1] == [""] * (len(labels) - 1) and labels[-1] == "Time [s]"
+    assert all(axis.get_ylabel() == "Coil Ampere-turns [kA-turns]" for axis in axes.ravel() if axis.get_visible())
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_pf_coil_time_current_turns(shots[39915], layout="subplots", ncols=2)
+    columns = {}
+    for axis in axes.ravel():
+        if axis.get_visible():
+            columns.setdefault(round(axis.get_position().x0, 3), []).append(axis.get_xlabel())
+    assert all(labels[-1] == "Time [s]" and not any(labels[:-1]) for labels in columns.values())
+    # The shorter column's last panel shows its tick numbers too.
+    figure.canvas.draw()
+    bottoms = [axis for axis in axes.ravel() if axis.get_visible() and axis.get_xlabel() == "Time [s]"]
+    assert len(bottoms) == 2 and all(any(t.get_text() for t in axis.get_xticklabels()) for axis in bottoms)
+    plt.close(figure)

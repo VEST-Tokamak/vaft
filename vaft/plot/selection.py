@@ -39,9 +39,13 @@ from typing import Any, Sequence
 import numpy as np
 
 __all__ = [
+    "ACTIVE",
+    "ALL",
     "INBOARD",
     "OUTBOARD",
     "PRESETS",
+    "SIGNAL_PRESETS",
+    "VALID",
     "REGION_PRESETS",
     "REPRESENTATIVE_PRESETS",
     "REGIONS",
@@ -69,8 +73,20 @@ REGION_PRESETS = (INBOARD, OUTBOARD)
 #: an aggregate over several -- those stay a separate concept.
 REPRESENTATIVE_PRESETS = ("inboard_mid", "outboard_mid")
 
+#: Presets naming channels by the state of their *signal* rather than by
+#: where they sit.  ``active`` -- the default of every multi-channel time
+#: plot -- is a channel flagged valid whose trace carries a non-zero sample;
+#: ``valid`` keeps flagged-valid channels whatever they read (a coil that was
+#: never energised is valid and flat); ``all`` draws every channel, invalid
+#: ones marked as such.  A failed shot's dead channels no longer bury the
+#: live ones, and nothing is hidden that the caller cannot ask for by name.
+ACTIVE = "active"
+VALID = "valid"
+ALL = "all"
+SIGNAL_PRESETS = (ACTIVE, VALID, ALL)
+
 #: The generic public selection vocabulary.
-PRESETS = REGION_PRESETS + REPRESENTATIVE_PRESETS
+PRESETS = REGION_PRESETS + REPRESENTATIVE_PRESETS + SIGNAL_PRESETS
 
 #: The widest gap must be at least this many times the typical spacing between
 #: neighbouring channels before it counts as the divide between two sides.

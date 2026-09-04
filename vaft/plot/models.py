@@ -271,6 +271,16 @@ class Field2D(ViewModel):
     filled: bool = True
     aspect_equal: bool = True
     overlays: tuple["GeometryLayer", ...] = ()
+    #: Extra line contours drawn thin and grey beneath the main ones -- the
+    #: flux surfaces outside the plasma when the main levels span the plasma.
+    secondary_levels: Sequence[float] | None = None
+    #: Whether the value axis deserves a colorbar; a map whose levels are
+    #: themselves the message (normalised flux at fixed steps) does without.
+    colorbar: bool = True
+    #: Where the main contours are drawn, as a boolean ``(len(z), len(r))``
+    #: grid; ``None`` draws them everywhere.  A flux map confines its plasma
+    #: levels to the plasma, since the same psi values recur beside the coils.
+    region: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         r = as_model_array(self.r, where="Field2D.r")
@@ -286,6 +296,16 @@ class Field2D(ViewModel):
         object.__setattr__(self, "r", r)
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "values", values)
+        if self.region is not None:
+            region = np.asarray(self.region, dtype=bool)
+            if region.shape != values.shape:
+                raise ValueError(
+                    f"Field2D.region must match values shape {values.shape}; got {region.shape}"
+                )
+            object.__setattr__(self, "region", region)
+        if self.secondary_levels is not None:
+            secondary = as_model_array(self.secondary_levels, where="Field2D.secondary_levels")
+            object.__setattr__(self, "secondary_levels", tuple(float(v) for v in np.sort(secondary)))
         if self.contour_levels is not None and not isinstance(self.contour_levels, int):
             object.__setattr__(
                 self,
@@ -300,9 +320,10 @@ class GeometryLayer(ViewModel):
     """One geometric element drawn in a machine view.
 
     ``kind`` selects how the coordinates are drawn: ``polyline`` connects the
-    points, ``polygon`` additionally closes the outline, and ``points`` draws
-    markers only.  Coordinates are named ``r``/``z`` for poloidal views and reused
-    as ``x``/``y`` for top views.
+    points, ``polygon`` additionally closes the outline, ``points`` draws
+    markers only, and ``text`` writes ``label`` at the single coordinate it
+    holds (an annotation, never a legend entry).  Coordinates are named
+    ``r``/``z`` for poloidal views and reused as ``x``/``y`` for top views.
     """
 
     r: np.ndarray
@@ -311,7 +332,7 @@ class GeometryLayer(ViewModel):
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
 
-    KINDS = ("polyline", "polygon", "points")
+    KINDS = ("polyline", "polygon", "points", "text")
 
     def __post_init__(self) -> None:
         if self.kind not in self.KINDS:
@@ -325,6 +346,8 @@ class GeometryLayer(ViewModel):
                 "GeometryLayer.r and GeometryLayer.z must be 1D and equal length; "
                 f"got shapes {r.shape} and {z.shape}"
             )
+        if self.kind == "text" and (r.size != 1 or not str(self.label)):
+            raise ValueError("a text GeometryLayer holds one coordinate and a non-empty label")
         object.__setattr__(self, "r", r)
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "style", _frozen_style(self.style))
@@ -340,6 +363,9 @@ class GeometryLayers(ViewModel):
     y_label: str = "Z [m]"
     title: str = ""
     aspect_equal: bool = True
+    #: Whether the labelled layers deserve a legend; a view whose parts are
+    #: named where they are drawn (annotated coils) does without.
+    legend: bool = True
 
     def __post_init__(self) -> None:
         if isinstance(self.layers, GeometryLayer):
@@ -719,6 +745,12 @@ class Panels(ViewModel):
     #: caller's own keyword arguments -- how an overview asks its members for
     #: ``validity="mask"`` without forcing that on every individual plot.
     member_styles: tuple[Mapping[str, Any], ...] | None = None
+    #: Where each grid slot sits when panels are not all the same size, as
+    #: ``(row, col, rowspan, colspan)`` per slot in slot order -- one entry per
+    #: model or placeholder.  ``None`` fills the ``nrows x ncols`` grid in
+    #: order.  A 2-D map that deserves the height of three stacked profiles
+    #: is expressed here rather than by drawing three copies of it.
+    spans: tuple[tuple[int, int, int, int], ...] | None = None
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
@@ -751,5 +783,19 @@ class Panels(ViewModel):
             )
         if any(slot >= nrows * ncols for slot, _ in placeholders):
             raise ValueError("Panels.placeholders names a slot outside the grid")
+        if self.spans is not None:
+            spans = tuple(tuple(int(v) for v in span) for span in self.spans)
+            if len(spans) != occupied:
+                raise ValueError(
+                    f"Panels.spans has {len(spans)} entries for {occupied} panels"
+                )
+            for row, col, rowspan, colspan in spans:
+                if len((row, col, rowspan, colspan)) != 4 or rowspan < 1 or colspan < 1 \
+                        or row < 0 or col < 0 or row + rowspan > nrows or col + colspan > ncols:
+                    raise ValueError(
+                        f"Panels.spans entry {(row, col, rowspan, colspan)} does not fit a "
+                        f"{nrows}x{ncols} grid"
+                    )
+            object.__setattr__(self, "spans", spans)
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)

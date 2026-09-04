@@ -81,7 +81,7 @@ def test_observers_run_once_per_change_and_can_leave():
 def test_the_interactive_figure_shares_one_selected_slice(shot):
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
     figure, axes, nav = result
-    assert axes.shape == (2, 2) and len(result.history_axes) == 2 and result.widget is None
+    assert axes.shape == (7,) and len(result.history_axes) == 1 and result.widget is None
     assert nav.selected == 4  # the representative slice, as the static overview
     assert "t = 320.00 ms (slice 5 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == nav.time for m in _markers(result))
@@ -90,7 +90,8 @@ def test_the_interactive_figure_shares_one_selected_slice(shot):
     assert "t = 325.00 ms (slice 7 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == 0.325 for m in _markers(result))
     assert [panel.get_title() for panel in axes.ravel()] == [
-        "Poloidal flux", "Pressure", "Safety Factor q", "Global quantities"
+        "Poloidal flux", "Pressure", "Safety Factor q", "Toroidal Current Density (derived)",
+        "dp/dpsi", "F dF/dpsi", "Global quantities",
     ]
     plt.close(figure)
 
@@ -164,11 +165,11 @@ def test_redrawing_leaves_the_figure_as_it_found_it(shot):
     result.figure.canvas.draw()  # positions settle only once the figure is laid out
     # The layout position: the drawn box also follows each slice's data extent
     # through the panel's equal aspect, which is content, not layout.
-    width = result.axes[0, 0].get_position(original=True).width
+    width = result.axes[0].get_position(original=True).width
     for index in result.navigator.usable:
         result.navigator.select_index(index)
         result.figure.canvas.draw()
-        assert result.axes[0, 0].get_position(original=True).width == pytest.approx(width)
+        assert result.axes[0].get_position(original=True).width == pytest.approx(width)
     assert len(result.figure.axes) == count
     plt.close(result.figure)
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="matplotlib")
@@ -190,5 +191,20 @@ def test_the_current_history_is_the_measured_waveform_with_the_reconstruction(sh
     current = result.history_axes[0]
     assert "Plasma Current" in current.get_title()
     labels = [line.get_label() for line in current.lines if line.get_linestyle() != ":"]
-    assert labels[0] == "39915"  # the magnetics waveform, not the equilibrium's own Ip
+    # The magnetics waveform, not the equilibrium's own Ip; with overlays on a
+    # scalar plot the legend names roles, so the waveform reads "measured".
+    assert labels[0] == "measured"
+    assert current.lines[0].get_xdata().size > 100
+    plt.close(result.figure)
+
+
+def test_the_history_is_the_plasma_current_with_the_stored_slices_marked(shot):
+    result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
+    (history,) = result.history_axes
+    assert history.get_title() == "Plasma Current"
+    labels = [line.get_label() for line in history.lines]
+    assert "slices" in labels and not any("q95" in label for label in labels)
+    markers = history.lines[labels.index("slices")]
+    assert markers.get_xdata().size == len(result.navigator.usable)
+    assert np.allclose(markers.get_xdata(), result.navigator.times[list(result.navigator.usable)])
     plt.close(result.figure)

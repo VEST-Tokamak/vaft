@@ -114,6 +114,8 @@ class PlotCapability:
     #: Uncertainty / validity metadata present beside the signal (#256).
     uncertainty: Mapping[str, Any] = field(default_factory=dict)
     validity: Mapping[str, Any] = field(default_factory=dict)
+    #: Display sign policy of a line plot (#307): ``default`` and ``options``.
+    orientation: Mapping[str, Any] = field(default_factory=dict)
     # -- reserved for issue #261; empty and unprinted until it lands ----------
     sources: Mapping[str, Any] = field(default_factory=dict)
     interaction: tuple[str, ...] = ()
@@ -516,6 +518,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
     if record.validity.get("available"):
         flagged = record.validity.get("flagged")
         flags.append(f"validity ({flagged} flagged)" if flagged else "validity")
+    if record.orientation.get("default") == "intuitive":
+        notes.append("orientation: intuitive by default")
     if flags:
         notes.append("metadata: " + ", ".join(flags))
     return notes
@@ -586,6 +590,11 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append(f"{key}: {state}{extra}")
             if block.get("modes"):
                 lines.append(f"{key} handling: " + " | ".join(block["modes"]))
+    if record.orientation:
+        lines.append(
+            f"orientation: {record.orientation['default']} by default; "
+            + " | ".join(record.orientation.get("options", ()))
+        )
     if record.sources:
         lines.append("sources: " + ", ".join(record.sources))
     if record.interaction:

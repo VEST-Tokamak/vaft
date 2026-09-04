@@ -101,9 +101,13 @@ def test_time_slice_names_a_stored_slice_directly(shots):
 def test_the_overview_has_the_same_shape_on_every_shot(shots):
     for shot, ods in shots.items():
         figure, axes = vaft.omas.plot_equilibrium_overview(ods)
-        assert axes.shape == (2, 2)
+        # Three columns: the flux map, the plasma profiles, the fitted source
+        # terms and the global quantities.  No packaged reconstruction stores
+        # j_tor; it is derived for the slice and the panel says so.
+        assert axes.shape == (7,)
         assert [panel.get_title() for panel in axes.ravel()] == [
-            "Poloidal flux", "Pressure", "Safety Factor q", "Global quantities"
+            "Poloidal flux", "Pressure", "Safety Factor q", "Toroidal Current Density (derived)",
+            "dp/dpsi", "F dF/dpsi", "Global quantities",
         ]
         assert figure._suptitle.get_text().startswith(f"Equilibrium slice #{shot} — t = ")
         assert "middle usable slice (no volume stored)" in figure._suptitle.get_text()
@@ -113,26 +117,29 @@ def test_the_overview_has_the_same_shape_on_every_shot(shots):
 def test_the_model_composes_canonical_members_for_one_slice(shots):
     model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=2)
     assert isinstance(model, Panels)
-    field, pressure, q, text = model.models
+    field, pressure, q, j_tor, pprime, ffprime, text = model.models
     assert isinstance(field, Field2D) and isinstance(pressure, Profile1D) and isinstance(q, Profile1D)
+    assert isinstance(j_tor, Profile1D) and j_tor.title.endswith("(derived)") and j_tor.series
+    assert isinstance(pprime, Profile1D) and isinstance(ffprime, Profile1D)
     assert isinstance(text, TextPanel)
+    assert model.placeholders == () and "j_tor" not in shots[39915]["equilibrium.time_slice.2.profiles_1d"]
+    assert model.nrows == 3 and model.ncols == 3 and model.spans[0] == (0, 0, 3, 1)
     # The 2-D panel is the same one plot_equilibrium_field_psi draws for that slice.
     same = build_model("equilibrium_field_psi", normalize_entries(shots[39915]), time_slice=2)
-    # The same field, in the display unit (mWb) the text panel uses.
-    assert np.allclose(field.values, np.asarray(same.values) * 1e3)
+    assert np.allclose(field.values, same.values) and field.value_label == same.value_label
     assert "(slice 3 of 9, requested slice)" in model.suptitle
 
 
 def test_global_quantities_follow_the_display_policy_and_say_what_is_missing(shots):
     model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=4)
-    lines = dict(line.split(None, 1) for line in model.models[3].lines)
+    lines = dict(line.split(None, 1) for line in model.models[-1].lines)
     assert lines["Ip"].endswith(" kA") and lines["psi_axis"].endswith(" mWb")
-    assert lines["B_tor"].startswith("at axis") or "B_tor at axis" in "\n".join(model.models[3].lines)
+    assert lines["B_tor"].startswith("at axis") or "B_tor at axis" in "\n".join(model.models[-1].lines)
     assert lines["beta_p"] == "not stored" and lines["volume"] == "not stored"
     ods = _with_volumes(_load("samples/39915/omas.json.gz"), [0.0] * 4 + [0.25] + [0.0] * 4)
     model = build_model("equilibrium_overview", normalize_entries(ods))
     assert "largest plasma volume" in model.suptitle
-    assert any(line.startswith("volume") and "0.25 m^3" in line for line in model.models[3].lines)
+    assert any(line.startswith("volume") and "0.25 m^3" in line for line in model.models[-1].lines)
 
 
 def test_explicit_time_shows_the_resolved_time_in_the_title(shots):
@@ -184,7 +191,7 @@ def test_the_flux_map_shares_the_text_panel_unit_and_marks_the_axis(shots):
     field = model.models[0]
     assert field.value_label == "Poloidal Flux [mWb]"
     same = build_model("equilibrium_field_psi", normalize_entries(shots[39915]), time_slice=4)
-    assert np.allclose(field.values, np.asarray(same.values) * 1e3)
+    assert np.allclose(field.values, same.values)
     axis = [layer for layer in field.overlays if layer.label == "Magnetic axis"]
     assert len(axis) == 1 and axis[0].kind == "points"
     assert np.isclose(axis[0].r[0], 0.3645, atol=1e-3)
@@ -203,3 +210,18 @@ def test_the_efit_qa_stage_keeps_its_history_artifact():
     efit = {plot.plot: plot for plot in STAGE_VALIDATION_PLOTS["efit"]}
     assert "equilibrium_overview" not in efit
     assert efit["equilibrium_overview_histories"].filename == "equilibrium_overview.png"
+
+
+def test_a_profile_that_cannot_be_derived_keeps_its_slot(shots, monkeypatch):
+    import vaft.omas
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError("no derivation here")
+
+    monkeypatch.setattr(vaft.omas, "update_equilibrium_derived_profiles", refuse)
+    model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=2)
+    assert len(model.models) == 6
+    assert model.placeholders == ((3, "profiles_1d.j_tor\nneither stored nor derivable"),)
+    figure, axes = vaft.omas.plot_equilibrium_overview(shots[39915], time_slice=2)
+    assert axes[3].get_title() == "" and "j_tor" in axes[3].texts[0].get_text()
+    plt.close(figure)
