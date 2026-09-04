@@ -7,6 +7,12 @@ catalog, the ``main`` default and the read-only rule for the legacy ``public``
 namespace all live in :mod:`vaft.database.sources`; ``directory=`` and
 ``target=`` remain accepted as deprecated aliases of ``source=``.
 
+Sources are read one at a time and never merged: :func:`load` on ``main``
+returns ``main``.  Analysis that wants an optional diagnostic alongside the
+baseline -- IMPA, whose sparse source is described in :mod:`vaft.database.sources`
+-- asks for both through :func:`vaft.database.compose`, which keeps the source of
+every channel visible.
+
 Canonical local FileDB paths live in :mod:`vaft.database.filedb`; local
 OMAS/IMAS artifact loading remains exposed through :mod:`vaft.omas` and
 :mod:`vaft.imas`.
@@ -27,6 +33,8 @@ __all__ = [
     "filedb",
     "sources",
     "replication",
+    "composition",
+    "compose",
     "production_qa",
     "plotting",
     "load",
@@ -361,6 +369,13 @@ def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups
 
 
 def __getattr__(name: str):
+    # Composing two sources is an explicit request, never something `load` does
+    # on its own (issue #305); the helper is exposed here so asking for it is as
+    # easy as asking for one source, not so that anything does it implicitly.
+    if name == "compose":
+        value = getattr(import_module(".composition", __name__), "compose")
+        globals()[name] = value
+        return value
     if name in __all__:
         module = import_module(f".{name}", __name__)
         globals()[name] = module

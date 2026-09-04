@@ -47,7 +47,10 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.action == "sources":
         for entry in known_sources():
             access = "read-write" if entry.writable else "read-only"
-            print(f"{entry.name:<22} {access:<10} {entry.purpose}")
+            # A sparse source holds only the shots its product was produced
+            # for, so a missing shot there means nothing more than that.
+            coverage = "sparse" if entry.sparse else "complete"
+            print(f"{entry.name:<22} {access:<10} {coverage:<9} {entry.purpose}")
         return 0
     definition = get_summary_preset(args.preset)
     frame = database.summary(args.shot_range, preset=args.preset, source=args.source)

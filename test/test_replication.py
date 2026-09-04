@@ -869,3 +869,84 @@ def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
     assert len(calls) == 1
     # The probe comes first: an unprovisioned namespace never costs a fetch.
     assert fetches == []
+
+
+# --------------------------------------------------------------------------- #
+# optional stages (issue #305)
+# --------------------------------------------------------------------------- #
+
+
+def _staged_impa(tmp_path, status: str, *, product: bool = True) -> FileDB:
+    """A FileDB holding one IMPA product for shot 39915 with ``status``."""
+    from vaft.omas import save as save_local
+
+    db = FileDB(tmp_path)
+    if product:
+        path = db.omas_product("impa", shot=39915)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        ods = ODS(consistency_check=False)
+        ods["dataset_description.data_entry.pulse"] = 39915
+        ods["magnetics.b_field_tor_probe.0.identifier"] = "impa:IMPA 01"
+        save_local(ods, path)
+    manifest = db.omas_manifest("impa", shot=39915)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(json.dumps({"stage": "impa", "status": status}))
+    return db
+
+
+@pytest.mark.parametrize("status", ["rejected", "failed", "unavailable"])
+def test_an_ineligible_optional_product_is_recorded_rather_than_raised(
+    tmp_path, monkeypatch, status
+):
+    """A rejected IMPA calibration must not fail the run that produced it.
+
+    Absence from a sparse source would otherwise be indistinguishable from
+    "never attempted", so the reason is written down locally even though
+    nothing is published.
+    """
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    db = _staged_impa(tmp_path, status)
+
+    record = replicate_stage("impa", 39915, filedb=db)
+
+    assert record.state == "skipped"
+    assert not record.replicated and not record.validated
+    assert status in record.error
+    assert sent == []
+    assert replication.read_record(db.omas_replication_record("impa", shot=39915)).state == "skipped"
+
+
+def test_a_missing_optional_product_is_recorded_rather_than_raised(tmp_path, monkeypatch):
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    db = _staged_impa(tmp_path, "success", product=False)
+
+    record = replicate_stage("impa", 39915, filedb=db)
+
+    assert record.state == "skipped"
+    assert "No impa product" in record.error
+    assert sent == []
+
+
+def test_a_required_stage_still_raises_where_an_optional_one_records(staged):
+    """The containment is the optional stage's, not a general weakening."""
+    manifest = staged.omas_manifest("diagnostics", shot=39915)
+    manifest.write_text(json.dumps({"stage": "diagnostics", "status": "rejected"}))
+
+    with pytest.raises(ProductNotEligibleError, match="nothing to replicate"):
+        replicate_stage("diagnostics", 39915, filedb=staged)
+
+
+def test_an_accepted_optional_product_reaches_its_own_source(tmp_path, monkeypatch):
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    db = _staged_impa(tmp_path, "success")
+
+    record = replicate_stage("impa", 39915, filedb=db)
+
+    assert record.state == "validated"
+    assert [entry["source"] for entry in sent] == ["impa"]
+    # The baseline source is never touched by the optional diagnostic.
+    assert all(entry["source"] != "main" for entry in sent)
+    assert sent[0]["ids"] == ["dataset_description", "magnetics"]

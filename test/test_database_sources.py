@@ -27,6 +27,7 @@ def test_catalog_carries_every_lineage_the_issue_names():
         "vfit-gse",
         "electron-efit",
         "kinetic-efit",
+        "impa",
     }
 
 

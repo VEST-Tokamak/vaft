@@ -6,6 +6,13 @@ Named sources give each lineage its own namespace: the EFIT baseline in
 ``main``, its CHEASE refinement and the linear-MHD results that follow from it
 in ``chease-mhd-stability``, and so on.
 
+A source is also how an optional diagnostic stays out of the baseline's
+semantics: ``impa`` is *sparse*, holding only the shots whose IMPA product was
+intentionally produced, so a shot missing from it says nothing about whether the
+baseline shot exists or succeeded (issue #305).  Sources are never unioned on
+read; composing two is an explicit call to
+:func:`vaft.database.composition.compose`.
+
 This module is the only place a namespace name is written down.  Every public
 entry point resolves its ``source`` argument through :func:`resolve`, so the
 default, the deprecated aliases, the grammar and the read-only rule for the
@@ -91,11 +98,20 @@ class MissingSourceError(HSDSSourceError):
 
 @dataclass(frozen=True)
 class HSDSSource:
-    """One named HSDS namespace and the lineage it stores."""
+    """One named HSDS namespace and the lineage it stores.
+
+    ``sparse`` describes coverage, not access: a sparse source holds only the
+    shots for which its product was intentionally produced, so a shot missing
+    from it means "no published product", never "the shot is missing" or "the
+    baseline failed" (issue #305).  It is documentation the CLI and the docs
+    render -- discovery needs no new code, because :func:`exist_shot` already
+    lists whatever folders exist and nothing unions two sources.
+    """
 
     name: str
     purpose: str
     writable: bool = True
+    sparse: bool = False
 
 
 _CATALOG: dict[str, HSDSSource] = {
@@ -124,6 +140,13 @@ _CATALOG: dict[str, HSDSSource] = {
         HSDSSource(
             "kinetic-efit",
             "Kinetic EFIT for shots with Thomson scattering and CES/ion-Doppler spectroscopy.",
+        ),
+        HSDSSource(
+            "impa",
+            "Insertable magnetic probe array. Sparse: only shots whose IMPA "
+            "product was intentionally produced. Absence means no published "
+            "IMPA product, nothing more.",
+            sparse=True,
         ),
     )
 }
@@ -262,6 +285,11 @@ class StageReplication:
     starting from the finalized diagnostics ODS, so it carries ``magnetics`` and
     ``pf_active`` through -- but it computes only ``pf_passive``, and replicating
     the rest would have eddy overwrite what diagnostics wrote.
+
+    ``optional`` marks a stage the baseline does not depend on: a product that
+    is not eligible to publish is *recorded* as skipped rather than raised, so
+    an absent or rejected optional diagnostic cannot change the exit state of a
+    pipeline whose required stages all succeeded (issue #305).
     """
 
     source: str | None
@@ -269,6 +297,7 @@ class StageReplication:
     occurrence: int = 0
     note: str = ""
     deferred_to: str | None = None
+    optional: bool = False
 
     @property
     def replicable(self) -> bool:
@@ -304,6 +333,15 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         note="carries the diagnostics IDS through but computes only pf_passive",
     ),
     "efit": StageReplication(source=DEFAULT_SOURCE, ids=("equilibrium",)),
+    # Owns `magnetics` too, but in its own source: the split is what keeps an
+    # optional, campaign-dependent diagnostic out of the baseline product it
+    # would otherwise be appended to (issue #305).
+    "impa": StageReplication(
+        source="impa",
+        ids=("magnetics",),
+        optional=True,
+        note="sparse optional diagnostic; an ineligible product is recorded, not raised",
+    ),
     # Shares the `equilibrium` IDS with the EFIT baseline; the source split is
     # what keeps the refinement from overwriting the baseline it refines.
     "chease": StageReplication(

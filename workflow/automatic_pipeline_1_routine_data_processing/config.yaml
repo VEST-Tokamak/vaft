@@ -21,6 +21,12 @@ diagnostics:
   tend: 0.36
   dt: 4.0e-5
   run: 1
+# Optional insertable diagnostic, published into its own sparse HSDS source
+# (issue #305). Off by default: absence of an IMPA product is normal, and the
+# branch is never a dependency of the baseline products.
+impa:
+  enable: false
+  run: 1
 vest:
   magnetics:
     processing:

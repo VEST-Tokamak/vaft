@@ -394,7 +394,15 @@ each other. `source` defaults to `main`, the VAFT-native pipeline's namespace.
 | `vfit-gse` | VFIT Grad-Shafranov-equilibrium fitting result. |
 | `electron-efit` | Kinetic EFIT from Thomson scattering with an assumed Ti/Te ratio. |
 | `kinetic-efit` | Kinetic EFIT for shots with Thomson scattering and CES/ion-Doppler spectroscopy. |
+| `impa` | **Sparse.** Insertable magnetic probe array; only shots whose IMPA product was intentionally produced. |
 | `public` | **Read-only** legacy source from the previous pipeline. |
+
+A sparse source holds a subset of the shot archive on purpose. A shot missing
+from `impa` means only that no IMPA product was published for it -- not that the
+shot is missing, that `main` failed, or that the array was installed and
+invalid. Sources are never unioned on read: `load` returns the one source it was
+asked for, and `vaft.database.compose(shot)` is the explicit way to analyse
+`main` and `impa` together with the origin of each channel kept visible.
 
 `python -m vaft.cli summary sources` prints the same list. The historical
 `directory=`/`target=` keywords still work and warn. To use a namespace outside
