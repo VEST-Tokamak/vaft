@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,15 +25,17 @@
 
 
 
+            <link rel="prev" href="/vaft/develop/reference/formula/magnetics/" />
+        
 
         
-            <link rel="next" href="/vaft/develop" />
+            <link rel="next" href="/vaft/develop/reference/process/signal_processing/" />
         
     </head>
     <body>
         
         
-        <div class="book"><div class="book-summary">
+        <div class="book has-page-toc"><div class="book-summary">
     <script type="text/javascript">
         // Fixes the page links scroll problem on both desktop and mobile browsers
         function pageScrollToTop(element) {
@@ -143,7 +145,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    <li class="chapter active" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
                     </li>
@@ -198,11 +200,15 @@
 <div class="book-body">
                 <div class="book-header" role="navigation">
                     
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
                     <!-- Title -->
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >VAFT</a>
+                            <a href="." >Process reference</a>
                         
                     </h1>
                 </div>
@@ -228,29 +234,245 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="">VAFT</h1>
+                        <h1 id="/reference/Process_reference">Process reference</h1>
                     
-<style type="text/css" media="screen">
-  .container {
-    margin: 10px auto;
-    max-width: 600px;
-    text-align: center;
-  }
-  h1 {
-    margin: 30px 0;
-    font-size: 4em;
-    line-height: 1;
-    letter-spacing: -1px;
-  }
-</style>
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Index of the generated per-function reference for the vaft.process computation layer.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Which submodule holds a routine, whether it is machine-independent or VEST policy, what it does to its input, and where its method and defaults came from.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
 
-<div class="container">
-  <h1>404</h1>
+<p><code class="language-plaintext highlighter-rouge">vaft.process</code> is the <strong>computation layer</strong> of VAFT.  Almost every function in it takes plain NumPy
+arrays and scalars and returns arrays, tuples or dataclasses; it does not read or write ODS.  The
+ODS-aware layer lives in <code class="language-plaintext highlighter-rouge">vaft.omas</code> (mainly <code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper</code>), which pulls geometry and
+signals out of an ODS, calls into <code class="language-plaintext highlighter-rouge">vaft.process</code>, and writes the results back.</p>
 
-  <p><strong>Page not found :(</strong></p>
-  <p>The requested page could not be found.</p>
-</div>
+<blockquote>
+  <p>Rule of thumb: <strong><code class="language-plaintext highlighter-rouge">vaft.process</code> is the math, <code class="language-plaintext highlighter-rouge">vaft.omas.compute_*</code> is the API you usually call.</strong></p>
+</blockquote>
 
+<p>Every public processing function is documented under one contract, and these pages are generated
+from those docstrings by <code class="language-plaintext highlighter-rouge">python -m vaft.process.catalog</code>.  Where a formula page answers <em>what is
+this quantity and when is it valid</em>, a process page answers <em>how is this input turned into this
+output</em>: the parameters and returns with their units, the processing steps in order, the defaults
+that change the result and what kind of value each is, the conventions assumed, the machine scope,
+the limitations, and the provenance of the method.  Nothing here is written by hand, so the site
+and <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code> always agree.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft.process</span> <span class="k">as</span> <span class="n">P</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">P</span><span class="p">.</span><span class="nf">describe</span><span class="p">(</span><span class="sh">"</span><span class="s">repair_clipped_interval</span><span class="sh">"</span><span class="p">))</span>     <span class="c1"># one routine, rendered
+</span><span class="n">P</span><span class="p">.</span><span class="nf">search</span><span class="p">(</span><span class="sh">"</span><span class="s">vest.yaml</span><span class="sh">"</span><span class="p">)</span>                             <span class="c1"># every routine whose text mentions it
+</span><span class="n">P</span><span class="p">.</span><span class="nf">list_processes</span><span class="p">(</span><span class="n">category</span><span class="o">=</span><span class="sh">"</span><span class="s">signal_processing</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># imports only that submodule
+</span></code></pre></div></div>
+
+<p>The discovery layer is loaded on first use only; <code class="language-plaintext highlighter-rouge">import vaft.process.signal_processing</code> never
+touches it.</p>
+
+<h2 id="categories">Categories</h2>
+
+<p>The layer is being brought under the contract one submodule at a time
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/252">#252</a>).  A category gets a reference page when
+every function in it conforms; until then its count is shown and its page is absent.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Under contract</th><th>Contents</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>profile</td>
+    <td><code>vaft.process.profile</code></td>
+    <td>9</td>
+    <td>0 of 9</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>equilibrium</td>
+    <td><code>vaft.process.equilibrium</code></td>
+    <td>34</td>
+    <td>1 of 34</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>camera_geometry</td>
+    <td><code>vaft.process.camera_geometry</code></td>
+    <td>4</td>
+    <td>0 of 4</td>
+    <td>Pinhole camera projection math for the VEST FAST camera.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/process/signal_processing/">signal_processing</a></td>
+    <td><code>vaft.process.signal_processing</code></td>
+    <td>25</td>
+    <td>yes</td>
+    <td>Conditioning of one waveform on a plain time axis.</td>
+  </tr>
+  <tr>
+    <td>fluctuation</td>
+    <td><code>vaft.process.fluctuation</code></td>
+    <td>6</td>
+    <td>0 of 6</td>
+    <td>Diagnostic-independent spectral analysis of scalar fluctuation time series.</td>
+  </tr>
+  <tr>
+    <td>soft_x_rays</td>
+    <td><code>vaft.process.soft_x_rays</code></td>
+    <td>9</td>
+    <td>0 of 9</td>
+    <td>VEST soft X-ray fluctuation and two-filter analysis routines.</td>
+  </tr>
+  <tr>
+    <td>electromagnetics</td>
+    <td><code>vaft.process.electromagnetics</code></td>
+    <td>10</td>
+    <td>0 of 10</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/process/numerical/">numerical</a></td>
+    <td><code>vaft.process.numerical</code></td>
+    <td>1</td>
+    <td>yes</td>
+    <td>Numerical primitives on plain arrays.</td>
+  </tr>
+  <tr>
+    <td>magnetics</td>
+    <td><code>vaft.process.magnetics</code></td>
+    <td>14</td>
+    <td>0 of 14</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/process/statistical_analysis/">statistical_analysis</a></td>
+    <td><code>vaft.process.statistical_analysis</code></td>
+    <td>11</td>
+    <td>yes</td>
+    <td>Log-linear regression of confinement time against engineering parameters.</td>
+  </tr>
+  <tr>
+    <td>atomic</td>
+    <td><code>vaft.process.atomic</code></td>
+    <td>5</td>
+    <td>0 of 5</td>
+    <td>High-level atomic-radiation processing for OMAS data structures.</td>
+  </tr>
+  <tr>
+    <td>langmuir</td>
+    <td><code>vaft.process.langmuir</code></td>
+    <td>8</td>
+    <td>0 of 8</td>
+    <td>Backend-independent VEST triple Langmuir probe physics.</td>
+  </tr>
+  <tr>
+    <td>impa</td>
+    <td><code>vaft.process.impa</code></td>
+    <td>14</td>
+    <td>1 of 14</td>
+    <td>Generic algorithms for the VEST Internal Magnetic Probe Array (IMPA).</td>
+  </tr>
+  <tr>
+    <td>onset</td>
+    <td><code>vaft.process.onset</code></td>
+    <td>11</td>
+    <td>0 of 11</td>
+    <td>Onset and active-window primitives on plain arrays (issue #409).</td>
+  </tr>
+  <tr>
+    <td>cocos</td>
+    <td><code>vaft.process.cocos</code></td>
+    <td>4</td>
+    <td>0 of 4</td>
+    <td>Operational COCOS handling: consistency checking against Sauter Eq. 23.</td>
+  </tr>
+  </tbody>
+</table>
+
+<h2 id="machine-independent-or-vest-policy">Machine-independent or VEST policy</h2>
+
+<p>Every function’s <strong>Applicability</strong> section opens with one of two sentences, and each page badges
+it.  <em>Machine-independent</em> means the caller supplies every machine-specific number – an
+acquisition rail, a chord length, a processing window – and the routine infers nothing about the
+hardware; the VEST values are read from <code class="language-plaintext highlighter-rouge">vest.yaml</code> by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>, never here.
+<em>VEST-specific</em> means the routine embeds a VEST constant, a VEST column name or a VEST
+acquisition-era rule, and its page says which and for what shot range.</p>
+
+<h2 id="where-a-default-came-from">Where a default came from</h2>
+
+<p>A default that changes the result is classified on its page as one of: physical constant,
+literature value, diagnostic calibration, empirical estimate, validated-workflow default,
+machine-specific setting, acquisition-era policy, legacy compatibility value, or numerical
+convenience.  A legacy compatibility value is one that arrived with a ported routine and whose
+derivation is not recorded; the page says so rather than inventing one.</p>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file, the private
+<code class="language-plaintext highlighter-rouge">_equilibrium_parametric.py</code> included; documentation validation compares them when
+<code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.  The same text is available
+offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>, <code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and
+<code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="confinement-scaling">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb">Confinement-time scaling</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+  </div>
+</section>
 
 </section>
             </div><div class="search-results">
@@ -307,17 +529,32 @@ window.MathJax = {
     }
 </script>
 
-<a href="/vaft/develop/" class="navigation navigation-pre navigation-unique">
-                        <i class="fa"></i>
-                    </a>
+
+                        <a href="/vaft/develop/reference/formula/magnetics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: magnetics">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
 
                     
-                        <a href="/vaft/develop" class="navigation navigation-next navigation-unique" aria-label="Next page: ">
+                        <a href="/vaft/develop/reference/process/signal_processing/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: signal_processing">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
                 </div>
             </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#machine-independent-or-vest-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine-independent or VEST policy</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-a-default-came-from" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where a default came from</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
 
             
 
@@ -330,14 +567,12 @@ window.MathJax = {
         "level": "1.1",
         "depth": 1,
         
-
-        
         "next": {
-            "title": "",
+            "title": "Process reference: signal_processing",
             "level": "1.2",
             "depth": 1,
-            "path": "",
-            "ref": "",
+            "path": "_guide/Process_reference_signal_processing.md",
+            "ref": "_guide/Process_reference_signal_processing.md",
             "articles": []
         },
         
@@ -429,8 +664,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "404.html",
-        "mtime": "",
+        "path": "_guide/Process_reference.md",
+        "mtime": "2026-09-03 10:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

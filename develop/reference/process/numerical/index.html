@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: numerical · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,15 +25,17 @@
 
 
 
+            <link rel="prev" href="/vaft/develop/reference/process/signal_processing/" />
+        
 
         
-            <link rel="next" href="/vaft/develop" />
+            <link rel="next" href="/vaft/develop/reference/process/statistical_analysis/" />
         
     </head>
     <body>
         
         
-        <div class="book"><div class="book-summary">
+        <div class="book has-page-toc"><div class="book-summary">
     <script type="text/javascript">
         // Fixes the page links scroll problem on both desktop and mobile browsers
         function pageScrollToTop(element) {
@@ -198,11 +200,15 @@
 <div class="book-body">
                 <div class="book-header" role="navigation">
                     
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
                     <!-- Title -->
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >VAFT</a>
+                            <a href="." >Process reference: numerical</a>
                         
                     </h1>
                 </div>
@@ -228,29 +234,145 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="">VAFT</h1>
+                        <h1 id="/reference/process/Process_reference_numerical">Process reference: numerical</h1>
                     
-<style type="text/css" media="screen">
-  .container {
-    margin: 10px auto;
-    max-width: 600px;
-    text-align: center;
-  }
-  h1 {
-    margin: 30px 0;
-    font-size: 4em;
-    line-height: 1;
-    letter-spacing: -1px;
-  }
-</style>
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.numerical, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
 
-<div class="container">
-  <h1>404</h1>
 
-  <p><strong>Page not found :(</strong></p>
-  <p>The requested page could not be found.</p>
-</div>
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/numerical.py"><code class="language-plaintext highlighter-rouge">vaft/process/numerical.py</code></a>:
+1 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("numerical.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
+<h2 id="overview">Overview</h2>
+
+<p>One function so far.  Anything that is a physics formula belongs in
+<code class="language-plaintext highlighter-rouge">vaft.formula</code>; anything that knows about a diagnostic belongs in a
+diagnostic module.  This is for the operations that are neither.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>t</td><td>time</td><td>s</td></tr>
+  <tr><td>x</td><td>the sampled quantity</td><td>any</td></tr>
+  </tbody>
+</table>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#time_derivative"><code>time_derivative</code></a> &mdash; Time derivative of a sampled quantity on a non-uniform time axis.
+</li>
+</ul>
+
+<h3 id="time_derivative"><code class="language-plaintext highlighter-rouge">time_derivative</code></h3>
+
+<p class="formula-signature"><code>time_derivative(time, data)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Time derivative of a sampled quantity on a non-uniform time axis.</p>
+
+<p>A weighted central difference: at each interior point the forward and
+backward differences are averaged with weights proportional to the
+<em>opposite</em> interval, so the closer neighbour counts more.  On a uniform
+grid this reduces to the ordinary central difference; the ends use a
+one-sided difference.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>np.ndarray</td><td>s</td><td><p>Sample times; spacing may vary.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>np.ndarray</td><td>any</td><td><p>The sampled quantity, same shape as <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any/s</td><td><p><code class="language-plaintext highlighter-rouge">d(data)/dt</code> at each sample, same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The arrays differ in shape, or hold fewer than two samples.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>First sample: forward difference.  Last sample: backward difference.</li>
+  <li>Interior sample <code class="language-plaintext highlighter-rouge">i</code>: with <code class="language-plaintext highlighter-rouge">h_b = t[i] - t[i-1]</code> and
+<code class="language-plaintext highlighter-rouge">h_f = t[i+1] - t[i]</code>, the derivative is
+<code class="language-plaintext highlighter-rouge">(h_f * backward + h_b * forward) / (h_b + h_f)</code>.</li>
+  <li>A zero interval on either side falls back to the difference across the
+other; zero on both sides yields <code class="language-plaintext highlighter-rouge">0</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>The weighting is the simple interval-weighted average of the two one-sided
+differences, not the second-order non-uniform stencil; it is what was
+written and is kept so that results do not move.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A zero time interval produces a <code class="language-plaintext highlighter-rouge">0</code> derivative silently rather than an
+error, so a duplicated timestamp hides as a flat spot.  The scheme is
+first-order accurate on a non-uniform grid and amplifies sample noise as
+any finite difference does; smooth or filter first if the derivative is
+to be read quantitatively.  The loop over interior points is pure Python
+and slow on long records.</p>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
 
 </section>
             </div><div class="search-results">
@@ -307,17 +429,32 @@ window.MathJax = {
     }
 </script>
 
-<a href="/vaft/develop/" class="navigation navigation-pre navigation-unique">
-                        <i class="fa"></i>
-                    </a>
+
+                        <a href="/vaft/develop/reference/process/signal_processing/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: signal_processing">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
 
                     
-                        <a href="/vaft/develop" class="navigation navigation-next navigation-unique" aria-label="Next page: ">
+                        <a href="/vaft/develop/reference/process/statistical_analysis/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: statistical_analysis">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
                 </div>
             </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#time_derivative" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">time_derivative</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
 
             
 
@@ -330,14 +467,12 @@ window.MathJax = {
         "level": "1.1",
         "depth": 1,
         
-
-        
         "next": {
-            "title": "",
+            "title": "Process reference: statistical_analysis",
             "level": "1.2",
             "depth": 1,
-            "path": "",
-            "ref": "",
+            "path": "_guide/Process_reference_statistical_analysis.md",
+            "ref": "_guide/Process_reference_statistical_analysis.md",
             "articles": []
         },
         
@@ -429,8 +564,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "404.html",
-        "mtime": "",
+        "path": "_guide/Process_reference_numerical.md",
+        "mtime": "2026-09-03 10:02:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

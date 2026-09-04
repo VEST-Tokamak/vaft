@@ -1,0 +1,2008 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: signal_processing · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/numerical/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: signal_processing</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>8cc0cda</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_signal_processing">Process reference: signal_processing</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.signal_processing, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/signal_processing.py"><code class="language-plaintext highlighter-rouge">vaft/process/signal_processing.py</code></a>:
+25 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("signal_processing.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Everything here takes NumPy arrays and returns NumPy arrays.  Nothing reads
+an ODS, nothing knows what the waveform is, and nothing embeds a VEST
+constant except where the function’s name says so (<code class="language-plaintext highlighter-rouge">vest_*</code>) and its
+<code class="language-plaintext highlighter-rouge">Applicability</code> section says why.  The VEST source selection, calibration
+and processing windows that decide <em>which</em> waveform to condition, and with
+what numbers, live in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code> and <code class="language-plaintext highlighter-rouge">vest.yaml</code>.</p>
+
+<p>Four kinds of operation:</p>
+
+<ul>
+  <li><strong>Filtering</strong> – <code class="language-plaintext highlighter-rouge">smooth</code>, <code class="language-plaintext highlighter-rouge">butterworth_lowpass</code>,
+<code class="language-plaintext highlighter-rouge">butterworth_bandpass</code>, <code class="language-plaintext highlighter-rouge">detrend_moving_average</code>,
+<code class="language-plaintext highlighter-rouge">anti_alias_filter</code>, <code class="language-plaintext highlighter-rouge">vest_coil_current_noise_reduction</code>.</li>
+  <li><strong>Baseline</strong> – <code class="language-plaintext highlighter-rouge">define_baseline</code> selects the quiet samples,
+<code class="language-plaintext highlighter-rouge">subtract_baseline</code> fits one of <code class="language-plaintext highlighter-rouge">linear_baseline</code>,
+<code class="language-plaintext highlighter-rouge">quadratic_baseline</code>, <code class="language-plaintext highlighter-rouge">exp_baseline</code> or a spline through them
+and removes it.</li>
+  <li><strong>Saturation repair</strong> – <code class="language-plaintext highlighter-rouge">detect_clipped_samples</code>,
+<code class="language-plaintext highlighter-rouge">repair_clipped_interval</code>.</li>
+  <li><strong>Timebase and activity</strong> – <code class="language-plaintext highlighter-rouge">describe_time_grid</code>,
+<code class="language-plaintext highlighter-rouge">resample_to_time</code>, <code class="language-plaintext highlighter-rouge">detect_active_window</code>,
+<code class="language-plaintext highlighter-rouge">signal_on_offset</code>, <code class="language-plaintext highlighter-rouge">is_signal_active</code>,
+<code class="language-plaintext highlighter-rouge">infer_signal_orientation</code>, <code class="language-plaintext highlighter-rouge">line_average_density</code>, and the
+legacy <code class="language-plaintext highlighter-rouge">process_signal</code> wrapper.</li>
+</ul>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>t</td><td>time</td><td>s</td></tr>
+  <tr><td>dt</td><td>sample spacing</td><td>s</td></tr>
+  <tr><td>f_s</td><td>sample rate, ``1 / dt``</td><td>Hz</td></tr>
+  <tr><td>f_N</td><td>Nyquist frequency, ``f_s / 2``</td><td>Hz</td></tr>
+  <tr><td>f_c</td><td>filter cutoff</td><td>Hz</td></tr>
+  <tr><td>x</td><td>the waveform, in whatever unit it has</td><td>any</td></tr>
+  </tbody>
+</table>
+
+<p>Two filtering conventions coexist and each function says which it uses.
+<em>Causal</em> (<code class="language-plaintext highlighter-rouge">scipy.signal.lfilter</code>) delays every feature by the filter’s
+group delay and is the convention of the validated VEST SXR viewer, where
+matched delay between channels matters more than zero phase.  <em>Zero-phase</em>
+(<code class="language-plaintext highlighter-rouge">scipy.signal.filtfilt</code>, forward then backward) moves nothing in time
+and is mandatory wherever an onset time is read off the result.
+<code class="language-plaintext highlighter-rouge">butterworth_lowpass</code> defaults to causal, everything else to
+zero-phase.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#VEST_CoilCurrentNoiseReduction"><code>VEST_CoilCurrentNoiseReduction</code></a> &mdash; Deprecated compatibility wrapper for the snake-case function.
+</li>
+  <li><a href="#anti_alias_filter"><code>anti_alias_filter</code></a> &mdash; Zero-phase FIR low-pass applied on the <em>source</em> grid, ahead of a rate cut.
+</li>
+  <li><a href="#butterworth_bandpass"><code>butterworth_bandpass</code></a> &mdash; Butterworth band-pass filter along the last axis.
+</li>
+  <li><a href="#butterworth_lowpass"><code>butterworth_lowpass</code></a> &mdash; Butterworth low-pass filter along the last axis.
+</li>
+  <li><a href="#define_baseline"><code>define_baseline</code></a> &mdash; Select the baseline samples around a signal’s onset and optional offset.
+</li>
+  <li><a href="#describe_time_grid"><code>describe_time_grid</code></a> &mdash; Measure a timebase’s spacing, uniformity and monotonicity.
+</li>
+  <li><a href="#detect_active_window"><code>detect_active_window</code></a> &mdash; Return the active time window that contains a signal’s main peak.
+</li>
+  <li><a href="#detect_clipped_samples"><code>detect_clipped_samples</code></a> &mdash; Return a boolean mask of samples sitting at an acquisition limit.
+</li>
+  <li><a href="#detrend_moving_average"><code>detrend_moving_average</code></a> &mdash; Subtract a centered moving-average trend along the last axis.
+</li>
+  <li><a href="#exp_baseline"><code>exp_baseline</code></a> &mdash; Exponential model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * exp(b * x) + c</code>.
+</li>
+  <li><a href="#infer_signal_orientation"><code>infer_signal_orientation</code></a> &mdash; Infer the dominant sign of <code class="language-plaintext highlighter-rouge">signal</code> from its active region.
+</li>
+  <li><a href="#is_signal_active"><code>is_signal_active</code></a> &mdash; Decide whether a trace carries a signal or is flat.
+</li>
+  <li><a href="#line_average_density"><code>line_average_density</code></a> &mdash; Return line-average electron density given an explicit chord length.
+</li>
+  <li><a href="#linear_baseline"><code>linear_baseline</code></a> &mdash; Linear model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * x + b</code>.
+</li>
+  <li><a href="#process_signal"><code>process_signal</code></a> &mdash; Legacy conditioning wrapper: crop, resample, then filter.
+</li>
+  <li><a href="#quadratic_baseline"><code>quadratic_baseline</code></a> &mdash; Quadratic model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * x^2 + b * x + c</code>.
+</li>
+  <li><a href="#repair_clipped_interval"><code>repair_clipped_interval</code></a> &mdash; Reconstruct samples saturated at an acquisition limit by interpolation.
+</li>
+  <li><a href="#resample_to_time"><code>resample_to_time</code></a> &mdash; Project a signal onto <code class="language-plaintext highlighter-rouge">target_time</code>, low-passing first if that is a rate cut.
+</li>
+  <li><a href="#signal_on_offset"><code>signal_on_offset</code></a> &mdash; Smooth a waveform, then return the window in which it is above a threshold.
+</li>
+  <li><a href="#signal_onoffset"><code>signal_onoffset</code></a> &mdash; Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">signal_on_offset</code>.
+</li>
+  <li><a href="#smooth"><code>smooth</code></a> &mdash; Apply MATLAB-like moving-average smoothing with edge tapering.
+</li>
+  <li><a href="#subtract_baseline"><code>subtract_baseline</code></a> &mdash; Fit a baseline through the selected samples and subtract it everywhere.
+</li>
+  <li><a href="#vest_coil_current_noise_reduction"><code>vest_coil_current_noise_reduction</code></a> &mdash; Suppress point spikes in coil current traces.
+</li>
+  <li><a href="#vfit_signal_start_end"><code>vfit_signal_start_end</code></a> &mdash; Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">detect_active_window</code>.
+</li>
+  <li><a href="#vfit_signal_startend"><code>vfit_signal_startend</code></a> &mdash; Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">detect_active_window</code>.
+</li>
+</ul>
+
+<h3 id="VEST_CoilCurrentNoiseReduction"><code class="language-plaintext highlighter-rouge">VEST_CoilCurrentNoiseReduction</code></h3>
+
+<p class="formula-signature"><code>VEST_CoilCurrentNoiseReduction(data)</code></p>
+
+<p><strong>Deprecated.</strong> </p>
+
+<p>Deprecated compatibility wrapper for the snake-case function.</p>
+
+<h3 id="anti_alias_filter"><code class="language-plaintext highlighter-rouge">anti_alias_filter</code></h3>
+
+<p class="formula-signature"><code>anti_alias_filter(values, *, source_rate, cutoff_hz, stopband_hz=None, numtaps=None, axis=-1, nan_policy='segment')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Zero-phase FIR low-pass applied on the <em>source</em> grid, ahead of a rate cut.</p>
+
+<p>This is the half of a downsample that <code class="language-plaintext highlighter-rouge">np.interp</code> cannot do for you.
+Filtering after the rate has already been reduced is too late: whatever
+folded is now indistinguishable from real in-band signal.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform or a stack of them; the time axis is <code class="language-plaintext highlighter-rouge">axis</code>.</p>
+</td></tr>
+  <tr><td><code>source_rate</code></td><td>float</td><td>Hz</td><td><p>Sample rate of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float</td><td>Hz</td><td><p>Passband edge, strictly inside <code class="language-plaintext highlighter-rouge">(0, source_rate / 2)</code>.</p>
+</td></tr>
+  <tr><td><code>stopband_hz</code></td><td>float or None, optional</td><td>Hz</td><td><p>Frequency by which the response must be down – for a downsample, the target Nyquist.  Sets the transition band and so the tap count.</p>
+</td></tr>
+  <tr><td><code>numtaps</code></td><td>int or None, optional</td><td>-</td><td><p>Override the designed tap count; forced odd.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td>int, optional</td><td>-</td><td><p>The time axis of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  <tr><td><code>nan_policy</code></td><td>{"segment", "error", "ignore"}, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">"segment"</code> filters each maximal finite run on its own; <code class="language-plaintext highlighter-rouge">"error"</code> refuses non-finite samples; <code class="language-plaintext highlighter-rouge">"ignore"</code> hands them to <code class="language-plaintext highlighter-rouge">filtfilt</code>, which smears them across the record.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The filtered waveform, same shape as <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ResamplingError
+    <code class="language-plaintext highlighter-rouge">cutoff_hz</code> or <code class="language-plaintext highlighter-rouge">stopband_hz</code> outside their bands, or a non-finite
+    sample under <code class="language-plaintext highlighter-rouge">nan_policy="error"</code>.
+ValueError
+    Unknown <code class="language-plaintext highlighter-rouge">nan_policy</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Size the filter: <code class="language-plaintext highlighter-rouge">numtaps ~ 3.3 * source_rate / (stopband - cutoff)</code>,
+the Hamming-window rule [1], measured against the <em>target</em> Nyquist –
+not the source Nyquist, which is ten times higher for a VEST fast
+channel and would size the filter at nine taps instead of the three
+hundred the job needs.  Forced odd so the FIR is Type I with integer
+group delay.</li>
+  <li>Design it with <code class="language-plaintext highlighter-rouge">scipy.signal.firwin</code> (Hamming window, low-pass).</li>
+  <li>Apply <code class="language-plaintext highlighter-rouge">scipy.signal.filtfilt</code> to each finite run long enough for it;
+shorter runs are passed through with a <code class="language-plaintext highlighter-rouge">RuntimeWarning</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">stopband_hz = 1.25 * cutoff_hz</code> is a numerical convenience consistent
+with <code class="language-plaintext highlighter-rouge">resample_to_time</code>’s default 0.8-of-Nyquist cutoff: it puts
+the stopband exactly at the target Nyquist.  <code class="language-plaintext highlighter-rouge">nan_policy = "segment"</code> is
+a validated-workflow default – one NaN must not blank a whole record.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase, and load-bearing: filterscope intensity feeds onset detection,
+where a causal filter would move the onset by the group delay.  <code class="language-plaintext highlighter-rouge">firwin</code></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">filtfilt</code> rather than a Butterworth or <code class="language-plaintext highlighter-rouge">decimate</code>’s Chebyshev,
+because it is the idiom the VEST mappers already use
+(<code class="language-plaintext highlighter-rouge">machine_mapping/tf.py</code>, <code class="language-plaintext highlighter-rouge">machine_mapping/pf_active.py</code>,
+<code class="language-plaintext highlighter-rouge">process/magnetics.py</code>).</li>
+</ul>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">filtfilt</code> needs <code class="language-plaintext highlighter-rouge">3 * (numtaps - 1) + 1</code> samples; a record or finite
+run shorter than that is returned unfiltered, with a warning, rather than
+padded.  The filter assumes evenly spaced samples; on an irregular grid the
+design rate is a fiction, which <code class="language-plaintext highlighter-rouge">resample_to_time</code> refuses for you.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Hamming-window FIR design rule, <code class="language-plaintext highlighter-rouge">N ~ 3.3 f_s / Delta f</code>, e.g. Oppenheim &amp; Schafer, <em>Discrete-Time Signal Processing</em>, window method.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft/machine_mapping/tf.py</code> and <code class="language-plaintext highlighter-rouge">pf_active.py</code>, the mappers whose established filtering idiom this generalizes.
+</li>
+</ol>
+
+<h3 id="butterworth_bandpass"><code class="language-plaintext highlighter-rouge">butterworth_bandpass</code></h3>
+
+<p class="formula-signature"><code>butterworth_bandpass(data, low, high, fs, order=2, *, zero_phase=True)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Butterworth band-pass filter along the last axis.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform or a stack of them; the time axis is the last.</p>
+</td></tr>
+  <tr><td><code>low</code></td><td>float</td><td>Hz</td><td><p>Lower band edge.</p>
+</td></tr>
+  <tr><td><code>high</code></td><td>float</td><td>Hz</td><td><p>Upper band edge, above <code class="language-plaintext highlighter-rouge">low</code> and below the Nyquist frequency.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Filter order.</p>
+</td></tr>
+  <tr><td><code>zero_phase</code></td><td>bool, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> for forward-backward <code class="language-plaintext highlighter-rouge">filtfilt</code>; <code class="language-plaintext highlighter-rouge">False</code> for a causal <code class="language-plaintext highlighter-rouge">lfilter</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The filtered waveform, same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The band edges do not satisfy <code class="language-plaintext highlighter-rouge">0 &lt; low &lt; high &lt; fs / 2</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">order = 2</code> is a validated-workflow default shared with
+<code class="language-plaintext highlighter-rouge">butterworth_lowpass</code>.  <code class="language-plaintext highlighter-rouge">zero_phase = True</code> is the opposite of the
+low-pass default because band-passed signals feed spectral and
+mode-number analysis, where phase across channels is the measurement.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase by default; see <code class="language-plaintext highlighter-rouge">butterworth_lowpass</code> for the causal
+alternative and when each is right.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>As <code class="language-plaintext highlighter-rouge">butterworth_lowpass</code>: a record too short for <code class="language-plaintext highlighter-rouge">filtfilt</code> raises
+from SciPy.</p>
+
+<h3 id="butterworth_lowpass"><code class="language-plaintext highlighter-rouge">butterworth_lowpass</code></h3>
+
+<p class="formula-signature"><code>butterworth_lowpass(data, cutoff, fs, order=2, *, zero_phase=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Butterworth low-pass filter along the last axis.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform or a stack of them; the time axis is the last.</p>
+</td></tr>
+  <tr><td><code>cutoff</code></td><td>float</td><td>Hz</td><td><p>Cutoff frequency, strictly between 0 and the Nyquist frequency.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Filter order.</p>
+</td></tr>
+  <tr><td><code>zero_phase</code></td><td>bool, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> for forward-backward <code class="language-plaintext highlighter-rouge">filtfilt</code>; <code class="language-plaintext highlighter-rouge">False</code> for a causal <code class="language-plaintext highlighter-rouge">lfilter</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The filtered waveform, same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">cutoff</code> is not inside <code class="language-plaintext highlighter-rouge">(0, fs / 2)</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">order = 2</code> and <code class="language-plaintext highlighter-rouge">zero_phase = False</code> are validated-workflow defaults:
+the values the VEST SXR viewer uses [SXR], kept so that
+<code class="language-plaintext highlighter-rouge">vaft.process.soft_x_rays</code> reproduces it.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Causal by default.</strong>  With <code class="language-plaintext highlighter-rouge">zero_phase=False</code> every feature is delayed
+by the filter’s group delay, identically on every channel, which is what
+ratio and reference arithmetic between SXR channels needs.  Pass
+<code class="language-plaintext highlighter-rouge">zero_phase=True</code> wherever a time is going to be read off the result –
+an onset, a peak – because a causal filter moves it.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The defaults are VEST SXR practice but embed no VEST
+constant.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">filtfilt</code> needs a record longer than three times the filter’s padding
+length and raises from SciPy otherwise; nothing here catches that.</p>
+
+<h3 id="define_baseline"><code class="language-plaintext highlighter-rouge">define_baseline</code></h3>
+
+<p class="formula-signature"><code>define_baseline(time, onset_time, onset_window, offset_time=None, offset_window=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Select the baseline samples around a signal’s onset and optional offset.</p>
+
+<p>Converts <code class="language-plaintext highlighter-rouge">onset_time</code> (and <code class="language-plaintext highlighter-rouge">offset_time</code>) to indices with
+<code class="language-plaintext highlighter-rouge">np.searchsorted</code> and returns the <code class="language-plaintext highlighter-rouge">onset_window</code> samples immediately
+before the onset, plus the <code class="language-plaintext highlighter-rouge">offset_window</code> samples immediately after the
+offset when both are given.  The result is what <code class="language-plaintext highlighter-rouge">subtract_baseline</code>
+fits through.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>np.ndarray</td><td>s</td><td><p>Sample times, sorted.</p>
+</td></tr>
+  <tr><td><code>onset_time</code></td><td>float</td><td>s</td><td><p>Time at which the signal begins to deviate from baseline.</p>
+</td></tr>
+  <tr><td><code>onset_window</code></td><td>int</td><td>-</td><td><p>Number of samples before the onset to include.</p>
+</td></tr>
+  <tr><td><code>offset_time</code></td><td>float or None, optional</td><td>s</td><td><p>Time at which the signal returns to baseline.</p>
+</td></tr>
+  <tr><td><code>offset_window</code></td><td>int or None, optional</td><td>-</td><td><p>Number of samples after the offset to include; both offset arguments must be given for the offset region to be used.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Indices into <code class="language-plaintext highlighter-rouge">time</code> of the baseline samples, onset region first.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The signal is genuinely quiet in the selected windows.  A window that
+reaches back into a previous pulse, or forward into pickup from a coil
+ramp, is fitted as if it were baseline.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The onset and offset times, and the window widths,
+are the caller’s; on VEST they come from the magnetics processing window
+in <code class="language-plaintext highlighter-rouge">vest.yaml</code> via <code class="language-plaintext highlighter-rouge">vaft.process.magnetics</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Windows are clipped to the record silently, so a window wider than the
+pre-onset record yields fewer samples than asked, with no warning.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The legacy VEST EFIT magnetics chain [VFIT], where the baseline is taken before the discharge and after it and removed by a fit.
+</li>
+</ol>
+
+<h3 id="describe_time_grid"><code class="language-plaintext highlighter-rouge">describe_time_grid</code></h3>
+
+<p class="formula-signature"><code>describe_time_grid(time, *, rtol=0.001)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Measure a timebase’s spacing, uniformity and monotonicity.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, flattened.</p>
+</td></tr>
+  <tr><td><code>rtol</code></td><td>float, optional</td><td>-</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|dt_i - median(dt)| / median(dt)</code> for which the grid is still reported uniform.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>TimeGrid</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">n</code>, <code class="language-plaintext highlighter-rouge">t0</code>, the median <code class="language-plaintext highlighter-rouge">dt</code>, <code class="language-plaintext highlighter-rouge">sample_rate</code>, whether the grid is <code class="language-plaintext highlighter-rouge">uniform</code> within <code class="language-plaintext highlighter-rouge">rtol</code> and <code class="language-plaintext highlighter-rouge">strictly_increasing</code>, and the <code class="language-plaintext highlighter-rouge">max_relative_jitter</code> actually measured.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">rtol = 1e-3</code> is a numerical convenience sized to an acquisition-era
+fact: VEST shots after 42190 store their timebase as <code class="language-plaintext highlighter-rouge">linspace(0, span,
+n)</code>, so a nominally 4e-6 s grid is really <code class="language-plaintext highlighter-rouge">span / (n - 1)</code> =
+4.00016e-6 s.  That is uniform for every purpose here and a tight
+tolerance would only reject it.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">dt</code> is the <em>median</em> spacing, robust to the single ragged interval a
+concatenated acquisition can leave behind.  <code class="language-plaintext highlighter-rouge">dt</code> and <code class="language-plaintext highlighter-rouge">sample_rate</code>
+are <code class="language-plaintext highlighter-rouge">nan</code> for a single-sample grid, where neither is defined; an empty
+grid reports <code class="language-plaintext highlighter-rouge">n = 0</code> and <code class="language-plaintext highlighter-rouge">nan</code> throughout.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="detect_active_window"><code class="language-plaintext highlighter-rouge">detect_active_window</code></h3>
+
+<p class="formula-signature"><code>detect_active_window(time, signal, threshold=0.01)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Return the active time window that contains a signal’s main peak.</p>
+
+<p>Finds the largest sample and walks outward from it in both directions
+while the signal stays at or above <code class="language-plaintext highlighter-rouge">threshold</code>; the window is the time
+of the first and last sample reached.  If the peak itself is below
+<code class="language-plaintext highlighter-rouge">threshold</code> the whole record is returned.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, one-dimensional.</p>
+</td></tr>
+  <tr><td><code>signal</code></td><td>array_like</td><td>any</td><td><p>The waveform, one-dimensional, same length as <code class="language-plaintext highlighter-rouge">time</code>; already the physical quantity, not a raw digitizer voltage.</p>
+</td></tr>
+  <tr><td><code>threshold</code></td><td>float, optional</td><td>any</td><td><p>Level at or above which a sample counts as active, in the units of <code class="language-plaintext highlighter-rouge">signal</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of (float, float)</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">(start, end)</code> times of the active window.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The inputs are not one-dimensional, differ in length, or are empty.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">threshold = 0.01</code> is a legacy compatibility value from the donor
+<code class="language-plaintext highlighter-rouge">vfit_signal_startend</code>, which was applied to an H-alpha trace
+normalised to its own minimum.  It is absolute, so a caller with a
+differently scaled signal must pass its own.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The signal has one dominant positive excursion and is at or above
+<code class="language-plaintext highlighter-rouge">threshold</code> throughout it.  A dip below the threshold inside the pulse
+ends the window early.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  VEST source selection and calibration belong in
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>; the resulting physical signal is what is
+passed here.  For a plasma onset with evidence and a verdict, use
+<code class="language-plaintext highlighter-rouge">vaft.process.onset</code> instead.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The threshold is absolute, not relative to the peak, and the walk is not
+robust to noise: a single sample below <code class="language-plaintext highlighter-rouge">threshold</code> stops it.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vfit_signal_startend</code>, the function nested in <code class="language-plaintext highlighter-rouge">Function/vest_Halpha_tstart_tend.m</code> of the legacy VEST workflow [VFIT]; kept here under the deprecated name <code class="language-plaintext highlighter-rouge">vfit_signal_start_end</code>.
+</li>
+</ol>
+
+<h3 id="detect_clipped_samples"><code class="language-plaintext highlighter-rouge">detect_clipped_samples</code></h3>
+
+<p class="formula-signature"><code>detect_clipped_samples(data, *, clip_values, tolerance)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Return a boolean mask of samples sitting at an acquisition limit.</p>
+
+<p><code class="language-plaintext highlighter-rouge">clip_values</code> is a single signed level or a sequence of them, and the
+mask is their union: a sample is saturated when it lies within
+<code class="language-plaintext highlighter-rouge">tolerance</code> of <em>any</em> supplied level.  Real acquisition hardware rails on
+both sides and rarely symmetrically – VEST’s diamagnetic Rogowski channel
+is a signed 16-bit ADC over +/-5 V, so its rails are exactly <code class="language-plaintext highlighter-rouge">-5.0</code> and
+<code class="language-plaintext highlighter-rouge">5 * 32767 / 32768</code> [1].</p>
+
+<p>Detecting every level in one pass is not a convenience.  Where a waveform
+oscillates hard enough to hit both rails within a few samples, repairing
+one rail at a time would fit the reconstruction through samples still
+pinned at the other one.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform, raw or calibrated; the rails are in its units.</p>
+</td></tr>
+  <tr><td><code>clip_values</code></td><td>float or sequence of float</td><td>any</td><td><p>The acquisition limit or limits, signed, in the units of <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td>float</td><td>any</td><td><p>Half-width of the band around each limit inside which a sample counts as saturated.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Boolean mask, <code class="language-plaintext highlighter-rouge">True</code> where the sample is saturated; same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>SignalRepairError
+    <code class="language-plaintext highlighter-rouge">clip_values</code> is empty or non-finite, or <code class="language-plaintext highlighter-rouge">tolerance</code> is not a
+    positive finite width.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Saturation shows as a sample <em>at</em> the rail, not as a distorted sample near
+it.  A digitizer that soft-clips will not be detected by a narrow
+tolerance.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The caller supplies the rails and tolerance; this
+function infers nothing about the hardware.  The VEST values are read from
+<code class="language-plaintext highlighter-rouge">vest.yaml</code> by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>, never here.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code>, the <code class="language-plaintext highlighter-rouge">diamagnetic_flux</code> processing block, where the asymmetric 16-bit rails are derived; issue #285.
+</li>
+</ol>
+
+<h3 id="detrend_moving_average"><code class="language-plaintext highlighter-rouge">detrend_moving_average</code></h3>
+
+<p class="formula-signature"><code>detrend_moving_average(data, window_samples)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Subtract a centered moving-average trend along the last axis.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform or a stack of them; the time axis is the last.</p>
+</td></tr>
+  <tr><td><code>window_samples</code></td><td>int</td><td>-</td><td><p>Width of the trend window in samples; <code class="language-plaintext highlighter-rouge">1</code> or less removes nothing.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">data</code> minus its rolling mean, same shape.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The trend is a centred rolling mean with <code class="language-plaintext highlighter-rouge">min_periods=1</code> semantics: the
+window at index <code class="language-plaintext highlighter-rouge">i</code> spans <code class="language-plaintext highlighter-rouge">[i - w//2, i + (w-1)//2]</code> clipped to the
+record, so edge windows shrink rather than yield NaN and the output has the
+input’s length.  This is exactly <code class="language-plaintext highlighter-rouge">pandas.Series.rolling(window,
+center=True, min_periods=1).mean()</code>, the convention of the validated VEST
+SXR viewer [SXR], reimplemented with cumulative sums so that
+<code class="language-plaintext highlighter-rouge">vaft.process.soft_x_rays</code> does not need pandas for it.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A centred window is zero-phase but the shrinking edge windows bias the
+first and last <code class="language-plaintext highlighter-rouge">w/2</code> samples toward the local level.  The trend is a
+plain mean: one large excursion inside the window pulls the trend toward
+it and appears, inverted, in the neighbours.</p>
+
+<h3 id="exp_baseline"><code class="language-plaintext highlighter-rouge">exp_baseline</code></h3>
+
+<p class="formula-signature"><code>exp_baseline(x, a, b, c)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Exponential model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * exp(b * x) + c</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array_like</td><td>any</td><td><p>Abscissa, normally time.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td>float</td><td>any</td><td><p>Amplitude.</p>
+</td></tr>
+  <tr><td><code>b</code></td><td>float</td><td>any</td><td><p>Rate; the sign decides growth or decay.</p>
+</td></tr>
+  <tr><td><code>c</code></td><td>float</td><td>any</td><td><p>Offset.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">a * exp(b * x) + c</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  A fit model for <code class="language-plaintext highlighter-rouge">subtract_baseline</code>.</p>
+
+<h3 id="infer_signal_orientation"><code class="language-plaintext highlighter-rouge">infer_signal_orientation</code></h3>
+
+<p class="formula-signature"><code>infer_signal_orientation(signal, *, mask=None, active_fraction=0.1, min_samples=8, agreement=0.6)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Infer the dominant sign of <code class="language-plaintext highlighter-rouge">signal</code> from its active region.</p>
+
+<p>The region is <code class="language-plaintext highlighter-rouge">mask</code> when given, otherwise the samples whose magnitude
+reaches <code class="language-plaintext highlighter-rouge">active_fraction</code> of the signal’s peak magnitude – so the long
+zero stretches before and after a discharge do not vote.  The verdict is
+the sign of the region’s median, resolved only when at least
+<code class="language-plaintext highlighter-rouge">agreement</code> of the region shares it and the region holds at least
+<code class="language-plaintext highlighter-rouge">min_samples</code> finite samples; otherwise it is unresolved and the
+multiplier is <code class="language-plaintext highlighter-rouge">+1</code> (canonical), never a guess.  <code class="language-plaintext highlighter-rouge">abs</code> is never applied
+to the data and no sample is flipped on its own.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>signal</code></td><td>array_like</td><td>any</td><td><p>The waveform, one-dimensional; non-finite samples are ignored.</p>
+</td></tr>
+  <tr><td><code>mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>The region to vote over, instead of the magnitude rule.</p>
+</td></tr>
+  <tr><td><code>active_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the peak magnitude a sample must reach to be in the region</p>
+</td></tr>
+  <tr><td><code>min_samples</code></td><td>int, optional</td><td>-</td><td><p>Fewest finite samples the region may hold for a verdict.</p>
+</td></tr>
+  <tr><td><code>agreement</code></td><td>float, optional</td><td>-</td><td><p>Smallest fraction of the region that must share the median’s sign.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>SignalOrientation</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">multiplier</code> (+1 or -1 when <code class="language-plaintext highlighter-rouge">resolved</code>, else +1), the median <code class="language-plaintext highlighter-rouge">statistic</code>, the region’s <code class="language-plaintext highlighter-rouge">count</code>, and a <code class="language-plaintext highlighter-rouge">reason</code> when unresolved.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">signal</code> is not one-dimensional.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">active_fraction = 0.1</code>, <code class="language-plaintext highlighter-rouge">min_samples = 8</code> and <code class="language-plaintext highlighter-rouge">agreement = 0.6</code> are
+empirical estimates fixed when #307 was implemented; #307 sets the rule
+(median of an active region, never <code class="language-plaintext highlighter-rouge">abs</code>, never per-sample) but records
+no derivation for the three numbers.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The multiplier is meant to be applied to the <em>whole</em> signal once, for
+display or for a sign-convention check.  It never rectifies samples.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A signal that is genuinely bipolar over its active region – a Mirnov
+fluctuation, a flux loop through a reversal – is correctly left
+unresolved, which the caller must handle rather than assume.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #307, which established the rule and its defaults.
+</li>
+</ol>
+
+<h3 id="is_signal_active"><code class="language-plaintext highlighter-rouge">is_signal_active</code></h3>
+
+<p class="formula-signature"><code>is_signal_active(data, var_ratio_thresh=0.01, change_ratio_thresh=0.01, verbose=False)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Decide whether a trace carries a signal or is flat.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform; fewer than two samples is never active.</p>
+</td></tr>
+  <tr><td><code>var_ratio_thresh</code></td><td>float, optional</td><td>-</td><td><p>Threshold on the variance ratio described below.</p>
+</td></tr>
+  <tr><td><code>change_ratio_thresh</code></td><td>float, optional</td><td>-</td><td><p>Threshold on the mean absolute sample-to-sample change divided by the mean absolute level.</p>
+</td></tr>
+  <tr><td><code>verbose</code></td><td>bool, optional</td><td>-</td><td><p>Print both ratios.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>bool</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> unless <em>both</em> ratios fall below their thresholds.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Both thresholds at <code class="language-plaintext highlighter-rouge">1e-2</code> are legacy compatibility values; no derivation
+is recorded.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The variance test is a tautology: the variance is divided by itself plus
+<code class="language-plaintext highlighter-rouge">1e-12</code>, so the ratio is 1 for any trace whose variance exceeds about
+1e-10, and the <code class="language-plaintext highlighter-rouge">var_ratio_thresh</code> branch can only fire for a trace that
+is constant to twelve decimal places.  The decision is therefore made by
+<code class="language-plaintext highlighter-rouge">change_ratio</code> alone, and a trace flat to one part in a million is
+reported active.  Tracked in #463; this docstring describes the code as it
+is, not as it was meant to be.</p>
+
+<h3 id="line_average_density"><code class="language-plaintext highlighter-rouge">line_average_density</code></h3>
+
+<p class="formula-signature"><code>line_average_density(n_e_line, path_length_m)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Return line-average electron density given an explicit chord length.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e_line</code></td><td>array_like</td><td>m^-2</td><td><p>Line-integrated electron density along the diagnostic chord.</p>
+</td></tr>
+  <tr><td><code>path_length_m</code></td><td>float</td><td>m</td><td><p>Length of the chord through the plasma.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m^-3</td><td><p>Line-average electron density, <code class="language-plaintext highlighter-rouge">n_e_line / path_length_m</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">path_length_m</code> is not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Line-<em>integrated</em> in, line-<em>averaged</em> out.  An interferometer measures the
+former; the latter is what confinement scalings and Greenwald fractions
+want.  No calibration or geometry is inferred here – the chord length is
+the caller’s.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The chord length of a VEST interferometer channel
+comes from <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>.</p>
+
+<h3 id="linear_baseline"><code class="language-plaintext highlighter-rouge">linear_baseline</code></h3>
+
+<p class="formula-signature"><code>linear_baseline(x, a, b)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Linear model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * x + b</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array_like</td><td>any</td><td><p>Abscissa, normally time.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td>float</td><td>any</td><td><p>Slope.</p>
+</td></tr>
+  <tr><td><code>b</code></td><td>float</td><td>any</td><td><p>Intercept.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">a * x + b</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  A fit model for <code class="language-plaintext highlighter-rouge">subtract_baseline</code>.</p>
+
+<h3 id="process_signal"><code class="language-plaintext highlighter-rouge">process_signal</code></h3>
+
+<p class="formula-signature"><code>process_signal(time, data, options=None)</code></p>
+
+<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Legacy conditioning wrapper: crop, resample, then filter.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, flattened.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform, flattened.</p>
+</td></tr>
+  <tr><td><code>options</code></td><td>dict or None, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">time_range</code> <code class="language-plaintext highlighter-rouge">(t_start, t_end)</code> to crop to; <code class="language-plaintext highlighter-rouge">resample</code> with <code class="language-plaintext highlighter-rouge">dt</code> to write onto a uniform grid; <code class="language-plaintext highlighter-rouge">filter_params</code> with <code class="language-plaintext highlighter-rouge">type</code> (<code class="language-plaintext highlighter-rouge">"lowpass"</code>, <code class="language-plaintext highlighter-rouge">"highpass"</code>, <code class="language-plaintext highlighter-rouge">"bandpass"</code>), <code class="language-plaintext highlighter-rouge">cutoff</code> and <code class="language-plaintext highlighter-rouge">order</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of (np.ndarray, np.ndarray)</td><td>any</td><td><p>The conditioned <code class="language-plaintext highlighter-rouge">(time, data)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A <code class="language-plaintext highlighter-rouge">filter_params</code> cutoff outside <code class="language-plaintext highlighter-rouge">(0, f_s / 2)</code>, a malformed
+    band-pass cutoff, or an unknown filter type.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Crop to <code class="language-plaintext highlighter-rouge">time_range</code>.</li>
+  <li>Resample onto <code class="language-plaintext highlighter-rouge">arange(t[0], t[-1], dt)</code> through
+<code class="language-plaintext highlighter-rouge">resample_to_time</code>, so a rate reduction anti-aliases on the input
+grid first.</li>
+  <li>Apply a zero-phase Butterworth from <code class="language-plaintext highlighter-rouge">filter_params</code>.  This is a
+<em>shaping</em> filter and its <code class="language-plaintext highlighter-rouge">cutoff</code> is interpreted against the
+<strong>output</strong> grid’s sample rate, not the input’s.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">dt = 4e-5</code> s is the VEST slow-DAQ spacing, a machine-specific setting.
+<code class="language-plaintext highlighter-rouge">cutoff = 1000</code> Hz and <code class="language-plaintext highlighter-rouge">order = 4</code> are legacy compatibility values
+whose origin is not recorded.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase (<code class="language-plaintext highlighter-rouge">filtfilt</code>) for the shaping filter.  The sample rate for
+filter design is taken from the first two samples, not the median.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  The defaults embed the VEST acquisition grid, and the
+option dictionary is the legacy call convention kept for existing
+workflows; new code should call <code class="language-plaintext highlighter-rouge">resample_to_time</code> and
+<code class="language-plaintext highlighter-rouge">butterworth_lowpass</code> directly.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Kept for compatibility; its future is decided by the module-ownership
+audit tracked in #263.</p>
+
+<h3 id="quadratic_baseline"><code class="language-plaintext highlighter-rouge">quadratic_baseline</code></h3>
+
+<p class="formula-signature"><code>quadratic_baseline(x, a, b, c)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Quadratic model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * x^2 + b * x + c</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array_like</td><td>any</td><td><p>Abscissa, normally time.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td>float</td><td>any</td><td><p>Quadratic coefficient.</p>
+</td></tr>
+  <tr><td><code>b</code></td><td>float</td><td>any</td><td><p>Linear coefficient.</p>
+</td></tr>
+  <tr><td><code>c</code></td><td>float</td><td>any</td><td><p>Constant.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">a * x**2 + b * x + c</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  A fit model for <code class="language-plaintext highlighter-rouge">subtract_baseline</code>.</p>
+
+<h3 id="repair_clipped_interval"><code class="language-plaintext highlighter-rouge">repair_clipped_interval</code></h3>
+
+<p class="formula-signature"><code>repair_clipped_interval(time, data, *, clip_value, tolerance, min_support=4, return_mask=False)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Reconstruct samples saturated at an acquisition limit by interpolation.</p>
+
+<p>Samples within <code class="language-plaintext highlighter-rouge">tolerance</code> of <code class="language-plaintext highlighter-rouge">clip_value</code> are treated as saturated
+and replaced by a cubic spline fitted to the remaining samples on the
+physical <code class="language-plaintext highlighter-rouge">time</code> axis.  Every unsaturated sample is preserved exactly.</p>
+
+<p><code class="language-plaintext highlighter-rouge">clip_value</code> may be a single signed level or a sequence of levels, in
+which case saturation is their union (see <code class="language-plaintext highlighter-rouge">detect_clipped_samples</code>).</p>
+
+<p>With <code class="language-plaintext highlighter-rouge">return_mask=True</code> the saturation mask is returned alongside the
+repaired waveform, so a caller can report which samples it reconstructed
+instead of handing downstream consumers an unmarked mixture.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, one-dimensional, same length as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform with saturated samples, one-dimensional.</p>
+</td></tr>
+  <tr><td><code>clip_value</code></td><td>float or sequence of float</td><td>any</td><td><p>The acquisition limit or limits, signed, in the units of <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td>float</td><td>any</td><td><p>Half-width of the band around each limit inside which a sample counts as saturated.</p>
+</td></tr>
+  <tr><td><code>min_support</code></td><td>int, optional</td><td>-</td><td><p>Fewest unsaturated samples the spline may be fitted through.</p>
+</td></tr>
+  <tr><td><code>return_mask</code></td><td>bool, optional</td><td>-</td><td><p>Also return the saturation mask.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray or tuple of (np.ndarray, np.ndarray)</td><td>any</td><td><p>The repaired waveform, and with <code class="language-plaintext highlighter-rouge">return_mask=True</code> also the boolean saturation mask.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>SignalRepairError
+    The inputs differ in shape or are not one-dimensional; any sample is
+    non-finite; the whole waveform is saturated; fewer than <code class="language-plaintext highlighter-rouge">min_support</code>
+    unsaturated samples remain; or the saturated interval reaches either
+    end of the record, which would require extrapolation.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Mask the saturated samples with <code class="language-plaintext highlighter-rouge">detect_clipped_samples</code>.</li>
+  <li>Refuse if the mask covers everything, leaves fewer than <code class="language-plaintext highlighter-rouge">min_support</code>
+samples, or touches either end of the record.</li>
+  <li>Fit <code class="language-plaintext highlighter-rouge">scipy.interpolate.CubicSpline</code> through the unsaturated samples
+against <code class="language-plaintext highlighter-rouge">time</code>.</li>
+  <li>Evaluate it at the saturated instants and write those samples back.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Raw or calibrated – the rails must be expressed in the same units as
+<code class="language-plaintext highlighter-rouge">data</code>.  Unrepaired: a waveform that has already been filtered has
+smeared its rails and cannot be repaired here.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Repaired.  The reconstructed samples are interpolated, not measured; the
+mask says which they are.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">min_support = 4</code> is a numerical convenience: a cubic spline needs four
+points to be determined at all, and this is the floor, not a quality bar.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The waveform is smooth on the scale of the saturated interval, so a cubic
+through its neighbours is a defensible estimate of what was lost.  A
+saturated interval that hides a genuine fast feature is reconstructed as
+if the feature were absent.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Callers supply the limit and tolerance.  On VEST the
+PF6 supply clips near -5000 A and the repair is enabled per acquisition
+era in <code class="language-plaintext highlighter-rouge">vest.yaml</code>, because PF6’s gain flips sign at shot 38110 and
+before that a -5000 A sample is ordinary data [1].</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Interpolation only: a saturated run at the start or end of the record is
+refused rather than extrapolated.  Reconstructing more than a few samples
+in a row grows less defensible with every sample; there is no cap on that
+here, so the caller should look at the mask.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code>, <code class="language-plaintext highlighter-rouge">pf_active</code> processing <code class="language-plaintext highlighter-rouge">saturation_repair</code> and the per-era policy comment; the donor <code class="language-plaintext highlighter-rouge">vest_pf.m</code> applied the -5000 A repair unconditionally.  Issues #195 and #285.
+</li>
+</ol>
+
+<h3 id="resample_to_time"><code class="language-plaintext highlighter-rouge">resample_to_time</code></h3>
+
+<p class="formula-signature"><code>resample_to_time(source_time, values, target_time, *, anti_alias='auto', cutoff_fraction=0.8, cutoff_hz=None, numtaps=None, min_ratio=1.05, extrapolate='clamp', nan_policy='segment', on_unsorted='error', axis=-1)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Project a signal onto <code class="language-plaintext highlighter-rouge">target_time</code>, low-passing first if that is a rate cut.</p>
+
+<p>Use this instead of a bare <code class="language-plaintext highlighter-rouge">np.interp</code> anywhere a diagnostic is written
+onto a common time grid.  Interpolation and downsampling look identical in
+source but are not the same operation: evaluating a signal at new instants
+is always fine, whereas <em>reducing</em> the sample rate discards the information
+needed to distinguish a high frequency from its alias, so the content above
+the new Nyquist has to be removed while it still can be.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>source_time</code></td><td>array_like</td><td>s</td><td><p>Sample times of <code class="language-plaintext highlighter-rouge">values</code>, flattened; must be strictly increasing under the default <code class="language-plaintext highlighter-rouge">on_unsorted</code>.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform or a stack of them; the time axis is <code class="language-plaintext highlighter-rouge">axis</code>.</p>
+</td></tr>
+  <tr><td><code>target_time</code></td><td>array_like</td><td>s</td><td><p>Instants to evaluate at; need not be sorted.</p>
+</td></tr>
+  <tr><td><code>anti_alias</code></td><td>bool or "auto", optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">"auto"</code> filters only for a genuine rate reduction; <code class="language-plaintext highlighter-rouge">True</code> always; <code class="language-plaintext highlighter-rouge">False</code> never.</p>
+</td></tr>
+  <tr><td><code>cutoff_fraction</code></td><td>float, optional</td><td>-</td><td><p>Anti-alias cutoff as a fraction of the <em>target</em> Nyquist.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float or None, optional</td><td>Hz</td><td><p>Explicit cutoff, overriding <code class="language-plaintext highlighter-rouge">cutoff_fraction</code>.</p>
+</td></tr>
+  <tr><td><code>numtaps</code></td><td>int or None, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">anti_alias_filter</code>.</p>
+</td></tr>
+  <tr><td><code>min_ratio</code></td><td>float, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">dt_target / dt_source</code> at or below which <code class="language-plaintext highlighter-rouge">"auto"</code> does not filter.</p>
+</td></tr>
+  <tr><td><code>extrapolate</code></td><td>{"clamp", "nan", "error"}, optional</td><td>-</td><td><p>What a target sample outside the source span gets.</p>
+</td></tr>
+  <tr><td><code>nan_policy</code></td><td>str, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">anti_alias_filter</code>.</p>
+</td></tr>
+  <tr><td><code>on_unsorted</code></td><td>{"error", "sort"}, optional</td><td>-</td><td><p>Refuse an unsorted source, or sort it and collapse duplicates.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td>int, optional</td><td>-</td><td><p>The time axis of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">values</code> on <code class="language-plaintext highlighter-rouge">target_time</code>; the time axis has <code class="language-plaintext highlighter-rouge">len(target_time)</code> samples.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ResamplingError
+    Empty source; unsorted or duplicated source times under the default
+    policy; a target outside the source span under <code class="language-plaintext highlighter-rouge">extrapolate="error"</code>;
+    a forced filter whose cutoff exceeds the source Nyquist; or a filter
+    requested on a non-uniform source grid.
+ValueError
+    An option outside its allowed values.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Validate options; sort and de-duplicate the source if asked.</li>
+  <li>Measure both grids with <code class="language-plaintext highlighter-rouge">describe_time_grid</code>.</li>
+  <li>Decide whether to filter: <code class="language-plaintext highlighter-rouge">anti_alias</code> as given, or under <code class="language-plaintext highlighter-rouge">"auto"</code>
+whether <code class="language-plaintext highlighter-rouge">dt_target / dt_source &gt; min_ratio</code>.</li>
+  <li>If filtering, refuse a non-uniform source, place the cutoff at
+<code class="language-plaintext highlighter-rouge">cutoff_fraction</code> of the target Nyquist (or <code class="language-plaintext highlighter-rouge">cutoff_hz</code>), put the
+stopband at the target Nyquist, and run <code class="language-plaintext highlighter-rouge">anti_alias_filter</code> on
+the source grid.</li>
+  <li><code class="language-plaintext highlighter-rouge">np.interp</code> onto <code class="language-plaintext highlighter-rouge">target_time</code> with the <code class="language-plaintext highlighter-rouge">extrapolate</code> policy.</li>
+</ol>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Interpolated.  When no filter runs, the result is <strong>bit-for-bit</strong>
+<code class="language-plaintext highlighter-rouge">np.interp</code> – deliberately, so equal-rate call sites can adopt this
+primitive without moving a stored value.  When one does, the result is
+band-limited to the target Nyquist and then interpolated.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">anti_alias = "auto"</code> and <code class="language-plaintext highlighter-rouge">min_ratio = 1.05</code> are validated-workflow
+defaults: the safe thing by default, the unsafe thing by name.
+<code class="language-plaintext highlighter-rouge">cutoff_fraction = 0.8</code> is a numerical convenience – <code class="language-plaintext highlighter-rouge">firwin</code> sits at
+-6 dB at its cutoff and needs a transition band, so a passband edge below
+Nyquist puts everything that can fold into the stopband.  <code class="language-plaintext highlighter-rouge">extrapolate =
+"clamp"</code> matches <code class="language-plaintext highlighter-rouge">np.interp</code>.  <code class="language-plaintext highlighter-rouge">on_unsorted = "error"</code> because
+<code class="language-plaintext highlighter-rouge">np.interp</code> returns silent nonsense for an unsorted <code class="language-plaintext highlighter-rouge">x</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The cutoff is placed against the <em>target</em> grid’s spacing measured in time
+order, even when <code class="language-plaintext highlighter-rouge">target_time</code> is unsorted; the shuffled array would
+report a median <code class="language-plaintext highlighter-rouge">dt</code> tens of times too large and design a filter that
+eats the signal.  An explicit <code class="language-plaintext highlighter-rouge">cutoff_hz</code> above the target Nyquist is
+honoured as a deliberate choice to keep more band and gets
+<code class="language-plaintext highlighter-rouge">anti_alias_filter</code>’s own transition instead.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">values</code> is a band-limited physical signal.  A validity mask or any
+other logical series is not, and must be resampled with
+<code class="language-plaintext highlighter-rouge">anti_alias=False</code>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The motivating case is VEST, which acquires at
+<code class="language-plaintext highlighter-rouge">FAST_DT = 4e-6</code> s and <code class="language-plaintext highlighter-rouge">SLOW_DT = 4e-5</code> s while every processed grid
+in <code class="language-plaintext highlighter-rouge">vest.yaml</code> is 4e-5 s, so a fast channel written onto a policy grid
+is a 10x decimation [1].</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A single-sample target has no Nyquist: <code class="language-plaintext highlighter-rouge">"auto"</code> interpolates with a
+warning and <code class="language-plaintext highlighter-rouge">True</code> raises unless <code class="language-plaintext highlighter-rouge">cutoff_hz</code> is given.  A non-uniform
+source grid cannot be anti-aliased by a single-rate FIR and is refused;
+resample onto a uniform grid first, or pass <code class="language-plaintext highlighter-rouge">anti_alias=False</code> to accept
+a bare interpolation knowingly.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vaft.database.raw</code> <code class="language-plaintext highlighter-rouge">FAST_DT</code> / <code class="language-plaintext highlighter-rouge">SLOW_DT</code>, and the processed time grids declared in <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code>.
+</li>
+</ol>
+
+<h3 id="signal_on_offset"><code class="language-plaintext highlighter-rouge">signal_on_offset</code></h3>
+
+<p class="formula-signature"><code>signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Smooth a waveform, then return the window in which it is above a threshold.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, one-dimensional.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform, one-dimensional, same length as <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  <tr><td><code>smooth_window</code></td><td>int, optional</td><td>-</td><td><p>Savitzky-Golay window length in samples; must be odd and larger than the polynomial order, 3.</p>
+</td></tr>
+  <tr><td><code>threshold</code></td><td>float, optional</td><td>any</td><td><p>Level at or above which the smoothed signal counts as active, in the units of <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  <tr><td><code>verbose</code></td><td>bool, optional</td><td>-</td><td><p>Print the threshold.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of (float, float)</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">(onset, offset)</code> times.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Smooth with <code class="language-plaintext highlighter-rouge">scipy.signal.savgol_filter(data, smooth_window, 3)</code>.</li>
+  <li>Hand the smoothed waveform to <code class="language-plaintext highlighter-rouge">detect_active_window</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">smooth_window = 5</code> and the cubic polynomial are legacy compatibility
+values from the ported workflow, unrecorded beyond that.  <code class="language-plaintext highlighter-rouge">threshold =
+0.01</code> is inherited from <code class="language-plaintext highlighter-rouge">detect_active_window</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase: a Savitzky-Golay filter is a centred polynomial fit and moves
+nothing in time, so the returned onset is not delayed by the smoothing.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Callers in <code class="language-plaintext highlighter-rouge">vaft.omas.general</code> and
+<code class="language-plaintext highlighter-rouge">vaft.database</code> pass <code class="language-plaintext highlighter-rouge">threshold=0.05</code> for VEST H-alpha; the default
+is not a VEST policy.  For a plasma onset with evidence and a verdict, use
+<code class="language-plaintext highlighter-rouge">vaft.process.onset</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Those of <code class="language-plaintext highlighter-rouge">detect_active_window</code>: an absolute threshold and a walk
+that stops at the first sample below it.</p>
+
+<h3 id="signal_onoffset"><code class="language-plaintext highlighter-rouge">signal_onoffset</code></h3>
+
+<p class="formula-signature"><code>signal_onoffset(time, data, smooth_window=5, threshold=0.01, verbose=False)</code></p>
+
+<p><strong>Deprecated.</strong> </p>
+
+<p>Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">signal_on_offset</code>.</p>
+
+<h3 id="smooth"><code class="language-plaintext highlighter-rouge">smooth</code></h3>
+
+<p class="formula-signature"><code>smooth(array, span)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Apply MATLAB-like moving-average smoothing with edge tapering.</p>
+
+<p>A centred moving average of odd width <code class="language-plaintext highlighter-rouge">span</code>.  At each end the window
+shrinks symmetrically – widths 1, 3, 5, … – so the output has the
+input’s length and no sample is padded, which is what MATLAB’s <code class="language-plaintext highlighter-rouge">smooth</code>
+does and what the ported VEST workflows expect.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>array</code></td><td>array_like</td><td>any</td><td><p>The waveform, one-dimensional.</p>
+</td></tr>
+  <tr><td><code>span</code></td><td>int</td><td>-</td><td><p>Window width in samples; an even value is reduced by one, and a value wider than the record is clipped to it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The smoothed waveform, same length as <code class="language-plaintext highlighter-rouge">array</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">array</code> is not one-dimensional.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase: the window is centred, so features are not shifted in time.
+Edge samples are averaged over progressively narrower windows rather than
+over a padded record, which biases the ends less than reflection padding
+would but leaves them noisier than the interior.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>MATLAB <code class="language-plaintext highlighter-rouge">smooth(y, span)</code> with the default <code class="language-plaintext highlighter-rouge">'moving'</code> method; ported from the legacy VEST workflow [VFIT] with its semantics preserved so that results match the donor sample for sample.
+</li>
+</ol>
+
+<h3 id="subtract_baseline"><code class="language-plaintext highlighter-rouge">subtract_baseline</code></h3>
+
+<p class="formula-signature"><code>subtract_baseline(time, signal, baseline_indices, fitting_opt='linear')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Fit a baseline through the selected samples and subtract it everywhere.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>np.ndarray</td><td>s</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>signal</code></td><td>np.ndarray</td><td>any</td><td><p>The waveform, same length as <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  <tr><td><code>baseline_indices</code></td><td>np.ndarray</td><td>-</td><td><p>Indices of the samples the baseline is fitted through, normally from <code class="language-plaintext highlighter-rouge">define_baseline</code>.</p>
+</td></tr>
+  <tr><td><code>fitting_opt</code></td><td>{"linear", "quadratic", "spline", "exp"}, optional</td><td>-</td><td><p>The baseline model.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>corrected</code></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">signal</code> minus the fitted baseline.</p>
+</td></tr>
+  <tr><td><code>baseline</code></td><td>np.ndarray</td><td>any</td><td><p>The fitted baseline evaluated on the whole <code class="language-plaintext highlighter-rouge">time</code> axis.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Unknown <code class="language-plaintext highlighter-rouge">fitting_opt</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Take <code class="language-plaintext highlighter-rouge">time</code> and <code class="language-plaintext highlighter-rouge">signal</code> at <code class="language-plaintext highlighter-rouge">baseline_indices</code>.</li>
+  <li>Fit the chosen model through them: <code class="language-plaintext highlighter-rouge">scipy.optimize.curve_fit</code> for
+the parametric models, <code class="language-plaintext highlighter-rouge">scipy.interpolate.UnivariateSpline(s=0)</code> –
+an interpolating spline – for <code class="language-plaintext highlighter-rouge">"spline"</code>.</li>
+  <li>Evaluate the model on the full <code class="language-plaintext highlighter-rouge">time</code> axis and subtract.</li>
+</ol>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Baseline-subtracted.  The second return is the baseline itself, so the
+caller can plot or store what was removed.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">fitting_opt = "linear"</code> is a legacy compatibility value: the donor
+workflow removed a linear drift, which is the right model for an
+integrator’s offset.  The exponential fit uses <code class="language-plaintext highlighter-rouge">maxfev = 10000</code>, a
+numerical convenience.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The samples at <code class="language-plaintext highlighter-rouge">baseline_indices</code> contain no signal.  The parametric
+models assume the drift has that form over the <em>whole</em> record, including
+the pulse, where it is extrapolated rather than measured.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">"spline"</code> interpolates the baseline samples exactly, so noise in them
+is reproduced in the baseline; with the onset and offset regions far
+apart it is a straight line between them in practice.  <code class="language-plaintext highlighter-rouge">"exp"</code> can fail
+to converge and raises from SciPy.  Nothing checks that
+<code class="language-plaintext highlighter-rouge">baseline_indices</code> is non-empty.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The legacy VEST EFIT magnetics chain [VFIT], where an integrated probe signal’s drift is removed by a fit through the pre- and post-discharge windows.
+</li>
+</ol>
+
+<h3 id="vest_coil_current_noise_reduction"><code class="language-plaintext highlighter-rouge">vest_coil_current_noise_reduction</code></h3>
+
+<p class="formula-signature"><code>vest_coil_current_noise_reduction(data)</code></p>
+
+<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Suppress point spikes in coil current traces.</p>
+
+<p>Walks the record and, wherever a sample’s magnitude exceeds the mean of
+its two neighbours’ magnitudes by more than a fixed margin, replaces it
+with the previous sample.  A port of the donor routine, kept sample for
+sample so that the legacy PF-current preprocessing reproduces.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>A</td><td><p>Coil current, one-dimensional; records shorter than three samples are returned unchanged.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>A</td><td><p>The de-spiked current, same length.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>For each interior sample (the first two and the last are never
+touched), compute <code class="language-plaintext highlighter-rouge">|x[i]| - |(x[i+1] + x[i-1]) / 2|</code>.</li>
+  <li>Where that exceeds <code class="language-plaintext highlighter-rouge">0.001</code>, overwrite <code class="language-plaintext highlighter-rouge">x[i]</code> with the already
+processed <code class="language-plaintext highlighter-rouge">x[i-1]</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The <code class="language-plaintext highlighter-rouge">0.001</code> margin is a legacy compatibility value from the donor
+<code class="language-plaintext highlighter-rouge">VEST_CoilCurrentNoiseReduction.m</code> [1].  It is absolute, in the units of
+<code class="language-plaintext highlighter-rouge">data</code>, and its derivation is not recorded.  On a trace in amperes it
+flags any excursion above a milliamp, so in practice every spike; on a
+trace in kiloamperes it would let real noise through.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Causal: a spike is replaced by its predecessor, so a genuine step is
+delayed by one sample at its leading edge.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  Written for the VEST PF coil current traces as digitized by
+the legacy DAQ; the margin has no meaning for another machine’s units or
+noise floor.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Only a single-sample spike is caught: two consecutive bad samples pass,
+because the second is compared against the first.  Sign is ignored in the
+test but preserved in the replacement.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">Function/VEST_CoilCurrentNoiseReduction.m</code> in the legacy VEST workflow [VFIT]; loop bounds and margin preserved.
+</li>
+</ol>
+
+<h3 id="vfit_signal_start_end"><code class="language-plaintext highlighter-rouge">vfit_signal_start_end</code></h3>
+
+<p class="formula-signature"><code>vfit_signal_start_end(time, data, threshold=0.01)</code></p>
+
+<p><strong>Deprecated.</strong> </p>
+
+<p>Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">detect_active_window</code>.</p>
+
+<h3 id="vfit_signal_startend"><code class="language-plaintext highlighter-rouge">vfit_signal_startend</code></h3>
+
+<p class="formula-signature"><code>vfit_signal_startend(time, data, threshold=0.01)</code></p>
+
+<p><strong>Deprecated.</strong> </p>
+
+<p>Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">detect_active_window</code>.</p>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/numerical/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: numerical">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#VEST_CoilCurrentNoiseReduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">VEST_CoilCurrentNoiseReduction</a></li><li class="page-toc-item page-toc-level-3"><a href="#anti_alias_filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">anti_alias_filter</a></li><li class="page-toc-item page-toc-level-3"><a href="#butterworth_bandpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">butterworth_bandpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#butterworth_lowpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">butterworth_lowpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#define_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">define_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#describe_time_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">describe_time_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#detect_active_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detect_active_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#detect_clipped_samples" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detect_clipped_samples</a></li><li class="page-toc-item page-toc-level-3"><a href="#detrend_moving_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detrend_moving_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#exp_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exp_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#infer_signal_orientation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">infer_signal_orientation</a></li><li class="page-toc-item page-toc-level-3"><a href="#is_signal_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">is_signal_active</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_average_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_average_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#linear_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">linear_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#process_signal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">process_signal</a></li><li class="page-toc-item page-toc-level-3"><a href="#quadratic_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">quadratic_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#repair_clipped_interval" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">repair_clipped_interval</a></li><li class="page-toc-item page-toc-level-3"><a href="#resample_to_time" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resample_to_time</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal_on_offset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">signal_on_offset</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal_onoffset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">signal_onoffset</a></li><li class="page-toc-item page-toc-level-3"><a href="#smooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">smooth</a></li><li class="page-toc-item page-toc-level-3"><a href="#subtract_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">subtract_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#vest_coil_current_noise_reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vest_coil_current_noise_reduction</a></li><li class="page-toc-item page-toc-level-3"><a href="#vfit_signal_start_end" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vfit_signal_start_end</a></li><li class="page-toc-item page-toc-level-3"><a href="#vfit_signal_startend" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vfit_signal_startend</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: numerical",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_numerical.md",
+            "ref": "_guide/Process_reference_numerical.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_signal_processing.md",
+        "mtime": "2026-09-03 10:01:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-04 10:15:37 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

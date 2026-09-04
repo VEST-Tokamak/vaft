@@ -1,0 +1,1067 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: statistical_analysis · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/numerical/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: statistical_analysis</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>8cc0cda</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_statistical_analysis">Process reference: statistical_analysis</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.statistical_analysis, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/statistical_analysis.py"><code class="language-plaintext highlighter-rouge">vaft/process/statistical_analysis.py</code></a>:
+11 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("statistical_analysis.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The workflow behind the confinement-scaling study: take a table of shots
+with their engineering parameters and energy confinement time, take
+natural logarithms, fit <code class="language-plaintext highlighter-rouge">ln tau_E = c0 + sum_i c_i ln p_i</code> by ordinary
+least squares, and read the scaling exponents off the coefficients.
+Everything operates on <code class="language-plaintext highlighter-rouge">pandas</code> DataFrames whose columns are named by
+the caller; nothing here knows which columns exist except through the
+<code class="language-plaintext highlighter-rouge">eng_params</code> list it is handed.</p>
+
+<p>Two functions are not statistics and are here for historical reasons:
+<code class="language-plaintext highlighter-rouge">generate_core_profiles_history_dataframe</code> builds the input table by
+running a workflow script, and <code class="language-plaintext highlighter-rouge">confinement_time_histogram</code> draws
+one.  Both are documented as they are; their home is decided by #263.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>tau_E</td><td>energy confinement time</td><td>s</td></tr>
+  <tr><td>p_i</td><td>an engineering parameter</td><td>any</td></tr>
+  <tr><td>c_i</td><td>the scaling exponent of ``p_i``</td><td>-</td></tr>
+  <tr><td>alpha</td><td>significance level</td><td>-</td></tr>
+  </tbody>
+</table>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#analyze_significance"><code>analyze_significance</code></a> &mdash; Flag which scaling exponents are statistically significant.
+</li>
+  <li><a href="#compute_metrics"><code>compute_metrics</code></a> &mdash; Goodness-of-fit metrics of the regression in original units.
+</li>
+  <li><a href="#confinement_time_histogram"><code>confinement_time_histogram</code></a> &mdash; Plot histograms of the scaling parameters in an <code class="language-plaintext highlighter-rouge">m x n</code> grid.
+</li>
+  <li><a href="#filter_dataframe"><code>filter_dataframe</code></a> &mdash; Drop shots with unrealistic loss power and rectify the toroidal field sign.
+</li>
+  <li><a href="#generate_core_profiles_history_dataframe"><code>generate_core_profiles_history_dataframe</code></a> &mdash; Build the scaling table by running the core-profiles history workflow.
+</li>
+  <li><a href="#get_correlation_matrix"><code>get_correlation_matrix</code></a> &mdash; Pearson correlation matrix of the log-transformed regressors and target.
+</li>
+  <li><a href="#get_individual_correlations"><code>get_individual_correlations</code></a> &mdash; Pearson correlation of each log regressor with the log target.
+</li>
+  <li><a href="#get_residuals"><code>get_residuals</code></a> &mdash; Residuals of the log-space fit.
+</li>
+  <li><a href="#load_data_from_excel"><code>load_data_from_excel</code></a> &mdash; Load a confinement-scaling table from an Excel file.
+</li>
+  <li><a href="#log_transform"><code>log_transform</code></a> &mdash; Take natural logarithms of the engineering parameters and the target.
+</li>
+  <li><a href="#perform_ols_regression"><code>perform_ols_regression</code></a> &mdash; Fit the log-linear scaling by ordinary least squares.
+</li>
+</ul>
+
+<h3 id="analyze_significance"><code class="language-plaintext highlighter-rouge">analyze_significance</code></h3>
+
+<p class="formula-signature"><code>analyze_significance(results, alpha=0.05)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Flag which scaling exponents are statistically significant.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>results</code></td><td>RegressionResults</td><td>-</td><td><p>A fitted regression.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float, optional</td><td>-</td><td><p>Significance level; a coefficient with <code class="language-plaintext highlighter-rouge">p &lt; alpha</code> is significant</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to bool</td><td>-</td><td><p>Parameter name to whether its exponent is significant; a parameter absent from the fit is <code class="language-plaintext highlighter-rouge">False</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">alpha = 0.05</code> is the conventional literature value, no more.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A p-value from a small sample with correlated regressors overstates
+significance; see <code class="language-plaintext highlighter-rouge">get_correlation_matrix</code> before trusting it.</p>
+
+<h3 id="compute_metrics"><code class="language-plaintext highlighter-rouge">compute_metrics</code></h3>
+
+<p class="formula-signature"><code>compute_metrics(results, df, target_param='tauE_s')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Goodness-of-fit metrics of the regression in original units.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>results</code></td><td>RegressionResults</td><td>-</td><td><p>A fitted regression.</p>
+</td></tr>
+  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The original table the regression was fitted from.</p>
+</td></tr>
+  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">R2</code>, <code class="language-plaintext highlighter-rouge">RMSE</code>, <code class="language-plaintext highlighter-rouge">MAE</code>, <code class="language-plaintext highlighter-rouge">Mean_Relative_Error_%</code> and <code class="language-plaintext highlighter-rouge">Median_Relative_Error_%</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Exponentiate the fitted log values to get predicted confinement times.</li>
+  <li>Select the actual values at the rows the fit used.</li>
+  <li>Compute the metrics with <code class="language-plaintext highlighter-rouge">sklearn.metrics</code> and NumPy.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Metrics are in the <em>original</em> units, so <code class="language-plaintext highlighter-rouge">R2</code> here is not the <code class="language-plaintext highlighter-rouge">rsquared</code>
+of the log fit on the results object; the two differ and both are
+reported deliberately.  <code class="language-plaintext highlighter-rouge">RMSE</code> and <code class="language-plaintext highlighter-rouge">MAE</code> carry the target’s unit,
+seconds for <code class="language-plaintext highlighter-rouge">tauE_s</code>, and are returned as plain floats.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Imports <code class="language-plaintext highlighter-rouge">scikit-learn</code> on call for two one-line metrics.  When the
+fitted values carry no index the actual values are truncated to the
+shorter length, which silently misaligns rows if any were dropped.</p>
+
+<h3 id="confinement_time_histogram"><code class="language-plaintext highlighter-rouge">confinement_time_histogram</code></h3>
+
+<p class="formula-signature"><code>confinement_time_histogram(df, eng_params=None, m=None, n=None, figsize=None, bins=30, alpha=0.7, edgecolor='black', **kwargs)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Plot histograms of the scaling parameters in an <code class="language-plaintext highlighter-rouge">m x n</code> grid.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table.</p>
+</td></tr>
+  <tr><td><code>eng_params</code></td><td>list of str or None, optional</td><td>-</td><td><p>Columns to plot; <code class="language-plaintext highlighter-rouge">None</code> for the renderer’s default set.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>int or None, optional</td><td>-</td><td><p>Grid rows.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td>int or None, optional</td><td>-</td><td><p>Grid columns.</p>
+</td></tr>
+  <tr><td><code>figsize</code></td><td>tuple of (float, float) or None, optional</td><td>-</td><td><p>Figure size in inches.</p>
+</td></tr>
+  <tr><td><code>bins</code></td><td>int or str, optional</td><td>-</td><td><p>Histogram bins, as Matplotlib takes them.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float, optional</td><td>-</td><td><p>Bar opacity.</p>
+</td></tr>
+  <tr><td><code>edgecolor</code></td><td>str, optional</td><td>-</td><td><p>Bar edge colour.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>matplotlib.figure.Figure</td><td>-</td><td><p>The figure, as <code class="language-plaintext highlighter-rouge">vaft.plot.history.confinement_time_histogram</code> returns it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Rendering lives in <code class="language-plaintext highlighter-rouge">vaft.plot.history.confinement_time_histogram</code>
+(issue #63); this is a compatibility shim that keeps the old call site
+and pulls Matplotlib in on call.  Its removal is tracked in #263.</p>
+
+<h3 id="filter_dataframe"><code class="language-plaintext highlighter-rouge">filter_dataframe</code></h3>
+
+<p class="formula-signature"><code>filter_dataframe(df)</code></p>
+
+<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Drop shots with unrealistic loss power and rectify the toroidal field sign.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table; <code class="language-plaintext highlighter-rouge">Ploss_MW</code> and <code class="language-plaintext highlighter-rouge">Bt_T</code> are acted on when present</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>The filtered table.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Keep rows with <code class="language-plaintext highlighter-rouge">Ploss_MW &lt;= 3</code>.</li>
+  <li>Replace <code class="language-plaintext highlighter-rouge">Bt_T</code> by its absolute value.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The 3 MW ceiling is a hard-coded empirical cut from the study; its
+derivation is not recorded.  It is not a parameter.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">Bt_T</code> is made positive regardless of the field direction actually run,
+so the fit sees magnitude only.  Any sign convention on the field is
+discarded here.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  The ceiling and the column names are the VEST study’s.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assigns into the frame it was given (<code class="language-plaintext highlighter-rouge">df["Bt_T"] = ...</code>), so the
+caller’s table may be modified and pandas may warn about a copy.</p>
+
+<h3 id="generate_core_profiles_history_dataframe"><code class="language-plaintext highlighter-rouge">generate_core_profiles_history_dataframe</code></h3>
+
+<p class="formula-signature"><code>generate_core_profiles_history_dataframe(max_shots=None, Z_eff=2.0)</code></p>
+
+<p><strong>VEST-specific.</strong> </p>
+
+<p>Build the scaling table by running the core-profiles history workflow.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>max_shots</code></td><td>int or None, optional</td><td>-</td><td><p>Stop after this many shots; <code class="language-plaintext highlighter-rouge">None</code> for all.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective charge assumed for every shot when computing the ion contribution.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>One row per shot with the engineering parameters and <code class="language-plaintext highlighter-rouge">tauE_s</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ImportError
+    The workflow script cannot be found or loaded.
+ValueError
+    The script returned nothing.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Locate <code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_3_data_summary/gen_core_profiles_history.py</code>
+relative to this file and load it by path.</li>
+  <li>Call its <code class="language-plaintext highlighter-rouge">generate_core_profiles_history_excel(max_shots, Z_eff)</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">Z_eff = 2.0</code> is an assumed value, used because no shot-resolved
+measurement exists; its origin is not recorded.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  The script reads the VEST database.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Loads a workflow script by file path and inserts its directory into
+<code class="language-plaintext highlighter-rouge">sys.path</code>, which only works from a source checkout and is a
+layer-boundary violation: a process function reaching up into a workflow.
+Tracked in #263.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_3_data_summary/gen_core_profiles_history.py</code>.
+</li>
+</ol>
+
+<h3 id="get_correlation_matrix"><code class="language-plaintext highlighter-rouge">get_correlation_matrix</code></h3>
+
+<p class="formula-signature"><code>get_correlation_matrix(log_df, eng_params, target_param='tauE_s')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Pearson correlation matrix of the log-transformed regressors and target.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>log_df</code></td><td>pd.DataFrame</td><td>-</td><td><p>Output of <code class="language-plaintext highlighter-rouge">log_transform</code>.</p>
+</td></tr>
+  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters.</p>
+</td></tr>
+  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>The correlation matrix over the available <code class="language-plaintext highlighter-rouge">ln_</code> columns; empty when fewer than two exist.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Pairwise-complete, as <code class="language-plaintext highlighter-rouge">DataFrame.corr</code> is; rows are not dropped
+consistently across pairs.</p>
+
+<h3 id="get_individual_correlations"><code class="language-plaintext highlighter-rouge">get_individual_correlations</code></h3>
+
+<p class="formula-signature"><code>get_individual_correlations(log_df, eng_params, target_param='tauE_s')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Pearson correlation of each log regressor with the log target.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>log_df</code></td><td>pd.DataFrame</td><td>-</td><td><p>Output of <code class="language-plaintext highlighter-rouge">log_transform</code>.</p>
+</td></tr>
+  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters.</p>
+</td></tr>
+  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to float</td><td>-</td><td><p>Parameter name to its correlation with the target; NaN when the column is missing or fewer than two complete rows exist.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="get_residuals"><code class="language-plaintext highlighter-rouge">get_residuals</code></h3>
+
+<p class="formula-signature"><code>get_residuals(results)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Residuals of the log-space fit.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>results</code></td><td>RegressionResults</td><td>-</td><td><p>A fitted regression.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>pd.Series</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">ln(actual) - ln(fitted)</code> per row used in the fit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="load_data_from_excel"><code class="language-plaintext highlighter-rouge">load_data_from_excel</code></h3>
+
+<p class="formula-signature"><code>load_data_from_excel(filepath)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Load a confinement-scaling table from an Excel file.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>filepath</code></td><td>str</td><td>-</td><td><p>Path to the <code class="language-plaintext highlighter-rouge">.xlsx</code> file; one row per shot, columns as the study named them.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>The table as read, untouched.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>Exception
+    Whatever <code class="language-plaintext highlighter-rouge">pandas.read_excel</code> raises, after logging it.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The tables under
+<code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_3_data_summary/</code> are VEST, but nothing here
+depends on that.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The study notebook [NB].
+</li>
+</ol>
+
+<h3 id="log_transform"><code class="language-plaintext highlighter-rouge">log_transform</code></h3>
+
+<p class="formula-signature"><code>log_transform(df, eng_params, target_param='tauE_s')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Take natural logarithms of the engineering parameters and the target.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table.</p>
+</td></tr>
+  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters.</p>
+</td></tr>
+  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>Columns <code class="language-plaintext highlighter-rouge">ln_&lt;name&gt;</code> for each parameter and the target, same index as <code class="language-plaintext highlighter-rouge">df</code>; a missing column becomes all-NaN with a warning.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Natural logarithm, so the fitted coefficients are the exponents of a
+power law directly.  A value that is not strictly positive has no
+logarithm and becomes NaN, to be dropped by <code class="language-plaintext highlighter-rouge">perform_ols_regression</code>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="perform_ols_regression"><code class="language-plaintext highlighter-rouge">perform_ols_regression</code></h3>
+
+<p class="formula-signature"><code>perform_ols_regression(df, eng_params, target_param='tauE_s', dropna=True)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Fit the log-linear scaling by ordinary least squares.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table, in original units.</p>
+</td></tr>
+  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters to regress on.</p>
+</td></tr>
+  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
+</td></tr>
+  <tr><td><code>dropna</code></td><td>bool, optional</td><td>-</td><td><p>Drop rows with any NaN among the regressors or the target.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>RegressionResults</td><td>-</td><td><p>The fitted <code class="language-plaintext highlighter-rouge">statsmodels</code> model with the log table, the parameter list and the target name; <code class="language-plaintext highlighter-rouge">get_exponents()</code> reads the scaling exponents off it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No rows remain after dropping NaN.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">log_transform</code> the table.</li>
+  <li>Select the <code class="language-plaintext highlighter-rouge">ln_</code> regressors and the <code class="language-plaintext highlighter-rouge">ln_</code> target.</li>
+  <li>Drop rows with NaN, if <code class="language-plaintext highlighter-rouge">dropna</code>.</li>
+  <li>Add an intercept column and fit <code class="language-plaintext highlighter-rouge">statsmodels.api.OLS</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">dropna = True</code> is a validated-workflow default; <code class="language-plaintext highlighter-rouge">statsmodels</code> would
+otherwise raise on NaN.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The fit is in log space, so the coefficients are exponents and the
+residuals are relative errors.  Metrics in original units come from
+<code class="language-plaintext highlighter-rouge">compute_metrics</code>, which exponentiates the fitted values.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The study notebook [NB].
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/numerical/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: numerical">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#analyze_significance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">analyze_significance</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_time_histogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_time_histogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#filter_dataframe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">filter_dataframe</a></li><li class="page-toc-item page-toc-level-3"><a href="#generate_core_profiles_history_dataframe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">generate_core_profiles_history_dataframe</a></li><li class="page-toc-item page-toc-level-3"><a href="#get_correlation_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">get_correlation_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#get_individual_correlations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">get_individual_correlations</a></li><li class="page-toc-item page-toc-level-3"><a href="#get_residuals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">get_residuals</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_data_from_excel" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_data_from_excel</a></li><li class="page-toc-item page-toc-level-3"><a href="#log_transform" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">log_transform</a></li><li class="page-toc-item page-toc-level-3"><a href="#perform_ols_regression" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">perform_ols_regression</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_statistical_analysis.md",
+        "mtime": "2026-09-03 10:03:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-04 10:15:37 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>
