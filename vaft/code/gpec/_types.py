@@ -115,6 +115,12 @@ class GPECModuleRun:
     logs: tuple[Path, ...] = ()
     outputs: tuple[Path, ...] = ()
     commands: tuple[str, ...] = ()
+    #: Expected files a companion executable would have written, which this run
+    #: directory does not have.  Non-empty is not a failure -- companions are
+    #: optional by construction -- but it is the difference between a DCON cell
+    #: that has an eigenfunction and one that never will, so it is reported
+    #: rather than left for a caller to rediscover by listing the directory.
+    missing_optional_outputs: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
