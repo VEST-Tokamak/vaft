@@ -188,11 +188,27 @@ def test_a_pulse_at_the_noise_floor_is_refused_and_a_clear_one_accepted():
 
 
 def test_an_onset_inside_the_reference_is_flagged_not_hidden():
-    """A step 5 ms in, with the reference the leading 20 % (20 ms): whatever
-    the detector answers, it must say the reference was contaminated."""
+    """A step 5 ms in, with the reference the leading 20 % (20 ms): the
+    reference is repaired to its earliest quarter, the onset is found, and
+    the record says the reference was contaminated."""
     y = np.where(T >= 0.005, 1.0, 0.0) + 0.001 * RNG.standard_normal(T.size)
     record = sustained_excess_onset(T, y, reference_fraction=0.2)
     assert "reference_contaminated" in record.flags
+    assert record.found and record.time == pytest.approx(0.005, abs=2 * DT)
+
+
+def test_a_transient_inside_the_reference_does_not_refuse_the_pulse():
+    """A pre-ionization excursion 10 ms before the pulse, inside a reference
+    that was meant to be quiet: the pulse is still found, with the flag."""
+    y = pulse(amplitude=100.0, noise=0.1)
+    y[(T >= 0.045) & (T < 0.050)] -= 30.0
+    record = principal_pulse_onset(T, y, reference_mask=T < 0.055)
+    assert record.found and abs(record.index - true_index()) <= 4
+    # and one long enough to shift the reference level is repaired, not refused
+    y2 = pulse(amplitude=100.0, noise=0.1)
+    y2[(T >= 0.040) & (T < 0.055)] -= 30.0
+    repaired = principal_pulse_onset(T, y2, reference_mask=T < 0.055)
+    assert repaired.found and "reference_contaminated" in repaired.flags
 
 
 def test_a_noise_dip_during_the_rise_does_not_delay_the_onset():
@@ -248,3 +264,122 @@ def test_inputs_are_checked():
         sustained_excess_onset([0.0, 1.0], [0.0])
     with pytest.raises(ValueError):
         principal_pulse_onset([0.0], [0.0])
+
+
+# ---------------------------------------------------------------------------
+# Windows: onset and offset
+# ---------------------------------------------------------------------------
+
+from vaft.process.onset import active_window  # noqa: E402
+
+
+def box(start: float, end: float, amplitude: float = 1.0, noise: float = 0.005) -> np.ndarray:
+    y = np.where((T >= start) & (T < end), amplitude, 0.0)
+    return y + noise * RNG.standard_normal(T.size)
+
+
+def test_a_clean_pulse_has_a_window_from_its_onset_to_its_offset():
+    w = active_window(T, box(0.030, 0.070))
+    assert w.found and w.duration_s == pytest.approx(0.040, abs=3 * DT)
+    assert w.start == pytest.approx(0.030, abs=2 * DT) and w.end == pytest.approx(0.070, abs=2 * DT)
+    assert w.start in T and w.end in T and len(w.segments) == 1 and w.flags == ()
+
+
+def test_a_dip_shorter_than_the_gap_does_not_end_the_window():
+    y = box(0.030, 0.070)
+    dip = (T >= 0.050) & (T < 0.0506)                 # 0.6 ms below threshold
+    y[dip] = 0.0
+    w = active_window(T, y, gap_s=1e-3)
+    assert len(w.segments) == 1 and w.end == pytest.approx(0.070, abs=2 * DT)
+    split = active_window(T, y, gap_s=0.0, post_quiet_s=0.0)
+    assert len(split.segments) == 2 and "multiple_segments" in split.flags
+    assert split.end == pytest.approx(0.070, abs=2 * DT)   # the envelope still spans both
+
+
+def test_a_re_emergence_within_the_quiet_time_extends_the_window_and_a_later_one_does_not():
+    y = box(0.030, 0.060) + box(0.0615, 0.070, noise=0.0)    # 1.5 ms gap
+    w = active_window(T, y, gap_s=0.0, post_quiet_s=2e-3)
+    assert len(w.segments) == 1 and w.end == pytest.approx(0.070, abs=2 * DT)
+    far = box(0.030, 0.060) + box(0.080, 0.090, noise=0.0)   # 20 ms gap
+    w2 = active_window(T, far, gap_s=0.0, post_quiet_s=2e-3)
+    assert len(w2.segments) == 2 and "multiple_segments" in w2.flags
+    principal = active_window(T, far, principal_only=True)
+    assert len(principal.segments) == 1
+    assert principal.start == pytest.approx(0.030, abs=2 * DT) and principal.end == pytest.approx(0.060, abs=2 * DT)
+
+
+def test_a_pulse_still_active_at_the_last_sample_is_flagged_not_truncated_silently():
+    w = active_window(T, box(0.030, 1.0))
+    assert w.found and "offset_at_record_end" in w.flags and w.end == T[-1]
+    early = active_window(T, box(-1.0, 0.050), reference_mask=T > 0.060)
+    assert "onset_at_record_start" in early.flags
+
+
+def test_pre_ionization_light_and_the_main_pulse_are_two_segments_and_principal_picks_the_main():
+    y = box(0.020, 0.026, amplitude=0.3) + box(0.040, 0.080, amplitude=1.0, noise=0.0)
+    envelope = active_window(T, y)
+    assert len(envelope.segments) == 2 and envelope.start == pytest.approx(0.020, abs=2 * DT)
+    main = active_window(T, y, principal_only=True)
+    assert main.start == pytest.approx(0.040, abs=2 * DT) and main.end == pytest.approx(0.080, abs=2 * DT)
+
+
+def test_principal_pulse_window_offset_survives_a_brief_dip():
+    y = box(0.030, 0.070)
+    y[(T >= 0.050) & (T < 0.0506)] = 0.0
+    on, off = principal_pulse_window(T, y)
+    assert on.found and off.found and off.time == pytest.approx(0.070, abs=2 * DT)
+    assert off.method == "principal_pulse_offset"
+
+
+def test_no_pulse_gives_no_window():
+    w = active_window(T, 0.005 * RNG.standard_normal(T.size))
+    assert not w.found and "no_onset" in w.flags and w.duration_s is None
+    json.dumps(w.as_dict())
+
+
+def test_a_post_pulse_baseline_shift_does_not_push_the_offset_to_the_record_end():
+    """A plasma-current record settles a few percent of its peak above zero
+    after the plasma: the offset is judged against that trailing level, not
+    the leading one, and the window ends where the current collapsed."""
+    y = box(0.030, 0.070, amplitude=80.0, noise=0.15)
+    y[T >= 0.070] += 2.5            # 3 % of peak, above the 2 % onset threshold
+    w = active_window(T, y, principal_only=True, reference_mask=T < 0.020)
+    assert w.found and "offset_at_record_end" not in w.flags
+    assert w.end == pytest.approx(0.070, abs=3 * DT)
+    assert w.evidence["trailing_quiet"] is True
+    # a pulse genuinely active to the end is still reported as such
+    still = active_window(T, box(0.030, 1.0, amplitude=80.0, noise=0.15), principal_only=True, reference_mask=T < 0.020)
+    assert "offset_at_record_end" in still.flags and still.evidence["trailing_quiet"] is False
+
+
+def test_a_slow_post_pulse_decay_ends_the_window_at_the_collapse_with_end_fraction():
+    """After a termination a plasma-current record decays from ~8 % of peak
+    over tens of ms (induced vessel current). With the onset fraction the
+    window runs on into that tail; with end_fraction 10 % it ends at the
+    collapse."""
+    y = box(0.030, 0.060, amplitude=80.0, noise=0.1)
+    tail = T >= 0.060
+    y[tail] += 6.5 * np.exp(-(T[tail] - 0.060) / 0.030)      # 8 % of peak, 30 ms decay
+    long = active_window(T, y, principal_only=True, reference_mask=T < 0.020)
+    collapse = active_window(T, y, principal_only=True, reference_mask=T < 0.020, end_fraction=0.10)
+    assert long.end > 0.070
+    assert collapse.end == pytest.approx(0.060, abs=3 * DT)
+    assert collapse.start == long.start
+
+
+def test_a_disruption_tail_above_the_end_fraction_ends_at_the_last_steep_fall():
+    """A disruption collapses the current to a tail at a third of the peak that
+    decays for the rest of the record: no level separates it from plasma, the
+    last steep fall does. A mid-pulse drop that the plasma survives is not
+    the last fall, so it does not end the window."""
+    y = np.where((T >= 0.020) & (T < 0.050), 100.0, 0.0)
+    y[(T >= 0.035) & (T < 0.050)] = 60.0                        # mid-pulse drop, plasma continues
+    tail = T >= 0.050
+    y[tail] = 15.0 * np.exp(-(T[tail] - 0.050) / 0.200)        # tail at 15 % of peak, a quarter of the pre-quench current
+    y += 0.1 * RNG.standard_normal(T.size)
+    w = active_window(T, y, principal_only=True, reference_mask=T < 0.015, end_fraction=0.10)
+    assert w.found and "offset_from_collapse" in w.flags and "offset_at_record_end" not in w.flags
+    assert w.end == pytest.approx(0.050, abs=5 * DT)
+    assert w.evidence["collapse_time"] == pytest.approx(0.050, abs=5 * DT)
+    plain = active_window(T, y, principal_only=True, reference_mask=T < 0.015, end_fraction=0.10, collapse_fallback=False)
+    assert "offset_at_record_end" in plain.flags
