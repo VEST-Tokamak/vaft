@@ -4,14 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import shutil
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 from omas import load_omas_json
 
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
+from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
+from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
+from vaft.validation.imas import resolve_signal_time
 
 
 LOGGER = logging.getLogger("vaft.generate_constraints_ods")
@@ -122,33 +127,112 @@ def _resolve_broken(ods, explicit: list[int], *, detect: bool) -> list[int]:
     return sorted(broken)
 
 
-def _select_times(ods, timeset: str, tstep: float, tstart: float | None, tend: float | None) -> np.ndarray:
-    ip_time = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
-    ip_data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
-    if ip_time.size == 0:
-        raise ValueError("magnetics.ip.0.time is empty")
+ANALYSIS_RANGE_FALLBACK = "analysis_range_fallback"
 
+
+class ConstraintWindow(NamedTuple):
+    """The EFIT constraint window and where it came from.
+
+    A named tuple rather than a dataclass: the tests load this script by path
+    without registering it in ``sys.modules``, which a dataclass with
+    postponed annotations cannot survive.
+    """
+
+    start: float
+    end: float
+    source: str
+    flags: tuple[str, ...]
+    agreement: str | None
+    fallback_reason: str | None
+    record: dict
+
+    @property
+    def fallback(self) -> bool:
+        return ANALYSIS_RANGE_FALLBACK in self.flags
+
+
+def _constraint_window(ods, *, policy: PlasmaTimingPolicy | None = None) -> ConstraintWindow:
+    """The shared ``plasma_analysis`` range intersected with the detected plasma window.
+
+    The range comes from the timing policy in ``vest.yaml`` (issue #409); the
+    window from ``vaft.omas.plasma_timing`` -- the slow H-alpha line, then the
+    fast one, then the plasma current.  When no source shows a plasma the
+    whole range is used and the choice is flagged ``analysis_range_fallback``
+    with the reason, so a vacuum shot's slices are visibly not plasma slices.
+    """
+    policy = policy or resolve_plasma_timing_policy()
+    ip_time = resolve_signal_time(ods, "magnetics.ip.0")  # the node's own time, else magnetics.time
+    if ip_time is None or ip_time.size == 0:
+        raise ValueError("magnetics.ip.0.time is empty")
+    base_start = max(float(policy.window.tstart), float(ip_time[0]))
+    base_end = min(float(policy.window.tend), float(ip_time[-1]))
+
+    try:
+        timing = plasma_timing(ods, policy=policy)
+    except PlasmaTimingError as exc:
+        return ConstraintWindow(
+            base_start, base_end, "analysis_range", (ANALYSIS_RANGE_FALLBACK,), None,
+            str(exc), {"error": str(exc)},
+        )
+    if timing.found:
+        return ConstraintWindow(
+            max(base_start, float(timing.onset)),
+            min(base_end, float(timing.offset)),
+            str(timing.source),
+            tuple(timing.flags),
+            timing.agreement,
+            timing.fallback_reason,
+            timing.record(),
+        )
+    return ConstraintWindow(
+        base_start, base_end, "analysis_range",
+        tuple(timing.flags) + (ANALYSIS_RANGE_FALLBACK,),
+        timing.agreement, timing.fallback_reason, timing.record(),
+    )
+
+
+def _select_times(
+    ods,
+    timeset: str,
+    tstep: float,
+    tstart: float | None,
+    tend: float | None,
+    *,
+    policy: PlasmaTimingPolicy | None = None,
+) -> tuple[np.ndarray, ConstraintWindow | None]:
+    """The EFIT constraint instants, and the window they were cut from (``None`` in manual mode).
+
+    Auto mode takes :func:`_constraint_window`, clamps it to ``--tstart``/``--tend``
+    when given, snaps both ends to the ``tstep`` grid and includes the end;
+    manual mode is exactly ``np.arange(tstart, tend, tstep)``.
+    """
     if timeset == "manual":
         if tstart is None or tend is None:
             raise ValueError("manual timeset requires --tstart and --tend")
-        return np.arange(tstart, tend, tstep, dtype=float)
+        return np.arange(tstart, tend, tstep, dtype=float), None
 
-    base_start = max(0.28, float(ip_time[0]))
-    base_end = min(0.38, float(ip_time[-1]))
-    base_index = (ip_time >= base_start) & (ip_time <= base_end)
-    valid_index = base_index & (ip_data > 20e3)
-    selected = ip_time[valid_index] if np.any(valid_index) else ip_time[base_index]
-    if selected.size == 0:
-        selected = ip_time
-
-    start = float(selected[0]) if tstart is None else max(float(selected[0]), tstart)
-    end = float(selected[-1]) if tend is None else min(float(selected[-1]), tend)
+    window = _constraint_window(ods, policy=policy)
+    start = window.start if tstart is None else max(window.start, tstart)
+    end = window.end if tend is None else min(window.end, tend)
     if timeset == "auto":
         start = round(start / tstep) * tstep
         end = round(end / tstep) * tstep
     if end <= start:
-        return np.array([start], dtype=float)
-    return np.arange(start, end + 0.5 * tstep, tstep, dtype=float)
+        return np.array([start], dtype=float), window
+    return np.arange(start, end + 0.5 * tstep, tstep, dtype=float), window
+
+
+def _window_comment(window: ConstraintWindow | None, times: np.ndarray) -> str:
+    """The one-line provenance written to ``equilibrium.ids_properties.comment``."""
+    span = f"EFIT constraint times {float(times[0]):.4f}-{float(times[-1]):.4f} s"
+    if window is None:
+        return f"{span}: manual"
+    text = f"{span}: plasma window from {window.source}"
+    if window.agreement:
+        text += f", agreement {window.agreement}"
+    if window.fallback:
+        text += f"; analysis-range fallback: {window.fallback_reason}"
+    return text
 
 
 def main() -> int:
@@ -185,10 +269,18 @@ def main() -> int:
     )
     ods = load_omas_json(str(args.eddy_ods), consistency_check=False)
     broken = _resolve_broken(ods, _csv_ints(args.broken), detect=_bool(args.detect_broken))
-    times = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
+    times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
     ods["equilibrium.time"] = times
+    ods["equilibrium.ids_properties.comment"] = _window_comment(window, times)
+    if window is not None:
+        LOGGER.info("plasma timing: %s", json.dumps(window.record, default=str))
+        if window.fallback:
+            LOGGER.warning(
+                "No plasma window found; EFIT constraint times cover the whole analysis range "
+                "%.4f-%.4f s (%s)", window.start, window.end, window.fallback_reason,
+            )
     fl_correct_coeff = correct_flux_loop(ods) if args.fl_correct_option else None
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
