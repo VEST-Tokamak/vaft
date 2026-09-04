@@ -2056,10 +2056,20 @@ def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
     values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
     field = np.where(inside, values, np.nan).reshape(gz.shape)
     overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "k", "lw": 0.8})
+    n_levels = int(options.get("contour_levels", 15))
+    if which == "difference":
+        # Grid points next to a wall loop see that loop's own singular field,
+        # which a few misrepresented loop currents dominate; the region error
+        # in the title is the honest number, so the levels follow the bulk of
+        # the map (its 98th percentile), symmetric about zero.
+        scale = float(np.nanpercentile(np.abs(field), 98)) or 1e-300
+        levels: Any = np.linspace(-scale, scale, n_levels)
+    else:
+        levels = n_levels
     return Field2D(
         r=r_axis, z=z_axis, values=field, value_label="wall psi [Wb]",
-        title=options.get("title", f"wall psi ({which}, {label}) at t={time[index]:.4f} s; region error {error:.2e}"),
-        contour_levels=int(options.get("contour_levels", 15)), overlays=(overlay,),
+        title=options.get("title", f"wall psi, {which}: {label}\nt = {time[index]:.4f} s, region error {error:.1e}"),
+        contour_levels=levels, overlays=(overlay,),
     )
 
 
