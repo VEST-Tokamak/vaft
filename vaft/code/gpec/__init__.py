@@ -27,7 +27,15 @@ from ._coil_input import (
     stage_coil_data,
     write_coil_in,
 )
-from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
+from ._dcon_output import (
+    DconCoordinates,
+    DconEdgeScan,
+    DconEigenfunction,
+    DconEquilibrium,
+    DconOutput,
+    read_dcon_output,
+    read_solutions_bin,
+)
 from ._gpec_output import (
     GpecControlOutput,
     GpecCylindricalOutput,
@@ -402,7 +410,10 @@ __all__ = [
     "read_coil_in",
     "run_gpec_suite_case",
     "validate_dcon_result",
+    "DconCoordinates",
+    "DconEdgeScan",
     "DconEigenfunction",
+    "DconEquilibrium",
     "DconOutput",
     "GpecControlOutput",
     "GpecCylindricalOutput",
