@@ -147,8 +147,11 @@ class PulseWindow:
     and re-emergences within ``post_quiet_s`` of a segment's end were merged
     into it.  The window is the envelope ``[onset, offset]`` of the segments a
     caller asked for -- all of them, or only the one holding the global
-    maximum.  ``offset.time`` is the last sample above threshold, so a
-    half-open consumer window is ``[onset.time, t[offset.index + 1])``.
+    maximum.  ``offset.time`` is the last sample of the pulse: the last sample
+    above the end threshold, or, when the window says ``offset_from_collapse``,
+    the last sample of the quench that ended it (the tail after it stays
+    above the threshold).  Either way it is a grid sample, so a half-open
+    consumer window is ``[onset.time, t[offset.index + 1])``.
 
     A window is never assumed: a pulse still active at the last sample is
     reported with ``offset_at_record_end``, one already active at the first
@@ -845,21 +848,18 @@ def active_window(
     end_frac = float(fraction if end_fraction is None else end_fraction)
     if trail_quiet:
         end_threshold = trail_baseline + max(end_frac * peak, float(sigma) * trail_spread)
-        above_end = _bridged(y > end_threshold, gap)
-        i_peak_last = segments[-1][0] + int(np.argmax(y[segments[-1][0]:segments[-1][1]]))
-        stop = _extend_forward(above_end, i_peak_last, quiet)
-        if stop < y.size:
-            last = stop
-            segments[-1] = (segments[-1][0], last)
-            evidence["offset_threshold"] = float(end_threshold)
     elif end_frac > float(fraction):
         end_threshold = baseline + max(end_frac * peak, float(sigma) * spread)
+    else:
+        end_threshold = None
+    if end_threshold is not None:
         above_end = _bridged(y > end_threshold, gap)
-        i_peak_last = segments[-1][0] + int(np.argmax(y[segments[-1][0]:segments[-1][1]]))
+        seg0, seg1 = segments[-1]
+        i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
         if stop < y.size:
             last = stop
-            segments[-1] = (segments[-1][0], last)
+            segments[-1] = (seg0, last)
             evidence["offset_threshold"] = float(end_threshold)
     # The last steep fall after the peak, always recorded; used when the level
     # never comes down (a disruption's vessel-current tail).
@@ -900,26 +900,23 @@ def active_window(
 def principal_pulse_window(time, values, **kwargs) -> tuple[OnsetRecord, OnsetRecord]:
     """``(onset, offset)`` of the pulse holding the global maximum.
 
-    The onset is :func:`principal_pulse_onset`'s; the offset comes from
-    :func:`active_window` with ``principal_only=True`` -- dips shorter than
-    ``gap_s`` bridged and re-emergences within ``post_quiet_s`` merged -- so a
-    brief quiet moment does not end the pulse and a pulse still active at the
-    last sample says ``offset_at_record_end``.
+    One :func:`active_window` call with ``principal_only=True`` and the
+    principal defaults (``pickup_floor`` 3, no persistence: the pulse is the
+    run holding the maximum); the onset is the run's first sample, exactly
+    what :func:`principal_pulse_onset` returns, and the offset carries the
+    window's flags -- ``offset_at_record_end``, ``offset_from_collapse``.
     """
-    gap_s = kwargs.pop("gap_s", 1.0e-3)
-    post_quiet_s = kwargs.pop("post_quiet_s", 2.0e-3)
-    onset = principal_pulse_onset(time, values, **kwargs)
-    if not onset.found or onset.accepted is None:
-        return onset, OnsetRecord(time=None, index=None, method="principal_pulse_offset",
-                                  evidence=dict(onset.evidence), flags=onset.flags)
-    window_kwargs = {k: v for k, v in kwargs.items() if k in (
-        "fraction", "sigma", "reference_mask", "reference_fraction", "search_mask",
-        "cutoff_hz", "fs", "order", "pickup_floor", "impulse_max_s")}
-    window = active_window(time, values, principal_only=True, gap_s=gap_s, post_quiet_s=post_quiet_s,
-                           hold_s=0.0, **window_kwargs)
+    kwargs.setdefault("pickup_floor", 3.0)
+    kwargs.setdefault("hold_s", 0.0)
+    window = active_window(time, values, principal_only=True, **kwargs)
     if not window.found:
-        return onset, OnsetRecord(time=None, index=None, method="principal_pulse_offset",
-                                  evidence=dict(onset.evidence), flags=window.flags)
+        none = OnsetRecord(time=None, index=None, method="principal_pulse", evidence=dict(window.evidence),
+                           flags=window.flags)
+        return none, OnsetRecord(time=None, index=None, method="principal_pulse_offset",
+                                 evidence=dict(window.evidence), flags=window.flags)
+    onset = OnsetRecord(time=window.onset.time, index=window.onset.index, method="principal_pulse",
+                        evidence=dict(window.evidence), flags=window.onset.flags,
+                        rejected=window.onset.rejected, accepted=window.onset.accepted)
     offset = OnsetRecord(time=window.offset.time, index=window.offset.index,
                          method="principal_pulse_offset", evidence=dict(window.evidence),
                          flags=window.flags, accepted=window.offset.accepted)
