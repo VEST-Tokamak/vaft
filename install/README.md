@@ -417,6 +417,29 @@ workflow was written against.
 if CHEASE rejects it, retries with 6 and reports a WARN naming the difference
 rather than a failure.
 
+### Two suite tests start running once CHEASE is installed
+
+`test/test_chease_adapter.py` gates three tests on `$CHEASEHOME` so they skip on
+a machine without CHEASE. Installing it un-skips them, and two then fail against
+a CHEASE built from the public repository:
+
+- `test_run_chease_integration_when_available` — the same `nideal` mismatch as
+  above: CHEASE refuses the default configuration and writes no EQDSK.
+- `test_run_chease_gfile_and_equivalent_ods_input_agree` — `ZMAXIS` differs from
+  the reference by about 1.5e-5 relative, against an `rtol` of 1e-7.
+
+Both compare against the CHEASE build the VEST workflow was written for, so they
+are measuring the difference between two CHEASE revisions rather than anything
+about VAFT or about Windows. CI never sets `$CHEASEHOME`, so they stay skipped
+there; you will only see them locally, and only after installing CHEASE.
+
+If you need a green local suite before that is resolved, unset `CHEASEHOME` for
+the run:
+
+```powershell
+$env:CHEASEHOME = $null; python -m pytest -q
+```
+
 ### What a native Windows build does differently
 
 Two differences from a Linux build are real, and both are reported rather than
