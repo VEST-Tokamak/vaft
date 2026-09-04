@@ -9,13 +9,13 @@ conversion.
 from __future__ import annotations
 
 import logging
-import tempfile
 import time
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Literal, Optional, Union
 import imas
 
+from ..compat import temporary_directory
 from .utils import (
     _require_h5pyd,
     ensure_imas_hdf5_userblock,
@@ -104,8 +104,10 @@ def save(
         raise ConnectionError("Connection to HSDS server failed")
     require_source_exists(source)
 
-    with tempfile.TemporaryDirectory(prefix="hsds_tmp_") as tmp_dir:
-        _staging_dir = Path(tmp_dir)
+    # Not tempfile.TemporaryDirectory: imas_core's HDF5 backend keeps IDS files
+    # open after DBEntry.close() returns, so on Windows cleanup would raise
+    # WinError 32 and fail a transfer that already succeeded.
+    with temporary_directory(prefix="hsds_tmp_") as _staging_dir:
         print(f"[INFO] Local staging directory: {_staging_dir.absolute()}")
 
         # Save IDS to local shot directory. This auto-generates master.h5.
@@ -194,7 +196,7 @@ def load(
     # accidentally delete unrelated user data.  nullcontext just passes the
     # caller-supplied directory through without any cleanup.
     staging_ctx = (
-        tempfile.TemporaryDirectory(prefix="hsds_tmp_")
+        temporary_directory(prefix="hsds_tmp_")
         if local_dir is None
         else nullcontext(local_dir)
     )

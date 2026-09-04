@@ -99,10 +99,12 @@ def save(data, target, *, imas_version=None, occurrence=None):
     if target_path.suffix.lower() == ".nc":
         # Convert through a temporary HDF5 entry, then copy each native IDS into
         # IMAS-Python's netCDF backend.
-        from tempfile import TemporaryDirectory
+        # Not tempfile.TemporaryDirectory: imas_core's HDF5 backend keeps large
+        # IDS files open after DBEntry.close() returns, so on Windows cleanup
+        # raises WinError 32 and fails a save that has already succeeded.
+        from ..compat import temporary_directory
 
-        with TemporaryDirectory(prefix="vaft-imas-save-") as temporary:
-            root = Path(temporary)
+        with temporary_directory(prefix="vaft-imas-save-") as root:
             save_omas_imas(
                 data,
                 occurrence=occurrence or {},

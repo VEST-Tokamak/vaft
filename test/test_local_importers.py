@@ -100,3 +100,46 @@ def test_imas_handle_is_available_to_star_import():
     namespace = {}
     exec("from vaft.imas import *", namespace)
     assert namespace["IMASHandle"] is vaft.imas.IMASHandle
+
+
+def _scratch_count(prefix: str) -> int:
+    import tempfile
+
+    return len(list(Path(tempfile.gettempdir()).glob(f"{prefix}*")))
+
+
+def test_partial_entry_reclaims_its_scratch_tree_when_staging_fails(monkeypatch):
+    """mkdtemp has no finalizer, so every failure path must clean up itself.
+
+    A TemporaryDirectory used to reclaim the tree at garbage-collection time;
+    without that safety net a mid-loop copy failure would leak megabytes of
+    staged IDS images for the life of the machine.
+    """
+    images = [IMAS_NC.with_name("magnetics.h5"), IMAS_NC.with_name("wall.h5")]
+
+    def explode(*_args, **_kwargs):
+        raise OSError("staging device is full")
+
+    monkeypatch.setattr(_local_io.shutil, "copy2", explode)
+    before = _scratch_count("vaft-local-imas-")
+    with pytest.raises(OSError, match="staging device is full"):
+        _local_io._make_partial_entry(images)
+    assert _scratch_count("vaft-local-imas-") == before
+
+
+def test_imas_handle_reclaims_its_scratch_tree_when_open_fails(monkeypatch):
+    """`__enter__` raising means `__exit__` never runs, so open() must clean up."""
+    handle = _local_io.open_imas(
+        DATA / "samples" / "39915" / "omas.json.gz", imas_version="3.41.0"
+    )
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("the DD rejected an IDS")
+
+    import vaft.imas.omas_imas as omas_imas
+
+    monkeypatch.setattr(omas_imas, "save_omas_imas", explode)
+    before = _scratch_count("vaft-imas-handle-")
+    with pytest.raises(RuntimeError, match="the DD rejected an IDS"):
+        handle.open()
+    assert _scratch_count("vaft-imas-handle-") == before
