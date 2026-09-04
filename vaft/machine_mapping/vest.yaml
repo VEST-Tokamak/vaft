@@ -2054,6 +2054,15 @@ diagnostic_registry:
     ids: camera_visible
     ids_path: camera_visible
     responsible: [{name: Joint}]
+    # Export directories carry an acquisition suffix on the directory and on
+    # every file inside it (`27134_50kHz/`, `36976-N001/`). The suffix is
+    # stripped when data is consolidated into `legacy/camera_visible/{shot}/`
+    # and preserved in that shot's provenance.json, so the pattern below is
+    # what the mapping sees in the archive, not what the camera wrote.
+    # Acquisitions at >= 50 kfps are held in a sibling
+    # `legacy/camera_visible_fluctuation/` tree, reserved for issue #161 and
+    # excluded from routine ingest. Frames named `{shot}_{time}_ms.bmp` are
+    # `bmp_arranger` output, not raw, and this mapping cannot read them.
     source: {type: file, formats: [bmp, text], patterns: ["{shot}/{shot}_{frame:08d}.bmp", "{shot}/{shot}_bmp.txt"]}
     availability: If-requested
     lifecycle: available
@@ -2172,7 +2181,11 @@ diagnostic_registry:
     ids: hard_x_rays
     ids_path: hard_x_rays
     responsible: [{name: 임수빈}]
-    source: {type: unknown}
+    # Written by the same acquisition program as soft_x_rays, with an extra
+    # `hxr_{variant}` segment: `raw` is the digitizer trace, `Eflux` the
+    # energy-flux product derived from it. Archived under
+    # `unmapped/hard_x_rays/{shot}/` pending a mapping.
+    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: not_implemented
@@ -2184,7 +2197,11 @@ diagnostic_registry:
     ids: soft_x_rays
     ids_path: soft_x_rays
     responsible: [{name: 임수빈}, {name: 이명원}]
-    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv"]}
+    # Resolved flat (`legacy/`, `soft_x_rays/`, `raw/`) or per-shot
+    # (`{shot}/digitizer_..._{shot}.csv`), the latter being how a consolidated
+    # archive is laid out. Most shots carry only digitizer 17592; a shot with
+    # both yields twice the channels.
+    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv", "{shot}/digitizer_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
