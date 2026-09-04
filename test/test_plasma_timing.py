@@ -415,6 +415,40 @@ def test_a_product_starting_inside_the_range_is_still_timed_and_flagged():
     assert timing.onset == pytest.approx(0.306, abs=5e-4)
 
 
+def test_an_invalidated_plasma_current_is_refused_as_source_and_cross_check():
+    """Review finding: the current used to be promoted regardless of its validity."""
+    t = grid()
+    ods = synthetic_ods(ip=current(t))
+    ods["magnetics.ip.0.validity"] = -2
+
+    timing = plasma_timing(ods)
+
+    assert not timing.found
+    assert timing.ip is None
+    assert timing.ip_checks["validity"] is False
+    assert "ip_unusable" in timing.flags
+    assert "ip_principal: validity" in timing.fallback_reason
+    assert timing.agreement == AGREEMENT_NONE
+
+    lit = synthetic_ods(slow=light(t), ip=current(t))
+    lit["magnetics.ip.0.validity"] = -2
+    with_light = plasma_timing(lit)
+    assert with_light.found and with_light.source == SOURCE_H_PRIMARY
+    assert with_light.agreement == AGREEMENT_HALPHA_ONLY
+    assert "ip_unusable" in with_light.flags and with_light.onset_delta_s is None
+
+
+def test_an_ip_only_product_starting_inside_the_range_is_flagged_too():
+    """Review finding: the flag only travelled with an optical candidate."""
+    t = grid(0.28, 0.36)
+    ods = synthetic_ods(ip=current(t), t=t)
+
+    timing = plasma_timing(ods)
+
+    assert timing.source == SOURCE_IP
+    assert "reference_inside_search" in timing.flags
+
+
 def test_missing_plasma_current_is_the_one_error():
     t = grid()
     ods = synthetic_ods(slow=light(t))
@@ -476,6 +510,72 @@ def test_a_misspelled_rule_or_unknown_window_is_a_configuration_error(tmp_path):
     path.write_text(yaml.safe_dump(bad_window))
     with pytest.raises(VestConfigurationError, match="'window' must name"):
         resolve_plasma_timing_policy(info_file=str(path))
+
+
+def test_every_configured_channel_has_a_digitizer_rate(monkeypatch):
+    """Review finding: a channel without a cadence used to sort last silently."""
+    from vaft.machine_mapping import spectrometer_uv
+
+    for _, channel, _, _, _ in spectrometer_uv.SIGNALS:
+        assert channel in spectrometer_uv.CHANNEL_CADENCE_HZ
+
+    extended = list(module.SIGNALS) + [(999, 7, 0, "H-alpha_6563", 656.3e-9)]
+    monkeypatch.setattr(module, "SIGNALS", extended)
+    with pytest.raises(PlasmaTimingError, match="channel 7"):
+        halpha_sources()
+
+
+def test_rule_validation_refuses_call_site_keys_booleans_and_bad_fractions(tmp_path):
+    import yaml
+
+    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml
+
+    document = load_yaml(_resolve_info_file_path(None))
+    block = document["plasma_timing"]
+
+    def resolve_with(**changes):
+        doc = dict(document)
+        doc["plasma_timing"] = {**block, **changes}
+        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
+        path.write_text(yaml.safe_dump(doc))
+        return resolve_plasma_timing_policy(info_file=str(path))
+
+    with pytest.raises(VestConfigurationError, match="'fs'"):
+        resolve_with(ip={**block["ip"], "fs": 25000.0})
+    with pytest.raises(VestConfigurationError, match="'reference_mask'"):
+        resolve_with(h_alpha={**block["h_alpha"], "reference_mask": 0})
+    with pytest.raises(VestConfigurationError, match="hold_s.*not a boolean"):
+        resolve_with(h_alpha={**block["h_alpha"], "hold_s": True})
+    with pytest.raises(VestConfigurationError, match="principal_only.*true or false"):
+        resolve_with(ip={**block["ip"], "principal_only": 1})
+    with pytest.raises(VestConfigurationError, match="prefilter_samples.*integer"):
+        resolve_with(h_alpha={**block["h_alpha"], "prefilter_samples": 2.5})
+    with pytest.raises(VestConfigurationError, match="min_valid_fraction.*<= 1"):
+        resolve_with(usability={**block["usability"], "min_valid_fraction": 90})
+    with pytest.raises(VestConfigurationError, match="rail_level.*positive"):
+        resolve_with(usability={**block["usability"], "rail_level": 0})
+    # a legitimate retune still resolves, and the policy is cached per file
+    policy = resolve_with(ip={**block["ip"], "cutoff_hz": None})
+    assert policy.ip["cutoff_hz"] is None
+    assert policy.h_alpha["prefilter_samples"] == 5
+
+
+def test_importing_the_timing_module_leaves_the_root_logger_alone():
+    """Review finding: the import chain reaches vaft.database.raw (through the
+    machine_mapping package), which used to call logging.basicConfig at import
+    and hand every consumer an INFO-level stderr handler."""
+    import subprocess
+    import sys
+
+    code = (
+        "import logging\n"
+        "root = logging.getLogger()\n"
+        "before = (root.level, len(root.handlers))\n"
+        "import vaft.omas.plasma_timing\n"
+        "print((root.level, len(root.handlers)) == before)"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "True", out.stdout + out.stderr
 
 
 def test_the_omas_layer_reads_only_and_the_process_layer_knows_no_diagnostic():

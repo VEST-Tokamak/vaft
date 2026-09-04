@@ -67,6 +67,25 @@ def load_yaml(path: str) -> Dict[str, Any]:
     return {} if data is None else data
 
 
+@lru_cache(maxsize=8)
+def _cached_document(path: str, mtime_ns: int) -> Mapping[str, Any]:
+    """The parsed VEST configuration, cached per file and modification time."""
+    return load_yaml(path)
+
+
+def _policy_document(info_file: str | None) -> Mapping[str, Any]:
+    """The VEST configuration for the policy resolvers, parsed once per edit.
+
+    Both ``resolve_diagnostics_time_policies`` and
+    ``resolve_plasma_timing_policy`` read the whole file for one top-level
+    block, and the plasma-timing resolver needs both blocks; parsing the
+    ~2000-line document on every call cost more than the detectors it
+    configures.  Callers must not mutate the returned mapping.
+    """
+    path = _resolve_info_file_path(info_file)
+    return _cached_document(path, os.stat(path).st_mtime_ns)
+
+
 def _resolve_info_file_path(filename: str | None) -> str:
     if filename is None:
         return package_data_path("vest.yaml")
@@ -409,7 +428,7 @@ def resolve_diagnostics_time_policies(
     meant.  ``overrides`` is deep-merged over the whole configured document and
     can add windows or re-point components.
     """
-    content = load_yaml(_resolve_info_file_path(info_file))
+    content = _policy_document(info_file)
     document = content.get(DIAGNOSTICS_TIME_POLICIES_KEY)
     context = DIAGNOSTICS_TIME_POLICIES_KEY
     if not isinstance(document, Mapping):
@@ -513,8 +532,43 @@ class PlasmaTimingPolicy:
         }
 
 
+#: ``active_window`` arguments every call site supplies from the record
+#: itself; a rule may not set them.
+_ACTIVE_WINDOW_RESERVED = frozenset({"reference_mask", "search_mask", "fs"})
+
+
+def _coerce_rule_value(key: str, value: Any, annotation: str, *, context: str) -> Any:
+    """Coerce one yaml value to the parameter's annotated type, or refuse."""
+    kinds = {part.strip() for part in annotation.split("|")}
+    if value is None:
+        if "None" in kinds:
+            return None
+        raise VestConfigurationError(f"{context}: parameter {key!r} may not be null")
+    if "bool" in kinds:
+        if isinstance(value, bool):
+            return value
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be true or false")
+    if isinstance(value, bool):
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be numeric, not a boolean")
+    number = _required_number({key: value}, key, context=context)
+    if not np.isfinite(number):
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be finite")
+    if "int" in kinds:
+        if number != int(number):
+            raise VestConfigurationError(f"{context}: parameter {key!r} must be an integer")
+        return int(number)
+    return number
+
+
 def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
-    """Validate one rule block against ``active_window``'s keyword parameters."""
+    """Validate one rule block against ``active_window``'s keyword parameters.
+
+    Every key must be a keyword-only parameter of the detector other than the
+    ones the caller derives from the record (``reference_mask``,
+    ``search_mask``, ``fs``), and every value is coerced to the parameter's
+    annotated type -- a boolean for a numeric parameter, a fraction for an
+    integer count, a null for a required number are configuration errors.
+    """
     import inspect
 
     from vaft.process.onset import active_window
@@ -523,34 +577,36 @@ def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
         raise VestConfigurationError(f"{context}: must be a non-empty mapping")
     parameters = inspect.signature(active_window).parameters
     allowed = {
-        name for name, p in parameters.items() if p.kind is inspect.Parameter.KEYWORD_ONLY
+        name
+        for name, p in parameters.items()
+        if p.kind is inspect.Parameter.KEYWORD_ONLY and name not in _ACTIVE_WINDOW_RESERVED
     }
     unknown = sorted(set(rule) - allowed)
     if unknown:
         raise VestConfigurationError(
             f"{context}: {', '.join(repr(k) for k in unknown)} "
-            f"{'is' if len(unknown) == 1 else 'are'} not a keyword argument of "
+            f"{'is' if len(unknown) == 1 else 'are'} not a configurable keyword argument of "
             f"vaft.process.onset.active_window"
         )
-    out: Dict[str, Any] = {}
-    for key, value in rule.items():
-        if isinstance(value, bool) or value is None:
-            out[key] = value
-        else:
-            number = _required_number(rule, key, context=context)
-            if not np.isfinite(number):
-                raise VestConfigurationError(f"{context}: parameter {key!r} must be finite")
-            out[key] = int(number) if key in ("prefilter_samples", "order") else number
-    return out
+    return {
+        key: _coerce_rule_value(key, value, str(parameters[key].annotation), context=context)
+        for key, value in rule.items()
+    }
 
 
 def _number_block(block: Any, keys: Sequence[str], *, context: str) -> Dict[str, float]:
+    """Read the named non-negative numbers; a ``*_fraction`` must lie in [0, 1]
+    and a ``*_level`` or ``min_samples`` must be positive."""
     if not isinstance(block, Mapping):
         raise VestConfigurationError(f"{context}: must be a mapping")
     out = {key: _required_number(block, key, context=context) for key in keys}
     for key, value in out.items():
         if not np.isfinite(value) or value < 0.0:
             raise VestConfigurationError(f"{context}: parameter {key!r} must be finite and >= 0")
+        if key.endswith("_fraction") and value > 1.0:
+            raise VestConfigurationError(f"{context}: parameter {key!r} is a fraction and must be <= 1")
+        if (key.endswith("_level") or key == "min_samples") and value <= 0.0:
+            raise VestConfigurationError(f"{context}: parameter {key!r} must be positive")
     return out
 
 
@@ -576,7 +632,7 @@ def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimin
     so a misspelled parameter is a configuration error at load time rather
     than a ``TypeError`` inside a detector.
     """
-    content = load_yaml(_resolve_info_file_path(info_file))
+    content = _policy_document(info_file)
     document = content.get(PLASMA_TIMING_KEY)
     context = PLASMA_TIMING_KEY
     if not isinstance(document, Mapping):
@@ -1139,6 +1195,8 @@ __all__ = [
     "DIAGNOSTICS_TIME_POLICIES_KEY",
     "DiagnosticsTimePolicy",
     "DiagnosticsTimePolicyTable",
+    "PLASMA_TIMING_KEY",
+    "PlasmaTimingPolicy",
     "VestConfigurationError",
     "apply_default_constraint_uncertainties",
     "apply_magnetics_uncertainties",
@@ -1162,5 +1220,6 @@ __all__ = [
     "process_static_geometry",
     "resolve_data_root",
     "resolve_diagnostics_time_policies",
+    "resolve_plasma_timing_policy",
     "set_path",
 ]

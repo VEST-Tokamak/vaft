@@ -65,11 +65,13 @@ def _needs_legacy_time_shift(shot: int) -> bool:
 
 
 def legacy_time_shift_s(shot: int) -> float:
-    """The offset added to a fast-DAQ filterscope record's own time axis.
+    """The offset the mapper adds to a filterscope record's own time axis.
 
-    Fast records start at zero on their own clock; the mapper adds this to
-    place them on the discharge clock.  It applies only to records whose axis
-    ends before 0.1 s (the fast channel), never to the slow-DAQ channels.
+    A fast-DAQ record starts at zero on its own clock and the mapper adds
+    this to place it on the discharge clock.  The mapper applies it to any
+    record whose axis ends before 0.1 s -- in practice the fast channel; a
+    slow-DAQ record spans the full second -- so this is the value a shifted
+    record received, not proof that a given record was shifted.
     """
     return 0.26 if _needs_legacy_time_shift(shot) else 0.24
 
