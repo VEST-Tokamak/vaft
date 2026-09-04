@@ -30,7 +30,11 @@ from vaft.process.signal_processing import (
     smooth,
 )
 
+from vaft.process.onset import active_window
+
 from .utils import (
+    MIN_BASELINE_S,
+    PlasmaTimingPolicy,
     VestConfigurationError,
     _resolve_info_file_path,
     calibrate_vest_signal,
@@ -39,6 +43,7 @@ from .utils import (
     path_count,
     path_exists,
     resolve_data_root,
+    resolve_plasma_timing_policy,
     resolve_shot_revisions,
     resolve_vest_diagnostic,
     set_path,
@@ -840,7 +845,16 @@ def vfit_plasma_current(
 
 
 def vfit_plasma_mgods_startend(ods: object) -> tuple[float, float]:
-    """Estimate discharge start/end directly from `magnetics.ip.0.*`."""
+    """Estimate discharge start/end directly from `magnetics.ip.0.*`.
+
+    Legacy Ip-threshold discharge detector (mean before 0.3 s, 10x/15x
+    multipliers), superseded by issue #409: prefer
+    :func:`vaft.omas.plasma_timing.plasma_timing` for the plasma window with
+    its provenance on an ODS, or :func:`detect_plasma_window` /
+    ``vaft.process.onset.active_window(**policy.ip)`` on raw arrays.  Kept,
+    without a runtime warning, for the eddy-stage and validation callers that
+    move in the next #409 increments.
+    """
     try:
         magnetics = ods["magnetics"]
         if isinstance(magnetics, dict) and "ip" in magnetics:
@@ -1798,6 +1812,151 @@ def _map_ip(ods: object, target_time: np.ndarray, ip_time: np.ndarray, ip: np.nd
     set_path(ods, "magnetics.ip.0.method_name", _IP_METHOD_NAME)
 
 
+#: Sources a diamagnetic plasma window can come from, in hierarchy order.
+PLASMA_WINDOW_H_ALPHA_RAW = "h_alpha_raw"
+PLASMA_WINDOW_IP = "ip"
+PLASMA_WINDOW_ANALYSIS_RANGE = "analysis_range"
+PLASMA_WINDOW_FALLBACK_FLAG = "analysis_range_fallback"
+#: The slow-DAQ H-alpha filterscope, ``spectrometer_uv.SIGNALS[0]``; the raw
+#: record is negative-going (the spectrometer mapper stores its negation).
+HALPHA_RAW_FIELD = 101
+
+
+@dataclass(frozen=True)
+class PlasmaWindowChoice:
+    """The plasma window a raw-side consumer uses, and where it came from.
+
+    ``start``/``end`` lie inside the shared ``plasma_analysis`` range; ``source``
+    names the record that produced them (the raw H-alpha field, the plasma
+    current, or the range itself when neither showed a plasma, in which case
+    ``flags`` carries ``analysis_range_fallback``).  ``evidence`` keeps the
+    detector records so a consumer can say why.
+    """
+
+    start: float
+    end: float
+    source: str
+    flags: tuple[str, ...] = ()
+    evidence: Mapping[str, Any] = dataclass_field(default_factory=dict)
+
+    @property
+    def fallback(self) -> bool:
+        return PLASMA_WINDOW_FALLBACK_FLAG in self.flags
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "start": self.start,
+            "end": self.end,
+            "source": self.source,
+            "flags": list(self.flags),
+            "evidence": dict(self.evidence),
+        }
+
+
+def _window_masks(
+    time: np.ndarray, values: np.ndarray, policy: PlasmaTimingPolicy
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray, tuple[str, ...]]:
+    """Crop a raw record to ``[baseline_start, tend)`` and split it into baseline and search.
+
+    The same rule as ``vaft.omas.plasma_timing._crop``: a baseline shorter
+    than :data:`MIN_BASELINE_S` is not trusted, the detector falls back to its
+    own leading fraction of the cropped record and the window is flagged
+    ``baseline_inside_search``.
+    """
+    keep = (time >= policy.baseline_start) & (time < policy.window.tend)
+    t, y = time[keep], values[keep]
+    baseline = t < policy.window.tstart
+    covered = float(t[baseline][-1] - t[baseline][0]) if baseline.sum() > 1 else 0.0
+    if covered < MIN_BASELINE_S:
+        return t, y, None, ~baseline, ("baseline_inside_search",)
+    return t, y, baseline, ~baseline, ()
+
+
+def _try_window(t, y, baseline, search, rule):
+    """Run ``active_window`` on a cropped record, or ``None`` when the record cannot carry it.
+
+    A record with too few samples for the rule's filter (a stub product, a
+    truncated dump) is not a detection failure the range fallback should hide
+    behind an exception; it is simply no evidence.
+    """
+    if t.size < 2:
+        return None
+    try:
+        return active_window(t, y, reference_mask=baseline, search_mask=search, **rule)
+    except ValueError:
+        return None
+
+
+def detect_plasma_window(
+    shot: int,
+    ip_time: np.ndarray,
+    ip: np.ndarray,
+    raw_source: raw_db.RawSource | None = None,
+    *,
+    policy: PlasmaTimingPolicy | None = None,
+) -> PlasmaWindowChoice:
+    """The plasma window for raw-side consumers, from the shared timing policy.
+
+    The hierarchy mirrors ``vaft.omas.plasma_timing`` on the raw records this
+    layer already reads: the slow H-alpha field (negated, then the ``h_alpha``
+    rule), else the plasma current with the ``ip`` rule, else the whole
+    ``plasma_analysis`` range flagged ``analysis_range_fallback``.  Whatever is
+    found is intersected with the range.  This module does not import
+    ``vaft.omas``; the rules and the range come from
+    :func:`vaft.machine_mapping.utils.resolve_plasma_timing_policy`.
+    """
+    if policy is None:
+        policy = resolve_plasma_timing_policy()
+    tstart, tend = float(policy.window.tstart), float(policy.window.tend)
+    evidence: dict[str, Any] = {
+        "window": policy.window.as_dict(),
+        "baseline_start": policy.baseline_start,
+        "h_alpha_field": HALPHA_RAW_FIELD,
+        "h_alpha": None,
+        "ip": None,
+    }
+    flags: list[str] = []
+
+    halpha = _safe_vest_load(shot, HALPHA_RAW_FIELD, raw_source)
+    if halpha is not None and len(halpha[1]) > 1:
+        h_time = np.asarray(halpha[0], dtype=float)
+        h_data = -np.asarray(halpha[1], dtype=float)
+        t, y, baseline, search, crop_flags = _window_masks(h_time, h_data, policy)
+        window = _try_window(t, y, baseline, search, policy.h_alpha)
+        if window is not None:
+            evidence["h_alpha"] = window.as_dict()
+            if window.found:
+                flags.extend(crop_flags)
+                flags.extend(window.flags)
+                return PlasmaWindowChoice(
+                    max(float(window.start), tstart),
+                    min(float(window.end), tend),
+                    PLASMA_WINDOW_H_ALPHA_RAW,
+                    tuple(dict.fromkeys(flags)),
+                    evidence,
+                )
+
+    t, y, baseline, search, crop_flags = _window_masks(
+        np.asarray(ip_time, dtype=float), np.asarray(ip, dtype=float), policy
+    )
+    window = _try_window(t, y, baseline, search, policy.ip)
+    if window is not None:
+        evidence["ip"] = window.as_dict()
+        if window.found:
+            flags.extend(crop_flags)
+            flags.extend(window.flags)
+            return PlasmaWindowChoice(
+                max(float(window.start), tstart),
+                min(float(window.end), tend),
+                PLASMA_WINDOW_IP,
+                tuple(dict.fromkeys(flags)),
+                evidence,
+            )
+
+    flags.append(PLASMA_WINDOW_FALLBACK_FLAG)
+    return PlasmaWindowChoice(tstart, tend, PLASMA_WINDOW_ANALYSIS_RANGE, tuple(flags), evidence)
+
+
 def _plasma_window(
     ods: object,
     shot: int,
@@ -1806,44 +1965,42 @@ def _plasma_window(
     ip: np.ndarray,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[float, float]:
-    halpha = _safe_vest_load(shot, 101, raw_source)
-    if halpha is not None and len(halpha[1]) > 1:
-        h_time = np.asarray(halpha[0], dtype=float)
-        h_data = smooth(np.asarray(halpha[1], dtype=float), 10)
-        index_a = int(np.argmin(np.abs(h_time - 0.3)))
-        index_b = int(np.argmin(np.abs(h_time - 0.36)))
-        window = h_data[index_a:index_b] if index_b > index_a else h_data
-        minimum = float(np.min(window)) if window.size > 0 else -1.0
-        if minimum != 0.0:
-            normalized = h_data / minimum
-            tstart2, tend2 = detect_active_window(
-                h_time[index_a:index_b], normalized[index_a:index_b]
-            )
-        else:
-            tstart2, tend2 = vfit_plasma_mgods_startend(ods)
-    else:
-        tstart2, tend2 = vfit_plasma_mgods_startend(ods)
+    """``(start, end)`` of :func:`detect_plasma_window`.
 
-    if tstart2 < 0 or tend2 <= tstart2:
-        temporary: dict[str, Any] = {}
-        _map_ip(temporary, target_time, ip_time, ip)
-        tstart2, tend2 = vfit_plasma_mgods_startend(temporary)
-    return tstart2, tend2
+    Kept with its old signature for callers that only want the bounds (the
+    magnetics processing notebook); ``ods`` and ``target_time`` are no longer
+    consulted.
+    """
+    choice = detect_plasma_window(shot, ip_time, ip, raw_source)
+    return choice.start, choice.end
 
 
-def _diamagnetic_method_name(report: Mapping[str, Any]) -> str:
-    """One-line provenance string for `magnetics.diamagnetic_flux[0].method_name`."""
+def _diamagnetic_method_name(
+    report: Mapping[str, Any], window: PlasmaWindowChoice | None = None
+) -> str:
+    """One-line provenance string for `magnetics.diamagnetic_flux[0].method_name`.
+
+    The saturation outcome first, then -- when the window is given -- which
+    plasma window the reconstruction was anchored to and where it came from,
+    so a window that fell back to the analysis range is visible in the product.
+    """
     base = (
         "Rogowski triple-integration of VEST raw field "
         f"{report['field']}"
     )
     if not report["n_saturated"]:
-        return f"{base}; no acquisition-limit saturation detected"
-    return (
-        f"{base}; {report['n_saturated']}/{report['n_samples']} samples "
-        f"reconstructed at the acquisition limit in {report['n_intervals']} intervals, "
-        f"{report['n_saturated_in_window']} inside the plasma window"
-    )
+        text = f"{base}; no acquisition-limit saturation detected"
+    else:
+        text = (
+            f"{base}; {report['n_saturated']}/{report['n_samples']} samples "
+            f"reconstructed at the acquisition limit in {report['n_intervals']} intervals, "
+            f"{report['n_saturated_in_window']} inside the plasma window"
+        )
+    if window is not None:
+        text += f"; plasma window {window.start:.4f}-{window.end:.4f} s from {window.source}"
+        if window.fallback:
+            text += "; analysis-range fallback"
+    return text
 
 
 def _map_diamagnetic_flux(
@@ -1854,10 +2011,10 @@ def _map_diamagnetic_flux(
     ip: np.ndarray,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    tstart2, tend2 = _plasma_window(ods, shot, target_time, ip_time, ip, raw_source)
+    window = detect_plasma_window(shot, ip_time, ip, raw_source)
 
     time_dia, dia_flux, report = vest_diamagnetic_flux_detailed(
-        shot, tstart2, tend2, raw_source=raw_source
+        shot, window.start, window.end, raw_source=raw_source
     )
     set_path(ods, "magnetics.diamagnetic_flux.0.data", _interpolate_signal(target_time, time_dia, dia_flux))
     set_path(ods, "magnetics.diamagnetic_flux.0.time", target_time)
@@ -1865,7 +2022,7 @@ def _map_diamagnetic_flux(
     # saturation outcome is recorded in the one string field it does offer.
     # `magnetics.rogowski_coil[:].current.validity` is the structured home and
     # belongs to issue #215; it can call `diamagnetic_saturation_report`.
-    set_path(ods, "magnetics.diamagnetic_flux.0.method_name", _diamagnetic_method_name(report))
+    set_path(ods, "magnetics.diamagnetic_flux.0.method_name", _diamagnetic_method_name(report, window))
 
 
 def vfit_magnetics_dynamic(
@@ -2087,6 +2244,8 @@ __all__ = [
     "vfit_magnetics_static",
     "vfit_limiter_shunts_dynamic",
     "vfit_mirnov_raw_dynamic",
+    "PlasmaWindowChoice",
+    "detect_plasma_window",
     "vfit_plasma_mgods_startend",
 ]
 

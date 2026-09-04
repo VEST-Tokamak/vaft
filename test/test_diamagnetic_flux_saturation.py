@@ -199,9 +199,10 @@ def test_packaged_shots_saturate_on_both_rails(shot):
 
 @pytest.mark.parametrize("shot", sorted(PACKAGED_SATURATION))
 def test_packaged_saturation_falls_outside_the_plasma_window(shot):
-    """The plasma window is confined to 0.30-0.36 s; the rails are hit outside it."""
+    """The plasma window lies inside the shared 0.28-0.36 s range; the rails are
+    hit near 0.113 s (TF bank) and after 0.77 s, outside it."""
     report = magnetics.diamagnetic_saturation_report(
-        shot, raw_source=SAMPLE_SOURCE, plasma_start=0.30, plasma_end=0.36
+        shot, raw_source=SAMPLE_SOURCE, plasma_start=0.28, plasma_end=0.36
     )
     assert report["n_saturated_in_window"] == 0
 
@@ -232,6 +233,10 @@ def test_method_name_records_the_saturation_outcome(shot):
     assert "field 257" in method_name
     assert f"{PACKAGED_SATURATION[shot]}/25000" in method_name
     assert "0 inside the plasma window" in method_name
+    # #409: the window the reconstruction was anchored to, and its source
+    assert "plasma window 0.3" in method_name
+    assert "from h_alpha_raw" in method_name
+    assert "analysis-range fallback" not in method_name
 
 
 # --------------------------------------------------------------------------
@@ -303,3 +308,80 @@ def test_an_unsaturated_channel_reports_cleanly(tmp_path):
     assert report["repaired"] is False
     assert report["reason"] == "no sample reached the acquisition limit"
     assert "no acquisition-limit saturation detected" in magnetics._diamagnetic_method_name(report)
+
+
+# --------------------------------------------------------------------------
+# The plasma window the mapper anchors to (issue #409)
+# --------------------------------------------------------------------------
+
+
+from _plasma_timing_fixtures import current, light, pickup_only  # noqa: E402
+
+RAW_TIME = np.arange(N_SAMPLES) * DT
+
+
+def _dump_with_fields(tmp_path, **fields_by_id):
+    """A raw dump reusing a packaged shot, with the given slow fields replaced."""
+    fields = _packaged_fields(SYNTHETIC_SHOT)
+    for field_id, values in fields_by_id.items():
+        fields[str(field_id)] = {"data": np.asarray(values, dtype=float).tolist(), "type": "slow"}
+    path = tmp_path / f"vest_{SYNTHETIC_SHOT}_daq_raw.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump({"shot": SYNTHETIC_SHOT, "fields": fields}, handle)
+    return str(path)
+
+
+def test_plasma_window_comes_from_the_raw_h_alpha_line(tmp_path):
+    """The raw field is negative-going; the mapper negates it before the h_alpha rule."""
+    source = _dump_with_fields(tmp_path, **{str(HALPHA_FIELD): -light(RAW_TIME)})
+    ip_time, ip = RAW_TIME, current(RAW_TIME)
+
+    choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, ip_time, ip, source)
+
+    assert choice.source == "h_alpha_raw"
+    assert not choice.fallback
+    assert choice.start == pytest.approx(0.306, abs=3e-4)
+    assert choice.end == pytest.approx(0.331, abs=5e-4)
+    assert choice.evidence["h_alpha"]["start"] == pytest.approx(choice.start)
+    assert 0.28 <= choice.start < choice.end <= 0.36
+
+
+def test_plasma_window_falls_back_to_the_current_when_the_light_is_dark(tmp_path):
+    source = _dump_with_fields(tmp_path, **{str(HALPHA_FIELD): -light(RAW_TIME, amplitude=0.0)})
+
+    choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, RAW_TIME, current(RAW_TIME), source)
+
+    assert choice.source == "ip"
+    assert not choice.fallback
+    assert choice.start == pytest.approx(0.3068, abs=1e-3)
+    assert choice.evidence["h_alpha"] is not None and choice.evidence["ip"] is not None
+
+
+def test_plasma_window_falls_back_to_the_range_and_says_so(tmp_path):
+    source = _dump_with_fields(tmp_path, **{str(HALPHA_FIELD): -light(RAW_TIME, amplitude=0.0)})
+
+    choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, RAW_TIME, pickup_only(RAW_TIME), source)
+
+    assert choice.source == "analysis_range"
+    assert choice.fallback
+    assert (choice.start, choice.end) == (0.28, 0.36)
+    report = magnetics.diamagnetic_saturation_report(SYNTHETIC_SHOT, raw_source=SAMPLE_SOURCE)
+    assert magnetics._diamagnetic_method_name(report, choice).endswith("; analysis-range fallback")
+
+
+def test_a_missing_h_alpha_field_is_answered_by_the_current():
+    with patch.object(magnetics, "_safe_vest_load", return_value=None):
+        choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, RAW_TIME, current(RAW_TIME), None)
+    assert choice.source == "ip"
+    assert choice.evidence["h_alpha"] is None
+
+
+@pytest.mark.parametrize("shot, expected", [(39915, (0.3065, 0.3308)), (41524, (0.3146, 0.3364)), (41672, (0.3125, 0.3517))])
+def test_the_raw_side_window_agrees_with_the_ods_side_timing(shot, expected):
+    """detect_plasma_window on the raw dump and plasma_timing on the ODS are two
+    readers of one policy; on the packaged shots they must land on the same window."""
+    ip_time, ip = magnetics.vfit_plasma_current(shot, raw_source=SAMPLE_SOURCE)
+    choice = magnetics.detect_plasma_window(shot, ip_time, ip, SAMPLE_SOURCE)
+    assert choice.source == "h_alpha_raw"
+    assert choice.start == pytest.approx(expected[0], abs=1e-3)
+    assert choice.end == pytest.approx(expected[1], abs=1e-3)

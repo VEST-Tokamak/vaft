@@ -33,6 +33,9 @@ _LEGACY_REPLACEMENTS = {
     "vfit_PlasmaCurrent": None,
     "vfit_plasma_current": None,
     "vfit_pf": None,
+    # Superseded by vaft.omas.plasma_timing.plasma_timing / magnetics.detect_plasma_window
+    # (#409); the value stays None because the __getattr__ template names a
+    # vaft.machine_mapping replacement only.
     "vfit_plasmaMGods_startend": None,
     "vfit_plasma_mgods_startend": None,
     "vfit_tf_btR": None,
