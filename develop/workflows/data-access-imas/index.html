@@ -216,7 +216,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2c1e5c2</code>. What is described
+  <code>dfdd3b0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -480,12 +480,13 @@ timebase, not the resampled one — fluctuation analysis needs the full bandwidt
 
 <p>Two lower-level helpers are worth knowing:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">vfit_md</span><span class="p">,</span> <span class="n">vfit_plasma_current</span><span class="p">,</span> <span class="n">vest_diamagnetic_flux</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">detect_plasma_window</span><span class="p">,</span> <span class="n">vfit_md</span><span class="p">,</span> <span class="n">vfit_plasma_current</span><span class="p">,</span> <span class="n">vest_diamagnetic_flux</span>
 
 <span class="n">time</span><span class="p">,</span> <span class="n">flux_loops</span><span class="p">,</span> <span class="n">probes</span> <span class="o">=</span> <span class="nf">vfit_md</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>          <span class="c1"># -&gt; (ndarray, list[ndarray], list[ndarray])
 </span><span class="n">time</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="nf">vfit_plasma_current</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>              <span class="c1"># -&gt; (ndarray, ndarray), amps
-</span><span class="n">time</span><span class="p">,</span> <span class="n">dia</span> <span class="o">=</span> <span class="nf">vest_diamagnetic_flux</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="mf">0.30</span><span class="p">,</span> <span class="mf">0.34</span><span class="p">)</span>  <span class="c1"># needs the plasma start/end window
-</span></code></pre></div></div>
+</span><span class="n">window</span> <span class="o">=</span> <span class="nf">detect_plasma_window</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">ip</span><span class="p">)</span>     <span class="c1"># the plasma window, with its source
+</span><span class="n">time</span><span class="p">,</span> <span class="n">dia</span> <span class="o">=</span> <span class="nf">vest_diamagnetic_flux</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">window</span><span class="p">.</span><span class="n">start</span><span class="p">,</span> <span class="n">window</span><span class="p">.</span><span class="n">end</span><span class="p">)</span>
+</code></pre></div></div>
 
 <p><strong>Plasma current is not just the Rogowski trace.</strong> The bare Rogowski signal picks up the vacuum-vessel and
 coil contribution, so <code class="language-plaintext highlighter-rouge">vfit_plasma_current</code> subtracts a flux-loop-derived reference scaled by a mutual
@@ -495,6 +496,39 @@ which is exactly the kind of machine trivia this module exists to hide. If a his
 inverted, that switch is the first thing to check.</p>
 
 <p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Mapped plasma current" /></p>
+
+<h3 id="plasma-timing-policy">Plasma timing policy</h3>
+
+<p>Where the plasma is in a discharge is decided once, in the <code class="language-plaintext highlighter-rouge">plasma_timing</code> block of <code class="language-plaintext highlighter-rouge">vest.yaml</code>, and read by
+every consumer (issue #409). Its <code class="language-plaintext highlighter-rouge">window</code> names a <code class="language-plaintext highlighter-rouge">diagnostics_time_policies</code> window — <code class="language-plaintext highlighter-rouge">plasma_analysis</code>,
+0.28–0.36 s, which no diagnostic maps onto and the stage’s <code class="language-plaintext highlighter-rouge">tstart</code>/<code class="language-plaintext highlighter-rouge">tend</code> never retune — and <code class="language-plaintext highlighter-rouge">baseline_lead_s</code>
+the stretch before it, <code class="language-plaintext highlighter-rouge">[tstart − lead, tstart)</code>, whose samples are the <strong>baseline</strong> the detectors measure
+their noise on. The block then carries the detector recipes, keyed by the signal they were tuned on: <code class="language-plaintext highlighter-rouge">h_alpha</code>
+(median filter, threshold <code class="language-plaintext highlighter-rouge">max(2 % peak, 5 σ)</code>, 0.5 ms persistence, width, prominence and integral floors),
+<code class="language-plaintext highlighter-rouge">ip</code> (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse fallback), per-line
+<code class="language-plaintext highlighter-rouge">lines</code> for impurity lines with their own morphology, the H-alpha <code class="language-plaintext highlighter-rouge">usability</code> floors (rail level, quantized
+baseline, validity) and the <code class="language-plaintext highlighter-rouge">agreement</code> tolerances between light and current. Every rule is validated against
+<code class="language-plaintext highlighter-rouge">vaft.process.onset.active_window</code>’s signature when the policy is loaded:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.utils</span> <span class="kn">import</span> <span class="n">resolve_plasma_timing_policy</span>
+
+<span class="n">policy</span> <span class="o">=</span> <span class="nf">resolve_plasma_timing_policy</span><span class="p">()</span>
+<span class="n">policy</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">tstart</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">tend</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">baseline_start</span>   <span class="c1"># 0.28, 0.36, 0.26
+</span><span class="n">policy</span><span class="p">.</span><span class="n">h_alpha</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">ip</span>                                          <span class="c1"># keyword arguments of active_window
+</span></code></pre></div></div>
+
+<p>Two readers consume it. <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing.plasma_timing(ods)</code> works on a mapped product: it finds the
+H-alpha line <strong>by label</strong>, checks it is usable, takes the slow line as authoritative for onset and offset, the
+validated fast line as first fallback and the plasma-current principal pulse as final fallback and cross-check,
+and returns a <code class="language-plaintext highlighter-rouge">PlasmaTiming</code> with the window, its <code class="language-plaintext highlighter-rouge">source</code>, the <code class="language-plaintext highlighter-rouge">agreement</code> (<code class="language-plaintext highlighter-rouge">consistent</code>, <code class="language-plaintext highlighter-rouge">ip_before_halpha</code>,
+<code class="language-plaintext highlighter-rouge">halpha_leads_ip_large</code>, <code class="language-plaintext highlighter-rouge">halpha_only</code>, <code class="language-plaintext highlighter-rouge">ip_only</code>, <code class="language-plaintext highlighter-rouge">none</code>), the usability of every candidate and a
+<code class="language-plaintext highlighter-rouge">fallback_reason</code> — a missing filterscope is a normal state, and no plasma is <code class="language-plaintext highlighter-rouge">found = False</code>, never the range.
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.magnetics.detect_plasma_window(shot, ip_time, ip)</code> applies the same rules to the raw
+records this layer already reads (the slow H-alpha field, negated, then the current) and returns a
+<code class="language-plaintext highlighter-rouge">PlasmaWindowChoice</code> whose <code class="language-plaintext highlighter-rouge">source</code> is <code class="language-plaintext highlighter-rouge">h_alpha_raw</code>, <code class="language-plaintext highlighter-rouge">ip</code> or <code class="language-plaintext highlighter-rouge">analysis_range</code>; the last is the whole range,
+flagged <code class="language-plaintext highlighter-rouge">analysis_range_fallback</code>. The diamagnetic-flux mapping anchors its reconstruction to that window and
+records it in <code class="language-plaintext highlighter-rouge">magnetics.diamagnetic_flux[0].method_name</code> (<code class="language-plaintext highlighter-rouge">…; plasma window 0.3065-0.3308 s from h_alpha_raw</code>),
+and the EFIT constraint script cuts its time slices from the range intersected with the ODS-side window.</p>
 
 <p>Signal conditioning (integration, drift removal, smoothing) is delegated to <code class="language-plaintext highlighter-rouge">vaft.process</code> and is tunable
 through <code class="language-plaintext highlighter-rouge">processing_config</code>, a <code class="language-plaintext highlighter-rouge">VestMagneticsProcessingConfig</code>:</p>
@@ -1027,7 +1061,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
     </nav>
 </aside>
 
@@ -1145,7 +1179,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-04 12:13:26 +0000"
+        "time": "2026-09-04 13:35:14 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -216,7 +216,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2c1e5c2</code>. What is described
+  <code>dfdd3b0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -384,7 +384,7 @@ partial: refined_gfiles=8; failed=2
     <tr>
       <td><code class="language-plaintext highlighter-rouge">generate_constraints_ods</code></td>
       <td><code class="language-plaintext highlighter-rouge">generate_constraints_ods.py</code></td>
-      <td><code class="language-plaintext highlighter-rouge">vaft.code.efit.correct_flux_loop</code>, <code class="language-plaintext highlighter-rouge">vaft.code.efit.generate_constraints_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.code.efit.correct_flux_loop</code>, <code class="language-plaintext highlighter-rouge">vaft.code.efit.generate_constraints_ods</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">generate_kfile</code></td>
@@ -482,15 +482,21 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
 developer’s home directory, while <code class="language-plaintext highlighter-rouge">base_dir</code> points at the Linux data server. Repoint them before running.</li>
   <li><strong>Dead keys.</strong> <code class="language-plaintext highlighter-rouge">cores</code>, <code class="language-plaintext highlighter-rouge">raw.offline_only</code> and <code class="language-plaintext highlighter-rouge">gpec.coil.source</code> appear in <code class="language-plaintext highlighter-rouge">config.yaml</code> but are never read
 by the <code class="language-plaintext highlighter-rouge">Snakefile</code>.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">constraints.detect_broken</code> is accepted and then ignored</strong> — the script logs a warning and uses only the
-explicit <code class="language-plaintext highlighter-rouge">constraints.broken</code> list of 1-based channel indices.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">constraints.detect_broken: true</code> excludes the channels the diagnostics stage condemned</strong> (their
+projected validity), on top of the explicit <code class="language-plaintext highlighter-rouge">constraints.broken</code> list of 1-based channel indices; a
+product that carries no assessment falls back to the 12-MAD amplitude detector.</li>
 </ul>
 
 <p>Constraint time selection is worth spelling out, because <code class="language-plaintext highlighter-rouge">timeset: auto</code> is the default and it is not
-obvious. The base window is $[\max(0.28,\ t_0),\ \min(0.38,\ t_{-1})]$ seconds; within it the script keeps
-only samples where $I_p &gt; 20\ \mathrm{kA}$, falling back to the full window and then to all times if that
-selection is empty. Start and end are snapped to the <code class="language-plaintext highlighter-rouge">tstep</code> grid. With <code class="language-plaintext highlighter-rouge">timeset: manual</code> you get exactly
-<code class="language-plaintext highlighter-rouge">np.arange(tstart, tend, tstep)</code> and both bounds become mandatory.</p>
+obvious. The script takes the shared plasma-analysis range — <code class="language-plaintext highlighter-rouge">diagnostics_time_policies.windows.plasma_analysis</code>
+in <code class="language-plaintext highlighter-rouge">vest.yaml</code>, 0.28–0.36 s — and intersects it with the plasma window <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code> detects on
+the product: the slow H-alpha line found by label, else the validated fast line, else the plasma-current
+principal pulse (see <a href="/vaft/develop/guide/Machine_mapping/#plasma-timing-policy">Plasma timing policy</a>).
+When no source shows a plasma the whole range is used and the run is flagged <code class="language-plaintext highlighter-rouge">analysis_range_fallback</code>,
+with the reason, in the stage log and in <code class="language-plaintext highlighter-rouge">equilibrium.ids_properties.comment</code>, which always names the
+window and its source. Start and end are clamped to <code class="language-plaintext highlighter-rouge">tstart</code>/<code class="language-plaintext highlighter-rouge">tend</code> when given and snapped to the <code class="language-plaintext highlighter-rouge">tstep</code>
+grid, and the end instant is included. With <code class="language-plaintext highlighter-rouge">timeset: manual</code> you get exactly <code class="language-plaintext highlighter-rouge">np.arange(tstart, tend, tstep)</code>
+and both bounds become mandatory.</p>
 
 <h3 id="failure-semantics--a-green-run-does-not-mean-everything-ran">Failure semantics — a green run does not mean everything ran</h3>
 
@@ -1129,7 +1135,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-04 12:13:26 +0000"
+        "time": "2026-09-04 13:35:14 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
