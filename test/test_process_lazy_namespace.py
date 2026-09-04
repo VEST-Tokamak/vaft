@@ -248,6 +248,14 @@ def test_importing_the_package_alone_imports_no_submodule():
     assert heavy == set()
 
 
+def test_the_discovery_layer_is_not_part_of_the_package_import():
+    """`catalog` and the parser are reached on first use, never by `import vaft.process`."""
+    submodules, _ = _import_in_subprocess("import vaft.process; import vaft.process.magnetics")
+
+    assert "vaft.process.catalog" not in submodules
+    assert "vaft.process._docstring" not in submodules
+
+
 def test_importing_one_submodule_does_not_drag_in_its_siblings():
     submodules, _ = _import_in_subprocess("import vaft.process.signal_processing")
 
