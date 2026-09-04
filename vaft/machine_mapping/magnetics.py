@@ -852,8 +852,9 @@ def vfit_plasma_mgods_startend(ods: object) -> tuple[float, float]:
     :func:`vaft.omas.plasma_timing.plasma_timing` for the plasma window with
     its provenance on an ODS, or :func:`detect_plasma_window` /
     ``vaft.process.onset.active_window(**policy.ip)`` on raw arrays.  Kept,
-    without a runtime warning, for the eddy-stage and validation callers that
-    move in the next #409 increments.
+    without a runtime warning, for its one remaining caller: the ``legacy``
+    block of ``vaft.validation.vacuum_benchmark.plasma_free_interval``, which
+    goes when that evidence schema reaches 3.
     """
     try:
         magnetics = ods["magnetics"]

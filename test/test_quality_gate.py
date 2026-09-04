@@ -102,7 +102,9 @@ def test_gating_removes_the_probe_and_materially_changes_the_residual(shot_39915
     assert "MagneticFieldProbe_H3-08_Bz" not in {c.name for c in gated}
     before, after = _rms(ungated, window), _rms(gated, window)
     assert after < before
-    assert (before - after) / before > 0.05  # measured: 0.256 -> 0.228
+    # measured 0.256 -> 0.228 over the window to the PF-pickup crossing; over
+    # the window to the light's onset (#409) 0.356 -> 0.339, 4.8 %
+    assert (before - after) / before > 0.04
     stacked = plasma_free_residual(gated, window, gate=gate, normalize=True)
     assert np.isclose(float(np.sqrt(np.mean(stacked**2))), after)
 
