@@ -42,6 +42,10 @@ jobs:
           /tmp/vaft-wheel-test/bin/pip install --no-deps dist/*.whl
           cd /tmp
           /tmp/vaft-wheel-test/bin/python -c "import vaft; print(vaft.__version__)"
+          # The console script and its plot command must parse their help
+          # in a bare install: nothing heavy is imported before the arguments.
+          /tmp/vaft-wheel-test/bin/vaft --help
+          /tmp/vaft-wheel-test/bin/vaft plot --help
 
   # The two gates this workflow implements, stated once here (#515):
   #

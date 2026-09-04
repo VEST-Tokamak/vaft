@@ -31,7 +31,7 @@ from __future__ import annotations
 import contextlib
 from typing import Any, Sequence
 
-__all__ = ["available_plots", "render"]
+__all__ = ["available_plots", "render", "render_to_file"]
 
 
 def _resolve_source(source: str | None) -> str:
@@ -123,6 +123,34 @@ def render(
         # Models copy what they read into their own arrays and renderers never
         # keep the data object, so the lazy stores may close on the way out.
         return render_ods(name, source_object, ax=ax, show=show, label=_labels(shots, label), **options)
+
+
+def render_to_file(
+    name: str,
+    shot: Any,
+    path: Any,
+    source: str | None = None,
+    *,
+    lazy: bool = True,
+    occurrence: Any = None,
+    label: Any = "shot",
+    **options: Any,
+) -> Any:
+    """Render plot ``name`` for ``shot`` and write it to ``path``; returns ``path``.
+
+    Draws without a display (:func:`vaft.plot.environment.
+    use_non_interactive_backend`) and saves with :func:`vaft.plot.save_figure`,
+    the format following the file extension.  This is what ``vaft plot --out``
+    runs.
+    """
+    from vaft.plot import save_figure
+    from vaft.plot.environment import use_non_interactive_backend
+
+    use_non_interactive_backend()
+    figure, _ = render(
+        name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
+    )
+    return save_figure(figure, path)
 
 
 def available_plots(
