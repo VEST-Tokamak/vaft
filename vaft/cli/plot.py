@@ -75,7 +75,12 @@ def main(argv: Iterable[str] | None = None) -> int:
             print(written)
         else:
             plotting.render(args.name, shot, args.source, lazy=not args.no_lazy, show=True, **options)
-    except (KeyError, ValueError, NotImplementedError) as error:
+    except KeyboardInterrupt:
+        print("vaft plot: interrupted", file=sys.stderr)
+        return 130
+    except (KeyError, ValueError, NotImplementedError, OSError) as error:
+        # A refused plot, an unknown source or shot, a backend that cannot draw
+        # it, or an output path that cannot be written: one line, exit 1.
         message = error.args[0] if isinstance(error, KeyError) and error.args else error
         print(f"vaft plot: error: {message}", file=sys.stderr)
         return 1

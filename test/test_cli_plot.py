@@ -131,3 +131,19 @@ def test_the_console_script_is_declared():
 def test_render_to_file_is_pyplot_free_at_import():
     code = "import sys, vaft.database.plotting; assert 'matplotlib.pyplot' not in sys.modules"
     subprocess.run([sys.executable, "-c", code], check=True, timeout=300)
+
+
+def test_an_unwritable_output_path_and_an_interrupt_are_reported_not_dumped(tmp_path, sample_ods, capsys, monkeypatch):
+    open_ods, substitution = _no_hsds(sample_ods)
+    missing = tmp_path / "no_such_dir" / "ip.png"
+    with substitution:
+        code = plot_cli.main(["plasma_current_time", "--shot", "39915", "--out", str(missing)])
+    assert code == 1 and "vaft plot: error:" in capsys.readouterr().err and not missing.exists()
+    from vaft.database import plotting
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(plotting, "render", interrupted)
+    assert plot_cli.main(["plasma_current_time", "--shot", "39915"]) == 130
+    assert "interrupted" in capsys.readouterr().err
