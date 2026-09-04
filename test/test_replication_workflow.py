@@ -45,12 +45,20 @@ def test_the_workflow_does_not_restate_where_a_stage_goes(snakefile):
     A source name appearing in a rule is a second mapping that will drift from
     the first.
     """
+    from vaft.database.filedb import OMASStage
     from vaft.database.sources import known_sources
 
+    stage_names = {member.value for member in OMASStage}
     for source in known_sources():
         if source.name == "main":
             # Too common a word to match on; the hyphenated lineages are the
             # ones a hand-written mapping would spell out.
+            continue
+        if source.name in stage_names:
+            # `impa` names both a stage and the source it goes to. The workflow
+            # spells the *stage* (`--stage impa`), which is what every rule
+            # does; the destination still comes from the registry alone, so the
+            # string is not a second mapping.
             continue
         assert source.name not in snakefile, source.name
 
@@ -121,3 +129,50 @@ def test_replication_is_throttled_independently_of_compute_cores(snakefile):
         block = snakefile.split(f"rule replicate_{stage}_to_hsds:")[1].split("rule ")[0]
         assert "resources:" in block and "hsds=1" in block.replace(" ", ""), stage
     assert 'HSDS_CONFIG.get("concurrency"' in snakefile
+
+
+# --------------------------------------------------------------------------- #
+# the optional IMPA branch (issue #305)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_optional_branch_is_not_part_of_the_baseline_target_set(snakefile):
+    """A shot that never produced IMPA must not read as a missing output.
+
+    The baseline products are demanded for every eligible shot; IMPA is demanded
+    only for the sparse subset its own checkpoint selects.
+    """
+    baseline = snakefile.split("def eligible_pipeline_outputs")[1].split("\nrule ")[0]
+    assert "impa" not in baseline
+    assert "def impa_pipeline_outputs" in snakefile
+    assert "checkpoint select_impa_shots:" in snakefile
+
+
+def test_which_stages_are_optional_is_the_registry_answer(snakefile):
+    """Restating it here is how the two would drift apart."""
+    assert "STAGE_REPLICATION[stage].optional" in snakefile
+    from vaft.database.sources import STAGE_REPLICATION
+
+    assert STAGE_REPLICATION["impa"].optional
+    assert not STAGE_REPLICATION["diagnostics"].optional
+
+
+def test_the_impa_branch_is_opt_in(snakefile):
+    assert 'IMPA_CONFIG.get("enable", False)' in snakefile
+    config = (WORKFLOW / "config.yaml").read_text()
+    assert re.search(r"^impa:\s*$", config, re.MULTILINE)
+    assert re.search(r"^\s+enable:\s*false\s*$", config, re.MULTILINE)
+
+
+def test_the_impa_stage_does_not_depend_on_the_baseline_product(snakefile):
+    """A failure in either direction has to stay on its own side of the split."""
+    block = snakefile.split("rule generate_impa_ods:")[1].split("\n############")[0]
+    assert '"raw_dump"' in block
+    assert "diagnostics" not in block
+
+
+def test_the_impa_stage_records_a_failure_instead_of_raising_one():
+    script = (WORKFLOW / "generate_impa_ods.py").read_text()
+    assert "except Exception" in script
+    assert '"status": "failed"' in script
+    assert "return 0" in script

@@ -66,6 +66,7 @@ _LOG_OWNER = {
     "generate_raw_db_dump": ("raw", None),
     "generate_static_ods": ("omas", "static"),
     "generate_diagnostics_ods": ("omas", "diagnostics"),
+    "generate_impa_ods": ("omas", "impa"),
     "generate_eddy_ods": ("omas", "eddy"),
     "generate_constraints_ods": ("omas", "efit"),
     "generate_kfile": ("efit", None),
@@ -84,7 +85,7 @@ _LOG_OWNER = {
     "build_gpec_ideal": ("omas", "gpec_ideal"),
     **{
         f"replicate_{stage}_to_hsds": ("omas", stage)
-        for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear")
+        for stage in ("diagnostics", "impa", "eddy", "efit", "chease", "mhd_linear")
     },
 }
 
@@ -166,6 +167,22 @@ class PipelinePaths:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "metadata") / "diagnostics_manifest.json")
         return str(self._filedb.omas_manifest("diagnostics", shot=shot))
+
+    def impa_ods(self, shot) -> str:
+        """The optional IMPA product (issue #305).
+
+        A stage of the FileDB grammar like any other; its name matching the
+        HSDS source it is published into is a coincidence, not a mapping -- no
+        FileDB directory is named after a publication lineage (issue #77).
+        """
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "omas") / f"{shot}_impa.json")
+        return str(self._filedb.omas_product("impa", shot=shot))
+
+    def impa_manifest(self, shot) -> str:
+        if self.layout == SHOT_FIRST:
+            return str(self._shot_dir(shot, "metadata") / "impa_manifest.json")
+        return str(self._filedb.omas_manifest("impa", shot=shot))
 
     def eddy_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
@@ -414,6 +431,12 @@ class PipelinePaths:
         if self.layout == SHOT_FIRST:
             return str(PurePosixPath(self.base_dir) / "preflight" / "eligible_shots.json")
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json")
+
+    def impa_selection(self) -> str:
+        """Which eligible shots the optional IMPA branch attempts (issue #305)."""
+        if self.layout == SHOT_FIRST:
+            return str(Path(self.base_dir) / "preflight" / "impa_shots.json")
+        return str(self._filedb.pipeline("preflight", artifact="metadata") / "impa_shots.json")
 
     def preflight_excluded(self) -> str:
         if self.layout == SHOT_FIRST:

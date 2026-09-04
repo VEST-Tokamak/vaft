@@ -44,7 +44,7 @@ SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
 from paths import FILEDB, PipelinePaths
 
-from vaft.database.sources import replicable_stages
+from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
 from vaft.database.production_qa import stage_plot_filenames
 
@@ -58,6 +58,7 @@ CONDA    = config.get("conda")                   # Conda environment to use
 RAW_CONFIG = config.get("raw", {})
 RAW_PREFLIGHT_CONFIG = RAW_CONFIG.get("preflight", {})
 DIAGNOSTICS_CONFIG = config.get("diagnostics", {})
+IMPA_CONFIG = config.get("impa", {}) or {}
 EDDY_CONFIG = config.get("eddy", {})
 CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
@@ -131,14 +132,24 @@ if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
         "hsds.replicate requires layout: filedb. The shot-first tree is a "
         "read-only legacy reference and is never replicated (issues #89, #138)."
     )
-REPLICATED_STAGES = tuple(replicable_stages()) if REPLICATION_ENABLED else ()
+# An optional stage is not part of the baseline target set: its shots are a
+# sparse subset chosen by its own checkpoint, and a shot that never produced it
+# must not read as a missing baseline output (issue #305). Which stages are
+# optional is the registry's answer, not this file's.
+_ALL_REPLICABLE = tuple(replicable_stages()) if REPLICATION_ENABLED else ()
+REPLICATED_STAGES = tuple(
+    stage for stage in _ALL_REPLICABLE if not STAGE_REPLICATION[stage].optional
+)
+OPTIONAL_REPLICATED_STAGES = tuple(
+    stage for stage in _ALL_REPLICABLE if STAGE_REPLICATION[stage].optional
+)
 
 
-def replication_records(shots):
+def replication_records(shots, stages=None):
     return [
         PATHS.replication_record(shot, stage)
         for shot in shots
-        for stage in REPLICATED_STAGES
+        for stage in (REPLICATED_STAGES if stages is None else stages)
     ]
 
 
@@ -225,6 +236,28 @@ def eligible_shots(_wildcards):
         return [int(shot) for shot in json.load(handle)["eligible_shots"]]
 
 
+# IMPA is opt-in twice over: the operator enables the branch, and the checkpoint
+# then keeps only the shots whose own machine era actually archives the array.
+IMPA_ENABLED = bool(IMPA_CONFIG.get("enable", False))
+
+
+def impa_shots(_wildcards):
+    selection = checkpoints.select_impa_shots.get()
+    with open(selection.output.selected, encoding="utf-8") as handle:
+        return [int(shot) for shot in json.load(handle)["impa_shots"]]
+
+
+def impa_pipeline_outputs(wildcards):
+    """The optional IMPA branch, kept out of the baseline target set."""
+    if not IMPA_ENABLED:
+        return []
+    shots = impa_shots(wildcards)
+    outputs = [PATHS.impa_ods(shot) for shot in shots]
+    outputs += [PATHS.impa_manifest(shot) for shot in shots]
+    outputs += replication_records(shots, OPTIONAL_REPLICATED_STAGES)
+    return outputs
+
+
 def eligible_pipeline_outputs(wildcards):
     shots = eligible_shots(wildcards)
     products = [
@@ -271,7 +304,8 @@ rule all:
         PATHS.preflight_eligible(),
         PATHS.preflight_excluded(),
         static_validation_plot_products(),
-        eligible_pipeline_outputs
+        eligible_pipeline_outputs,
+        impa_pipeline_outputs
 
 ############################################################
 # DAQ Raw Data Extraction
@@ -345,6 +379,62 @@ checkpoint preflight_raw_dumps:
             --excluded-output {output.excluded} \
             {input}
         """
+
+############################################################
+# Optional IMPA selection (issue #305)
+############################################################
+# The `impa` source is sparse and explicit, so the branch runs only where the
+# array was recording. Nothing requests this while `impa.enable` is false, so a
+# disabled branch costs the baseline run nothing at all -- not even a read of
+# the raw dumps.
+checkpoint select_impa_shots:
+    input:
+        eligible=PATHS.preflight_eligible(),
+        dumps=[PATHS.raw_dump(shot) for shot in SHOTS]
+    output:
+        selected=PATHS.impa_selection()
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {output.selected})
+        python {SCRIPT_DIR}/select_impa_shots.py \
+            --eligible {input.eligible} \
+            --output {output.selected} \
+            {input.dumps}
+        """
+
+
+############################################################
+# Optional IMPA Processing
+############################################################
+# Deliberately independent of the diagnostics product: the IMPA product is
+# self-contained, so a failure here cannot reach the baseline, and the script
+# records a failure rather than raising one.
+rule generate_impa_ods:
+    input:
+        raw=PATHS.shot_pattern("raw_dump")
+    output:
+        ods=PATHS.shot_pattern("impa_ods"),
+        manifest=PATHS.shot_pattern("impa_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_impa_ods")
+    params:
+        run=IMPA_CONFIG.get("run", 1)
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_impa_ods.py \
+            --shot {wildcards.shot} \
+            --raw-dump {input.raw} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            --run {params.run} \
+            > {log} 2>&1
+        """
+
 
 ############################################################
 # Diagnostics Processing (Modular Scripts)
@@ -818,6 +908,33 @@ if REPLICATION_ENABLED:
             python {SCRIPT_DIR}/replicate_to_hsds.py \
                 --shot {wildcards.shot} \
                 --stage chease \
+                --filedb-root {BASE_DIR} \
+                --attempts {REPLICATION_ATTEMPTS} \
+                --retry-delay {REPLICATION_RETRY_DELAY} \
+                > {log} 2>&1
+            """
+
+    # An optional stage: a product that is not eligible -- absent, rejected, or
+    # failed -- is recorded as skipped and the rule still succeeds, so the
+    # branch cannot change the exit state of the baseline run (issue #305).
+    rule replicate_impa_to_hsds:
+        input:
+            ods=PATHS.shot_pattern("impa_ods"),
+            manifest=PATHS.shot_pattern("impa_manifest")
+        output:
+            record=PATHS.shot_pattern("replication_record", "impa")
+        log:
+            PATHS.shot_pattern("log", "replicate_impa_to_hsds")
+        resources:
+            hsds=1
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/replicate_to_hsds.py \
+                --shot {wildcards.shot} \
+                --stage impa \
                 --filedb-root {BASE_DIR} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \

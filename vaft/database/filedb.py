@@ -43,6 +43,7 @@ class FileDBDomain(str, Enum):
 class OMASStage(str, Enum):
     STATIC = "static"
     DIAGNOSTICS = "diagnostics"
+    IMPA = "impa"
     EDDY = "eddy"
     EFIT = "efit"
     CHEASE = "chease"

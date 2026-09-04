@@ -23,7 +23,12 @@ from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
-from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
+from vaft.machine_mapping.impa import (
+    impa as impa_mapper,
+    impa_expected_fields,
+    impa_probe_indices,
+    resolve_impa_config,
+)
 from vaft.machine_mapping.langmuir_probes import langmuir_probes
 from vaft.machine_mapping.magnetics import (
     LIMITER_SHUNT_CHANNELS,
@@ -847,67 +852,6 @@ def build_diagnostics_ods(
     )
     grids["magnetics"] = policy_grid("magnetics")
 
-    # IMPA extends magnetics.b_field_pol_probe, so the component is seeded from
-    # the magnetics IDS built above and copied back.  A failed IMPA calibration
-    # must never discard valid magnetics data.
-    impa_status: dict[str, Any] = {}
-
-    impa_policy = policies["impa"]
-
-    def _map_impa(component: ODS) -> None:
-        _copy_ids(component, ods, ("magnetics",))
-        impa_status.update(
-            impa_mapper(
-                component,
-                shot,
-                impa_policy.tstart,
-                impa_policy.tend,
-                impa_policy.dt,
-                raw_source=raw_path,
-            )
-        )
-
-    # This shot's own era may not wire every channel (the 2022-04-23 block
-    # runs seven, not eight); use the same effective per-shot field list the
-    # mapper reads, not the unfiltered default, so an intentionally-absent
-    # channel is not reported as missing.
-    impa_fields = sorted(impa_expected_fields(shot))
-    missing_impa_channels = sorted(
-        field for field in impa_fields if field not in archived_fields
-    )
-    if "magnetics" in ods:
-        run_component(
-            "impa",
-            ("magnetics",),
-            _map_impa,
-            component_status="partial" if missing_impa_channels else "success",
-            missing_channels=missing_impa_channels,
-        )
-        if impa_status:
-            statuses["impa"].update(
-                {
-                    "calibration_status": impa_status.get("status"),
-                    "checks": impa_status.get("checks", {}),
-                    "reasons": impa_status.get("reasons", []),
-                    "geometry_method": impa_status.get("geometry_method"),
-                    "r0": impa_status.get("r0"),
-                    "geometry_nrmse": impa_status.get("geometry_nrmse"),
-                    "calibration_window": impa_status.get("provenance", {}).get(
-                        "calibration_window"
-                    ),
-                }
-            )
-            # A rejected self-calibration is a real quality outcome, not a
-            # successful mapping.
-            if impa_status.get("status") == "invalid":
-                statuses["impa"]["status"] = "partial"
-    else:
-        statuses["impa"] = {
-            "status": "unavailable",
-            "reason": "magnetics IDS is unavailable, so IMPA channels cannot be appended",
-            "missing_channels": missing_impa_channels,
-        }
-
     # A component whose raw signals were unavailable produced no coordinate,
     # so it must not appear in the realized-coverage record either.
     grids = {
@@ -976,6 +920,198 @@ def build_diagnostics_ods(
             "unavailable": unavailable,
         },
     }
+    return ods, manifest
+
+
+def _impa_realized_grid(ods: ODS) -> np.ndarray | None:
+    """Return the axis the IMPA channels actually realized, if any.
+
+    The mapper clips its window to real source coverage rather than
+    extrapolating, so the realized axis -- not the requested one -- is what the
+    product's coordinate and manifest must describe.
+    """
+    for node in ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe"):
+        # Guarded: asking `impa_probe_indices` about an absent node would
+        # materialize it, and this ODS is the product that gets written.
+        if not path_exists(ods, node):
+            continue
+        for index in impa_probe_indices(ods, node):
+            path = f"{node}.{index}.field.time"
+            if path_exists(ods, path):
+                return np.asarray(get_path(ods, path), dtype=float).reshape(-1)
+    return None
+
+
+def _impa_configuration_sha256(config: Mapping[str, Any]) -> str:
+    """Hash the shot's resolved IMPA machine description.
+
+    The IMPA product is published into its own source with no static product
+    beside it, so the wiring and geometry priors it was built from have to be
+    identifiable from the product itself (issue #305).
+    """
+    payload = json.dumps(config, sort_keys=True, default=str).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def build_impa_ods(
+    *,
+    shot: int,
+    raw_source: str | Path,
+    tstart: float | None = None,
+    tend: float | None = None,
+    dt: float | None = None,
+    run: int = 1,
+    time_policies: Mapping[str, Any] | None = None,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone IMPA product for one shot (issue #305).
+
+    IMPA is an insertable, campaign-dependent diagnostic: raw fields may exist
+    while the array is withdrawn, its geometry is self-calibrated per shot, and
+    its Bz sensors are still being qualified (#154, #304).  Those are poor
+    invariants for the baseline `magnetics` product, so the array gets its own
+    stage and its own HSDS source instead of being appended to the diagnostics
+    one.
+
+    The product is self-contained rather than a copy of the baseline shot: the
+    mapper appends after whatever probes are already present, so on a fresh ODS
+    the Hall channels land at ``b_field_tor_probe.0..n`` and the vertical-field
+    sensors at ``b_field_pol_probe.0..n``, and nothing here reads the
+    diagnostics product.  Composing the two for analysis is explicit and lives
+    in :mod:`vaft.database.composition`.
+    """
+    raw_path = Path(raw_source)
+    if not raw_path.exists():
+        raise FileNotFoundError(f"Raw dump not found: {raw_path}")
+
+    shot = int(shot)
+    policies = resolve_diagnostics_time_policies(
+        analysis_override={"tstart": tstart, "tend": tend, "dt": dt},
+        overrides=time_policies,
+    )
+    policy = policies["impa"]
+    era = machine_era_for_shot(shot)
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST IMPA; machine era {era.name}",
+            "pulse_datetime": _archived_pulse_datetime(raw_path),
+        },
+    )
+
+    config = resolve_impa_config(shot)
+    # This shot's own era may not wire every channel (the 2022-04-23 block runs
+    # seven, not eight), so an intentionally-absent channel is not missing.
+    expected_fields = sorted(impa_expected_fields(shot, config))
+    archived_fields = _archived_field_codes(raw_path)
+    missing_channels = sorted(
+        field for field in expected_fields if field not in archived_fields
+    )
+
+    manifest: dict[str, Any] = {
+        "schema_version": 1,
+        "stage": "impa",
+        "shot": shot,
+        "machine_version": era.name,
+        "status": "unavailable",
+        "input": {
+            "raw_sha256": sha256_file(raw_path),
+            "impa_configuration_sha256": _impa_configuration_sha256(config),
+        },
+        "configuration": {
+            "tstart": float(policy.tstart),
+            "tend": float(policy.tend),
+            "dt": float(policy.dt),
+            "run": int(run),
+            "time_policies": time_policies or {},
+            "expected_fields": expected_fields,
+        },
+        "time_grid": {},
+        "calibration": {},
+        "channel_status": {},
+        "quality_summary": {
+            "missing": [f"impa:field-{field}" for field in missing_channels],
+            "repaired": [],
+            "disabled": [],
+            "rejected": [],
+            "unavailable": [],
+        },
+    }
+
+    # No wired channel was archived at all: the array was not recording for this
+    # shot, which is a normal outcome for an insertable diagnostic and not a
+    # fault in the run.
+    if not any(field in archived_fields for field in expected_fields):
+        manifest["quality_summary"]["unavailable"] = ["impa"]
+        manifest["reason"] = "no wired IMPA channel is archived for this shot"
+        return ods, manifest
+
+    try:
+        status = impa_mapper(
+            ods, shot, policy.tstart, policy.tend, policy.dt, raw_source=raw_path
+        )
+    except (
+        raw_db.RawSignalUnavailableError,
+        FileNotFoundError,
+        SignalRepairError,
+    ) as error:
+        manifest["quality_summary"]["unavailable"] = ["impa"]
+        manifest["reason"] = str(error)
+        return ods, manifest
+
+    grid = _impa_realized_grid(ods)
+    if grid is not None:
+        if grid.size > 1 and np.any(np.diff(grid) <= 0.0):
+            raise ValueError("impa diagnostics time must be strictly monotonic")
+        _validate_realized_axis("impa", grid, policy)
+        ods["magnetics.time"] = grid
+        ods["magnetics.ids_properties.homogeneous_time"] = 1
+        manifest["time_grid"] = {"impa": _realized_window(grid)}
+    else:
+        # No channel produced a waveform, so the product carries geometry and
+        # validity only. Per the DD's homogeneous_time rule an IDS with no
+        # `.time` node is 2, not unset -- the same statement `build_static_ods`
+        # makes for the static product.
+        ods["magnetics.ids_properties.homogeneous_time"] = 2
+
+    calibration_status = status.get("status")
+    manifest["calibration"] = {
+        "status": calibration_status,
+        "checks": status.get("checks", {}),
+        "reasons": status.get("reasons", []),
+        "orientation": status.get("orientation"),
+        "ids_node": status.get("ids_node"),
+        "geometry_method": status.get("geometry_method"),
+        "r0": status.get("r0"),
+        "geometry_nrmse": status.get("geometry_nrmse"),
+        "fitted_pitch": status.get("fitted_pitch"),
+        "incident_angle_deg": status.get("incident_angle_deg"),
+        "calibration_window": status.get("provenance", {}).get("calibration_window"),
+        "provenance": status.get("provenance", {}),
+    }
+    manifest["channel_status"] = {
+        "channels": status.get("channels", {}),
+        "bz_channels": status.get("bz_channels", {}),
+        "missing_channels": missing_channels,
+    }
+
+    # A rejected self-calibration is a real quality outcome, and the product it
+    # produced is kept locally with the verdict on it -- but it is not published
+    # (issue #305): `rejected` is not a replicable status, so the IMPA source
+    # never presents an unqualified geometry as a measurement.
+    if calibration_status == "invalid":
+        manifest["status"] = "rejected"
+        manifest["quality_summary"]["rejected"] = ["impa"]
+    elif calibration_status == "warning" or missing_channels:
+        manifest["status"] = "partial"
+    else:
+        manifest["status"] = "success"
     return ods, manifest
 
 

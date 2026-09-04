@@ -100,6 +100,8 @@ partial: refined_gfiles=8; failed=2
 |---|---|---|
 | `generate_raw_db_dump` | `generate_raw_db_dump.py` | `vaft.database.init_pool`, `vaft.database.dump_all_raw_signals_for_shot` |
 | `generate_diagnostics_ods` | `generate_diagnostics_ods.py` | `vaft.machine_mapping.dataset_description`, `pf_active`, `spectrometer_uv`, `barometry`, `tf`, `magnetics` |
+| `select_impa_shots` (checkpoint) | `select_impa_shots.py` | `vaft.machine_mapping.impa.impa_expected_fields` |
+| `generate_impa_ods` | `generate_impa_ods.py` | `vaft.omas.vest_upstream.build_impa_ods` → `vaft.machine_mapping.impa.impa` |
 | `generate_eddy_ods` | `generate_eddy_ods.py` | `vaft.machine_mapping.pf_passive`, `em_coupling`, `vaft.omas.process_wrapper.compute_eddy_currents` |
 | `generate_constraints_ods` | `generate_constraints_ods.py` | `vaft.code.efit.correct_flux_loop`, `vaft.code.efit.generate_constraints_ods` |
 | `generate_kfile` | `generate_kfile.py` | `vaft.code.efit.generate_kfile` |
@@ -110,6 +112,16 @@ partial: refined_gfiles=8; failed=2
 | `run_gpec_suite` | `run_gpec_suite.py` | `vaft.code.gpec.run_gpec_suite_case` with `GPECCaseInputs` / `GPECSuiteConfig` |
 
 Note the one rule whose name differs from its script: rule `run_chease` runs `run_chease_refinement.py`.
+
+`generate_impa_ods` is the one optional branch. IMPA is an insertable,
+campaign-dependent diagnostic, so it is off by default (`impa.enable: false`),
+it is never an input to a baseline stage, and it records a failure in its own
+manifest instead of raising one -- a broken IMPA branch cannot change the exit
+state of a run whose baseline stages succeeded. Its product is published into
+the sparse `impa` HSDS source rather than into `main`, and a shot missing from
+that source means only that no IMPA product was published for it (issue #305).
+Analysis that wants the array alongside the baseline composes the two
+explicitly with `vaft.database.compose(shot)`.
 
 ### The library calls, verbatim
 

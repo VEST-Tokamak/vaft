@@ -90,15 +90,34 @@ def _vest_config(info_file: str | None) -> Mapping[str, Any]:
 
 
 def resolve_impa_config(shot: int, info_file: str | None = None) -> dict[str, Any]:
-    """Return the IMPA block for ``shot``, merging shot overrides over defaults."""
+    """Return the IMPA block for ``shot``, merging shot overrides over defaults.
+
+    The base lives at the top level of the machine mapping rather than under
+    ``magnetics``: IMPA is not part of the baseline magnetics description but an
+    insertable diagnostic with its own stage and HSDS source (issue #305).  A
+    shot-keyed block may still override it, which is the same merge this always
+    did, one level up.
+    """
     content = _vest_config(info_file)
     default_block = content.get("0") or content.get(0) or {}
     shot_block = content.get(_normalize_shot_key(shot), {}) or {}
-    merged = _deep_merge(default_block, shot_block)
-    impa_config = (merged.get("magnetics") or {}).get("impa")
-    if not isinstance(impa_config, Mapping):
+    # A leftover nested block would be a second source of truth that silently
+    # wins or silently loses depending on the reader, so refuse it outright.
+    for label, block in (("default", default_block), (f"shot {shot}", shot_block)):
+        if isinstance((block.get("magnetics") or {}).get("impa"), Mapping):
+            raise ValueError(
+                f"The {label} block still defines magnetics.impa; the IMPA machine "
+                "description moved to the top-level `impa` section (issue #305)."
+            )
+    merged = _deep_merge(
+        {"impa": content.get("impa") or {}},
+        {"impa": shot_block.get("impa") or {}},
+    )
+    impa_config = merged.get("impa")
+    if not isinstance(impa_config, Mapping) or not impa_config:
         raise ValueError(
-            f"No IMPA configuration for shot {shot}; expected magnetics.impa in the VEST machine mapping"
+            f"No IMPA configuration for shot {shot}; expected a top-level `impa` "
+            "section in the VEST machine mapping"
         )
     return dict(impa_config)
 

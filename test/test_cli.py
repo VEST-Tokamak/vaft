@@ -71,3 +71,12 @@ def test_summary_sources_lists_the_catalog(capsys):
     assert "chease-mhd-stability" in printed
     # The legacy namespace has to be visibly read-only in the listing.
     assert "public" in printed and "read-only" in printed
+    # A sparse source holds only the shots its product was produced for, so the
+    # listing has to say that rather than let a missing shot read as a gap.
+    impa = next(line for line in printed.splitlines() if line.startswith("impa"))
+    assert "sparse" in impa
+    assert all(
+        "complete" in line
+        for line in printed.splitlines()
+        if line.startswith(("main", "public"))
+    )

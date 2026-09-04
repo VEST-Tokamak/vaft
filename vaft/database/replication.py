@@ -74,6 +74,9 @@ class ReplicationRecord:
     ids: tuple[str, ...]
     occurrence: int
     product_sha256: str
+    #: ``replicated``, ``validated``, ``failed``, or -- for an optional stage
+    #: only -- ``skipped``: nothing was published, and the record says why, so an
+    #: absent shot in a sparse source is still explicable locally (issue #305).
     state: str
     attempts: int
     started_at: str
@@ -424,7 +427,26 @@ def replicate_stage(
     manifest_path = filedb.omas_manifest(name, shot=shot)
     record_path = filedb.omas_replication_record(name, shot=shot)
 
-    _check_eligible(_read_manifest(manifest_path), name, product)
+    def skipped(reason: str) -> ReplicationRecord:
+        """Record why an optional stage published nothing, and carry on."""
+        record = ReplicationRecord(
+            stage=name, shot=shot, source=source,
+            remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
+            occurrence=entry.occurrence,
+            product_sha256=sha256_file(product) if product.exists() else "",
+            state="skipped", attempts=0, started_at=_now(), completed_at=_now(),
+            error=reason,
+        )
+        write_record(record, record_path)
+        logger.info("shot %s %s not published to %s: %s", shot, name, source, reason)
+        return record
+
+    try:
+        _check_eligible(_read_manifest(manifest_path), name, product)
+    except ProductNotEligibleError as error:
+        if not entry.optional:
+            raise
+        return skipped(str(error))
     product_sha256 = sha256_file(product)
 
     previous = read_record(record_path)
@@ -441,6 +463,11 @@ def replicate_stage(
 
     ods = load_local(product)
     projected, present = _project(ods, entry.ids)
+    if not present and entry.optional:
+        return skipped(
+            f"The {name} product at {product} carries none of the IDS this stage "
+            f"owns ({', '.join(entry.ids)})."
+        )
     if not present:
         raise ProductNotEligibleError(
             f"The {name} product at {product} carries none of the IDS this stage "
