@@ -396,6 +396,27 @@ sound. The GPEC checker runs upstream's own Solov'ev regression case and
 exercises the real DCON → GPEC handoff rather than starting two binaries
 separately.
 
+### CHEASE and the `nideal` default
+
+`CHEASEConfig.nideal` defaults to `11`, which reproduces the VEST `jsk95`
+workflow against the CHEASE build that group uses. Upstream CHEASE accepts 1
+through 10 and rejects 11 outright:
+
+```
+WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
+ after cotrol, output_flag =         -798
+```
+
+So a CHEASE built from the public repository refuses the default configuration,
+on every platform -- this is a code-version difference, not a Windows one. Pass
+`CHEASEConfig(nideal=6)`, which is upstream's own default and the one documented
+as writing the EQDSK that VAFT reads back, or use the CHEASE revision the VEST
+workflow was written against.
+
+`check_chease.py` detects exactly this: it runs with the VAFT default first, and
+if CHEASE rejects it, retries with 6 and reports a WARN naming the difference
+rather than a failure.
+
 ### What a native Windows build does differently
 
 Two differences from a Linux build are real, and both are reported rather than
