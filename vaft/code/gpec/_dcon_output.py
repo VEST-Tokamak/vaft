@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import struct
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 import warnings
 
 import numpy as np
@@ -610,6 +610,127 @@ class DconOutput:
     @classmethod
     def read_json(cls, path: str | Path) -> "DconOutput":
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
+
+
+#: One flat row per DCON run, for a scan across time slices or shots.
+#:
+#: Deliberately a fixed, ordered tuple rather than "whatever the run happened to
+#: carry": a scan is a table, and a table whose columns vary per row cannot be
+#: compared across shots.  Missing values are ``None``, never omitted.
+SCAN_COLUMNS: tuple[str, ...] = (
+    "shot",
+    "time_ms",
+    "n_tor",
+    "q0",
+    "qmin",
+    "qmax",
+    "qa",
+    "q95",
+    "qlim",
+    "betan",
+    "betat",
+    "betap1",
+    "betap3",
+    "li1",
+    "li3",
+    "crnt",
+    "bt0",
+    "amean",
+    "rmean",
+    "aratio",
+    "kappa",
+    "delta1",
+    "delta2",
+    "total1_real",
+    "stable_free_boundary",
+)
+
+#: Columns taken straight off :class:`DconEquilibrium`.
+_SCAN_EQUILIBRIUM_COLUMNS = tuple(
+    name for name in SCAN_COLUMNS if name in DconEquilibrium._FIELDS
+)
+
+
+def dcon_scan_row(
+    result: DconOutput,
+    *,
+    shot: Optional[int] = None,
+    time_ms: Optional[float] = None,
+) -> dict[str, Any]:
+    """Flatten one DCON run into a row keyed by :data:`SCAN_COLUMNS`.
+
+    ``shot`` and ``time_ms`` are supplied by the caller rather than read from
+    the file.  DCON writes them as ``INT(shotnum)``/``INT(shottime)``, which are
+    both 0 for a GEQDSK whose header carries no shot -- so the run's own
+    directory is the authority on its identity, and the file's values are kept
+    in ``DconOutput.metadata`` for cross-checking instead.
+    """
+    row: dict[str, Any] = {name: None for name in SCAN_COLUMNS}
+    row["shot"] = None if shot is None else int(shot)
+    row["time_ms"] = None if time_ms is None else float(time_ms)
+    row["n_tor"] = int(result.n_tor)
+    # qlim rides on the run, not the equilibrium: it is the mode-dependent
+    # truncation DCON integrated to, and a scan that confuses it with `qa`
+    # compares different quantities across rows.
+    row["qlim"] = result.qlim
+    if result.equilibrium is not None:
+        for name in _SCAN_EQUILIBRIUM_COLUMNS:
+            row[name] = getattr(result.equilibrium, name)
+    total1 = result.total1
+    row["total1_real"] = None if total1 is None else float(total1.real)
+    row["stable_free_boundary"] = result.stable_free_boundary
+    return row
+
+
+def read_dcon_scan(
+    workdir: str | Path,
+    *,
+    modes: Sequence[int] = (1,),
+    shot: Optional[int] = None,
+) -> list[dict[str, Any]]:
+    """Harvest one row per DCON run under a prepared case directory.
+
+    Walks the ``<workdir>/<time>/<module>/nn=<mode>/`` layout
+    :func:`vaft.code.gpec._runtime.module_dir` writes, so the scan reads exactly
+    what the runner produced rather than a directory convention maintained
+    separately from it.
+
+    A run whose netCDF cannot be read is warned about and skipped: one bad cell
+    in a scan of hundreds should cost that cell, not the scan -- but it must not
+    cost it silently, because a quietly shorter table looks exactly like a
+    shorter run list.
+
+    DCON-only by construction, with no ``module`` parameter: every column in
+    :data:`SCAN_COLUMNS` comes from :class:`DconOutput`, so pointing this at
+    ``rdcon``/``stride`` could only ever find their files and then fail to read
+    them as DCON's.
+    """
+    root = Path(workdir).expanduser()
+    rows: list[dict[str, Any]] = []
+    for time_dir in sorted(path for path in root.glob("*") if path.is_dir()):
+        for mode in modes:
+            run_dir = time_dir / "dcon" / f"nn={mode}"
+            if not (run_dir / f"dcon_output_n{mode}.nc").exists():
+                continue
+            try:
+                result = read_dcon_output(run_dir, mode=mode)
+            except Exception as exc:  # noqa: BLE001 -- any unreadable file, same handling
+                warnings.warn(
+                    f"skipping unreadable DCON output in {run_dir}: {type(exc).__name__}: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                continue
+            rows.append(dcon_scan_row(result, shot=shot, time_ms=_time_ms(time_dir.name)))
+    return rows
+
+
+def _time_ms(label: str) -> Optional[float]:
+    """The run directory's time label as milliseconds, or ``None`` if it is not one."""
+    try:
+        return float(label)
+    except ValueError:
+        return None
 
 
 def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:

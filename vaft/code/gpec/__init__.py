@@ -28,12 +28,15 @@ from ._coil_input import (
     write_coil_in,
 )
 from ._dcon_output import (
+    SCAN_COLUMNS,
     DconCoordinates,
     DconEdgeScan,
     DconEigenfunction,
     DconEquilibrium,
     DconOutput,
+    dcon_scan_row,
     read_dcon_output,
+    read_dcon_scan,
     read_solutions_bin,
 )
 from ._gpec_output import (
@@ -418,7 +421,10 @@ __all__ = [
     "GpecControlOutput",
     "GpecCylindricalOutput",
     "GpecIdealResult",
+    "SCAN_COLUMNS",
+    "dcon_scan_row",
     "read_dcon_output",
+    "read_dcon_scan",
     "read_gpec_netcdf",
     "read_solutions_bin",
     "Pest3MatchingOutput",
