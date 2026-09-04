@@ -223,10 +223,20 @@ def test_a_slice_that_draws_fewer_panels_gets_fresh_axes(shot):
     result = vaft.omas.plot_equilibrium_interactive(ods, backend="none")
     assert result.navigator.selected == 4 and len(result.axes) == 7
     count = len(result.figure.axes)
+    result.figure.canvas.draw()
+    history = [a.get_position(original=True).bounds for a in result.history_axes]
     result.navigator.select_index(6)
     assert len(result.axes) == 6 and result.axes[1].get_title() == "Safety Factor q"
     assert len(result.figure.axes) == count - 1
     assert result.slice_axes.colorbar in result.figure.axes
+    result.figure.canvas.draw()
+    # The histories above the slice cell do not move when the cell is rebuilt,
+    # and the rebuilt panels are laid out (no two overlap).
+    assert [a.get_position(original=True).bounds for a in result.history_axes] == history
+    boxes = [a.get_position() for a in result.axes]
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert not (a.x0 < b.x1 - 1e-6 and b.x0 < a.x1 - 1e-6 and a.y0 < b.y1 - 1e-6 and b.y0 < a.y1 - 1e-6)
     result.navigator.select_index(4)
     assert len(result.axes) == 7 and len(result.figure.axes) == count
     plt.close(result.figure)

@@ -127,13 +127,12 @@ def render_slice_navigation(
     history_axes = tuple(figure.add_subplot(grid[row, 0]) for row in range(len(histories)))
     top = len(histories)
 
-    def slice_axes_for(model: Panels) -> tuple[np.ndarray, Any]:
+    def slice_axes_for(model: Panels, cell: Any) -> tuple[np.ndarray, Any]:
         # The flux panel's colorbar gets a cell of its own beside the panel,
         # so a redraw touches no layout: nothing grows or shrinks.
-        sub = grid[top, 0].subgridspec(model.nrows, model.ncols)
-        return slice_grid_axes(figure, sub, model, top=0, colorbar_slot=0)
+        return slice_grid_axes(figure, cell, model, top=0, colorbar_slot=0)
 
-    holder = SliceAxes(*slice_axes_for(first))
+    holder = SliceAxes(*slice_axes_for(first, grid[top, 0].subgridspec(first.nrows, first.ncols)))
     shape = (len(first.models), first.spans, first.nrows, first.ncols)
 
     markers = []
@@ -153,18 +152,25 @@ def render_slice_navigation(
     def draw_slice(nav: SliceNavigator) -> None:
         nonlocal shape
         model = prebuilt.pop(nav.selected, None) or build_slice(nav.selected)
+        rebuilt = None
         if (len(model.models), model.spans, model.nrows, model.ncols) != shape:
-            # This slice draws a different set of panels: fresh axes in the
-            # same cell, laid out once more.
+            # This slice draws a different set of panels: fresh axes on a
+            # gridspec of their own over the cell's extent, so the histories
+            # above never move and only these axes are laid out again.
+            from matplotlib.gridspec import GridSpec
+
+            box = grid[top, 0].get_position(figure)
             for axis in (*holder.axes.ravel(), holder.colorbar):
                 axis.remove()
-            holder.axes, holder.colorbar = slice_axes_for(model)
+            rebuilt = GridSpec(
+                model.nrows, model.ncols, figure=figure,
+                left=box.x0, right=box.x1, bottom=box.y0, top=box.y1,
+            )
+            holder.axes, holder.colorbar = slice_axes_for(model, rebuilt)
             shape = (len(model.models), model.spans, model.nrows, model.ncols)
-            relayout = True
         else:
             # A redraw leaves the figure as it found it: the same axes, cleared
             # and drawn again, with the flux panel's colorbar in its fixed cell.
-            relayout = False
             for axis in (*holder.axes.ravel(), holder.colorbar):
                 axis.clear()
                 axis.set_axis_on()
@@ -173,8 +179,10 @@ def render_slice_navigation(
             styles[0]["colorbar_ax"] = holder.colorbar
         model = replace(model, member_styles=tuple(styles))
         render_panels(model, ax=holder.axes, show=False)
-        if relayout:
-            figure.tight_layout(rect=(0, 0, 1, 0.97))
+        if rebuilt is not None:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                rebuilt.tight_layout(figure, rect=(box.x0, box.y0, box.x1, box.y1))
         figure.suptitle(model.suptitle)
         for marker in markers:
             marker.set_xdata([nav.time, nav.time])
