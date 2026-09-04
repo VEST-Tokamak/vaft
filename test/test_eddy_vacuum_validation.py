@@ -661,7 +661,7 @@ def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
 def test_the_eddy_window_comes_from_the_shared_timing_policy_with_provenance():
     """#409: the pre-plasma window ends at the light's onset, not at a raw
     magnetic crossing, and the metrics say which source answered."""
-    from vaft.omas.vacuum_magnetics import plasma_window, plasma_timing_summary
+    from vaft.omas.vacuum_magnetics import plasma_free_boundary, plasma_window
     from vaft.validation.stage_evidence import _no_plasma_onset
 
     import vaft
@@ -673,13 +673,30 @@ def test_the_eddy_window_comes_from_the_shared_timing_policy_with_provenance():
     timing = plasma_window(ods)
     assert timing.source == "h_alpha_primary"
     assert timing.onset == pytest.approx(0.3063, abs=5e-4)
-    assert plasma_onset_time(ods) == pytest.approx(timing.onset)
+    # The plasma-free boundary is the earliest evidence of plasma from any
+    # source: on 39915 the current's principal pulse starts one sample before
+    # the light, and the eddy window ends there, reported as such.
+    boundary, source = plasma_free_boundary(timing)
+    assert boundary <= timing.onset and source in ("ip_principal", "h_alpha_primary")
+    assert plasma_onset_time(ods) == pytest.approx(boundary)
     assert _no_plasma_onset(ods) is None
 
-    summary = plasma_timing_summary(timing)
+    summary = timing.summary()
     assert summary["source"] == "h_alpha_primary" and summary["agreement"] == "consistent"
     assert summary["offset"] > summary["onset"]
+    assert summary["ip_window"][0] == pytest.approx(timing.ip.start)
 
     empty = ODS(consistency_check=False)
     reason = _no_plasma_onset(empty)
     assert reason is not None and "no plasma onset" in reason
+
+
+def test_the_eddy_precondition_reports_rather_than_raises_on_an_unreadable_current():
+    """Review finding: a payload numpy cannot coerce used to abort the stage."""
+    from vaft.validation.stage_evidence import _no_plasma_onset
+
+    broken = ODS(consistency_check=False)
+    broken["magnetics.time"] = np.linspace(0.26, 0.36, 2500)
+    broken["magnetics.ip.0.data"] = np.array([[1.0, 2.0], [3.0]], dtype=object)
+    reason = _no_plasma_onset(broken)
+    assert reason is not None and "plasma timing failed" in reason

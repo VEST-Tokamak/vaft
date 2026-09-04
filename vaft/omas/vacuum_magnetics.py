@@ -61,6 +61,7 @@ from vaft.omas.plasma_timing import PlasmaTiming, PlasmaTimingError, plasma_timi
 
 __all__ = [
     "VacuumChannel",
+    "VACUUM_METRICS_SCHEMA",
     "VacuumMagneticsError",
     "channel_residual_metrics",
     "eddy_improvement",
@@ -68,8 +69,8 @@ __all__ = [
     "plasma_free_residual",
     "QualityGate",
     "quality_gate",
+    "plasma_free_boundary",
     "plasma_onset_time",
-    "plasma_timing_summary",
     "plasma_window",
     "probe_family",
     "residual_onset",
@@ -95,6 +96,11 @@ DEFAULT_PER_FAMILY = 2
 #: Residual onset is declared where the residual first leaves the pre-plasma
 #: noise band by this many standard deviations.
 ONSET_SIGMA = 5.0
+
+#: Schema of the :func:`vacuum_magnetics_metrics` record.  2 since #409: the
+#: pre-plasma window ends at the plasma-free boundary of the shared timing
+#: policy, and ``plasma_timing`` carries its provenance.
+VACUUM_METRICS_SCHEMA = 2
 
 
 class VacuumMagneticsError(ValueError):
@@ -235,10 +241,8 @@ def plasma_window(ods: Any) -> PlasmaTiming:
     """
     try:
         timing = plasma_timing(ods)
-    except PlasmaTimingError as exc:
-        raise VacuumMagneticsError(
-            f"cannot locate the plasma onset: {exc}; the eddy ODS carries no usable plasma current"
-        ) from exc
+    except (PlasmaTimingError, ValueError, TypeError) as exc:
+        raise VacuumMagneticsError(f"cannot locate the plasma onset: {exc}") from exc
     if not timing.found:
         raise VacuumMagneticsError(
             "cannot locate the plasma onset: no source shows a plasma "
@@ -247,23 +251,25 @@ def plasma_window(ods: Any) -> PlasmaTiming:
     return timing
 
 
+def plasma_free_boundary(timing: PlasmaTiming) -> tuple[float, str]:
+    """Before which time no plasma is present, and which source says so.
+
+    The plasma window's onset is the light's when the light answers; a
+    plasma-*free* stretch wants the earliest evidence of plasma from any
+    source, so when the current's principal pulse starts before the light
+    (within the policy's tolerance the two are still ``consistent``) the
+    boundary is the current's.  Reported, not silent: the source is returned
+    with the time.
+    """
+    boundary, source = float(timing.onset), str(timing.source)
+    if timing.ip is not None and timing.ip.found and float(timing.ip.start) < boundary:
+        boundary, source = float(timing.ip.start), "ip_principal"
+    return boundary, source
+
+
 def plasma_onset_time(ods: Any) -> float:
-    """The plasma onset the eddy stage validates before, from :func:`plasma_window`."""
-    return float(plasma_window(ods).onset)
-
-
-def plasma_timing_summary(timing: PlasmaTiming) -> dict[str, Any]:
-    """The part of a :class:`PlasmaTiming` a metrics record carries."""
-    return {
-        "onset": timing.onset,
-        "offset": timing.offset,
-        "source": timing.source,
-        "agreement": timing.agreement,
-        "onset_delta_s": timing.onset_delta_s,
-        "offset_delta_s": timing.offset_delta_s,
-        "flags": list(timing.flags),
-        "fallback_reason": timing.fallback_reason,
-    }
+    """The time before which the eddy stage validates: :func:`plasma_free_boundary`."""
+    return plasma_free_boundary(plasma_window(ods))[0]
 
 
 def probe_family(kind: str, r: float, z: float) -> str:
@@ -1196,10 +1202,14 @@ def vacuum_magnetics_metrics(
     }
 
     return {
-        "schema_version": 1,
+        # 2 (#409): plasma_onset is the plasma-free boundary of the shared
+        # timing policy (light or current, whichever is earlier), no longer
+        # the legacy Ip discharge detector, and plasma_timing carries the
+        # provenance (None when the caller supplied a bare onset).
+        "schema_version": VACUUM_METRICS_SCHEMA,
         "plasma_onset": float(plasma_onset),
         "plasma_current_onset": float(current_onset),
-        "plasma_timing": None if timing is None else plasma_timing_summary(timing),
+        "plasma_timing": None if timing is None else timing.summary(),
         "channels": rows,
         "families": families,
         "summary": {

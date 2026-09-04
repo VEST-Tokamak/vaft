@@ -45,28 +45,37 @@ def _no_equilibrium_slices(source: Any) -> str | None:
     return None
 
 
+def _plasma_timing_or_reason(source: Any):
+    """``(timing, None)`` when the shot has a plasma window, else ``(None, reason)``.
+
+    The window comes from the shared plasma-timing policy (#409): the light
+    when usable, the current otherwise, never a raw magnetic crossing.  Any
+    failure to read the product is a reason, not an exception -- the
+    precondition's contract is to report, and the stage records the reason.
+    """
+    from vaft.omas.plasma_timing import plasma_timing
+
+    try:
+        timing = plasma_timing(source)
+    except Exception as exc:  # noqa: BLE001 -- a precondition reports, never raises
+        return None, f"no plasma onset can be located: the plasma timing failed ({exc})"
+    if not timing.found:
+        return None, (
+            "no plasma onset can be located "
+            f"({timing.fallback_reason}); this shot carries no plasma phase to "
+            "separate from the vacuum response"
+        )
+    return timing, None
+
+
 def _no_plasma_onset(source: Any) -> str | None:
     """A discharge that never formed a plasma has no residual onset to validate.
 
     The eddy figures are about where the plasma signal emerges from the vacuum
     response. Without a plasma window there is no such time, and that is a
-    property of the shot rather than a fault in the reconstruction.  The
-    window comes from the shared plasma-timing policy (#409): the light when
-    usable, the current otherwise, never a raw magnetic crossing.
+    property of the shot rather than a fault in the reconstruction.
     """
-    from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
-
-    try:
-        timing = plasma_timing(source)
-    except PlasmaTimingError as exc:
-        return f"magnetics.ip is unreadable, so no plasma onset can be located ({exc})"
-    if not timing.found:
-        return (
-            "no plasma window can be located "
-            f"({timing.fallback_reason}); this shot carries no plasma phase to "
-            "separate from the vacuum response"
-        )
-    return None
+    return _plasma_timing_or_reason(source)[1]
 
 
 #: Fields a `toroidal_mode` entry only carries when a solver actually produced
@@ -237,19 +246,18 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
     """Quantitative QA behind the eddy stage's two validation figures."""
     from vaft.omas.vacuum_magnetics import (
         DEFAULT_MIN_WALL_AUTHORITY,
-        plasma_window,
+        plasma_free_boundary,
         synthetic_vacuum_magnetics,
         vacuum_magnetics_metrics,
     )
 
     # Metrics run even for an empty product, so the no-plasma case is reported
     # rather than raised -- the same condition the precondition reports.
-    reason = _no_plasma_onset(source)
+    timing, reason = _plasma_timing_or_reason(source)
     if reason is not None:
         return {"schema_version": 1, "status": "unavailable", "reason": reason}
 
-    timing = plasma_window(source)
-    onset = float(timing.onset)
+    onset, _boundary_source = plasma_free_boundary(timing)
     # The validation window is the pre-plasma stretch, so that is the interval
     # the channel selection asks about too (#189): a probe that fails after
     # breakdown is still a good witness before it.

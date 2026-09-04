@@ -5505,6 +5505,7 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 
 def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
     from vaft.omas.vacuum_magnetics import (
+        plasma_free_boundary,
         plasma_window,
         synthetic_vacuum_magnetics,
         DEFAULT_MIN_WALL_AUTHORITY,
@@ -5517,7 +5518,7 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         channels=options.get("channels"),
     )
     timing = plasma_window(ods)
-    onset = float(timing.onset)
+    onset, _boundary_source = plasma_free_boundary(timing)
     ip_time = _array(ods, "magnetics.ip.0.time")
     ip_data = _array(ods, "magnetics.ip.0.data")
     metrics = vacuum_magnetics_metrics(

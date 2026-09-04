@@ -414,3 +414,11 @@ def test_a_grid_that_cannot_carry_the_cutoff_skips_the_filter_and_says_so():
     assert "lowpass_skipped" in window.flags
     fine = active_window(T, pulse(), cutoff_hz=2000.0, principal_only=True)
     assert "lowpass_skipped" not in fine.flags
+    # the flag travels with every verdict, not only a found one ...
+    quiet = active_window(coarse, 0.01 * RNG.standard_normal(coarse.size), cutoff_hz=2000.0)
+    assert not quiet.found and "lowpass_skipped" in quiet.flags
+    noise = 0.01 * RNG.standard_normal(coarse.size)
+    assert "lowpass_skipped" in principal_pulse_onset(coarse, noise, cutoff_hz=2000.0).flags
+    # ... and a record too short for a filter that would not run is judged, not refused
+    short = active_window(coarse[:14], y[:14], cutoff_hz=2000.0)
+    assert "record_too_short" not in short.flags and "lowpass_skipped" in short.flags

@@ -416,32 +416,55 @@ def pickup_scale(values, baseline: float, robust_sigma: float, dt: float,
 # ---------------------------------------------------------------------------
 
 
-def _lowpassed(y: np.ndarray, cutoff_hz, fs, dt: float, order: int) -> tuple[np.ndarray, tuple[str, ...]]:
-    """Apply the zero-phase low-pass when the grid can carry it.
+def _lowpass_skipped(t: np.ndarray, cutoff_hz, fs) -> bool:
+    """Whether a requested low-pass cannot be designed on this grid.
 
     A rule tuned on a fast grid names a cutoff in hertz; on a grid whose
     Nyquist frequency is at or below that cutoff the filter has nothing to
     remove and cannot be designed, so the record is used as it is and the
-    detector says ``lowpass_skipped``.
+    detector says ``lowpass_skipped`` -- on every verdict, found or not.
     """
+    if cutoff_hz is None or t.size < 2:
+        return False
+    rate = float(fs) if fs else 1.0 / float(np.median(np.diff(t)))
+    return float(cutoff_hz) >= 0.5 * rate
+
+
+def _lowpassed(y: np.ndarray, cutoff_hz, fs, dt: float, order: int) -> np.ndarray:
+    """The zero-phase low-pass, or the record itself when there is no cutoff."""
     if cutoff_hz is None:
-        return y, ()
-    rate = float(fs) if fs else 1.0 / dt
-    if float(cutoff_hz) >= 0.5 * rate:
-        return y, ("lowpass_skipped",)
-    return zero_phase_lowpass(y, float(cutoff_hz), rate, order), ()
+        return y
+    return zero_phase_lowpass(y, float(cutoff_hz), float(fs) if fs else 1.0 / dt, order)
 
 
 def _too_short(t: np.ndarray, cutoff_hz, order: int) -> bool:
     """Whether a record has too few samples to be judged at all.
 
-    Two samples cannot carry a threshold, and a zero-phase filter needs more
-    than its padding length; either way the answer is *no evidence*, flagged
-    ``record_too_short``, not an exception a consumer has to guess at.
+    Two samples cannot carry a threshold, and a zero-phase filter that will
+    run needs more than its padding length; either way the answer is *no
+    evidence*, flagged ``record_too_short``, not an exception a consumer has
+    to guess at.  ``cutoff_hz`` is ``None`` here when the filter is skipped.
     """
     if t.size < 2:
         return True
     return cutoff_hz is not None and t.size <= 3 * (int(order) + 1)
+
+
+def _with_flag(result, flag: str):
+    """``result`` (an :class:`OnsetRecord` or :class:`PulseWindow`) with ``flag`` added."""
+    if isinstance(result, PulseWindow):
+        return PulseWindow(
+            onset=_with_flag(result.onset, flag),
+            offset=_with_flag(result.offset, flag),
+            segments=result.segments,
+            flags=tuple(dict.fromkeys((*result.flags, flag))),
+            evidence=result.evidence,
+        )
+    return OnsetRecord(
+        time=result.time, index=result.index, method=result.method, evidence=result.evidence,
+        flags=tuple(dict.fromkeys((*result.flags, flag))), rejected=result.rejected,
+        accepted=result.accepted,
+    )
 
 
 def _reference(t: np.ndarray, reference_mask, reference_fraction: float) -> np.ndarray:
@@ -631,14 +654,30 @@ def principal_pulse_onset(
     :func:`pickup_scale` (``peak_below_pickup_floor``).
     """
     t, raw = _as_arrays(time, values)
+    skipped = _lowpass_skipped(t, cutoff_hz, fs)
+    if skipped:
+        cutoff_hz = None
     if _too_short(t, cutoff_hz, order):
-        return OnsetRecord(time=None, index=None, method="principal_pulse",
-                           evidence={"n_samples": int(t.size)}, flags=("no_onset", "record_too_short"))
+        record = OnsetRecord(time=None, index=None, method="principal_pulse",
+                             evidence={"n_samples": int(t.size)}, flags=("no_onset", "record_too_short"))
+        return _with_flag(record, "lowpass_skipped") if skipped else record
+    record = _principal_pulse_onset(
+        t, raw, fraction=fraction, sigma=sigma, reference_mask=reference_mask,
+        reference_fraction=reference_fraction, search_mask=search_mask, cutoff_hz=cutoff_hz,
+        fs=fs, order=order, pickup_floor=pickup_floor, impulse_max_s=impulse_max_s,
+        bridge_samples=bridge_samples,
+    )
+    return _with_flag(record, "lowpass_skipped") if skipped else record
+
+
+def _principal_pulse_onset(
+    t, raw, *, fraction, sigma, reference_mask, reference_fraction, search_mask, cutoff_hz, fs,
+    order, pickup_floor, impulse_max_s, bridge_samples,
+) -> OnsetRecord:
     y = _fill_non_finite(raw)
     dt = float(np.median(np.diff(t)))
-    y, filter_flags = _lowpassed(y, cutoff_hz, fs, dt, order)
+    y = _lowpassed(y, cutoff_hz, fs, dt, order)
     ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
-    ref_flags = ref_flags + filter_flags
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
@@ -774,15 +813,39 @@ def active_window(
     """
     t, raw = _as_arrays(time, values)
     method = "active_window"
+    skipped = _lowpass_skipped(t, cutoff_hz, fs)
+    if skipped:
+        cutoff_hz = None
     if _too_short(t, cutoff_hz, order):
         none = OnsetRecord(time=None, index=None, method=method, evidence={"n_samples": int(t.size)},
                            flags=("no_onset", "record_too_short"))
-        return PulseWindow(onset=none, offset=none, flags=none.flags, evidence=none.evidence)
+        window = PulseWindow(onset=none, offset=none, flags=none.flags, evidence=none.evidence)
+        return _with_flag(window, "lowpass_skipped") if skipped else window
+    window = _active_window(
+        t, raw, method, fraction=fraction, sigma=sigma, hold_s=hold_s, min_width_s=min_width_s,
+        min_prominence_sigma=min_prominence_sigma, min_integral_fraction=min_integral_fraction,
+        gap_s=gap_s, post_quiet_s=post_quiet_s, principal_only=principal_only,
+        pickup_floor=pickup_floor, impulse_max_s=impulse_max_s, reference_mask=reference_mask,
+        reference_fraction=reference_fraction, trailing_fraction=trailing_fraction,
+        trailing_max_fraction=trailing_max_fraction, end_fraction=end_fraction,
+        collapse_fallback=collapse_fallback, collapse_rate_fraction=collapse_rate_fraction,
+        collapse_min_drop=collapse_min_drop, search_mask=search_mask,
+        prefilter_samples=prefilter_samples, cutoff_hz=cutoff_hz, fs=fs, order=order,
+    )
+    return _with_flag(window, "lowpass_skipped") if skipped else window
+
+
+def _active_window(
+    t, raw, method, *, fraction, sigma, hold_s, min_width_s, min_prominence_sigma,
+    min_integral_fraction, gap_s, post_quiet_s, principal_only, pickup_floor, impulse_max_s,
+    reference_mask, reference_fraction, trailing_fraction, trailing_max_fraction, end_fraction,
+    collapse_fallback, collapse_rate_fraction, collapse_min_drop, search_mask, prefilter_samples,
+    cutoff_hz, fs, order,
+) -> PulseWindow:
     y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
     dt = float(np.median(np.diff(t)))
-    y, filter_flags = _lowpassed(y, cutoff_hz, fs, dt, order)
+    y = _lowpassed(y, cutoff_hz, fs, dt, order)
     ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
-    ref_flags = ref_flags + filter_flags
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )

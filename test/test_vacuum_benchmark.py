@@ -316,14 +316,14 @@ def test_a_plasma_shot_contributes_the_stretch_before_breakdown(plasma_shot):
     assert interval.case_type == "pre_plasma"
     assert interval.end < 0.301
     evidence = interval["plasma_free_evidence"]
-    # The boundary is the plasma onset of the shared timing policy; this
-    # fixture carries no filterscope, so the current's principal pulse answers,
-    # and the interval ends at the first pf_active sample at or after it.
-    assert evidence["onset_source"] == "ip_principal"
-    assert evidence["onset"] == pytest.approx(0.300, abs=1e-3)
-    assert interval.end >= evidence["onset"]
-    assert 0.0 <= evidence["interval_end_snapped"] < float(TIME[1] - TIME[0])
-    assert interval.end in TIME
+    # The boundary is the plasma-free boundary of the shared timing policy;
+    # this fixture carries no filterscope, so the current's principal pulse
+    # answers, and the half-open interval ends exactly there.
+    assert evidence["plasma_timing"]["source"] == "ip_principal"
+    assert evidence["boundary_source"] == "ip_principal"
+    assert evidence["boundary"] == pytest.approx(0.300, abs=1e-3)
+    assert interval.end == evidence["boundary"]
+    assert evidence["boundary_on_pf_grid"] is True
     # The retired detectors are still reported, for one release.
     assert np.isfinite(evidence["legacy"]["discharge_detector_onset"])
     assert np.isfinite(evidence["legacy"]["sigma_crossing_onset"])
@@ -516,16 +516,21 @@ def test_the_packaged_case_needs_no_plasma_and_declares_its_evidence(packaged_ca
     # consistent with the current), the interval ends on the pf_active grid,
     # and the residual current left inside it is reported against the noise
     # band the detector called it consistent with -- evidence, not a verdict.
-    assert evidence["schema_version"] == 2
-    assert evidence["onset_source"] == "h_alpha_primary"
-    assert evidence["agreement"] == "consistent"
-    assert evidence["onset"] == pytest.approx(0.3063, abs=5e-4)
-    assert packaged_case["solver_input_window"][1] == pytest.approx(
-        evidence["onset"] + evidence["interval_end_snapped"]
-    )
+    from vaft.validation.vacuum_benchmark import PLASMA_FREE_EVIDENCE_SCHEMA
+
+    assert evidence["schema_version"] == PLASMA_FREE_EVIDENCE_SCHEMA
+    timing = evidence["plasma_timing"]
+    assert timing["source"] == "h_alpha_primary"
+    assert timing["agreement"] == "consistent"
+    assert timing["onset"] == pytest.approx(0.3063, abs=5e-4)
+    # The plasma-free boundary is the earliest evidence of plasma: here the
+    # current's principal pulse, one sample before the light.
+    assert evidence["boundary"] <= timing["onset"]
+    assert evidence["boundary_source"] == "ip_principal"
+    assert packaged_case["solver_input_window"][1] == pytest.approx(evidence["boundary"])
     # Both retired detectors fired on PF pickup, 5.5 and 14 ms before the light.
     legacy = evidence["legacy"]
-    assert legacy["sigma_crossing_onset"] < legacy["discharge_detector_onset"] < evidence["onset"]
+    assert legacy["sigma_crossing_onset"] < legacy["discharge_detector_onset"] < evidence["boundary"]
     assert evidence["max_abs_ip_in_interval"] < 20.0 * evidence["ip_reference_std"]
 
 
@@ -706,9 +711,9 @@ def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
     ods = vaft.omas.load(path)
     interval = plasma_free_interval(ods)
     evidence = interval["plasma_free_evidence"]
-    assert evidence["onset_source"] == "h_alpha_primary"
-    assert evidence["onset"] == pytest.approx(0.3146, abs=5e-4)
-    assert evidence["legacy"]["discharge_detector_onset"] < evidence["onset"] - 0.015
+    assert evidence["plasma_timing"]["source"] == "h_alpha_primary"
+    assert evidence["boundary"] == pytest.approx(0.3146, abs=1e-3)
+    assert evidence["legacy"]["discharge_detector_onset"] < evidence["boundary"] - 0.015
     drive = coil_drive_check(ods, (interval.start, interval.end))
     assert drive["coil_drive_fraction"] > MIN_COIL_DRIVE_FRACTION
     assert drive["sufficiently_driven"] is True
@@ -736,3 +741,13 @@ def test_the_aggregate_keeps_undriven_cases_out_of_its_spreads():
     assert aggregate["summary"]["driven_channel_rows"] == 1
     assert aggregate["summary"]["median_improvement"] == pytest.approx(0.8)
     assert aggregate["summary"]["median_wall_authority"] == pytest.approx(0.5)
+
+
+def test_a_current_the_product_marks_unusable_cannot_certify_a_vacuum_case(plasma_shot):
+    """Review finding: an invalidated current used to make a plasma shot a
+    whole-record vacuum case."""
+    from vaft.validation.vacuum_benchmark import BenchmarkError
+
+    plasma_shot["magnetics.ip.0.validity"] = -2
+    with pytest.raises(BenchmarkError, match="unusable"):
+        plasma_free_interval(plasma_shot)
