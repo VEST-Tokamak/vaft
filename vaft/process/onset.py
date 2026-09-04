@@ -4,7 +4,7 @@ Every detector here answers one question about one waveform -- *when does it
 become active, and on what evidence* -- and returns an :class:`OnsetRecord`.
 Nothing here knows what the waveform is.  The diagnostic preprocessing, the
 choice of which signal is authoritative for a *plasma* onset and the verdicts
-built on top live in ``vaft.omas.plasma_onset`` and ``vaft.validation``.
+built on top live in ``vaft.omas.plasma_timing`` and ``vaft.validation``.
 
 Three ideas, kept separable because a 205-shot study of the VEST raw database
 showed each does a different job:

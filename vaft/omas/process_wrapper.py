@@ -49,8 +49,7 @@ import vaft.process
 from matplotlib.path import Path
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# A library module must not configure the root logger (see vaft.database.raw).
 logger = logging.getLogger(__name__)
 
 GEOMETRY_TYPE_POLYGON = 1

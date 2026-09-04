@@ -1609,6 +1609,14 @@ diagnostics_time_policies:
       tstart: 0.0
       tend: 1.0
       dt: 4.0e-5
+    # Shared plasma-analysis range (issue #409): the EFIT constraint times and
+    # the diamagnetic-flux plasma window both search inside it, and the stretch
+    # before it on the analysis grid is the baseline reference. No component
+    # maps onto it, and the stage's --tstart/--tend never retune it.
+    plasma_analysis:
+      tstart: 0.28
+      tend: 0.36
+      dt: 4.0e-5
   components:
     pf_active: analysis
     magnetics: analysis
@@ -1621,6 +1629,63 @@ diagnostics_time_policies:
     # Registering it here means EC power inherits the full-discharge policy
     # from the start rather than the short analysis window.
     ec_power: full_discharge
+
+# Plasma-timing policy (issue #409): where the plasma window is searched for
+# and the VEST-tuned rules the generic detectors in `vaft.process.onset` run
+# with. `vaft.omas.plasma_timing` composes them into the plasma window with its
+# provenance; the raw-field diamagnetic mapper reads the same rules. Like
+# `diagnostics_time_policies` this is pipeline policy, outside the `0:` / shot
+# overrides. Rules are keyed by the signal they were tuned on: an impurity line
+# (C III, O series) has its own temporal morphology and gets its own `lines`
+# entry rather than the H-alpha values. Sibling blocks for discharge timing
+# (actuator onsets) and plasma features (representative peaks) are separate
+# concepts and will sit beside this one, not inside it.
+plasma_timing:
+  window: plasma_analysis        # a diagnostics_time_policies window
+  reference_lead_s: 0.02         # baseline reference = [tstart - lead, tstart)
+  # H-alpha_6563 envelope rule (keyword arguments of active_window): median-5,
+  # threshold max(2 % peak, 5 sigma), persistence 0.5 ms, width >= 1 ms,
+  # prominence >= 10 sigma, integral >= 1 % -- 0/51 early-light and 1/51
+  # non-plasma false onsets on the 205-shot raw-database corpus.
+  h_alpha:
+    prefilter_samples: 5
+    fraction: 0.02
+    sigma: 5.0
+    hold_s: 5.0e-4
+    min_width_s: 1.0e-3
+    min_prominence_sigma: 10.0
+    min_integral_fraction: 0.01
+    gap_s: 1.0e-3
+    post_quiet_s: 2.0e-3
+  # Per-line rules keyed by the processed_line label, e.g. "CIII_1909": {...}.
+  lines: {}
+  # Plasma-current principal-pulse rule: zero-phase low-pass 2 kHz, pickup
+  # floor 3x, offset at 10 % of peak with the collapse fallback -- 84/84
+  # windows on the corpus, offsets within [-2.2, 0] ms of the light.
+  ip:
+    principal_only: true
+    pickup_floor: 3.0
+    cutoff_hz: 2000.0
+    fraction: 0.02
+    sigma: 5.0
+    hold_s: 5.0e-4
+    min_width_s: 1.0e-3
+    end_fraction: 0.10
+    collapse_fallback: true
+  # H-alpha channel usability checks.
+  usability:
+    min_samples: 250
+    min_finite_fraction: 0.99
+    rail_level: 5.0              # the fast filterscope digitizer rails here (41524)
+    rail_fraction: 0.98
+    max_railed_fraction: 0.01
+    min_baseline_mad: 2.0e-4     # a.u.; rejects the quantized 2026-08 records
+    min_valid_fraction: 0.9
+  # Cross-check tolerances between the optical and the current window.
+  agreement:
+    onset_tolerance_s: 1.0e-3    # Ip earlier than this -> ip_before_halpha
+    lag_tolerance_s: 1.0e-2      # Ip later than this  -> halpha_leads_ip_large
+    offset_tolerance_s: 3.0e-3   # |offset delta| above -> offset_disagreement
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.

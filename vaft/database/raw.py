@@ -43,11 +43,9 @@ except ImportError:
 else:
     MysqlError = mysql_connector.Error
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# A library module must not configure the root logger: every importer of the
+# machine mapping used to inherit an INFO-level stderr handler from here.
+# Applications that want these messages configure logging themselves.
 logger = logging.getLogger(__name__)
 
 # Constants
