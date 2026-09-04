@@ -852,10 +852,20 @@ def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
         calls.append(source)
         raise MissingSourceError(source, "domain not found")
 
+    fetches = []
+
+    def fetch(source, shot, dest):
+        fetches.append(source)
+        return None
+
     monkeypatch.setattr("vaft.database.utils.require_source_exists", absent)
+    monkeypatch.setattr(R, "_fetch_remote_master", fetch)
+    monkeypatch.setattr(R, "merge_remote_master", lambda *a, **k: ())
     monkeypatch.setattr("vaft.database.save", lambda *a, **k: "uri")
 
     with pytest.raises(MissingSourceError):
         replicate_stage("diagnostics", 39915, filedb=staged, attempts=3, retry_delay=0)
 
     assert len(calls) == 1
+    # The probe comes first: an unprovisioned namespace never costs a fetch.
+    assert fetches == []
