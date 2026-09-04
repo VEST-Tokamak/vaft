@@ -123,6 +123,88 @@ def test_read_dcon_output_without_solutions_bin_has_no_eigenfunction(tmp_path):
     assert result.eigenfunction is None
     assert result.stable_free_boundary is True
 
+# ---------------------------------------------------------------------------
+# Quantities derived from the eigenfunction.  DCON's eigenvector normalization
+# is arbitrary, so what is derivable from it at face value is exactly what that
+# normalization cannot change.
+# ---------------------------------------------------------------------------
+
+
+def _eigenfunction(xi_real, *, m, q):
+    xi_real = np.asarray(xi_real, dtype=float)
+    n_m, n_psi = xi_real.shape
+    return DconEigenfunction(
+        m=np.asarray(m, dtype=int),
+        psi=np.tile(np.linspace(0.1, 0.9, n_psi), (n_m, 1)),
+        rho=np.zeros((n_m, n_psi)),
+        q=np.tile(np.asarray(q, dtype=float), (n_m, 1)),
+        xi_psi_real=xi_real,
+        xi_psi_imag=np.zeros((n_m, n_psi)),
+        v4_real=np.zeros((n_m, n_psi)),
+        v4_imag=np.zeros((n_m, n_psi)),
+    )
+
+
+def _output(eigenfunction, *, n_tor=1):
+    return DconOutput(
+        n_tor=n_tor,
+        mlow=int(eigenfunction.m[0]),
+        mhigh=int(eigenfunction.m[-1]),
+        mpert=int(eigenfunction.m.size),
+        mband=0,
+        eigenfunction=eigenfunction,
+    )
+
+
+def test_m_pol_dominant_is_the_true_poloidal_number_not_the_block_index():
+    eigenfunction = _eigenfunction(
+        [[1.0, 1.0], [0.0, 9.0], [2.0, 2.0]], m=[-3, -2, -1], q=[1.0, 2.0]
+    )
+
+    # Block index 1 is the largest; its physical label is m = -2.
+    assert _output(eigenfunction).m_pol_dominant == -2
+
+
+def test_m_pol_dominant_is_invariant_under_the_eigenvector_normalization():
+    """This invariance is the whole reason the field can be written at all.
+
+    `match/ideal.f:318-325` fixes the eigenfunction's amplitude by an arbitrary
+    normalization, further rescaled by DCON's `ucrit` during integration, so no
+    absolute amplitude is reportable. That factor is global -- one scalar
+    multiplying every harmonic -- so which harmonic is largest survives it, and
+    that is what `m_pol_dominant` reports.
+    """
+    xi = np.array([[1.0, 1.0], [0.0, 9.0], [2.0, 2.0]])
+    baseline = _output(_eigenfunction(xi, m=[-3, -2, -1], q=[1.0, 2.0]))
+    rescaled = _output(_eigenfunction(xi * 1e6, m=[-3, -2, -1], q=[1.0, 2.0]))
+
+    assert baseline.m_pol_dominant == rescaled.m_pol_dominant == -2
+
+
+def test_m_pol_dominant_is_none_without_an_eigenfunction():
+    assert DconOutput(n_tor=1, mlow=-1, mhigh=1, mpert=3, mband=0).m_pol_dominant is None
+
+
+def test_b_normal_reproduces_matchs_own_singular_factor():
+    """`b = i (m - n q) xi` -- match/ideal.f:372, which computes it and never writes it.
+
+    Recomputing it here rather than parsing it is what makes the perturbed
+    normal field available at all; everything the formula needs is already in
+    solutions.bin (q is its third column, m comes from the run's mlow).
+    """
+    eigenfunction = _eigenfunction([[1.5, 2.0], [3.0, 4.0]], m=[-2, -1], q=[1.0, 2.0])
+
+    b = eigenfunction.b_normal(n_tor=1)
+
+    expected = 1j * np.array([[(-2 - 1 * 1.0) * 1.5, (-2 - 1 * 2.0) * 2.0],
+                              [(-1 - 1 * 1.0) * 3.0, (-1 - 1 * 2.0) * 4.0]])
+    np.testing.assert_allclose(b, expected)
+    # It vanishes on the resonant surface, where m = n q.
+    resonant = _eigenfunction([[5.0]], m=[2], q=[2.0]).b_normal(n_tor=1)
+    assert resonant[0, 0] == pytest.approx(0.0)
+
+
+
 
 def _write_resistive_netcdf(path, *, module, n, mlow, mhigh, m_values, diag):
     import xarray as xr
