@@ -117,13 +117,43 @@ rsync -a --partial --exclude='._*' --exclude='Thumbs.db' \
   vestuser1:/srv/vest.filedb/legacy/
 ```
 
+## What the archive holds, and what it costs
+
+Measured after the first full pass:
+
+| | shots | ingested | products |
+|---|---|---|---|
+| `soft_x_rays` | 200 | 188 | 34 GB |
+| `camera_visible` | 483 | 398 | 231 GB |
+| `camera_visible_fluctuation` | 52 | reserved | — |
+
+Failures are recorded per shot in `ods/{tree}/ingested_shots.json` with a
+reason. They are data properties, not tooling faults:
+
+- **12 soft X-ray shots** (39217, 39260, and the run 39606–39615) have ragged
+  digitizer CSVs — a row part-way through the file has a different column
+  count from the header row. The mapping rejects them, correctly.
+- **85 camera shots** have no non-dark frames at all: the camera was armed but
+  recorded nothing visible.
+
+Coverage is thinner than the raw frame counts suggest, in both diagnostics.
+Dark-frame rejection keeps a median of 41 frames per camera shot, and 179 of
+the 200 soft X-ray shots were recorded on one digitizer rather than two, so
+they yield 40 channels instead of 128. Both numbers are in each shot's
+manifest; judge the archive by those, not by directory size.
+
 ## Known limits
 
-- Camera IDS products are eight times larger than their source: the mapping
-  writes 8-bit frames as int64 (`vaft/machine_mapping/camera_visible.py`).
-  Ingesting all 483 wide-view shots would produce ~668 GiB instead of ~84 GiB,
-  and the largest single shot needs 21 GiB of memory to build.
+- Camera IDS products are eight times larger than they need to be on disk:
+  `vfit_camera_visible_dynamic` stores 8-bit frames as int64. 231 GB where
+  ~29 GB would do. This is a *storage* cost only — the raw frame list stays
+  uint8 during the build, and peak memory for the largest shot (38769, 2167
+  frames at 1024×1280) measures 2.75 GB.
 - Shots 26576, 26757 and 29770, which issue #161 names as required, are not
   present in any local source. 27134 and 32308 are, at 50 kfps.
 - Seven camera directories have a `_bmp.txt` that is a filesystem index record
   rather than text; their frames cannot be dated and they are held for review.
+- Header parsing in `camera_visible` is positional — `Frames` is pinned to line
+  16, `Top Frame` to line 75 — so a header that deviates in layout fails rather
+  than degrading. The inventory scanner reads the same file by field name; that
+  disagreement is how the seven corrupt headers were found.

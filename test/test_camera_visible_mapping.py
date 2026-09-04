@@ -7,6 +7,7 @@ from omas import ODS
 
 from vaft.machine_mapping.camera_visible import (
     CameraFrameSelectionError,
+    _parse_bmp_header,
     camera_visible,
     camera_visible_from_frame_dir,
     find_valid_frame_interval,
@@ -214,3 +215,26 @@ def test_camera_visible_from_frame_dir_schema_conformance(tmp_path):
     # No radiometric calibration data must ever be populated.
     assert "radiance" not in ods["camera_visible.channel.0.detector.0.frame.0"].keys()
     assert "counts_to_radiance" not in ods["camera_visible.channel.0.detector.0"].keys()
+
+
+def test_centre_triggered_header_keeps_its_negative_start_time(tmp_path):
+    """A centre-triggered acquisition begins before the trigger.
+
+    Real VEST headers (shots 38635 and 38769) record the top frame's relative
+    time as `-00000.433200`. Requiring a leading "+" rejected those headers
+    outright; dropping the sign instead would have been worse, placing a
+    pre-trigger frame after the trigger.
+    """
+    shot_dir = tmp_path / "38635"
+    shot_dir.mkdir()
+    header = _write_header(shot_dir, 38635, total_frames=3)
+    lines = header.read_text(encoding="utf-8").splitlines(keepends=True)
+    lines[74] = "Top Frame,-1083,23/02/27 16:34:59.513349,-00000.433200\n"
+    lines[75] = "Bottom Frame,+1083,23/02/27 16:35:00.379749,+00000.433200\n"
+    header.write_text("".join(lines), encoding="utf-8")
+
+    info = _parse_bmp_header(header)
+    assert info.start_time_ms == pytest.approx(-433.2)
+    assert info.end_time_ms == pytest.approx(433.2)
+    assert frame_time_ms(0, 3, info.start_time_ms, info.end_time_ms) == pytest.approx(-433.2)
+    assert frame_time_ms(1, 3, info.start_time_ms, info.end_time_ms) == pytest.approx(0.0)

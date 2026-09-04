@@ -37,8 +37,13 @@ _BOTTOM_FRAME_LINE_INDEX = 75
 _SHUTTER_SPEED_LINE_INDEX = 25
 
 _TOTAL_FRAMES_PATTERN = re.compile(r"Frames:\s*(\d+)")
-_TOP_FRAME_PATTERN = re.compile(r"^Top Frame,.+,\+(\d+\.\d+)")
-_BOTTOM_FRAME_PATTERN = re.compile(r"^Bottom Frame,.+,\+(\d+\.\d+)")
+# The relative time carries a sign, and it means something: a centre-triggered
+# acquisition (`TriggerSelect: CENTER`) starts before the trigger, so its top
+# frame sits at a negative time. Requiring a leading "+" both rejected those
+# headers outright and would have placed a pre-trigger frame after the trigger
+# had it matched.
+_TOP_FRAME_PATTERN = re.compile(r"^Top Frame,.+,([+-]?\d+\.\d+)")
+_BOTTOM_FRAME_PATTERN = re.compile(r"^Bottom Frame,.+,([+-]?\d+\.\d+)")
 _SHUTTER_SPEED_PATTERN = re.compile(r"ShutterSpeed:\s*[\d.]+k\(([\d.]+)us\)")
 
 
