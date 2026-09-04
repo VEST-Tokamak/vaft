@@ -22,7 +22,8 @@ to.
 
 Building each track from its own branch is the point rather than a detail. The
 generated reference pages -- `/reference/vest-diagnostics/`, and
-`/reference/formula/` on branches that ship `vaft.formula.catalog` -- are built
+`/reference/formula/` and `/reference/process/` on branches that ship the
+`vaft.formula.catalog` and `vaft.process.catalog` generators -- are built
 by introspecting the library, so they are only correct for the exact tree they
 were generated from.
 
@@ -68,8 +69,9 @@ npm run test:docs     # build and validate the stable track
 npm run test:docs:develop
 ```
 
-`_data/vest_diagnostics.yml`, `_data/formula_catalog.yml` and
-`_data/provenance.yml` are generated and are not committed. `generators.yml`
+`_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
+`_data/process_catalog.yml` and `_data/provenance.yml` are generated and are
+not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.
 

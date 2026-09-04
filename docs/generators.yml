@@ -10,3 +10,5 @@ generators:
     output: _data/vest_diagnostics.yml
   - module: vaft.formula.catalog
     output: _data/formula_catalog.yml
+  - module: vaft.process.catalog
+    output: _data/process_catalog.yml

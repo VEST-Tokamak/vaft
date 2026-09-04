@@ -63,7 +63,7 @@ api:
     url: /reference/api/#vaftmachine_mapping
   process:
     title: vaft.process
-    url: /reference/api/#vaftprocess-and-vaftformula
+    url: /reference/process/
   formula:
     title: vaft.formula
     url: /reference/formula/

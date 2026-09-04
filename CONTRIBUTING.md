@@ -108,6 +108,28 @@ physics submodule -- `test/test_formula_catalog.py` pins that), and the site's
 reference pages under `/reference/formula/` are generated from the same text by
 `python -m vaft.formula.catalog`, which `docs/build.py` runs for you.
 
+## Processing docstrings
+
+`vaft/process` uses the same parser (`vaft/_docstring.py`) and the same unit-tag
+rule, and a different vocabulary, because a processing routine answers a
+different question: how is this input turned into this output?  Its sections
+are `Processing steps`, `Input semantics`, `Output semantics`, `Defaults`,
+`Convention`, `Assumptions`, `Applicability`, `Limitations`, `Provenance`.
+`Applicability` opens with `Machine-independent.` or `VEST-specific.`;
+`Defaults` classifies each default that matters (legacy compatibility value,
+validated-workflow default, numerical convenience, ...); `Provenance` takes
+the same `.. [1] text` form as `References` but cites a MATLAB file, a
+`vest.yaml` key or an issue as readily as a paper.
+`test/test_process_docstrings.py` enforces it, and its `PENDING` list names the
+submodules not yet converted (#418-#421): a module leaves that list only when
+every function in it conforms, and the catalog's own `conforming` flag is what
+the site reads to decide which categories get a reference page.
+
+`vaft.process.describe(name)`, `vaft.process.search(text)` and
+`vaft.process.list_processes(category=...)` read the docstrings on demand and
+are never imported by `import vaft.process`; `/reference/process/` is generated
+by `python -m vaft.process.catalog`, which `docs/build.py` runs for you.
+
 ## Documentation
 
 The site published at <https://vest-tokamak.github.io/vaft/> is built from
