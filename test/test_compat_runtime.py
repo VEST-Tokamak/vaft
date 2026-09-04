@@ -279,7 +279,12 @@ def test_windows_rejects_a_shell_script_that_os_access_would_accept(windows, tmp
     script.write_text(POSIX_SCRIPT, encoding="utf-8")
 
     assert compat.is_executable(script) is False
-    assert os.access(script, os.X_OK) or not compat.IS_WINDOWS
+    if os.name == "nt":
+        # The claim this test is really making, and it can only be made where
+        # it is true: the probe being replaced would have accepted this file.
+        # Under the patched flag on POSIX the file is simply mode 0644, so
+        # asserting it there would test the fixture rather than the code.
+        assert os.access(script, os.X_OK)
 
 
 def test_windows_accepts_a_portable_executable(windows, tmp_path):
