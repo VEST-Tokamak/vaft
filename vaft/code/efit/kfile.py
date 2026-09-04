@@ -1066,7 +1066,7 @@ def generate_kfile(
         # make the kfile directory if it does not exist
         if not os.path.exists(os.path.join(save_dir, "kfile")):
             os.makedirs(os.path.join(save_dir, "kfile"))
-        f = open(fullfile, "w")
+        f = open(fullfile, "w", encoding="utf-8")
         f.write(" &IN1\n")  # the main namelist in the kfile
         f.write(
             " IOUT=4\n"

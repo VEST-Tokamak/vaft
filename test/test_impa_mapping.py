@@ -609,3 +609,25 @@ def test_a_reference_with_no_shared_field_code_is_rejected_clearly():
             reference_specs=[{"field": 999}, {"field": 998}],
             target_specs=[{"field": 114}, {"field": 115}],
         )
+
+
+def test_toroidal_hall_channels_declare_a_toroidal_normal_per_the_dd():
+    """toroidal_angle must say grad(phi), not grad(R) (release review, 0.6.0).
+
+    The IMAS DD defines b_field_tor_probe.toroidal_angle as the angle of the
+    sensor normal's horizontal projection from grad(R), counter-clockwise
+    from above. A toroidal-field sensor's normal is parallel to grad(phi), so
+    the value is pi/2; writing 0.0 declared these Hall channels as radial
+    (B_R) sensors to every DD-conformant reader.
+    """
+    import math
+
+    from vaft.machine_mapping.impa import (
+        IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE,
+        IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE,
+    )
+
+    assert IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE == pytest.approx(math.pi / 2)
+    # The normal lies in the horizontal plane, which is what poloidal_angle 0
+    # declares; only the toroidal angle distinguishes grad(phi) from grad(R).
+    assert IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE == pytest.approx(0.0)

@@ -136,7 +136,9 @@ def test_no_plotting_path_rectifies_with_abs():
         root / "style.py", root / "display.py", pathlib.Path(vaft.__file__).parent / "omas" / "interactive.py",
     ]
     for path in files:
-        for number, line in enumerate(path.read_text().splitlines(), 1):
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), 1
+        ):
             if "np.abs(" in line and "sign" in line and "orientation" not in line:
                 offenders.append(f"{path.name}:{number}")
     assert not offenders, offenders

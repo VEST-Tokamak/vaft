@@ -36,7 +36,7 @@ def _run(monkeypatch, tmp_path, argv, shots, dump_side_effect=None):
             dump_side_effect(shot)
         else:
             output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text("stub")
+            output.write_text("stub", encoding="utf-8")
 
     monkeypatch.setattr(MODULE, "dump_shot", fake_dump_shot)
     monkeypatch.setattr("sys.argv", ["dump_all_shots.py", "--filedb-root", str(tmp_path), *argv])
@@ -68,7 +68,7 @@ def test_skip_existing_skips_shots_whose_dump_is_already_on_disk(monkeypatch, tm
     shots = [(45000, datetime(2026, 5, 1, 8, 0, 0)), (45001, datetime(2026, 5, 2, 9, 0, 0))]
     existing = tmp_path / "raw" / "45000" / "vest_45000_daq_raw.json.gz"
     existing.parent.mkdir(parents=True)
-    existing.write_text("already here")
+    existing.write_text("already here", encoding="utf-8")
 
     rc, calls = _run(monkeypatch, tmp_path, ["--skip-existing"], shots)
 
@@ -100,12 +100,12 @@ def test_summary_records_completed_skipped_and_failed(monkeypatch, tmp_path):
     ]
     existing = tmp_path / "raw" / "45000" / "vest_45000_daq_raw.json.gz"
     existing.parent.mkdir(parents=True)
-    existing.write_text("already here")
+    existing.write_text("already here", encoding="utf-8")
 
     summary_path = tmp_path / "summary.json"
     _run(monkeypatch, tmp_path, ["--skip-existing", "--summary", str(summary_path)], shots)
 
-    summary = json.loads(summary_path.read_text())
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["discovered"] == 2
     assert summary["skipped"] == [45000]
     assert summary["completed"] == [45001]

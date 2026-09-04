@@ -43,8 +43,23 @@ jobs:
           cd /tmp
           /tmp/vaft-wheel-test/bin/python -c "import vaft; print(vaft.__version__)"
 
-  test:
-    runs-on: ubuntu-latest
+  test-matrix:
+    name: test (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # A platform-specific failure should report on its own rather than hide
+      # behind whichever leg happened to fail first.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: Linux
+          # install/README.md calls native Windows a first-class VAFT path.
+          # Until 0.6.2 nothing enforced that: the suite had never run on
+          # Windows, where 25 tests failed and two defects stopped collection
+          # outright. This leg is what keeps the claim honest.
+          - os: windows-latest
+            label: Windows
     steps:
       - uses: actions/checkout@v7
 
@@ -69,15 +84,81 @@ jobs:
         # pytest-xdist stays in [dev] for local iteration; it is not the
         # canonical mode. See #413 for what a future optimization must show.
         #
-        # main is the release gate and runs everything. develop deselects
-        # `slow` -- notebook-execution checks, which are release-confidence
-        # rather than per-PR feedback. Nothing is skipped anywhere: `slow` tests
-        # move to the main gate, they do not stop running.
+        # Running serially is also what makes the `perf` budgets meaningful:
+        # they assert wall-clock ratios, and it was four xdist workers on a
+        # four-core runner that used to push them under budget. They no longer
+        # need a job of their own.
         #
-        # Both halves of the condition are needed. `base_ref` is set only on
-        # pull requests, so a push to main -- which is how a release lands --
-        # would otherwise run the reduced develop selection.
-        run: python -m pytest -q ${{ (github.base_ref == 'main' || github.ref == 'refs/heads/main') && ' ' || '-m "not slow"' }}
+        # The selection is built here rather than in a `${{ }}` expression
+        # because it now has two independent axes, and one shell script that
+        # names each reason is easier to audit than a nested ternary.
+        shell: bash
+        # Passed as environment data, never interpolated into the script.
+        # `${{ }}` is substituted before bash parses the line, so a ref name
+        # carrying a shell metacharacter would be executed rather than
+        # compared -- the standard Actions script-injection shape. These
+        # particular refs are not attacker-controlled, but the safe form costs
+        # nothing.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          CURRENT_REF: ${{ github.ref }}
+          RUNNER_PLATFORM: ${{ runner.os }}
+        run: |
+          selection=()
+
+          # main is the release gate and runs everything. develop deselects
+          # `slow` -- notebook-execution checks, which are release-confidence
+          # rather than per-PR feedback. Nothing is skipped anywhere: `slow`
+          # tests move to the main gate, they do not stop running.
+          #
+          # Both halves of the condition are needed. `base_ref` is set only on
+          # pull requests, so a push to main -- which is how a release lands --
+          # would otherwise run the reduced develop selection.
+          if [ "$BASE_REF" != "main" ] && [ "$CURRENT_REF" != "refs/heads/main" ]; then
+            selection+=("not slow")
+          fi
+
+          # `perf` budgets are calibrated against the Linux runner class, and a
+          # ratio measured on another OS is a different measurement rather than
+          # a stricter one: test_substantially_faster_than_legacy scored 3.13x
+          # against its 5x budget on Windows under load, and passed in
+          # isolation. Gating a required check on that would make it
+          # intermittently red without saying anything about VAFT.
+          if [ "$RUNNER_PLATFORM" != "Linux" ]; then
+            selection+=("not perf")
+          fi
+
+          expression=""
+          for term in "${selection[@]}"; do
+            if [ -z "$expression" ]; then
+              expression="$term"
+            else
+              expression="$expression and $term"
+            fi
+          done
+
+          if [ -z "$expression" ]; then
+            echo "running the whole suite"
+            python -m pytest -q
+          else
+            echo "running with -m \"$expression\""
+            python -m pytest -q -m "$expression"
+          fi
+
+  # `test` is a required status check (.github/rulesets/develop.json), and a
+  # matrix renames its contexts to "test (Linux)" / "test (Windows)". This job
+  # keeps the required name pointing at a single verdict that is green only
+  # when every leg is, so adding a platform never silently drops the gate.
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: test-matrix
+    if: always()
+    steps:
+      - name: Every test leg must have passed
+        run: |
+          echo "test-matrix result: ${{ needs.test-matrix.result }}"
+          test "${{ needs.test-matrix.result }}" = "success"
 
   tutorial:
     runs-on: ubuntu-latest

@@ -117,7 +117,8 @@ def save(ods, target):
     import gzip
     from pathlib import Path
     import shutil
-    import tempfile
+
+    from ..compat import reopenable_temporary_file
 
     target_path = Path(target).expanduser()
     suffixes = target_path.suffixes
@@ -128,19 +129,21 @@ def save(ods, target):
         raise ValueError("vaft.omas.save target must end in .json, .json.gz, .h5, or .hdf5")
     target_path.parent.mkdir(parents=True, exist_ok=True)
     if suffixes[-2:] == [".json", ".gz"]:
-        with tempfile.NamedTemporaryFile(suffix=".json") as plain:
-            ods.save(plain.name)
-            plain.flush()
-            plain.seek(0)
-            with target_path.open("wb") as target_handle:
-                with gzip.GzipFile(
-                    filename="",
-                    mode="wb",
-                    fileobj=target_handle,
-                    compresslevel=9,
-                    mtime=0,
-                ) as compressed:
-                    shutil.copyfileobj(plain, compressed)
+        # `ODS.save` takes a path and opens it itself, so the staging file has
+        # to be openable by name -- which a NamedTemporaryFile is not on
+        # Windows. See vaft.compat.reopenable_temporary_file.
+        with reopenable_temporary_file(suffix=".json") as plain_path:
+            ods.save(str(plain_path))
+            with plain_path.open("rb") as plain:
+                with target_path.open("wb") as target_handle:
+                    with gzip.GzipFile(
+                        filename="",
+                        mode="wb",
+                        fileobj=target_handle,
+                        compresslevel=9,
+                        mtime=0,
+                    ) as compressed:
+                        shutil.copyfileobj(plain, compressed)
     else:
         ods.save(str(target_path))
     return target_path

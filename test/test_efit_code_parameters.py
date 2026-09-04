@@ -97,7 +97,7 @@ def test_the_payload_is_deterministic():
 
 
 def test_the_stage_no_longer_writes_nested_parameter_paths():
-    source = (WORKFLOW / "generate_efit_ods.py").read_text()
+    source = (WORKFLOW / "generate_efit_ods.py").read_text(encoding="utf-8")
 
     assert 'ods["equilibrium.code.parameters"]' in source
     assert "code.parameters.efit_collection" not in source

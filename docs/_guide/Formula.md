@@ -12,7 +12,7 @@ guide:
   expected: Limits, confinement metrics, statistical summaries, tables, and comparison plots.
 related:
   notebooks: [confinement-scaling, plotting-sample]
-  api: [formula, process, plot]
+  api: [process, plot]
   data_sources: [sample-ods, hsds-public]
   outputs: [confinement-scaling, hsds-39915]
 ---

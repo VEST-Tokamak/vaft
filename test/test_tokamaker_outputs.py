@@ -27,7 +27,7 @@ def _sidecar_payload():
 def test_collect_parses_real_gfile_and_sidecar(tmp_path):
     sample = data_path("efit/g039915.00319")
     shutil.copy(sample, tmp_path / "g039915.00319")
-    (tmp_path / "tokamaker_result.json").write_text(json.dumps(_sidecar_payload()))
+    (tmp_path / "tokamaker_result.json").write_text(json.dumps(_sidecar_payload()), encoding="utf-8")
 
     result = collect_tokamaker_outputs(tmp_path)
 
@@ -44,8 +44,8 @@ def test_collect_parses_real_gfile_and_sidecar(tmp_path):
 
 
 def test_garbage_gfile_is_best_effort(tmp_path):
-    (tmp_path / "g012345.00100").write_text("this is not a gEQDSK file\n")
-    (tmp_path / "tokamaker_result.json").write_text(json.dumps(_sidecar_payload()))
+    (tmp_path / "g012345.00100").write_text("this is not a gEQDSK file\n", encoding="utf-8")
+    (tmp_path / "tokamaker_result.json").write_text(json.dumps(_sidecar_payload()), encoding="utf-8")
 
     result = collect_tokamaker_outputs(tmp_path)
 
@@ -57,7 +57,7 @@ def test_garbage_gfile_is_best_effort(tmp_path):
 
 
 def test_corrupt_sidecar_is_best_effort(tmp_path):
-    (tmp_path / "tokamaker_result.json").write_text("{not json")
+    (tmp_path / "tokamaker_result.json").write_text("{not json", encoding="utf-8")
 
     result = collect_tokamaker_outputs(tmp_path)
 
@@ -76,7 +76,7 @@ def test_empty_workdir_yields_inert_result(tmp_path):
 
 
 def test_unrelated_g_prefixed_files_are_ignored(tmp_path):
-    (tmp_path / "geometry.json").write_text("{}")
+    (tmp_path / "geometry.json").write_text("{}", encoding="utf-8")
     (tmp_path / "gpec_control_output_n1.nc").write_bytes(b"")
 
     result = collect_tokamaker_outputs(tmp_path)
@@ -86,7 +86,7 @@ def test_unrelated_g_prefixed_files_are_ignored(tmp_path):
 
 def test_parse_stats_sidecar_promotes_stats_keys(tmp_path):
     path = tmp_path / "tokamaker_result.json"
-    path.write_text(json.dumps(_sidecar_payload()))
+    path.write_text(json.dumps(_sidecar_payload()), encoding="utf-8")
 
     scalars = parse_stats_sidecar(path)
 
@@ -117,7 +117,7 @@ def test_collect_evolution_outputs_round_trip(tmp_path):
              "vessel_currents_A": {}, "probe_fields": {}},
         ],
     }
-    (tmp_path / "tokamaker_evolution.json").write_text(json.dumps(payload))
+    (tmp_path / "tokamaker_evolution.json").write_text(json.dumps(payload), encoding="utf-8")
 
     result = collect_tokamaker_evolution_outputs(tmp_path)
 
@@ -149,7 +149,7 @@ def test_collect_stability_outputs_round_trip(tmp_path):
         "wall": {"tau_wall_s": [0.007, 0.004], "tau_wall_max_s": 0.007, "converged": True},
         "vertical": {"gamma_s": 812.0, "stable": False, "converged": True},
     }
-    (tmp_path / "tokamaker_stability.json").write_text(json.dumps(payload))
+    (tmp_path / "tokamaker_stability.json").write_text(json.dumps(payload), encoding="utf-8")
 
     result = collect_tokamaker_stability_outputs(tmp_path)
 

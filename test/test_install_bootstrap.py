@@ -33,6 +33,53 @@ UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 POWERSHELL_SCRIPTS = ("windows_native.ps1", "uninstall_windows_native.ps1")
 
 
+def _usable_bash() -> str | None:
+    """Absolute path to a POSIX bash that actually runs, or None.
+
+    ``shutil.which("bash")`` is not a usable guard on Windows, for two
+    independent reasons:
+
+    * It answers a different question than ``subprocess`` asks. ``which``
+      searches ``PATH``; ``CreateProcess`` searches the application directory
+      and ``System32`` *first*, so a bare ``["bash", ...]`` runs
+      ``C:\\Windows\\System32\\bash.exe`` -- the WSL launcher -- no matter what
+      ``which`` found.
+    * That launcher ships with every modern Windows install, including ones
+      with no distribution, where it fails with
+      ``Bash/Service/CreateInstance/MountDisk/HCS/ERROR_PATH_NOT_FOUND``.
+
+    Together those turn "bash is available" into a wall of confusing failures
+    rather than honest skips. The interpreter is therefore pinned to an
+    absolute path and *proven to run* before any test relying on it is enabled.
+    """
+    candidates = [shutil.which("bash")]
+    if os.name == "nt":
+        candidates += [
+            r"C:\Program Files\Git\bin\bash.exe",
+            r"C:\Program Files\Git\usr\bin\bash.exe",
+            r"C:\Program Files (x86)\Git\bin\bash.exe",
+        ]
+    for candidate in candidates:
+        if not candidate or not Path(candidate).is_file():
+            continue
+        # The WSL launcher lives in System32 and is never a POSIX bash.
+        if os.name == "nt" and Path(candidate).parent.name.lower() == "system32":
+            continue
+        try:
+            probe = subprocess.run(
+                [candidate, "-c", "exit 0"], capture_output=True, timeout=60
+            )
+        except OSError:
+            continue
+        if probe.returncode == 0:
+            return candidate
+    return None
+
+
+BASH = _usable_bash()
+requires_bash = pytest.mark.skipif(BASH is None, reason="no working POSIX bash")
+
+
 def _load_checker() -> ModuleType:
     """Import the checker by path; it is a script, not an installed module."""
     spec = importlib.util.spec_from_file_location("vaft_environment_checker", CHECKER)
@@ -438,10 +485,10 @@ def test_environment_does_not_duplicate_project_dependencies():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 @pytest.mark.parametrize("name", POSIX_SCRIPTS)
 def test_posix_scripts_parse(name):
-    subprocess.run(["bash", "-n", str(INSTALL / name)], check=True, timeout=60)
+    subprocess.run([BASH, "-n", str(INSTALL / name)], check=True, timeout=60)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell parsing is checked on Windows")
@@ -458,6 +505,31 @@ def test_powershell_script_parses(name):
         check=True,
         timeout=120,
     )
+
+
+def test_windows_recreate_contract_is_scoped_and_detects_python_mismatch():
+    text = (INSTALL / "windows_native.ps1").read_text(encoding="utf-8")
+    assert "[switch] $Recreate" in text
+    assert "conda env remove --name $EnvironmentName --yes" in text
+    assert "Get-PinnedPython" in text
+    assert "Get-EnvironmentPython" in text
+    assert "$pinned -ne $current" in text
+    assert "windows_native.ps1 -Recreate" in text
+
+
+def test_windows_bootstrap_initializes_native_status_and_reports_progress():
+    text = (INSTALL / "windows_native.ps1").read_text(encoding="utf-8")
+    assert "$global:LASTEXITCODE = 0" in text
+    assert "function Write-Step" in text
+    for step in ("Creating", "Updating", "Installing", "Registering", "Verifying"):
+        assert f'Write-Step "{step}' in text or f"Write-Step '{step}" in text
+
+
+def test_windows_recreate_is_documented():
+    text = (INSTALL / "README.md").read_text(encoding="utf-8")
+    assert "windows_native.ps1 -Recreate" in text
+    assert "removes and recreates the `vaft` Conda environment only" in text
+    assert "cannot be combined with `-CheckOnly`" in text
 
 
 def test_checker_help_runs_without_side_effects():
@@ -570,7 +642,7 @@ def fake_conda(tmp_path, monkeypatch):
 
 def _run_script(script: str, *arguments: str, root: Path = ROOT):
     completed = subprocess.run(
-        ["bash", str(root / "install" / script), *arguments],
+        [BASH, str(root / "install" / script), *arguments],
         capture_output=True,
         text=True,
         cwd=str(root),
@@ -609,7 +681,7 @@ def sandboxed_home(tmp_path, monkeypatch):
     return kernels
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_bootstrap_creates_a_missing_environment(fake_conda, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "")
     completed = _run_bootstrap()
@@ -620,7 +692,7 @@ def test_bootstrap_creates_a_missing_environment(fake_conda, monkeypatch):
     assert "[PASS] vaft environment" in completed.stdout
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_bootstrap_reuses_an_existing_environment(fake_conda, monkeypatch):
     """Rerunning must update in place, never recreate a working environment."""
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
@@ -631,7 +703,7 @@ def test_bootstrap_reuses_an_existing_environment(fake_conda, monkeypatch):
     assert "env create" not in invocations
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_bootstrap_never_touches_another_environment(fake_conda, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft,someone_elses_project")
     completed = _run_bootstrap()
@@ -642,7 +714,7 @@ def test_bootstrap_never_touches_another_environment(fake_conda, monkeypatch):
     assert "someone_elses_project" not in fake_conda.read_text(encoding="utf-8")
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_bootstrap_performs_the_documented_steps_in_order(fake_conda, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
     completed = _run_bootstrap()
@@ -708,7 +780,7 @@ def test_no_multiline_python_payload_crosses_conda_run():
             )
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_bootstrap_leaves_the_checkout_clean(fake_conda, monkeypatch):
     """A bootstrap run must not dirty the repository it was launched from."""
     before = subprocess.run(
@@ -722,7 +794,7 @@ def test_bootstrap_leaves_the_checkout_clean(fake_conda, monkeypatch):
     assert before == after
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_check_only_mode_changes_nothing(fake_conda, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
     completed = _run_bootstrap("linux.sh", "--check-only")
@@ -733,10 +805,10 @@ def test_check_only_mode_changes_nothing(fake_conda, monkeypatch):
     assert "check_vaft_environment.py" in completed.stdout
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_bootstrap_reports_missing_conda_with_guidance(tmp_path, monkeypatch):
     """Without Conda the script must explain the fix, not traceback."""
-    bash = shutil.which("bash")
+    bash = BASH
     assert bash
 
     # Do not simply prepend an empty directory to PATH: hosted CI runners expose
@@ -746,12 +818,30 @@ def test_bootstrap_reports_missing_conda_with_guidance(tmp_path, monkeypatch):
     # the Conda check -- and, deliberately, no conda.
     sandbox = tmp_path / "bin"
     sandbox.mkdir()
-    for tool in ("dirname", "basename", "uname", "awk", "grep", "cat", "sed", "env"):
-        located = shutil.which(tool)
-        if located:
-            (sandbox / tool).symlink_to(located)
+    if os.name == "nt":
+        # The coreutils shipped beside a Windows bash are dynamically linked
+        # against msys DLLs in their own directory, so they cannot be copied or
+        # linked into an isolated sandbox -- and a link named `dirname` rather
+        # than `dirname.exe` is not executable there at all, which silently
+        # empties `$(dirname ...)` instead of failing loudly. Use those
+        # directories where they live; none of them carries conda, which is the
+        # only thing this sandbox has to exclude. The assertion below proves
+        # that rather than assuming it.
+        interpreter = Path(bash).parent
+        search = [
+            interpreter,
+            interpreter.parent / "usr" / "bin",
+            interpreter.parent.parent / "usr" / "bin",
+        ]
+        path = os.pathsep.join(str(item) for item in search if item.is_dir())
+    else:
+        for tool in ("dirname", "basename", "uname", "awk", "grep", "cat", "sed", "env"):
+            located = shutil.which(tool)
+            if located:
+                (sandbox / tool).symlink_to(located)
+        path = str(sandbox)
 
-    environment = {"PATH": str(sandbox), "HOME": os.environ.get("HOME", str(tmp_path))}
+    environment = {"PATH": path, "HOME": os.environ.get("HOME", str(tmp_path))}
     reachable = subprocess.run(
         [bash, "-c", "command -v conda"], env=environment, capture_output=True, timeout=60
     )
@@ -796,7 +886,7 @@ def fake_checkout(tmp_path):
     return root
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_dry_run_removes_nothing(fake_conda, sandboxed_home, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
     (sandboxed_home / "vaft").mkdir()
@@ -809,7 +899,7 @@ def test_uninstall_dry_run_removes_nothing(fake_conda, sandboxed_home, monkeypat
     assert (sandboxed_home / "vaft").is_dir(), "a dry run must not touch the kernelspec"
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_refuses_to_guess_when_there_is_no_terminal(
     fake_conda, sandboxed_home, monkeypatch
 ):
@@ -826,7 +916,7 @@ def test_uninstall_refuses_to_guess_when_there_is_no_terminal(
     assert (sandboxed_home / "vaft").is_dir()
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_removes_the_kernel_before_the_environment(
     fake_conda, sandboxed_home, monkeypatch
 ):
@@ -848,7 +938,7 @@ def test_uninstall_removes_the_kernel_before_the_environment(
     assert not (sandboxed_home / "vaft").exists()
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_never_names_another_environment(fake_conda, sandboxed_home, monkeypatch):
     """`vaft-np2-test` is somebody's work, and its name merely starts with vaft."""
     monkeypatch.setenv(
@@ -861,7 +951,7 @@ def test_uninstall_never_names_another_environment(fake_conda, sandboxed_home, m
     assert _removal_commands(fake_conda) == ["env remove --name vaft --yes"]
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_with_nothing_installed_succeeds_quietly(
     fake_conda, sandboxed_home, monkeypatch
 ):
@@ -875,7 +965,7 @@ def test_uninstall_with_nothing_installed_succeeds_quietly(
     assert _removal_commands(fake_conda) == []
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_a_second_uninstall_is_a_no_op(fake_conda, sandboxed_home, monkeypatch):
     """Idempotency in the removal direction: the cycle has to survive repeats."""
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
@@ -891,7 +981,7 @@ def test_a_second_uninstall_is_a_no_op(fake_conda, sandboxed_home, monkeypatch):
     assert _removal_commands(fake_conda) == ["env remove --name vaft --yes"]
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_clears_build_artifacts_from_the_checkout(
     fake_conda, sandboxed_home, fake_checkout, monkeypatch
 ):
@@ -916,7 +1006,7 @@ def test_uninstall_clears_build_artifacts_from_the_checkout(
     assert keeper.is_dir(), "only the install leftover may be removed, not source"
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_keep_build_artifacts_leaves_them_alone(
     fake_conda, sandboxed_home, fake_checkout, monkeypatch
 ):
@@ -929,7 +1019,7 @@ def test_keep_build_artifacts_leaves_them_alone(
     assert (fake_checkout / "vaft.egg-info").is_dir()
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_never_removes_the_hsds_configuration(
     fake_conda, sandboxed_home, monkeypatch, tmp_path
 ):
@@ -945,7 +1035,7 @@ def test_uninstall_never_removes_the_hsds_configuration(
     assert ".hscfg" in completed.stdout, "say that credentials were preserved"
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_leaves_the_checkout_clean(fake_conda, sandboxed_home, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
     before = subprocess.run(
@@ -963,7 +1053,7 @@ def test_uninstall_leaves_the_checkout_clean(fake_conda, sandboxed_home, monkeyp
     assert before == after
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_rejects_an_unknown_option(fake_conda, sandboxed_home, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
 
@@ -974,7 +1064,7 @@ def test_uninstall_rejects_an_unknown_option(fake_conda, sandboxed_home, monkeyp
     assert _removal_commands(fake_conda) == []
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_help_documents_every_flag(fake_conda, sandboxed_home, monkeypatch):
     monkeypatch.setenv("FAKE_CONDA_ENVS", "vaft")
 
@@ -986,7 +1076,7 @@ def test_uninstall_help_documents_every_flag(fake_conda, sandboxed_home, monkeyp
     assert _removal_commands(fake_conda) == []
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_uninstall_stops_when_the_environment_is_active(
     fake_conda, sandboxed_home, monkeypatch
 ):
@@ -1008,7 +1098,7 @@ def test_uninstall_stops_when_the_environment_is_active(
     assert (sandboxed_home / "vaft").is_dir(), "the kernelspec must survive"
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+@requires_bash
 def test_another_active_environment_does_not_block_the_uninstall(
     fake_conda, sandboxed_home, monkeypatch
 ):

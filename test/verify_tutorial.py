@@ -169,7 +169,7 @@ def _validate_inventory(failures: list[str]) -> None:
             "Quarto source",
             expected_qmd,
             {
-                str(path.relative_to(TUTORIAL))
+                path.relative_to(TUTORIAL).as_posix()
                 for path in TUTORIAL.glob("presentations/*.qmd")
                 if not path.name.startswith("._")
             },

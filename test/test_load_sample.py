@@ -264,7 +264,7 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
         text=True,
     )
     sample_root = build_lib / "vaft" / "data" / "samples" / "39915"
-    manifest = yaml.safe_load((sample_root / "manifest.yaml").read_text())
+    manifest = yaml.safe_load((sample_root / "manifest.yaml").read_text(encoding="utf-8"))
     assert manifest["generation"]["distribution_variant"] == "wheel"
     assert manifest["generation"]["equilibrium_time_slices"] == 3
     verify_sample_artifacts(sample_root, manifest)

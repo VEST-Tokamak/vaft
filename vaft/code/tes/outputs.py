@@ -54,7 +54,7 @@ def parse_result_scalars(result_file: Path) -> dict[str, Any]:
     are added alongside the raw labels.
     """
     scalars: dict[str, Any] = {}
-    for line in result_file.read_text().splitlines():
+    for line in result_file.read_text(encoding="utf-8").splitlines():
         if line.lstrip().startswith("["):          # reached a list block
             break
         if "FLUX-DIFFERENCE" in line or "COIL CURRENT" in line:
@@ -74,7 +74,7 @@ def parse_result_coils(result_file: Path) -> list[dict[str, float | int]]:
     ``index`` is the 1-based coil number as written by TES and stays an ``int``;
     the three current entries are floats in kA.
     """
-    text = result_file.read_text()
+    text = result_file.read_text(encoding="utf-8")
     block = re.search(r"EXT\. COIL CURRENT UPDATED.*?\n([\s\S]+?)(?=\n\n|\Z)", text)
     coils: list[dict[str, float | int]] = []
     if not block:

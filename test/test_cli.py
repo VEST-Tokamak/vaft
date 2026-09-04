@@ -12,7 +12,7 @@ from vaft.cli.summary import main as summary_main
 def test_filedb_cli_delegates_to_read_only_audit(tmp_path, capsys):
     legacy = tmp_path / "public"
     (legacy / "39915/omas").mkdir(parents=True)
-    (legacy / "39915/omas/39915_efit.json").write_text("reference")
+    (legacy / "39915/omas/39915_efit.json").write_text("reference", encoding="utf-8")
 
     exit_code = filedb_main(["audit", str(legacy)])
 
@@ -25,7 +25,7 @@ def test_filedb_cli_delegates_to_read_only_audit(tmp_path, capsys):
 def test_top_level_cli_dispatches_filedb_workflow(tmp_path, capsys):
     legacy = tmp_path / "public"
     (legacy / "39915/omas").mkdir(parents=True)
-    (legacy / "39915/omas/39915_efit.json").write_text("reference")
+    (legacy / "39915/omas/39915_efit.json").write_text("reference", encoding="utf-8")
 
     exit_code = cli_main(["filedb", "audit", str(legacy)])
 

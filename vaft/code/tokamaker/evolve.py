@@ -217,7 +217,7 @@ def run_tokamaker_evolution(
         ],
     }
     sidecar_file = base.workdir / EVOLUTION_SIDECAR_NAME
-    sidecar_file.write_text(json.dumps(_json_safe(sidecar_payload), indent=2, sort_keys=True))
+    sidecar_file.write_text(json.dumps(_json_safe(sidecar_payload), indent=2, sort_keys=True), encoding="utf-8")
 
     gfiles = tuple(rec.gfile for rec in records if rec.gfile is not None)
     gtimes = tuple(rec.time for rec in records if rec.gfile is not None)

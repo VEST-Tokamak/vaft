@@ -198,7 +198,7 @@ def make_fake_oft(
 
         def save_eqdsk(self, filename, **kwargs):
             calls.append(("save_eqdsk", filename, kwargs))
-            Path(filename).write_text("fake gEQDSK\n")
+            Path(filename).write_text("fake gEQDSK\n", encoding="utf-8")
 
         def reset(self):
             calls.append(("reset",))
