@@ -179,7 +179,7 @@ class HSDSDomainCache:
 
     def _load_manifest(self) -> None:
         try:
-            payload = json.loads(self.manifest_path.read_text())
+            payload = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict) and isinstance(payload.get("domains"), dict):
                 self._manifest = payload
         except (OSError, ValueError):
@@ -191,7 +191,7 @@ class HSDSDomainCache:
         temporary = self.manifest_path.with_suffix(".tmp")
         temporary.write_text(
             json.dumps(self._manifest, indent=2, sort_keys=True) + "\n"
-        )
+        , encoding="utf-8")
         temporary.replace(self.manifest_path)
 
     def _remote_info(self, remote_uri: str) -> dict[str, str | None]:

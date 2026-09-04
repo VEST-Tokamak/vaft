@@ -146,10 +146,10 @@ def test_json_and_markdown_reports_are_machine_and_human_readable(tmp_path):
     )
 
     assert written == (json_path, markdown_path)
-    payload = json.loads(json_path.read_text())
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert payload["summary"]["passed"] is False
     assert payload["entries"][0]["kind"] == "numerical"
-    markdown = markdown_path.read_text()
+    markdown = markdown_path.read_text(encoding="utf-8")
     assert "Status: **FAIL**" in markdown
     assert "magnetics.ip.0.data" in markdown
 
@@ -168,7 +168,7 @@ def test_integer_and_nonfinite_differences_produce_strict_json(tmp_path):
     report = tmp_path / "comparison.json"
 
     write_comparison_reports(result, json_path=report)
-    payload = json.loads(report.read_text())
+    payload = json.loads(report.read_text(encoding="utf-8"))
     by_path = {entry["path"]: entry for entry in payload["entries"]}
 
     assert by_path["magnetics.ip.0.data"]["max_abs_error"] == 1.0
@@ -193,7 +193,7 @@ def test_zero_reference_error_is_json_serializable(tmp_path):
     report = tmp_path / "zero-reference.json"
 
     write_comparison_reports(result, json_path=report)
-    entry = json.loads(report.read_text())["entries"][0]
+    entry = json.loads(report.read_text(encoding="utf-8"))["entries"][0]
 
     assert entry["max_abs_error"] == 1.0
     assert entry["max_rel_error"] is None

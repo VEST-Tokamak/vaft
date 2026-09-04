@@ -67,9 +67,9 @@ def generated(tmp_path):
 
 
 def test_generated_coil_in_matches_reference_semantics(generated):
-    scalars, names, currents = _parse_coil_control(generated.read_text())
+    scalars, names, currents = _parse_coil_control(generated.read_text(encoding="utf-8"))
     ref_scalars, ref_names, ref_currents = _parse_coil_control(
-        (REFERENCE_DIR / "coil.in").read_text()
+        (REFERENCE_DIR / "coil.in").read_text(encoding="utf-8")
     )
 
     for key in ("machine", "ip_direction", "bt_direction", "ceq_type"):
@@ -136,7 +136,7 @@ def test_write_coil_in_multiple_sets(tmp_path):
             CoilInputSpec("LOW", (-1.0,) * 6),
         ],
     )
-    scalars, names, currents = _parse_coil_control(out.read_text())
+    scalars, names, currents = _parse_coil_control(out.read_text(encoding="utf-8"))
     assert int(scalars["coil_num"]) == 2
     assert names == {1: "UP", 2: "LOW"}
     assert currents[2] == pytest.approx([-1.0] * 6)
@@ -145,7 +145,7 @@ def test_write_coil_in_multiple_sets(tmp_path):
 @pytest.fixture()
 def case(tmp_path):
     geqdsk = tmp_path / "g048226.00300"
-    geqdsk.write_text(GFILE_TEXT)
+    geqdsk.write_text(GFILE_TEXT, encoding="utf-8")
     return gpec.GPECCaseInputs(
         shot=48226,
         time_ms=300,
@@ -175,7 +175,7 @@ def test_prepare_with_coil_specs_generates_inputs(no_gpec_env, case):
     assert staged.read_bytes() == Path(data_path("gpec/vest_MID.dat")).read_bytes()
 
     scalars, names, currents = _parse_coil_control(
-        (run_dir / "coil.in").read_text()
+        (run_dir / "coil.in").read_text(encoding="utf-8")
     )
     assert names == {1: "MID"}
     assert currents[1] == pytest.approx(list(REFERENCE_CURRENTS))
@@ -196,7 +196,7 @@ def test_explicit_coil_in_wins_over_coil_specs(no_gpec_env, case, tmp_path):
     result = gpec.prepare_gpec_suite_case(case, config)
     assert result.ok
     run_dir = case.workdir / "00300" / "gpec" / "nn=1"
-    assert (run_dir / "coil.in").read_text() == override.read_text()
+    assert (run_dir / "coil.in").read_text(encoding="utf-8") == override.read_text(encoding="utf-8")
     assert not (run_dir / "coil").exists()
 
 
@@ -206,7 +206,7 @@ def test_default_prepare_is_unchanged_without_coil_specs(no_gpec_env, case):
     )
     assert result.ok
     run_dir = case.workdir / "00300" / "gpec" / "nn=1"
-    text = (run_dir / "coil.in").read_text()
+    text = (run_dir / "coil.in").read_text(encoding="utf-8")
     assert "coil_num=3" in text
     assert 'coil_name(1)="UP"' in text
     assert not (run_dir / "coil").exists()

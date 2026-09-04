@@ -375,7 +375,7 @@ def _write_position_csv(tmp_path):
         "shot,mid TP position[m],upper TP position[m]\n"
         f"{MID_SHOT_EARLY},0.70,0.55\n"
         f"{UPPER_SHOT_POST_INSTALL},0.71,0.56\n"
-    )
+    , encoding="utf-8")
     return csv_path
 
 

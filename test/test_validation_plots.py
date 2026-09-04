@@ -335,7 +335,7 @@ def test_generate_stage_plots_writes_the_manifest_the_metadata_references(
         env={**os.environ, "PYTHONPATH": str(REPO_ROOT), "MPLBACKEND": "Agg"},
     )
     assert result.returncode == 0, result.stderr
-    payload = json.loads(metadata.read_text())
+    payload = json.loads(metadata.read_text(encoding="utf-8"))
     persisted = {path.name for path in (tmp_path / "plot").iterdir()}
     assert {
         row["file"] for row in payload["plots"] if row["status"] == "generated"

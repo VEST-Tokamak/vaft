@@ -92,7 +92,7 @@ def test_terror_is_the_normalized_grad_shafranov_iteration_error(afile):
 def test_negative_values_are_not_split_on_whitespace(afile):
     # Fixed-width e16.9 records: a negative value runs together with the value
     # before it, so whitespace tokenizing silently loses values.
-    text = Path(data_path(AFILE)).read_text()
+    text = Path(data_path(AFILE)).read_text(encoding="utf-8")
     lines = text.splitlines()
     run_together = [line for line in lines if "E+0" in line and "-0." in line[2:]]
     assert run_together, "the fixture must exercise the run-together case"
@@ -147,7 +147,7 @@ def test_a_malformed_file_raises_rather_than_returning_wrong_values(
     tmp_path, content, match
 ):
     path = tmp_path / "a000000.00000"
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     with pytest.raises(AEQDSKError, match=match):
         read_aeqdsk(path)
 
@@ -155,19 +155,19 @@ def test_a_malformed_file_raises_rather_than_returning_wrong_values(
 def test_a_layout_that_does_not_match_write_a_is_refused(tmp_path):
     # The guard that matters: a build whose a-file differs must fail loudly
     # rather than hand back values read from the wrong positions.
-    original = Path(data_path(AFILE)).read_text().splitlines()
+    original = Path(data_path(AFILE)).read_text(encoding="utf-8").splitlines()
     truncated = original[:20] + original[25:]
     path = tmp_path / "a000000.00000"
-    path.write_text("\n".join(truncated) + "\n")
+    path.write_text("\n".join(truncated) + "\n", encoding="utf-8")
     with pytest.raises(AEQDSKError, match="write_a.f90 with nco2v"):
         read_aeqdsk(path)
 
 
 def test_a_wrong_counts_record_is_refused(tmp_path):
-    original = Path(data_path(AFILE)).read_text().splitlines()
+    original = Path(data_path(AFILE)).read_text(encoding="utf-8").splitlines()
     original[25] = "    11   32   16    0"  # magpri halved
     path = tmp_path / "a000000.00000"
-    path.write_text("\n".join(original) + "\n")
+    path.write_text("\n".join(original) + "\n", encoding="utf-8")
     with pytest.raises(AEQDSKError, match="after the counts record"):
         read_aeqdsk(path)
 

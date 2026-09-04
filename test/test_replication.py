@@ -50,7 +50,7 @@ def staged(tmp_path):
 
     manifest = db.omas_manifest("diagnostics", shot=39915)
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text(json.dumps({"stage": "diagnostics", "status": "success"}))
+    manifest.write_text(json.dumps({"stage": "diagnostics", "status": "success"}), encoding="utf-8")
     return db
 
 
@@ -91,7 +91,7 @@ def test_a_missing_manifest_is_refused_rather_than_assumed_complete(tmp_path):
     db = FileDB(tmp_path)
     product = db.omas_product("diagnostics", shot=39915)
     product.parent.mkdir(parents=True, exist_ok=True)
-    product.write_text("{}")
+    product.write_text("{}", encoding="utf-8")
 
     with pytest.raises(ProductNotEligibleError, match="No stage manifest"):
         replicate_stage("diagnostics", 39915, filedb=db)
@@ -100,7 +100,7 @@ def test_a_missing_manifest_is_refused_rather_than_assumed_complete(tmp_path):
 @pytest.mark.parametrize("status", ["skipped", "blocked", "failed"])
 def test_an_unfinished_stage_has_nothing_to_replicate(staged, status):
     manifest = staged.omas_manifest("diagnostics", shot=39915)
-    manifest.write_text(json.dumps({"stage": "diagnostics", "status": status}))
+    manifest.write_text(json.dumps({"stage": "diagnostics", "status": status}), encoding="utf-8")
 
     with pytest.raises(ProductNotEligibleError, match="nothing to replicate"):
         replicate_stage("diagnostics", 39915, filedb=staged)
@@ -108,7 +108,7 @@ def test_an_unfinished_stage_has_nothing_to_replicate(staged, status):
 
 def test_a_manifest_with_no_status_is_refused(staged):
     manifest = staged.omas_manifest("diagnostics", shot=39915)
-    manifest.write_text(json.dumps({"stage": "diagnostics"}))
+    manifest.write_text(json.dumps({"stage": "diagnostics"}), encoding="utf-8")
 
     with pytest.raises(ProductNotEligibleError, match="records no status"):
         replicate_stage("diagnostics", 39915, filedb=staged)
@@ -144,7 +144,7 @@ def test_a_product_carrying_none_of_its_owned_ids_is_refused(tmp_path, monkeypat
     save_local(ods, product)
     manifest = db.omas_manifest("eddy", shot=39915)
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text(json.dumps({"status": "success"}))
+    manifest.write_text(json.dumps({"status": "success"}), encoding="utf-8")
 
     _patch_remote(monkeypatch, sent=[])
     with pytest.raises(ProductNotEligibleError, match="none of the IDS this stage owns"):
@@ -159,7 +159,7 @@ def test_the_record_names_the_source_actually_written(staged, monkeypatch):
     assert record.source == "main"
     assert record.remote_uri == "hdf5://main/39915/"
     written = json.loads(
-        staged.omas_replication_record("diagnostics", shot=39915).read_text()
+        staged.omas_replication_record("diagnostics", shot=39915).read_text(encoding="utf-8")
     )
     assert written["source"] == "main"
 
@@ -411,7 +411,7 @@ def _stage_product(db, stage, shot, ods, status="success"):
     save_local(ods, product)
     manifest = db.omas_manifest(stage, shot=shot)
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text(json.dumps({"stage": stage, "status": status}))
+    manifest.write_text(json.dumps({"stage": stage, "status": status}), encoding="utf-8")
 
 
 def test_a_vacuum_shot_reaches_main_without_an_equilibrium(tmp_path, monkeypatch):

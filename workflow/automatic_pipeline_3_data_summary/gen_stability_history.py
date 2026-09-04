@@ -145,7 +145,7 @@ def extract_sas_flag_from_in_file(stability_dir: str, code_name: str) -> str | N
         return None
 
     try:
-        with open(in_file_path, 'r') as f:
+        with open(in_file_path, 'r', encoding='utf-8') as f:
             for line in f:
                 # Use regex for robust matching (ignores whitespace and case)
                 match = re.search(r'^\s*sas_flag\s*=\s*([tf])', line, re.IGNORECASE)

@@ -84,10 +84,12 @@ def _unjustified(path: Path) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    "path", list(_scanned_files()), ids=lambda p: str(p.relative_to(PACKAGE_ROOT))
+    "path", list(_scanned_files()), ids=lambda p: p.relative_to(PACKAGE_ROOT).as_posix()
 )
 def test_time_domain_interpolation_is_classified(path):
-    relative = str(path.relative_to(PACKAGE_ROOT))
+    # SPATIAL_ONLY_MODULES is keyed by POSIX path, so compare in that
+    # grammar -- str() yields "process\atomic.py" on Windows and never matches.
+    relative = path.relative_to(PACKAGE_ROOT).as_posix()
     if relative in SPATIAL_ONLY_MODULES:
         pytest.skip(f"{relative} interpolates over space, not time")
     offenders = _unjustified(path)

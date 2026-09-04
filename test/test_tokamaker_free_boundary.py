@@ -116,11 +116,11 @@ def test_dry_run_writes_pending_manifests(tmp_path):
     result = scan.dry_run()
 
     assert all(case.status is fb.CaseStatus.PENDING for case in result.cases)
-    payload = json.loads(result.manifest.read_text())
+    payload = json.loads(result.manifest.read_text(encoding="utf-8"))
     assert payload["schema_version"] == 1
     assert payload["solver"] == "tokamaker"
     assert [c["status"] for c in payload["cases"]] == ["pending"] * 3
-    case_payload = json.loads(result.cases[0].manifest.read_text())
+    case_payload = json.loads(result.cases[0].manifest.read_text(encoding="utf-8"))
     assert case_payload["status"] == "pending"
     assert case_payload["config_sha256"] == scan.cases[0].config_sha
 
@@ -155,11 +155,11 @@ def test_run_lifecycle_and_manifests(tmp_path, monkeypatch):
     assert case.topology["topology"] == "unknown"
     assert result.cases[1].continuation_from == result.cases[0].case_id
 
-    payload = json.loads(case.manifest.read_text())
+    payload = json.loads(case.manifest.read_text(encoding="utf-8"))
     assert payload["status"] == "succeeded"
     assert payload["commanded_currents_A"]["PF2"] == pytest.approx(320.0)
     assert payload["held"]["ip"] == pytest.approx(32.0e3)  # magnetics Ip at 0.32
-    scan_payload = json.loads(result.manifest.read_text())
+    scan_payload = json.loads(result.manifest.read_text(encoding="utf-8"))
     assert [c["status"] for c in scan_payload["cases"]] == ["succeeded"] * 3
 
 
@@ -188,7 +188,7 @@ def test_failure_is_recorded_and_chain_recovers(tmp_path, monkeypatch):
     names = [entry[0] for entry in calls]
     assert "set_psi" in names
     # failed case stays visible in the scan manifest
-    payload = json.loads(result.manifest.read_text())
+    payload = json.loads(result.manifest.read_text(encoding="utf-8"))
     assert [c["status"] for c in payload["cases"]] == [
         "succeeded", "not_converged", "succeeded",
     ]
@@ -260,9 +260,9 @@ def test_dry_run_preserves_completed_state(tmp_path, monkeypatch):
 
     result = _scan(tmp_path).dry_run()
     assert [case.status.value for case in result.cases] == ["succeeded"] * 3
-    scan_payload = json.loads(result.manifest.read_text())
+    scan_payload = json.loads(result.manifest.read_text(encoding="utf-8"))
     assert [c["status"] for c in scan_payload["cases"]] == ["succeeded"] * 3
-    case_payload = json.loads(result.cases[0].manifest.read_text())
+    case_payload = json.loads(result.cases[0].manifest.read_text(encoding="utf-8"))
     assert case_payload["status"] == "succeeded"
     assert case_payload["achieved"]["Ip"] == pytest.approx(51.0e3)
 
@@ -294,7 +294,7 @@ def test_resume_reclassifies_when_thresholds_change(tmp_path, monkeypatch):
     for case in result.cases:
         assert case.topology["topology"] == "limited"
         assert case.topology["active_tolerance"] == pytest.approx(1.0e-2)
-        payload = json.loads(case.manifest.read_text())
+        payload = json.loads(case.manifest.read_text(encoding="utf-8"))
         assert payload["topology"]["topology"] == "limited"
         assert payload["topology"]["active_tolerance"] == pytest.approx(1.0e-2)
 
@@ -335,7 +335,7 @@ def test_resume_reclassification_failure_keeps_the_stored_topology(tmp_path, mon
     result = _scan(tmp_path, active_tolerance=1.0e-2).run(resume=True)
     for case in result.cases:
         assert case.topology["active_tolerance"] == pytest.approx(1.0e-2)
-        payload = json.loads(case.manifest.read_text())
+        payload = json.loads(case.manifest.read_text(encoding="utf-8"))
         assert payload["topology"]["active_tolerance"] == pytest.approx(1.0e-2)
 
 

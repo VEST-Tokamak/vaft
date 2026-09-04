@@ -44,7 +44,7 @@ def test_raw_redump_writes_flat_serial_filedb_products(tmp_path, monkeypatch):
         manifest = directory / f"vest_{shot}_daq_manifest.json"
         assert dump.is_file()
         assert manifest.is_file()
-        assert json.loads(manifest.read_text())["output"]["name"] == dump.name
+        assert json.loads(manifest.read_text(encoding="utf-8"))["output"]["name"] == dump.name
         assert not (directory / "output").exists()
         assert not (directory / "metadata").exists()
 
@@ -65,7 +65,7 @@ def test_raw_redump_adds_a_manifest_to_a_valid_existing_dump(tmp_path, monkeypat
         ["--filedb-root", str(root), "--shots", "48223", "--inter-shot-delay", "0"]
     ) == 0
     manifest = root / "raw/48223/vest_48223_daq_manifest.json"
-    assert json.loads(manifest.read_text())["source"]["kind"] == "existing-filedb"
+    assert json.loads(manifest.read_text(encoding="utf-8"))["source"]["kind"] == "existing-filedb"
 
 
 def test_raw_redump_uses_the_fixed_default_range_and_allows_an_override():

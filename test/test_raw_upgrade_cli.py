@@ -63,11 +63,11 @@ def test_existing_manifest_keeps_its_provenance_and_gets_a_fresh_sha(tmp_path):
         "source": {"kind": "vest-sql", "name": dump.name},
         "custom_note": "written by the original backfill",
         "output": {"name": dump.name, "sha256": "stale"},
-    }))
+    }), encoding="utf-8")
 
     assert raw_upgrade.main(["--filedb-root", str(tmp_path)]) == 0
 
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["source"]["kind"] == "vest-sql"          # not downgraded
     assert manifest["custom_note"] == "written by the original backfill"
     assert manifest["output"]["sha256"] == sha256_file(dump)  # refreshed
@@ -80,7 +80,7 @@ def test_missing_manifest_gets_the_reduced_existing_filedb_form(tmp_path):
     assert raw_upgrade.main(["--filedb-root", str(tmp_path)]) == 0
 
     manifest = json.loads(
-        (dump.parent / f"vest_{shot}_daq_manifest.json").read_text()
+        (dump.parent / f"vest_{shot}_daq_manifest.json").read_text(encoding="utf-8")
     )
     assert manifest["source"]["kind"] == "existing-filedb"
     assert manifest["output"]["sha256"] == sha256_file(dump)

@@ -54,9 +54,11 @@ def test_collect_efit_outputs_discovers_and_parses(tmp_path):
     gdir.mkdir()
     adir.mkdir()
     kdir.mkdir()
-    (gdir / "g039915.00319").write_text(data_path("efit/g039915.00319").read_text())
-    (adir / "a039915.00319").write_text("dummy")
-    (kdir / "k039915.00319").write_text("dummy")
+    (gdir / "g039915.00319").write_text(
+        data_path("efit/g039915.00319").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (adir / "a039915.00319").write_text("dummy", encoding="utf-8")
+    (kdir / "k039915.00319").write_text("dummy", encoding="utf-8")
 
     result = collect_efit_outputs(tmp_path, EFITConfig(shot=39915))
 
@@ -74,9 +76,9 @@ def test_collect_efit_outputs_prefers_fresh_copy_on_workflow_rerun(tmp_path):
     staged = tmp_path / "gfile"
     staged.mkdir()
     name = "g039915.00319"
-    contents = data_path(f"efit/{name}").read_text()
-    (staged / name).write_text(contents)
-    (tmp_path / name).write_text(contents)
+    contents = data_path(f"efit/{name}").read_text(encoding="utf-8")
+    (staged / name).write_text(contents, encoding="utf-8")
+    (tmp_path / name).write_text(contents, encoding="utf-8")
 
     result = collect_efit_outputs(tmp_path, EFITConfig(shot=39915))
 

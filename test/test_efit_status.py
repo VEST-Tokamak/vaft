@@ -208,9 +208,9 @@ def test_collection_preserves_partial_success_and_time_alignment(tmp_path):
     (tmp_path / "gfile").mkdir()
     reference = data_path("efit/g039915.00319").read_text(encoding="utf-8")
     for suffix in ("00319", "00320"):
-        (tmp_path / "kfile" / f"k039915.{suffix}").write_text("input")
-    (tmp_path / "gfile" / "g039915.00319").write_text(reference)
-    (tmp_path / "gfile" / "g039915.00320").write_text("not a g-file")
+        (tmp_path / "kfile" / f"k039915.{suffix}").write_text("input", encoding="utf-8")
+    (tmp_path / "gfile" / "g039915.00319").write_text(reference, encoding="utf-8")
+    (tmp_path / "gfile" / "g039915.00320").write_text("not a g-file", encoding="utf-8")
 
     result = collect_efit_outputs(
         tmp_path, EFITConfig(shot=39915, times=(0.319, 0.320, 0.321))

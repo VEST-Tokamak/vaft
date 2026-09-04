@@ -54,7 +54,7 @@ def site(tmp_path_factory):
 
     import yaml
 
-    generators = yaml.safe_load((source / "generators.yml").read_text())["generators"]
+    generators = yaml.safe_load((source / "generators.yml").read_text(encoding="utf-8"))["generators"]
     environment = dict(os.environ, PYTHONPATH=str(ROOT))
     for generator in generators:
         subprocess.run(
