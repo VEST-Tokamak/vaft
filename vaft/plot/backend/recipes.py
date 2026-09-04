@@ -698,9 +698,9 @@ class PanelRecipe:
     """A composite built from other canonical plots, one per panel.
 
     ``member_defaults`` are renderer keyword arguments applied to every member
-    beneath whatever the caller passes.  ``keep_unavailable`` renders a member
-    the input cannot support as a labelled empty panel instead of dropping it,
-    so the composite keeps one shape on every shot (issue #260).
+    beneath whatever the caller passes.  A member the input cannot support is
+    omitted and the grid shrinks; the members that remain keep their declared
+    order, so what is drawn is always in a known order (issue #476).
     """
 
     members: tuple[str, ...]
@@ -708,7 +708,6 @@ class PanelRecipe:
     share_x: bool = True
     suptitle: str = ""
     member_defaults: Mapping[str, Any] = field(default_factory=dict)
-    keep_unavailable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1395,7 +1394,6 @@ RECIPES: dict[str, Any] = {
         # An overview compares the trustworthy signals; flagged channels would
         # only obscure them, so they are excluded here and only here.
         member_defaults={"validity": "mask"},
-        keep_unavailable=True,
     ),
     "interferometer_overview": PanelRecipe(
         members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
@@ -4241,11 +4239,9 @@ def _build_panels(
     # latter beneath the caller's style into the renderer (issue #260).
     member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
     member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
-    members, placeholders = [], []
-    for slot, name in enumerate(recipe.members):
+    members = []
+    for name in recipe.members:
         if not any(entry_supports(ods, name) for _, ods in entries):
-            if recipe.keep_unavailable:
-                placeholders.append((slot, f"{name}\nnot available in this input"))
             continue
         merged = {**member_options, **options}
         # An overlay applies to the members that can carry it: a composite
@@ -4269,10 +4265,10 @@ def _build_panels(
             suptitle = f"{suptitle} #{shot}"
     return Panels(
         models=tuple(members),
-        ncols=recipe.ncols,
+        # The declared column count, never wider than what is drawn.
+        ncols=max(1, min(recipe.ncols, len(members))),
         share_x=recipe.share_x,
         suptitle=suptitle,
-        placeholders=tuple(placeholders),
         member_styles=tuple(dict(member_style) for _ in members),
     )
 
@@ -4949,36 +4945,25 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     # FF' whose combination is that current density -- and the slice's global
     # quantities.  An EFIT g-file stores no j_tor; it is derived for this
     # slice on a private copy (the caller's ODS is never written), and the
-    # panel says so.  A profile that is neither stored nor derivable keeps
-    # its slot as a labelled placeholder so the figure has one shape on
-    # every input.
+    # panel says so.  A profile that is neither stored nor derivable is
+    # omitted and its column re-stacks to fill the height (issue #476).
     derived, derived_entries = _derived_profiles_for(ods, index)
-    slots: list[Any] = [field]
-    placeholders: list[tuple[int, str]] = []
-    for member in _OVERVIEW_PROFILES:
-        profile = None
-        source, source_entries = (ods, entries)
-        if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
-            source, source_entries = (derived, derived_entries)
-        if entry_supports(source, member):
-            try:
-                profile = _build_profile_1d(
-                    source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
-                )
-            except ValueError:
-                profile = None
-        if profile is None or not profile.series:
-            leaf = RECIPES[member].y_path.rsplit(".", 1)[-1]
-            placeholders.append((len(slots), f"profiles_1d.{leaf}\nneither stored nor derivable"))
-            slots.append(None)
-        else:
-            if source is derived:
-                profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
-            slots.append(profile)
-    # The text panel reads the derived copy too; the representative-slice
-    # choice above read the caller's ODS, so a derived volume never changes
-    # which slice was picked or the reason stated in the title.
-    slots.append(TextPanel(lines=tuple(_slice_global_lines(ods, index, derived)), title="Global quantities"))
+    columns: list[list[Any]] = []
+    for column in _OVERVIEW_COLUMNS:
+        panels: list[Any] = []
+        for member in column:
+            if member is _GLOBAL_QUANTITIES:
+                # The text panel reads the derived copy too; the representative-
+                # slice choice above read the caller's ODS, so a derived volume
+                # never changes which slice was picked or the title's reason.
+                panels.append(TextPanel(lines=tuple(_slice_global_lines(ods, index, derived)), title="Global quantities"))
+                continue
+            profile = _overview_profile(member, ods, entries, derived, derived_entries, index)
+            if profile is not None:
+                panels.append(profile)
+        columns.append(panels)
+    nrows, ncols, spans = _overview_spans([len(panels) for panels in columns])
+    models = [field, *(panel for panels in columns for panel in panels)]
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     shot = f" #{pulse}" if pulse not in (None, "") else ""
     time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
@@ -4987,11 +4972,50 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
         f"Equilibrium slice{shot} — {time_text} (slice {index + 1} of {total}, {reason})",
     )
     return Panels(
-        models=tuple(model for model in slots if model is not None),
-        placeholders=tuple(placeholders),
-        nrows=3, ncols=3, share_x=False, suptitle=suptitle,
-        spans=_OVERVIEW_SPANS,
+        models=tuple(models), nrows=nrows, ncols=ncols, share_x=False, suptitle=suptitle, spans=spans,
     )
+
+
+def _overview_profile(member: str, ods: Any, entries, derived: Any, derived_entries, index: int):
+    """One 1-D member of the slice overview, stored first, else derived, else ``None``."""
+    source, source_entries = (ods, entries)
+    if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
+        source, source_entries = (derived, derived_entries)
+    if not entry_supports(source, member):
+        return None
+    try:
+        profile = _build_profile_1d(
+            source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
+        )
+    except ValueError:
+        return None
+    if not profile.series:
+        return None
+    if source is derived:
+        profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
+    return profile
+
+
+def _overview_spans(column_counts: Sequence[int]) -> tuple[int, int, tuple[tuple[int, int, int, int], ...]]:
+    """``(nrows, ncols, spans)`` of a slice overview whose columns hold ``column_counts`` panels.
+
+    The flux map takes the full height of the first column; every other
+    column stacks its panels to the same height, so a column with two panels
+    shows them half-height each rather than leaving a blank cell.  The grid
+    rows are the least common multiple of the counts; a column with nothing
+    to show is dropped.
+    """
+    import math
+
+    counts = [int(count) for count in column_counts if count]
+    nrows = math.lcm(*counts) if counts else 1
+    spans: list[tuple[int, int, int, int]] = [(0, 0, nrows, 1)]
+    column = 1
+    for count in counts:
+        rowspan = nrows // count
+        spans.extend((k * rowspan, column, rowspan, 1) for k in range(count))
+        column += 1
+    return nrows, column, tuple(spans)
 
 
 def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
@@ -5012,22 +5036,14 @@ def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
     return private, [("", private)]
 
 
-#: The 1-D members of the slice overview, in slot order after the flux map:
-#: column 2 top to bottom, then column 3 top to bottom (the text panel last).
-_OVERVIEW_PROFILES = (
-    "equilibrium_profile_pressure",
-    "equilibrium_profile_q",
-    "equilibrium_profile_j_tor",
-    "equilibrium_profile_pprime",
-    "equilibrium_profile_ffprime",
-)
+#: The text panel's place in the overview columns.
+_GLOBAL_QUANTITIES = "global_quantities"
 
-#: Slot geometry of the slice overview: the flux map spans the three rows of
-#: column 1; columns 2 and 3 stack three panels each.
-_OVERVIEW_SPANS = (
-    (0, 0, 3, 1),
-    (0, 1, 1, 1), (1, 1, 1, 1), (2, 1, 1, 1),
-    (0, 2, 1, 1), (1, 2, 1, 1), (2, 2, 1, 1),
+#: The columns of the slice overview after the flux map, top to bottom: the
+#: plasma profiles, then the fitted source terms with the global quantities.
+_OVERVIEW_COLUMNS: tuple[tuple[str, ...], ...] = (
+    ("equilibrium_profile_pressure", "equilibrium_profile_q", "equilibrium_profile_j_tor"),
+    ("equilibrium_profile_pprime", "equilibrium_profile_ffprime", _GLOBAL_QUANTITIES),
 )
 
 

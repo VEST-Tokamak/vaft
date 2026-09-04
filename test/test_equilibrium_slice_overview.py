@@ -122,7 +122,7 @@ def test_the_model_composes_canonical_members_for_one_slice(shots):
     assert isinstance(j_tor, Profile1D) and j_tor.title.endswith("(derived)") and j_tor.series
     assert isinstance(pprime, Profile1D) and isinstance(ffprime, Profile1D)
     assert isinstance(text, TextPanel)
-    assert model.placeholders == () and "j_tor" not in shots[39915]["equilibrium.time_slice.2.profiles_1d"]
+    assert "j_tor" not in shots[39915]["equilibrium.time_slice.2.profiles_1d"]
     assert model.nrows == 3 and model.ncols == 3 and model.spans[0] == (0, 0, 3, 1)
     # The 2-D panel is the same one plot_equilibrium_field_psi draws for that slice.
     same = build_model("equilibrium_field_psi", normalize_entries(shots[39915]), time_slice=2)
@@ -234,7 +234,7 @@ def test_the_efit_qa_stage_keeps_its_history_artifact():
     assert efit["equilibrium_overview_histories"].filename == "equilibrium_overview.png"
 
 
-def test_a_profile_that_cannot_be_derived_keeps_its_slot(shots, monkeypatch):
+def test_a_profile_that_cannot_be_derived_is_omitted_and_the_column_restacks(shots, monkeypatch):
     import vaft.omas
 
     def refuse(*args, **kwargs):
@@ -242,12 +242,29 @@ def test_a_profile_that_cannot_be_derived_keeps_its_slot(shots, monkeypatch):
 
     monkeypatch.setattr(vaft.omas, "update_equilibrium_derived_profiles", refuse)
     model = build_model("equilibrium_overview", normalize_entries(shots[39915]), time_slice=2)
-    assert len(model.models) == 6
-    assert model.placeholders == ((3, "profiles_1d.j_tor\nneither stored nor derivable"),)
+    # j_tor is omitted and its column re-stacks: two half-height panels.
+    assert len(model.models) == 6 and (model.nrows, model.ncols) == (6, 3)
+    assert model.spans[:3] == ((0, 0, 6, 1), (0, 1, 3, 1), (3, 1, 3, 1))
+    assert model.spans[3:] == ((0, 2, 2, 1), (2, 2, 2, 1), (4, 2, 2, 1))
+    assert [m.title for m in model.models[1:3]] == ["Pressure", "Safety Factor q"]
     # Without a derivation, every derivable quantity reads "not stored" again.
     lines = dict(line.split(None, 1) for line in model.models[-1].lines)
     assert all(lines[label] == "not stored" for label in ("beta_p", "beta_N", "li_3", "volume", "area", "W_mhd"))
     assert lines["Ip"].endswith(" kA")
     figure, axes = vaft.omas.plot_equilibrium_overview(shots[39915], time_slice=2)
-    assert axes[3].get_title() == "" and "j_tor" in axes[3].texts[0].get_text()
+    assert axes.shape == (6,) and [a.get_title() for a in axes] == [
+        "Poloidal flux", "Pressure", "Safety Factor q", "dp/dpsi", "F dF/dpsi", "Global quantities",
+    ]
+    # The figure keeps the height of a three-panel column, not six grid rows.
+    assert figure.get_size_inches()[1] < 12
     plt.close(figure)
+
+
+def test_the_overview_columns_restack_to_fill_their_height():
+    from vaft.plot.backend.recipes import _overview_spans
+
+    assert _overview_spans([3, 3]) == (3, 3, ((0, 0, 3, 1), (0, 1, 1, 1), (1, 1, 1, 1), (2, 1, 1, 1),
+                                              (0, 2, 1, 1), (1, 2, 1, 1), (2, 2, 1, 1)))
+    assert _overview_spans([2, 3])[:2] == (6, 3)
+    assert _overview_spans([0, 3]) == (3, 2, ((0, 0, 3, 1), (0, 1, 1, 1), (1, 1, 1, 1), (2, 1, 1, 1)))
+    assert _overview_spans([1, 1]) == (1, 3, ((0, 0, 1, 1), (0, 1, 1, 1), (0, 2, 1, 1)))
