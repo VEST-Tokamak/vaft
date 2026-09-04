@@ -50,7 +50,7 @@ EXECUTABLES = ("dcon", "match", "rdcon", "rmatch", "stride", "gpec")
 SOURCE_MARKERS = ("install/makefile", "install/DEFAULTS.inc", "install/TARGETS.inc", "dcon", "gpec")
 BUILD_REMEDIATION = (
     "Build the suite with:\n"
-    "         powershell -ExecutionPolicy Bypass -File install\\install_gpec_windows.ps1 <source> -BuildNetcdf"
+    "         powershell -ExecutionPolicy Bypass -File install\\install_gpec_windows.ps1 <source>"
 )
 
 #: Upstream's own self-contained regression case: an analytic Solov'ev
@@ -76,10 +76,14 @@ def _example_directory(source: Optional[str]) -> Optional[Path]:
 def check_netcdf_without_s3(prefix: Optional[str]) -> CheckResult:
     """The netCDF this suite links can let a process exit.
 
-    MSYS2's netCDF is built with the AWS S3 SDK, whose shutdown deadlocks on
-    Windows. A program linked against it writes every output correctly and then
-    never terminates, which no timeout can turn back into a usable workflow.
-    The installer's -BuildNetcdf compiles a netCDF without S3 for this reason.
+    MSYS2's netCDF and its HDF5 both carry the AWS S3 SDK, whose shutdown
+    handler waits on a condition variable that is never signalled. A program
+    linked against them writes every output correctly and then never exits.
+
+    Building netCDF without S3 does not help on its own: HDF5 pulls the same
+    SDK in. Until MSYS2 ships those packages without it, or both are built
+    from source, WSL2 is the route for this suite. This layer exists so that
+    shows up as one named line rather than as a run that never returns.
     """
     label = "netCDF without S3"
     if os.name != "nt":
@@ -92,8 +96,9 @@ def check_netcdf_without_s3(prefix: Optional[str]) -> CheckResult:
             label,
             FAIL,
             f"{AWS_MARKER} is installed beside the executables, so netCDF carries the S3 SDK",
-            "Rebuild with -BuildNetcdf. A suite linked against MSYS2's netCDF "
-            "finishes its work and then never exits.",
+            "A suite linked against these finishes its work and then never "
+            "exits. Use WSL2 for DCON/GPEC, or build HDF5 and netCDF without "
+            "S3 yourself and point -NetcdfHome at them. See install/README.md.",
         )
     manifest = read_manifest(prefix)
     home = (manifest or {}).get("netcdf_home")
@@ -205,8 +210,8 @@ def check_dcon_run(
                 label,
                 FAIL,
                 "DCON completed its calculation and then did not terminate",
-                "This is the netCDF S3 defect: rebuild with -BuildNetcdf so the "
-                "suite links a netCDF without the AWS SDK.",
+                "This is the AWS S3 shutdown defect in MSYS2 netCDF and HDF5. "
+                "Use WSL2 for this suite; see install/README.md.",
             ),
             workdir,
         )

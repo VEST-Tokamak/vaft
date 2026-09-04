@@ -289,7 +289,7 @@ to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 Need VAFT only?            -> the platform script above; you are done
 Need CHEASE?               -> obtain CHEASE, then install\install_chease_windows.ps1
 Need DCON/GPEC?            -> obtain GPEC,   then install\install_gpec_windows.ps1
-A native build blocks you? -> see Troubleshooting, then fall back to WSL2
+DCON/GPEC on Windows?      -> read the known limitation below first; use WSL2
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -316,7 +316,7 @@ instead, which rewrites those tracked files in your CHEASE tree.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install\install_chease_windows.ps1 C:\git\CHEASE
-powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -BuildNetcdf
+powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC
 ```
 
 Both build with the MinGW-w64 gfortran toolchain from MSYS2, which produces
@@ -332,7 +332,6 @@ install, not things a script installs behind you.
 | --- | --- |
 | `-InstallToolchain` | Install MSYS2 and the compiler packages. The only switch that changes anything outside the prefix. |
 | `-Prefix <path>` | Install somewhere other than `%LOCALAPPDATA%\vaft\external\<code>`. |
-| `-BuildNetcdf` | GPEC only. Compile a netCDF without S3 support into the prefix; see below for why this is not optional in practice. |
 | `-MaterializeSymlinks` | CHEASE only. Replace symbolic-link placeholders with copies of their targets. |
 | `-NoEnvironmentWiring` | Do not set `CHEASEHOME` / `GPECHOME`; print the command instead. |
 | `-CheckOnly` | Run the checker and change nothing. |
@@ -346,7 +345,6 @@ Everything lands in one self-contained prefix outside every checkout:
 %LOCALAPPDATA%\vaft\external\gpec\
     bin\   dcon.exe rdcon.exe stride.exe gpec.exe match.exe rmatch.exe
            + the runtime libraries those need
-    deps\  the netCDF built for them, when -BuildNetcdf was used
     logs\  the full build output
     vaft-external-install.json
 ```
@@ -409,10 +407,15 @@ the PE object format has no equivalent for, so an OpenMP build cannot assemble
 at all. The installer builds without OpenMP. Results are unaffected; long runs
 take longer than the same case on Linux.
 
-**netCDF has to come from `-BuildNetcdf`.** MSYS2's netCDF package links the AWS
-S3 SDK, whose shutdown deadlocks on Windows. A program built against it writes
-every output correctly, prints its normal-termination message, and then never
-exits — and the process cannot be killed. Six lines of Fortran reproduce it:
+**The DCON/GPEC suite does not yet finish a run on Windows.** This is the one
+reason that path is not called supported, and it is not VAFT's defect or GPEC's.
+
+MSYS2's netCDF package *and* its HDF5 both link the AWS C++ S3 SDK. That SDK
+registers an `atexit` handler which waits on a condition variable that is never
+signalled, so a program linked against either writes every output correctly,
+prints its normal-termination message, and then never exits -- and the process
+cannot be killed, because the thread is blocked inside the kernel. Six lines of
+Fortran reproduce it with no GPEC or VAFT code involved:
 
 ```fortran
 program probe
@@ -423,9 +426,22 @@ program probe
 end program probe
 ```
 
-`-BuildNetcdf` compiles netCDF-C and netCDF-Fortran without S3 into the prefix,
-which is what makes the suite usable. The checker fails with a named reason if
-it finds the AWS libraries beside the executables.
+Building netCDF without S3 is **not** sufficient, because HDF5 pulls the same
+SDK in on its own. A complete fix needs an S3-free HDF5 as well as an S3-free
+netCDF, or -- better -- for MSYS2 to stop enabling S3 in those packages.
+
+Until then:
+
+- **CHEASE is fully supported natively.** It links neither library.
+- **For DCON/GPEC, use WSL2** (`install/windows_wsl.sh` plus the Linux build
+  recipe in `workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`).
+- If you build an S3-free HDF5 and netCDF yourself, point `-NetcdfHome` at them.
+
+Everything else about the native GPEC build is verified and works: it compiles,
+`check_gpec.py` finds all six executables through `$GPECHOME`, each starts with
+`PATH` stripped to `System32`, and DCON solves upstream's Solov'ev regression
+case to the correct energies. `check_gpec.py` reports the exit defect as its own
+named layer rather than leaving you with a run that never returns.
 
 ### What the build leaves in your source tree
 
@@ -593,5 +609,5 @@ into your question.
 | Windows native | Automated in CI, same install/uninstall cycle |
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
 | CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
-| DCON/GPEC, Windows native | Verified **manually**, same reason. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
+| DCON/GPEC, Windows native | **Not supported yet.** Builds, resolves and computes correctly, but a run never terminates -- see the AWS S3 note above. WSL2 is the documented fallback. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
 | CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |

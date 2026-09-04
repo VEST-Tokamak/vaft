@@ -23,11 +23,18 @@
         equivalent for, so an OpenMP build cannot assemble at all. The result is
         correct and serial.
 
-      * netCDF comes from a build made here, not from MSYS2, unless you pass
-        -NetcdfHome. MSYS2's netCDF links the AWS S3 SDK, whose shutdown
-        deadlocks on Windows: any program that writes a netCDF file finishes its
-        work and then never exits. -BuildNetcdf compiles a netCDF without S3
-        into the prefix, which is what makes the suite usable.
+    KNOWN LIMITATION, and the reason this path is not yet a supported one:
+    MSYS2's netCDF *and* its HDF5 both link the AWS S3 SDK, whose shutdown
+    handler waits on a condition variable that is never signalled. A suite built
+    against them solves correctly, writes every output, prints its normal
+    termination message -- and then never exits, and cannot be killed. Six lines
+    of Fortran that create and close a netCDF file reproduce it with no VAFT or
+    GPEC code involved.
+
+    Building netCDF without S3 is not sufficient, because HDF5 pulls the same
+    SDK in on its own. Until MSYS2 ships those packages without it, or an
+    S3-free HDF5 and netCDF are built from source, use WSL2 for the DCON/GPEC
+    workflow. CHEASE has no such dependency and is fully supported natively.
 
     Nothing is installed system-wide unless you pass -InstallToolchain.
 
@@ -39,12 +46,8 @@
     outside both the VAFT checkout and the GPEC source tree.
 
 .PARAMETER NetcdfHome
-    An existing netCDF installation to build against. Defaults to the one this
-    script builds under the prefix, and falls back to the MinGW environment's.
-
-.PARAMETER BuildNetcdf
-    Compile netCDF-C and netCDF-Fortran without S3 support into the prefix.
-    Needed once per prefix; see the note above about why.
+    An existing netCDF installation to build against. Defaults to the MinGW
+    environment's. See the known limitation above before relying on this.
 
 .PARAMETER Msys2Root
     MSYS2 installation root, when it is somewhere this script does not look.
@@ -79,7 +82,7 @@
     there, the GPECHOME user variable. Your source tree is left alone.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -BuildNetcdf
+    powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -CheckOnly
@@ -89,7 +92,6 @@ param(
     [Parameter(Position = 0)] [string] $SourcePath,
     [string] $Prefix,
     [string] $NetcdfHome,
-    [switch] $BuildNetcdf,
     [string] $Msys2Root,
     [ValidateSet('ucrt64', 'mingw64')] [string] $MinGWEnvironment = 'ucrt64',
     [switch] $InstallToolchain,
@@ -162,7 +164,7 @@ if ($Uninstall) {
 # ---------------------------------------------------------------------------
 
 if ($CheckOnly) {
-    foreach ($pair in @(@('InstallToolchain', $InstallToolchain), @('BuildNetcdf', $BuildNetcdf), @('Clean', $Clean))) {
+    foreach ($pair in @(@('InstallToolchain', $InstallToolchain), @('Clean', $Clean))) {
         if ($pair[1]) {
             Stop-WithGuidance "-CheckOnly changes nothing, so it cannot be combined with -$($pair[0])."
         }
@@ -200,58 +202,23 @@ New-Item -ItemType Directory -Path $binDirectory -Force | Out-Null
 
 $root = Resolve-Toolchain -Explicit $Msys2Root -MinGWEnvironment $MinGWEnvironment -Packages $Packages -InstallToolchain:$InstallToolchain
 
-$depsDirectory = Join-Path $prefixPath 'deps'
 $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 
 # ---------------------------------------------------------------------------
 # netCDF
+#
+# The suite links whichever netCDF -NetcdfHome names, defaulting to the MinGW
+# environment's. See the KNOWN LIMITATION in the description: that package, and
+# the HDF5 beneath it, both carry the AWS S3 SDK, and a suite built against them
+# finishes its work and then will not exit. Nothing here can undo that; the
+# checker detects it and says so.
 # ---------------------------------------------------------------------------
 
-if ($BuildNetcdf) {
-    $netcdfLog = Join-Path $prefixPath "logs\netcdf-build-$timestamp.log"
-    Write-Step 'Building netCDF without S3 support (10 to 20 minutes, once per prefix) ...'
-    $netcdfSteps = @(
-        'set -euo pipefail',
-        'deps="$(cygpath -u "$VAFT_DEPS")"',
-        'work="$(cygpath -u "$VAFT_WORK")"',
-        'mkdir -p "$work" "$deps"',
-        'cd "$work"',
-        '[ -f netcdf-c.tar.gz ] || curl -fsSL -o netcdf-c.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.3.tar.gz',
-        '[ -f netcdf-fortran.tar.gz ] || curl -fsSL -o netcdf-fortran.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.6.1.tar.gz',
-        'rm -rf netcdf-c-4.9.3 netcdf-fortran-4.6.1',
-        'tar xf netcdf-c.tar.gz',
-        'tar xf netcdf-fortran.tar.gz',
-        'cd "$work/netcdf-c-4.9.3"',
-        # --disable-s3 is the whole point; the -Wno- flags are because netCDF
-        # 4.9.3 predates the stricter defaults in gcc 14 and later.
-        './configure --prefix="$deps" --disable-s3 --disable-dap --disable-libxml2 --disable-byterange --disable-nczarr --disable-plugins --disable-testsets --disable-examples --disable-utilities --disable-static --enable-shared CFLAGS="-O2 -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-implicit-function-declaration" CPPFLAGS="-I/$VAFT_ENV/include" LDFLAGS="-L/$VAFT_ENV/lib"',
-        'make -j$VAFT_JOBS',
-        'make install',
-        'cd "$work/netcdf-fortran-4.6.1"',
-        './configure --prefix="$deps" --disable-static --enable-shared CFLAGS="-O2 -Wno-incompatible-pointer-types -Wno-implicit-function-declaration" CPPFLAGS="-I$deps/include -I/$VAFT_ENV/include" LDFLAGS="-L$deps/lib -L/$VAFT_ENV/lib"',
-        'make -j$VAFT_JOBS',
-        'make install'
-    )
-    Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -Command ($netcdfSteps -join '; ') `
-        -Variables @{
-            VAFT_DEPS = $depsDirectory
-            VAFT_WORK = (Join-Path $prefixPath 'build')
-            VAFT_ENV  = $MinGWEnvironment
-            VAFT_JOBS = $Jobs
-        } -LogPath $netcdfLog | Out-Null
-    Write-Result -Status PASS -Name 'netCDF without S3' -Detail $depsDirectory
-}
-
 if (-not $NetcdfHome) {
-    if (Test-Path -LiteralPath (Join-Path $depsDirectory 'include\netcdf.mod')) {
-        $NetcdfHome = $depsDirectory
-    }
-    else {
-        $NetcdfHome = Join-Path $root $MinGWEnvironment
-        Write-Result -Status SKIP -Name 'netCDF without S3' -Detail 'using the MinGW netCDF; see -BuildNetcdf in install\README.md'
-    }
+    $NetcdfHome = Join-Path $root $MinGWEnvironment
 }
 $netcdfUnix = ConvertTo-Msys2Path -WindowsPath $NetcdfHome
+Write-Result -Status PASS -Name 'netCDF' -Detail $NetcdfHome
 
 # ---------------------------------------------------------------------------
 # Build
@@ -334,12 +301,8 @@ something this installer can work around.
 }
 Write-Result -Status PASS -Name 'GPEC build' -Detail "$($Executables.Count) executables"
 
-$extraSearch = @()
-if (Test-Path -LiteralPath (Join-Path $depsDirectory 'bin')) {
-    $extraSearch += (Join-Path $depsDirectory 'bin')
-}
 Copy-RuntimeDependencies -Msys2Root $root -MinGWEnvironment $MinGWEnvironment `
-    -BinDirectory $binDirectory -ExtraSearchDirectories $extraSearch | Out-Null
+    -BinDirectory $binDirectory | Out-Null
 
 $installed = $Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" }
 if (-not (Test-ExecutableLoads -Executables $installed)) {
@@ -382,8 +345,13 @@ Write-ExternalSummary -Title $Title -NextSteps @(
 
 Write-Host ''
 Write-Host 'This build is serial: OpenMP cannot be used on Windows, for the reason'
-Write-Host 'given at the top of this script. Long GPEC runs will take longer than'
-Write-Host 'the same case on Linux.'
+Write-Host 'given at the top of this script, so long runs take longer than the same'
+Write-Host 'case on Linux.'
+Write-Host ''
+Write-Host 'KNOWN LIMITATION: a solver linked against MSYS2 netCDF/HDF5 completes its'
+Write-Host 'work and then does not exit, because those packages carry the AWS S3 SDK'
+Write-Host 'and its shutdown handler waits forever. Use WSL2 for DCON/GPEC until that'
+Write-Host 'is fixed upstream. install\README.md has the detail and the reproducer.'
 
 if ($script:Failed) { exit 1 }
 
