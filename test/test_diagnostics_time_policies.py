@@ -59,7 +59,7 @@ def test_configured_policy_splits_analysis_from_full_discharge():
         assert (policies[component].tstart, policies[component].tend) == (0.0, 1.0)
     # The shared plasma-analysis range (#409) is a window no component maps
     # onto: the EFIT constraint times and the diamagnetic-flux window search
-    # inside it, and the stretch before it is the baseline reference.
+    # inside it, and the stretch before it is the baseline.
     shared = policies.windows["plasma_analysis"]
     assert (shared.tstart, shared.tend, shared.dt) == (0.28, 0.36, SLOW_DT)
     assert not [c for c, p in policies.items() if p.name == "plasma_analysis"]
@@ -79,7 +79,8 @@ def test_stage_arguments_retune_the_analysis_window_only():
     timing = resolve_plasma_timing_policy()
     assert timing.window.name == "plasma_analysis"
     assert (timing.window.tstart, timing.window.tend) == (0.28, 0.36)
-    assert timing.reference_lead_s == 0.02
+    assert timing.baseline_lead_s == 0.02
+    assert timing.baseline_start == pytest.approx(0.26)
     assert set(timing.usability) >= {"min_baseline_mad", "rail_level"}
     assert set(timing.agreement) == {"onset_tolerance_s", "lag_tolerance_s", "offset_tolerance_s"}
     assert timing.lines == {}

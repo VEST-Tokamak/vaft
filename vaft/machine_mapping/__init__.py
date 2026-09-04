@@ -33,6 +33,9 @@ _LEGACY_REPLACEMENTS = {
     "vfit_PlasmaCurrent": None,
     "vfit_plasma_current": None,
     "vfit_pf": None,
+    # Superseded by vaft.omas.plasma_timing.plasma_timing / magnetics.detect_plasma_window
+    # (#409); the value stays None because the __getattr__ template names a
+    # vaft.machine_mapping replacement only.
     "vfit_plasmaMGods_startend": None,
     "vfit_plasma_mgods_startend": None,
     "vfit_tf_btR": None,
@@ -119,6 +122,8 @@ __all__ = [
     "vfit_pf_active_static",
     "vfit_plasmaMGods_startend",
     "vfit_plasma_mgods_startend",
+    "PlasmaWindowChoice",
+    "detect_plasma_window",
     "diamagnetic_saturation_report",
     "vest_diamagnetic_flux",
     "vest_diamagnetic_flux_detailed",
@@ -210,6 +215,8 @@ _EXPORT_MAP = {
     "vfit_pf_active_static": (".pf_active", "vfit_pf_active_static"),
     "vfit_plasmaMGods_startend": (".magnetics", "vfit_plasmaMGods_startend"),
     "vfit_plasma_mgods_startend": (".magnetics", "vfit_plasma_mgods_startend"),
+    "PlasmaWindowChoice": (".magnetics", "PlasmaWindowChoice"),
+    "detect_plasma_window": (".magnetics", "detect_plasma_window"),
     "vest_diamagnetic_flux": (".magnetics", "vest_diamagnetic_flux"),
     "vest_diamagnetic_flux_detailed": (".magnetics", "vest_diamagnetic_flux_detailed"),
     "diamagnetic_saturation_report": (".magnetics", "diamagnetic_saturation_report"),
