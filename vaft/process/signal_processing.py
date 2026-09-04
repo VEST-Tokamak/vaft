@@ -1,3 +1,60 @@
+"""Conditioning of one waveform on a plain time axis.
+
+Everything here takes NumPy arrays and returns NumPy arrays.  Nothing reads
+an ODS, nothing knows what the waveform is, and nothing embeds a VEST
+constant except where the function's name says so (``vest_*``) and its
+``Applicability`` section says why.  The VEST source selection, calibration
+and processing windows that decide *which* waveform to condition, and with
+what numbers, live in :mod:`vaft.machine_mapping` and ``vest.yaml``.
+
+Four kinds of operation:
+
+* **Filtering** -- :func:`smooth`, :func:`butterworth_lowpass`,
+  :func:`butterworth_bandpass`, :func:`detrend_moving_average`,
+  :func:`anti_alias_filter`, :func:`vest_coil_current_noise_reduction`.
+* **Baseline** -- :func:`define_baseline` selects the quiet samples,
+  :func:`subtract_baseline` fits one of :func:`linear_baseline`,
+  :func:`quadratic_baseline`, :func:`exp_baseline` or a spline through them
+  and removes it.
+* **Saturation repair** -- :func:`detect_clipped_samples`,
+  :func:`repair_clipped_interval`.
+* **Timebase and activity** -- :func:`describe_time_grid`,
+  :func:`resample_to_time`, :func:`detect_active_window`,
+  :func:`signal_on_offset`, :func:`is_signal_active`,
+  :func:`infer_signal_orientation`, :func:`line_average_density`, and the
+  legacy :func:`process_signal` wrapper.
+
+Notation
+--------
+t        : time                                   [s]
+dt       : sample spacing                         [s]
+f_s      : sample rate, ``1 / dt``                [Hz]
+f_N      : Nyquist frequency, ``f_s / 2``         [Hz]
+f_c      : filter cutoff                          [Hz]
+x        : the waveform, in whatever unit it has  [any]
+
+Conventions
+-----------
+Two filtering conventions coexist and each function says which it uses.
+*Causal* (``scipy.signal.lfilter``) delays every feature by the filter's
+group delay and is the convention of the validated VEST SXR viewer, where
+matched delay between channels matters more than zero phase.  *Zero-phase*
+(``scipy.signal.filtfilt``, forward then backward) moves nothing in time
+and is mandatory wherever an onset time is read off the result.
+:func:`butterworth_lowpass` defaults to causal, everything else to
+zero-phase.
+
+Provenance
+----------
+.. [VFIT] The legacy VEST equilibrium workflow in MATLAB
+   (``VFIT_VEST-Equilibrium-Code``), from which ``smooth``,
+   ``vest_coil_current_noise_reduction``, ``detect_active_window`` and the
+   baseline routines were ported, names and defaults preserved.
+.. [SXR] The validated VEST soft X-ray viewer, whose filtering and
+   detrending conventions ``butterworth_lowpass`` and
+   ``detrend_moving_average`` reproduce (issue #131).
+"""
+
 import math
 import warnings
 from collections.abc import Sequence
@@ -59,15 +116,54 @@ def detect_clipped_samples(data, *, clip_values, tolerance: float) -> np.ndarray
 
     ``clip_values`` is a single signed level or a sequence of them, and the
     mask is their union: a sample is saturated when it lies within
-    ``tolerance`` of *any* supplied level. Real acquisition hardware rails on
+    ``tolerance`` of *any* supplied level.  Real acquisition hardware rails on
     both sides and rarely symmetrically -- VEST's diamagnetic Rogowski channel
     is a signed 16-bit ADC over +/-5 V, so its rails are exactly ``-5.0`` and
-    ``5 * 32767 / 32768`` (see `vest.yaml`, issue #285).
+    ``5 * 32767 / 32768`` [1]_.
 
-    Detecting every level in one pass is not a convenience. Where a waveform
+    Detecting every level in one pass is not a convenience.  Where a waveform
     oscillates hard enough to hit both rails within a few samples, repairing
     one rail at a time would fit the reconstruction through samples still
     pinned at the other one.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform, raw or calibrated; the rails are in its units [any].
+    clip_values : float or sequence of float
+        The acquisition limit or limits, signed, in the units of ``data`` [any].
+    tolerance : float
+        Half-width of the band around each limit inside which a sample counts
+        as saturated [any].
+
+    Returns
+    -------
+    np.ndarray
+        Boolean mask, ``True`` where the sample is saturated; same shape as
+        ``data`` [-].
+
+    Raises
+    ------
+    SignalRepairError
+        ``clip_values`` is empty or non-finite, or ``tolerance`` is not a
+        positive finite width.
+
+    Assumptions
+    -----------
+    Saturation shows as a sample *at* the rail, not as a distorted sample near
+    it.  A digitizer that soft-clips will not be detected by a narrow
+    tolerance.
+
+    Applicability
+    -------------
+    Machine-independent.  The caller supplies the rails and tolerance; this
+    function infers nothing about the hardware.  The VEST values are read from
+    ``vest.yaml`` by :mod:`vaft.machine_mapping`, never here.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml``, the ``diamagnetic_flux`` processing block, where the
+       asymmetric 16-bit rails are derived; issue #285.
     """
     values = np.asarray(data, dtype=float)
     levels = np.atleast_1d(np.asarray(clip_values, dtype=float)).reshape(-1)
@@ -98,23 +194,96 @@ def repair_clipped_interval(
 
     Samples within ``tolerance`` of ``clip_value`` are treated as saturated
     and replaced by a cubic spline fitted to the remaining samples on the
-    physical ``time`` axis. Every unsaturated sample is preserved exactly.
+    physical ``time`` axis.  Every unsaturated sample is preserved exactly.
 
     ``clip_value`` may be a single signed level or a sequence of levels, in
-    which case saturation is their union (see `detect_clipped_samples`).
-
-    This is deliberately machine-independent: callers supply the limit and
-    tolerance (VEST's PF6 acquisition clips near -5000 A, see `vest.yaml`).
+    which case saturation is their union (see :func:`detect_clipped_samples`).
 
     With ``return_mask=True`` the saturation mask is returned alongside the
     repaired waveform, so a caller can report which samples it reconstructed
     instead of handing downstream consumers an unmarked mixture.
 
-    Raises:
-        SignalRepairError: if the inputs contain non-finite values, the whole
-            waveform is saturated, fewer than ``min_support`` unsaturated
-            samples remain, or the saturated interval reaches either end of
-            the record (which would require extrapolation, not interpolation).
+    Parameters
+    ----------
+    time : array_like
+        Sample times, one-dimensional, same length as ``data`` [s].
+    data : array_like
+        The waveform with saturated samples, one-dimensional [any].
+    clip_value : float or sequence of float
+        The acquisition limit or limits, signed, in the units of ``data`` [any].
+    tolerance : float
+        Half-width of the band around each limit inside which a sample counts
+        as saturated [any].
+    min_support : int, optional
+        Fewest unsaturated samples the spline may be fitted through [-].
+    return_mask : bool, optional
+        Also return the saturation mask [-].
+
+    Returns
+    -------
+    np.ndarray or tuple of (np.ndarray, np.ndarray)
+        The repaired waveform, and with ``return_mask=True`` also the boolean
+        saturation mask [any].
+
+    Raises
+    ------
+    SignalRepairError
+        The inputs differ in shape or are not one-dimensional; any sample is
+        non-finite; the whole waveform is saturated; fewer than ``min_support``
+        unsaturated samples remain; or the saturated interval reaches either
+        end of the record, which would require extrapolation.
+
+    Processing steps
+    ----------------
+    1. Mask the saturated samples with :func:`detect_clipped_samples`.
+    2. Refuse if the mask covers everything, leaves fewer than ``min_support``
+       samples, or touches either end of the record.
+    3. Fit ``scipy.interpolate.CubicSpline`` through the unsaturated samples
+       against ``time``.
+    4. Evaluate it at the saturated instants and write those samples back.
+
+    Input semantics
+    ---------------
+    Raw or calibrated -- the rails must be expressed in the same units as
+    ``data``.  Unrepaired: a waveform that has already been filtered has
+    smeared its rails and cannot be repaired here.
+
+    Output semantics
+    ----------------
+    Repaired.  The reconstructed samples are interpolated, not measured; the
+    mask says which they are.
+
+    Defaults
+    --------
+    ``min_support = 4`` is a numerical convenience: a cubic spline needs four
+    points to be determined at all, and this is the floor, not a quality bar.
+
+    Assumptions
+    -----------
+    The waveform is smooth on the scale of the saturated interval, so a cubic
+    through its neighbours is a defensible estimate of what was lost.  A
+    saturated interval that hides a genuine fast feature is reconstructed as
+    if the feature were absent.
+
+    Applicability
+    -------------
+    Machine-independent.  Callers supply the limit and tolerance.  On VEST the
+    PF6 supply clips near -5000 A and the repair is enabled per acquisition
+    era in ``vest.yaml``, because PF6's gain flips sign at shot 38110 and
+    before that a -5000 A sample is ordinary data [1]_.
+
+    Limitations
+    -----------
+    Interpolation only: a saturated run at the start or end of the record is
+    refused rather than extrapolated.  Reconstructing more than a few samples
+    in a row grows less defensible with every sample; there is no cap on that
+    here, so the caller should look at the mask.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml``, ``pf_active`` processing ``saturation_repair`` and the
+       per-era policy comment; the donor ``vest_pf.m`` applied the -5000 A
+       repair unconditionally.  Issues #195 and #285.
     """
     time = np.asarray(time, dtype=float)
     values = np.asarray(data, dtype=float)
@@ -163,10 +332,34 @@ def repair_clipped_interval(
 def line_average_density(n_e_line, path_length_m: float) -> np.ndarray:
     """Return line-average electron density given an explicit chord length.
 
-    ``n_e_line`` is a line-integrated density (m^-2); dividing by the
-    diagnostic's known path length gives a line-average density (m^-3). No
-    calibration or geometry is inferred here -- ``path_length_m`` must be
-    supplied by the caller.
+    Parameters
+    ----------
+    n_e_line : array_like
+        Line-integrated electron density along the diagnostic chord [m^-2].
+    path_length_m : float
+        Length of the chord through the plasma [m].
+
+    Returns
+    -------
+    np.ndarray
+        Line-average electron density, ``n_e_line / path_length_m`` [m^-3].
+
+    Raises
+    ------
+    ValueError
+        ``path_length_m`` is not positive.
+
+    Convention
+    ----------
+    Line-*integrated* in, line-*averaged* out.  An interferometer measures the
+    former; the latter is what confinement scalings and Greenwald fractions
+    want.  No calibration or geometry is inferred here -- the chord length is
+    the caller's.
+
+    Applicability
+    -------------
+    Machine-independent.  The chord length of a VEST interferometer channel
+    comes from :mod:`vaft.machine_mapping`.
     """
     if path_length_m <= 0:
         raise ValueError(f"path_length_m must be positive, got {path_length_m}")
@@ -174,7 +367,48 @@ def line_average_density(n_e_line, path_length_m: float) -> np.ndarray:
 
 
 def smooth(array, span: int) -> np.ndarray:
-    """Apply MATLAB-like moving-average smoothing with edge tapering."""
+    """Apply MATLAB-like moving-average smoothing with edge tapering.
+
+    A centred moving average of odd width ``span``.  At each end the window
+    shrinks symmetrically -- widths 1, 3, 5, ... -- so the output has the
+    input's length and no sample is padded, which is what MATLAB's ``smooth``
+    does and what the ported VEST workflows expect.
+
+    Parameters
+    ----------
+    array : array_like
+        The waveform, one-dimensional [any].
+    span : int
+        Window width in samples; an even value is reduced by one, and a value
+        wider than the record is clipped to it [-].
+
+    Returns
+    -------
+    np.ndarray
+        The smoothed waveform, same length as ``array`` [any].
+
+    Raises
+    ------
+    ValueError
+        ``array`` is not one-dimensional.
+
+    Convention
+    ----------
+    Zero-phase: the window is centred, so features are not shifted in time.
+    Edge samples are averaged over progressively narrower windows rather than
+    over a padded record, which biases the ends less than reflection padding
+    would but leaves them noisier than the interior.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] MATLAB ``smooth(y, span)`` with the default ``'moving'`` method;
+       ported from the legacy VEST workflow [VFIT]_ with its semantics
+       preserved so that results match the donor sample for sample.
+    """
     values = np.asarray(array, dtype=float)
     if values.ndim != 1:
         raise ValueError("`array` must be one-dimensional.")
@@ -214,10 +448,53 @@ def butterworth_lowpass(data, cutoff: float, fs: float, order: int = 2,
                         *, zero_phase: bool = False) -> np.ndarray:
     """Butterworth low-pass filter along the last axis.
 
-    ``zero_phase=False`` applies a causal ``lfilter`` -- the convention of the
-    validated VEST SXR viewer, whose low-passed signals feed ratio and reference
-    arithmetic where matched group delay between channels matters more than zero
-    phase.  Pass ``zero_phase=True`` for a forward-backward ``filtfilt``.
+    Parameters
+    ----------
+    data : array_like
+        The waveform or a stack of them; the time axis is the last [any].
+    cutoff : float
+        Cutoff frequency, strictly between 0 and the Nyquist frequency [Hz].
+    fs : float
+        Sample rate [Hz].
+    order : int, optional
+        Filter order [-].
+    zero_phase : bool, optional
+        ``True`` for forward-backward ``filtfilt``; ``False`` for a causal
+        ``lfilter`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``data`` [any].
+
+    Raises
+    ------
+    ValueError
+        ``cutoff`` is not inside ``(0, fs / 2)``.
+
+    Defaults
+    --------
+    ``order = 2`` and ``zero_phase = False`` are validated-workflow defaults:
+    the values the VEST SXR viewer uses [SXR]_, kept so that
+    :mod:`vaft.process.soft_x_rays` reproduces it.
+
+    Convention
+    ----------
+    **Causal by default.**  With ``zero_phase=False`` every feature is delayed
+    by the filter's group delay, identically on every channel, which is what
+    ratio and reference arithmetic between SXR channels needs.  Pass
+    ``zero_phase=True`` wherever a time is going to be read off the result --
+    an onset, a peak -- because a causal filter moves it.
+
+    Applicability
+    -------------
+    Machine-independent.  The defaults are VEST SXR practice but embed no VEST
+    constant.
+
+    Limitations
+    -----------
+    ``filtfilt`` needs a record longer than three times the filter's padding
+    length and raises from SciPy otherwise; nothing here catches that.
     """
     values = np.asarray(data, dtype=float)
     nyquist = 0.5 * float(fs)
@@ -233,7 +510,55 @@ def butterworth_lowpass(data, cutoff: float, fs: float, order: int = 2,
 
 def butterworth_bandpass(data, low: float, high: float, fs: float, order: int = 2,
                          *, zero_phase: bool = True) -> np.ndarray:
-    """Butterworth band-pass filter along the last axis (zero-phase by default)."""
+    """Butterworth band-pass filter along the last axis.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform or a stack of them; the time axis is the last [any].
+    low : float
+        Lower band edge [Hz].
+    high : float
+        Upper band edge, above ``low`` and below the Nyquist frequency [Hz].
+    fs : float
+        Sample rate [Hz].
+    order : int, optional
+        Filter order [-].
+    zero_phase : bool, optional
+        ``True`` for forward-backward ``filtfilt``; ``False`` for a causal
+        ``lfilter`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``data`` [any].
+
+    Raises
+    ------
+    ValueError
+        The band edges do not satisfy ``0 < low < high < fs / 2``.
+
+    Defaults
+    --------
+    ``order = 2`` is a validated-workflow default shared with
+    :func:`butterworth_lowpass`.  ``zero_phase = True`` is the opposite of the
+    low-pass default because band-passed signals feed spectral and
+    mode-number analysis, where phase across channels is the measurement.
+
+    Convention
+    ----------
+    Zero-phase by default; see :func:`butterworth_lowpass` for the causal
+    alternative and when each is right.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    As :func:`butterworth_lowpass`: a record too short for ``filtfilt`` raises
+    from SciPy.
+    """
     values = np.asarray(data, dtype=float)
     nyquist = 0.5 * float(fs)
     if not 0.0 < float(low) < float(high) < nyquist:
@@ -252,10 +577,38 @@ def butterworth_bandpass(data, low: float, high: float, fs: float, order: int = 
 def detrend_moving_average(data, window_samples: int) -> np.ndarray:
     """Subtract a centered moving-average trend along the last axis.
 
-    The trend is a centered rolling mean with ``min_periods=1`` semantics: edge
-    windows shrink rather than producing NaNs, so the output has the input's
-    length.  Matches ``pandas.Series.rolling(window, center=True,
-    min_periods=1).mean()``, the convention of the validated VEST SXR viewer.
+    Parameters
+    ----------
+    data : array_like
+        The waveform or a stack of them; the time axis is the last [any].
+    window_samples : int
+        Width of the trend window in samples; ``1`` or less removes nothing [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``data`` minus its rolling mean, same shape [any].
+
+    Convention
+    ----------
+    The trend is a centred rolling mean with ``min_periods=1`` semantics: the
+    window at index ``i`` spans ``[i - w//2, i + (w-1)//2]`` clipped to the
+    record, so edge windows shrink rather than yield NaN and the output has the
+    input's length.  This is exactly ``pandas.Series.rolling(window,
+    center=True, min_periods=1).mean()``, the convention of the validated VEST
+    SXR viewer [SXR]_, reimplemented with cumulative sums so that
+    :mod:`vaft.process.soft_x_rays` does not need pandas for it.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A centred window is zero-phase but the shrinking edge windows bias the
+    first and last ``w/2`` samples toward the local level.  The trend is a
+    plain mean: one large excursion inside the window pulls the trend toward
+    it and appears, inverted, in the neighbours.
     """
     values = np.asarray(data, dtype=float)
     window = int(window_samples)
@@ -275,7 +628,61 @@ def detrend_moving_average(data, window_samples: int) -> np.ndarray:
 
 
 def vest_coil_current_noise_reduction(data) -> np.ndarray:
-    """Suppress point spikes in coil current traces."""
+    """Suppress point spikes in coil current traces.
+
+    Walks the record and, wherever a sample's magnitude exceeds the mean of
+    its two neighbours' magnitudes by more than a fixed margin, replaces it
+    with the previous sample.  A port of the donor routine, kept sample for
+    sample so that the legacy PF-current preprocessing reproduces.
+
+    Parameters
+    ----------
+    data : array_like
+        Coil current, one-dimensional; records shorter than three samples are
+        returned unchanged [A].
+
+    Returns
+    -------
+    np.ndarray
+        The de-spiked current, same length [A].
+
+    Processing steps
+    ----------------
+    1. For each interior sample (the first two and the last are never
+       touched), compute ``|x[i]| - |(x[i+1] + x[i-1]) / 2|``.
+    2. Where that exceeds ``0.001``, overwrite ``x[i]`` with the already
+       processed ``x[i-1]``.
+
+    Defaults
+    --------
+    The ``0.001`` margin is a legacy compatibility value from the donor
+    ``VEST_CoilCurrentNoiseReduction.m`` [1]_.  It is absolute, in the units of
+    ``data``, and its derivation is not recorded.  On a trace in amperes it
+    flags any excursion above a milliamp, so in practice every spike; on a
+    trace in kiloamperes it would let real noise through.
+
+    Convention
+    ----------
+    Causal: a spike is replaced by its predecessor, so a genuine step is
+    delayed by one sample at its leading edge.
+
+    Applicability
+    -------------
+    VEST-specific.  Written for the VEST PF coil current traces as digitized by
+    the legacy DAQ; the margin has no meaning for another machine's units or
+    noise floor.
+
+    Limitations
+    -----------
+    Only a single-sample spike is caught: two consecutive bad samples pass,
+    because the second is compared against the first.  Sign is ignored in the
+    test but preserved in the replacement.
+
+    Provenance
+    ----------
+    .. [1] ``Function/VEST_CoilCurrentNoiseReduction.m`` in the legacy VEST
+       workflow [VFIT]_; loop bounds and margin preserved.
+    """
     values = np.asarray(data, dtype=float)
     if values.size < 3:
         return values.copy()
@@ -292,9 +699,62 @@ def vest_coil_current_noise_reduction(data) -> np.ndarray:
 def detect_active_window(time, signal, threshold: float = 0.01) -> tuple[float, float]:
     """Return the active time window that contains a signal's main peak.
 
-    This operation is machine-independent.  VEST source selection and
-    calibration belong in :mod:`vaft.machine_mapping`; callers should pass the
-    resulting physical signal to this processing function.
+    Finds the largest sample and walks outward from it in both directions
+    while the signal stays at or above ``threshold``; the window is the time
+    of the first and last sample reached.  If the peak itself is below
+    ``threshold`` the whole record is returned.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times, one-dimensional [s].
+    signal : array_like
+        The waveform, one-dimensional, same length as ``time``; already the
+        physical quantity, not a raw digitizer voltage [any].
+    threshold : float, optional
+        Level at or above which a sample counts as active, in the units of
+        ``signal`` [any].
+
+    Returns
+    -------
+    tuple of (float, float)
+        ``(start, end)`` times of the active window [s].
+
+    Raises
+    ------
+    ValueError
+        The inputs are not one-dimensional, differ in length, or are empty.
+
+    Defaults
+    --------
+    ``threshold = 0.01`` is a legacy compatibility value from the donor
+    ``vfit_signal_startend``, which was applied to an H-alpha trace
+    normalised to its own minimum.  It is absolute, so a caller with a
+    differently scaled signal must pass its own.
+
+    Assumptions
+    -----------
+    The signal has one dominant positive excursion and is at or above
+    ``threshold`` throughout it.  A dip below the threshold inside the pulse
+    ends the window early.
+
+    Applicability
+    -------------
+    Machine-independent.  VEST source selection and calibration belong in
+    :mod:`vaft.machine_mapping`; the resulting physical signal is what is
+    passed here.  For a plasma onset with evidence and a verdict, use
+    :mod:`vaft.process.onset` instead.
+
+    Limitations
+    -----------
+    The threshold is absolute, not relative to the peak, and the walk is not
+    robust to noise: a single sample below ``threshold`` stops it.
+
+    Provenance
+    ----------
+    .. [1] ``vfit_signal_startend``, the function nested in
+       ``Function/vest_Halpha_tstart_tend.m`` of the legacy VEST workflow
+       [VFIT]_; kept here under the deprecated name ``vfit_signal_start_end``.
     """
     time_values = np.asarray(time, dtype=float)
     data_values = np.asarray(signal, dtype=float)
@@ -374,10 +834,39 @@ class TimeGrid:
 def describe_time_grid(time, *, rtol: float = 1e-3) -> TimeGrid:
     """Measure a timebase's spacing, uniformity and monotonicity.
 
-    ``rtol`` is deliberately loose (0.1%).  VEST shots after 42190 store their
-    timebase as ``linspace(0, span, n)``, so a nominally 4e-6 grid is really
-    ``span / (n - 1)`` = 4.00016e-6; that is uniform for every purpose here and
-    a tight tolerance would only reject it.
+    Parameters
+    ----------
+    time : array_like
+        Sample times, flattened [s].
+    rtol : float, optional
+        Largest ``|dt_i - median(dt)| / median(dt)`` for which the grid is
+        still reported uniform [-].
+
+    Returns
+    -------
+    TimeGrid
+        ``n``, ``t0``, the median ``dt``, ``sample_rate``, whether the grid is
+        ``uniform`` within ``rtol`` and ``strictly_increasing``, and the
+        ``max_relative_jitter`` actually measured [any].
+
+    Defaults
+    --------
+    ``rtol = 1e-3`` is a numerical convenience sized to an acquisition-era
+    fact: VEST shots after 42190 store their timebase as ``linspace(0, span,
+    n)``, so a nominally 4e-6 s grid is really ``span / (n - 1)`` =
+    4.00016e-6 s.  That is uniform for every purpose here and a tight
+    tolerance would only reject it.
+
+    Convention
+    ----------
+    ``dt`` is the *median* spacing, robust to the single ragged interval a
+    concatenated acquisition can leave behind.  ``dt`` and ``sample_rate``
+    are ``nan`` for a single-sample grid, where neither is defined; an empty
+    grid reports ``n = 0`` and ``nan`` throughout.
+
+    Applicability
+    -------------
+    Machine-independent.
     """
     values = np.asarray(time, dtype=float).reshape(-1)
     n = int(values.size)
@@ -449,21 +938,84 @@ def anti_alias_filter(
     Filtering after the rate has already been reduced is too late: whatever
     folded is now indistinguishable from real in-band signal.
 
-    ``firwin`` + ``filtfilt`` rather than a Butterworth or ``decimate``'s
-    Chebyshev.  It is the idiom the VEST mappers already use
+    Parameters
+    ----------
+    values : array_like
+        The waveform or a stack of them; the time axis is ``axis`` [any].
+    source_rate : float
+        Sample rate of ``values`` [Hz].
+    cutoff_hz : float
+        Passband edge, strictly inside ``(0, source_rate / 2)`` [Hz].
+    stopband_hz : float or None, optional
+        Frequency by which the response must be down -- for a downsample, the
+        target Nyquist.  Sets the transition band and so the tap count [Hz].
+    numtaps : int or None, optional
+        Override the designed tap count; forced odd [-].
+    axis : int, optional
+        The time axis of ``values`` [-].
+    nan_policy : {"segment", "error", "ignore"}, optional
+        ``"segment"`` filters each maximal finite run on its own; ``"error"``
+        refuses non-finite samples; ``"ignore"`` hands them to ``filtfilt``,
+        which smears them across the record [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``values`` [any].
+
+    Raises
+    ------
+    ResamplingError
+        ``cutoff_hz`` or ``stopband_hz`` outside their bands, or a non-finite
+        sample under ``nan_policy="error"``.
+    ValueError
+        Unknown ``nan_policy``.
+
+    Processing steps
+    ----------------
+    1. Size the filter: ``numtaps ~ 3.3 * source_rate / (stopband - cutoff)``,
+       the Hamming-window rule [1]_, measured against the *target* Nyquist --
+       not the source Nyquist, which is ten times higher for a VEST fast
+       channel and would size the filter at nine taps instead of the three
+       hundred the job needs.  Forced odd so the FIR is Type I with integer
+       group delay.
+    2. Design it with ``scipy.signal.firwin`` (Hamming window, low-pass).
+    3. Apply ``scipy.signal.filtfilt`` to each finite run long enough for it;
+       shorter runs are passed through with a ``RuntimeWarning``.
+
+    Defaults
+    --------
+    ``stopband_hz = 1.25 * cutoff_hz`` is a numerical convenience consistent
+    with :func:`resample_to_time`'s default 0.8-of-Nyquist cutoff: it puts
+    the stopband exactly at the target Nyquist.  ``nan_policy = "segment"`` is
+    a validated-workflow default -- one NaN must not blank a whole record.
+
+    Convention
+    ----------
+    Zero-phase, and load-bearing: filterscope intensity feeds onset detection,
+    where a causal filter would move the onset by the group delay.  ``firwin``
+    + ``filtfilt`` rather than a Butterworth or ``decimate``'s Chebyshev,
+    because it is the idiom the VEST mappers already use
     (``machine_mapping/tf.py``, ``machine_mapping/pf_active.py``,
-    ``process/magnetics.py``), and zero phase is load-bearing here -- filterscope
-    intensity feeds onset detection, where a causal ``lfilter`` would move the
-    onset by the filter's group delay.
+    ``process/magnetics.py``).
 
-    ``nan_policy="segment"`` filters each maximal finite run independently;
-    ``filtfilt`` would otherwise smear a single NaN across the whole record.
-    Runs too short for the filter are passed through with a ``RuntimeWarning``.
+    Applicability
+    -------------
+    Machine-independent.
 
-    ``stopband_hz`` is the frequency by which the response must be down -- for a
-    downsample, the target Nyquist.  It sets the transition band and so the tap
-    count; it defaults to ``1.25 * cutoff_hz``, the value consistent with
-    :func:`resample_to_time`'s default 0.8-of-Nyquist cutoff.
+    Limitations
+    -----------
+    ``filtfilt`` needs ``3 * (numtaps - 1) + 1`` samples; a record or finite
+    run shorter than that is returned unfiltered, with a warning, rather than
+    padded.  The filter assumes evenly spaced samples; on an irregular grid the
+    design rate is a fiction, which :func:`resample_to_time` refuses for you.
+
+    Provenance
+    ----------
+    .. [1] Hamming-window FIR design rule, ``N ~ 3.3 f_s / Delta f``, e.g.
+       Oppenheim & Schafer, *Discrete-Time Signal Processing*, window method.
+    .. [2] ``vaft/machine_mapping/tf.py`` and ``pf_active.py``, the mappers
+       whose established filtering idiom this generalizes.
     """
     data = np.asarray(values, dtype=float)
     rate = float(source_rate)
@@ -565,48 +1117,115 @@ def resample_to_time(
     needed to distinguish a high frequency from its alias, so the content above
     the new Nyquist has to be removed while it still can be.
 
-    The default, ``anti_alias="auto"``, measures both grids and decides:
-
-    * ``dt_target / dt_source <= min_ratio`` -- alignment, an upsample, or a
-      rate change too small to matter.  No filter is designed and the result is
-      **bit-for-bit** ``np.interp``.  This exactness is deliberate: it is what
-      lets equal-rate call sites adopt the primitive without moving a single
-      stored value.
-    * otherwise -- a genuine rate reduction.  A zero-phase FIR low-pass runs on
-      the source grid before interpolating.
-
-    ``anti_alias=True`` demands the filter regardless of the measured ratio, and
-    ``anti_alias=False`` is the escape hatch for the cases where filtering is
-    wrong -- a validity mask, say, which is logical rather than bandlimited.
-    Opting out is exact ``np.interp`` too, so the choice is visible in the diff
-    rather than hidden in a numerical difference.
-
     Parameters
     ----------
-    source_time, values, target_time
-        ``values`` may carry leading axes; the time axis is ``axis``.
-    cutoff_fraction
-        Anti-alias cutoff as a fraction of the *target* Nyquist (default 0.8).
-        ``firwin`` sits at -6 dB at its cutoff and needs a transition band, so
-        a passband edge below Nyquist puts everything that can fold into the
-        stopband.  ``cutoff_hz`` overrides this outright.
-    min_ratio
-        Rate ratio below which ``"auto"`` performs no filtering at all.
-    extrapolate
-        ``"clamp"`` (default, matching ``np.interp``), ``"nan"``, or ``"error"``
-        for target samples outside the source's span.
-    nan_policy
-        Passed to :func:`anti_alias_filter`.
-    on_unsorted
-        ``"error"`` (default) or ``"sort"``.  ``np.interp`` returns silent
-        nonsense for an unsorted ``x``, so this is checked rather than assumed.
+    source_time : array_like
+        Sample times of ``values``, flattened; must be strictly increasing
+        under the default ``on_unsorted`` [s].
+    values : array_like
+        The waveform or a stack of them; the time axis is ``axis`` [any].
+    target_time : array_like
+        Instants to evaluate at; need not be sorted [s].
+    anti_alias : bool or "auto", optional
+        ``"auto"`` filters only for a genuine rate reduction; ``True`` always;
+        ``False`` never [-].
+    cutoff_fraction : float, optional
+        Anti-alias cutoff as a fraction of the *target* Nyquist [-].
+    cutoff_hz : float or None, optional
+        Explicit cutoff, overriding ``cutoff_fraction`` [Hz].
+    numtaps : int or None, optional
+        Passed to :func:`anti_alias_filter` [-].
+    min_ratio : float, optional
+        ``dt_target / dt_source`` at or below which ``"auto"`` does not
+        filter [-].
+    extrapolate : {"clamp", "nan", "error"}, optional
+        What a target sample outside the source span gets [-].
+    nan_policy : str, optional
+        Passed to :func:`anti_alias_filter` [-].
+    on_unsorted : {"error", "sort"}, optional
+        Refuse an unsorted source, or sort it and collapse duplicates [-].
+    axis : int, optional
+        The time axis of ``values`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``values`` on ``target_time``; the time axis has ``len(target_time)``
+        samples [any].
 
     Raises
     ------
     ResamplingError
-        Empty source, unsorted or duplicated source times under the default
-        policy, a target outside the source span under ``extrapolate="error"``,
-        or a forced filter whose cutoff exceeds the source Nyquist.
+        Empty source; unsorted or duplicated source times under the default
+        policy; a target outside the source span under ``extrapolate="error"``;
+        a forced filter whose cutoff exceeds the source Nyquist; or a filter
+        requested on a non-uniform source grid.
+    ValueError
+        An option outside its allowed values.
+
+    Processing steps
+    ----------------
+    1. Validate options; sort and de-duplicate the source if asked.
+    2. Measure both grids with :func:`describe_time_grid`.
+    3. Decide whether to filter: ``anti_alias`` as given, or under ``"auto"``
+       whether ``dt_target / dt_source > min_ratio``.
+    4. If filtering, refuse a non-uniform source, place the cutoff at
+       ``cutoff_fraction`` of the target Nyquist (or ``cutoff_hz``), put the
+       stopband at the target Nyquist, and run :func:`anti_alias_filter` on
+       the source grid.
+    5. ``np.interp`` onto ``target_time`` with the ``extrapolate`` policy.
+
+    Output semantics
+    ----------------
+    Interpolated.  When no filter runs, the result is **bit-for-bit**
+    ``np.interp`` -- deliberately, so equal-rate call sites can adopt this
+    primitive without moving a stored value.  When one does, the result is
+    band-limited to the target Nyquist and then interpolated.
+
+    Defaults
+    --------
+    ``anti_alias = "auto"`` and ``min_ratio = 1.05`` are validated-workflow
+    defaults: the safe thing by default, the unsafe thing by name.
+    ``cutoff_fraction = 0.8`` is a numerical convenience -- ``firwin`` sits at
+    -6 dB at its cutoff and needs a transition band, so a passband edge below
+    Nyquist puts everything that can fold into the stopband.  ``extrapolate =
+    "clamp"`` matches ``np.interp``.  ``on_unsorted = "error"`` because
+    ``np.interp`` returns silent nonsense for an unsorted ``x``.
+
+    Convention
+    ----------
+    The cutoff is placed against the *target* grid's spacing measured in time
+    order, even when ``target_time`` is unsorted; the shuffled array would
+    report a median ``dt`` tens of times too large and design a filter that
+    eats the signal.  An explicit ``cutoff_hz`` above the target Nyquist is
+    honoured as a deliberate choice to keep more band and gets
+    :func:`anti_alias_filter`'s own transition instead.
+
+    Assumptions
+    -----------
+    ``values`` is a band-limited physical signal.  A validity mask or any
+    other logical series is not, and must be resampled with
+    ``anti_alias=False``.
+
+    Applicability
+    -------------
+    Machine-independent.  The motivating case is VEST, which acquires at
+    ``FAST_DT = 4e-6`` s and ``SLOW_DT = 4e-5`` s while every processed grid
+    in ``vest.yaml`` is 4e-5 s, so a fast channel written onto a policy grid
+    is a 10x decimation [1]_.
+
+    Limitations
+    -----------
+    A single-sample target has no Nyquist: ``"auto"`` interpolates with a
+    warning and ``True`` raises unless ``cutoff_hz`` is given.  A non-uniform
+    source grid cannot be anti-aliased by a single-rate FIR and is refused;
+    resample onto a uniform grid first, or pass ``anti_alias=False`` to accept
+    a bare interpolation knowingly.
+
+    Provenance
+    ----------
+    .. [1] :mod:`vaft.database.raw` ``FAST_DT`` / ``SLOW_DT``, and the
+       processed time grids declared in ``vaft/machine_mapping/vest.yaml``.
     """
     if anti_alias not in (True, False, "auto"):
         raise ValueError(f"anti_alias must be True, False or 'auto'; got {anti_alias!r}")
@@ -736,13 +1355,63 @@ def resample_to_time(
 
 
 def process_signal(time, data, options=None):
-    """Legacy conditioning wrapper kept in the process layer.
+    """Legacy conditioning wrapper: crop, resample, then filter.
 
-    Order of operations is crop, resample, filter.  The resample goes through
-    :func:`resample_to_time`, so reducing the sample rate anti-aliases on the
-    input grid first; the ``filter_params`` stage that follows is a *shaping*
-    filter and its ``cutoff`` is interpreted against the **output** grid's
-    sample rate, not the input's.
+    Parameters
+    ----------
+    time : array_like
+        Sample times, flattened [s].
+    data : array_like
+        The waveform, flattened [any].
+    options : dict or None, optional
+        ``time_range`` ``(t_start, t_end)`` to crop to; ``resample`` with
+        ``dt`` to write onto a uniform grid; ``filter_params`` with ``type``
+        (``"lowpass"``, ``"highpass"``, ``"bandpass"``), ``cutoff`` and
+        ``order`` [-].
+
+    Returns
+    -------
+    tuple of (np.ndarray, np.ndarray)
+        The conditioned ``(time, data)`` [any].
+
+    Raises
+    ------
+    ValueError
+        A ``filter_params`` cutoff outside ``(0, f_s / 2)``, a malformed
+        band-pass cutoff, or an unknown filter type.
+
+    Processing steps
+    ----------------
+    1. Crop to ``time_range``.
+    2. Resample onto ``arange(t[0], t[-1], dt)`` through
+       :func:`resample_to_time`, so a rate reduction anti-aliases on the input
+       grid first.
+    3. Apply a zero-phase Butterworth from ``filter_params``.  This is a
+       *shaping* filter and its ``cutoff`` is interpreted against the
+       **output** grid's sample rate, not the input's.
+
+    Defaults
+    --------
+    ``dt = 4e-5`` s is the VEST slow-DAQ spacing, a machine-specific setting.
+    ``cutoff = 1000`` Hz and ``order = 4`` are legacy compatibility values
+    whose origin is not recorded.
+
+    Convention
+    ----------
+    Zero-phase (``filtfilt``) for the shaping filter.  The sample rate for
+    filter design is taken from the first two samples, not the median.
+
+    Applicability
+    -------------
+    VEST-specific.  The defaults embed the VEST acquisition grid, and the
+    option dictionary is the legacy call convention kept for existing
+    workflows; new code should call :func:`resample_to_time` and
+    :func:`butterworth_lowpass` directly.
+
+    Limitations
+    -----------
+    Kept for compatibility; its future is decided by the module-ownership
+    audit tracked in #263.
     """
     if options is None:
         options = {}
@@ -807,32 +1476,54 @@ def process_signal(time, data, options=None):
     return time, data
 
 def define_baseline(time, onset_time, onset_window, offset_time=None, offset_window=None):
-    """
-    Define a baseline window from the signal using onset and optional offset TIMES.
+    """Select the baseline samples around a signal's onset and optional offset.
 
-    Internally, we convert the specified times (onset_time, offset_time) to
-    indices via np.searchsorted. The 'onset_window'/'offset_window' parameters
-    remain as an integer number of samples to be included before or after
-    the onset or offset indices.
+    Converts ``onset_time`` (and ``offset_time``) to indices with
+    ``np.searchsorted`` and returns the ``onset_window`` samples immediately
+    before the onset, plus the ``offset_window`` samples immediately after the
+    offset when both are given.  The result is what :func:`subtract_baseline`
+    fits through.
 
     Parameters
     ----------
-    time : numpy.ndarray
-        The time array corresponding to the signal.
+    time : np.ndarray
+        Sample times, sorted [s].
     onset_time : float
-        The time at which the signal begins to deviate from baseline.
+        Time at which the signal begins to deviate from baseline [s].
     onset_window : int
-        The number of points (samples) to include in the baseline window before the onset index.
-    offset_time : float, optional
-        The time at which the signal returns to baseline. If None, no offset region is used.
-    offset_window : int, optional
-        The number of points (samples) to include in the baseline window after the offset index.
-        If None, no offset region is used.
+        Number of samples before the onset to include [-].
+    offset_time : float or None, optional
+        Time at which the signal returns to baseline [s].
+    offset_window : int or None, optional
+        Number of samples after the offset to include; both offset arguments
+        must be given for the offset region to be used [-].
 
     Returns
     -------
-    numpy.ndarray
-        Indices of the baseline window values.
+    np.ndarray
+        Indices into ``time`` of the baseline samples, onset region first [-].
+
+    Assumptions
+    -----------
+    The signal is genuinely quiet in the selected windows.  A window that
+    reaches back into a previous pulse, or forward into pickup from a coil
+    ramp, is fitted as if it were baseline.
+
+    Applicability
+    -------------
+    Machine-independent.  The onset and offset times, and the window widths,
+    are the caller's; on VEST they come from the magnetics processing window
+    in ``vest.yaml`` via :mod:`vaft.process.magnetics`.
+
+    Limitations
+    -----------
+    Windows are clipped to the record silently, so a window wider than the
+    pre-onset record yields fewer samples than asked, with no warning.
+
+    Provenance
+    ----------
+    .. [1] The legacy VEST EFIT magnetics chain [VFIT]_, where the baseline is
+       taken before the discharge and after it and removed by a fit.
     """
     baseline_indices = []
 
@@ -853,30 +1544,148 @@ def define_baseline(time, onset_time, onset_window, offset_time=None, offset_win
     return np.array(baseline_indices)
 
 def linear_baseline(x, a, b):
-    """Linear model for baseline fitting: y = a * x + b"""
+    """Linear model for baseline fitting: ``y = a * x + b``.
+
+    Parameters
+    ----------
+    x : array_like
+        Abscissa, normally time [any].
+    a : float
+        Slope [any].
+    b : float
+        Intercept [any].
+
+    Returns
+    -------
+    np.ndarray
+        ``a * x + b`` [any].
+
+    Applicability
+    -------------
+    Machine-independent.  A fit model for :func:`subtract_baseline`.
+    """
     return a * x + b
 
 def quadratic_baseline(x, a, b, c):
-    """Quadratic model for baseline fitting: y = a * x^2 + b * x + c"""
+    """Quadratic model for baseline fitting: ``y = a * x^2 + b * x + c``.
+
+    Parameters
+    ----------
+    x : array_like
+        Abscissa, normally time [any].
+    a : float
+        Quadratic coefficient [any].
+    b : float
+        Linear coefficient [any].
+    c : float
+        Constant [any].
+
+    Returns
+    -------
+    np.ndarray
+        ``a * x**2 + b * x + c`` [any].
+
+    Applicability
+    -------------
+    Machine-independent.  A fit model for :func:`subtract_baseline`.
+    """
     return a * x**2 + b * x + c
 
 def exp_baseline(x, a, b, c):
-    """Exponential model for baseline fitting: y = a * exp(b * x) + c"""
+    """Exponential model for baseline fitting: ``y = a * exp(b * x) + c``.
+
+    Parameters
+    ----------
+    x : array_like
+        Abscissa, normally time [any].
+    a : float
+        Amplitude [any].
+    b : float
+        Rate; the sign decides growth or decay [any].
+    c : float
+        Offset [any].
+
+    Returns
+    -------
+    np.ndarray
+        ``a * exp(b * x) + c`` [any].
+
+    Applicability
+    -------------
+    Machine-independent.  A fit model for :func:`subtract_baseline`.
+    """
     return a * np.exp(b * x) + c
 
 def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
-    """
-    Fit the baseline and subtract it from the signal.
+    """Fit a baseline through the selected samples and subtract it everywhere.
 
-    Parameters:
-        time (numpy.ndarray): The time array corresponding to the signal.
-        signal (numpy.ndarray): The input signal array.
-        baseline_indices (numpy.ndarray): Indices specifying the baseline window.
-        fitting_opt (str): The fitting option ('linear', 'quadratic', 'spline', 'exp').
+    Parameters
+    ----------
+    time : np.ndarray
+        Sample times [s].
+    signal : np.ndarray
+        The waveform, same length as ``time`` [any].
+    baseline_indices : np.ndarray
+        Indices of the samples the baseline is fitted through, normally from
+        :func:`define_baseline` [-].
+    fitting_opt : {"linear", "quadratic", "spline", "exp"}, optional
+        The baseline model [-].
 
-    Returns:
-        numpy.ndarray: The signal with the baseline subtracted.
-        numpy.ndarray: The fitted baseline values.
+    Returns
+    -------
+    corrected : np.ndarray
+        ``signal`` minus the fitted baseline [any].
+    baseline : np.ndarray
+        The fitted baseline evaluated on the whole ``time`` axis [any].
+
+    Raises
+    ------
+    ValueError
+        Unknown ``fitting_opt``.
+
+    Processing steps
+    ----------------
+    1. Take ``time`` and ``signal`` at ``baseline_indices``.
+    2. Fit the chosen model through them: ``scipy.optimize.curve_fit`` for
+       the parametric models, ``scipy.interpolate.UnivariateSpline(s=0)`` --
+       an interpolating spline -- for ``"spline"``.
+    3. Evaluate the model on the full ``time`` axis and subtract.
+
+    Output semantics
+    ----------------
+    Baseline-subtracted.  The second return is the baseline itself, so the
+    caller can plot or store what was removed.
+
+    Defaults
+    --------
+    ``fitting_opt = "linear"`` is a legacy compatibility value: the donor
+    workflow removed a linear drift, which is the right model for an
+    integrator's offset.  The exponential fit uses ``maxfev = 10000``, a
+    numerical convenience.
+
+    Assumptions
+    -----------
+    The samples at ``baseline_indices`` contain no signal.  The parametric
+    models assume the drift has that form over the *whole* record, including
+    the pulse, where it is extrapolated rather than measured.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``"spline"`` interpolates the baseline samples exactly, so noise in them
+    is reproduced in the baseline; with the onset and offset regions far
+    apart it is a straight line between them in practice.  ``"exp"`` can fail
+    to converge and raises from SciPy.  Nothing checks that
+    ``baseline_indices`` is non-empty.
+
+    Provenance
+    ----------
+    .. [1] The legacy VEST EFIT magnetics chain [VFIT]_, where an integrated
+       probe signal's drift is removed by a fit through the pre- and
+       post-discharge windows.
     """
     x_baseline = time[baseline_indices]
     y_baseline = signal[baseline_indices]
@@ -900,6 +1709,57 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     return corrected_signal, fitted_baseline
 
 def signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False):
+    """Smooth a waveform, then return the window in which it is above a threshold.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times, one-dimensional [s].
+    data : array_like
+        The waveform, one-dimensional, same length as ``time`` [any].
+    smooth_window : int, optional
+        Savitzky-Golay window length in samples; must be odd and larger than
+        the polynomial order, 3 [-].
+    threshold : float, optional
+        Level at or above which the smoothed signal counts as active, in the
+        units of ``data`` [any].
+    verbose : bool, optional
+        Print the threshold [-].
+
+    Returns
+    -------
+    tuple of (float, float)
+        ``(onset, offset)`` times [s].
+
+    Processing steps
+    ----------------
+    1. Smooth with ``scipy.signal.savgol_filter(data, smooth_window, 3)``.
+    2. Hand the smoothed waveform to :func:`detect_active_window`.
+
+    Defaults
+    --------
+    ``smooth_window = 5`` and the cubic polynomial are legacy compatibility
+    values from the ported workflow, unrecorded beyond that.  ``threshold =
+    0.01`` is inherited from :func:`detect_active_window`.
+
+    Convention
+    ----------
+    Zero-phase: a Savitzky-Golay filter is a centred polynomial fit and moves
+    nothing in time, so the returned onset is not delayed by the smoothing.
+
+    Applicability
+    -------------
+    Machine-independent.  Callers in :mod:`vaft.omas.general` and
+    :mod:`vaft.database` pass ``threshold=0.05`` for VEST H-alpha; the default
+    is not a VEST policy.  For a plasma onset with evidence and a verdict, use
+    :mod:`vaft.process.onset`.
+
+    Limitations
+    -----------
+    Those of :func:`detect_active_window`: an absolute threshold and a walk
+    that stops at the first sample below it.
+    """
+
     if verbose:
         print("threshold for signal detection:", threshold)
     # Smooth the data
@@ -949,18 +1809,43 @@ def is_signal_active(
     change_ratio_thresh=1e-2,
     verbose=False,
 ):
-    """
-    Determines whether the given data represents an active signal
-    using scale-invariant (relative) thresholds.
+    """Decide whether a trace carries a signal or is flat.
 
-    Parameters:
-        data (array-like): The signal data to analyze.
-        var_ratio_thresh (float): Variance threshold relative to signal scale.
-        change_ratio_thresh (float): Mean |Δx| threshold relative to signal scale.
-        verbose (bool): If True, print debug information.
+    Parameters
+    ----------
+    data : array_like
+        The waveform; fewer than two samples is never active [any].
+    var_ratio_thresh : float, optional
+        Threshold on the variance ratio described below [-].
+    change_ratio_thresh : float, optional
+        Threshold on the mean absolute sample-to-sample change divided by the
+        mean absolute level [-].
+    verbose : bool, optional
+        Print both ratios [-].
 
-    Returns:
-        bool: True if the signal is active, False otherwise.
+    Returns
+    -------
+    bool
+        ``True`` unless *both* ratios fall below their thresholds [-].
+
+    Defaults
+    --------
+    Both thresholds at ``1e-2`` are legacy compatibility values; no derivation
+    is recorded.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The variance test is a tautology: the variance is divided by itself plus
+    ``1e-12``, so the ratio is 1 for any trace whose variance exceeds about
+    1e-10, and the ``var_ratio_thresh`` branch can only fire for a trace that
+    is constant to twelve decimal places.  The decision is therefore made by
+    ``change_ratio`` alone, and a trace flat to one part in a million is
+    reported active.  Tracked in #463; this docstring describes the code as it
+    is, not as it was meant to be.
     """
     data = np.asarray(data)
 
@@ -1020,8 +1905,60 @@ def infer_signal_orientation(
     the sign of the region's median, resolved only when at least
     ``agreement`` of the region shares it and the region holds at least
     ``min_samples`` finite samples; otherwise it is unresolved and the
-    multiplier is ``+1`` (canonical), never a guess.  ``abs`` is never
-    applied to the data and no sample is flipped on its own.
+    multiplier is ``+1`` (canonical), never a guess.  ``abs`` is never applied
+    to the data and no sample is flipped on its own.
+
+    Parameters
+    ----------
+    signal : array_like
+        The waveform, one-dimensional; non-finite samples are ignored [any].
+    mask : array_like of bool or None, optional
+        The region to vote over, instead of the magnitude rule [-].
+    active_fraction : float, optional
+        Fraction of the peak magnitude a sample must reach to be in the region
+        [-].
+    min_samples : int, optional
+        Fewest finite samples the region may hold for a verdict [-].
+    agreement : float, optional
+        Smallest fraction of the region that must share the median's sign [-].
+
+    Returns
+    -------
+    SignalOrientation
+        ``multiplier`` (+1 or -1 when ``resolved``, else +1), the median
+        ``statistic``, the region's ``count``, and a ``reason`` when
+        unresolved [-].
+
+    Raises
+    ------
+    ValueError
+        ``signal`` is not one-dimensional.
+
+    Defaults
+    --------
+    ``active_fraction = 0.1``, ``min_samples = 8`` and ``agreement = 0.6`` are
+    empirical estimates fixed when #307 was implemented; #307 sets the rule
+    (median of an active region, never ``abs``, never per-sample) but records
+    no derivation for the three numbers.
+
+    Convention
+    ----------
+    The multiplier is meant to be applied to the *whole* signal once, for
+    display or for a sign-convention check.  It never rectifies samples.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A signal that is genuinely bipolar over its active region -- a Mirnov
+    fluctuation, a flux loop through a reversal -- is correctly left
+    unresolved, which the caller must handle rather than assume.
+
+    Provenance
+    ----------
+    .. [1] Issue #307, which established the rule and its defaults.
     """
     values = np.asarray(signal, dtype=float)
     if values.ndim > 1:

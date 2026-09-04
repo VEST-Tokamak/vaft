@@ -1,8 +1,29 @@
-"""
-Statistical Analysis Module for Confinement Time Scaling
+"""Log-linear regression of confinement time against engineering parameters.
 
-This module provides functions for performing statistical analysis on confinement time
-scaling data, including log transformation, OLS regression, and significance testing.
+The workflow behind the confinement-scaling study: take a table of shots
+with their engineering parameters and energy confinement time, take
+natural logarithms, fit ``ln tau_E = c0 + sum_i c_i ln p_i`` by ordinary
+least squares, and read the scaling exponents off the coefficients.
+Everything operates on ``pandas`` DataFrames whose columns are named by
+the caller; nothing here knows which columns exist except through the
+``eng_params`` list it is handed.
+
+Two functions are not statistics and are here for historical reasons:
+:func:`generate_core_profiles_history_dataframe` builds the input table by
+running a workflow script, and :func:`confinement_time_histogram` draws
+one.  Both are documented as they are; their home is decided by #263.
+
+Notation
+--------
+tau_E     : energy confinement time            [s]
+p_i       : an engineering parameter           [any]
+c_i       : the scaling exponent of ``p_i``    [-]
+alpha     : significance level                 [-]
+
+Provenance
+----------
+.. [NB] ``notebooks/confinement_time_scaling.ipynb``, the study these
+   functions were extracted from.
 """
 
 import pandas as pd
@@ -66,13 +87,33 @@ class RegressionResults:
 
 
 def load_data_from_excel(filepath: str) -> pd.DataFrame:
-    """Load confinement time scaling data from Excel file.
-    
-    Args:
-        filepath: Path to Excel file
-        
-    Returns:
-        DataFrame with confinement time scaling parameters
+    """Load a confinement-scaling table from an Excel file.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the ``.xlsx`` file; one row per shot, columns as the study
+        named them [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        The table as read, untouched [-].
+
+    Raises
+    ------
+    Exception
+        Whatever ``pandas.read_excel`` raises, after logging it.
+
+    Applicability
+    -------------
+    Machine-independent.  The tables under
+    ``workflow/automatic_pipeline_3_data_summary/`` are VEST, but nothing here
+    depends on that.
+
+    Provenance
+    ----------
+    .. [1] The study notebook [NB]_.
     """
     try:
         df = pd.read_excel(filepath)
@@ -83,7 +124,44 @@ def load_data_from_excel(filepath: str) -> pd.DataFrame:
         raise
 
 def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter dataframe to exclude shots with unrealistic values or correct sign errors"""
+    """Drop shots with unrealistic loss power and rectify the toroidal field sign.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table; ``Ploss_MW`` and ``Bt_T`` are acted on when present
+        [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        The filtered table [-].
+
+    Processing steps
+    ----------------
+    1. Keep rows with ``Ploss_MW <= 3``.
+    2. Replace ``Bt_T`` by its absolute value.
+
+    Defaults
+    --------
+    The 3 MW ceiling is a hard-coded empirical cut from the study; its
+    derivation is not recorded.  It is not a parameter.
+
+    Convention
+    ----------
+    ``Bt_T`` is made positive regardless of the field direction actually run,
+    so the fit sees magnitude only.  Any sign convention on the field is
+    discarded here.
+
+    Applicability
+    -------------
+    VEST-specific.  The ceiling and the column names are the VEST study's.
+
+    Limitations
+    -----------
+    Assigns into the frame it was given (``df["Bt_T"] = ...``), so the
+    caller's table may be modified and pandas may warn about a copy.
+    """
     if 'Ploss_MW' in df.columns:
         df = df[df['Ploss_MW'] <= 3]
 
@@ -94,17 +172,53 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 def generate_core_profiles_history_dataframe(max_shots: Optional[int] = None, 
                                             Z_eff: float = 2.0) -> pd.DataFrame:
-    """Generate core profiles history DataFrame using gen_core_profiles_history.
-    
-    This function wraps the gen_core_profiles_history module to generate
-    a DataFrame with confinement time scaling parameters.
-    
-    Args:
-        max_shots: Maximum number of shots to process (None for all)
-        Z_eff: Effective charge number (default: 2.0)
-        
-    Returns:
-        DataFrame with confinement time scaling parameters
+    """Build the scaling table by running the core-profiles history workflow.
+
+    Parameters
+    ----------
+    max_shots : int or None, optional
+        Stop after this many shots; ``None`` for all [-].
+    Z_eff : float, optional
+        Effective charge assumed for every shot when computing the ion
+        contribution [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per shot with the engineering parameters and ``tauE_s`` [-].
+
+    Raises
+    ------
+    ImportError
+        The workflow script cannot be found or loaded.
+    ValueError
+        The script returned nothing.
+
+    Processing steps
+    ----------------
+    1. Locate ``workflow/automatic_pipeline_3_data_summary/gen_core_profiles_history.py``
+       relative to this file and load it by path.
+    2. Call its ``generate_core_profiles_history_excel(max_shots, Z_eff)``.
+
+    Defaults
+    --------
+    ``Z_eff = 2.0`` is an assumed value, used because no shot-resolved
+    measurement exists; its origin is not recorded.
+
+    Applicability
+    -------------
+    VEST-specific.  The script reads the VEST database.
+
+    Limitations
+    -----------
+    Loads a workflow script by file path and inserts its directory into
+    ``sys.path``, which only works from a source checkout and is a
+    layer-boundary violation: a process function reaching up into a workflow.
+    Tracked in #263.
+
+    Provenance
+    ----------
+    .. [1] ``workflow/automatic_pipeline_3_data_summary/gen_core_profiles_history.py``.
     """
     import sys
     import os
@@ -148,15 +262,32 @@ def generate_core_profiles_history_dataframe(max_shots: Optional[int] = None,
 def log_transform(df: pd.DataFrame, 
                   eng_params: List[str], 
                   target_param: str = 'tauE_s') -> pd.DataFrame:
-    """Perform log transformation on engineering parameters and target parameter.
-    
-    Args:
-        df: DataFrame with original parameters
-        eng_params: List of engineering parameter column names
-        target_param: Target parameter column name (default: 'tauE_s')
-        
-    Returns:
-        DataFrame with log-transformed parameters
+    """Take natural logarithms of the engineering parameters and the target.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table [-].
+    eng_params : list of str
+        Column names of the engineering parameters [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``ln_<name>`` for each parameter and the target, same index as
+        ``df``; a missing column becomes all-NaN with a warning [-].
+
+    Convention
+    ----------
+    Natural logarithm, so the fitted coefficients are the exponents of a
+    power law directly.  A value that is not strictly positive has no
+    logarithm and becomes NaN, to be dropped by :func:`perform_ols_regression`.
+
+    Applicability
+    -------------
+    Machine-independent.
     """
     log_df = pd.DataFrame(index=df.index)
     
@@ -185,16 +316,56 @@ def perform_ols_regression(df: pd.DataFrame,
                            eng_params: List[str],
                            target_param: str = 'tauE_s',
                            dropna: bool = True) -> RegressionResults:
-    """Perform OLS regression on log-transformed data.
-    
-    Args:
-        df: DataFrame with original parameters
-        eng_params: List of engineering parameter column names
-        target_param: Target parameter column name (default: 'tauE_s')
-        dropna: Whether to drop rows with NaN values (default: True)
-        
-    Returns:
-        RegressionResults object with regression analysis results
+    """Fit the log-linear scaling by ordinary least squares.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table, in original units [-].
+    eng_params : list of str
+        Column names of the engineering parameters to regress on [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+    dropna : bool, optional
+        Drop rows with any NaN among the regressors or the target [-].
+
+    Returns
+    -------
+    RegressionResults
+        The fitted ``statsmodels`` model with the log table, the parameter
+        list and the target name; ``get_exponents()`` reads the scaling
+        exponents off it [-].
+
+    Raises
+    ------
+    ValueError
+        No rows remain after dropping NaN.
+
+    Processing steps
+    ----------------
+    1. :func:`log_transform` the table.
+    2. Select the ``ln_`` regressors and the ``ln_`` target.
+    3. Drop rows with NaN, if ``dropna``.
+    4. Add an intercept column and fit ``statsmodels.api.OLS``.
+
+    Defaults
+    --------
+    ``dropna = True`` is a validated-workflow default; ``statsmodels`` would
+    otherwise raise on NaN.
+
+    Convention
+    ----------
+    The fit is in log space, so the coefficients are exponents and the
+    residuals are relative errors.  Metrics in original units come from
+    :func:`compute_metrics`, which exponentiates the fitted values.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] The study notebook [NB]_.
     """
     # statsmodels is imported here, not at module scope: it is the heaviest
     # dependency in vaft.process and only this one regression needs it (#249).
@@ -234,14 +405,34 @@ def perform_ols_regression(df: pd.DataFrame,
 
 def analyze_significance(results: RegressionResults, 
                          alpha: float = 0.05) -> Dict[str, bool]:
-    """Analyze statistical significance of regression coefficients.
-    
-    Args:
-        results: RegressionResults object
-        alpha: Significance level (default: 0.05)
-        
-    Returns:
-        Dictionary mapping parameter names to significance status
+    """Flag which scaling exponents are statistically significant.
+
+    Parameters
+    ----------
+    results : RegressionResults
+        A fitted regression [-].
+    alpha : float, optional
+        Significance level; a coefficient with ``p < alpha`` is significant
+        [-].
+
+    Returns
+    -------
+    dict of str to bool
+        Parameter name to whether its exponent is significant; a parameter
+        absent from the fit is ``False`` [-].
+
+    Defaults
+    --------
+    ``alpha = 0.05`` is the conventional literature value, no more.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A p-value from a small sample with correlated regressors overstates
+    significance; see :func:`get_correlation_matrix` before trusting it.
     """
     significance = {}
     for param in results.eng_params:
@@ -258,15 +449,45 @@ def analyze_significance(results: RegressionResults,
 def compute_metrics(results: RegressionResults, 
                    df: pd.DataFrame,
                    target_param: str = 'tauE_s') -> Dict[str, float]:
-    """Compute performance metrics for the regression model.
-    
-    Args:
-        results: RegressionResults object
-        df: Original DataFrame
-        target_param: Target parameter column name
-        
-    Returns:
-        Dictionary with performance metrics
+    """Goodness-of-fit metrics of the regression in original units.
+
+    Parameters
+    ----------
+    results : RegressionResults
+        A fitted regression [-].
+    df : pd.DataFrame
+        The original table the regression was fitted from [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    dict of str to float
+        ``R2``, ``RMSE``, ``MAE``, ``Mean_Relative_Error_%`` and
+        ``Median_Relative_Error_%`` [-].
+
+    Processing steps
+    ----------------
+    1. Exponentiate the fitted log values to get predicted confinement times.
+    2. Select the actual values at the rows the fit used.
+    3. Compute the metrics with ``sklearn.metrics`` and NumPy.
+
+    Convention
+    ----------
+    Metrics are in the *original* units, so ``R2`` here is not the ``rsquared``
+    of the log fit on the results object; the two differ and both are
+    reported deliberately.  ``RMSE`` and ``MAE`` carry the target's unit,
+    seconds for ``tauE_s``, and are returned as plain floats.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Imports ``scikit-learn`` on call for two one-line metrics.  When the
+    fitted values carry no index the actual values are truncated to the
+    shorter length, which silently misaligns rows if any were dropped.
     """
     from sklearn.metrics import r2_score, mean_squared_error
     
@@ -314,13 +535,21 @@ def compute_metrics(results: RegressionResults,
 
 
 def get_residuals(results: RegressionResults) -> pd.Series:
-    """Get residuals from regression model.
-    
-    Args:
-        results: RegressionResults object
-        
-    Returns:
-        Series with residuals
+    """Residuals of the log-space fit.
+
+    Parameters
+    ----------
+    results : RegressionResults
+        A fitted regression [-].
+
+    Returns
+    -------
+    pd.Series
+        ``ln(actual) - ln(fitted)`` per row used in the fit [-].
+
+    Applicability
+    -------------
+    Machine-independent.
     """
     return results.residuals
 
@@ -328,15 +557,31 @@ def get_residuals(results: RegressionResults) -> pd.Series:
 def get_correlation_matrix(log_df: pd.DataFrame, 
                           eng_params: List[str],
                           target_param: str = 'tauE_s') -> pd.DataFrame:
-    """Compute correlation matrix for log-transformed parameters.
-    
-    Args:
-        log_df: DataFrame with log-transformed parameters
-        eng_params: List of engineering parameter column names
-        target_param: Target parameter column name
-        
-    Returns:
-        Correlation matrix as DataFrame
+    """Pearson correlation matrix of the log-transformed regressors and target.
+
+    Parameters
+    ----------
+    log_df : pd.DataFrame
+        Output of :func:`log_transform` [-].
+    eng_params : list of str
+        Column names of the engineering parameters [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        The correlation matrix over the available ``ln_`` columns; empty when
+        fewer than two exist [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Pairwise-complete, as ``DataFrame.corr`` is; rows are not dropped
+    consistently across pairs.
     """
     cols = [f'ln_{p}' for p in eng_params] + [f'ln_{target_param}']
     available_cols = [c for c in cols if c in log_df.columns]
@@ -352,15 +597,26 @@ def get_correlation_matrix(log_df: pd.DataFrame,
 def get_individual_correlations(log_df: pd.DataFrame,
                                eng_params: List[str],
                                target_param: str = 'tauE_s') -> Dict[str, float]:
-    """Get correlation coefficients between each parameter and target.
-    
-    Args:
-        log_df: DataFrame with log-transformed parameters
-        eng_params: List of engineering parameter column names
-        target_param: Target parameter column name
-        
-    Returns:
-        Dictionary mapping parameter names to correlation coefficients
+    """Pearson correlation of each log regressor with the log target.
+
+    Parameters
+    ----------
+    log_df : pd.DataFrame
+        Output of :func:`log_transform` [-].
+    eng_params : list of str
+        Column names of the engineering parameters [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    dict of str to float
+        Parameter name to its correlation with the target; NaN when the
+        column is missing or fewer than two complete rows exist [-].
+
+    Applicability
+    -------------
+    Machine-independent.
     """
     correlations = {}
     target_col = f'ln_{target_param}'
@@ -399,11 +655,42 @@ def confinement_time_histogram(df: pd.DataFrame,
                                alpha: float = 0.7,
                                edgecolor: str = 'black',
                                **kwargs):
-    """Plot histograms for confinement_time parameter sets in an m x n grid.
+    """Plot histograms of the scaling parameters in an ``m x n`` grid.
 
-    Rendering moved to :func:`vaft.plot.history.confinement_time_histogram` so
-    that processing stays free of Matplotlib (issue #63).  This wrapper keeps the
-    public call site working and returns the same ``Figure``.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table [-].
+    eng_params : list of str or None, optional
+        Columns to plot; ``None`` for the renderer's default set [-].
+    m : int or None, optional
+        Grid rows [-].
+    n : int or None, optional
+        Grid columns [-].
+    figsize : tuple of (float, float) or None, optional
+        Figure size in inches [-].
+    bins : int or str, optional
+        Histogram bins, as Matplotlib takes them [-].
+    alpha : float, optional
+        Bar opacity [-].
+    edgecolor : str, optional
+        Bar edge colour [-].
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure, as :func:`vaft.plot.history.confinement_time_histogram`
+        returns it [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Rendering lives in :func:`vaft.plot.history.confinement_time_histogram`
+    (issue #63); this is a compatibility shim that keeps the old call site
+    and pulls Matplotlib in on call.  Its removal is tracked in #263.
     """
     from vaft.plot.history import confinement_time_histogram as _render
 

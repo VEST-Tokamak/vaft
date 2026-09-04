@@ -24,18 +24,16 @@ signals out of an ODS, calls into `vaft.process`, and writes the results back.
 
 > Rule of thumb: **`vaft.process` is the math, `vaft.omas.compute_*` is the API you usually call.**
 
-| Module | Concern |
-| --- | --- |
-| `vaft.process.signal_processing` | Smoothing, baseline definition/removal, filtering, on/off-set detection, liveness test |
-| `vaft.process.numerical` | Time derivative on a non-uniform grid |
-| `vaft.process.electromagnetics` | Green's-function response matrices, R/L/M coupling matrices, eddy-current RL solve, vacuum-field reconstruction |
-| `vaft.process.magnetics` | Legacy VEST EFIT magnetics chain, Mirnov preprocessing/spectrogram, toroidal mode numbers, Rogowski → $I_p$ |
-| `vaft.process.equilibrium` | $\psi \leftrightarrow R \leftrightarrow \rho$ mapping, volume averages, diamagnetism, Shafranov/virial integrals |
-| `vaft.process.profile` | Diagnostic→equilibrium mapping and profile fitting (writes `core_profiles` into ODS) |
-| `vaft.process.statistical_analysis` | Log-log confinement-time scaling regression |
+Every public function in `vaft.process` is documented under one contract -- inputs and outputs
+with units, processing steps, defaults and where they came from, machine scope, limitations and
+provenance -- and the [process reference]({{ site.baseurl }}/reference/process/) is generated from
+those docstrings.  This page is the *workflow*: how the pieces are used together for
+electromagnetic modelling.  For what any one function does, its parameters and its provenance,
+use the reference, or `vaft.process.describe("<name>")` at a prompt.
 
-`vaft/process/__init__.py` is a star-import chain, so every public symbol below is reachable both as
-`vaft.process.<name>` and as `vaft.process.<module>.<name>`. All of these work:
+Submodules are imported on demand, so every public symbol is reachable both as
+`vaft.process.<name>` and as `vaft.process.<module>.<name>`, and importing one submodule costs
+only that submodule.  All of these work:
 
 ```python
 import vaft                                    # lazy: vaft.process is imported on first attribute access

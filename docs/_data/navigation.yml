@@ -32,6 +32,12 @@ sections:
       - id: api
         title: VAFT API
         url: /reference/api/
+      - id: formula-reference
+        title: Formula reference
+        url: /reference/formula/
+      - id: process-reference
+        title: Process reference
+        url: /reference/process/
       - id: imas-concepts
         title: Fusion data structure and IMAS concepts
         url: /reference/imas-concepts/
