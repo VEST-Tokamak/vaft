@@ -6,6 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from ...compat import is_executable
 from .._executables import executable_from_home, missing_home_message
 from .config import TESConfig, TESInputs, TESResult
 from .outputs import collect_tes_outputs
@@ -41,7 +42,7 @@ def _resolve_executable(config: TESConfig) -> str:
         )
     if not exe.is_file():
         raise FileNotFoundError(f"rtes binary not found: {exe}")
-    if not os.access(exe, os.X_OK):
+    if not is_executable(exe):
         raise PermissionError(f"rtes binary is not executable: {exe}")
     return str(exe)
 

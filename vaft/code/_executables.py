@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePath
 
+from ..compat import is_executable
+
 
 def executable_from_home(
     home: str | os.PathLike[str] | None,
@@ -26,7 +28,7 @@ def executable_from_home(
             f"expected {executable}. Compile or install {code_name} so that "
             "the executable exists at the documented location."
         )
-    if not os.access(executable, os.X_OK):
+    if not is_executable(executable):
         raise PermissionError(
             f"{code_name} executable is not executable for "
             f"${home_variable}={root}: expected {executable}. Compile or "

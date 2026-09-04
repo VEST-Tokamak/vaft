@@ -29,6 +29,7 @@ __all__ = [
     "cumtrapz_compat",
     "apply_runtime_compat_patches",
     "ensure_home_environment",
+    "is_executable",
     "user_home",
     "reopenable_temporary_file",
     "remove_directory",
@@ -122,6 +123,40 @@ def reopenable_temporary_file(
     """
     with temporary_directory(prefix=prefix) as scratch:
         yield scratch / f"payload{suffix}"
+
+
+def is_executable(path: str | Path) -> bool:
+    """Whether the operating system can actually launch ``path``.
+
+    ``os.access(path, os.X_OK)`` is meaningless on Windows: it models only the
+    read-only attribute, so it answers True for *any* existing file, including
+    a text file or a POSIX shell script. A guard written on it therefore passes
+    something unlaunchable straight to ``CreateProcess``, which fails with
+    ``OSError [WinError 193] %1 is not a valid Win32 application`` -- a message
+    that names neither the file nor the reason.
+
+    Windows carries executability in the extension (``PATHEXT``), but it will
+    also run an extension-less PE image given an exact path, so both are
+    accepted here. Anything else -- notably a ``#!``-prefixed script -- is
+    correctly reported as not executable.
+    """
+    candidate = Path(path)
+    if not candidate.is_file():
+        return False
+    if not IS_WINDOWS:
+        return os.access(candidate, os.X_OK)
+    launchable = {
+        suffix.strip().lower()
+        for suffix in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(os.pathsep)
+        if suffix.strip()
+    }
+    if candidate.suffix.lower() in launchable:
+        return True
+    try:
+        with candidate.open("rb") as stream:
+            return stream.read(2) == b"MZ"
+    except OSError:
+        return False
 
 
 def remove_directory(path: str | Path, *, missing_ok: bool = True) -> bool:

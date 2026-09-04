@@ -205,3 +205,38 @@ class CompatRuntimeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExecutableProbeTests(unittest.TestCase):
+    """`os.access(X_OK)` answers True for any existing file on Windows."""
+
+    def setUp(self):
+        self.scratch = Path(tempfile.mkdtemp(prefix="vaft-test-exec-"))
+        self.addCleanup(shutil.rmtree, self.scratch, ignore_errors=True)
+
+    def test_a_posix_shell_script_is_not_launchable_on_windows(self):
+        script = self.scratch / "dcon"
+        script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+        with patch.object(compat, "IS_WINDOWS", True):
+            self.assertFalse(compat.is_executable(script))
+        # The same file is perfectly launchable on POSIX.
+        if os.name != "nt":
+            with patch.object(compat, "IS_WINDOWS", False):
+                self.assertTrue(compat.is_executable(script))
+
+    def test_a_real_executable_is_launchable(self):
+        self.assertTrue(compat.is_executable(sys.executable))
+
+    def test_an_extensionless_pe_image_is_still_launchable(self):
+        """Windows runs a PE given an exact path, extension or not."""
+        image = self.scratch / "chease"
+        image.write_bytes(b"MZ\x90\x00" + b"\x00" * 64)
+        with patch.object(compat, "IS_WINDOWS", True):
+            self.assertTrue(compat.is_executable(image))
+
+    def test_a_missing_file_is_not_executable(self):
+        self.assertFalse(compat.is_executable(self.scratch / "absent"))
+
+    def test_a_directory_is_not_executable(self):
+        self.assertFalse(compat.is_executable(self.scratch))
