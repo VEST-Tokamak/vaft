@@ -171,9 +171,10 @@ def passive_structure_geometry_poloidal(
     description="One eigenmode of the passive wall: every loop of the chosen "
                 "segment coloured by its signed relative current, the rest grey "
                 "(vaft #473; the reduced-wall contract, vfit #8).",
-    ids=("pf_passive", "em_coupling"),
+    ids=("pf_active", "pf_passive", "em_coupling"),
     required_paths=("pf_passive.loop.{i}.element.{j}.geometry.geometry_type",
-                    "pf_passive.loop.{i}.resistance"),
+                    "pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type"),
     optional_paths=("pf_passive.loop.{i}.name",
                     "em_coupling.mutual_passive_passive"),
 )

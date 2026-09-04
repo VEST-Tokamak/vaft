@@ -2380,7 +2380,7 @@ RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
     builder=_build_wall_mode_shape,
     description="One segment-local wall eigenmode coloured onto the passive structure.",
 )
-RECIPES["passive_structure_spectrum_wall_time"] = CallableRecipe(
+RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
     builder=_build_wall_mode_spectrum,
     description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
 )

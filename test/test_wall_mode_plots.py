@@ -41,7 +41,7 @@ def test_a_mode_outside_the_segment_is_refused(packaged):
 
 def test_the_spectrum_has_one_series_per_segment_plus_the_whole_wall(packaged):
     ods, basis = packaged
-    model = RECIPES["passive_structure_spectrum_wall_time"].builder(ods, basis=basis, max_modes=5)
+    model = RECIPES["passive_structure_overview_wall_time"].builder(ods, basis=basis, max_modes=5)
     assert isinstance(model, Panels) and len(model.models) == 1
     panel = model.models[0]
     labels = [series.label for series in panel.series]
@@ -55,6 +55,6 @@ def test_the_adapters_render_figures(packaged):
     figure, axes = vomas.plot_passive_structure_geometry_wall_mode(ods, basis=basis, segment="W7_L", mode=1)
     assert "W7_L mode 1" in axes.get_title()
     plt.close(figure)
-    figure, axes = vomas.plot_passive_structure_spectrum_wall_time(ods, basis=basis, max_modes=3)
+    figure, axes = vomas.plot_passive_structure_overview_wall_time(ods, basis=basis, max_modes=3)
     assert np.asarray(axes).ravel()[0].get_yscale() == "log"
     plt.close(figure)

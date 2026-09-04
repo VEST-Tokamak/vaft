@@ -564,6 +564,7 @@ def reduce_response(
 # ---------------------------------------------------------------------------
 
 def select_all(basis: WallModeBasis) -> tuple[np.ndarray, ...]:
+    """Keep every mode of every segment (the full-rank selection)."""
     return basis._keep(None)
 
 

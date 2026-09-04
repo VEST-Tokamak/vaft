@@ -293,7 +293,7 @@ from .renderers.panels import (
     summary_time_energy,
     summary_time_power_balance,
     summary_time_voltage_consumption,
-    passive_structure_spectrum_wall_time,
+    passive_structure_overview_wall_time,
 )
 from .renderers.profiles import (
     charge_exchange_profile_ion_temperature,

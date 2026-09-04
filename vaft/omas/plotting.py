@@ -1989,7 +1989,7 @@ def plot_passive_structure_geometry_wall_mode(
     )
 
 
-def plot_passive_structure_spectrum_wall_time(
+def plot_passive_structure_overview_wall_time(
     source: Any,
     *,
     ax: Any = None,
@@ -2001,10 +2001,10 @@ def plot_passive_structure_spectrum_wall_time(
 
     Options: ``max_modes`` per segment, ``whole_wall`` (draw the whole-wall
     spectrum, default True), ``basis``, ``remap_em_coupling``.  Renders with
-    :func:`vaft.plot.passive_structure_spectrum_wall_time`.
+    :func:`vaft.plot.passive_structure_overview_wall_time`.
     """
     return render(
-        "passive_structure_spectrum_wall_time", source, ax=ax, show=show, label=label, **options
+        "passive_structure_overview_wall_time", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -2562,7 +2562,7 @@ __all__ = [
     "plot_pf_coil_time_current_turns",
     "plot_passive_structure_geometry_poloidal",
     "plot_passive_structure_geometry_wall_mode",
-    "plot_passive_structure_spectrum_wall_time",
+    "plot_passive_structure_overview_wall_time",
     "plot_soft_x_rays_geometry_lines_of_sight",
     "plot_soft_x_rays_overview",
     "plot_soft_x_rays_spectrogram",

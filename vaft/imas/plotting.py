@@ -1335,7 +1335,7 @@ def plot_passive_structure_geometry_wall_mode(
     )
 
 
-def plot_passive_structure_spectrum_wall_time(
+def plot_passive_structure_overview_wall_time(
     source: Any,
     *,
     ax: Any = None,
@@ -1347,10 +1347,10 @@ def plot_passive_structure_spectrum_wall_time(
 
     Options: ``max_modes`` per segment, ``whole_wall`` (draw the whole-wall
     spectrum, default True), ``basis``, ``remap_em_coupling``.  Renders with
-    :func:`vaft.plot.passive_structure_spectrum_wall_time` from native IMAS input.
+    :func:`vaft.plot.passive_structure_overview_wall_time` from native IMAS input.
     """
     return render(
-        "passive_structure_spectrum_wall_time", source, ax=ax, show=show, label=label, **options
+        "passive_structure_overview_wall_time", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -1799,7 +1799,7 @@ __all__ += [
     "plot_mirnov_time_voltage",
     "plot_passive_structure_geometry_poloidal",
     "plot_passive_structure_geometry_wall_mode",
-    "plot_passive_structure_spectrum_wall_time",
+    "plot_passive_structure_overview_wall_time",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",
