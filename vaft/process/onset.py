@@ -416,6 +416,18 @@ def pickup_scale(values, baseline: float, robust_sigma: float, dt: float,
 # ---------------------------------------------------------------------------
 
 
+def _too_short(t: np.ndarray, cutoff_hz, order: int) -> bool:
+    """Whether a record has too few samples to be judged at all.
+
+    Two samples cannot carry a threshold, and a zero-phase filter needs more
+    than its padding length; either way the answer is *no evidence*, flagged
+    ``record_too_short``, not an exception a consumer has to guess at.
+    """
+    if t.size < 2:
+        return True
+    return cutoff_hz is not None and t.size <= 3 * (int(order) + 1)
+
+
 def _reference(t: np.ndarray, reference_mask, reference_fraction: float) -> np.ndarray:
     if reference_mask is not None:
         return np.asarray(reference_mask, dtype=bool).reshape(-1)
@@ -603,6 +615,9 @@ def principal_pulse_onset(
     :func:`pickup_scale` (``peak_below_pickup_floor``).
     """
     t, raw = _as_arrays(time, values)
+    if _too_short(t, cutoff_hz, order):
+        return OnsetRecord(time=None, index=None, method="principal_pulse",
+                           evidence={"n_samples": int(t.size)}, flags=("no_onset", "record_too_short"))
     y = _fill_non_finite(raw)
     dt = float(np.median(np.diff(t)))
     if cutoff_hz is not None:
@@ -742,6 +757,11 @@ def active_window(
     offset within 2 ms of the light's on every discharge, level or collapse.
     """
     t, raw = _as_arrays(time, values)
+    method = "active_window"
+    if _too_short(t, cutoff_hz, order):
+        none = OnsetRecord(time=None, index=None, method=method, evidence={"n_samples": int(t.size)},
+                           flags=("no_onset", "record_too_short"))
+        return PulseWindow(onset=none, offset=none, flags=none.flags, evidence=none.evidence)
     y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
     dt = float(np.median(np.diff(t)))
     if cutoff_hz is not None:
@@ -750,7 +770,6 @@ def active_window(
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
-    method = "active_window"
     evidence: dict[str, Any] = {
         "baseline_median": baseline, "robust_sigma": spread, "peak": peak, "threshold": threshold,
         "fraction": float(fraction), "sigma": float(sigma), "hold_s": float(hold_s),

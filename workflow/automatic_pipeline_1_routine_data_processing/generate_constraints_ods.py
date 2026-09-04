@@ -15,7 +15,7 @@ from omas import load_omas_json
 
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
-from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
+from vaft.omas.plasma_timing import plasma_timing
 from vaft.validation.imas import resolve_signal_time
 
 
@@ -166,14 +166,15 @@ def _constraint_window(ods, *, policy: PlasmaTimingPolicy | None = None) -> Cons
         raise ValueError("magnetics.ip.0.time is empty")
     base_start = max(float(policy.window.tstart), float(ip_time[0]))
     base_end = min(float(policy.window.tend), float(ip_time[-1]))
-
-    try:
-        timing = plasma_timing(ods, policy=policy)
-    except PlasmaTimingError as exc:
-        return ConstraintWindow(
-            base_start, base_end, "analysis_range", (ANALYSIS_RANGE_FALLBACK,), None,
-            str(exc), {"error": str(exc)},
+    if base_end <= base_start:
+        raise ValueError(
+            f"the plasma current record {ip_time[0]:.4f}-{ip_time[-1]:.4f} s does not overlap the "
+            f"{policy.window.name} range {policy.window.tstart}-{policy.window.tend} s"
         )
+
+    # A product without a usable plasma current cannot be constrained at all;
+    # plasma_timing's PlasmaTimingError is the right message and propagates.
+    timing = plasma_timing(ods, policy=policy)
     if timing.found:
         return ConstraintWindow(
             max(base_start, float(timing.onset)),

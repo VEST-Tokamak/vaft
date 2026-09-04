@@ -123,3 +123,44 @@ def test_an_empty_current_axis_is_still_an_error():
     ods["magnetics.ip.0.data"] = np.zeros(0)
     with pytest.raises(ValueError, match="magnetics.ip.0.time is empty"):
         MODULE._select_times(ods, "auto", TSTEP, None, None)
+
+
+def test_a_current_record_outside_the_range_is_an_error():
+    """Review finding: an empty intersection used to yield one slice at 0.28 s."""
+    t = grid(0.10, 0.20)
+    ods = synthetic_ods(ip=current(t, onset=0.12, offset=0.18), t=t)
+    with pytest.raises(ValueError, match="does not overlap"):
+        MODULE._select_times(ods, "auto", TSTEP, None, None)
+
+
+def test_a_product_without_plasma_current_fails_at_selection():
+    from vaft.omas.plasma_timing import PlasmaTimingError
+
+    t = grid()
+    ods = synthetic_ods(slow=light(t))
+    ods["magnetics.time"] = t  # a time axis but no current
+    with pytest.raises(PlasmaTimingError, match="carries no plasma current"):
+        MODULE._select_times(ods, "auto", TSTEP, None, None)
+
+
+def test_the_provenance_comment_survives_the_constraint_builder():
+    """Review finding: legacy.vfit_equilibrium_form_constraints overwrote the comment."""
+    from omas import ODS
+
+    from vaft.code.efit.legacy import annotate_constraint_equilibrium
+
+    t = grid()
+    ods = synthetic_ods(slow=light(t), ip=current(t))
+    times, window = MODULE._select_times(ods, "auto", TSTEP, None, None)
+    comment = MODULE._window_comment(window, times)
+
+    eq = ODS(consistency_check=False)
+    eq["ids_properties.comment"] = comment
+    annotate_constraint_equilibrium(eq, times)
+    assert eq["ids_properties.comment"].startswith(comment)
+    assert eq["ids_properties.comment"].endswith("constraint equilibrium")
+    assert eq["ids_properties.homogeneous_time"] == 1
+
+    bare = ODS(consistency_check=False)
+    annotate_constraint_equilibrium(bare, times)
+    assert bare["ids_properties.comment"] == "constraint equilibrium"

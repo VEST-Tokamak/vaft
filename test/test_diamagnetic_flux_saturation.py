@@ -373,7 +373,7 @@ def test_a_missing_h_alpha_field_is_answered_by_the_current():
     with patch.object(magnetics, "_safe_vest_load", return_value=None):
         choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, RAW_TIME, current(RAW_TIME), None)
     assert choice.source == "ip"
-    assert choice.evidence["h_alpha"] is None
+    assert "h_alpha" not in choice.evidence
 
 
 @pytest.mark.parametrize("shot, expected", [(39915, (0.3065, 0.3308)), (41524, (0.3146, 0.3364)), (41672, (0.3125, 0.3517))])
@@ -385,3 +385,35 @@ def test_the_raw_side_window_agrees_with_the_ods_side_timing(shot, expected):
     assert choice.source == "h_alpha_raw"
     assert choice.start == pytest.approx(expected[0], abs=1e-3)
     assert choice.end == pytest.approx(expected[1], abs=1e-3)
+
+
+def test_a_railed_raw_h_alpha_channel_is_refused_like_the_ods_side(tmp_path):
+    """Review finding: the raw path applied none of the usability floors."""
+    railed = -np.clip(light(RAW_TIME, amplitude=8.0), None, 5.0)  # rails at 5.0 on the search stretch
+    source = _dump_with_fields(tmp_path, **{str(HALPHA_FIELD): railed})
+
+    choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, RAW_TIME, current(RAW_TIME), source)
+
+    assert choice.evidence["h_alpha_unusable"] == "not_railed"
+    assert choice.source == "ip"
+
+
+def test_a_current_record_outside_the_range_is_an_error_not_a_window():
+    t = np.arange(0.10, 0.20, DT)
+    with pytest.raises(ValueError, match="does not overlap"):
+        magnetics.detect_plasma_window(SYNTHETIC_SHOT, t, current(t, onset=0.12, offset=0.18), None)
+
+
+def test_the_range_fallback_is_clipped_to_the_current_record():
+    t = np.arange(0.20, 0.34, DT)
+    with patch.object(magnetics, "_safe_vest_load", return_value=None):
+        choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, t, pickup_only(t), None)
+    assert choice.fallback
+    assert choice.end == pytest.approx(float(t[-1]))
+
+
+def test_the_package_exports_the_window_detector():
+    from vaft.machine_mapping import PlasmaWindowChoice, detect_plasma_window
+
+    assert detect_plasma_window is magnetics.detect_plasma_window
+    assert PlasmaWindowChoice is magnetics.PlasmaWindowChoice

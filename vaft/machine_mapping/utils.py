@@ -494,6 +494,63 @@ def resolve_diagnostics_time_policies(
 
 PLASMA_TIMING_KEY = "plasma_timing"
 
+
+@dataclass(frozen=True)
+class CroppedRecord:
+    """One record cropped to the plasma-analysis span, split into baseline and search.
+
+    ``baseline_mask`` is handed to the detectors as their ``reference_mask``
+    (the process layer speaks of a reference stretch, the policy of the
+    plasma baseline); it is ``None`` when the record carries less than
+    ``min_baseline_s`` before ``tstart`` -- the detector then falls back to its
+    own leading fraction of the cropped record, which lies inside the search
+    stretch, and ``flags`` says ``baseline_inside_search``.
+    """
+
+    t: np.ndarray
+    y: np.ndarray
+    baseline_mask: np.ndarray | None
+    search: np.ndarray
+    flags: tuple[str, ...]
+
+    def detect(self, rule: Mapping[str, Any]):
+        """Run :func:`vaft.process.onset.active_window` with ``rule`` on this record."""
+        from vaft.process.onset import active_window
+
+        return active_window(
+            self.t, self.y, reference_mask=self.baseline_mask, search_mask=self.search, **rule
+        )
+
+
+def crop_to_span(
+    time: Any,
+    values: Any,
+    *,
+    baseline_start: float,
+    tstart: float,
+    tend: float,
+    min_baseline_s: float | None = None,
+) -> CroppedRecord:
+    """Crop a record to ``[baseline_start, tend)`` and split it at ``tstart``.
+
+    The one crop rule every reader of the plasma-timing policy applies -- the
+    ODS-side composer and the raw-side mapper -- so the two cannot drift.
+    Raises :class:`ValueError` when ``time`` and ``values`` differ in length.
+    """
+    if min_baseline_s is None:
+        min_baseline_s = MIN_BASELINE_S
+    t = np.asarray(time, dtype=float).reshape(-1)
+    y = np.asarray(values, dtype=float).reshape(-1)
+    if t.size != y.size:
+        raise ValueError(f"time has {t.size} samples but the signal has {y.size}")
+    keep = (t >= float(baseline_start)) & (t < float(tend))
+    t, y = t[keep], y[keep]
+    baseline = t < float(tstart)
+    covered = float(t[baseline][-1] - t[baseline][0]) if baseline.sum() > 1 else 0.0
+    if covered < float(min_baseline_s):
+        return CroppedRecord(t, y, None, ~baseline, ("baseline_inside_search",))
+    return CroppedRecord(t, y, baseline, ~baseline, ())
+
 #: A baseline stretch shorter than this (a product built from the plasma
 #: range onward) is not trusted on its own: the detectors then use their own
 #: leading fraction of the cropped record, which lies inside the search
@@ -1205,6 +1262,7 @@ __all__ = [
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
     "DIAGNOSTICS_TIME_POLICIES_KEY",
     "DiagnosticsTimePolicy",
+    "CroppedRecord",
     "DiagnosticsTimePolicyTable",
     "MIN_BASELINE_S",
     "PLASMA_TIMING_KEY",
@@ -1215,6 +1273,7 @@ __all__ = [
     "apply_pf_active_current_uncertainties",
     "apply_tf_uncertainties",
     "build_window_time_axis",
+    "crop_to_span",
     "get_diagnostic_info",
     "get_metadata",
     "get_path",

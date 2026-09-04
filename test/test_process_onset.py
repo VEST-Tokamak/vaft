@@ -228,8 +228,12 @@ def test_a_noise_dip_during_the_rise_does_not_delay_the_onset():
 
 
 def test_a_record_too_short_for_the_filter_says_so():
+    """A record the filter cannot pad is no evidence, flagged -- not an exception
+    (the filter itself still refuses, for callers that reach it directly)."""
+    record = principal_pulse_onset(T[:12], np.ones(12), cutoff_hz=2000.0, fs=FS)
+    assert not record.found and "record_too_short" in record.flags
     with pytest.raises(ValueError, match="needs more than"):
-        principal_pulse_onset(T[:12], np.ones(12), cutoff_hz=2000.0, fs=FS)
+        zero_phase_lowpass(np.ones(12), 2000.0, FS)
 
 
 def test_a_flat_reference_is_flagged():
@@ -383,3 +387,17 @@ def test_a_disruption_tail_above_the_end_fraction_ends_at_the_last_steep_fall():
     assert w.evidence["collapse_time"] == pytest.approx(0.050, abs=5 * DT)
     plain = active_window(T, y, principal_only=True, reference_mask=T < 0.015, end_fraction=0.10, collapse_fallback=False)
     assert "offset_at_record_end" in plain.flags
+
+
+def test_a_record_too_short_for_the_filter_is_no_evidence_not_an_error():
+    """Review finding: the zero-phase filter raised before the degenerate checks ran."""
+    from vaft.process.onset import active_window
+
+    short = T[:12]
+    window = active_window(short, pulse()[:12], cutoff_hz=2000.0)
+    assert not window.found
+    assert "record_too_short" in window.flags
+    record = principal_pulse_onset(short, pulse()[:12], cutoff_hz=2000.0)
+    assert not record.found and "record_too_short" in record.flags
+    # without a filter the same twelve samples are judged (and found wanting) normally
+    assert "record_too_short" not in active_window(short, pulse()[:12]).flags

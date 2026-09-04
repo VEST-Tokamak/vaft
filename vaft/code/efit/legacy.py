@@ -46,6 +46,25 @@ def _signal_matches_time(container, path, time) -> bool:
     return bool(values.size and values.size == time_values.size)
 
 
+CONSTRAINT_EQUILIBRIUM_COMMENT = "constraint equilibrium"
+
+
+def annotate_constraint_equilibrium(EQ, times):
+    """Stamp the constraint equilibrium's identity without erasing its provenance.
+
+    A caller may already have written where the constraint times came from
+    (the plasma window and its source, issue #409) into
+    ``ids_properties.comment``; that line is kept and the identity appended.
+    """
+    existing = EQ["ids_properties.comment"] if "ids_properties.comment" in EQ else ""
+    if existing and CONSTRAINT_EQUILIBRIUM_COMMENT not in str(existing):
+        EQ["ids_properties.comment"] = f"{existing}; {CONSTRAINT_EQUILIBRIUM_COMMENT}"
+    elif not existing:
+        EQ["ids_properties.comment"] = CONSTRAINT_EQUILIBRIUM_COMMENT
+    EQ["ids_properties.homogeneous_time"] = 1
+    EQ["time"] = times
+
+
 def vfit_equilibrium_form_constraints(
     EQ,
     PF,
@@ -65,9 +84,7 @@ def vfit_equilibrium_form_constraints(
     #    MG=ods['magnetics']
     #    TF=ods['tf']
 
-    EQ["ids_properties.comment"] = "constraint equilibrium"
-    EQ["ids_properties.homogeneous_time"] = 1
-    EQ["time"] = times
+    annotate_constraint_equilibrium(EQ, times)
     nbt = len(times)
 
     ave_time = []

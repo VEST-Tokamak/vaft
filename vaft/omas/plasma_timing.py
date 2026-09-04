@@ -51,11 +51,13 @@ from vaft.machine_mapping.spectrometer_uv import (
 )
 from vaft.machine_mapping.utils import (
     MIN_BASELINE_S,
+    CroppedRecord,
     PlasmaTimingPolicy,
+    crop_to_span,
     resolve_plasma_timing_policy,
 )
 from vaft.ods_access import path_value
-from vaft.process.onset import PulseWindow, active_window, robust_baseline
+from vaft.process.onset import PulseWindow, robust_baseline
 from vaft.validation.imas import (
     VALIDITY_INVALID,
     VALIDITY_SUSPECT,
@@ -181,46 +183,14 @@ def analysis_span(policy: PlasmaTimingPolicy | None = None) -> AnalysisSpan:
     )
 
 
-@dataclass(frozen=True)
-class _Cropped:
-    """One record inside the span, with its baseline and search masks.
-
-    ``baseline_mask`` is handed to the detectors as their ``reference_mask``:
-    the process layer speaks of a reference stretch, this layer of the
-    plasma baseline before the analysis range.
-    """
-
-    t: np.ndarray
-    y: np.ndarray
-    baseline_mask: np.ndarray | None
-    search: np.ndarray
-    flags: tuple[str, ...]
-
-    def detect(self, rule: Mapping[str, Any]) -> PulseWindow:
-        return active_window(
-            self.t, self.y, reference_mask=self.baseline_mask, search_mask=self.search, **rule
+def _crop(time: Any, values: Any, span: AnalysisSpan) -> CroppedRecord:
+    """Crop a record to the span with the shared rule (:func:`crop_to_span`)."""
+    try:
+        return crop_to_span(
+            time, values, baseline_start=span.baseline_start, tstart=span.tstart, tend=span.tend
         )
-
-
-def _crop(time: Any, values: Any, span: AnalysisSpan) -> _Cropped:
-    """Crop a record to the span.
-
-    ``baseline_mask`` is ``None`` when the record carries less than
-    :data:`MIN_BASELINE_S` before ``tstart``: the detector then falls back to
-    its own leading fraction of the cropped record, which is inside the search
-    stretch, and the flag ``baseline_inside_search`` says so.
-    """
-    t = np.asarray(time, dtype=float).reshape(-1)
-    y = np.asarray(values, dtype=float).reshape(-1)
-    if t.size != y.size:
-        raise PlasmaTimingError(f"time has {t.size} samples but the signal has {y.size}")
-    keep = (t >= span.baseline_start) & (t < span.tend)
-    t, y = t[keep], y[keep]
-    baseline = t < span.tstart
-    covered = float(t[baseline][-1] - t[baseline][0]) if baseline.sum() > 1 else 0.0
-    if covered < MIN_BASELINE_S:
-        return _Cropped(t, y, None, ~baseline, ("baseline_inside_search",))
-    return _Cropped(t, y, baseline, ~baseline, ())
+    except ValueError as exc:
+        raise PlasmaTimingError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +421,7 @@ def halpha_usability(
 # ---------------------------------------------------------------------------
 
 
-def _halpha_cropped(ods: Any, source: HalphaSource, span: AnalysisSpan) -> _Cropped:
+def _halpha_cropped(ods: Any, source: HalphaSource, span: AnalysisSpan) -> CroppedRecord:
     data = path_value(ods, f"{source.base}.data")
     time = resolve_signal_time(ods, source.base)
     if data is None or time is None:
@@ -477,7 +447,7 @@ def halpha_window(
     return _halpha_cropped(ods, source, span).detect(policy.h_alpha)
 
 
-def _ip_cropped(ods: Any, span: AnalysisSpan) -> tuple[_Cropped, dict[str, bool]]:
+def _ip_cropped(ods: Any, span: AnalysisSpan) -> tuple[CroppedRecord, dict[str, bool]]:
     """The plasma current inside the span and its :data:`IP_CHECKS`."""
     data = path_value(ods, f"{IP_BASE}.data")
     time = resolve_signal_time(ods, IP_BASE)
