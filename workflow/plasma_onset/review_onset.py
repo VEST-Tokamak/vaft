@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from vaft.process.onset import principal_pulse_onset, sustained_excess_onset
+from vaft.process.onset import active_window, principal_pulse_onset, sustained_excess_onset
 
 HALPHA = "spectrometer_uv.channel.0.processed_line.0.intensity"
 
@@ -86,10 +86,21 @@ def review(data: dict[str, np.ndarray], title: str, out: Path, *, window=(0.26, 
             ax.axvline(rec.time * 1e3, color="tab:green", lw=1.5, label=f"onset {rec.time * 1e3:.2f} ms ({rec.method})")
         else:
             ax.text(0.02, 0.9, "no onset: " + ", ".join(rec.flags), transform=ax.transAxes, color="tab:red", fontsize=9)
+        # the active window: principal pulse for Ip, envelope of every segment for H-alpha
+        if kind == "ip":
+            win = active_window(t, y, principal_only=True, pickup_floor=3.0, cutoff_hz=2000.0, fs=fs,
+                                reference_mask=ref, hold_s=5e-4, min_width_s=1e-3, end_fraction=0.10)
+        else:
+            win = active_window(t, y, prefilter_samples=5, hold_s=5e-4, min_width_s=1e-3,
+                                min_prominence_sigma=10.0, min_integral_fraction=0.01, reference_mask=ref)
+        if win.found:
+            ax.axvspan(win.start * 1e3, win.end * 1e3, color="tab:green", alpha=0.08,
+                       label=f"window {win.start * 1e3:.1f}-{win.end * 1e3:.1f} ms" + (f" {list(win.flags)}" if win.flags else ""))
+            ax.axvline(win.end * 1e3, color="tab:green", lw=1.0, ls="--")
         ax.set_ylabel(label)
         ax.legend(fontsize=7, loc="upper left")
     axes[-1].set_xlabel("time [ms]")
-    fig.suptitle(f"{title}: rejected runs shaded (persistence/morphology), onset in green", fontsize=10)
+    fig.suptitle(f"{title}: rejected runs shaded orange, onset and offset in green, active window tinted", fontsize=10)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"onset_review_{title.replace(' ', '_').replace('#', '')}.png"

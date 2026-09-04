@@ -48,7 +48,9 @@ from .signal_processing import butterworth_lowpass
 
 __all__ = [
     "OnsetRecord",
+    "PulseWindow",
     "RunFeatures",
+    "active_window",
     "excess_threshold",
     "isolated_excursions",
     "median_smooth",
@@ -133,6 +135,64 @@ class OnsetRecord:
             "rejected": [
                 {"time": t, "reason": why, **feats.as_dict()} for t, why, feats in self.rejected
             ],
+        }
+
+
+@dataclass(frozen=True)
+class PulseWindow:
+    """When a waveform is active: its onset, its offset, and the segments between.
+
+    ``segments`` are the runs above threshold that passed persistence and
+    morphology, in time order, after dips shorter than ``gap_s`` were bridged
+    and re-emergences within ``post_quiet_s`` of a segment's end were merged
+    into it.  The window is the envelope ``[onset, offset]`` of the segments a
+    caller asked for -- all of them, or only the one holding the global
+    maximum.  ``offset.time`` is the last sample of the pulse: the last sample
+    above the end threshold, or, when the window says ``offset_from_collapse``,
+    the last sample of the quench that ended it (the tail after it stays
+    above the threshold).  Either way it is a grid sample, so a half-open
+    consumer window is ``[onset.time, t[offset.index + 1])``.
+
+    A window is never assumed: a pulse still active at the last sample is
+    reported with ``offset_at_record_end``, one already active at the first
+    with ``onset_at_record_start``, and more than one segment with
+    ``multiple_segments`` so nobody averages across a gap unknowingly.
+    """
+
+    onset: OnsetRecord
+    offset: OnsetRecord
+    segments: tuple[RunFeatures, ...] = ()
+    flags: tuple[str, ...] = ()
+    evidence: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def found(self) -> bool:
+        return self.onset.found and self.offset.found
+
+    @property
+    def start(self) -> float | None:
+        return self.onset.time
+
+    @property
+    def end(self) -> float | None:
+        return self.offset.time
+
+    @property
+    def duration_s(self) -> float | None:
+        if not self.found:
+            return None
+        return float(self.offset.time - self.onset.time)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "start": self.start,
+            "end": self.end,
+            "duration_s": self.duration_s,
+            "flags": list(self.flags),
+            "segments": [s.as_dict() for s in self.segments],
+            "onset": self.onset.as_dict(),
+            "offset": self.offset.as_dict(),
+            "evidence": dict(self.evidence),
         }
 
 
@@ -257,6 +317,24 @@ def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
     return list(zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)))
 
 
+def _extend_forward(above: np.ndarray, start: int, quiet: int) -> int:
+    """First index after ``start`` that is not part of the active run, where a
+    run resuming within ``quiet`` samples of a stop continues the same run."""
+    stop = start
+    while stop < above.size and above[stop]:
+        stop += 1
+    while stop < above.size:
+        nxt = stop
+        while nxt < above.size and not above[nxt]:
+            nxt += 1
+        if nxt >= above.size or nxt - stop > quiet:
+            break
+        stop = nxt
+        while stop < above.size and above[stop]:
+            stop += 1
+    return stop
+
+
 def _bridged(mask: np.ndarray, bridge_samples: int) -> np.ndarray:
     """``mask`` with False gaps of at most ``bridge_samples`` filled in.
 
@@ -365,6 +443,24 @@ def _reference_shifted(y: np.ndarray, ref_mask: np.ndarray, spread: float, sigma
     return abs(last - first) > float(sigma) * spread
 
 
+def _settle_reference(y: np.ndarray, ref_mask: np.ndarray, sigma: float) -> tuple[np.ndarray, tuple[str, ...]]:
+    """The reference to threshold against, repaired when it is contaminated.
+
+    A transient inside the reference (a pre-ionization pulse, a coil firing
+    earlier than expected) shifts its level; the earliest quarter, before the
+    contamination, is still a baseline.  Returns the mask to use and the
+    ``reference_contaminated`` flag when that repair was made.
+    """
+    baseline, spread = robust_baseline(y, ref_mask)
+    if not _reference_shifted(y, ref_mask, spread, sigma):
+        return ref_mask, ()
+    idx = np.flatnonzero(ref_mask)
+    quarter = idx[: max(2, idx.size // 4)]
+    repaired = np.zeros_like(ref_mask)
+    repaired[quarter] = True
+    return repaired, ("reference_contaminated",)
+
+
 def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask, sigma) -> OnsetRecord | None:
     """The cases where thresholding would be meaningless, as flagged records."""
     flags: list[str] = []
@@ -376,8 +472,6 @@ def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask, sigma
         flags.append("reference_flat")
     if not np.isfinite(peak):
         flags.append("no_finite_samples")
-    if not flags and _reference_shifted(y, ref_mask, spread, sigma):
-        flags.append("reference_contaminated")
     if not flags:
         return None
     return OnsetRecord(
@@ -418,7 +512,7 @@ def sustained_excess_onset(
     """
     t, raw = _as_arrays(time, values)
     y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
-    ref = _reference(t, reference_mask, reference_fraction)
+    ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
@@ -461,11 +555,11 @@ def sustained_excess_onset(
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[start]), why, feats))
             continue
-        flags: list[str] = []
+        flags: list[str] = list(ref_flags)
         if start == 0:
             flags.append("onset_at_record_start")
         if ref[start]:
-            flags.append("reference_contaminated")
+            flags.append("onset_inside_reference")
         evidence["isolated_excursions_before_onset"] = n_rejected
         evidence["n_rejected"] = n_rejected
         return OnsetRecord(
@@ -473,7 +567,7 @@ def sustained_excess_onset(
             flags=tuple(flags), rejected=tuple(rejected), accepted=feats,
         )
     evidence["n_rejected"] = n_rejected
-    flags = ["no_onset"]
+    flags = ["no_onset", *ref_flags]
     if np.isfinite(peak) and np.isfinite(spread) and peak < float(sigma) * spread:
         flags.append("peak_below_noise")
     return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
@@ -513,7 +607,7 @@ def principal_pulse_onset(
     dt = float(np.median(np.diff(t)))
     if cutoff_hz is not None:
         y = zero_phase_lowpass(y, float(cutoff_hz), float(fs) if fs else 1.0 / dt, order)
-    ref = _reference(t, reference_mask, reference_fraction)
+    ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
     baseline, spread, peak, threshold = excess_threshold(
         y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
     )
@@ -567,27 +661,263 @@ def principal_pulse_onset(
     evidence.update({"peak_time": float(t[i_peak]), "peak_index": i_peak,
                      "isolated_excursions_before_onset": isolated_excursions(
                          y[:start], threshold, max(1, int(round(impulse_max_s / dt))))})
-    flags: list[str] = []
+    flags: list[str] = list(ref_flags)
     if start == 0:
         flags.append("onset_at_record_start")
     if ref[start]:
-        flags.append("reference_contaminated")
+        flags.append("onset_inside_reference")
     return OnsetRecord(time=float(t[start]), index=int(start), method=method,
                        evidence=evidence, flags=tuple(flags), accepted=feats)
 
 
-def principal_pulse_window(time, values, **kwargs) -> tuple[OnsetRecord, OnsetRecord]:
-    """``(onset, offset)`` of the principal pulse; the offset is the last
-    sample of the connected run, as its own record with ``method
-    "principal_pulse_offset"``.
+def active_window(
+    time,
+    values,
+    *,
+    fraction: float = 0.02,
+    sigma: float = 5.0,
+    hold_s: float = 5.0e-4,
+    min_width_s: float = 0.0,
+    min_prominence_sigma: float = 0.0,
+    min_integral_fraction: float = 0.0,
+    gap_s: float = 1.0e-3,
+    post_quiet_s: float = 2.0e-3,
+    principal_only: bool = False,
+    pickup_floor: float = 0.0,
+    impulse_max_s: float = 2.0e-3,
+    reference_mask=None,
+    reference_fraction: float = 0.2,
+    trailing_fraction: float = 0.1,
+    trailing_max_fraction: float = 0.1,
+    end_fraction: float | None = None,
+    collapse_fallback: bool = True,
+    collapse_rate_fraction: float = 0.10,
+    collapse_min_drop: float = 0.5,
+    search_mask=None,
+    prefilter_samples: int = 1,
+    cutoff_hz: float | None = None,
+    fs: float | None = None,
+    order: int = 4,
+) -> PulseWindow:
+    """The window over which a waveform is active, onset to offset.
+
+    Threshold as :func:`excess_threshold`; runs above it with dips shorter
+    than ``gap_s`` bridged; each run must pass persistence (``hold_s``) and
+    morphology (``min_width_s``, ``min_prominence_sigma``,
+    ``min_integral_fraction``) to be a segment; a segment beginning within
+    ``post_quiet_s`` of the previous one's end is merged into it, so a brief
+    quiet moment does not end the window while a real gap does.
+
+    ``principal_only`` keeps just the segment holding the global maximum
+    (the plasma-current pulse rather than any earlier light), guarded by
+    the impulsive-run and ``pickup_floor`` rules of
+    :func:`principal_pulse_onset`; otherwise the window is the envelope of
+    every segment and ``multiple_segments`` says when there is more than one.
+
+    The baseline after a pulse need not be the one before it -- a
+    plasma-current record settles a few percent of its peak above zero once
+    the plasma is gone -- so the *offset* is judged against a trailing
+    reference: the last ``trailing_fraction`` of the record, when that stretch
+    is quiet (spread within three times the leading one) and its level lies
+    below ``trailing_max_fraction`` of the peak.  Otherwise the record is
+    still active at its end and the window says ``offset_at_record_end``.
+
+    ``end_fraction`` is the fraction of the peak the signal must fall below,
+    above that trailing level, for the window to end (``fraction`` when
+    ``None``).  A plasma-current record needs a higher one than its onset:
+    after a termination the Rogowski keeps reading the induced vessel
+    current, a few to ten percent of the peak decaying over tens of
+    milliseconds, which no level between it and the trailing baseline
+    separates from plasma; the collapse does, and 10 % of the peak is below
+    every plasma and above every such tail on the VEST corpus -- except a
+    disruption, whose vessel-current tail can sit at a third of the peak for
+    a hundred milliseconds.  When the signal never falls below the end
+    threshold, ``collapse_fallback`` ends the window at the end of the
+    **last** steep fall after the peak (falling at ``collapse_rate_fraction``
+    of the steepest rate or faster, and removing at least ``collapse_min_drop``
+    of the current present before it, as a quench does) and says
+    ``offset_from_collapse``.  The
+    last fall, not the steepest: a plasma survives a mid-pulse drop and
+    terminates later.  On the VEST corpus this puts the plasma-current
+    offset within 2 ms of the light's on every discharge, level or collapse.
     """
-    onset = principal_pulse_onset(time, values, **kwargs)
-    if not onset.found or onset.accepted is None:
-        return onset, OnsetRecord(time=None, index=None, method="principal_pulse_offset",
-                                  evidence=dict(onset.evidence), flags=onset.flags)
-    t, _ = _as_arrays(time, values)
-    end_index = int(np.searchsorted(t, onset.accepted.end_time))
-    offset = OnsetRecord(time=float(onset.accepted.end_time), index=end_index,
-                         method="principal_pulse_offset", evidence=dict(onset.evidence),
-                         flags=onset.flags, accepted=onset.accepted)
+    t, raw = _as_arrays(time, values)
+    y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
+    dt = float(np.median(np.diff(t)))
+    if cutoff_hz is not None:
+        y = zero_phase_lowpass(y, float(cutoff_hz), float(fs) if fs else 1.0 / dt, order)
+    ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
+    baseline, spread, peak, threshold = excess_threshold(
+        y, ref, fraction=fraction, sigma=sigma, search_mask=search_mask
+    )
+    method = "active_window"
+    evidence: dict[str, Any] = {
+        "baseline_median": baseline, "robust_sigma": spread, "peak": peak, "threshold": threshold,
+        "fraction": float(fraction), "sigma": float(sigma), "hold_s": float(hold_s),
+        "gap_s": float(gap_s), "post_quiet_s": float(post_quiet_s), "cutoff_hz": cutoff_hz,
+        "principal_only": bool(principal_only), "prefilter_samples": int(prefilter_samples),
+    }
+
+    def empty(flags: tuple[str, ...]) -> PulseWindow:
+        none = OnsetRecord(time=None, index=None, method=method, evidence=evidence, flags=flags)
+        return PulseWindow(onset=none, offset=none, flags=flags, evidence=evidence)
+
+    degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
+    if degenerate is not None:
+        return empty(degenerate.flags)
+    if np.isfinite(peak) and peak < float(sigma) * spread:
+        return empty(("no_onset", "peak_below_noise"))
+
+    hold = max(1, int(round(float(hold_s) / dt)))
+    gap = max(0, int(round(float(gap_s) / dt)))
+    quiet = max(0, int(round(float(post_quiet_s) / dt)))
+    above = _bridged(y > threshold, gap)
+    if search_mask is not None:
+        above &= np.asarray(search_mask, dtype=bool).reshape(-1)
+    total = float(np.sum(np.clip(y - baseline, 0.0, None)) * dt)
+
+    # qualifying runs -> segments
+    kept: list[tuple[int, int]] = []
+    rejected: list[tuple[float, str, RunFeatures]] = []
+    for start, stop in _runs(above):
+        if stop - start < hold:
+            if len(rejected) < MAX_REJECTED_RUNS:
+                rejected.append((float(t[start]), "persistence", _brief_run(t, y, baseline, start, stop)))
+            continue
+        feats = run_features(t, y, baseline, start, stop)
+        why = None
+        if feats.width_s < float(min_width_s):
+            why = "width"
+        elif spread > 0 and feats.prominence < float(min_prominence_sigma) * spread:
+            why = "prominence"
+        elif feats.integral < float(min_integral_fraction) * total:
+            why = "integral"
+        if why is not None:
+            if len(rejected) < MAX_REJECTED_RUNS:
+                rejected.append((float(t[start]), why, feats))
+            continue
+        kept.append((start, stop))
+    evidence["n_rejected"] = len(rejected)
+    if not kept:
+        return empty(("no_onset",))
+
+    # merge segments separated by less than the post-quiet time
+    merged: list[tuple[int, int]] = [kept[0]]
+    for start, stop in kept[1:]:
+        if start - merged[-1][1] <= quiet:
+            merged[-1] = (merged[-1][0], stop)
+        else:
+            merged.append((start, stop))
+
+    if principal_only:
+        region = y if search_mask is None else np.where(np.asarray(search_mask, dtype=bool).reshape(-1), y, -np.inf)
+        i_peak = int(np.argmax(region))
+        chosen = [seg for seg in merged if seg[0] <= i_peak < seg[1]]
+        if not chosen:
+            # the maximum lies in a run that did not qualify (an impulse)
+            return empty(("no_onset", "principal_run_impulsive"))
+        first, last = chosen[0]
+        peak_feats = run_features(t, y, baseline, first, last)
+        if peak_feats.width_s < float(impulse_max_s):
+            return empty(("no_onset", "principal_run_impulsive"))
+        margin = max(1, int(round(float(impulse_max_s) / dt)))
+        outside = np.r_[y[: max(0, first - margin)], y[min(y.size, last + margin):]]
+        scale = pickup_scale(outside, baseline, spread, dt, impulse_max_s=impulse_max_s)
+        evidence["pickup_scale"] = scale
+        if pickup_floor and scale > 0.0 and peak < float(pickup_floor) * scale:
+            return empty(("no_onset", "peak_below_pickup_floor"))
+        segments = [chosen[0]]
+    else:
+        segments = merged
+
+    first, last = segments[0][0], segments[-1][1]
+    flags: list[str] = list(ref_flags)
+    # Offset against the trailing reference, when there is a quiet one.
+    n_trail = max(2, int(round(float(trailing_fraction) * y.size)))
+    trail = np.zeros(y.size, dtype=bool)
+    trail[-n_trail:] = True
+    trail_baseline, trail_spread = robust_baseline(y, trail)
+    trail_quiet = bool(
+        np.isfinite(trail_baseline) and np.isfinite(trail_spread)
+        and (trail_spread <= 3.0 * spread if spread > 0 else trail_spread == 0.0)
+        and (trail_baseline - baseline) < float(trailing_max_fraction) * peak
+    )
+    evidence["trailing_baseline"] = trail_baseline
+    evidence["trailing_sigma"] = trail_spread
+    evidence["trailing_quiet"] = bool(trail_quiet)
+    end_frac = float(fraction if end_fraction is None else end_fraction)
+    if trail_quiet:
+        end_threshold = trail_baseline + max(end_frac * peak, float(sigma) * trail_spread)
+    elif end_frac > float(fraction):
+        end_threshold = baseline + max(end_frac * peak, float(sigma) * spread)
+    else:
+        end_threshold = None
+    if end_threshold is not None:
+        above_end = _bridged(y > end_threshold, gap)
+        seg0, seg1 = segments[-1]
+        i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
+        stop = _extend_forward(above_end, i_peak_last, quiet)
+        if stop < y.size:
+            last = stop
+            segments[-1] = (seg0, last)
+            evidence["offset_threshold"] = float(end_threshold)
+    # The last steep fall after the peak, always recorded; used when the level
+    # never comes down (a disruption's vessel-current tail).
+    seg_start = segments[-1][0]
+    i_peak_seg = seg_start + int(np.argmax(y[seg_start:max(seg_start + 1, segments[-1][1])]))
+    dy = np.gradient(y, dt)
+    steepest = float(dy[i_peak_seg:].min()) if i_peak_seg < y.size else 0.0
+    collapse_end: int | None = None
+    if steepest < 0.0:
+        steep = dy < float(collapse_rate_fraction) * steepest
+        steep[:i_peak_seg] = False
+        falls = [(a, b) for a, b in _runs(steep)
+                 if (y[a] - y[min(b, y.size - 1)]) >= float(collapse_min_drop) * max(y[a] - baseline, 0.0)]
+        if falls:
+            collapse_end = int(min(falls[-1][1], y.size - 1))
+            evidence["collapse_time"] = float(t[collapse_end])
+    if last >= y.size and collapse_fallback and collapse_end is not None and collapse_end > first:
+        last = collapse_end + 1
+        segments[-1] = (segments[-1][0], last)
+        flags.append("offset_from_collapse")
+    if first == 0:
+        flags.append("onset_at_record_start")
+    if last >= y.size:
+        flags.append("offset_at_record_end")
+    if len(segments) > 1:
+        flags.append("multiple_segments")
+    if ref[first]:
+        flags.append("onset_inside_reference")
+    feats_all = tuple(run_features(t, y, baseline, a, b) for a, b in segments)
+    onset = OnsetRecord(time=float(t[first]), index=int(first), method=method, evidence=evidence,
+                        flags=tuple(flags), rejected=tuple(rejected), accepted=feats_all[0])
+    offset = OnsetRecord(time=float(t[last - 1]), index=int(last - 1), method=method + "_offset",
+                         evidence=evidence, flags=tuple(flags), accepted=feats_all[-1])
+    evidence["n_segments"] = len(segments)
+    return PulseWindow(onset=onset, offset=offset, segments=feats_all, flags=tuple(flags), evidence=evidence)
+
+
+def principal_pulse_window(time, values, **kwargs) -> tuple[OnsetRecord, OnsetRecord]:
+    """``(onset, offset)`` of the pulse holding the global maximum.
+
+    One :func:`active_window` call with ``principal_only=True`` and the
+    principal defaults (``pickup_floor`` 3, no persistence: the pulse is the
+    run holding the maximum); the onset is the run's first sample, exactly
+    what :func:`principal_pulse_onset` returns, and the offset carries the
+    window's flags -- ``offset_at_record_end``, ``offset_from_collapse``.
+    """
+    kwargs.setdefault("pickup_floor", 3.0)
+    kwargs.setdefault("hold_s", 0.0)
+    window = active_window(time, values, principal_only=True, **kwargs)
+    if not window.found:
+        none = OnsetRecord(time=None, index=None, method="principal_pulse", evidence=dict(window.evidence),
+                           flags=window.flags)
+        return none, OnsetRecord(time=None, index=None, method="principal_pulse_offset",
+                                 evidence=dict(window.evidence), flags=window.flags)
+    onset = OnsetRecord(time=window.onset.time, index=window.onset.index, method="principal_pulse",
+                        evidence=dict(window.evidence), flags=window.onset.flags,
+                        rejected=window.onset.rejected, accepted=window.onset.accepted)
+    offset = OnsetRecord(time=window.offset.time, index=window.offset.index,
+                         method="principal_pulse_offset", evidence=dict(window.evidence),
+                         flags=window.flags, accepted=window.offset.accepted)
     return onset, offset
