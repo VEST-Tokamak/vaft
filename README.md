@@ -213,7 +213,17 @@ export GPECHOME=/path/to/gpec
 export CHEASEHOME=/path/to/chease
 export EFITHOME=/path/to/efit
 export TESHOME=/path/to/tes
+export NUBEAMHOME=/path/to/nubeam
 ```
+
+`NUBEAMHOME` also supplies the PREACT and ADAS reaction databases NUBEAM cannot
+run without, at `share/preact` and `share/adas`. VAFT builds NUBEAM through
+[`external/nubeam/`](external/nubeam/) rather than vendoring it: NTCC requires each
+user to accept its licence before downloading the source. That path is macOS/Apple
+Silicon only for now; Linux and Windows are tracked in
+[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The adapter runs
+NUBEAM and parses its native output; mapping those results into IMAS is not
+implemented yet.
 
 Each executable belongs under its root's `bin/` directory. See
 [Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)

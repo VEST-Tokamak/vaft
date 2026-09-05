@@ -33,6 +33,7 @@ __all__ = [
     "reopenable_temporary_file",
     "remove_directory",
     "temporary_directory",
+    "short_temporary_directory",
 ]
 
 
@@ -182,6 +183,82 @@ def temporary_directory(*, prefix: str = "vaft-") -> Iterator[Path]:
                 RuntimeWarning,
                 stacklevel=2,
             )
+
+
+def _short_scratch_roots() -> tuple[Path, ...]:
+    """Candidate parents for a length-budgeted scratch directory, shortest first.
+
+    ``tempfile.gettempdir()`` is tried first so ``TMPDIR`` is still honoured,
+    but it is frequently the longest of these: macOS points it at a per-session
+    ``/var/folders/<2>/<28>/T`` and CI runners nest it under the workspace.
+    """
+    candidates = [Path(tempfile.gettempdir())]
+    if IS_WINDOWS:
+        # %SystemDrive%\Temp is the conventional short scratch root, and the
+        # drive letter itself is the shortest writable path that exists.
+        system_drive = os.environ.get("SystemDrive", "C:")
+        candidates.append(Path(f"{system_drive}\\Temp"))
+    else:
+        candidates.append(Path("/tmp"))
+    candidates.append(user_home())
+
+    seen: dict[str, Path] = {}
+    for candidate in candidates:
+        seen.setdefault(str(candidate), candidate)
+    return tuple(sorted(seen.values(), key=lambda path: len(str(path))))
+
+
+@contextmanager
+def short_temporary_directory(
+    *, max_length: int, prefix: str = "vaft-"
+) -> Iterator[Path]:
+    """Like :func:`temporary_directory`, but the path is at most *max_length*.
+
+    Some consumers cannot accept an arbitrarily long path, and say so badly.
+    Two kinds turn up:
+
+    * **Fortran fixed-width buffers.** A ``character*N`` variable holding a
+      filename truncates silently at N, and the failure then surfaces as
+      whatever the truncated name fails to open -- an error naming the wrong
+      problem entirely.
+    * **Windows ``MAX_PATH``.** Still 260 by default, and long-path support is
+      opt-in per machine, so a deep temporary directory can fail on Windows for
+      a path that is unremarkable on POSIX.
+
+    The default temporary directory is often the longest one available (see
+    :func:`_short_scratch_roots`), so this searches the short roots too and
+    uses the first that leaves room. It reports every candidate it rejected,
+    because "no scratch directory is short enough" is otherwise very hard to
+    act on.
+    """
+    if max_length <= 0:
+        raise ValueError(f"max_length must be positive, got {max_length}")
+
+    # mkdtemp appends the prefix plus eight random characters to the root.
+    needed = len(prefix) + 8 + 1  # +1 for the separator
+    rejected: list[str] = []
+    for root in _short_scratch_roots():
+        if len(str(root)) + needed <= max_length:
+            scratch = Path(tempfile.mkdtemp(prefix=prefix, dir=str(root)))
+            try:
+                yield scratch
+            finally:
+                try:
+                    remove_directory(scratch)
+                except OSError as error:
+                    warnings.warn(
+                        f"Could not remove the temporary directory {scratch}: {error}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+            return
+        rejected.append(f"{root} ({len(str(root)) + needed} characters)")
+
+    raise RuntimeError(
+        "No writable scratch directory fits within "
+        f"{max_length} characters. Tried: {'; '.join(rejected)}. "
+        "Set TMPDIR to a shorter path."
+    )
 
 
 def apply_runtime_compat_patches() -> None:

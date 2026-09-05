@@ -1,0 +1,245 @@
+"""Native NUBEAM output containers and directory collection.
+
+This layer parses NUBEAM's own files and stops there. Nothing here writes an
+IDS: following the split that ``vaft/machine_mapping/mhd_linear.py`` documents,
+the IDS-populating layer reads a native container owned by ``vaft.code.<code>``
+rather than re-parsing solver output itself. The IMAS mapping for NUBEAM is not
+implemented yet -- see issue #490 section 6.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping, Optional
+
+from vaft.code.base import CodeResult
+
+from .config import NUBEAMConfig
+
+#: Written by NUBEAM STEP: the changes it computed, as a partial Plasma State.
+STATE_CHANGES = "state_changes.cdf"
+
+#: Profiles in ``state_changes.cdf`` whose physical meaning is unambiguous.
+#: Recorded here so a caller can discover what a run produced without knowing
+#: NUBEAM's naming; this is an index, not a mapping to IMAS.
+PROFILE_DESCRIPTIONS: Mapping[str, str] = {
+    "pbe": "beam power density to electrons [W/m^3]",
+    "pbi": "beam power density to ions [W/m^3]",
+    "pbth": "beam power density to thermalization [W/m^3]",
+    "nbeami": "fast ion density per beam species [m^-3]",
+    "curbeam": "beam-driven current density [A/m^2]",
+    "curfusn": "fusion-product-driven current density [A/m^2]",
+    "tqbe": "toroidal torque density to electrons [N/m^2]",
+    "tqbi": "toroidal torque density to ions [N/m^2]",
+    "tqbjxb": "JxB toroidal torque density [N/m^2]",
+    "pfuse": "fusion power density to electrons [W/m^3]",
+    "pfusi": "fusion power density to ions [W/m^3]",
+    "eperp_beami": "fast ion perpendicular energy density [J/m^3]",
+    "epll_beami": "fast ion parallel energy density [J/m^3]",
+    "sbedep": "beam electron deposition rate [m^-3 s^-1]",
+    "sbtherm": "beam ion thermalization rate [m^-3 s^-1]",
+}
+
+#: Marker columns in the birth file, named ``bs_<field>_<species>_MCBEAM``.
+BIRTH_MARKER_FIELDS = (
+    "r",      # major radius of the deposition point [cm]
+    "z",      # elevation of the deposition point [cm]
+    "rgc",    # guiding-centre major radius [cm]
+    "zgc",    # guiding-centre elevation [cm]
+    "xksid",  # pitch, v_parallel / v
+    "einj",   # injection energy [eV]
+    "wght",   # Monte Carlo marker weight
+    "zeta",   # toroidal angle [degrees]
+    "time",   # deposition time [s]
+    "ib",     # originating beam index
+)
+
+
+@dataclass
+class NUBEAMBirthMarkers:
+    """Deposition markers from ``<runid>_birth_cpu*.cdf_*``.
+
+    One entry per Monte Carlo deposition track. The columns line up closely
+    with what a marker-based source description needs, but this container
+    keeps NUBEAM's own names and units; no conversion is applied.
+    """
+
+    path: Path
+    species: str
+    count: int
+    columns: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class NUBEAMOutputs:
+    """Everything a completed NUBEAM run produced, in NUBEAM's own terms."""
+
+    workdir: Path
+    runid: Optional[str] = None
+    state_changes: Optional[Path] = None
+    plasma_state: Optional[Path] = None
+    #: Profile name -> 1-D or 2-D array, straight out of ``state_changes.cdf``.
+    profiles: Mapping[str, Any] = field(default_factory=dict)
+    #: Scalar diagnostics from ``<runid>_scalars_out.cdf``.
+    scalars: Mapping[str, Any] = field(default_factory=dict)
+    birth: Optional[NUBEAMBirthMarkers] = None
+    #: Count of ``xpprof`` out-of-bounds interpolation warnings in step.log.
+    interpolation_warnings: int = 0
+
+    def describe(self, name: str) -> str:
+        """Documented meaning of a profile, or a note that it is undocumented."""
+        return PROFILE_DESCRIPTIONS.get(
+            name, f"{name}: native NUBEAM quantity, meaning not catalogued here"
+        )
+
+
+@dataclass
+class NUBEAMResult(CodeResult):
+    """Result bundle for a NUBEAM run."""
+
+    outputs_native: Optional[NUBEAMOutputs] = None
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0 and self.outputs_native is not None
+
+
+def _open_dataset(path: Path):
+    """Open a netCDF file with xarray, matching how the GPEC adapter reads its own.
+
+    ``netCDF4`` is not a VAFT dependency; ``xarray`` is, and
+    ``vaft/code/gpec/_netcdf.py`` already reads solver netCDF through it.
+
+    The warning suppressed here is specific and understood. NUBEAM declares
+    three square scalar arrays -- ``nbi_outflx``, ``nbi_eescav`` and
+    ``nbi_cexflx`` -- with the same dimension twice, ``(dim_00002,
+    dim_00002)``. xarray accepts that but warns that most of its functionality
+    "is likely to fail silently" on such a variable. Everything here reads
+    ``.values`` and nothing else, which is unaffected: the arrays come back
+    with the right shape and contents, checked against ``ncdump``. The warning
+    is suppressed rather than left to reach the caller, who cannot act on it.
+    """
+    import warnings
+
+    import xarray as xr
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="Duplicate dimension names present"
+        )
+        return xr.open_dataset(path, decode_times=False)
+
+
+def _read_variables(path: Path) -> dict[str, Any]:
+    import numpy as np
+
+    values: dict[str, Any] = {}
+    with _open_dataset(path) as dataset:
+        for name, variable in dataset.variables.items():
+            data = variable.values
+            if data.dtype.kind in "SU":
+                # Character arrays are Plasma State bookkeeping, not physics.
+                continue
+            values[str(name)] = np.asarray(data)
+    return values
+
+
+def _read_birth(path: Path) -> Optional[NUBEAMBirthMarkers]:
+    import numpy as np
+
+    with _open_dataset(path) as dataset:
+        names = [str(name) for name in dataset.variables]
+        # bs_<field>_<species>_MCBEAM -- recover the species from any column.
+        prefixes = [n for n in names if n.startswith("bs_") and n.endswith("_MCBEAM")]
+        if not prefixes:
+            return None
+        sample = prefixes[0][len("bs_"): -len("_MCBEAM")]
+        species = sample.split("_", 1)[1] if "_" in sample else ""
+
+        columns: dict[str, Any] = {}
+        for field_name in BIRTH_MARKER_FIELDS:
+            variable = f"bs_{field_name}_{species}_MCBEAM"
+            if variable in dataset.variables:
+                columns[field_name] = np.asarray(dataset[variable].values)
+        if not columns:
+            return None
+        count = int(len(next(iter(columns.values()))))
+    return NUBEAMBirthMarkers(
+        path=path, species=species, count=count, columns=columns
+    )
+
+
+def collect_nubeam_outputs(
+    workdir: str | Path,
+    config: Optional[NUBEAMConfig] = None,
+    *,
+    returncode: Optional[int] = None,
+) -> NUBEAMResult:
+    """Read a NUBEAM run directory without re-running anything.
+
+    Every product is optional: a directory from an INIT-only run, or one whose
+    step wrote no birth file, is a normal input here rather than an error.
+    """
+    config = config or NUBEAMConfig()
+    directory = Path(workdir).expanduser()
+    if not directory.is_dir():
+        raise FileNotFoundError(f"NUBEAM work directory does not exist: {directory}")
+
+    state_changes = directory / STATE_CHANGES
+    profiles = _read_variables(state_changes) if state_changes.is_file() else {}
+
+    runid = config.runid
+    runid_file = directory / "nubeam_comp_exec.RUNID"
+    if runid_file.is_file():
+        recorded = runid_file.read_text(encoding="utf-8", errors="replace").strip()
+        if recorded:
+            runid = recorded.split()[0]
+
+    scalars: dict[str, Any] = {}
+    scalars_file = directory / f"{runid}_scalars_out.cdf"
+    if scalars_file.is_file():
+        scalars = _read_variables(scalars_file)
+
+    birth = None
+    birth_files = sorted(directory.glob(f"{runid}_birth_cpu*"))
+    if birth_files:
+        birth = _read_birth(birth_files[0])
+
+    warnings_count = 0
+    step_log = directory / "step.log"
+    if step_log.is_file():
+        text = step_log.read_text(encoding="utf-8", errors="replace")
+        warnings_count = text.count(
+            "x arguments for interpolation are out of bounds"
+        )
+
+    plasma_state = None
+    for candidate in sorted(directory.glob("*.cdf")):
+        if candidate.name == STATE_CHANGES:
+            continue
+        if candidate.stem == runid or candidate.name == f"{runid}.cdf":
+            plasma_state = candidate
+            break
+
+    native = NUBEAMOutputs(
+        workdir=directory,
+        runid=runid,
+        state_changes=state_changes if state_changes.is_file() else None,
+        plasma_state=plasma_state,
+        profiles=profiles,
+        scalars=scalars,
+        birth=birth,
+        interpolation_warnings=warnings_count,
+    )
+
+    logs = tuple(
+        path for path in (directory / "init.log", directory / "step.log") if path.is_file()
+    )
+    return NUBEAMResult(
+        returncode=returncode,
+        workdir=directory,
+        logs=logs,
+        outputs={"state_changes": (state_changes,) if state_changes.is_file() else ()},
+        outputs_native=native,
+    )
