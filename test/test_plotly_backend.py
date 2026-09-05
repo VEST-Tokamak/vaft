@@ -230,7 +230,7 @@ def test_discovery_advertises_the_backends(sample):
 def test_the_plotly_modules_never_import_matplotlib():
     root = pathlib.Path(vaft.plot.__file__).parent
     for path in [root / "backends.py", *sorted((root / "plotly").glob("*.py"))]:
-        tree = ast.parse(path.read_text())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             names = []
             if isinstance(node, ast.Import):
@@ -263,7 +263,7 @@ def test_mathtext_labels_reach_plotly_as_text(sample):
     from vaft.plot.plotly._style import plain_text
 
     assert plain_text(r"Normalized Toroidal Flux $\rho_N$") == "Normalized Toroidal Flux ρ<sub>N</sub>"
-    assert plain_text(r"perturbed energy $\delta W$") == "perturbed energy δW"
+    assert plain_text(r"perturbed energy $\delta W$") == "perturbed energy δ W"
     assert plain_text(r"$\psi_N$") == "ψ<sub>N</sub>" and plain_text("Pressure") == "Pressure"
     figure = vaft.omas.plot_equilibrium_field_psi(sample, backend="plotly", time_slice=4, style="normalized")
     field = [t for t in figure.data if t.meta["vaft"] == "field"][0]
