@@ -14,39 +14,17 @@ def find_shotnumber(ods):
     """Find the shot number from the ODS."""
     return ods['dataset_description.data_entry.pulse']
 
-def find_shotclass(ods,plot_opt=0):
+def find_shotclass(ods, plot_opt=0):
+    """Classify a shot, returning ``None`` when the ODS cannot be classified.
+
+    Kept for callers that want the lenient form; the classification itself is
+    :func:`classify_shot`, which the two used to disagree about.
     """
-    !!! Obsolete function:
-    it is not successfully find the shot class. Need to be improved.
-
-    Find shot class from ODS
-    # 'Plasma': Plasma discharge is stable and Halpha is detected
-    # 'Vacuum': Vacuum Test Shot
-    # 'Breakdown failure': Try to discharge but failed (BD Test Shot)
-
-    """
-    # check existence of barometry and spectrometer
-    if 'barometry' not in ods:
-        print('Barometry not found in ODS')
-        return
-    if 'spectrometer_uv' not in ods:
-        print('Spectrometer not found in ODS')
-        return
-
-    # Check status: Vacuum, BD failure, Plasma
-    time_pres=ods['barometry.gauge.0.pressure.time'] # time
-    data_pres=ods['barometry.gauge.0.pressure.data'] # pressure
-    data_alpha=ods['spectrometer_uv.channel.0.processed_line.0.intensity.data'] # Halpha
-    time_alpha=ods['spectrometer_uv.time'] # Halpha
-
-    if vaft.process.is_signal_active(data_alpha, 0.01):
-        status = 'Plasma'
-    else:
-        if not vaft.process.is_signal_active(data_pres): # no pressure?
-            status='Vacuum'
-        else:
-            status='BD failure'
-    return status
+    for ids in ('barometry', 'spectrometer_uv'):
+        if ids not in ods:
+            print(f'{ids} not found in ODS')
+            return None
+    return classify_shot(ods)
 
 def find_chamber_boundary(ods):
     """Find the chamber boundary from the ODS."""
@@ -411,25 +389,50 @@ def print_info(ods, key_name=None):
             print("key_name value Error!")
 
 def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
-    """Determine the classification of a shot based on pressure and H-alpha signals."""
-    try:
-        data_pres = ods['barometry.gauge.0.pressure.data']
-        if not vaft.process.is_signal_active(data_pres, var_ratio_thresh=pressure_threshold):
-            return 'Vacuum'
-        data_alpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
-        if not vaft.process.is_signal_active(data_alpha, var_ratio_thresh=halpha_threshold):
-            return 'BD failure'
-        try:
-            ip = ods['magnetics.ip.0.data']
-            if np.max(ip) > 0:
-                return 'Plasma'
-            else:
-                return 'BD failure'
-        except Exception:
-            return 'Plasma'
-    except Exception as e:
-        print(f"Error in find_shotclass: {str(e)}")
+    """Classify a discharge from its fill pressure, H-alpha light and current.
+
+    Returns ``'Vacuum'`` when no gas signal is present, ``'BD failure'`` when
+    the gas is there but the breakdown produced neither light nor current, and
+    ``'Plasma'`` otherwise.
+
+    Both thresholds are handed to :func:`vaft.process.is_signal_active` as both
+    of its ratio thresholds, so a trace counts as flat only when its variance
+    and its sample-to-sample change are *both* below the value given, each
+    relative to the trace's own level.
+
+    Raises
+    ------
+    KeyError
+        The ODS carries no barometry gauge or no UV spectrometer channel, so
+        there is nothing to classify. A shot whose gas signal was never
+        recorded is not a vacuum shot, and this used to report one as the
+        other: the call raised a ``TypeError`` on a stale keyword, a bare
+        ``except`` swallowed it, and every shot came back ``'Vacuum'``.
+    """
+    def active(path, threshold):
+        # ODS.__getitem__ on a missing path returns an empty branch *and*
+        # leaves it behind; .get answers without creating anything.
+        data = ods.get(path, None)
+        if data is None:
+            raise KeyError(f'classify_shot needs {path}, which this ODS does not carry')
+        return vaft.process.is_signal_active(
+            data,
+            var_ratio_thresh=threshold,
+            change_ratio_thresh=threshold,
+        )
+
+    if not active('barometry.gauge.0.pressure.data', pressure_threshold):
         return 'Vacuum'
+    if not active(
+        'spectrometer_uv.channel.0.processed_line.0.intensity.data',
+        halpha_threshold,
+    ):
+        return 'BD failure'
+    ip = ods.get('magnetics.ip.0.data', None)
+    if ip is None:
+        # Light without a current trace still says a plasma formed.
+        return 'Plasma'
+    return 'Plasma' if np.max(ip) > 0 else 'BD failure'
 
 # ----------------------------------------------------------------------
 # Combine ODS
