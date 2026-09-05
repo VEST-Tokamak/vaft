@@ -19,8 +19,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 ENGLISH = ROOT / "README.md"
 KOREAN = ROOT / "README.ko.md"
+DOCS_HOME = ROOT / "docs" / "index.markdown"
+DOCS_ABOUT = ROOT / "docs" / "_pages" / "about.md"
 NOTICES = ROOT / "THIRD_PARTY_NOTICES.md"
 NOTICES_KO = ROOT / "THIRD_PARTY_NOTICES.ko.md"
+CORE_MESSAGE = "Integrate fusion science knowledge so it can be discovered, verified, compared, and studied."
 
 #: The identity narrative #330 prescribes, in order. Each README states it in
 #: its own language, so they are matched by position rather than by text.
@@ -100,6 +103,36 @@ def test_both_readmes_open_with_the_same_identity_sections():
     assert "VAFT" in english[0] and "VAFT" in korean[0]
     assert english[1].endswith("?") and korean[1].endswith("?")
     assert "VEST" in english[2] and "VEST" in korean[2]
+
+
+def test_core_message_is_explicit_in_main_readme():
+    text = ENGLISH.read_text(encoding="utf-8")
+    assert CORE_MESSAGE in text
+
+
+def test_overview_follows_identity_enablement_reference_order():
+    opening = ENGLISH.read_text(encoding="utf-8")
+    opening = opening[: opening.index("\n## ")]
+    compact = re.sub(r"\s+", " ", opening)
+    what = compact.index("VAFT is a standardized, verifiable, and interoperable scientific infrastructure")
+    enables = compact.index("It integrates experimental data")
+    reference = compact.index("Its full end-to-end implementation on the")
+    assert what < enables < reference
+
+
+def test_pipeline_keeps_traceable_distinct_from_verifiable():
+    text = ENGLISH.read_text(encoding="utf-8")
+    start = text.index("### Version-Controlled Data Pipeline")
+    end = text.index("### IMAS-FAIR Database")
+    section = re.sub(r"\s+", " ", text[start:end])
+    assert "traceable" in section
+    assert "reproducible" in section
+    assert "verified against their provenance and assumptions" in section
+
+
+def test_overview_docs_share_the_core_message():
+    for path in (DOCS_HOME, DOCS_ABOUT):
+        assert CORE_MESSAGE in path.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
