@@ -48,7 +48,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 - `magnetic_diagnostics_processing.ipynb`: Planned raw magnetic diagnostics processing, calibration, filtering, and processed signal format. Includes a worked diamagnetic-Rogowski acquisition-saturation section (issue #285) showing raw and integrated signals, original vs corrected, on the packaged reference shots.
 - `fluctuation_diagnostics_analysis.ipynb`: Fluctuation spectral analysis — Welch PSD, power-law spectral index, spectral breaks, band powers and spectrograms — with the theory behind each routine, demonstrated on VEST magnetic probes and soft X-rays.
 - `soft_x_ray_signal_analysis.ipynb`: VEST SXR workflow — LOS geometry, traces, spectrogram, chord-time patterns, plus band-decomposed chord maps, optional vacuum-shot PF-noise subtraction, Be/Al two-filter electron temperature, and a two-point toroidal mode-number estimate ported from the validated VEST SXR Viewer.
-- `eddy_current_calculation_and_startup_analysis.ipynb`: Planned PF passive eddy-current calculation and startup analysis.
+- `eddy_current_calculation_and_startup_analysis.ipynb`: PF passive eddy-current solve on the packaged shot — circuit assembly from the machine description, the induced currents written back into the ODS, and the vacuum field they produce, checked against the flux loops in the plasma-free window and read as loop voltage, decay index, the midplane null and a 2D null map.
 - `fast_camera_video_analysis.ipynb`: Planned VEST camera image/video loading, synchronization, and visual plasma behavior analysis.
 
 ### Electromagnetic Response, Equilibrium, and Stability
@@ -58,7 +58,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 - `forward_equilibrium_using_TokaMaker.ipynb`: Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) driven by measured PF currents.
 - `time_dependent_equilibrium_using_TokaMaker.ipynb`: VEST vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker.
 - `free_boundary_pf_coil_scan.ipynb`: Free-boundary PF-coil-current scans with TokaMaker — commanded/materialized currents, per-case topology classification (limited/near-null/SN/DN), continuation with manifests and resume.
-- `mhd_equilibrium_analysis.ipynb`: Planned equilibrium loading, coordinate transformation, flux-surface analysis, and MHD interpretation.
+- `mhd_equilibrium_analysis.ipynb`: One equilibrium end to end — convention validation, global descriptors with provenance, derived profiles, flux-surface averages, the three radial coordinates, rational surfaces and a traced field line, closing with a GEQDSK handoff whose descriptors round-trip.
 - `parametric_equilibrium_descriptors.ipynb`: Convention-aware global descriptors and GEQDSK/ODS parity.
 - `local_miller_equilibrium_fitting.ipynb`: Local Miller fitting, reconstruction errors, and separatrix limits.
 - `analytic_solovev_equilibrium.ipynb`: Constant-source analytic Solov'ev construction and gridded-field verification.
@@ -73,7 +73,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 - `plotting_sample_using_vaft_plot_module.ipynb`: Existing examples for plotting sample data with the VAFT plot module.
 - `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`: Existing profile-fitting and kinetic-diagnostic example notebook.
 - `confinement_time_scaling.ipynb`: Existing confinement time scaling analysis notebook.
-- `shot_characteristics_classification.ipynb`: Planned representative signal extraction, shot classification, and summary spreadsheet generation.
+- `shot_characteristics_classification.ipynb`: Per-shot feature records from the packaged shots — timing with its detector and agreement, equilibrium descriptors, a class label with its threshold sensitivity shown, a review state beside the automatic proposal, and the summary table an aggregation rule would write.
 - `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
 - `multiple_tokamak_comparison.ipynb`: Cross-device comparison against public upstream data — VEST, DIII-D, MAST-U, JET, TCV and SPARC equilibria fetched from their own repositories as IMAS netCDF, ODS JSON and GEQDSK, loaded through one `vaft.omas.load` path, then compared as physical and normalized geometry, global descriptors, COCOS conventions and profiles.
 - `publication_figures.ipynb`: Existing or planned notebook for publication figure preparation.
