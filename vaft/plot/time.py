@@ -853,24 +853,13 @@ def _find_flux_loop_all_indices(ods):
 def _find_flux_loop_inboard_midplane_indices(ods):
     # find the indices of the flux loop inboard midplane
     #
-    # This used to be `r == 0.091`, an exact float comparison against one
-    # channel's tabulated radius: a geometry revision moving that loop by a
-    # single ULP returned nothing at all.  The midplane loop is now whichever
-    # inboard loop actually sits nearest Z = 0.
-    from .selection import representative_index
+    # One rule for "which loop is the inboard midplane", shared with the
+    # discharge timing: the inboard-family loop nearest Z = 0 that recorded
+    # something (vaft.omas.discharge_timing.inboard_midplane_loop), so the
+    # loop a figure labels V_loop is the loop the 'vloop' origin came from.
+    from vaft.omas.discharge_timing import inboard_midplane_loop
 
-    inboard = _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'inboard')[0]
-    z = np.asarray(ods['magnetics.flux_loop.:.position.0.z'], dtype=float)
-    # Skip loops that recorded nothing, so this and vaft.omas' `inboard_mid`
-    # never disagree about which channel represents the inboard midplane.
-    usable = [
-        index for index in inboard
-        if np.isfinite(
-            np.asarray(_value(ods, f'magnetics.flux_loop.{index}.flux.data', np.nan),
-                       dtype=float)
-        ).any()
-    ]
-    chosen = representative_index(z, usable)
+    chosen = inboard_midplane_loop(ods)
     return (np.array([] if chosen is None else [chosen], dtype=int),)
 
 def time_magnetics_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit='s', yunit='Wb', xlim='plasma'):

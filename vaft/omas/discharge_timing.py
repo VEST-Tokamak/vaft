@@ -17,7 +17,8 @@ guessed from a response signal.
 
 Every rule comes from the ``discharge_timing`` block of ``vest.yaml`` through
 :func:`vaft.machine_mapping.utils.resolve_discharge_timing_policy`: the same
-analysis span and baseline as the plasma policy, the coil-onset rule
+analysis span and baseline as the plasma policy (on the product's own clock,
+see :func:`vaft.omas.plasma_timing.clock_offset`), the coil-onset rule
 (:func:`vaft.process.onset.active_window` on ``|I - baseline|`` so an idle
 coil is flat and a bipolar one is judged on its magnitude), the loop
 selection, and the zero-crossing rule
@@ -32,28 +33,27 @@ problem raises.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Mapping
+from dataclasses import dataclass, field, replace
+from typing import Any, Iterable, Mapping
 
 import numpy as np
 
 from vaft.machine_mapping.utils import (
     CroppedRecord,
     DischargeTimingPolicy,
-    crop_to_span,
     resolve_discharge_timing_policy,
 )
-from vaft.ods_access import path_count, path_value
+from vaft.ods_access import path_count
 from vaft.process.onset import (
     OnsetRecord,
     active_window,
     robust_baseline,
     zero_crossing_after_excursion,
 )
-from vaft.validation.imas import resolve_signal_time
+from vaft.validation.imas import resolve_signal_waveform, signal_label
 
-from .plasma_timing import AnalysisSpan, analysis_span
-from .vacuum_magnetics import FLUX_LOOP, probe_family
+from .plasma_timing import AnalysisSpan, _crop, analysis_span, clock_offset
+from .vacuum_magnetics import FLUX_LOOP, _position, probe_family
 
 __all__ = [
     "COIL_BASE",
@@ -78,6 +78,10 @@ FLUX_LOOP_BASE = "magnetics.flux_loop"
 
 VOLTAGE_MEASURED = "voltage"
 VOLTAGE_DERIVED = "dflux_dt"
+
+#: The leading fraction of a record that stands in for the baseline when the
+#: crop carries no lead stretch (the detectors' own ``reference_fraction``).
+LEADING_REFERENCE_FRACTION = 0.2
 
 #: Actuators the discharge timing would report but for which no signal is
 #: mapped; the reason is the registry state, not a guess from a response.
@@ -140,30 +144,50 @@ class CoilOnset:
 class LoopVoltageEvent:
     """The solenoid-driven loop-voltage excursion and its zero crossing.
 
-    ``zero_crossing`` is the event (``None`` when not found); ``excursion_time``
-    and ``excursion_value`` locate the excursion's extremum (baseline-relative,
-    signed); ``approach_min``/``approach_time`` are set when the decay came
-    within the configured fraction of zero and climbed back before crossing
-    (``approached_without_crossing``).  ``voltage_source`` says whether a
-    stored ``voltage.data`` or ``-d(flux)/dt`` was read.
+    ``event`` is the detector's record (``None`` when no detection ran);
+    ``zero_crossing`` is its time, ``excursion_time``/``excursion_value``
+    locate the excursion's extremum (baseline-relative, signed), and
+    ``approach_min``/``approach_time`` are set when the decay came within the
+    configured fraction of zero and climbed back before crossing
+    (``approached_without_crossing``) -- all read from the event's evidence.
+    ``voltage_source`` says whether a stored ``voltage.data`` or
+    ``-d(flux)/dt`` was read; ``loop_index`` is ``-1`` when no loop was found.
     """
 
     loop_index: int
     loop_name: str
-    position: tuple[float, float] | None
-    voltage_source: str | None
-    anchor_time: float | None
-    excursion_time: float | None
-    excursion_value: float | None
-    zero_crossing: float | None
-    approach_min: float | None
-    approach_time: float | None
-    event: OnsetRecord | None
     flags: tuple[str, ...]
+    position: tuple[float, float] | None = None
+    voltage_source: str | None = None
+    anchor_time: float | None = None
+    event: OnsetRecord | None = None
 
     @property
     def found(self) -> bool:
-        return self.zero_crossing is not None
+        return self.event is not None and self.event.found
+
+    @property
+    def zero_crossing(self) -> float | None:
+        return None if self.event is None else self.event.time
+
+    def _evidence(self, key: str) -> float | None:
+        return None if self.event is None else self.event.evidence.get(key)
+
+    @property
+    def excursion_time(self) -> float | None:
+        return self._evidence("extremum_time")
+
+    @property
+    def excursion_value(self) -> float | None:
+        return self._evidence("extremum")
+
+    @property
+    def approach_min(self) -> float | None:
+        return self._evidence("approach_min")
+
+    @property
+    def approach_time(self) -> float | None:
+        return self._evidence("approach_time")
 
     @property
     def base(self) -> str | None:
@@ -198,7 +222,7 @@ class DischargeTiming:
     ``ec`` and ``gas`` are ``None`` and ``not_present`` says why.  ``flags``
     collects the record-level outcomes (``oh_coil_not_found``,
     ``oh_not_fired``, ``vloop_not_found``, ``no_pf_active``) with the loop
-    event's own.
+    event's own.  Times are on the product's own clock (``span``).
     """
 
     oh: CoilOnset | None
@@ -247,65 +271,37 @@ class DischargeTiming:
 
 
 def _resolved(
-    policy: DischargeTimingPolicy | None, span: AnalysisSpan | None = None
+    policy: DischargeTimingPolicy | None,
+    span: AnalysisSpan | None = None,
+    *,
+    ods: Any = None,
 ) -> tuple[DischargeTimingPolicy, AnalysisSpan]:
     if policy is None:
         policy = resolve_discharge_timing_policy()
     if span is None:
         span = analysis_span(policy)
+        if ods is not None:
+            span = span.shifted(clock_offset(ods))
     return policy, span
 
 
-def _crop(time: Any, values: Any, span: AnalysisSpan) -> CroppedRecord:
-    try:
-        return crop_to_span(
-            time, values, baseline_start=span.baseline_start, tstart=span.tstart, tend=span.tend
-        )
-    except ValueError as exc:
-        raise DischargeTimingError(str(exc)) from exc
+def _cropped(time: Any, values: Any, span: AnalysisSpan) -> CroppedRecord:
+    return _crop(time, values, span, error=DischargeTimingError)
 
 
-def _waveform(ods: Any, base: str) -> tuple[np.ndarray, np.ndarray] | None:
-    """``(time, data)`` of the signal node at ``base``, or ``None`` when absent or inconsistent."""
-    data = path_value(ods, f"{base}.data")
-    time = resolve_signal_time(ods, base)
-    if data is None or time is None:
-        return None
-    y = np.asarray(data, dtype=float).reshape(-1)
-    t = np.asarray(time, dtype=float).reshape(-1)
-    if y.size < 2 or y.size != t.size:
-        return None
-    return t, y
+def _reference_mask(cropped: CroppedRecord) -> np.ndarray:
+    """The samples the baseline is measured on.
 
-
-def _coil_name(ods: Any, index: int) -> str:
-    for key in ("name", "identifier"):
-        value = path_value(ods, f"{COIL_BASE}.{index}.{key}")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return f"coil {index}"
-
-
-def _loop_name(ods: Any, index: int) -> str:
-    for key in ("name", "identifier"):
-        value = path_value(ods, f"{FLUX_LOOP_BASE}.{index}.{key}")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return f"flux loop {index}"
-
-
-def _loop_position(ods: Any, index: int) -> tuple[float, float] | None:
-    r = path_value(ods, f"{FLUX_LOOP_BASE}.{index}.position.0.r")
-    z = path_value(ods, f"{FLUX_LOOP_BASE}.{index}.position.0.z")
-    if r is None or z is None:
-        return None
-    try:
-        r, z = float(np.asarray(r).reshape(-1)[0]), float(np.asarray(z).reshape(-1)[0])
-    except (TypeError, ValueError, IndexError):
-        return None
-    if not (np.isfinite(r) and np.isfinite(z)):
-        return None
-    return r, z
+    The crop's lead stretch when the record carries one; otherwise the
+    record's leading fraction -- the same stand-in the detectors use -- so a
+    product built on the analysis window alone is not baselined on the
+    median of a record that is mostly pulse.
+    """
+    if cropped.baseline_mask is not None:
+        return cropped.baseline_mask
+    mask = np.zeros(cropped.t.size, dtype=bool)
+    mask[: max(2, int(round(LEADING_REFERENCE_FRACTION * cropped.t.size)))] = True
+    return mask
 
 
 def _absent(method: str, reason: str) -> OnsetRecord:
@@ -318,41 +314,43 @@ def coil_onsets(
     *,
     span: AnalysisSpan | None = None,
     policy: DischargeTimingPolicy | None = None,
+    names: Iterable[str] | None = None,
 ) -> tuple[CoilOnset, ...]:
     """The onset of every ``pf_active`` coil current, in coil order.
 
     Each current is cropped to the span, its baseline taken over the lead
-    stretch, and the coil rule run on ``|I - baseline|``.  A coil without a
-    waveform is recorded as ``absent``; an idle coil comes back with the
-    detector's ``reference_flat`` and no time.
+    stretch (or the record's leading fraction when there is none), and the
+    coil rule run on ``|I - baseline|``.  A coil without a waveform is
+    recorded as ``absent``; an idle coil comes back with the detector's
+    ``reference_flat`` and no time.  ``names`` restricts the work to the
+    coils so named (case-insensitive), for a caller that needs one drive.
     """
-    policy, span = _resolved(policy, span)
+    policy, span = _resolved(policy, span, ods=ods)
+    wanted = None if names is None else {name.casefold() for name in names}
     out: list[CoilOnset] = []
     for index in range(path_count(ods, COIL_BASE)):
-        name = _coil_name(ods, index)
-        waveform = _waveform(ods, f"{COIL_BASE}.{index}.current")
+        name = signal_label(ods, f"{COIL_BASE}.{index}", f"coil {index}")
+        if wanted is not None and name.casefold() not in wanted:
+            continue
+        waveform = resolve_signal_waveform(ods, f"{COIL_BASE}.{index}.current")
         if waveform is None:
             out.append(CoilOnset(index, name, _absent("coil_onset", "no current waveform"), None))
             continue
-        cropped = _crop(*waveform, span)
+        cropped = _cropped(*waveform, span)
         if cropped.t.size < 2:
             out.append(CoilOnset(index, name, _absent("coil_onset", "no samples inside the span"), None))
             continue
-        baseline, _ = robust_baseline(cropped.y, cropped.baseline_mask)
+        reference = _reference_mask(cropped)
+        baseline, _ = robust_baseline(cropped.y, reference)
         if not np.isfinite(baseline):
             baseline = 0.0
-        magnitude = np.abs(cropped.y - baseline)
         window = active_window(
-            cropped.t, magnitude, reference_mask=cropped.baseline_mask, search_mask=cropped.search,
-            **policy.coil,
+            cropped.t, np.abs(cropped.y - baseline), reference_mask=reference,
+            search_mask=cropped.search, **policy.coil,
         )
         onset = window.onset
         if cropped.flags:
-            onset = OnsetRecord(
-                time=onset.time, index=onset.index, method=onset.method, evidence=onset.evidence,
-                flags=tuple(dict.fromkeys((*onset.flags, *cropped.flags))),
-                rejected=onset.rejected, accepted=onset.accepted,
-            )
+            onset = replace(onset, flags=tuple(dict.fromkeys((*onset.flags, *cropped.flags))))
         polarity = None
         if onset.found and onset.accepted is not None:
             peak_index = int(np.argmin(np.abs(cropped.t - onset.accepted.peak_time)))
@@ -368,10 +366,13 @@ def oh_coil_onset(
     policy: DischargeTimingPolicy | None = None,
     onsets: tuple[CoilOnset, ...] | None = None,
 ) -> CoilOnset | None:
-    """The :class:`CoilOnset` of the policy's ``ohmic_coil``, or ``None`` when no coil has that name."""
-    policy, span = _resolved(policy, span)
+    """The :class:`CoilOnset` of the policy's ``ohmic_coil``, or ``None`` when no coil has that name.
+
+    Reads only that coil unless ``onsets`` (a full :func:`coil_onsets`) is handed in.
+    """
+    policy, span = _resolved(policy, span, ods=ods)
     if onsets is None:
-        onsets = coil_onsets(ods, span=span, policy=policy)
+        onsets = coil_onsets(ods, span=span, policy=policy, names=(policy.ohmic_coil,))
     wanted = policy.ohmic_coil.casefold()
     for coil in onsets:
         if coil.name.casefold() == wanted:
@@ -379,31 +380,36 @@ def oh_coil_onset(
     return None
 
 
+def _finite_waveform(ods: Any, base: str) -> tuple[np.ndarray, np.ndarray] | None:
+    """The waveform at ``base`` when it carries at least one finite sample."""
+    waveform = resolve_signal_waveform(ods, base)
+    if waveform is None or not np.isfinite(waveform[1]).any():
+        return None
+    return waveform
+
+
 def inboard_midplane_loop(ods: Any) -> int | None:
     """The flux loop that measures the inboard-midplane loop voltage.
 
     Among the loops whose position puts them in the ``inboard_flux_loop``
     family (:func:`vaft.omas.vacuum_magnetics.probe_family`) and that carry
-    a finite flux or voltage record, the one nearest the midplane (smallest
-    ``|z|``, lowest index on a tie).  ``None`` when there is no such loop.
+    a flux or voltage record with finite samples, the one nearest the
+    midplane (smallest ``|z|``, lowest index on a tie).  ``None`` when there
+    is no such loop.  The plot layer's inboard-midplane selection delegates
+    here, so the loop a figure labels is the loop the timing read.
     """
-    best: tuple[float, int] | None = None
+    candidates: list[tuple[float, int]] = []
     for index in range(path_count(ods, FLUX_LOOP_BASE)):
-        position = _loop_position(ods, index)
-        if position is None or probe_family(FLUX_LOOP, *position) != "inboard_flux_loop":
+        position = _position(ods, f"{FLUX_LOOP_BASE}.{index}.position.0")
+        if position is None or not np.isfinite(position).all():
             continue
-        has_record = False
-        for node in ("voltage", "flux"):
-            waveform = _waveform(ods, f"{FLUX_LOOP_BASE}.{index}.{node}")
-            if waveform is not None and np.isfinite(waveform[1]).any():
-                has_record = True
-                break
-        if not has_record:
-            continue
-        key = (abs(position[1]), index)
-        if best is None or key < best:
-            best = key
-    return None if best is None else best[1]
+        if probe_family(FLUX_LOOP, *position) == "inboard_flux_loop":
+            candidates.append((abs(position[1]), index))
+    for _, index in sorted(candidates):
+        if any(_finite_waveform(ods, f"{FLUX_LOOP_BASE}.{index}.{node}") is not None
+               for node in ("voltage", "flux")):
+            return index
+    return None
 
 
 def loop_voltage(
@@ -411,31 +417,22 @@ def loop_voltage(
 ) -> tuple[np.ndarray, np.ndarray, str] | None:
     """``(time, voltage, source)`` of flux loop ``index``.
 
-    A stored ``voltage.data`` is read when present and preferred; otherwise
-    the voltage is ``-d(flux)/dt`` on the flux record's own grid
-    (``source = "dflux_dt"``).  ``None`` when the loop carries neither.
+    A stored ``voltage.data`` and ``-d(flux)/dt`` on the flux record's own
+    grid are tried in the order ``prefer_measured`` sets; a record with no
+    finite sample (a placeholder) does not win.  ``None`` when the loop
+    carries neither.
     """
     base = f"{FLUX_LOOP_BASE}.{index}"
-    measured = _waveform(ods, f"{base}.voltage") if prefer_measured else None
-    if measured is not None:
-        return measured[0], measured[1], VOLTAGE_MEASURED
-    flux = _waveform(ods, f"{base}.flux")
-    if flux is not None:
-        t, phi = flux
-        return t, -np.gradient(phi, t), VOLTAGE_DERIVED
-    if not prefer_measured:
-        measured = _waveform(ods, f"{base}.voltage")
-        if measured is not None:
-            return measured[0], measured[1], VOLTAGE_MEASURED
+    order = ("voltage", "flux") if prefer_measured else ("flux", "voltage")
+    for node in order:
+        waveform = _finite_waveform(ods, f"{base}.{node}")
+        if waveform is None:
+            continue
+        t, y = waveform
+        if node == "voltage":
+            return t, y, VOLTAGE_MEASURED
+        return t, -np.gradient(y, t), VOLTAGE_DERIVED
     return None
-
-
-def _no_event(index: int, name: str, position, source, anchor, flags) -> LoopVoltageEvent:
-    return LoopVoltageEvent(
-        loop_index=index, loop_name=name, position=position, voltage_source=source,
-        anchor_time=anchor, excursion_time=None, excursion_value=None, zero_crossing=None,
-        approach_min=None, approach_time=None, event=None, flags=tuple(dict.fromkeys(flags)),
-    )
 
 
 def loop_voltage_event(
@@ -451,42 +448,38 @@ def loop_voltage_event(
     a waveform, ``no_oh_anchor`` when the anchoring coil onset is missing,
     otherwise the outcome of
     :func:`vaft.process.onset.zero_crossing_after_excursion` with the
-    ``vloop`` rule, searched from the anchor (less its tolerance) onward.
+    ``vloop`` rule on the span's search stretch -- the anchoring, including
+    its tolerance, is the detector's.
     """
-    policy, span = _resolved(policy, span)
+    policy, span = _resolved(policy, span, ods=ods)
     index = inboard_midplane_loop(ods)
     if index is None:
-        return _no_event(-1, "", None, None, None, ["loop_not_found"])
-    name, position = _loop_name(ods, index), _loop_position(ods, index)
+        return LoopVoltageEvent(loop_index=-1, loop_name="", flags=("loop_not_found",))
+    name = signal_label(ods, f"{FLUX_LOOP_BASE}.{index}", f"flux loop {index}")
+    position = _position(ods, f"{FLUX_LOOP_BASE}.{index}.position.0")
     read = loop_voltage(ods, index, prefer_measured=bool(policy.loop_voltage["prefer_measured_voltage"]))
-    if read is None:
-        return _no_event(index, name, position, None, None, ["loop_not_found"])
+    if read is None:  # pragma: no cover - the selector already required a record
+        return LoopVoltageEvent(loop_index=index, loop_name=name, position=position, flags=("loop_not_found",))
     t, v, source = read
     flags: list[str] = ["voltage_derived"] if source == VOLTAGE_DERIVED else []
     if anchor is None or not anchor.found:
-        return _no_event(index, name, position, source, None, [*flags, "no_oh_anchor"])
-    cropped = _crop(t, v, span)
+        return LoopVoltageEvent(loop_index=index, loop_name=name, position=position,
+                                voltage_source=source, flags=(*flags, "no_oh_anchor"))
+    cropped = _cropped(t, v, span)
     flags.extend(cropped.flags)
     if cropped.t.size < 2:
-        return _no_event(index, name, position, source, anchor.time, [*flags, "loop_not_found"])
-    tolerance = float(policy.vloop.get("anchor_tolerance_s", 0.0))
-    search = cropped.search & (cropped.t >= float(anchor.time) - tolerance)
+        return LoopVoltageEvent(loop_index=index, loop_name=name, position=position,
+                                voltage_source=source, anchor_time=float(anchor.time),
+                                flags=(*flags, "loop_not_found"))
     event = zero_crossing_after_excursion(
         cropped.t, cropped.y, anchor_time=float(anchor.time),
-        reference_mask=cropped.baseline_mask, search_mask=search, **policy.vloop,
+        reference_mask=cropped.baseline_mask, search_mask=cropped.search, **policy.vloop,
     )
-    evidence = event.evidence
     event_flags = ["no_oh_excursion" if f == "no_excursion_at_anchor" else f for f in event.flags
                    if f != "no_onset"]
     return LoopVoltageEvent(
         loop_index=index, loop_name=name, position=position, voltage_source=source,
-        anchor_time=float(anchor.time),
-        excursion_time=evidence.get("extremum_time"),
-        excursion_value=evidence.get("extremum"),
-        zero_crossing=event.time,
-        approach_min=evidence.get("approach_min"),
-        approach_time=evidence.get("approach_time"),
-        event=event,
+        anchor_time=float(anchor.time), event=event,
         flags=tuple(dict.fromkeys((*flags, *event_flags))),
     )
 
@@ -508,7 +501,7 @@ def discharge_timing(
     record that cannot be cropped (mismatched lengths); every missing datum is
     a ``None`` with a flag.
     """
-    policy, span = _resolved(policy)
+    policy, span = _resolved(policy, ods=ods)
     onsets = coil_onsets(ods, span=span, policy=policy)
     oh = oh_coil_onset(ods, span=span, policy=policy, onsets=onsets)
     vloop = loop_voltage_event(ods, anchor=oh, span=span, policy=policy)

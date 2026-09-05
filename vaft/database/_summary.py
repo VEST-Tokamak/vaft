@@ -909,15 +909,16 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
     """Extract one operational overview row from canonical diagnostic signals.
 
     The plasma window comes from ``vaft.omas.plasma_timing`` (H-alpha by
-    label, the current as fallback) and its source is a column; a product
-    with no plasma raises rather than reporting the analysis range.
+    label, the current as fallback) and its source is a column.  A shot with
+    no plasma keeps its row -- onset, duration and mean field are NaN and
+    ``plasma_onset_source`` is ``none`` -- rather than vanishing from the
+    table; the analysis range is never reported as a window.
     """
     from scipy.signal import medfilt
 
     timing = _plasma_timing(ods)
-    if not timing.found:
-        raise ValueError(f"no plasma window: {timing.fallback_reason}")
-    onset, offset = float(timing.onset), float(timing.offset)
+    found = bool(timing.found)
+    onset, offset = (float(timing.onset), float(timing.offset)) if found else (float("nan"),) * 2
     ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
     if not ip.size:
         raise ValueError("magnetics.ip.0.data is empty")
@@ -930,16 +931,16 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
         raise ValueError("invalid tf time, field, or reference radius")
     field_at_reference = field / tf_r0
     in_pulse = (tf_time >= onset) & (tf_time <= offset)
-    if not np.any(in_pulse):
+    if found and not np.any(in_pulse):
         raise ValueError("no toroidal-field samples fall inside the plasma pulse")
     return [
         {
             "shot": int(shot),
             "plasma_onset_time_s": onset,
-            "plasma_onset_source": str(timing.source),
+            "plasma_onset_source": str(timing.source) if found else "none",
             "pulse_duration_s": offset - onset,
             "max_ip_kA": float(np.nanmax(filtered_ip)) / 1e3,
-            "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])),
+            "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])) if found else float("nan"),
         }
     ]
 

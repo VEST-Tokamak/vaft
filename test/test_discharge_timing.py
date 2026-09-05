@@ -121,7 +121,6 @@ def test_the_unmapped_actuators_are_reported_not_guessed():
 # ---------------------------------------------------------------------------
 
 OH_ONSET = 0.2925
-COILS = ("PF1", "PF2", "PF3")
 
 
 def coil_current(t, *, onset=OH_ONSET, peak=4000.0, rise=3e-3, sign=1.0, noise=2.0):
@@ -350,3 +349,78 @@ def test_reading_a_product_materialises_nothing():
     discharge_timing(ods)
 
     assert sorted(map(str, ods.flat().keys())) == before
+
+
+# ---------------------------------------------------------------------------
+# Review findings on PR #530
+# ---------------------------------------------------------------------------
+
+
+def test_a_window_only_product_is_not_baselined_on_its_pulse():
+    """No lead stretch: the baseline is the record's leading fraction, not the
+    whole-record median, so a coil conducting for most of the span still fires."""
+    t = grid(0.28, 0.36)
+    ods = discharge_ods(t=t, coils={"PF1": coil_current(t, onset=0.30, peak=1000.0, noise=0.5)},
+                        loops=[(0.091, 0.0, {"voltage": loop_volts(t, onset=0.30)})])
+
+    timing = discharge_timing(ods)
+
+    assert timing.oh is not None and timing.oh.found
+    assert timing.oh.time == pytest.approx(0.30, abs=5 * DT)
+    assert "baseline_inside_search" in timing.oh.flags
+    assert timing.vloop.found
+
+
+def test_a_nan_voltage_placeholder_does_not_mask_the_flux_derivative():
+    t = grid()
+    v = loop_volts(t)
+    ods = discharge_ods(t=t, loops=[(0.091, 0.0, {"flux": -np.cumsum(v) * DT, "voltage": np.full(t.size, np.nan)})])
+
+    assert inboard_midplane_loop(ods) == 0
+    read = loop_voltage(ods, 0)
+    assert read is not None and read[2] == VOLTAGE_DERIVED
+    timing = discharge_timing(ods)
+    assert timing.vloop.voltage_source == VOLTAGE_DERIVED and timing.vloop.found
+
+
+def test_the_event_is_searched_on_the_span_and_anchored_by_the_detector():
+    """No caller-side anchor mask: a run that starts a little before the
+    detected coil onset is still the excursion, and the evidence says so."""
+    t = grid()
+    early = loop_volts(t, onset=OH_ONSET - 3e-4)
+    ods = discharge_ods(t=t, loops=[(0.091, 0.0, {"voltage": early})])
+
+    vloop = discharge_timing(ods).vloop
+
+    assert vloop.found
+    assert vloop.event.evidence["run_start_minus_anchor"] < 0.0
+    assert vloop.event.evidence["run_start_minus_anchor"] >= -5e-4 - DT
+
+
+def test_the_plot_layer_and_the_timing_pick_the_same_loop():
+    from vaft.plot.time import _find_flux_loop_inboard_midplane_indices
+
+    ods = pipeline_ods(39915)
+    (indices,) = _find_flux_loop_inboard_midplane_indices(ods)
+    assert list(indices) == [inboard_midplane_loop(ods)] == [5]
+
+
+def test_the_hysteresis_is_a_policy_parameter():
+    policy = resolve_discharge_timing_policy()
+    assert policy.vloop["approach_hysteresis"] == 2.0
+    vloop = discharge_timing(pipeline_ods(41524), policy=policy).vloop
+    assert vloop.event.evidence["approach_hysteresis"] == 2.0
+
+
+def test_events_on_a_shifted_product_are_on_its_clock():
+    from vaft.omas.general import change_time_convention
+
+    ods = pipeline_ods(39915)
+    daq = discharge_timing(ods)
+    change_time_convention(ods, convention="vloop")
+
+    shifted = discharge_timing(ods)
+
+    assert shifted.vloop.zero_crossing == pytest.approx(0.0, abs=1e-9)
+    assert shifted.oh_onset == pytest.approx(daq.oh_onset - daq.vloop.zero_crossing, abs=1e-9)
+    assert shifted.span.clock_offset_s == pytest.approx(-daq.vloop.zero_crossing)

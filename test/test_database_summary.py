@@ -387,8 +387,11 @@ def test_shot_overview_extractor_uses_the_shared_plasma_timing(monkeypatch):
         lambda _ods: SimpleNamespace(found=False, onset=None, offset=None, source=None,
                                      fallback_reason="h_alpha_primary: dark; ip_principal: no window"),
     )
-    with pytest.raises(ValueError, match="no plasma window: h_alpha_primary: dark"):
-        summary_module.extract_shot_overview(ods, 42)
+    vacuum = summary_module.extract_shot_overview(ods, 42)[0]
+    assert set(vacuum) == set(summary_module.SHOT_OVERVIEW_COLUMNS)
+    assert vacuum["plasma_onset_source"] == "none"
+    assert np.isnan(vacuum["plasma_onset_time_s"]) and np.isnan(vacuum["pulse_duration_s"])
+    assert np.isnan(vacuum["mean_b_t_T"]) and vacuum["max_ip_kA"] == 10.0
 
 
 def test_export_replace_preserves_frame_and_column_order(tmp_path):

@@ -1724,7 +1724,7 @@ discharge_timing:
   # the sustained |V| run starting within 0.5 ms of the ohmic onset is the
   # solenoid excursion; the event is the first sign change of V after its
   # extremum. |V| dipping under 10 % of the extremum and climbing back above
-  # 20 % before crossing is approached_without_crossing. Packaged products
+  # 2 x 10 % before crossing is approached_without_crossing. Packaged products
   # (-dflux/dt on Flux Loop #10): 39915 extremum -5.4 V at 293.1 ms, crossing
   # 302.2 ms; 41524/41672 extremum -6.5 V at 294.2 ms, approach 0.1-0.2 V at
   # 307.0 ms, second dip, crossing 311.5 / 311.1 ms.
@@ -1734,6 +1734,7 @@ discharge_timing:
     hold_s: 5.0e-4
     anchor_tolerance_s: 5.0e-4
     approach_fraction: 0.10
+    approach_hysteresis: 2.0
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.

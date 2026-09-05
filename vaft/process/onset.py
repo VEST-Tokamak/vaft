@@ -1037,6 +1037,7 @@ def zero_crossing_after_excursion(
     hold_s: float = 5.0e-4,
     anchor_tolerance_s: float = 5.0e-4,
     approach_fraction: float = 0.10,
+    approach_hysteresis: float = 2.0,
     reference_mask=None,
     reference_fraction: float = 0.2,
     search_mask=None,
@@ -1057,9 +1058,9 @@ def zero_crossing_after_excursion(
 
     The excursion's decay is watched between the extremum and the crossing:
     when ``|values - baseline|`` drops below ``approach_fraction`` of the
-    extremum and later climbs back above twice that level before crossing
-    (the factor of two is the hysteresis that keeps noise around the level
-    from counting as a re-rise), the record is flagged
+    extremum and later climbs back above ``approach_hysteresis`` times that
+    level before crossing (the hysteresis keeps noise around the level from
+    counting as a re-rise), the record is flagged
     ``approached_without_crossing`` with the minimum and its time in the
     evidence.  A record with no run at the anchor returns ``time=None``
     with ``no_excursion_at_anchor``; an excursion that never crosses returns
@@ -1091,6 +1092,7 @@ def zero_crossing_after_excursion(
         "baseline_median": baseline, "robust_sigma": spread, "peak": peak, "threshold": threshold,
         "fraction": float(fraction), "sigma": float(sigma), "hold_samples": hold,
         "anchor_time": anchor, "anchor_tolerance_s": tol, "approach_fraction": float(approach_fraction),
+        "approach_hysteresis": float(approach_hysteresis),
         "prefilter_samples": int(prefilter_samples), "bridge_samples": int(bridge_samples),
     }
     rejected: list[tuple[float, str, RunFeatures]] = []
@@ -1133,7 +1135,7 @@ def zero_crossing_after_excursion(
     evidence["approach_time"] = None
     if below.size:
         first = int(below[0])
-        rise = np.flatnonzero(decay[first:] >= 2.0 * level)
+        rise = np.flatnonzero(decay[first:] >= float(approach_hysteresis) * level)
         if rise.size:
             segment = decay[first:first + int(rise[0])]
             i_min = first + int(np.argmin(segment))

@@ -165,8 +165,8 @@ def test_a_missing_origin_refuses_its_convention_with_the_reason():
     change_time_convention(ods, convention="breakdown")
     memo = _memo(ods)
     assert "vloop_onset" not in memo
-    assert "vloop_onset:not_found:" in memo["onset_flags"]
-    with pytest.raises(ValueError, match=r"no 'vloop' origin: vloop_onset:not_found:.*loop_not_found"):
+    assert "loop_not_found" in memo["vloop_onset_reason"]
+    with pytest.raises(ValueError, match=r"no 'vloop' origin: .*loop_not_found"):
         change_time_convention(ods, convention="vloop")
     with pytest.raises(ValueError, match="Unknown convention"):
         change_time_convention(ods, convention="trigger")
@@ -178,3 +178,63 @@ def test_the_approach_flag_reaches_the_memo():
     memo = _memo(ods)
     assert "vloop:approached_without_crossing" in memo["onset_flags"].split(";")
     assert 0.310 <= memo["vloop_onset"] <= 0.320
+
+
+# ---------------------------------------------------------------------------
+# Review findings on PR #530
+# ---------------------------------------------------------------------------
+
+
+def test_the_finders_follow_a_shifted_product_to_its_own_clock():
+    """A product re-referenced to an event is searched where its plasma is."""
+    from vaft.omas.plasma_timing import clock_offset
+
+    ods = vaft.omas.sample_ods()
+    daq_onset = find_breakdown_onset(ods)
+    daq_vloop = find_vloop_onset(ods)
+    change_time_convention(ods, convention="breakdown")
+    origin = _memo(ods)["breakdown_onset"]
+
+    assert clock_offset(ods) == pytest.approx(-origin)
+    assert find_breakdown_onset(ods) == pytest.approx(0.0, abs=1e-9)
+    assert find_breakdown_onset(ods) == pytest.approx(daq_onset - origin, abs=1e-9)
+    assert find_vloop_onset(ods) == pytest.approx(daq_vloop - origin, abs=1e-9)
+    assert plasma_timing(ods).span.clock_offset_s == pytest.approx(-origin)
+    assert plasma_timing(ods).span.record()["clock_offset_s"] == pytest.approx(-origin)
+
+    from vaft.plot.time import set_xlim_time
+    from vaft.omas.general import odc_or_ods_check
+
+    lo, hi = set_xlim_time(odc_or_ods_check(ods), type="plasma")
+    assert lo == pytest.approx(0.0, abs=1e-9)
+    assert hi == pytest.approx(find_pulse_duration(ods), abs=1e-9)
+
+
+def test_a_declared_convention_without_its_origin_cannot_be_placed():
+    ods = vaft.omas.sample_ods()
+    params = ods.setdefault("summary.code.parameters", CodeParameters())
+    params["time_convention"] = "vloop"
+    with pytest.raises(PlasmaTimingError, match="declares time convention 'vloop'"):
+        find_breakdown_onset(ods)
+
+
+def test_a_memo_less_shifted_product_is_refused_without_being_stamped():
+    ods = vaft.omas.sample_ods()
+    change_time_convention(ods, convention="vloop")
+    del ods["summary"]
+    before = [float(x) for x in ods["magnetics.ip.0.time"][:3]]
+
+    with pytest.raises(ValueError, match="no time-convention origin could be derived"):
+        change_time_convention(ods, convention="vloop")
+
+    assert "time_convention" not in ods.setdefault("summary.code.parameters", CodeParameters())
+    assert [float(x) for x in ods["magnetics.ip.0.time"][:3]] == before
+
+
+def test_a_missing_origin_carries_its_reason_key():
+    t = grid()
+    ods = synthetic_ods(slow=light(t), ip=current(t), t=t)
+    change_time_convention(ods, convention="breakdown")
+    memo = _memo(ods)
+    assert "loop_not_found" in memo["vloop_onset_reason"]
+    assert "vloop_onset_source" not in memo

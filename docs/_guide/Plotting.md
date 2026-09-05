@@ -102,7 +102,7 @@ reflects what you asked for.
 
 | Value | Behaviour |
 |---|---|
-| `'plasma'` (default) | the plasma window from `vaft.omas.plasma_timing` (H-alpha by label, current as fallback); a warning and no limit when no plasma is found |
+| `'plasma'` (default) | the plasma window from `vaft.omas.plasma_timing` (H-alpha by label, current as fallback), on the product's own time convention; a warning and no limit when no plasma is found |
 | `'coil'` | window spanning all PF coil-current on/off |
 | `'none'` | no limit applied |
 | `[t0, t1]` | a list of exactly two numbers, used literally |

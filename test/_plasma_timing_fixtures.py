@@ -7,6 +7,7 @@ timing tests and the consumers' tests describe the same shots.
 """
 from __future__ import annotations
 
+import functools
 import gzip
 import shutil
 import tempfile
@@ -51,7 +52,12 @@ def pickup_only(t, *, noise=150.0):
 
 
 def pipeline_ods(shot: int) -> ODS:
-    """The packaged ``pipeline-until-efit`` product of ``shot``, or a skip."""
+    """A private copy of the packaged ``pipeline-until-efit`` product of ``shot``, or a skip."""
+    return _packaged_product(shot).copy()
+
+
+@functools.lru_cache(maxsize=None)
+def _packaged_product(shot: int) -> ODS:
     from vaft.data import resources
 
     try:

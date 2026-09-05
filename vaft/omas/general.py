@@ -79,12 +79,13 @@ def signal_time(ods, data_path):
     )
 
 
-# The onset finders answer on the DAQ clock: the shared plasma-analysis span
-# they search inside is configured in DAQ seconds, so they are meaningful on a
-# product in the 'daq' time convention only. change_time_convention derives
-# them once and keeps the result in summary.code.parameters for that reason.
-# Imports stay function-local: vaft.omas star-imports this module, and a
-# module-level `plasma_timing` name would shadow the submodule.
+# The onset finders answer on the product's own clock: the shared
+# plasma-analysis span is configured in DAQ seconds and the timing modules
+# displace it by the origin change_time_convention recorded, so a product
+# re-referenced to an event is searched where its plasma is. The origins
+# themselves are derived once, on the DAQ clock, and kept in
+# summary.code.parameters. Imports stay function-local: vaft.omas star-imports
+# this module, and a module-level `plasma_timing` name would shadow the submodule.
 
 def _plasma_timing_or_raise(ods):
     """The shared :class:`~vaft.omas.plasma_timing.PlasmaTiming`, or ``ValueError`` when no plasma was found."""
@@ -128,13 +129,13 @@ def find_ip_onset(ods):
 def find_vloop_onset(ods):
     """The loop-voltage zero crossing after the solenoid-driven excursion.
 
-    :func:`vaft.omas.discharge_timing.discharge_timing` on the
-    inboard-midplane flux loop; raises ``ValueError`` naming the flags when
-    the event was not found.
+    The event of :mod:`vaft.omas.discharge_timing` on the inboard-midplane
+    flux loop, anchored on the ohmic coil alone (the other coils are not
+    detected); raises ``ValueError`` naming the flags when it was not found.
     """
-    from .discharge_timing import discharge_timing
+    from .discharge_timing import loop_voltage_event, oh_coil_onset
 
-    event = discharge_timing(ods).vloop
+    event = loop_voltage_event(ods, anchor=oh_coil_onset(ods))
     if not event.found:
         raise ValueError(f"no loop-voltage zero crossing: {', '.join(event.flags) or 'not found'}")
     return float(event.zero_crossing)
@@ -252,44 +253,59 @@ _logger = logging.getLogger(__name__)
 
 
 def _derive_onsets(ods):
-    """The three convention origins with their sources and flags, from the shared timings."""
+    """The three convention origins with their sources, reasons and flags, from the shared timings."""
     from .discharge_timing import discharge_timing
     from .plasma_timing import SOURCE_IP, plasma_timing
 
-    values, sources, flags = {}, {}, []
+    values, notes, flags = {}, {}, []
     timing = plasma_timing(ods)
     if timing.found:
         values["breakdown_onset"] = float(timing.onset)
-        sources["breakdown_onset_source"] = str(timing.source)
+        notes["breakdown_onset_source"] = str(timing.source)
     else:
-        flags.append(f"breakdown_onset:not_found:{timing.fallback_reason}")
+        notes["breakdown_onset_reason"] = str(timing.fallback_reason)
     if timing.ip is not None and timing.ip.found:
         values["ip_onset"] = float(timing.ip.start)
-        sources["ip_onset_source"] = SOURCE_IP
+        notes["ip_onset_source"] = SOURCE_IP
     else:
-        reason = ", ".join(timing.ip.onset.flags) if timing.ip is not None else "ip_unusable"
-        flags.append(f"ip_onset:not_found:{reason}")
+        notes["ip_onset_reason"] = (
+            ", ".join(timing.ip.onset.flags) if timing.ip is not None else "ip_unusable"
+        )
     event = discharge_timing(ods).vloop
     if event.found:
         values["vloop_onset"] = float(event.zero_crossing)
-        sources["vloop_onset_source"] = (
+        notes["vloop_onset_source"] = (
             f"{event.base} {event.voltage_source} zero crossing after the ohmic excursion"
         )
     else:
-        flags.append(f"vloop_onset:not_found:{', '.join(event.flags) or 'not found'}")
-    flags.extend(f"vloop:{flag}" for flag in event.flags if flag == "approached_without_crossing")
-    return values, sources, flags
+        notes["vloop_onset_reason"] = ", ".join(event.flags) or "not found"
+    if "approached_without_crossing" in event.flags:
+        flags.append("vloop:approached_without_crossing")
+    return values, notes, flags
 
 
-def _record_onsets(params, ods, extra_flags=()):
+def _record_onsets(params, ods, shot_key, extra_flags=()):
+    """Derive the origins and, only when at least one exists, write the memo.
+
+    Nothing is written before the derivation succeeds: a product that yields
+    no origin at all (typically one whose axes are not on the DAQ clock but
+    whose memo was lost) must not be stamped ``daq`` with frozen not-found
+    origins, which no later call could repair.
+    """
+    values, notes, flags = _derive_onsets(ods)
+    if not values:
+        reasons = "; ".join(f"{key[:-len('_reason')]}: {value}" for key, value in notes.items())
+        raise ValueError(
+            f"[{shot_key}] no time-convention origin could be derived on the DAQ clock "
+            f"({reasons}); the memo is left untouched"
+        )
     for key in _ORIGIN_KEYS:
-        if key in params:
-            del params[key]
-    values, sources, flags = _derive_onsets(ods)
-    for key, value in values.items():
-        params[key] = value
-    for key, value in sources.items():
-        params[key] = value
+        params.pop(key, None)
+        params.pop(f"{key}_source", None)
+        params.pop(f"{key}_reason", None)
+    params.update(values)
+    params.update(notes)
+    params["time_convention"] = "daq"
     params["onset_method"] = ONSET_METHOD
     params["onset_flags"] = ";".join([*flags, *extra_flags])
 
@@ -297,21 +313,20 @@ def _record_onsets(params, ods, extra_flags=()):
 def _prepare_onset_memo(params, ods, shot_key):
     """Bring ``summary.code.parameters`` to a state the conversion can read.
 
-    Four states: no memo (derive); a memo written by the current method
-    (never recompute); a legacy memo on an unshifted product (re-derive, the
+    Four states: a memo written by the current method (never recompute); no
+    memo (derive); a legacy memo on an unshifted product (re-derive, the
     stored origins were the argmax-of-flux and 5 % rules); a legacy memo on
     a product already shifted with those origins (keep them -- they are what
     makes the shift reversible -- and say so).
     """
-    has_legacy = any(key in params for key in _ORIGIN_KEYS) and "onset_method" not in params
     if "onset_method" in params:
         return
+    has_legacy = any(key in params for key in _ORIGIN_KEYS)
     if not has_legacy:
-        params["time_convention"] = "daq"
-        _record_onsets(params, ods)
+        _record_onsets(params, ods, shot_key)
         return
     if params.get("time_convention", "daq") == "daq":
-        _record_onsets(params, ods, extra_flags=("legacy_memo_rederived",))
+        _record_onsets(params, ods, shot_key, extra_flags=("legacy_memo_rederived",))
         _logger.info("[%s] legacy onset memo re-derived with %s", shot_key, ONSET_METHOD)
         return
     params["onset_method"] = ONSET_METHOD_LEGACY
@@ -335,7 +350,8 @@ def change_time_convention(odc_or_ods, convention='vloop'):
     :func:`find_ip_onset`) and ``'breakdown'`` (the plasma onset,
     :func:`find_breakdown_onset`).  The origins are derived once, on the
     product's DAQ clock, and kept in ``summary.code.parameters`` with their
-    sources (``*_onset_source``), the method (``onset_method``) and the flags
+    sources (``*_onset_source``), the reason an origin is missing
+    (``*_onset_reason``), the method (``onset_method``) and the flags
     (``onset_flags``); a later call never recomputes them, which is what
     keeps a shift reversible.  An origin that was not found is absent, and
     asking for its convention raises ``ValueError`` with the reason.  Works
@@ -359,11 +375,7 @@ def change_time_convention(odc_or_ods, convention='vloop'):
             raise ValueError(f"[{shot_key}] Unknown convention: {original} -> {convention}")
         for name in (original, convention):
             if name not in onsets:
-                reason = next(
-                    (flag for flag in str(params.get("onset_flags", "")).split(";")
-                     if flag.startswith(f"{name}_onset:")),
-                    "origin not recorded",
-                )
+                reason = params.get(f"{name}_onset_reason", "origin not recorded")
                 raise ValueError(f"[{shot_key}] no {name!r} origin: {reason}")
 
         time_shift = onsets[original] - onsets[convention]

@@ -97,6 +97,8 @@ from vaft.validation.imas import (
     resolve_signal_time,
     validity_mask,
     write_validity,
+    resolve_signal_waveform,
+    signal_label,
 )
 from vaft.validation.validity import ValidityRecord, is_usable, usable_mask
 from vaft.validation.model import ValidationStatus
@@ -726,28 +728,12 @@ def _compose(
 
 
 def _channel_name(source: Any, kind: str, index: int) -> str:
-    for key in ("name", "identifier"):
-        value = lookup(source, f"magnetics.{kind}.{index}.{key}")
-        if isinstance(value, str) and value:
-            return value
-    return f"{kind}[{index}]"
+    return signal_label(source, f"magnetics.{kind}.{index}", f"{kind}[{index}]")
 
 
 def _waveform(source: Any, node: str) -> tuple[np.ndarray, np.ndarray] | None:
     """A channel's ``(time, data)`` when both are present and consistent."""
-    raw = lookup(source, f"{node}.data")
-    if raw is None:
-        return None
-    try:
-        values = np.asarray(raw, dtype=float).reshape(-1)
-    except (TypeError, ValueError):
-        return None
-    if values.size < 2:
-        return None
-    time = resolve_signal_time(source, node)
-    if time is None or time.size != values.size:
-        return None
-    return time, values
+    return resolve_signal_waveform(source, node)
 
 
 def _scalar_validity(codes: np.ndarray) -> int:

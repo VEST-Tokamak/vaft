@@ -246,8 +246,8 @@ the `inboard_flux_loop` family member nearest the midplane, Flux Loop #10 on VES
 `vaft.process.onset.active_window`, run on `|I - baseline|` so an idle coil yields no onset) and `vloop`
 (keyword arguments of `vaft.process.onset.zero_crossing_after_excursion`: the sustained `|V|` run starting
 within `anchor_tolerance_s` of the ohmic onset is the solenoid excursion, the event is the first sign change
-after its extremum, and a decay that comes within `approach_fraction` of zero and climbs back before crossing
-is flagged `approached_without_crossing`). These are measured onsets, never triggers; EC power and gas
+after its extremum, and a decay that comes within `approach_fraction` of zero and climbs back above
+`approach_hysteresis` times that level before crossing is flagged `approached_without_crossing`). These are measured onsets, never triggers; EC power and gas
 injection have no mapped actuator signal and are reported as `not_present`. The events never enter the
 plasma hierarchy as fallbacks.
 

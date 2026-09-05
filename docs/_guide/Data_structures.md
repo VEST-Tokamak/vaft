@@ -576,13 +576,20 @@ params['breakdown_onset']
 params['onset_method']            # 'plasma_timing/discharge_timing'
 params['breakdown_onset_source']  # 'h_alpha_primary', 'h_alpha_fast', 'ip_principal'
 params['vloop_onset_source']      # 'magnetics.flux_loop.5 dflux_dt zero crossing after the ohmic excursion'
+params['vloop_onset_reason']      # present instead of the origin when the event was not found
 params['onset_flags']             # ';'-joined, e.g. 'vloop:approached_without_crossing'
 ```
 
+The finders and every consumer of the plasma window (`xlim='plasma'`, the vacuum-flux plot, the shot
+overview) work on the product's own clock: the analysis span is stated in DAQ seconds and displaced by the
+recorded origin, so a product already shifted to `'breakdown'` reports its plasma onset at 0 s. A product
+that declares a convention without recording its origin cannot be placed and raises.
+
 Because the onsets are stored, conversions are **composable and reversible**: call it again with a different
 convention and the shift is computed from the recorded originals, never re-derived from already-shifted data.
-An origin that was not found is simply absent, and asking for its convention raises `ValueError` with the
-reason from `onset_flags`. A product carrying the memo of the earlier finders (no `onset_method`) is
+An origin that was not found is simply absent, its `*_onset_reason` says why, and asking for its convention
+raises `ValueError` with that reason. Nothing is written when no origin at all can be derived (a shifted
+product whose memo was lost): the call raises and the product is left as it was. A product carrying the memo of the earlier finders (no `onset_method`) is
 re-derived when it is still on the `daq` clock and flagged `legacy_memo_rederived`; one already shifted with
 those origins keeps them — they are what makes its shift reversible — with `onset_method = 'legacy'` and the
 flag `legacy_origins_retained`.
