@@ -223,7 +223,11 @@ def test_the_source_validity_the_diagnostics_stage_wrote_decides_rejection(synth
     assert entry["source_validity"]["valid_fraction_in_window"] == 0.0
     other = {row["index"]: row for row in evidence["assessments"]}[1]
     assert other["state"] == USABLE and other["source_validity"]["validity_source"] == "assessed_here"
-    assert evidence["model"] == {"consulted": False, "available": False, "reason": None, "case": None}
+    model = evidence["model"]
+    assert (model["consulted"], model["available"], model["reason"], model["case"]) == (False, False, None, None)
+    # Without a benchmark the intrinsic evidence is still judged over the
+    # plasma-free stretch, not the whole record.
+    assert model["window_source"] == "plasma_free_interval" and evidence["window"] is not None
 
 
 # ---------------------------------------------------------------------------

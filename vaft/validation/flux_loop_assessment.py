@@ -342,7 +342,10 @@ def flux_loop_evidence(
         present = len(ods["magnetics.b_field_pol_probe"]) if "magnetics.b_field_pol_probe" in ods else 0
         nbprobe = min(present, probes) if probes else present
 
-    model: dict[str, Any] = {"consulted": bool(benchmark), "available": False, "reason": None, "case": None}
+    model: dict[str, Any] = {
+        "consulted": bool(benchmark), "available": False, "reason": None, "case": None,
+        "window_source": "benchmark" if benchmark else None,
+    }
     rows: Sequence[Mapping[str, Any]] | None = None
     assessment_window = window
     if benchmark:
@@ -359,6 +362,19 @@ def flux_loop_evidence(
             model["case"] = case
             if assessment_window is None:
                 assessment_window = tuple(case["validation_window"])
+    if assessment_window is None:
+        # No benchmark window: judge the intrinsic evidence over the
+        # plasma-free stretch anyway, so a held tail after the plasma does
+        # not count against a loop the way it would over the whole record.
+        from vaft.validation.vacuum_benchmark import BenchmarkError, plasma_free_interval
+
+        try:
+            interval = plasma_free_interval(ods)
+        except (BenchmarkError, ValueError, KeyError):
+            interval = None
+        if interval is not None and interval.end > interval.start:
+            assessment_window = (float(interval.start), float(interval.end))
+            model["window_source"] = "plasma_free_interval"
 
     assessments = assess_flux_loops(
         qualities,
