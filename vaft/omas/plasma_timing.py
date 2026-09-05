@@ -59,8 +59,8 @@ from vaft.machine_mapping.utils import (
 from vaft.ods_access import path_value
 from vaft.process.onset import PulseWindow, robust_baseline
 from vaft.validation.imas import (
-    VALIDITY_INVALID,
     VALIDITY_SUSPECT,
+    is_condemned_channel,
     read_validity,
     read_validity_timed,
     resolve_signal_time,
@@ -399,7 +399,10 @@ def halpha_usability(
         fraction = valid_fraction(ods, base, times=t_all, window=inside, min_validity=VALIDITY_SUSPECT)
         fraction = 0.0 if not np.isfinite(fraction) else float(fraction)
     metrics["valid_fraction"] = fraction
-    checks["validity"] = (scalar is None or scalar > VALIDITY_INVALID) and (
+    # The scalar is the worst state reached; a channel condemned outright has
+    # no usable sample anywhere, and one that was good early and bad late is
+    # judged by how much of the span its timed validity leaves (#424).
+    checks["validity"] = not is_condemned_channel(ods, base, min_validity=VALIDITY_SUSPECT) and (
         fraction >= float(limits["min_valid_fraction"])
     )
     if not checks["validity"]:
@@ -460,11 +463,10 @@ def _ip_cropped(ods: Any, span: AnalysisSpan) -> tuple[CroppedRecord, dict[str, 
     if y.size == 0 or y.size != t.size:
         raise PlasmaTimingError(f"{IP_BASE}: {y.size} samples against {t.size} time instants")
     cropped = _crop(t, y, span)
-    scalar = read_validity(ods, IP_BASE)
     checks = {
         "present": bool(cropped.t.size >= 2),
         "finite": bool(np.isfinite(cropped.y).all()) if cropped.t.size else False,
-        "validity": scalar is None or scalar > VALIDITY_INVALID,
+        "validity": not is_condemned_channel(ods, IP_BASE, min_validity=VALIDITY_SUSPECT),
     }
     return cropped, checks
 
