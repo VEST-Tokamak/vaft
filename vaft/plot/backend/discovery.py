@@ -300,6 +300,11 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+        elif isinstance(recipe, ProfileRecipe):
+            # Profiles take the same sign policy (issue #307); the catalog has
+            # to say which default a profile applies, or a caller cannot know
+            # whether the curve it gets back was flipped.
+            updates["orientation"] = _orientation_block(recipe)
         if record.synthetic:
             updates["synthetic"] = {
                 **record.synthetic,
@@ -404,8 +409,8 @@ def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:
     return {"available": True, "flagged": flagged, "modes": VALIDITY_MODES}
 
 
-def _orientation_block(recipe: LineRecipe) -> dict[str, Any]:
-    """The display sign policy a line plot applies by default (issue #307)."""
+def _orientation_block(recipe: LineRecipe | ProfileRecipe) -> dict[str, Any]:
+    """The display sign policy a line or profile plot applies by default (#307)."""
     from vaft.plot.backend.recipes import ORIENTATIONS
 
     return {"default": recipe.orientation, "options": list(ORIENTATIONS)}
