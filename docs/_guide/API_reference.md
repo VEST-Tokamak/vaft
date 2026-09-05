@@ -45,7 +45,7 @@ flowchart TD
     OMASL --> PROC["vaft.process<br/>signal and EM math"]
     OMASL --> FORM["vaft.formula<br/>closed-form physics"]
     ODS --> PLOT["vaft.plot<br/>figures"]
-    ODS --> CODE["vaft.code<br/>EFIT / CHEASE / GPEC / TES"]
+    ODS --> CODE["vaft.code<br/>EFIT / CHEASE / GPEC / TES / NUBEAM"]
     CODE --> ODS
     ODS --> DATA["vaft.data<br/>GEQDSK I/O"]
     ODS --> IMASP["vaft.imas<br/>OMAS to IMAS Access Layer"]
@@ -59,7 +59,7 @@ flowchart TD
 | `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
 | `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
-| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES) | this page |
+| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM) | this page |
 | `vaft.data` | GEQDSK read/write and packaged sample files | this page |
 | `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
 
@@ -387,8 +387,8 @@ executable, run options), an `*Inputs` object produced by `prepare_*`, a `run_*`
 code, and a `collect_*` / `*Result` pair that reads the outputs back.
 
 When a configuration does not supply an executable explicitly, adapters follow the documented
-installation roots: `EFITHOME`, `CHEASEHOME`, `GPECHOME`, and `TESHOME`. Missing binaries are a
-readiness state, not a failure of deterministic input preparation.
+installation roots: `EFITHOME`, `CHEASEHOME`, `GPECHOME`, `TESHOME`, and `NUBEAMHOME`. Missing
+binaries are a readiness state, not a failure of deterministic input preparation.
 
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
@@ -405,7 +405,13 @@ outputs = collect_efit_outputs(workdir, cfg)
 | CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
 | GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
 | TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
+| NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
 | Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
+
+`run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
+builds its Plasma State, and runs INIT then STEP. NUBEAM results are returned as a native
+container and are not yet mapped into IMAS -- see issue #490 section 6. `vaft.plot.nubeam`
+renders them directly, which is why those views are not in the plot catalog.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES
@@ -450,7 +456,7 @@ Each subpackage has at least one notebook that exercises it end to end:
 | `vaft.data`, `vaft.imas` | [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/imas_omas_data_conversion.ipynb), [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/read_and_convert_data_structure.ipynb) |
 | `vaft.machine_mapping`, `vaft.process.magnetics` | [`magnetic_diagnostics_processing.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_diagnostics_processing.ipynb) |
 | `vaft.process.electromagnetics` | [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/electromagnetic_response_modeling_with_efund.ipynb), [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) |
-| `vaft.code` | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb), [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb), [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb), [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) |
+| `vaft.code` | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb), [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb), [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb), [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb), [`vest_nbi_analysis_with_nubeam.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_nbi_analysis_with_nubeam.ipynb) |
 | `vaft.formula`, `vaft.process.statistical_analysis` | [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/confinement_time_scaling.ipynb), [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/tokamak_power_balance.ipynb) |
 | `vaft.plot` | [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/plotting_sample_using_vaft_plot_module.ipynb) |
 
