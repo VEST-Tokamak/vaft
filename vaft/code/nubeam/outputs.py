@@ -245,6 +245,50 @@ class NUBEAMLostParticles:
 
 
 @dataclass
+class NUBEAMRadialGrid:
+    """The radial grid NUBEAM's profiles live on, and the zone measures.
+
+    ``rho`` holds the zone *boundaries* (one more point than a profile) and is
+    toroidal-flux based -- on the validated VEST case it matches
+    ``sqrt(phit/phit_edge)`` to 3e-4, while the poloidal-flux test fails at
+    0.13 -- so it is the coordinate ``rho_tor_norm`` means.
+
+    ``volume`` and ``area`` are *enclosed* quantities on those boundaries, so
+    :attr:`zone_volume` and :attr:`zone_area` difference them to per-zone
+    measures. Those are what turn NUBEAM's per-zone integrals into the
+    densities IMAS asks for, which is why they are collected here rather than
+    left for a consumer to find: an IDS-populating layer must not have to
+    reopen a solver file to divide by a volume.
+    """
+
+    rho: Any
+    volume: Any
+    area: Any
+
+    @property
+    def zone_volume(self) -> Any:
+        """Volume of each zone [m^3], one per profile point."""
+        import numpy as np
+
+        return np.diff(np.asarray(self.volume, dtype=float))
+
+    @property
+    def zone_area(self) -> Any:
+        """Cross-sectional area of each zone [m^2], one per profile point."""
+        import numpy as np
+
+        return np.diff(np.asarray(self.area, dtype=float))
+
+    @property
+    def rho_centres(self) -> Any:
+        """Zone centres, which is where a zone-averaged profile belongs."""
+        import numpy as np
+
+        edges = np.asarray(self.rho, dtype=float)
+        return 0.5 * (edges[:-1] + edges[1:])
+
+
+@dataclass
 class NUBEAMOutputs:
     """Everything a completed NUBEAM run produced, in NUBEAM's own terms."""
 
@@ -258,6 +302,7 @@ class NUBEAMOutputs:
     scalars: Mapping[str, Any] = field(default_factory=dict)
     birth: Optional[NUBEAMBirthMarkers] = None
     lost: Optional[NUBEAMLostParticles] = None
+    grid: Optional[NUBEAMRadialGrid] = None
     power_balance: tuple[NUBEAMPowerBalance, ...] = ()
     #: Count of ``xpprof`` out-of-bounds interpolation warnings in step.log.
     interpolation_warnings: int = 0
@@ -443,6 +488,20 @@ def collect_nubeam_outputs(
     if birth_files:
         birth = _read_birth(birth_files[0])
 
+    # The radial grid and zone measures live in the Plasma State, not in
+    # state_changes.cdf, so they are collected alongside the profiles they
+    # describe rather than left to a consumer to go looking for.
+    grid = None
+    for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
+        if not candidate.is_file():
+            continue
+        state = _read_variables(candidate)
+        if all(key in state for key in ("rho_nbi", "vol", "area")):
+            grid = NUBEAMRadialGrid(
+                rho=state["rho_nbi"], volume=state["vol"], area=state["area"]
+            )
+            break
+
     lost = None
     xplasma_out = directory / f"{runid}{XPLASMA_OUT_SUFFIX}"
     if xplasma_out.is_file():
@@ -475,6 +534,7 @@ def collect_nubeam_outputs(
         scalars=scalars,
         birth=birth,
         lost=lost,
+        grid=grid,
         power_balance=balance,
         interpolation_warnings=warnings_count,
     )
