@@ -622,6 +622,12 @@ class ProfileRecipe:
     y_unit: str = ""
     label_path: str = ""
     fallback_y_paths: tuple[str, ...] = ()
+    #: Display sign policy (issue #307), as on :class:`LineRecipe`.  A profile
+    #: whose sign is a convention rather than a measurement -- everything the
+    #: COCOS of the source decides -- can be drawn with its dominant response
+    #: positive, per entry, so two machines stored in opposite conventions are
+    #: comparable in one axes.  The data is untouched and the title says so.
+    orientation: str = "canonical"
 
 
 @dataclass(frozen=True)
@@ -1031,6 +1037,12 @@ RECIPES: dict[str, Any] = {
     "equilibrium_profile_q": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.q",
         y_label="Safety Factor q",
+        # q carries the sign of the source's COCOS -- sgn(Ip)*sgn(B0) in the
+        # 11-family -- so half the machines in a cross-machine overlay store it
+        # negative.  Draw it the way it is read, per entry; f, ffprime and
+        # pprime stay canonical because their sign also carries gradient
+        # direction, and can be flipped with orientation="intuitive".
+        orientation="intuitive",
     ),
     "equilibrium_profile_j_tor": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.j_tor",
@@ -3786,10 +3798,13 @@ def _build_profile_1d(
         _apply_display(trace, x_scale=1.0, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.y_label
     else:
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
@@ -3797,6 +3812,60 @@ def _build_profile_1d(
         y_unit=y_display.unit,
         title=options.get("title", default_title),
         display=y_display,
+    )
+
+
+def _build_geometry_entries(
+    entries: Sequence[tuple[str, Any]], recipe: GeometryRecipe, **options: Any
+) -> GeometryLayers:
+    """One geometry view built from every entry, not just the first.
+
+    A single entry is drawn exactly as the recipe describes it -- same colours,
+    same labels, no legend where there was none.  With several, each entry's
+    layers are tagged with its label so the renderer can colour the stack by
+    entry, and the recipe's own colours are dropped: keeping them would draw
+    two machines in one colour, which is the bug this exists to fix.  Layer
+    labels are prefixed with the entry so a composed view still says which
+    part of which machine it is naming.
+    """
+    if len(entries) == 1:
+        return _build_geometry(entries[0][1], recipe, **options)
+
+    layers: list[GeometryLayer] = []
+    title = recipe.title
+    # The colour key has to separate the inputs even when they carry the same
+    # label -- one shot read from two sources is a real comparison -- while the
+    # legend keeps the label it was given.
+    seen: dict[str, int] = {}
+    for entry_label, ods in entries:
+        text = str(entry_label)
+        drawn = seen.get(text, 0)
+        seen[text] = drawn + 1
+        key = text if not drawn else f"{text}#{drawn}"
+        built = _build_geometry(ods, recipe, **options)
+        title = built.title
+        labelled = False
+        for layer in built.layers:
+            style = {key: value for key, value in layer.style.items() if key != "color"}
+            if layer.kind == "text":
+                # An annotation is not a legend key; it keeps its own text.
+                layers.append(dataclasses.replace(layer, style=style, entry=key))
+                continue
+            label = f"{entry_label} {layer.label}".strip() if layer.label else str(entry_label)
+            if layer.label or not labelled:
+                labelled = True
+            else:
+                # One legend key per entry for a single-layer recipe; a
+                # multi-layer recipe names its parts and keeps them all.
+                label = ""
+            layers.append(
+                dataclasses.replace(layer, style=style, label=label, entry=key)
+            )
+    return GeometryLayers(
+        layers=tuple(layers),
+        x_label=recipe.x_label,
+        y_label=recipe.y_label,
+        title=options.get("title", title),
     )
 
 
@@ -6243,8 +6312,9 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     """Build the view model for canonical plot ``name`` from ``entries``.
 
     ``entries`` is the ``(label, ods)`` sequence produced by
-    :func:`normalize_entries`.  Single-ODS families (2D fields, geometry,
-    spectrograms) use the first entry and ignore the rest.
+    :func:`normalize_entries`.  Line, profile and geometry families draw every
+    entry; the single-ODS families (2D fields, spectrograms, power spectra)
+    use the first entry and ignore the rest.
     """
     try:
         recipe = RECIPES[name]
@@ -6263,7 +6333,7 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if isinstance(recipe, PanelRecipe):
         return _build_panels(entries, recipe, **options)
     if isinstance(recipe, GeometryRecipe):
-        return _build_geometry(entries[0][1], recipe, **options)
+        return _build_geometry_entries(entries, recipe, **options)
     if isinstance(recipe, FieldRecipe):
         return _build_field_2d(entries[0][1], recipe, **options)
     if isinstance(recipe, SpectrogramRecipe):

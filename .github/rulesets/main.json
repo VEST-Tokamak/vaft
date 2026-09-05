@@ -1,18 +1,12 @@
 {
-  "name": "develop",
+  "name": "main",
   "target": "branch",
   "enforcement": "active",
-  "bypass_actors": [
-    {
-      "actor_id": 5,
-      "actor_type": "RepositoryRole",
-      "bypass_mode": "always"
-    }
-  ],
+  "bypass_actors": [],
   "conditions": {
     "ref_name": {
       "include": [
-        "refs/heads/develop"
+        "refs/heads/main"
       ],
       "exclude": []
     }
@@ -31,11 +25,15 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "core-test",
+            "context": "test",
             "integration_id": 15368
           },
           {
             "context": "package",
+            "integration_id": 15368
+          },
+          {
+            "context": "tutorial",
             "integration_id": 15368
           }
         ]
