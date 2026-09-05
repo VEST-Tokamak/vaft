@@ -31,10 +31,13 @@ DEFAULT_BUFFER_FRAMES = 2
 # sample shots in the VEST_Fast Camera_Diagnostics repository. The "Top Frame"/
 # "Bottom Frame" lines at 74/75 belong to the header's *File Information* block
 # (the exported BMP sub-range), not the earlier *Recording Information* block.
+# `ShutterSpeed:` sits at 24, not 25 -- 25 is `CustomShutterValueNumerator`.
+# The parser returns None rather than raising on a line mismatch, so the
+# off-by-one silently dropped exposure_time from every camera IDS ever built.
 _FRAMES_LINE_INDEX = 15
 _TOP_FRAME_LINE_INDEX = 74
 _BOTTOM_FRAME_LINE_INDEX = 75
-_SHUTTER_SPEED_LINE_INDEX = 25
+_SHUTTER_SPEED_LINE_INDEX = 24
 
 _TOTAL_FRAMES_PATTERN = re.compile(r"Frames:\s*(\d+)")
 # The relative time carries a sign, and it means something: a centre-triggered
@@ -44,7 +47,12 @@ _TOTAL_FRAMES_PATTERN = re.compile(r"Frames:\s*(\d+)")
 # had it matched.
 _TOP_FRAME_PATTERN = re.compile(r"^Top Frame,.+,([+-]?\d+\.\d+)")
 _BOTTOM_FRAME_PATTERN = re.compile(r"^Bottom Frame,.+,([+-]?\d+\.\d+)")
-_SHUTTER_SPEED_PATTERN = re.compile(r"ShutterSpeed:\s*[\d.]+k\(([\d.]+)us\)")
+# The frame-rate prefix in front of the parenthesised exposure is not always a
+# number: a camera run with no frame-rate-derived shutter records
+# `ShutterSpeed: OPEN(19.1us)`. Requiring `<number>k(` skipped the exposure of
+# every such acquisition -- 102 routine shots and every fluctuation shot in the
+# archive -- so the prefix is now anything up to the parenthesis.
+_SHUTTER_SPEED_PATTERN = re.compile(r"ShutterSpeed:\s*[^(\n]*\(([\d.]+)us\)")
 
 
 class CameraFrameSelectionError(RuntimeError):
@@ -286,8 +294,55 @@ def vfit_camera_visible_dynamic(
     set_path(ods, "camera_visible.time", time_values)
     for index, (image, time_value) in enumerate(zip(images, times_s)):
         prefix = f"camera_visible.channel.0.detector.0.frame.{index}"
-        set_path(ods, f"{prefix}.image_raw", np.asarray(image).astype(int))
+        # No cast here: `image_raw` is an INT_2D node, and OMAS applies
+        # `value.astype(int)` itself on every assignment to one.
+        set_path(ods, f"{prefix}.image_raw", np.asarray(image))
         set_path(ods, f"{prefix}.time", float(time_value))
+
+
+def narrow_image_storage(ods: Any) -> None:
+    """Re-state every ``camera_visible`` ``image_raw`` frame as ``int32``.
+
+    This cannot live in :func:`vfit_camera_visible_dynamic`, and not for want
+    of trying: OMAS upcasts on assignment. Every write to an ``INT_2D`` node
+    runs ``value = value.astype(int)`` (``omas/omas_core.py``), which is
+    platform ``int`` -- ``int64`` here -- so a frame assigned as ``uint8``,
+    ``int32`` or ``float32`` comes back out as ``int64`` regardless. The width
+    can therefore only be set immediately before storage, after the mapping
+    has finished building and validating the ODS and with the consistency
+    check suspended so the re-assignment reaches the node untouched.
+
+    Halving the stored width costs nothing in fidelity: VEST FAST-camera
+    frames are 8-bit grayscale, so every value fits ``int32`` with three
+    orders of magnitude to spare, and the re-cast is exact.
+
+    The check is *not* switched back on afterwards, and that is the same
+    upcast again rather than an oversight: re-enabling it re-runs OMAS's
+    ``consistency_checker`` over every leaf and re-applies ``astype(int)``,
+    putting ``image_raw`` straight back to ``int64``. Validation before the
+    narrowing is what the mapping already did -- every assignment in
+    :func:`vfit_camera_visible_dynamic` ran under the check -- and validation
+    afterwards belongs to the stored product, which reloads through the
+    ordinary loader reporting ``consistency_check == True``. Nothing but
+    storage should follow this call.
+
+    Call this on a finished ODS, immediately before ``vaft.omas.save``. It is
+    deliberately not folded into ``save``: applying it to every ODS would
+    silently re-type unrelated integer nodes in other IDSs.
+    """
+    frames_path = "camera_visible.channel.0.detector.0.frame"
+    try:
+        frame_count = len(ods[frames_path])
+    except (KeyError, IndexError, ValueError):
+        return
+
+    ods.consistency_check = False
+    for index in range(frame_count):
+        path = f"{frames_path}.{index}.image_raw"
+        image = np.asarray(ods[path])
+        if image.dtype == np.int32:
+            continue
+        ods[path] = image.astype(np.int32)
 
 
 def camera_visible(
@@ -414,6 +469,7 @@ __all__ = [
     "find_valid_frame_interval",
     "frame_time_ms",
     "is_near_black",
+    "narrow_image_storage",
     "save_camera_visible_ods",
     "vfit_camera_visible_dynamic",
     "vfit_camera_visible_static",

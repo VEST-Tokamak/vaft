@@ -1,10 +1,12 @@
 from pathlib import Path
 
 import cv2
+import h5py
 import numpy as np
 import pytest
 from omas import ODS
 
+import vaft.omas
 from vaft.machine_mapping.camera_visible import (
     CameraFrameSelectionError,
     _parse_bmp_header,
@@ -13,6 +15,7 @@ from vaft.machine_mapping.camera_visible import (
     find_valid_frame_interval,
     frame_time_ms,
     is_near_black,
+    narrow_image_storage,
 )
 
 SHOT = 99999
@@ -32,7 +35,10 @@ def _write_header(
     lines = ["\n"] * 76
     lines[15] = f"Frames: {total_frames}\n"
     if shutter_speed_line is not None:
-        lines[25] = shutter_speed_line
+        # 24, not 25. Every real header puts `ShutterSpeed:` here and
+        # `CustomShutterValueNumerator` at 25; this fixture used to plant it at
+        # 25 and so agreed with the parser's off-by-one instead of catching it.
+        lines[24] = shutter_speed_line
     lines[74] = f"Top Frame,+700,20/06/18 21:41:01.708809,+{start_time_ms / 1000:012.6f}\n"
     lines[75] = f"Bottom Frame,+850,20/06/18 21:41:01.768809,+{end_time_ms / 1000:012.6f}\n"
 
@@ -238,3 +244,109 @@ def test_centre_triggered_header_keeps_its_negative_start_time(tmp_path):
     assert info.end_time_ms == pytest.approx(433.2)
     assert frame_time_ms(0, 3, info.start_time_ms, info.end_time_ms) == pytest.approx(-433.2)
     assert frame_time_ms(1, 3, info.start_time_ms, info.end_time_ms) == pytest.approx(0.0)
+
+
+def test_exposure_parses_from_the_line_the_real_headers_use(tmp_path):
+    """`ShutterSpeed:` is at index 24; index 25 is CustomShutterValueNumerator.
+
+    The parser read 25 and, because a mismatch yields None rather than an
+    error, dropped exposure_time from every camera IDS ever produced without
+    saying so. The fixture agreed with the bug, so nothing caught it.
+    """
+    shot_dir = tmp_path / str(SHOT)
+    shot_dir.mkdir()
+    header = _write_header(shot_dir, SHOT, total_frames=3, shutter_speed_line=None)
+    lines = header.read_text(encoding="utf-8").splitlines(keepends=True)
+    lines[24] = "ShutterSpeed: 50k(20.0us)\n"
+    lines[25] = "CustomShutterValueNumerator: 397486\n"
+    header.write_text("".join(lines), encoding="utf-8")
+
+    assert _parse_bmp_header(header).exposure_time_s == pytest.approx(20.0e-6)
+
+
+@pytest.mark.parametrize(
+    ("shutter_line", "expected_s"),
+    [
+        # Routine acquisitions state a frame rate before the exposure...
+        ("ShutterSpeed: 50k(20.0us)\n", 20.0e-6),
+        # ...but a shutter left open states OPEN, and the old pattern's
+        # required `<number>k(` prefix silently skipped all of those: 102
+        # routine shots and every fluctuation shot in the archive.
+        ("ShutterSpeed: OPEN(19.1us)\n", 19.1e-6),
+    ],
+)
+def test_camera_visible_exposure_time_forms(tmp_path, shutter_line, expected_s):
+    shot_dir = _write_shot(
+        tmp_path, total_frames=6, bright_indices={2, 3}, shutter_speed_line=shutter_line
+    )
+    ods = ODS()
+    camera_visible(ods, SHOT, frame_dir=shot_dir)
+    assert ods["camera_visible.channel.0.detector.0.exposure_time"] == pytest.approx(expected_s)
+
+
+def test_narrow_image_storage_halves_the_width_without_moving_a_pixel(tmp_path):
+    shot_dir = _write_shot(tmp_path, total_frames=6, bright_indices={2, 3})
+    ods = camera_visible_from_frame_dir(SHOT, frame_dir=shot_dir, consistency_check=True)
+
+    prefix = "camera_visible.channel.0.detector.0.frame"
+    n_frames = len(ods[prefix])
+    before = [np.asarray(ods[f"{prefix}.{i}.image_raw"]).copy() for i in range(n_frames)]
+    # OMAS upcasts INT_2D on assignment, so the mapping cannot leave int32 behind.
+    assert all(image.dtype == np.int64 for image in before)
+
+    narrow_image_storage(ods)
+
+    for index, original in enumerate(before):
+        narrowed = np.asarray(ods[f"{prefix}.{index}.image_raw"])
+        assert narrowed.dtype == np.int32
+        assert np.array_equal(narrowed, original)
+
+
+def test_narrowed_product_stores_int32_and_round_trips_identically(tmp_path):
+    shot_dir = _write_shot(tmp_path, total_frames=6, bright_indices={2, 3})
+    ods = camera_visible_from_frame_dir(SHOT, frame_dir=shot_dir, consistency_check=True)
+    prefix = "camera_visible.channel.0.detector.0.frame"
+    n_frames = len(ods[prefix])
+    expected = [np.asarray(ods[f"{prefix}.{i}.image_raw"]).copy() for i in range(n_frames)]
+    expected_time = np.asarray(ods["camera_visible.time"], dtype=float).copy()
+
+    narrow_image_storage(ods)
+    target = tmp_path / f"{SHOT}_camera_visible.h5"
+    vaft.omas.save(ods, target, compression="gzip")
+
+    with h5py.File(target, "r") as handle:
+        dataset = handle[f"camera_visible/channel/0/detector/0/frame/0/image_raw"]
+        assert dataset.dtype == np.int32
+        assert dataset.compression == "gzip"
+
+    reloaded = vaft.omas.load(target)
+    assert len(reloaded[prefix]) == n_frames
+    for index, original in enumerate(expected):
+        assert np.array_equal(np.asarray(reloaded[f"{prefix}.{index}.image_raw"]), original)
+    np.testing.assert_array_equal(
+        np.asarray(reloaded["camera_visible.time"], dtype=float), expected_time
+    )
+
+
+def test_compressed_product_still_satisfies_the_imas_schema(tmp_path):
+    """Compression is a container detail, so a gzip product must still validate."""
+    from omas.omas_h5 import load_omas_h5
+
+    shot_dir = _write_shot(tmp_path, total_frames=6, bright_indices={2, 3})
+    ods = camera_visible_from_frame_dir(SHOT, frame_dir=shot_dir, consistency_check=True)
+    narrow_image_storage(ods)
+    target = tmp_path / f"{SHOT}_camera_visible.h5"
+    vaft.omas.save(ods, target, compression="gzip")
+
+    reloaded = load_omas_h5(str(target), consistency_check=True)
+    assert reloaded.consistency_check is True
+    assert len(reloaded["camera_visible.channel.0.detector.0.frame"]) == len(
+        ods["camera_visible.channel.0.detector.0.frame"]
+    )
+
+
+def test_save_rejects_compression_for_a_json_target(tmp_path):
+    shot_dir = _write_shot(tmp_path, total_frames=6, bright_indices={2, 3})
+    ods = camera_visible_from_frame_dir(SHOT, frame_dir=shot_dir, consistency_check=True)
+    with pytest.raises(ValueError, match="compression"):
+        vaft.omas.save(ods, tmp_path / f"{SHOT}.json", compression="gzip")

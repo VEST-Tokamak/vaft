@@ -105,8 +105,44 @@ def _channel_count(ods: Any, tree: str) -> int | None:
         return None
 
 
-def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
-    """Build one shot's ODS from the consolidated archive."""
+#: Storage encoding for camera products. A FAST-camera frame is 8-bit
+#: grayscale, but OMAS stores every ``INT_2D`` node as platform ``int64``, so
+#: an unnarrowed product spends eight bytes on a value that never exceeds 255.
+#: Narrowing to ``int32`` at the storage boundary and letting HDF5 gzip the
+#: result shrinks a product by roughly an order of magnitude without altering
+#: a single pixel or time. Only camera trees get this: applying it blindly
+#: would re-type integer nodes in soft X-ray and magnetics products too.
+CAMERA_STORAGE_WIDTH = "int32"
+CAMERA_COMPRESSION = "gzip"
+HDF5_FORMATS = (".h5", ".hdf5")
+
+
+def _camera_storage(tree: str, product_format: str) -> dict[str, Any] | None:
+    """Describe how a camera product is encoded, or None for other trees."""
+    if not tree.startswith("camera"):
+        return None
+    return {
+        "width": CAMERA_STORAGE_WIDTH,
+        # JSON containers have no dtype and no HDF5 filter to name.
+        "compression": (
+            CAMERA_COMPRESSION if product_format.lower() in HDF5_FORMATS else None
+        ),
+    }
+
+
+def build_shot(
+    root: Path,
+    tree: str,
+    shot: int,
+    *,
+    product_format: str = DEFAULT_PRODUCT_FORMAT,
+) -> tuple[Any, dict[str, Any]]:
+    """Build one shot's ODS from the consolidated archive.
+
+    Camera ODSs come back already narrowed to ``int32``, so the caller must
+    write them straight out: re-enabling the OMAS consistency check would
+    upcast every frame back to ``int64``.
+    """
     from omas import ODS
 
     mapping_name = DIAGNOSTIC_TREES[tree]
@@ -133,6 +169,15 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
         "provenance": provenance,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+    storage = _camera_storage(tree, product_format)
+    if storage is not None:
+        from vaft.machine_mapping.camera_visible import narrow_image_storage
+
+        # Last thing before the manifest is sealed, and nothing but the write
+        # may follow: narrowing leaves the consistency check off on purpose.
+        narrow_image_storage(ods)
+        manifest["storage"] = storage
     return ods, manifest
 
 
@@ -210,13 +255,16 @@ def ingest(
 
             output_dir = root / "ods" / tree / str(shot)
             try:
-                ods, manifest = build_shot(root, tree, shot)
+                ods, manifest = build_shot(
+                    root, tree, shot, product_format=product_format
+                )
                 output_dir.mkdir(parents=True, exist_ok=True)
                 write_stage_product(
                     ods,
                     manifest,
                     output=output_dir / f"{shot}_{tree}{product_format}",
                     metadata=output_dir / MANIFEST_NAME,
+                    compression=manifest.get("storage", {}).get("compression"),
                 )
             except Exception as exc:  # noqa: BLE001 - one bad shot must not stop the run
                 reason = f"{type(exc).__name__}: {exc}"
