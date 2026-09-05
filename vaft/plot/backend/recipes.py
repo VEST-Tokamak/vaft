@@ -3671,7 +3671,15 @@ def _build_geometry_entries(
 
     layers: list[GeometryLayer] = []
     title = recipe.title
+    # The colour key has to separate the inputs even when they carry the same
+    # label -- one shot read from two sources is a real comparison -- while the
+    # legend keeps the label it was given.
+    seen: dict[str, int] = {}
     for entry_label, ods in entries:
+        text = str(entry_label)
+        drawn = seen.get(text, 0)
+        seen[text] = drawn + 1
+        key = text if not drawn else f"{text}#{drawn}"
         built = _build_geometry(ods, recipe, **options)
         title = built.title
         labelled = False
@@ -3679,7 +3687,7 @@ def _build_geometry_entries(
             style = {key: value for key, value in layer.style.items() if key != "color"}
             if layer.kind == "text":
                 # An annotation is not a legend key; it keeps its own text.
-                layers.append(dataclasses.replace(layer, style=style, entry=str(entry_label)))
+                layers.append(dataclasses.replace(layer, style=style, entry=key))
                 continue
             label = f"{entry_label} {layer.label}".strip() if layer.label else str(entry_label)
             if layer.label or not labelled:
@@ -3689,7 +3697,7 @@ def _build_geometry_entries(
                 # multi-layer recipe names its parts and keeps them all.
                 label = ""
             layers.append(
-                dataclasses.replace(layer, style=style, label=label, entry=str(entry_label))
+                dataclasses.replace(layer, style=style, label=label, entry=key)
             )
     return GeometryLayers(
         layers=tuple(layers),

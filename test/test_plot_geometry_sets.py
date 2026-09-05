@@ -226,3 +226,15 @@ def test_an_overlaid_multi_layer_view_names_the_machine_and_the_part(sample):
     # One colour per machine, whatever its parts.
     assert len({line.get_color() for line in axes.get_lines()}) == 2
     plt.close(figure)
+
+
+def test_two_inputs_with_the_same_label_stay_separate_colours():
+    """One shot read from two sources: same legend text, still two machines."""
+    model = build_model(
+        "equilibrium_geometry_boundary", [("39915", _boundary(1.0)), ("39915", _boundary(2.0))]
+    )
+    assert [layer.label for layer in model.layers] == ["39915", "39915"]
+    assert len({layer.entry for layer in model.layers}) == 2  # colour key, not legend text
+    figure, axes = render_geometry_layers(model, show=False)
+    assert len({line.get_color() for line in axes.get_lines()}) == 2
+    plt.close(figure)
