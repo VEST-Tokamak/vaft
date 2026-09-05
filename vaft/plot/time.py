@@ -47,6 +47,28 @@ def handle_labels(odc, label_param, default_opt='key'):
         print(f"Invalid label: {label_param}, using {default_opt} as label.")
         return extract_labels_from_odc(odc, opt=default_opt)
 
+def _plasma_xlim(ods):
+    """``[onset, offset]`` of the shared plasma window, or ``None`` with a warning.
+
+    ``vaft.omas.plasma_timing`` decides which signal answers for the plasma
+    (H-alpha by label, the current as fallback); a product with no plasma
+    gets no limits rather than the analysis range.
+    """
+    import warnings
+
+    from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
+
+    try:
+        timing = plasma_timing(ods)
+    except PlasmaTimingError as exc:
+        warnings.warn(f"xlim='plasma': no plasma window ({exc})", stacklevel=3)
+        return None
+    if not timing.found:
+        warnings.warn(f"xlim='plasma': no plasma window ({timing.fallback_reason})", stacklevel=3)
+        return None
+    return list(timing.window)
+
+
 def set_xlim_time(odc, type='plasma'):
     """
     Set time limits for x-axis of plot.
@@ -61,13 +83,12 @@ def set_xlim_time(odc, type='plasma'):
     for key in odc.keys():
         ods = odc[key]
         try:
-            if type == 'plasma' and 'magnetics.ip' in ods:
-                time = ods['magnetics.ip.0.time']
-                data = ods['magnetics.ip.0.data']
-                onset, offset = signal_on_offset(time, data)
-                onsets.append(onset)
-                offsets.append(offset)
-                
+            if type == 'plasma':
+                window = _plasma_xlim(ods)
+                if window is not None:
+                    onsets.append(window[0])
+                    offsets.append(window[1])
+
             elif type == 'coil' and 'pf_active.coil' in ods:
                 num_coils = len(ods['pf_active.coil'])
                 for i in range(num_coils):
@@ -832,24 +853,13 @@ def _find_flux_loop_all_indices(ods):
 def _find_flux_loop_inboard_midplane_indices(ods):
     # find the indices of the flux loop inboard midplane
     #
-    # This used to be `r == 0.091`, an exact float comparison against one
-    # channel's tabulated radius: a geometry revision moving that loop by a
-    # single ULP returned nothing at all.  The midplane loop is now whichever
-    # inboard loop actually sits nearest Z = 0.
-    from .selection import representative_index
+    # One rule for "which loop is the inboard midplane", shared with the
+    # discharge timing: the inboard-family loop nearest Z = 0 that recorded
+    # something (vaft.omas.discharge_timing.inboard_midplane_loop), so the
+    # loop a figure labels V_loop is the loop the 'vloop' origin came from.
+    from vaft.omas.discharge_timing import inboard_midplane_loop
 
-    inboard = _region_indices(ods, 'magnetics.flux_loop.:.position.0.r', 'inboard')[0]
-    z = np.asarray(ods['magnetics.flux_loop.:.position.0.z'], dtype=float)
-    # Skip loops that recorded nothing, so this and vaft.omas' `inboard_mid`
-    # never disagree about which channel represents the inboard midplane.
-    usable = [
-        index for index in inboard
-        if np.isfinite(
-            np.asarray(_value(ods, f'magnetics.flux_loop.{index}.flux.data', np.nan),
-                       dtype=float)
-        ).any()
-    ]
-    chosen = representative_index(z, usable)
+    chosen = inboard_midplane_loop(ods)
     return (np.array([] if chosen is None else [chosen], dtype=int),)
 
 def time_magnetics_flux_loop_flux(ods_or_odc, indices='all', label='shot', xunit='s', yunit='Wb', xlim='plasma'):
@@ -1750,19 +1760,12 @@ def time_electromagnetics_current(ods: ODS, label='shot', xunit='s', xlim='plasm
     # Handle xlim
     # Simplified handle_xlim for single ODS context, or adapt existing one
     if xlim == 'plasma':
-        # Attempt to get plasma time limits
-        try:
-            time_ip = ods['magnetics.ip.0.time']
-            data_ip = ods['magnetics.ip.0.data']
-            onset_ip, offset_ip = signal_on_offset(time_ip, data_ip)
-            xlim_processed = [onset_ip, offset_ip]
+        xlim_processed = _plasma_xlim(ods)
+        if xlim_processed is not None:
             if onset is not None:
-                 xlim_processed = [onset_ip - onset, offset_ip - onset]
+                xlim_processed = [t - onset for t in xlim_processed]
             if xunit == 'ms':
                 xlim_processed = [t * 1000 for t in xlim_processed]
-        except KeyError:
-            xlim_processed = None
-            print("Warning: Could not determine xlim='plasma' due to missing IP data. Using default.")
     elif xlim == 'coil':
         # Attempt to get coil time limits (simplified)
         try:

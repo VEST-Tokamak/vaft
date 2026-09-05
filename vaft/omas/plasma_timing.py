@@ -52,6 +52,7 @@ from vaft.machine_mapping.spectrometer_uv import (
 from vaft.machine_mapping.utils import (
     MIN_BASELINE_S,
     CroppedRecord,
+    DischargeTimingPolicy,
     PlasmaTimingPolicy,
     crop_to_span,
     resolve_plasma_timing_policy,
@@ -87,9 +88,11 @@ __all__ = [
     "SOURCE_H_PRIMARY",
     "SOURCE_H_SECONDARY",
     "SOURCE_IP",
+    "TIME_CONVENTION_PATH",
     "USABILITY_CHECKS",
     "WAVELENGTH_TOLERANCE_M",
     "analysis_span",
+    "clock_offset",
     "halpha_sources",
     "halpha_usability",
     "halpha_window",
@@ -146,10 +149,27 @@ class AnalysisSpan:
     tend: float
     baseline_start: float
     window: str
+    clock_offset_s: float = 0.0
 
     @property
     def baseline_lead_s(self) -> float:
         return float(self.tstart - self.baseline_start)
+
+    def shifted(self, delta: float) -> "AnalysisSpan":
+        """The same span on a clock displaced by ``delta`` seconds.
+
+        The policy states the span on the DAQ clock; a product re-referenced
+        to a physical event (``change_time_convention``) carries its time
+        axes displaced by minus the recorded origin, and the span follows.
+        """
+        delta = float(delta)
+        return AnalysisSpan(
+            tstart=self.tstart + delta,
+            tend=self.tend + delta,
+            baseline_start=self.baseline_start + delta,
+            window=self.window,
+            clock_offset_s=self.clock_offset_s + delta,
+        )
 
     def record(self) -> dict[str, Any]:
         return {
@@ -157,21 +177,58 @@ class AnalysisSpan:
             "tstart": self.tstart,
             "tend": self.tend,
             "baseline_start": self.baseline_start,
+            "clock_offset_s": self.clock_offset_s,
         }
 
 
+TIME_CONVENTION_PATH = "summary.code.parameters.time_convention"
+
+
+def clock_offset(ods: Any) -> float:
+    """How far the product's time axes sit from the DAQ clock, in seconds.
+
+    ``change_time_convention`` records the convention and its origin under
+    ``summary.code.parameters``; a product on the ``daq`` clock (or one that
+    carries no memo) is at offset zero, and a product re-referenced to an
+    event is displaced by minus that event's recorded DAQ time.  A product
+    that declares a convention without its origin cannot be placed and
+    raises :class:`PlasmaTimingError`.
+    """
+    convention = path_value(ods, TIME_CONVENTION_PATH)
+    if convention is None or str(convention) == "daq":
+        return 0.0
+    origin = path_value(ods, f"summary.code.parameters.{convention}_onset")
+    if origin is None:
+        raise PlasmaTimingError(
+            f"the product declares time convention {convention!r} but records no "
+            f"{convention}_onset origin; its clock cannot be placed"
+        )
+    return -float(origin)
+
+
 def _resolved(
-    policy: PlasmaTimingPolicy | None, span: AnalysisSpan | None = None
+    policy: PlasmaTimingPolicy | None,
+    span: AnalysisSpan | None = None,
+    *,
+    ods: Any = None,
 ) -> tuple[PlasmaTimingPolicy, AnalysisSpan]:
+    """The policy and the span to search, on the product's own clock when ``ods`` is given."""
     if policy is None:
         policy = resolve_plasma_timing_policy()
     if span is None:
         span = analysis_span(policy)
+        if ods is not None:
+            span = span.shifted(clock_offset(ods))
     return policy, span
 
 
-def analysis_span(policy: PlasmaTimingPolicy | None = None) -> AnalysisSpan:
-    """The :class:`AnalysisSpan` the configured policy prescribes."""
+def analysis_span(policy: PlasmaTimingPolicy | DischargeTimingPolicy | None = None) -> AnalysisSpan:
+    """The :class:`AnalysisSpan` the configured policy prescribes.
+
+    Accepts the plasma policy or the discharge-timing one: both carry a
+    ``window`` and a ``baseline_start``, and the two are configured on the
+    same window so the actuator events and the plasma are judged on one span.
+    """
     if policy is None:
         policy = resolve_plasma_timing_policy()
     window = policy.window
@@ -183,14 +240,18 @@ def analysis_span(policy: PlasmaTimingPolicy | None = None) -> AnalysisSpan:
     )
 
 
-def _crop(time: Any, values: Any, span: AnalysisSpan) -> CroppedRecord:
-    """Crop a record to the span with the shared rule (:func:`crop_to_span`)."""
+def _crop(time: Any, values: Any, span: AnalysisSpan, *, error: type = None) -> CroppedRecord:
+    """Crop a record to the span with the shared rule (:func:`crop_to_span`).
+
+    A length mismatch is re-raised as ``error`` (:class:`PlasmaTimingError`
+    by default; the discharge-timing composer passes its own).
+    """
     try:
         return crop_to_span(
             time, values, baseline_start=span.baseline_start, tstart=span.tstart, tend=span.tend
         )
     except ValueError as exc:
-        raise PlasmaTimingError(str(exc)) from exc
+        raise (error or PlasmaTimingError)(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +379,7 @@ def halpha_usability(
     mapper did to a fast-DAQ line: it is resampled, and its own time axis
     was shifted onto the discharge clock by ``time_shift_s``.
     """
-    policy, span = _resolved(policy, span)
+    policy, span = _resolved(policy, span, ods=ods)
     limits = policy.usability
     checks: dict[str, bool] = {}
     metrics: dict[str, float] = {}
@@ -446,7 +507,7 @@ def halpha_window(
     window that skipped it would start late.  The caller sees it as
     ``multiple_segments``.
     """
-    policy, span = _resolved(policy, span)
+    policy, span = _resolved(policy, span, ods=ods)
     return _halpha_cropped(ods, source, span).detect(policy.h_alpha)
 
 
@@ -483,7 +544,7 @@ def ip_window(
     samples inside the span; :func:`plasma_timing` additionally refuses a
     current that fails :data:`IP_CHECKS` as a source.
     """
-    policy, span = _resolved(policy, span)
+    policy, span = _resolved(policy, span, ods=ods)
     cropped, checks = _ip_cropped(ods, span)
     if not checks["present"]:
         raise PlasmaTimingError(f"{IP_BASE} has no samples inside {span.baseline_start}-{span.tend} s")
@@ -616,7 +677,7 @@ def plasma_timing(
     and, when the current did not either, why not.  Only a product without
     ``magnetics.ip`` raises.
     """
-    policy, span = _resolved(policy)
+    policy, span = _resolved(policy, ods=ods)
     flags: list[str] = []
 
     candidates: list[HalphaUsability] = []

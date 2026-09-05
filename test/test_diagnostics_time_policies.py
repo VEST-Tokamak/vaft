@@ -424,3 +424,55 @@ def test_every_mapped_component_reports_its_coverage(full_record_diagnostics):
     # impa writes into the magnetics IDS rather than one of its own, so it has
     # no coordinate to report; every other mapped component must have one.
     assert mapped - {"impa"} <= recorded
+
+
+# ---------------------------------------------------------------------------
+# Discharge-timing policy (#409 PR-v)
+# ---------------------------------------------------------------------------
+
+
+def test_the_discharge_timing_policy_shares_the_plasma_window():
+    from vaft.machine_mapping.utils import DischargeTimingPolicy, resolve_discharge_timing_policy
+
+    policy = resolve_discharge_timing_policy()
+    plasma = resolve_plasma_timing_policy()
+
+    assert isinstance(policy, DischargeTimingPolicy)
+    assert policy.window == plasma.window
+    assert policy.baseline_start == plasma.baseline_start
+    assert policy.ohmic_coil == "PF1"
+    assert policy.loop_voltage == {"selection": "inboard_midplane", "prefer_measured_voltage": True}
+    assert policy.coil["principal_only"] is True and policy.coil["pickup_floor"] == 3.0
+    assert policy.vloop["anchor_tolerance_s"] == 5e-4 and policy.vloop["approach_fraction"] == 0.1
+    assert policy.as_dict()["vloop"] == dict(policy.vloop)
+
+
+def test_discharge_timing_configuration_errors_are_caught_at_load(tmp_path):
+    import yaml
+
+    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml, resolve_discharge_timing_policy
+
+    document = load_yaml(_resolve_info_file_path(None))
+    block = document["discharge_timing"]
+
+    def resolve_with(**changes):
+        doc = dict(document)
+        doc["discharge_timing"] = {**block, **changes}
+        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
+        path.write_text(yaml.safe_dump(doc))
+        return resolve_discharge_timing_policy(info_file=str(path))
+
+    with pytest.raises(VestConfigurationError, match="'aproach_fraction'.*zero_crossing_after_excursion"):
+        resolve_with(vloop={**block["vloop"], "aproach_fraction": 0.1})
+    with pytest.raises(VestConfigurationError, match="'anchor_time'"):
+        resolve_with(vloop={**block["vloop"], "anchor_time": 0.29})
+    with pytest.raises(VestConfigurationError, match="loop_voltage.selection"):
+        resolve_with(loop_voltage={**block["loop_voltage"], "selection": "outboard"})
+    with pytest.raises(VestConfigurationError, match="unknown keys 'loop_index'"):
+        resolve_with(loop_voltage={**block["loop_voltage"], "loop_index": 5})
+    with pytest.raises(VestConfigurationError, match="'ohmic_coil' must name"):
+        resolve_with(ohmic_coil="")
+    with pytest.raises(VestConfigurationError, match="'window' must name"):
+        resolve_with(window="plasma_analisys")
+    with pytest.raises(VestConfigurationError, match="'fs'"):
+        resolve_with(coil={**block["coil"], "fs": 25000.0})

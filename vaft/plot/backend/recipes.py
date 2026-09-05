@@ -2403,15 +2403,44 @@ def _isolated_copy(ods: Any, roots: Sequence[str]) -> Any:
     return private
 
 
+#: What ``compute_null_ods`` reads with plain subscripts -- the roots the
+#: vacuum-psi builder copies for it.  Narrower than the plot's ``ids`` (which
+#: also declare what the onset finder needs loaded): the copy is protection
+#: against materialising reads, not a loading declaration.
+_NULL_FIELD_ROOTS = ("pf_active", "pf_passive", "wall", "equilibrium", "dataset_description")
+
+
+def _vacuum_psi_time(ods: Any) -> float:
+    """The instant a vacuum-flux map is drawn at when the caller gives none.
+
+    The plasma onset when there is a plasma; on a vacuum shot (coils fired,
+    no breakdown) the ohmic-coil onset, the moment the solenoid starts to
+    drive.  Both come from the caller's ODS through the non-mutating readers.
+    """
+    from vaft.omas import find_breakdown_onset
+    from vaft.omas.discharge_timing import oh_coil_onset
+
+    try:
+        return find_breakdown_onset(ods)
+    except ValueError as no_plasma:
+        ohmic = oh_coil_onset(ods)
+        if ohmic is None or not ohmic.found:
+            raise ValueError(
+                f"no plasma onset ({no_plasma}) and no ohmic-coil onset to draw the vacuum flux at; "
+                "pass time= explicitly"
+            ) from no_plasma
+        return float(ohmic.time)
+
+
 def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field2D:
     """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper."""
-    from vaft.omas import compute_null_ods, find_breakdown_onset
+    from vaft.omas import compute_null_ods
 
-    # The null-field helper reads with plain subscripts; give it a private copy
-    # of what this plot declares so the caller's ODS is left untouched.
-    ods = _isolated_copy(ods, required_ids("equilibrium_field_psi_vacuum") + ("dataset_description",))
     if time is None:
-        time = find_breakdown_onset(ods)
+        time = _vacuum_psi_time(ods)
+    # The null-field helper reads with plain subscripts; give it a private copy
+    # of what it reads so the caller's ODS is left untouched.
+    ods = _isolated_copy(ods, _NULL_FIELD_ROOTS)
     psi, r_grid, z_grid = compute_null_ods(ods, time)
     r_axis = np.asarray(r_grid)[0, :] if np.ndim(r_grid) == 2 else np.asarray(r_grid)
     z_axis = np.asarray(z_grid)[:, 0] if np.ndim(z_grid) == 2 else np.asarray(z_grid)

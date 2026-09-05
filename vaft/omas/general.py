@@ -1,8 +1,11 @@
-import vaft
-from omas import *
-import numpy as np
+import logging
 import re
 import warnings
+
+import numpy as np
+from omas import *
+
+import vaft
 
 # ----------------------------------------------------------------------
 # Find information from ODS
@@ -55,25 +58,20 @@ def signal_time(ods, data_path):
     IMAS lets an IDS store time either way, flagged by
     ``ids_properties.homogeneous_time``: homogeneous (1) means every dynamic
     node shares the IDS-level ``<ids>.time``, heterogeneous (0) means each node
-    carries its own ``time`` sibling. ``ODS.time(ids)`` only resolves the
-    homogeneous case and returns ``None`` for a heterogeneous IDS, which then
-    fails as an unhelpful ``TypeError`` at the point of use.
-
-    Resolve the node's own axis first and fall back to the IDS-level one, so
-    the returned axis matches the samples in ``data_path`` under either
-    convention.
+    carries its own ``time`` sibling.  The node's own axis wins when it is
+    populated and the IDS-level one is the fallback -- the one rule
+    :func:`vaft.validation.imas.resolve_signal_time` applies everywhere; this
+    wrapper only turns its ``None`` into a :class:`KeyError` that names both
+    paths it tried.
     """
-    node_time = f"{data_path[:-5]}.time" if data_path.endswith(".data") else f"{data_path}.time"
+    from vaft.validation.imas import resolve_signal_time
+
+    base = data_path[:-5] if data_path.endswith(".data") else data_path
+    time = resolve_signal_time(ods, base)
+    if time is not None:
+        return time
+    node_time = f"{base}.time"
     ids_time = f"{data_path.split('.', 1)[0]}.time"
-
-    for candidate in (node_time, ids_time):
-        try:
-            time = ods[candidate]
-        except (KeyError, ValueError):
-            continue
-        if time is not None and len(time):
-            return time
-
     raise KeyError(
         f"no time axis for {data_path!r}: tried {node_time!r} and {ids_time!r}. "
         "A heterogeneous IDS must give the node its own time sibling; a "
@@ -81,51 +79,89 @@ def signal_time(ods, data_path):
     )
 
 
-def _find_signal_onset(ods, data_key):
-    """Helper to find signal onset using vaft.process.signal_on_offset."""
-    time = signal_time(ods, data_key)
-    data = ods[data_key]
-    onset, _ = vaft.process.signal_on_offset(time, data, threshold = 0.05)
-    return onset
+# The onset finders answer on the product's own clock: the shared
+# plasma-analysis span is configured in DAQ seconds and the timing modules
+# displace it by the origin change_time_convention recorded, so a product
+# re-referenced to an event is searched where its plasma is. The origins
+# themselves are derived once, on the DAQ clock, and kept in
+# summary.code.parameters. Imports stay function-local: vaft.omas star-imports
+# this module, and a module-level `plasma_timing` name would shadow the submodule.
+
+def _plasma_timing_or_raise(ods):
+    """The shared :class:`~vaft.omas.plasma_timing.PlasmaTiming`, or ``ValueError`` when no plasma was found."""
+    from .plasma_timing import plasma_timing
+
+    timing = plasma_timing(ods)
+    if not timing.found:
+        raise ValueError(f"no plasma timing: {timing.fallback_reason}")
+    return timing
+
 
 def find_breakdown_onset(ods):
-    """Find the onset of the breakdown using spectrometer_uv signal."""
-    return _find_signal_onset(ods, 'spectrometer_uv.channel.0.processed_line.0.intensity.data')
+    """The plasma onset from the shared timing (``vaft.omas.plasma_timing``).
 
-def find_vloop_onset(ods):
-    """Find the onset of the loop voltage signal (maximum of flux loop signal)."""
-    flux_path = 'magnetics.flux_loop.0.flux.data'
-    time = signal_time(ods, flux_path)
-    flux = ods[flux_path]
-    return time[np.argmax(flux)]
-
-def find_ip_onset(ods):
-    """Find the onset of the plasma current signal."""
-    return _find_signal_onset(ods, 'magnetics.ip.0.data')
-
-def find_pf_active_onset(ods):
-    """Find the onset for each pf_active coil current signal.
-
-    The IMAS DD names these ``pf_active.coil``; ``pf_active.channel`` does not
-    exist, and OMAS yields an empty list for a missing node rather than
-    raising, so iterating it silently returned no onsets at all.
+    H-alpha by label is authoritative, the plasma-current principal pulse is
+    the fallback; the name keeps the historical convention key.  Raises
+    ``ValueError`` naming the reason when neither source shows a plasma, and
+    :class:`~vaft.omas.plasma_timing.PlasmaTimingError` when the product has
+    no plasma current at all.
     """
-    onsets = []
-    for i in range(len(ods['pf_active.coil'])):
-        current_path = f'pf_active.coil.{i}.current.data'
-        time = signal_time(ods, current_path)
-        current = ods[current_path]
-        onset, _ = vaft.process.signal_on_offset(time, current)
-        onsets.append(onset)
-    return onsets
+    return float(_plasma_timing_or_raise(ods).onset)
+
 
 def find_pulse_duration(ods):
-    """Find the duration of the pulse using spectrometer_uv signal."""
-    data_path = 'spectrometer_uv.channel.0.processed_line.0.intensity.data'
-    time = signal_time(ods, data_path)
-    data = ods[data_path]
-    onset, offset = vaft.process.signal_on_offset(time, data, threshold=0.05)
-    return offset - onset
+    """``offset - onset`` of the shared plasma window."""
+    timing = _plasma_timing_or_raise(ods)
+    return float(timing.offset - timing.onset)
+
+
+def find_ip_onset(ods):
+    """The start of the plasma-current principal pulse, from the shared timing."""
+    from .plasma_timing import plasma_timing
+
+    timing = plasma_timing(ods)
+    if timing.ip is None or not timing.ip.found:
+        reason = ", ".join(timing.ip.onset.flags) if timing.ip is not None else "ip_unusable"
+        raise ValueError(f"no plasma-current pulse: {reason}")
+    return float(timing.ip.start)
+
+
+def find_vloop_onset(ods):
+    """The loop-voltage zero crossing after the solenoid-driven excursion.
+
+    The event of :mod:`vaft.omas.discharge_timing` on the inboard-midplane
+    flux loop, anchored on the ohmic coil alone (the other coils are not
+    detected); raises ``ValueError`` naming the flags when it was not found.
+    """
+    from .discharge_timing import loop_voltage_event, oh_coil_onset
+
+    event = loop_voltage_event(ods, anchor=oh_coil_onset(ods))
+    if not event.found:
+        raise ValueError(f"no loop-voltage zero crossing: {', '.join(event.flags) or 'not found'}")
+    return float(event.zero_crossing)
+
+
+def find_pf_active_onset(ods):
+    """The onset of every ``pf_active`` coil current, in coil order.
+
+    One entry per coil; ``nan`` for a coil that did not fire (an idle coil
+    is flat).  :func:`vaft.omas.discharge_timing.discharge_timing` carries
+    the evidence when the provenance matters.
+    """
+    from .discharge_timing import discharge_timing
+
+    return [float(c.time) if c.found else float("nan") for c in discharge_timing(ods).pf_onsets]
+
+
+def find_bt(ods):
+    """The mean toroidal field at ``tf.r0`` over the shared plasma window."""
+    timing = _plasma_timing_or_raise(ods)
+    time = np.asarray(signal_time(ods, 'tf.b_field_tor_vacuum_r.data'), dtype=float)
+    bt = np.asarray(ods['tf.b_field_tor_vacuum_r.data'], dtype=float) / ods['tf.r0']
+    inside = (time >= timing.onset) & (time <= timing.offset)
+    if not np.any(inside):
+        raise ValueError("no toroidal-field samples fall inside the plasma window")
+    return float(np.mean(bt[inside]))
 
 def find_max_ip(ods):
     """Find the maximum plasma current."""
@@ -143,18 +179,6 @@ def find_max_ip(ods):
             raise RuntimeError("조건을 만족하지 않아 종료합니다.")
     
     return np.max(data_filtered)
-
-def find_bt(ods):
-    """Find the mean toroidal field at R=0.4m during plasma."""
-    time = signal_time(ods, 'tf.b_field_tor_vacuum_r.data')
-    bt = ods['tf.b_field_tor_vacuum_r.data'] / ods['tf.r0']
-    plasma_onset = find_breakdown_onset(ods)
-    pulse_duration = find_pulse_duration(ods)
-    plasma_offset = plasma_onset + pulse_duration
-    onset_idx = np.searchsorted(time, plasma_onset)
-    offset_idx = np.searchsorted(time, plasma_offset)
-    bt = bt[onset_idx:offset_idx]
-    return np.mean(bt)
 
 def find_major_radius(ods):
     """Placeholder for finding major radius."""
@@ -221,39 +245,141 @@ def shift_time(one_ods, time_shift):
                 # 값을 읽을 수 없는 중간 노드는 정상적으로 무시
                 pass
 
+#: Written to ``summary.code.parameters.onset_method`` by the current derivation.
+ONSET_METHOD = "plasma_timing/discharge_timing"
+ONSET_METHOD_LEGACY = "legacy"
+_ORIGIN_KEYS = ("vloop_onset", "ip_onset", "breakdown_onset")
+_logger = logging.getLogger(__name__)
+
+
+def _derive_onsets(ods):
+    """The three convention origins with their sources, reasons and flags, from the shared timings."""
+    from .discharge_timing import discharge_timing
+    from .plasma_timing import SOURCE_IP, plasma_timing
+
+    values, notes, flags = {}, {}, []
+    timing = plasma_timing(ods)
+    if timing.found:
+        values["breakdown_onset"] = float(timing.onset)
+        notes["breakdown_onset_source"] = str(timing.source)
+    else:
+        notes["breakdown_onset_reason"] = str(timing.fallback_reason)
+    if timing.ip is not None and timing.ip.found:
+        values["ip_onset"] = float(timing.ip.start)
+        notes["ip_onset_source"] = SOURCE_IP
+    else:
+        notes["ip_onset_reason"] = (
+            ", ".join(timing.ip.onset.flags) if timing.ip is not None else "ip_unusable"
+        )
+    event = discharge_timing(ods).vloop
+    if event.found:
+        values["vloop_onset"] = float(event.zero_crossing)
+        notes["vloop_onset_source"] = (
+            f"{event.base} {event.voltage_source} zero crossing after the ohmic excursion"
+        )
+    else:
+        notes["vloop_onset_reason"] = ", ".join(event.flags) or "not found"
+    if "approached_without_crossing" in event.flags:
+        flags.append("vloop:approached_without_crossing")
+    return values, notes, flags
+
+
+def _record_onsets(params, ods, shot_key, extra_flags=()):
+    """Derive the origins and, only when at least one exists, write the memo.
+
+    Nothing is written before the derivation succeeds: a product that yields
+    no origin at all (typically one whose axes are not on the DAQ clock but
+    whose memo was lost) must not be stamped ``daq`` with frozen not-found
+    origins, which no later call could repair.
+    """
+    values, notes, flags = _derive_onsets(ods)
+    if not values:
+        reasons = "; ".join(f"{key[:-len('_reason')]}: {value}" for key, value in notes.items())
+        raise ValueError(
+            f"[{shot_key}] no time-convention origin could be derived on the DAQ clock "
+            f"({reasons}); the memo is left untouched"
+        )
+    for key in _ORIGIN_KEYS:
+        params.pop(key, None)
+        params.pop(f"{key}_source", None)
+        params.pop(f"{key}_reason", None)
+    params.update(values)
+    params.update(notes)
+    params["time_convention"] = "daq"
+    params["onset_method"] = ONSET_METHOD
+    params["onset_flags"] = ";".join([*flags, *extra_flags])
+
+
+def _prepare_onset_memo(params, ods, shot_key):
+    """Bring ``summary.code.parameters`` to a state the conversion can read.
+
+    Four states: a memo written by the current method (never recompute); no
+    memo (derive); a legacy memo on an unshifted product (re-derive, the
+    stored origins were the argmax-of-flux and 5 % rules); a legacy memo on
+    a product already shifted with those origins (keep them -- they are what
+    makes the shift reversible -- and say so).
+    """
+    if "onset_method" in params:
+        return
+    has_legacy = any(key in params for key in _ORIGIN_KEYS)
+    if not has_legacy:
+        _record_onsets(params, ods, shot_key)
+        return
+    if params.get("time_convention", "daq") == "daq":
+        _record_onsets(params, ods, shot_key, extra_flags=("legacy_memo_rederived",))
+        _logger.info("[%s] legacy onset memo re-derived with %s", shot_key, ONSET_METHOD)
+        return
+    params["onset_method"] = ONSET_METHOD_LEGACY
+    params["onset_flags"] = ";".join(
+        [flag for flag in str(params.get("onset_flags", "")).split(";") if flag]
+        + ["legacy_origins_retained"]
+    )
+    _logger.warning(
+        "[%s] product already shifted to %r with legacy onset origins; keeping them "
+        "(flag legacy_origins_retained)",
+        shot_key, params.get("time_convention"),
+    )
+
+
 def change_time_convention(odc_or_ods, convention='vloop'):
+    """Shift every time-like leaf so that ``convention``'s origin is zero.
+
+    Conventions: ``'daq'`` (the acquisition clock), ``'vloop'`` (the
+    loop-voltage zero crossing after the solenoid excursion,
+    :func:`find_vloop_onset`), ``'ip'`` (the plasma-current pulse start,
+    :func:`find_ip_onset`) and ``'breakdown'`` (the plasma onset,
+    :func:`find_breakdown_onset`).  The origins are derived once, on the
+    product's DAQ clock, and kept in ``summary.code.parameters`` with their
+    sources (``*_onset_source``), the reason an origin is missing
+    (``*_onset_reason``), the method (``onset_method``) and the flags
+    (``onset_flags``); a later call never recomputes them, which is what
+    keeps a shift reversible.  An origin that was not found is absent, and
+    asking for its convention raises ``ValueError`` with the reason.  Works
+    on an ODS or an ODC and returns the ODC (the ODS is shifted in place).
     """
-    Convert time convention of ODS or ODC. (Improved Version)
-    
-    Features:
-    - Fixes the critical state corruption bug by using the improved shift_time_v2.
-    """
-    # This part remains the same as the original code
     odc = odc_or_ods_check(odc_or_ods)
 
     for shot_key, ods in odc.items():
         params = ods.setdefault('summary.code.parameters', CodeParameters())
-
-        if 'vloop_onset' not in params:
-            params['time_convention'] = 'daq'
-            params['vloop_onset']      = find_vloop_onset(ods)
-            params['ip_onset']         = find_ip_onset(ods)
-            params['breakdown_onset']  = find_breakdown_onset(ods)
+        _prepare_onset_memo(params, ods, shot_key)
         original = params.get('time_convention', 'daq')
         if original == convention:
             continue
 
-        onsets = {
-            'daq':        0,
-            'vloop':      params['vloop_onset'],
-            'ip':         params['ip_onset'],
-            'breakdown':  params['breakdown_onset'],
-        }
-        if original not in onsets or convention not in onsets:
-            raise ValueError(f"[{shot_key}] Unknown convention: {original} → {convention}")
+        onsets = {'daq': 0.0}
+        for key in _ORIGIN_KEYS:
+            if key in params:
+                onsets[key[: -len("_onset")]] = float(params[key])
+        known = ('daq', 'vloop', 'ip', 'breakdown')
+        if original not in known or convention not in known:
+            raise ValueError(f"[{shot_key}] Unknown convention: {original} -> {convention}")
+        for name in (original, convention):
+            if name not in onsets:
+                reason = params.get(f"{name}_onset_reason", "origin not recorded")
+                raise ValueError(f"[{shot_key}] no {name!r} origin: {reason}")
 
         time_shift = onsets[original] - onsets[convention]
-        print(f"[{shot_key}] shift {time_shift:+.6g} s  ({original} → {convention})")
+        _logger.info("[%s] shift %+.6g s  (%s -> %s)", shot_key, time_shift, original, convention)
 
         shift_time(ods, time_shift)
         params['time_convention'] = convention

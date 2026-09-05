@@ -235,6 +235,30 @@ magnetics(ods, 39915, 0.26, 0.36, 4e-5,
 See [Signal processing]({{ site.baseurl }}/guide/Processing/) for what those knobs do, and
 [Magnetics]({{ site.baseurl }}/guide/Magnetics/) for plotting the result.
 
+### Discharge timing policy
+
+The actuator events are a separate concept from the plasma window and sit in their own `discharge_timing`
+block of `vest.yaml`, read by `vaft.omas.discharge_timing.discharge_timing(ods)` (issue #409). It shares the
+`plasma_analysis` window and `baseline_lead_s` with the plasma policy, names the `ohmic_coil` (`PF1`) whose
+onset anchors the loop-voltage excursion, selects the loop (`loop_voltage.selection: inboard_midplane` —
+the `inboard_flux_loop` family member nearest the midplane, Flux Loop #10 on VEST — with a stored
+`voltage.data` preferred to $-d\Phi/dt$), and carries two rules: `coil` (keyword arguments of
+`vaft.process.onset.active_window`, run on `|I - baseline|` so an idle coil yields no onset) and `vloop`
+(keyword arguments of `vaft.process.onset.zero_crossing_after_excursion`: the sustained `|V|` run starting
+within `anchor_tolerance_s` of the ohmic onset is the solenoid excursion, the event is the first sign change
+after its extremum, and a decay that comes within `approach_fraction` of zero and climbs back above
+`approach_hysteresis` times that level before crossing is flagged `approached_without_crossing`). These are measured onsets, never triggers; EC power and gas
+injection have no mapped actuator signal and are reported as `not_present`. The events never enter the
+plasma hierarchy as fallbacks.
+
+```python
+from vaft.omas.discharge_timing import discharge_timing
+
+events = discharge_timing(ods)
+events.oh_onset, events.vloop.zero_crossing, events.vloop.flags
+{coil.name: coil.time for coil in events.pf_onsets}      # None for a coil that did not fire
+```
+
 ## tf
 
 `tf` reconstructs the toroidal field from a **Hall probe**, not from a coil current shunt. The raw signal is

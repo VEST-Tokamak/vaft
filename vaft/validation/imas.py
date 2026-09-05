@@ -88,6 +88,8 @@ __all__ = [
     "read_validity_record",
     "read_validity_timed",
     "resolve_signal_time",
+    "resolve_signal_waveform",
+    "signal_label",
     "valid_fraction",
     "validity_codes",
     "validity_mask",
@@ -124,6 +126,38 @@ def resolve_signal_time(source: Any, base: str) -> np.ndarray | None:
         return explicit
     ids = base.split(".", 1)[0]
     return _array(_lookup(source, f"{ids}.time"), float)
+
+
+def resolve_signal_waveform(source: Any, base: str) -> tuple[np.ndarray, np.ndarray] | None:
+    """``(time, data)`` of the signal node at ``base``, or ``None``.
+
+    The one rule for "a channel carries a usable waveform": ``data`` is
+    present and numeric, has at least two samples, and its resolved time
+    axis (:func:`resolve_signal_time`) has the same length.  Finiteness is
+    not judged here -- a reader that needs finite samples checks the array.
+    """
+    raw = _lookup(source, f"{base}.data")
+    if raw is None:
+        return None
+    try:
+        values = np.asarray(raw, dtype=float).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    if values.size < 2:
+        return None
+    time = resolve_signal_time(source, base)
+    if time is None or time.size != values.size:
+        return None
+    return time, values
+
+
+def signal_label(source: Any, base: str, fallback: str) -> str:
+    """The channel's ``name``, else its ``identifier``, else ``fallback``."""
+    for key in ("name", "identifier"):
+        value = _lookup(source, f"{base}.{key}")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return fallback
 
 
 def read_validity(source: Any, base: str) -> int | None:
