@@ -42,8 +42,13 @@ def render(
     show: bool = False,
     label: str | Sequence[str] = "shot",
     **options: Any,
-) -> tuple[Any, Any]:
-    """Build the view model for ``name`` from a native IMAS ``source`` and render it."""
+) -> Any:
+    """Build the view model for ``name`` from a native IMAS ``source`` and render it.
+
+    ``backend="plotly"`` among the options draws with Plotly and returns a
+    :class:`plotly.graph_objects.Figure` (no ``ax=``); the default is
+    Matplotlib's ``(Figure, Axes)``.  See :mod:`vaft.plot.backends`.
+    """
     return render_entries(
         name, normalize_entries(source, label=label), ax=ax, show=show,
         namespace="vaft.imas", subject="ids", **options,

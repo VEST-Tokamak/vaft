@@ -106,7 +106,11 @@ def render(
     label: Any = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Open what plot ``name`` needs of ``shot`` in ``source`` and render it."""
+    """Open what plot ``name`` needs of ``shot`` in ``source`` and render it.
+
+    ``backend="plotly"`` among the options returns a Plotly figure instead of
+    ``(Figure, Axes)`` (see :mod:`vaft.plot.backends`).
+    """
     if lazy and _asks_for_another_occurrence(occurrence):
         raise ValueError(
             "occurrence is available with lazy=False only: every source stores one "
@@ -146,6 +150,13 @@ def render_to_file(
     from vaft.plot import save_figure
     from vaft.plot.environment import use_non_interactive_backend
 
+    if options.get("backend") == "plotly":
+        # A Plotly figure is a web page; nothing else is a faithful file of it.
+        if not str(path).lower().endswith((".html", ".htm")):
+            raise ValueError(f"backend='plotly' writes HTML; give --out a .html path, not {path!r}")
+        figure = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
+        figure.write_html(str(path), include_plotlyjs="cdn")
+        return path
     use_non_interactive_backend()
     figure, _ = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options

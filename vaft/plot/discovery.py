@@ -116,6 +116,8 @@ class PlotCapability:
     validity: Mapping[str, Any] = field(default_factory=dict)
     #: Display sign policy of a line plot (#307): ``default`` and ``options``.
     orientation: Mapping[str, Any] = field(default_factory=dict)
+    #: The rendering libraries that can draw this plot (#491).
+    backends: tuple[str, ...] = ("matplotlib",)
     # -- reserved for issue #261; empty and unprinted until it lands ----------
     sources: Mapping[str, Any] = field(default_factory=dict)
     interaction: tuple[str, ...] = ()
@@ -208,7 +210,14 @@ def capability_for(spec: PlotSpec) -> PlotCapability:
         status=spec.status,
         description=spec.description,
         overlays=_overlays_for(spec),
+        backends=_backends_for(spec),
     )
+
+
+def _backends_for(spec: PlotSpec) -> tuple[str, ...]:
+    from .backends import render_backends_for
+
+    return render_backends_for(spec)
 
 
 def _overlays_for(spec: PlotSpec) -> tuple[str, ...]:
@@ -520,6 +529,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         flags.append(f"validity ({flagged} flagged)" if flagged else "validity")
     if record.orientation.get("default") == "intuitive":
         notes.append("orientation: intuitive by default")
+    if len(record.backends) > 1:
+        notes.append("backends: " + " | ".join(record.backends))
     if flags:
         notes.append("metadata: " + ", ".join(flags))
     return notes
@@ -595,6 +606,7 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             f"orientation: {record.orientation['default']} by default; "
             + " | ".join(record.orientation.get("options", ()))
         )
+    lines.append("backends: " + " | ".join(record.backends))
     if record.sources:
         lines.append("sources: " + ", ".join(record.sources))
     if record.interaction:
