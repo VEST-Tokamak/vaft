@@ -481,10 +481,9 @@ def mhd_linear_run_coverage_model(manifest: Mapping[str, Any]):
 
 def _use_non_interactive_backend() -> None:
     """Automated workflows must never need a display or a writable ``$HOME``."""
-    os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
-    import matplotlib
+    from vaft.plot.environment import use_non_interactive_backend
 
-    matplotlib.use("Agg", force=False)
+    use_non_interactive_backend()
 
 
 def _sha256(path: Path) -> str:

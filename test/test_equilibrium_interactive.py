@@ -166,16 +166,21 @@ def test_redrawing_leaves_the_figure_as_it_found_it(shot):
     # The layout position: the drawn box also follows each slice's data extent
     # through the panel's equal aspect, which is content, not layout.
     width = result.axes[0].get_position(original=True).width
+    panels = len(result.axes)
     for index in result.navigator.usable:
         result.navigator.select_index(index)
         result.figure.canvas.draw()
+        if len(result.axes) != panels:
+            continue  # a slice drawing another panel set is laid out afresh (#476)
         assert result.axes[0].get_position(original=True).width == pytest.approx(width)
+    result.navigator.select_index(result.navigator.usable[0])
     assert len(result.figure.axes) == count
     plt.close(result.figure)
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="matplotlib")
     count = len(result.figure.axes)
     for position in range(len(result.navigator.usable)):
         result.widget.set_val(position)
+    result.widget.set_val(result.navigator.usable.index(result.navigator.usable[0]))
     assert len(result.figure.axes) == count
     plt.close(result.figure)
 
@@ -207,4 +212,31 @@ def test_the_history_is_the_plasma_current_with_the_stored_slices_marked(shot):
     markers = history.lines[labels.index("slices")]
     assert markers.get_xdata().size == len(result.navigator.usable)
     assert np.allclose(markers.get_xdata(), result.navigator.times[list(result.navigator.usable)])
+    plt.close(result.figure)
+
+
+def test_a_slice_that_draws_fewer_panels_gets_fresh_axes(shot):
+    import copy
+
+    ods = copy.deepcopy(shot)
+    del ods["equilibrium.time_slice.6.profiles_1d.pressure"]
+    result = vaft.omas.plot_equilibrium_interactive(ods, backend="none")
+    assert result.navigator.selected == 4 and len(result.axes) == 7
+    count = len(result.figure.axes)
+    result.figure.canvas.draw()
+    history = [a.get_position(original=True).bounds for a in result.history_axes]
+    result.navigator.select_index(6)
+    assert len(result.axes) == 6 and result.axes[1].get_title() == "Safety Factor q"
+    assert len(result.figure.axes) == count - 1
+    assert result.slice_axes.colorbar in result.figure.axes
+    result.figure.canvas.draw()
+    # The histories above the slice cell do not move when the cell is rebuilt,
+    # and the rebuilt panels are laid out (no two overlap).
+    assert [a.get_position(original=True).bounds for a in result.history_axes] == history
+    boxes = [a.get_position() for a in result.axes]
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert not (a.x0 < b.x1 - 1e-6 and b.x0 < a.x1 - 1e-6 and a.y0 < b.y1 - 1e-6 and b.y0 < a.y1 - 1e-6)
+    result.navigator.select_index(4)
+    assert len(result.axes) == 7 and len(result.figure.axes) == count
     plt.close(result.figure)

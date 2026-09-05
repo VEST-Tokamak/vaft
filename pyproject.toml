@@ -66,6 +66,9 @@ dependencies = [
   "imas_python>=2.1.0,<3",
 ]
 
+[project.scripts]
+vaft = "vaft.cli._main:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest",
