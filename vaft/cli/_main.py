@@ -16,6 +16,7 @@ _COMMANDS = {
     "vest-upstream": (".vest_upstream", "run VEST upstream OMAS stages"),
     "summary": (".summary", "query and export preset database summaries"),
     "maintenance": (".maintenance", "repair already-published HSDS shots"),
+    "plot": (".plot", "render a canonical plot for one or more shots"),
 }
 
 

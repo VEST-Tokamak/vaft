@@ -28,6 +28,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 from vaft.plot import discovery as _core
+from vaft.validation.validity import is_condemned, record_from_mask
 from vaft.plot.discovery import PlotCapability, PlotCatalog, with_capabilities
 from vaft.plot.display import (
     DIMENSIONLESS_DISPLAY,
@@ -300,6 +301,11 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+        elif isinstance(recipe, ProfileRecipe):
+            # Profiles take the same sign policy (issue #307); the catalog has
+            # to say which default a profile applies, or a caller cannot know
+            # whether the curve it gets back was flipped.
+            updates["orientation"] = _orientation_block(recipe)
         if record.synthetic:
             updates["synthetic"] = {
                 **record.synthetic,
@@ -324,27 +330,14 @@ def _projection_state(ods: Any) -> dict[str, Any]:
     return {"available": True}
 
 
-def _condemned(code, mask) -> bool:
-    """Whether a channel has nothing usable to draw.
-
-    The IMAS scalar ``validity`` is "worst state reached", so a channel that
-    holds its last value after the diagnostics window reads ``-2`` there while
-    every earlier sample is a measurement.  A negative scalar counts as
-    unusable only when no per-sample validity is stored or the stored mask
-    leaves no usable sample -- the same reading ``Series.is_invalid_channel``
-    applies when the trace is drawn.
-    """
-    if code is None or int(code) >= 0:
-        return False
-    return mask is None or not bool(np.asarray(mask, dtype=bool).any())
-
-
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
     """Channel, layout and metadata facts for one line-series plot."""
     facts: dict[str, Any] = {"orientation": _orientation_block(recipe)}
     if recipe.index != "channel":
         code, mask = _validity_of(ods, recipe.y_path)
-        facts["validity"] = _validity_block(present=code is not None, flagged=int(_condemned(code, mask)))
+        facts["validity"] = _validity_block(
+            present=code is not None, flagged=int(is_condemned(record_from_mask(code, mask)))
+        )
         facts["uncertainty"] = _uncertainty_block(_uncertainty_of(ods, recipe.y_path) is not None)
         return facts
 
@@ -354,7 +347,9 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
     with_data = [i for i in range(total) if _channel_has_data(ods, candidates, i)]
     verdicts = {i: _validity_of(ods, recipe.y_path, i) for i in with_data}
     codes = {i: code for i, (code, _mask) in verdicts.items()}
-    flagged = [i for i, (code, mask) in verdicts.items() if _condemned(code, mask)]
+    # "Nothing usable to draw" is the same reading ``Series.is_invalid_channel``
+    # applies when the trace is drawn: the per-sample mask decides when stored.
+    flagged = [i for i, (code, mask) in verdicts.items() if is_condemned(record_from_mask(code, mask))]
     channels: dict[str, Any] = {
         "total": total,
         "with_data": len(with_data),
@@ -404,8 +399,8 @@ def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:
     return {"available": True, "flagged": flagged, "modes": VALIDITY_MODES}
 
 
-def _orientation_block(recipe: LineRecipe) -> dict[str, Any]:
-    """The display sign policy a line plot applies by default (issue #307)."""
+def _orientation_block(recipe: LineRecipe | ProfileRecipe) -> dict[str, Any]:
+    """The display sign policy a line or profile plot applies by default (#307)."""
     from vaft.plot.backend.recipes import ORIENTATIONS
 
     return {"default": recipe.orientation, "options": list(ORIENTATIONS)}

@@ -18,6 +18,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from vaft.validation.validity import is_condemned, record_from_mask
+
 from .display import DisplaySpec
 
 __all__ = [
@@ -181,17 +183,13 @@ class Series(ViewModel):
 
         The IMAS scalar ``validity`` is "worst state reached": a channel that
         merely holds its last value after the diagnostics window reads ``-2``
-        there while every plotted sample before it is a measurement.  So a
-        negative scalar condemns the trace only when no per-sample validity
-        is stored, or when the stored mask leaves no usable sample; a trace
-        with usable samples is drawn with its mask instead of being labelled
-        invalid outright.
+        there while every plotted sample before it is a measurement.  So the
+        stored per-sample mask is authoritative when present and condemns the
+        trace only when it leaves no usable sample; the scalar alone condemns
+        it when no mask is stored; a trace nothing has assessed is drawn.  The
+        rule is :func:`vaft.validation.validity.is_condemned` (#424).
         """
-        if self.validity is None or self.validity >= 0:
-            return False
-        if self.valid_mask is None:
-            return True
-        return not bool(self.valid_mask.any())
+        return is_condemned(record_from_mask(self.validity, self.valid_mask))
 
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:
@@ -331,6 +329,11 @@ class GeometryLayer(ViewModel):
     kind: str = "polyline"
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    #: Which input this layer came from, when several are drawn in one view.
+    #: A renderer colours a stack by entry, so every layer of one machine
+    #: shares a colour and the legend names machines rather than parts.  Empty
+    #: for a single-input view, which keeps the recipe's own styling.
+    entry: str = ""
 
     KINDS = ("polyline", "polygon", "points", "text")
 
@@ -736,27 +739,19 @@ class Panels(ViewModel):
     share_y: bool = False
     suptitle: str = ""
     squeeze: bool = False
-    #: Grid slots that hold a note instead of a model, as ``(slot, text)``.  A
-    #: composite with a fixed member list keeps its shape on every input by
-    #: rendering an unavailable member as a labelled empty panel rather than
-    #: dropping it (issue #260).
-    placeholders: tuple[tuple[int, str], ...] = ()
     #: Per-model renderer defaults, one mapping per model, applied beneath the
     #: caller's own keyword arguments -- how an overview asks its members for
     #: ``validity="mask"`` without forcing that on every individual plot.
     member_styles: tuple[Mapping[str, Any], ...] | None = None
     #: Where each grid slot sits when panels are not all the same size, as
     #: ``(row, col, rowspan, colspan)`` per slot in slot order -- one entry per
-    #: model or placeholder.  ``None`` fills the ``nrows x ncols`` grid in
-    #: order.  A 2-D map that deserves the height of three stacked profiles
+    #: model.  ``None`` fills the ``nrows x ncols`` grid in order.  A 2-D map that deserves the height of three stacked profiles
     #: is expressed here rather than by drawing three copies of it.
     spans: tuple[tuple[int, int, int, int], ...] | None = None
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
         models = tuple(self.models)
-        placeholders = tuple((int(slot), str(text)) for slot, text in self.placeholders)
-        object.__setattr__(self, "placeholders", placeholders)
         if self.member_styles is not None:
             styles = tuple(_frozen_style(s) for s in self.member_styles)
             if len(styles) != len(models):
@@ -764,7 +759,7 @@ class Panels(ViewModel):
                     f"Panels.member_styles has {len(styles)} entries for {len(models)} models"
                 )
             object.__setattr__(self, "member_styles", styles)
-        if not models and not placeholders:
+        if not models:
             raise ValueError("Panels.models must contain at least one view model")
         for model in models:
             if not isinstance(model, ViewModel) or isinstance(model, Panels):
@@ -774,15 +769,13 @@ class Panels(ViewModel):
                 )
         object.__setattr__(self, "models", models)
         ncols = max(1, int(self.ncols))
-        occupied = len(models) + len(placeholders)
+        occupied = len(models)
         nrows = self.nrows
         nrows = -(-occupied // ncols) if nrows is None else max(1, int(nrows))
         if nrows * ncols < occupied:
             raise ValueError(
                 f"Panels grid {nrows}x{ncols} cannot hold {occupied} panels"
             )
-        if any(slot >= nrows * ncols for slot, _ in placeholders):
-            raise ValueError("Panels.placeholders names a slot outside the grid")
         if self.spans is not None:
             spans = tuple(tuple(int(v) for v in span) for span in self.spans)
             if len(spans) != occupied:

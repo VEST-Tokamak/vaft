@@ -66,6 +66,9 @@ dependencies = [
   "imas_python>=2.1.0,<3",
 ]
 
+[project.scripts]
+vaft = "vaft.cli._main:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest",
@@ -129,6 +132,9 @@ imas_core = [
 
 [tool.pytest.ini_options]
 markers = [
+  # Applied centrally by test/conftest.py from the declared list in
+  # test/core_selection.py, never written into a test module by hand.
+  "core: fast development-confidence selection; the required gate on develop",
   "integration: explicit read-only HSDS or IMAS integration test",
   "perf: performance budget benchmarks",
   "slow: release-confidence check; runs on the main gate, not on develop",

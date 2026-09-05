@@ -81,13 +81,13 @@ def _condemned_by_diagnostics_stage(ods) -> list[int] | None:
     fallback for products that predate the assessment.
     """
     from vaft.code.efit.kfile import _condemned_channels
-    from vaft.validation.imas import read_validity
+    from vaft.validation.imas import read_validity_record
 
     assessed = False
     for kind, quantity in (("b_field_pol_probe", "field"), ("flux_loop", "flux")):
         count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
         if any(
-            read_validity(ods, f"magnetics.{kind}.{index}.{quantity}") is not None
+            read_validity_record(ods, f"magnetics.{kind}.{index}.{quantity}").assessed
             for index in range(count)
         ):
             assessed = True

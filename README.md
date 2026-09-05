@@ -411,6 +411,15 @@ asked for, and `vaft.database.compose(shot)` is the explicit way to analyse
 `directory=`/`target=` keywords still work and warn. To use a namespace outside
 the catalog, list it in `VAFT_HSDS_EXTRA_SOURCES`.
 
+The canonical plots are reachable from the command line too (the `vaft`
+console script is installed with the package):
+
+```bash
+vaft plot --list --shot 39915                              # what this shot can plot
+vaft plot plasma_current_time --shot 39915 --out ip.png    # render to a file
+vaft plot equilibrium_overview --shot 39915 --option time_slice=4
+```
+
 ```python
 ods = vaft.database.load(39915)                       # reads main
 legacy = vaft.database.load(39915, source="public")   # legacy reference

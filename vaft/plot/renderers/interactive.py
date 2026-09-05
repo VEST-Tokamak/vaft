@@ -22,9 +22,39 @@ from ..environment import default_interaction_backend, detect_environment
 from ..models import LineSeries, Panels
 from ..navigation import SliceNavigator
 from .lines import render_line_series
-from .panels import render_panels, slice_grid_axes
+from .panels import render_panels, slice_grid_axes, visual_rows
 
-__all__ = ["BACKENDS", "render_slice_navigation", "resolve_backend"]
+__all__ = ["BACKENDS", "SliceAxes", "render_slice_navigation", "resolve_backend"]
+
+
+class SliceAxes:
+    """The slice summary's axes, rebuilt when a slice draws a different set.
+
+    ``axes`` are the panels in slot order and ``colorbar`` the flux panel's
+    colorbar cell.  A slice with fewer (or more) members than the one drawn
+    before gets fresh axes on the same figure; holding this object rather than
+    the array keeps a caller's reference current.
+    """
+
+    def __init__(self, axes: np.ndarray, colorbar: Any) -> None:
+        self.axes = axes
+        self.colorbar = colorbar
+
+    def __len__(self) -> int:
+        return int(self.axes.size)
+
+    def __getitem__(self, item: Any) -> Any:
+        return self.axes[item]
+
+    def __iter__(self):
+        return iter(self.axes)
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self.axes.shape
+
+    def ravel(self) -> np.ndarray:
+        return self.axes.ravel()
 
 #: ``auto`` picks by environment (:mod:`vaft.plot.environment`);
 #: ``matplotlib`` is the slider on a live canvas; ``ipywidgets`` a notebook
@@ -61,6 +91,9 @@ def render_slice_navigation(
 ) -> tuple[Any, np.ndarray, tuple[Any, ...], Any]:
     """Draw the navigation figure; returns ``(figure, slice_axes, history_axes, widget)``.
 
+    ``slice_axes`` is a :class:`SliceAxes`: its ``axes`` are the summary's
+    panels and are replaced when a slice draws a different set of them.
+
     ``histories`` are the time-history models drawn above the slice grid, or
     a text placeholder for one that is unavailable; ``build_slice(index)``
     returns the :class:`Panels` for a slice, whose own rows, columns and
@@ -74,7 +107,7 @@ def render_slice_navigation(
     # navigator only puts the histories above it and a slider strip below.
     first = build_slice(navigator.selected)
     if figsize is None:
-        figsize = (4.0 * first.ncols, 2.2 * len(histories) + 2.6 * first.nrows)
+        figsize = (4.0 * first.ncols, 2.2 * len(histories) + 2.6 * visual_rows(first))
     if backend == "ipywidgets":
         # A static figure redrawn into a widget's output area: built outside
         # pyplot so the inline backend never displays it a second time.
@@ -84,15 +117,33 @@ def render_slice_navigation(
     else:
         figure = plt.figure(figsize=figsize)
     slider_rows = 1 if backend == "matplotlib" else 0
+    # The slice summary is one cell of the outer grid; its own rows and
+    # columns live in a sub-grid, so a slice that draws a different set of
+    # panels can be given fresh axes without touching the histories.
     grid = figure.add_gridspec(
-        len(histories) + first.nrows + slider_rows, first.ncols,
-        height_ratios=[1] * len(histories) + [1.6] * first.nrows + ([0.25] * slider_rows),
+        len(histories) + 1 + slider_rows, 1,
+        height_ratios=[1] * len(histories) + [1.6 * visual_rows(first)] + ([0.25] * slider_rows),
     )
-    history_axes = tuple(figure.add_subplot(grid[row, :]) for row in range(len(histories)))
+    history_axes = tuple(figure.add_subplot(grid[row, 0]) for row in range(len(histories)))
     top = len(histories)
-    # The flux panel's colorbar gets a cell of its own beside the panel, made
-    # once: a redraw then touches no layout, so nothing grows or shrinks.
-    slice_axes, colorbar_axes = slice_grid_axes(figure, grid, first, top=top, colorbar_slot=0)
+
+    def slice_axes_for(model: Panels, cell: Any) -> tuple[np.ndarray, Any]:
+        # The flux panel's colorbar gets a cell of its own beside the panel,
+        # so a redraw touches no layout: nothing grows or shrinks.
+        return slice_grid_axes(figure, cell, model, top=0, colorbar_slot=0)
+
+    holder = SliceAxes(*slice_axes_for(first, grid[top, 0].subgridspec(first.nrows, first.ncols)))
+    shape = (len(first.models), first.spans, first.nrows, first.ncols)
+    # Every redraw puts a new colorbar into the same cell, and Matplotlib 3.11
+    # makes each one wrap the cell's remove hook so that removing the axes
+    # removes the colorbar too.  Redraws would chain every stale colorbar
+    # onto that hook, and a rebuild would then tear down mappables that were
+    # cleared long ago.  The hook is put back after each draw, so a rebuild
+    # removes plain axes.
+    plain_remove = holder.colorbar._remove_method
+
+    def restore_remove_hook() -> None:
+        holder.colorbar._remove_method = plain_remove
 
     markers = []
     for axis, model in zip(history_axes, histories):
@@ -109,17 +160,43 @@ def render_slice_navigation(
     prebuilt = {navigator.selected: first}
 
     def draw_slice(nav: SliceNavigator) -> None:
-        # A redraw leaves the figure as it found it: the same axes, cleared and
-        # drawn again, with the flux panel's colorbar in its own fixed cell.
-        for axis in (*slice_axes.ravel(), colorbar_axes):
-            axis.clear()
-            axis.set_axis_on()
+        nonlocal shape, plain_remove
         model = prebuilt.pop(nav.selected, None) or build_slice(nav.selected)
+        rebuilt = None
+        if (len(model.models), model.spans, model.nrows, model.ncols) != shape:
+            # This slice draws a different set of panels: fresh axes on a
+            # gridspec of their own over the cell's extent, so the histories
+            # above never move and only these axes are laid out again.
+            from matplotlib.gridspec import GridSpec
+
+            box = grid[top, 0].get_position(figure)
+            # The colorbar goes first: tearing it down consults the axes its
+            # mappable was drawn on, which must still exist (Matplotlib 3.11).
+            for axis in (holder.colorbar, *holder.axes.ravel()):
+                axis.remove()
+            rebuilt = GridSpec(
+                model.nrows, model.ncols, figure=figure,
+                left=box.x0, right=box.x1, bottom=box.y0, top=box.y1,
+            )
+            holder.axes, holder.colorbar = slice_axes_for(model, rebuilt)
+            plain_remove = holder.colorbar._remove_method
+            shape = (len(model.models), model.spans, model.nrows, model.ncols)
+        else:
+            # A redraw leaves the figure as it found it: the same axes, cleared
+            # and drawn again, with the flux panel's colorbar in its fixed cell.
+            for axis in (*holder.axes.ravel(), holder.colorbar):
+                axis.clear()
+                axis.set_axis_on()
         styles = [dict(style) for style in (model.member_styles or ({},) * len(model.models))]
         if styles:
-            styles[0]["colorbar_ax"] = colorbar_axes
+            styles[0]["colorbar_ax"] = holder.colorbar
         model = replace(model, member_styles=tuple(styles))
-        render_panels(model, ax=slice_axes, show=False)
+        render_panels(model, ax=holder.axes, show=False)
+        restore_remove_hook()
+        if rebuilt is not None:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                rebuilt.tight_layout(figure, rect=(box.x0, box.y0, box.x1, box.y1))
         figure.suptitle(model.suptitle)
         for marker in markers:
             marker.set_xdata([nav.time, nav.time])
@@ -127,7 +204,7 @@ def render_slice_navigation(
 
     widget = None
     if backend == "matplotlib":
-        widget = _matplotlib_slider(figure, grid[top + first.nrows, :], navigator)
+        widget = _matplotlib_slider(figure, grid[top + 1, 0], navigator)
     draw_slice(navigator)
     # Laid out once, after the first draw: later redraws reuse these axes.
     figure.tight_layout(rect=(0, 0, 1, 0.97))
@@ -138,7 +215,7 @@ def render_slice_navigation(
         widget = _ipywidgets_slider(figure, navigator, live=detect_environment().live_figures)
     if show and backend != "ipywidgets":
         plt.show()
-    return figure, slice_axes, history_axes, widget
+    return figure, holder, history_axes, widget
 
 
 def _matplotlib_slider(figure: Any, spec: Any, navigator: SliceNavigator) -> Any:

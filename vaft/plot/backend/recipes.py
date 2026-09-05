@@ -58,6 +58,7 @@ from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, 
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
+from vaft.validation.validity import VALIDITY_VALID, is_condemned, record_from_mask
 
 __all__ = [
     "CallableRecipe",
@@ -227,7 +228,7 @@ def _channel_passes_signal_preset(
     if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
         return True
     code, mask = _validity_of(ods, y_path, index)
-    if code is not None and int(code) < 0 and (mask is None or not np.asarray(mask, dtype=bool).any()):
+    if is_condemned(record_from_mask(code, mask)):
         return False
     if preset == ACTIVE:
         finite = values[np.isfinite(values)]
@@ -621,6 +622,12 @@ class ProfileRecipe:
     y_unit: str = ""
     label_path: str = ""
     fallback_y_paths: tuple[str, ...] = ()
+    #: Display sign policy (issue #307), as on :class:`LineRecipe`.  A profile
+    #: whose sign is a convention rather than a measurement -- everything the
+    #: COCOS of the source decides -- can be drawn with its dominant response
+    #: positive, per entry, so two machines stored in opposite conventions are
+    #: comparable in one axes.  The data is untouched and the title says so.
+    orientation: str = "canonical"
 
 
 @dataclass(frozen=True)
@@ -691,9 +698,9 @@ class PanelRecipe:
     """A composite built from other canonical plots, one per panel.
 
     ``member_defaults`` are renderer keyword arguments applied to every member
-    beneath whatever the caller passes.  ``keep_unavailable`` renders a member
-    the input cannot support as a labelled empty panel instead of dropping it,
-    so the composite keeps one shape on every shot (issue #260).
+    beneath whatever the caller passes.  A member the input cannot support is
+    omitted and the grid shrinks; the members that remain keep their declared
+    order, so what is drawn is always in a known order (issue #476).
     """
 
     members: tuple[str, ...]
@@ -701,7 +708,6 @@ class PanelRecipe:
     share_x: bool = True
     suptitle: str = ""
     member_defaults: Mapping[str, Any] = field(default_factory=dict)
-    keep_unavailable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1030,6 +1036,12 @@ RECIPES: dict[str, Any] = {
     "equilibrium_profile_q": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.q",
         y_label="Safety Factor q",
+        # q carries the sign of the source's COCOS -- sgn(Ip)*sgn(B0) in the
+        # 11-family -- so half the machines in a cross-machine overlay store it
+        # negative.  Draw it the way it is read, per entry; f, ffprime and
+        # pprime stay canonical because their sign also carries gradient
+        # direction, and can be flipped with orientation="intuitive".
+        orientation="intuitive",
     ),
     "equilibrium_profile_j_tor": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.j_tor",
@@ -1382,7 +1394,6 @@ RECIPES: dict[str, Any] = {
         # An overview compares the trustworthy signals; flagged channels would
         # only obscure them, so they are excluded here and only here.
         member_defaults={"validity": "mask"},
-        keep_unavailable=True,
     ),
     "interferometer_overview": PanelRecipe(
         members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
@@ -3158,7 +3169,7 @@ def _validity_of(ods: Any, y_path: str, index: int | None = None):
         return None, None
     code = _get(ods, f"{base}.validity".format(i=index))
     timed = _array(ods, f"{base}.validity_timed".format(i=index))
-    mask = None if timed is None else np.asarray(timed) >= 0
+    mask = None if timed is None else np.asarray(timed) >= VALIDITY_VALID
     return (None if code is None else int(code)), mask
 
 
@@ -3785,10 +3796,13 @@ def _build_profile_1d(
         _apply_display(trace, x_scale=1.0, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.y_label
     else:
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
@@ -3796,6 +3810,60 @@ def _build_profile_1d(
         y_unit=y_display.unit,
         title=options.get("title", default_title),
         display=y_display,
+    )
+
+
+def _build_geometry_entries(
+    entries: Sequence[tuple[str, Any]], recipe: GeometryRecipe, **options: Any
+) -> GeometryLayers:
+    """One geometry view built from every entry, not just the first.
+
+    A single entry is drawn exactly as the recipe describes it -- same colours,
+    same labels, no legend where there was none.  With several, each entry's
+    layers are tagged with its label so the renderer can colour the stack by
+    entry, and the recipe's own colours are dropped: keeping them would draw
+    two machines in one colour, which is the bug this exists to fix.  Layer
+    labels are prefixed with the entry so a composed view still says which
+    part of which machine it is naming.
+    """
+    if len(entries) == 1:
+        return _build_geometry(entries[0][1], recipe, **options)
+
+    layers: list[GeometryLayer] = []
+    title = recipe.title
+    # The colour key has to separate the inputs even when they carry the same
+    # label -- one shot read from two sources is a real comparison -- while the
+    # legend keeps the label it was given.
+    seen: dict[str, int] = {}
+    for entry_label, ods in entries:
+        text = str(entry_label)
+        drawn = seen.get(text, 0)
+        seen[text] = drawn + 1
+        key = text if not drawn else f"{text}#{drawn}"
+        built = _build_geometry(ods, recipe, **options)
+        title = built.title
+        labelled = False
+        for layer in built.layers:
+            style = {key: value for key, value in layer.style.items() if key != "color"}
+            if layer.kind == "text":
+                # An annotation is not a legend key; it keeps its own text.
+                layers.append(dataclasses.replace(layer, style=style, entry=key))
+                continue
+            label = f"{entry_label} {layer.label}".strip() if layer.label else str(entry_label)
+            if layer.label or not labelled:
+                labelled = True
+            else:
+                # One legend key per entry for a single-layer recipe; a
+                # multi-layer recipe names its parts and keeps them all.
+                label = ""
+            layers.append(
+                dataclasses.replace(layer, style=style, label=label, entry=key)
+            )
+    return GeometryLayers(
+        layers=tuple(layers),
+        x_label=recipe.x_label,
+        y_label=recipe.y_label,
+        title=options.get("title", title),
     )
 
 
@@ -4171,11 +4239,9 @@ def _build_panels(
     # latter beneath the caller's style into the renderer (issue #260).
     member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
     member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
-    members, placeholders = [], []
-    for slot, name in enumerate(recipe.members):
+    members = []
+    for name in recipe.members:
         if not any(entry_supports(ods, name) for _, ods in entries):
-            if recipe.keep_unavailable:
-                placeholders.append((slot, f"{name}\nnot available in this input"))
             continue
         merged = {**member_options, **options}
         # An overlay applies to the members that can carry it: a composite
@@ -4199,10 +4265,10 @@ def _build_panels(
             suptitle = f"{suptitle} #{shot}"
     return Panels(
         models=tuple(members),
-        ncols=recipe.ncols,
+        # The declared column count, never wider than what is drawn.
+        ncols=max(1, min(recipe.ncols, len(members))),
         share_x=recipe.share_x,
         suptitle=suptitle,
-        placeholders=tuple(placeholders),
         member_styles=tuple(dict(member_style) for _ in members),
     )
 
@@ -4804,21 +4870,37 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("Z_axis", "magnetic_axis.z", "m"),
     ("B_tor at axis", "magnetic_axis.b_field_tor", "T"),
     ("volume", "volume", "m^3"),
+    ("area", "area", "m^2"),
+    ("W_mhd", "energy_mhd", "J"),
 )
 
 
-def _slice_global_lines(ods: Any, index: int) -> list[str]:
-    """Formatted global-quantity lines for one slice, per the display policy."""
+def _global_scalar(ods: Any, index: int, leaf: str) -> float:
+    """One slice's stored global quantity as a float, ``nan`` when absent."""
+    raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
+    try:
+        return float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
+    except (IndexError, TypeError, ValueError):
+        return np.nan
+
+
+def _slice_global_lines(ods: Any, index: int, derived: Any = None) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy.
+
+    A quantity the slice stores is read from ``ods``; one it does not store is
+    read from ``derived`` -- the private copy on which
+    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475) --
+    and shown like any other value.  "not stored" is left for what is neither
+    stored nor derivable.
+    """
     from vaft.plot.display import resolve_display
 
     lines = []
     width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
-        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
-        try:
-            value = float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
-        except (IndexError, TypeError, ValueError):
-            value = np.nan
+        value = _global_scalar(ods, index, leaf)
+        if not np.isfinite(value) and derived is not None:
+            value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
             lines.append(f"{label:<{width}}  not stored")
             continue
@@ -4863,33 +4945,25 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     # FF' whose combination is that current density -- and the slice's global
     # quantities.  An EFIT g-file stores no j_tor; it is derived for this
     # slice on a private copy (the caller's ODS is never written), and the
-    # panel says so.  A profile that is neither stored nor derivable keeps
-    # its slot as a labelled placeholder so the figure has one shape on
-    # every input.
+    # panel says so.  A profile that is neither stored nor derivable is
+    # omitted and its column re-stacks to fill the height (issue #476).
     derived, derived_entries = _derived_profiles_for(ods, index)
-    slots: list[Any] = [field]
-    placeholders: list[tuple[int, str]] = []
-    for member in _OVERVIEW_PROFILES:
-        profile = None
-        source, source_entries = (ods, entries)
-        if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
-            source, source_entries = (derived, derived_entries)
-        if entry_supports(source, member):
-            try:
-                profile = _build_profile_1d(
-                    source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
-                )
-            except ValueError:
-                profile = None
-        if profile is None or not profile.series:
-            leaf = RECIPES[member].y_path.rsplit(".", 1)[-1]
-            placeholders.append((len(slots), f"profiles_1d.{leaf}\nneither stored nor derivable"))
-            slots.append(None)
-        else:
-            if source is derived:
-                profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
-            slots.append(profile)
-    slots.append(TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities"))
+    columns: list[list[Any]] = []
+    for column in _OVERVIEW_COLUMNS:
+        panels: list[Any] = []
+        for member in column:
+            if member is _GLOBAL_QUANTITIES:
+                # The text panel reads the derived copy too; the representative-
+                # slice choice above read the caller's ODS, so a derived volume
+                # never changes which slice was picked or the title's reason.
+                panels.append(TextPanel(lines=tuple(_slice_global_lines(ods, index, derived)), title="Global quantities"))
+                continue
+            profile = _overview_profile(member, ods, entries, derived, derived_entries, index)
+            if profile is not None:
+                panels.append(profile)
+        columns.append(panels)
+    nrows, ncols, spans = _overview_spans([len(panels) for panels in columns])
+    models = [field, *(panel for panels in columns for panel in panels)]
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     shot = f" #{pulse}" if pulse not in (None, "") else ""
     time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
@@ -4898,11 +4972,50 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
         f"Equilibrium slice{shot} — {time_text} (slice {index + 1} of {total}, {reason})",
     )
     return Panels(
-        models=tuple(model for model in slots if model is not None),
-        placeholders=tuple(placeholders),
-        nrows=3, ncols=3, share_x=False, suptitle=suptitle,
-        spans=_OVERVIEW_SPANS,
+        models=tuple(models), nrows=nrows, ncols=ncols, share_x=False, suptitle=suptitle, spans=spans,
     )
+
+
+def _overview_profile(member: str, ods: Any, entries, derived: Any, derived_entries, index: int):
+    """One 1-D member of the slice overview, stored first, else derived, else ``None``."""
+    source, source_entries = (ods, entries)
+    if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
+        source, source_entries = (derived, derived_entries)
+    if not entry_supports(source, member):
+        return None
+    try:
+        profile = _build_profile_1d(
+            source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
+        )
+    except ValueError:
+        return None
+    if not profile.series:
+        return None
+    if source is derived:
+        profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
+    return profile
+
+
+def _overview_spans(column_counts: Sequence[int]) -> tuple[int, int, tuple[tuple[int, int, int, int], ...]]:
+    """``(nrows, ncols, spans)`` of a slice overview whose columns hold ``column_counts`` panels.
+
+    The flux map takes the full height of the first column; every other
+    column stacks its panels to the same height, so a column with two panels
+    shows them half-height each rather than leaving a blank cell.  The grid
+    rows are the least common multiple of the counts; a column with nothing
+    to show is dropped.
+    """
+    import math
+
+    counts = [int(count) for count in column_counts if count]
+    nrows = math.lcm(*counts) if counts else 1
+    spans: list[tuple[int, int, int, int]] = [(0, 0, nrows, 1)]
+    column = 1
+    for count in counts:
+        rowspan = nrows // count
+        spans.extend((k * rowspan, column, rowspan, 1) for k in range(count))
+        column += 1
+    return nrows, column, tuple(spans)
 
 
 def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
@@ -4923,22 +5036,14 @@ def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
     return private, [("", private)]
 
 
-#: The 1-D members of the slice overview, in slot order after the flux map:
-#: column 2 top to bottom, then column 3 top to bottom (the text panel last).
-_OVERVIEW_PROFILES = (
-    "equilibrium_profile_pressure",
-    "equilibrium_profile_q",
-    "equilibrium_profile_j_tor",
-    "equilibrium_profile_pprime",
-    "equilibrium_profile_ffprime",
-)
+#: The text panel's place in the overview columns.
+_GLOBAL_QUANTITIES = "global_quantities"
 
-#: Slot geometry of the slice overview: the flux map spans the three rows of
-#: column 1; columns 2 and 3 stack three panels each.
-_OVERVIEW_SPANS = (
-    (0, 0, 3, 1),
-    (0, 1, 1, 1), (1, 1, 1, 1), (2, 1, 1, 1),
-    (0, 2, 1, 1), (1, 2, 1, 1), (2, 2, 1, 1),
+#: The columns of the slice overview after the flux map, top to bottom: the
+#: plasma profiles, then the fitted source terms with the global quantities.
+_OVERVIEW_COLUMNS: tuple[tuple[str, ...], ...] = (
+    ("equilibrium_profile_pressure", "equilibrium_profile_q", "equilibrium_profile_j_tor"),
+    ("equilibrium_profile_pprime", "equilibrium_profile_ffprime", _GLOBAL_QUANTITIES),
 )
 
 
@@ -6242,8 +6347,9 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     """Build the view model for canonical plot ``name`` from ``entries``.
 
     ``entries`` is the ``(label, ods)`` sequence produced by
-    :func:`normalize_entries`.  Single-ODS families (2D fields, geometry,
-    spectrograms) use the first entry and ignore the rest.
+    :func:`normalize_entries`.  Line, profile and geometry families draw every
+    entry; the single-ODS families (2D fields, spectrograms, power spectra)
+    use the first entry and ignore the rest.
     """
     try:
         recipe = RECIPES[name]
@@ -6262,7 +6368,7 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if isinstance(recipe, PanelRecipe):
         return _build_panels(entries, recipe, **options)
     if isinstance(recipe, GeometryRecipe):
-        return _build_geometry(entries[0][1], recipe, **options)
+        return _build_geometry_entries(entries, recipe, **options)
     if isinstance(recipe, FieldRecipe):
         return _build_field_2d(entries[0][1], recipe, **options)
     if isinstance(recipe, SpectrogramRecipe):
