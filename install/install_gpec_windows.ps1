@@ -23,18 +23,13 @@
         equivalent for, so an OpenMP build cannot assemble at all. The result is
         correct and serial.
 
-    KNOWN LIMITATION, and the reason this path is not yet a supported one:
-    MSYS2's netCDF *and* its HDF5 both link the AWS S3 SDK, whose shutdown
-    handler waits on a condition variable that is never signalled. A suite built
-    against them solves correctly, writes every output, prints its normal
-    termination message -- and then never exits, and cannot be killed. Six lines
-    of Fortran that create and close a netCDF file reproduce it with no VAFT or
-    GPEC code involved.
-
-    Building netCDF without S3 is not sufficient, because HDF5 pulls the same
-    SDK in on its own. Until MSYS2 ships those packages without it, or an
-    S3-free HDF5 and netCDF are built from source, use WSL2 for the DCON/GPEC
-    workflow. CHEASE has no such dependency and is fully supported natively.
+      * HDF5 and netCDF are built here rather than taken from MSYS2, when you
+        pass -BuildDependencies. Both MSYS2 packages link the AWS C++ S3 SDK,
+        whose shutdown handler waits on a condition variable that is never
+        signalled: a solver built against them writes every output, prints its
+        normal termination message, and then never exits, and cannot be killed.
+        Cutting S3 out of netCDF alone does not help, because HDF5 pulls the
+        same SDK in through its ROS3 driver, so both are built.
 
     Nothing is installed system-wide unless you pass -InstallToolchain.
 
@@ -46,8 +41,13 @@
     outside both the VAFT checkout and the GPEC source tree.
 
 .PARAMETER NetcdfHome
-    An existing netCDF installation to build against. Defaults to the MinGW
-    environment's. See the known limitation above before relying on this.
+    An existing netCDF installation to build against. Defaults to the one
+    -BuildDependencies puts under the prefix, and falls back to the MinGW
+    environment's -- which cannot terminate, for the reason above.
+
+.PARAMETER BuildDependencies
+    Compile HDF5 and netCDF without S3 into the prefix. Needed once per prefix;
+    without it the suite computes correctly and then never exits.
 
 .PARAMETER Msys2Root
     MSYS2 installation root, when it is somewhere this script does not look.
@@ -82,7 +82,7 @@
     there, the GPECHOME user variable. Your source tree is left alone.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC
+    powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -BuildDependencies
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -CheckOnly
@@ -92,6 +92,7 @@ param(
     [Parameter(Position = 0)] [string] $SourcePath,
     [string] $Prefix,
     [string] $NetcdfHome,
+    [switch] $BuildDependencies,
     [string] $Msys2Root,
     [ValidateSet('ucrt64', 'mingw64')] [string] $MinGWEnvironment = 'ucrt64',
     [switch] $InstallToolchain,
@@ -164,7 +165,7 @@ if ($Uninstall) {
 # ---------------------------------------------------------------------------
 
 if ($CheckOnly) {
-    foreach ($pair in @(@('InstallToolchain', $InstallToolchain), @('Clean', $Clean))) {
+    foreach ($pair in @(@('InstallToolchain', $InstallToolchain), @('BuildDependencies', $BuildDependencies), @('Clean', $Clean))) {
         if ($pair[1]) {
             Stop-WithGuidance "-CheckOnly changes nothing, so it cannot be combined with -$($pair[0])."
         }
@@ -205,21 +206,88 @@ $root = Resolve-Toolchain -Explicit $Msys2Root -MinGWEnvironment $MinGWEnvironme
 $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 
 # ---------------------------------------------------------------------------
-# netCDF
+# netCDF and HDF5
 #
-# The suite links whichever netCDF -NetcdfHome names, defaulting to the MinGW
-# environment's. See the KNOWN LIMITATION in the description: that package, and
-# the HDF5 beneath it, both carry the AWS S3 SDK, and a suite built against them
-# finishes its work and then will not exit. Nothing here can undo that; the
-# checker detects it and says so.
+# MSYS2 ships both linked against the AWS C++ S3 SDK, whose shutdown handler
+# waits on a condition variable that is never signalled. A solver built
+# against either writes every output, prints normal termination, and then
+# never exits -- and cannot be killed. Six lines of Fortran that create and
+# close a netCDF file reproduce it with no GPEC code involved.
+#
+# -BuildDependencies compiles both without it. Cutting S3 out of netCDF alone
+# is not enough: HDF5 pulls the same SDK in through its ROS3 virtual file
+# driver, so both have to be built.
 # ---------------------------------------------------------------------------
 
+$depsDirectory = Join-Path $prefixPath 'deps'
+
+if ($BuildDependencies) {
+    $dependencyLog = Join-Path $prefixPath ("logs" + [System.IO.Path]::DirectorySeparatorChar + "dependencies-$timestamp.log")
+    Write-Step 'Building HDF5 and netCDF without S3 (20 to 40 minutes, once per prefix) ...'
+    $steps = @(
+        'set -euo pipefail',
+        'deps="$(cygpath -u "$VAFT_DEPS")"',
+        'work="$(cygpath -u "$VAFT_WORK")"',
+        'mkdir -p "$deps" "$work"',
+        'cd "$work"',
+        'CF="-O2 -Wno-incompatible-pointer-types -Wno-implicit-function-declaration -Wno-int-conversion"',
+        '',
+        '# 1. HDF5 without the S3 virtual file driver.',
+        '#    ROS3 is what drags the AWS SDK in, and the AWS SDK is what never lets',
+        '#    the process exit. Float16 is off because HDF5 1.14.6 assumes a macro',
+        '#    gcc 16 does not define.',
+        '[ -f hdf5.tar.gz ] || curl -fsSL -o hdf5.tar.gz https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.6/hdf5-1.14.6.tar.gz',
+        'rm -rf hdf5-1.14.6 && tar xf hdf5.tar.gz',
+        'cd "$work/hdf5-1.14.6"',
+        './configure --prefix="$deps" --disable-ros3-vfd --disable-libcurl --disable-hdfs --disable-mirror-vfd --disable-nonstandard-feature-float16 --disable-fortran --disable-cxx --disable-java --disable-tests --disable-tools --enable-hl --enable-static --disable-shared CFLAGS="$CF"',
+        'make -j"$VAFT_JOBS"',
+        'make install',
+        '',
+        '# 2. netCDF-C on that HDF5, with its own S3 and NCZarr paths off.',
+        '[ -f netcdf-c.tar.gz ] || curl -fsSL -o netcdf-c.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.3.tar.gz',
+        'rm -rf netcdf-c-4.9.3 && tar xf netcdf-c.tar.gz',
+        'cd "$work/netcdf-c-4.9.3"',
+        './configure --prefix="$deps" --disable-s3 --disable-nczarr --disable-dap --disable-byterange --disable-libxml2 --disable-plugins --disable-testsets --disable-examples --disable-utilities --enable-hdf5 --enable-static --disable-shared CFLAGS="$CF" CPPFLAGS="-I$deps/include" LDFLAGS="-L$deps/lib" LIBS="-lhdf5_hl -lhdf5 -lsz -lz"',
+        'make -j"$VAFT_JOBS"',
+        'make install',
+        '',
+        '# 3. netCDF-Fortran. The link needs the whole static chain spelled out:',
+        '#    nc-config reports only -lnetcdf, and HDF5 carries an szip filter.',
+        '[ -f netcdf-fortran.tar.gz ] || curl -fsSL -o netcdf-fortran.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.6.1.tar.gz',
+        'rm -rf netcdf-fortran-4.6.1 && tar xf netcdf-fortran.tar.gz',
+        'cd "$work/netcdf-fortran-4.6.1"',
+        './configure --prefix="$deps" --enable-static --disable-shared CFLAGS="$CF" CPPFLAGS="-I$deps/include" LDFLAGS="-L$deps/lib" LIBS="-lnetcdf -lhdf5_hl -lhdf5 -lsz -lz -lm"',
+        'make -j"$VAFT_JOBS"',
+        'make install',
+        '',
+        '# 4. OpenBLAS is taken from the toolchain, but its import library has to sit',
+        '#    beside these so that the one -L the makefile emits finds the static',
+        '#    netCDF first. Without this the MinGW netCDF wins and the AWS SDK is',
+        '#    back.',
+        'cp -f "/$VAFT_ENV/lib/libopenblas.dll.a" "$deps/lib/"',
+        ''
+    )
+    Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -Command ($steps -join "`n") `
+        -Variables @{
+            VAFT_DEPS = $depsDirectory
+            VAFT_WORK = (Join-Path $prefixPath 'build')
+            VAFT_ENV  = $MinGWEnvironment
+            VAFT_JOBS = $Jobs
+        } -LogPath $dependencyLog | Out-Null
+    Write-Result -Status PASS -Name 'HDF5 and netCDF without S3' -Detail $depsDirectory
+}
+
 if (-not $NetcdfHome) {
-    $NetcdfHome = Join-Path $root $MinGWEnvironment
+    if (Test-Path -LiteralPath (Join-Path $depsDirectory 'include\netcdf.mod')) {
+        $NetcdfHome = $depsDirectory
+    }
+    else {
+        $NetcdfHome = Join-Path $root $MinGWEnvironment
+        Write-Result -Status SKIP -Name 'HDF5 and netCDF without S3' -Detail 'using the MinGW build; the suite will not terminate -- see -BuildDependencies'
+    }
 }
 $netcdfUnix = ConvertTo-Msys2Path -WindowsPath $NetcdfHome
 Write-Result -Status PASS -Name 'netCDF' -Detail $NetcdfHome
-
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -247,7 +315,7 @@ $steps.Add('export FC=gfortran')
 # CC must be set explicitly. GNU make predefines CC=cc, so the makefile's
 # `ifndef CC` guard never fires and its compiler test then rejects `cc`.
 $steps.Add('export CC=gcc')
-$steps.Add('export OPENBLASHOME=/$VAFT_ENV')
+$steps.Add('export OPENBLASHOME="$VAFT_MATH"')
 $steps.Add('export NETCDF_FORTRAN_HOME="$VAFT_NETCDF"')
 $steps.Add('export NETCDF_C_HOME="$VAFT_NETCDF"')
 $steps.Add('export NETCDFINC="$VAFT_NETCDF/include"')
@@ -256,7 +324,9 @@ $steps.Add('export FFLAGS="-fallow-argument-mismatch -O2"')
 # blocks and the PE object format.
 $steps.Add('export OMPFLAG=')
 $steps.Add('export RECURSFLAG=-frecursive')
-$steps.Add('export LDFLAGS="-Wl,--stack,$VAFT_STACK"')
+# The static netCDF and HDF5 need their own dependencies named: the makefile
+# emits only -lnetcdff -lnetcdf, and nc-config does not report the rest.
+$steps.Add('export LDFLAGS="$VAFT_NCLIBS -Wl,--stack,$VAFT_STACK"')
 # `make v` prints the configuration it derived. Its "Compiling supporting
 # modules" line lists the dependencies it intends to build from submodules; if
 # it is not empty, our library paths did not take and the next step would start
@@ -273,8 +343,10 @@ Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -Command ($ste
         VAFT_SRC    = $source
         VAFT_ENV    = $MinGWEnvironment
         VAFT_NETCDF = $netcdfUnix
+        VAFT_MATH   = $(if ($NetcdfHome -eq $depsDirectory) { $netcdfUnix } else { '/' + $MinGWEnvironment })
         VAFT_JOBS   = $Jobs
         VAFT_STACK  = ('0x' + ('{0:X}' -f ($StackReserveMB * 1MB)))
+        VAFT_NCLIBS = $(if ($NetcdfHome -eq $depsDirectory) { '-lhdf5_hl -lhdf5 -lsz -lz' } else { '' })
     } -LogPath $logPath | Out-Null
 
 # The upstream rules judge themselves by a `cp` of an extension-less name, so
@@ -324,6 +396,7 @@ $record = @{
     mingw_env        = $MinGWEnvironment
     netcdf_home      = $NetcdfHome
     openmp           = $false
+    dependencies_built = ($NetcdfHome -eq $depsDirectory)
     make_command     = "FC=gfortran CC=gcc OMPFLAG= make -j$Jobs $MakeTarget"
     executables      = ($Executables | ForEach-Object { "bin\$_.exe" })
     home_variable    = $HomeVariable
@@ -347,11 +420,12 @@ Write-Host ''
 Write-Host 'This build is serial: OpenMP cannot be used on Windows, for the reason'
 Write-Host 'given at the top of this script, so long runs take longer than the same'
 Write-Host 'case on Linux.'
-Write-Host ''
-Write-Host 'KNOWN LIMITATION: a solver linked against MSYS2 netCDF/HDF5 completes its'
-Write-Host 'work and then does not exit, because those packages carry the AWS S3 SDK'
-Write-Host 'and its shutdown handler waits forever. Use WSL2 for DCON/GPEC until that'
-Write-Host 'is fixed upstream. install\README.md has the detail and the reproducer.'
+if ($NetcdfHome -ne $depsDirectory) {
+    Write-Host ''
+    Write-Host 'This suite is linked against the MSYS2 netCDF and HDF5, which carry the'
+    Write-Host 'AWS S3 SDK: it will compute correctly and then never exit. Rerun with'
+    Write-Host '-BuildDependencies to build both without it.'
+}
 
 if ($script:Failed) { exit 1 }
 

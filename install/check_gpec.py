@@ -74,36 +74,40 @@ def _example_directory(source: Optional[str]) -> Optional[Path]:
 
 
 def check_netcdf_without_s3(prefix: Optional[str]) -> CheckResult:
-    """The netCDF this suite links can let a process exit.
+    """The netCDF and HDF5 this suite links let a process exit.
 
-    MSYS2's netCDF and its HDF5 both carry the AWS S3 SDK, whose shutdown
-    handler waits on a condition variable that is never signalled. A program
-    linked against them writes every output correctly and then never exits.
+    MSYS2 ships both linked against the AWS C++ S3 SDK, whose shutdown handler
+    waits on a condition variable that is never signalled. A solver built
+    against them writes every output, prints its normal termination message and
+    then never exits -- and cannot be killed, so no timeout turns it back into a
+    usable workflow.
 
-    Building netCDF without S3 does not help on its own: HDF5 pulls the same
-    SDK in. Until MSYS2 ships those packages without it, or both are built
-    from source, WSL2 is the route for this suite. This layer exists so that
-    shows up as one named line rather than as a run that never returns.
+    Cutting S3 out of netCDF alone is not enough: HDF5 pulls the same SDK in
+    through its ROS3 virtual file driver. The installer's -BuildDependencies
+    builds both without it, and this layer is what tells the two apart.
     """
-    label = "netCDF without S3"
+    label = "netCDF and HDF5 without S3"
     if os.name != "nt":
         return CheckResult(label, SKIP, "native Windows only")
     if not prefix:
         return CheckResult(label, SKIP, "no install prefix")
+
+    remediation = (
+        "Rerun the installer with -BuildDependencies, which compiles HDF5 and "
+        "netCDF without S3 into the prefix. Without it the suite computes "
+        "correctly and then never exits."
+    )
     marker = Path(prefix).expanduser() / "bin" / AWS_MARKER
     if marker.is_file():
         return CheckResult(
             label,
             FAIL,
-            f"{AWS_MARKER} is installed beside the executables, so netCDF carries the S3 SDK",
-            "A suite linked against these finishes its work and then never "
-            "exits. Use WSL2 for DCON/GPEC, or build HDF5 and netCDF without "
-            "S3 yourself and point -NetcdfHome at them. See install/README.md.",
+            f"{AWS_MARKER} is installed beside the executables",
+            remediation,
         )
     manifest = read_manifest(prefix)
-    home = (manifest or {}).get("netcdf_home")
-    if home:
-        return CheckResult(label, PASS, str(home))
+    if manifest and manifest.get("dependencies_built"):
+        return CheckResult(label, PASS, str(manifest.get("netcdf_home")))
     return CheckResult(label, PASS, "no S3 SDK beside the executables")
 
 

@@ -288,8 +288,7 @@ to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 ```text
 Need VAFT only?            -> the platform script above; you are done
 Need CHEASE?               -> obtain CHEASE, then install\install_chease_windows.ps1
-Need DCON/GPEC?            -> obtain GPEC,   then install\install_gpec_windows.ps1
-DCON/GPEC on Windows?      -> read the known limitation below first; use WSL2
+Need DCON/GPEC?            -> obtain GPEC, then install_gpec_windows.ps1 -BuildDependencies
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -316,7 +315,7 @@ instead, which rewrites those tracked files in your CHEASE tree.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install\install_chease_windows.ps1 C:\git\CHEASE
-powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC
+powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -BuildDependencies
 ```
 
 Both build with the MinGW-w64 gfortran toolchain from MSYS2, which produces
@@ -332,6 +331,7 @@ install, not things a script installs behind you.
 | --- | --- |
 | `-InstallToolchain` | Install MSYS2 and the compiler packages. The only switch that changes anything outside the prefix. |
 | `-Prefix <path>` | Install somewhere other than `%LOCALAPPDATA%\vaft\external\<code>`. |
+| `-BuildDependencies` | GPEC only. Compile HDF5 and netCDF without S3 into the prefix. Needed once per prefix; without it the suite computes correctly and then never exits. |
 | `-MaterializeSymlinks` | CHEASE only. Replace symbolic-link placeholders with copies of their targets. |
 | `-NoEnvironmentWiring` | Do not set `CHEASEHOME` / `GPECHOME`; print the command instead. |
 | `-CheckOnly` | Run the checker and change nothing. |
@@ -345,6 +345,7 @@ Everything lands in one self-contained prefix outside every checkout:
 %LOCALAPPDATA%\vaft\external\gpec\
     bin\   dcon.exe rdcon.exe stride.exe gpec.exe match.exe rmatch.exe
            + the runtime libraries those need
+    deps\  the HDF5 and netCDF built for them by -BuildDependencies
     logs\  the full build output
     vaft-external-install.json
 ```
@@ -451,8 +452,8 @@ the PE object format has no equivalent for, so an OpenMP build cannot assemble
 at all. The installer builds without OpenMP. Results are unaffected; long runs
 take longer than the same case on Linux.
 
-**The DCON/GPEC suite does not yet finish a run on Windows.** This is the one
-reason that path is not called supported, and it is not VAFT's defect or GPEC's.
+**The DCON/GPEC suite needs its own HDF5 and netCDF.** That is what
+`-BuildDependencies` is for, and it is not optional in practice.
 
 MSYS2's netCDF package *and* its HDF5 both link the AWS C++ S3 SDK. That SDK
 registers an `atexit` handler which waits on a condition variable that is never
@@ -470,22 +471,18 @@ program probe
 end program probe
 ```
 
-Building netCDF without S3 is **not** sufficient, because HDF5 pulls the same
-SDK in on its own. A complete fix needs an S3-free HDF5 as well as an S3-free
-netCDF, or -- better -- for MSYS2 to stop enabling S3 in those packages.
+Cutting S3 out of netCDF alone does **not** fix it: HDF5 pulls the same SDK in
+through its ROS3 virtual file driver. `-BuildDependencies` builds both without
+it -- HDF5 with `--disable-ros3-vfd`, netCDF-C with `--disable-s3
+--disable-nczarr`, then netCDF-Fortran on top -- statically, into the prefix. It
+takes 20 to 40 minutes and is needed once per prefix.
 
-Until then:
+With that chain in place, `dcon` on upstream's Solov'ev regression case exits
+**0** in under two seconds with the same energies it computes on Linux, and
+`check_gpec.py` reports every layer green through the DCON to GPEC handoff.
 
-- **CHEASE is fully supported natively.** It links neither library.
-- **For DCON/GPEC, use WSL2** (`install/windows_wsl.sh` plus the Linux build
-  recipe in `workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`).
-- If you build an S3-free HDF5 and netCDF yourself, point `-NetcdfHome` at them.
-
-Everything else about the native GPEC build is verified and works: it compiles,
-`check_gpec.py` finds all six executables through `$GPECHOME`, each starts with
-`PATH` stripped to `System32`, and DCON solves upstream's Solov'ev regression
-case to the correct energies. `check_gpec.py` reports the exit defect as its own
-named layer rather than leaving you with a run that never returns.
+The static chain also shrinks the install: nine runtime libraries beside the
+executables instead of forty-eight, because netCDF and HDF5 are no longer DLLs.
 
 ### What the build leaves in your source tree
 
@@ -517,7 +514,8 @@ available today.
 | gcc / gfortran | 16.2.0 |
 | GNU make | 4.4.1 |
 | OpenBLAS | 0.3.34 |
-| netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built without S3 |
+| HDF5 | 1.14.6, built with `--disable-ros3-vfd` |
+| netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built with `--disable-s3 --disable-nczarr` |
 | CHEASE | `fb46366` |
 | GPEC | `e68d7ac2` (v1.5.7-611) |
 
@@ -653,5 +651,5 @@ into your question.
 | Windows native | Automated in CI, same install/uninstall cycle |
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
 | CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
-| DCON/GPEC, Windows native | **Not supported yet.** Builds, resolves and computes correctly, but a run never terminates -- see the AWS S3 note above. WSL2 is the documented fallback. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
+| DCON/GPEC, Windows native | Verified **manually** on a clean Windows 11 machine with `-BuildDependencies`: build, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies. Not automated -- hosted runners have no Fortran toolchain and the dependency chain alone takes half an hour. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
 | CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |
