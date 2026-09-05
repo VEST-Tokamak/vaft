@@ -339,6 +339,14 @@ vaft.plot.overlay_all_with_vacuum_psi_contour(ods)
 Passing `savepath` writes the figure to disk. `pf_passive_overlay` is the one function here
 that accepts an `ax`, so it can be layered onto a figure you are building yourself.
 
+A reconstruction that models the plasma as filaments or as a grid of current
+elements stores that representation in the `pf_plasma` IDS
+(`vaft.omas.pf_plasma.set_plasma_elements` writes it, `plasma_elements` reads
+it). `vaft.plot.pf_plasma_geometry_poloidal(ods, time=None)` draws the
+elements coloured by their signed current at one instant, with the limiter
+outline, so a filament fit and an element fit of the same slice read the same
+way; the OMAS and IMAS adapters are `plot_pf_plasma_geometry_poloidal`.
+
 ## Mirnov coils
 
 The Mirnov functions **return figures** and accept `ax=` and `show=`, so they compose into

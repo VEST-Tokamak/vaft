@@ -1897,6 +1897,43 @@ def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
     return GeometryLayers(layers=tuple(layers), title=title)
 
 
+def _build_pf_plasma_geometry(ods: Any, **options: Any) -> GeometryLayers:
+    """The plasma-current elements of ``pf_plasma`` coloured by their current.
+
+    Every element is drawn as its outline (rectangle or polygon), coloured by
+    its signed current relative to the largest at the chosen instant
+    (``time``; default the instant of largest total current), with the
+    limiter outline in black when the ODS carries a wall.  The title carries
+    the instant and the total current the elements sum to, so a filament
+    fit and an element fit of the same slice read the same way.
+    """
+    from vaft.omas.pf_plasma import plasma_elements
+
+    elements = plasma_elements(ods, options.get("time"))
+    outlines = _element_outlines(ods, "pf_plasma")
+    if len(outlines) != elements["current"].size:
+        raise ValueError("pf_plasma elements without a drawable geometry")
+    scale = float(np.max(np.abs(elements["current"]))) or 1.0
+    layers: list[GeometryLayer] = []
+    for (r, z), current in zip(outlines, elements["current"]):
+        layers.append(GeometryLayer(
+            r=r, z=z, kind="polygon",
+            label="" if layers else "plasma elements",
+            style={"color": _diverging_rgba(current / scale), "lw": 0.8},
+        ))
+    wall_r = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    wall_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
+    if wall_r is not None and wall_z is not None and wall_r.size == wall_z.size and wall_r.size >= 3:
+        layers.append(GeometryLayer(r=wall_r, z=wall_z, kind="polygon", label="limiter",
+                                    style={"color": "k", "lw": 0.8}))
+    title = options.get(
+        "title",
+        f"plasma elements at t = {elements['time']:.4f} s: {elements['current'].size} elements, "
+        f"Ip = {elements['total'] / 1e3:.1f} kA",
+    )
+    return GeometryLayers(layers=tuple(layers), title=title)
+
+
 def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
     """Decay times of every segment's modes, slowest first, per segment.
 
@@ -2543,6 +2580,10 @@ RECIPES["passive_structure_geometry_poloidal"] = CallableRecipe(
 RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
     builder=_build_wall_mode_shape,
     description="One segment-local wall eigenmode coloured onto the passive structure.",
+)
+RECIPES["pf_plasma_geometry_poloidal"] = CallableRecipe(
+    builder=_build_pf_plasma_geometry,
+    description="The plasma-current elements of pf_plasma, coloured by current.",
 )
 RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
     builder=_build_wall_mode_spectrum,

@@ -2090,6 +2090,22 @@ def plot_passive_structure_field_wall_reduction(
     )
 
 
+def plot_pf_plasma_geometry_poloidal(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The plasma-current elements of ``pf_plasma`` coloured by current.
+
+    Options: ``time`` (instant; default the largest total current).
+    Renders with :func:`vaft.plot.pf_plasma_geometry_poloidal`.
+    """
+    return render("pf_plasma_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_passive_structure_overview_wall_time(
     source: Any,
     *,
@@ -2669,6 +2685,7 @@ __all__ = [
     "plot_passive_structure_geometry_wall_mode",
     "plot_passive_structure_overview_wall_reduction",
     "plot_passive_structure_overview_wall_time",
+    "plot_pf_plasma_geometry_poloidal",
     "plot_soft_x_rays_geometry_lines_of_sight",
     "plot_soft_x_rays_overview",
     "plot_soft_x_rays_spectrogram",

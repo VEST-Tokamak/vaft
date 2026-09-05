@@ -32,6 +32,7 @@ __all__ = [
     "magnetics_geometry_poloidal",
     "passive_structure_geometry_poloidal",
     "passive_structure_geometry_wall_mode",
+    "pf_plasma_geometry_poloidal",
     "pf_coil_geometry_poloidal",
     "render_geometry_3d_layers",
     "render_geometry_layers",
@@ -203,6 +204,25 @@ def passive_structure_geometry_wall_mode(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """A wall eigenmode's current pattern on the passive structure."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="machine", quantity="poloidal",
+    subject="pf_plasma",
+    description="The plasma current as pf_plasma elements (filaments or a grid of "
+                "current elements), each coloured by its signed current at one instant.",
+    ids=("pf_plasma", "wall"),
+    required_paths=("pf_plasma.element.{i}.geometry.geometry_type",
+                    "pf_plasma.element.{i}.current"),
+    optional_paths=("pf_plasma.element.{i}.geometry.rectangle.r",
+                    "pf_plasma.element.{i}.geometry.outline.r",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+)
+def pf_plasma_geometry_poloidal(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Plasma-current elements in the poloidal plane, coloured by current."""
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 
