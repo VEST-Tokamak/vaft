@@ -60,6 +60,7 @@ __all__ = [
     "robust_baseline",
     "run_features",
     "sustained_excess_onset",
+    "zero_crossing_after_excursion",
     "zero_phase_lowpass",
 ]
 
@@ -1019,3 +1020,129 @@ def principal_pulse_window(time, values, **kwargs) -> tuple[OnsetRecord, OnsetRe
                          method="principal_pulse_offset", evidence=dict(window.evidence),
                          flags=window.flags, accepted=window.offset.accepted)
     return onset, offset
+
+
+# ---------------------------------------------------------------------------
+# Zero crossing after an anchored excursion
+# ---------------------------------------------------------------------------
+
+
+def zero_crossing_after_excursion(
+    time,
+    values,
+    *,
+    anchor_time: float,
+    fraction: float = 0.05,
+    sigma: float = 5.0,
+    hold_s: float = 5.0e-4,
+    anchor_tolerance_s: float = 5.0e-4,
+    approach_fraction: float = 0.10,
+    reference_mask=None,
+    reference_fraction: float = 0.2,
+    search_mask=None,
+    prefilter_samples: int = 1,
+    bridge_samples: int = 2,
+) -> OnsetRecord:
+    """First sample after an anchored excursion where the record changes sign.
+
+    The *excursion* is the first sustained run of ``|values - baseline|``
+    above the threshold (``max(fraction * peak, sigma * robust_sigma)``, the
+    peak taken inside ``search_mask``) that starts within
+    ``anchor_tolerance_s`` of ``anchor_time`` or contains the anchor sample.
+    Anchoring is what makes a later, larger pulse irrelevant: a drive
+    excursion is judged where the drive starts, not where the record is
+    loudest.  The event is the first sample after the excursion's extremum
+    whose baseline-relative sign is opposite to the extremum's (strictly --
+    a sample exactly at the baseline is not a crossing).
+
+    The excursion's decay is watched between the extremum and the crossing:
+    when ``|values - baseline|`` drops below ``approach_fraction`` of the
+    extremum and later climbs back above twice that level before crossing
+    (the factor of two is the hysteresis that keeps noise around the level
+    from counting as a re-rise), the record is flagged
+    ``approached_without_crossing`` with the minimum and its time in the
+    evidence.  A record with no run at the anchor returns ``time=None``
+    with ``no_excursion_at_anchor``; an excursion that never crosses returns
+    ``time=None`` with ``no_zero_crossing``.  The evidence carries the
+    signed extremum (baseline-relative), its time and the run bounds.
+    """
+    t, raw = _as_arrays(time, values)
+    y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
+    ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
+    baseline, spread = robust_baseline(y, ref)
+    method = "excursion_zero_crossing"
+    search = (np.ones(t.size, dtype=bool) if search_mask is None
+              else np.asarray(search_mask, dtype=bool).reshape(-1))
+    excess = np.abs(y - baseline) if np.isfinite(baseline) else np.full(t.size, np.nan)
+    region = excess[search]
+    region = region[np.isfinite(region)]
+    peak = float(region.max()) if region.size else float("nan")
+    spread_term = float(sigma) * spread if np.isfinite(spread) else 0.0
+    threshold = max(float(fraction) * max(peak, 0.0), spread_term) if np.isfinite(peak) else float("nan")
+    degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
+    if degenerate is not None:
+        return degenerate
+    dt = float(np.median(np.diff(t)))
+    hold = max(1, int(round(float(hold_s) / dt)))
+    above = _bridged(excess > threshold, int(bridge_samples)) & search
+    anchor = float(anchor_time)
+    tol = float(anchor_tolerance_s)
+    evidence: dict[str, Any] = {
+        "baseline_median": baseline, "robust_sigma": spread, "peak": peak, "threshold": threshold,
+        "fraction": float(fraction), "sigma": float(sigma), "hold_samples": hold,
+        "anchor_time": anchor, "anchor_tolerance_s": tol, "approach_fraction": float(approach_fraction),
+        "prefilter_samples": int(prefilter_samples), "bridge_samples": int(bridge_samples),
+    }
+    rejected: list[tuple[float, str, RunFeatures]] = []
+    excursion = None
+    for start, stop in _runs(above):
+        t_start = float(t[start])
+        contains_anchor = t_start <= anchor <= float(t[stop - 1])
+        if not contains_anchor and abs(t_start - anchor) > tol:
+            why = "not_at_anchor"
+        elif stop - start < hold:
+            why = "persistence"
+        else:
+            excursion = (start, stop)
+            break
+        if len(rejected) < MAX_REJECTED_RUNS:
+            rejected.append((t_start, why, _brief_run(t, excess, 0.0, start, stop)))
+    evidence["n_rejected"] = len(rejected)
+    if excursion is None:
+        return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
+                           flags=("no_onset", "no_excursion_at_anchor", *ref_flags),
+                           rejected=tuple(rejected))
+    start, stop = excursion
+    i_ext = start + int(np.argmax(excess[start:stop]))
+    extremum = float(y[i_ext] - baseline)
+    sign = 1.0 if extremum > 0 else -1.0
+    evidence.update({
+        "run_start": float(t[start]), "run_end": float(t[stop - 1]),
+        "run_start_minus_anchor": float(t[start]) - anchor,
+        "extremum": extremum, "extremum_time": float(t[i_ext]), "extremum_index": int(i_ext),
+    })
+    accepted = run_features(t, excess, 0.0, start, stop)
+    deviation = (y - baseline) * sign  # positive along the excursion
+    later = np.flatnonzero(deviation[i_ext + 1:] < 0.0)
+    k = int(i_ext + 1 + later[0]) if later.size else None
+    flags: list[str] = list(ref_flags)
+    decay = deviation[i_ext:(k if k is not None else t.size)]
+    level = float(approach_fraction) * abs(extremum)
+    below = np.flatnonzero(decay < level)
+    evidence["approach_min"] = None
+    evidence["approach_time"] = None
+    if below.size:
+        first = int(below[0])
+        rise = np.flatnonzero(decay[first:] >= 2.0 * level)
+        if rise.size:
+            segment = decay[first:first + int(rise[0])]
+            i_min = first + int(np.argmin(segment))
+            evidence["approach_min"] = float(sign * decay[i_min])
+            evidence["approach_time"] = float(t[i_ext + i_min])
+            flags.append("approached_without_crossing")
+    if k is None:
+        return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
+                           flags=("no_onset", "no_zero_crossing", *flags),
+                           rejected=tuple(rejected), accepted=accepted)
+    return OnsetRecord(time=float(t[k]), index=k, method=method, evidence=evidence,
+                       flags=tuple(flags), rejected=tuple(rejected), accepted=accepted)

@@ -9,15 +9,12 @@ current, current but no light, neither, and the two disagreeing either way.
 from __future__ import annotations
 
 import ast
-import gzip
 import json
-import shutil
-import tempfile
 from pathlib import Path
 
 import numpy as np
 import pytest
-from omas import ODS, load_omas_json
+from omas import ODS
 
 import vaft.omas.plasma_timing as module
 from vaft.machine_mapping.utils import (
@@ -43,7 +40,7 @@ from vaft.omas.plasma_timing import (
 )
 from vaft.process.onset import active_window
 
-from _plasma_timing_fixtures import DT, RNG, current, grid, light, pickup_only, synthetic_ods
+from _plasma_timing_fixtures import DT, RNG, current, grid, light, pickup_only, pipeline_ods, synthetic_ods
 
 # Corpus numbers (ms) from the 205-shot study on issue #409.
 PACKAGED = {
@@ -58,27 +55,6 @@ PACKAGED = {
 # ---------------------------------------------------------------------------
 
 
-def _pipeline_ods(shot: int) -> ODS:
-    from vaft.data import resources
-
-    try:
-        source = resources.data_path(f"samples/{shot}/source/pipeline-until-efit.json.gz")
-    except Exception:  # pragma: no cover
-        pytest.skip("packaged pipeline sample unavailable")
-    if not Path(source).is_file():
-        pytest.skip("packaged pipeline sample is repository-only")
-    with gzip.open(source, "rt") as handle, tempfile.NamedTemporaryFile(
-        "w", suffix=".json", delete=False
-    ) as plain:
-        shutil.copyfileobj(handle, plain)
-        plain_path = plain.name
-    try:
-        return load_omas_json(plain_path, consistency_check=False)
-    finally:
-        Path(plain_path).unlink(missing_ok=True)
-
-
-
 # ---------------------------------------------------------------------------
 # Packaged shots
 # ---------------------------------------------------------------------------
@@ -86,7 +62,7 @@ def _pipeline_ods(shot: int) -> ODS:
 
 @pytest.mark.parametrize("shot", sorted(PACKAGED))
 def test_packaged_shots_time_the_plasma_from_the_slow_h_alpha_line(shot):
-    ods = _pipeline_ods(shot)
+    ods = pipeline_ods(shot)
     expected = PACKAGED[shot]
 
     timing = plasma_timing(ods)
@@ -109,7 +85,7 @@ def test_packaged_shots_time_the_plasma_from_the_slow_h_alpha_line(shot):
 
 
 def test_packaged_usability_records_the_fast_channel_resampling_and_era_shift():
-    ods = _pipeline_ods(41672)
+    ods = pipeline_ods(41672)
     primary, fast = halpha_sources()
 
     slow = halpha_usability(ods, primary)
@@ -124,7 +100,7 @@ def test_packaged_usability_records_the_fast_channel_resampling_and_era_shift():
 
 def test_reading_a_product_materialises_nothing():
     """A bare ``ods[path]`` creates the path; every read here must not."""
-    ods = _pipeline_ods(39915)
+    ods = pipeline_ods(39915)
     del ods["spectrometer_uv.channel.2"]
     before = set(ods.flat())
 
