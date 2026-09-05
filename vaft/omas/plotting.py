@@ -45,13 +45,17 @@ def render(
     show: bool = False,
     label: str | Sequence[str] = "shot",
     **options: Any,
-) -> tuple[Any, Any]:
+) -> Any:
     """Build the view model for ``name`` from ``source`` and render it.
 
     This is the shared body behind every ``plot_*`` adapter below, and the entry
     point for rendering a canonical plot chosen at runtime.  Input handling is
     this namespace's (:func:`normalize_entries`); everything after that is the
     backend-neutral :func:`vaft.plot.backend.render.render_entries`.
+
+    ``backend="plotly"`` among the options draws with Plotly and returns a
+    :class:`plotly.graph_objects.Figure` (no ``ax=``); the default is
+    Matplotlib's ``(Figure, Axes)``.  See :mod:`vaft.plot.backends`.
     """
     return render_entries(
         name, normalize_entries(source, label=label), ax=ax, show=show,

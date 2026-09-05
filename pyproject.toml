@@ -37,6 +37,7 @@ dependencies = [
   "ipython",
   "ipywidgets",
   "matplotlib>=3.7.3,<4",
+  "plotly>=5.24,<7",
   "mysql-connector-python>=8.4.0",
   "numba",
   "numpy>=2.0.0,<3",

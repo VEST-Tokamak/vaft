@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from vaft.plot.models import Panels
+from vaft.plot.backends import renderer_for, resolve_render_backend
 from vaft.plot.registry import get_spec
 
 from .recipes import (
@@ -29,30 +29,38 @@ def render_entries(
     *,
     ax: Any = None,
     show: bool = False,
+    backend: str | None = None,
     namespace: str = "vaft.omas",
     subject: str = "ods",
     **options: Any,
-) -> tuple[Any, Any]:
+) -> Any:
     """Build the view model for ``name`` from ``entries`` and render it.
 
     ``namespace``/``subject`` only shape the refusal message, so each adapter
-    points at its own ``available_plots``.
+    points at its own ``available_plots``.  ``backend`` picks the drawing
+    library (:data:`vaft.plot.backends.RENDER_BACKENDS`): Matplotlib by
+    default, returning ``(Figure, Axes)``; ``"plotly"`` returns a
+    :class:`plotly.graph_objects.Figure` and takes no ``ax=``.  The model is
+    built the same way whichever draws it.
     """
-    from vaft.plot.renderers.panels import render_panels
-
+    backend = resolve_render_backend(backend)
     spec = get_spec(name)
     refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
     model = build_model(name, entries, **options)
-    # A layout other than overlay arranges the same traces into a Panels model.
-    # The canonical renderer is typed to the single-axes model, so the panels
-    # renderer draws it instead; the return shape then follows the layout, as
-    # issue #260 requires, and no renderer needs to know about layouts.
-    renderer = spec.renderer
-    if isinstance(model, Panels) and not issubclass(spec.model, Panels):
-        renderer = render_panels
+    # A layout other than overlay arranges the same traces into a Panels model;
+    # renderer_for hands such a model to the panels renderer, so the return
+    # shape follows the layout (issue #260) and no renderer knows about layouts.
+    renderer = renderer_for(spec, model, backend)
     style = {
         key: value for key, value in options.items() if key not in EXTRACTION_OPTIONS
     }
+    if backend == "plotly":
+        if ax is not None:
+            raise TypeError(
+                "ax= is a Matplotlib axes; backend='plotly' draws a new plotly Figure "
+                "and returns it"
+            )
+        return renderer(model, show=show, **style)
     return renderer(model, ax=ax, show=show, **style)
 
 

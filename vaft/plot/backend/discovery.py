@@ -228,6 +228,14 @@ def _declare(record: PlotCapability) -> PlotCapability:
             updates["analysis_methods"] = methods
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
+        # A composite is drawable by a backend only when every member is.
+        from vaft.plot.backends import render_backends_for
+
+        members = [get_spec(member) for member in recipe.members]
+        updates["backends"] = tuple(
+            name for name in record.backends
+            if all(name in render_backends_for(spec) for spec in members)
+        )
     elif record.name in OVERVIEW_CONTENTS:
         updates["overview_members"] = OVERVIEW_CONTENTS[record.name]
     if record.name in SYNTHETIC_CONSTRAINTS:
