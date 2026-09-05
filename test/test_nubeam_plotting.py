@@ -316,3 +316,41 @@ def test_the_result_bundle_and_the_native_container_are_interchangeable(outputs)
     for left, right in zip(from_bundle.series, from_native.series):
         np.testing.assert_array_equal(left.x, right.x)
         np.testing.assert_array_equal(left.y, right.y)
+
+
+# --------------------------------------------------------------------------
+# Titles
+# --------------------------------------------------------------------------
+
+
+def test_a_profile_title_does_not_repeat_the_y_label(outputs):
+    """The y-label already says 'Electron heating'; the title carries only
+    provenance, so a grid of these does not read as eight copies of one
+    sentence."""
+    model = nbp.build_nubeam_profile(outputs, "pbe")
+    assert "Electron heating" in model.y_label
+    assert "Electron heating" not in model.title
+    assert "TESTRUN" in model.title
+
+
+def test_a_title_can_be_suppressed_for_a_panel_grid(outputs):
+    assert nbp.build_nubeam_profile(outputs, "pbe", title="").title == ""
+    assert nbp.build_nubeam_deposition_topview(outputs, title="").title == ""
+    assert nbp.build_nubeam_lost_fast_ions(outputs, title="").title == ""
+
+
+def test_a_title_can_be_replaced(outputs):
+    model = nbp.build_nubeam_profile(outputs, "pbe", title="Shot 12345")
+    assert model.title == "Shot 12345"
+
+
+def test_geometry_titles_say_what_the_view_is(outputs):
+    """Unlike a profile, 'Z [m]' says nothing about the content."""
+    assert "top view" in nbp.build_nubeam_deposition_topview(outputs).title
+    assert "poloidal" in nbp.build_nubeam_deposition_poloidal(outputs).title
+
+
+def test_a_run_without_an_id_gets_no_dangling_separator(outputs):
+    outputs.runid = ""
+    assert not nbp.build_nubeam_profile(outputs, "pbe").title.endswith("--")
+    assert "--" not in nbp.build_nubeam_deposition_topview(outputs).title

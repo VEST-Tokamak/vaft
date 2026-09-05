@@ -86,6 +86,18 @@ def _native(outputs: Any) -> "NUBEAMOutputs":
     return inner if inner is not None else outputs
 
 
+def _title(default: str, override: Optional[str], runid: str) -> str:
+    """Resolve a plot title.
+
+    ``None`` takes the default, and an explicit string -- including ``""`` --
+    is used as given. Panels of these plots sit side by side often enough that
+    suppressing a repeated title has to be possible.
+    """
+    if override is not None:
+        return override
+    return f"{default} -- {runid}" if runid else default
+
+
 def _profile_values(native: "NUBEAMOutputs", quantity: str) -> np.ndarray:
     if quantity not in native.profiles:
         available = ", ".join(sorted(native.profiles)) or "none"
@@ -104,7 +116,11 @@ def _profile_values(native: "NUBEAMOutputs", quantity: str) -> np.ndarray:
 
 
 def build_nubeam_profile(
-    outputs: Any, quantity: str, *, rho: Optional[Sequence[float]] = None
+    outputs: Any,
+    quantity: str,
+    *,
+    rho: Optional[Sequence[float]] = None,
+    title: Optional[str] = None,
 ) -> Profile1D:
     """A radial NUBEAM profile in NUBEAM's own units.
 
@@ -150,7 +166,9 @@ def build_nubeam_profile(
         coordinate_label=coordinate_label,
         y_label=heading,
         y_unit=unit,
-        title=f"NUBEAM {heading}" + (f" -- {native.runid}" if native.runid else ""),
+        # The y-label already names the quantity, so the title carries only
+        # provenance. Pass title="" to drop it in a panel grid.
+        title=_title("NUBEAM", title, native.runid),
     )
 
 
@@ -159,13 +177,17 @@ def nubeam_profile(
     quantity: str,
     *,
     rho: Optional[Sequence[float]] = None,
+    title: Optional[str] = None,
     ax=None,
     show: bool = False,
     **style: Any,
 ):
     """Render a radial NUBEAM profile."""
     return render_profile_1d(
-        build_nubeam_profile(outputs, quantity, rho=rho), ax=ax, show=show, **style
+        build_nubeam_profile(outputs, quantity, rho=rho, title=title),
+        ax=ax,
+        show=show,
+        **style,
     )
 
 
@@ -178,7 +200,7 @@ def _birth_columns(native: "NUBEAMOutputs") -> dict[str, np.ndarray]:
     return {k: np.asarray(v, dtype=float) for k, v in native.birth.columns.items()}
 
 
-def build_nubeam_deposition_poloidal(outputs: Any) -> GeometryLayers:
+def build_nubeam_deposition_poloidal(outputs: Any, *, title: Optional[str] = None) -> GeometryLayers:
     """Beam deposition markers in the poloidal plane.
 
     Converted from the birth file's centimetres to metres.
@@ -194,12 +216,11 @@ def build_nubeam_deposition_poloidal(outputs: Any) -> GeometryLayers:
     )
     return GeometryLayers(
         layers=(layer,),
-        title="NUBEAM beam deposition (poloidal)"
-        + (f" -- {native.runid}" if native.runid else ""),
+        title=_title("Beam deposition (poloidal)", title, native.runid),
     )
 
 
-def build_nubeam_deposition_topview(outputs: Any) -> GeometryLayers:
+def build_nubeam_deposition_topview(outputs: Any, *, title: Optional[str] = None) -> GeometryLayers:
     """Beam deposition markers seen from above.
 
     The historical VEST workflow looks at deposition this way, and the geometry
@@ -240,26 +261,29 @@ def build_nubeam_deposition_topview(outputs: Any) -> GeometryLayers:
         layers=tuple(layers),
         x_label="x [m]",
         y_label="y [m]",
-        title="NUBEAM beam deposition (top view)"
-        + (f" -- {native.runid}" if native.runid else ""),
+        title=_title("Beam deposition (top view)", title, native.runid),
     )
 
 
-def nubeam_deposition_poloidal(outputs: Any, *, ax=None, show: bool = False, **style):
+def nubeam_deposition_poloidal(
+    outputs: Any, *, title: Optional[str] = None, ax=None, show: bool = False, **style
+):
     """Render beam deposition markers in the poloidal plane."""
     return render_geometry_layers(
-        build_nubeam_deposition_poloidal(outputs), ax=ax, show=show, **style
+        build_nubeam_deposition_poloidal(outputs, title=title), ax=ax, show=show, **style
     )
 
 
-def nubeam_deposition_topview(outputs: Any, *, ax=None, show: bool = False, **style):
+def nubeam_deposition_topview(
+    outputs: Any, *, title: Optional[str] = None, ax=None, show: bool = False, **style
+):
     """Render beam deposition markers from above."""
     return render_geometry_layers(
-        build_nubeam_deposition_topview(outputs), ax=ax, show=show, **style
+        build_nubeam_deposition_topview(outputs, title=title), ax=ax, show=show, **style
     )
 
 
-def build_nubeam_lost_fast_ions(outputs: Any) -> GeometryLayers:
+def build_nubeam_lost_fast_ions(outputs: Any, *, title: Optional[str] = None) -> GeometryLayers:
     """Where NUBEAM stopped following fast ions, in the poloidal plane.
 
     Split by loss channel rather than named for one. NUBEAM's step log calls
@@ -298,19 +322,22 @@ def build_nubeam_lost_fast_ions(outputs: Any) -> GeometryLayers:
         )
     return GeometryLayers(
         layers=tuple(layers),
-        title="NUBEAM lost fast ions"
-        + (f" -- {native.runid}" if native.runid else ""),
+        title=_title("Lost fast ions", title, native.runid),
     )
 
 
-def nubeam_lost_fast_ions(outputs: Any, *, ax=None, show: bool = False, **style):
+def nubeam_lost_fast_ions(
+    outputs: Any, *, title: Optional[str] = None, ax=None, show: bool = False, **style
+):
     """Render lost fast ions in the poloidal plane, split by loss channel."""
     return render_geometry_layers(
-        build_nubeam_lost_fast_ions(outputs), ax=ax, show=show, **style
+        build_nubeam_lost_fast_ions(outputs, title=title), ax=ax, show=show, **style
     )
 
 
-def build_nubeam_power_accounting(outputs: Any) -> Panels:
+def build_nubeam_power_accounting(
+    outputs: Any, *, title: Optional[str] = None
+) -> Panels:
     """NUBEAM's own end-of-step power budget, as a text panel per species.
 
     A text panel rather than a chart on purpose: the architecture has no
@@ -348,13 +375,14 @@ def build_nubeam_power_accounting(outputs: Any) -> Panels:
         models=tuple(panels),
         ncols=len(panels),
         share_x=False,
-        suptitle="NUBEAM power balance"
-        + (f" -- {native.runid}" if native.runid else ""),
+        suptitle=_title("NUBEAM power balance", title, native.runid),
     )
 
 
-def nubeam_power_accounting(outputs: Any, *, ax=None, show: bool = False, **style):
+def nubeam_power_accounting(
+    outputs: Any, *, title: Optional[str] = None, ax=None, show: bool = False, **style
+):
     """Render NUBEAM's power balance."""
     return render_panels(
-        build_nubeam_power_accounting(outputs), ax=ax, show=show, **style
+        build_nubeam_power_accounting(outputs, title=title), ax=ax, show=show, **style
     )
