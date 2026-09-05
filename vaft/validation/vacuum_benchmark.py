@@ -61,12 +61,20 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "BenchmarkError",
     "DEFAULT_HISTORY_TIME_CONSTANTS",
+    "ARRAY_CONTRADICTION_FLOOR",
+    "ARRAY_CONTRADICTION_FRACTION",
+    "ARRAY_CONTRADICTION_MIN_SCORED",
+    "ARRAY_CONTRADICTION_SIGMA",
     "BENCHMARK_CASE_SCHEMA",
+    "MIN_ARRAY_MEMBERS",
     "MIN_COIL_DRIVE_FRACTION",
+    "MIN_WITNESSES",
     "PLASMA_FREE_EVIDENCE_SCHEMA",
     "coil_drive_check",
     "PlasmaFreeInterval",
     "aggregate_benchmark",
+    "array_contradiction_fractions",
+    "array_contradictions",
     "benchmark_wall_currents",
     "plasma_free_interval",
     "run_benchmark_case",
@@ -100,13 +108,42 @@ ONSET_SIGMA = 5.0
 #: Fraction of the record used as the reference noise band for that detector.
 ONSET_REFERENCE_FRACTION = 0.2
 
+#: A B-probe whose departure from the interpolation of its two nearest array
+#: neighbours exceeds this robust-z -- against the spread of departures of
+#: the probes independent of it at that instant -- contradicts its array; see
+#: :func:`array_contradictions`.  Conditioning for the scored spread, not a
+#: verdict on the channel.  Measured over the benchmark's plasma-free window
+#: on the packaged 39915 (the one shot the benchmark runs on today): in the
+#: first pass C4-04 contradicts its outboard array for 0.75 of the window and
+#: drags its neighbours C2-04, C4-06 and C4-03 to 0.55-0.71 with it; once
+#: leave-one-out has removed C4-04 every other probe sits at or below 0.005.
+#: ``test_the_array_contradiction_margin_holds_on_the_packaged_shot`` keeps
+#: both halves of that gap under test.
+ARRAY_CONTRADICTION_SIGMA = 20.0
+#: Fraction of its scorable samples a probe must contradict its array for.
+ARRAY_CONTRADICTION_FRACTION = 0.05
+#: Floor on the departure scale, as a fraction of the array's amplitude, so a
+#: quiet instant cannot make numerical texture significant.
+ARRAY_CONTRADICTION_FLOOR = 0.01
+#: Independent probes (neither predicting a probe nor predicted from it) that
+#: must set its scale; below this the sigma would degrade to an absolute test.
+MIN_WITNESSES = 3
+#: Fewest probes an array needs: with seven, every member has at least three
+#: witnesses, and leave-one-out has an array left to judge.
+MIN_ARRAY_MEMBERS = 7
+#: Fraction of the window a probe must be scorable on (usable in itself and in
+#: both neighbours) before its contradiction fraction means anything.
+ARRAY_CONTRADICTION_MIN_SCORED = 0.5
+
 #: Schema of ``plasma_free_evidence`` (#409): the boundary comes from the shared
 #: plasma-timing policy and its provenance is recorded; the two retired
 #: detectors are reported under ``legacy`` until this reaches 3.
 PLASMA_FREE_EVIDENCE_SCHEMA = 2
 
-#: Schema of a :func:`run_benchmark_case` record; follows the evidence schema.
-BENCHMARK_CASE_SCHEMA = 2
+#: Schema of a :func:`run_benchmark_case` record.  3: ``channels.flagged`` and
+#: the conditioned ``metrics.summary.scored`` block (its ``count`` excludes
+#: flagged probes); 2 followed the evidence schema.
+BENCHMARK_CASE_SCHEMA = 3
 
 
 class BenchmarkError(ValueError):
@@ -549,6 +586,171 @@ def _static_model(ods: Any) -> dict[str, Any]:
     }
 
 
+def _probe_arrays(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    min_members: int,
+    exclude: Iterable[str] = (),
+):
+    """The B-probe arrays a window can be scored on: ``(members, time, inside, Y, floor)``.
+
+    Probes sharing a radius form an array ordered by height.  ``Y`` holds each
+    member's measured samples inside the window with the samples the
+    diagnostics assessment marked unusable set to ``nan`` -- the same mask
+    every other consumer applies through
+    :func:`~vaft.omas.vacuum_magnetics.evaluation_mask` -- so a masked stretch
+    can neither be judged nor serve as a neighbour's prediction.
+    """
+    lo, hi = float(window[0]), float(window[1])
+    dropped = set(exclude)
+    arrays: dict[float, list[Any]] = {}
+    for channel in channels:
+        if channel.kind != "b_field_pol_probe" or channel.name in dropped:
+            continue
+        arrays.setdefault(round(float(channel.r), 3), []).append(channel)
+    for members in arrays.values():
+        members = sorted(members, key=lambda channel: float(channel.z))
+        if len(members) < int(min_members):
+            continue
+        time = np.asarray(members[0].time, dtype=float)
+        members = [
+            m for m in members
+            if np.asarray(m.time).shape == time.shape and np.allclose(np.asarray(m.time), time)
+        ]
+        inside = (time >= lo) & (time < hi)
+        if len(members) < int(min_members) or inside.sum() < 2:
+            continue
+        Y = np.array([
+            np.where(np.asarray(m.usable, dtype=bool), np.asarray(m.measured, dtype=float), np.nan)[inside]
+            for m in members
+        ])
+        with np.errstate(invalid="ignore"):
+            amplitude = float(np.nanmedian([
+                np.nanpercentile(np.abs(row[np.isfinite(row)]), 99) if np.isfinite(row).any() else np.nan
+                for row in Y
+            ]))
+        floor = ARRAY_CONTRADICTION_FLOOR * amplitude if np.isfinite(amplitude) else 0.0
+        yield members, time, inside, Y, floor
+
+
+def _contradiction_fractions(
+    members, Y: np.ndarray, floor: float, *, sigma: float, min_scored: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-probe fraction of scorable samples over ``sigma``, and the mask of those samples.
+
+    A probe scorable on fewer than ``min_scored`` of the window is ``nan``:
+    its fraction would be a statement about a stretch too short to mean the
+    same thing as its neighbours'.
+    """
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    scores = array_contradiction_scores(
+        [float(m.z) for m in members], Y, floor=floor, min_witnesses=MIN_WITNESSES
+    )
+    finite = np.isfinite(scores)
+    contradicting = finite & (scores > float(sigma))
+    counted = finite.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        fractions = np.where(
+            counted >= float(min_scored) * Y.shape[1], contradicting.sum(axis=1) / counted, np.nan
+        )
+    return fractions, contradicting
+
+
+def array_contradiction_fractions(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    sigma: float = ARRAY_CONTRADICTION_SIGMA,
+    min_members: int = MIN_ARRAY_MEMBERS,
+    exclude: Iterable[str] = (),
+) -> dict[str, float]:
+    """Fraction of its scorable samples each probe contradicts its array for.
+
+    One pass, no removal: the numbers :func:`array_contradictions` decides on
+    in its first round, so a test can show the gap between the probe it flags
+    and the rest.  ``exclude`` drops probes (already flagged ones) from their
+    arrays before scoring.  Probes that cannot be scored are absent.
+    """
+    fractions: dict[str, float] = {}
+    for members, _time, _inside, Y, floor in _probe_arrays(
+        channels, window, min_members=min_members, exclude=exclude
+    ):
+        values, _mask = _contradiction_fractions(
+            members, Y, floor, sigma=sigma, min_scored=ARRAY_CONTRADICTION_MIN_SCORED
+        )
+        for m, value in zip(members, values):
+            if np.isfinite(value):
+                fractions[m.name] = float(value)
+    return fractions
+
+
+def array_contradictions(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    sigma: float = ARRAY_CONTRADICTION_SIGMA,
+    fraction: float = ARRAY_CONTRADICTION_FRACTION,
+    min_members: int = MIN_ARRAY_MEMBERS,
+) -> list[dict[str, Any]]:
+    """Probes that contradict their own array over the plasma-free window.
+
+    B-probes sharing a radius form an array ordered by height; over a window
+    without plasma the field is smooth over a few centimetres, so a probe whose
+    reading departs from the interpolation of its two nearest neighbours --
+    scored by :func:`vaft.validation.magnetics.array_contradiction_scores` --
+    for more than ``fraction`` of its scorable samples is instrumentation, not
+    a wall-model result.  A contradicting probe drags its neighbours'
+    departures up with it, so among the probes over the fraction the one
+    flagged is the one whose removal leaves the array most consistent
+    (leave-one-out); it is removed and the array scored again, in the order
+    flagged.  When the array is too short for leave-one-out to be tried
+    (``min_members`` probes left) no probe is attributed.  Conditioning
+    evidence for :func:`run_benchmark_case`, which keeps a flagged probe out
+    of the scored spread and reports it; it never touches the artifact's
+    validity.
+    """
+    flagged: list[dict[str, Any]] = []
+    for members, time, inside, Y, floor in _probe_arrays(channels, window, min_members=min_members):
+        remaining = list(range(len(members)))
+
+        def scored(indices):
+            return _contradiction_fractions(
+                [members[i] for i in indices], Y[indices], floor,
+                sigma=sigma, min_scored=ARRAY_CONTRADICTION_MIN_SCORED,
+            )
+
+        fractions, contradicting = scored(remaining)
+        # Leave-one-out needs an array of at least min_members left to judge.
+        while len(remaining) > int(min_members):
+            candidates = [k for k, value in enumerate(fractions) if np.isfinite(value) and value > float(fraction)]
+            if not candidates:
+                break
+            without: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+            for k in candidates:
+                without[k] = scored(remaining[:k] + remaining[k + 1:])
+            def left_behind(k: int) -> float:
+                values = without[k][0]
+                return float(np.nanmax(values)) if np.isfinite(values).any() else 0.0
+            worst = min(candidates, key=lambda k: (left_behind(k), -fractions[k]))
+            probe = members[remaining[k := worst]]
+            stretch = time[inside][contradicting[worst]]
+            flagged.append(
+                {
+                    "channel": probe.name,
+                    "kind": probe.kind,
+                    "reason": "array_contradiction",
+                    "fraction": float(fractions[worst]),
+                    "from": float(stretch[0]),
+                    "to": float(stretch[-1]),
+                }
+            )
+            remaining.pop(worst)
+            fractions, contradicting = without[worst]
+    return flagged
+
+
 def run_benchmark_case(
     ods: Any,
     *,
@@ -621,8 +823,12 @@ def run_benchmark_case(
         window=validation_window,
         validity_window=validation_window,
     )
+    flagged = array_contradictions(channels, validation_window)
     metrics = vacuum_residual_metrics(
-        channels, window=validation_window, min_samples=min_samples
+        channels,
+        window=validation_window,
+        min_samples=min_samples,
+        scored_exclude=[entry["channel"] for entry in flagged],
     )
 
     excluded = [
@@ -660,6 +866,10 @@ def run_benchmark_case(
                 row["name"] for row in metrics["channels"] if row["status"] == "evaluated"
             ],
             "excluded": excluded,
+            # Evaluated and reported, but kept out of the scored spread: the
+            # diagnostics assessment says the probe contradicts its own array
+            # (a sensor finding, not a wall-model one).
+            "flagged": flagged,
         },
         "metrics": metrics,
     }
@@ -714,6 +924,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """
     rows: list[dict[str, Any]] = []
     undriven: list[str] = []
+    flagged_channels: dict[str, list[str]] = {}
     listed = list(cases)
     for position, case in enumerate(listed):
         label = str(case.get("shot") if case.get("shot") is not None else position)
@@ -724,6 +935,14 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         driven = bool(case.get("coil_drive", {}).get("sufficiently_driven", True))
         if not driven:
             undriven.append(label)
+        # A probe the case flagged as contradicting its own array is a sensor
+        # finding: it is listed for inspection and named, and kept out of
+        # the cross-case spreads exactly as it was kept out of the case's own.
+        flagged_names = {
+            entry["channel"] for entry in case.get("channels", {}).get("flagged", []) or []
+        }
+        if flagged_names:
+            flagged_channels[label] = sorted(flagged_names)
         for row in case.get("metrics", {}).get("channels", []):
             if row["status"] != "evaluated":
                 continue
@@ -736,6 +955,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
                     "excitation": excitation,
                     "machine_era": str(case.get("machine_era") or "unknown"),
                     "driven": driven,
+                    "flagged": row["name"] in flagged_names,
                     "improvement": row["improvement"],
                     "normalized_residual": row["normalized_residual"],
                     "correlation": row["correlation"],
@@ -751,9 +971,11 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             "reason": "no case produced an evaluated channel",
         }
 
-    scored = [row for row in rows if row["driven"]]
+    scored = [row for row in rows if row["driven"] and not row["flagged"]]
     return {
-        "schema_version": 1,
+        # 2: flagged_channels, and rows carry `flagged`; flagged rows are
+        # listed in the cross-tabs but kept out of the summary spreads.
+        "schema_version": 2,
         "case_count": len(listed),
         "channel_rows": len(rows),
         "by_case": _group(rows, "case"),
@@ -762,6 +984,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         "by_excitation": _group(rows, "excitation"),
         "by_machine_era": _group(rows, "machine_era"),
         "undriven_cases": undriven,
+        "flagged_channels": flagged_channels,
         "summary": {
             "median_improvement": _median([row["improvement"] for row in scored]),
             "improved_fraction": float(

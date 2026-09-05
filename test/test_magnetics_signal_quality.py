@@ -764,3 +764,27 @@ def test_every_consumer_agrees_with_the_interpretation_layer(packaged):
             y = np.asarray(ods[f"{base}.data"], dtype=float)
             drawn = Series(x=np.arange(y.size, dtype=float), y=y, validity=code, valid_mask=mask)
             assert drawn.is_invalid_channel == expected, base
+
+def test_array_contradiction_scores_judge_interior_probes_against_their_neighbours():
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    heights = [0.04 * k for k in range(9)]
+    base = np.linspace(1.0, 2.0, 50)
+    waveforms = np.array([base * (1 + 0.1 * k) for k in range(9)])  # linear in height: no departure
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert np.isfinite(scores).all()  # nine probes: every member has three witnesses
+    assert np.nanmax(scores) < 1.0
+    waveforms[4, 20:30] += 1.0  # a departure the neighbours do not share
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert (scores[4, 20:30] > 20.0).all()
+    # its neighbours' departures rise with it (they are predicted from it), so
+    # which probe is wrong is the caller's leave-one-out question; the probe
+    # itself still scores highest, and the witnesses far from it stay quiet
+    assert np.nanargmax(np.nanmean(scores, axis=1)) == 4
+    assert np.nanmax(scores[[0, 1, 7, 8]]) < 1.0
+    # too few witnesses: nothing is judged against the floor alone
+    assert np.isnan(array_contradiction_scores(heights[:4], waveforms[:4], floor=1e-3)).all()
+    # a non-finite sample in a probe or a neighbour is unscorable there, not a contradiction
+    waveforms[3, 10] = np.nan
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert np.isnan(scores[2:5, 10]).all()
