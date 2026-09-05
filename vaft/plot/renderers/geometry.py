@@ -74,6 +74,21 @@ def draw_geometry_layer(
     axes.plot(r, z, **options)
 
 
+def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
+    """One colour per entry when a view draws several, else no colouring.
+
+    Cycled from the active style so a geometry overlay matches the line and
+    profile overlays beside it: one colour per machine, whatever its parts.
+    """
+    entries = list(dict.fromkeys(layer.entry for layer in model.layers if layer.entry))
+    if len(entries) < 2:
+        return {}
+    colors = plt.rcParams["axes.prop_cycle"].by_key().get("color", [])
+    if not colors:
+        return {}
+    return {entry: colors[index % len(colors)] for index, entry in enumerate(entries)}
+
+
 def render_geometry_layers(
     model: GeometryLayers,
     *,
@@ -96,9 +111,15 @@ def render_geometry_layers(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
+    palette = _entry_colors(model)
     labelled = False
     for layer in model.layers:
-        draw_geometry_layer(axes, layer, **style)
+        defaults = dict(style)
+        if layer.entry in palette:
+            # A default, not an override: a layer that names its own colour --
+            # any single-input view -- still keeps it.
+            defaults.setdefault("color", palette[layer.entry])
+        draw_geometry_layer(axes, layer, **defaults)
         labelled = labelled or bool(layer.label and layer.kind != "text")
 
     axes.set_xlabel(model.x_label)

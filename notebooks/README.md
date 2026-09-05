@@ -74,7 +74,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 - `confinement_time_scaling.ipynb`: Existing confinement time scaling analysis notebook.
 - `shot_characteristics_classification.ipynb`: Planned representative signal extraction, shot classification, and summary spreadsheet generation.
 - `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
-- `multiple_tokamak_comparison.ipynb`: Planned cross-device comparison for VEST and other tokamaks.
+- `multiple_tokamak_comparison.ipynb`: Cross-device comparison against public upstream data — VEST, DIII-D, MAST-U, JET, TCV and SPARC equilibria fetched from their own repositories as IMAS netCDF, ODS JSON and GEQDSK, loaded through one `vaft.omas.load` path, then compared as physical and normalized geometry, global descriptors, COCOS conventions and profiles.
 - `publication_figures.ipynb`: Existing or planned notebook for publication figure preparation.
 
 ## Recommended Reading Order
@@ -118,7 +118,6 @@ For a shorter review focused only on the planned Snakemake pipeline shells, read
 9. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
 10. `shot_characteristics_classification.ipynb`
 11. `fast_camera_video_analysis.ipynb`
-12. `multiple_tokamak_comparison.ipynb`
 
 ## Current Development Status
 
