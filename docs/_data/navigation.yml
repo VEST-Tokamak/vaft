@@ -38,6 +38,12 @@ sections:
       - id: process-reference
         title: Process reference
         url: /reference/process/
+      - id: wall-modes
+        title: Wall eigenmodes
+        url: /reference/wall-modes/
+      - id: wall-reduction
+        title: Reduced-wall order study
+        url: /reference/wall-reduction/
       - id: imas-concepts
         title: Fusion data structure and IMAS concepts
         url: /reference/imas-concepts/

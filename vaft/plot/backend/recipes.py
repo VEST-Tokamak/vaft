@@ -1821,6 +1821,259 @@ def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayer
     return GeometryLayers(layers=tuple(layers), title=options.get("title", "Passive Structure"))
 
 
+def _diverging_rgba(value: float) -> tuple[float, float, float, float]:
+    """Blue (-1) through white (0) to red (+1); no Matplotlib in the backend."""
+    v = max(-1.0, min(1.0, float(value)))
+    if v >= 0.0:
+        return (1.0, 1.0 - 0.85 * v, 1.0 - 0.85 * v, 1.0)
+    return (1.0 + 0.85 * v, 1.0 + 0.85 * v, 1.0, 1.0)
+
+
+def _wall_mode_basis(ods: Any, options: Mapping[str, Any]):
+    basis = options.get("basis")
+    if basis is None:
+        from vaft.omas.process_wrapper import compute_wall_mode_basis_ods
+
+        basis = compute_wall_mode_basis_ods(
+            ods, remap_em_coupling=bool(options.get("remap_em_coupling", False))
+        )
+    return basis
+
+
+def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
+    """One segment-local wall eigenmode drawn on the passive structure.
+
+    ``segment`` (default: the first) and ``mode`` (default 0, the slowest of
+    that segment) pick the mode; ``basis`` accepts a precomputed
+    ``WallModeBasis`` so a survey of many modes builds it once.  Loops of the
+    chosen segment are coloured by their signed current relative to the
+    segment's largest, every other loop is grey, and the title carries the
+    mode's decay time.
+    """
+    basis = _wall_mode_basis(ods, options)
+    segment_id = options.get("segment") or basis.segments[0].id
+    segment = basis.segment(str(segment_id))
+    mode = int(options.get("mode", 0))
+    if not 0 <= mode < segment.size:
+        raise ValueError(f"segment {segment.id!r} has {segment.size} modes; mode {mode} does not exist")
+    amplitude = segment.V[:, mode]
+    amplitude = amplitude / np.max(np.abs(amplitude))
+    members = {int(i): float(a) for i, a in zip(segment.index, amplitude)}
+
+    layers: list[GeometryLayer] = []
+    labelled_other = False
+    labelled_segment = False
+    for index in range(_count(ods, "pf_passive.loop")):
+        for r, z in _element_outlines(ods, f"pf_passive.loop.{index}"):
+            if index in members:
+                layers.append(GeometryLayer(
+                    r=r, z=z, kind="polygon",
+                    label="" if labelled_segment else f"{segment.id} mode {mode}",
+                    style={"color": _diverging_rgba(members[index]), "lw": 1.2},
+                ))
+                labelled_segment = True
+            else:
+                layers.append(GeometryLayer(
+                    r=r, z=z, kind="polygon",
+                    label="" if labelled_other else "other segments",
+                    style={"color": "0.75", "lw": 0.4},
+                ))
+                labelled_other = True
+    if not layers:
+        raise ValueError("pf_passive stores no loop element geometry")
+    title = options.get(
+        "title", f"{segment.id} mode {mode}: tau = {segment.tau[mode] * 1e3:.2f} ms"
+    )
+    return GeometryLayers(layers=tuple(layers), title=title)
+
+
+def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
+    """Decay times of every segment's modes, slowest first, per segment.
+
+    The whole wall's global spectrum (the full-rank reduced system's) is
+    drawn alongside so the reader sees how the local modes relate to it.
+    """
+    from vaft.omas.process_wrapper import compute_impedance_matrices_ods
+    from vaft.process.wall_modes import global_time_constants
+
+    basis = _wall_mode_basis(ods, options)
+    max_modes = int(options.get("max_modes", 0)) or None
+    series: list[Series] = []
+    for segment in basis.segments:
+        tau = segment.tau if max_modes is None else segment.tau[:max_modes]
+        series.append(Series(
+            x=np.arange(1, tau.size + 1, dtype=float), y=tau, label=segment.id,
+            style={"marker": "o", "markersize": 3, "lw": 0.8},
+        ))
+    if options.get("whole_wall", True):
+        _r, _l, inductance = compute_impedance_matrices_ods(ods, [])
+        global_tau = global_time_constants(basis, inductance)
+        if max_modes is not None:
+            global_tau = global_tau[:max_modes]
+        series.append(Series(
+            x=np.arange(1, global_tau.size + 1, dtype=float), y=global_tau,
+            label="whole wall", style={"color": "k", "lw": 1.5, "ls": "--"},
+        ))
+    panel = LineSeries(
+        series=tuple(series), x_label="mode number within segment", y_label="decay time",
+        y_unit="s", log_y=True, title=options.get("title", "Passive-wall eigenmode decay times"),
+    )
+    return Panels(models=(panel,), ncols=1, suptitle="")
+
+
+def _wall_reduction_rows(ods: Any, options: Mapping[str, Any]) -> list:
+    """The convergence rows to draw: the caller's, or a fresh study on this ODS."""
+    rows = options.get("rows")
+    if rows is not None:
+        return list(rows)
+    from vaft.validation.wall_reduction import (
+        DEFAULT_ORDERS,
+        DEFAULT_RULES,
+        observation_set,
+        order_convergence,
+        wall_system,
+    )
+
+    system = wall_system(ods, remap_em_coupling=bool(options.get("remap_em_coupling", False)))
+    observation = observation_set(ods, n_coils=system["n_coils"])
+    return order_convergence(
+        system,
+        observation=observation,
+        rules=tuple(options.get("rules", DEFAULT_RULES)),
+        orders=tuple(options.get("orders", DEFAULT_ORDERS)),
+        drives=(str(options.get("drive", "shot")),),
+    )
+
+
+_WALL_REDUCTION_METRIC_LABELS = {
+    "probe": "probe field error",
+    "flux_loop": "flux-loop error",
+    "boundary_psi": "boundary psi error",
+    "boundary_b": "boundary B error",
+    "grid_psi": "grid psi error",
+    "current_l2": "current error (L2)",
+    "current_dissipation": "current error (dissipation)",
+}
+
+
+def _build_wall_reduction_convergence(ods: Any, **options: Any) -> Panels:
+    """Reduced-wall response error against retained order, one panel per metric.
+
+    Every series is one selection rule (vaft #494); the errors are relative to
+    the full wall's own contribution, so a panel reads "how much of the wall
+    term the reduced model misses".  Rows come from
+    :func:`vaft.validation.wall_reduction.order_convergence`, passed in as
+    ``rows`` or computed here for ``drive`` (default the shot's PF programme).
+    """
+    rows = _wall_reduction_rows(ods, options)
+    drive = str(options.get("drive", "shot"))
+    metrics = tuple(options.get("metrics", ("probe", "flux_loop", "grid_psi", "current_dissipation")))
+    rules: list[str] = []
+    for row in rows:
+        if row.get("drive") == drive and row.get("rule") != "full" and row["rule"] not in rules:
+            rules.append(str(row["rule"]))
+    if not rules:
+        raise ValueError(f"no reduced-wall rows for drive {drive!r}")
+    panels: list[LineSeries] = []
+    for metric in metrics:
+        series: list[Series] = []
+        for rule in rules:
+            entries = sorted(
+                (row for row in rows if row.get("drive") == drive and row.get("rule") == rule and metric in row),
+                key=lambda row: int(row["M_total"]),
+            )
+            if not entries:
+                continue
+            series.append(Series(
+                x=np.array([float(row["M_total"]) for row in entries]),
+                y=np.array([float(row[metric]) for row in entries]),
+                label=rule, style={"marker": "o", "markersize": 3, "lw": 1.0},
+            ))
+        panels.append(LineSeries(
+            series=tuple(series), x_label="retained modes", y_label=_WALL_REDUCTION_METRIC_LABELS.get(metric, metric),
+            y_unit="1", log_y=True, title=_WALL_REDUCTION_METRIC_LABELS.get(metric, metric),
+        ))
+    return Panels(
+        models=tuple(panels), ncols=int(options.get("ncols", 2)), share_x=True,
+        suptitle=options.get("title", f"Reduced-wall convergence ({drive} drive)"),
+    )
+
+
+def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
+    """The wall's poloidal flux on the equilibrium region: full, reduced, or their difference.
+
+    ``which`` is ``"full"``, ``"reduced"`` or ``"difference"`` (default); the
+    reduced wall is ``selection`` (a ``keep`` tuple or an R-orthonormal
+    matrix) or else the ``rule``/``M`` pair (default ``output_weight`` at 76
+    modes); ``time`` picks the instant, default the sample of largest wall
+    dissipation under the shot's PF programme.  The title carries the relative
+    error over the region so the map and the number travel together.
+    """
+    from vaft.omas.process_wrapper import compute_point_response_matrices_ods
+    from vaft.process import wall_modes as wm
+    from vaft.process.electromagnetics import solve_eddy_currents
+    from vaft.validation.wall_reduction import _inside, wall_system
+
+    which = str(options.get("which", "difference"))
+    if which not in ("full", "reduced", "difference"):
+        raise ValueError("which must be 'full', 'reduced' or 'difference'")
+    system = wall_system(ods, remap_em_coupling=bool(options.get("remap_em_coupling", False)))
+    basis, R_mat, M_mat, L_mat = system["basis"], system["R_mat"], system["M_mat"], system["L_mat"]
+    time, drive, n_coils = system["time"], system["drive"], system["n_coils"]
+    selection = options.get("selection")
+    if selection is None:
+        rule, M = str(options.get("rule", "output_weight")), int(options.get("M", 76))
+        if rule == "moments":
+            V = wm.moment_patterns(R_mat, M_mat, L_mat, max(1, int(np.ceil(M / n_coils))))[:, :M]
+            label = f"{V.shape[1]} moment patterns"
+        else:
+            scores = wm.mode_scores(basis, R_mat, M_mat, L_mat, drive=drive, time=time)
+            keep = wm.select_by_score(basis, scores[rule], M)
+            V, label = basis.V(keep), f"{sum(k.size for k in keep)} modes ({rule})"
+    elif isinstance(selection, np.ndarray):
+        V, label = selection, f"{selection.shape[1]} patterns"
+    else:
+        V, label = basis.V(selection), f"{sum(np.asarray(k).size for k in selection)} modes"
+    I_full = solve_eddy_currents(R_mat, L_mat, M_mat, drive, time)
+    _, I_red = wm.solve_reduced_eddy(wm.combined_operators(V, R_mat, M_mat, L_mat), drive, time, V=V)
+    r = np.diag(R_mat)
+    if options.get("time") is None:
+        index = int(np.argmax(np.sum(r[None, :] * I_full**2, axis=1)))
+    else:
+        index = int(np.argmin(np.abs(time - float(options["time"]))))
+
+    outline_r = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    outline_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
+    nr, nz = tuple(options.get("grid_shape", (33, 49)))
+    r_axis = np.linspace(float(outline_r.min()), float(outline_r.max()), int(nr))
+    z_axis = np.linspace(float(outline_z.min()), float(outline_z.max()), int(nz))
+    gz, gr = np.meshgrid(z_axis, r_axis, indexing="ij")
+    (psi,) = compute_point_response_matrices_ods(ods, np.column_stack([gr.ravel(), gz.ravel()]), components=("psi",))
+    G = psi[:, n_coils:]
+    inside = _inside(gr.ravel(), gz.ravel(), outline_r, outline_z)
+    full = G @ I_full[index]
+    reduced = G @ I_red[index]
+    error = float(np.linalg.norm((reduced - full)[inside]) / max(np.linalg.norm(full[inside]), 1e-300))
+    values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
+    field = np.where(inside, values, np.nan).reshape(gz.shape)
+    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "k", "lw": 0.8})
+    n_levels = int(options.get("contour_levels", 15))
+    if which == "difference":
+        # Grid points next to a wall loop see that loop's own singular field,
+        # which a few misrepresented loop currents dominate; the region error
+        # in the title is the honest number, so the levels follow the bulk of
+        # the map (its 98th percentile), symmetric about zero.
+        scale = float(np.nanpercentile(np.abs(field), 98)) or 1e-300
+        levels: Any = np.linspace(-scale, scale, n_levels)
+    else:
+        levels = n_levels
+    return Field2D(
+        r=r_axis, z=z_axis, values=field, value_label="wall psi [Wb]",
+        title=options.get("title", f"wall psi, {which}: {label}\nt = {time[index]:.4f} s, region error {error:.1e}"),
+        contour_levels=levels, overlays=(overlay,),
+    )
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view."""
     layers: list[GeometryLayer] = list(_wall_layers(ods))
@@ -2276,6 +2529,22 @@ RECIPES["pf_coil_geometry_poloidal"] = CallableRecipe(
 RECIPES["passive_structure_geometry_poloidal"] = CallableRecipe(
     builder=_build_passive_structure_geometry,
     description="The passive conducting structure drawn as one structure.",
+)
+RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
+    builder=_build_wall_mode_shape,
+    description="One segment-local wall eigenmode coloured onto the passive structure.",
+)
+RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
+    builder=_build_wall_mode_spectrum,
+    description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
+)
+RECIPES["passive_structure_overview_wall_reduction"] = CallableRecipe(
+    builder=_build_wall_reduction_convergence,
+    description="Reduced-wall response error against retained order, per selection rule.",
+)
+RECIPES["passive_structure_field_wall_reduction"] = CallableRecipe(
+    builder=_build_wall_reduction_map,
+    description="The wall's poloidal flux on the equilibrium region: full, reduced or their difference.",
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
@@ -3965,12 +4234,31 @@ EXTRACTION_OPTIONS = frozenset(
         "log_y",
         "marker_frequencies",
         "max_frequency",
+        "max_harmonics",
         "max_length_m",
+        "n_tor",
         "ncols",
         "noverlap",
         "nperseg",
         "overlay",
         "per_family",
+        # wall eigenmode views (vaft #473)
+        "basis",
+        "segment",
+        "mode",
+        "max_modes",
+        "whole_wall",
+        "remap_em_coupling",
+        "rows",
+        "rules",
+        "orders",
+        "drive",
+        "metrics",
+        "which",
+        "selection",
+        "rule",
+        "M",
+        "grid_shape",
         "phi0",
         "pose_path",
         "projection",
@@ -5385,13 +5673,192 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 )
 
 
+def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
+    """Locate the ``(time_slice, toroidal_mode)`` cell whose eigenfunction to draw.
+
+    A profile is one radial curve set, but a shot carries one eigenfunction per
+    time slice and toroidal mode.  The default picks the *least stable* cell --
+    the most negative ``energy_perturbed`` -- because that is the case a reader
+    opens this figure to look at; ``time_slice`` and ``n_tor`` name one
+    explicitly.  Cells with no perturbed energy sort last rather than being
+    dropped, so a run that mapped an eigenfunction but no eigenvalue is still
+    drawable.
+    """
+    count = _count(ods, "mhd_linear.time_slice")
+    if count == 0:
+        raise ValueError("mhd_linear ODS carries no time slices")
+    requested_time = options.get("time_slice")
+    requested_n_tor = options.get("n_tor")
+
+    candidates: list[tuple[float, int, int, str, int]] = []
+    for index in range(count):
+        if requested_time is not None and index != int(requested_time):
+            continue
+        root = f"mhd_linear.time_slice.{index}.toroidal_mode"
+        for position in range(_count(ods, root)):
+            base = f"{root}.{position}"
+            n_tor = _get(ods, f"{base}.n_tor")
+            if n_tor is None:
+                continue
+            if requested_n_tor is not None and int(n_tor) != int(requested_n_tor):
+                continue
+            grid = _array(ods, f"{base}.plasma.grid.dim1")
+            harmonics = _array(ods, f"{base}.plasma.grid.dim2")
+            if grid is None or harmonics is None or grid.size == 0 or harmonics.size == 0:
+                continue
+            energy = _get(ods, f"{base}.energy_perturbed")
+            rank = _scalar(energy) if energy is not None else float("nan")
+            if not np.isfinite(rank):
+                rank = float("inf")
+            candidates.append((rank, index, int(n_tor), base, position))
+    if not candidates:
+        raise ValueError(
+            "mhd_linear ODS carries no eigenfunction: only DCON runs that also ran "
+            "the companion `match` produce solutions.bin, and none was mapped here"
+        )
+
+    rank, time_index, n_tor, base, _position = min(candidates, key=lambda item: item[:3])
+    return {
+        "base": base,
+        "time_slice": time_index,
+        "n_tor": n_tor,
+        "energy_perturbed": None if not np.isfinite(rank) else rank,
+        "psi_n": np.asarray(_array(ods, f"{base}.plasma.grid.dim1"), dtype=float),
+        "m": np.asarray(_array(ods, f"{base}.plasma.grid.dim2"), dtype=float),
+        "m_pol_dominant": _get(ods, f"{base}.m_pol_dominant"),
+    }
+
+
+def _mhd_linear_radial_stride(ods: Any) -> int | None:
+    """The radial stride the mapper recorded, when every cell agrees on one.
+
+    What reaches the IDS is a strided view of `solutions.bin`, so a reader who
+    is not told that will mistake the drawn resolution for DCON's own.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    strides = {int(value) for value in re.findall(r'radial_stride="(\d+)"', str(parameters))}
+    return strides.pop() if len(strides) == 1 else None
+
+
+def _build_mhd_linear_eigenfunction_profile(
+    ods: Any, *, field: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One trace per poloidal harmonic of a mapped eigenfunction quantity.
+
+    Amplitudes are normalized to the peak across the drawn harmonics, and the
+    axis label says so: DCON's eigenvector normalization is arbitrary
+    (`match/ideal.f:318-325`), so an absolute axis would put a number on the
+    figure that means nothing, while the shape and the relative harmonic
+    content -- which the normalization cannot change -- are the physics.
+    """
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.{field}.real")
+    imaginary = _array(ods, f"{base}.plasma.{field}.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(
+            f"mhd_linear ODS carries a grid but no {field} for "
+            f"time slice {cell['time_slice']}, n={cell['n_tor']}"
+        )
+    amplitude = np.hypot(np.asarray(real, dtype=float), np.asarray(imaginary, dtype=float))
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if amplitude.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"{field} has shape {amplitude.shape}, but the declared (psi, m) grid is "
+            f"{(psi_n.size, harmonics.size)}"
+        )
+
+    peaks = np.nanmax(np.where(np.isfinite(amplitude), amplitude, -np.inf), axis=0)
+    if not np.isfinite(peaks).any() or float(np.nanmax(peaks)) <= 0.0:
+        raise ValueError(f"mhd_linear ODS carries no finite {field} amplitude to plot")
+    normalization = float(np.nanmax(peaks))
+
+    order = [index for index in np.argsort(peaks)[::-1] if np.isfinite(peaks[index])]
+    limit = int(options.get("max_harmonics", 12) or len(order))
+    drawn = sorted(order[:limit], key=lambda index: harmonics[index])
+    omitted = len(order) - len(drawn)
+
+    series = tuple(
+        Series(
+            x=psi_n,
+            y=amplitude[:, index] / normalization,
+            label=f"m={int(harmonics[index])}",
+        )
+        for index in drawn
+    )
+
+    dominant = cell["m_pol_dominant"]
+    title = f"{description} — n={cell['n_tor']}"
+    if cell["energy_perturbed"] is not None:
+        title += rf", $\delta W$={cell['energy_perturbed']:.3g}"
+    if dominant is not None:
+        title += f", dominant m={int(_scalar(dominant))}"
+    notes = []
+    if omitted > 0:
+        notes.append(f"{omitted} weaker harmonics omitted")
+    stride = _mhd_linear_radial_stride(ods)
+    if stride is not None and stride > 1:
+        notes.append(f"every {stride}th radial sample")
+    if notes:
+        title += f" ({'; '.join(notes)})"
+
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=title,
+    )
+
+
+def _build_mhd_linear_profile_displacement(ods: Any, **options: Any) -> Profile1D:
+    return _build_mhd_linear_eigenfunction_profile(
+        ods,
+        field="displacement_perpendicular",
+        y_label=r"$|\xi\cdot\nabla\psi|$ / peak",
+        description="Displacement eigenfunction",
+        **options,
+    )
+
+
+def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Profile1D:
+    return _build_mhd_linear_eigenfunction_profile(
+        ods,
+        field="b_field_perturbed.coordinate1",
+        y_label=r"$|b_\psi|$ / peak",
+        description="Normal perturbed field",
+        **options,
+    )
+
+
+RECIPES["mhd_linear_profile_displacement"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_displacement,
+    description="DCON displacement eigenfunction per poloidal harmonic against psi_n.",
+)
+
+RECIPES["mhd_linear_profile_b_field_perturbed"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_b_field_perturbed,
+    description="DCON normal perturbed field per poloidal harmonic against psi_n.",
+)
+
+RECIPES["mhd_linear_overview_eigenfunction"] = PanelRecipe(
+    members=(
+        "mhd_linear_profile_displacement",
+        "mhd_linear_profile_b_field_perturbed",
+    ),
+    ncols=2,
+    share_x=True,
+    suptitle="DCON eigenfunction",
+)
+
+
 # ---------------------------------------------------------------------------
 # Eddy-stage vacuum magnetics (issue #139)
 # ---------------------------------------------------------------------------
 
 def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
     from vaft.omas.vacuum_magnetics import (
-        plasma_onset_time,
+        plasma_free_boundary,
+        plasma_window,
         synthetic_vacuum_magnetics,
         DEFAULT_MIN_WALL_AUTHORITY,
         vacuum_magnetics_metrics,
@@ -5402,7 +5869,8 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         per_family=int(options.get("per_family", 2)),
         channels=options.get("channels"),
     )
-    onset = plasma_onset_time(ods)
+    timing = plasma_window(ods)
+    onset, _boundary_source = plasma_free_boundary(timing)
     ip_time = _array(ods, "magnetics.ip.0.time")
     ip_data = _array(ods, "magnetics.ip.0.data")
     metrics = vacuum_magnetics_metrics(
@@ -5417,6 +5885,7 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         min_wall_authority=float(
             options.get("min_wall_authority", DEFAULT_MIN_WALL_AUTHORITY)
         ),
+        timing=timing,
     )
     return channels, metrics
 

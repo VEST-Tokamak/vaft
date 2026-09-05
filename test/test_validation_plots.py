@@ -395,7 +395,7 @@ def test_a_shot_that_never_formed_a_plasma_is_an_empty_eddy_product(tmp_path):
 
     vacuum_shot = ODS(consistency_check=False)
     vacuum_shot["dataset_description.data_entry.pulse"] = 41234
-    assert "no plasma-current onset" in STAGE_PRECONDITIONS["eddy"](vacuum_shot)
+    assert "no plasma onset" in STAGE_PRECONDITIONS["eddy"](vacuum_shot)
 
     manifest = render_stage_plots("eddy", vacuum_shot, tmp_path / "plot")
     assert manifest["status"] == "empty"

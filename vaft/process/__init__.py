@@ -48,6 +48,7 @@ _SUBMODULES = {
     "signal_processing": ".signal_processing",
     "soft_x_rays": ".soft_x_rays",
     "statistical_analysis": ".statistical_analysis",
+    "wall_modes": ".wall_modes",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -77,6 +78,7 @@ _IMPORT_ORDER = (
     "impa",
     # Added after the lazy loader; nothing it exports collides with a sibling.
     "onset",
+    "wall_modes",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

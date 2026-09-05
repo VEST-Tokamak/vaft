@@ -33,6 +33,8 @@ __all__ = [
     "equilibrium_profile_pprime",
     "equilibrium_profile_pressure",
     "equilibrium_profile_q",
+    "mhd_linear_profile_b_field_perturbed",
+    "mhd_linear_profile_displacement",
     "render_profile_1d",
     "thomson_scattering_profile_electron_density",
     "thomson_scattering_profile_electron_temperature",
@@ -98,6 +100,13 @@ def _profile_renderer(
         required_paths=required_paths,
         optional_paths=optional_paths,
     )
+
+
+_MHD_LINEAR_EIGENFUNCTION_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+)
 
 
 _EQ_COORDS = (
@@ -354,4 +363,49 @@ def impa_profile_field(
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """IMPA radial profile against the 1/R toroidal-field model."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="displacement",
+    subject="mhd_linear",
+    description="DCON displacement eigenfunction against normalized flux, one trace "
+                "per poloidal harmonic; amplitudes are normalized to the peak because "
+                "DCON's eigenvector normalization is arbitrary.",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_EIGENFUNCTION_PATHS + (
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.displacement_perpendicular.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.displacement_perpendicular.imaginary",
+    ),
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.m_pol_dominant",
+    ),
+)
+def mhd_linear_profile_displacement(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """DCON displacement eigenfunction per poloidal harmonic."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="b_field_perturbed",
+    subject="mhd_linear",
+    description="Normal perturbed field per poloidal harmonic against normalized flux, "
+                "derived from the DCON eigenfunction as i(m - nq) xi.grad(psi).",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_EIGENFUNCTION_PATHS + (
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+    ),
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.m_pol_dominant",
+    ),
+)
+def mhd_linear_profile_b_field_perturbed(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Normal perturbed field per poloidal harmonic."""
     return render_profile_1d(model, ax=ax, show=show, **style)

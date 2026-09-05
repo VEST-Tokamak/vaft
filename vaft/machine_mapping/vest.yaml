@@ -1621,7 +1621,7 @@ diagnostics_time_policies:
       dt: 4.0e-5
     # Shared plasma-analysis range (issue #409): the EFIT constraint times and
     # the diamagnetic-flux plasma window both search inside it, and the stretch
-    # before it on the analysis grid is the baseline reference. No component
+    # before it on the analysis grid is the baseline. No component
     # maps onto it, and the stage's --tstart/--tend never retune it.
     plasma_analysis:
       tstart: 0.28
@@ -1652,7 +1652,7 @@ diagnostics_time_policies:
 # concepts and will sit beside this one, not inside it.
 plasma_timing:
   window: plasma_analysis        # a diagnostics_time_policies window
-  reference_lead_s: 0.02         # baseline reference = [tstart - lead, tstart)
+  baseline_lead_s: 0.02          # baseline = [tstart - lead, tstart)
   # H-alpha_6563 envelope rule (keyword arguments of active_window): median-5,
   # threshold max(2 % peak, 5 sigma), persistence 0.5 ms, width >= 1 ms,
   # prominence >= 10 sigma, integral >= 1 % -- 0/51 early-light and 1/51

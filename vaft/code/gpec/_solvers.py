@@ -50,9 +50,36 @@ class Solver(Protocol):
         """Executable names to run after this solver succeeds, in order."""
         ...
 
+    def companion_outputs(self, mode: int) -> tuple[str, ...]:
+        """The subset of ``output_patterns`` a companion produces, not this solver.
+
+        Companions are resolved with :func:`_runtime.optional_executable`, so an
+        installation may legitimately not have one -- which makes these files
+        legitimately absent, and means their absence must neither be reported as
+        a failure nor force an otherwise-complete cell to be solved again.
+        """
+        ...
+
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
         """Whether a completed run actually produced usable physics output."""
         ...
+
+
+def required_outputs(solver: Solver, mode: int) -> tuple[str, ...]:
+    """The files ``solver`` itself must produce for its run directory to be complete.
+
+    Derived from ``output_patterns`` rather than maintained as a second list: a
+    solver that grows a new output should not have to remember to add it in two
+    places, and the two lists drifting apart is exactly how a companion's file
+    ends up being treated as mandatory again.
+    """
+    companions = set(solver.companion_outputs(mode))
+    return tuple(name for name in solver.output_patterns(mode) if name not in companions)
+
+
+def missing_companion_outputs(solver: Solver, run_dir: Path, mode: int) -> tuple[str, ...]:
+    """Companion-produced files this run directory does not have."""
+    return tuple(name for name in solver.companion_outputs(mode) if not (run_dir / name).exists())
 
 
 def _check_nc_variable(
@@ -88,7 +115,13 @@ def _check_nc_variable(
             # named leaf when there is one, else the largest, so the check
             # stays bounded rather than loading an entire grid needlessly.
             if variable is not None:
-                np.asarray(ds[variable].values)
+                values = np.asarray(ds[variable].values)
+                # Defining the output variables and then failing before filling
+                # them leaves the name in place backed by fill values, which the
+                # truncation checks below cannot see: the file is exactly as
+                # long as its header says it should be.
+                if values.size and not bool(np.isfinite(values.astype(float, copy=False)).any()):
+                    return False, f"{filename}'s {variable!r} holds no finite value"
             elif ds.variables:
                 largest = max(ds.variables, key=lambda name: int(np.prod(ds[name].shape)))
                 np.asarray(ds[largest].values)
@@ -141,6 +174,11 @@ class DCONSolver:
     def companion_executables(self) -> tuple[str, ...]:
         return ("match",)
 
+    def companion_outputs(self, mode: int) -> tuple[str, ...]:
+        # `match` reads DCON's euler.bin and writes the reconstructed ideal
+        # solution (match/ideal.f:378-389); DCON writes neither file itself.
+        return ("match.out", "solutions.bin")
+
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
         return _check_nc_variable(run_dir, f"dcon_output_n{mode}.nc", "W_t_eigenvalue")
 
@@ -166,6 +204,12 @@ class RDCONSolver:
     def companion_executables(self) -> tuple[str, ...]:
         return ("rmatch",)
 
+    def companion_outputs(self, mode: int) -> tuple[str, ...]:
+        # globalsol.bin is rmatch's (rmatch/match.f:1372). vmat.bin and
+        # delta_gw.out only look like companion output: RDCON writes both
+        # itself (rdcon/sing.f:73, rdcon/gal.f:1419).
+        return ("globalsol.bin",)
+
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
         return _check_nc_variable(run_dir, f"rdcon_output_n{mode}.nc", "Delta_prime")
 
@@ -180,6 +224,9 @@ class STRIDESolver:
         return (f"stride_output_n{mode}.nc", "stride.out", "delta_prime.out")
 
     def companion_executables(self) -> tuple[str, ...]:
+        return ()
+
+    def companion_outputs(self, mode: int) -> tuple[str, ...]:
         return ()
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
@@ -233,6 +280,9 @@ class IdealGPECSolver:
         )
 
     def companion_executables(self) -> tuple[str, ...]:
+        return ()
+
+    def companion_outputs(self, mode: int) -> tuple[str, ...]:
         return ()
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:

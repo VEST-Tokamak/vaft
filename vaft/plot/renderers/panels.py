@@ -28,6 +28,8 @@ from ..registry import renderer
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "passive_structure_overview_wall_reduction",
+    "passive_structure_overview_wall_time",
     "chease_overview_profile_validity",
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
@@ -49,6 +51,7 @@ __all__ = [
     "magnetics_overview",
     "magnetics_overview_plasma_residual",
     "magnetics_overview_vacuum",
+    "mhd_linear_overview_eigenfunction",
     "render_panels",
     "soft_x_rays_overview",
     "spectrometer_uv_time_impurity",
@@ -274,6 +277,52 @@ def _panel_renderer(
         required_paths=required_paths,
         optional_paths=optional_paths,
     )
+
+
+@_panel_renderer(
+    domain="machine",
+    subject="passive_structure",
+    view="overview",
+    quantity="wall_time",
+    description=(
+        "Decay-time spectrum of the passive wall's segment-wise eigenmodes: "
+        "one series per conductor segment, slowest mode first, with the "
+        "whole wall's global spectrum for reference (vaft #473)."
+    ),
+    ids=("pf_active", "pf_passive", "em_coupling"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_overview_wall_time(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Wall-mode decay times per segment."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="machine",
+    subject="passive_structure",
+    view="overview",
+    quantity="wall_reduction",
+    description=(
+        "Reduced-wall response error against retained order, one panel per "
+        "metric and one series per selection rule: how much of the wall's own "
+        "contribution a truncated basis misses (vaft #494, vfit #10)."
+    ),
+    ids=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_active.coil.{i}.current.data",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_overview_wall_reduction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Reduced-wall convergence per metric and selection rule."""
+    return render_panels(model, ax=ax, show=show, **style)
 
 
 @_panel_renderer(
@@ -625,6 +674,20 @@ def equilibrium_overview_profiles(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Pressure, current density and safety factor in one figure."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="mhd_linear", subject="mhd_linear", view="overview", quantity="eigenfunction",
+    description="The DCON eigenfunction of the least-stable mapped mode: displacement "
+                "and normal perturbed field per poloidal harmonic.",
+    ids=("mhd_linear",),
+    required_paths=("mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",),
+)
+def mhd_linear_overview_eigenfunction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Displacement and normal perturbed field of the least-stable mode."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

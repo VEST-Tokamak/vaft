@@ -48,6 +48,7 @@ PENDING = frozenset({
     "onset",
     "profile",
     "soft_x_rays",
+    "wall_modes",
 })
 
 #: Pure numerics and bookkeeping: no source adds anything.

@@ -494,6 +494,69 @@ def resolve_diagnostics_time_policies(
 
 PLASMA_TIMING_KEY = "plasma_timing"
 
+
+@dataclass(frozen=True)
+class CroppedRecord:
+    """One record cropped to the plasma-analysis span, split into baseline and search.
+
+    ``baseline_mask`` is handed to the detectors as their ``reference_mask``
+    (the process layer speaks of a reference stretch, the policy of the
+    plasma baseline); it is ``None`` when the record carries less than
+    ``min_baseline_s`` before ``tstart`` -- the detector then falls back to its
+    own leading fraction of the cropped record, which lies inside the search
+    stretch, and ``flags`` says ``baseline_inside_search``.
+    """
+
+    t: np.ndarray
+    y: np.ndarray
+    baseline_mask: np.ndarray | None
+    search: np.ndarray
+    flags: tuple[str, ...]
+
+    def detect(self, rule: Mapping[str, Any]):
+        """Run :func:`vaft.process.onset.active_window` with ``rule`` on this record."""
+        from vaft.process.onset import active_window
+
+        return active_window(
+            self.t, self.y, reference_mask=self.baseline_mask, search_mask=self.search, **rule
+        )
+
+
+def crop_to_span(
+    time: Any,
+    values: Any,
+    *,
+    baseline_start: float,
+    tstart: float,
+    tend: float,
+    min_baseline_s: float | None = None,
+) -> CroppedRecord:
+    """Crop a record to ``[baseline_start, tend)`` and split it at ``tstart``.
+
+    The one crop rule every reader of the plasma-timing policy applies -- the
+    ODS-side composer and the raw-side mapper -- so the two cannot drift.
+    Raises :class:`ValueError` when ``time`` and ``values`` differ in length.
+    """
+    if min_baseline_s is None:
+        min_baseline_s = MIN_BASELINE_S
+    t = np.asarray(time, dtype=float).reshape(-1)
+    y = np.asarray(values, dtype=float).reshape(-1)
+    if t.size != y.size:
+        raise ValueError(f"time has {t.size} samples but the signal has {y.size}")
+    keep = (t >= float(baseline_start)) & (t < float(tend))
+    t, y = t[keep], y[keep]
+    baseline = t < float(tstart)
+    covered = float(t[baseline][-1] - t[baseline][0]) if baseline.sum() > 1 else 0.0
+    if covered < float(min_baseline_s):
+        return CroppedRecord(t, y, None, ~baseline, ("baseline_inside_search",))
+    return CroppedRecord(t, y, baseline, ~baseline, ())
+
+#: A baseline stretch shorter than this (a product built from the plasma
+#: range onward) is not trusted on its own: the detectors then use their own
+#: leading fraction of the cropped record, which lies inside the search
+#: stretch, and the consumer flags ``baseline_inside_search``.
+MIN_BASELINE_S = 5.0e-3
+
 #: The rule blocks of ``plasma_timing`` whose keys are keyword arguments of
 #: :func:`vaft.process.onset.active_window`.
 _PLASMA_TIMING_RULE_BLOCKS = ("h_alpha", "ip")
@@ -504,8 +567,8 @@ class PlasmaTimingPolicy:
     """The configured plasma-timing policy (issue #409).
 
     ``window`` is the shared plasma-analysis range every consumer searches
-    inside; ``reference_lead_s`` the stretch before it that serves as the
-    baseline reference.  ``h_alpha``, ``ip`` and each ``lines[label]`` entry
+    inside; ``baseline_lead_s`` the stretch before it whose samples are the
+    baseline.  ``h_alpha``, ``ip`` and each ``lines[label]`` entry
     are keyword arguments of :func:`vaft.process.onset.active_window`, keyed
     by the signal they were tuned on; ``usability`` and ``agreement`` are the
     channel checks and cross-check tolerances ``vaft.omas.plasma_timing``
@@ -513,17 +576,22 @@ class PlasmaTimingPolicy:
     """
 
     window: DiagnosticsTimePolicy
-    reference_lead_s: float
+    baseline_lead_s: float
     h_alpha: Mapping[str, Any]
     lines: Mapping[str, Mapping[str, Any]]
     ip: Mapping[str, Any]
     usability: Mapping[str, float]
     agreement: Mapping[str, float]
 
+    @property
+    def baseline_start(self) -> float:
+        """Where the baseline stretch begins: ``window.tstart - baseline_lead_s``."""
+        return float(self.window.tstart - self.baseline_lead_s)
+
     def as_dict(self) -> Dict[str, Any]:
         return {
             "window": self.window.as_dict(),
-            "reference_lead_s": self.reference_lead_s,
+            "baseline_lead_s": self.baseline_lead_s,
             "h_alpha": dict(self.h_alpha),
             "lines": {label: dict(rule) for label, rule in self.lines.items()},
             "ip": dict(self.ip),
@@ -646,9 +714,9 @@ def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimin
             f"{context}: 'window' must name a configured diagnostics time window; "
             f"configured windows: {', '.join(sorted(windows))}"
         )
-    lead = _required_number(document, "reference_lead_s", context=context)
+    lead = _required_number(document, "baseline_lead_s", context=context)
     if not np.isfinite(lead) or lead < 0.0:
-        raise VestConfigurationError(f"{context}: 'reference_lead_s' must be finite and >= 0")
+        raise VestConfigurationError(f"{context}: 'baseline_lead_s' must be finite and >= 0")
     rules = {
         name: _active_window_rule(document.get(name), context=f"{context}: {name}")
         for name in _PLASMA_TIMING_RULE_BLOCKS
@@ -664,7 +732,7 @@ def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimin
     }
     return PlasmaTimingPolicy(
         window=windows[window_name],
-        reference_lead_s=lead,
+        baseline_lead_s=lead,
         h_alpha=rules["h_alpha"],
         lines=lines,
         ip=rules["ip"],
@@ -1194,7 +1262,9 @@ __all__ = [
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
     "DIAGNOSTICS_TIME_POLICIES_KEY",
     "DiagnosticsTimePolicy",
+    "CroppedRecord",
     "DiagnosticsTimePolicyTable",
+    "MIN_BASELINE_S",
     "PLASMA_TIMING_KEY",
     "PlasmaTimingPolicy",
     "VestConfigurationError",
@@ -1203,6 +1273,7 @@ __all__ = [
     "apply_pf_active_current_uncertainties",
     "apply_tf_uncertainties",
     "build_window_time_axis",
+    "crop_to_span",
     "get_diagnostic_info",
     "get_metadata",
     "get_path",

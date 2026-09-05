@@ -9,10 +9,13 @@ caught at the source.
 
 from __future__ import annotations
 
+import json
 import struct
 
 import numpy as np
 import pytest
+
+from gpec_nc_fixtures import DEFAULT_DCON_EQUILIBRIUM, write_dcon_output_nc
 
 from vaft.code.gpec import (
     DconEigenfunction,
@@ -122,6 +125,88 @@ def test_read_dcon_output_without_solutions_bin_has_no_eigenfunction(tmp_path):
     result = read_dcon_output(tmp_path, mode=1)
     assert result.eigenfunction is None
     assert result.stable_free_boundary is True
+
+# ---------------------------------------------------------------------------
+# Quantities derived from the eigenfunction.  DCON's eigenvector normalization
+# is arbitrary, so what is derivable from it at face value is exactly what that
+# normalization cannot change.
+# ---------------------------------------------------------------------------
+
+
+def _eigenfunction(xi_real, *, m, q):
+    xi_real = np.asarray(xi_real, dtype=float)
+    n_m, n_psi = xi_real.shape
+    return DconEigenfunction(
+        m=np.asarray(m, dtype=int),
+        psi=np.tile(np.linspace(0.1, 0.9, n_psi), (n_m, 1)),
+        rho=np.zeros((n_m, n_psi)),
+        q=np.tile(np.asarray(q, dtype=float), (n_m, 1)),
+        xi_psi_real=xi_real,
+        xi_psi_imag=np.zeros((n_m, n_psi)),
+        v4_real=np.zeros((n_m, n_psi)),
+        v4_imag=np.zeros((n_m, n_psi)),
+    )
+
+
+def _output(eigenfunction, *, n_tor=1):
+    return DconOutput(
+        n_tor=n_tor,
+        mlow=int(eigenfunction.m[0]),
+        mhigh=int(eigenfunction.m[-1]),
+        mpert=int(eigenfunction.m.size),
+        mband=0,
+        eigenfunction=eigenfunction,
+    )
+
+
+def test_m_pol_dominant_is_the_true_poloidal_number_not_the_block_index():
+    eigenfunction = _eigenfunction(
+        [[1.0, 1.0], [0.0, 9.0], [2.0, 2.0]], m=[-3, -2, -1], q=[1.0, 2.0]
+    )
+
+    # Block index 1 is the largest; its physical label is m = -2.
+    assert _output(eigenfunction).m_pol_dominant == -2
+
+
+def test_m_pol_dominant_is_invariant_under_the_eigenvector_normalization():
+    """This invariance is the whole reason the field can be written at all.
+
+    `match/ideal.f:318-325` fixes the eigenfunction's amplitude by an arbitrary
+    normalization, further rescaled by DCON's `ucrit` during integration, so no
+    absolute amplitude is reportable. That factor is global -- one scalar
+    multiplying every harmonic -- so which harmonic is largest survives it, and
+    that is what `m_pol_dominant` reports.
+    """
+    xi = np.array([[1.0, 1.0], [0.0, 9.0], [2.0, 2.0]])
+    baseline = _output(_eigenfunction(xi, m=[-3, -2, -1], q=[1.0, 2.0]))
+    rescaled = _output(_eigenfunction(xi * 1e6, m=[-3, -2, -1], q=[1.0, 2.0]))
+
+    assert baseline.m_pol_dominant == rescaled.m_pol_dominant == -2
+
+
+def test_m_pol_dominant_is_none_without_an_eigenfunction():
+    assert DconOutput(n_tor=1, mlow=-1, mhigh=1, mpert=3, mband=0).m_pol_dominant is None
+
+
+def test_b_normal_reproduces_matchs_own_singular_factor():
+    """`b = i (m - n q) xi` -- match/ideal.f:372, which computes it and never writes it.
+
+    Recomputing it here rather than parsing it is what makes the perturbed
+    normal field available at all; everything the formula needs is already in
+    solutions.bin (q is its third column, m comes from the run's mlow).
+    """
+    eigenfunction = _eigenfunction([[1.5, 2.0], [3.0, 4.0]], m=[-2, -1], q=[1.0, 2.0])
+
+    b = eigenfunction.b_normal(n_tor=1)
+
+    expected = 1j * np.array([[(-2 - 1 * 1.0) * 1.5, (-2 - 1 * 2.0) * 2.0],
+                              [(-1 - 1 * 1.0) * 3.0, (-1 - 1 * 2.0) * 4.0]])
+    np.testing.assert_allclose(b, expected)
+    # It vanishes on the resonant surface, where m = n q.
+    resonant = _eigenfunction([[5.0]], m=[2], q=[2.0]).b_normal(n_tor=1)
+    assert resonant[0, 0] == pytest.approx(0.0)
+
+
 
 
 def _write_resistive_netcdf(path, *, module, n, mlow, mhigh, m_values, diag):
@@ -260,3 +345,154 @@ def test_an_mpert_mismatch_warns_and_is_recorded_rather_than_passing_silently(tm
         "solutions_bin_n_ipert": 1,
         "netcdf_mpert": 8,
     }
+
+
+# ---------------------------------------------------------------------------
+# The equilibrium summary, coordinate system, profiles and edge scan DCON writes
+# alongside the eigenvalues (dcon/dcon_netcdf.f:90-215).
+# ---------------------------------------------------------------------------
+
+
+def test_dcon_output_carries_the_equilibrium_summary_as_plain_python_scalars(tmp_path):
+    """The netCDF globals parse into `DconEquilibrium` as JSON-serializable scalars.
+
+    The type assertion is the point: xarray hands these back as `np.float64` /
+    `np.int32`, which `json.dumps` cannot serialize, so an uncoerced value would
+    pass every value check here and only fail later, when a real run reaches
+    `write_json` and the sidecar -- the eigenfunction's only lossless home --
+    silently fails to be written.
+    """
+    write_dcon_output_nc(tmp_path, equilibrium=True, coordinates=True)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.equilibrium is not None
+    assert result.equilibrium.q0 == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["q0"])
+    assert result.equilibrium.li3 == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["li3"])
+    assert result.equilibrium.betan == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["betan"])
+    assert result.coordinates is not None
+    assert result.coordinates.jacobian == "hamada"
+    assert result.coordinates.mpsi == 128
+
+    assert type(result.equilibrium.q0) is float
+    assert type(result.coordinates.mpsi) is int
+    assert type(result.coordinates.jacobian) is str
+
+
+def test_a_file_without_the_summary_attributes_parses_with_empty_blocks(tmp_path):
+    """A run from a GPEC build that writes fewer globals must parse, not raise."""
+    write_dcon_output_nc(tmp_path, equilibrium=False, coordinates=False)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.equilibrium is None
+    assert result.coordinates is None
+    assert result.edge_scan is None
+    assert result.qlim is None
+    assert result.mlow == -2  # the provenance it does carry is still read
+
+
+def test_qlim_is_a_solver_truncation_and_never_an_equilibrium_scalar(tmp_path):
+    """`qlim` belongs to the run, not the equilibrium, and the split is enforced here.
+
+    Under `sas_flag` DCON rounds the edge limit onto the mode's own rational
+    spacing (`qlim=(INT(nn*qlim)+dmlim)/nn`, dcon/sing.f:186) after capping it
+    at the `qhigh` VAFT itself templates into dcon.in -- so it is n-dependent
+    and configuration-dependent, and a reader who takes it for the equilibrium's
+    edge safety factor `qa` gets a different number for the same plasma.
+    """
+    write_dcon_output_nc(tmp_path, equilibrium=True)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.qlim == pytest.approx(8.0)
+    assert result.psilim == pytest.approx(0.994)
+    assert not hasattr(result.equilibrium, "qlim")
+    assert not hasattr(result.equilibrium, "psilim")
+    # qa is the equilibrium's own edge q and is a different value entirely.
+    assert result.equilibrium.qa == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["qa"])
+
+
+def test_the_one_dimensional_profiles_are_read_on_the_psi_n_grid(tmp_path):
+    written = write_dcon_output_nc(tmp_path, profiles=True)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    for name in ("f", "mu0p", "dvdpsi", "q"):
+        assert getattr(result, name) is not None, name
+        assert getattr(result, name).shape == written["psi_n"].shape, name
+
+
+def test_the_edge_scan_is_read_when_present_and_absent_by_default(tmp_path):
+    """`dW_edge` vs `q_edge` is DCON's own stability-limit curve, and is optional.
+
+    DCON writes it only when `psiedge < psilim` (dcon/sing.f:224), and VAFT's
+    packaged dcon.in ships `psiedge=1` against `psihigh=0.994` -- so the absent
+    case is the *default* one, not an error.
+    """
+    scanned = tmp_path / "scanned"
+    scanned.mkdir()
+    write_dcon_output_nc(scanned, edge_scan=True)
+    result = read_dcon_output(scanned, mode=1)
+
+    assert result.edge_scan is not None
+    assert result.edge_scan.q.shape == result.edge_scan.dW.shape == result.edge_scan.psi_n.shape
+    assert np.iscomplexobj(result.edge_scan.dW)
+    # The curve crosses zero: that crossing is what makes it a limit curve.
+    assert result.edge_scan.dW.real[0] > 0 > result.edge_scan.dW.real[-1]
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    write_dcon_output_nc(plain)
+    assert read_dcon_output(plain, mode=1).edge_scan is None
+
+
+def test_the_v2_sidecar_round_trips_every_new_block(tmp_path):
+    write_dcon_output_nc(tmp_path, equilibrium=True, coordinates=True, profiles=True, edge_scan=True)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
+
+    assert restored.to_dict()["schema_version"] == 2
+    assert restored.equilibrium == result.equilibrium
+    assert restored.coordinates == result.coordinates
+    assert restored.qlim == result.qlim
+    np.testing.assert_allclose(restored.q, result.q)
+    np.testing.assert_allclose(restored.edge_scan.dW, result.edge_scan.dW)
+
+
+def test_a_v1_sidecar_still_loads_under_v2_code(tmp_path):
+    """Sidecars already on disk predate every field above and must keep loading."""
+    payload = {
+        "schema": "vaft.code.gpec.DconOutput",
+        "schema_version": 1,
+        "n_tor": 2, "mlow": -1, "mhigh": 1, "mpert": 3, "mband": 0,
+        "W_t_eigenvalue": {"real": [-0.5, 0.2, 0.9], "imag": [0.0, 0.0, 0.0]},
+        "mode": [1, 2, 3],
+        "metadata": {"run_dir": "/somewhere/old"},
+    }
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    restored = DconOutput.read_json(path)
+
+    assert restored.n_tor == 2
+    assert restored.total1 == pytest.approx(-0.5)
+    assert restored.equilibrium is None
+    assert restored.edge_scan is None
+
+
+def test_a_sidecar_from_a_newer_vaft_refuses_rather_than_dropping_fields(tmp_path):
+    """Reading a newer payload would silently discard whatever it added.
+
+    A round trip through this code would then write those fields away, so the
+    version skew must surface as an error at read time rather than as quiet
+    data loss at the next write.
+    """
+    path = tmp_path / "future.json"
+    path.write_text(
+        json.dumps({
+            "schema": "vaft.code.gpec.DconOutput", "schema_version": 3,
+            "n_tor": 1, "mlow": 0, "mhigh": 0, "mpert": 1, "mband": 0,
+        }),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="newer than this VAFT understands"):
+        DconOutput.read_json(path)

@@ -228,8 +228,12 @@ def test_a_noise_dip_during_the_rise_does_not_delay_the_onset():
 
 
 def test_a_record_too_short_for_the_filter_says_so():
+    """A record the filter cannot pad is no evidence, flagged -- not an exception
+    (the filter itself still refuses, for callers that reach it directly)."""
+    record = principal_pulse_onset(T[:12], np.ones(12), cutoff_hz=2000.0, fs=FS)
+    assert not record.found and "record_too_short" in record.flags
     with pytest.raises(ValueError, match="needs more than"):
-        principal_pulse_onset(T[:12], np.ones(12), cutoff_hz=2000.0, fs=FS)
+        zero_phase_lowpass(np.ones(12), 2000.0, FS)
 
 
 def test_a_flat_reference_is_flagged():
@@ -383,3 +387,38 @@ def test_a_disruption_tail_above_the_end_fraction_ends_at_the_last_steep_fall():
     assert w.evidence["collapse_time"] == pytest.approx(0.050, abs=5 * DT)
     plain = active_window(T, y, principal_only=True, reference_mask=T < 0.015, end_fraction=0.10, collapse_fallback=False)
     assert "offset_at_record_end" in plain.flags
+
+
+def test_a_record_too_short_for_the_filter_is_no_evidence_not_an_error():
+    """Review finding: the zero-phase filter raised before the degenerate checks ran."""
+    from vaft.process.onset import active_window
+
+    short = T[:12]
+    window = active_window(short, pulse()[:12], cutoff_hz=2000.0)
+    assert not window.found
+    assert "record_too_short" in window.flags
+    record = principal_pulse_onset(short, pulse()[:12], cutoff_hz=2000.0)
+    assert not record.found and "record_too_short" in record.flags
+    # without a filter the same twelve samples are judged (and found wanting) normally
+    assert "record_too_short" not in active_window(short, pulse()[:12]).flags
+
+
+def test_a_grid_that_cannot_carry_the_cutoff_skips_the_filter_and_says_so():
+    """A 2 kHz rule on a 2.85 kHz grid: nothing to remove, nothing to design."""
+    from vaft.process.onset import active_window
+
+    coarse = np.linspace(0.0, 0.14, 400)
+    y = np.where(coarse >= 0.06, 1.0, 0.0) + 0.01 * RNG.standard_normal(coarse.size)
+    window = active_window(coarse, y, cutoff_hz=2000.0, principal_only=True)
+    assert window.found
+    assert "lowpass_skipped" in window.flags
+    fine = active_window(T, pulse(), cutoff_hz=2000.0, principal_only=True)
+    assert "lowpass_skipped" not in fine.flags
+    # the flag travels with every verdict, not only a found one ...
+    quiet = active_window(coarse, 0.01 * RNG.standard_normal(coarse.size), cutoff_hz=2000.0)
+    assert not quiet.found and "lowpass_skipped" in quiet.flags
+    noise = 0.01 * RNG.standard_normal(coarse.size)
+    assert "lowpass_skipped" in principal_pulse_onset(coarse, noise, cutoff_hz=2000.0).flags
+    # ... and a record too short for a filter that would not run is judged, not refused
+    short = active_window(coarse[:14], y[:14], cutoff_hz=2000.0)
+    assert "record_too_short" not in short.flags and "lowpass_skipped" in short.flags
