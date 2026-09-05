@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b828d09</code>. What is described
+  <code>1a40258</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -330,17 +330,26 @@ a staged eager object. Remote saving is restricted to authorized operators; this
 
 <h2 id="4-optional-external-fusion-codes">4. Optional external fusion codes</h2>
 
-<p>VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON and TES. Configure only the codes
-you have installed:</p>
+<p>VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES and NUBEAM. Configure only the
+codes you have installed:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">EFITHOME</span><span class="o">=</span>/path/to/efit
 <span class="nb">export </span><span class="nv">CHEASEHOME</span><span class="o">=</span>/path/to/chease
 <span class="nb">export </span><span class="nv">GPECHOME</span><span class="o">=</span>/path/to/gpec
 <span class="nb">export </span><span class="nv">TESHOME</span><span class="o">=</span>/path/to/tes
+<span class="nb">export </span><span class="nv">NUBEAMHOME</span><span class="o">=</span>/path/to/nubeam
 </code></pre></div></div>
 
 <p>Each executable belongs under its root’s <code class="language-plaintext highlighter-rouge">bin/</code> directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.</p>
+
+<p>NUBEAM differs from the others in two ways. Its root must also hold the PREACT and ADAS reaction
+databases at <code class="language-plaintext highlighter-rouge">share/preact</code> and <code class="language-plaintext highlighter-rouge">share/adas</code>, because <code class="language-plaintext highlighter-rouge">nubeam_comp_exec</code> aborts when either is
+unset, and both must stay writable — the table code caches newly computed reaction tables into them.
+And VAFT ships the build recipe rather than the source, since NTCC requires each user to accept its
+licence first; see <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/external/nubeam"><code class="language-plaintext highlighter-rouge">external/nubeam/</code></a>.
+That build is macOS/Apple Silicon only at present. The adapter runs NUBEAM and parses its native
+output; it does not yet map results into IMAS.</p>
 
 <h2 id="expected-outputs">Expected outputs</h2>
 
@@ -626,7 +635,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 07:29:18 +0000"
+        "time": "2026-09-05 14:12:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
