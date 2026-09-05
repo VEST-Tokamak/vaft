@@ -90,6 +90,7 @@ from vaft.validation.imas import (
     validity_mask,
     write_validity,
 )
+from vaft.validation.validity import ValidityRecord, is_usable, usable_mask
 from vaft.validation.model import ValidationStatus
 
 __all__ = [
@@ -760,7 +761,7 @@ def _status(codes: np.ndarray, events: Sequence[QualityEvent]) -> ValidationStat
     discarded -- ``validity_timed`` and ``valid_fraction`` carry how much, and
     what to do about it is the consumer's policy, not this layer's (#253 §7).
     """
-    if (codes < VALIDITY_VALID).any():
+    if not usable_mask(ValidityRecord(None, codes, None)).all():
         return ValidationStatus.FAIL
     if events:
         return ValidationStatus.WARN
@@ -864,7 +865,7 @@ def _whole_record_reason(found: _Detections) -> str:
             f"{found.metrics['amplitude_over_family_median']:.1f}x the "
             f"{found.metrics.get('family', 'family')} median"
         )
-    if found.seed < VALIDITY_VALID:
+    if not is_usable(ValidityRecord(found.seed, None, None)):
         parts.append("seeded from an invalid raw voltage")
     return "; ".join(parts)
 

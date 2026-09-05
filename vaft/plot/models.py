@@ -18,6 +18,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from vaft.validation.validity import is_condemned, record_from_mask
+
 from .display import DisplaySpec
 
 __all__ = [
@@ -181,17 +183,13 @@ class Series(ViewModel):
 
         The IMAS scalar ``validity`` is "worst state reached": a channel that
         merely holds its last value after the diagnostics window reads ``-2``
-        there while every plotted sample before it is a measurement.  So a
-        negative scalar condemns the trace only when no per-sample validity
-        is stored, or when the stored mask leaves no usable sample; a trace
-        with usable samples is drawn with its mask instead of being labelled
-        invalid outright.
+        there while every plotted sample before it is a measurement.  So the
+        stored per-sample mask is authoritative when present and condemns the
+        trace only when it leaves no usable sample; the scalar alone condemns
+        it when no mask is stored; a trace nothing has assessed is drawn.  The
+        rule is :func:`vaft.validation.validity.is_condemned` (#424).
         """
-        if self.validity is None or self.validity >= 0:
-            return False
-        if self.valid_mask is None:
-            return True
-        return not bool(self.valid_mask.any())
+        return is_condemned(record_from_mask(self.validity, self.valid_mask))
 
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:

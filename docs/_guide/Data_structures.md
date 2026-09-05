@@ -181,19 +181,17 @@ vaft.omas.print_info(ods)                 # metadata header, then one line per I
 vaft.omas.print_info(ods, 'magnetics')    # channel counts inside one IDS
 ```
 
-`vaft.omas.classify_shot(ods)` is *intended* to label a shot `'Plasma'`, `'BD failure'` or `'Vacuum'` from the
-barometry, H-alpha and Ip signals.
+`vaft.omas.classify_shot(ods)` labels a shot `'Plasma'`, `'BD failure'` or `'Vacuum'` from the
+barometry, H-alpha and Ip signals. It needs a `barometry` IDS; on the packaged sample (shot 39915)
+it returns `'Plasma'`. Its `pressure_threshold` and `halpha_threshold` are the variance-ratio
+thresholds of the primitive below; an IDS it cannot find is caught and reported as `'Vacuum'`,
+so guard the IDSs yourself when that default is not what you want.
 
-> **Do not rely on it as it stands.** On `main` it calls `vaft.process.is_signal_active(data, threshold=...)`,
-> but that function's signature is `is_signal_active(data, var_ratio_thresh=1e-2, change_ratio_thresh=1e-2,
-> verbose=False)` — there is no `threshold` argument. The resulting `TypeError` is swallowed by a bare
-> `except`, so the call prints
-> `Error in find_shotclass: is_signal_active() got an unexpected keyword argument 'threshold'`
-> and returns `'Vacuum'` for **every** shot. It also needs a `barometry` IDS, which the packaged sample
-> (shot 39915) does not carry.
-
-The underlying primitive does work, and it is scale-invariant — it compares a variance ratio and a mean-|Δx|
-ratio against relative thresholds, so it needs no knowledge of the signal's units:
+The underlying primitive is scale-free: it compares the trace's variance and its mean |Δx|, both
+divided by the trace's mean absolute level, against relative thresholds, so it needs no knowledge
+of the signal's units. A trace held at any non-zero level with noise far below that level is
+inactive; the converse caveat is that a zero-mean noise trace has no level to be small against
+and reads active at any amplitude, so apply a known noise floor before asking (issue #463).
 
 ```python
 import vaft
@@ -202,8 +200,8 @@ ods = vaft.omas.sample_ods()
 
 halpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
 vaft.process.is_signal_active(halpha, verbose=True)   # -> True  (H-alpha fired: breakdown occurred)
-# Variance ratio: 1.000e+00 (thresh=1.000e-02)
-# Mean |Δx| ratio: 1.976e-01 (thresh=1.000e-02)
+# Variance ratio: 2.918e+00 (thresh=1.000e-02)
+# Mean |Δx| ratio: 2.276e-01 (thresh=1.000e-02)
 ```
 
 Compose your own classifier on top of it, guarding each IDS before you index it:

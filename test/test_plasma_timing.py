@@ -247,6 +247,19 @@ def test_an_invalidated_node_is_skipped_by_scalar_and_by_timed_validity():
     assert halpha_usability(suspect, halpha_sources()[0]).usable
 
 
+def test_a_held_tail_after_the_span_does_not_veto_the_channel():
+    """The scalar is the worst state reached (#424): a channel invalid only
+    after the analysis span reads -2 there, and used to fail on that scalar
+    although every sample the timing reads is usable."""
+    t = grid()
+    timed = np.full(t.size, 0)
+    timed[t >= t[-1] - 0.005] = -2
+    ods = synthetic_ods(slow=light(t), ip=current(t), validity=-2, validity_timed=timed)
+    usability = halpha_usability(ods, halpha_sources()[0])
+    assert usability.usable, usability.reason
+    assert usability.metrics["valid_fraction"] >= 0.9
+
+
 def test_pickup_alone_is_no_plasma_and_no_window_is_assumed():
     t = grid()
     ods = synthetic_ods(slow=light(t, amplitude=0.0), ip=pickup_only(t))

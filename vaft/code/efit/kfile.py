@@ -56,7 +56,7 @@ def _condemned_channels(ods, nbprobe: int) -> set[int]:
     their own index, flux loops to ``index + nbprobe``, the offset the rest of
     this module uses for the ``broken`` list.
     """
-    from vaft.validation.imas import validity_codes, valid_fraction
+    from vaft.validation.imas import is_condemned_channel
 
     condemned: set[int] = set()
     for kind, quantity, offset in (
@@ -65,10 +65,8 @@ def _condemned_channels(ods, nbprobe: int) -> set[int]:
     ):
         count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
         for index in range(count):
-            base = f"magnetics.{kind}.{index}.{quantity}"
-            if validity_codes(ods, base) is None:
-                continue  # nothing has assessed this datum
-            if valid_fraction(ods, base) == 0.0:
+            # Unassessed is not condemned; assessed with no usable sample is.
+            if is_condemned_channel(ods, f"magnetics.{kind}.{index}.{quantity}"):
                 condemned.add(index + offset)
     return condemned
 

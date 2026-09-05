@@ -210,8 +210,10 @@ alive         = vaft.process.is_signal_active(ip)          # -> bool
 
 `signal_on_offset` applies a Savitzky–Golay smooth (polyorder 3) and returns the contiguous
 above-threshold window **containing the global maximum**; `vfit_signal_start_end` does the same without
-the smoothing stage. `is_signal_active` is a scale-invariant "is this channel alive?" test
-(`var_ratio_thresh=1e-2`, `change_ratio_thresh=1e-2`) that returns `False` for arrays shorter than 2.
+the smoothing stage. `is_signal_active` is a scale-free "is this channel alive?" test: the variance and
+the mean |Δx| are each divided by the trace's mean absolute level (the first is the squared coefficient
+of variation) and compared with `var_ratio_thresh=1e-2` and `change_ratio_thresh=1e-2`; a trace is
+inactive only when both fall below threshold, and arrays shorter than 2 are never active.
 
 These are what the ODS-level event finders are built on — `vaft.omas.find_breakdown_onset`,
 `find_ip_onset`, `find_pf_active_onset` and `find_pulse_duration` all call `signal_on_offset`
