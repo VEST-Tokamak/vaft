@@ -94,18 +94,27 @@ a staged eager object. Remote saving is restricted to authorized operators; this
 
 ## 4. Optional external fusion codes
 
-VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON and TES. Configure only the codes
-you have installed:
+VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES and NUBEAM. Configure only the
+codes you have installed:
 
 ```bash
 export EFITHOME=/path/to/efit
 export CHEASEHOME=/path/to/chease
 export GPECHOME=/path/to/gpec
 export TESHOME=/path/to/tes
+export NUBEAMHOME=/path/to/nubeam
 ```
 
 Each executable belongs under its root’s `bin/` directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.
+
+NUBEAM differs from the others in two ways. Its root must also hold the PREACT and ADAS reaction
+databases at `share/preact` and `share/adas`, because `nubeam_comp_exec` aborts when either is
+unset, and both must stay writable — the table code caches newly computed reaction tables into them.
+And VAFT ships the build recipe rather than the source, since NTCC requires each user to accept its
+licence first; see [`external/nubeam/`](https://github.com/VEST-Tokamak/vaft/tree/develop/external/nubeam).
+That build is macOS/Apple Silicon only at present. The adapter runs NUBEAM and parses its native
+output; it does not yet map results into IMAS.
 
 ## Expected outputs
 

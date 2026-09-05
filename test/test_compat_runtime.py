@@ -203,5 +203,50 @@ class CompatRuntimeTests(unittest.TestCase):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+    # ------------------------------------------------------------------
+    # short_temporary_directory
+    # ------------------------------------------------------------------
+
+    def test_short_temporary_directory_respects_the_budget(self):
+        with compat.short_temporary_directory(max_length=140) as scratch:
+            self.assertLessEqual(len(str(scratch)), 140)
+            self.assertTrue(scratch.is_dir())
+        self.assertFalse(scratch.exists())
+
+    def test_short_temporary_directory_can_beat_the_default_tempdir(self):
+        """The point of the helper: gettempdir() is often the longest option.
+
+        macOS puts TMPDIR under a per-session /var/folders/<2>/<28>/T, which is
+        48 characters before anything is created in it.
+        """
+        roots = compat._short_scratch_roots()
+        self.assertEqual(list(roots), sorted(roots, key=lambda p: len(str(p))))
+        shortest = len(str(roots[0]))
+        self.assertLessEqual(shortest, len(tempfile.gettempdir()))
+
+    def test_short_temporary_directory_reports_every_rejected_root(self):
+        with self.assertRaises(RuntimeError) as error:
+            with compat.short_temporary_directory(max_length=3):
+                pass
+        message = str(error.exception)
+        self.assertIn("Tried:", message)
+        self.assertIn("TMPDIR", message)
+        for root in compat._short_scratch_roots():
+            self.assertIn(str(root), message)
+
+    def test_short_temporary_directory_rejects_a_nonsense_budget(self):
+        with self.assertRaises(ValueError):
+            with compat.short_temporary_directory(max_length=0):
+                pass
+
+    def test_short_temporary_directory_cleans_up_after_an_exception(self):
+        captured = {}
+        with self.assertRaises(ZeroDivisionError):
+            with compat.short_temporary_directory(max_length=140) as scratch:
+                captured["path"] = scratch
+                (scratch / "payload").write_text("x", encoding="utf-8")
+                raise ZeroDivisionError
+        self.assertFalse(captured["path"].exists())
+
 if __name__ == "__main__":
     unittest.main()

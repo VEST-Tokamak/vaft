@@ -8,6 +8,12 @@ It covers the **VAFT / Python / HSDS / JupyterLab environment only**. Building
 the external Fortran codes (CHEASE, DCON, GPEC) is a separate topic tracked in
 [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226).
 
+Build recipes for external codes live in [`external/`](../external/) instead, one
+directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it is
+macOS/Apple Silicon only, is not run by CI, and operates on a NUBEAM source tree
+you supply rather than one VAFT vendors. Bringing that class of script to Linux
+and Windows belongs to #226.
+
 Budget about 15–20 minutes from a nearly clean machine.
 
 ## Which script do I run?
