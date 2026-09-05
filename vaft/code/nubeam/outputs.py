@@ -303,6 +303,11 @@ class NUBEAMOutputs:
     birth: Optional[NUBEAMBirthMarkers] = None
     lost: Optional[NUBEAMLostParticles] = None
     grid: Optional[NUBEAMRadialGrid] = None
+    #: Beam conditions this case ran with, from the Plasma State. These are
+    #: modelling inputs chosen for the run, not machine description: energy
+    #: and power enter through the `profiles` file. Kept apart from the
+    #: geometry for that reason (issue #490 section 5).
+    beam_conditions: Mapping[str, Any] = field(default_factory=dict)
     power_balance: tuple[NUBEAMPowerBalance, ...] = ()
     #: Count of ``xpprof`` out-of-bounds interpolation warnings in step.log.
     interpolation_warnings: int = 0
@@ -502,6 +507,22 @@ def collect_nubeam_outputs(
             )
             break
 
+    conditions: dict[str, Any] = {}
+    for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
+        if not candidate.is_file():
+            continue
+        state = _read_variables(candidate)
+        if "kvolt_nbi" in state:
+            import numpy as np
+
+            conditions["energy_keV"] = float(np.asarray(state["kvolt_nbi"]).ravel()[0])
+        if "power_nbi" in state:
+            import numpy as np
+
+            conditions["power_W"] = float(np.asarray(state["power_nbi"]).ravel()[0])
+        if conditions:
+            break
+
     lost = None
     xplasma_out = directory / f"{runid}{XPLASMA_OUT_SUFFIX}"
     if xplasma_out.is_file():
@@ -535,6 +556,7 @@ def collect_nubeam_outputs(
         birth=birth,
         lost=lost,
         grid=grid,
+        beam_conditions=conditions,
         power_balance=balance,
         interpolation_warnings=warnings_count,
     )
