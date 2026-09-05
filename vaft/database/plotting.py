@@ -152,7 +152,7 @@ def render_to_file(
 
     if options.get("backend") == "plotly":
         # A Plotly figure is a web page; nothing else is a faithful file of it.
-        if not str(path).lower().endswith(".html"):
+        if not str(path).lower().endswith((".html", ".htm")):
             raise ValueError(f"backend='plotly' writes HTML; give --out a .html path, not {path!r}")
         figure = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
         figure.write_html(str(path), include_plotlyjs="cdn")

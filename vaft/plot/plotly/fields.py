@@ -16,7 +16,7 @@ import numpy as np
 
 from ..models import Field2D, GeometryLayer
 from . import require_plotly
-from ._style import color, plain_axis_label, translate_style
+from ._style import color, plain_axis_label, plain_text, translate_style
 
 __all__ = ["add_field_2d", "add_geometry_layer", "render_field_2d"]
 
@@ -103,8 +103,8 @@ def add_field_2d(
     figure.add_trace(contour, **cell)
     for layer in model.overlays:
         add_geometry_layer(figure, layer, **cell)
-    figure.update_xaxes(title_text=model.x_label if x_title else None, **cell)
-    yaxis: dict[str, Any] = {"title_text": model.y_label}
+    figure.update_xaxes(title_text=plain_text(model.x_label) if x_title else None, **cell)
+    yaxis: dict[str, Any] = {"title_text": plain_text(model.y_label)}
     if model.aspect_equal:
         anchor = "x"
         if cell:
@@ -120,7 +120,7 @@ def render_field_2d(model: Field2D, *, show: bool = False, **style: Any) -> Any:
         raise TypeError(f"expected a vaft.plot.models.Field2D; got {type(model).__name__}.")
     figure = go.Figure()
     add_field_2d(figure, model, **style)
-    figure.update_layout(title={"text": model.title} if model.title else None, template="plotly_white")
+    figure.update_layout(title={"text": plain_text(model.title)} if model.title else None, template="plotly_white")
     if show:
         figure.show()
     return figure

@@ -14,7 +14,27 @@ from typing import Any
 
 from ..display import unit_markup
 
-__all__ = ["INVALID_COLOR", "cell_refs", "plain_axis_label", "translate_style"]
+__all__ = ["INVALID_COLOR", "cell_refs", "plain_axis_label", "plain_text", "translate_style"]
+
+_GREEK = {"rho": "ρ", "psi": "ψ", "phi": "φ", "theta": "θ", "delta": "δ", "Delta": "Δ", "beta": "β",
+          "alpha": "α", "gamma": "γ", "mu": "μ", "nu": "ν", "sigma": "σ", "tau": "τ", "omega": "ω", "pi": "π"}
+_MATH = re.compile(r"\$([^$]*)\$")
+
+
+def _math_to_html(expression: str) -> str:
+    text = re.sub(r"\\([A-Za-z]+)", lambda m: _GREEK.get(m.group(1), m.group(1)), expression)
+    text = re.sub(r"_\{([^}]*)\}|_([A-Za-z0-9])", lambda m: f"<sub>{m.group(1) or m.group(2)}</sub>", text)
+    text = re.sub(r"\^\{([^}]*)\}|\^([A-Za-z0-9-]+)", lambda m: f"<sup>{m.group(1) or m.group(2)}</sup>", text)
+    return text.replace("{", "").replace("}", "")
+
+
+def plain_text(text: str) -> str:
+    """A label written for Matplotlib's mathtext, as Plotly reads it.
+
+    ``$\\rho_N$`` becomes ``ρ<sub>N</sub>``, ``$\\delta W$`` becomes ``δW``;
+    text outside ``$...$`` is left alone.
+    """
+    return _MATH.sub(lambda m: _math_to_html(m.group(1)), str(text or ""))
 
 
 def cell_refs(figure: Any, row: int | None, col: int | None) -> dict[str, str]:
@@ -115,8 +135,8 @@ def translate_style(style: Any, *, has_line: bool = True) -> dict[str, Any]:
 
 
 def plain_axis_label(label: str, unit: str = "") -> str:
-    """``"Label [unit]"`` with exponents as HTML superscripts, for Plotly."""
-    label = str(label or "")
+    """``"Label [unit]"`` with exponents as HTML superscripts and no mathtext, for Plotly."""
+    label = plain_text(label)
     unit = unit_markup(unit, flavor="html")
     if not unit:
         return label

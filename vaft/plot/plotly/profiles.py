@@ -7,7 +7,7 @@ from typing import Any
 from ..models import Profile1D
 from ..style import trace_labels
 from . import require_plotly
-from ._style import plain_axis_label
+from ._style import plain_axis_label, plain_text
 from .lines import _apply_legend_policy, add_series
 
 __all__ = ["add_profile_1d", "render_profile_1d"]
@@ -35,18 +35,12 @@ def add_profile_1d(
             if not series.role:
                 judged += 1
     _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell)
-    figure.update_xaxes(title_text=_plain(model.coordinate_label) if x_title else None,
+    figure.update_xaxes(title_text=plain_text(model.coordinate_label) if x_title else None,
                         range=list(model.x_limits) if model.x_limits else None, **cell)
     yaxis: dict[str, Any] = {"title_text": plain_axis_label(model.y_label, model.y_unit)}
     if model.display is not None and model.display.notation == "scientific":
         yaxis["exponentformat"] = "e"
     figure.update_yaxes(**yaxis, **cell)
-
-
-def _plain(text: str) -> str:
-    """Coordinate labels carry mathtext (``$\\rho_N$``); Plotly reads LaTeX-free text."""
-    return (str(text or "").replace("$\\rho_N$", "ρ<sub>N</sub>").replace("$\\psi_N$", "ψ<sub>N</sub>")
-            .replace("$", ""))
 
 
 def render_profile_1d(model: Profile1D, *, show: bool = False, **style: Any) -> Any:
@@ -55,7 +49,7 @@ def render_profile_1d(model: Profile1D, *, show: bool = False, **style: Any) -> 
         raise TypeError(f"expected a vaft.plot.models.Profile1D; got {type(model).__name__}.")
     figure = go.Figure()
     add_profile_1d(figure, model, **style)
-    figure.update_layout(title={"text": model.title} if model.title else None, template="plotly_white")
+    figure.update_layout(title={"text": plain_text(model.title)} if model.title else None, template="plotly_white")
     if show:
         figure.show()
     return figure

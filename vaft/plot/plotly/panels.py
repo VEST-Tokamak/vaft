@@ -40,7 +40,9 @@ def render_panels(model: Panels, *, show: bool = False, **style: Any) -> Any:
     cells = _cells(model)
     # make_subplots hands titles out in row-major cell order, whatever order
     # the models are in (a spans overview lists them column by column).
-    titles = {cell[:2]: getattr(member, "title", "") for cell, member in zip(cells, model.models)}
+    from ._style import plain_text
+
+    titles = {cell[:2]: plain_text(getattr(member, "title", "")) for cell, member in zip(cells, model.models)}
     ordered = [titles[key] for key in sorted(titles)]
     figure = make_subplots(
         rows=model.nrows, cols=model.ncols, specs=_specs(model, cells),
@@ -50,7 +52,7 @@ def render_panels(model: Panels, *, show: bool = False, **style: Any) -> Any:
         horizontal_spacing=0.1 if model.ncols > 1 else 0.02,
     )
     add_panels(figure, model, **style)
-    figure.update_layout(title={"text": model.suptitle} if model.suptitle else None, template="plotly_white",
+    figure.update_layout(title={"text": plain_text(model.suptitle)} if model.suptitle else None, template="plotly_white",
                          height=max(320, 260 * model.nrows), width=max(480, 420 * model.ncols))
     if show:
         figure.show()

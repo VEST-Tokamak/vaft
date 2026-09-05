@@ -80,6 +80,18 @@ class _Models(dict):
         self._fill()
         return dict.keys(self)
 
+    def values(self):
+        self._fill()
+        return dict.values(self)
+
+    def items(self):
+        self._fill()
+        return dict.items(self)
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        self._fill()
+        return dict.get(self, key, default)
+
 
 #: Model kind -> how Plotly draws it.
 PLOTLY_MODELS: dict[type, PlotlyRenderer] = _Models()

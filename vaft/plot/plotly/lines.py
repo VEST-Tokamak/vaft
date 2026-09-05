@@ -17,7 +17,7 @@ import numpy as np
 from ..models import LineSeries, Series
 from ..style import LEGEND_MAX_ENTRIES, UNCERTAINTY_MODES, VALIDITY_MODES, _invalid_runs, _run_extent, trace_labels
 from . import require_plotly
-from ._style import INVALID_COLOR, cell_refs, plain_axis_label, translate_style
+from ._style import INVALID_COLOR, cell_refs, plain_axis_label, plain_text, translate_style
 
 __all__ = ["add_line_series", "add_series", "render_line_series"]
 
@@ -160,7 +160,7 @@ def render_line_series(model: LineSeries, *, show: bool = False, **style: Any) -
         raise TypeError(f"expected a vaft.plot.models.LineSeries; got {type(model).__name__}.")
     figure = go.Figure()
     add_line_series(figure, model, **style)
-    figure.update_layout(title={"text": model.title} if model.title else None, template="plotly_white")
+    figure.update_layout(title={"text": plain_text(model.title)} if model.title else None, template="plotly_white")
     if show:
         figure.show()
     return figure

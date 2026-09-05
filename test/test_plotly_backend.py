@@ -256,3 +256,19 @@ def test_the_cli_writes_a_plotly_figure_as_html(tmp_path, sample):
         assert target.exists() and b"plotly" in target.read_bytes()
         assert plot_cli.main(["plasma_current_time", "--shot", "39915", "--out", str(tmp_path / "ip.png"),
                               "--option", "backend=plotly"]) == 1
+
+
+def test_mathtext_labels_reach_plotly_as_text(sample):
+    from vaft.plot.plotly import PLOTLY_MODELS
+    from vaft.plot.plotly._style import plain_text
+
+    assert plain_text(r"Normalized Toroidal Flux $\rho_N$") == "Normalized Toroidal Flux ρ<sub>N</sub>"
+    assert plain_text(r"perturbed energy $\delta W$") == "perturbed energy δW"
+    assert plain_text(r"$\psi_N$") == "ψ<sub>N</sub>" and plain_text("Pressure") == "Pressure"
+    figure = vaft.omas.plot_equilibrium_field_psi(sample, backend="plotly", time_slice=4, style="normalized")
+    field = [t for t in figure.data if t.meta["vaft"] == "field"][0]
+    assert "$" not in field.colorbar.title.text and "ψ<sub>N</sub>" in field.colorbar.title.text
+    figure = vaft.omas.plot_equilibrium_profile_q(sample, backend="plotly", time_slice=4)
+    assert "$" not in figure.layout.xaxis.title.text
+    # The lazy table answers every dict access, not only the overridden ones.
+    assert PLOTLY_MODELS.get(LineSeries) is not None and len(list(PLOTLY_MODELS.items())) == 6
