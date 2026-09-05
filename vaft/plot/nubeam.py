@@ -1,12 +1,16 @@
 """Views of a NUBEAM run, built from the native result container.
 
-These are deliberately *not* registered in the plot catalog. Registration
-carries obligations -- ``test_omas_plot_adapters.py`` requires every canonical
-name to have an ODS-taking adapter, and the database layer generates one per
-name -- so a registered NUBEAM plot would first need NUBEAM results mapped into
-IMAS. That mapping is issue #490 section 6 and is not decided yet, and letting
-a plot force the schema is the wrong order. So these functions take the native
-``NUBEAMOutputs`` directly.
+These are deliberately *not* registered in the plot catalog, and they are not
+the registered NBI plots' poorer cousins -- they answer a different question.
+
+``vaft.machine_mapping.core_sources`` now maps a NUBEAM result into IMAS, and
+the heating and current-drive profiles that have a home there are registered as
+``nbi_profile_*``: those read an ODS, so a saved result plots long after its run
+directory is gone. What is here is everything that has *no* IMAS home -- the
+deposition markers, the lost fast ions, the step log's power budget -- plus the
+profiles in NUBEAM's own per-zone units rather than the densities IMAS asks
+for. Registering these would mean inventing schema for them, which is the wrong
+way round. So they take the native ``NUBEAMOutputs`` directly.
 
 Everything else follows the house architecture: the builders produce the same
 frozen view models every other plot uses, and the renderers delegate to the
