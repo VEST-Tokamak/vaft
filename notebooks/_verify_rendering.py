@@ -39,6 +39,14 @@ OFFLINE_NOTEBOOKS: dict[str, dict[str, str]] = {
     "magnetic_diagnostics_processing.ipynb": {},
     "verification_and_validation.ipynb": {},
     "database_initialization_and_load.ipynb": {"VAFT_DOCS_READ_ONLY": "1"},
+    # The issue-65 equilibrium examples: packaged data or none at all, and the
+    # only notebooks the pytest suite already executes end to end
+    # (test_notebook_reliability.py::test_parametric_equilibrium_notebooks_execute_offline).
+    "parametric_equilibrium_descriptors.ipynb": {},
+    "analytic_solovev_equilibrium.ipynb": {},
+    "edge_and_boundary_representation.ipynb": {},
+    "local_miller_equilibrium_fitting.ipynb": {},
+    "initialize_external_fusion_codes.ipynb": {},
 }
 
 
