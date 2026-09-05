@@ -1013,6 +1013,7 @@ def vacuum_residual_metrics(
     window: tuple[float, float] | None = None,
     min_samples: int = 2,
     min_wall_authority: float = 0.0,
+    scored_exclude: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Per-channel and per-family measured-versus-model agreement (issue #190).
 
@@ -1038,8 +1039,11 @@ def vacuum_residual_metrics(
         for channel in channels
     ]
     evaluated = [row for row in rows if row["status"] == "evaluated"]
+    flagged = set(scored_exclude)
     scored_rows = [
-        row for row in evaluated if row["wall_authority"] >= float(min_wall_authority)
+        row
+        for row in evaluated
+        if row["wall_authority"] >= float(min_wall_authority) and row["name"] not in flagged
     ]
 
     def spread(key: str, over: list[dict[str, Any]] = evaluated) -> dict[str, float]:
@@ -1081,10 +1085,19 @@ def vacuum_residual_metrics(
             "normalized_residual": spread("normalized_residual"),
             "correlation": spread("correlation"),
             "wall_authority": spread("wall_authority"),
+            # Conditioning, not acceptance: the spreads over the channels the
+            # wall term reaches and that carry no quality flag a caller asked
+            # to keep out (``scored_exclude``).  The unconditioned spreads
+            # above are always over every evaluated channel.
             "scored": {
                 "min_wall_authority": float(min_wall_authority),
+                "excluded_flagged": sorted(
+                    row["name"] for row in evaluated if row["name"] in flagged
+                ),
                 "count": len(scored_rows),
                 "improvement": spread("improvement", scored_rows),
+                "correlation": spread("correlation", scored_rows),
+                "normalized_residual": spread("normalized_residual", scored_rows),
             },
             "improved_fraction": (
                 float(

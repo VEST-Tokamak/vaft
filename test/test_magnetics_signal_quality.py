@@ -733,3 +733,21 @@ def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
     ods, report = packaged
     project_validity(ods, report)
     assert _condemned_channels(ods, nbprobe=76) == {25}
+
+
+def test_array_contradiction_scores_judge_interior_probes_against_their_neighbours():
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    heights = [0.0, 0.04, 0.08, 0.12, 0.16]
+    base = np.linspace(1.0, 2.0, 50)
+    waveforms = np.array([base * (1 + 0.1 * k) for k in range(5)])  # linear in height: no departure
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert np.isfinite(scores[0]).any() and np.isfinite(scores[-1]).any()  # ends are scored by extrapolation
+    assert np.nanmax(scores[1:-1]) < 1.0
+    waveforms[2, 20:30] += 1.0  # a departure the neighbours do not share
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert (scores[2, 20:30] > 20.0).all()
+    # its neighbours' departures rise with it (they are predicted from it), so
+    # which probe is wrong is the caller's leave-one-out question; the probe
+    # itself still scores highest
+    assert np.nanargmax(np.nanmean(scores, axis=1)) == 2

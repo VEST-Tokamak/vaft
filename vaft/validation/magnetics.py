@@ -49,6 +49,14 @@ split by how categorical their evidence is:
 
 * spikes, offset jumps, baseline drift, elevated baseline noise.
 
+Not a verdict here at all: whether a probe contradicts its own array.
+:func:`array_contradiction_scores` scores a probe against the interpolation
+of its nearest neighbours, but vacuum fields are smooth over a few
+centimetres only while no plasma is present, and the products do not record
+the probes' toroidal positions, so the review belongs to a consumer that
+knows its plasma-free window (the vacuum-model benchmark conditions its
+scored spread on it).
+
 The soft set is where a threshold could misfire on real physics -- plasma
 breakdown *is* a fast step in these signals -- so a misfire costs a note in the
 manifest rather than a channel EFIT never sees.  ``1`` follows the convention
@@ -99,6 +107,7 @@ __all__ = [
     "QUANTITY_BY_KIND",
     "channel_node",
     "implausible_magnitude",
+    "array_contradiction_scores",
     "population_peak_outliers",
     "population_peak_ratios",
     "magnetics_quality_metrics",
@@ -190,6 +199,7 @@ class MagneticsQualityConfig:
     #: stays there.  Within-shot and relative, so it follows the shot's own
     #: amplitude and never needs a tesla or a weber.  ``None`` disables it.
     population_peak_factor: float | None = 4.0
+
 
 
 @dataclass(frozen=True)
@@ -798,6 +808,66 @@ def _position(source: Any, kind: str, index: int) -> tuple[float, float] | None:
         return float(r), float(z)
     except (TypeError, ValueError):
         return None
+
+
+def array_contradiction_scores(
+    heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0
+) -> np.ndarray:
+    """Robust-z of each probe's departure from its two nearest neighbours, per sample.
+
+    ``heights`` are the probes' positions along the array (``z``), ``waveforms``
+    one row per probe on a shared time grid.  Each probe is predicted by the
+    linear interpolation of its nearest neighbour below and above (the two
+    nearest on one side at an end of the array), and the departure is scored
+    against the robust spread of the departures of the probes that are *not*
+    its neighbours at the same instant, floored at ``floor`` so a quiet
+    instant cannot make texture significant.  A faulty probe drags its
+    neighbours' departures up with it -- an end probe's, by extrapolation,
+    to the same size as its own -- so a score says a probe *or one of its
+    neighbours* is wrong; which one is a leave-one-out question for the
+    caller.  Rows without two distinct neighbours are ``nan``.
+    """
+    heights = np.asarray(heights, dtype=float).reshape(-1)
+    Y = np.asarray(waveforms, dtype=float)
+    n = heights.size
+    residual = np.full_like(Y, np.nan)
+    used: dict[int, tuple[int, int]] = {}
+    for k in range(n):
+        others = [j for j in range(n) if abs(heights[j] - heights[k]) > 1e-3]
+        below = [j for j in others if heights[j] < heights[k]]
+        above = [j for j in others if heights[j] > heights[k]]
+        if below and above:
+            a, b = max(below, key=lambda j: heights[j]), min(above, key=lambda j: heights[j])
+        elif len(above) >= 2:
+            a, b = sorted(above, key=lambda j: heights[j])[:2]
+        elif len(below) >= 2:
+            a, b = sorted(below, key=lambda j: -heights[j])[:2]
+        else:
+            continue
+        used[k] = (a, b)
+        w = (heights[k] - heights[a]) / (heights[b] - heights[a])
+        residual[k] = Y[k] - ((1.0 - w) * Y[a] + w * Y[b])
+    # The spread a probe is judged against comes from the probes that are not
+    # its neighbours: a contradicting probe drags its two neighbours' departures
+    # up with it, and in a short array they would otherwise set the scale it
+    # is measured with.
+    scores = np.full_like(Y, np.nan)
+    scorable = [k for k in range(n) if np.isfinite(residual[k]).any()]
+    with np.errstate(invalid="ignore"):
+        for k in scorable:
+            # A witness is a probe whose departure does not involve this one:
+            # neither predicted from it nor one of the probes predicting it.
+            witnesses = [j for j in scorable if j != k and k not in used[j] and j not in used[k]]
+            if witnesses:
+                pool = residual[witnesses]
+                centre = np.nanmedian(pool, axis=0)
+                spread = 1.4826 * np.nanmedian(np.abs(pool - centre), axis=0)
+            else:
+                centre, spread = np.zeros(Y.shape[1]), np.zeros(Y.shape[1])
+            scale = np.maximum(np.where(np.isfinite(spread), spread, 0.0), float(floor))
+            scale = np.where(scale > 0.0, scale, np.nan)
+            scores[k] = np.abs(residual[k] - np.where(np.isfinite(centre), centre, 0.0)) / scale
+    return scores
 
 
 def _population_review(

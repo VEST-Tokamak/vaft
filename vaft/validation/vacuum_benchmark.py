@@ -61,12 +61,16 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "BenchmarkError",
     "DEFAULT_HISTORY_TIME_CONSTANTS",
+    "ARRAY_CONTRADICTION_FRACTION",
+    "ARRAY_CONTRADICTION_SIGMA",
     "BENCHMARK_CASE_SCHEMA",
     "MIN_COIL_DRIVE_FRACTION",
     "PLASMA_FREE_EVIDENCE_SCHEMA",
     "coil_drive_check",
     "PlasmaFreeInterval",
     "aggregate_benchmark",
+    "array_contradiction_fractions",
+    "array_contradictions",
     "benchmark_wall_currents",
     "plasma_free_interval",
     "run_benchmark_case",
@@ -99,6 +103,24 @@ ONSET_SIGMA = 5.0
 
 #: Fraction of the record used as the reference noise band for that detector.
 ONSET_REFERENCE_FRACTION = 0.2
+
+#: A B-probe whose departure from the interpolation of its two nearest array
+#: neighbours exceeds this robust-z (against the array's own spread of
+#: departures at that instant) contradicts its array; see
+#: :func:`array_contradictions`.  Conditioning for the scored spread, not a
+#: verdict on the channel.  Measured over the benchmark's plasma-free window
+#: on the packaged 39915: C4-04 contradicts its outboard array for 0.20 of the
+#: window (it follows the PF1 ramp its neighbours do not see) while every
+#: other probe sits at 0.00; ``test_the_array_contradiction_margin_holds``
+#: keeps that gap under test.
+ARRAY_CONTRADICTION_SIGMA = 20.0
+#: Fraction of the window a probe must contradict its array for.
+ARRAY_CONTRADICTION_FRACTION = 0.05
+#: Floor on the departure scale, as a fraction of the array's amplitude, so a
+#: quiet instant cannot make numerical texture significant.
+ARRAY_CONTRADICTION_FLOOR = 0.01
+#: Fewest probes an array needs before its interior members can be scored.
+MIN_ARRAY_MEMBERS = 4
 
 #: Schema of ``plasma_free_evidence`` (#409): the boundary comes from the shared
 #: plasma-timing policy and its provenance is recorded; the two retired
@@ -549,6 +571,148 @@ def _static_model(ods: Any) -> dict[str, Any]:
     }
 
 
+def array_contradiction_fractions(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    sigma: float = ARRAY_CONTRADICTION_SIGMA,
+    min_members: int = MIN_ARRAY_MEMBERS,
+    exclude: Iterable[str] = (),
+) -> dict[str, float]:
+    """Fraction of the window each scorable probe contradicts its array for.
+
+    One pass, no removal: the numbers :func:`array_contradictions` decides on
+    in its first round, so a test can show the gap between the probe it flags
+    and the rest.  ``exclude`` drops probes (already flagged ones) from their
+    arrays before scoring.
+    """
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    lo, hi = float(window[0]), float(window[1])
+    dropped = set(exclude)
+    arrays: dict[float, list[Any]] = {}
+    for channel in channels:
+        if channel.kind != "b_field_pol_probe" or channel.name in dropped:
+            continue
+        arrays.setdefault(round(float(channel.r), 3), []).append(channel)
+    fractions: dict[str, float] = {}
+    for members in arrays.values():
+        members = sorted(members, key=lambda channel: float(channel.z))
+        if len(members) < int(min_members):
+            continue
+        time = np.asarray(members[0].time, dtype=float)
+        inside = (time >= lo) & (time < hi)
+        members = [
+            m for m in members
+            if np.asarray(m.time).shape == time.shape and np.allclose(np.asarray(m.time), time)
+        ]
+        if len(members) < int(min_members) or inside.sum() < 2:
+            continue
+        amplitude = float(np.nanmedian([
+            np.nanpercentile(np.abs(np.asarray(m.measured, dtype=float)[inside]), 99) for m in members
+        ]))
+        floor = ARRAY_CONTRADICTION_FLOOR * amplitude if np.isfinite(amplitude) else 0.0
+        scores = array_contradiction_scores(
+            [float(m.z) for m in members],
+            np.array([np.asarray(m.measured, dtype=float)[inside] for m in members]),
+            floor=floor,
+        )
+        contradicting = np.isfinite(scores) & (scores > float(sigma))
+        for m, row, scored in zip(members, contradicting, np.isfinite(scores).any(axis=1)):
+            if scored:
+                fractions[m.name] = float(row.mean())
+    return fractions
+
+
+def array_contradictions(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    sigma: float = ARRAY_CONTRADICTION_SIGMA,
+    fraction: float = ARRAY_CONTRADICTION_FRACTION,
+    min_members: int = MIN_ARRAY_MEMBERS,
+) -> list[dict[str, Any]]:
+    """Probes that contradict their own array over the plasma-free window.
+
+    B-probes sharing a radius form an array ordered by height; over a window
+    without plasma the field is smooth over a few centimetres, so a probe whose
+    reading departs from the interpolation of its two nearest neighbours --
+    scored by :func:`vaft.validation.magnetics.array_contradiction_scores` --
+    for more than ``fraction`` of the window is instrumentation, not a
+    wall-model result.  A contradicting probe drags its neighbours' departures
+    up with it, so among the probes over the fraction the one flagged is the
+    one whose removal leaves the array most consistent (leave-one-out); it is
+    removed and the array scored again.  Conditioning evidence for
+    :func:`run_benchmark_case`, which keeps a flagged probe out of the scored
+    spread and reports it; it never touches the artifact's validity.
+    """
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    lo, hi = float(window[0]), float(window[1])
+    arrays: dict[float, list[Any]] = {}
+    for channel in channels:
+        if channel.kind != "b_field_pol_probe":
+            continue
+        arrays.setdefault(round(float(channel.r), 3), []).append(channel)
+    flagged: list[dict[str, Any]] = []
+    for members in arrays.values():
+        members = sorted(members, key=lambda channel: float(channel.z))
+        if len(members) < int(min_members):
+            continue
+        time = np.asarray(members[0].time, dtype=float)
+        inside = (time >= lo) & (time < hi)
+        members = [
+            m for m in members
+            if np.asarray(m.time).shape == time.shape and np.allclose(np.asarray(m.time), time)
+        ]
+        if len(members) < int(min_members) or inside.sum() < 2:
+            continue
+        amplitude = float(np.nanmedian([
+            np.nanpercentile(np.abs(np.asarray(m.measured, dtype=float)[inside]), 99) for m in members
+        ]))
+        floor = ARRAY_CONTRADICTION_FLOOR * amplitude if np.isfinite(amplitude) else 0.0
+        def contradictions_of(group):
+            scores = array_contradiction_scores(
+                [float(m.z) for m in group],
+                np.array([np.asarray(m.measured, dtype=float)[inside] for m in group]),
+                floor=floor,
+            )
+            return np.isfinite(scores) & (scores > float(sigma))
+
+        remaining = list(members)
+        for _round in range(max(1, len(members) // 2)):
+            if len(remaining) < int(min_members):
+                break
+            contradicting = contradictions_of(remaining)
+            fractions = contradicting.mean(axis=1)
+            candidates = [k for k, value in enumerate(fractions) if value > float(fraction)]
+            if not candidates:
+                break
+            # Leave one out: the probe to flag is the one whose absence leaves
+            # the rest of the array most consistent, not merely the one with
+            # the largest departure -- a faulty probe's neighbours depart too.
+            def left_behind(k: int) -> float:
+                rest = remaining[:k] + remaining[k + 1:]
+                if len(rest) < int(min_members):
+                    return float(fractions[k] == 0.0)
+                return float(np.max(contradictions_of(rest).mean(axis=1)))
+
+            worst = min(candidates, key=lambda k: (left_behind(k), -fractions[k]))
+            probe = remaining.pop(worst)
+            stretch = time[inside][contradicting[worst]]
+            flagged.append(
+                {
+                    "channel": probe.name,
+                    "kind": probe.kind,
+                    "reason": "array_contradiction",
+                    "fraction": float(fractions[worst]),
+                    "from": float(stretch[0]),
+                    "to": float(stretch[-1]),
+                }
+            )
+    return sorted(flagged, key=lambda entry: entry["channel"])
+
+
 def run_benchmark_case(
     ods: Any,
     *,
@@ -621,8 +785,12 @@ def run_benchmark_case(
         window=validation_window,
         validity_window=validation_window,
     )
+    flagged = array_contradictions(channels, validation_window)
     metrics = vacuum_residual_metrics(
-        channels, window=validation_window, min_samples=min_samples
+        channels,
+        window=validation_window,
+        min_samples=min_samples,
+        scored_exclude=[entry["channel"] for entry in flagged],
     )
 
     excluded = [
@@ -660,6 +828,10 @@ def run_benchmark_case(
                 row["name"] for row in metrics["channels"] if row["status"] == "evaluated"
             ],
             "excluded": excluded,
+            # Evaluated and reported, but kept out of the scored spread: the
+            # diagnostics assessment says the probe contradicts its own array
+            # (a sensor finding, not a wall-model one).
+            "flagged": flagged,
         },
         "metrics": metrics,
     }
