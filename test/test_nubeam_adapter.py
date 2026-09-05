@@ -423,3 +423,70 @@ def test_an_xplasma_file_without_the_record_yields_none(tmp_path):
 
 def test_no_xplasma_file_is_not_an_error(tmp_path):
     assert nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost is None
+
+
+# --------------------------------------------------------------------------
+# Power balance, parsed from the step log
+# --------------------------------------------------------------------------
+
+STEP_LOG = """\
+ ... rough power balance ...
+
+ H beam ion:
+    +injected power (W):   2.000D+05
+    +OH -> beam ions:      0.000D+00
+    -electron heating:     1.138D+05
+    -ion heating:          5.713D+03
+    -"internal" cx loss:   1.325D+02
+    -shine-through:        3.852D+04
+    -bad orbit loss:       2.309D+04
+    -ripple loss:          0.000D+00
+    -d/dt(f.i. energy):    1.970D+04
+       ->residual:        -1.468D+03
+
+ NUBEAM 2d output sampled at [R,Z] = [ 4.934D+01, 9.045D+00] cm
+"""
+
+
+def test_power_balance_reads_fortran_exponents():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert balance.species == "H beam ion"
+    # 2.000D+05, which Python will not parse as written.
+    assert balance.injected == pytest.approx(2.0e5)
+
+
+def test_power_balance_signs_sources_and_sinks_as_the_log_does():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert balance.entries["injected power (W)"] > 0
+    assert balance.entries["electron heating"] < 0
+    assert balance.sinks()["electron heating"] == pytest.approx(1.138e5)
+
+
+def test_power_balance_keeps_the_residual_separate_from_the_channels():
+    """`->residual:` must not be read as a channel called '>residual'."""
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert balance.residual == pytest.approx(-1468.0)
+    assert not any("residual" in name for name in balance.entries)
+
+
+def test_power_balance_fractions_match_the_run():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    fractions = balance.fractions()
+    assert fractions["electron heating"] == pytest.approx(0.569, abs=5e-4)
+    assert fractions["shine-through"] == pytest.approx(0.1926, abs=5e-4)
+    assert fractions["bad orbit loss"] == pytest.approx(0.11545, abs=5e-4)
+
+
+def test_power_balance_strips_the_quotes_nubeam_writes():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert "internal cx loss" in balance.entries
+    assert not any('"' in name for name in balance.entries)
+
+
+def test_power_balance_stops_at_the_end_of_the_block():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert not any("sampled at" in name for name in balance.entries)
+
+
+def test_a_log_without_a_balance_yields_nothing():
+    assert nubeam.parse_power_balance("nubeam STEP completed:  normal exit.\n") == ()

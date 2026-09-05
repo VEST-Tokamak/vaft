@@ -34,9 +34,11 @@ from .outputs import (
     LOST_PARTICLE_FIELDS,
     NUBEAMBirthMarkers,
     NUBEAMLostParticles,
+    NUBEAMPowerBalance,
     NUBEAMOutputs,
     NUBEAMResult,
     collect_nubeam_outputs,
+    parse_power_balance,
 )
 from .runner import (
     NUBEAMExecutionError,
@@ -58,6 +60,7 @@ __all__ = [
     "LOST_PARTICLE_FIELDS",
     "NUBEAMBirthMarkers",
     "NUBEAMLostParticles",
+    "NUBEAMPowerBalance",
     "NUBEAMConfig",
     "NUBEAMExecutionError",
     "NUBEAMInputError",
@@ -72,6 +75,7 @@ __all__ = [
     "generate_plasma_state",
     "inputf_runid",
     "inputf_state_filename",
+    "parse_power_balance",
     "prepare_nubeam_inputs",
     "rewrite_inputf_equilibrium",
     "run_nubeam",
