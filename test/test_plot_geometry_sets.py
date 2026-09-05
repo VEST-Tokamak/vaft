@@ -169,3 +169,60 @@ def test_index_annotations_follow_the_points_through_a_position_gap():
     points = next(layer for layer in model.layers if layer.kind == "points")
     notes = {layer.label: (float(layer.r[0]), float(layer.z[0])) for layer in model.layers if layer.kind == "text"}
     assert points.r.size == 2 and notes == {"0": (1.0, 0.1), "2": (1.2, 0.3)}
+
+
+def _boundary(radius: float, elongation: float = 1.0) -> omas.ODS:
+    """One equilibrium slice whose boundary is a closed ellipse."""
+    ods = omas.ODS(consistency_check=False)
+    theta = np.linspace(0.0, 2.0 * np.pi, 64, endpoint=False)
+    ods["equilibrium.time"] = np.array([0.0])
+    ods["equilibrium.time_slice.0.boundary.outline.r"] = radius + 0.3 * np.cos(theta)
+    ods["equilibrium.time_slice.0.boundary.outline.z"] = 0.3 * elongation * np.sin(theta)
+    return ods
+
+
+def test_a_geometry_view_draws_every_entry_not_just_the_first():
+    """Several machines in one axes, each its own colour and legend key (#458)."""
+    entries = [("A", _boundary(1.0)), ("B", _boundary(2.0)), ("C", _boundary(3.0))]
+    model = build_model("equilibrium_geometry_boundary", entries)
+    assert [layer.entry for layer in model.layers] == ["A", "B", "C"]
+    assert [layer.label for layer in model.layers] == ["A", "B", "C"]
+    # The recipe's own colour is dropped, or every machine would be one colour.
+    assert all("color" not in layer.style for layer in model.layers)
+
+    figure, axes = render_geometry_layers(model, show=False)
+    lines = axes.get_lines()
+    assert len(lines) == 3
+    assert [line.get_label() for line in lines] == ["A", "B", "C"]
+    assert len({line.get_color() for line in lines}) == 3
+    assert [t.get_text() for t in axes.get_legend().get_texts()] == ["A", "B", "C"]
+    # Each curve is its own machine's, not the first one drawn three times.
+    centres = [float(np.mean(line.get_xdata())) for line in lines]
+    assert centres == pytest.approx([1.0, 2.0, 3.0], abs=0.02)
+    plt.close(figure)
+
+
+def test_one_entry_keeps_the_view_it_always_had(sample):
+    """The fix is for overlays; a single input is untouched, legend included."""
+    model = build_model("equilibrium_geometry_boundary", normalize_entries(sample))
+    assert [layer.entry for layer in model.layers] == [""]
+    assert all(layer.style.get("color") for layer in model.layers)
+
+    figure, axes = render_geometry_layers(model, show=False)
+    assert axes.get_legend() is None
+    assert {line.get_color() for line in axes.get_lines()} == {"#e41a1c"}
+    plt.close(figure)
+
+
+def test_an_overlaid_multi_layer_view_names_the_machine_and_the_part(sample):
+    """A composed legend key stays readable: whose flux loops, not just loops."""
+    figure, axes = vaft.omas.plot_magnetics_geometry_poloidal(
+        [sample, sample], label=["39915", "copy"]
+    )
+    legend = [text.get_text() for text in axes.get_legend().get_texts()]
+    assert legend == [
+        "39915 Flux Loops", "39915 B-field Probes", "copy Flux Loops", "copy B-field Probes",
+    ]
+    # One colour per machine, whatever its parts.
+    assert len({line.get_color() for line in axes.get_lines()}) == 2
+    plt.close(figure)

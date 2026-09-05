@@ -331,6 +331,11 @@ class GeometryLayer(ViewModel):
     kind: str = "polyline"
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    #: Which input this layer came from, when several are drawn in one view.
+    #: A renderer colours a stack by entry, so every layer of one machine
+    #: shares a colour and the legend names machines rather than parts.  Empty
+    #: for a single-input view, which keeps the recipe's own styling.
+    entry: str = ""
 
     KINDS = ("polyline", "polygon", "points", "text")
 

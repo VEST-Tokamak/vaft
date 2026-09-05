@@ -3653,6 +3653,52 @@ def _build_profile_1d(
     )
 
 
+def _build_geometry_entries(
+    entries: Sequence[tuple[str, Any]], recipe: GeometryRecipe, **options: Any
+) -> GeometryLayers:
+    """One geometry view built from every entry, not just the first.
+
+    A single entry is drawn exactly as the recipe describes it -- same colours,
+    same labels, no legend where there was none.  With several, each entry's
+    layers are tagged with its label so the renderer can colour the stack by
+    entry, and the recipe's own colours are dropped: keeping them would draw
+    two machines in one colour, which is the bug this exists to fix.  Layer
+    labels are prefixed with the entry so a composed view still says which
+    part of which machine it is naming.
+    """
+    if len(entries) == 1:
+        return _build_geometry(entries[0][1], recipe, **options)
+
+    layers: list[GeometryLayer] = []
+    title = recipe.title
+    for entry_label, ods in entries:
+        built = _build_geometry(ods, recipe, **options)
+        title = built.title
+        labelled = False
+        for layer in built.layers:
+            style = {key: value for key, value in layer.style.items() if key != "color"}
+            if layer.kind == "text":
+                # An annotation is not a legend key; it keeps its own text.
+                layers.append(dataclasses.replace(layer, style=style, entry=str(entry_label)))
+                continue
+            label = f"{entry_label} {layer.label}".strip() if layer.label else str(entry_label)
+            if layer.label or not labelled:
+                labelled = True
+            else:
+                # One legend key per entry for a single-layer recipe; a
+                # multi-layer recipe names its parts and keeps them all.
+                label = ""
+            layers.append(
+                dataclasses.replace(layer, style=style, label=label, entry=str(entry_label))
+            )
+    return GeometryLayers(
+        layers=tuple(layers),
+        x_label=recipe.x_label,
+        y_label=recipe.y_label,
+        title=options.get("title", title),
+    )
+
+
 def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> GeometryLayers:
     time_slice = options.get("time_slice", 0)
     layers: list[GeometryLayer] = []
@@ -5903,8 +5949,9 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     """Build the view model for canonical plot ``name`` from ``entries``.
 
     ``entries`` is the ``(label, ods)`` sequence produced by
-    :func:`normalize_entries`.  Single-ODS families (2D fields, geometry,
-    spectrograms) use the first entry and ignore the rest.
+    :func:`normalize_entries`.  Line, profile and geometry families draw every
+    entry; the single-ODS families (2D fields, spectrograms, power spectra)
+    use the first entry and ignore the rest.
     """
     try:
         recipe = RECIPES[name]
@@ -5923,7 +5970,7 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if isinstance(recipe, PanelRecipe):
         return _build_panels(entries, recipe, **options)
     if isinstance(recipe, GeometryRecipe):
-        return _build_geometry(entries[0][1], recipe, **options)
+        return _build_geometry_entries(entries, recipe, **options)
     if isinstance(recipe, FieldRecipe):
         return _build_field_2d(entries[0][1], recipe, **options)
     if isinstance(recipe, SpectrogramRecipe):
