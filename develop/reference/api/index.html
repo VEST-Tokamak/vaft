@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1a40258</code>. What is described
+  <code>bdf783e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -284,7 +284,7 @@ code keeps working. You never need to call them yourself.</p>
     OMASL --&gt; PROC["vaft.process&lt;br/&gt;signal and EM math"]
     OMASL --&gt; FORM["vaft.formula&lt;br/&gt;closed-form physics"]
     ODS --&gt; PLOT["vaft.plot&lt;br/&gt;figures"]
-    ODS --&gt; CODE["vaft.code&lt;br/&gt;EFIT / CHEASE / GPEC / TES"]
+    ODS --&gt; CODE["vaft.code&lt;br/&gt;EFIT / CHEASE / GPEC / TES / NUBEAM"]
     CODE --&gt; ODS
     ODS --&gt; DATA["vaft.data&lt;br/&gt;GEQDSK I/O"]
     ODS --&gt; IMASP["vaft.imas&lt;br/&gt;OMAS to IMAS Access Layer"]
@@ -331,7 +331,7 @@ code keeps working. You never need to call them yourself.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
-      <td>Adapters for external codes (EFIT, CHEASE, GPEC, TES)</td>
+      <td>Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM)</td>
       <td>this page</td>
     </tr>
     <tr>
@@ -743,8 +743,8 @@ executable, run options), an <code class="language-plaintext highlighter-rouge">
 code, and a <code class="language-plaintext highlighter-rouge">collect_*</code> / <code class="language-plaintext highlighter-rouge">*Result</code> pair that reads the outputs back.</p>
 
 <p>When a configuration does not supply an executable explicitly, adapters follow the documented
-installation roots: <code class="language-plaintext highlighter-rouge">EFITHOME</code>, <code class="language-plaintext highlighter-rouge">CHEASEHOME</code>, <code class="language-plaintext highlighter-rouge">GPECHOME</code>, and <code class="language-plaintext highlighter-rouge">TESHOME</code>. Missing binaries are a
-readiness state, not a failure of deterministic input preparation.</p>
+installation roots: <code class="language-plaintext highlighter-rouge">EFITHOME</code>, <code class="language-plaintext highlighter-rouge">CHEASEHOME</code>, <code class="language-plaintext highlighter-rouge">GPECHOME</code>, <code class="language-plaintext highlighter-rouge">TESHOME</code>, and <code class="language-plaintext highlighter-rouge">NUBEAMHOME</code>. Missing
+binaries are a readiness state, not a failure of deterministic input preparation.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">EFITConfig</span><span class="p">,</span> <span class="n">prepare_efit_inputs</span><span class="p">,</span> <span class="n">run_efit</span><span class="p">,</span> <span class="n">collect_efit_outputs</span>
 
@@ -779,11 +779,20 @@ readiness state, not a failure of deterministic input preparation.</p>
       <td><code class="language-plaintext highlighter-rouge">TESConfig</code>, <code class="language-plaintext highlighter-rouge">TESInputs</code>, <code class="language-plaintext highlighter-rouge">TESResult</code>, <code class="language-plaintext highlighter-rouge">prepare_tes_inputs</code>, <code class="language-plaintext highlighter-rouge">run_tes</code>, <code class="language-plaintext highlighter-rouge">collect_tes_outputs</code>, <code class="language-plaintext highlighter-rouge">scan_tes</code>, <code class="language-plaintext highlighter-rouge">parse_result_scalars</code>, <code class="language-plaintext highlighter-rouge">parse_result_coils</code></td>
     </tr>
     <tr>
+      <td>NUBEAM (neutral-beam Monte Carlo)</td>
+      <td><code class="language-plaintext highlighter-rouge">NUBEAMConfig</code>, <code class="language-plaintext highlighter-rouge">NUBEAMInputs</code>, <code class="language-plaintext highlighter-rouge">NUBEAMResult</code>, <code class="language-plaintext highlighter-rouge">find_nubeam_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_nubeam_inputs</code>, <code class="language-plaintext highlighter-rouge">run_nubeam</code>, <code class="language-plaintext highlighter-rouge">run_nubeam_case</code>, <code class="language-plaintext highlighter-rouge">collect_nubeam_outputs</code></td>
+    </tr>
+    <tr>
       <td>Base classes</td>
       <td><code class="language-plaintext highlighter-rouge">CodeConfig</code>, <code class="language-plaintext highlighter-rouge">CodeInputs</code>, <code class="language-plaintext highlighter-rouge">CodeResult</code>, <code class="language-plaintext highlighter-rouge">CodeRunner</code></td>
     </tr>
   </tbody>
 </table>
+
+<p><code class="language-plaintext highlighter-rouge">run_nubeam_case(input_dir, gfile=..., workdir=...)</code> is the NUBEAM equivalent: it stages a case,
+builds its Plasma State, and runs INIT then STEP. NUBEAM results are returned as a native
+container and are not yet mapped into IMAS – see issue #490 section 6. <code class="language-plaintext highlighter-rouge">vaft.plot.nubeam</code>
+renders them directly, which is why those views are not in the plot catalog.</p>
 
 <p><code class="language-plaintext highlighter-rouge">refine_equilibrium(source, config=None)</code> is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. <code class="language-plaintext highlighter-rouge">scan_tes(ods, base_config, values, param="ip0_kA")</code> sweeps a single TES
@@ -850,7 +859,7 @@ Layer entry that is not a VEST shot. See
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
-      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_equilibrium_reconstruction_with_efit.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb"><code class="language-plaintext highlighter-rouge">perturbed_equilibrium_and_3d_response_with_gpec.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/forward_equilibrium_using_TES.ipynb"><code class="language-plaintext highlighter-rouge">forward_equilibrium_using_TES.ipynb</code></a></td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb"><code class="language-plaintext highlighter-rouge">magnetic_equilibrium_reconstruction_with_efit.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_refinement_using_chease.ipynb"><code class="language-plaintext highlighter-rouge">equilibrium_refinement_using_chease.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb"><code class="language-plaintext highlighter-rouge">perturbed_equilibrium_and_3d_response_with_gpec.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/forward_equilibrium_using_TES.ipynb"><code class="language-plaintext highlighter-rouge">forward_equilibrium_using_TES.ipynb</code></a>, <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/vest_nbi_analysis_with_nubeam.ipynb"><code class="language-plaintext highlighter-rouge">vest_nbi_analysis_with_nubeam.ipynb</code></a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.formula</code>, <code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code></td>
@@ -1252,7 +1261,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 14:12:36 +0000"
+        "time": "2026-09-05 14:18:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
