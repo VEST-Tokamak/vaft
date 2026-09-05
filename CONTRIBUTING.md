@@ -4,27 +4,69 @@
 
 Feature and fix work targets `develop`. `main` carries releases.
 
+## What CI asks on each branch
+
+The two branches answer different questions, and they are gated accordingly.
+
+`develop` asks:
+
+> Is this change safe to integrate with ongoing development?
+
+`main` asks:
+
+> Is this integrated state scientifically validated and supported across
+> VAFT's declared platforms?
+
+| | `develop` | `main` |
+| --- | --- | --- |
+| Required checks | `package`, `core-test` | `package`, `test`, `tutorial` |
+| Test selection | `pytest -m "core and not perf"` on Linux | the whole suite on Linux **and** Windows, `slow` tests included |
+| Answers | development confidence | release confidence and supported-platform qualification |
+| Typical wall clock | ~6 min | ~35 min |
+
+Full cross-platform validation is essential for VAFT — Windows is a first-class
+supported platform, and the Windows leg has caught defects that were invisible
+elsewhere. What changed in #515 is *when* the full platform claim is proven, not
+whether it is. It is release qualification, not a toll on every intermediate
+feature PR, which is what a ~34-minute gate on every merge into `develop` had
+become.
+
+The full matrix still runs on the **push** to `develop`, after a PR lands. That
+costs no merge latency and is what keeps the trade honest: a platform regression
+surfaces within one merge, on the branch that caused it, rather than waiting for
+`develop -> main` qualification. It is deliberately not a required check there.
+
+`slow` tests — notebook execution and the tutorial session — run only on the
+`main` gate. Nothing is skipped anywhere; those tests move gates, they do not
+stop running.
+
 ## Branch protection is configured as code
 
-`develop`'s protection lives in [`.github/rulesets/develop.json`](.github/rulesets/develop.json),
-not only in the repository's web settings. Edit the file, get it reviewed like
-any other change, then re-apply it — that way the configuration is reviewable
-and recoverable rather than being whatever someone last clicked.
+Both branches' protection lives in
+[`.github/rulesets/develop.json`](.github/rulesets/develop.json) and
+[`.github/rulesets/main.json`](.github/rulesets/main.json), not only in the
+repository's web settings. Edit the file, get it reviewed like any other change,
+then re-apply it — that way the configuration is reviewable and recoverable
+rather than being whatever someone last clicked.
 
-What it enforces:
+What `develop.json` enforces:
 
 | Rule | Effect |
 | --- | --- |
-| `required_status_checks` | The `Package CI` workflow's `test` and `package` jobs must both pass before anything merges into `develop`. |
+| `required_status_checks` | The `Package CI` workflow's `core-test` and `package` jobs must both pass before anything merges into `develop`. |
 | `deletion` | `develop` cannot be deleted. |
 | `non_fast_forward` | `develop` cannot be force-pushed. |
 | `bypass_actors` | The Admin repository role may bypass the above, for repository recovery only — see below. |
 
+`main.json` is the same shape with no bypass actors and a third required check,
+`tutorial`: a release must not ship decks that no longer build.
+
 Three decisions worth knowing about, recorded here rather than buried in the API
 payload:
 
-- **`package` is required alongside `test`.** It builds the distributions,
-  checks the data policy and wheel size, and smoke-imports the installed wheel.
+- **`package` is required alongside the test gate on both branches.** It
+  builds the distributions, checks the data policy and wheel size, and
+  smoke-imports the installed wheel.
   It is cheap and already green, and it catches packaging breakage that the
   test suite does not.
 - **Repository admins can bypass, for repository recovery only.**
@@ -42,9 +84,10 @@ payload:
   rebase and a full re-run on nearly every merge; at this repository's merge
   rate the cost outweighs the narrow class of semantic conflict it catches.
 
-`tutorial`, the third `Package CI` job, is deliberately **not** required. It
-installs TeX Live and rebuilds every slide deck, so making it blocking would
-gate merges on a slow, toolchain-sensitive job.
+`tutorial` is deliberately **not** required on `develop`. It installs TeX Live
+and rebuilds every slide deck, so making it blocking there would gate ordinary
+feature work on a slow, toolchain-sensitive job. It is required on `main`,
+where a deck that no longer builds is a release defect.
 
 ### Applying it
 
@@ -70,22 +113,26 @@ gh api -X PUT repos/VEST-Tokamak/vaft/rulesets/<id> --input .github/rulesets/dev
 gh api repos/VEST-Tokamak/vaft/rulesets --jq '.[] | "\(.id) \(.name) \(.target) \(.enforcement)"'
 ```
 
-`develop` should appear as `branch active`. Nothing verifies that the applied
-ruleset still matches this file — if it drifts, re-apply the file. To see the
-rules it resolves to for the branch itself:
+`develop` and `main` should both appear as `branch active`. Nothing verifies
+that the applied rulesets still match these files — if they drift, re-apply the
+file. To see the rules a branch actually resolves to:
 
 ```bash
 gh api repos/VEST-Tokamak/vaft/rules/branches/develop
 ```
 
-### The pre-existing `main` ruleset
+### The `main` ruleset
 
-The repository already carries a ruleset named `main` (id `2009677`). It is
-`enforcement: "disabled"`, and despite its name it targets `~ALL` refs and
-would require two approving reviews everywhere if switched on. It is not
-managed by this file. Decide explicitly whether to enable, retarget, or delete
-it — leaving a disabled ruleset next to an active one is how a repository ends
-up with protection nobody can account for.
+`main` is protected by ruleset id `2009677`, checked in as
+[`.github/rulesets/main.json`](.github/rulesets/main.json). It is active,
+targets `refs/heads/main`, and requires `package`, `test` and `tutorial`. It
+carries **no** bypass actors: unlike `develop`, an admin cannot push a release
+past a red build.
+
+It predates the develop ruleset and was for a long time described here as
+disabled and targeting `~ALL` refs. That has not been true since it was
+retargeted; the file is now the record, and it is applied and verified exactly
+like `develop.json` above, substituting its own id.
 
 ## Formula docstrings
 
@@ -203,3 +250,39 @@ python -m pytest -q
 Tests that need external resources — a CHEASE build, the VEST HSDS server, a
 mounted diagnostic share — skip themselves with a reason. Everything else must
 pass in an environment built from `pyproject.toml` alone.
+
+### Markers
+
+Four markers are registered in `pyproject.toml`, and they are how CI slices the
+suite.
+
+| Marker | Meaning | Where it runs |
+| --- | --- | --- |
+| `core` | the development-confidence selection | the required `develop` gate |
+| `slow` | release-confidence checks — notebook and tutorial execution | the `main` gate only |
+| `perf` | performance budgets, calibrated against the Linux runner class | the full Linux suite only — deselected on Windows and in the `develop` gate |
+| `integration` | opt-in read-only HSDS or IMAS access | wherever the resource is reachable; self-skips otherwise |
+
+To run what gates a PR into `develop`, before pushing:
+
+```bash
+python -m pytest -q -m "core and not perf"
+```
+
+`perf` is deselected there for the same reason the Windows leg drops it: a
+wall-clock ratio is the last thing to trust in a job built to be quick.
+
+`core` is not written into test modules by hand. It is one declared list in
+[`test/core_selection.py`](test/core_selection.py), applied during collection by
+`test/conftest.py`, so the whole develop gate is reviewable in a single diff.
+`test/test_core_selection.py` holds the list to what it declares — every entry
+must exist, no `slow` module may be in it, the workflow must still run the
+expression above, and the marker must be applied early enough that `-m core`
+selects anything at all.
+
+Adding a test to the core selection means adding a line to that list, with a
+reason. The bar is a contract that fails loudly and cheaply: import and
+namespace shape, public API surface, layer boundaries, registries and
+taxonomies, serialization round-trips, packaging policy. Scientific regression
+and validation coverage belongs in the full suite, which the `main` gate and the
+post-merge `develop` run both execute in full.
