@@ -22,7 +22,7 @@ The two branches answer different questions, and they are gated accordingly.
 | Required checks | `package`, `core-test` | `package`, `test`, `tutorial` |
 | Test selection | `pytest -m "core and not perf"` on Linux | the whole suite on Linux **and** Windows, `slow` tests included |
 | Answers | development confidence | release confidence and supported-platform qualification |
-| Measured wall clock | ~3 min | ~35 min |
+| Measured wall clock | ~4 min | ~35 min |
 
 Full cross-platform validation is essential for VAFT — Windows is a first-class
 supported platform, and the Windows leg has caught defects that were invisible
@@ -30,8 +30,8 @@ elsewhere. What changed in #515 is *when* the full platform claim is proven, not
 whether it is. It is release qualification, not a toll on every intermediate
 feature PR, which is what a ~34-minute gate on every merge into `develop` had
 become. Measured on the run that introduced the split: `test (Linux)` 27.8 min
-and `test (Windows)` 34.1 min, against `core-test` at 4.6 min before the
-selection was trimmed.
+and `test (Windows)` 34.1 min, against `core-test` at 3m46s and `package` at
+44s.
 
 The full matrix still runs on the **push** to `develop`, after a PR lands. That
 costs no merge latency and is what keeps the trade honest: a platform regression
