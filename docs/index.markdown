@@ -7,10 +7,18 @@ title: VAFT — Versatile Analytical Framework for Tokamak
 
 ![VAFT]({{ site.baseurl }}/assets/images/IMG_3873.jpg)
 
-**VAFT** is an open-source Python library that functions both as a dedicated data platform for the
+> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
+
+**VAFT** is a standardized, verifiable, and interoperable scientific infrastructure for
+machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated
+plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified,
+compared, and studied. Its full end-to-end implementation on the
 [VEST (Versatile Experiment Spherical Torus)](https://eng.snu.ac.kr/) tokamak at Seoul National
-University and as a machine- and code-generic data analysis framework built upon the IMAS data model.
-It provides an [IMAS](https://imas.iter.org/)-compliant data interface built on the
+University supports routine experimental data processing, validation, modeling, physics analysis,
+and shared scientific use across collaborating researchers and institutions, while serving as the
+reference implementation for modern, reproducible, and data-driven fusion research.
+
+VAFT provides an [IMAS](https://imas.iter.org/)-compliant data interface built on the
 [OMAS](https://gafusion.github.io/omas/) interface library and an
 [HSDS](https://github.com/HDFGroup/hsds) remote HDF5 database. Read access to the VEST database is
 open to all users; writing to the database is restricted to authorized accounts.
