@@ -31,7 +31,9 @@ from .inputs import (
     rewrite_inputf_equilibrium,
 )
 from .outputs import (
+    LOST_PARTICLE_FIELDS,
     NUBEAMBirthMarkers,
+    NUBEAMLostParticles,
     NUBEAMOutputs,
     NUBEAMResult,
     collect_nubeam_outputs,
@@ -53,7 +55,9 @@ __all__ = [
     "NUBEAM_LONGEST_OUTPUT_SUFFIX",
     "NUBEAM_PATH_BUFFER_CHARS",
     "NUBEAM_UPDATE_STATE_EXECUTABLE",
+    "LOST_PARTICLE_FIELDS",
     "NUBEAMBirthMarkers",
+    "NUBEAMLostParticles",
     "NUBEAMConfig",
     "NUBEAMExecutionError",
     "NUBEAMInputError",

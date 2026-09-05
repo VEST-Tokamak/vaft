@@ -41,6 +41,37 @@ PROFILE_DESCRIPTIONS: Mapping[str, str] = {
     "sbtherm": "beam ion thermalization rate [m^-3 s^-1]",
 }
 
+#: Written by NUBEAM STEP when it has fast ions: the xplasma container that
+#: carries, among much else, the lost-particle record.
+XPLASMA_OUT_SUFFIX = "_xplasma_out.cdf"
+
+#: Columns of the ``LOST_ORBIT`` record, in the order they are packed.
+#:
+#: xplasma stores the record as three opaque variables -- ``LOST_ORBIT_type``,
+#: ``_iwork`` and ``_r8work`` -- rather than as named arrays, so the column
+#: order is not recoverable from the file. It is taken from two independent
+#: sources that agree: the reference reader shipped on the VEST cluster
+#: (``/home/leecyid/tool/lost_orbit.py``), and NUBEAM's own writer, which names
+#: the same quantities in the same order (``lost_orbit_r8get1`` calls in
+#: ``nubeam/gfbm_set_track_data.f90:503-543``).
+LOST_PARTICLE_FIELDS = (
+    "time",    # when the marker was lost [s]
+    "beam",    # originating beam index
+    "efrac",   # energy component: 1 full, 2 half, 3 third
+    "ptcl",    # physical particles represented by the marker
+    "rlost",   # major radius of the loss [m]
+    "zlost",   # elevation of the loss [m]
+    "energy",  # marker energy at loss [keV]
+    "vfrac",   # pitch, v_parallel / v
+    "lstype",  # loss channel: 1 prompt, >1 orbit
+    "spec",    # fast ion species index
+)
+
+#: ``lstype`` below this is a prompt loss; at or above it, an orbit loss.
+#: The threshold is the reference reader's (``lstype < 1.0001``), kept because
+#: the field is stored as a real.
+LOST_PROMPT_MAX = 1.0001
+
 #: Marker columns in the birth file, named ``bs_<field>_<species>_MCBEAM``.
 BIRTH_MARKER_FIELDS = (
     "r",      # major radius of the deposition point [cm]
@@ -72,6 +103,35 @@ class NUBEAMBirthMarkers:
 
 
 @dataclass
+class NUBEAMLostParticles:
+    """Fast ions NUBEAM stopped following, one entry per lost marker.
+
+    Positions are in metres and energies in keV -- xplasma's own units here,
+    and *not* the centimetres the birth file uses. No conversion is applied.
+    """
+
+    path: Path
+    count: int
+    columns: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def prompt(self) -> Any:
+        """Boolean mask selecting the prompt-loss markers."""
+        import numpy as np
+
+        return np.asarray(self.columns["lstype"]) < LOST_PROMPT_MAX
+
+    def channel_counts(self) -> dict[str, int]:
+        """Marker counts per loss channel.
+
+        Worth reading before labelling any figure: NUBEAM's step log calls this
+        whole channel "bad orbit loss", but a run can be entirely prompt loss.
+        """
+        prompt = int(self.prompt.sum())
+        return {"prompt": prompt, "orbit": int(self.count - prompt)}
+
+
+@dataclass
 class NUBEAMOutputs:
     """Everything a completed NUBEAM run produced, in NUBEAM's own terms."""
 
@@ -84,6 +144,7 @@ class NUBEAMOutputs:
     #: Scalar diagnostics from ``<runid>_scalars_out.cdf``.
     scalars: Mapping[str, Any] = field(default_factory=dict)
     birth: Optional[NUBEAMBirthMarkers] = None
+    lost: Optional[NUBEAMLostParticles] = None
     #: Count of ``xpprof`` out-of-bounds interpolation warnings in step.log.
     interpolation_warnings: int = 0
 
@@ -170,6 +231,52 @@ def _read_birth(path: Path) -> Optional[NUBEAMBirthMarkers]:
     )
 
 
+def _read_lost_particles(path: Path) -> Optional[NUBEAMLostParticles]:
+    """Decode the ``LOST_ORBIT`` record from an xplasma output file.
+
+    The record is three flat variables. ``iwork`` holds a small header:
+    ``iwork[1]`` is the number of lost markers, and ``iwork[2:]`` are 1-based
+    start offsets into ``r8work``, one per column of
+    :data:`LOST_PARTICLE_FIELDS`.
+
+    Each column is read as ``count`` values from its own start offset, rather
+    than as the span between consecutive offsets. That is deliberate: the
+    reference reader takes the last column as ``r8work[iwork[11]-1:iwork[12]-1]``
+    and ``iwork[12]`` is zero -- the offset list ends -- so it silently drops
+    the final marker of that one column. Reading a fixed length keeps every
+    column the same length, which is what the caller can reason about.
+
+    Only these three variables are touched. The containing file routinely
+    exceeds 50 MB, and xarray reads lazily, so nothing else is loaded.
+    """
+    import numpy as np
+
+    with _open_dataset(path) as dataset:
+        if "LOST_ORBIT_iwork" not in dataset.variables:
+            return None
+        iwork = np.asarray(dataset["LOST_ORBIT_iwork"].values).ravel().astype(int)
+        r8work = np.asarray(dataset["LOST_ORBIT_r8work"].values).ravel()
+
+    if iwork.size < 2 + len(LOST_PARTICLE_FIELDS):
+        return None
+    count = int(iwork[1])
+    if count <= 0:
+        # A run that lost nothing is a normal result, not a missing record.
+        return NUBEAMLostParticles(
+            path=path,
+            count=0,
+            columns={name: np.empty(0) for name in LOST_PARTICLE_FIELDS},
+        )
+
+    columns: dict[str, Any] = {}
+    for index, name in enumerate(LOST_PARTICLE_FIELDS):
+        start = int(iwork[2 + index]) - 1
+        if start < 0 or start + count > r8work.size:
+            return None
+        columns[name] = r8work[start : start + count]
+    return NUBEAMLostParticles(path=path, count=count, columns=columns)
+
+
 def collect_nubeam_outputs(
     workdir: str | Path,
     config: Optional[NUBEAMConfig] = None,
@@ -206,6 +313,11 @@ def collect_nubeam_outputs(
     if birth_files:
         birth = _read_birth(birth_files[0])
 
+    lost = None
+    xplasma_out = directory / f"{runid}{XPLASMA_OUT_SUFFIX}"
+    if xplasma_out.is_file():
+        lost = _read_lost_particles(xplasma_out)
+
     warnings_count = 0
     step_log = directory / "step.log"
     if step_log.is_file():
@@ -230,6 +342,7 @@ def collect_nubeam_outputs(
         profiles=profiles,
         scalars=scalars,
         birth=birth,
+        lost=lost,
         interpolation_warnings=warnings_count,
     )
 

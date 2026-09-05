@@ -298,3 +298,128 @@ def test_installed_nubeam_resolves():
         )
     )
     assert executable is not None and executable.is_file()
+
+
+# --------------------------------------------------------------------------
+# LOST_ORBIT decoding
+# --------------------------------------------------------------------------
+
+LOST_FIELDS = nubeam.LOST_PARTICLE_FIELDS
+
+
+def _write_xplasma_out(path: Path, columns: dict[str, list[float]]) -> Path:
+    """Write the three LOST_ORBIT variables the way xplasma packs them.
+
+    Columns are laid end to end in ``r8work``; ``iwork`` carries the marker
+    count and one 1-based start offset per column. The trailing zero after the
+    offsets is xplasma's, and is what makes the reference reader drop a value.
+    """
+    import numpy as np
+    import xarray as xr
+
+    count = len(next(iter(columns.values())))
+    flat: list[float] = []
+    offsets: list[int] = []
+    for name in LOST_FIELDS:
+        offsets.append(len(flat) + 1)  # 1-based
+        flat.extend(columns[name])
+    iwork = [40, count, *offsets, 0]
+
+    xr.Dataset(
+        {
+            "LOST_ORBIT_type": ((), np.int32(900)),
+            "LOST_ORBIT_iwork": (("ni",), np.asarray(iwork, dtype="int32")),
+            "LOST_ORBIT_r8work": (("nr",), np.asarray(flat, dtype=float)),
+        }
+    ).to_netcdf(path)
+    return path
+
+
+def _lost_columns(count: int = 3) -> dict[str, list[float]]:
+    values = {
+        "time": [1e-5, 2e-5, 3e-5],
+        "beam": [1.0, 1.0, 1.0],
+        "efrac": [1.0, 1.0, 2.0],
+        "ptcl": [5.0e14, 4.0e14, 3.0e14],
+        "rlost": [0.51, 0.60, 0.69],
+        "zlost": [-0.01, 0.20, 0.44],
+        "energy": [9.6, 9.8, 10.0],
+        "vfrac": [0.2, 0.5, 0.9],
+        "lstype": [1.0, 1.0, 2.0],
+        "spec": [1.0, 1.0, 1.0],
+    }
+    return {k: v[:count] for k, v in values.items()}
+
+
+def test_lost_particles_decode_every_column_to_full_length(tmp_path):
+    """The reference reader truncates the last column; this must not."""
+    _write_xplasma_out(tmp_path / "RUN_xplasma_out.cdf", _lost_columns())
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    result = nubeam.collect_nubeam_outputs(tmp_path)
+    lost = result.outputs_native.lost
+
+    assert lost is not None
+    assert lost.count == 3
+    assert sorted(lost.columns) == sorted(LOST_FIELDS)
+    # `spec` is the column the reference reader returns one short.
+    assert all(len(lost.columns[name]) == 3 for name in LOST_FIELDS)
+    assert list(lost.columns["spec"]) == [1.0, 1.0, 1.0]
+
+
+def test_lost_particles_keep_native_metres_and_kev(tmp_path):
+    _write_xplasma_out(tmp_path / "RUN_xplasma_out.cdf", _lost_columns())
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    lost = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost
+
+    # Metres, unlike the birth file's centimetres. No conversion here.
+    assert list(lost.columns["rlost"]) == [0.51, 0.60, 0.69]
+    assert list(lost.columns["energy"]) == [9.6, 9.8, 10.0]
+
+
+def test_lost_particles_split_prompt_from_orbit(tmp_path):
+    _write_xplasma_out(tmp_path / "RUN_xplasma_out.cdf", _lost_columns())
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    lost = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost
+
+    assert lost.channel_counts() == {"prompt": 2, "orbit": 1}
+    assert list(lost.prompt) == [True, True, False]
+
+
+def test_a_run_that_lost_nothing_is_an_empty_record_not_a_missing_one(tmp_path):
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {
+            "LOST_ORBIT_iwork": (
+                ("ni",),
+                np.asarray([40, 0, *([1] * len(LOST_FIELDS)), 0], dtype="int32"),
+            ),
+            "LOST_ORBIT_r8work": (("nr",), np.zeros(1)),
+        }
+    ).to_netcdf(tmp_path / "RUN_xplasma_out.cdf")
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    lost = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost
+
+    assert lost is not None and lost.count == 0
+    assert lost.channel_counts() == {"prompt": 0, "orbit": 0}
+
+
+def test_an_xplasma_file_without_the_record_yields_none(tmp_path):
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset({"something_else": (("n",), np.zeros(3))}).to_netcdf(
+        tmp_path / "RUN_xplasma_out.cdf"
+    )
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    assert nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost is None
+
+
+def test_no_xplasma_file_is_not_an_error(tmp_path):
+    assert nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost is None
