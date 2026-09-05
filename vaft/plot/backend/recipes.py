@@ -621,6 +621,12 @@ class ProfileRecipe:
     y_unit: str = ""
     label_path: str = ""
     fallback_y_paths: tuple[str, ...] = ()
+    #: Display sign policy (issue #307), as on :class:`LineRecipe`.  A profile
+    #: whose sign is a convention rather than a measurement -- everything the
+    #: COCOS of the source decides -- can be drawn with its dominant response
+    #: positive, per entry, so two machines stored in opposite conventions are
+    #: comparable in one axes.  The data is untouched and the title says so.
+    orientation: str = "canonical"
 
 
 @dataclass(frozen=True)
@@ -1030,6 +1036,12 @@ RECIPES: dict[str, Any] = {
     "equilibrium_profile_q": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.q",
         y_label="Safety Factor q",
+        # q carries the sign of the source's COCOS -- sgn(Ip)*sgn(B0) in the
+        # 11-family -- so half the machines in a cross-machine overlay store it
+        # negative.  Draw it the way it is read, per entry; f, ffprime and
+        # pprime stay canonical because their sign also carries gradient
+        # direction, and can be flipped with orientation="intuitive".
+        orientation="intuitive",
     ),
     "equilibrium_profile_j_tor": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.j_tor",
@@ -3624,10 +3636,13 @@ def _build_profile_1d(
         _apply_display(trace, x_scale=1.0, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.y_label
     else:
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
