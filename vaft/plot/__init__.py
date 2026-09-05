@@ -300,6 +300,9 @@ from .renderers.panels import (
     passive_structure_overview_wall_reduction,
 )
 from .renderers.profiles import (
+    nbi_profile_current_drive,
+    nbi_profile_electron_heating,
+    nbi_profile_ion_heating,
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
     electron_density_profile,

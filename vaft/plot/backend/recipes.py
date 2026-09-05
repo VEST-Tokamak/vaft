@@ -717,6 +717,81 @@ class PanelRecipe:
 _MAGNETICS_TIME = ("magnetics.time",)
 _EQ_TIME = ("equilibrium.time",)
 
+# --- NBI source terms ------------------------------------------------------
+#
+# These read `core_sources`, not `nbi`: the beam's *effect* on the plasma is a
+# source term, while the `nbi` IDS describes the hardware. The NBI entry is
+# found by its identifier rather than by position, because `core_sources` holds
+# every source a run computed and nothing fixes the beam's index.
+
+#: `core_source_identifier` index for neutral beam injection.
+_NBI_SOURCE_INDEX = 2
+
+
+def _nbi_source_index(ods, **options):
+    """Position of the NBI entry in ``core_sources.source``.
+
+    ``source=`` names one explicitly; otherwise the identifier decides. Raising
+    here with the indices that *are* present beats returning an empty plot.
+    """
+    explicit = options.get("source")
+    if explicit is not None:
+        return int(explicit)
+    count = _count(ods, "core_sources.source")
+    found = []
+    for index in range(count):
+        if _get(ods, f"core_sources.source.{index}.identifier.index") == _NBI_SOURCE_INDEX:
+            return index
+        name = _get(ods, f"core_sources.source.{index}.identifier.name")
+        if name:
+            found.append(f"{index}:{name}")
+    raise ValueError(
+        "no neutral-beam entry in core_sources"
+        + (f"; this ODS holds {', '.join(found)}" if found else " (it holds no sources)")
+        + ". Map a NUBEAM result with vaft.machine_mapping.core_sources first."
+    )
+
+
+def _build_nbi_profile(ods, *, field, y_label, y_unit, heading, **options):
+    """One `core_sources` NBI profile against its own radial grid."""
+    source = _nbi_source_index(ods, **options)
+    base = f"core_sources.source.{source}.profiles_1d"
+    count = _count(ods, base)
+    if not count:
+        raise ValueError(f"core_sources.source.{source} carries no profiles_1d")
+    index = int(options.get("time_slice", 0))
+    if index >= count:
+        raise ValueError(
+            f"time_slice {index} is out of range; core_sources.source.{source} "
+            f"has {count}"
+        )
+    slice_base = f"{base}.{index}"
+    values = _array(ods, f"{slice_base}.{field}")
+    if values is None:
+        raise ValueError(
+            f"{field} is not in this ODS at {slice_base}. A hydrogen run has no "
+            "fusion channels, and a NUBEAM result maps only what it produced."
+        )
+    rho = _array(ods, f"{slice_base}.grid.rho_tor_norm")
+    if rho is None:
+        raise ValueError(f"no rho_tor_norm grid at {slice_base}.grid")
+
+    return Profile1D(
+        series=(Series(x=rho, y=values, label=heading),),
+        coordinate_label=r"$\rho_{tor,norm}$",
+        y_label=y_label,
+        y_unit=y_unit,
+        title=heading,
+    )
+
+
+def _nbi_profile_builder(**spec):
+    def builder(ods, **options):
+        return _build_nbi_profile(ods, **spec, **options)
+
+    return builder
+
+
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
     "plasma_current_time": LineRecipe(
@@ -1028,6 +1103,33 @@ RECIPES: dict[str, Any] = {
         title="Volume-averaged n_e",
     ),
     # --- 1D profiles ---------------------------------------------------------
+    "nbi_profile_electron_heating": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="electrons.energy",
+            y_label="NBI electron heating",
+            y_unit="W.m^-3",
+            heading="NBI electron heating",
+        ),
+        description="Beam power density to electrons, from a mapped NUBEAM result.",
+    ),
+    "nbi_profile_ion_heating": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="total_ion_energy",
+            y_label="NBI ion heating",
+            y_unit="W.m^-3",
+            heading="NBI ion heating",
+        ),
+        description="Beam power density to ions, from a mapped NUBEAM result.",
+    ),
+    "nbi_profile_current_drive": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="j_parallel",
+            y_label="NBI driven current density",
+            y_unit="A.m^-2",
+            heading="NBI driven current",
+        ),
+        description="Beam-driven parallel current density, from a mapped NUBEAM result.",
+    ),
     "equilibrium_profile_pressure": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.pressure",
         y_label="Pressure",
