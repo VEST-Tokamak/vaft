@@ -72,13 +72,15 @@ era. Which axis a poor result concentrates on is the diagnosis:
 | quality changes across geometry revisions | static-model provenance |
 | one shot among consistent neighbours | acquisition / baseline / timing |
 
+Each case also lists `channels.flagged`: B-probes that contradict their own array over the
+plasma-free window (a lone probe reading a field its two nearest neighbours on the same
+radius do not see, for more than `ARRAY_CONTRADICTION_FRACTION` of the samples it can be
+scored on). They are evaluated and reported like every other channel but kept out of
+`metrics.summary.scored`, whose `excluded_flagged` names them (`null` there means no
+review ran), and out of the aggregate's summary spreads, which name them under
+`flagged_channels`: a sensor finding, not a wall-model one. On the packaged 39915 that is
+C4-04, which follows the PF1 ramp its neighbours do not see.
+
 There are deliberately **no acceptance thresholds**. #190 is explicit that broad
 scientific bounds must wait until the VEST benchmark distribution has been
 inspected.
-
-Each case also lists `channels.flagged`: B-probes that contradict their own array over the
-plasma-free window (a lone probe reading a field its two nearest neighbours on the same
-radius do not see, for more than 5 % of the window). They are evaluated and reported like
-every other channel but kept out of `metrics.summary.scored`, whose `excluded_flagged` names
-them: a sensor finding, not a wall-model one. On the packaged 39915 that is C4-04, which
-follows the PF1 ramp its neighbours do not see.

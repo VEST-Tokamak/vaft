@@ -1013,7 +1013,7 @@ def vacuum_residual_metrics(
     window: tuple[float, float] | None = None,
     min_samples: int = 2,
     min_wall_authority: float = 0.0,
-    scored_exclude: Iterable[str] = (),
+    scored_exclude: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """Per-channel and per-family measured-versus-model agreement (issue #190).
 
@@ -1025,6 +1025,10 @@ def vacuum_residual_metrics(
     Metrics only -- no thresholds, no verdict.  What counts as acceptable
     depends on the study, and #190 is explicit that broad acceptance thresholds
     must wait until the VEST benchmark distribution has been inspected.
+
+    ``scored_exclude`` names channels a caller's own review keeps out of the
+    scored spread (the vacuum benchmark's array-contradiction review); the
+    block records them, or ``None`` when no review ran.
 
     ``min_wall_authority`` is a *conditioning* floor, not an acceptance one:
     the ``summary["scored"]`` block repeats the improvement spread over the
@@ -1039,7 +1043,7 @@ def vacuum_residual_metrics(
         for channel in channels
     ]
     evaluated = [row for row in rows if row["status"] == "evaluated"]
-    flagged = set(scored_exclude)
+    flagged = set() if scored_exclude is None else set(scored_exclude)
     scored_rows = [
         row
         for row in evaluated
@@ -1073,7 +1077,11 @@ def vacuum_residual_metrics(
         }
 
     return {
-        "schema_version": 1,
+        # 2 (#409 follow-up): the scored block is conditioned on flagged
+        # channels when a caller supplies them and carries correlation and
+        # normalized-residual spreads; excluded_flagged is None when no
+        # review ran.
+        "schema_version": 2,
         "window": None if window is None else [float(window[0]), float(window[1])],
         "channels": rows,
         "families": families,
@@ -1091,7 +1099,9 @@ def vacuum_residual_metrics(
             # above are always over every evaluated channel.
             "scored": {
                 "min_wall_authority": float(min_wall_authority),
-                "excluded_flagged": sorted(
+                # None: no flag review was run for this record; []: reviewed,
+                # nothing flagged.
+                "excluded_flagged": None if scored_exclude is None else sorted(
                     row["name"] for row in evaluated if row["name"] in flagged
                 ),
                 "count": len(scored_rows),

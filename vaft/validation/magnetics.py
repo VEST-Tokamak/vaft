@@ -811,7 +811,11 @@ def _position(source: Any, kind: str, index: int) -> tuple[float, float] | None:
 
 
 def array_contradiction_scores(
-    heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0
+    heights: Sequence[float],
+    waveforms: np.ndarray,
+    *,
+    floor: float = 0.0,
+    min_witnesses: int = 3,
 ) -> np.ndarray:
     """Robust-z of each probe's departure from its two nearest neighbours, per sample.
 
@@ -825,7 +829,10 @@ def array_contradiction_scores(
     neighbours' departures up with it -- an end probe's, by extrapolation,
     to the same size as its own -- so a score says a probe *or one of its
     neighbours* is wrong; which one is a leave-one-out question for the
-    caller.  Rows without two distinct neighbours are ``nan``.
+    caller.  A probe with fewer than ``min_witnesses`` independent probes to
+    set its scale is ``nan`` rather than judged against the floor alone (an
+    absolute test the sigma was never meant to be), as are rows without two
+    distinct neighbours and samples where any of the three is non-finite.
     """
     heights = np.asarray(heights, dtype=float).reshape(-1)
     Y = np.asarray(waveforms, dtype=float)
@@ -858,15 +865,14 @@ def array_contradiction_scores(
             # A witness is a probe whose departure does not involve this one:
             # neither predicted from it nor one of the probes predicting it.
             witnesses = [j for j in scorable if j != k and k not in used[j] and j not in used[k]]
-            if witnesses:
-                pool = residual[witnesses]
-                centre = np.nanmedian(pool, axis=0)
-                spread = 1.4826 * np.nanmedian(np.abs(pool - centre), axis=0)
-            else:
-                centre, spread = np.zeros(Y.shape[1]), np.zeros(Y.shape[1])
+            if len(witnesses) < int(min_witnesses):
+                continue
+            pool = residual[witnesses]
+            centre = np.nanmedian(pool, axis=0)
+            spread = 1.4826 * np.nanmedian(np.abs(pool - centre), axis=0)
             scale = np.maximum(np.where(np.isfinite(spread), spread, 0.0), float(floor))
             scale = np.where(scale > 0.0, scale, np.nan)
-            scores[k] = np.abs(residual[k] - np.where(np.isfinite(centre), centre, 0.0)) / scale
+            scores[k] = np.abs(residual[k] - centre) / scale
     return scores
 
 

@@ -586,11 +586,14 @@ def test_the_packaged_case_surfaces_the_channels_the_wall_model_fails_on(package
     rows = [r for r in packaged_case["metrics"]["channels"] if r["status"] == "evaluated"]
     names = {row["name"] for row in rows}
     worse = [row for row in rows if row["improvement"] < 0.0]
-    anticorrelated = [row for row in rows if row["correlation"] < -0.5]
+    scored_names = set(packaged_case["channels"]["selected"]) - set(
+        packaged_case["metrics"]["summary"]["scored"]["excluded_flagged"]
+    )
+    anticorrelated = [row for row in rows if row["name"] in scored_names and row["correlation"] < -0.5]
 
     assert "MagneticFieldProbe_H3-08_Bz" not in names
     assert 0 < len(worse) <= 5, "a handful, not a systematic failure"
-    assert not anticorrelated, "nothing opposes the model once the broken sensor is out"
+    assert not anticorrelated, "nothing in the scored set opposes the model"
     assert packaged_case["metrics"]["summary"]["improvement"]["min"] < 0.0
     # Over the window to the plasma one outboard probe, C4-04, follows the PF1
     # ramp its two neighbours on the same radius do not see: a sensor finding
@@ -766,7 +769,7 @@ def test_a_current_the_product_marks_unusable_cannot_certify_a_vacuum_case(plasm
 # ---------------------------------------------------------------------------
 
 
-def _probe_array(measured_rows, *, r=0.796, dz=0.04):
+def _probe_array(measured_rows, *, r=0.796, dz=0.04, valid=None):
     from vaft.omas.vacuum_magnetics import VacuumChannel
 
     channels = []
@@ -776,40 +779,91 @@ def _probe_array(measured_rows, *, r=0.796, dz=0.04):
                 name=f"probe{k}", kind="b_field_pol_probe", family="outboard", index=k,
                 r=r, z=-0.4 + dz * k, unit="T", time=TIME,
                 measured=np.asarray(measured, dtype=float), coil=np.zeros(TIME.size),
-                coil_eddy=np.zeros(TIME.size), valid=np.ones(TIME.size, dtype=bool),
+                coil_eddy=np.zeros(TIME.size),
+                valid=np.ones(TIME.size, dtype=bool) if valid is None or k not in valid else valid[k],
             )
         )
     return channels
 
 
+def _smooth_rows(n: int = 9, seed: int = 190):
+    rng = np.random.default_rng(seed)
+    smooth = 1e-2 * np.sin(np.linspace(0.0, 2.0, TIME.size))
+    return [smooth * (1.0 + 0.05 * k) + 2e-5 * rng.standard_normal(TIME.size) for k in range(n)]
+
+
+BURST = (TIME >= 0.26) & (TIME < 0.30)  # a coil the faulty probe alone follows
+WHOLE = (TIME[0], TIME[-1])
+
+
 def test_a_probe_that_contradicts_its_array_is_flagged_and_its_neighbours_are_not():
     from vaft.validation.vacuum_benchmark import array_contradiction_fractions, array_contradictions
 
-    rng = np.random.default_rng(190)
-    smooth = 1e-2 * np.sin(np.linspace(0.0, 2.0, TIME.size))
-    rows = [smooth * (1.0 + 0.05 * k) + 2e-5 * rng.standard_normal(TIME.size) for k in range(7)]
-    burst = (TIME >= 0.26) & (TIME < 0.30)  # the middle probe follows a coil the others do not see
-    rows[3] = rows[3] + np.where(burst, 8e-3, 0.0)
+    rows = _smooth_rows()
+    rows[4] = rows[4] + np.where(BURST, 8e-3, 0.0)
     channels = _probe_array(rows)
 
-    flagged = array_contradictions(channels, (TIME[0], TIME[-1]))
+    flagged = array_contradictions(channels, WHOLE)
 
-    assert [entry["channel"] for entry in flagged] == ["probe3"]
-    assert flagged[0]["fraction"] == pytest.approx(burst.mean(), abs=0.02)
+    assert [entry["channel"] for entry in flagged] == ["probe4"]
+    assert flagged[0]["fraction"] == pytest.approx(BURST.mean(), abs=0.02)
     assert flagged[0]["from"] == pytest.approx(0.26, abs=1e-3) and flagged[0]["to"] < 0.301
-    # The neighbours' departures were dragged up by probe3; scored again without it, nothing is left.
-    rest = array_contradiction_fractions(channels, (TIME[0], TIME[-1]), exclude=["probe3"])
+    # The neighbours' departures were dragged up by probe4; scored again without it, nothing is left.
+    rest = array_contradiction_fractions(channels, WHOLE, exclude=["probe4"])
     assert max(rest.values()) == 0.0
-    # A faulty end probe is found by leave-one-out, not blamed on its neighbour ...
-    rows_end = list(rows); rows_end[3] = rows[3] - np.where(burst, 8e-3, 0.0); rows_end[0] = rows_end[0] + 8e-3
-    assert [e["channel"] for e in array_contradictions(_probe_array(rows_end), (TIME[0], TIME[-1]))] == ["probe0"]
-    # ... and three probes cannot form an array.
-    assert array_contradictions(channels[:3], (TIME[0], TIME[-1])) == []
 
 
-def test_the_array_contradiction_margin_holds(packaged_case):
-    """The justification for the conditioning, kept under test: C4-04 sits far
-    above the fraction and, once it is out of its array, every other probe far below."""
+def test_a_faulty_end_probe_is_found_by_leave_one_out_not_blamed_on_its_neighbour():
+    from vaft.validation.vacuum_benchmark import array_contradictions
+
+    rows = _smooth_rows()
+    rows[0] = rows[0] + 8e-3
+    assert [e["channel"] for e in array_contradictions(_probe_array(rows), WHOLE)] == ["probe0"]
+
+
+def test_arrays_too_short_to_witness_or_attribute_are_not_scored():
+    from vaft.validation.vacuum_benchmark import MIN_ARRAY_MEMBERS, array_contradictions
+
+    rows = _smooth_rows(MIN_ARRAY_MEMBERS - 1)
+    rows[3] = rows[3] + np.where(BURST, 8e-3, 0.0)
+    assert array_contradictions(_probe_array(rows), WHOLE) == []
+    # exactly the minimum: scorable, but leave-one-out has no array left to judge
+    rows = _smooth_rows(MIN_ARRAY_MEMBERS)
+    rows[3] = rows[3] + np.where(BURST, 8e-3, 0.0)
+    assert array_contradictions(_probe_array(rows), WHOLE) == []
+
+
+def test_a_masked_stretch_neither_judges_a_probe_nor_predicts_its_neighbours():
+    """Review finding: samples the assessment masked used to feed the interpolation."""
+    from vaft.validation.vacuum_benchmark import array_contradictions
+
+    rows = _smooth_rows()
+    held = TIME < 0.30  # 40 % of the record: the probe is railed and held there
+    rows[4] = np.where(held, 5.0, rows[4])
+    valid = {4: ~held}
+    assert array_contradictions(_probe_array(rows, valid=valid), WHOLE) == []
+    # ... whereas the same held values, if the assessment had not masked them, are a contradiction
+    assert [e["channel"] for e in array_contradictions(_probe_array(rows), WHOLE)] == ["probe4"]
+
+
+def test_the_aggregate_keeps_flagged_probes_out_of_its_spreads_and_names_them(packaged_case):
+    from vaft.validation.vacuum_benchmark import aggregate_benchmark
+
+    aggregate = aggregate_benchmark([packaged_case])
+
+    assert aggregate["schema_version"] == 2
+    assert aggregate["flagged_channels"] == {"39915": ["MagneticFieldProbe_C4-04"]}
+    assert "MagneticFieldProbe_C4-04" in aggregate["by_channel"]  # listed for inspection ...
+    assert aggregate["summary"]["driven_channel_rows"] == packaged_case["metrics"]["summary"]["scored"]["count"]
+    assert aggregate["summary"]["median_improvement"] == pytest.approx(
+        packaged_case["metrics"]["summary"]["scored"]["improvement"]["median"]
+    )
+
+
+def test_the_array_contradiction_margin_holds_on_the_packaged_shot(packaged_case):
+    """The justification for the conditioning, kept under test: in the first
+    pass C4-04 sits far above the fraction (and drags its neighbours with it);
+    once it is out of its array every other probe sits far below."""
     from vaft.omas.sample import sample_ods
     from vaft.validation.vacuum_benchmark import (
         ARRAY_CONTRADICTION_FRACTION,
