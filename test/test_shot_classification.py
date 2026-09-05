@@ -77,6 +77,16 @@ def test_a_missing_signal_is_reported_not_called_vacuum():
     assert vaft.omas.find_shotclass(empty) is None  # the lenient form still answers
 
 
+def test_the_lenient_form_answers_none_for_an_ids_without_the_channel():
+    """Present but empty is the case a bare `ids in ods` check does not cover."""
+    ods = omas.ODS(consistency_check=False)
+    ods["barometry.gauge.0.pressure.time"] = np.linspace(0.0, 1.0, 8)  # no .data
+    ods["spectrometer_uv.time"] = np.linspace(0.0, 1.0, 8)
+    assert vaft.omas.find_shotclass(ods) is None
+    with pytest.raises(KeyError):
+        vaft.omas.classify_shot(ods)
+
+
 def test_the_threshold_reaches_the_detector():
     """Passing it under the wrong keyword is what broke this in the first place."""
     barely_moving = np.full(64, 1.0)

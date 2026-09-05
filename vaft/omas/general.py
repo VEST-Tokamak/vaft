@@ -24,7 +24,13 @@ def find_shotclass(ods, plot_opt=0):
         if ids not in ods:
             print(f'{ids} not found in ODS')
             return None
-    return classify_shot(ods)
+    try:
+        return classify_shot(ods)
+    except KeyError as error:
+        # The IDS is there but the channel this classifier reads is not; the
+        # lenient form promises None rather than an exception.
+        print(f'shot cannot be classified: {error}')
+        return None
 
 def find_chamber_boundary(ods):
     """Find the chamber boundary from the ODS."""
