@@ -16,6 +16,8 @@ from vaft.code.efit import (
 )
 from vaft.data.resources import data_path
 
+from external_code_stubs import write_launchable_stub
+
 
 def _valid_geqdsk(**updates):
     equilibrium = {
@@ -228,9 +230,7 @@ def test_collection_preserves_partial_success_and_time_alignment(tmp_path):
 
 
 def test_timeout_has_slice_status_and_attempt_logs(tmp_path, monkeypatch):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     kdir = tmp_path / "kfile"
     kdir.mkdir()
     kfile = kdir / "k039915.00319"

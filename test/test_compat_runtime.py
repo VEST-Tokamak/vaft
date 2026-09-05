@@ -8,6 +8,7 @@ import warnings
 from unittest.mock import patch
 from pathlib import Path
 
+import pytest
 import numpy as np
 from scipy import integrate
 
@@ -201,6 +202,147 @@ class CompatRuntimeTests(unittest.TestCase):
         self.assertEqual(str(raised.exception), "the caller's own failure")
         self.assertTrue(any(w.category is RuntimeWarning for w in caught))
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# What this platform can launch
+#
+# The Windows behaviour is exercised on every platform by patching
+# `compat.IS_WINDOWS`. That is deliberate: `executable_suffixes()` reads the
+# flag at call time precisely so the Linux CI leg covers the Windows rules
+# too, rather than leaving them to the one runner that happens to be Windows.
+# ---------------------------------------------------------------------------
+
+
+POSIX_SCRIPT = """#!/bin/sh
+exit 0
+"""
+
+# The first two bytes of every Windows PE, which is what `is_executable` reads
+# when the filename suffix says nothing.
+PE_HEADER = bytes([0x4D, 0x5A]) + bytes(64)
+
+
+@pytest.fixture()
+def windows(monkeypatch):
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+
+
+@pytest.fixture()
+def posix(monkeypatch):
+    monkeypatch.setattr(compat, "IS_WINDOWS", False)
+
+
+# --- candidates ------------------------------------------------------------
+
+
+def test_posix_asks_for_exactly_the_documented_name(posix):
+    """No suffix may ever leak into a POSIX lookup."""
+    assert compat.executable_suffixes() == ()
+    assert compat.executable_candidates(Path("bin/dcon")) == (Path("bin/dcon"),)
+
+
+def test_windows_prefers_the_native_build_over_a_bare_name(windows):
+    candidates = compat.executable_candidates(Path("bin/dcon"))
+
+    assert [path.name for path in candidates] == [
+        "dcon.exe",
+        "dcon.bat",
+        "dcon.cmd",
+        "dcon",
+    ]
+
+
+def test_a_name_that_already_names_its_kind_is_not_extended(windows):
+    assert compat.executable_candidates(Path("bin/dcon.exe")) == (Path("bin/dcon.exe"),)
+
+
+def test_a_dotted_version_is_a_name_and_not_a_suffix(windows):
+    """`with_suffix` would turn a pinned `chease-3.1` into `chease.exe`."""
+    names = [path.name for path in compat.executable_candidates(Path("chease-3.1"))]
+
+    assert names[0] == "chease-3.1.exe"
+    assert "chease.exe" not in names
+
+
+# --- the probe -------------------------------------------------------------
+
+
+def test_windows_rejects_a_shell_script_that_os_access_would_accept(windows, tmp_path):
+    """The whole reason this helper exists.
+
+    ``os.access(path, os.X_OK)`` is true for every readable file on Windows, so
+    a POSIX build dropped into a Windows installation used to pass every check
+    VAFT made and fail inside CreateProcess as an opaque WinError 193.
+    """
+    script = tmp_path / "dcon"
+    script.write_text(POSIX_SCRIPT, encoding="utf-8")
+
+    assert compat.is_executable(script) is False
+    if os.name == "nt":
+        # The claim this test is really making, and it can only be made where
+        # it is true: the probe being replaced would have accepted this file.
+        # Under the patched flag on POSIX the file is simply mode 0644, so
+        # asserting it there would test the fixture rather than the code.
+        assert os.access(script, os.X_OK)
+
+
+def test_windows_accepts_a_portable_executable(windows, tmp_path):
+    binary = tmp_path / "dcon"
+    binary.write_bytes(PE_HEADER)
+
+    assert compat.is_executable(binary) is True
+
+
+def test_windows_accepts_a_launchable_suffix_on_its_name_alone(windows, tmp_path):
+    wrapper = tmp_path / "dcon.cmd"
+    wrapper.write_text("@echo off", encoding="ascii")
+
+    assert compat.is_executable(wrapper) is True
+
+
+def test_a_directory_is_never_executable(windows, tmp_path):
+    """POSIX marks directories executable, and `subprocess.run` cannot start one."""
+    assert compat.is_executable(tmp_path) is False
+
+
+def test_a_missing_file_is_never_executable(windows, tmp_path):
+    assert compat.is_executable(tmp_path / "absent") is False
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows has no POSIX execute bit to clear")
+def test_posix_still_answers_with_the_execute_bit(posix, tmp_path):
+    script = tmp_path / "dcon"
+    script.write_text(POSIX_SCRIPT, encoding="utf-8")
+    script.chmod(0o644)
+    assert compat.is_executable(script) is False
+
+    script.chmod(0o755)
+    assert compat.is_executable(script) is True
+
+
+# --- resolution ------------------------------------------------------------
+
+
+def test_the_documented_posix_name_finds_the_native_windows_build(windows, tmp_path):
+    (tmp_path / "bin").mkdir()
+    native = tmp_path / "bin/dcon.exe"
+    native.write_bytes(PE_HEADER)
+
+    assert compat.resolve_executable(tmp_path / "bin/dcon") == native
+
+
+def test_a_native_build_wins_over_a_stray_extensionless_file(windows, tmp_path):
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin/dcon").write_text(POSIX_SCRIPT, encoding="utf-8")
+    native = tmp_path / "bin/dcon.exe"
+    native.write_bytes(PE_HEADER)
+
+    assert compat.resolve_executable(tmp_path / "bin/dcon") == native
+
+
+def test_resolution_reports_nothing_rather_than_guessing(windows, tmp_path):
+    assert compat.resolve_executable(tmp_path / "bin/dcon") is None
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ import shutil
 import numpy as np
 import pytest
 
+from external_code_stubs import write_launchable_stub
+
 
 def _assert_flat_ods_equal(a, b) -> None:
     flat_a, flat_b = a.flat(), b.flat()
@@ -335,3 +337,72 @@ def test_preserve_source_wall_is_a_noop_for_a_geqdsk_path_source():
     _preserve_source_wall(result, sample_geqdsk("efit/g039915.00319"))
 
     assert result.refined_ods is reconstructed
+
+
+def test_a_chease_the_system_refuses_to_start_is_reported_not_raised(monkeypatch, tmp_path):
+    """A resolved binary the OS will not start is a result, not a traceback.
+
+    `run_chease` raises for configuration problems -- no executable, missing
+    EXPEQ -- and reports runtime ones. Refusing to start is a runtime problem,
+    and a notebook cell should get a failed result carrying the path rather than
+    an opaque WinError 193 out of the middle of the call.
+    """
+    import subprocess
+
+    from vaft.code import chease as chease_module
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
+    from vaft.data.resources import sample_geqdsk
+
+    executable = write_launchable_stub(tmp_path / "chease")
+    config = CHEASEConfig(workdir=tmp_path, create_plot=False, executable=str(executable))
+    inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), config)
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(chease_module.subprocess, "run", refuse)
+
+    result = run_chease(inputs, config)
+
+    assert result.returncode == 1
+    assert str(executable) in result.stderr
+    assert "could not be launched" in result.stderr
+    assert "Exec format error" in result.stderr
+    assert "could not be launched" in (tmp_path / "chease.log").read_text(encoding="utf-8")
+    assert subprocess is not None
+
+
+def test_solver_output_is_read_as_utf8_rather_than_at_the_host_locale(monkeypatch, tmp_path):
+    """A finished solve must not be lost to the console code page.
+
+    Without an explicit encoding, `subprocess` decodes with
+    `locale.getpreferredencoding()` -- cp949 on a Korean Windows host -- so a
+    byte CHEASE happened to emit raised UnicodeDecodeError *after* the refined
+    equilibrium was already on disk.
+    """
+    import subprocess
+
+    from vaft.code import chease as chease_module
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
+    from vaft.data.resources import sample_geqdsk
+
+    executable = write_launchable_stub(tmp_path / "chease")
+    config = CHEASEConfig(workdir=tmp_path, create_plot=False, executable=str(executable))
+    inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), config)
+
+    seen = {}
+    undecodable = "CHEASE diagnostics ".encode("utf-8") + bytes([0xFF, 0xFE])
+
+    def decode_the_way_subprocess_would(command, **kwargs):
+        seen.update(kwargs)
+        text = undecodable.decode(kwargs["encoding"], errors=kwargs["errors"])
+        return subprocess.CompletedProcess(command, 1, stdout=text, stderr="")
+
+    monkeypatch.setattr(chease_module.subprocess, "run", decode_the_way_subprocess_would)
+
+    result = run_chease(inputs, config)
+
+    assert seen["encoding"] == "utf-8"
+    assert seen["errors"] == "replace"
+    assert "CHEASE diagnostics" in result.stdout
+    assert (tmp_path / "chease.log").read_text(encoding="utf-8").startswith("CHEASE diagnostics")

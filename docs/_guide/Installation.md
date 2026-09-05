@@ -107,6 +107,19 @@ export TESHOME=/path/to/tes
 Each executable belongs under its root’s `bin/` directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.
 
+On Windows, set the same roots as user environment variables so that a new
+terminal and a Jupyter kernel both inherit them:
+
+```powershell
+[Environment]::SetEnvironmentVariable('CHEASEHOME', "$env:LOCALAPPDATAaft\external\chease", 'User')
+[Environment]::SetEnvironmentVariable('GPECHOME',   "$env:LOCALAPPDATAaft\external\gpec",   'User')
+```
+
+The executable under `bin/` may be the native `chease.exe` or `dcon.exe`; VAFT
+resolves the documented POSIX name to it. `install/README.md` covers building
+CHEASE and the DCON/GPEC suite natively on Windows.
+
+
 ## Expected outputs
 
 - Offline: a plasma-current plot from the packaged sample ODS.
