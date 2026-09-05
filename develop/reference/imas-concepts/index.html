@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>bdf783e</code>. What is described
+  <code>b618ab9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -845,60 +845,86 @@ images to disk and returns the local directory:</p>
 shots on that clock is meaningless: breakdown happens tens of milliseconds later, and <em>when</em> it happens varies
 from shot to shot. VAFT therefore lets you re-reference an entire ODS to a physical event.</p>
 
-<p>Four conventions are defined.</p>
+<p>Four conventions are defined. Every origin is a <em>measured</em> event on the DAQ clock, found by the shared
+timing modules with provenance (issue #409):</p>
 
 <table>
   <thead>
     <tr>
       <th><code class="language-plaintext highlighter-rouge">convention</code></th>
       <th>$t=0$ at</th>
+      <th>found by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">'daq'</code></td>
       <td>the DAQ trigger (as stored)</td>
+      <td>—</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">'vloop'</code></td>
-      <td>loop-voltage onset — the time of maximum <code class="language-plaintext highlighter-rouge">magnetics.flux_loop.0.flux.data</code></td>
+      <td>the first sign change of the inboard-midplane loop voltage after the extremum of the solenoid-driven excursion (a stored <code class="language-plaintext highlighter-rouge">flux_loop.{i}.voltage.data</code>, else $-d\Phi/dt$; 39915: 0.3022 s)</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">'ip'</code></td>
-      <td>plasma-current onset (<code class="language-plaintext highlighter-rouge">magnetics.ip.0.data</code> crosses threshold)</td>
+      <td>the start of the plasma-current principal pulse</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">'breakdown'</code></td>
-      <td>H-alpha onset (<code class="language-plaintext highlighter-rouge">spectrometer_uv.channel.0.processed_line.0.intensity.data</code>)</td>
+      <td>the plasma onset — H-alpha by label, the current as fallback</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code></td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">logging</span>
 
-<span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>                                  <span class="c1"># 39915, 41524, 41672
+<span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODC</span>
+
+<span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">logging</span><span class="p">.</span><span class="nf">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="p">.</span><span class="n">INFO</span><span class="p">)</span>          <span class="c1"># the shift is logged, not printed
+</span><span class="n">odc</span> <span class="o">=</span> <span class="nc">ODC</span><span class="p">()</span>
+<span class="n">odc</span><span class="p">[</span><span class="sh">'</span><span class="s">0</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                <span class="c1"># packaged 39915
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">breakdown</span><span class="sh">'</span><span class="p">)</span>
-<span class="c1"># [0] shift -0.3069 s  (daq → breakdown)
-# [1] shift -0.31484 s  (daq → breakdown)
-# [2] shift -0.31476 s  (daq → breakdown)
+<span class="c1"># INFO:vaft.omas.general:[0] shift -0.30632 s  (daq -&gt; breakdown)
 </span></code></pre></div></div>
 
-<p>The shifts differ from shot to shot — breakdown lands at a different point on the DAQ clock every time — which
-is exactly why the raw clock is useless for comparing shots.</p>
+<p>The shift differs from shot to shot (39915 breaks down at 0.3063 s, 41524 at 0.3146 s, 41672 at 0.3122 s on
+the DAQ clock) — which is exactly why the raw clock is useless for comparing shots.</p>
 
 <p><code class="language-plaintext highlighter-rouge">change_time_convention(odc_or_ods, convention='vloop')</code> accepts an ODS or an ODC (a bare ODS is wrapped
-internally, and an ODC is returned). On the first call it records the reference times under
-<code class="language-plaintext highlighter-rouge">summary.code.parameters</code>:</p>
+internally, and an ODC is returned). On the first call it derives the origins on the product’s DAQ clock and
+records them under <code class="language-plaintext highlighter-rouge">summary.code.parameters</code>, with their sources:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">params</span> <span class="o">=</span> <span class="n">odc</span><span class="p">[</span><span class="sh">'</span><span class="s">0</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">summary.code.parameters</span><span class="sh">'</span><span class="p">]</span>
-<span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">time_convention</span><span class="sh">'</span><span class="p">]</span>    <span class="c1"># 'breakdown'
-</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">vloop_onset</span><span class="sh">'</span><span class="p">]</span>        <span class="c1"># seconds, on the ORIGINAL daq clock
+<span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">time_convention</span><span class="sh">'</span><span class="p">]</span>         <span class="c1"># 'breakdown'
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">vloop_onset</span><span class="sh">'</span><span class="p">]</span>             <span class="c1"># seconds, on the ORIGINAL daq clock (absent when the event was not found)
 </span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">ip_onset</span><span class="sh">'</span><span class="p">]</span>
 <span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">breakdown_onset</span><span class="sh">'</span><span class="p">]</span>
-</code></pre></div></div>
+<span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">onset_method</span><span class="sh">'</span><span class="p">]</span>            <span class="c1"># 'plasma_timing/discharge_timing'
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">breakdown_onset_source</span><span class="sh">'</span><span class="p">]</span>  <span class="c1"># 'h_alpha_primary', 'h_alpha_fast', 'ip_principal'
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">vloop_onset_source</span><span class="sh">'</span><span class="p">]</span>      <span class="c1"># 'magnetics.flux_loop.5 dflux_dt zero crossing after the ohmic excursion'
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">vloop_onset_reason</span><span class="sh">'</span><span class="p">]</span>      <span class="c1"># present instead of the origin when the event was not found
+</span><span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">onset_flags</span><span class="sh">'</span><span class="p">]</span>             <span class="c1"># ';'-joined, e.g. 'vloop:approached_without_crossing'
+</span></code></pre></div></div>
+
+<p>The finders and every consumer of the plasma window (<code class="language-plaintext highlighter-rouge">xlim='plasma'</code>, the vacuum-flux plot, the shot
+overview) work on the product’s own clock: the analysis span is stated in DAQ seconds and displaced by the
+recorded origin, so a product already shifted to <code class="language-plaintext highlighter-rouge">'breakdown'</code> reports its plasma onset at 0 s. A product
+that declares a convention without recording its origin cannot be placed and raises.</p>
 
 <p>Because the onsets are stored, conversions are <strong>composable and reversible</strong>: call it again with a different
-convention and the shift is computed from the recorded originals, not re-derived from already-shifted data.</p>
+convention and the shift is computed from the recorded originals, never re-derived from already-shifted data.
+An origin that was not found is simply absent, its <code class="language-plaintext highlighter-rouge">*_onset_reason</code> says why, and asking for its convention
+raises <code class="language-plaintext highlighter-rouge">ValueError</code> with that reason. Nothing is written when no origin at all can be derived (a shifted
+product whose memo was lost): the call raises and the product is left as it was. A product carrying the memo of the earlier finders (no <code class="language-plaintext highlighter-rouge">onset_method</code>) is
+re-derived when it is still on the <code class="language-plaintext highlighter-rouge">daq</code> clock and flagged <code class="language-plaintext highlighter-rouge">legacy_memo_rederived</code>; one already shifted with
+those origins keeps them — they are what makes its shift reversible — with <code class="language-plaintext highlighter-rouge">onset_method = 'legacy'</code> and the
+flag <code class="language-plaintext highlighter-rouge">legacy_origins_retained</code>.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">ip</span><span class="sh">'</span><span class="p">)</span>     <span class="c1"># breakdown → ip
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">daq</span><span class="sh">'</span><span class="p">)</span>    <span class="c1"># back to the raw clock
@@ -910,15 +936,21 @@ or <code class="language-plaintext highlighter-rouge">offset</code>, and it neve
 looser rule corrupts data by shifting fields such as <code class="language-plaintext highlighter-rouge">magnetics.ip.0.data</code> whose <em>path</em> merely contains a
 time-like word.</p>
 
-<p>Individual onsets are available directly:</p>
+<p>Individual onsets are available directly; they are meaningful on a product in the <code class="language-plaintext highlighter-rouge">daq</code> convention, which is
+why the conversion derives them once:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_vloop_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_ip_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># H-alpha offset - onset
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># plasma offset - onset
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pf_active_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>    <span class="c1"># one entry per coil, nan for a coil that did not fire
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_max_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>             <span class="c1"># median-filtered peak Ip
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_bt</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                 <span class="c1"># mean toroidal field during the plasma phase
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_bt</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                 <span class="c1"># mean toroidal field over the plasma window
 </span></code></pre></div></div>
+
+<p>The records behind them carry the evidence: <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing.plasma_timing(ods)</code> (the window, its
+source, the light/current agreement) and <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing.discharge_timing(ods)</code> (every coil’s
+onset, the ohmic onset, the loop-voltage excursion and its crossing, and the actuators that are not mapped).</p>
 
 <p><strong>Fix the time convention before you compare shots or overlay traces.</strong> Mixing an ODS on the <code class="language-plaintext highlighter-rouge">daq</code> clock with
 one on the <code class="language-plaintext highlighter-rouge">breakdown</code> clock in the same figure is the easiest way to produce a wrong result that still looks
@@ -1396,7 +1428,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 14:18:03 +0000"
+        "time": "2026-09-05 15:04:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

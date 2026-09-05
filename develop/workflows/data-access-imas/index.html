@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>bdf783e</code>. What is described
+  <code>b618ab9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -554,6 +554,29 @@ through <code class="language-plaintext highlighter-rouge">processing_config</co
 
 <p>See <a href="/vaft/develop/guide/Processing/">Signal processing</a> for what those knobs do, and
 <a href="/vaft/develop/guide/Magnetics/">Magnetics</a> for plotting the result.</p>
+
+<h3 id="discharge-timing-policy">Discharge timing policy</h3>
+
+<p>The actuator events are a separate concept from the plasma window and sit in their own <code class="language-plaintext highlighter-rouge">discharge_timing</code>
+block of <code class="language-plaintext highlighter-rouge">vest.yaml</code>, read by <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing.discharge_timing(ods)</code> (issue #409). It shares the
+<code class="language-plaintext highlighter-rouge">plasma_analysis</code> window and <code class="language-plaintext highlighter-rouge">baseline_lead_s</code> with the plasma policy, names the <code class="language-plaintext highlighter-rouge">ohmic_coil</code> (<code class="language-plaintext highlighter-rouge">PF1</code>) whose
+onset anchors the loop-voltage excursion, selects the loop (<code class="language-plaintext highlighter-rouge">loop_voltage.selection: inboard_midplane</code> —
+the <code class="language-plaintext highlighter-rouge">inboard_flux_loop</code> family member nearest the midplane, Flux Loop #10 on VEST — with a stored
+<code class="language-plaintext highlighter-rouge">voltage.data</code> preferred to $-d\Phi/dt$), and carries two rules: <code class="language-plaintext highlighter-rouge">coil</code> (keyword arguments of
+<code class="language-plaintext highlighter-rouge">vaft.process.onset.active_window</code>, run on <code class="language-plaintext highlighter-rouge">|I - baseline|</code> so an idle coil yields no onset) and <code class="language-plaintext highlighter-rouge">vloop</code>
+(keyword arguments of <code class="language-plaintext highlighter-rouge">vaft.process.onset.zero_crossing_after_excursion</code>: the sustained <code class="language-plaintext highlighter-rouge">|V|</code> run starting
+within <code class="language-plaintext highlighter-rouge">anchor_tolerance_s</code> of the ohmic onset is the solenoid excursion, the event is the first sign change
+after its extremum, and a decay that comes within <code class="language-plaintext highlighter-rouge">approach_fraction</code> of zero and climbs back above
+<code class="language-plaintext highlighter-rouge">approach_hysteresis</code> times that level before crossing is flagged <code class="language-plaintext highlighter-rouge">approached_without_crossing</code>). These are measured onsets, never triggers; EC power and gas
+injection have no mapped actuator signal and are reported as <code class="language-plaintext highlighter-rouge">not_present</code>. The events never enter the
+plasma hierarchy as fallbacks.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.omas.discharge_timing</span> <span class="kn">import</span> <span class="n">discharge_timing</span>
+
+<span class="n">events</span> <span class="o">=</span> <span class="nf">discharge_timing</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">events</span><span class="p">.</span><span class="n">oh_onset</span><span class="p">,</span> <span class="n">events</span><span class="p">.</span><span class="n">vloop</span><span class="p">.</span><span class="n">zero_crossing</span><span class="p">,</span> <span class="n">events</span><span class="p">.</span><span class="n">vloop</span><span class="p">.</span><span class="n">flags</span>
+<span class="p">{</span><span class="n">coil</span><span class="p">.</span><span class="n">name</span><span class="p">:</span> <span class="n">coil</span><span class="p">.</span><span class="n">time</span> <span class="k">for</span> <span class="n">coil</span> <span class="ow">in</span> <span class="n">events</span><span class="p">.</span><span class="n">pf_onsets</span><span class="p">}</span>      <span class="c1"># None for a coil that did not fire
+</span></code></pre></div></div>
 
 <h2 id="tf">tf</h2>
 
@@ -1073,7 +1096,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#discharge-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Discharge timing policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
     </nav>
 </aside>
 
@@ -1191,7 +1214,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 14:18:03 +0000"
+        "time": "2026-09-05 15:04:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

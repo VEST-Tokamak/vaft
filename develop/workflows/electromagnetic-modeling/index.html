@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>bdf783e</code>. What is described
+  <code>b618ab9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -533,11 +533,13 @@ the mean |Δx| are each divided by the trace’s mean absolute level (the first 
 of variation) and compared with <code class="language-plaintext highlighter-rouge">var_ratio_thresh=1e-2</code> and <code class="language-plaintext highlighter-rouge">change_ratio_thresh=1e-2</code>; a trace is
 inactive only when both fall below threshold, and arrays shorter than 2 are never active.</p>
 
-<p>These are what the ODS-level event finders are built on — <code class="language-plaintext highlighter-rouge">vaft.omas.find_breakdown_onset</code>,
-<code class="language-plaintext highlighter-rouge">find_ip_onset</code>, <code class="language-plaintext highlighter-rouge">find_pf_active_onset</code> and <code class="language-plaintext highlighter-rouge">find_pulse_duration</code> all call <code class="language-plaintext highlighter-rouge">signal_on_offset</code>
-internally:</p>
+<p><code class="language-plaintext highlighter-rouge">signal_on_offset</code> is the generic pulse-window helper (the plot layer’s coil limits use it). The
+ODS-level event finders — <code class="language-plaintext highlighter-rouge">vaft.omas.find_breakdown_onset</code>, <code class="language-plaintext highlighter-rouge">find_ip_onset</code>, <code class="language-plaintext highlighter-rouge">find_pulse_duration</code>,
+<code class="language-plaintext highlighter-rouge">find_vloop_onset</code>, <code class="language-plaintext highlighter-rouge">find_pf_active_onset</code> — are built on the onset primitives of <code class="language-plaintext highlighter-rouge">vaft.process.onset</code>
+instead (<code class="language-plaintext highlighter-rouge">active_window</code>, <code class="language-plaintext highlighter-rouge">principal_pulse_onset</code>, <code class="language-plaintext highlighter-rouge">zero_crossing_after_excursion</code>), composed with the
+VEST source hierarchy and rules by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_bd</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># from the spectrometer_uv line intensity
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_bd</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># plasma onset: H-alpha by label, current as fallback
 </span><span class="n">t_dur</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -1390,7 +1392,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 14:18:03 +0000"
+        "time": "2026-09-05 15:04:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
