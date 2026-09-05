@@ -508,6 +508,104 @@ def compute_impedance_matrices_ods(
         logger.error(f"Missing required data in ODS: {e}")
         raise
 
+def compute_wall_mode_basis_ods(
+    ods: ODS,
+    *,
+    gap_factor: float | None = None,
+    record: bool = False,
+    remap_em_coupling: bool = False,
+    **options: Any,
+):
+    """Segment-wise wall eigenmode basis of this ODS's passive structure (vaft #473).
+
+    Segments come from :func:`vaft.machine_mapping.wall_segments.segment_loops`
+    (by loop name, split at Z gaps), the matrices from
+    :func:`compute_impedance_matrices_ods` with no plasma columns, and the
+    basis from :func:`vaft.process.wall_modes.build_wall_mode_basis`; the
+    keyword ``options`` go to the latter.
+
+    The basis refuses a passive-passive inductance that is not symmetric to
+    1e-6 (relative).  An ODS whose ``em_coupling`` was materialized before the
+    mapper learned to symmetrize (issue #347) carries a 1.27e-3 asymmetry;
+    ``remap_em_coupling=True`` rebuilds ``em_coupling`` through
+    :func:`vaft.machine_mapping.em_coupling.em_coupling`, the sanctioned
+    repair, before building.
+
+    ``record=True`` appends the basis's identity to ``em_coupling.code.parameters``
+    (``key=value`` lines, the convention the mapper itself uses) -- never under
+    ``pf_passive``, whose loops are compared bitwise against the reference
+    geometry.  Provenance carries the geometry/coupling description, the
+    resistance calibration in force, the segmentation version and digest, and
+    the basis digest, so a stored basis names the wall it was built on.
+    """
+    from vaft.machine_mapping.wall_segments import (
+        GAP_FACTOR,
+        SEGMENT_DEFINITION_VERSION,
+        segment_digest,
+        segment_loops,
+    )
+    from vaft.process.wall_modes import build_wall_mode_basis
+
+    if remap_em_coupling:
+        from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
+
+        shot = None
+        try:
+            shot = int(ods["dataset_description.data_entry.pulse"])
+        except (KeyError, ValueError, TypeError):
+            pass
+        _map_em_coupling(ods, shot=shot)
+
+    R_mat, _L_mat, M_mat = compute_impedance_matrices_ods(ods, [])
+    segments = segment_loops(ods, gap_factor=GAP_FACTOR if gap_factor is None else gap_factor)
+
+    provenance: dict[str, str] = {
+        "segment_definition_version": SEGMENT_DEFINITION_VERSION,
+        "segment_digest": segment_digest(segments),
+        "gap_factor": f"{GAP_FACTOR if gap_factor is None else gap_factor:g}",
+        "n_elements": str(len(ods["pf_passive.loop"])),
+    }
+    try:
+        import vaft
+
+        provenance["vaft_version"] = str(vaft.__version__)
+    except Exception:  # pragma: no cover
+        pass
+    comment = ods.get("em_coupling.ids_properties.comment", None) if "em_coupling" in ods else None
+    if comment:
+        provenance["em_coupling_comment"] = str(comment)
+    code_parameters = ods.get("em_coupling.code.parameters", None) if "em_coupling" in ods else None
+    if code_parameters:
+        for line in str(code_parameters).splitlines():
+            if line.startswith("passive_passive_input_asymmetry="):
+                provenance["em_coupling_input_asymmetry"] = line.split("=", 1)[1]
+    try:
+        from vaft.machine_mapping.wall_resistance import identify_calibration
+
+        calibration = identify_calibration(ods)
+        key = calibration["key"] if isinstance(calibration, dict) else getattr(calibration, "key", None)
+        provenance["resistance_calibration"] = str(key) if key is not None else "unidentified"
+    except Exception as exc:  # a wall whose resistances match no vintage is still a wall
+        provenance["resistance_calibration"] = f"unidentified ({type(exc).__name__})"
+
+    basis = build_wall_mode_basis(R_mat, M_mat, segments, provenance=provenance, **options)
+
+    if record:
+        lines = [
+            f"wall_mode_basis_digest={basis.digest()}",
+            f"wall_mode_segment_definition_version={SEGMENT_DEFINITION_VERSION}",
+            f"wall_mode_segment_digest={provenance['segment_digest']}",
+            f"wall_mode_normalization={basis.provenance['normalization']}",
+            f"wall_mode_sign_rule={basis.provenance['sign_rule']}",
+            f"wall_mode_resistance_calibration={provenance['resistance_calibration']}",
+            f"wall_mode_input_asymmetry={basis.provenance['input_asymmetry']}",
+        ]
+        existing = str(ods.get("em_coupling.code.parameters", "") or "")
+        kept = [l for l in existing.splitlines() if l and not l.startswith("wall_mode_")]
+        ods["em_coupling.code.parameters"] = "\n".join(kept + lines) + "\n"
+    return basis
+
+
 def compute_eddy_currents(
     ods: ODS,
     plasma: List[Tuple[float, float]],

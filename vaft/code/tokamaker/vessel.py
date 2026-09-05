@@ -67,17 +67,18 @@ def _loop_rectangles(ods: Any) -> dict[str, list[dict[str, float]]]:
 
 
 def _split_z_clusters(rects: list[dict[str, float]]) -> list[list[dict[str, float]]]:
-    """Split a segment's rectangles at genuine Z gaps (mirrored halves)."""
-    rects = sorted(rects, key=lambda rect: (rect["z_lo"] + rect["z_hi"]) / 2.0)
-    heights = np.array([rect["z_hi"] - rect["z_lo"] for rect in rects])
-    gap_tol = _GAP_FACTOR * float(np.median(heights))
-    clusters: list[list[dict[str, float]]] = [[rects[0]]]
-    for prev, rect in zip(rects, rects[1:]):
-        if rect["z_lo"] - prev["z_hi"] > gap_tol:
-            clusters.append([rect])
-        else:
-            clusters[-1].append(rect)
-    return clusters
+    """Split a segment's rectangles at genuine Z gaps (mirrored halves).
+
+    The rule lives in :func:`vaft.machine_mapping.wall_segments.cluster_by_z_gap`
+    -- the same one the reduced wall-mode basis segments the wall by (vaft
+    #473) -- so a TokaMaker conductor region and a basis segment are the same
+    conductor.
+    """
+    from vaft.machine_mapping.wall_segments import cluster_by_z_gap
+
+    z_lo = np.array([rect["z_lo"] for rect in rects], dtype=float)
+    z_hi = np.array([rect["z_hi"] for rect in rects], dtype=float)
+    return [[rects[i] for i in cluster] for cluster in cluster_by_z_gap(z_lo, z_hi, gap_factor=_GAP_FACTOR)]
 
 
 def _dedupe_chain(points: list[tuple[float, float]], tol: float = 1e-9) -> list[tuple[float, float]]:

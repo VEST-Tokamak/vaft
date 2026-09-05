@@ -56,11 +56,12 @@ from vaft.machine_mapping.magnetics import (
     OUTBOARD_PROBE_MIN_R,
     POLOIDAL_ANGLE,
     SIDE_PROBE_MIN_ABS_Z,
-    vfit_plasma_mgods_startend,
 )
+from vaft.omas.plasma_timing import PlasmaTiming, PlasmaTimingError, plasma_timing
 
 __all__ = [
     "VacuumChannel",
+    "VACUUM_METRICS_SCHEMA",
     "VacuumMagneticsError",
     "channel_residual_metrics",
     "eddy_improvement",
@@ -68,7 +69,9 @@ __all__ = [
     "plasma_free_residual",
     "QualityGate",
     "quality_gate",
+    "plasma_free_boundary",
     "plasma_onset_time",
+    "plasma_window",
     "probe_family",
     "residual_onset",
     "residual_rms",
@@ -93,6 +96,11 @@ DEFAULT_PER_FAMILY = 2
 #: Residual onset is declared where the residual first leaves the pre-plasma
 #: noise band by this many standard deviations.
 ONSET_SIGMA = 5.0
+
+#: Schema of the :func:`vacuum_magnetics_metrics` record.  2 since #409: the
+#: pre-plasma window ends at the plasma-free boundary of the shared timing
+#: policy, and ``plasma_timing`` carries its provenance.
+VACUUM_METRICS_SCHEMA = 2
 
 
 class VacuumMagneticsError(ValueError):
@@ -221,15 +229,47 @@ def residual_onset(
     return sigma_threshold_crossing(time, residual, window, sigma=sigma)
 
 
-def plasma_onset_time(ods: Any) -> float:
-    """The stage's own plasma-current onset, from ``magnetics.ip``."""
-    start, end = vfit_plasma_mgods_startend(ods)
-    if start < 0 or end <= start:
+def plasma_window(ods: Any) -> PlasmaTiming:
+    """The plasma window the eddy stage validates against, with its provenance.
+
+    :func:`vaft.omas.plasma_timing.plasma_timing` under the shared policy
+    (issue #409): the slow H-alpha line when usable, the validated fast line,
+    else the plasma-current principal pulse -- never a raw magnetic crossing,
+    which the coil-firing pickup triggers.  A product without a plasma current
+    or without any plasma window raises :class:`VacuumMagneticsError`: the
+    stage has no plasma phase to separate from the vacuum response.
+    """
+    try:
+        timing = plasma_timing(ods)
+    except (PlasmaTimingError, ValueError, TypeError) as exc:
+        raise VacuumMagneticsError(f"cannot locate the plasma onset: {exc}") from exc
+    if not timing.found:
         raise VacuumMagneticsError(
-            "cannot locate the plasma-current onset from magnetics.ip.0; "
-            "the eddy ODS carries no usable plasma current"
+            "cannot locate the plasma onset: no source shows a plasma "
+            f"({timing.fallback_reason}); the eddy ODS carries no plasma phase"
         )
-    return float(start)
+    return timing
+
+
+def plasma_free_boundary(timing: PlasmaTiming) -> tuple[float, str]:
+    """Before which time no plasma is present, and which source says so.
+
+    The plasma window's onset is the light's when the light answers; a
+    plasma-*free* stretch wants the earliest evidence of plasma from any
+    source, so when the current's principal pulse starts before the light
+    (within the policy's tolerance the two are still ``consistent``) the
+    boundary is the current's.  Reported, not silent: the source is returned
+    with the time.
+    """
+    boundary, source = float(timing.onset), str(timing.source)
+    if timing.ip is not None and timing.ip.found and float(timing.ip.start) < boundary:
+        boundary, source = float(timing.ip.start), "ip_principal"
+    return boundary, source
+
+
+def plasma_onset_time(ods: Any) -> float:
+    """The time before which the eddy stage validates: :func:`plasma_free_boundary`."""
+    return plasma_free_boundary(plasma_window(ods))[0]
 
 
 def probe_family(kind: str, r: float, z: float) -> str:
@@ -1064,6 +1104,7 @@ def vacuum_magnetics_metrics(
     plasma_current: tuple[np.ndarray, np.ndarray] | None = None,
     sigma: float = ONSET_SIGMA,
     min_wall_authority: float = 0.0,
+    timing: PlasmaTiming | None = None,
 ) -> dict[str, Any]:
     """Quantitative QA for one shot's vacuum-magnetics validation.
 
@@ -1078,8 +1119,9 @@ def vacuum_magnetics_metrics(
     residual and plasma-current onsets and their difference, and how coherently
     the residual onset appears across channels.
 
-    ``plasma_onset`` bounds the pre-plasma validation window and comes from the
-    pipeline's own Ip-based detector, which is deliberately conservative.  The
+    ``plasma_onset`` bounds the pre-plasma validation window and comes from
+    :func:`plasma_window` -- the light when it is usable, the current
+    otherwise; ``timing`` carries that provenance into the record.  The
     onset *comparison* uses ``plasma_current`` -- the measured ``(time, Ip)`` --
     put through the same 5-sigma-above-window-noise rule as every residual, so
     ``onset_delta`` compares like with like instead of two different detectors.
@@ -1160,9 +1202,14 @@ def vacuum_magnetics_metrics(
     }
 
     return {
-        "schema_version": 1,
+        # 2 (#409): plasma_onset is the plasma-free boundary of the shared
+        # timing policy (light or current, whichever is earlier), no longer
+        # the legacy Ip discharge detector, and plasma_timing carries the
+        # provenance (None when the caller supplied a bare onset).
+        "schema_version": VACUUM_METRICS_SCHEMA,
         "plasma_onset": float(plasma_onset),
         "plasma_current_onset": float(current_onset),
+        "plasma_timing": None if timing is None else timing.summary(),
         "channels": rows,
         "families": families,
         "summary": {

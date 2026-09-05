@@ -21,6 +21,7 @@ Layout::
     equilibrium.py    the unified equilibrium report (#72), the reference implementation
     magnetics.py      magnetics signal quality (#189)
     vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
+    wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`

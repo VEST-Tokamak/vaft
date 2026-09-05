@@ -1255,6 +1255,51 @@ def plot_mhd_linear_time_energy_perturbed(
     return render("mhd_linear_time_energy_perturbed", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_mhd_linear_profile_displacement(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """DCON displacement eigenfunction against normalized flux, one trace per poloidal harmonic; amplitudes are normalized to the peak because DCON's eigenvector normalization is arbitrary.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_displacement` from native IMAS input.
+    """
+    return render("mhd_linear_profile_displacement", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_b_field_perturbed(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Normal perturbed field per poloidal harmonic against normalized flux, derived from the DCON eigenfunction as i(m - nq) xi.grad(psi).
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_b_field_perturbed` from native IMAS input.
+    """
+    return render("mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_overview_eigenfunction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The DCON eigenfunction of the least-stable mapped mode: displacement and normal perturbed field per poloidal harmonic.
+
+    Renders with :func:`vaft.plot.mhd_linear_overview_eigenfunction` from native IMAS input.
+    """
+    return render("mhd_linear_overview_eigenfunction", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_mirnov_spectrogram(
     source: Any,
     *,
@@ -1313,6 +1358,83 @@ def plot_passive_structure_geometry_poloidal(
     Renders with :func:`vaft.plot.passive_structure_geometry_poloidal` from native IMAS input.
     """
     return render("passive_structure_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_passive_structure_geometry_wall_mode(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One segment-local wall eigenmode coloured onto the passive structure.
+
+    Options: ``segment`` (id, default the first), ``mode`` (index within the
+    segment, default 0), ``basis`` (a precomputed ``WallModeBasis``),
+    ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_geometry_wall_mode` from native IMAS input.
+    """
+    return render(
+        "passive_structure_geometry_wall_mode", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_overview_wall_reduction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Reduced-wall response error against retained order (vaft #494).
+
+    Options: ``rows`` (precomputed convergence rows), ``drive``, ``rules``,
+    ``orders``, ``metrics``, ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_overview_wall_reduction` from native IMAS input.
+    """
+    return render(
+        "passive_structure_overview_wall_reduction", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_field_wall_reduction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Full, reduced or difference wall flux map on the equilibrium region.
+
+    Options: ``which`` (``full``/``reduced``/``difference``), ``selection`` or
+    ``rule``+``M``, ``time``, ``grid_shape``, ``remap_em_coupling``.  Renders
+    with :func:`vaft.plot.passive_structure_field_wall_reduction` from native IMAS input.
+    """
+    return render(
+        "passive_structure_field_wall_reduction", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_overview_wall_time(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Decay-time spectrum of the passive wall's segment-wise eigenmodes.
+
+    Options: ``max_modes`` per segment, ``whole_wall`` (draw the whole-wall
+    spectrum, default True), ``basis``, ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_overview_wall_time` from native IMAS input.
+    """
+    return render(
+        "passive_structure_overview_wall_time", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_pf_coil_geometry_poloidal(
@@ -1754,11 +1876,18 @@ __all__ += [
     "plot_magnetics_overview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
+    "plot_mhd_linear_overview_eigenfunction",
+    "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_displacement",
     "plot_mhd_linear_time_energy_perturbed",
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
     "plot_mirnov_time_voltage",
     "plot_passive_structure_geometry_poloidal",
+    "plot_passive_structure_field_wall_reduction",
+    "plot_passive_structure_geometry_wall_mode",
+    "plot_passive_structure_overview_wall_reduction",
+    "plot_passive_structure_overview_wall_time",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",

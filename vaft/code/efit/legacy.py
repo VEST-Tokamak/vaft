@@ -13,6 +13,7 @@ from vaft.ods_access import path_value
 
 import statistics
 import math
+import warnings
 from scipy.signal import savgol_filter
 
 
@@ -45,6 +46,25 @@ def _signal_matches_time(container, path, time) -> bool:
     return bool(values.size and values.size == time_values.size)
 
 
+CONSTRAINT_EQUILIBRIUM_COMMENT = "constraint equilibrium"
+
+
+def annotate_constraint_equilibrium(EQ, times):
+    """Stamp the constraint equilibrium's identity without erasing its provenance.
+
+    A caller may already have written where the constraint times came from
+    (the plasma window and its source, issue #409) into
+    ``ids_properties.comment``; that line is kept and the identity appended.
+    """
+    existing = EQ["ids_properties.comment"] if "ids_properties.comment" in EQ else ""
+    if existing and CONSTRAINT_EQUILIBRIUM_COMMENT not in str(existing):
+        EQ["ids_properties.comment"] = f"{existing}; {CONSTRAINT_EQUILIBRIUM_COMMENT}"
+    elif not existing:
+        EQ["ids_properties.comment"] = CONSTRAINT_EQUILIBRIUM_COMMENT
+    EQ["ids_properties.homogeneous_time"] = 1
+    EQ["time"] = times
+
+
 def vfit_equilibrium_form_constraints(
     EQ,
     PF,
@@ -64,9 +84,7 @@ def vfit_equilibrium_form_constraints(
     #    MG=ods['magnetics']
     #    TF=ods['tf']
 
-    EQ["ids_properties.comment"] = "constraint equilibrium"
-    EQ["ids_properties.homogeneous_time"] = 1
-    EQ["time"] = times
+    annotate_constraint_equilibrium(EQ, times)
     nbt = len(times)
 
     ave_time = []
@@ -1207,6 +1225,18 @@ def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
 
 
 def vest_Halpha_tstart_tend(ods):
+    """Deprecated H-alpha plasma window (0.3-0.36 s, min-normalised, legacy detector).
+
+    Superseded by :func:`vaft.omas.plasma_timing.plasma_timing`, which finds
+    the H-alpha line by label, validates it and returns the window with its
+    provenance inside the configured ``plasma_analysis`` range (issue #409).
+    """
+    warnings.warn(
+        "vest_Halpha_tstart_tend() is deprecated; use "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     # Load the data
     SP = ods["spectrometer_uv"]
@@ -1236,7 +1266,20 @@ def set_discharge_index(ods):
     """
     Set the time range higher than 20 kA and between 0.3 ~ 0.36 sec with manual tstep.
     If no Ip > 20 kA is found, return time range and 'vacuum'; otherwise return time range and 'plasma'.
+
+    Deprecated: the EFIT constraint script now takes the configured
+    ``plasma_analysis`` range (``resolve_plasma_timing_policy().window``)
+    intersected with the window ``vaft.omas.plasma_timing.plasma_timing``
+    detects, and flags the range fallback instead of a silent 'vacuum' status
+    (issue #409).
     """
+    warnings.warn(
+        "set_discharge_index() is deprecated; use the plasma_analysis window from "
+        "vaft.machine_mapping.utils.resolve_plasma_timing_policy() intersected with "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     Ip = ods["magnetics.ip.0.data"]
     time = ods["magnetics.ip.0.time"]

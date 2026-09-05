@@ -170,11 +170,12 @@ timebase, not the resampled one — fluctuation analysis needs the full bandwidt
 Two lower-level helpers are worth knowing:
 
 ```python
-from vaft.machine_mapping.magnetics import vfit_md, vfit_plasma_current, vest_diamagnetic_flux
+from vaft.machine_mapping.magnetics import detect_plasma_window, vfit_md, vfit_plasma_current, vest_diamagnetic_flux
 
 time, flux_loops, probes = vfit_md(39915)          # -> (ndarray, list[ndarray], list[ndarray])
 time, ip = vfit_plasma_current(39915)              # -> (ndarray, ndarray), amps
-time, dia = vest_diamagnetic_flux(39915, 0.30, 0.34)  # needs the plasma start/end window
+window = detect_plasma_window(39915, time, ip)     # the plasma window, with its source
+time, dia = vest_diamagnetic_flux(39915, window.start, window.end)
 ```
 
 **Plasma current is not just the Rogowski trace.** The bare Rogowski signal picks up the vacuum-vessel and
@@ -185,6 +186,40 @@ which is exactly the kind of machine trivia this module exists to hide. If a his
 inverted, that switch is the first thing to check.
 
 ![Mapped plasma current]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
+
+### Plasma timing policy
+
+Where the plasma is in a discharge is decided once, in the `plasma_timing` block of `vest.yaml`, and read by
+every consumer (issue #409). Its `window` names a `diagnostics_time_policies` window — `plasma_analysis`,
+0.28–0.36 s, which no diagnostic maps onto and the stage's `tstart`/`tend` never retune — and `baseline_lead_s`
+the stretch before it, `[tstart − lead, tstart)`, whose samples are the **baseline** the detectors measure
+their noise on. The block then carries the detector recipes, keyed by the signal they were tuned on: `h_alpha`
+(median filter, threshold `max(2 % peak, 5 σ)`, 0.5 ms persistence, width, prominence and integral floors),
+`ip` (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse fallback), per-line
+`lines` for impurity lines with their own morphology, the H-alpha `usability` floors (rail level, quantized
+baseline, validity) and the `agreement` tolerances between light and current. Every rule is validated against
+`vaft.process.onset.active_window`'s signature when the policy is loaded:
+
+```python
+from vaft.machine_mapping.utils import resolve_plasma_timing_policy
+
+policy = resolve_plasma_timing_policy()
+policy.window.tstart, policy.window.tend, policy.baseline_start   # 0.28, 0.36, 0.26
+policy.h_alpha, policy.ip                                          # keyword arguments of active_window
+```
+
+Two readers consume it. `vaft.omas.plasma_timing.plasma_timing(ods)` works on a mapped product: it finds the
+H-alpha line **by label**, checks it is usable, takes the slow line as authoritative for onset and offset, the
+validated fast line as first fallback and the plasma-current principal pulse as final fallback and cross-check,
+and returns a `PlasmaTiming` with the window, its `source`, the `agreement` (`consistent`, `ip_before_halpha`,
+`halpha_leads_ip_large`, `halpha_only`, `ip_only`, `none`), the usability of every candidate and a
+`fallback_reason` — a missing filterscope is a normal state, and no plasma is `found = False`, never the range.
+`vaft.machine_mapping.magnetics.detect_plasma_window(shot, ip_time, ip)` applies the same rules to the raw
+records this layer already reads (the slow H-alpha field, negated, then the current) and returns a
+`PlasmaWindowChoice` whose `source` is `h_alpha_raw`, `ip` or `analysis_range`; the last is the whole range,
+flagged `analysis_range_fallback`. The diamagnetic-flux mapping anchors its reconstruction to that window and
+records it in `magnetics.diamagnetic_flux[0].method_name` (`…; plasma window 0.3065-0.3308 s from h_alpha_raw`),
+and the EFIT constraint script cuts its time slices from the range intersected with the ODS-side window.
 
 Signal conditioning (integration, drift removal, smoothing) is delegated to `vaft.process` and is tunable
 through `processing_config`, a `VestMagneticsProcessingConfig`:

@@ -137,7 +137,8 @@ def main(argv: list[str] | None = None) -> int:
             rejected.append({"shot": shot, "reason": str(error)})
 
     payload = {
-        "schema_version": 1,
+        # 2 (#409): case records and their plasma_free_evidence changed shape.
+        "schema_version": 2,
         "configuration": {
             "resistance_scale": args.resistance_scale,
             "n_tau": args.n_tau,

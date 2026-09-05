@@ -15,7 +15,7 @@ recorded signals is allowed to answer for the plasma, and says so:
 * a raw magnetic first crossing is never used.
 
 Every rule the detectors run with -- the shared plasma-analysis range, the
-baseline reference before it, the H-alpha and Ip recipes, the usability
+baseline before it, the H-alpha and Ip recipes, the usability
 floors and the cross-check tolerances -- comes from the ``plasma_timing``
 block of ``vest.yaml`` through
 :func:`vaft.machine_mapping.utils.resolve_plasma_timing_policy`.  Nothing
@@ -49,12 +49,18 @@ from vaft.machine_mapping.spectrometer_uv import (
     SIGNALS,
     legacy_time_shift_s,
 )
-from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
+from vaft.machine_mapping.utils import (
+    MIN_BASELINE_S,
+    CroppedRecord,
+    PlasmaTimingPolicy,
+    crop_to_span,
+    resolve_plasma_timing_policy,
+)
 from vaft.ods_access import path_value
-from vaft.process.onset import PulseWindow, active_window, robust_baseline
+from vaft.process.onset import PulseWindow, robust_baseline
 from vaft.validation.imas import (
-    VALIDITY_INVALID,
     VALIDITY_SUSPECT,
+    is_condemned_channel,
     read_validity,
     read_validity_timed,
     resolve_signal_time,
@@ -74,7 +80,7 @@ __all__ = [
     "HalphaUsability",
     "IP_BASE",
     "IP_CHECKS",
-    "MIN_REFERENCE_S",
+    "MIN_BASELINE_S",
     "PlasmaTiming",
     "PlasmaTimingError",
     "SOURCE_H_FAST",
@@ -93,11 +99,6 @@ __all__ = [
 
 HALPHA_LABEL = "H-alpha_6563"
 WAVELENGTH_TOLERANCE_M = 1.0e-9
-#: A baseline reference shorter than this (a product built from the plasma
-#: range onward) is not trusted on its own; the detectors then use their own
-#: leading fraction of the record and the timing is flagged
-#: ``reference_inside_search`` -- the baseline came from the search stretch.
-MIN_REFERENCE_S = 5.0e-3
 IP_BASE = "magnetics.ip.0"
 
 SOURCE_H_PRIMARY = "h_alpha_primary"
@@ -134,28 +135,28 @@ class AnalysisSpan:
     """Where the plasma is searched for and where its baseline is measured.
 
     The search covers ``[tstart, tend)`` -- the shared ``plasma_analysis``
-    window -- and the reference the stretch ``[reference_start, tstart)``
+    window -- and the baseline the stretch ``[baseline_start, tstart)``
     before it, which on the analysis grid is the vacuum stretch every product
-    carries.  A record is cropped to ``[reference_start, tend)`` before any
+    carries.  A record is cropped to ``[baseline_start, tend)`` before any
     detector sees it, so a full-discharge product behaves exactly like a
     product built on the analysis window.
     """
 
     tstart: float
     tend: float
-    reference_start: float
+    baseline_start: float
     window: str
 
     @property
-    def reference_lead_s(self) -> float:
-        return float(self.tstart - self.reference_start)
+    def baseline_lead_s(self) -> float:
+        return float(self.tstart - self.baseline_start)
 
     def record(self) -> dict[str, Any]:
         return {
             "window": self.window,
             "tstart": self.tstart,
             "tend": self.tend,
-            "reference_start": self.reference_start,
+            "baseline_start": self.baseline_start,
         }
 
 
@@ -177,46 +178,19 @@ def analysis_span(policy: PlasmaTimingPolicy | None = None) -> AnalysisSpan:
     return AnalysisSpan(
         tstart=float(window.tstart),
         tend=float(window.tend),
-        reference_start=float(window.tstart - policy.reference_lead_s),
+        baseline_start=policy.baseline_start,
         window=str(window.name),
     )
 
 
-@dataclass(frozen=True)
-class _Cropped:
-    """One record inside the span, with its reference and search masks."""
-
-    t: np.ndarray
-    y: np.ndarray
-    reference_mask: np.ndarray | None
-    search: np.ndarray
-    flags: tuple[str, ...]
-
-    def detect(self, rule: Mapping[str, Any]) -> PulseWindow:
-        return active_window(
-            self.t, self.y, reference_mask=self.reference_mask, search_mask=self.search, **rule
+def _crop(time: Any, values: Any, span: AnalysisSpan) -> CroppedRecord:
+    """Crop a record to the span with the shared rule (:func:`crop_to_span`)."""
+    try:
+        return crop_to_span(
+            time, values, baseline_start=span.baseline_start, tstart=span.tstart, tend=span.tend
         )
-
-
-def _crop(time: Any, values: Any, span: AnalysisSpan) -> _Cropped:
-    """Crop a record to the span.
-
-    ``reference_mask`` is ``None`` when the record carries less than
-    :data:`MIN_REFERENCE_S` before ``tstart``: the detector then falls back to
-    its own leading fraction of the cropped record, which is inside the search
-    stretch, and the flag ``reference_inside_search`` says so.
-    """
-    t = np.asarray(time, dtype=float).reshape(-1)
-    y = np.asarray(values, dtype=float).reshape(-1)
-    if t.size != y.size:
-        raise PlasmaTimingError(f"time has {t.size} samples but the signal has {y.size}")
-    keep = (t >= span.reference_start) & (t < span.tend)
-    t, y = t[keep], y[keep]
-    reference = t < span.tstart
-    covered = float(t[reference][-1] - t[reference][0]) if reference.sum() > 1 else 0.0
-    if covered < MIN_REFERENCE_S:
-        return _Cropped(t, y, None, ~reference, ("reference_inside_search",))
-    return _Cropped(t, y, reference, ~reference, ())
+    except ValueError as exc:
+        raise PlasmaTimingError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +343,7 @@ def halpha_usability(
     cropped = _crop(t_all, y_all, span)
     t, y, search = cropped.t, cropped.y, cropped.search
     metrics["n_samples"] = float(t.size)
-    notes["reference_inside_search"] = "reference_inside_search" in cropped.flags
+    notes["baseline_inside_search"] = "baseline_inside_search" in cropped.flags
     checks["present"] = t.size >= int(limits["min_samples"])
     if not checks["present"]:
         return verdict("present")
@@ -397,11 +371,11 @@ def halpha_usability(
     if not checks["not_railed"]:
         return verdict("not_railed")
 
-    if cropped.reference_mask is not None:
-        reference = cropped.reference_mask & finite
+    if cropped.baseline_mask is not None:
+        baseline = cropped.baseline_mask & finite
     else:
-        reference = (np.arange(t.size) < max(2, t.size // 5)) & finite
-    ref_values = y[reference]
+        baseline = (np.arange(t.size) < max(2, t.size // 5)) & finite
+    ref_values = y[baseline]
     if ref_values.size >= 2:
         median, sigma = robust_baseline(ref_values)
         mad = float(median_absolute_deviation(ref_values))
@@ -421,11 +395,14 @@ def halpha_usability(
     notes["validity"] = scalar
     fraction = 1.0
     if read_validity_timed(ods, base) is not None:
-        inside = (t_all >= span.reference_start) & (t_all < span.tend)
+        inside = (t_all >= span.baseline_start) & (t_all < span.tend)
         fraction = valid_fraction(ods, base, times=t_all, window=inside, min_validity=VALIDITY_SUSPECT)
         fraction = 0.0 if not np.isfinite(fraction) else float(fraction)
     metrics["valid_fraction"] = fraction
-    checks["validity"] = (scalar is None or scalar > VALIDITY_INVALID) and (
+    # The scalar is the worst state reached; a channel condemned outright has
+    # no usable sample anywhere, and one that was good early and bad late is
+    # judged by how much of the span its timed validity leaves (#424).
+    checks["validity"] = not is_condemned_channel(ods, base, min_validity=VALIDITY_SUSPECT) and (
         fraction >= float(limits["min_valid_fraction"])
     )
     if not checks["validity"]:
@@ -447,7 +424,7 @@ def halpha_usability(
 # ---------------------------------------------------------------------------
 
 
-def _halpha_cropped(ods: Any, source: HalphaSource, span: AnalysisSpan) -> _Cropped:
+def _halpha_cropped(ods: Any, source: HalphaSource, span: AnalysisSpan) -> CroppedRecord:
     data = path_value(ods, f"{source.base}.data")
     time = resolve_signal_time(ods, source.base)
     if data is None or time is None:
@@ -473,7 +450,7 @@ def halpha_window(
     return _halpha_cropped(ods, source, span).detect(policy.h_alpha)
 
 
-def _ip_cropped(ods: Any, span: AnalysisSpan) -> tuple[_Cropped, dict[str, bool]]:
+def _ip_cropped(ods: Any, span: AnalysisSpan) -> tuple[CroppedRecord, dict[str, bool]]:
     """The plasma current inside the span and its :data:`IP_CHECKS`."""
     data = path_value(ods, f"{IP_BASE}.data")
     time = resolve_signal_time(ods, IP_BASE)
@@ -486,11 +463,10 @@ def _ip_cropped(ods: Any, span: AnalysisSpan) -> tuple[_Cropped, dict[str, bool]
     if y.size == 0 or y.size != t.size:
         raise PlasmaTimingError(f"{IP_BASE}: {y.size} samples against {t.size} time instants")
     cropped = _crop(t, y, span)
-    scalar = read_validity(ods, IP_BASE)
     checks = {
         "present": bool(cropped.t.size >= 2),
         "finite": bool(np.isfinite(cropped.y).all()) if cropped.t.size else False,
-        "validity": scalar is None or scalar > VALIDITY_INVALID,
+        "validity": not is_condemned_channel(ods, IP_BASE, min_validity=VALIDITY_SUSPECT),
     }
     return cropped, checks
 
@@ -510,7 +486,7 @@ def ip_window(
     policy, span = _resolved(policy, span)
     cropped, checks = _ip_cropped(ods, span)
     if not checks["present"]:
-        raise PlasmaTimingError(f"{IP_BASE} has no samples inside {span.reference_start}-{span.tend} s")
+        raise PlasmaTimingError(f"{IP_BASE} has no samples inside {span.baseline_start}-{span.tend} s")
     return cropped.detect(policy.ip)
 
 
@@ -566,7 +542,8 @@ class PlasmaTiming:
             return None
         return (float(self.onset), float(self.offset))
 
-    def record(self) -> dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
+        """What a metrics record or a manifest carries: the verdict and its provenance."""
         return {
             "onset": self.onset,
             "offset": self.offset,
@@ -576,6 +553,13 @@ class PlasmaTiming:
             "offset_delta_s": self.offset_delta_s,
             "fallback_reason": self.fallback_reason,
             "flags": list(self.flags),
+            "ip_window": None if self.ip is None or not self.ip.found else [self.ip.start, self.ip.end],
+        }
+
+    def record(self) -> dict[str, Any]:
+        """Everything, including both detector windows and every candidate's usability."""
+        return {
+            **{key: value for key, value in self.summary().items() if key != "ip_window"},
             "span": self.span.record(),
             "optical_source": None if self.optical_source is None else self.optical_source.record(),
             "optical": None if self.optical is None else self.optical.as_dict(),
