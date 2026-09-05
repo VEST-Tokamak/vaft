@@ -409,3 +409,65 @@ def mhd_linear_profile_b_field_perturbed(
 ) -> tuple[Figure, Axes]:
     """Normal perturbed field per poloidal harmonic."""
     return render_profile_1d(model, ax=ax, show=show, **style)
+
+_NBI_PROFILE_PATHS = (
+    "core_sources.source.{i}.identifier.index",
+    "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
+)
+
+
+@_profile_renderer(
+    domain="core_sources", quantity="electron_heating",
+    subject="nbi",
+    description="Beam power density to electrons against normalized toroidal flux, "
+                "from a NUBEAM result mapped into core_sources.",
+    ids=("core_sources",),
+    required_paths=_NBI_PROFILE_PATHS + (
+        "core_sources.source.{i}.profiles_1d.{j}.electrons.energy",
+    ),
+    optional_paths=("core_sources.source.{i}.profiles_1d.{j}.electrons.power_inside",),
+)
+def nbi_profile_electron_heating(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Beam power density to electrons."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_sources", quantity="ion_heating",
+    subject="nbi",
+    description="Beam power density to ions against normalized toroidal flux, from "
+                "a NUBEAM result mapped into core_sources.",
+    ids=("core_sources",),
+    required_paths=_NBI_PROFILE_PATHS + (
+        "core_sources.source.{i}.profiles_1d.{j}.total_ion_energy",
+    ),
+    optional_paths=("core_sources.source.{i}.profiles_1d.{j}.total_ion_power_inside",),
+)
+def nbi_profile_ion_heating(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Beam power density to ions."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_sources", quantity="current_drive",
+    subject="nbi",
+    description="Beam-driven parallel current density against normalized toroidal "
+                "flux. IMAS defines j_parallel as a flux-surface average NUBEAM does "
+                "not report, so this is the zone-area quotient; the exact quantity is "
+                "current_parallel_inside.",
+    ids=("core_sources",),
+    required_paths=_NBI_PROFILE_PATHS + (
+        "core_sources.source.{i}.profiles_1d.{j}.j_parallel",
+    ),
+    optional_paths=("core_sources.source.{i}.profiles_1d.{j}.current_parallel_inside",),
+)
+def nbi_profile_current_drive(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Beam-driven parallel current density."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
