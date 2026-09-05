@@ -102,7 +102,7 @@ reflects what you asked for.
 
 | Value | Behaviour |
 |---|---|
-| `'plasma'` (default) | window from plasma-current on/off |
+| `'plasma'` (default) | the plasma window from `vaft.omas.plasma_timing` (H-alpha by label, current as fallback); a warning and no limit when no plasma is found |
 | `'coil'` | window spanning all PF coil-current on/off |
 | `'none'` | no limit applied |
 | `[t0, t1]` | a list of exactly two numbers, used literally |
@@ -273,8 +273,10 @@ vaft.omas.change_time_convention(odc, convention='breakdown')
 vaft.plot.magnetics_time_ip(odc)                                # aligned on breakdown
 ```
 
-Accepted conventions are `'daq'`, `'vloop'` (the default), `'ip'` and `'breakdown'`. Unlike
-the plotting keywords, an unknown convention here raises `ValueError`.
+Accepted conventions are `'daq'`, `'vloop'` (the default: the loop-voltage zero crossing after the
+solenoid excursion), `'ip'` and `'breakdown'`; the origins come from `vaft.omas.plasma_timing` and
+`vaft.omas.discharge_timing` and the shift is logged rather than printed. Unlike the plotting keywords,
+an unknown convention here raises `ValueError`.
 
 ## 1D equilibrium profiles
 

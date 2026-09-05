@@ -156,20 +156,28 @@ geq = vaft.omas.sample_gfile()  # packaged g-file as a GEQDSK object
 vaft.omas.find_shotnumber(ods)
 vaft.omas.find_shotclass(ods, plot_opt=0)
 vaft.omas.find_chamber_boundary(ods)
-vaft.omas.find_breakdown_onset(ods)
-vaft.omas.find_vloop_onset(ods)
-vaft.omas.find_ip_onset(ods)
-vaft.omas.find_pf_active_onset(ods)
-vaft.omas.find_pulse_duration(ods)
+vaft.omas.find_breakdown_onset(ods)       # plasma onset from vaft.omas.plasma_timing
+vaft.omas.find_vloop_onset(ods)           # loop-voltage zero crossing from vaft.omas.discharge_timing
+vaft.omas.find_ip_onset(ods)              # plasma-current principal-pulse start
+vaft.omas.find_pf_active_onset(ods)       # one entry per coil; nan for a coil that did not fire
+vaft.omas.find_pulse_duration(ods)        # plasma offset - onset
 vaft.omas.find_max_ip(ods)
-vaft.omas.find_bt(ods)
+vaft.omas.find_bt(ods)                    # mean toroidal field over the plasma window
 vaft.omas.find_major_radius(ods)
 vaft.omas.classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01)
 vaft.omas.print_info(ods, key_name=None)
 vaft.omas.find_matching_time_indices(ods, time_slice=None, atol=1e-6)
 ```
 
-Time-base bookkeeping (DAQ time versus breakdown-referenced time) and container plumbing:
+The finders answer from the shared timings with provenance, which are available directly:
+
+```python
+vaft.omas.plasma_timing.plasma_timing(ods, policy=None)          # PlasmaTiming: window, source, agreement, flags
+vaft.omas.discharge_timing.discharge_timing(ods, policy=None)    # DischargeTiming: coil onsets, ohmic onset, vloop event
+```
+
+Time-base bookkeeping (DAQ time versus event-referenced time) and container plumbing. The convention
+change logs its shift (logger `vaft.omas.general`) rather than printing it:
 
 ```python
 vaft.omas.shift_time(one_ods, time_shift)
