@@ -61,7 +61,8 @@ A VEST shot is a *set* of IDSs. Which ones exist depends on whether the quantity
 
 **Modelling**
 
-`wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` ·
+`wall` · `em_coupling` · `pf_passive` · `pf_plasma` (a reconstruction's plasma current as
+elements; see `vaft.omas.pf_plasma`) · `equilibrium` (EFIT/CHEASE) · `core_profiles` ·
 `mhd_linear` (DCON/RDCON)
 
 Not every shot carries every IDS. Check before you index:

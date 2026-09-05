@@ -97,6 +97,7 @@ _SUBJECTS = (
     Subject("pf_coil", "machine", ("pf_active",)),
     Subject("tf_coil", "machine", ("tf",)),
     Subject("passive_structure", "machine", ("pf_passive",)),
+    Subject("pf_plasma", "machine", ("plasma_elements", "plasma_current_elements")),
     Subject("coil_3d", "machine", ("coils_non_axisymmetric", "3d_coil")),
     Subject("machine", "machine"),
     # Reconstructions, models, and codes
