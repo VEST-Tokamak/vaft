@@ -1260,6 +1260,60 @@
   # must fail clearly rather than reuse a neighboring era. The documented
   # gaps (mid: 42138-42144, 42641) are intentionally left unlisted so they
   # fall through to that failure.
+  # Neutral beam injection, bootstrapped from the validated VEST NUBEAM case
+  # (issue #490 section 5). NUBEAM-DERIVED, NOT AS-BUILT: every value here was
+  # read from mdescr_VEST_190307.dat, the machine description that case runs
+  # with. It is the best available source until the NBI hardware package is
+  # received and reconciled -- that reconciliation is issue #265, and until it
+  # happens the registry keeps this mapping at `partial`.
+  #
+  # Values are stored exactly as NUBEAM states them, in NUBEAM's own units and
+  # sign convention, so the provenance survives; vaft.machine_mapping.nbi does
+  # the conversion into IMAS and every conversion has a test.
+  nbi:
+    provenance: mdescr_VEST_190307.dat
+    units: {length: m, angle: degree}
+    unit:
+      - name: B_001
+        beam_type: Standard
+        species: {label: H, a: 1, z_n: 1}
+        source:
+          # NUBEAM signs the tangency radius; IMAS wants a magnitude plus a
+          # separate direction, so both are recorded rather than one derived
+          # from the other by a sign rule verified on a single case.
+          tangency_radius_signed: -0.22129
+          # -1 = clockwise seen from above, IMAS's own convention. Established
+          # from the run rather than assumed: all 200 deposition markers land
+          # at negative toroidal angle relative to the source at phi=0, the
+          # marker pitch is +0.58 with 198 of 200 co-going, and published VEST
+          # material describes the beam as co-injected into a clockwise plasma
+          # current.
+          direction: -1
+          elevation: 0.0
+          toroidal_angle: 0.0
+          distance_to_tangency: 2.625867
+          distance_to_aperture: 1.8
+        grid:
+          shape: Rectangle
+          # Half-widths, as NUBEAM states them. IMAS width_horizontal is the
+          # full width of the enclosing rectangle, so the mapping doubles them.
+          half_width: 0.06
+          half_height: 0.21
+          horizontal_divergence: 1.0
+          vertical_divergence: 1.0
+          # 1.2e11 m is NUBEAM's spelling of "unfocused"; the mapping leaves
+          # the IMAS focus fields absent rather than writing a fictitious
+          # hundred-million-kilometre focal length.
+          horizontal_focal_length: 120000000000.0
+          vertical_focal_length: 120000000000.0
+        aperture:
+          shape: Rectangle
+          half_width: 0.094646
+          half_height: 0.2317
+        # Energy and power are NOT here. They are per-case modelling inputs
+        # that enter through the `profiles` file, not machine description, and
+        # writing them as static machine metadata is exactly the conflation
+        # issue #490 section 5 warns against.
   langmuir_probes:
     mid:
       source:
@@ -1795,10 +1849,10 @@ diagnostic_registry:
     ids: nbi
     ids_path: nbi
     responsible: [{name: 정윤호}]
-    source: {type: unknown}
+    source: {type: model, note: "NUBEAM mdescr_VEST_190307.dat - not as-built, see #265"}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    mapping_status: partial
     quantities: {static: [aperture, beam_line, source_position, species], measured: [beam_voltage, beam_current, suppression_voltage, particle_fraction, power], derived: []}
   helicity_injection:
     name: Helicity injection

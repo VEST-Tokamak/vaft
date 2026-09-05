@@ -104,6 +104,7 @@ _SUBJECTS = (
     Subject("equilibrium", "reconstruction"),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
+    Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("chease", "code"),
     # Purpose-driven composites
     Subject("current", "composite"),
